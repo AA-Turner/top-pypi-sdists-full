@@ -34,48 +34,146 @@ pub(crate) fn lift_block_states_to_raw(
         .collect()
 }
 
-/// Lift a reduced-space conditional covariance / joint geometry pair
-/// back to the raw coordinate system by sandwiching with the joint
-/// block-diagonal transform `T_full = blockdiag(T_i)`. Selection-T
-/// zero-pads the dropped raw rows/cols; the lifted Hessian is exactly
-/// the post-canonicalisation Hessian as seen in raw coordinates and is
-/// rank-deficient by construction along the dropped directions
-/// (matching the inner-solve geometry the canonical step produced).
+/// Operating-point `family_scalars` for the PRE-fit identifiability audit, built
+/// from each block spec's warm-start `initial_beta` (the pilot β the family
+/// seeded; zeros where it seeded none).
+///
+/// A family whose effective channel weights depend on β — survival marginal-slope,
+/// `c_i = √(1+(s·g_i)²)` — collapses to its raw design when linearized at β = 0,
+/// aliasing structurally-identical blocks that are only distinguished by that
+/// weighting and producing a FALSE identifiability refusal before the fit even
+/// starts. Linearizing the pre-fit audit at the pilot operating point (the same
+/// geometry `audit_converged_identifiability` uses post-convergence) ranks the
+/// design the fit actually sees. Static families return `None` (the trait
+/// default) and the audit linearizes at the zero/init point exactly as before.
+///
+/// `eta` is unused by `current_identifiability_family_scalars` (it reads β only),
+/// so a zero placeholder keeps each synthetic state well-formed.
+fn pre_fit_operating_scalars<F: CustomFamily + ?Sized>(
+    family: &F,
+    specs: &[ParameterBlockSpec],
+) -> Result<Option<Arc<dyn std::any::Any + Send + Sync>>, CustomFamilyError> {
+    let states: Vec<ParameterBlockState> = specs
+        .iter()
+        .map(|spec| {
+            let beta = spec
+                .initial_beta
+                .clone()
+                .unwrap_or_else(|| Array1::zeros(spec.design.ncols()));
+            let eta = Array1::zeros(spec.design.nrows());
+            ParameterBlockState { beta, eta }
+        })
+        .collect();
+    family
+        .current_identifiability_family_scalars(&states)
+        .map_err(|reason| CustomFamilyError::Optimization {
+            context: "pre-fit identifiability operating scalars",
+            reason,
+        })
+}
+
+/// Re-run the unified identifiability audit at the converged raw-coordinate
+/// state when a family exposes dynamic primary scalars. Any change from the
+/// pilot verdict invalidates the gauge used by the solve, so result assembly
+/// fails closed instead of publishing a locally unidentified or over-reduced
+/// fit.
+fn audit_converged_identifiability<F: CustomFamily + ?Sized>(
+    family: &F,
+    raw_specs: &[ParameterBlockSpec],
+    canonical: &gam_identifiability::canonical::CanonicalSpecs,
+    reduced_states: &[ParameterBlockState],
+    outer_iter: usize,
+) -> Result<(), CustomFamilyError> {
+    let raw_states = lift_block_states_to_raw(canonical, reduced_states.to_vec());
+    let Some(family_scalars) = family
+        .current_identifiability_family_scalars(&raw_states)
+        .map_err(|reason| CustomFamilyError::Optimization {
+            context: "converged identifiability scalars",
+            reason,
+        })?
+    else {
+        return Ok(());
+    };
+    let beta_current: Vec<f64> = raw_states
+        .iter()
+        .flat_map(|state| state.beta.iter().copied())
+        .collect();
+    let beta_pilot = vec![0.0; beta_current.len()];
+    let drift = gam_identifiability::audit::maybe_log_audit_drift(
+        raw_specs,
+        &canonical.audit,
+        &beta_pilot,
+        &beta_current,
+        Some(&family_scalars),
+        outer_iter,
+        1,
+        family.identifiability_probit_frailty_scale(),
+    )
+    .map_err(|error| CustomFamilyError::Optimization {
+        context: "converged identifiability audit",
+        reason: error.to_string(),
+    })?
+    .ok_or_else(|| CustomFamilyError::Optimization {
+        context: "converged identifiability audit",
+        reason: "period-one converged audit did not run".to_string(),
+    })?;
+    if drift.current_rank != drift.pilot_rank
+        || drift.current_fatal != drift.pilot_fatal
+        || !drift.newly_dropped.is_empty()
+        || !drift.recovered.is_empty()
+    {
+        return Err(CustomFamilyError::Optimization {
+            context: "converged identifiability audit",
+            reason: format!(
+                "identifiability verdict changed after convergence: pilot_rank={} current_rank={} pilot_fatal={} current_fatal={} newly_dropped={} recovered={}",
+                drift.pilot_rank,
+                drift.current_rank,
+                drift.pilot_fatal,
+                drift.current_fatal,
+                drift.newly_dropped.len(),
+                drift.recovered.len(),
+            ),
+        });
+    }
+    Ok(())
+}
+
+/// Lift a reduced-space conditional covariance and retain the exact active
+/// precision frame used by the solver.
+///
+/// Covariance is a contravariant coefficient uncertainty and therefore pushes
+/// forward as `T Σθ Tᵀ`. Precision is a quadratic form on the active tangent
+/// space: it must remain `Hθ`, accompanied by the affine gauge
+/// `βraw = T θ + a`. A rectangular `T` has no full raw-coordinate inverse, so
+/// sandwiching `Hθ` as if it were covariance manufactures a rank-deficient
+/// matrix that is not a precision. Saved ALO pulls raw row Jacobians back as
+/// `Jθ = Jraw T` and solves this retained `Hθ` exactly.
 pub(crate) fn lift_fit_geometry_to_raw(
     canonical: &gam_identifiability::canonical::CanonicalSpecs,
     covariance_conditional: Option<Array2<f64>>,
     geometry: Option<FitGeometry>,
-) -> (Option<Array2<f64>>, Option<FitGeometry>) {
+) -> Result<(Option<Array2<f64>>, Option<FitGeometry>), CustomFamilyError> {
     let lifted_cov = covariance_conditional.map(|c| canonical.gauge.lift_covariance(&c));
-    let lifted_geom = geometry.map(|g| {
-        let h_red = g.penalized_hessian.into_array();
-        let h_raw = canonical.gauge.lift_covariance(&h_red);
-        FitGeometry {
-            penalized_hessian: h_raw.into(),
-            working_weights: g.working_weights,
-            working_response: g.working_response,
-        }
-    });
-    (lifted_cov, lifted_geom)
+    let lifted_geom = lift_fit_geometry_through_gauge(&canonical.gauge, geometry)?;
+    Ok((lifted_cov, lifted_geom))
 }
 
-fn gauge_is_identity(gauge: &gam_solve::gauge::Gauge) -> bool {
-    if gauge.raw_total() != gauge.reduced_total() {
-        return false;
-    }
-    let (nrows, ncols) = gauge.t_full.dim();
-    if nrows != ncols {
-        return false;
-    }
-    for i in 0..nrows {
-        for j in 0..ncols {
-            let expected = if i == j { 1.0 } else { 0.0 };
-            if (gauge.t_full[[i, j]] - expected).abs() > 1e-12 {
-                return false;
-            }
-        }
-    }
-    true
+pub(crate) fn lift_fit_geometry_through_gauge(
+    raw_from_geometry: &Gauge,
+    geometry: Option<FitGeometry>,
+) -> Result<Option<FitGeometry>, CustomFamilyError> {
+    geometry
+        .map(|mut geometry| {
+            geometry.coefficient_gauge = geometry
+                .coefficient_gauge
+                .left_compose(raw_from_geometry)
+                .map_err(|reason| CustomFamilyError::InvalidInput {
+                    context: "lift_fit_geometry_through_gauge",
+                    reason,
+                })?;
+            Ok::<_, CustomFamilyError>(geometry)
+        })
+        .transpose()
 }
 
 fn fixed_lambda_warm_start_for_reduced_specs<'a>(
@@ -83,7 +181,7 @@ fn fixed_lambda_warm_start_for_reduced_specs<'a>(
     canonical: &gam_identifiability::canonical::CanonicalSpecs,
 ) -> Option<&'a ConstrainedWarmStart> {
     let warm = warm_start?;
-    if !gauge_is_identity(&canonical.gauge) {
+    if !canonical.gauge.is_identity() {
         return None;
     }
     if warm.inner.block_beta.len() != canonical.reduced_specs.len()
@@ -104,6 +202,9 @@ pub(crate) struct BlockwiseFitAssembly<'a> {
     pub(crate) rho_physical: Array1<f64>,
     pub(crate) covariance_conditional: Option<Array2<f64>>,
     pub(crate) geometry: Option<FitGeometry>,
+    /// EDF derived in the reduced coefficient frame before a non-square gauge
+    /// lift. Row-wise working evidence is orthogonal to this precision path.
+    pub(crate) precomputed_edf: Option<(f64, Vec<f64>, Vec<f64>, Vec<f64>)>,
     pub(crate) canonical: Option<&'a gam_identifiability::canonical::CanonicalSpecs>,
     pub(crate) result_specs: &'a [ParameterBlockSpec],
     pub(crate) penalized_objective: f64,
@@ -116,6 +217,15 @@ pub(crate) struct BlockwiseFitAssembly<'a> {
     /// joint-penalized family (the multinomial centered metric) can recover its
     /// converged smoothing. `None` for every per-block-only family.
     pub(crate) joint_log_lambdas: Option<Array1<f64>>,
+    /// First-order ρ-uncertainty smoothing correction `C` (in the REDUCED
+    /// coefficient frame; lifted through the gauge alongside the conditional
+    /// covariance) with its typed provenance (#2346). `V_c = V_cond + C` is
+    /// published as `beta_covariance_corrected`. `None` when no outer ρ
+    /// curvature was retained or the interior V_ρ is not honestly finite.
+    pub(crate) smoothing_corrected: Option<(
+        Array2<f64>,
+        gam_solve::model_types::SmoothingCorrectionMethod,
+    )>,
 }
 
 pub(crate) fn assemble_custom_family_fit_result(
@@ -126,6 +236,7 @@ pub(crate) fn assemble_custom_family_fit_result(
         rho_physical,
         covariance_conditional,
         geometry,
+        precomputed_edf,
         canonical,
         result_specs,
         penalized_objective,
@@ -134,24 +245,37 @@ pub(crate) fn assemble_custom_family_fit_result(
         criterion_certificate,
         outer_converged,
         joint_log_lambdas,
+        smoothing_corrected,
     } = assembly;
     let log_lambdas = rho_physical;
     let lambdas =
         exact_lambdas_from_log_strengths(&log_lambdas, "custom-family fitted log strength")?;
-    let (block_states, covariance_conditional, geometry, precomputed_edf) =
+    let (block_states, covariance_conditional, geometry, precomputed_edf, smoothing_corrected) =
         if let Some(canonical) = canonical {
-            let precomputed_edf = reduced_blockwise_edf(geometry.as_ref(), canonical, &lambdas);
+            let precomputed_edf = precomputed_edf
+                .or_else(|| reduced_blockwise_edf(geometry.as_ref(), canonical, &lambdas));
             let block_states = lift_block_states_to_raw(canonical, inner.block_states);
             let (covariance_conditional, geometry) =
-                lift_fit_geometry_to_raw(canonical, covariance_conditional, geometry);
+                lift_fit_geometry_to_raw(canonical, covariance_conditional, geometry)?;
+            // The correction is a coefficient-space bilinear form exactly like
+            // the conditional covariance: same gauge congruence (#2346).
+            let smoothing_corrected = smoothing_corrected
+                .map(|(c, method)| (canonical.gauge.lift_covariance(&c), method));
             (
                 block_states,
                 covariance_conditional,
                 geometry,
                 precomputed_edf,
+                smoothing_corrected,
             )
         } else {
-            (inner.block_states, covariance_conditional, geometry, None)
+            (
+                inner.block_states,
+                covariance_conditional,
+                geometry,
+                precomputed_edf,
+                smoothing_corrected,
+            )
         };
 
     blockwise_fit_from_parts(
@@ -171,6 +295,7 @@ pub(crate) fn assemble_custom_family_fit_result(
             geometry,
             precomputed_edf,
             joint_log_lambdas,
+            smoothing_corrected,
         },
         result_specs,
     )
@@ -249,6 +374,133 @@ pub(crate) fn wire_output_channels<F: CustomFamily + ?Sized>(
 /// boundary between "the smooth contributes" and "the smooth is statistically
 /// indistinguishable from its null-space limit".
 pub(crate) const EFFECTIVE_DF_FLOOR: f64 = 1.0;
+
+/// Uniform ρ = log λ over-smoothing ceiling for the custom-family outer box, on
+/// top of which each term's per-coordinate [`EFFECTIVE_DF_FLOOR`] bound is
+/// tightened. Two forces bracket it:
+///
+///  * FROM BELOW — legitimate REML optima. A smooth mean over a genuinely smooth
+///    signal wants heavy shrinkage: the #1561 Gaussian location-scale `s(x,
+///    bs='tp')` mean over `sin(2πx)` has its REML optimum at ρ ≈ 11 (edf ≈ 15).
+///    The former `10.0` ceiling clipped exactly that — the μ coordinate railed at
+///    ρ = log λ = 10.0 = e¹⁰, the outer bound-projection zeroed its (still −3.5)
+///    gradient, and the fit certified a spurious constrained optimum at edf ≈ 19,
+///    leaving the mean under-smoothed (#1561/#2356). The ceiling MUST sit above
+///    the heavy-but-finite optima the data legitimately selects, matching the
+///    over-smoothing range the seed prepass itself already explores
+///    (`crate::estimate::RHO_BOUND`, optimizer.rs).
+///  * FROM ABOVE — numerical stability. Beyond λ ≈ 10⁹ (ρ ≈ 20.7) the profiled
+///    criterion goes dead-flat, ARC's quadratic model degrades, and the
+///    retry-stall / empty-`block_states` failure paths surface. The ceiling stays
+///    a wide margin below that region.
+///
+/// `12.0` (λ ≈ 163k) is the smallest raise that clears the #1561 mean-smooth
+/// optimum (ρ_μ ≈ 11.06 on the plain arm) with real headroom, and it matches the
+/// value the spatial exact-joint location-scale path already boxes ρ to
+/// (`location_scale_engine::EXACT_JOINT_RHO_BOUND`) — a regime that path fits
+/// stably. Pushing the uniform ceiling further (e.g. 15) let some delicate
+/// wiggle / real-data tp location-scale fits (gagurine, the spatial
+/// engine↔reference parity fixtures) explore a warm-start/inner-solve path where
+/// the joint PIRLS stopped converging, so 12 keeps the raise tight. The per-term
+/// `EFFECTIVE_DF_FLOOR` bound — not this uniform cap — is what protects a term
+/// from collapsing onto its unpenalized null space, so this only frees the
+/// coordinates whose honest optimum was being clipped at ρ = 10.
+///
+/// Exported `pub` because regimes that PIN a coordinate at the strong-smoothing
+/// wall seed from it (the survival parametric-AFT time-warp seed, #2356): a
+/// wall-pinning seed must move WITH the ceiling, or a ceiling raise strands it
+/// interior and re-opens the flat-ridge crawl the seed exists to kill. Seeding
+/// AT this ceiling is exact even when a term's realized upper bound is tighter
+/// (the `EFFECTIVE_DF_FLOOR` tightening): `run_plan` projects every seed onto
+/// the realized per-coordinate box, so "seed = ceiling" lands ON the wall.
+pub const EFFECTIVE_DF_CEILING: f64 = 12.0;
+
+/// The lower wall of the outer ρ box — the caller's
+/// [`BlockwiseFitOptions::rho_lower_bound`] (default `-10.0`).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct RhoLowerWall(pub(crate) f64);
+
+/// The uniform over-smoothing ceiling of the outer ρ box —
+/// [`EFFECTIVE_DF_CEILING`] (`12.0`).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct RhoCeiling(pub(crate) f64);
+
+/// The admissible outer ρ = log λ interval, carried as ONE validated value so
+/// its two walls can neither be transposed nor drift apart.
+///
+/// The walls are independently owned: the floor is the caller's
+/// `rho_lower_bound` (default `-10.0`) and the ceiling is
+/// [`EFFECTIVE_DF_CEILING`] (`12.0`). #2370 was precisely these two constants
+/// drifting apart — #2356 raised the ceiling `10 → 12` while the floor stayed
+/// at `-10`, opening a window in which the derived per-term upper bound could
+/// land *below* the floor and invert the box, whose `f64::clamp(min, max)`
+/// then panicked across the FFI boundary.
+///
+/// The follow-up hazard is the one this type closes. Passing the same two
+/// walls as adjacent bare `f64` parameters let a caller hand them over
+/// BACKWARDS with no compile error: the transposed call produced a
+/// plausible-looking typed error at runtime instead, and a real regression
+/// test was observed doing exactly that against the landed signature. Wrapping
+/// each wall in its own newtype makes the transposition a type error, and
+/// funnelling both through one checked constructor means the ordering
+/// invariant is established once rather than restated at every call site.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct RhoBox {
+    lower: f64,
+    ceiling: f64,
+}
+
+impl RhoBox {
+    /// Build the box, rejecting a non-finite wall or an inverted interval.
+    ///
+    /// The empty case is `lower > ceiling` and nothing else. A box with
+    /// `lower == ceiling` is a legal PINNED coordinate: the caller has fixed λ
+    /// rather than asked for an impossible range, and the derivation handles it
+    /// without a special case — no tightening is possible, so the term keeps the
+    /// uniform ceiling and the emitted box stays well-ordered.
+    ///
+    /// This deliberately matches the outer optimizer, which accepts a pinned
+    /// coordinate (`rho_optimizer::run_plan_tests::pinned_equal_rho_bounds_are_accepted_2370`).
+    /// Refusing here what the layer below accepts would be a cross-layer
+    /// contract split — the same class of defect as #2370 itself, one level up:
+    /// two independently-owned definitions of the same admissible set, free to
+    /// drift apart.
+    pub(crate) fn new(
+        RhoLowerWall(lower): RhoLowerWall,
+        RhoCeiling(ceiling): RhoCeiling,
+    ) -> Result<Self, CustomFamilyError> {
+        gam_problem::validate_log_strength(ceiling).map_err(|error| {
+            CustomFamilyError::InvalidInput {
+                context: "effective-DF rho ceiling",
+                reason: error.to_string(),
+            }
+        })?;
+        gam_problem::validate_log_strength(lower).map_err(|error| {
+            CustomFamilyError::InvalidInput {
+                context: "effective-DF rho lower bound",
+                reason: error.to_string(),
+            }
+        })?;
+        if lower > ceiling {
+            return Err(CustomFamilyError::InvalidInput {
+                context: "effective-DF rho box",
+                reason: format!(
+                    "rho lower bound {lower} exceeds the uniform ceiling {ceiling}; \
+                     the admissible ρ-box is empty"
+                ),
+            });
+        }
+        Ok(Self { lower, ceiling })
+    }
+
+    pub(crate) fn lower(&self) -> f64 {
+        self.lower
+    }
+
+    pub(crate) fn ceiling(&self) -> f64 {
+        self.ceiling
+    }
+}
 
 /// Unit-weight effective degrees of freedom of a single penalized term as a
 /// function of `ρ = log λ`, expressed through the design/penalty generalized
@@ -492,20 +744,25 @@ pub(crate) fn effective_df_floor_rho_upper_bounds(
     specs: &[ParameterBlockSpec],
     layout: &PenaltyLabelLayout,
     n_rho: usize,
-    ceiling: f64,
+    rho_box: RhoBox,
 ) -> Result<Array1<f64>, CustomFamilyError> {
-    gam_problem::validate_log_strength(ceiling).map_err(|error| {
-        CustomFamilyError::InvalidInput {
-            context: "effective-DF rho ceiling",
-            reason: error.to_string(),
-        }
-    })?;
-    gam_problem::validate_log_strength(-ceiling).map_err(|error| {
-        CustomFamilyError::InvalidInput {
-            context: "effective-DF rho lower bound",
-            reason: error.to_string(),
-        }
-    })?;
+    // The edf-floor tightening must be evaluated against the SAME lower wall the
+    // optimizer will actually enforce (`options.rho_lower_bound`), not against a
+    // `-ceiling` proxy. The two are independent constants and are NOT equal in
+    // production: the uniform ceiling is `EFFECTIVE_DF_CEILING = 12` while the
+    // default `rho_lower_bound = -10`. Bisecting for / guarding the edf=1
+    // crossing against `-ceiling = -12` while the box floor sits at `-10` lets
+    // the crossing land in (-12, -10) and emits an upper bound BELOW the lower
+    // bound — an inverted ρ-box whose `f64::clamp(min, max)` in
+    // `project_to_bounds` panics with `min > max` across the FFI boundary
+    // (#2370). Anchoring every check on `lower` keeps the emitted upper bound
+    // strictly above the floor by construction.
+    //
+    // Both walls arrive inside [`RhoBox`], which has already established that
+    // they are finite and correctly ordered, so this body can read them
+    // without re-validating and no caller can transpose them.
+    let ceiling = rho_box.ceiling();
+    let lower = rho_box.lower();
     let mut upper = Array1::<f64>::from_elem(n_rho, ceiling);
     let mut physical = 0usize;
     for spec in specs {
@@ -527,7 +784,7 @@ pub(crate) fn effective_df_floor_rho_upper_bounds(
             if !(edf_max > EFFECTIVE_DF_FLOOR) {
                 continue;
             }
-            // Bisect for ρ* with edf(ρ*) = floor on [−ceiling, ceiling]; edf is
+            // Bisect for ρ* with edf(ρ*) = floor on [lower, ceiling]; edf is
             // monotone decreasing in ρ. If edf at the ceiling still exceeds the
             // floor, the uniform ceiling already retains enough df — keep it.
             if unit_weight_term_edf(&gammas, ceiling)? >= EFFECTIVE_DF_FLOOR {
@@ -542,12 +799,14 @@ pub(crate) fn effective_df_floor_rho_upper_bounds(
             // rho-box before the data likelihood is even evaluated. This case
             // occurs for very weakly scaled range-space directions, including
             // dispersion location-scale smooths whose unit-weight generalized
-            // eigenvalues can put the edf=1 crossing just outside the default
-            // [-10, 10] rho box.
-            if unit_weight_term_edf(&gammas, -ceiling)? <= EFFECTIVE_DF_FLOOR {
+            // eigenvalues can put the edf=1 crossing just outside the `lower`
+            // wall of the rho box. Evaluating at `lower` (the real floor) rather
+            // than `-ceiling` guarantees the crossing bracketed below is strictly
+            // inside `(lower, ceiling)`, so the emitted upper stays above `lower`.
+            if unit_weight_term_edf(&gammas, lower)? <= EFFECTIVE_DF_FLOOR {
                 continue;
             }
-            let mut lo = -ceiling;
+            let mut lo = lower;
             let mut hi = ceiling;
             for _ in 0..64 {
                 let mid = 0.5 * (lo + hi);
@@ -559,14 +818,86 @@ pub(crate) fn effective_df_floor_rho_upper_bounds(
             }
             let rho_star = 0.5 * (lo + hi);
             // Tied coordinates: take the tightest (smallest) bound across terms,
-            // so every term sharing this λ retains at least the floor.
+            // so every term sharing this λ retains at least the floor. Guarding
+            // on `lower` keeps the emitted upper strictly above the box floor.
             let slot = &mut upper[outer];
-            if rho_star > -ceiling + 1e-6 && rho_star < *slot {
+            if rho_star > lower + 1e-6 && rho_star < *slot {
                 *slot = rho_star;
             }
         }
     }
     Ok(upper)
+}
+
+/// Bind one evaluator-owned coefficient mode to the optimizer-owned terminal
+/// certificate and consume the carrier on success.
+///
+/// Every comparison is bitwise. Numerically close state is not interchangeable
+/// provenance for a nonconvex profiled objective, and there is deliberately no
+/// warm-start/re-evaluation fallback when any part of the identity differs.
+pub(crate) fn bind_certified_custom_family_terminal_mode(
+    terminal: CustomFamilyTerminalMode,
+    certified_outer: &gam_solve::rho_optimizer::CertifiedOuterResult,
+) -> Result<CustomFamilyOwnedMode, CustomFamilyError> {
+    let certified_gradient = certified_outer.final_gradient().ok_or_else(|| {
+        CustomFamilyError::Optimization {
+            context: "fit_custom_family terminal gradient ownership",
+            reason: "certified outer result retained no exact analytic terminal gradient; no fit was assembled"
+                .to_string(),
+        }
+    })?;
+    if terminal.theta.len() != certified_outer.rho().len()
+        || terminal
+            .theta
+            .iter()
+            .zip(certified_outer.rho().iter())
+            .any(|(terminal, certified)| terminal.to_bits() != certified.to_bits())
+    {
+        return Err(CustomFamilyError::InvalidInput {
+            context: "fit_custom_family terminal theta identity",
+            reason: "terminal coefficient mode does not bitwise match the certified outer hyperparameter vector"
+                .to_string(),
+        });
+    }
+    if terminal.objective.to_bits() != certified_outer.final_value().to_bits() {
+        return Err(CustomFamilyError::Optimization {
+            context: "fit_custom_family terminal objective identity",
+            reason: format!(
+                "terminal coefficient-mode objective does not bitwise match the certified outer objective: terminal={:.17e}, certified={:.17e}",
+                terminal.objective,
+                certified_outer.final_value(),
+            ),
+        });
+    }
+    if terminal.gradient.len() != certified_gradient.len()
+        || terminal
+            .gradient
+            .iter()
+            .zip(certified_gradient.iter())
+            .any(|(terminal, certified)| terminal.to_bits() != certified.to_bits())
+    {
+        return Err(CustomFamilyError::Optimization {
+            context: "fit_custom_family terminal gradient identity",
+            reason: "terminal coefficient-mode gradient does not bitwise match the optimizer-owned analytic certificate gradient"
+                .to_string(),
+        });
+    }
+    if terminal.mode.objective.to_bits() != terminal.objective.to_bits()
+        || terminal.mode.rho.len() != terminal.theta.len()
+        || terminal
+            .mode
+            .rho
+            .iter()
+            .zip(terminal.theta.iter())
+            .any(|(mode, terminal)| mode.to_bits() != terminal.to_bits())
+    {
+        return Err(CustomFamilyError::Optimization {
+            context: "fit_custom_family terminal carrier identity",
+            reason: "terminal outer payload and its owned coefficient mode have different objective or hyperparameter bits"
+                .to_string(),
+        });
+    }
+    Ok(terminal.mode)
 }
 
 pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 'static>(
@@ -615,7 +946,11 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
         canonical_n_rows,
         canonical_n_cols_raw,
     );
-    let canonical = gam_identifiability::canonical::canonicalize_for_identifiability(raw_specs)?;
+    let canonical =
+        gam_identifiability::canonical::canonicalize_for_identifiability_with_operating_scalars(
+            raw_specs,
+            pre_fit_operating_scalars(family, raw_specs)?,
+        )?;
     let canonical_n_cols_red: usize = canonical
         .reduced_specs
         .iter()
@@ -696,90 +1031,8 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
     // gam#1587: full-width cross-block joint penalties (the reference-symmetric
     // `M⊗S_t` multinomial smoothing penalty). Empty for every other family, so
     // the joint-penalty code paths below are skipped and behaviour is identical.
-    // The specs are produced in raw (pre-canonicalisation) stacked coordinates;
-    // pull each back through the identifiability gauge `T_full`
-    // (`S_red = T_fullᵀ S_raw T_full`) so it acts on the reduced coordinate space
-    // the inner solve and outer evaluator run in.
     let reduced_total: usize = specs.iter().map(|s| s.design.ncols()).sum();
-    let joint_specs: Vec<gam_problem::JointPenaltySpec> = {
-        let raw_specs_joint =
-            family
-                .joint_penalty_specs()
-                .map_err(|reason| CustomFamilyError::Optimization {
-                    context: "fit_custom_family joint penalty specs",
-                    reason,
-                })?;
-        let t_full = &canonical.gauge.t_full;
-        // The trait contract fixes the coordinates: joint penalties arrive in
-        // RAW (pre-canonicalisation) stacked coordinates, so the pullback
-        // decision must key on whether the gauge is the identity — NOT on a
-        // dimension comparison. When no columns are dropped the raw and
-        // reduced totals coincide even though `T_full` can still be a
-        // nontrivial rotation, and skipping `TᵀST` there would smooth the
-        // wrong quadratic form (a coordinate swap with S = diag(1,2) must
-        // become diag(2,1)).
-        let gauge_is_identity = t_full.nrows() == t_full.ncols()
-            && t_full
-                .indexed_iter()
-                .all(|((i, j), &v)| v == if i == j { 1.0 } else { 0.0 });
-        raw_specs_joint
-            .into_iter()
-            .map(|spec| {
-                if spec.matrix.nrows() != t_full.nrows() {
-                    return Err(CustomFamilyError::DimensionMismatch {
-                        reason: format!(
-                            "joint penalty '{}' has dim {} but the trait contract requires the \
-                             raw stacked total {} (pre-canonicalisation coordinates)",
-                            spec.label.as_deref().unwrap_or("<unlabeled>"),
-                            spec.matrix.nrows(),
-                            t_full.nrows(),
-                        ),
-                    });
-                }
-                let (pulled, nullspace_dim) = if gauge_is_identity {
-                    (spec.matrix, spec.nullspace_dim)
-                } else {
-                    let pulled = t_full.t().dot(&spec.matrix).dot(t_full);
-                    // The gauge changes rank/nullity nontrivially — a dropped
-                    // or rotated column can absorb penalized directions or
-                    // fold null directions away (reducing diag(1,0) to its
-                    // first coordinate has nullity 0, not 1) — so the declared
-                    // raw nullity is recomputed on the pulled-back operator
-                    // instead of being capped at the reduced total.
-                    let (evals, _) = pulled.eigh(Side::Lower).map_err(|e| {
-                        CustomFamilyError::Optimization {
-                            context: "fit_custom_family joint penalty pullback rank",
-                            reason: format!(
-                                "eigendecomposition of pulled-back joint penalty '{}' failed: {e}",
-                                spec.label.as_deref().unwrap_or("<unlabeled>"),
-                            ),
-                        }
-                    })?;
-                    let evals_slice =
-                        evals
-                            .as_slice()
-                            .ok_or_else(|| CustomFamilyError::Optimization {
-                                context: "fit_custom_family joint penalty pullback rank",
-                                reason: "non-contiguous eigenvalue buffer".to_string(),
-                            })?;
-                    let thresh = positive_eigenvalue_threshold(evals_slice);
-                    let rank = evals.iter().filter(|&&ev| ev > thresh).count();
-                    (pulled, reduced_total - rank)
-                };
-                let out = gam_problem::JointPenaltySpec {
-                    label: spec.label,
-                    matrix: pulled,
-                    initial_log_lambda: spec.initial_log_lambda,
-                    nullspace_dim,
-                };
-                out.validate()
-                    .map_err(|e| CustomFamilyError::ConstraintViolation {
-                        reason: format!("joint penalty validation failed: {e}"),
-                    })?;
-                Ok(out)
-            })
-            .collect::<Result<Vec<_>, CustomFamilyError>>()?
-    };
+    let joint_specs = pulled_back_joint_penalty_specs(family, &canonical, reduced_total)?;
 
     let label_layout = penalty_label_layout_with_joint(specs, penalty_counts.clone(), joint_specs)?;
     let mut rho0 = label_layout.initial_rho.clone();
@@ -871,28 +1124,45 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
             });
         }
         refresh_all_block_etas(family, specs, &mut inner.block_states)?;
+        audit_converged_identifiability(family, raw_specs, &canonical, &inner.block_states, 0)?;
         let covariance_conditional = compute_joint_covariance_required(
             family,
             specs,
             &inner.block_states,
             &per_block,
             options,
+            None,
         )
         .map_err(|error| CustomFamilyError::Optimization {
             context: "fit_custom_family no-smoothing covariance factorization",
             reason: format!("{error}; no fit was assembled"),
         })?;
         let reml_term = if options.use_remlobjective {
-            0.5 * (inner.block_logdet_h - inner.block_logdet_s)
+            let logdet_h = inner.block_logdet_h.ok_or_else(|| CustomFamilyError::Optimization {
+                context: "fit_custom_family no-smoothing inner solve",
+                reason: "certified inner mode is missing its Hessian logdet".to_string(),
+            })?;
+            let logdet_s = inner.block_logdet_s.ok_or_else(|| CustomFamilyError::Optimization {
+                context: "fit_custom_family no-smoothing inner solve",
+                reason: "certified inner mode is missing its penalty logdet".to_string(),
+            })?;
+            0.5 * (logdet_h - logdet_s)
         } else {
             0.0
         };
-        let geometry =
-            compute_joint_geometry(family, specs, &inner.block_states, &per_block, options)
-                .map_err(|reason| CustomFamilyError::Optimization {
-                    context: "fit_custom_family no-smoothing joint geometry",
-                    reason,
-                })?;
+        let geometry = Some(compute_joint_geometry(
+            family,
+            specs,
+            &inner.block_states,
+            &per_block,
+            options,
+            None,
+            inner.terminal_working_sets.as_deref(),
+        )
+        .map_err(|reason| CustomFamilyError::Optimization {
+            context: "fit_custom_family no-smoothing joint geometry",
+            reason,
+        })?);
         let penalized_objective = checked_penalizedobjective(
             inner.log_likelihood,
             inner.penalty_value,
@@ -925,6 +1195,7 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
                 rho_physical: physical_rho0,
                 covariance_conditional,
                 geometry,
+                precomputed_edf: None,
                 canonical: Some(&canonical),
                 result_specs: raw_specs,
                 penalized_objective,
@@ -933,6 +1204,7 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
                 criterion_certificate: None,
                 outer_converged: true,
                 joint_log_lambdas: None,
+                smoothing_corrected: None,
             },
         );
     }
@@ -953,6 +1225,14 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
         .clone()
         .unwrap_or_else(|| Arc::new(AtomicUsize::new(options.inner_max_cycles.max(1))));
     outer_inner_cap.store(options.inner_max_cycles.max(1), Ordering::Relaxed);
+    // #2349 — shared "re-evaluate COLD" pulse. The outer cost-stall guard raises
+    // it when it grants a STUCK-stall escape (a near-separating profiled fit
+    // whose warm-started trajectory carries value hysteresis on a near-flat
+    // inner ridge). The outer-eval closures below observe it, drop the warm
+    // cache, and re-solve the inner problem cold so ARC descends a consistent
+    // objective surface instead of grinding to `max_iter` at a non-stationary
+    // point.
+    let outer_force_cold = Arc::new(AtomicBool::new(false));
     let mut outer_options = options.clone();
     outer_options.screening_max_inner_iterations = Some(Arc::clone(&screening_cap));
     outer_options.outer_inner_max_iterations = Some(Arc::clone(&outer_inner_cap));
@@ -1007,7 +1287,15 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
     // the primary REML outer (solver/estimate.rs) for the custom-family path.
     let n_obs = specs.first().map(|s| s.design.nrows()).unwrap_or(0);
     let p_total: usize = specs.iter().map(|s| s.design.ncols()).sum();
+    // Establish the ρ box once, validated, so its floor and ceiling reach both
+    // the optimizer bounds and the per-term tightening from a single source
+    // that cannot be transposed (#2370).
+    let rho_box = RhoBox::new(
+        RhoLowerWall(options.rho_lower_bound),
+        RhoCeiling(EFFECTIVE_DF_CEILING),
+    )?;
     let problem = OuterProblem::new(n_rho)
+        .with_stuck_stall_cold_reeval_signal(Arc::clone(&outer_force_cold))
         .with_gradient(cap_gradient)
         .with_hessian(hessian)
         .with_disable_fixed_point(multi_block_beta_dependent)
@@ -1027,11 +1315,13 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
         .with_problem_size(n_obs, p_total.max(1))
         .with_arc_initial_regularization(if n_obs > 0 { Some(0.25) } else { None })
         .with_operator_initial_trust_radius(if n_obs > 0 { Some(4.0) } else { None })
-        // Per-coordinate ρ box bounds. The uniform ceiling of 10 is the
-        // belt-and-suspenders cap: λ = exp(10) ≈ 22k is already extremely strong
-        // shrinkage, and the bound keeps the optimizer out of the dead-flat
+        // Per-coordinate ρ box bounds. The uniform ceiling
+        // [`EFFECTIVE_DF_CEILING`] keeps the optimizer out of the dead-flat
         // λ ≈ 10⁹ region where ARC's quadratic model breaks down, the retry-stall
-        // detector fires, and downstream empty-block_states crashes surface.
+        // detector fires, and downstream empty-block_states crashes surface —
+        // while sitting ABOVE the heavy-but-finite REML optima the data
+        // legitimately selects (the #1561/#2356 location-scale mean wants ρ ≈ 11;
+        // the former ρ ≤ 10 cap railed it into a spurious under-smoothed optimum).
         //
         // ON TOP of that uniform ceiling, each penalized term's UPPER bound is
         // tightened to the ρ at which its structural (unit-weight) effective df
@@ -1048,8 +1338,8 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
         // converged β is unbiased (cf. the #747 solver-only ridge). This is the
         // λ-upper-side dual of the #752 full-subspace logdet work.
         .with_bounds(
-            Array1::<f64>::from_elem(n_rho, options.rho_lower_bound),
-            effective_df_floor_rho_upper_bounds(specs, &label_layout, n_rho, 10.0)?,
+            Array1::<f64>::from_elem(n_rho, rho_box.lower()),
+            effective_df_floor_rho_upper_bounds(specs, &label_layout, n_rho, rho_box)?,
         );
     // Install the seed-screening cap only when initial-rho screening is
     // wanted. A caller that pins an already-identified `initial_rho` and
@@ -1138,19 +1428,30 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
                       rho: &Array1<f64>,
                       order: OuterEvalOrder|
      -> Result<OuterEval, EstimationError> {
-        let warm_ref = screened_outer_warm_start(outer.warm_cache.as_ref(), rho);
-        // Genuinely value-only fulfilment (#979). A `Value` request — issued only
-        // by the continuation pre-warm and outer cost probes — never consumes the
-        // outer gradient. Routing it through the value+gradient assembly below
-        // paid a full coupled-joint LAML gradient (the k²·n·p² marginal/log-slope
-        // outer-derivative) at EVERY continuation step purely to carry the warm β
-        // forward — the dominant cost of the ~35s/seed marginal-slope pre-warm and
-        // the bernoulli-MS centers=20 non-finish (#979). The inner solve in
-        // `EvalMode::ValueOnly` already produces the converged block β (the only
-        // product the pre-warm needs); surface it as `inner_beta_hint` (and into
-        // `outer.warm_cache`) with a zero-length gradient and skip the outer
-        // gradient assembly. ValueAndGradient / ValueGradientHessian are unchanged.
+        // #2349: consume the cold-reeval pulse once per outer evaluation. When
+        // active (a near-separating warm-start-hysteresis stall the outer guard
+        // flagged), every inner solve in this evaluation drops the warm cache
+        // and runs cold + uncapped so ARC descends a trajectory-independent
+        // objective surface.
+        let force_cold = outer.take_force_cold();
+        if force_cold {
+            outer_options
+                .outer_inner_max_iterations
+                .as_ref()
+                .map(|cap| cap.store(0, Ordering::Relaxed));
+        }
+        // Genuinely value-only fulfilment (#979). A `Value` request from an outer
+        // cost, screening, or reactive-domain probe never consumes the outer
+        // gradient. The inner solve in `EvalMode::ValueOnly` already produces the
+        // converged block β; surface it as `inner_beta_hint` (and into
+        // `outer.warm_cache`) with a zero-length gradient and skip the full
+        // k²·n·p² coupled-joint LAML gradient assembly.
         if matches!(order, OuterEvalOrder::Value) {
+            let warm_ref = if force_cold {
+                None
+            } else {
+                screened_outer_warm_start(outer.warm_cache.as_ref(), rho)
+            };
             return match outerobjectivegradienthessian_labeled(
                 family,
                 specs,
@@ -1193,6 +1494,15 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
         }
         let request_hessian =
             matches!(order, OuterEvalOrder::ValueGradientHessian) && need_outer_hessian;
+        // Only a successful derivative-bearing evaluation may own the mode
+        // consumed by certified fit assembly. A failed analytic probe must not
+        // leave an older mode available for accidental substitution.
+        outer.begin_terminal_evaluation();
+        let warm_ref = if force_cold {
+            None
+        } else {
+            screened_outer_warm_start(outer.warm_cache.as_ref(), rho)
+        };
         let eval_result = match outerobjectivegradienthessian_labeled(
             family,
             specs,
@@ -1235,12 +1545,16 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
                     .map(|value| value * value)
                     .sum::<f64>()
                     .sqrt();
-                update_custom_outer_inner_cap_from_warm_start(
-                    &outer_options,
-                    &warm_start,
-                    Some(gradient_norm),
-                    &mut outer.initial_gradient_norm,
-                );
+                // #2349: keep the cap uncapped while the cold-reeval latch is
+                // active so cold solves reach their fixed point.
+                if !force_cold {
+                    update_custom_outer_inner_cap_from_warm_start(
+                        &outer_options,
+                        &warm_start,
+                        Some(gradient_norm),
+                        &mut outer.initial_gradient_norm,
+                    );
+                }
                 outer.warm_cache = Some(warm_start.clone());
                 store_persistent_custom_family_warm_start(
                     persistent_warm_start_key.as_deref(),
@@ -1275,23 +1589,54 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
                 .iter()
                 .flat_map(|beta| beta.iter().copied()),
         ));
+        let objective = eval_result.objective;
+        let gradient = eval_result.gradient;
+        let outer_hessian = eval_result.outer_hessian;
+        let mode = CustomFamilyOwnedMode {
+            objective,
+            // `pullback_labeled_outer_eval` has already made `rho` the
+            // semantic outer coordinate and added the labeled prior. Retain
+            // that coordinate rather than the evaluator's expanded physical
+            // smoothing vector.
+            rho: rho.clone(),
+            hyper_values: Array1::zeros(0),
+            inner: eval_result.inner,
+        };
+        outer.install_terminal_mode(rho, objective, &gradient, mode);
         Ok(OuterEval {
-            cost: eval_result.objective,
-            gradient: eval_result.gradient,
-            hessian: eval_result.outer_hessian,
+            cost: objective,
+            gradient,
+            hessian: outer_hessian,
             inner_beta_hint,
         })
     };
 
     let mut obj = problem.build_objective_with_screening_proxy(
-        CustomOuterState::new(persistent_warm_start.clone())
-            .with_outer_derivative_pilot(family.outer_derivative_pilot_schedule()),
+        CustomOuterState::new_with_cold_signal(
+            persistent_warm_start.clone(),
+            Arc::clone(&outer_force_cold),
+        )
+        .with_outer_derivative_pilot(family.outer_derivative_pilot_schedule()),
         |outer: &mut CustomOuterState, rho: &Array1<f64>| {
             // Always use warm cache when available — the previous inner solution
             // gives a much better starting point. This was previously disabled for
             // exact-Hessian families, forcing every inner solve to start from
             // scratch (5-10 Newton steps instead of 1-2 with warm start).
-            let warm_ref = screened_outer_warm_start(outer.warm_cache.as_ref(), rho);
+            //
+            // #2349: once the outer cost-stall guard has raised the cold-reeval
+            // pulse (near-separating warm-start hysteresis), drop the warm cache
+            // and run this probe cold + uncapped so the profiled objective is a
+            // consistent function of ρ.
+            let force_cold = outer.take_force_cold();
+            let warm_ref = if force_cold {
+                outer_options
+                    .outer_inner_max_iterations
+                    .as_ref()
+                    .map(|cap| cap.store(0, Ordering::Relaxed));
+                None
+            } else {
+                screened_outer_warm_start(outer.warm_cache.as_ref(), rho)
+            };
             match outerobjectivegradienthessian_labeled(
                 family,
                 specs,
@@ -1315,12 +1660,16 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
                     // value-only probe has no gradient, so the cap is driven
                     // purely by the converged cycle count (the gradient-norm
                     // near-optimum uncapping is handled by the main eval).
-                    update_custom_outer_inner_cap_from_warm_start(
-                        &outer_options,
-                        &eval.warm_start,
-                        None,
-                        &mut outer.initial_gradient_norm,
-                    );
+                    // #2349: while the cold-reeval latch is active, leave the cap
+                    // uncapped so every cold solve reaches its fixed point.
+                    if !force_cold {
+                        update_custom_outer_inner_cap_from_warm_start(
+                            &outer_options,
+                            &eval.warm_start,
+                            None,
+                            &mut outer.initial_gradient_norm,
+                        );
+                    }
                     outer.warm_cache = Some(eval.warm_start);
                     outer.last_error = None;
                     Ok(eval.objective)
@@ -1366,9 +1715,9 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
             outer.reset();
         }),
         Some(|outer: &mut CustomOuterState, rho: &Array1<f64>| {
-            if label_layout.has_tied_coordinates() {
+            if !label_layout.supports_direct_physical_efs() {
                 return Err(EstimationError::RemlOptimizationFailed(
-                    "custom-family EFS is not available for tied coefficient-group precision labels"
+                    "custom-family EFS requires an identity per-block penalty-coordinate layout with no fixed, tied, or joint penalties"
                         .to_string(),
                 ));
             }
@@ -1382,12 +1731,12 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
                 warm_ref,
                 rho_prior.clone(),
             ) {
-                Ok((eval, warm, true)) => {
+                Ok((eval, warm, true, _inner)) => {
                     outer.warm_cache = Some(warm);
                     outer.last_error = None;
                     Ok(eval)
                 }
-                Ok((_eval, warm, false)) => {
+                Ok((_eval, warm, false, _inner)) => {
                     outer.warm_cache = Some(warm);
                     outer.last_error =
                         Some("custom-family EFS inner solve did not converge".to_string());
@@ -1442,9 +1791,18 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
     .with_seed_inner_state(|outer: &mut CustomOuterState, beta: &Array1<f64>| {
         outer.seed_cached_beta(n_rho, specs, beta)
     })
-    .with_exact_polish(CustomOuterState::begin_exact_polish);
+    .with_exact_polish(CustomOuterState::begin_exact_polish)
+    // EFS may discover the optimum, but only the labeled analytic evaluator
+    // owns the exact objective/gradient/coefficient-mode identity consumed by
+    // fit assembly. Force the runner's final full-fidelity installation
+    // through that evaluator regardless of the search plan.
+    .with_terminal_eval_order(if need_outer_hessian {
+        OuterEvalOrder::ValueGradientHessian
+    } else {
+        OuterEvalOrder::ValueAndGradient
+    });
 
-    let outer_result = problem.run(&mut obj, "custom family");
+    let outer_result = problem.run_certified(&mut obj, "custom family");
 
     let last_error_detail = obj
         .state
@@ -1458,58 +1816,12 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
         })
         .unwrap_or_default();
 
-    // SPEC 20: a fit object only ever comes from a certified-converged outer
-    // optimization. A non-converged outer result is a typed nonconvergence
-    // error carrying its evidence (plan, iterations, gradient norm, and rho
-    // checkpoint). A keyed coefficient warm start is persisted when the family
-    // supplies the response fingerprint required for safe reuse. Work survives
-    // through checkpoint/resume, never by minting a degraded fit. A
-    // Laplace/Gaussian approximation centered at a
-    // non-mode is not posterior inference, so there is no sampling rung to
-    // "escalate" to here: sampling is only ever legitimate about a certified
-    // mode, and a certified mode has no nonconvergence to recover from.
-    let (rho_star, outer_grad_norm, outer_iters, outer_certificate) = match outer_result {
-        Ok(outer_result)
-            if outer_result.converged
-                && outer_result
-                    .criterion_certificate
-                    .as_ref()
-                    .is_some_and(|certificate| certificate.certifies()) =>
-        {
-            (
-                outer_result.rho,
-                outer_result.final_grad_norm,
-                outer_result.iterations,
-                outer_result.criterion_certificate,
-            )
-        }
-        Ok(outer_result) => {
-            if let Some(warm) = obj.state.warm_cache.as_ref() {
-                store_persistent_custom_family_warm_start(
-                    persistent_warm_start_key.as_deref(),
-                    specs,
-                    warm,
-                );
-            }
-            let certificate = outer_result
-                .criterion_certificate
-                .as_ref()
-                .map_or_else(|| "missing".to_string(), |value| value.summary());
-            return Err(CustomFamilyError::Optimization {
-                context: "fit_custom_family outer smoothing",
-                reason: format!(
-                    "outer smoothing optimization did not certify convergence \
-                     (plan={}, iterations={}, |grad|={}, certificate={}, \
-                     rho_checkpoint={:?}); no fit was assembled.{}",
-                    outer_result.plan_used,
-                    outer_result.iterations,
-                    outer_result.final_grad_norm_report(),
-                    certificate,
-                    outer_result.rho.as_slice().unwrap_or(&[]),
-                    last_error_detail
-                ),
-            });
-        }
+    // SPEC 20: only the optimizer-owned certified carrier is fit authority.
+    // Raw `OuterResult` status/certificate fields are intentionally
+    // insufficient here; `run_certified` is the sole constructor that seals
+    // the terminal analytic evidence after final-state installation.
+    let certified_outer = match outer_result {
+        Ok(outer) => outer,
         Err(e) => {
             let rho_checkpoint = obj
                 .state
@@ -1527,7 +1839,7 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
             return Err(CustomFamilyError::Optimization {
                 context: "fit_custom_family outer smoothing",
                 reason: format!(
-                    "outer smoothing optimization failed after exhausting strategy fallbacks: \
+                    "outer smoothing optimization failed certified-fit validation after exhausting strategy fallbacks: \
                      {e}; rho_checkpoint={rho_checkpoint:?}; no fit was assembled.\
                      {last_error_detail}"
                 ),
@@ -1536,41 +1848,46 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
     };
     screening_cap.store(0, Ordering::Relaxed);
 
-    let per_block = split_labeled_log_lambdas(&rho_star, &label_layout)?;
-    // Seed the final β̂ refit at ρ* from the outer optimizer's warm cache.
-    //
-    // When the cache's ρ bit-matches ρ* the seed is passed whole: the inner
-    // solve's same-ρ fast path reuses the cached converged mode (logdets,
-    // penalty, active constraints) directly.
-    //
-    // When it does NOT match (the last accepted outer eval sat at a nearby
-    // trial ρ, not ρ*), the ρ-specific `cached_inner` is invalid and MUST NOT
-    // be reused — but the converged block β at that nearby ρ is still the best
-    // available continuation seed for the final refit's coupled joint Newton.
-    // Previously the whole seed was dropped to `None` here, forcing the refit
-    // to COLD-START from the family-default β. On a stiff two-block
-    // location-scale basin that cold start can diverge even though the outer
-    // search already certified ρ*: with a `bs='tp', k>=20` scale smooth the
-    // refit drove the *mean* block to |β|~10 and aborted with a KKT
-    // cert-refusal (`phantom_multiplier_with_well_conditioned_H`), while
-    // k=25 — a different, more forgiving basin — converged. Keeping the β
-    // continuation (and active sets) seeds the refit at the outer optimum so
-    // the coupled Newton opens next to its solution instead of cold (#1561).
-    // The inner solve already re-gates cache-mode reuse on its own
-    // `warm_start_matches_block_log_lambdas` check, so stripping `cached_inner`
-    // here is the belt-and-suspenders guarantee that a mismatched-ρ seed
-    // contributes ONLY its β/active-set continuation, never a stale mode.
-    let final_seed = obj.state.warm_cache.clone().map(|mut seed| {
-        if !warm_start_matches_block_log_lambdas(&seed, &per_block) {
-            seed.cached_inner = None;
+    // Consume the exact derivative-bearing evaluator state installed by the
+    // runner's final full-fidelity synchronization. Objective, gradient,
+    // smoothing coordinate, and coefficient mode form one sealed identity.
+    // Warm starts are deliberately excluded: they are seeds, not evidence
+    // about which nonconvex coefficient basin produced the certificate.
+    let terminal = obj.state.terminal_mode.take().ok_or_else(|| {
+        CustomFamilyError::Optimization {
+            context: "fit_custom_family terminal mode ownership",
+            reason: "outer optimization certified without retaining a derivative-bearing terminal coefficient mode; no fit was assembled"
+                .to_string(),
         }
-        seed
-    });
+    })?;
+    let rho_star = certified_outer.rho().clone();
+    let mode = bind_certified_custom_family_terminal_mode(terminal, &certified_outer)?;
+    let CustomFamilyOwnedMode {
+        objective: penalized_objective,
+        rho: mode_rho,
+        hyper_values: mode_hyper_values,
+        inner,
+    } = mode;
+    if !mode_hyper_values.is_empty() {
+        return Err(CustomFamilyError::Optimization {
+            context: "fit_custom_family terminal mode ownership",
+            reason: "rho-only outer optimization retained unexpected non-rho coordinates"
+                .to_string(),
+        });
+    }
+    if !inner.converged {
+        return Err(CustomFamilyError::Optimization {
+            context: "fit_custom_family terminal mode ownership",
+            reason: "the certified terminal coefficient mode was not converged; no fit was assembled"
+                .to_string(),
+        });
+    }
+    let per_block = split_labeled_log_lambdas(&rho_star, &label_layout)?;
     let mut final_options = options.clone();
     final_options.outer_inner_max_iterations = None;
-    // gam#1587: the final β̂ refit must apply the same full-width joint penalty
-    // at the converged ρ* as every outer eval did, or the reported coefficients
-    // (and predictions) would be the UNPENALIZED-by-the-centered-metric mode.
+    // Reconstruct only the deterministic penalty geometry needed by covariance
+    // and EDF assembly. The coefficient mode itself already came from this
+    // exact rho-specific bundle and is never solved or evaluated again.
     if !label_layout.joint_specs.is_empty() {
         let total_compiled: usize = specs.iter().map(|s| s.design.ncols()).sum();
         let joint_log_lambdas = label_layout.joint_log_lambdas(&rho_star);
@@ -1582,62 +1899,54 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
         .map_err(CustomFamilyError::from)?;
         final_options.joint_penalties = Some(std::sync::Arc::new(bundle));
     }
-    let mut inner = inner_blockwise_fit(
-        family,
-        specs,
-        &per_block,
-        &final_options,
-        final_seed.as_ref(),
-    )
-    .map_err(|error| CustomFamilyError::Optimization {
-        context: "fit_custom_family final inner refit",
-        reason: format!(
-            "{error}; rho_checkpoint={:?}; no fit was assembled.{}",
-            rho_star.as_slice().unwrap_or(&[]),
-            last_error_detail
-        ),
-    })?;
-    if !inner.converged {
-        // Preserve the refit's rho/coefficients in the response-keyed cache
-        // when this family supports persistent warm starts, then reject the
-        // non-mode. The rho checkpoint is carried in the typed error regardless.
-        store_persistent_custom_family_warm_start(
-            persistent_warm_start_key.as_deref(),
-            specs,
-            &constrained_warm_start_from_inner(&rho_star, &inner),
-        );
-        return Err(CustomFamilyError::Optimization {
-            context: "fit_custom_family final inner refit",
-            reason: format!(
-                "outer smoothing optimization final inner refit did not converge after {} cycles; \
-                 rho_checkpoint={:?}; no fit was assembled.{}",
-                inner.cycles,
-                rho_star.as_slice().unwrap_or(&[]),
-                last_error_detail
-            ),
-        });
-    }
-    let final_warm_start = constrained_warm_start_from_inner(&rho_star, &inner);
+
+    let final_warm_start = constrained_warm_start_from_inner(&mode_rho, &inner);
     store_persistent_custom_family_warm_start(
         persistent_warm_start_key.as_deref(),
         specs,
         &final_warm_start,
     );
-    refresh_all_block_etas(family, specs, &mut inner.block_states).map_err(|e| {
-        format!(
-            "outer smoothing optimization failed during final eta refresh: \
-             {e}.{last_error_detail}"
-        )
+    audit_converged_identifiability(
+        family,
+        raw_specs,
+        &canonical,
+        &inner.block_states,
+        certified_outer.iterations(),
+    )?;
+
+    // Consume the exact returned-beta authority retained by the inner solve.
+    // Coupled paths own a joint workspace; explicitly uncoupled paths own
+    // terminal block working sets. Neither path re-evaluates the likelihood.
+    let hessian = materialize_owned_terminal_unpenalized_hessian(
+        family,
+        specs,
+        &inner.block_states,
+        inner.joint_workspace.as_ref(),
+        inner.terminal_working_sets.as_deref(),
+        "custom-family certified terminal Hessian",
+    )
+    .map_err(|reason| CustomFamilyError::Optimization {
+        context: "fit_custom_family terminal curvature ownership",
+        reason,
     })?;
-    // gam#1587: pass `final_options` (carrying the joint penalty bundle) so the
-    // posterior precision `H = H_lik + S_λ` includes the full-width centered
-    // penalty, matching the inner-converged mode.
+    let penalized_hessian = penalized_hessian_from_owned_mode(
+        specs,
+        &per_block,
+        &final_options,
+        &hessian,
+    )
+    .map_err(|reason| CustomFamilyError::Optimization {
+        context: "fit_custom_family terminal penalized Hessian",
+        reason,
+    })?;
+
     let covariance_conditional = compute_joint_covariance_required(
         family,
         specs,
         &inner.block_states,
         &per_block,
         &final_options,
+        Some(&hessian),
     )
     .map_err(|error| CustomFamilyError::Optimization {
         context: "fit_custom_family final covariance factorization",
@@ -1647,31 +1956,19 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
         ),
     })?;
 
-    // gam#1587/#561: pass `final_options` (carrying the joint penalty bundle at
-    // the selected ρ*) so the exported geometry's penalized Hessian — and the
-    // trace EDF derived from it — includes the full-width centered penalty,
-    // matching the covariance path above and the inner-converged mode.
-    let geometry = compute_joint_geometry(
+    let geometry = Some(compute_joint_geometry(
         family,
         specs,
         &inner.block_states,
         &per_block,
         &final_options,
+        Some(&hessian),
+        inner.terminal_working_sets.as_deref(),
     )
     .map_err(|reason| CustomFamilyError::Optimization {
         context: "fit_custom_family joint geometry",
         reason,
-    })?;
-    let penalized_objective = inner_penalized_objective(
-        &inner,
-        include_exact_newton_logdet_h(family, options),
-        include_exact_newton_logdet_s(family, options),
-        "custom-family fit final outer refit",
-    )
-    .map_err(|reason| CustomFamilyError::Optimization {
-        context: "fit_custom_family penalized objective",
-        reason,
-    })?;
+    })?);
     // Cross-fit FitArtifact capture (Phase 0/1) for the converged smoothing
     // fit: persist the descriptor-indexed raw-β + ρ so a later fold transfers
     // ρ. Best-effort; never affects this fit's result. Gated on the same opt-in
@@ -1689,6 +1986,26 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
         );
     }
     let rho_star_physical = expand_labeled_log_lambdas(&rho_star, &label_layout)?;
+    let physical_lambdas = exact_lambdas_from_log_strengths(
+        &rho_star_physical,
+        "custom-family terminal EDF log strength",
+    )?;
+    let precomputed_edf = if label_layout.joint_specs.is_empty() {
+        Some(
+            custom_family_blockwise_edf(&penalized_hessian, specs, &physical_lambdas.view())
+                .map_err(|reason| CustomFamilyError::Optimization {
+                    context: "fit_custom_family terminal EDF",
+                    reason,
+                })?,
+        )
+    } else {
+        // The public per-penalty EDF vectors are aligned to per-block lambdas.
+        // A full-width joint penalty has no truthful slot in that schema; do
+        // not report p as if the owned joint penalty spent zero degrees of
+        // freedom. `joint_log_lambdas` below preserves the selected strengths
+        // until a typed joint-EDF channel exists.
+        None
+    };
     // gam#1587/#561: a family whose smoothing rides on the full-width JOINT
     // penalty (the multinomial centered `Σ_t λ_t (M ⊗ S_t)` metric) leaves its
     // per-block penalty lists — and hence the physical `rho_physical`/`lambdas`
@@ -1698,46 +2015,209 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
     // EDF. `None` (no allocation) for every per-block-only family.
     let joint_log_lambdas = (!label_layout.joint_specs.is_empty())
         .then(|| Array1::from(label_layout.joint_log_lambdas(&rho_star)));
+    // #2346: first-order ρ-uncertainty smoothing correction for the joint
+    // coefficient covariance, from the SAME analytic outer ρ-Hessian the
+    // certificate judged. Rail coordinates (box rails + typed AsymptoteRail
+    // rails) have no finite ρ-variance and are excluded (#2337 Thm 2.3);
+    // a non-PD interior V_ρ yields a typed absence, never an error.
+    let smoothing_corrected = match (
+        covariance_conditional.as_ref(),
+        certified_outer.final_hessian(),
+    ) {
+        (Some(v_cond), Some(outer_hessian)) => {
+            let certificate = certified_outer.criterion_certificate();
+            let mut excluded: Vec<usize> = certificate.lambdas_railed.clone();
+            for rail in certificate.stationarity.rails() {
+                if !excluded.contains(&rail.index) {
+                    excluded.push(rail.index);
+                }
+            }
+            crate::covariance::joint_smoothing_correction(
+                v_cond,
+                specs,
+                &label_layout,
+                &rho_star,
+                &inner.block_states,
+                outer_hessian,
+                &excluded,
+            )
+            .map_err(|reason| CustomFamilyError::Optimization {
+                context: "fit_custom_family smoothing correction",
+                reason,
+            })?
+            .map(|(correction, active_rank)| {
+                (
+                    correction,
+                    gam_solve::model_types::SmoothingCorrectionMethod::FirstOrderIdentifiedSubspace {
+                        active_rank,
+                        rho_dimension: rho_star.len(),
+                    },
+                )
+            })
+        }
+        _ => None,
+    };
     assemble_custom_family_fit_result(
         inner,
         BlockwiseFitAssembly {
             rho_physical: rho_star_physical,
             covariance_conditional,
             geometry,
+            precomputed_edf,
             canonical: Some(&canonical),
             result_specs: raw_specs,
             penalized_objective,
-            outer_iterations: outer_iters,
-            outer_gradient_norm: outer_grad_norm,
-            criterion_certificate: outer_certificate,
+            outer_iterations: certified_outer.iterations(),
+            outer_gradient_norm: certified_outer.final_grad_norm(),
+            criterion_certificate: Some(certified_outer.criterion_certificate().clone()),
             outer_converged: true,
             joint_log_lambdas,
+            smoothing_corrected,
         },
     )
 }
 
-pub fn fit_custom_family_fixed_log_lambdas<F: CustomFamily + Clone + Send + Sync + 'static>(
+enum OwnedModeProvenance<'a> {
+    UserFixed,
+    CertifiedOuter {
+        selected_theta: &'a Array1<f64>,
+        outer: &'a gam_solve::rho_optimizer::CertifiedOuterResult,
+    },
+}
+
+/// Pull the family's raw-coordinate joint penalty specs back through the
+/// identifiability gauge into the reduced coordinate space the inner solve and
+/// outer evaluator run in (`S_red = T_fullᵀ S_raw T_full`), recomputing the
+/// declared nullity on the pulled-back operator when the gauge is nontrivial.
+///
+/// The trait contract fixes the coordinates: joint penalties arrive in RAW
+/// (pre-canonicalisation) stacked coordinates, so the pullback decision must
+/// key on whether the gauge is the identity — NOT on a dimension comparison.
+/// When no columns are dropped the raw and reduced totals coincide even though
+/// `T_full` can still be a nontrivial rotation, and skipping `TᵀST` there
+/// would smooth the wrong quadratic form (a coordinate swap with S = diag(1,2)
+/// must become diag(2,1)).
+///
+/// Shared by the outer-optimizing entry AND the fixed-log-lambda entry
+/// (#2349: the fixed path previously never consulted the joint specs, so a
+/// joint-penalty family — the multinomial per-class centered carrier, whose
+/// per-block penalties are EMPTY — fit completely unpenalized at fixed λ).
+fn pulled_back_joint_penalty_specs<F: CustomFamily + Clone + Send + Sync + 'static>(
+    family: &F,
+    canonical: &gam_identifiability::canonical::CanonicalSpecs,
+    reduced_total: usize,
+) -> Result<Vec<gam_problem::JointPenaltySpec>, CustomFamilyError> {
+    let raw_specs_joint =
+        family
+            .joint_penalty_specs()
+            .map_err(|reason| CustomFamilyError::Optimization {
+                context: "fit_custom_family joint penalty specs",
+                reason,
+            })?;
+    let t_full = &canonical.gauge.t_full;
+    let gauge_is_identity = t_full.nrows() == t_full.ncols()
+        && t_full
+            .indexed_iter()
+            .all(|((i, j), &v)| v == if i == j { 1.0 } else { 0.0 });
+    raw_specs_joint
+        .into_iter()
+        .map(|spec| {
+            if spec.matrix.nrows() != t_full.nrows() {
+                return Err(CustomFamilyError::DimensionMismatch {
+                    reason: format!(
+                        "joint penalty '{}' has dim {} but the trait contract requires the \
+                         raw stacked total {} (pre-canonicalisation coordinates)",
+                        spec.label.as_deref().unwrap_or("<unlabeled>"),
+                        spec.matrix.nrows(),
+                        t_full.nrows(),
+                    ),
+                });
+            }
+            let (pulled, nullspace_dim) = if gauge_is_identity {
+                (spec.matrix, spec.nullspace_dim)
+            } else {
+                let pulled = t_full.t().dot(&spec.matrix).dot(t_full);
+                // The gauge changes rank/nullity nontrivially — a dropped
+                // or rotated column can absorb penalized directions or
+                // fold null directions away (reducing diag(1,0) to its
+                // first coordinate has nullity 0, not 1) — so the declared
+                // raw nullity is recomputed on the pulled-back operator
+                // instead of being capped at the reduced total.
+                let (evals, _) = pulled.eigh(Side::Lower).map_err(|e| {
+                    CustomFamilyError::Optimization {
+                        context: "fit_custom_family joint penalty pullback rank",
+                        reason: format!(
+                            "eigendecomposition of pulled-back joint penalty '{}' failed: {e}",
+                            spec.label.as_deref().unwrap_or("<unlabeled>"),
+                        ),
+                    }
+                })?;
+                let evals_slice =
+                    evals
+                        .as_slice()
+                        .ok_or_else(|| CustomFamilyError::Optimization {
+                            context: "fit_custom_family joint penalty pullback rank",
+                            reason: "non-contiguous eigenvalue buffer".to_string(),
+                        })?;
+                let thresh = positive_eigenvalue_threshold(evals_slice);
+                let rank = evals.iter().filter(|&&ev| ev > thresh).count();
+                (pulled, reduced_total - rank)
+            };
+            let out = gam_problem::JointPenaltySpec {
+                label: spec.label,
+                matrix: pulled,
+                initial_log_lambda: spec.initial_log_lambda,
+                nullspace_dim,
+            };
+            out.validate()
+                .map_err(|e| CustomFamilyError::ConstraintViolation {
+                    reason: format!("joint penalty validation failed: {e}"),
+                })?;
+            Ok(out)
+        })
+        .collect::<Result<Vec<_>, CustomFamilyError>>()
+}
+
+fn fit_custom_family_user_fixed_log_lambdas_impl<
+    F: CustomFamily + Clone + Send + Sync + 'static,
+>(
     family: &F,
     raw_specs: &[ParameterBlockSpec],
     options: &BlockwiseFitOptions,
     warm_start: Option<&CustomFamilyWarmStart>,
-    outer_iterations: usize,
-    outer_gradient_norm: Option<f64>,
-    outer_converged: bool,
 ) -> Result<gam_solve::model_types::UnifiedFitResult, CustomFamilyError> {
-    if !outer_converged {
-        return Err(CustomFamilyError::Optimization {
-            context: "fit_custom_family_fixed_log_lambdas",
-            reason: "the enclosing outer optimization did not certify convergence; refusing \
-                     to run inference or assemble a fixed-lambda fit from its checkpoint"
-                .to_string(),
-        });
-    }
-    let canonical = gam_identifiability::canonical::canonicalize_for_identifiability(raw_specs)?;
+    let canonical =
+        gam_identifiability::canonical::canonicalize_for_identifiability_with_operating_scalars(
+            raw_specs,
+            pre_fit_operating_scalars(family, raw_specs)?,
+        )?;
     let specs: &[ParameterBlockSpec] = &canonical.reduced_specs;
     let penalty_counts = validate_blockspecs(specs)?;
     let rho = flatten_log_lambdas(specs);
     let per_block = split_log_lambdas(&rho, &penalty_counts)?;
+    // #2349: carry the family's joint penalty specs exactly like the outer
+    // entry does — the fixed path previously never consulted them, so a
+    // joint-penalty family fit completely UNPENALIZED at user-fixed λ. Each
+    // joint spec's user-fixed λ is its `initial_log_lambda` (per-spec settable
+    // through the family's seed API — the same vector a refusal checkpoint
+    // resume carries).
+    let reduced_total: usize = specs.iter().map(|s| s.design.ncols()).sum();
+    let joint_specs = pulled_back_joint_penalty_specs(family, &canonical, reduced_total)?;
+    let mut fixed_options = options.clone();
+    let joint_log_lambdas: Option<Array1<f64>> = if joint_specs.is_empty() {
+        None
+    } else {
+        let lambdas: Vec<f64> = joint_specs.iter().map(|s| s.initial_log_lambda).collect();
+        let bundle = gam_problem::JointPenaltyBundle::new(
+            std::sync::Arc::new(joint_specs),
+            lambdas.clone(),
+            reduced_total,
+        )
+        .map_err(CustomFamilyError::from)?;
+        fixed_options.joint_penalties = Some(std::sync::Arc::new(bundle));
+        Some(Array1::from(lambdas))
+    };
+    let options = &fixed_options;
     let reduced_warm_start = fixed_lambda_warm_start_for_reduced_specs(warm_start, &canonical);
     let mut inner = inner_blockwise_fit(family, specs, &per_block, options, reduced_warm_start)
         .map_err(|error| CustomFamilyError::Optimization {
@@ -1758,21 +2238,6 @@ pub fn fit_custom_family_fixed_log_lambdas<F: CustomFamily + Clone + Send + Sync
             ),
         });
     }
-    refresh_all_block_etas(family, specs, &mut inner.block_states)?;
-    let covariance_conditional =
-        compute_joint_covariance_required(family, specs, &inner.block_states, &per_block, options)
-            .map_err(|error| CustomFamilyError::Optimization {
-                context: "fit_custom_family_fixed_log_lambdas covariance factorization",
-                reason: format!(
-                    "{error}; rho_checkpoint={:?}; no fit was assembled",
-                    rho.as_slice().unwrap_or(&[])
-                ),
-            })?;
-    let geometry = compute_joint_geometry(family, specs, &inner.block_states, &per_block, options)
-        .map_err(|reason| CustomFamilyError::Optimization {
-            context: "fit_custom_family_fixed_log_lambdas joint geometry",
-            reason,
-        })?;
     let penalized_objective = inner_penalized_objective(
         &inner,
         include_exact_newton_logdet_h(family, options),
@@ -1783,21 +2248,414 @@ pub fn fit_custom_family_fixed_log_lambdas<F: CustomFamily + Clone + Send + Sync
         context: "fit_custom_family_fixed_log_lambdas penalized objective",
         reason,
     })?;
+    refresh_all_block_etas(family, specs, &mut inner.block_states)?;
+    audit_converged_identifiability(
+        family,
+        raw_specs,
+        &canonical,
+        &inner.block_states,
+        0,
+    )?;
+    let covariance_conditional = compute_joint_covariance_required(
+        family,
+        specs,
+        &inner.block_states,
+        &per_block,
+        options,
+        None,
+    )
+    .map_err(|error| CustomFamilyError::Optimization {
+        context: "fit_custom_family_fixed_log_lambdas covariance factorization",
+        reason: format!(
+            "{error}; rho_checkpoint={:?}; no fit was assembled",
+            rho.as_slice().unwrap_or(&[])
+        ),
+    })?;
+    let geometry = Some(compute_joint_geometry(
+        family,
+        specs,
+        &inner.block_states,
+        &per_block,
+        options,
+        None,
+        inner.terminal_working_sets.as_deref(),
+    )
+    .map_err(|reason| CustomFamilyError::Optimization {
+        context: "fit_custom_family_fixed_log_lambdas joint geometry",
+        reason,
+    })?);
     assemble_custom_family_fit_result(
         inner,
         BlockwiseFitAssembly {
             rho_physical: rho,
             covariance_conditional,
             geometry,
+            precomputed_edf: None,
             canonical: Some(&canonical),
             result_specs: raw_specs,
             penalized_objective,
-            outer_iterations,
-            outer_gradient_norm,
+            outer_iterations: 0,
+            outer_gradient_norm: None,
             criterion_certificate: None,
             outer_converged: true,
-            joint_log_lambdas: None,
+            joint_log_lambdas,
+            smoothing_corrected: None,
         },
+    )
+}
+
+/// Fit coefficients at user-fixed smoothing strengths. No outer coordinate is
+/// optimized, so a converged inner mode is the complete fit provenance.
+pub fn fit_custom_family_fixed_log_lambdas<F: CustomFamily + Clone + Send + Sync + 'static>(
+    family: &F,
+    raw_specs: &[ParameterBlockSpec],
+    options: &BlockwiseFitOptions,
+    warm_start: Option<&CustomFamilyWarmStart>,
+) -> Result<gam_solve::model_types::UnifiedFitResult, CustomFamilyError> {
+    fit_custom_family_user_fixed_log_lambdas_impl(family, raw_specs, options, warm_start)
+}
+
+#[derive(Clone, Copy)]
+enum OwnedModeCurvatureRequirement {
+    CertifiedStationaryPoint,
+    CertifiedLocalMinimum,
+}
+
+/// Assemble a fixed-hyperparameter fit from the exact coefficient mode owned
+/// by the terminal outer evaluation.
+///
+/// This consuming boundary deliberately performs no canonicalization, warm
+/// restart, objective replay, or inner solve. The mode, its objective, its
+/// smoothing prefix, and its returned-beta Hessian workspace are one identity;
+/// changing any one of them would silently switch the Laplace branch after
+/// outer optimization.
+fn fit_custom_family_fixed_log_lambdas_from_owned_mode_with_provenance<
+    F: CustomFamily + Clone + Send + Sync + 'static,
+>(
+    family: &F,
+    specs: &[ParameterBlockSpec],
+    options: &BlockwiseFitOptions,
+    mode: CustomFamilyOwnedMode,
+    provenance: OwnedModeProvenance<'_>,
+    curvature_requirement: OwnedModeCurvatureRequirement,
+) -> Result<gam_solve::model_types::UnifiedFitResult, CustomFamilyError> {
+    let (outer_iterations, outer_gradient_norm, criterion_certificate, certified_theta) =
+        match provenance {
+            OwnedModeProvenance::UserFixed => (0, None, None, None),
+            OwnedModeProvenance::CertifiedOuter {
+                selected_theta,
+                outer,
+            } => {
+                if matches!(
+                    curvature_requirement,
+                    OwnedModeCurvatureRequirement::CertifiedLocalMinimum
+                ) && outer.criterion_certificate().hessian_psd != Some(true)
+                {
+                    return Err(CustomFamilyError::Optimization {
+                        context:
+                            "fit_custom_family_fixed_log_lambdas_from_owned_mode outer curvature",
+                        reason: "a profiled nonconvex coefficient mode requires a positive-semidefinite analytic outer Hessian certificate"
+                            .to_string(),
+                    });
+                }
+                if selected_theta.len() != outer.rho().len()
+                    || selected_theta
+                        .iter()
+                        .zip(outer.rho().iter())
+                        .any(|(selected, certified)| {
+                            selected.to_bits() != certified.to_bits()
+                        })
+                {
+                    return Err(CustomFamilyError::InvalidInput {
+                        context:
+                            "fit_custom_family_fixed_log_lambdas_from_owned_mode outer identity",
+                        reason: "the selected full hyperparameter vector does not bitwise match the certified outer optimum"
+                            .to_string(),
+                    });
+                }
+                (
+                    outer.iterations(),
+                    outer.final_grad_norm(),
+                    Some(outer.criterion_certificate().clone()),
+                    Some((outer.rho(), outer.final_value())),
+                )
+            }
+        };
+
+    let CustomFamilyOwnedMode {
+        objective: selected_objective,
+        rho,
+        hyper_values,
+        inner,
+    } = mode;
+    if !inner.converged {
+        return Err(CustomFamilyError::Optimization {
+            context: "fit_custom_family_fixed_log_lambdas_from_owned_mode",
+            reason: "the selected coefficient branch was not converged; no fit was assembled"
+                .to_string(),
+        });
+    }
+
+    if let Some((_, certified_objective)) = certified_theta
+        && selected_objective.to_bits() != certified_objective.to_bits()
+    {
+        return Err(CustomFamilyError::Optimization {
+            context: "fit_custom_family_fixed_log_lambdas_from_owned_mode objective identity",
+            reason: format!(
+                "selected profile objective does not belong to the certified outer optimum: selected={selected_objective:.17e}, certified={certified_objective:.17e}",
+            ),
+        });
+    }
+
+    if let Some((certified_theta, _)) = certified_theta {
+        let expected_len = rho.len() + hyper_values.len();
+        let identity_matches = certified_theta.len() == expected_len
+            && certified_theta
+                .iter()
+                .zip(rho.iter().chain(hyper_values.iter()))
+                .all(|(certified, selected)| certified.to_bits() == selected.to_bits());
+        if !identity_matches {
+            return Err(CustomFamilyError::InvalidInput {
+                context: "fit_custom_family_fixed_log_lambdas_from_owned_mode full hyper identity",
+                reason: "the owned mode's [rho | manifest values] do not bitwise match the certified outer optimum"
+                    .to_string(),
+            });
+        }
+    }
+    let spec_rho = flatten_log_lambdas(specs);
+    if rho.len() != spec_rho.len()
+        || rho
+            .iter()
+            .zip(spec_rho.iter())
+            .any(|(selected, configured)| selected.to_bits() != configured.to_bits())
+    {
+        return Err(CustomFamilyError::InvalidInput {
+            context: "fit_custom_family_fixed_log_lambdas_from_owned_mode",
+            reason: "selected smoothing coordinates do not bitwise match the supplied coefficient-mode geometry"
+                .to_string(),
+        });
+    }
+    let penalty_counts = validate_blockspecs(specs)?;
+    let per_block = split_log_lambdas(&rho, &penalty_counts)?;
+    let canonical =
+        gam_identifiability::canonical::canonicalize_for_identifiability_with_operating_scalars(
+            specs,
+            pre_fit_operating_scalars(family, specs)?,
+        )?;
+    if !canonical.gauge.is_identity()
+        || canonical.reduced_specs.len() != specs.len()
+        || canonical
+            .reduced_specs
+            .iter()
+            .zip(specs.iter())
+            .any(|(reduced, exact)| reduced.design.ncols() != exact.design.ncols())
+    {
+        return Err(CustomFamilyError::InvalidInput {
+            context: "fit_custom_family_fixed_log_lambdas_from_owned_mode canonical geometry",
+            reason: "the terminal outer evaluator returned a mode in a coefficient geometry that still requires identifiability reduction; exact outer evaluation must own the canonical geometry before certification"
+                .to_string(),
+        });
+    }
+    audit_converged_identifiability(
+        family,
+        specs,
+        &canonical,
+        &inner.block_states,
+        outer_iterations,
+    )?;
+
+    let hessian = materialize_owned_terminal_unpenalized_hessian(
+        family,
+        specs,
+        &inner.block_states,
+        inner.joint_workspace.as_ref(),
+        inner.terminal_working_sets.as_deref(),
+        "selected-mode final Hessian",
+    )
+    .map_err(|reason| CustomFamilyError::Optimization {
+        context: "fit_custom_family_fixed_log_lambdas_from_owned_mode curvature identity",
+        reason,
+    })?;
+
+    let covariance_conditional = compute_joint_covariance_required(
+        family,
+        specs,
+        &inner.block_states,
+        &per_block,
+        options,
+        Some(&hessian),
+    )
+    .map_err(|error| CustomFamilyError::Optimization {
+        context: "fit_custom_family_fixed_log_lambdas_from_owned_mode covariance",
+        reason: error.to_string(),
+    })?;
+    let geometry = Some(compute_joint_geometry(
+        family,
+        specs,
+        &inner.block_states,
+        &per_block,
+        options,
+        Some(&hessian),
+        inner.terminal_working_sets.as_deref(),
+    )
+    .map_err(|reason| CustomFamilyError::Optimization {
+        context: "fit_custom_family_fixed_log_lambdas_from_owned_mode geometry",
+        reason,
+    })?);
+
+    assemble_custom_family_fit_result(
+        inner,
+        BlockwiseFitAssembly {
+            rho_physical: rho,
+            covariance_conditional,
+            geometry,
+            precomputed_edf: None,
+            canonical: Some(&canonical),
+            result_specs: specs,
+            penalized_objective: selected_objective,
+            outer_iterations,
+            outer_gradient_norm,
+            criterion_certificate,
+            outer_converged: true,
+            joint_log_lambdas: None,
+            smoothing_corrected: None,
+        },
+    )
+}
+
+fn owned_mode_from_selection(
+    selection: CustomFamilyJointHyperModeSelection,
+) -> Result<CustomFamilyOwnedMode, CustomFamilyError> {
+    let CustomFamilyJointHyperModeSelection {
+        result,
+        selected_candidate,
+        screened_objectives,
+        mode,
+        ..
+    } = selection;
+    if !result.inner_converged || !mode.inner.converged {
+        return Err(CustomFamilyError::Optimization {
+            context: "owned coefficient-mode selection",
+            reason: "the selected coefficient branch was not converged".to_string(),
+        });
+    }
+    let screened_objective = screened_objectives
+        .get(selected_candidate)
+        .and_then(|objective| *objective)
+        .ok_or_else(|| CustomFamilyError::Optimization {
+            context: "owned coefficient-mode selection objective identity",
+            reason: "the selected candidate has no finite screened profile objective".to_string(),
+        })?;
+    if screened_objective.to_bits() != result.objective.to_bits()
+        || result.objective.to_bits() != mode.objective.to_bits()
+    {
+        return Err(CustomFamilyError::Optimization {
+            context: "owned coefficient-mode selection objective identity",
+            reason: format!(
+                "selected profile objective changed across screening/result/mode ownership: screened={screened_objective:.17e}, result={:.17e}, mode={:.17e}",
+                result.objective, mode.objective,
+            ),
+        });
+    }
+    let carried = &result.warm_start.inner;
+    let rho_matches = carried.rho.len() == mode.rho.len()
+        && carried
+            .rho
+            .iter()
+            .zip(mode.rho.iter())
+            .all(|(left, right)| left.to_bits() == right.to_bits());
+    let beta_matches = carried.block_beta.len() == mode.inner.block_states.len()
+        && carried
+            .block_beta
+            .iter()
+            .zip(mode.inner.block_states.iter())
+            .all(|(left, state)| {
+                left.len() == state.beta.len()
+                    && left
+                        .iter()
+                        .zip(state.beta.iter())
+                        .all(|(left, right)| left.to_bits() == right.to_bits())
+            });
+    if !rho_matches || !beta_matches {
+        return Err(CustomFamilyError::Optimization {
+            context: "owned coefficient-mode selection state identity",
+            reason: "the selected public result and owned inner mode have different rho or coefficient bits"
+                .to_string(),
+        });
+    }
+    Ok(mode)
+}
+
+/// Assemble a caller-fixed coefficient mode. No outer coordinate was
+/// optimized, so the resulting fit deliberately carries no outer certificate.
+pub fn fit_custom_family_user_fixed_log_lambdas_from_mode_selection<
+    F: CustomFamily + Clone + Send + Sync + 'static,
+>(
+    family: &F,
+    specs: &[ParameterBlockSpec],
+    options: &BlockwiseFitOptions,
+    selection: CustomFamilyJointHyperModeSelection,
+) -> Result<gam_solve::model_types::UnifiedFitResult, CustomFamilyError> {
+    let mode = owned_mode_from_selection(selection)?;
+    fit_custom_family_fixed_log_lambdas_from_owned_mode_with_provenance(
+        family,
+        specs,
+        options,
+        mode,
+        OwnedModeProvenance::UserFixed,
+        OwnedModeCurvatureRequirement::CertifiedLocalMinimum,
+    )
+}
+
+/// Assemble the coefficient mode that belongs bit-for-bit to a certified
+/// second-order outer optimum.
+pub fn fit_custom_family_fixed_log_lambdas_from_mode_selection<
+    F: CustomFamily + Clone + Send + Sync + 'static,
+>(
+    family: &F,
+    specs: &[ParameterBlockSpec],
+    options: &BlockwiseFitOptions,
+    selection: CustomFamilyJointHyperModeSelection,
+    selected_theta: &Array1<f64>,
+    outer: &gam_solve::rho_optimizer::CertifiedOuterResult,
+) -> Result<gam_solve::model_types::UnifiedFitResult, CustomFamilyError> {
+    let mode = owned_mode_from_selection(selection)?;
+    fit_custom_family_fixed_log_lambdas_from_owned_mode_with_provenance(
+        family,
+        specs,
+        options,
+        mode,
+        OwnedModeProvenance::CertifiedOuter {
+            selected_theta,
+            outer,
+        },
+        OwnedModeCurvatureRequirement::CertifiedLocalMinimum,
+    )
+}
+
+/// Assemble the exact coefficient mode installed by the outer optimizer's
+/// terminal full-data evaluation. No optimizer, objective replay, or inner
+/// coefficient solve is entered at this boundary.
+pub fn fit_custom_family_fixed_log_lambdas_from_owned_mode<
+    F: CustomFamily + Clone + Send + Sync + 'static,
+>(
+    family: &F,
+    specs: &[ParameterBlockSpec],
+    options: &BlockwiseFitOptions,
+    mode: CustomFamilyOwnedMode,
+    selected_theta: &Array1<f64>,
+    outer: &gam_solve::rho_optimizer::CertifiedOuterResult,
+) -> Result<gam_solve::model_types::UnifiedFitResult, CustomFamilyError> {
+    fit_custom_family_fixed_log_lambdas_from_owned_mode_with_provenance(
+        family,
+        specs,
+        options,
+        mode,
+        OwnedModeProvenance::CertifiedOuter {
+            selected_theta,
+            outer,
+        },
+        OwnedModeCurvatureRequirement::CertifiedStationaryPoint,
     )
 }
 
@@ -1808,7 +2666,11 @@ pub fn fit_custom_family_fixed_log_lambda_warm_start<
     raw_specs: &[ParameterBlockSpec],
     options: &BlockwiseFitOptions,
 ) -> Result<(Vec<Array1<f64>>, bool, usize), CustomFamilyError> {
-    let canonical = gam_identifiability::canonical::canonicalize_for_identifiability(raw_specs)?;
+    let canonical =
+        gam_identifiability::canonical::canonicalize_for_identifiability_with_operating_scalars(
+            raw_specs,
+            pre_fit_operating_scalars(family, raw_specs)?,
+        )?;
     let specs: &[ParameterBlockSpec] = &canonical.reduced_specs;
     let penalty_counts = validate_blockspecs(specs)?;
     let rho = flatten_log_lambdas(specs);
@@ -1831,4 +2693,57 @@ pub fn fit_custom_family_fixed_log_lambda_warm_start<
         });
     }
     Ok((block_beta, inner.converged, inner.cycles))
+}
+
+/// Diagnostic-only entry: evaluate the SAME labeled outer criterion and
+/// analytic gradient the production outer optimizer descends (identifiability
+/// canonicalization → pulled-back joint penalty specs → labeled layout →
+/// `outerobjectivegradienthessian_labeled` with a flat ρ-prior), at a
+/// caller-supplied outer coordinate. This exists so obj↔grad desync
+/// investigations (#2349) can FD-gate the exact production functional from an
+/// integration test; it performs a cold inner solve per call and is not a
+/// fitting API.
+pub fn evaluate_labeled_outer_criterion_for_diagnostics<
+    F: CustomFamily + Clone + Send + Sync + 'static,
+>(
+    family: &F,
+    raw_specs: &[ParameterBlockSpec],
+    options: &BlockwiseFitOptions,
+    rho: &Array1<f64>,
+) -> Result<(f64, Array1<f64>, bool), CustomFamilyError> {
+    let canonical =
+        gam_identifiability::canonical::canonicalize_for_identifiability_with_operating_scalars(
+            raw_specs,
+            pre_fit_operating_scalars(family, raw_specs)?,
+        )?;
+    let specs: &[ParameterBlockSpec] = &canonical.reduced_specs;
+    let penalty_counts = validate_blockspecs(specs)?;
+    let reduced_total: usize = specs.iter().map(|s| s.design.ncols()).sum();
+    let joint_specs = pulled_back_joint_penalty_specs(family, &canonical, reduced_total)?;
+    let label_layout = penalty_label_layout_with_joint(specs, penalty_counts, joint_specs)?;
+    if rho.len() != label_layout.initial_rho.len() {
+        return Err(CustomFamilyError::Optimization {
+            context: "evaluate_labeled_outer_criterion_for_diagnostics",
+            reason: format!(
+                "outer coordinate has {} entries but the labeled layout carries {}",
+                rho.len(),
+                label_layout.initial_rho.len()
+            ),
+        });
+    }
+    let eval = outerobjectivegradienthessian_labeled(
+        family,
+        specs,
+        options,
+        &label_layout,
+        rho,
+        None,
+        &gam_problem::RhoPrior::Flat,
+        EvalMode::ValueAndGradient,
+    )
+    .map_err(|reason| CustomFamilyError::Optimization {
+        context: "evaluate_labeled_outer_criterion_for_diagnostics",
+        reason,
+    })?;
+    Ok((eval.objective, eval.gradient, eval.inner_converged))
 }

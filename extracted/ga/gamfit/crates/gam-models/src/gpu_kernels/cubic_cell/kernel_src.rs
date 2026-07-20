@@ -164,10 +164,8 @@ const KERNEL_BODY: &str = r#"    const double* __restrict__ cell_left,
                 local_status = STATUS_INVALID;
             }
         } else if (branch == BRANCH_AFFINE_TAIL) {
-            // Host classifier vets c2/c3 against NORMALIZED_CELL_BRANCH_TOL
-            // (1e-10 by default); tails with material curvature never reach
-            // this kernel. We treat sub-tol c2/c3 as exact zero below so the
-            // q'-recurrence stays the only branch that runs and the device
+            // Host classifier vets c2/c3 as structurally zero.
+            // Tails with any curvature never reach this kernel, so the device
             // result matches `affine_anchor_moment_vector` byte-for-byte.
             if (!(R > L)) {
                 local_status = STATUS_INVALID;
@@ -269,9 +267,8 @@ const KERNEL_BODY: &str = r#"    const double* __restrict__ cell_left,
         double expL = 0.0, expR = 0.0;
         bool L_finite = isfinite(L);
         bool R_finite = isfinite(R);
-        // Affine path uses c2=c3=0 exactly so the q values agree with the
-        // CPU `affine_anchor_moment_vector` reference even when the host
-        // classifier let sub-tolerance c2/c3 through.
+        // Affine path uses c2=c3=0 exactly, matching the host's structural
+        // polynomial classifier and `affine_anchor_moment_vector` reference.
         if (L_finite) {
             qL = q_of_z(L, c0, c1, 0.0, 0.0);
             if (!isfinite(qL)) {

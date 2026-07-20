@@ -1,14 +1,25 @@
 use super::cell_moment_assembly::{
-    BernoulliInterceptSolveStats, fill_link_basis_cell_coeff_gradient,
-    fill_link_basis_cell_coeff_jet, fill_score_basis_cell_coeff_jet,
+    BernoulliInterceptSolveStats, EmpiricalBmsFourthJetSchedule, empirical_bms_fourth_jet_schedule,
+    fill_link_basis_cell_coeff_gradient, fill_link_basis_cell_coeff_jet,
+    fill_score_basis_cell_coeff_jet,
 };
 use super::exact_eval_cache::*;
 use super::family::*;
+use super::flex_row_program::{
+    BmsFlexCalibrationOrder2Node, BmsFlexCalibrationOrder3Node, BmsFlexCalibrationOrder4Node,
+    BmsFlexProgramPoint, BmsFlexRowOrder2FinalizerNode, BmsFlexRowOrder3FinalizerNode,
+    BmsFlexRowOrder4FinalizerNode, BmsFlexRowProgram,
+};
 use super::gradient_paths::*;
 use super::hessian_paths::*;
 use super::row_kernel::*;
 use super::*;
 use gam_math::probability::normal_logcdf_derivatives;
+
+#[inline]
+fn eval_coeff4_derivative_at(coefficients: &[f64; 4], z: f64) -> f64 {
+    (3.0 * coefficients[3] * z + 2.0 * coefficients[2]) * z + coefficients[1]
+}
 
 /// Second-order scalar moment payload for a cubic coefficient jet.
 ///
@@ -88,34 +99,42 @@ impl EmpiricalCubicPrimaryJet2Schedule<'_> {
         &self,
         moments: &EmpiricalCubicMomentJet2,
         dc_da: &[f64; 4],
+        dc_daa: &[f64; 4],
+        f_aa: &mut f64,
         f_u: &mut Array1<f64>,
         f_au: &mut Array1<f64>,
         f_uv: &mut Array2<f64>,
         moment_actions: &mut [[f64; 4]],
         need_hessian: bool,
     ) {
-        for &u in self.active {
-            f_u[u] += moments.linear(&self.first[u]);
-            if need_hessian {
-                moment_actions[u] = moments.action(&self.first[u]);
-                f_au[u] += moments.linear(&self.a_first[u]) - dot4(dc_da, &moment_actions[u]);
-            }
-        }
-        if !need_hessian {
-            return;
-        }
-        for (active_u, &u) in self.active.iter().enumerate() {
-            for &v in &self.active[active_u..] {
-                let mut value = -dot4(&self.first[u], &moment_actions[v]);
-                if u == 1 {
-                    value += moments.linear(&self.b_first[v]);
+        BmsFlexRowProgram::for_each_calibration_order2(
+            self.active,
+            need_hessian,
+            |node| match node {
+                BmsFlexCalibrationOrder2Node::InterceptFirst => {}
+                BmsFlexCalibrationOrder2Node::InterceptSecond => {
+                    *f_aa += moments.linear(dc_daa) - dot4(dc_da, &moments.action(dc_da));
                 }
-                f_uv[[u, v]] += value;
-                if u != v {
-                    f_uv[[v, u]] += value;
+                BmsFlexCalibrationOrder2Node::PrimaryFirst { primary } => {
+                    f_u[primary] += moments.linear(&self.first[primary]);
                 }
-            }
-        }
+                BmsFlexCalibrationOrder2Node::InterceptPrimarySecond { primary } => {
+                    moment_actions[primary] = moments.action(&self.first[primary]);
+                    f_au[primary] += moments.linear(&self.a_first[primary])
+                        - dot4(dc_da, &moment_actions[primary]);
+                }
+                BmsFlexCalibrationOrder2Node::PrimaryPairSecond { left, right } => {
+                    let mut value = -dot4(&self.first[left], &moment_actions[right]);
+                    if left == 1 {
+                        value += moments.linear(&self.b_first[right]);
+                    }
+                    f_uv[[left, right]] += value;
+                    if left != right {
+                        f_uv[[right, left]] += value;
+                    }
+                }
+            },
+        );
     }
 }
 
@@ -889,8 +908,7 @@ impl BernoulliMarginalSlopeFamily {
             row_primary_hessians: RowPrimaryEvalCache::Empty,
             rigid_third_full: gam_runtime::resource::RayonSafeOnce::new(),
             rigid_fourth_full: gam_runtime::resource::RayonSafeOnce::new(),
-            flex_axis_third_tensors: gam_runtime::resource::RayonSafeOnce::new(),
-            flex_axis_fourth_tensors: gam_runtime::resource::RayonSafeOnce::new(),
+            flex_row_program_derivatives: gam_runtime::resource::RayonSafeOnce::new(),
             full_data_outer_rows: std::sync::OnceLock::new(),
         })
     }
@@ -1013,7 +1031,7 @@ impl BernoulliMarginalSlopeFamily {
             return Ok(None);
         }
         // Empirical-grid rows take a non-cell code path inside
-        // `compute_row_analytic_flex_from_parts_into`, so the bundle would
+        // `lower_bms_flex_row_order2_from_parts`, so the bundle would
         // never be consulted. Skip the build to avoid wasted work.
         if !matches!(self.latent_measure, LatentMeasureKind::StandardNormal) {
             return Ok(None);
@@ -1241,10 +1259,10 @@ impl BernoulliMarginalSlopeFamily {
     /// Stage-2 device kernel in `crate::bms::gpu::row`. Returns `None`
     /// when any precondition fails (latent is not StandardNormal, the
     /// row-cell-moments bundle was not materialised, or score-warp /
-    /// link-deviation runtimes are missing); the caller then falls back to
-    /// the CPU rayon loop.
+    /// link-deviation runtimes are missing). A caller that selected GPU
+    /// execution treats `None` as an unsupported-input error.
     ///
-    /// The packed bundle mirrors `compute_row_analytic_flex_from_parts_into`
+    /// The packed bundle mirrors `lower_bms_flex_row_order2_from_parts`
     /// (`StandardNormal` branch at lines 9047–9314) field-for-field. The
     /// per-cell coefficient families are built here on the host (cheap
     /// scalar work) so the device kernel reads only flat SoA buffers and
@@ -1259,7 +1277,7 @@ impl BernoulliMarginalSlopeFamily {
 
         // ── Preconditions: the Stage-2 kernel only handles the StandardNormal
         //    cell-loop branch with a pre-built row-cell-moments bundle. The
-        //    empirical-grid branch and the per-row degree-9 fallback both
+        //    empirical-grid branch and the per-row degree-9 path both
         //    require additional packing the kernel does not consume yet.
         if !matches!(self.latent_measure, LatentMeasureKind::StandardNormal) {
             return Ok(None);
@@ -1269,7 +1287,7 @@ impl BernoulliMarginalSlopeFamily {
         };
         let primary = &cache.primary;
         let r = primary.total;
-        if r < 2 || r > crate::bms::gpu::row::MAX_R {
+        if r < 2 {
             return Ok(None);
         }
         let h_range = primary.h.clone();
@@ -1297,10 +1315,13 @@ impl BernoulliMarginalSlopeFamily {
         //    moments on the GPU via the cubic-cell substrate, attaching the
         //    resulting `CudaSlice<f64>` directly to the owned bundle so
         //    `launch_bms_flex_row_kernel` consumes it without a host
-        //    upload. The host fill stays as the fallback on hosts without
-        //    a runtime (and on every non-Linux build).
+        //    upload. Hosts without a runtime (and every non-Linux build)
+        //    populate the host buffer directly.
         #[cfg(target_os = "linux")]
-        let build_device_moments = gam_gpu::device_runtime::GpuRuntime::global().is_some();
+        let build_device_moments =
+            gam_gpu::device_runtime::GpuRuntime::resolve(gam_gpu::global_policy())
+                .map_err(String::from)?
+                .is_some();
         #[cfg(not(target_os = "linux"))]
         let build_device_moments = false;
 
@@ -1334,8 +1355,8 @@ impl BernoulliMarginalSlopeFamily {
         let mut row_y = Vec::<f64>::with_capacity(n);
         let mut row_w = Vec::<f64>::with_capacity(n);
         // #415: observed predictor VALUE η(a(θ), θ; z_obs) per row. The device
-        // kernel + `cpu_oracle_outputs` consume this directly as the Mills
-        // margin `s_y·e_obs`, matching the CPU family's `eta_val`.
+        // kernel consumes this directly as the Mills margin `s_y·e_obs`,
+        // matching the CPU family's `eta_val`.
         let mut row_e_obs = Vec::<f64>::with_capacity(n);
         let mut row_chi = Vec::<f64>::with_capacity(n);
         let mut row_xi = Vec::<f64>::with_capacity(n);
@@ -1366,14 +1387,10 @@ impl BernoulliMarginalSlopeFamily {
         } else {
             vec![0.0_f64; total_cells_us * moment_stride]
         };
-        // Per-cell SoA for the device cubic-cell substrate. Populated on
-        // every code path so the compiler sees `gpu_cells`/`gpu_branches`
-        // used unconditionally — the substrate dispatch below only fires
-        // when `build_device_moments` is true, but the small Vec push cost
-        // per cell is negligible compared to the moment compute itself.
+        // Per-cell SoA for the device cubic-cell substrate. The substrate owns
+        // canonical branch classification; this caller supplies only cell
+        // geometry, so its tolerance cannot drift from the kernel boundary.
         let mut gpu_cells: Vec<crate::gpu_kernels::cubic_cell::GpuDenestedCubicCell> =
-            Vec::with_capacity(total_cells_us);
-        let mut gpu_branches: Vec<crate::gpu_kernels::cubic_cell::GpuCellBranchTag> =
             Vec::with_capacity(total_cells_us);
 
         // Reusable per-row coefficient buffers. Same layout as
@@ -1547,18 +1564,9 @@ impl BernoulliMarginalSlopeFamily {
                     c2: cell.c2,
                     c3: cell.c3,
                 });
-                let branch = if !cell.left.is_finite() || !cell.right.is_finite() {
-                    crate::gpu_kernels::cubic_cell::GpuCellBranchTag::AffineTail
-                } else if cell.c2 == 0.0 && cell.c3 == 0.0 {
-                    crate::gpu_kernels::cubic_cell::GpuCellBranchTag::Affine
-                } else {
-                    crate::gpu_kernels::cubic_cell::GpuCellBranchTag::NonAffineFinite
-                };
-                gpu_branches.push(branch);
-
                 // cell_moments: copy state.moments, zero-pad to 10 — only
-                // when the host fallback path is in use. When the
-                // device-moment build is selected, this storage is
+                // when host moments are selected. When the device-moment
+                // build is selected, this storage is
                 // skipped entirely and the substrate produces moments
                 // directly on the GPU below.
                 if !build_device_moments {
@@ -1678,7 +1686,7 @@ impl BernoulliMarginalSlopeFamily {
 
         // ── Phase-4: when device-moment build was selected, dispatch the
         //    cubic-cell substrate now (all rows' cells were collected in
-        //    `gpu_cells` / `gpu_branches` during the per-row loop). The
+        //    `gpu_cells` during the per-row loop). The
         //    returned device buffer lives on the shared CUDA context the
         //    bms_flex_row backend also uses, so the launcher consumes it
         //    without any cross-context copying.
@@ -1686,115 +1694,57 @@ impl BernoulliMarginalSlopeFamily {
         let cell_moments_device: Option<cudarc::driver::CudaSlice<f64>> = if build_device_moments {
             use crate::gpu_kernels::cubic_cell::{
                 CubicCellDerivativeMomentHostView, CubicCellDerivativeMomentOutput,
-                CubicCellMomentResidency, try_build_cubic_cell_derivative_moments,
+                try_build_cubic_cell_derivative_moments,
             };
             // Sanity: the per-row loop must have produced exactly one
             // entry per cell index.
-            if gpu_cells.len() != total_cells_us || gpu_branches.len() != total_cells_us {
+            if gpu_cells.len() != total_cells_us {
                 return Err(format!(
-                    "bms_flex_row pack: gpu_cells.len()={} branches.len()={} mismatch total_cells={}",
+                    "bms_flex_row pack: gpu_cells.len()={} mismatch total_cells={}",
                     gpu_cells.len(),
-                    gpu_branches.len(),
                     total_cells_us
                 ));
             }
             let view = CubicCellDerivativeMomentHostView {
                 cells: &gpu_cells,
-                branches: &gpu_branches,
                 max_degree: crate::bms::gpu::row::MOMENT_STRIDE - 1,
-                residency: CubicCellMomentResidency::Device,
             };
-            // The GPU device-moment build is an OPTIONAL acceleration. On any
-            // GPU failure — NVRTC compile error, PTX-version load rejection
-            // (driver older than the toolkit's NVRTC), or kernel-launch
-            // failure — and on the substrate's own host-residency downgrade or
-            // an empty device buffer, fall back to filling the host moments
-            // from the CPU LRU cache so the fit ALWAYS completes. GPU
-            // re-engages automatically once the driver/toolkit can load the
-            // kernel; this mirrors the bms_flex row-kernel CPU fallback above.
-            match try_build_cubic_cell_derivative_moments(view) {
-                Ok(Some(CubicCellDerivativeMomentOutput::Device {
-                    d_moments,
-                    status,
-                    stride,
-                    n_cells,
-                })) => {
-                    if stride != crate::bms::gpu::row::MOMENT_STRIDE || n_cells != total_cells_us {
-                        return Err(format!(
-                            "bms_flex_row device-moment substrate returned bad shape: \
-                             stride={stride} n_cells={n_cells} expected stride={} cells={}",
-                            crate::bms::gpu::row::MOMENT_STRIDE,
-                            total_cells_us
-                        ));
-                    }
-                    // Any non-OK status means a cell the kernel refused; the
-                    // row buffer for that cell is zeroed, which is mathematically
-                    // OK (zero moments → zero contribution) but indicates a
-                    // classifier disagreement worth surfacing. Surface it with a
-                    // runtime log (identical in debug and release) rather than a
-                    // debug-only panic: the zeroed contribution is benign, so a
-                    // disagreement must not crash one build configuration while
-                    // the other sails through.
-                    let refused = status
-                        .iter()
-                        .filter(|&&s| {
-                            s != crate::gpu_kernels::cubic_cell::CubicCellMomentStatus::Ok as u8
-                        })
-                        .count();
-                    if refused > 0 {
-                        log::info!(
-                            "[BMS row-primary-hessian-cache] device-moment kernel refused \
-                             {refused}/{} cell(s) (status != Ok); their row buffers are zeroed \
-                             (a no-op contribution to the Hessian)",
-                            status.len()
-                        );
-                    }
-                    // The runtime path keeps the device buffer alive on the
-                    // owned bundle and lets the launcher feed it straight into
-                    // the row kernel.
-                    Some(d_moments)
-                }
-                degraded => {
-                    match &degraded {
-                        // Expected mid-flight downgrade to host residency — not
-                        // a failure, so no warning.
-                        Ok(Some(CubicCellDerivativeMomentOutput::Host { .. })) => {}
-                        Ok(_) => log::info!(
-                            "[BMS row-primary-hessian-cache] device-moment build returned no \
-                             device buffer; falling back to host moments"
-                        ),
-                        Err(err) => log::info!(
-                            "[BMS row-primary-hessian-cache] device-moment build failed: {err}; \
-                             falling back to host moments (GPU re-engages once the kernel loads)"
-                        ),
-                    }
-                    // Do the work the per-row loop skipped: re-fill
-                    // `cell_moments` from the existing CPU LRU cache entries.
-                    cell_moments = vec![0.0_f64; total_cells_us * moment_stride];
-                    for row_idx in 0..n {
-                        let start = cell_offsets[row_idx] as usize;
-                        let row_cells = bundle
-                            .row(row_idx, 9)
-                            .expect("row cell moments presence verified above");
-                        for (local_idx, entry) in row_cells.iter().enumerate() {
-                            let cell_idx = start + local_idx;
-                            let mom_base = cell_idx * moment_stride;
-                            let src_moments: &[f64] = &entry.state.moments;
-                            let copy_len = src_moments.len().min(moment_stride);
-                            for k in 0..copy_len {
-                                cell_moments[mom_base + k] = src_moments[k];
-                            }
-                        }
-                    }
-                    None
-                }
+            let CubicCellDerivativeMomentOutput {
+                d_moments,
+                status,
+                stride,
+                n_cells,
+            } = try_build_cubic_cell_derivative_moments(view)
+                .map_err(|err| format!("bms_flex_row device-moment build failed: {err}"))?
+                .ok_or_else(|| "bms_flex_row device-moment build returned no output".to_string())?;
+            if stride != crate::bms::gpu::row::MOMENT_STRIDE || n_cells != total_cells_us {
+                return Err(format!(
+                    "bms_flex_row device-moment substrate returned bad shape: \
+                     stride={stride} n_cells={n_cells} expected stride={} cells={}",
+                    crate::bms::gpu::row::MOMENT_STRIDE,
+                    total_cells_us
+                ));
             }
+            let refused = status
+                .iter()
+                .filter(|&&s| {
+                    s != crate::gpu_kernels::cubic_cell::CubicCellMomentStatus::Ok
+                })
+                .count();
+            if refused > 0 {
+                return Err(format!(
+                    "bms_flex_row device-moment kernel refused {refused}/{} cell(s)",
+                    status.len()
+                ));
+            }
+            // The runtime path keeps the device buffer alive on the owned
+            // bundle and lets the launcher feed it straight into the row kernel.
+            Some(d_moments)
         } else {
             None
         };
         // Free the now-unneeded scratch.
         drop(gpu_cells);
-        drop(gpu_branches);
 
         Ok(Some(crate::bms::gpu::row::BmsFlexRowKernelInputsOwned {
             n_rows: n,
@@ -1859,36 +1809,21 @@ impl BernoulliMarginalSlopeFamily {
             workspace_pinned,
         );
         let gpu_decision = crate::bms::gpu::flex::require_row_primary_hessian_supported(n, r)?;
-        // When the policy says GPU, eagerly probe the backend so any NVRTC
-        // compile / context init failure surfaces in the cache-decision log
-        // instead of at first dispatch. A probe returning `NoDeviceKernel`
-        // means this build has no device kernel for the path, so dispatch
-        // falls through to the (correct) CPU rows below.
+        // When policy selects GPU, backend readiness is part of the execution
+        // contract. A failed probe is surfaced immediately; silently changing
+        // algorithms after selection would make both performance and failure
+        // semantics data-dependent.
         if gpu_decision.use_gpu {
-            match crate::bms::gpu::flex::BmsFlexGpuBackend::probe() {
-                Ok(backend) => {
-                    if log_exact_work(n) {
-                        log::info!(
-                            "[BMS row-primary-hessian-cache] gpu_backend_ready: {}",
-                            backend.describe()
-                        );
-                    }
-                }
-                Err(gam_gpu::gpu_error::GpuError::NoDeviceKernel { reason }) => {
-                    log::info!(
-                        "[BMS row-primary-hessian-cache] gpu_no_device_kernel: {reason}; \
-                         using CPU rows"
-                    );
-                }
-                Err(err) => {
-                    log::info!(
-                        "[BMS row-primary-hessian-cache] gpu_backend_probe_failed: {err}; \
-                         falling back to CPU rows"
-                    );
-                }
+            let backend = crate::bms::gpu::flex::BmsFlexGpuBackend::probe()
+                .map_err(|err| format!("BMS FLEX GPU backend probe failed: {err}"))?;
+            if log_exact_work(n) {
+                log::info!(
+                    "[BMS row-primary-hessian-cache] gpu_backend_ready: {}",
+                    backend.describe()
+                );
             }
         }
-        if !plan.materialize {
+        if !plan.materialize && !gpu_decision.use_gpu {
             let tiled_budget_bytes = plan
                 .global_pin_budget_bytes
                 .saturating_sub(plan.workspace_pinned_bytes);
@@ -2001,126 +1936,89 @@ impl BernoulliMarginalSlopeFamily {
                 gpu_decision.reason,
             );
         }
-        // ── BMS-FLEX GPU milestone 1: when the policy says use_gpu *and* the
-        //    Stage-2 device kernel preconditions are met (StandardNormal
-        //    latent, row-cell-moments bundle present, optional score-warp /
-        //    link-deviation runtimes present), pack the host inputs once and
-        //    dispatch the row kernel. A successful launch returns the
-        //    `n × r²` row-major Hessian; the CPU rayon loop below is then
-        //    skipped. Any failure (`NoDeviceKernel`, driver errors, or
-        //    pack-time precondition mismatch) logs a one-liner and falls
-        //    through to the existing CPU path, preserving production
-        //    behaviour under `gpu=auto`. Under `gpu=required`, the upstream
-        //    `require_row_primary_hessian_supported` would already have
-        //    failed; here we still fall back on launch failure rather than
-        //    panic mid-fit.
+        // GPU selection is fail-closed: unsupported packed inputs and every
+        // backend error are returned to the caller. CPU execution remains a
+        // separate policy decision, never an implicit retry of a selected GPU
+        // algorithm.
         if gpu_decision.use_gpu {
-            match self.pack_bms_flex_row_kernel_inputs(block_states, cache)? {
-                Some(owned) => {
-                    // Phase-3: when both marginal/logslope designs expose a
-                    // contiguous dense view, take the device-resident path
-                    // that keeps the n×r² row Hessian + designs resident on
-                    // the GPU so subsequent HVP / diagonal launches do not
-                    // round-trip 626 MB through host memory.
-                    #[cfg(target_os = "linux")]
-                    {
-                        let marginal_dense = self.marginal_design.as_dense_ref();
-                        let logslope_dense = self.logslope_design.as_dense_ref();
-                        if let (Some(md), Some(gd)) = (marginal_dense, logslope_dense) {
-                            // Both designs must be row-major contiguous for the
-                            // device upload's `[n, p]` layout to be byte-correct.
-                            let md_is_rowmajor = md.is_standard_layout();
-                            let gd_is_rowmajor = gd.is_standard_layout();
-                            if md_is_rowmajor && gd_is_rowmajor {
-                                let block_layout = crate::bms::gpu::row::BmsFlexBlockLayout {
-                                    p_m: cache.slices.marginal.len(),
-                                    p_g: cache.slices.logslope.len(),
-                                    h: cache.slices.h.clone(),
-                                    w: cache.slices.w.clone(),
-                                    p_total: cache.slices.total,
-                                };
-                                let primary_layout = crate::bms::gpu::row::BmsFlexPrimaryLayout {
-                                    h: primary.h.clone(),
-                                    w: primary.w.clone(),
-                                    r: primary.total,
-                                };
-                                let md_slice = md
-                                    .as_slice()
-                                    .expect("dense marginal_design is row-major contiguous");
-                                let gd_slice = gd
-                                    .as_slice()
-                                    .expect("dense logslope_design is row-major contiguous");
-                                match crate::bms::gpu::row::launch_bms_flex_row_kernel_device_resident(
-                                    owned.as_borrowed(),
-                                    md_slice,
-                                    gd_slice,
-                                    block_layout,
-                                    primary_layout,
-                                ) {
-                                    Ok(device_state) => {
-                                        if log_exact_work(n) {
-                                            log::info!(
-                                                "[BMS row-primary-hessian-cache] gpu_device_resident_ok rows={} r={} elapsed={:.3}s",
-                                                n,
-                                                r,
-                                                started.elapsed().as_secs_f64()
-                                            );
-                                        }
-                                        drop(process_monitor_guard);
-                                        return Ok(RowPrimaryEvalCache::Device(device_state));
-                                    }
-                                    Err(err) => {
-                                        log::info!(
-                                            "[BMS row-primary-hessian-cache] gpu_device_resident_failed: {err}; \
-                                             falling back to host-pin GPU launch"
-                                        );
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    match crate::bms::gpu::row::launch_bms_flex_row_kernel(owned.as_borrowed()) {
-                        Ok(outputs) => {
-                            if log_exact_work(n) {
-                                log::info!(
-                                    "[BMS row-primary-hessian-cache] gpu_launch_ok rows={} r={} elapsed={:.3}s",
-                                    n,
-                                    r,
-                                    started.elapsed().as_secs_f64()
-                                );
-                            }
-                            let packed_neglog = Array1::<f64>::from_vec(outputs.neglog);
-                            let packed_grad =
-                                Array2::<f64>::from_shape_vec((n, r), outputs.grad)
-                                    .map_err(|err| format!("bms_flex_row grad shape: {err}"))?;
-                            let packed_hess =
-                                Array2::<f64>::from_shape_vec((n, r * r), outputs.hess)
-                                    .map_err(|err| format!("bms_flex_row hess shape: {err}"))?;
-                            drop(process_monitor_guard);
-                            return Ok(RowPrimaryEvalCache::Host(RowPrimaryEvalPin::new(
-                                packed_neglog,
-                                packed_grad,
-                                packed_hess,
-                                plan.bytes,
-                            )));
-                        }
-                        Err(err) => {
+            let owned = self
+                .pack_bms_flex_row_kernel_inputs(block_states, cache)?
+                .ok_or_else(|| {
+                    "BMS FLEX GPU selected for inputs unsupported by the row kernel".to_string()
+                })?;
+            // When both marginal/logslope designs expose a contiguous dense
+            // view, keep the n×r² row Hessian + designs resident for all
+            // subsequent HVP / diagonal launches.
+            #[cfg(target_os = "linux")]
+            {
+                let marginal_dense = self.marginal_design.as_dense_ref();
+                let logslope_dense = self.logslope_design.as_dense_ref();
+                if let (Some(md), Some(gd)) = (marginal_dense, logslope_dense) {
+                    if md.is_standard_layout() && gd.is_standard_layout() {
+                        let block_layout = crate::bms::gpu::row::BmsFlexBlockLayout {
+                            p_m: cache.slices.marginal.len(),
+                            p_g: cache.slices.logslope.len(),
+                            h: cache.slices.h.clone(),
+                            w: cache.slices.w.clone(),
+                            p_total: cache.slices.total,
+                        };
+                        let primary_layout = crate::bms::gpu::row::BmsFlexPrimaryLayout {
+                            h: primary.h.clone(),
+                            w: primary.w.clone(),
+                            r: primary.total,
+                        };
+                        let md_slice = md
+                            .as_slice()
+                            .expect("dense marginal_design is row-major contiguous");
+                        let gd_slice = gd
+                            .as_slice()
+                            .expect("dense logslope_design is row-major contiguous");
+                        let device_state =
+                            crate::bms::gpu::row::launch_bms_flex_row_kernel_device_resident(
+                                owned.as_borrowed(),
+                                md_slice,
+                                gd_slice,
+                                block_layout,
+                                primary_layout,
+                            )
+                            .map_err(|err| {
+                                format!("BMS FLEX device-resident row launch failed: {err}")
+                            })?;
+                        if log_exact_work(n) {
                             log::info!(
-                                "[BMS row-primary-hessian-cache] gpu_launch_failed: {err}; \
-                             falling back to CPU rows"
+                                "[BMS row-primary-hessian-cache] gpu_device_resident_ok rows={} r={} elapsed={:.3}s",
+                                n,
+                                r,
+                                started.elapsed().as_secs_f64()
                             );
                         }
-                    }
-                }
-                None => {
-                    if log_exact_work(n) {
-                        log::info!(
-                            "[BMS row-primary-hessian-cache] gpu_unsupported_inputs; \
-                             falling back to CPU rows"
-                        );
+                        drop(process_monitor_guard);
+                        return Ok(RowPrimaryEvalCache::Device(device_state));
                     }
                 }
             }
+            let outputs = crate::bms::gpu::row::launch_bms_flex_row_kernel(owned.as_borrowed())
+                .map_err(|err| format!("BMS FLEX row launch failed: {err}"))?;
+            if log_exact_work(n) {
+                log::info!(
+                    "[BMS row-primary-hessian-cache] gpu_launch_ok rows={} r={} elapsed={:.3}s",
+                    n,
+                    r,
+                    started.elapsed().as_secs_f64()
+                );
+            }
+            let packed_neglog = Array1::<f64>::from_vec(outputs.neglog);
+            let packed_grad = Array2::<f64>::from_shape_vec((n, r), outputs.grad)
+                .map_err(|err| format!("bms_flex_row grad shape: {err}"))?;
+            let packed_hess = Array2::<f64>::from_shape_vec((n, r * r), outputs.hess)
+                .map_err(|err| format!("bms_flex_row hess shape: {err}"))?;
+            drop(process_monitor_guard);
+            return Ok(RowPrimaryEvalCache::Host(RowPrimaryEvalPin::new(
+                packed_neglog,
+                packed_grad,
+                packed_hess,
+                plan.bytes,
+            )));
         }
         let completed_rows = AtomicUsize::new(0);
         let progress_step = (n / 10).max(1);
@@ -2228,7 +2126,7 @@ impl BernoulliMarginalSlopeFamily {
                             .row_cell_moments
                             .as_ref()
                             .and_then(|bundle| bundle.row(row, 9));
-                        let neglog = self.compute_row_analytic_flex_into_with_moments(
+                        let neglog = self.lower_bms_flex_row_order2_with_moments(
                             row,
                             block_states,
                             &cache.primary,
@@ -2310,9 +2208,8 @@ impl BernoulliMarginalSlopeFamily {
 
     /// Returns the cached row-primary (neglog, grad_row) for host-resident
     /// caches. Returns `None` when the cache is absent, device-resident, or
-    /// the row is out of range. Device-resident caches recompute the row
-    /// kernel on the rare CPU-fused-gradient fallback path; the GPU
-    /// dense-block kernel handles the hot path for them directly.
+    /// the row is out of range. Device consumers use their resident aggregate
+    /// kernel and never enter this host-row accessor.
     #[inline]
     pub(super) fn cached_row_primary_eval<'a>(
         cache: &'a BernoulliMarginalSlopeExactEvalCache,
@@ -2681,7 +2578,7 @@ impl BernoulliMarginalSlopeFamily {
         // Flex path: full IFT analytic kernel.
         if self.effective_flex_active(block_states)? {
             let mut scratch = BernoulliMarginalSlopeFlexRowScratch::new(primary.total);
-            let neglog = self.compute_row_analytic_flex_into(
+            let neglog = self.lower_bms_flex_row_order2(
                 row,
                 block_states,
                 primary,
@@ -2727,7 +2624,7 @@ impl BernoulliMarginalSlopeFamily {
                 .row_cell_moments
                 .as_ref()
                 .and_then(|bundle| bundle.row(row, 3));
-            self.compute_row_analytic_flex_into_with_moments(
+            self.lower_bms_flex_row_order2_with_moments(
                 row,
                 block_states,
                 primary,
@@ -2744,7 +2641,7 @@ impl BernoulliMarginalSlopeFamily {
         Ok((grad, hess))
     }
 
-    pub(super) fn compute_row_analytic_flex_into(
+    pub(super) fn lower_bms_flex_row_order2(
         &self,
         row: usize,
         block_states: &[ParameterBlockState],
@@ -2754,7 +2651,7 @@ impl BernoulliMarginalSlopeFamily {
         need_hessian: bool,
         scratch: &mut BernoulliMarginalSlopeFlexRowScratch,
     ) -> Result<f64, String> {
-        self.compute_row_analytic_flex_into_with_moments(
+        self.lower_bms_flex_row_order2_with_moments(
             row,
             block_states,
             primary,
@@ -2766,7 +2663,113 @@ impl BernoulliMarginalSlopeFamily {
         )
     }
 
-    pub(super) fn compute_row_analytic_flex_into_with_moments(
+    /// Assemble the full-coefficient Murphy–Topel channel
+    /// `d(score_beta,i)/d z_i` for a flex BMS fit.
+    ///
+    /// The row kernel produces the exact sensitivity in its compact primary
+    /// coordinates `(q, logslope, score_warp..., link_dev...)`. This method
+    /// applies the same pullback as the joint score/Hessian assembly: q and
+    /// logslope scatter through their fitted design rows, while deviation
+    /// primaries already are coefficient coordinates and copy directly. The
+    /// returned width must exactly equal the covariance frame; a partial or
+    /// padded result is an error.
+    pub(super) fn flex_score_zeta_sensitivity(
+        &self,
+        block_states: &[ParameterBlockState],
+        options: &BlockwiseFitOptions,
+        expected_beta_dim: usize,
+    ) -> Result<Array2<f64>, String> {
+        if !self.effective_flex_active(block_states)? {
+            return Err(
+                "BMS Murphy-Topel flex z-sensitivity requires an active score_warp or link_dev block"
+                    .to_string(),
+            );
+        }
+        // Murphy–Topel is a full-data covariance correction. Never inherit an
+        // outer-score subsample mask from an optimization probe.
+        let mut full_options = options.clone();
+        full_options.outer_score_subsample = None;
+        full_options.auto_outer_subsample = false;
+        let cache = self.build_or_reuse_shared_exact_cache(block_states, &full_options, false)?;
+        let slices = &cache.slices;
+        let primary = &cache.primary;
+        if slices.total != expected_beta_dim {
+            return Err(format!(
+                "BMS Murphy-Topel covariance/frame mismatch: active coefficient width {} != covariance width {expected_beta_dim}",
+                slices.total
+            ));
+        }
+        let marginal = self
+            .marginal_design
+            .try_to_dense_arc("BMS Murphy-Topel flex marginal design")?;
+        let logslope = self
+            .logslope_design
+            .try_to_dense_arc("BMS Murphy-Topel flex logslope design")?;
+        let n = self.y.len();
+        let mut out = Array2::<f64>::zeros((n, expected_beta_dim));
+        let out_slice = out
+            .as_slice_mut()
+            .ok_or_else(|| "BMS Murphy-Topel output matrix is not contiguous".to_string())?;
+        use rayon::iter::{IndexedParallelIterator, ParallelIterator};
+        use rayon::slice::ParallelSliceMut;
+        out_slice
+            .par_chunks_mut(expected_beta_dim)
+            .enumerate()
+            .try_for_each_init(
+                || BernoulliMarginalSlopeFlexRowScratch::new(primary.total),
+                |scratch, (row, dst)| -> Result<(), String> {
+                    let row_ctx = Self::row_ctx(&cache, row);
+                    let row_moments = cache
+                        .row_cell_moments
+                        .as_ref()
+                        .and_then(|bundle| bundle.row(row, 9));
+                    self.lower_bms_flex_row_order2_with_moments(
+                        row,
+                        block_states,
+                        primary,
+                        row_ctx,
+                        row_moments,
+                        cache.cell_family_forest.as_ref(),
+                        false,
+                        scratch,
+                    )?;
+                    let row_primary = &scratch.score_zeta;
+                    let q_sensitivity = row_primary[primary.q];
+                    for (j, &xij) in marginal.row(row).iter().enumerate() {
+                        dst[slices.marginal.start + j] = q_sensitivity * xij;
+                    }
+                    let g_sensitivity = row_primary[primary.logslope];
+                    for (j, &xij) in logslope.row(row).iter().enumerate() {
+                        dst[slices.logslope.start + j] = g_sensitivity * xij;
+                    }
+                    if let (Some(beta_range), Some(primary_range)) =
+                        (slices.h.as_ref(), primary.h.as_ref())
+                    {
+                        for offset in 0..beta_range.len() {
+                            dst[beta_range.start + offset] =
+                                row_primary[primary_range.start + offset];
+                        }
+                    }
+                    if let (Some(beta_range), Some(primary_range)) =
+                        (slices.w.as_ref(), primary.w.as_ref())
+                    {
+                        for offset in 0..beta_range.len() {
+                            dst[beta_range.start + offset] =
+                                row_primary[primary_range.start + offset];
+                        }
+                    }
+                    if dst.iter().any(|value| !value.is_finite()) {
+                        return Err(format!(
+                            "BMS Murphy-Topel coefficient z-sensitivity produced a non-finite value at row {row}"
+                        ));
+                    }
+                    Ok(())
+                },
+            )?;
+        Ok(out)
+    }
+
+    pub(super) fn lower_bms_flex_row_order2_with_moments(
         &self,
         row: usize,
         block_states: &[ParameterBlockState],
@@ -2781,7 +2784,7 @@ impl BernoulliMarginalSlopeFamily {
         let b = block_states[1].eta[row];
         let beta_h = self.score_beta(block_states)?;
         let beta_w = self.link_beta(block_states)?;
-        self.compute_row_analytic_flex_from_parts_into(
+        self.lower_bms_flex_row_order2_from_parts(
             row,
             primary,
             q,
@@ -2817,17 +2820,13 @@ impl BernoulliMarginalSlopeFamily {
     /// small for ordinary spline bases).
     /// Numerical parity with the independent runtime jet is pinned to ≤1e-9 by
     /// the value/gradient/full-Hessian moment oracle.
-    pub(super) fn flex_grid_calibration_derivs_compiled_jet2(
+    pub(super) fn lower_empirical_bms_calibration_order2(
         &self,
+        program: BmsFlexProgramPoint<'_>,
         empirical_grid: &crate::bms::EmpiricalZGrid,
-        primary: &PrimarySlices,
-        a: f64,
-        b: f64,
-        beta_h: Option<&Array1<f64>>,
-        beta_w: Option<&Array1<f64>>,
         need_hessian: bool,
         // Per-row coefficient scratch, owned by the caller and reused across rows
-        // (`compute_row_analytic_flex_from_parts_into` sizes these to `r` on its
+        // (`lower_bms_flex_row_order2_from_parts` sizes these to `r` on its
         // `BernoulliMarginalSlopeFlexRowScratch`). Threading them in keeps the
         // empirical-grid Hessian path allocation-free per row. The active-index
         // buffer is the output tape of the sparse coefficient-jet compiler.
@@ -2840,7 +2839,12 @@ impl BernoulliMarginalSlopeFamily {
         f_au: &mut Array1<f64>,
         f_uv: &mut Array2<f64>,
     ) -> Result<f64, String> {
-        let scale = self.probit_frailty_scale();
+        let a = program.intercept_root();
+        let primary = program.primary();
+        let b = program.slope();
+        let beta_h = program.beta_h();
+        let beta_w = program.beta_w();
+        let scale = program.scale();
         let h_range = primary.h.as_ref();
         let w_range = primary.w.as_ref();
         let score_runtime = self.score_warp.as_ref();
@@ -2966,9 +2970,6 @@ impl BernoulliMarginalSlopeFamily {
                 moments.push(node, weight * normal_pdf(eta), eta, need_hessian);
             }
 
-            if need_hessian {
-                f_aa += moments.linear(&obs.dc_daa) - dot4(&obs.dc_da, &moments.action(&obs.dc_da));
-            }
             EmpiricalCubicPrimaryJet2Schedule {
                 active: active_primaries,
                 first: coeff_u,
@@ -2978,6 +2979,8 @@ impl BernoulliMarginalSlopeFamily {
             .contract_into(
                 &moments,
                 &obs.dc_da,
+                &obs.dc_daa,
+                &mut f_aa,
                 f_u,
                 f_au,
                 f_uv,
@@ -2994,7 +2997,7 @@ impl BernoulliMarginalSlopeFamily {
         Ok(f_aa)
     }
 
-    pub(super) fn compute_row_analytic_flex_from_parts_into(
+    pub(super) fn lower_bms_flex_row_order2_from_parts(
         &self,
         row: usize,
         primary: &PrimarySlices,
@@ -3012,6 +3015,12 @@ impl BernoulliMarginalSlopeFamily {
 
         let r = primary.total;
         scratch.reset(need_hessian);
+        let empirical_grid = self.latent_measure.empirical_grid_for_training_row(row)?;
+        if empirical_grid.is_some() {
+            if !(row_ctx.intercept.is_finite() && row_ctx.m_a.is_finite() && row_ctx.m_a > 0.0) {
+                return Err("non-finite empirical flexible row context in VGH evaluation".into());
+            }
+        }
         // Reusable per-row coefficient buffers live on the scratch. Resize once
         // if the scratch was constructed for a different primary dimension; the
         // common case is `len == r` so this is a no-op.
@@ -3056,31 +3065,38 @@ impl BernoulliMarginalSlopeFamily {
         let zero_family: &[[f64; 4]] = scratch.zero_family.as_slice();
         let mut f_aa = 0.0f64;
 
-        if let Some(empirical_grid) = self.latent_measure.empirical_grid_for_training_row(row)? {
-            // #932 BMS-flex cutover: production routes the empirical-grid
-            // calibration derivatives through the per-denested-cell moment
-            // compiled factorization (`O(G + cells·k²)`), NOT the
-            // former hand per-node `O(G·r²)` loop. This compiled path is pinned
-            // at ≤1e-9 against the independent `empirical_flex_row_nll_jet2` grid
-            // jet AND an independent finite difference
-            // (`empirical_flex_row_nll_jet2_matches_hand_path_932`,
-            // `flex_factored_matches_jet2_degenerate_grids_932`,
-            // `hand_flex_grad_hess_matches_independent_fd_*_932`).
-            f_aa = self.flex_grid_calibration_derivs_compiled_jet2(
-                &*empirical_grid,
+        if let Some(grid) = empirical_grid.as_deref() {
+            // Pinned order-two lowering of the canonical empirical row
+            // algebra. The exact row context already owns the certified
+            // scalar root and Jacobian; materializing the full higher-order
+            // jet plan here would allocate one basis stack per grid node only
+            // to discard every field except that root. The sorted grid is
+            // compiled directly into per-cell cubic moments, preserving
+            // O(G + cells·k²) work and the allocation-free warmed VGH path.
+            let program = BmsFlexProgramPoint::new(
                 primary,
-                a,
                 b,
                 beta_h,
                 beta_w,
+                a,
+                inv_ma,
+                scale,
+                [
+                    marginal.mu,
+                    marginal.mu1,
+                    marginal.mu2,
+                    marginal.mu3,
+                    marginal.mu4,
+                ],
+            )?;
+            f_aa = self.lower_empirical_bms_calibration_order2(
+                program,
+                grid,
                 need_hessian,
                 coeff_u.as_mut_slice(),
                 coeff_au.as_mut_slice(),
                 coeff_bu.as_mut_slice(),
                 active_cell_primaries,
-                // The observed-point coefficient tape is dead until the
-                // calibration pass returns, then explicitly overwritten below.
-                // Reuse it for `H·c_u` actions: no cold-only scratch allocation.
                 g_u_fixed.as_mut_slice(),
                 f_u,
                 f_au,
@@ -3184,6 +3200,7 @@ impl BernoulliMarginalSlopeFamily {
                 let dc_db = scale_coeff4(dc_db_raw, scale);
 
                 coeff_u[1] = dc_db;
+                let mut dc_daa = [0.0; 4];
                 if need_hessian {
                     let (dc_daa_raw, dc_dab_raw, dc_dbb_raw) = exact::denested_cell_second_partials(
                         partition_cell.score_span,
@@ -3191,16 +3208,9 @@ impl BernoulliMarginalSlopeFamily {
                         a,
                         b,
                     );
-                    let dc_daa = scale_coeff4(dc_daa_raw, scale);
+                    dc_daa = scale_coeff4(dc_daa_raw, scale);
                     let dc_dab = scale_coeff4(dc_dab_raw, scale);
                     let dc_dbb = scale_coeff4(dc_dbb_raw, scale);
-                    f_aa += exact::cell_second_derivative_from_moments(
-                        cell,
-                        &dc_da,
-                        &dc_da,
-                        &dc_daa,
-                        &state.moments,
-                    )?;
                     coeff_au[1] = dc_dab;
                     coeff_bu[1] = dc_dbb;
                 }
@@ -3249,84 +3259,103 @@ impl BernoulliMarginalSlopeFamily {
                     )?;
                 }
 
-                for u in 1..r {
-                    f_u[u] +=
-                        exact::cell_first_derivative_from_moments(&coeff_u[u], &state.moments)?;
-                    if need_hessian {
-                        f_au[u] += exact::cell_second_derivative_from_moments(
-                            cell,
-                            &dc_da,
-                            &coeff_u[u],
-                            &coeff_au[u],
-                            &state.moments,
-                        )?;
-                    }
+                active_cell_primaries.clear();
+                active_cell_primaries.push(1);
+                if let Some(range) = h_range {
+                    active_cell_primaries.extend(range.clone().filter(|&primary| {
+                        cubic_coeff_jet_channel_is_nonzero(
+                            &coeff_u[primary],
+                            &coeff_au[primary],
+                            &coeff_bu[primary],
+                            need_hessian,
+                        )
+                    }));
+                }
+                if let Some(range) = w_range {
+                    active_cell_primaries.extend(range.clone().filter(|&primary| {
+                        cubic_coeff_jet_channel_is_nonzero(
+                            &coeff_u[primary],
+                            &coeff_au[primary],
+                            &coeff_bu[primary],
+                            need_hessian,
+                        )
+                    }));
                 }
 
-                if need_hessian {
-                    let coeff_jet = SparsePrimaryCoeffJetView::new(
-                        1,
-                        h_range,
-                        w_range,
-                        coeff_u.as_slice(),
-                        coeff_au.as_slice(),
-                        coeff_bu.as_slice(),
-                        zero_family,
-                        zero_family,
-                        zero_family,
-                        zero_family,
-                        zero_family,
-                        zero_family,
-                        zero_family,
-                    );
-                    for u in 1..r {
-                        for v in u..r {
-                            let second_coeff = coeff_jet.pair_from_b_family(
-                                coeff_jet.b_first,
-                                u,
-                                v,
-                                COEFF_SUPPORT_BHW,
-                            );
-                            let val = exact::cell_second_derivative_from_moments(
-                                cell,
-                                &coeff_jet.first[u],
-                                &coeff_jet.first[v],
-                                &second_coeff,
-                                &state.moments,
-                            )?;
-                            f_uv[[u, v]] += val;
-                            if u != v {
-                                f_uv[[v, u]] += val;
+                let coeff_jet = SparsePrimaryCoeffJetView::new(
+                    1,
+                    h_range,
+                    w_range,
+                    coeff_u.as_slice(),
+                    coeff_au.as_slice(),
+                    coeff_bu.as_slice(),
+                    zero_family,
+                    zero_family,
+                    zero_family,
+                    zero_family,
+                    zero_family,
+                    zero_family,
+                    zero_family,
+                );
+                BmsFlexRowProgram::try_for_each_calibration_order2(
+                    active_cell_primaries,
+                    need_hessian,
+                    |node| -> Result<(), String> {
+                        match node {
+                            BmsFlexCalibrationOrder2Node::InterceptFirst => {}
+                            BmsFlexCalibrationOrder2Node::InterceptSecond => {
+                                f_aa += exact::cell_second_derivative_from_moments(
+                                    cell,
+                                    &dc_da,
+                                    &dc_da,
+                                    &dc_daa,
+                                    &state.moments,
+                                )?;
+                            }
+                            BmsFlexCalibrationOrder2Node::PrimaryFirst { primary } => {
+                                f_u[primary] += exact::cell_first_derivative_from_moments(
+                                    &coeff_jet.first[primary],
+                                    &state.moments,
+                                )?;
+                            }
+                            BmsFlexCalibrationOrder2Node::InterceptPrimarySecond { primary } => {
+                                f_au[primary] += exact::cell_second_derivative_from_moments(
+                                    cell,
+                                    &dc_da,
+                                    &coeff_jet.first[primary],
+                                    &coeff_jet.a_first[primary],
+                                    &state.moments,
+                                )?;
+                            }
+                            BmsFlexCalibrationOrder2Node::PrimaryPairSecond { left, right } => {
+                                let second_coeff = coeff_jet.pair_from_b_family(
+                                    coeff_jet.b_first,
+                                    left,
+                                    right,
+                                    COEFF_SUPPORT_BHW,
+                                );
+                                let value = exact::cell_second_derivative_from_moments(
+                                    cell,
+                                    &coeff_jet.first[left],
+                                    &coeff_jet.first[right],
+                                    &second_coeff,
+                                    &state.moments,
+                                )?;
+                                f_uv[[left, right]] += value;
+                                if left != right {
+                                    f_uv[[right, left]] += value;
+                                }
                             }
                         }
-                    }
-                }
+                        Ok(())
+                    },
+                )?;
             }
         }
 
         f_u[0] = -marginal.mu1;
         if need_hessian {
             f_uv[[0, 0]] = -marginal.mu2;
-        }
-
-        let a_u = &mut scratch.a_u;
-        for u in 0..r {
-            a_u[u] = -f_u[u] * inv_ma;
-        }
-        self.cache_row_intercept_predictor(row, a, q, b, beta_h, beta_w, a_u);
-        let a_uv = &mut scratch.a_uv;
-        if need_hessian {
-            for u in 0..r {
-                for v in u..r {
-                    let val = -(f_uv[[u, v]]
-                        + f_au[u] * a_u[v]
-                        + f_au[v] * a_u[u]
-                        + f_aa * a_u[u] * a_u[v])
-                        * inv_ma;
-                    a_uv[[u, v]] = val;
-                    a_uv[[v, u]] = val;
-                }
-            }
         }
 
         let z_obs = self.z[row];
@@ -3404,54 +3433,90 @@ impl BernoulliMarginalSlopeFamily {
             zero_family,
         );
 
-        // `scratch.reset(need_hessian)` at the top of this function zeroed both
-        // `rho` and `tau` unconditionally, so no manual fill is needed here.
-        // `tau` is consumed only by the symmetric-Hessian assembly below, so
-        // its per-row eval_coeff4_at sweep is dead work in gradient-only mode.
-        let rho = &mut scratch.rho;
-        let tau = &mut scratch.tau;
-        for u in 1..r {
-            rho[u] = eval_coeff4_at(&g_jet.first[u], z_obs);
-        }
-        if need_hessian {
-            for u in 1..r {
-                tau[u] = eval_coeff4_at(&g_jet.a_first[u], z_obs);
-            }
-        }
-
-        let eta_u = &mut scratch.grad;
-        for u in 0..r {
-            eta_u[u] = chi_obs * a_u[u] + rho[u];
-        }
-
         let signed_margin = s_y * eta_val;
         let probit = normal_logcdf_derivatives(signed_margin);
         let neglog_val = -w_i * probit[0];
         let d1_m = -w_i * probit[1];
         let d2_m = -w_i * probit[2];
+        let eta_z = eval_coeff4_derivative_at(&obs.coeff, z_obs);
+        let chi_z = eval_coeff4_derivative_at(&obs.dc_da, z_obs);
 
+        let a_u = &mut scratch.a_u;
+        let a_uv = &mut scratch.a_uv;
+        let rho = &mut scratch.rho;
+        let tau = &mut scratch.tau;
+        let eta_u = &mut scratch.grad;
+        let score_zeta = &mut scratch.score_zeta;
+        let hess = &mut scratch.hess;
         if need_hessian {
-            let hess = &mut scratch.hess;
             hess.fill(0.0);
-            for u in 0..r {
-                for v in u..r {
-                    let r_uv = eval_coeff4_at(
-                        &g_jet.pair_from_b_family(g_jet.b_first, u, v, COEFF_SUPPORT_BHW),
-                        z_obs,
-                    );
-                    let eta_uv = chi_obs * a_uv[[u, v]]
-                        + eta_aa_obs * a_u[u] * a_u[v]
-                        + tau[u] * a_u[v]
-                        + a_u[u] * tau[v]
-                        + r_uv;
-                    let val = d2_m * eta_u[u] * eta_u[v] + d1_m * s_y * eta_uv;
-                    hess[[u, v]] = val;
-                    hess[[v, u]] = val;
-                }
-            }
         }
 
-        eta_u.mapv_inplace(|eu| d1_m * s_y * eu);
+        BmsFlexRowProgram::try_for_each_order2_finalizer(
+            r,
+            need_hessian,
+            |node| -> Result<(), String> {
+                match node {
+                    BmsFlexRowOrder2FinalizerNode::ImplicitFirst { primary } => {
+                        a_u[primary] = -f_u[primary] * inv_ma;
+                    }
+                    BmsFlexRowOrder2FinalizerNode::ImplicitFirstComplete => {
+                        self.cache_row_intercept_predictor(row, a, q, b, beta_h, beta_w, a_u);
+                    }
+                    BmsFlexRowOrder2FinalizerNode::ImplicitSecond { left, right } => {
+                        let value = -(f_uv[[left, right]]
+                            + f_au[left] * a_u[right]
+                            + f_au[right] * a_u[left]
+                            + f_aa * a_u[left] * a_u[right])
+                            * inv_ma;
+                        a_uv[[left, right]] = value;
+                        a_uv[[right, left]] = value;
+                    }
+                    BmsFlexRowOrder2FinalizerNode::ObservedFirst { primary } => {
+                        rho[primary] = eval_coeff4_at(&g_jet.first[primary], z_obs);
+                        if need_hessian {
+                            tau[primary] = eval_coeff4_at(&g_jet.a_first[primary], z_obs);
+                        }
+                        eta_u[primary] = chi_obs * a_u[primary] + rho[primary];
+                    }
+                    BmsFlexRowOrder2FinalizerNode::ObservedScoreSensitivity { primary } => {
+                        let rho_z = eval_coeff4_derivative_at(&g_jet.first[primary], z_obs);
+                        let eta_uz = chi_z * a_u[primary] + rho_z;
+                        score_zeta[primary] =
+                            -(d2_m * eta_z * eta_u[primary] + d1_m * s_y * eta_uz);
+                    }
+                    BmsFlexRowOrder2FinalizerNode::ObservedSecond { left, right } => {
+                        let fixed_second = eval_coeff4_at(
+                            &g_jet.pair_from_b_family(
+                                g_jet.b_first,
+                                left,
+                                right,
+                                COEFF_SUPPORT_BHW,
+                            ),
+                            z_obs,
+                        );
+                        let eta_second = chi_obs * a_uv[[left, right]]
+                            + eta_aa_obs * a_u[left] * a_u[right]
+                            + tau[left] * a_u[right]
+                            + a_u[left] * tau[right]
+                            + fixed_second;
+                        let value = d2_m * eta_u[left] * eta_u[right] + d1_m * s_y * eta_second;
+                        hess[[left, right]] = value;
+                        hess[[right, left]] = value;
+                    }
+                    BmsFlexRowOrder2FinalizerNode::NegLogFirst { primary } => {
+                        eta_u[primary] *= d1_m * s_y;
+                    }
+                }
+                Ok(())
+            },
+        )?;
+
+        if score_zeta.iter().any(|value| !value.is_finite()) {
+            return Err(format!(
+                "BMS Murphy-Topel flex z-sensitivity produced a non-finite value at row {row}"
+            ));
+        }
         Ok(neglog_val)
     }
 
@@ -3586,7 +3651,7 @@ impl BernoulliMarginalSlopeFamily {
     /// `rigid_third_full`).
     ///
     /// Each row's tensors are produced by the *slow* third-order cell-walk
-    /// worker (`row_primary_third_contracted_recompute_with_moments`) evaluated
+    /// worker (`row_primary_third_contracted_with_moments`) evaluated
     /// at the two primary-axis basis vectors `e_q`, `e_g` — so the cached
     /// values are the very contractions the per-axis path used to recompute,
     /// just computed once and reused.
@@ -3608,43 +3673,73 @@ impl BernoulliMarginalSlopeFamily {
         }
         // Allocate the per-row slot table once (one inner RayonSafeOnce per
         // global row), then build only the requested row on first touch.
-        let slots = cache.flex_axis_third_tensors.get_or_compute(|| {
+        let slots = cache.flex_row_program_derivatives.get_or_compute(|| {
             (0..self.y.len())
-                .map(|_| gam_runtime::resource::RayonSafeOnce::new())
+                .map(|_| BmsFlexRowProgramDerivativeCache::new())
                 .collect::<Vec<_>>()
         });
-        let stored = slots[row].get_or_compute(|| -> Result<FlexAxisThirdRowTensors, String> {
-            let r = cache.primary.total;
-            let mut e_q = Array1::<f64>::zeros(r);
-            e_q[cache.primary.q] = 1.0;
-            let mut e_g = Array1::<f64>::zeros(r);
-            e_g[cache.primary.logslope] = 1.0;
-            let row_ctx = Self::row_ctx(cache, row);
-            let t3_q = self.row_primary_third_contracted_recompute_with_moments(
-                row,
-                block_states,
-                cache,
-                row_ctx,
-                &e_q,
-            )?;
-            let t3_g = self.row_primary_third_contracted_recompute_with_moments(
-                row,
-                block_states,
-                cache,
-                row_ctx,
-                &e_g,
-            )?;
-            Ok(FlexAxisThirdRowTensors {
-                third: [t3_q, t3_g],
-            })
-        });
+        let stored =
+            slots[row]
+                .third
+                .get_or_compute(|| -> Result<FlexAxisThirdRowTensors, String> {
+                    let r = cache.primary.total;
+                    let mut e_q = Array1::<f64>::zeros(r);
+                    e_q[cache.primary.q] = 1.0;
+                    let mut e_g = Array1::<f64>::zeros(r);
+                    e_g[cache.primary.logslope] = 1.0;
+                    let row_ctx = Self::row_ctx(cache, row);
+                    let [t3_q, t3_g] = if let Some(grid) =
+                        self.latent_measure.empirical_grid_for_training_row(row)?
+                    {
+                        let point = self.primary_point_from_block_states(
+                            row,
+                            block_states,
+                            &cache.primary,
+                        )?;
+                        let (q, b, beta_h_owned, beta_w_owned) =
+                            self.primary_point_components(&point, &cache.primary);
+                        self.empirical_flex_row_third_contracted_many(
+                            row,
+                            &cache.primary,
+                            q,
+                            b,
+                            beta_h_owned.as_ref(),
+                            beta_w_owned.as_ref(),
+                            row_ctx,
+                            &[e_q, e_g],
+                            &grid,
+                        )?
+                        .try_into()
+                        .expect("two empirical BMS axis directions produce two contractions")
+                    } else {
+                        [
+                            self.row_primary_third_contracted_with_moments(
+                                row,
+                                block_states,
+                                cache,
+                                row_ctx,
+                                &e_q,
+                            )?,
+                            self.row_primary_third_contracted_with_moments(
+                                row,
+                                block_states,
+                                cache,
+                                row_ctx,
+                                &e_g,
+                            )?,
+                        ]
+                    };
+                    Ok(FlexAxisThirdRowTensors {
+                        third: [t3_q, t3_g],
+                    })
+                });
         let tensors = stored.as_ref().map_err(|err| err.clone())?;
         Ok(Some(tensors))
     }
 
     /// Lazily build the requested row's axis-projected fourth-derivative
-    /// tensors. Kept separate from [`Self::flex_axis_third_tensors_for_row`] so
-    /// first-order outer paths do not force degree-21 fourth-order cell work.
+    /// tensors. The fourth channel has its own lazy cell inside the same row
+    /// program cache, so first-order outer paths do not force degree-21 work.
     pub(super) fn flex_axis_fourth_tensors_for_row<'a>(
         &self,
         block_states: &[ParameterBlockState],
@@ -3654,58 +3749,88 @@ impl BernoulliMarginalSlopeFamily {
         if !self.effective_flex_active(block_states)? {
             return Ok(None);
         }
-        let slots = cache.flex_axis_fourth_tensors.get_or_compute(|| {
+        let slots = cache.flex_row_program_derivatives.get_or_compute(|| {
             (0..self.y.len())
-                .map(|_| gam_runtime::resource::RayonSafeOnce::new())
+                .map(|_| BmsFlexRowProgramDerivativeCache::new())
                 .collect::<Vec<_>>()
         });
-        let stored = slots[row].get_or_compute(|| -> Result<FlexAxisFourthRowTensors, String> {
-            let r = cache.primary.total;
-            let mut e_q = Array1::<f64>::zeros(r);
-            e_q[cache.primary.q] = 1.0;
-            let mut e_g = Array1::<f64>::zeros(r);
-            e_g[cache.primary.logslope] = 1.0;
-            let row_ctx = Self::row_ctx(cache, row);
-            let t4_qq = self.row_primary_fourth_contracted_recompute_ordered(
-                row,
-                block_states,
-                cache,
-                row_ctx,
-                &e_q,
-                &e_q,
-            )?;
-            let t4_gg = self.row_primary_fourth_contracted_recompute_ordered(
-                row,
-                block_states,
-                cache,
-                row_ctx,
-                &e_g,
-                &e_g,
-            )?;
-            let t4_qg_ordered = self.row_primary_fourth_contracted_recompute_ordered(
-                row,
-                block_states,
-                cache,
-                row_ctx,
-                &e_q,
-                &e_g,
-            )?;
-            let t4_qg_swapped = self.row_primary_fourth_contracted_recompute_ordered(
-                row,
-                block_states,
-                cache,
-                row_ctx,
-                &e_g,
-                &e_q,
-            )?;
-            let mut t4_qg = t4_qg_ordered;
-            t4_qg.zip_mut_with(&t4_qg_swapped, |a, &b| *a = 0.5 * (*a + b));
-            Ok(FlexAxisFourthRowTensors {
-                qq: t4_qq,
-                qg: t4_qg,
-                gg: t4_gg,
-            })
-        });
+        let stored =
+            slots[row]
+                .fourth
+                .get_or_compute(|| -> Result<FlexAxisFourthRowTensors, String> {
+                    let r = cache.primary.total;
+                    let mut e_q = Array1::<f64>::zeros(r);
+                    e_q[cache.primary.q] = 1.0;
+                    let mut e_g = Array1::<f64>::zeros(r);
+                    e_g[cache.primary.logslope] = 1.0;
+                    let row_ctx = Self::row_ctx(cache, row);
+                    let [t4_qq, t4_gg, t4_qg_ordered, t4_qg_swapped] = if let Some(grid) =
+                        self.latent_measure.empirical_grid_for_training_row(row)?
+                    {
+                        let point = self.primary_point_from_block_states(
+                            row,
+                            block_states,
+                            &cache.primary,
+                        )?;
+                        let (q, b, beta_h_owned, beta_w_owned) =
+                            self.primary_point_components(&point, &cache.primary);
+                        self.empirical_flex_row_fourth_contracted_many_ordered(
+                            row,
+                            &cache.primary,
+                            q,
+                            b,
+                            beta_h_owned.as_ref(),
+                            beta_w_owned.as_ref(),
+                            row_ctx,
+                            &[(&e_q, &e_q), (&e_g, &e_g), (&e_q, &e_g), (&e_g, &e_q)],
+                            &grid,
+                        )?
+                        .try_into()
+                        .expect("four empirical BMS axis pairs produce four contractions")
+                    } else {
+                        [
+                            self.row_primary_fourth_contracted_ordered(
+                                row,
+                                block_states,
+                                cache,
+                                row_ctx,
+                                &e_q,
+                                &e_q,
+                            )?,
+                            self.row_primary_fourth_contracted_ordered(
+                                row,
+                                block_states,
+                                cache,
+                                row_ctx,
+                                &e_g,
+                                &e_g,
+                            )?,
+                            self.row_primary_fourth_contracted_ordered(
+                                row,
+                                block_states,
+                                cache,
+                                row_ctx,
+                                &e_q,
+                                &e_g,
+                            )?,
+                            self.row_primary_fourth_contracted_ordered(
+                                row,
+                                block_states,
+                                cache,
+                                row_ctx,
+                                &e_g,
+                                &e_q,
+                            )?,
+                        ]
+                    };
+                    let mut t4_qg = t4_qg_ordered;
+                    t4_qg.zip_mut_with(&t4_qg_swapped, |a, &b| *a = 0.5 * (*a + b));
+                    Ok(FlexAxisFourthRowTensors {
+                        qq: t4_qq,
+                        qg: t4_qg,
+                        gg: t4_gg,
+                    })
+                });
         let tensors = stored.as_ref().map_err(|err| err.clone())?;
         Ok(Some(tensors))
     }
@@ -3719,7 +3844,7 @@ impl BernoulliMarginalSlopeFamily {
     /// already parallelize the outer row reductions with Rayon (`row_iter` /
     /// chunk `into_par_iter()` folds), which avoids nested Rayon overhead for
     /// the small per-row matrices assembled here.
-    pub(super) fn row_primary_third_contracted_recompute(
+    pub(super) fn row_primary_third_contracted(
         &self,
         row: usize,
         block_states: &[ParameterBlockState],
@@ -3745,16 +3870,10 @@ impl BernoulliMarginalSlopeFamily {
                 return Ok(out);
             }
         }
-        self.row_primary_third_contracted_recompute_with_moments(
-            row,
-            block_states,
-            cache,
-            row_ctx,
-            dir,
-        )
+        self.row_primary_third_contracted_with_moments(row, block_states, cache, row_ctx, dir)
     }
 
-    pub(super) fn row_primary_third_contracted_recompute_with_moments(
+    pub(super) fn row_primary_third_contracted_with_moments(
         &self,
         row: usize,
         block_states: &[ParameterBlockState],
@@ -3790,15 +3909,13 @@ impl BernoulliMarginalSlopeFamily {
                     .to_string(),
             );
         }
-        use super::exact_kernel as exact;
-
         let primary = &cache.primary;
         let point = self.primary_point_from_block_states(row, block_states, primary)?;
         let (q, b, beta_h_owned, beta_w_owned) = self.primary_point_components(&point, primary);
         let beta_h = beta_h_owned.as_ref();
         let beta_w = beta_w_owned.as_ref();
         if let Some(grid) = self.latent_measure.empirical_grid_for_training_row(row)? {
-            return self.empirical_flex_row_third_contracted_recompute(
+            return self.empirical_flex_row_third_contracted(
                 row, primary, q, b, beta_h, beta_w, row_ctx, dir, &grid,
             );
         }
@@ -3814,13 +3931,20 @@ impl BernoulliMarginalSlopeFamily {
 
         let mut f_a = 0.0;
         let mut f_aa = 0.0;
-        let mut f_a_dir = 0.0;
-        let mut f_aa_dir = 0.0;
         let mut f_u = Array1::<f64>::zeros(r);
         let mut f_au = Array1::<f64>::zeros(r);
-        let mut f_au_dir = Array1::<f64>::zeros(r);
         let mut f_uv = Array2::<f64>::zeros((r, r));
-        let mut f_uv_dir = Array2::<f64>::zeros((r, r));
+        let mut f_a_dirs = [0.0];
+        let mut f_aa_dirs = [0.0];
+        let mut f_au_dirs = vec![0.0; r];
+        let mut f_uv_dirs = vec![0.0; r * r];
+        // Intercept a-chain of the second-order calibration moments (see
+        // `accumulate_primary_third_cell_moments`): needed to make the
+        // directional third moments TOTAL derivatives through the moving
+        // intercept root (#2347).
+        let mut f_aaa = 0.0;
+        let mut f_aau = Array1::<f64>::zeros(r);
+        let mut f_auv = Array2::<f64>::zeros((r, r));
 
         let owned_cells;
         let cells: &[CachedDenestedCellMoments] = if let Some(cached) =
@@ -3841,264 +3965,43 @@ impl BernoulliMarginalSlopeFamily {
                 .collect::<Result<Vec<_>, String>>()?;
             &owned_cells
         };
-        for entry in cells {
-            let partition_cell = entry.partition_cell;
-            let cell = partition_cell.cell;
-            let z_mid = exact::interval_probe_point(cell.left, cell.right)?;
-            let u_mid = a + b * z_mid;
-            let state = &entry.state;
-
-            let (dc_da_raw, dc_db_raw) = exact::denested_cell_coefficient_partials(
-                partition_cell.score_span,
-                partition_cell.link_span,
-                a,
-                b,
-            );
-            let (dc_daa_raw, dc_dab_raw, dc_dbb_raw) = exact::denested_cell_second_partials(
-                partition_cell.score_span,
-                partition_cell.link_span,
-                a,
-                b,
-            );
-            let denested_third = exact::denested_cell_third_partials(partition_cell.link_span);
-            let dc_da = scale_coeff4(dc_da_raw, scale);
-            let dc_db = scale_coeff4(dc_db_raw, scale);
-            let dc_daa = scale_coeff4(dc_daa_raw, scale);
-            let dc_dab = scale_coeff4(dc_dab_raw, scale);
-            let dc_dbb = scale_coeff4(dc_dbb_raw, scale);
-            let dc_daab = scale_coeff4(denested_third.1, scale);
-            let dc_dabb = scale_coeff4(denested_third.2, scale);
-            let dc_dbbb = scale_coeff4(denested_third.3, scale);
-
-            let mut coeff_u = vec![[0.0; 4]; r];
-            let mut coeff_au = vec![[0.0; 4]; r];
-            let mut coeff_bu = vec![[0.0; 4]; r];
-            let mut coeff_aau = vec![[0.0; 4]; r];
-            let mut coeff_abu = vec![[0.0; 4]; r];
-            let mut coeff_bbu = vec![[0.0; 4]; r];
-
-            coeff_u[1] = dc_db;
-            coeff_au[1] = dc_dab;
-            coeff_bu[1] = dc_dbb;
-            coeff_aau[1] = dc_daab;
-            coeff_abu[1] = dc_dabb;
-            coeff_bbu[1] = dc_dbbb;
-
-            if let (Some(h_range), Some(runtime)) = (h_range, score_runtime) {
-                Self::for_each_deviation_basis_cubic_at(
-                    runtime,
-                    h_range,
-                    z_mid,
-                    "score-warp third-direction",
-                    |_, idx, basis_span| {
-                        fill_score_basis_cell_coeff_jet(
-                            idx,
-                            basis_span,
-                            b,
-                            scale,
-                            &mut coeff_u,
-                            &mut coeff_bu,
-                        );
-                        Ok(())
-                    },
-                )?;
-            }
-
-            if let (Some(w_range), Some(runtime)) = (w_range, link_runtime) {
-                Self::for_each_deviation_basis_cubic_at(
-                    runtime,
-                    w_range,
-                    u_mid,
-                    "link-wiggle third-direction",
-                    |_, idx, basis_span| {
-                        fill_link_basis_cell_coeff_jet(
-                            idx,
-                            basis_span,
-                            a,
-                            b,
-                            scale,
-                            &mut coeff_u,
-                            &mut coeff_au,
-                            &mut coeff_bu,
-                            &mut coeff_aau,
-                            &mut coeff_abu,
-                            &mut coeff_bbu,
-                        );
-                        Ok(())
-                    },
-                )?;
-            }
-
-            let coeff_jet = SparsePrimaryCoeffJetView::new(
-                1,
-                h_range,
-                w_range,
-                &coeff_u,
-                &coeff_au,
-                &coeff_bu,
-                &coeff_aau,
-                &coeff_abu,
-                &coeff_bbu,
-                &zero_family,
-                &zero_family,
-                &zero_family,
-                &zero_family,
-            );
-
-            f_a += exact::cell_first_derivative_from_moments(&dc_da, &state.moments)?;
-            f_aa += exact::cell_second_derivative_from_moments(
-                cell,
-                &dc_da,
-                &dc_da,
-                &dc_daa,
-                &state.moments,
-            )?;
-
-            for u in 1..r {
-                f_u[u] +=
-                    exact::cell_first_derivative_from_moments(&coeff_jet.first[u], &state.moments)?;
-                f_au[u] += exact::cell_second_derivative_from_moments(
-                    cell,
-                    &dc_da,
-                    &coeff_jet.first[u],
-                    &coeff_jet.a_first[u],
-                    &state.moments,
-                )?;
-            }
-            let coeff_dir = coeff_jet.directional_family(coeff_jet.first, dir, COEFF_SUPPORT_BHW);
-            let coeff_a_dir =
-                coeff_jet.directional_family(coeff_jet.a_first, dir, COEFF_SUPPORT_BW);
-            let coeff_aa_dir =
-                coeff_jet.directional_family(coeff_jet.aa_first, dir, COEFF_SUPPORT_BW);
-
-            f_a_dir += exact::cell_second_derivative_from_moments(
-                cell,
-                &dc_da,
-                &coeff_dir,
-                &coeff_a_dir,
-                &state.moments,
-            )?;
-            f_aa_dir += exact::cell_third_derivative_from_moments(
-                cell,
-                &dc_da,
-                &dc_da,
-                &coeff_dir,
-                &dc_daa,
-                &coeff_a_dir,
-                &coeff_a_dir,
-                &coeff_aa_dir,
-                &state.moments,
-            )?;
-
-            let mut coeff_u_dir = vec![[0.0; 4]; r];
-            let mut coeff_au_dir = vec![[0.0; 4]; r];
-            for u in 1..r {
-                coeff_u_dir[u] = coeff_jet.param_directional_from_b_family(
-                    coeff_jet.b_first,
-                    u,
-                    dir,
-                    COEFF_SUPPORT_BHW,
-                );
-                coeff_au_dir[u] = coeff_jet.param_directional_from_b_family(
-                    coeff_jet.ab_first,
-                    u,
-                    dir,
-                    COEFF_SUPPORT_BW,
-                );
-            }
-
-            for u in 1..r {
-                f_au_dir[u] += exact::cell_third_derivative_from_moments(
-                    cell,
-                    &dc_da,
-                    &coeff_jet.first[u],
-                    &coeff_dir,
-                    &coeff_jet.a_first[u],
-                    &coeff_a_dir,
-                    &coeff_u_dir[u],
-                    &coeff_au_dir[u],
-                    &state.moments,
-                )?;
-            }
-
-            for u in 1..r {
-                for v in u..r {
-                    let second_coeff =
-                        coeff_jet.pair_from_b_family(coeff_jet.b_first, u, v, COEFF_SUPPORT_BHW);
-                    let val = exact::cell_second_derivative_from_moments(
-                        cell,
-                        &coeff_jet.first[u],
-                        &coeff_jet.first[v],
-                        &second_coeff,
-                        &state.moments,
-                    )?;
-                    f_uv[[u, v]] += val;
-                    if u != v {
-                        f_uv[[v, u]] += val;
-                    }
-
-                    let third_coeff = coeff_jet.pair_directional_from_bb_family(
-                        coeff_jet.bb_first,
-                        u,
-                        v,
-                        dir,
-                        COEFF_SUPPORT_BW,
-                    );
-                    let dir_val = exact::cell_third_derivative_from_moments(
-                        cell,
-                        &coeff_jet.first[u],
-                        &coeff_jet.first[v],
-                        &coeff_dir,
-                        &second_coeff,
-                        &coeff_u_dir[u],
-                        &coeff_u_dir[v],
-                        &third_coeff,
-                        &state.moments,
-                    )?;
-                    f_uv_dir[[u, v]] += dir_val;
-                    if u != v {
-                        f_uv_dir[[v, u]] += dir_val;
-                    }
-                }
-            }
-        }
+        Self::accumulate_primary_third_cell_moments(
+            cells,
+            a,
+            b,
+            scale,
+            r,
+            h_range,
+            w_range,
+            score_runtime,
+            link_runtime,
+            &zero_family,
+            std::slice::from_ref(dir),
+            "score-warp third-direction",
+            "link-wiggle third-direction",
+            &mut f_a,
+            &mut f_aa,
+            &mut f_u,
+            &mut f_au,
+            &mut f_uv,
+            &mut f_a_dirs,
+            &mut f_aa_dirs,
+            &mut f_au_dirs,
+            &mut f_uv_dirs,
+            &mut f_aaa,
+            &mut f_aau,
+            &mut f_auv,
+        )?;
+        let f_a_dir = f_a_dirs[0];
+        let f_aa_dir = f_aa_dirs[0];
+        let f_au_dir = Array1::from_vec(f_au_dirs);
+        let mut f_uv_dir = Array2::from_shape_vec((r, r), f_uv_dirs)
+            .map_err(|error| format!("invalid BMS third-direction moment shape: {error}"))?;
 
         f_u[0] = -marginal.mu1;
         f_uv[[0, 0]] = -marginal.mu2;
-        f_uv_dir[[0, 0]] = -dir[0] * marginal.mu3;
 
         let inv_f_a = 1.0 / f_a;
-        let mut a_u = Array1::<f64>::zeros(r);
-        for u in 0..r {
-            a_u[u] = -f_u[u] * inv_f_a;
-        }
-        let mut a_uv = Array2::<f64>::zeros((r, r));
-        for u in 0..r {
-            for v in u..r {
-                let val =
-                    -(f_uv[[u, v]] + f_au[u] * a_u[v] + f_au[v] * a_u[u] + f_aa * a_u[u] * a_u[v])
-                        * inv_f_a;
-                a_uv[[u, v]] = val;
-                a_uv[[v, u]] = val;
-            }
-        }
-        let a_dir = a_u.dot(dir);
-        let a_u_dir = a_uv.dot(dir);
-        let mut a_uv_dir = Array2::<f64>::zeros((r, r));
-        for u in 0..r {
-            for v in u..r {
-                let n_dir = f_uv_dir[[u, v]]
-                    + f_au_dir[u] * a_u[v]
-                    + f_au[u] * a_u_dir[v]
-                    + f_au_dir[v] * a_u[u]
-                    + f_au[v] * a_u_dir[u]
-                    + f_aa_dir * a_u[u] * a_u[v]
-                    + f_aa * (a_u_dir[u] * a_u[v] + a_u[u] * a_u_dir[v]);
-                let val = -(n_dir + f_a_dir * a_uv[[u, v]]) * inv_f_a;
-                a_uv_dir[[u, v]] = val;
-                a_uv_dir[[v, u]] = val;
-            }
-        }
 
         let z_obs = self.z[row];
         let u_obs = a + b * z_obs;
@@ -4184,112 +4087,6 @@ impl BernoulliMarginalSlopeFamily {
         let g_a = eval_coeff4_at(&obs.dc_da, z_obs);
         let g_aa = eval_coeff4_at(&obs.dc_daa, z_obs);
         let g_aaa = eval_coeff4_at(&obs.dc_daaa, z_obs);
-        let mut g_u = Array1::<f64>::zeros(r);
-        let mut g_au = Array1::<f64>::zeros(r);
-        let mut g_aau = Array1::<f64>::zeros(r);
-        let mut g_uv = Array2::<f64>::zeros((r, r));
-        let mut g_auv = Array2::<f64>::zeros((r, r));
-        for u in 1..r {
-            g_u[u] = eval_coeff4_at(&g_jet.first[u], z_obs);
-            g_au[u] = eval_coeff4_at(&g_jet.a_first[u], z_obs);
-            g_aau[u] = eval_coeff4_at(&g_jet.aa_first[u], z_obs);
-        }
-        for u in 1..r {
-            for v in u..r {
-                let second_coeff = g_jet.pair_from_b_family(g_jet.b_first, u, v, COEFF_SUPPORT_BHW);
-                let val = eval_coeff4_at(&second_coeff, z_obs);
-                g_uv[[u, v]] = val;
-                g_uv[[v, u]] = val;
-
-                let third_coeff = g_jet.pair_from_b_family(g_jet.ab_first, u, v, COEFF_SUPPORT_BW);
-                let third_val = eval_coeff4_at(&third_coeff, z_obs);
-                g_auv[[u, v]] = third_val;
-                g_auv[[v, u]] = third_val;
-            }
-        }
-
-        let mut g_u_dir_fixed = vec![[0.0; 4]; r];
-        let mut g_au_dir_fixed = vec![[0.0; 4]; r];
-        let g_dir_fixed = g_jet.directional_family(g_jet.first, dir, COEFF_SUPPORT_BHW);
-        let g_a_dir_fixed = g_jet.directional_family(g_jet.a_first, dir, COEFF_SUPPORT_BW);
-        let g_aa_dir_fixed = g_jet.directional_family(g_jet.aa_first, dir, COEFF_SUPPORT_BW);
-        let g_dir = eval_coeff4_at(&g_dir_fixed, z_obs);
-        let g_a_dir = eval_coeff4_at(&g_a_dir_fixed, z_obs);
-        let g_aa_dir = eval_coeff4_at(&g_aa_dir_fixed, z_obs);
-
-        for u in 1..r {
-            g_u_dir_fixed[u] =
-                g_jet.param_directional_from_b_family(g_jet.b_first, u, dir, COEFF_SUPPORT_BHW);
-            g_au_dir_fixed[u] =
-                g_jet.param_directional_from_b_family(g_jet.ab_first, u, dir, COEFF_SUPPORT_BW);
-        }
-
-        let mut g_u_dir = Array1::<f64>::zeros(r);
-        let mut g_uv_dir = Array2::<f64>::zeros((r, r));
-        for u in 1..r {
-            g_u_dir[u] = eval_coeff4_at(&g_u_dir_fixed[u], z_obs);
-        }
-        for u in 1..r {
-            for v in u..r {
-                let third_coeff = g_jet.pair_directional_from_bb_family(
-                    g_jet.bb_first,
-                    u,
-                    v,
-                    dir,
-                    COEFF_SUPPORT_BW,
-                );
-                let val = eval_coeff4_at(&third_coeff, z_obs);
-                g_uv_dir[[u, v]] = val;
-                g_uv_dir[[v, u]] = val;
-            }
-        }
-
-        let eta_u = g_a * &a_u + &g_u;
-        let mut eta_uv = Array2::<f64>::zeros((r, r));
-        for u in 0..r {
-            for v in u..r {
-                let val = g_a * a_uv[[u, v]]
-                    + g_aa * a_u[u] * a_u[v]
-                    + g_au[u] * a_u[v]
-                    + g_au[v] * a_u[u]
-                    + g_uv[[u, v]];
-                eta_uv[[u, v]] = val;
-                eta_uv[[v, u]] = val;
-            }
-        }
-        let eta_dir = g_a * a_dir + g_dir;
-        let eta_u_dir = eta_uv.dot(dir);
-        let dg_a_dir = g_aa * a_dir + g_a_dir;
-        let dg_aa_dir = g_aaa * a_dir + g_aa_dir;
-        let mut dg_au_dir = Array1::<f64>::zeros(r);
-        let mut dg_uv_dir = Array2::<f64>::zeros((r, r));
-        for u in 0..r {
-            dg_au_dir[u] = g_aau[u] * a_dir + eval_coeff4_at(&g_au_dir_fixed[u], z_obs);
-        }
-        for u in 0..r {
-            for v in u..r {
-                let val = g_auv[[u, v]] * a_dir + g_uv_dir[[u, v]];
-                dg_uv_dir[[u, v]] = val;
-                dg_uv_dir[[v, u]] = val;
-            }
-        }
-
-        let mut eta_uv_dir = Array2::<f64>::zeros((r, r));
-        for u in 0..r {
-            for v in u..r {
-                let val = dg_a_dir * a_uv[[u, v]]
-                    + g_a * a_uv_dir[[u, v]]
-                    + dg_aa_dir * a_u[u] * a_u[v]
-                    + g_aa * (a_u_dir[u] * a_u[v] + a_u[u] * a_u_dir[v])
-                    + dg_au_dir[u] * a_u[v]
-                    + g_au[u] * a_u_dir[v]
-                    + dg_au_dir[v] * a_u[u]
-                    + g_au[v] * a_u_dir[u]
-                    + dg_uv_dir[[u, v]];
-                eta_uv_dir[[u, v]] = val;
-                eta_uv_dir[[v, u]] = val;
-            }
-        }
 
         let y_i = self.y[row];
         let w_i = self.weights[row];
@@ -4299,18 +4096,174 @@ impl BernoulliMarginalSlopeFamily {
         let u1 = s_y * k1;
         let u3 = s_y * k3;
 
+        let mut a_u = Array1::<f64>::zeros(r);
+        let mut a_uv = Array2::<f64>::zeros((r, r));
+        let mut a_dir = 0.0;
+        let mut a_u_dir = Array1::<f64>::zeros(r);
+        let mut a_uv_dir = Array2::<f64>::zeros((r, r));
+        let mut g_u = Array1::<f64>::zeros(r);
+        let mut g_au = Array1::<f64>::zeros(r);
+        let mut g_aau = Array1::<f64>::zeros(r);
+        let mut g_uv = Array2::<f64>::zeros((r, r));
+        let mut g_auv = Array2::<f64>::zeros((r, r));
+        let mut eta_u = Array1::<f64>::zeros(r);
+        let mut eta_uv = Array2::<f64>::zeros((r, r));
+        let mut eta_dir = 0.0;
+        let mut eta_u_dir = Array1::<f64>::zeros(r);
+        let mut dg_a_dir = 0.0;
+        let mut dg_aa_dir = 0.0;
+        let mut dg_au_dir = Array1::<f64>::zeros(r);
+        let mut eta_uv_dir = Array2::<f64>::zeros((r, r));
         let mut out = Array2::<f64>::zeros((r, r));
-        for u in 0..r {
-            for v in u..r {
-                let val = u3 * eta_u[u] * eta_u[v] * eta_dir
-                    + k2 * (eta_uv[[u, v]] * eta_dir
-                        + eta_u[u] * eta_u_dir[v]
-                        + eta_u[v] * eta_u_dir[u])
-                    + u1 * eta_uv_dir[[u, v]];
-                out[[u, v]] = val;
-                out[[v, u]] = val;
+
+        BmsFlexRowProgram::try_for_each_order3_finalizer(r, 1, |node| -> Result<(), String> {
+            match node {
+                BmsFlexRowOrder3FinalizerNode::Order2(
+                    BmsFlexRowOrder2FinalizerNode::ImplicitFirst { primary },
+                ) => {
+                    a_u[primary] = -f_u[primary] * inv_f_a;
+                }
+                BmsFlexRowOrder3FinalizerNode::Order2(
+                    BmsFlexRowOrder2FinalizerNode::ImplicitSecond { left, right },
+                ) => {
+                    let value = -(f_uv[[left, right]]
+                        + f_au[left] * a_u[right]
+                        + f_au[right] * a_u[left]
+                        + f_aa * a_u[left] * a_u[right])
+                        * inv_f_a;
+                    a_uv[[left, right]] = value;
+                    a_uv[[right, left]] = value;
+                }
+                BmsFlexRowOrder3FinalizerNode::Order2(
+                    BmsFlexRowOrder2FinalizerNode::ObservedFirst { primary },
+                ) => {
+                    if primary > 0 {
+                        g_u[primary] = eval_coeff4_at(&g_jet.first[primary], z_obs);
+                        g_au[primary] = eval_coeff4_at(&g_jet.a_first[primary], z_obs);
+                        g_aau[primary] = eval_coeff4_at(&g_jet.aa_first[primary], z_obs);
+                    }
+                    eta_u[primary] = g_a * a_u[primary] + g_u[primary];
+                }
+                BmsFlexRowOrder3FinalizerNode::Order2(
+                    BmsFlexRowOrder2FinalizerNode::ObservedSecond { left, right },
+                ) => {
+                    if left > 0 {
+                        let second_coeff =
+                            g_jet.pair_from_b_family(g_jet.b_first, left, right, COEFF_SUPPORT_BHW);
+                        g_uv[[left, right]] = eval_coeff4_at(&second_coeff, z_obs);
+                        g_uv[[right, left]] = g_uv[[left, right]];
+                        let third_coeff =
+                            g_jet.pair_from_b_family(g_jet.ab_first, left, right, COEFF_SUPPORT_BW);
+                        g_auv[[left, right]] = eval_coeff4_at(&third_coeff, z_obs);
+                        g_auv[[right, left]] = g_auv[[left, right]];
+                    }
+                    let value = g_a * a_uv[[left, right]]
+                        + g_aa * a_u[left] * a_u[right]
+                        + g_au[left] * a_u[right]
+                        + g_au[right] * a_u[left]
+                        + g_uv[[left, right]];
+                    eta_uv[[left, right]] = value;
+                    eta_uv[[right, left]] = value;
+                }
+                BmsFlexRowOrder3FinalizerNode::Order2(
+                    BmsFlexRowOrder2FinalizerNode::ImplicitFirstComplete
+                    | BmsFlexRowOrder2FinalizerNode::ObservedScoreSensitivity { .. }
+                    | BmsFlexRowOrder2FinalizerNode::NegLogFirst { .. },
+                ) => {
+                    // The row context already owns the converged intercept;
+                    // score-z sensitivity and first-order output mutation
+                    // are not dependencies of a third contraction.
+                }
+                BmsFlexRowOrder3FinalizerNode::DirectionStart { .. } => {
+                    f_uv_dir[[0, 0]] = -dir[0] * marginal.mu3;
+                    a_dir = a_u.dot(dir);
+                    a_u_dir.assign(&a_uv.dot(dir));
+                    let g_dir_fixed = g_jet.directional_family(g_jet.first, dir, COEFF_SUPPORT_BHW);
+                    let g_a_dir_fixed =
+                        g_jet.directional_family(g_jet.a_first, dir, COEFF_SUPPORT_BW);
+                    let g_aa_dir_fixed =
+                        g_jet.directional_family(g_jet.aa_first, dir, COEFF_SUPPORT_BW);
+                    eta_dir = g_a * a_dir + eval_coeff4_at(&g_dir_fixed, z_obs);
+                    eta_u_dir.assign(&eta_uv.dot(dir));
+                    dg_a_dir = g_aa * a_dir + eval_coeff4_at(&g_a_dir_fixed, z_obs);
+                    dg_aa_dir = g_aaa * a_dir + eval_coeff4_at(&g_aa_dir_fixed, z_obs);
+                }
+                BmsFlexRowOrder3FinalizerNode::ImplicitDirectionalSecond {
+                    left, right, ..
+                } => {
+                    // The intercept `a(θ)` moves with the direction, so the
+                    // explicit (a-fixed) directional calibration moments must be
+                    // promoted to TOTAL directional derivatives before entering
+                    // the third-order IFT: `d/d_dir f = f_dir_explicit +
+                    // (∂f/∂a)·a_dir`. `∂f_a/∂a = f_aa`, `∂f_aa/∂a = f_aaa`,
+                    // `∂f_au[p]/∂a = f_aau[p]`, `∂f_uv[l,r]/∂a = f_auv[l,r]`.
+                    // Omitting this a-chain is the #2347 defect.
+                    let f_uv_dir_total = f_uv_dir[[left, right]] + f_auv[[left, right]] * a_dir;
+                    let f_au_dir_left = f_au_dir[left] + f_aau[left] * a_dir;
+                    let f_au_dir_right = f_au_dir[right] + f_aau[right] * a_dir;
+                    let f_aa_dir_total = f_aa_dir + f_aaa * a_dir;
+                    let f_a_dir_total = f_a_dir + f_aa * a_dir;
+                    let numerator = f_uv_dir_total
+                        + f_au_dir_left * a_u[right]
+                        + f_au[left] * a_u_dir[right]
+                        + f_au_dir_right * a_u[left]
+                        + f_au[right] * a_u_dir[left]
+                        + f_aa_dir_total * a_u[left] * a_u[right]
+                        + f_aa * (a_u_dir[left] * a_u[right] + a_u[left] * a_u_dir[right]);
+                    let value = -(numerator + f_a_dir_total * a_uv[[left, right]]) * inv_f_a;
+                    a_uv_dir[[left, right]] = value;
+                    a_uv_dir[[right, left]] = value;
+                }
+                BmsFlexRowOrder3FinalizerNode::ObservedDirectionalFirst { primary, .. } => {
+                    let coefficient = g_jet.param_directional_from_b_family(
+                        g_jet.ab_first,
+                        primary,
+                        dir,
+                        COEFF_SUPPORT_BW,
+                    );
+                    dg_au_dir[primary] =
+                        g_aau[primary] * a_dir + eval_coeff4_at(&coefficient, z_obs);
+                }
+                BmsFlexRowOrder3FinalizerNode::ObservedDirectionalSecond {
+                    left, right, ..
+                } => {
+                    let fixed = if left == 0 {
+                        0.0
+                    } else {
+                        let coefficient = g_jet.pair_directional_from_bb_family(
+                            g_jet.bb_first,
+                            left,
+                            right,
+                            dir,
+                            COEFF_SUPPORT_BW,
+                        );
+                        eval_coeff4_at(&coefficient, z_obs)
+                    };
+                    let dg_uv_dir = g_auv[[left, right]] * a_dir + fixed;
+                    let value = dg_a_dir * a_uv[[left, right]]
+                        + g_a * a_uv_dir[[left, right]]
+                        + dg_aa_dir * a_u[left] * a_u[right]
+                        + g_aa * (a_u_dir[left] * a_u[right] + a_u[left] * a_u_dir[right])
+                        + dg_au_dir[left] * a_u[right]
+                        + g_au[left] * a_u_dir[right]
+                        + dg_au_dir[right] * a_u[left]
+                        + g_au[right] * a_u_dir[left]
+                        + dg_uv_dir;
+                    eta_uv_dir[[left, right]] = value;
+                    eta_uv_dir[[right, left]] = value;
+                }
+                BmsFlexRowOrder3FinalizerNode::NegLogThird { left, right, .. } => {
+                    let value = u3 * eta_u[left] * eta_u[right] * eta_dir
+                        + k2 * (eta_uv[[left, right]] * eta_dir
+                            + eta_u[left] * eta_u_dir[right]
+                            + eta_u[right] * eta_u_dir[left])
+                        + u1 * eta_uv_dir[[left, right]];
+                    out[[left, right]] = value;
+                    out[[right, left]] = value;
+                }
             }
-        }
+            Ok(())
+        })?;
         Ok(out)
     }
 
@@ -4530,16 +4483,9 @@ impl BernoulliMarginalSlopeFamily {
         let beta_h = beta_h_owned.as_ref();
         let beta_w = beta_w_owned.as_ref();
         if let Some(grid) = self.latent_measure.empirical_grid_for_training_row(row)? {
-            let mut grad = Array1::<f64>::zeros(r);
-            for dir_idx in 0..r {
-                let mut basis = Array1::<f64>::zeros(r);
-                basis[dir_idx] = 1.0;
-                let third = self.empirical_flex_row_third_contracted_recompute(
-                    row, primary, q, b, beta_h, beta_w, row_ctx, &basis, &grid,
-                )?;
-                grad[dir_idx] = Self::row_primary_trace_contract(&third, gram);
-            }
-            return Ok(grad);
+            return self.empirical_flex_row_third_trace_gradient(
+                row, primary, q, b, beta_h, beta_w, row_ctx, gram, &grid,
+            );
         }
 
         use super::exact_kernel as exact;
@@ -4558,6 +4504,12 @@ impl BernoulliMarginalSlopeFamily {
         let mut f_u = Array1::<f64>::zeros(r);
         let mut f_au = Array1::<f64>::zeros(r);
         let mut f_uv = Array2::<f64>::zeros((r, r));
+        // Intercept a-chain moments (#2347): a-derivatives of the second-order
+        // calibration moments, needed to promote the reverse-mode directional
+        // moment adjoints to TOTAL derivatives through the moving intercept root.
+        let mut f_aaa = 0.0;
+        let mut f_aau = Array1::<f64>::zeros(r);
+        let mut f_auv = Array2::<f64>::zeros((r, r));
 
         let owned_cells;
         let cells: &[CachedDenestedCellMoments] = if let Some(cached) =
@@ -4604,6 +4556,7 @@ impl BernoulliMarginalSlopeFamily {
             let dc_daa = scale_coeff4(dc_daa_raw, scale);
             let dc_dab = scale_coeff4(dc_dab_raw, scale);
             let dc_dbb = scale_coeff4(dc_dbb_raw, scale);
+            let dc_daaa = scale_coeff4(denested_third.0, scale);
             let dc_daab = scale_coeff4(denested_third.1, scale);
             let dc_dabb = scale_coeff4(denested_third.2, scale);
             let dc_dbbb = scale_coeff4(denested_third.3, scale);
@@ -4716,6 +4669,46 @@ impl BernoulliMarginalSlopeFamily {
                     f_uv[[u, v]] += val;
                     if u != v {
                         f_uv[[v, u]] += val;
+                    }
+                }
+            }
+            // Intercept a-chain moments (#2347): ∂ₐ of the second-order moments.
+            f_aaa += exact::cell_third_derivative_from_moments(
+                cell, &dc_da, &dc_da, &dc_da, &dc_daa, &dc_daa, &dc_daa, &dc_daaa, &state.moments,
+            )?;
+            for u in 1..r {
+                f_aau[u] += exact::cell_third_derivative_from_moments(
+                    cell,
+                    &dc_da,
+                    &dc_da,
+                    &coeff_jet.first[u],
+                    &dc_daa,
+                    &coeff_jet.a_first[u],
+                    &coeff_jet.a_first[u],
+                    &coeff_jet.aa_first[u],
+                    &state.moments,
+                )?;
+            }
+            for u in 1..r {
+                for v in u..r {
+                    let second_lr =
+                        coeff_jet.pair_from_b_family(coeff_jet.b_first, u, v, COEFF_SUPPORT_BHW);
+                    let third_alr =
+                        coeff_jet.pair_from_b_family(coeff_jet.ab_first, u, v, COEFF_SUPPORT_BW);
+                    let val = exact::cell_third_derivative_from_moments(
+                        cell,
+                        &dc_da,
+                        &coeff_jet.first[u],
+                        &coeff_jet.first[v],
+                        &coeff_jet.a_first[u],
+                        &coeff_jet.a_first[v],
+                        &second_lr,
+                        &third_alr,
+                        &state.moments,
+                    )?;
+                    f_auv[[u, v]] += val;
+                    if u != v {
+                        f_auv[[v, u]] += val;
                     }
                 }
             }
@@ -4992,6 +4985,22 @@ impl BernoulliMarginalSlopeFamily {
         }
         direction_adjoint[0] -= adj_f_uv_dir[[0, 0]] * marginal.mu3;
 
+        // Intercept a-chain (#2347), reverse mode. The forward directional
+        // moments are TOTAL derivatives f_dir_total = f_dir_explicit +
+        // (∂f/∂a)·a_dir, so the adjoints of those moments flow back to a_dir
+        // through the a-derivative moments: ∂f_a/∂a=f_aa, ∂f_aa/∂a=f_aaa,
+        // ∂f_au[p]/∂a=f_aau[p], ∂f_uv[l,r]/∂a=f_auv[l,r]. (Index-0 entries carry
+        // no a-dependence — f_aau[0]=f_auv[0,·]=0 — so they contribute nothing.)
+        adj_a_dir += adj_f_a_dir * f_aa + adj_f_aa_dir * f_aaa;
+        for p in 0..r {
+            adj_a_dir += adj_f_au_dir[p] * f_aau[p];
+        }
+        for u in 0..r {
+            for v in u..r {
+                adj_a_dir += adj_f_uv_dir[[u, v]] * f_auv[[u, v]];
+            }
+        }
+
         for u in 0..r {
             let adj = adj_a_u_dir[u];
             if adj != 0.0 {
@@ -5240,14 +5249,12 @@ impl BernoulliMarginalSlopeFamily {
     /// Accumulate the per-cell primary third-order Newton-assembly moments for
     /// a batched directional contraction.
     ///
-    /// Shared inner `for entry in cells { … }` loop of
-    /// [`Self::row_primary_third_trace_many_with_moments`] and
-    /// [`Self::row_primary_third_contracted_many_with_moments`]: both walk the
-    /// same denested cells, build the same sparse coefficient jet, and add the
-    /// same first/second/third cell-moment derivatives into the `f_*`
-    /// accumulators. The two call sites previously inlined byte-identical
-    /// copies differing only in the diagnostic `score_label` / `link_label`
-    /// strings threaded into the deviation-basis iterators.
+    /// Shared inner cell program of
+    /// [`Self::row_primary_third_contracted_with_moments`],
+    /// [`Self::row_primary_third_contracted_many_with_moments`], and
+    /// [`Self::row_primary_third_trace_many_with_moments`]. All consumers
+    /// interpret the same declarative Order2/Order3 node stream; only the
+    /// diagnostic labels threaded into the deviation-basis compiler differ.
     pub(crate) fn accumulate_primary_third_cell_moments(
         cells: &[CachedDenestedCellMoments],
         a: f64,
@@ -5271,6 +5278,9 @@ impl BernoulliMarginalSlopeFamily {
         f_aa_dir: &mut [f64],
         f_au_dir: &mut [f64],
         f_uv_dir: &mut [f64],
+        f_aaa: &mut f64,
+        f_aau: &mut Array1<f64>,
+        f_auv: &mut Array2<f64>,
     ) -> Result<(), String> {
         use super::exact_kernel as exact;
 
@@ -5299,6 +5309,9 @@ impl BernoulliMarginalSlopeFamily {
             let dc_daa = scale_coeff4(dc_daa_raw, scale);
             let dc_dab = scale_coeff4(dc_dab_raw, scale);
             let dc_dbb = scale_coeff4(dc_dbb_raw, scale);
+            // `denested_third.0` is `∂³coeff/∂a³` (`dc_daaa`); the intercept
+            // a-chain of the second-order moments (below) needs it.
+            let dc_daaa = scale_coeff4(denested_third.0, scale);
             let dc_daab = scale_coeff4(denested_third.1, scale);
             let dc_dabb = scale_coeff4(denested_third.2, scale);
             let dc_dbbb = scale_coeff4(denested_third.3, scale);
@@ -5378,135 +5391,255 @@ impl BernoulliMarginalSlopeFamily {
                 zero_family,
             );
 
-            *f_a += exact::cell_first_derivative_from_moments(&dc_da, &state.moments)?;
-            *f_aa += exact::cell_second_derivative_from_moments(
+            BmsFlexRowProgram::try_for_each_calibration_order2_contiguous(
+                1..r,
+                true,
+                |node| -> Result<(), String> {
+                    match node {
+                        BmsFlexCalibrationOrder2Node::InterceptFirst => {
+                            *f_a +=
+                                exact::cell_first_derivative_from_moments(&dc_da, &state.moments)?;
+                        }
+                        BmsFlexCalibrationOrder2Node::InterceptSecond => {
+                            *f_aa += exact::cell_second_derivative_from_moments(
+                                cell,
+                                &dc_da,
+                                &dc_da,
+                                &dc_daa,
+                                &state.moments,
+                            )?;
+                        }
+                        BmsFlexCalibrationOrder2Node::PrimaryFirst { primary } => {
+                            f_u[primary] += exact::cell_first_derivative_from_moments(
+                                &coeff_jet.first[primary],
+                                &state.moments,
+                            )?;
+                        }
+                        BmsFlexCalibrationOrder2Node::InterceptPrimarySecond { primary } => {
+                            f_au[primary] += exact::cell_second_derivative_from_moments(
+                                cell,
+                                &dc_da,
+                                &coeff_jet.first[primary],
+                                &coeff_jet.a_first[primary],
+                                &state.moments,
+                            )?;
+                        }
+                        BmsFlexCalibrationOrder2Node::PrimaryPairSecond { left, right } => {
+                            let second_coeff = coeff_jet.pair_from_b_family(
+                                coeff_jet.b_first,
+                                left,
+                                right,
+                                COEFF_SUPPORT_BHW,
+                            );
+                            let value = exact::cell_second_derivative_from_moments(
+                                cell,
+                                &coeff_jet.first[left],
+                                &coeff_jet.first[right],
+                                &second_coeff,
+                                &state.moments,
+                            )?;
+                            f_uv[[left, right]] += value;
+                            if left != right {
+                                f_uv[[right, left]] += value;
+                            }
+                        }
+                    }
+                    Ok(())
+                },
+            )?;
+
+            // Intercept a-chain of the second-order calibration moments:
+            // `f_aaa = ∂³M/∂a³`, `f_aau[p] = ∂³M/∂a²∂θp`, `f_auv[l,r] = ∂³M/∂a∂θl∂θr`,
+            // where `M(a, θ)` is the calibration moment `∫ μ(η) φ`. These are the
+            // pieces the third-order intercept IFT needs to promote the (a-fixed)
+            // explicit directional moments `f_*_dir` into TOTAL directional
+            // derivatives: the intercept `a(θ)` moves with every primary
+            // direction, so `d/d_dir f_uv = f_uv_dir_explicit + f_auv·a_dir`
+            // (and likewise for `f_a`, `f_aa`, `f_au`). Dropping this a-chain is
+            // the #2347 defect (pure-q third off by the whole `f_aaa·a_q³ +
+            // f_aa·a_q·a_qq` block). Only `a` moves here, so these are ordinary
+            // third moments with the intercept coefficient `dc_da` occupying one,
+            // two, or three of the derivative slots. Index 0 (the marginal `q`)
+            // enters `M` only through `a`, so its rows/entries stay zero — the
+            // `1..r` loops below leave them untouched, matching the manual
+            // `-mu*` q-corrections applied by the callers.
+            *f_aaa += exact::cell_third_derivative_from_moments(
                 cell,
                 &dc_da,
                 &dc_da,
+                &dc_da,
                 &dc_daa,
+                &dc_daa,
+                &dc_daa,
+                &dc_daaa,
                 &state.moments,
             )?;
-            for u in 1..r {
-                f_u[u] +=
-                    exact::cell_first_derivative_from_moments(&coeff_jet.first[u], &state.moments)?;
-                f_au[u] += exact::cell_second_derivative_from_moments(
-                    cell,
-                    &dc_da,
-                    &coeff_jet.first[u],
-                    &coeff_jet.a_first[u],
-                    &state.moments,
-                )?;
-            }
-            for u in 1..r {
-                for v in u..r {
-                    let second_coeff =
-                        coeff_jet.pair_from_b_family(coeff_jet.b_first, u, v, COEFF_SUPPORT_BHW);
-                    let val = exact::cell_second_derivative_from_moments(
-                        cell,
-                        &coeff_jet.first[u],
-                        &coeff_jet.first[v],
-                        &second_coeff,
-                        &state.moments,
-                    )?;
-                    f_uv[[u, v]] += val;
-                    if u != v {
-                        f_uv[[v, u]] += val;
-                    }
-                }
-            }
-
-            for (dir_idx, dir) in row_dirs.iter().enumerate() {
-                let coeff_dir =
-                    coeff_jet.directional_family(coeff_jet.first, dir, COEFF_SUPPORT_BHW);
-                let coeff_a_dir =
-                    coeff_jet.directional_family(coeff_jet.a_first, dir, COEFF_SUPPORT_BW);
-                let coeff_aa_dir =
-                    coeff_jet.directional_family(coeff_jet.aa_first, dir, COEFF_SUPPORT_BW);
-
-                f_a_dir[dir_idx] += exact::cell_second_derivative_from_moments(
-                    cell,
-                    &dc_da,
-                    &coeff_dir,
-                    &coeff_a_dir,
-                    &state.moments,
-                )?;
-                f_aa_dir[dir_idx] += exact::cell_third_derivative_from_moments(
+            for primary in 1..r {
+                f_aau[primary] += exact::cell_third_derivative_from_moments(
                     cell,
                     &dc_da,
                     &dc_da,
-                    &coeff_dir,
+                    &coeff_jet.first[primary],
                     &dc_daa,
-                    &coeff_a_dir,
-                    &coeff_a_dir,
-                    &coeff_aa_dir,
+                    &coeff_jet.a_first[primary],
+                    &coeff_jet.a_first[primary],
+                    &coeff_jet.aa_first[primary],
                     &state.moments,
                 )?;
-
-                let mut coeff_u_dir = vec![[0.0; 4]; r];
-                let mut coeff_au_dir = vec![[0.0; 4]; r];
-                for u in 1..r {
-                    coeff_u_dir[u] = coeff_jet.param_directional_from_b_family(
+            }
+            for left in 1..r {
+                for right in left..r {
+                    let second_lr = coeff_jet.pair_from_b_family(
                         coeff_jet.b_first,
-                        u,
-                        dir,
+                        left,
+                        right,
                         COEFF_SUPPORT_BHW,
                     );
-                    coeff_au_dir[u] = coeff_jet.param_directional_from_b_family(
+                    let third_alr = coeff_jet.pair_from_b_family(
                         coeff_jet.ab_first,
-                        u,
-                        dir,
+                        left,
+                        right,
                         COEFF_SUPPORT_BW,
                     );
-                }
-
-                for u in 1..r {
-                    f_au_dir[dir_idx * r + u] += exact::cell_third_derivative_from_moments(
+                    let value = exact::cell_third_derivative_from_moments(
                         cell,
                         &dc_da,
-                        &coeff_jet.first[u],
-                        &coeff_dir,
-                        &coeff_jet.a_first[u],
-                        &coeff_a_dir,
-                        &coeff_u_dir[u],
-                        &coeff_au_dir[u],
+                        &coeff_jet.first[left],
+                        &coeff_jet.first[right],
+                        &coeff_jet.a_first[left],
+                        &coeff_jet.a_first[right],
+                        &second_lr,
+                        &third_alr,
                         &state.moments,
                     )?;
-                }
-
-                let dir_base = dir_idx * r * r;
-                for u in 1..r {
-                    for v in u..r {
-                        let second_coeff = coeff_jet.pair_from_b_family(
-                            coeff_jet.b_first,
-                            u,
-                            v,
-                            COEFF_SUPPORT_BHW,
-                        );
-                        let third_coeff = coeff_jet.pair_directional_from_bb_family(
-                            coeff_jet.bb_first,
-                            u,
-                            v,
-                            dir,
-                            COEFF_SUPPORT_BW,
-                        );
-                        let dir_val = exact::cell_third_derivative_from_moments(
-                            cell,
-                            &coeff_jet.first[u],
-                            &coeff_jet.first[v],
-                            &coeff_dir,
-                            &second_coeff,
-                            &coeff_u_dir[u],
-                            &coeff_u_dir[v],
-                            &third_coeff,
-                            &state.moments,
-                        )?;
-                        f_uv_dir[dir_base + u * r + v] += dir_val;
-                        if u != v {
-                            f_uv_dir[dir_base + v * r + u] += dir_val;
-                        }
+                    f_auv[[left, right]] += value;
+                    if left != right {
+                        f_auv[[right, left]] += value;
                     }
                 }
             }
+
+            let mut coeff_dir = [0.0; 4];
+            let mut coeff_a_dir = [0.0; 4];
+            let mut coeff_aa_dir = [0.0; 4];
+            let mut coeff_u_dir = vec![[0.0; 4]; r];
+            let mut coeff_au_dir = vec![[0.0; 4]; r];
+            BmsFlexRowProgram::try_for_each_calibration_order3_contiguous(
+                1..r,
+                row_dirs.len(),
+                |node| -> Result<(), String> {
+                    match node {
+                        BmsFlexCalibrationOrder3Node::DirectionStart { direction } => {
+                            let dir = &row_dirs[direction];
+                            coeff_dir = coeff_jet.directional_family(
+                                coeff_jet.first,
+                                dir,
+                                COEFF_SUPPORT_BHW,
+                            );
+                            coeff_a_dir = coeff_jet.directional_family(
+                                coeff_jet.a_first,
+                                dir,
+                                COEFF_SUPPORT_BW,
+                            );
+                            coeff_aa_dir = coeff_jet.directional_family(
+                                coeff_jet.aa_first,
+                                dir,
+                                COEFF_SUPPORT_BW,
+                            );
+                            for primary in 1..r {
+                                coeff_u_dir[primary] = coeff_jet.param_directional_from_b_family(
+                                    coeff_jet.b_first,
+                                    primary,
+                                    dir,
+                                    COEFF_SUPPORT_BHW,
+                                );
+                                coeff_au_dir[primary] = coeff_jet.param_directional_from_b_family(
+                                    coeff_jet.ab_first,
+                                    primary,
+                                    dir,
+                                    COEFF_SUPPORT_BW,
+                                );
+                            }
+                        }
+                        BmsFlexCalibrationOrder3Node::InterceptDirectionalSecond { direction } => {
+                            f_a_dir[direction] += exact::cell_second_derivative_from_moments(
+                                cell,
+                                &dc_da,
+                                &coeff_dir,
+                                &coeff_a_dir,
+                                &state.moments,
+                            )?;
+                        }
+                        BmsFlexCalibrationOrder3Node::InterceptDirectionalThird { direction } => {
+                            f_aa_dir[direction] += exact::cell_third_derivative_from_moments(
+                                cell,
+                                &dc_da,
+                                &dc_da,
+                                &coeff_dir,
+                                &dc_daa,
+                                &coeff_a_dir,
+                                &coeff_a_dir,
+                                &coeff_aa_dir,
+                                &state.moments,
+                            )?;
+                        }
+                        BmsFlexCalibrationOrder3Node::InterceptPrimaryDirectionalThird {
+                            direction,
+                            primary,
+                        } => {
+                            f_au_dir[direction * r + primary] +=
+                                exact::cell_third_derivative_from_moments(
+                                    cell,
+                                    &dc_da,
+                                    &coeff_jet.first[primary],
+                                    &coeff_dir,
+                                    &coeff_jet.a_first[primary],
+                                    &coeff_a_dir,
+                                    &coeff_u_dir[primary],
+                                    &coeff_au_dir[primary],
+                                    &state.moments,
+                                )?;
+                        }
+                        BmsFlexCalibrationOrder3Node::PrimaryPairDirectionalThird {
+                            direction,
+                            left,
+                            right,
+                        } => {
+                            let dir = &row_dirs[direction];
+                            let second_coeff = coeff_jet.pair_from_b_family(
+                                coeff_jet.b_first,
+                                left,
+                                right,
+                                COEFF_SUPPORT_BHW,
+                            );
+                            let third_coeff = coeff_jet.pair_directional_from_bb_family(
+                                coeff_jet.bb_first,
+                                left,
+                                right,
+                                dir,
+                                COEFF_SUPPORT_BW,
+                            );
+                            let value = exact::cell_third_derivative_from_moments(
+                                cell,
+                                &coeff_jet.first[left],
+                                &coeff_jet.first[right],
+                                &coeff_dir,
+                                &second_coeff,
+                                &coeff_u_dir[left],
+                                &coeff_u_dir[right],
+                                &third_coeff,
+                                &state.moments,
+                            )?;
+                            let base = direction * r * r;
+                            f_uv_dir[base + left * r + right] += value;
+                            if left != right {
+                                f_uv_dir[base + right * r + left] += value;
+                            }
+                        }
+                    }
+                    Ok(())
+                },
+            )?;
         }
 
         Ok(())
@@ -5521,8 +5654,7 @@ impl BernoulliMarginalSlopeFamily {
         row_dirs: &[Array1<f64>],
         gram: &[f64],
     ) -> Result<Vec<f64>, String> {
-        let primary = &cache.primary;
-        let r = primary.total;
+        let r = cache.primary.total;
         if row_dirs.is_empty() {
             return Ok(Vec::new());
         }
@@ -5539,7 +5671,6 @@ impl BernoulliMarginalSlopeFamily {
                 dir.len()
             ));
         }
-
         if row_dirs.len() > 1 {
             let trace_gradient = self.row_primary_third_trace_gradient_with_moments(
                 row,
@@ -5548,336 +5679,27 @@ impl BernoulliMarginalSlopeFamily {
                 row_ctx,
                 gram,
             )?;
-            let traces = row_dirs
+            return Ok(row_dirs
                 .iter()
-                .map(|dir| trace_gradient.dot(dir))
-                .collect::<Vec<_>>();
-            return Ok(traces);
+                .map(|direction| trace_gradient.dot(direction))
+                .collect());
         }
 
-        if !self.effective_flex_active(block_states)? {
-            let t = self.rigid_third_full_cached(block_states, cache, row)?;
-            let mut traces = vec![0.0; row_dirs.len()];
-            for (dir_idx, dir) in row_dirs.iter().enumerate() {
-                let m = contract_third_full(t, dir[0], dir[1]);
-                traces[dir_idx] = m[0][0] * gram[0]
-                    + m[0][1] * gram[1]
-                    + m[1][0] * gram[r]
-                    + m[1][1] * gram[r + 1];
-            }
-            return Ok(traces);
-        }
-        if !row_ctx.intercept.is_finite() || !row_ctx.m_a.is_finite() || row_ctx.m_a <= 0.0 {
-            return Err(
-                "non-finite flexible row context in batched third-order trace contraction"
-                    .to_string(),
-            );
-        }
-        let point = self.primary_point_from_block_states(row, block_states, primary)?;
-        let (q, b, beta_h_owned, beta_w_owned) = self.primary_point_components(&point, primary);
-        let beta_h = beta_h_owned.as_ref();
-        let beta_w = beta_w_owned.as_ref();
-        let a = row_ctx.intercept;
-
-        if let Some(grid) = self.latent_measure.empirical_grid_for_training_row(row)? {
-            let mut traces = vec![0.0; row_dirs.len()];
-            for (dir_idx, dir) in row_dirs.iter().enumerate() {
-                let third = self.empirical_flex_row_third_contracted_recompute(
-                    row, primary, q, b, beta_h, beta_w, row_ctx, dir, &grid,
-                )?;
-                traces[dir_idx] = Self::row_primary_trace_contract(&third, gram);
-            }
-            return Ok(traces);
-        }
-
-        let marginal = self.marginal_link_map(q)?;
-        let h_range = primary.h.as_ref();
-        let w_range = primary.w.as_ref();
-        let score_runtime = self.score_warp.as_ref();
-        let link_runtime = self.link_dev.as_ref();
-        let scale = self.probit_frailty_scale();
-        let zero_family = vec![[0.0; 4]; r];
-        let n_dirs = row_dirs.len();
-
-        let mut f_a = 0.0;
-        let mut f_aa = 0.0;
-        let mut f_u = Array1::<f64>::zeros(r);
-        let mut f_au = Array1::<f64>::zeros(r);
-        let mut f_uv = Array2::<f64>::zeros((r, r));
-        let mut f_a_dir = vec![0.0; n_dirs];
-        let mut f_aa_dir = vec![0.0; n_dirs];
-        let mut f_au_dir = vec![0.0; n_dirs * r];
-        let mut f_uv_dir = vec![0.0; n_dirs * r * r];
-
-        let owned_cells;
-        let cells: &[CachedDenestedCellMoments] = if let Some(cached) =
-            self.row_cell_moments_for_third_degree15(cache, row)?
-        {
-            cached
-        } else {
-            let partitions = self.denested_partition_cells(a, b, beta_h, beta_w)?;
-            owned_cells = partitions
-                .into_iter()
-                .map(|partition_cell| {
-                    exact_kernel::evaluate_cell_derivative_moments_uncached(partition_cell.cell, 15)
-                        .map(|state| CachedDenestedCellMoments {
-                            partition_cell,
-                            state,
-                        })
-                })
-                .collect::<Result<Vec<_>, String>>()?;
-            &owned_cells
-        };
-
-        Self::accumulate_primary_third_cell_moments(
-            cells,
-            a,
-            b,
-            scale,
-            r,
-            h_range,
-            w_range,
-            score_runtime,
-            link_runtime,
-            &zero_family,
-            row_dirs,
-            "score-warp batched third-trace direction",
-            "link-wiggle batched third-trace direction",
-            &mut f_a,
-            &mut f_aa,
-            &mut f_u,
-            &mut f_au,
-            &mut f_uv,
-            &mut f_a_dir,
-            &mut f_aa_dir,
-            &mut f_au_dir,
-            &mut f_uv_dir,
+        let third = self.row_primary_third_contracted_with_moments(
+            row,
+            block_states,
+            cache,
+            row_ctx,
+            &row_dirs[0],
         )?;
-
-        f_u[0] = -marginal.mu1;
-        f_uv[[0, 0]] = -marginal.mu2;
-
-        let inv_f_a = 1.0 / f_a;
-        let mut a_u = Array1::<f64>::zeros(r);
-        for u in 0..r {
-            a_u[u] = -f_u[u] * inv_f_a;
-        }
-        let mut a_uv = Array2::<f64>::zeros((r, r));
-        for u in 0..r {
-            for v in u..r {
-                let val =
-                    -(f_uv[[u, v]] + f_au[u] * a_u[v] + f_au[v] * a_u[u] + f_aa * a_u[u] * a_u[v])
-                        * inv_f_a;
-                a_uv[[u, v]] = val;
-                a_uv[[v, u]] = val;
-            }
-        }
-
-        let z_obs = self.z[row];
-        let u_obs = a + b * z_obs;
-        let obs = self.observed_denested_cell_partials(row, a, b, beta_h, beta_w)?;
-        let eta_val = eval_coeff4_at(&obs.coeff, z_obs);
-
-        let mut g_u_fixed = vec![[0.0; 4]; r];
-        let mut g_au_fixed = vec![[0.0; 4]; r];
-        let mut g_bu_fixed = vec![[0.0; 4]; r];
-        let mut g_aau_fixed = vec![[0.0; 4]; r];
-        let mut g_abu_fixed = vec![[0.0; 4]; r];
-        let mut g_bbu_fixed = vec![[0.0; 4]; r];
-
-        g_u_fixed[1] = obs.dc_db;
-        g_au_fixed[1] = obs.dc_dab;
-        g_bu_fixed[1] = obs.dc_dbb;
-        g_aau_fixed[1] = obs.dc_daab;
-        g_abu_fixed[1] = obs.dc_dabb;
-        g_bbu_fixed[1] = obs.dc_dbbb;
-
-        if let (Some(h_range), Some(runtime)) = (h_range, score_runtime) {
-            Self::for_each_deviation_basis_cubic_at(
-                runtime,
-                h_range,
-                z_obs,
-                "score-warp batched third-trace observed",
-                |_, idx, basis_span| {
-                    fill_score_basis_cell_coeff_jet(
-                        idx,
-                        basis_span,
-                        b,
-                        scale,
-                        &mut g_u_fixed,
-                        &mut g_bu_fixed,
-                    );
-                    Ok(())
-                },
-            )?;
-        }
-
-        if let (Some(w_range), Some(runtime)) = (w_range, link_runtime) {
-            Self::for_each_deviation_basis_cubic_at(
-                runtime,
-                w_range,
-                u_obs,
-                "link-wiggle batched third-trace observed",
-                |_, idx, basis_span| {
-                    fill_link_basis_cell_coeff_jet(
-                        idx,
-                        basis_span,
-                        a,
-                        b,
-                        scale,
-                        &mut g_u_fixed,
-                        &mut g_au_fixed,
-                        &mut g_bu_fixed,
-                        &mut g_aau_fixed,
-                        &mut g_abu_fixed,
-                        &mut g_bbu_fixed,
-                    );
-                    Ok(())
-                },
-            )?;
-        }
-
-        let g_jet = SparsePrimaryCoeffJetView::new(
-            1,
-            h_range,
-            w_range,
-            &g_u_fixed,
-            &g_au_fixed,
-            &g_bu_fixed,
-            &g_aau_fixed,
-            &g_abu_fixed,
-            &g_bbu_fixed,
-            &zero_family,
-            &zero_family,
-            &zero_family,
-            &zero_family,
-        );
-
-        let g_a = eval_coeff4_at(&obs.dc_da, z_obs);
-        let g_aa = eval_coeff4_at(&obs.dc_daa, z_obs);
-        let g_aaa = eval_coeff4_at(&obs.dc_daaa, z_obs);
-        let mut g_u = Array1::<f64>::zeros(r);
-        let mut g_au = Array1::<f64>::zeros(r);
-        let mut g_aau = Array1::<f64>::zeros(r);
-        let mut g_uv = Array2::<f64>::zeros((r, r));
-        let mut g_auv = Array2::<f64>::zeros((r, r));
-        for u in 1..r {
-            g_u[u] = eval_coeff4_at(&g_jet.first[u], z_obs);
-            g_au[u] = eval_coeff4_at(&g_jet.a_first[u], z_obs);
-            g_aau[u] = eval_coeff4_at(&g_jet.aa_first[u], z_obs);
-        }
-        for u in 1..r {
-            for v in u..r {
-                let second_coeff = g_jet.pair_from_b_family(g_jet.b_first, u, v, COEFF_SUPPORT_BHW);
-                let val = eval_coeff4_at(&second_coeff, z_obs);
-                g_uv[[u, v]] = val;
-                g_uv[[v, u]] = val;
-
-                let third_coeff = g_jet.pair_from_b_family(g_jet.ab_first, u, v, COEFF_SUPPORT_BW);
-                let third_val = eval_coeff4_at(&third_coeff, z_obs);
-                g_auv[[u, v]] = third_val;
-                g_auv[[v, u]] = third_val;
-            }
-        }
-
-        let eta_u = g_a * &a_u + &g_u;
-        let mut eta_uv = Array2::<f64>::zeros((r, r));
-        for u in 0..r {
-            for v in u..r {
-                let val = g_a * a_uv[[u, v]]
-                    + g_aa * a_u[u] * a_u[v]
-                    + g_au[u] * a_u[v]
-                    + g_au[v] * a_u[u]
-                    + g_uv[[u, v]];
-                eta_uv[[u, v]] = val;
-                eta_uv[[v, u]] = val;
-            }
-        }
-
-        let y_i = self.y[row];
-        let w_i = self.weights[row];
-        let s_y = 2.0 * y_i - 1.0;
-        let m = s_y * eta_val;
-        let (k1, k2, k3, _) = signed_probit_neglog_derivatives_up_to_fourth(m, w_i)?;
-        let u1 = s_y * k1;
-        let u3 = s_y * k3;
-        let mut traces = vec![0.0; n_dirs];
-
-        for (dir_idx, dir) in row_dirs.iter().enumerate() {
-            let dir_base = dir_idx * r * r;
-            f_uv_dir[dir_base] = -dir[0] * marginal.mu3;
-
-            let a_dir = a_u.dot(dir);
-            let a_u_dir = a_uv.dot(dir);
-            let g_dir_fixed = g_jet.directional_family(g_jet.first, dir, COEFF_SUPPORT_BHW);
-            let g_a_dir_fixed = g_jet.directional_family(g_jet.a_first, dir, COEFF_SUPPORT_BW);
-            let g_aa_dir_fixed = g_jet.directional_family(g_jet.aa_first, dir, COEFF_SUPPORT_BW);
-            let g_dir = eval_coeff4_at(&g_dir_fixed, z_obs);
-            let g_a_dir = eval_coeff4_at(&g_a_dir_fixed, z_obs);
-            let g_aa_dir = eval_coeff4_at(&g_aa_dir_fixed, z_obs);
-            let eta_dir = g_a * a_dir + g_dir;
-            let eta_u_dir = eta_uv.dot(dir);
-            let dg_a_dir = g_aa * a_dir + g_a_dir;
-            let dg_aa_dir = g_aaa * a_dir + g_aa_dir;
-            let mut dg_au_dir = Array1::<f64>::zeros(r);
-            for u in 0..r {
-                let coeff =
-                    g_jet.param_directional_from_b_family(g_jet.ab_first, u, dir, COEFF_SUPPORT_BW);
-                dg_au_dir[u] = g_aau[u] * a_dir + eval_coeff4_at(&coeff, z_obs);
-            }
-
-            let mut trace = 0.0;
-            for u in 0..r {
-                for v in u..r {
-                    let fuvd = f_uv_dir[dir_base + u * r + v];
-                    let n_dir = fuvd
-                        + f_au_dir[dir_idx * r + u] * a_u[v]
-                        + f_au[u] * a_u_dir[v]
-                        + f_au_dir[dir_idx * r + v] * a_u[u]
-                        + f_au[v] * a_u_dir[u]
-                        + f_aa_dir[dir_idx] * a_u[u] * a_u[v]
-                        + f_aa * (a_u_dir[u] * a_u[v] + a_u[u] * a_u_dir[v]);
-                    let a_uv_dir = -(n_dir + f_a_dir[dir_idx] * a_uv[[u, v]]) * inv_f_a;
-                    let third_coeff = g_jet.pair_directional_from_bb_family(
-                        g_jet.bb_first,
-                        u,
-                        v,
-                        dir,
-                        COEFF_SUPPORT_BW,
-                    );
-                    let dg_uv_dir = g_auv[[u, v]] * a_dir + eval_coeff4_at(&third_coeff, z_obs);
-                    let eta_uv_dir = dg_a_dir * a_uv[[u, v]]
-                        + g_a * a_uv_dir
-                        + dg_aa_dir * a_u[u] * a_u[v]
-                        + g_aa * (a_u_dir[u] * a_u[v] + a_u[u] * a_u_dir[v])
-                        + dg_au_dir[u] * a_u[v]
-                        + g_au[u] * a_u_dir[v]
-                        + dg_au_dir[v] * a_u[u]
-                        + g_au[v] * a_u_dir[u]
-                        + dg_uv_dir;
-                    let val = u3 * eta_u[u] * eta_u[v] * eta_dir
-                        + k2 * (eta_uv[[u, v]] * eta_dir
-                            + eta_u[u] * eta_u_dir[v]
-                            + eta_u[v] * eta_u_dir[u])
-                        + u1 * eta_uv_dir;
-                    if u == v {
-                        trace += val * gram[u * r + v];
-                    } else {
-                        trace += val * (gram[u * r + v] + gram[v * r + u]);
-                    }
-                }
-            }
-            traces[dir_idx] = trace;
-        }
-
-        Ok(traces)
+        Ok(vec![Self::row_primary_trace_contract(&third, gram)])
     }
 
     /// Fourth-derivative tensor contracted with two directions dir_u, dir_v:
     ///   out[k,l] = sum_{m,n} f_{klmn} dir_u[m] dir_v[n]
     /// Rigid path uses the closed-form kernel. The flexible de-nested
     /// transport path contracts the cell-moment kernel analytically.
-    pub(super) fn row_primary_fourth_contracted_recompute_ordered(
+    pub(super) fn row_primary_fourth_contracted_ordered(
         &self,
         row: usize,
         block_states: &[ParameterBlockState],
@@ -5934,7 +5756,7 @@ impl BernoulliMarginalSlopeFamily {
         let beta_h = beta_h_owned.as_ref();
         let beta_w = beta_w_owned.as_ref();
         if let Some(grid) = self.latent_measure.empirical_grid_for_training_row(row)? {
-            return self.empirical_flex_row_fourth_contracted_recompute(
+            return self.empirical_flex_row_fourth_contracted(
                 row, primary, q, b, beta_h, beta_w, row_ctx, dir_u, dir_v, &grid,
             );
         }
@@ -5953,20 +5775,33 @@ impl BernoulliMarginalSlopeFamily {
         let mut f_au = Array1::<f64>::zeros(r);
         let mut f_uv = Array2::<f64>::zeros((r, r));
 
-        let mut f_a_u = 0.0;
-        let mut f_aa_u = 0.0;
-        let mut f_au_u = Array1::<f64>::zeros(r);
-        let mut f_uv_u = Array2::<f64>::zeros((r, r));
-
-        let mut f_a_v = 0.0;
-        let mut f_aa_v = 0.0;
-        let mut f_au_v = Array1::<f64>::zeros(r);
-        let mut f_uv_v = Array2::<f64>::zeros((r, r));
-
-        let mut f_a_uv = 0.0;
-        let mut f_aa_uv = 0.0;
-        let mut f_au_uv = Array1::<f64>::zeros(r);
-        let mut f_uv_uv = Array2::<f64>::zeros((r, r));
+        let directions = [dir_u, dir_v];
+        let direction_pairs = [(0usize, 1usize)];
+        let mut f_a_dir = [0.0; 2];
+        let mut f_aa_dir = [0.0; 2];
+        let mut f_au_dir = vec![0.0; 2 * r];
+        let mut f_uv_dir = vec![0.0; 2 * r * r];
+        let mut f_a_mixed = [0.0];
+        let mut f_aa_mixed = [0.0];
+        let mut f_au_mixed = vec![0.0; r];
+        let mut f_uv_mixed = vec![0.0; r * r];
+        // Intercept a-chain moments (#2347). The calibrated intercept a(theta)
+        // moves with every primary direction, so the explicit (a-fixed)
+        // directional/mixed calibration moments above must be promoted to TOTAL
+        // directional derivatives in the finalizer. Order-3 a-derivatives of the
+        // second-order moments (for a_uv_dir):
+        //   f_aaa = d^3 M/da^3, f_aau[p] = d^3 M/da^2 dp, f_auv[l,r] = d^3 M/da dl dr.
+        // Order-4 a-derivatives (for the mixed a_uv_mixed):
+        //   f_aaaa = d^4 M/da^4, f_aaau[p] = d^4 M/da^3 dp,
+        //   f_aauv[l,r] = d^4 M/da^2 dl dr, and f_auv_dir[d][l,r] =
+        //   d^4 M/da dl dr d(dir_d) (the explicit directional of f_auv).
+        let mut f_aaa = 0.0;
+        let mut f_aau = Array1::<f64>::zeros(r);
+        let mut f_auv = Array2::<f64>::zeros((r, r));
+        let mut f_aaaa = 0.0;
+        let mut f_aaau = Array1::<f64>::zeros(r);
+        let mut f_aauv = Array2::<f64>::zeros((r, r));
+        let mut f_auv_dir = vec![0.0; directions.len() * r * r];
 
         let owned_cells;
         let cells: &[CachedDenestedCellMoments] = if let Some(cached) = self
@@ -6014,6 +5849,11 @@ impl BernoulliMarginalSlopeFamily {
             let dc_daa = scale_coeff4(dc_daa_raw, scale);
             let dc_dab = scale_coeff4(dc_dab_raw, scale);
             let dc_dbb = scale_coeff4(dc_dbb_raw, scale);
+            // `denested_third.0 = dc_daaa = d^3 coeff/da^3`; the intercept
+            // a-chain moments need it (and d^4 coeff/da^4 vanishes: the coeff is
+            // cubic in the intercept shift).
+            let dc_daaa = scale_coeff4(denested_third.0, scale);
+            let dc_daaaa = [0.0; 4];
             let dc_daab = scale_coeff4(denested_third.1, scale);
             let dc_dabb = scale_coeff4(denested_third.2, scale);
             let dc_dbbb = scale_coeff4(denested_third.3, scale);
@@ -6103,390 +5943,595 @@ impl BernoulliMarginalSlopeFamily {
                 &coeff_bbbu,
             );
 
-            f_a += exact::cell_first_derivative_from_moments(&dc_da, &state.moments)?;
-            f_aa += exact::cell_second_derivative_from_moments(
-                cell,
-                &dc_da,
-                &dc_da,
-                &dc_daa,
-                &state.moments,
-            )?;
-
-            for u in 1..r {
-                f_u[u] +=
-                    exact::cell_first_derivative_from_moments(&coeff_jet.first[u], &state.moments)?;
-                f_au[u] += exact::cell_second_derivative_from_moments(
-                    cell,
-                    &dc_da,
-                    &coeff_jet.first[u],
-                    &coeff_jet.a_first[u],
-                    &state.moments,
-                )?;
-            }
-            let coeff_dir_u =
-                coeff_jet.directional_family(coeff_jet.first, dir_u, COEFF_SUPPORT_BHW);
-            let coeff_dir_v =
-                coeff_jet.directional_family(coeff_jet.first, dir_v, COEFF_SUPPORT_BHW);
-            let coeff_a_dir_u =
-                coeff_jet.directional_family(coeff_jet.a_first, dir_u, COEFF_SUPPORT_BW);
-            let coeff_a_dir_v =
-                coeff_jet.directional_family(coeff_jet.a_first, dir_v, COEFF_SUPPORT_BW);
-            let coeff_aa_dir_u =
-                coeff_jet.directional_family(coeff_jet.aa_first, dir_u, COEFF_SUPPORT_BW);
-            let coeff_aa_dir_v =
-                coeff_jet.directional_family(coeff_jet.aa_first, dir_v, COEFF_SUPPORT_BW);
-
-            f_a_u += exact::cell_second_derivative_from_moments(
-                cell,
-                &dc_da,
-                &coeff_dir_u,
-                &coeff_a_dir_u,
-                &state.moments,
-            )?;
-            f_a_v += exact::cell_second_derivative_from_moments(
-                cell,
-                &dc_da,
-                &coeff_dir_v,
-                &coeff_a_dir_v,
-                &state.moments,
-            )?;
-            f_aa_u += exact::cell_third_derivative_from_moments(
-                cell,
-                &dc_da,
-                &dc_da,
-                &coeff_dir_u,
-                &dc_daa,
-                &coeff_a_dir_u,
-                &coeff_a_dir_u,
-                &coeff_aa_dir_u,
-                &state.moments,
-            )?;
-            f_aa_v += exact::cell_third_derivative_from_moments(
-                cell,
-                &dc_da,
-                &dc_da,
-                &coeff_dir_v,
-                &dc_daa,
-                &coeff_a_dir_v,
-                &coeff_a_dir_v,
-                &coeff_aa_dir_v,
-                &state.moments,
-            )?;
-
-            let coeff_dir_uv = coeff_jet.mixed_directional_from_b_family(
-                coeff_jet.b_first,
-                dir_u,
-                dir_v,
-                COEFF_SUPPORT_BHW,
-            );
-            let coeff_a_dir_uv = coeff_jet.mixed_directional_from_b_family(
-                coeff_jet.ab_first,
-                dir_u,
-                dir_v,
-                COEFF_SUPPORT_BW,
-            );
-            let coeff_aa_dir_uv = coeff_jet.mixed_directional_from_b_family(
-                coeff_jet.aab_first,
-                dir_u,
-                dir_v,
-                COEFF_SUPPORT_W,
-            );
-
-            f_a_uv += exact::cell_third_derivative_from_moments(
-                cell,
-                &dc_da,
-                &coeff_dir_u,
-                &coeff_dir_v,
-                &coeff_a_dir_u,
-                &coeff_a_dir_v,
-                &coeff_dir_uv,
-                &coeff_a_dir_uv,
-                &state.moments,
-            )?;
-            f_aa_uv += exact::cell_fourth_derivative_from_moments(
-                cell,
-                &dc_da,
-                &dc_da,
-                &coeff_dir_u,
-                &coeff_dir_v,
-                &dc_daa,
-                &coeff_a_dir_u,
-                &coeff_a_dir_v,
-                &coeff_a_dir_u,
-                &coeff_a_dir_v,
-                &coeff_dir_uv,
-                &coeff_aa_dir_u,
-                &coeff_aa_dir_v,
-                &coeff_a_dir_uv,
-                &coeff_a_dir_uv,
-                &coeff_aa_dir_uv,
-                &state.moments,
-            )?;
-
-            let mut coeff_u_dir_u = vec![[0.0; 4]; r];
-            let mut coeff_u_dir_v = vec![[0.0; 4]; r];
-            let mut coeff_u_dir_uv = vec![[0.0; 4]; r];
-            let mut coeff_au_dir_u = vec![[0.0; 4]; r];
-            let mut coeff_au_dir_v = vec![[0.0; 4]; r];
-            let mut coeff_au_dir_uv = vec![[0.0; 4]; r];
-            for u in 1..r {
-                coeff_u_dir_u[u] = coeff_jet.param_directional_from_b_family(
-                    coeff_jet.b_first,
-                    u,
-                    dir_u,
-                    COEFF_SUPPORT_BHW,
-                );
-                coeff_u_dir_v[u] = coeff_jet.param_directional_from_b_family(
-                    coeff_jet.b_first,
-                    u,
-                    dir_v,
-                    COEFF_SUPPORT_BHW,
-                );
-                coeff_u_dir_uv[u] = coeff_jet.param_mixed_from_bb_family(
-                    coeff_jet.bb_first,
-                    u,
-                    dir_u,
-                    dir_v,
-                    COEFF_SUPPORT_BW,
-                );
-                coeff_au_dir_u[u] = coeff_jet.param_directional_from_b_family(
-                    coeff_jet.ab_first,
-                    u,
-                    dir_u,
-                    COEFF_SUPPORT_BW,
-                );
-                coeff_au_dir_v[u] = coeff_jet.param_directional_from_b_family(
-                    coeff_jet.ab_first,
-                    u,
-                    dir_v,
-                    COEFF_SUPPORT_BW,
-                );
-                coeff_au_dir_uv[u] = coeff_jet.param_mixed_from_bb_family(
-                    coeff_jet.abb_first,
-                    u,
-                    dir_u,
-                    dir_v,
-                    COEFF_SUPPORT_W,
-                );
-            }
-
-            for u in 1..r {
-                f_au_u[u] += exact::cell_third_derivative_from_moments(
-                    cell,
-                    &dc_da,
-                    &coeff_u[u],
-                    &coeff_dir_u,
-                    &coeff_au[u],
-                    &coeff_a_dir_u,
-                    &coeff_u_dir_u[u],
-                    &coeff_au_dir_u[u],
-                    &state.moments,
-                )?;
-                f_au_v[u] += exact::cell_third_derivative_from_moments(
-                    cell,
-                    &dc_da,
-                    &coeff_u[u],
-                    &coeff_dir_v,
-                    &coeff_au[u],
-                    &coeff_a_dir_v,
-                    &coeff_u_dir_v[u],
-                    &coeff_au_dir_v[u],
-                    &state.moments,
-                )?;
-                f_au_uv[u] += exact::cell_fourth_derivative_from_moments(
-                    cell,
-                    &dc_da,
-                    &coeff_u[u],
-                    &coeff_dir_u,
-                    &coeff_dir_v,
-                    &coeff_au[u],
-                    &coeff_a_dir_u,
-                    &coeff_a_dir_v,
-                    &coeff_u_dir_u[u],
-                    &coeff_u_dir_v[u],
-                    &coeff_dir_uv,
-                    &coeff_au_dir_u[u],
-                    &coeff_au_dir_v[u],
-                    &coeff_a_dir_uv,
-                    &coeff_u_dir_uv[u],
-                    &coeff_au_dir_uv[u],
-                    &state.moments,
-                )?;
-            }
-
-            for u in 1..r {
-                for v in u..r {
-                    let second_coeff =
-                        coeff_jet.pair_from_b_family(coeff_jet.b_first, u, v, COEFF_SUPPORT_BHW);
-                    let base_val = exact::cell_second_derivative_from_moments(
-                        cell,
-                        &coeff_jet.first[u],
-                        &coeff_jet.first[v],
-                        &second_coeff,
-                        &state.moments,
-                    )?;
-                    f_uv[[u, v]] += base_val;
-                    if u != v {
-                        f_uv[[v, u]] += base_val;
+            BmsFlexRowProgram::try_for_each_calibration_order2_contiguous(
+                1..r,
+                true,
+                |node| -> Result<(), String> {
+                    match node {
+                        BmsFlexCalibrationOrder2Node::InterceptFirst => {
+                            f_a +=
+                                exact::cell_first_derivative_from_moments(&dc_da, &state.moments)?;
+                        }
+                        BmsFlexCalibrationOrder2Node::InterceptSecond => {
+                            f_aa += exact::cell_second_derivative_from_moments(
+                                cell,
+                                &dc_da,
+                                &dc_da,
+                                &dc_daa,
+                                &state.moments,
+                            )?;
+                        }
+                        BmsFlexCalibrationOrder2Node::PrimaryFirst { primary } => {
+                            f_u[primary] += exact::cell_first_derivative_from_moments(
+                                &coeff_jet.first[primary],
+                                &state.moments,
+                            )?;
+                        }
+                        BmsFlexCalibrationOrder2Node::InterceptPrimarySecond { primary } => {
+                            f_au[primary] += exact::cell_second_derivative_from_moments(
+                                cell,
+                                &dc_da,
+                                &coeff_jet.first[primary],
+                                &coeff_jet.a_first[primary],
+                                &state.moments,
+                            )?;
+                        }
+                        BmsFlexCalibrationOrder2Node::PrimaryPairSecond { left, right } => {
+                            let second_coeff = coeff_jet.pair_from_b_family(
+                                coeff_jet.b_first,
+                                left,
+                                right,
+                                COEFF_SUPPORT_BHW,
+                            );
+                            let value = exact::cell_second_derivative_from_moments(
+                                cell,
+                                &coeff_jet.first[left],
+                                &coeff_jet.first[right],
+                                &second_coeff,
+                                &state.moments,
+                            )?;
+                            f_uv[[left, right]] += value;
+                            if left != right {
+                                f_uv[[right, left]] += value;
+                            }
+                        }
                     }
+                    Ok(())
+                },
+            )?;
 
-                    let third_u = coeff_jet.pair_directional_from_bb_family(
-                        coeff_jet.bb_first,
-                        u,
-                        v,
-                        dir_u,
+            // Direction-independent intercept a-chain moments (#2347): the a-th
+            // derivatives of the second-order calibration moments, needed to
+            // promote the directional/mixed moments to TOTAL derivatives through
+            // the moving intercept root. Same cell moments, with the intercept
+            // coefficient jet (dc_da / dc_daa / dc_daaa) in the extra slots.
+            f_aaa += exact::cell_third_derivative_from_moments(
+                cell, &dc_da, &dc_da, &dc_da, &dc_daa, &dc_daa, &dc_daa, &dc_daaa, &state.moments,
+            )?;
+            f_aaaa += exact::cell_fourth_derivative_from_moments(
+                cell, &dc_da, &dc_da, &dc_da, &dc_da, &dc_daa, &dc_daa, &dc_daa, &dc_daa, &dc_daa,
+                &dc_daa, &dc_daaa, &dc_daaa, &dc_daaa, &dc_daaa, &dc_daaaa, &state.moments,
+            )?;
+            for primary in 1..r {
+                f_aau[primary] += exact::cell_third_derivative_from_moments(
+                    cell,
+                    &dc_da,
+                    &dc_da,
+                    &coeff_jet.first[primary],
+                    &dc_daa,
+                    &coeff_jet.a_first[primary],
+                    &coeff_jet.a_first[primary],
+                    &coeff_jet.aa_first[primary],
+                    &state.moments,
+                )?;
+                f_aaau[primary] += exact::cell_fourth_derivative_from_moments(
+                    cell,
+                    &dc_da,
+                    &dc_da,
+                    &dc_da,
+                    &coeff_jet.first[primary],
+                    &dc_daa,
+                    &dc_daa,
+                    &coeff_jet.a_first[primary],
+                    &dc_daa,
+                    &coeff_jet.a_first[primary],
+                    &coeff_jet.a_first[primary],
+                    &dc_daaa,
+                    &coeff_jet.aa_first[primary],
+                    &coeff_jet.aa_first[primary],
+                    &coeff_jet.aa_first[primary],
+                    &coeff_jet.aaa_first[primary],
+                    &state.moments,
+                )?;
+            }
+            for left in 1..r {
+                for right in left..r {
+                    let second_lr = coeff_jet.pair_from_b_family(
+                        coeff_jet.b_first,
+                        left,
+                        right,
+                        COEFF_SUPPORT_BHW,
+                    );
+                    let third_alr = coeff_jet.pair_from_b_family(
+                        coeff_jet.ab_first,
+                        left,
+                        right,
                         COEFF_SUPPORT_BW,
                     );
-                    let third_v = coeff_jet.pair_directional_from_bb_family(
-                        coeff_jet.bb_first,
-                        u,
-                        v,
-                        dir_v,
-                        COEFF_SUPPORT_BW,
-                    );
-                    let fourth_uv = coeff_jet.pair_mixed_from_bbb_family(
-                        coeff_jet.bbb_first,
-                        u,
-                        v,
-                        dir_u,
-                        dir_v,
+                    let fourth_aalr = coeff_jet.pair_from_b_family(
+                        coeff_jet.aab_first,
+                        left,
+                        right,
                         COEFF_SUPPORT_W,
                     );
-
-                    let dir_u_val = exact::cell_third_derivative_from_moments(
+                    let auv = exact::cell_third_derivative_from_moments(
                         cell,
-                        &coeff_jet.first[u],
-                        &coeff_jet.first[v],
-                        &coeff_dir_u,
-                        &second_coeff,
-                        &coeff_u_dir_u[u],
-                        &coeff_u_dir_u[v],
-                        &third_u,
+                        &dc_da,
+                        &coeff_jet.first[left],
+                        &coeff_jet.first[right],
+                        &coeff_jet.a_first[left],
+                        &coeff_jet.a_first[right],
+                        &second_lr,
+                        &third_alr,
                         &state.moments,
                     )?;
-                    let dir_v_val = exact::cell_third_derivative_from_moments(
+                    let aauv = exact::cell_fourth_derivative_from_moments(
                         cell,
-                        &coeff_jet.first[u],
-                        &coeff_jet.first[v],
-                        &coeff_dir_v,
-                        &second_coeff,
-                        &coeff_u_dir_v[u],
-                        &coeff_u_dir_v[v],
-                        &third_v,
+                        &dc_da,
+                        &dc_da,
+                        &coeff_jet.first[left],
+                        &coeff_jet.first[right],
+                        &dc_daa,
+                        &coeff_jet.a_first[left],
+                        &coeff_jet.a_first[right],
+                        &coeff_jet.a_first[left],
+                        &coeff_jet.a_first[right],
+                        &second_lr,
+                        &coeff_jet.aa_first[left],
+                        &coeff_jet.aa_first[right],
+                        &third_alr,
+                        &third_alr,
+                        &fourth_aalr,
                         &state.moments,
                     )?;
-                    let mix_val = exact::cell_fourth_derivative_from_moments(
-                        cell,
-                        &coeff_jet.first[u],
-                        &coeff_jet.first[v],
-                        &coeff_dir_u,
-                        &coeff_dir_v,
-                        &second_coeff,
-                        &coeff_u_dir_u[u],
-                        &coeff_u_dir_v[u],
-                        &coeff_u_dir_u[v],
-                        &coeff_u_dir_v[v],
-                        &coeff_dir_uv,
-                        &third_u,
-                        &third_v,
-                        &coeff_u_dir_uv[u],
-                        &coeff_u_dir_uv[v],
-                        &fourth_uv,
-                        &state.moments,
-                    )?;
-                    f_uv_u[[u, v]] += dir_u_val;
-                    f_uv_v[[u, v]] += dir_v_val;
-                    f_uv_uv[[u, v]] += mix_val;
-                    if u != v {
-                        f_uv_u[[v, u]] += dir_u_val;
-                        f_uv_v[[v, u]] += dir_v_val;
-                        f_uv_uv[[v, u]] += mix_val;
+                    f_auv[[left, right]] += auv;
+                    f_aauv[[left, right]] += aauv;
+                    if left != right {
+                        f_auv[[right, left]] += auv;
+                        f_aauv[[right, left]] += aauv;
                     }
                 }
+            }
+
+            let mut coeff_dirs = [[0.0; 4]; 2];
+            let mut coeff_a_dirs = [[0.0; 4]; 2];
+            let mut coeff_aa_dirs = [[0.0; 4]; 2];
+            let mut coeff_u_dirs = vec![[0.0; 4]; 2 * r];
+            let mut coeff_au_dirs = vec![[0.0; 4]; 2 * r];
+            BmsFlexRowProgram::try_for_each_calibration_order3_contiguous(
+                1..r,
+                directions.len(),
+                |node| -> Result<(), String> {
+                    match node {
+                        BmsFlexCalibrationOrder3Node::DirectionStart { direction } => {
+                            let dir = directions[direction];
+                            coeff_dirs[direction] = coeff_jet.directional_family(
+                                coeff_jet.first,
+                                dir,
+                                COEFF_SUPPORT_BHW,
+                            );
+                            coeff_a_dirs[direction] = coeff_jet.directional_family(
+                                coeff_jet.a_first,
+                                dir,
+                                COEFF_SUPPORT_BW,
+                            );
+                            coeff_aa_dirs[direction] = coeff_jet.directional_family(
+                                coeff_jet.aa_first,
+                                dir,
+                                COEFF_SUPPORT_BW,
+                            );
+                            let base = direction * r;
+                            for primary in 1..r {
+                                coeff_u_dirs[base + primary] = coeff_jet
+                                    .param_directional_from_b_family(
+                                        coeff_jet.b_first,
+                                        primary,
+                                        dir,
+                                        COEFF_SUPPORT_BHW,
+                                    );
+                                coeff_au_dirs[base + primary] = coeff_jet
+                                    .param_directional_from_b_family(
+                                        coeff_jet.ab_first,
+                                        primary,
+                                        dir,
+                                        COEFF_SUPPORT_BW,
+                                    );
+                            }
+                        }
+                        BmsFlexCalibrationOrder3Node::InterceptDirectionalSecond { direction } => {
+                            f_a_dir[direction] += exact::cell_second_derivative_from_moments(
+                                cell,
+                                &dc_da,
+                                &coeff_dirs[direction],
+                                &coeff_a_dirs[direction],
+                                &state.moments,
+                            )?;
+                        }
+                        BmsFlexCalibrationOrder3Node::InterceptDirectionalThird { direction } => {
+                            f_aa_dir[direction] += exact::cell_third_derivative_from_moments(
+                                cell,
+                                &dc_da,
+                                &dc_da,
+                                &coeff_dirs[direction],
+                                &dc_daa,
+                                &coeff_a_dirs[direction],
+                                &coeff_a_dirs[direction],
+                                &coeff_aa_dirs[direction],
+                                &state.moments,
+                            )?;
+                        }
+                        BmsFlexCalibrationOrder3Node::InterceptPrimaryDirectionalThird {
+                            direction,
+                            primary,
+                        } => {
+                            let base = direction * r;
+                            f_au_dir[base + primary] += exact::cell_third_derivative_from_moments(
+                                cell,
+                                &dc_da,
+                                &coeff_jet.first[primary],
+                                &coeff_dirs[direction],
+                                &coeff_jet.a_first[primary],
+                                &coeff_a_dirs[direction],
+                                &coeff_u_dirs[base + primary],
+                                &coeff_au_dirs[base + primary],
+                                &state.moments,
+                            )?;
+                        }
+                        BmsFlexCalibrationOrder3Node::PrimaryPairDirectionalThird {
+                            direction,
+                            left,
+                            right,
+                        } => {
+                            let second_coeff = coeff_jet.pair_from_b_family(
+                                coeff_jet.b_first,
+                                left,
+                                right,
+                                COEFF_SUPPORT_BHW,
+                            );
+                            let third_coeff = coeff_jet.pair_directional_from_bb_family(
+                                coeff_jet.bb_first,
+                                left,
+                                right,
+                                directions[direction],
+                                COEFF_SUPPORT_BW,
+                            );
+                            let vector_base = direction * r;
+                            let value = exact::cell_third_derivative_from_moments(
+                                cell,
+                                &coeff_jet.first[left],
+                                &coeff_jet.first[right],
+                                &coeff_dirs[direction],
+                                &second_coeff,
+                                &coeff_u_dirs[vector_base + left],
+                                &coeff_u_dirs[vector_base + right],
+                                &third_coeff,
+                                &state.moments,
+                            )?;
+                            let matrix_base = direction * r * r;
+                            f_uv_dir[matrix_base + left * r + right] += value;
+                            if left != right {
+                                f_uv_dir[matrix_base + right * r + left] += value;
+                            }
+                        }
+                    }
+                    Ok(())
+                },
+            )?;
+
+            // f_auv_dir[d][l,r] = d^4 M/da dl dr d(dir_d): the explicit
+            // directional derivative of f_auv, i.e. the a-chain contribution to
+            // the mixed f_uv total. Same shape as f_uv_dir but with the intercept
+            // occupying one derivative slot. `d^4 eta/da dl dr d(dir)` is
+            // `pair_directional_from_bb_family(abb_first, ..)` (the a-prefixed
+            // analogue of the l,r,dir third coefficient). Reuses the directional
+            // coefficient jets built by the order-3 block above.
+            for direction in 0..directions.len() {
+                let dir = directions[direction];
+                let vector_base = direction * r;
+                let matrix_base = direction * r * r;
+                for left in 1..r {
+                    for right in left..r {
+                        let second_lr = coeff_jet.pair_from_b_family(
+                            coeff_jet.b_first,
+                            left,
+                            right,
+                            COEFF_SUPPORT_BHW,
+                        );
+                        let third_alr = coeff_jet.pair_from_b_family(
+                            coeff_jet.ab_first,
+                            left,
+                            right,
+                            COEFF_SUPPORT_BW,
+                        );
+                        let third_lrd = coeff_jet.pair_directional_from_bb_family(
+                            coeff_jet.bb_first,
+                            left,
+                            right,
+                            dir,
+                            COEFF_SUPPORT_BW,
+                        );
+                        let fourth_alrd = coeff_jet.pair_directional_from_bb_family(
+                            coeff_jet.abb_first,
+                            left,
+                            right,
+                            dir,
+                            COEFF_SUPPORT_W,
+                        );
+                        let value = exact::cell_fourth_derivative_from_moments(
+                            cell,
+                            &dc_da,
+                            &coeff_jet.first[left],
+                            &coeff_jet.first[right],
+                            &coeff_dirs[direction],
+                            &coeff_jet.a_first[left],
+                            &coeff_jet.a_first[right],
+                            &coeff_a_dirs[direction],
+                            &second_lr,
+                            &coeff_u_dirs[vector_base + left],
+                            &coeff_u_dirs[vector_base + right],
+                            &third_alr,
+                            &coeff_au_dirs[vector_base + left],
+                            &coeff_au_dirs[vector_base + right],
+                            &third_lrd,
+                            &fourth_alrd,
+                            &state.moments,
+                        )?;
+                        f_auv_dir[matrix_base + left * r + right] += value;
+                        if left != right {
+                            f_auv_dir[matrix_base + right * r + left] += value;
+                        }
+                    }
+                }
+            }
+
+            let mut coeff_dir_mixed = [0.0; 4];
+            let mut coeff_a_dir_mixed = [0.0; 4];
+            let mut coeff_aa_dir_mixed = [0.0; 4];
+            let mut coeff_u_mixed = vec![[0.0; 4]; r];
+            let mut coeff_au_mixed = vec![[0.0; 4]; r];
+            BmsFlexRowProgram::try_for_each_calibration_order4_contiguous(
+                1..r,
+                direction_pairs.len(),
+                |node| -> Result<(), String> {
+                    match node {
+                        BmsFlexCalibrationOrder4Node::DirectionPairStart { pair } => {
+                            let (left_direction, right_direction) = direction_pairs[pair];
+                            let left_dir = directions[left_direction];
+                            let right_dir = directions[right_direction];
+                            coeff_dir_mixed = coeff_jet.mixed_directional_from_b_family(
+                                coeff_jet.b_first,
+                                left_dir,
+                                right_dir,
+                                COEFF_SUPPORT_BHW,
+                            );
+                            coeff_a_dir_mixed = coeff_jet.mixed_directional_from_b_family(
+                                coeff_jet.ab_first,
+                                left_dir,
+                                right_dir,
+                                COEFF_SUPPORT_BW,
+                            );
+                            coeff_aa_dir_mixed = coeff_jet.mixed_directional_from_b_family(
+                                coeff_jet.aab_first,
+                                left_dir,
+                                right_dir,
+                                COEFF_SUPPORT_W,
+                            );
+                            for primary in 1..r {
+                                coeff_u_mixed[primary] = coeff_jet.param_mixed_from_bb_family(
+                                    coeff_jet.bb_first,
+                                    primary,
+                                    left_dir,
+                                    right_dir,
+                                    COEFF_SUPPORT_BW,
+                                );
+                                coeff_au_mixed[primary] = coeff_jet.param_mixed_from_bb_family(
+                                    coeff_jet.abb_first,
+                                    primary,
+                                    left_dir,
+                                    right_dir,
+                                    COEFF_SUPPORT_W,
+                                );
+                            }
+                        }
+                        BmsFlexCalibrationOrder4Node::InterceptMixedThird { pair } => {
+                            let (left_direction, right_direction) = direction_pairs[pair];
+                            f_a_mixed[pair] += exact::cell_third_derivative_from_moments(
+                                cell,
+                                &dc_da,
+                                &coeff_dirs[left_direction],
+                                &coeff_dirs[right_direction],
+                                &coeff_a_dirs[left_direction],
+                                &coeff_a_dirs[right_direction],
+                                &coeff_dir_mixed,
+                                &coeff_a_dir_mixed,
+                                &state.moments,
+                            )?;
+                        }
+                        BmsFlexCalibrationOrder4Node::InterceptMixedFourth { pair } => {
+                            let (left_direction, right_direction) = direction_pairs[pair];
+                            f_aa_mixed[pair] += exact::cell_fourth_derivative_from_moments(
+                                cell,
+                                &dc_da,
+                                &dc_da,
+                                &coeff_dirs[left_direction],
+                                &coeff_dirs[right_direction],
+                                &dc_daa,
+                                &coeff_a_dirs[left_direction],
+                                &coeff_a_dirs[right_direction],
+                                &coeff_a_dirs[left_direction],
+                                &coeff_a_dirs[right_direction],
+                                &coeff_dir_mixed,
+                                &coeff_aa_dirs[left_direction],
+                                &coeff_aa_dirs[right_direction],
+                                &coeff_a_dir_mixed,
+                                &coeff_a_dir_mixed,
+                                &coeff_aa_dir_mixed,
+                                &state.moments,
+                            )?;
+                        }
+                        BmsFlexCalibrationOrder4Node::InterceptPrimaryMixedFourth {
+                            pair,
+                            primary,
+                        } => {
+                            let (left_direction, right_direction) = direction_pairs[pair];
+                            let left_base = left_direction * r;
+                            let right_base = right_direction * r;
+                            f_au_mixed[pair * r + primary] +=
+                                exact::cell_fourth_derivative_from_moments(
+                                    cell,
+                                    &dc_da,
+                                    &coeff_jet.first[primary],
+                                    &coeff_dirs[left_direction],
+                                    &coeff_dirs[right_direction],
+                                    &coeff_jet.a_first[primary],
+                                    &coeff_a_dirs[left_direction],
+                                    &coeff_a_dirs[right_direction],
+                                    &coeff_u_dirs[left_base + primary],
+                                    &coeff_u_dirs[right_base + primary],
+                                    &coeff_dir_mixed,
+                                    &coeff_au_dirs[left_base + primary],
+                                    &coeff_au_dirs[right_base + primary],
+                                    &coeff_a_dir_mixed,
+                                    &coeff_u_mixed[primary],
+                                    &coeff_au_mixed[primary],
+                                    &state.moments,
+                                )?;
+                        }
+                        BmsFlexCalibrationOrder4Node::PrimaryPairMixedFourth {
+                            pair,
+                            left,
+                            right,
+                        } => {
+                            let (left_direction, right_direction) = direction_pairs[pair];
+                            let left_dir = directions[left_direction];
+                            let right_dir = directions[right_direction];
+                            let second_coeff = coeff_jet.pair_from_b_family(
+                                coeff_jet.b_first,
+                                left,
+                                right,
+                                COEFF_SUPPORT_BHW,
+                            );
+                            let third_left = coeff_jet.pair_directional_from_bb_family(
+                                coeff_jet.bb_first,
+                                left,
+                                right,
+                                left_dir,
+                                COEFF_SUPPORT_BW,
+                            );
+                            let third_right = coeff_jet.pair_directional_from_bb_family(
+                                coeff_jet.bb_first,
+                                left,
+                                right,
+                                right_dir,
+                                COEFF_SUPPORT_BW,
+                            );
+                            let fourth_mixed = coeff_jet.pair_mixed_from_bbb_family(
+                                coeff_jet.bbb_first,
+                                left,
+                                right,
+                                left_dir,
+                                right_dir,
+                                COEFF_SUPPORT_W,
+                            );
+                            let left_base = left_direction * r;
+                            let right_base = right_direction * r;
+                            let value = exact::cell_fourth_derivative_from_moments(
+                                cell,
+                                &coeff_jet.first[left],
+                                &coeff_jet.first[right],
+                                &coeff_dirs[left_direction],
+                                &coeff_dirs[right_direction],
+                                &second_coeff,
+                                &coeff_u_dirs[left_base + left],
+                                &coeff_u_dirs[right_base + left],
+                                &coeff_u_dirs[left_base + right],
+                                &coeff_u_dirs[right_base + right],
+                                &coeff_dir_mixed,
+                                &third_left,
+                                &third_right,
+                                &coeff_u_mixed[left],
+                                &coeff_u_mixed[right],
+                                &fourth_mixed,
+                                &state.moments,
+                            )?;
+                            let matrix_base = pair * r * r;
+                            f_uv_mixed[matrix_base + left * r + right] += value;
+                            if left != right {
+                                f_uv_mixed[matrix_base + right * r + left] += value;
+                            }
+                        }
+                    }
+                    Ok(())
+                },
+            )?;
+        }
+
+        // Moving-boundary Leibniz flux (#2347). At 4th order the 3rd-derivative
+        // calibration integrand F₃ ∝ c₃ ∝ L'''(a+bz) is DISCONTINUOUS at
+        // interior link-knot crossings z*=(τ-a)/b, and z* moves with a and b. So
+        // the honest ∂⁴M picks up a boundary term that the fixed-domain cell sum
+        // misses. Only c₃ jumps (the lower F₃ terms are continuous), and by the
+        // symmetry of mixed partials every differentiation ordering agrees, so
+        //   flux = Σ_knots (-6·scale·Δc₃/b)·e^{-q(z*)}/2π · ∏(∂u/∂slot)
+        // with ∂u/∂a=1, ∂u/∂b=z*, ∂u/∂(warp or q)=0. The flux therefore lands
+        // only on the b/a-heavy entries of each 4th-order calibration moment
+        // (validated to 5 digits by zz_measure_2347_bb_moment_fd). 3rd order is
+        // exact — its integrand ∝ L'' is continuous — which is why the H→t3 rung
+        // needs no flux. Score-warp knots live in z-space (fixed), so only link
+        // knots contribute; Δc₃ is automatically zero at a score-only boundary.
+        {
+            let inv_two_pi = 1.0 / (2.0 * std::f64::consts::PI);
+            let lg = primary.logslope;
+            let du_b = dir_u[lg];
+            let dv_b = dir_v[lg];
+            for window in cells.windows(2) {
+                let z_star = window[0].partition_cell.cell.right;
+                if !z_star.is_finite()
+                    || (window[1].partition_cell.cell.left - z_star).abs() > 1.0e-12
+                {
+                    continue;
+                }
+                let delta_c3 = window[0].partition_cell.link_span.c3
+                    - window[1].partition_cell.link_span.c3;
+                if delta_c3 == 0.0 {
+                    continue;
+                }
+                let w_knot = (-window[0].partition_cell.cell.q(z_star)).exp()
+                    * inv_two_pi
+                    * (-6.0 * scale * delta_c3 / b);
+                let z2 = z_star * z_star;
+                let z3 = z2 * z_star;
+                let z4 = z2 * z2;
+                // a-chain 4th moments (slots list ∂u/∂: aaaa→1, aaa·b→z*,
+                // aa·bb→z*², a·bb·dir→z*³·dir_b).
+                f_aaaa += w_knot;
+                f_aaau[lg] += w_knot * z_star;
+                f_aauv[[lg, lg]] += w_knot * z2;
+                for d in 0..directions.len() {
+                    f_auv_dir[d * r * r + lg * r + lg] += w_knot * z3 * directions[d][lg];
+                }
+                // explicit mixed 4th moments (aa·du·dv→z*²·du_b·dv_b,
+                // a·b·du·dv→z*³·du_b·dv_b, bb·du·dv→z*⁴·du_b·dv_b).
+                f_aa_mixed[0] += w_knot * z2 * du_b * dv_b;
+                f_au_mixed[lg] += w_knot * z3 * du_b * dv_b;
+                f_uv_mixed[lg * r + lg] += w_knot * z4 * du_b * dv_b;
             }
         }
 
         f_u[0] = -marginal.mu1;
         f_uv[[0, 0]] = -marginal.mu2;
-        f_uv_u[[0, 0]] = -dir_u[0] * marginal.mu3;
-        f_uv_v[[0, 0]] = -dir_v[0] * marginal.mu3;
-        f_uv_uv[[0, 0]] = -dir_u[0] * dir_v[0] * marginal.mu4;
 
         let inv_f_a = 1.0 / f_a;
-        let mut a_u = Array1::<f64>::zeros(r);
-        for u in 0..r {
-            a_u[u] = -f_u[u] * inv_f_a;
-        }
-        let mut a_uv = Array2::<f64>::zeros((r, r));
-        for u in 0..r {
-            for v in u..r {
-                let val =
-                    -(f_uv[[u, v]] + f_au[u] * a_u[v] + f_au[v] * a_u[u] + f_aa * a_u[u] * a_u[v])
-                        * inv_f_a;
-                a_uv[[u, v]] = val;
-                a_uv[[v, u]] = val;
-            }
-        }
-        let a_u_dir_u = a_uv.dot(dir_u);
-        let a_u_dir_v = a_uv.dot(dir_v);
-        let mut a_uv_u = Array2::<f64>::zeros((r, r));
-        let mut a_uv_v = Array2::<f64>::zeros((r, r));
-        for u in 0..r {
-            for v in u..r {
-                let n_u = f_uv_u[[u, v]]
-                    + f_au_u[u] * a_u[v]
-                    + f_au[u] * a_u_dir_u[v]
-                    + f_au_u[v] * a_u[u]
-                    + f_au[v] * a_u_dir_u[u]
-                    + f_aa_u * a_u[u] * a_u[v]
-                    + f_aa * (a_u_dir_u[u] * a_u[v] + a_u[u] * a_u_dir_u[v]);
-                let val_u = -(n_u + f_a_u * a_uv[[u, v]]) * inv_f_a;
-                a_uv_u[[u, v]] = val_u;
-                a_uv_u[[v, u]] = val_u;
-
-                let n_v = f_uv_v[[u, v]]
-                    + f_au_v[u] * a_u[v]
-                    + f_au[u] * a_u_dir_v[v]
-                    + f_au_v[v] * a_u[u]
-                    + f_au[v] * a_u_dir_v[u]
-                    + f_aa_v * a_u[u] * a_u[v]
-                    + f_aa * (a_u_dir_v[u] * a_u[v] + a_u[u] * a_u_dir_v[v]);
-                let val_v = -(n_v + f_a_v * a_uv[[u, v]]) * inv_f_a;
-                a_uv_v[[u, v]] = val_v;
-                a_uv_v[[v, u]] = val_v;
-            }
-        }
-        let a_u_uv = a_uv_u.dot(dir_v);
-        let mut a_uv_uv = Array2::<f64>::zeros((r, r));
-        for u in 0..r {
-            for v in u..r {
-                let n_uv = f_uv_uv[[u, v]]
-                    + f_au_uv[u] * a_u[v]
-                    + f_au_u[u] * a_u_dir_v[v]
-                    + f_au_v[u] * a_u_dir_u[v]
-                    + f_au[u] * a_u_uv[v]
-                    + f_au_uv[v] * a_u[u]
-                    + f_au_u[v] * a_u_dir_v[u]
-                    + f_au_v[v] * a_u_dir_u[u]
-                    + f_au[v] * a_u_uv[u]
-                    + f_aa_uv * a_u[u] * a_u[v]
-                    + f_aa_u * (a_u_dir_v[u] * a_u[v] + a_u[u] * a_u_dir_v[v])
-                    + f_aa_v * (a_u_dir_u[u] * a_u[v] + a_u[u] * a_u_dir_u[v])
-                    + f_aa
-                        * (a_u_uv[u] * a_u[v]
-                            + a_u_dir_u[u] * a_u_dir_v[v]
-                            + a_u_dir_v[u] * a_u_dir_u[v]
-                            + a_u[u] * a_u_uv[v]);
-                let val = -(n_uv
-                    + f_a_v * a_uv_u[[u, v]]
-                    + f_a_u * a_uv_v[[u, v]]
-                    + f_a_uv * a_uv[[u, v]])
-                    * inv_f_a;
-                a_uv_uv[[u, v]] = val;
-                a_uv_uv[[v, u]] = val;
-            }
-        }
-
         let z_obs = self.z[row];
         let u_obs = a + b * z_obs;
         let obs = self.observed_denested_cell_partials(row, a, b, beta_h, beta_w)?;
@@ -6579,279 +6624,6 @@ impl BernoulliMarginalSlopeFamily {
         let g_a = eval_coeff4_at(&obs.dc_da, z_obs);
         let g_aa = eval_coeff4_at(&obs.dc_daa, z_obs);
         let g_aaa = eval_coeff4_at(&obs.dc_daaa, z_obs);
-        let mut g_u = Array1::<f64>::zeros(r);
-        let mut g_au = Array1::<f64>::zeros(r);
-        let mut g_aau = Array1::<f64>::zeros(r);
-        let mut g_aaau = Array1::<f64>::zeros(r);
-        let mut g_uv = Array2::<f64>::zeros((r, r));
-        let mut g_auv = Array2::<f64>::zeros((r, r));
-        let mut g_aauv = Array2::<f64>::zeros((r, r));
-        for u in 1..r {
-            g_u[u] = eval_coeff4_at(&g_jet.first[u], z_obs);
-            g_au[u] = eval_coeff4_at(&g_jet.a_first[u], z_obs);
-            g_aau[u] = eval_coeff4_at(&g_jet.aa_first[u], z_obs);
-            g_aaau[u] = eval_coeff4_at(&g_jet.aaa_first[u], z_obs);
-        }
-        for u in 1..r {
-            for v in u..r {
-                let second_coeff = g_jet.pair_from_b_family(g_jet.b_first, u, v, COEFF_SUPPORT_BHW);
-                let val = eval_coeff4_at(&second_coeff, z_obs);
-                g_uv[[u, v]] = val;
-                g_uv[[v, u]] = val;
-
-                let third_coeff = g_jet.pair_from_b_family(g_jet.ab_first, u, v, COEFF_SUPPORT_BW);
-                let fourth_coeff = g_jet.pair_from_b_family(g_jet.aab_first, u, v, COEFF_SUPPORT_W);
-                let third_val = eval_coeff4_at(&third_coeff, z_obs);
-                let fourth_val = eval_coeff4_at(&fourth_coeff, z_obs);
-                g_auv[[u, v]] = third_val;
-                g_auv[[v, u]] = third_val;
-                g_aauv[[u, v]] = fourth_val;
-                g_aauv[[v, u]] = fourth_val;
-            }
-        }
-
-        let g_dir_u_fixed = g_jet.directional_family(g_jet.first, dir_u, COEFF_SUPPORT_BHW);
-        let g_dir_v_fixed = g_jet.directional_family(g_jet.first, dir_v, COEFF_SUPPORT_BHW);
-        let g_a_dir_u_fixed = g_jet.directional_family(g_jet.a_first, dir_u, COEFF_SUPPORT_BW);
-        let g_a_dir_v_fixed = g_jet.directional_family(g_jet.a_first, dir_v, COEFF_SUPPORT_BW);
-        let g_aa_dir_u_fixed = g_jet.directional_family(g_jet.aa_first, dir_u, COEFF_SUPPORT_BW);
-        let g_aa_dir_v_fixed = g_jet.directional_family(g_jet.aa_first, dir_v, COEFF_SUPPORT_BW);
-        let g_dir_uv_fixed =
-            g_jet.mixed_directional_from_b_family(g_jet.b_first, dir_u, dir_v, COEFF_SUPPORT_BHW);
-        let g_a_dir_uv_fixed =
-            g_jet.mixed_directional_from_b_family(g_jet.ab_first, dir_u, dir_v, COEFF_SUPPORT_BW);
-        let g_aa_dir_uv_fixed =
-            g_jet.mixed_directional_from_b_family(g_jet.aab_first, dir_u, dir_v, COEFF_SUPPORT_W);
-
-        let g_dir_u = eval_coeff4_at(&g_dir_u_fixed, z_obs);
-        let g_dir_v = eval_coeff4_at(&g_dir_v_fixed, z_obs);
-        let g_dir_uv = eval_coeff4_at(&g_dir_uv_fixed, z_obs);
-        let g_a_u_fixed = eval_coeff4_at(&g_a_dir_u_fixed, z_obs);
-        let g_a_v_fixed = eval_coeff4_at(&g_a_dir_v_fixed, z_obs);
-        let g_aa_u_fixed = eval_coeff4_at(&g_aa_dir_u_fixed, z_obs);
-        let g_aa_v_fixed = eval_coeff4_at(&g_aa_dir_v_fixed, z_obs);
-        let g_a_uv_fixed = eval_coeff4_at(&g_a_dir_uv_fixed, z_obs);
-        let g_aa_uv_fixed = eval_coeff4_at(&g_aa_dir_uv_fixed, z_obs);
-
-        let mut g_u_u_fixed = Array1::<f64>::zeros(r);
-        let mut g_u_v_fixed = Array1::<f64>::zeros(r);
-        let mut g_u_uv_fixed = Array1::<f64>::zeros(r);
-        let mut g_au_u_fixed = Array1::<f64>::zeros(r);
-        let mut g_au_v_fixed = Array1::<f64>::zeros(r);
-        let mut g_au_uv_fixed = Array1::<f64>::zeros(r);
-        let mut g_uv_u_fixed = Array2::<f64>::zeros((r, r));
-        let mut g_uv_v_fixed = Array2::<f64>::zeros((r, r));
-        let mut g_uv_uv_fixed = Array2::<f64>::zeros((r, r));
-        let mut g_auv_u_fixed = Array2::<f64>::zeros((r, r));
-        let mut g_auv_v_fixed = Array2::<f64>::zeros((r, r));
-
-        for u in 1..r {
-            let tmp_u =
-                g_jet.param_directional_from_b_family(g_jet.b_first, u, dir_u, COEFF_SUPPORT_BHW);
-            let tmp_v =
-                g_jet.param_directional_from_b_family(g_jet.b_first, u, dir_v, COEFF_SUPPORT_BHW);
-            let tmp_uv =
-                g_jet.param_mixed_from_bb_family(g_jet.bb_first, u, dir_u, dir_v, COEFF_SUPPORT_BW);
-            let tmp_au_u =
-                g_jet.param_directional_from_b_family(g_jet.ab_first, u, dir_u, COEFF_SUPPORT_BW);
-            let tmp_au_v =
-                g_jet.param_directional_from_b_family(g_jet.ab_first, u, dir_v, COEFF_SUPPORT_BW);
-            let tmp_au_uv =
-                g_jet.param_mixed_from_bb_family(g_jet.abb_first, u, dir_u, dir_v, COEFF_SUPPORT_W);
-            g_u_u_fixed[u] = eval_coeff4_at(&tmp_u, z_obs);
-            g_u_v_fixed[u] = eval_coeff4_at(&tmp_v, z_obs);
-            g_u_uv_fixed[u] = eval_coeff4_at(&tmp_uv, z_obs);
-            g_au_u_fixed[u] = eval_coeff4_at(&tmp_au_u, z_obs);
-            g_au_v_fixed[u] = eval_coeff4_at(&tmp_au_v, z_obs);
-            g_au_uv_fixed[u] = eval_coeff4_at(&tmp_au_uv, z_obs);
-        }
-        for u in 1..r {
-            for v in u..r {
-                let third_u = g_jet.pair_directional_from_bb_family(
-                    g_jet.bb_first,
-                    u,
-                    v,
-                    dir_u,
-                    COEFF_SUPPORT_BW,
-                );
-                let third_v = g_jet.pair_directional_from_bb_family(
-                    g_jet.bb_first,
-                    u,
-                    v,
-                    dir_v,
-                    COEFF_SUPPORT_BW,
-                );
-                let fourth_uv = g_jet.pair_mixed_from_bbb_family(
-                    g_jet.bbb_first,
-                    u,
-                    v,
-                    dir_u,
-                    dir_v,
-                    COEFF_SUPPORT_W,
-                );
-                let a_third_u = g_jet.pair_directional_from_bb_family(
-                    g_jet.abb_first,
-                    u,
-                    v,
-                    dir_u,
-                    COEFF_SUPPORT_W,
-                );
-                let a_third_v = g_jet.pair_directional_from_bb_family(
-                    g_jet.abb_first,
-                    u,
-                    v,
-                    dir_v,
-                    COEFF_SUPPORT_W,
-                );
-                let vu = eval_coeff4_at(&third_u, z_obs);
-                let vv = eval_coeff4_at(&third_v, z_obs);
-                let vuv = eval_coeff4_at(&fourth_uv, z_obs);
-                g_uv_u_fixed[[u, v]] = vu;
-                g_uv_v_fixed[[u, v]] = vv;
-                g_uv_uv_fixed[[u, v]] = vuv;
-                g_uv_u_fixed[[v, u]] = vu;
-                g_uv_v_fixed[[v, u]] = vv;
-                g_uv_uv_fixed[[v, u]] = vuv;
-                let atu = eval_coeff4_at(&a_third_u, z_obs);
-                let atv = eval_coeff4_at(&a_third_v, z_obs);
-                g_auv_u_fixed[[u, v]] = atu;
-                g_auv_v_fixed[[u, v]] = atv;
-                g_auv_u_fixed[[v, u]] = atu;
-                g_auv_v_fixed[[v, u]] = atv;
-            }
-        }
-
-        let eta_u = g_a * &a_u + &g_u;
-        let mut eta_uv = Array2::<f64>::zeros((r, r));
-        for u in 0..r {
-            for v in u..r {
-                let val = g_a * a_uv[[u, v]]
-                    + g_aa * a_u[u] * a_u[v]
-                    + g_au[u] * a_u[v]
-                    + g_au[v] * a_u[u]
-                    + g_uv[[u, v]];
-                eta_uv[[u, v]] = val;
-                eta_uv[[v, u]] = val;
-            }
-        }
-
-        let a_dir_u = a_u.dot(dir_u);
-        let a_dir_v = a_u.dot(dir_v);
-        let g_a_u = g_aa * a_dir_u + g_a_u_fixed;
-        let g_a_v = g_aa * a_dir_v + g_a_v_fixed;
-        let g_aa_u = g_aaa * a_dir_u + g_aa_u_fixed;
-        let g_aa_v = g_aaa * a_dir_v + g_aa_v_fixed;
-
-        let mut g_u_u = Array1::<f64>::zeros(r);
-        let mut g_u_v = Array1::<f64>::zeros(r);
-        let mut g_au_u = Array1::<f64>::zeros(r);
-        let mut g_au_v = Array1::<f64>::zeros(r);
-        for u in 0..r {
-            g_u_u[u] = g_au[u] * a_dir_u + g_u_u_fixed[u];
-            g_u_v[u] = g_au[u] * a_dir_v + g_u_v_fixed[u];
-            g_au_u[u] = g_aau[u] * a_dir_u + g_au_u_fixed[u];
-            g_au_v[u] = g_aau[u] * a_dir_v + g_au_v_fixed[u];
-        }
-
-        let mut eta_uv_u = Array2::<f64>::zeros((r, r));
-        let mut eta_uv_v = Array2::<f64>::zeros((r, r));
-        for u in 0..r {
-            for v in u..r {
-                let g_uv_u = g_auv[[u, v]] * a_dir_u + g_uv_u_fixed[[u, v]];
-                let g_uv_v = g_auv[[u, v]] * a_dir_v + g_uv_v_fixed[[u, v]];
-                let val_u = g_a_u * a_uv[[u, v]]
-                    + g_a * a_uv_u[[u, v]]
-                    + g_aa_u * a_u[u] * a_u[v]
-                    + g_aa * (a_u_dir_u[u] * a_u[v] + a_u[u] * a_u_dir_u[v])
-                    + g_au_u[u] * a_u[v]
-                    + g_au[u] * a_u_dir_u[v]
-                    + g_au_u[v] * a_u[u]
-                    + g_au[v] * a_u_dir_u[u]
-                    + g_uv_u;
-                eta_uv_u[[u, v]] = val_u;
-                eta_uv_u[[v, u]] = val_u;
-
-                let val_v = g_a_v * a_uv[[u, v]]
-                    + g_a * a_uv_v[[u, v]]
-                    + g_aa_v * a_u[u] * a_u[v]
-                    + g_aa * (a_u_dir_v[u] * a_u[v] + a_u[u] * a_u_dir_v[v])
-                    + g_au_v[u] * a_u[v]
-                    + g_au[u] * a_u_dir_v[v]
-                    + g_au_v[v] * a_u[u]
-                    + g_au[v] * a_u_dir_v[u]
-                    + g_uv_v;
-                eta_uv_v[[u, v]] = val_v;
-                eta_uv_v[[v, u]] = val_v;
-            }
-        }
-
-        let a_dir_uv = a_u_dir_u.dot(dir_v);
-        let g_a_uv = g_aaa * a_dir_u * a_dir_v
-            + g_aa * a_dir_uv
-            + g_aa_u_fixed * a_dir_v
-            + g_aa_v_fixed * a_dir_u
-            + g_a_uv_fixed;
-        let g_aa_uv = g_aaau.dot(dir_u) * a_dir_v
-            + g_aaau.dot(dir_v) * a_dir_u
-            + g_aaa * a_dir_uv
-            + g_aa_uv_fixed;
-        let mut g_u_uv = Array1::<f64>::zeros(r);
-        let mut g_au_uv = Array1::<f64>::zeros(r);
-        for u in 0..r {
-            g_u_uv[u] = g_aau[u] * a_dir_u * a_dir_v
-                + g_au[u] * a_dir_uv
-                + g_au_u_fixed[u] * a_dir_v
-                + g_au_v_fixed[u] * a_dir_u
-                + g_u_uv_fixed[u];
-            let row_u_u = g_aauv.row(u).dot(dir_u);
-            let row_u_v = g_aauv.row(u).dot(dir_v);
-            g_au_uv[u] = g_aaau[u] * a_dir_u * a_dir_v
-                + g_aau[u] * a_dir_uv
-                + row_u_u * a_dir_v
-                + row_u_v * a_dir_u
-                + g_au_uv_fixed[u];
-        }
-
-        let mut eta_uv_uv = Array2::<f64>::zeros((r, r));
-        for u in 0..r {
-            for v in u..r {
-                let g_uv_uv = g_aauv[[u, v]] * a_dir_u * a_dir_v
-                    + g_auv[[u, v]] * a_dir_uv
-                    + g_auv_u_fixed[[u, v]] * a_dir_v
-                    + g_auv_v_fixed[[u, v]] * a_dir_u
-                    + g_uv_uv_fixed[[u, v]];
-                let val = g_a_uv * a_uv[[u, v]]
-                    + g_a_u * a_uv_v[[u, v]]
-                    + g_a_v * a_uv_u[[u, v]]
-                    + g_a * a_uv_uv[[u, v]]
-                    + g_aa_uv * a_u[u] * a_u[v]
-                    + g_aa_u * (a_u_dir_v[u] * a_u[v] + a_u[u] * a_u_dir_v[v])
-                    + g_aa_v * (a_u_dir_u[u] * a_u[v] + a_u[u] * a_u_dir_u[v])
-                    + g_aa
-                        * (a_u_uv[u] * a_u[v]
-                            + a_u_dir_u[u] * a_u_dir_v[v]
-                            + a_u_dir_v[u] * a_u_dir_u[v]
-                            + a_u[u] * a_u_uv[v])
-                    + g_au_uv[u] * a_u[v]
-                    + g_au_u[u] * a_u_dir_v[v]
-                    + g_au_v[u] * a_u_dir_u[v]
-                    + g_au[u] * a_u_uv[v]
-                    + g_au_uv[v] * a_u[u]
-                    + g_au_u[v] * a_u_dir_v[u]
-                    + g_au_v[v] * a_u_dir_u[u]
-                    + g_au[v] * a_u_uv[u]
-                    + g_uv_uv;
-                eta_uv_uv[[u, v]] = val;
-                eta_uv_uv[[v, u]] = val;
-            }
-        }
-
-        let eta_dir_u = g_a * a_dir_u + g_dir_u;
-        let eta_dir_v = g_a * a_dir_v + g_dir_v;
-        let eta_u_dir_u = eta_uv.dot(dir_u);
-        let eta_u_dir_v = eta_uv.dot(dir_v);
-        let eta_dir_uv = g_a_v * a_dir_u + g_a_u_fixed * a_dir_v + g_a * a_dir_uv + g_dir_uv;
-        let eta_u_uv = eta_uv_u.dot(dir_v);
 
         let y_i = self.y[row];
         let w_i = self.weights[row];
@@ -6861,38 +6633,656 @@ impl BernoulliMarginalSlopeFamily {
         let u1 = s_y * k1;
         let u3 = s_y * k3;
 
+        let direction_count = directions.len();
+        let pair_count = direction_pairs.len();
+        let mut a_u = Array1::<f64>::zeros(r);
+        let mut a_uv = Array2::<f64>::zeros((r, r));
+        let mut a_dirs = vec![0.0; direction_count];
+        let mut a_u_dirs = (0..direction_count)
+            .map(|_| Array1::<f64>::zeros(r))
+            .collect::<Vec<_>>();
+        let mut a_uv_dirs = (0..direction_count)
+            .map(|_| Array2::<f64>::zeros((r, r)))
+            .collect::<Vec<_>>();
+        let mut a_u_mixed = (0..pair_count)
+            .map(|_| Array1::<f64>::zeros(r))
+            .collect::<Vec<_>>();
+        let mut a_uv_mixed = (0..pair_count)
+            .map(|_| Array2::<f64>::zeros((r, r)))
+            .collect::<Vec<_>>();
+
+        let mut g_u = Array1::<f64>::zeros(r);
+        let mut g_au = Array1::<f64>::zeros(r);
+        let mut g_aau = Array1::<f64>::zeros(r);
+        let mut g_aaau = Array1::<f64>::zeros(r);
+        let mut g_uv = Array2::<f64>::zeros((r, r));
+        let mut g_auv = Array2::<f64>::zeros((r, r));
+        let mut g_aauv = Array2::<f64>::zeros((r, r));
+        let mut eta_u = Array1::<f64>::zeros(r);
+        let mut eta_uv = Array2::<f64>::zeros((r, r));
+
+        let mut g_a_fixed_dirs = vec![0.0; direction_count];
+        let mut g_aa_fixed_dirs = vec![0.0; direction_count];
+        let mut g_a_dirs = vec![0.0; direction_count];
+        let mut g_aa_dirs = vec![0.0; direction_count];
+        let mut g_au_dirs = (0..direction_count)
+            .map(|_| Array1::<f64>::zeros(r))
+            .collect::<Vec<_>>();
+        let mut eta_dirs = vec![0.0; direction_count];
+        let mut eta_u_dirs = (0..direction_count)
+            .map(|_| Array1::<f64>::zeros(r))
+            .collect::<Vec<_>>();
+        let mut eta_uv_dirs = (0..direction_count)
+            .map(|_| Array2::<f64>::zeros((r, r)))
+            .collect::<Vec<_>>();
+
+        let mut g_a_mixed = vec![0.0; pair_count];
+        let mut g_aa_mixed = vec![0.0; pair_count];
+        let mut g_au_mixed = (0..pair_count)
+            .map(|_| Array1::<f64>::zeros(r))
+            .collect::<Vec<_>>();
+        let mut eta_dir_mixed = vec![0.0; pair_count];
+        let mut eta_u_mixed = (0..pair_count)
+            .map(|_| Array1::<f64>::zeros(r))
+            .collect::<Vec<_>>();
+        let mut eta_uv_mixed = (0..pair_count)
+            .map(|_| Array2::<f64>::zeros((r, r)))
+            .collect::<Vec<_>>();
         let mut out = Array2::<f64>::zeros((r, r));
-        for u in 0..r {
-            for v in u..r {
-                let a_term = eta_u[u] * eta_u[v] * eta_dir_u;
-                let a_term_v = eta_u_dir_v[u] * eta_u[v] * eta_dir_u
-                    + eta_u[u] * eta_u_dir_v[v] * eta_dir_u
-                    + eta_u[u] * eta_u[v] * eta_dir_uv;
-                let b_term = eta_uv_u[[u, v]];
-                let b_term_v = eta_uv_uv[[u, v]];
-                let c_term = eta_uv[[u, v]] * eta_dir_u
-                    + eta_u[u] * eta_u_dir_u[v]
-                    + eta_u[v] * eta_u_dir_u[u];
-                let c_term_v = eta_uv_v[[u, v]] * eta_dir_u
-                    + eta_uv[[u, v]] * eta_dir_uv
-                    + eta_u_dir_v[u] * eta_u_dir_u[v]
-                    + eta_u[u] * eta_u_uv[v]
-                    + eta_u_dir_v[v] * eta_u_dir_u[u]
-                    + eta_u[v] * eta_u_uv[u];
-                let val = k4 * eta_dir_v * a_term
-                    + u3 * a_term_v
-                    + u3 * eta_dir_v * c_term
-                    + k2 * c_term_v
-                    + k2 * eta_dir_v * b_term
-                    + u1 * b_term_v;
-                out[[u, v]] = val;
-                out[[v, u]] = val;
-            }
-        }
+
+        BmsFlexRowProgram::try_for_each_order4_finalizer(
+            r,
+            direction_count,
+            pair_count,
+            |node| -> Result<(), String> {
+                match node {
+                    BmsFlexRowOrder4FinalizerNode::Order3(order3_node) => match order3_node {
+                        BmsFlexRowOrder3FinalizerNode::Order2(order2_node) => match order2_node {
+                            BmsFlexRowOrder2FinalizerNode::ImplicitFirst { primary } => {
+                                a_u[primary] = -f_u[primary] * inv_f_a;
+                            }
+                            BmsFlexRowOrder2FinalizerNode::ImplicitSecond { left, right } => {
+                                let value = -(f_uv[[left, right]]
+                                    + f_au[left] * a_u[right]
+                                    + f_au[right] * a_u[left]
+                                    + f_aa * a_u[left] * a_u[right])
+                                    * inv_f_a;
+                                a_uv[[left, right]] = value;
+                                a_uv[[right, left]] = value;
+                            }
+                            BmsFlexRowOrder2FinalizerNode::ObservedFirst { primary } => {
+                                if primary > 0 {
+                                    g_u[primary] = eval_coeff4_at(&g_jet.first[primary], z_obs);
+                                    g_au[primary] = eval_coeff4_at(&g_jet.a_first[primary], z_obs);
+                                    g_aau[primary] =
+                                        eval_coeff4_at(&g_jet.aa_first[primary], z_obs);
+                                    g_aaau[primary] =
+                                        eval_coeff4_at(&g_jet.aaa_first[primary], z_obs);
+                                }
+                                eta_u[primary] = g_a * a_u[primary] + g_u[primary];
+                            }
+                            BmsFlexRowOrder2FinalizerNode::ObservedSecond { left, right } => {
+                                if left > 0 {
+                                    let second = g_jet.pair_from_b_family(
+                                        g_jet.b_first,
+                                        left,
+                                        right,
+                                        COEFF_SUPPORT_BHW,
+                                    );
+                                    let third = g_jet.pair_from_b_family(
+                                        g_jet.ab_first,
+                                        left,
+                                        right,
+                                        COEFF_SUPPORT_BW,
+                                    );
+                                    let fourth = g_jet.pair_from_b_family(
+                                        g_jet.aab_first,
+                                        left,
+                                        right,
+                                        COEFF_SUPPORT_W,
+                                    );
+                                    g_uv[[left, right]] = eval_coeff4_at(&second, z_obs);
+                                    g_auv[[left, right]] = eval_coeff4_at(&third, z_obs);
+                                    g_aauv[[left, right]] = eval_coeff4_at(&fourth, z_obs);
+                                    g_uv[[right, left]] = g_uv[[left, right]];
+                                    g_auv[[right, left]] = g_auv[[left, right]];
+                                    g_aauv[[right, left]] = g_aauv[[left, right]];
+                                }
+                                let value = g_a * a_uv[[left, right]]
+                                    + g_aa * a_u[left] * a_u[right]
+                                    + g_au[left] * a_u[right]
+                                    + g_au[right] * a_u[left]
+                                    + g_uv[[left, right]];
+                                eta_uv[[left, right]] = value;
+                                eta_uv[[right, left]] = value;
+                            }
+                            BmsFlexRowOrder2FinalizerNode::ImplicitFirstComplete
+                            | BmsFlexRowOrder2FinalizerNode::ObservedScoreSensitivity { .. }
+                            | BmsFlexRowOrder2FinalizerNode::NegLogFirst { .. } => {}
+                        },
+                        BmsFlexRowOrder3FinalizerNode::DirectionStart { direction } => {
+                            let dir = directions[direction];
+                            let matrix_base = direction * r * r;
+                            f_uv_dir[matrix_base] = -dir[0] * marginal.mu3;
+                            a_dirs[direction] = a_u.dot(dir);
+                            a_u_dirs[direction].assign(&a_uv.dot(dir));
+
+                            let g_dir_fixed =
+                                g_jet.directional_family(g_jet.first, dir, COEFF_SUPPORT_BHW);
+                            let g_a_dir_fixed =
+                                g_jet.directional_family(g_jet.a_first, dir, COEFF_SUPPORT_BW);
+                            let g_aa_dir_fixed =
+                                g_jet.directional_family(g_jet.aa_first, dir, COEFF_SUPPORT_BW);
+                            g_a_fixed_dirs[direction] = eval_coeff4_at(&g_a_dir_fixed, z_obs);
+                            g_aa_fixed_dirs[direction] = eval_coeff4_at(&g_aa_dir_fixed, z_obs);
+                            eta_dirs[direction] =
+                                g_a * a_dirs[direction] + eval_coeff4_at(&g_dir_fixed, z_obs);
+                            eta_u_dirs[direction].assign(&eta_uv.dot(dir));
+                            g_a_dirs[direction] =
+                                g_aa * a_dirs[direction] + g_a_fixed_dirs[direction];
+                            g_aa_dirs[direction] =
+                                g_aaa * a_dirs[direction] + g_aa_fixed_dirs[direction];
+                        }
+                        BmsFlexRowOrder3FinalizerNode::ImplicitDirectionalSecond {
+                            direction,
+                            left,
+                            right,
+                        } => {
+                            let vector_base = direction * r;
+                            let matrix_base = direction * r * r;
+                            // Promote the explicit directional moments to TOTAL
+                            // derivatives through the moving intercept root (#2347):
+                            // d/d_dir f = f_dir_explicit + (df/da)*a_dir.
+                            let a_dir = a_dirs[direction];
+                            let f_uv_dir_total =
+                                f_uv_dir[matrix_base + left * r + right] + f_auv[[left, right]] * a_dir;
+                            let f_au_dir_left = f_au_dir[vector_base + left] + f_aau[left] * a_dir;
+                            let f_au_dir_right = f_au_dir[vector_base + right] + f_aau[right] * a_dir;
+                            let f_aa_dir_total = f_aa_dir[direction] + f_aaa * a_dir;
+                            let f_a_dir_total = f_a_dir[direction] + f_aa * a_dir;
+                            let numerator = f_uv_dir_total
+                                + f_au_dir_left * a_u[right]
+                                + f_au[left] * a_u_dirs[direction][right]
+                                + f_au_dir_right * a_u[left]
+                                + f_au[right] * a_u_dirs[direction][left]
+                                + f_aa_dir_total * a_u[left] * a_u[right]
+                                + f_aa
+                                    * (a_u_dirs[direction][left] * a_u[right]
+                                        + a_u[left] * a_u_dirs[direction][right]);
+                            let value =
+                                -(numerator + f_a_dir_total * a_uv[[left, right]]) * inv_f_a;
+                            a_uv_dirs[direction][[left, right]] = value;
+                            a_uv_dirs[direction][[right, left]] = value;
+                        }
+                        BmsFlexRowOrder3FinalizerNode::ObservedDirectionalFirst {
+                            direction,
+                            primary,
+                        } => {
+                            let coefficient = g_jet.param_directional_from_b_family(
+                                g_jet.ab_first,
+                                primary,
+                                directions[direction],
+                                COEFF_SUPPORT_BW,
+                            );
+                            g_au_dirs[direction][primary] = g_aau[primary] * a_dirs[direction]
+                                + eval_coeff4_at(&coefficient, z_obs);
+                        }
+                        BmsFlexRowOrder3FinalizerNode::ObservedDirectionalSecond {
+                            direction,
+                            left,
+                            right,
+                        } => {
+                            let fixed = if left == 0 {
+                                0.0
+                            } else {
+                                let coefficient = g_jet.pair_directional_from_bb_family(
+                                    g_jet.bb_first,
+                                    left,
+                                    right,
+                                    directions[direction],
+                                    COEFF_SUPPORT_BW,
+                                );
+                                eval_coeff4_at(&coefficient, z_obs)
+                            };
+                            let g_uv_direction = g_auv[[left, right]] * a_dirs[direction] + fixed;
+                            let value = g_a_dirs[direction] * a_uv[[left, right]]
+                                + g_a * a_uv_dirs[direction][[left, right]]
+                                + g_aa_dirs[direction] * a_u[left] * a_u[right]
+                                + g_aa
+                                    * (a_u_dirs[direction][left] * a_u[right]
+                                        + a_u[left] * a_u_dirs[direction][right])
+                                + g_au_dirs[direction][left] * a_u[right]
+                                + g_au[left] * a_u_dirs[direction][right]
+                                + g_au_dirs[direction][right] * a_u[left]
+                                + g_au[right] * a_u_dirs[direction][left]
+                                + g_uv_direction;
+                            eta_uv_dirs[direction][[left, right]] = value;
+                            eta_uv_dirs[direction][[right, left]] = value;
+                        }
+                        BmsFlexRowOrder3FinalizerNode::NegLogThird { .. } => {
+                            // A fourth contraction consumes the third-order
+                            // predictor state, not the lower-order output.
+                        }
+                    },
+                    BmsFlexRowOrder4FinalizerNode::DirectionPairStart { pair } => {
+                        let (left_direction, right_direction) = direction_pairs[pair];
+                        let left_dir = directions[left_direction];
+                        let right_dir = directions[right_direction];
+                        let matrix_base = pair * r * r;
+                        f_uv_mixed[matrix_base] = -left_dir[0] * right_dir[0] * marginal.mu4;
+
+                        a_u_mixed[pair].assign(&a_uv_dirs[left_direction].dot(right_dir));
+                        let a_dir_mixed = a_u_dirs[left_direction].dot(right_dir);
+
+                        let g_dir_mixed_fixed = g_jet.mixed_directional_from_b_family(
+                            g_jet.b_first,
+                            left_dir,
+                            right_dir,
+                            COEFF_SUPPORT_BHW,
+                        );
+                        let g_a_mixed_fixed = g_jet.mixed_directional_from_b_family(
+                            g_jet.ab_first,
+                            left_dir,
+                            right_dir,
+                            COEFF_SUPPORT_BW,
+                        );
+                        let g_aa_mixed_fixed = g_jet.mixed_directional_from_b_family(
+                            g_jet.aab_first,
+                            left_dir,
+                            right_dir,
+                            COEFF_SUPPORT_W,
+                        );
+                        let g_a_mixed_fixed = eval_coeff4_at(&g_a_mixed_fixed, z_obs);
+                        let g_aa_mixed_fixed = eval_coeff4_at(&g_aa_mixed_fixed, z_obs);
+
+                        g_a_mixed[pair] = g_aaa * a_dirs[left_direction] * a_dirs[right_direction]
+                            + g_aa * a_dir_mixed
+                            + g_aa_fixed_dirs[left_direction] * a_dirs[right_direction]
+                            + g_aa_fixed_dirs[right_direction] * a_dirs[left_direction]
+                            + g_a_mixed_fixed;
+                        g_aa_mixed[pair] = g_aaau.dot(left_dir) * a_dirs[right_direction]
+                            + g_aaau.dot(right_dir) * a_dirs[left_direction]
+                            + g_aaa * a_dir_mixed
+                            + g_aa_mixed_fixed;
+                        eta_dir_mixed[pair] = g_a_dirs[right_direction] * a_dirs[left_direction]
+                            + g_a_fixed_dirs[left_direction] * a_dirs[right_direction]
+                            + g_a * a_dir_mixed
+                            + eval_coeff4_at(&g_dir_mixed_fixed, z_obs);
+                        eta_u_mixed[pair].assign(&eta_uv_dirs[left_direction].dot(right_dir));
+                    }
+                    BmsFlexRowOrder4FinalizerNode::ImplicitMixedSecond { pair, left, right } => {
+                        let (left_direction, right_direction) = direction_pairs[pair];
+                        let left_dir = directions[left_direction];
+                        let right_dir = directions[right_direction];
+                        let left_vector_base = left_direction * r;
+                        let right_vector_base = right_direction * r;
+                        let mixed_vector_base = pair * r;
+                        let mixed_matrix_base = pair * r * r;
+                        let a_l = a_dirs[left_direction];
+                        let a_r = a_dirs[right_direction];
+                        let a_dir_mixed = a_u_dirs[left_direction].dot(right_dir);
+
+                        // Promote every explicit calibration moment to its TOTAL
+                        // directional derivative through the moving intercept root
+                        // (#2347). Order-3 totals: D_X f = f_dir[X] + (df/da)*a_X.
+                        let f_a_dir_l = f_a_dir[left_direction] + f_aa * a_l;
+                        let f_a_dir_r = f_a_dir[right_direction] + f_aa * a_r;
+                        let f_aa_dir_l = f_aa_dir[left_direction] + f_aaa * a_l;
+                        let f_aa_dir_r = f_aa_dir[right_direction] + f_aaa * a_r;
+                        let f_au_dir_l_left =
+                            f_au_dir[left_vector_base + left] + f_aau[left] * a_l;
+                        let f_au_dir_r_left =
+                            f_au_dir[right_vector_base + left] + f_aau[left] * a_r;
+                        let f_au_dir_l_right =
+                            f_au_dir[left_vector_base + right] + f_aau[right] * a_l;
+                        let f_au_dir_r_right =
+                            f_au_dir[right_vector_base + right] + f_aau[right] * a_r;
+                        // Order-4 totals: D_L D_R f = f_mixed
+                        //   + (d f_dir_expl[L]/da)*a_R + (d f_dir_expl[R]/da)*a_L
+                        //   + (d^2 f/da^2)*a_L*a_R + (df/da)*a_dir_mixed.
+                        // The (d f_dir_expl[X]/da) factors are the EXPLICIT
+                        // directional of the a-derivative moment.
+                        let f_a_mixed_total = f_a_mixed[pair]
+                            + f_aa_dir[left_direction] * a_r
+                            + f_aa_dir[right_direction] * a_l
+                            + f_aaa * a_l * a_r
+                            + f_aa * a_dir_mixed;
+                        let f_aa_mixed_total = f_aa_mixed[pair]
+                            + f_aaau.dot(left_dir) * a_r
+                            + f_aaau.dot(right_dir) * a_l
+                            + f_aaaa * a_l * a_r
+                            + f_aaa * a_dir_mixed;
+                        let f_au_mixed_left = f_au_mixed[mixed_vector_base + left]
+                            + f_aauv.row(left).dot(left_dir) * a_r
+                            + f_aauv.row(left).dot(right_dir) * a_l
+                            + f_aaau[left] * a_l * a_r
+                            + f_aau[left] * a_dir_mixed;
+                        let f_au_mixed_right = f_au_mixed[mixed_vector_base + right]
+                            + f_aauv.row(right).dot(left_dir) * a_r
+                            + f_aauv.row(right).dot(right_dir) * a_l
+                            + f_aaau[right] * a_l * a_r
+                            + f_aau[right] * a_dir_mixed;
+                        let f_uv_mixed_total = f_uv_mixed[mixed_matrix_base + left * r + right]
+                            + f_auv_dir[left_direction * r * r + left * r + right] * a_r
+                            + f_auv_dir[right_direction * r * r + left * r + right] * a_l
+                            + f_aauv[[left, right]] * a_l * a_r
+                            + f_auv[[left, right]] * a_dir_mixed;
+
+                        let numerator = f_uv_mixed_total
+                            + f_au_mixed_left * a_u[right]
+                            + f_au_dir_l_left * a_u_dirs[right_direction][right]
+                            + f_au_dir_r_left * a_u_dirs[left_direction][right]
+                            + f_au[left] * a_u_mixed[pair][right]
+                            + f_au_mixed_right * a_u[left]
+                            + f_au_dir_l_right * a_u_dirs[right_direction][left]
+                            + f_au_dir_r_right * a_u_dirs[left_direction][left]
+                            + f_au[right] * a_u_mixed[pair][left]
+                            + f_aa_mixed_total * a_u[left] * a_u[right]
+                            + f_aa_dir_l
+                                * (a_u_dirs[right_direction][left] * a_u[right]
+                                    + a_u[left] * a_u_dirs[right_direction][right])
+                            + f_aa_dir_r
+                                * (a_u_dirs[left_direction][left] * a_u[right]
+                                    + a_u[left] * a_u_dirs[left_direction][right])
+                            + f_aa
+                                * (a_u_mixed[pair][left] * a_u[right]
+                                    + a_u_dirs[left_direction][left]
+                                        * a_u_dirs[right_direction][right]
+                                    + a_u_dirs[right_direction][left]
+                                        * a_u_dirs[left_direction][right]
+                                    + a_u[left] * a_u_mixed[pair][right]);
+                        let value = -(numerator
+                            + f_a_dir_r * a_uv_dirs[left_direction][[left, right]]
+                            + f_a_dir_l * a_uv_dirs[right_direction][[left, right]]
+                            + f_a_mixed_total * a_uv[[left, right]])
+                            * inv_f_a;
+                        a_uv_mixed[pair][[left, right]] = value;
+                        a_uv_mixed[pair][[right, left]] = value;
+                    }
+                    BmsFlexRowOrder4FinalizerNode::ObservedMixedFirst { pair, primary } => {
+                        let (left_direction, right_direction) = direction_pairs[pair];
+                        let left_dir = directions[left_direction];
+                        let right_dir = directions[right_direction];
+                        let fixed = if primary == 0 {
+                            0.0
+                        } else {
+                            let coefficient = g_jet.param_mixed_from_bb_family(
+                                g_jet.abb_first,
+                                primary,
+                                left_dir,
+                                right_dir,
+                                COEFF_SUPPORT_W,
+                            );
+                            eval_coeff4_at(&coefficient, z_obs)
+                        };
+                        let a_dir_mixed = a_u_dirs[left_direction].dot(right_dir);
+                        g_au_mixed[pair][primary] =
+                            g_aaau[primary] * a_dirs[left_direction] * a_dirs[right_direction]
+                                + g_aau[primary] * a_dir_mixed
+                                + g_aauv.row(primary).dot(left_dir) * a_dirs[right_direction]
+                                + g_aauv.row(primary).dot(right_dir) * a_dirs[left_direction]
+                                + fixed;
+                    }
+                    BmsFlexRowOrder4FinalizerNode::ObservedMixedSecond { pair, left, right } => {
+                        let (left_direction, right_direction) = direction_pairs[pair];
+                        let left_dir = directions[left_direction];
+                        let right_dir = directions[right_direction];
+                        let (fixed_left, fixed_right, fixed_mixed) = if left == 0 {
+                            (0.0, 0.0, 0.0)
+                        } else {
+                            let left_coefficient = g_jet.pair_directional_from_bb_family(
+                                g_jet.abb_first,
+                                left,
+                                right,
+                                left_dir,
+                                COEFF_SUPPORT_W,
+                            );
+                            let right_coefficient = g_jet.pair_directional_from_bb_family(
+                                g_jet.abb_first,
+                                left,
+                                right,
+                                right_dir,
+                                COEFF_SUPPORT_W,
+                            );
+                            let mixed_coefficient = g_jet.pair_mixed_from_bbb_family(
+                                g_jet.bbb_first,
+                                left,
+                                right,
+                                left_dir,
+                                right_dir,
+                                COEFF_SUPPORT_W,
+                            );
+                            (
+                                eval_coeff4_at(&left_coefficient, z_obs),
+                                eval_coeff4_at(&right_coefficient, z_obs),
+                                eval_coeff4_at(&mixed_coefficient, z_obs),
+                            )
+                        };
+                        let a_dir_mixed = a_u_dirs[left_direction].dot(right_dir);
+                        let g_uv_mixed = g_aauv[[left, right]]
+                            * a_dirs[left_direction]
+                            * a_dirs[right_direction]
+                            + g_auv[[left, right]] * a_dir_mixed
+                            + fixed_left * a_dirs[right_direction]
+                            + fixed_right * a_dirs[left_direction]
+                            + fixed_mixed;
+                        let value = g_a_mixed[pair] * a_uv[[left, right]]
+                            + g_a_dirs[left_direction] * a_uv_dirs[right_direction][[left, right]]
+                            + g_a_dirs[right_direction] * a_uv_dirs[left_direction][[left, right]]
+                            + g_a * a_uv_mixed[pair][[left, right]]
+                            + g_aa_mixed[pair] * a_u[left] * a_u[right]
+                            + g_aa_dirs[left_direction]
+                                * (a_u_dirs[right_direction][left] * a_u[right]
+                                    + a_u[left] * a_u_dirs[right_direction][right])
+                            + g_aa_dirs[right_direction]
+                                * (a_u_dirs[left_direction][left] * a_u[right]
+                                    + a_u[left] * a_u_dirs[left_direction][right])
+                            + g_aa
+                                * (a_u_mixed[pair][left] * a_u[right]
+                                    + a_u_dirs[left_direction][left]
+                                        * a_u_dirs[right_direction][right]
+                                    + a_u_dirs[right_direction][left]
+                                        * a_u_dirs[left_direction][right]
+                                    + a_u[left] * a_u_mixed[pair][right])
+                            + g_au_mixed[pair][left] * a_u[right]
+                            + g_au_dirs[left_direction][left] * a_u_dirs[right_direction][right]
+                            + g_au_dirs[right_direction][left] * a_u_dirs[left_direction][right]
+                            + g_au[left] * a_u_mixed[pair][right]
+                            + g_au_mixed[pair][right] * a_u[left]
+                            + g_au_dirs[left_direction][right] * a_u_dirs[right_direction][left]
+                            + g_au_dirs[right_direction][right] * a_u_dirs[left_direction][left]
+                            + g_au[right] * a_u_mixed[pair][left]
+                            + g_uv_mixed;
+                        eta_uv_mixed[pair][[left, right]] = value;
+                        eta_uv_mixed[pair][[right, left]] = value;
+                    }
+                    BmsFlexRowOrder4FinalizerNode::NegLogFourth { pair, left, right } => {
+                        let (left_direction, right_direction) = direction_pairs[pair];
+                        let a_term = eta_u[left] * eta_u[right] * eta_dirs[left_direction];
+                        let a_term_v = eta_u_dirs[right_direction][left]
+                            * eta_u[right]
+                            * eta_dirs[left_direction]
+                            + eta_u[left]
+                                * eta_u_dirs[right_direction][right]
+                                * eta_dirs[left_direction]
+                            + eta_u[left] * eta_u[right] * eta_dir_mixed[pair];
+                        let b_term = eta_uv_dirs[left_direction][[left, right]];
+                        let b_term_v = eta_uv_mixed[pair][[left, right]];
+                        let c_term = eta_uv[[left, right]] * eta_dirs[left_direction]
+                            + eta_u[left] * eta_u_dirs[left_direction][right]
+                            + eta_u[right] * eta_u_dirs[left_direction][left];
+                        let c_term_v = eta_uv_dirs[right_direction][[left, right]]
+                            * eta_dirs[left_direction]
+                            + eta_uv[[left, right]] * eta_dir_mixed[pair]
+                            + eta_u_dirs[right_direction][left] * eta_u_dirs[left_direction][right]
+                            + eta_u[left] * eta_u_mixed[pair][right]
+                            + eta_u_dirs[right_direction][right] * eta_u_dirs[left_direction][left]
+                            + eta_u[right] * eta_u_mixed[pair][left];
+                        let value = k4 * eta_dirs[right_direction] * a_term
+                            + u3 * a_term_v
+                            + u3 * eta_dirs[right_direction] * c_term
+                            + k2 * c_term_v
+                            + k2 * eta_dirs[right_direction] * b_term
+                            + u1 * b_term_v;
+                        out[[left, right]] = value;
+                        out[[right, left]] = value;
+                    }
+                }
+                Ok(())
+            },
+        )?;
         Ok(out)
     }
 
-    pub(super) fn row_primary_fourth_contracted_recompute(
+    /// Evaluate several symmetric fourth contractions for one row. Empirical
+    /// FLEX evaluates both ordered orientations in one two-seed batch per
+    /// bounded chunk, preserving the established arithmetic symmetrization
+    /// while sharing the row-plan base across pairs.
+    pub(super) fn row_primary_fourth_contracted_many(
+        &self,
+        row: usize,
+        block_states: &[ParameterBlockState],
+        cache: &BernoulliMarginalSlopeExactEvalCache,
+        row_ctx: &BernoulliMarginalSlopeRowExactContext,
+        direction_pairs: &[(&Array1<f64>, &Array1<f64>)],
+    ) -> Result<Vec<Array2<f64>>, String> {
+        const PAIRS_PER_EMPIRICAL_BATCH: usize = 4;
+
+        if direction_pairs.is_empty() {
+            return Ok(Vec::new());
+        }
+        let flex_active = self.effective_flex_active(block_states)?;
+        let expected = if flex_active { cache.primary.total } else { 2 };
+        if let Some((lane, (direction_u, direction_v))) =
+            direction_pairs
+                .iter()
+                .enumerate()
+                .find(|(_, (direction_u, direction_v))| {
+                    direction_u.len() != expected || direction_v.len() != expected
+                })
+        {
+            return Err(format!(
+                "bernoulli fourth contracted row {row} pair {lane}: direction lengths ({},{}) != {expected}",
+                direction_u.len(),
+                direction_v.len()
+            ));
+        }
+        let Some(grid) = self.latent_measure.empirical_grid_for_training_row(row)? else {
+            return direction_pairs
+                .iter()
+                .map(|(direction_u, direction_v)| {
+                    self.row_primary_fourth_contracted(
+                        row,
+                        block_states,
+                        cache,
+                        row_ctx,
+                        direction_u,
+                        direction_v,
+                    )
+                })
+                .collect();
+        };
+        if !flex_active {
+            return direction_pairs
+                .iter()
+                .map(|(direction_u, direction_v)| {
+                    self.row_primary_fourth_contracted(
+                        row,
+                        block_states,
+                        cache,
+                        row_ctx,
+                        direction_u,
+                        direction_v,
+                    )
+                })
+                .collect();
+        }
+
+        let fourth_schedule = empirical_bms_fourth_jet_schedule(expected);
+        if fourth_schedule == EmpiricalBmsFourthJetSchedule::RepeatedFixedWidth {
+            return direction_pairs
+                .iter()
+                .map(|(direction_u, direction_v)| {
+                    self.row_primary_fourth_contracted(
+                        row,
+                        block_states,
+                        cache,
+                        row_ctx,
+                        direction_u,
+                        direction_v,
+                    )
+                })
+                .collect();
+        }
+
+        let primary = &cache.primary;
+        let point = self.primary_point_from_block_states(row, block_states, primary)?;
+        let (q, b, beta_h_owned, beta_w_owned) = self.primary_point_components(&point, primary);
+        let plan = self.compile_empirical_bms_row_program(
+            row,
+            primary,
+            q,
+            b,
+            beta_h_owned.as_ref(),
+            beta_w_owned.as_ref(),
+            row_ctx.intercept,
+            &grid,
+        )?;
+        let primary_point =
+            Self::intercept_primary_point(q, b, beta_h_owned.as_ref(), beta_w_owned.as_ref());
+        let mut contractions = Vec::with_capacity(direction_pairs.len());
+        for pair_chunk in direction_pairs.chunks(PAIRS_PER_EMPIRICAL_BATCH) {
+            let mut ordered_pairs = Vec::with_capacity(2 * pair_chunk.len());
+            for &(direction_u, direction_v) in pair_chunk {
+                ordered_pairs.push((direction_u, direction_v));
+                ordered_pairs.push((direction_v, direction_u));
+            }
+            let ordered = match fourth_schedule {
+                EmpiricalBmsFourthJetSchedule::FixedWidthFromPlan => {
+                    Self::empirical_fixed_fourth_many_from_plan::<4>(
+                        &plan,
+                        &primary_point,
+                        &ordered_pairs,
+                    )
+                }
+                EmpiricalBmsFourthJetSchedule::RepeatedFixedWidth => ordered_pairs
+                    .iter()
+                    .map(|&(direction_u, direction_v)| {
+                        self.row_primary_fourth_contracted(
+                            row,
+                            block_states,
+                            cache,
+                            row_ctx,
+                            direction_u,
+                            direction_v,
+                        )
+                    })
+                    .collect(),
+                EmpiricalBmsFourthJetSchedule::DynamicBatch { lanes } => {
+                    Self::empirical_dynamic_fourth_batch_from_plan(
+                        &plan,
+                        &primary_point,
+                        &ordered_pairs,
+                        primary,
+                        lanes,
+                    )
+                }
+            }?;
+            let mut orientations = ordered.into_iter();
+            while let Some(mut ordered) = orientations.next() {
+                let swapped = orientations
+                    .next()
+                    .expect("each empirical BMS pair has two ordered orientations");
+                ordered.zip_mut_with(&swapped, |ordered, &swapped| {
+                    *ordered = 0.5 * (*ordered + swapped);
+                });
+                contractions.push(ordered);
+            }
+        }
+        Ok(contractions)
+    }
+
+    pub(super) fn row_primary_fourth_contracted(
         &self,
         row: usize,
         block_states: &[ParameterBlockState],
@@ -6935,7 +7325,7 @@ impl BernoulliMarginalSlopeFamily {
                 return Ok(out);
             }
         }
-        let ordered = self.row_primary_fourth_contracted_recompute_ordered(
+        let ordered = self.row_primary_fourth_contracted_ordered(
             row,
             block_states,
             cache,
@@ -6947,7 +7337,7 @@ impl BernoulliMarginalSlopeFamily {
             return Ok(ordered);
         }
 
-        let swapped = self.row_primary_fourth_contracted_recompute_ordered(
+        let swapped = self.row_primary_fourth_contracted_ordered(
             row,
             block_states,
             cache,
@@ -7099,6 +7489,15 @@ impl BernoulliMarginalSlopeFamily {
         block_states: &[ParameterBlockState],
         cache: &BernoulliMarginalSlopeExactEvalCache,
     ) -> Result<Array2<f64>, String> {
+        #[cfg(target_os = "linux")]
+        if let Some(hessian) =
+            self.selected_device_dense_hessian_from_cache(cache, "exact dense Hessian")?
+        {
+            return Ok(hessian);
+        }
+        cache
+            .row_primary_hessians
+            .reject_device_cpu_recompute("exact dense Hessian")?;
         let slices = &cache.slices;
         let primary = &cache.primary;
         let n = self.y.len();
@@ -7188,7 +7587,7 @@ impl BernoulliMarginalSlopeFamily {
                                     .row_cell_moments
                                     .as_ref()
                                     .and_then(|bundle| bundle.row(row, 9));
-                                self.compute_row_analytic_flex_into_with_moments(
+                                self.lower_bms_flex_row_order2_with_moments(
                                     row,
                                     block_states,
                                     primary,
@@ -7299,6 +7698,31 @@ impl BernoulliMarginalSlopeFamily {
         block_states: &[ParameterBlockState],
         cache: &BernoulliMarginalSlopeExactEvalCache,
     ) -> Result<ExactNewtonJointFusedDenseEvaluation, String> {
+        #[cfg(target_os = "linux")]
+        if cache.row_primary_hessians.device().is_some() {
+            let gradient = self
+                .selected_device_joint_gradient_from_cache(
+                    cache,
+                    "fused exact gradient+dense Hessian",
+                )?
+                .ok_or_else(|| {
+                    "BMS fused exact gradient+dense Hessian: selected device cache disappeared"
+                        .to_string()
+                })?;
+            let hessian = self
+                .selected_device_dense_hessian_from_cache(
+                    cache,
+                    "fused exact gradient+dense Hessian",
+                )?
+                .ok_or_else(|| {
+                    "BMS fused exact gradient+dense Hessian: selected device cache disappeared"
+                        .to_string()
+                })?;
+            return Ok(ExactNewtonJointFusedDenseEvaluation { gradient, hessian });
+        }
+        cache
+            .row_primary_hessians
+            .reject_device_cpu_recompute("fused exact gradient+dense Hessian")?;
         let slices = &cache.slices;
         let primary = &cache.primary;
         let n = self.y.len();
@@ -7408,8 +7832,9 @@ impl BernoulliMarginalSlopeFamily {
                                 Self::cached_row_primary_hessian(cache, row);
                             cached_hessian = cached_hess;
                         } else {
-                            // Cache miss (device-resident or no cache): run the
-                            // row kernel once for neglog + grad + (maybe) hess.
+                            // Host cache miss: run the row kernel once for
+                            // neglog + grad + (maybe) hess. Device caches are
+                            // rejected at the function boundary above.
                             cached_grad_row_storage = None;
                             let row_ctx = Self::row_ctx(cache, row);
                             let cached_hess =
@@ -7419,7 +7844,7 @@ impl BernoulliMarginalSlopeFamily {
                                 .as_ref()
                                 .and_then(|bundle| bundle.row(row, 9));
                             let computed_neglog =
-                                self.compute_row_analytic_flex_into_with_moments(
+                                self.lower_bms_flex_row_order2_with_moments(
                                     row,
                                     block_states,
                                     primary,
@@ -7606,6 +8031,15 @@ impl BernoulliMarginalSlopeFamily {
         block_states: &[ParameterBlockState],
         cache: &BernoulliMarginalSlopeExactEvalCache,
     ) -> Result<f64, String> {
+        #[cfg(target_os = "linux")]
+        if let Some(gradient) =
+            self.selected_device_joint_gradient_from_cache(cache, "exact log likelihood")?
+        {
+            return Ok(gradient.log_likelihood);
+        }
+        cache
+            .row_primary_hessians
+            .reject_device_cpu_recompute("exact log likelihood")?;
         if !self.effective_flex_active(block_states)? {
             return self
                 .log_likelihood_only_with_options(block_states, &BlockwiseFitOptions::default());
@@ -7661,5 +8095,84 @@ impl BernoulliMarginalSlopeFamily {
         }
         drop(process_monitor_guard);
         Ok(log_likelihood)
+    }
+}
+
+/// #2347 test-only debug surface, housed per the workspace ban-scanner
+/// contract (`#[cfg(test)]` items live inside an allowed test module; this
+/// inherent impl extends the family with the moment probe only under test).
+#[cfg(test)]
+mod test_support {
+    use super::*;
+
+    impl BernoulliMarginalSlopeFamily {
+        /// #2347 test helper: compute the (b,b) calibration moments
+        /// `f_uv = ∂²M/∂b²`, `f_auv = ∂³M/∂a∂b²`, `f_aauv = ∂⁴M/∂a²∂b²`, and
+        /// `f_auv_db = ∂⁴M/∂a∂b³` at an ARBITRARY intercept `a` (not necessarily the
+        /// solved root). FD-differencing this in `a` and `b` independently verifies
+        /// the intercept a-chain moments used by the fourth-order IFT.
+        pub(crate) fn debug_bb_moments_at_intercept(
+            &self,
+            a: f64,
+            b: f64,
+            beta_h: Option<&Array1<f64>>,
+            beta_w: Option<&Array1<f64>>,
+        ) -> Result<(f64, f64, f64, f64, f64), String> {
+            use super::super::exact_kernel as exact;
+            let scale = self.probit_frailty_scale();
+            let cells = self.denested_partition_cells(a, b, beta_h, beta_w)?;
+            // Moving-boundary flux for f_aauv = ∂ₐf_auv: the 3rd integrand F_abb has
+            // a jump at each interior link-knot crossing z*=(τ-a)/b (because
+            // c_abb=∂³coeff/∂a∂b² ∝ link α₃, which differs across the crossing),
+            // and z* moves with a (velocity -1/b). Only c_abb jumps; the other F_abb
+            // terms are continuous. flux = Σ [c_abb]⁻₊ · e^{-q(z*)}/2π · (-1/b).
+            let inv_two_pi = 1.0 / (2.0 * std::f64::consts::PI);
+            let mut flux_aauv = 0.0;
+            for pair in cells.windows(2) {
+                let z_star = pair[0].cell.right;
+                if !z_star.is_finite() || (pair[1].cell.left - z_star).abs() > 1e-12 {
+                    continue;
+                }
+                let alpha3_left = pair[0].link_span.c3;
+                let alpha3_right = pair[1].link_span.c3;
+                let c_abb_jump = 6.0 * scale * z_star * z_star * (alpha3_left - alpha3_right);
+                let weight = (-pair[0].cell.q(z_star)).exp() * inv_two_pi;
+                flux_aauv += c_abb_jump * weight * (-1.0 / b);
+            }
+            let (mut f_uv, mut f_auv, mut f_aauv, mut f_auv_db) = (0.0, 0.0, 0.0, 0.0);
+            for pc in &cells {
+                let cell = pc.cell;
+                let state = exact::evaluate_cell_derivative_moments_uncached(cell, 21)?;
+                let m = &state.moments;
+                let (dc_da_raw, dc_db_raw) =
+                    exact::denested_cell_coefficient_partials(pc.score_span, pc.link_span, a, b);
+                let (dc_daa_raw, dc_dab_raw, dc_dbb_raw) =
+                    exact::denested_cell_second_partials(pc.score_span, pc.link_span, a, b);
+                let third = exact::denested_cell_third_partials(pc.link_span);
+                let dc_da = scale_coeff4(dc_da_raw, scale);
+                let dc_db = scale_coeff4(dc_db_raw, scale);
+                let dc_daa = scale_coeff4(dc_daa_raw, scale);
+                let dc_dab = scale_coeff4(dc_dab_raw, scale);
+                let dc_dbb = scale_coeff4(dc_dbb_raw, scale);
+                let dc_daab = scale_coeff4(third.1, scale);
+                let dc_dabb = scale_coeff4(third.2, scale);
+                let dc_dbbb = scale_coeff4(third.3, scale);
+                f_uv += exact::cell_second_derivative_from_moments(cell, &dc_db, &dc_db, &dc_dbb, m)?;
+                f_auv += exact::cell_third_derivative_from_moments(
+                    cell, &dc_da, &dc_db, &dc_db, &dc_dab, &dc_dab, &dc_dbb, &dc_dabb, m,
+                )?;
+                // ∂⁴M/∂a²∂b²: slots (a,a,b,b); fourth coeff ∂⁴η/∂a²∂b² = 0.
+                f_aauv += exact::cell_fourth_derivative_from_moments(
+                    cell, &dc_da, &dc_da, &dc_db, &dc_db, &dc_daa, &dc_dab, &dc_dab, &dc_dab, &dc_dab,
+                    &dc_dbb, &dc_daab, &dc_daab, &dc_dabb, &dc_dabb, &[0.0; 4], m,
+                )?;
+                // ∂⁴M/∂a∂b³: slots (a,b,b,b); fourth coeff ∂⁴η/∂a∂b³ = 0.
+                f_auv_db += exact::cell_fourth_derivative_from_moments(
+                    cell, &dc_da, &dc_db, &dc_db, &dc_db, &dc_dab, &dc_dab, &dc_dab, &dc_dbb, &dc_dbb,
+                    &dc_dbb, &dc_dabb, &dc_dabb, &dc_dabb, &dc_dbbb, &[0.0; 4], m,
+                )?;
+            }
+            Ok((f_uv, f_auv, f_aauv, f_auv_db, flux_aauv))
+        }
     }
 }

@@ -196,6 +196,53 @@ pub fn bessel_i0_centered_terms_from_log_abs(log_abs_eta: f64) -> (f64, f64, f64
     (-0.5 * (std::f64::consts::TAU.ln() + log_abs_eta), 1.0, -0.5)
 }
 
+/// Second log-scale derivative of the centered Bessel primitive:
+/// `d²/d(log η)²[log I0(η) − η]`, i.e. the derivative of the third term `d1`
+/// returned by [`bessel_i0_centered_terms`] (`d1 = η d/dη[log I0(η) − η]`).
+///
+/// Writing `s = log η`, `r = I1(η)/I0(η)`, and `c(s) = log I0(η) − η`, the first
+/// log-derivative is `c'(s) = d1 = η(r − 1)`. Differentiating again and using
+/// the modified-Bessel ratio ODE `r'(η) = 1 − r/η − r²` gives the exact closed
+/// form `c''(s) = −η + η²(1 − r²)`. That direct form is numerically unusable
+/// for moderate/large `η`: its two terms each grow like `η` and cancel to
+/// `O(1/η)`, so the ratio's `~ε_poly` approximation error is amplified by `η²`.
+/// The algebraically identical rearrangement in terms of the STABLE third term
+///
+/// `c''(s) = −η(2·d1 + 1) − d1²`
+///
+/// cancels safely instead: `d1 → −½` with `2·d1 + 1 → 0` computed from the
+/// overflow-free scaled polynomial, so the amplification drops to `η·δd1`. It is
+/// also, by construction, the exact derivative of the SAME `d1` the outer
+/// gradient's periodic-ARD normalizer channel reports, so gradient and Hessian
+/// differentiate one quantity. Beyond the float range `c'(s) → −½` (constant)
+/// so `c''(s) → 0`; likewise `η → 0` gives `c''(s) → 0`. The von-Mises ARD
+/// log-precision normalizer `n[−η + log I0(η)]` therefore has
+/// `∂²/∂(log α)² = n · c''(log η)` up to the affine `log η = log α + const` shift.
+pub fn bessel_i0_centered_second_log_derivative_from_log_abs(log_abs_eta: f64) -> f64 {
+    if log_abs_eta.is_nan() {
+        return f64::NAN;
+    }
+    if log_abs_eta == f64::NEG_INFINITY {
+        return 0.0;
+    }
+    if log_abs_eta > f64::MAX.ln() {
+        return 0.0;
+    }
+    let eta = log_abs_eta.exp();
+    // The stable `d1` rearrangement still cancels `−η(2d1+1)` against `d1²` to
+    // `O(1/η)`, so past `η ≈ 30` the scaled polynomial's residual error in `d1`
+    // (amplified by `η`) exceeds the signal. There the convergent large-argument
+    // series `c''(s) = 1/(8η) + 1/(4η²) + 75/(128η³) + O(η⁻⁴)` (the `d/ds` of the
+    // `d1 = −½ − 1/(8η) − 1/(8η²) − 25/(128η³)` expansion) is both accurate and
+    // cancellation-free, and rounds smoothly to the `η → ∞` limit `0`.
+    if eta > 30.0 {
+        let inv = 1.0 / eta;
+        return inv * (0.125 + inv * (0.25 + inv * (75.0 / 128.0)));
+    }
+    let (_centered, _ratio, d1) = bessel_i0_centered_terms(eta);
+    -eta * (2.0 * d1 + 1.0) - d1 * d1
+}
+
 /// Overflow-free `(log I0(eta) - |eta|, I1(|eta|) / I0(|eta|))`.
 ///
 /// Centering the logarithm by its leading `|eta|` term is essential whenever a
@@ -313,6 +360,53 @@ mod tests {
         assert_eq!(ratio, 1.0);
         assert_eq!(scaled_derivative, -0.5);
         assert_eq!(centered, -0.5 * (std::f64::consts::TAU.ln() + log_eta));
+    }
+
+    #[test]
+    fn centered_bessel_second_log_derivative_matches_finite_difference() {
+        // c''(log η) must be the derivative of the third term (c'(log η)) of
+        // `bessel_i0_centered_terms`, across small, mid, and large arguments.
+        // c''(log η) is the log-derivative of the STABLE third term `d1` (the
+        // quantity the outer gradient's ARD normalizer channel reports), so the
+        // self-consistent reference is a central difference of that same term.
+        // This straddles the 3.75 small/large polynomial seam.
+        let first_log_derivative = |x: f64| bessel_i0_centered_terms(x).2;
+        for eta in [0.02_f64, 0.05, 0.25, 1.0, 2.0, 3.5, 4.0, 8.0] {
+            let log_eta = eta.ln();
+            let analytic = bessel_i0_centered_second_log_derivative_from_log_abs(log_eta);
+
+            let log_step = 1.0e-6_f64;
+            let first_plus = first_log_derivative(eta * log_step.exp());
+            let first_minus = first_log_derivative(eta * (-log_step).exp());
+            let finite_difference = (first_plus - first_minus) / (2.0 * log_step);
+            assert!(
+                (analytic - finite_difference).abs() < 5.0e-5 + 1.0e-3 * analytic.abs(),
+                "centered Bessel second log-derivative mismatch at eta={eta}: \
+                 analytic={analytic}, finite_difference={finite_difference}"
+            );
+        }
+        // Large-η decay: the normalizer curvature vanishes like the leading
+        // asymptotic term 1/(8η) (its Hessian contribution is then negligible
+        // beside the ∝α energy term), stays finite and positive, and the
+        // overflow-free gateway rounds it to exactly zero past the float range.
+        for eta in [50.0_f64, 200.0, 1.0e4] {
+            let c2 = bessel_i0_centered_second_log_derivative_from_log_abs(eta.ln());
+            let leading = 1.0 / (8.0 * eta);
+            assert!(
+                c2 > 0.0 && (c2 - leading).abs() < 0.25 * leading,
+                "large-eta centered second derivative must track 1/(8 eta); \
+                 eta={eta}, c2={c2}, leading={leading}"
+            );
+        }
+        // η → 0 and the overflow-free large-|η| gateway both round to 0.
+        assert_eq!(
+            bessel_i0_centered_second_log_derivative_from_log_abs(f64::NEG_INFINITY),
+            0.0
+        );
+        assert_eq!(
+            bessel_i0_centered_second_log_derivative_from_log_abs(1_200.0),
+            0.0
+        );
     }
 
     #[test]

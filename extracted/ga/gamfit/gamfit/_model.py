@@ -9,8 +9,12 @@ from __future__ import annotations
 
 import json
 import math
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Iterator, Literal, Sequence, cast
+
+import numpy as np
+from numpy.typing import NDArray
 
 from ._binding import rust_module
 from ._diagnostics import Diagnostics
@@ -32,6 +36,54 @@ from ._survival import (
     term_blocks_for_model,
 )
 from ._tables import normalize_table, response_column_name, restore_output_table
+
+
+AffineCoefficientFrame = Literal["full", "link_wiggle_joint"]
+
+
+@dataclass(frozen=True, slots=True)
+class AffineDesign:
+    """Exact fitted affine predictor returned by :meth:`Model.design_matrix`.
+
+    ``offset + matrix @ coefficients`` reproduces the fitted linear predictor.
+    ``coefficient_frame`` names the coordinate system containing those exact
+    coefficients; ``coefficient_slice`` is the represented half-open slice in
+    that frame. The three covariance fields use that exact same frame. Each
+    covariance definition remains separately optional: an unavailable
+    smoothing-corrected covariance is never replaced by a conditional one.
+    """
+
+    offset: NDArray[np.float64]
+    matrix: NDArray[np.float64]
+    coefficients: NDArray[np.float64]
+    coefficient_frame: AffineCoefficientFrame
+    coefficient_start: int
+    coefficient_stop: int
+    covariance_conditional: NDArray[np.float64] | None
+    covariance_smoothing_corrected: NDArray[np.float64] | None
+    covariance_frequentist: NDArray[np.float64] | None
+
+    @property
+    def coefficient_slice(self) -> slice:
+        """Half-open slice represented inside :attr:`coefficient_frame`."""
+        return slice(self.coefficient_start, self.coefficient_stop)
+
+
+def _affine_design_from_payload(payload: Any) -> AffineDesign:
+    """Shape the Rust-owned affine payload without duplicating model math."""
+    return AffineDesign(
+        offset=payload["offset"],
+        matrix=payload["matrix"],
+        coefficients=payload["coefficients"],
+        coefficient_frame=cast(AffineCoefficientFrame, payload["coefficient_frame"]),
+        coefficient_start=int(payload["coefficient_start"]),
+        coefficient_stop=int(payload["coefficient_stop"]),
+        covariance_conditional=payload["covariance_conditional"],
+        covariance_smoothing_corrected=payload[
+            "covariance_smoothing_corrected"
+        ],
+        covariance_frequentist=payload["covariance_frequentist"],
+    )
 
 
 class Model:
@@ -115,14 +167,13 @@ class Model:
             or ``interval="full_conformal"``
             (e.g. ``0.95`` for a 95% interval). Ignored when ``interval`` is a
             float or ``None``.
-        covariance_mode : {"conditional", "smoothing", "required"}, optional
+        covariance_mode : {"conditional", "smoothing"}, optional
             Posterior covariance source for the interval (CLI<->Python parity
             with ``gam predict --covariance-mode``). ``"conditional"`` uses the
             conditional posterior ``H^{-1}`` only; ``"smoothing"`` (the
-            default when ``None``) prefers the first-order smoothing-corrected
-            covariance ``H^{-1} + J Var(rho_hat) J^T`` and falls back to
-            conditional when it is unavailable; ``"required"`` demands the
-            smoothing correction and errors if it cannot be formed. Read
+            default when ``None``) requires the first-order smoothing-corrected
+            covariance ``H^{-1} + J Var(rho_hat) J^T`` and errors if it cannot
+            be formed. Read
             whenever ``interval`` is set, for every family — including the
             curved-inverse-link families (binomial / Bernoulli) whose default
             point is the posterior mean: the mode shapes the reported SE and the
@@ -397,7 +448,7 @@ class Model:
             held-out fold is already independent of the fitted model.
         conformal_level : float
             Target marginal coverage in ``(0, 1)`` (e.g. ``0.9``).
-        covariance_mode : {"conditional", "smoothing", "required"}, optional
+        covariance_mode : {"conditional", "smoothing"}, optional
             Covariance source for the per-point scale ``s(x)``; see
             :meth:`predict`.
         observation_interval : bool, default False
@@ -665,17 +716,22 @@ class Model:
         *,
         seed: int = 0,
     ) -> Any:
-        """Draw posterior-predictive replicate responses at ``data`` (#1057).
+        """Materialize posterior-predictive replicate responses at ``data``.
 
         Each of the ``n_draws`` rows is a fresh synthetic response vector drawn
-        from the fitted predictive distribution — the family-aware observation
-        noise (Gaussian / Poisson / Bernoulli / Gamma / Beta / Tweedie /
-        Negative-Binomial) wrapped around the plug-in mean ``g^{-1}(X·beta_hat)``.
+        from the fitted predictive distribution. The saved model's canonical
+        generative capability supplies both its response-scale predictor and
+        observation law; this includes exact spline-scan fits and fitted
+        location/dispersion-scale or transformation-normal families without a
+        second Python family allowlist.
         This is the *observation* replicate path (distinct from :meth:`sample`,
         which draws the *parameter* posterior) and is the engine for
         posterior-predictive checks, synthetic-data generation, and
-        simulation-based calibration. The family and fitted dispersion are read
-        from the saved model — there is no family flag.
+        simulation-based calibration. The family, fitted dispersion, and any
+        analytic row-weight column are read from the saved model — there is no
+        family flag and no refit. Weighted models require that column in
+        ``data`` because replacing missing weights by one would sample from a
+        different observation law.
 
         Parameters
         ----------
@@ -692,6 +748,11 @@ class Model:
         -------
         numpy.ndarray
             An ``(n_draws, n_rows)`` array of synthetic responses.
+
+        Notes
+        -----
+        This convenience method allocates the complete result. Use
+        :meth:`iter_replicates` when the requested draw matrix is large.
         """
         n_draws = int(n_draws)
         if n_draws < 1:
@@ -704,18 +765,108 @@ class Model:
         except Exception as exc:
             raise map_exception(exc) from exc
 
-    def design_matrix(self, data: Any) -> Any:
-        """Materialised design matrix for ``data`` against the saved model."""
-        headers, rows, _ = normalize_table(data)
-        return rust_module().design_matrix_table_dense(self._model_bytes, headers, rows)
+    def iter_replicates(
+        self,
+        data: Any,
+        n_draws: int = 100,
+        *,
+        chunk_size: int,
+        seed: int = 0,
+    ) -> Iterator[NDArray[np.float64]]:
+        """Stream posterior-predictive replicates in bounded draw chunks.
 
-    def design_matrix_array(self, X: Any) -> Any:
-        """Materialised design matrix for a numeric feature matrix."""
+        This is the bounded-memory form of :meth:`sample_replicates`. Each
+        yielded array has shape ``(min(chunk_size, remaining), n_rows)``. Draws
+        are indexed globally, so changing ``chunk_size`` only changes batch
+        boundaries: concatenating the chunks is bit-for-bit identical to
+        ``sample_replicates(data, n_draws, seed=seed)``.
+
+        The values always represent the saved model's observation law. For a
+        single-cause or latent survival fit they are conditional event-in-window
+        indicators (zero or one); for competing risks, zero means no event and
+        positive integer labels identify the persisted cause. The sampler does
+        not invent censoring or inspection records that the saved response law
+        does not contain.
+
+        Parameters
+        ----------
+        data : table-like
+            New rows in any format accepted by :meth:`predict`.
+        n_draws : int, default 100
+            Total number of replicate response vectors to draw.
+        chunk_size : int
+            Maximum number of draw rows retained at once. It is required so
+            the caller, not a hidden heuristic, owns the memory bound.
+        seed : int, default 0
+            Seed for the deterministic draw stream.
+
+        Yields
+        ------
+        numpy.ndarray
+            The next contiguous range of synthetic response vectors.
+        """
+        n_draws = int(n_draws)
+        chunk_size = int(chunk_size)
+        if n_draws < 1:
+            raise ValueError(f"n_draws must be >= 1, got {n_draws}")
+        if chunk_size < 1:
+            raise ValueError(f"chunk_size must be >= 1, got {chunk_size}")
+
+        headers, rows, _ = normalize_table(data)
+        ffi = rust_module()
+
+        def chunks() -> Iterator[NDArray[np.float64]]:
+            for draw_start in range(0, n_draws, chunk_size):
+                draw_count = min(chunk_size, n_draws - draw_start)
+                try:
+                    chunk = ffi.generative_replicate_chunk(
+                        self._model_bytes,
+                        headers,
+                        rows,
+                        draw_start,
+                        draw_count,
+                        int(seed),
+                    )
+                except Exception as exc:
+                    raise map_exception(exc) from exc
+                yield np.asarray(chunk, dtype=np.float64)
+
+        return chunks()
+
+    def design_matrix(self, data: Any) -> AffineDesign:
+        """Return the exact fitted affine predictor design for ``data``.
+
+        The result always has one typed shape.  For an ordinary standard GAM,
+        ``offset`` is the model's row offset, ``matrix`` is the full saved-model
+        design, and the coefficient frame is ``"full"``. For a link-wiggle
+        fit, ``offset`` is the model row offset and ``matrix`` is the joint
+        ``[X, B(warp_index)]`` design, with the warp basis evaluated at its
+        exact fitted index (including the frozen #2141 shift); its frame is
+        ``"link_wiggle_joint"``.
+
+        In both cases, ``offset + matrix @ coefficients`` reproduces the fitted
+        linear predictor. Available conditional, smoothing-corrected, and
+        frequentist covariances are returned separately in the same frame, so
+        ``matrix @ covariance @ matrix.T`` includes all cross-block terms.
+        Scan-routed and coupled multi-surface models have no finite single-frame
+        affine representation and are rejected explicitly.
+        """
+        headers, rows, _ = normalize_table(data)
+        try:
+            payload = rust_module().affine_design_table(self._model_bytes, headers, rows)
+            return _affine_design_from_payload(payload)
+        except Exception as exc:
+            raise map_exception(exc) from exc
+
+    def design_matrix_array(self, X: Any) -> AffineDesign:
+        """Exact fitted affine predictor design for a numeric feature matrix."""
         try:
             rust = rust_module()
-            return rust.design_matrix_array(
-                self._model_bytes,
-                rust.numeric_matrix_f64(X, "X"),
+            return _affine_design_from_payload(
+                rust.affine_design_array(
+                    self._model_bytes,
+                    rust.numeric_matrix_f64(X, "X"),
+                )
             )
         except Exception as exc:
             raise map_exception(exc) from exc
@@ -936,7 +1087,10 @@ class Model:
         Returns
         -------
         dict
-            ``{"grid": array, "predicted": array, "standard_error": array}``.
+            ``{"grid": array, "predicted": array, "standard_error": array,
+            "covariance_source": "smoothing-corrected"}``. Partial-dependence
+            standard errors require smoothing-corrected covariance and never
+            silently downgrade to conditional covariance.
         """
         import numpy as np
 
@@ -1036,21 +1190,32 @@ class Model:
             else:
                 raise ValueError("partial_dependence: grid must be 1-D or 2-D")
 
+        # The FFI takes an encoded table (#2318 boundary hardening), so route
+        # the constructed grid through the same normalize_table encode path
+        # every other table-crossing call uses — a raw list of string rows is
+        # rejected at the boundary.
         headers = list(template.keys())
-        rows: list[list[str]] = []
+        categorical_names = {
+            str(col.get("name")) for col in schema_cols if col.get("kind") == "categorical"
+        }
+        columns: dict[str, list[Any]] = {h: [] for h in headers}
         for row_vals in grid_matrix:
             row = dict(template)
             for col_name, value in zip(sweep_columns, row_vals, strict=False):
                 row[col_name] = str(float(value))
-            rows.append([str(row[h]) for h in headers])
-
-        predicted, se = rust_module().model_partial_dependence(
-            self._model_bytes, term, headers, rows
+            for h in headers:
+                columns[h].append(
+                    row[h] if h in categorical_names else float(row[h])
+                )
+        enc_headers, enc_rows, _ = normalize_table(columns)
+        predicted, se, covariance_source = rust_module().model_partial_dependence(
+            self._model_bytes, term, enc_headers, enc_rows
         )
         return {
             "grid": grid_out,
             "predicted": np.asarray(predicted, dtype=float),
             "standard_error": np.asarray(se, dtype=float),
+            "covariance_source": str(covariance_source),
         }
 
     def variance_share(
@@ -1508,6 +1673,7 @@ class MultinomialModel:
 
 
 __all__ = [
+    "AffineDesign",
     "CompetingRisksCIF",
     "CompetingRisksPrediction",
     "Model",

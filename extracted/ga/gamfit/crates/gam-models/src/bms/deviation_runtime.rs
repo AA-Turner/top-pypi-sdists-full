@@ -3,7 +3,7 @@ use crate::util::span::span_index_for_breakpoints;
 use gam_linalg::faer_ndarray::{FaerEigh, fast_ab};
 use gam_solve::pirls::LinearInequalityConstraints;
 use gam_terms::basis::create_ispline_derivative_dense;
-use ndarray::{Array1, Array2, ArrayView2};
+use ndarray::{Array1, Array2, ArrayView1, ArrayView2};
 
 /// Require a breakpoint sequence suitable for BMS span lookup: finite,
 /// strictly increasing, and long enough to define at least one span.
@@ -373,6 +373,165 @@ pub(crate) fn build_quadratic_derivative_bernstein_constraints(
 }
 
 impl DeviationRuntime {
+    /// Rehydrate the exact post-compilation cubic tables carried by a saved
+    /// model for likelihood replay.
+    ///
+    /// This is deliberately not a spline constructor: rebuilding a runtime
+    /// from knots would rerun rank selection and cross-block
+    /// orthogonalisation, potentially changing both the coefficient frame and
+    /// the function.  Saved-model inference must instead consume the frozen
+    /// span coefficients and anchor map byte-for-byte.  The caller is
+    /// responsible for validating the saved schema marker before entering
+    /// this constructor.
+    pub(crate) fn from_exact_cubic_tables(
+        breakpoints: Array1<f64>,
+        span_c0: Array2<f64>,
+        span_c1: Array2<f64>,
+        span_c2: Array2<f64>,
+        span_c3: Array2<f64>,
+        installed_flex_block: Option<InstalledFlexBlock>,
+        anchor_rows_at_training: Option<Array2<f64>>,
+    ) -> Result<Self, String> {
+        validate_breakpoints(
+            breakpoints.as_slice().ok_or_else(|| {
+                String::from(DeviationRuntimeError::InvalidInput {
+                    reason: "saved deviation breakpoints are not contiguous".to_string(),
+                })
+            })?,
+            "saved deviation replay breakpoints",
+        )?;
+        let n_spans = breakpoints.len() - 1;
+        let basis_dim = span_c0.ncols();
+        if basis_dim == 0 {
+            return Err(DeviationRuntimeError::DimensionMismatch {
+                reason: "saved deviation replay requires at least one basis column".to_string(),
+            }
+            .into());
+        }
+        let expected = (n_spans, basis_dim);
+        for (label, coefficients) in [
+            ("c0", &span_c0),
+            ("c1", &span_c1),
+            ("c2", &span_c2),
+            ("c3", &span_c3),
+        ] {
+            if coefficients.dim() != expected {
+                return Err(DeviationRuntimeError::DimensionMismatch {
+                    reason: format!(
+                        "saved deviation replay {label} table is {}x{}; expected {}x{}",
+                        coefficients.nrows(),
+                        coefficients.ncols(),
+                        expected.0,
+                        expected.1,
+                    ),
+                }
+                .into());
+            }
+            if let Some(((row, column), value)) = coefficients
+                .indexed_iter()
+                .find(|(_, value)| !value.is_finite())
+            {
+                return Err(DeviationRuntimeError::InvalidInput {
+                    reason: format!(
+                        "saved deviation replay {label}[{row},{column}] is non-finite ({value})"
+                    ),
+                }
+                .into());
+            }
+        }
+
+        let final_span = n_spans - 1;
+        let width = breakpoints[n_spans] - breakpoints[final_span];
+        let mut right_boundary_value_row = Array1::<f64>::zeros(basis_dim);
+        for basis in 0..basis_dim {
+            right_boundary_value_row[basis] = span_c0[[final_span, basis]]
+                + width
+                    * (span_c1[[final_span, basis]]
+                        + width
+                            * (span_c2[[final_span, basis]]
+                                + width * span_c3[[final_span, basis]]));
+        }
+        if let Some((basis, value)) = right_boundary_value_row
+            .iter()
+            .copied()
+            .enumerate()
+            .find(|(_, value)| !value.is_finite())
+        {
+            return Err(DeviationRuntimeError::InvalidInput {
+                reason: format!(
+                    "saved deviation replay right-boundary value[{basis}] is non-finite ({value})"
+                ),
+            }
+            .into());
+        }
+        let monotonicity_constraint_rows = build_quadratic_derivative_bernstein_constraints(
+            &breakpoints,
+            &span_c1,
+            &span_c2,
+            &span_c3,
+        )?;
+
+        match (&installed_flex_block, &anchor_rows_at_training) {
+            (Some(installed), Some(rows)) => {
+                if rows.ncols() != installed.anchor_correction.nrows() {
+                    return Err(DeviationRuntimeError::DimensionMismatch {
+                        reason: format!(
+                            "saved deviation replay anchor rows have {} columns; anchor correction requires {}",
+                            rows.ncols(),
+                            installed.anchor_correction.nrows(),
+                        ),
+                    }
+                    .into());
+                }
+                if installed.anchor_correction.ncols() != basis_dim {
+                    return Err(DeviationRuntimeError::DimensionMismatch {
+                        reason: format!(
+                            "saved deviation replay anchor correction has {} columns; basis has {basis_dim}",
+                            installed.anchor_correction.ncols(),
+                        ),
+                    }
+                    .into());
+                }
+            }
+            (Some(_), None) => {
+                return Err(DeviationRuntimeError::DimensionMismatch {
+                    reason: "saved deviation replay has an anchor correction but no row-aligned anchor design"
+                        .to_string(),
+                }
+                .into());
+            }
+            (None, Some(rows)) if rows.ncols() != 0 => {
+                return Err(DeviationRuntimeError::DimensionMismatch {
+                    reason: format!(
+                        "saved deviation replay has {} anchor columns but no anchor correction",
+                        rows.ncols()
+                    ),
+                }
+                .into());
+            }
+            _ => {}
+        }
+
+        Ok(Self {
+            degree: 2,
+            value_span_degree: 3,
+            basis_dim,
+            // The persisted tables are already the fitted constrained
+            // function.  Replay never re-solves feasibility, so there is no
+            // configuration-space epsilon to reconstruct here.
+            monotonicity_eps: 0.0,
+            endpoint_points: breakpoints,
+            span_c0,
+            span_c1,
+            span_c2,
+            span_c3,
+            monotonicity_constraint_rows,
+            right_boundary_value_row,
+            installed_flex_block,
+            anchor_rows_at_training,
+        })
+    }
+
     /// Construct the link-deviation runtime with a smoothness-null-space-drop
     /// basis transform. `max_penalty_derivative_order` is the highest
     /// derivative order of any penalty that will subsequently be applied to
@@ -840,7 +999,7 @@ impl DeviationRuntime {
 
     pub(super) fn validate_beta_shape(
         &self,
-        beta: &Array1<f64>,
+        beta: ArrayView1<'_, f64>,
         label: &str,
     ) -> Result<(), String> {
         if beta.len() != self.basis_dim {
@@ -1107,18 +1266,18 @@ impl DeviationRuntime {
 
     pub(crate) fn local_cubic_on_span(
         &self,
-        beta: &Array1<f64>,
+        beta: ArrayView1<'_, f64>,
         span_idx: usize,
     ) -> Result<exact_kernel::LocalSpanCubic, String> {
-        self.validate_beta_shape(beta, "deviation local cubic coefficients")?;
+        self.validate_beta_shape(beta.view(), "deviation local cubic coefficients")?;
         let (left, right) = self.span_interval(span_idx)?;
         Ok(exact_kernel::LocalSpanCubic {
             left,
             right,
-            c0: self.span_c0.row(span_idx).dot(beta),
-            c1: self.span_c1.row(span_idx).dot(beta),
-            c2: self.span_c2.row(span_idx).dot(beta),
-            c3: self.span_c3.row(span_idx).dot(beta),
+            c0: self.span_c0.row(span_idx).dot(&beta),
+            c1: self.span_c1.row(span_idx).dot(&beta),
+            c2: self.span_c2.row(span_idx).dot(&beta),
+            c3: self.span_c3.row(span_idx).dot(&beta),
         })
     }
 
@@ -1252,16 +1411,16 @@ impl DeviationRuntime {
     /// left span so span-local third derivatives match derivative designs.
     pub(crate) fn local_cubic_at(
         &self,
-        beta: &Array1<f64>,
+        beta: ArrayView1<'_, f64>,
         value: f64,
     ) -> Result<exact_kernel::LocalSpanCubic, String> {
-        self.validate_beta_shape(beta, "deviation local cubic")?;
+        self.validate_beta_shape(beta.view(), "deviation local cubic")?;
         let (left_ep, right_ep) = self.support_interval()?;
         if value < left_ep {
             return Ok(exact_kernel::LocalSpanCubic {
                 left: left_ep,
                 right: left_ep + 1.0,
-                c0: self.left_tail_value(beta),
+                c0: self.left_tail_value(beta.view()),
                 c1: 0.0,
                 c2: 0.0,
                 c3: 0.0,
@@ -1271,7 +1430,7 @@ impl DeviationRuntime {
             return Ok(exact_kernel::LocalSpanCubic {
                 left: right_ep,
                 right: right_ep + 1.0,
-                c0: self.right_tail_value(beta),
+                c0: self.right_tail_value(beta.view()),
                 c1: 0.0,
                 c2: 0.0,
                 c3: 0.0,
@@ -1285,14 +1444,14 @@ impl DeviationRuntime {
 
     /// Left-tail constant: deviation value at the leftmost breakpoint.
     /// For anchored I-spline bases this is the anchor value (typically 0).
-    pub(super) fn left_tail_value(&self, beta: &Array1<f64>) -> f64 {
-        self.span_c0.row(0).dot(beta)
+    pub(super) fn left_tail_value(&self, beta: ArrayView1<'_, f64>) -> f64 {
+        self.span_c0.row(0).dot(&beta)
     }
 
     /// Right-tail constant: deviation value at the rightmost breakpoint.
     /// For I-spline bases this is the saturated integral value.
-    pub(super) fn right_tail_value(&self, beta: &Array1<f64>) -> f64 {
-        self.right_boundary_value_row.dot(beta)
+    pub(super) fn right_tail_value(&self, beta: ArrayView1<'_, f64>) -> f64 {
+        self.right_boundary_value_row.dot(&beta)
     }
 
     /// Conservative L1 sup-norm bound for the deviation value basis.

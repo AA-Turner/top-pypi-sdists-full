@@ -12,19 +12,6 @@ use gam_solve::rho_optimizer::{
 /// (the single knob the fit-quality measurement tunes).
 const AMORTIZED_GATE_LOGIT_SCALE: f64 = 1.0;
 
-/// Upper bound on the flat baseline-ρ dimension for the small-ρ dense
-/// analytic-Hessian regime (#2228/#2266). Below it, the exact analytic outer
-/// gradient is central-differenced into a dense outer Hessian in a handful of
-/// gradient-only inner solves, so the planner routes ARC — which crosses the
-/// non-stationary saddle band by cubic regularization along the negative-
-/// curvature direction — instead of the first-order BFGS/Hybrid-EFS lane that
-/// plateaus at the saddle. Above it (the O(K)-dimensional per-atom-ARD problem)
-/// the FD Hessian would cost O(K) inner solves per outer step, so those fits
-/// stay on the scalable trace-based fixed-point lane. `8` matches the historical
-/// small-outer crossover (`SMALL_OUTER_BFGS_MAX_PARAMS` lineage in
-/// `gam-solve`'s `capability.rs`): E1 (K=1, 2–3 ρ coords) sits well inside it.
-const SMALL_ANALYTIC_HESSIAN_MAX_PARAMS: usize = 8;
-
 pub(crate) fn reconstruction_explained_variance(
     target: ArrayView2<'_, f64>,
     fitted: ArrayView2<'_, f64>,
@@ -322,13 +309,10 @@ pub enum SaeOuterVerdict {
     /// No outer ρ-search ran: the caller pinned ρ, so only the inner solve's
     /// KKT certificate applies.
     FixedRho,
-    /// #2266 — neither an outer ρ-search NOR an inner solve ran: the decoder /
-    /// coordinates / gate logits / ρ were installed verbatim from an
-    /// externally-trained (e.g. torch-lane) fit by
-    /// `run_sae_manifold_certify` (#2266). There is no first-order
-    /// stationarity certificate for this state — only the post-fit
-    /// diagnostics/certificates computed AT it.
-    External,
+    /// No optimizer ran: the caller-installed inner state and ρ independently
+    /// passed the same analytic inner-KKT and outer-criterion stationarity
+    /// authorities a native fit must pass (#2263).
+    Audited(OuterConvergedVia),
 }
 
 impl SaeOuterVerdict {
@@ -338,7 +322,7 @@ impl SaeOuterVerdict {
         match self {
             Self::Search(via) => via.as_str(),
             Self::FixedRho => "fixed_rho",
-            Self::External => "external",
+            Self::Audited(_) => "audited_stationary",
         }
     }
 }
@@ -370,6 +354,17 @@ pub struct SaeIntoFittedResult {
     pub charts_canonicalized: bool,
     /// #2235 — how the outer search ended (verdict + eval/wall ledger).
     pub termination: SaeOuterTermination,
+}
+
+/// A converged fixed-`rho` inner state that lies on the boundary of its
+/// fixed-`K` stratum.  It is intentionally not a fit: the stage orchestrator
+/// must either remove a proper subset and re-run the reduced outer problem to
+/// certification, or materialize the exact Tier-0 null when every atom
+/// vanished.
+pub(crate) struct SaeVanishedStageState {
+    pub term: SaeManifoldTerm,
+    pub rho: SaeManifoldRho,
+    pub atoms: VanishedAtoms,
 }
 
 impl SaeIntoFittedResult {
@@ -590,6 +585,19 @@ struct ReactiveWaypointCheckpoint {
     crosscoder_blocks: Option<CrosscoderBlockPricing>,
 }
 
+struct MatrixFreeOuterArtifacts {
+    system: ArrowSchurSystem,
+    logdet_derivative_bundle: RationalLogdetDerivativeBundle,
+    efs_inverse_probe_bundle: Option<(Vec<Array1<f64>>, Vec<Array1<f64>>)>,
+}
+
+pub(crate) struct OuterCriterionEvaluation {
+    pub(crate) cost: f64,
+    loss: SaeManifoldLoss,
+    cache: ArrowFactorCache,
+    matrix_free: Option<MatrixFreeOuterArtifacts>,
+}
+
 pub struct SaeManifoldOuterObjective {
     pub(crate) term: SaeManifoldTerm,
     /// Pristine term to restore from on `reset` (multi-start baseline).
@@ -678,6 +686,11 @@ pub struct SaeManifoldOuterObjective {
     /// only [`Self::fit_at_fixed_rho`] or [`Self::certify_outer_result`] may
     /// stamp a fit-producing verdict.
     fit_verdict: Option<SaeOuterVerdict>,
+    /// True only while auditing a caller-installed external state (#2263). The
+    /// ordinary analytic outer evaluation warm-starts coordinates from the
+    /// amortized encoder before refining; that is an optimization action and is
+    /// forbidden when the subject is the exact installed state.
+    audit_installed_state: bool,
     /// SPEC wall-survival: the full-`N` data fingerprint + content-addressed
     /// store path for the fit checkpoint (see [`super::checkpoint`]). Computed
     /// once at construction on the full-data target. Checkpoints are written
@@ -707,7 +720,29 @@ pub struct SaeManifoldOuterObjective {
 /// cgroup-aware host budget as the SAE streaming plan. Reaching it is an
 /// explicit feasibility error from `BasinBundle::admit`, not an inexact envelope.
 fn basin_bundle_member_capacity(term: &SaeManifoldTerm) -> usize {
-    let plan = term.streaming_plan();
+    let (host_budget, host_available) = super::sae_host_in_core_budget_bytes();
+    let total_basis: usize = term.atoms.iter().map(SaeManifoldAtom::basis_size).sum();
+    let d_max = term
+        .atoms
+        .iter()
+        .map(SaeManifoldAtom::latent_dim)
+        .max()
+        .unwrap_or(0);
+    let border_dim = if term.any_frame_active() {
+        term.factored_border_dim()
+    } else {
+        term.beta_dim()
+    };
+    let plan = super::sae_streaming_plan_from_budget(
+        term.n_obs(),
+        total_basis,
+        term.k_atoms(),
+        d_max,
+        border_dim,
+        host_budget,
+        super::SAE_CPU_L2_CACHE_BYTES * super::SAE_CHUNK_CACHE_MULTIPLE,
+        host_available,
+    );
     if !plan.direct_logdet_admitted() {
         return 0;
     }
@@ -719,15 +754,12 @@ fn basin_bundle_member_capacity(term: &SaeManifoldTerm) -> usize {
     host_budget.saturating_sub(plan.estimated_direct_peak_bytes) / bytes_per_saved_state
 }
 
-/// The dense route exposes the exact joint-Hessian IFT gradient. The matrix-
-/// free route has only analytic EFS equations; its `eval()` zero vector exists
-/// for legacy startup plumbing and is never a derivative capability or proof.
-pub(crate) fn sae_outer_gradient_capability(plan: SaeStreamingPlan) -> Derivative {
-    if plan.direct_logdet_admitted() {
-        Derivative::Analytic
-    } else {
-        Derivative::Unavailable
-    }
+/// Both admitted evidence routes expose the complete analytic joint-Hessian IFT
+/// gradient. The streaming route uses the frozen rational-logdet probe bundle
+/// and one matrix-free adjoint solve; it never manufactures a zero derivative or
+/// retries through the dense factorization.
+pub(crate) fn sae_outer_gradient_capability() -> Derivative {
+    Derivative::Analytic
 }
 
 /// The assignment-strength coordinate handled by Hybrid-EFS's full analytic
@@ -767,6 +799,69 @@ fn sae_surrogate_lane_config() -> SurrogateLaneConfig {
 }
 
 impl SaeManifoldOuterObjective {
+    pub(crate) fn current_rho_flat(&self) -> Array1<f64> {
+        self.current_rho.to_flat()
+    }
+
+    /// Re-evaluate one committed terminal coordinate with the idempotent dense
+    /// or streaming criterion and return its typed vanished-atom boundary, if
+    /// any. Speculative line-search probes continue to see disappearance as an
+    /// infeasible trial; only this stage-owner call may turn the terminal
+    /// coordinate into a change of model dimension.
+    pub(crate) fn vanished_stage_state_at(
+        &self,
+        rho_flat: ArrayView1<'_, f64>,
+    ) -> Result<Option<SaeVanishedStageState>, String> {
+        let rho = self.baseline_rho.from_flat(rho_flat)?;
+        let mut term = self.term.clone();
+        let evaluated = if term.streaming_plan()?.direct_logdet_admitted() {
+            term.penalized_quasi_laplace_criterion_with_cache(
+                self.target.view(),
+                &rho,
+                self.registry.as_ref(),
+                self.inner_max_iter,
+                self.learning_rate,
+                self.ridge_ext_coord,
+                self.ridge_beta,
+            )
+        } else {
+            term.penalized_quasi_laplace_criterion_streaming_exact_with_cache(
+                self.target.view(),
+                &rho,
+                self.registry.as_ref(),
+                self.inner_max_iter,
+                self.learning_rate,
+                self.ridge_ext_coord,
+                self.ridge_beta,
+            )
+        };
+        let atoms = match evaluated {
+            Ok(_) => return Ok(None),
+            Err(err @ SaeCriterionError::IndefiniteObservedInformation { .. }) => {
+                return Err(err.to_string());
+            }
+            Err(SaeCriterionError::Numerical(message)) => return Err(message),
+            Err(SaeCriterionError::VanishedAtoms(atoms)) => atoms,
+        };
+
+        let vanished = atoms.as_btree_set();
+        for atlas in term.chart_atlases() {
+            let removed = atlas
+                .charts()
+                .iter()
+                .filter(|chart| vanished.contains(chart))
+                .count();
+            if removed > 0 && removed < atlas.charts().len() {
+                return Err(format!(
+                    "vanished-atom boundary would partially delete live atlas {:?}; \
+                     chart-atlas disappearance must be adjudicated at semantic-atlas granularity",
+                    atlas.charts()
+                ));
+            }
+        }
+        Ok(Some(SaeVanishedStageState { term, rho, atoms }))
+    }
+
     pub fn new(
         mut term: SaeManifoldTerm,
         target: Array2<f64>,
@@ -827,6 +922,7 @@ impl SaeManifoldOuterObjective {
             // only ever exists from a converged optimization).
             termination: OuterTerminationLedger::new(),
             fit_verdict: None,
+            audit_installed_state: false,
             checkpoint_fingerprint,
             checkpoint_path,
             crosscoder_blocks: None,
@@ -834,26 +930,116 @@ impl SaeManifoldOuterObjective {
         }
     }
 
-    /// Fit-lifetime-IMMUTABLE predicate for the small-ρ dense analytic-Hessian
-    /// regime (#2228/#2266). Derived only from construction-time facts — the
-    /// dense-logdet admission of the fixed streaming plan and the fixed flat
-    /// baseline-ρ dimension — so the planner (which queries [`Self::capability`]
-    /// ONCE) and every subsequent `eval_with_order(ValueGradientHessian)` agree
-    /// on the SAME verdict for the whole fit. This is the single source of truth
-    /// for the paired invariant the analytic ARC route requires: `capability`
-    /// declares [`DeclaredHessianForm::Dense`] iff this holds, and the dense
-    /// eval materializes a [`HessianValue::Dense`] iff this holds — a split
-    /// between the two fatals in `build_bridge_hessian_for_source`.
-    ///
-    /// In this regime the exact analytic outer gradient already serves (the
-    /// dense-admitted `eval` path assembles it from the joint-Hessian IFT), so
-    /// the only missing curvature is a dense outer Hessian, obtained by
-    /// central-differencing that gradient. That lets the planner select ARC,
-    /// whose cubic regularization follows the negative-curvature direction off
-    /// the non-stationary saddle where first-order BFGS/Hybrid-EFS plateaus.
-    fn small_dense_analytic_hessian_regime(&self) -> bool {
-        self.term.streaming_plan().direct_logdet_admitted()
-            && self.baseline_rho.to_flat().len() <= SMALL_ANALYTIC_HESSIAN_MAX_PARAMS
+    /// Evaluate one converged outer sample through the selected storage route.
+    /// The streaming variant returns the exact matrix-free operator and frozen
+    /// selected-inverse bundle that produced the value; callers must consume
+    /// them together or reject the sample.
+    pub(crate) fn evaluate_outer_criterion_route(
+        &mut self,
+        rho: &SaeManifoldRho,
+        direct_logdet_admitted: bool,
+        need_efs_inverse_probes: bool,
+    ) -> Result<OuterCriterionEvaluation, SaeCriterionError> {
+        if direct_logdet_admitted {
+            let (cost, loss, cache) = self.term.penalized_quasi_laplace_criterion_with_cache(
+                self.target.view(),
+                rho,
+                self.registry.as_ref(),
+                self.inner_max_iter,
+                self.learning_rate,
+                self.ridge_ext_coord,
+                self.ridge_beta,
+            )?;
+            return Ok(OuterCriterionEvaluation {
+                cost,
+                loss,
+                cache,
+                matrix_free: None,
+            });
+        }
+
+        let lane = self.surrogate_lane.as_mut().ok_or_else(|| {
+            SaeCriterionError::Numerical(
+                "streaming outer evaluation requires the frozen rational-logdet surrogate lane"
+                    .to_string(),
+            )
+        })?;
+        let evaluated = self
+            .term
+            .penalized_quasi_laplace_streaming_outer_evaluation(
+                self.target.view(),
+                rho,
+                self.registry.as_ref(),
+                self.inner_max_iter,
+                self.learning_rate,
+                self.ridge_ext_coord,
+                self.ridge_beta,
+                lane,
+                need_efs_inverse_probes,
+            )?;
+        Ok(OuterCriterionEvaluation {
+            cost: evaluated.cost,
+            loss: evaluated.loss,
+            cache: evaluated.cache,
+            matrix_free: Some(MatrixFreeOuterArtifacts {
+                system: evaluated.system,
+                logdet_derivative_bundle: evaluated.logdet_derivative_bundle,
+                efs_inverse_probe_bundle: evaluated.efs_inverse_probe_bundle,
+            }),
+        })
+    }
+
+    /// Complete analytic derivative of the exact value represented by
+    /// `evaluation`. Dense and streaming storage differ only in their inverse
+    /// action; all explicit, trace, Occam, rank-response, and single-adjoint IFT
+    /// channels are assembled by the same authority.
+    pub(crate) fn analytic_gradient_for_outer_evaluation(
+        &self,
+        rho: &SaeManifoldRho,
+        evaluation: &OuterCriterionEvaluation,
+    ) -> Result<Array1<f64>, OuterGradientError> {
+        let components = if let Some(matrix_free) = evaluation.matrix_free.as_ref() {
+            let derivative_vectors = &matrix_free.logdet_derivative_bundle.vectors;
+            let solver = DeflatedArrowSolver::plain(&evaluation.cache);
+            self.term
+                .analytic_outer_rho_gradient_components_with_bundle(
+                    self.target.view(),
+                    rho,
+                    &evaluation.loss,
+                    &evaluation.cache,
+                    &solver,
+                    Some((derivative_vectors, derivative_vectors)),
+                    Some(&matrix_free.system),
+                )?
+        } else {
+            let lambda_smooth = rho
+                .lambda_smooth_vec()
+                .map_err(OuterGradientError::internal)?;
+            let solver = self
+                .term
+                .outer_gradient_arrow_solver(&evaluation.cache, &lambda_smooth)?;
+            self.term
+                .analytic_outer_rho_gradient_components_with_bundle(
+                    self.target.view(),
+                    rho,
+                    &evaluation.loss,
+                    &evaluation.cache,
+                    &solver,
+                    None,
+                    None,
+                )?
+        };
+        let mut gradient = components.gradient();
+        if let Some(block_grad) = self
+            .block_log_lambda_gradient(rho)
+            .map_err(OuterGradientError::internal)?
+        {
+            let tail = gradient.len() - block_grad.len();
+            for (block, value) in block_grad.into_iter().enumerate() {
+                gradient[tail + block] += value;
+            }
+        }
+        Ok(gradient)
     }
 
     /// #2231 Inc-B (stage 1) — enable crosscoder block-relevance PRICING.
@@ -1385,6 +1571,62 @@ impl SaeManifoldOuterObjective {
         Ok(())
     }
 
+    /// Freeze every basin-entry accelerator so the next analytic evaluation
+    /// audits the exact installed `(term, rho)` rather than moving coordinates
+    /// before measuring stationarity.
+    pub(crate) fn for_installed_state_audit(mut self) -> Self {
+        self.audit_installed_state = true;
+        self.inner_max_iter = 0;
+        self
+    }
+
+    /// Stamp a caller-installed state only after the shared exact-point outer
+    /// certificate has passed. No search ran, so its provenance is distinct from
+    /// [`Self::certify_outer_result`].
+    pub(crate) fn certify_installed_state_audit(
+        &mut self,
+        result: &OuterResult,
+    ) -> Result<(), String> {
+        self.fit_verdict = None;
+        self.terminal_penalized_quasi_laplace_criterion = None;
+        if !self.audit_installed_state {
+            return Err("installed-state audit was not enabled on this objective".to_string());
+        }
+        if result.iterations != 0 || !result.converged {
+            return Err("installed-state audit result is not a zero-step convergence".to_string());
+        }
+        let via = result
+            .converged_via
+            .ok_or_else(|| "installed-state audit is missing converged_via".to_string())?;
+        let certificate = result.criterion_certificate.as_ref().ok_or_else(|| {
+            "installed-state audit is missing its analytic criterion certificate".to_string()
+        })?;
+        if !certificate.certifies() {
+            return Err(format!(
+                "installed-state outer certificate does not certify: {}",
+                certificate.summary()
+            ));
+        }
+        if self.last_loss.is_none() {
+            return Err("installed-state audit has no evaluated inner loss".to_string());
+        }
+        let installed_rho = self.current_rho.to_flat();
+        if installed_rho.len() != result.rho.len()
+            || installed_rho
+                .iter()
+                .zip(result.rho.iter())
+                .any(|(installed, certified)| installed.to_bits() != certified.to_bits())
+        {
+            return Err("installed-state audit rho does not match the evaluated state".to_string());
+        }
+        if !result.final_value.is_finite() {
+            return Err("installed-state audit produced a non-finite criterion".to_string());
+        }
+        self.terminal_penalized_quasi_laplace_criterion = Some(result.final_value);
+        self.fit_verdict = Some(SaeOuterVerdict::Audited(via));
+        Ok(())
+    }
+
     /// Consume a converged objective, returning the exact certified `(term, ρ)`
     /// pair and its inner loss. A merely evaluated objective is an error: only a
     /// completed fixed-ρ solve or an explicitly certified outer search may mint
@@ -1497,7 +1739,7 @@ impl SaeManifoldOuterObjective {
         // #2230/#2087 — the ρ search is over; drop the saved basins too.
         self.basin_bundle.clear();
         let rho = self.current_rho.clone();
-        let plan = self.term.streaming_plan().admitted_or_error(
+        let plan = self.term.streaming_plan()?.admitted_or_error(
             self.term.n_obs(),
             self.term.output_dim(),
             self.term.k_atoms(),
@@ -1524,7 +1766,7 @@ impl SaeManifoldOuterObjective {
             Ok(evaluated) => evaluated,
             Err(err) => {
                 self.term = saved_term;
-                return Err(err);
+                return Err(err.to_string());
             }
         };
         let residual = self
@@ -1745,7 +1987,7 @@ impl SaeManifoldOuterObjective {
             // Pivot invariant: min pivot ≥ eps · diag_scale, measured ON THE
             // GAUGE QUOTIENT (#1095). The floor uses machine epsilon (not its
             // square root) because the undamped cache is built with
-            // `with_ill_conditioning_tolerated()`, which accepts any
+            // the positive-definite evidence policy, which accepts any
             // positive-definite factor regardless of condition number.
             // Sub-sqrt(eps) pivots are legitimately produced when N < beta_dim
             // (small-N fits where the decoder Gram is rank-deficient) — this
@@ -2077,15 +2319,18 @@ impl SaeManifoldOuterObjective {
     ) -> Result<(SaeManifoldLoss, ArrowFactorCache), String> {
         self.term.set_homotopy_eta(eta)?;
         self.set_isometry_homotopy_weight(eta, isometry_targets);
-        let (_cost, loss, cache) = self.term.penalized_quasi_laplace_criterion_with_cache(
-            self.target.view(),
-            rho,
-            self.registry.as_ref(),
-            self.inner_max_iter,
-            self.learning_rate,
-            self.ridge_ext_coord,
-            self.ridge_beta,
-        )?;
+        let (_cost, loss, cache) = self
+            .term
+            .penalized_quasi_laplace_criterion_with_cache(
+                self.target.view(),
+                rho,
+                self.registry.as_ref(),
+                self.inner_max_iter,
+                self.learning_rate,
+                self.ridge_ext_coord,
+                self.ridge_beta,
+            )
+            .map_err(|error| error.to_string())?;
         self.last_loss = Some(loss.clone());
         Ok((loss, cache))
     }
@@ -2294,13 +2539,13 @@ impl SaeManifoldOuterObjective {
         // λ-gradient is untouched). A first-build / degenerate atlas may
         // certify zero rows, but an actual encoder/atlas error aborts the
         // evaluation rather than silently selecting a different basin-entry path.
-        if !probe_handoff_installed {
+        if !probe_handoff_installed && !self.audit_installed_state {
             let warm_start_outcome = self
                 .term
                 .warm_start_latents_from_amortized_encoder(self.target.view(), &rho);
             self.record_warm_start(warm_start_outcome)?;
         }
-        let (penalized_quasi_laplace_cost, loss) = match drive {
+        let criterion = match drive {
             ProbeInnerDrive::Criterion {
                 refine_progress_extension,
             } => self
@@ -2315,7 +2560,45 @@ impl SaeManifoldOuterObjective {
                     self.ridge_beta,
                     refine_progress_extension,
                     self.surrogate_lane.as_mut(),
-                )?,
+                ),
+        };
+        let (penalized_quasi_laplace_cost, loss) = match criterion {
+            Ok(evaluated) => evaluated,
+            Err(SaeCriterionError::VanishedAtoms(atoms)) => {
+                log::debug!(
+                    "SAE criterion reached fixed-K structural boundary at rho={:?}: {atoms}",
+                    rho.to_flat()
+                );
+                let loss = self.term.loss(self.target.view(), &rho)?;
+                let beta_hat = self.term.flatten_beta();
+                self.current_rho = rho;
+                self.last_loss = Some(loss);
+                self.probe_telemetry.infeasible_criterion_evals += 1;
+                return Ok((f64::INFINITY, beta_hat));
+            }
+            // #2336 — an indefinite exact `A` leaves the Laplace normaliser
+            // `½log|A|` UNDEFINED at this ρ, so this evaluation is INFEASIBLE, not
+            // defective. That is the same class `is_recoverable_value_probe_refusal`
+            // already maps to `+inf`, for the reason its #1782 note gives: the
+            // indefinite basin is adjacent to the PD optimum, so the outer solver
+            // must read `+∞` and steer back into the PD region rather than abort the
+            // whole fit. #2330 Phase-2a made `½log|A|` the ranked value, which is
+            // what made this reachable — the majorizer `B` was PD by construction and
+            // could never trip it. Escaping the saddle is the ACCEPTED lane's job
+            // (the #2336 terminal escape, upstream in the criterion); by the time a
+            // refusal surfaces here the escape is already exhausted, and a probe must
+            // stay probe-infeasible rather than grind.
+            Err(err @ SaeCriterionError::IndefiniteObservedInformation { .. }) => {
+                self.probe_telemetry.record_refusal_kind(&err.to_string());
+                log::debug!("SAE criterion mapped indefinite-A refusal to +inf: {err}");
+                let loss = self.term.loss(self.target.view(), &rho)?;
+                let beta_hat = self.term.flatten_beta();
+                self.current_rho = rho;
+                self.last_loss = Some(loss);
+                self.probe_telemetry.infeasible_criterion_evals += 1;
+                return Ok((f64::INFINITY, beta_hat));
+            }
+            Err(SaeCriterionError::Numerical(message)) => return Err(message),
         };
         let beta_hat = self.term.flatten_beta();
         // ONE criterion everywhere. Every outer lane — BFGS/ARC descent, the
@@ -2500,7 +2783,7 @@ impl SaeManifoldOuterObjective {
         // (1) Bypass: streaming/matrix-free (no dense per-basin factor to
         // re-converge) or the freeze contract (verbatim reuse). Byte-for-byte
         // historical single trajectory.
-        if self.inner_max_iter == 0 || !self.term.streaming_plan().direct_logdet_admitted() {
+        if self.inner_max_iter == 0 || !self.term.streaming_plan()?.direct_logdet_admitted() {
             return self.evaluate_value_probe_with_drive(rho_flat, drive);
         }
 
@@ -2731,38 +3014,13 @@ impl SaeManifoldOuterObjective {
         // arrow cache, which the streaming criterion produces (and now returns).
         // Route through it so the Fellner–Schall step runs matrix-free at large K;
         // dense-admitted fits keep the byte-for-byte dense path.
-        // #2080: ask the surrogate lane to emit the shared (probes, S⁻¹·probes)
-        // bundle during this criterion's matrix-free evidence eval, so the
-        // smoothness EDF below is the matrix-free tr(S⁻¹·M_k) off that bundle
-        // instead of the dense `beta_inv`. The direct-admitted path ignores it
-        // (no lane threaded); `take_inverse_probes` after the call clears the flag
-        // either way, so a dense eval never hands back stale solves.
-        if let Some(lane) = self.surrogate_lane.as_mut() {
-            lane.request_inverse_probes();
-        }
-        let criterion = if self.term.streaming_plan().direct_logdet_admitted() {
-            self.term.penalized_quasi_laplace_criterion_with_cache(
-                self.target.view(),
-                &rho,
-                self.registry.as_ref(),
-                self.inner_max_iter,
-                self.learning_rate,
-                self.ridge_ext_coord,
-                self.ridge_beta,
-            )
-        } else {
-            self.term
-                .penalized_quasi_laplace_criterion_streaming_exact_with_cache_and_lane(
-                    self.target.view(),
-                    &rho,
-                    self.registry.as_ref(),
-                    self.inner_max_iter,
-                    self.learning_rate,
-                    self.ridge_ext_coord,
-                    self.ridge_beta,
-                    self.surrogate_lane.as_mut(),
-                )
-        };
+        // #2080: the streaming criterion emits one indivisible value/gradient
+        // artifact: factor cache, exact matrix-free operator, and the frozen
+        // `(probes, S^-1 probes)` bundle. Reassembling the operator after the
+        // value would both duplicate the dominant pass and risk differentiating
+        // a different functional.
+        let direct_logdet_admitted = self.term.streaming_plan()?.direct_logdet_admitted();
+        let criterion = self.evaluate_outer_criterion_route(&rho, direct_logdet_admitted, true);
         let infeasible_evaluation = |reason: &str| {
             (
                 EfsEval {
@@ -2784,8 +3042,14 @@ impl SaeManifoldOuterObjective {
                     .collect(),
             )
         };
-        let (cost, loss, cache) = match criterion {
+        let evaluation = match criterion {
             Ok(evaluated) => evaluated,
+            Err(SaeCriterionError::VanishedAtoms(atoms)) => {
+                log::debug!("SAE EFS probe reached fixed-K structural boundary: {atoms}");
+                self.probe_telemetry.infeasible_criterion_evals += 1;
+                self.current_rho = rho;
+                return Ok(infeasible_evaluation("vanished-atom structural boundary"));
+            }
             // #1782 — the EFS lane IS the SAE seed-startup-VALIDATION lane
             // (`run_fixed_point_outer_solver` → `eval_step(seed)` → `eval_efs` →
             // `efs_step`). At a seed ρ a K>1 threshold-gate/softmax (or rank-deficient
@@ -2799,7 +3063,9 @@ impl SaeManifoldOuterObjective {
             // pseudo-objective with zero updates. Returning `+inf` and uncovered
             // coordinates lets the fixed-point runner reject/backtrack without
             // ever certifying the point. Genuine defects still propagate.
-            Err(err) if Self::is_recoverable_value_probe_refusal(&err) => {
+            Err(SaeCriterionError::Numerical(err))
+                if Self::is_recoverable_value_probe_refusal(&err) =>
+            {
                 self.probe_telemetry.record_refusal_kind(&err);
                 log::debug!("SAE criterion eval mapped refusal to +inf: {err}");
                 self.probe_telemetry.infeasible_criterion_evals += 1;
@@ -2808,11 +3074,32 @@ impl SaeManifoldOuterObjective {
                     "infeasible penalized quasi-Laplace score",
                 ));
             }
-            Err(err) => return Err(err),
+            // #2336 — an indefinite exact `A` leaves the Laplace normaliser
+            // `½log|A|` UNDEFINED at this ρ, so this evaluation is INFEASIBLE, not
+            // defective. That is the same class `is_recoverable_value_probe_refusal`
+            // already maps to `+inf`, for the reason its #1782 note gives: the
+            // indefinite basin is adjacent to the PD optimum, so the outer solver
+            // must read `+∞` and steer back into the PD region rather than abort the
+            // whole fit. #2330 Phase-2a made `½log|A|` the ranked value, which is
+            // what made this reachable — the majorizer `B` was PD by construction and
+            // could never trip it. Escaping the saddle is the ACCEPTED lane's job
+            // (the #2336 terminal escape, upstream in the criterion); by the time a
+            // refusal surfaces here the escape is already exhausted, and a probe must
+            // stay probe-infeasible rather than grind.
+            Err(err @ SaeCriterionError::IndefiniteObservedInformation { .. }) => {
+                self.probe_telemetry.record_refusal_kind(&err.to_string());
+                log::debug!("SAE criterion mapped indefinite-A refusal to +inf: {err}");
+                self.probe_telemetry.infeasible_criterion_evals += 1;
+                self.current_rho = rho;
+                return Ok(infeasible_evaluation(
+                    "infeasible penalized quasi-Laplace score (indefinite exact A)",
+                ));
+            }
+            Err(SaeCriterionError::Numerical(err)) => return Err(err),
         };
+        let cost = evaluation.cost;
         self.record_fit_data_collapse_verdict(&rho)?;
         self.current_rho = rho.clone();
-        self.last_loss = Some(loss);
         if !cost.is_finite() {
             self.probe_telemetry.infeasible_criterion_evals += 1;
             return Ok(infeasible_evaluation(
@@ -2825,26 +3112,32 @@ impl SaeManifoldOuterObjective {
         // coordinate sum of squares in the denominator.
         let n_eff = self.term.n_obs() as f64;
         let sumsq = self.term.ard_coord_sumsq();
-        // #2080: take the surrogate lane's shared (probes, S⁻¹·probes) bundle from
-        // this eval's matrix-free evidence branch (if it ran) ONCE — both the ARD
-        // posterior-variance trace here and the smoothness EDF below consume it, so
-        // taking it twice would starve the second consumer. When present, the ARD
-        // denominator's `tr(H⁻¹)_tt` is the matrix-free selected-inverse trace off
-        // that bundle (no dense Schur `S⁻¹`); otherwise (dense-admitted, or no lane)
-        // the dense `full_inverse_apply` / selected-inverse diagonal path stands.
-        let inverse_probe_bundle = self
-            .surrogate_lane
-            .as_mut()
-            .and_then(|l| l.take_inverse_probes());
+        // The assignment-strength ψ coordinate has no EFS equation. Its one
+        // exact gradient component comes from the complete all-coordinate
+        // assembler; single-adjoint form makes this the same one solve the old
+        // coordinate-specialized forward response paid.
+        let complete_gradient = if rho.sparse_flat_index().is_some() {
+            Some(
+                self.analytic_gradient_for_outer_evaluation(&rho, &evaluation)
+                    .map_err(|error| error.to_string())?,
+            )
+        } else {
+            None
+        };
+        let cache = &evaluation.cache;
+        let inverse_probe_bundle = evaluation
+            .matrix_free
+            .as_ref()
+            .and_then(|artifacts| artifacts.efs_inverse_probe_bundle.as_ref());
         let traces = if let Some((probes, sinv)) = inverse_probe_bundle.as_ref() {
             self.term
-                .ard_inverse_traces_from_probes(&cache, probes, sinv)
+                .ard_inverse_traces_from_probes(cache, probes, sinv)
                 .map_err(|e| {
                     format!("SaeManifoldOuterObjective::efs_step: ARD traces (matrix-free): {e}")
                 })?
         } else {
             self.term
-                .ard_inverse_traces(&cache)
+                .ard_inverse_traces(cache)
                 .map_err(|e| format!("SaeManifoldOuterObjective::efs_step: ARD traces: {e}"))?
         };
 
@@ -2873,52 +3166,10 @@ impl SaeManifoldOuterObjective {
                 assignment_strength_gradient_coordinate(&rho),
                 Some(sparse_index)
             );
-            let gradient = if let Some((probes, inverse_probes)) = inverse_probe_bundle.as_ref() {
-                let system = self.term.assemble_full_matrix_free_evidence_system(
-                    self.target.view(),
-                    &rho,
-                    self.registry.as_ref(),
-                    None,
-                )?;
-                self.term
-                    .analytic_assignment_strength_gradient_matrix_free(
-                        self.target.view(),
-                        &rho,
-                        &cache,
-                        &system,
-                        probes,
-                        inverse_probes,
-                    )
-                    .map_err(|error| {
-                        format!(
-                            "SaeManifoldOuterObjective::efs_step: matrix-free \
-                                 assignment-strength gradient: {error}"
-                        )
-                    })?
-            } else {
-                let solver = self
-                    .term
-                    .outer_gradient_arrow_solver(&cache, &rho.lambda_smooth_vec()?)
-                    .map_err(|error| {
-                        format!(
-                            "SaeManifoldOuterObjective::efs_step: dense assignment-strength \
-                                 solver: {error}"
-                        )
-                    })?;
-                self.term
-                    .analytic_assignment_strength_gradient_dense(
-                        self.target.view(),
-                        &rho,
-                        &cache,
-                        &solver,
-                    )
-                    .map_err(|error| {
-                        format!(
-                            "SaeManifoldOuterObjective::efs_step: dense assignment-strength \
-                                 gradient: {error}"
-                        )
-                    })?
-            };
+            let gradient = complete_gradient
+                .as_ref()
+                .expect("sparse rho coordinate requested its complete analytic gradient")
+                [sparse_index];
             // A normalized negative gradient is a bounded feasible-descent
             // update whose zero is exactly the full criterion root.
             let gradient_scale = gradient.abs().max(1.0);
@@ -2945,7 +3196,7 @@ impl SaeManifoldOuterObjective {
         // `λ_smooth` too high on frame-active fits.
         let k_smooth = rho.log_lambda_smooth.len();
         let lambda_smooth_vec = rho.lambda_smooth_vec()?;
-        let quad_per_atom = self.term.decoder_smoothness_quadratic_form_per_atom();
+        let quad_per_atom = self.term.decoder_smoothness_quadratic_form_per_atom()?;
         // #2080: reuse the SAME shared (probes, S⁻¹·probes) bundle taken once above
         // for the ARD trace. When present, the smoothness EDF is the matrix-free
         // tr(S⁻¹·M_k) off that bundle (no dense `beta_inv`); otherwise (dense-
@@ -2969,7 +3220,7 @@ impl SaeManifoldOuterObjective {
             let coordinate = rho.smooth_flat_index(atom_idx);
             let lambda_k = lambda_smooth_vec[atom_idx];
             let rank_k = (self.term.atoms[atom_idx].border_frame_rank() as f64)
-                * (SaeManifoldTerm::symmetric_rank(&self.term.atoms[atom_idx].smooth_penalty)?
+                * (SaeManifoldTerm::symmetric_rank(self.term.atoms[atom_idx].smooth_penalty())?
                     as f64);
             let quad_k = quad_per_atom[atom_idx];
             let eff_dof_k = eff_dof_per_atom[atom_idx];
@@ -3194,6 +3445,7 @@ impl SaeManifoldOuterObjective {
         }
 
         let beta_hat = self.term.flatten_beta();
+        self.last_loss = Some(evaluation.loss);
         let consecutive_restored_incumbents = self
             .term
             .best_fit_incumbent
@@ -3301,14 +3553,14 @@ fn reactive_smooth_curvature_scale(
 ) -> Result<Option<f64>, String> {
     let atom = &term.atoms[atom_idx];
     let m = atom.basis_values.ncols();
-    if atom.smooth_penalty.dim() != (m, m) {
+    if atom.smooth_penalty().dim() != (m, m) {
         return Err(format!(
             "reactive rho domain: atom {atom_idx} smooth penalty shape {:?} != ({m}, {m})",
-            atom.smooth_penalty.dim()
+            atom.smooth_penalty().dim()
         ));
     }
     let penalty_geometry =
-        gam_linalg::utils::rank_certified_psd_pseudoinverse(&atom.smooth_penalty, 1.0e-10)
+        gam_linalg::utils::rank_certified_psd_pseudoinverse(atom.smooth_penalty(), 1.0e-10)
             .map_err(|error| format!("reactive rho domain penalty spectrum failed: {error}"))?;
     let rank = penalty_geometry.rank();
     let penalty_pinv = penalty_geometry.into_pseudoinverse();
@@ -3553,7 +3805,14 @@ fn reactive_rho_domain_upper(
 
 impl OuterObjective for SaeManifoldOuterObjective {
     fn capability(&self) -> OuterCapability {
-        let streaming_plan = self.term.streaming_plan();
+        let gradient = sae_outer_gradient_capability();
+        // SAE's Fellner--Schall/MacKay updates are useful simultaneous proposal
+        // directions, but their zeros omit the profiled criterion's state-
+        // response/third-order channels. They may drive a fixed-point solver
+        // only when the complete analytic gradient is available to certify the
+        // terminal KKT root. Matrix-free SAE currently lacks that proof surface
+        // and must refuse rather than mint a surrogate fixed point (#2253).
+        let exact_gradient_certificate = matches!(gradient, Derivative::Analytic);
         let assignment_gradient_dim =
             usize::from(assignment_strength_gradient_coordinate(&self.baseline_rho).is_some());
         OuterCapability {
@@ -3562,38 +3821,29 @@ impl OuterObjective for SaeManifoldOuterObjective {
             //    from the joint-Hessian IFT (`outer_gradient_arrow_solver`), for
             //    every assignment mode, including ordered Beta--Bernoulli (#1006).
             //  * Matrix-free (dense criterion factor exceeds the in-core budget,
-            //    e.g. large-K / wide-border duchon): no dense cache exists for the
-            //    IFT solve, so the fixed-point lane updates covered ρ coordinates
-            //    from analytic inverse traces in one pass. It explicitly declares
-            //    the gradient UNAVAILABLE; the zero-gradient `eval` result in that
-            //    regime is startup plumbing and can never certify a fit.
-            gradient: sae_outer_gradient_capability(streaming_plan),
-            // #2228/#2266 — in the small-ρ dense regime the exact analytic outer
-            // gradient is central-differenced into a dense outer Hessian (see
-            // `small_dense_analytic_hessian_regime` and the `ValueGradientHessian`
-            // arm of `eval_with_order`), so the planner's guardless
-            // `(Analytic gradient, Analytic Hessian) => Solver::Arc` arm fires
-            // FIRST and ARC drives off the non-stationary saddle the first-order
-            // Hybrid-EFS/BFGS lane plateaus at. Outside the regime (matrix-free
-            // streaming, or the O(K)-dim per-atom-ARD problem where the FD
-            // Hessian would cost O(K) inner solves per step) there is no analytic
-            // outer Hessian and the scalable fixed-point lane still owns the fit.
-            // This declaration and the dense eval below are gated on the IDENTICAL
-            // immutable predicate, as the analytic-route contract requires
-            // (`build_bridge_hessian_for_source` fatals on any Dense/Unavailable
-            // split).
-            hessian: if self.small_dense_analytic_hessian_regime() {
-                DeclaredHessianForm::Dense
-            } else {
-                DeclaredHessianForm::Unavailable
-            },
+            //    e.g. large-K / wide-border duchon): the rational value emits one
+            //    frozen inverse-probe bundle, and the complete gradient consumes
+            //    it plus one matrix-free adjoint solve. No dense cache or synthetic
+            //    zero derivative enters this route.
+            gradient,
+            // The profiled SAE criterion currently exposes an exact analytic
+            // gradient but no exact second derivative. Never advertise curvature
+            // manufactured by perturbing ρ and re-solving the inner problem: that
+            // is finite differencing, is basin-history dependent, and violates the
+            // production derivative contract. An exact fixed-stratum HVP can
+            // replace this declaration when its adjoint derivative is implemented.
+            hessian: DeclaredHessianForm::Unavailable,
             n_params: self.baseline_rho.to_flat().len(),
             // Softmax/threshold fits have one non-FS coordinate: assignment
             // strength. Mark it as the Hybrid-EFS analytic-gradient block so
             // scalable EFS updates still own smoothness/ARD while this coordinate
             // moves by its exact penalized quasi-Laplace gradient. Small dense fits still select the
             // ordinary full-gradient BFGS plan at the existing crossover.
-            psi_dim: assignment_gradient_dim,
+            psi_dim: if exact_gradient_certificate {
+                assignment_gradient_dim
+            } else {
+                0
+            },
             // The SAE path minimizes its explicitly named custom quasi-Laplace
             // criterion. The extended Fellner--Schall fixed point needs only the traces
             // tr(H⁻¹ S_c) (decoder_smoothness_effective_dof + ard_inverse_traces),
@@ -3609,10 +3859,10 @@ impl OuterObjective for SaeManifoldOuterObjective {
             // bounded and `energy > 0`, so λ cannot rail to a mean-collapse).
             // Fitted-data collapse is recorded separately as a structure-search
             // verdict and never changes this fixed-point objective.
-            fixed_point_available: true,
+            fixed_point_available: exact_gradient_certificate,
             barrier_config: None,
             prefer_gradient_only: false,
-            disable_fixed_point: false,
+            disable_fixed_point: !exact_gradient_certificate,
         }
     }
 
@@ -3696,7 +3946,13 @@ impl OuterObjective for SaeManifoldOuterObjective {
         // penalized quasi-Laplace cost (paired with a zero gradient it never consumes) and the fit
         // proceeds on the EFS lane. Dense-admitted fits never enter this branch and
         // are byte-for-byte unchanged.
-        if !self.term.streaming_plan().direct_logdet_admitted() {
+        if !self.audit_installed_state
+            && !self
+                .term
+                .streaming_plan()
+                .map_err(EstimationError::RemlOptimizationFailed)?
+                .direct_logdet_admitted()
+        {
             let (cost, _beta_hat) = match self.evaluate_with_refine_policy(rho.view(), false) {
                 Ok(evaluated) => evaluated,
                 // A recoverable refusal means the streaming quasi-Laplace score is
@@ -3802,20 +4058,17 @@ impl OuterObjective for SaeManifoldOuterObjective {
         // Skipped under a #2080 (a) handoff: the installed state is already AT
         // the converged optimum for this ρ, and the encoder warm-start is a
         // basin-ENTRY heuristic that would only move latents off it.
-        if !probe_handoff_installed {
+        if !probe_handoff_installed && !self.audit_installed_state {
             let warm_start_outcome = self
                 .term
                 .warm_start_latents_from_amortized_encoder(self.target.view(), &rho_state);
             self.record_warm_start(warm_start_outcome)
                 .map_err(EstimationError::RemlOptimizationFailed)?;
         }
-        // The analytic gradient lane (`eval`) reads the dense joint-Hessian cache.
-        // In the matrix-free regime that cache does not exist, but SAE never
-        // descends ρ with this gradient lane there: the outer plan routes to the
-        // Fellner–Schall fixed point (`Solver::Efs` → `eval_efs`/`efs_step`), which
-        // needs only the analytic traces `tr(H⁻¹ S_c)` — no gradient, and (per
-        // SPEC) no finite differences. So this dense-cache path is reached only
-        // when the dense criterion factor is admitted.
+        // Dense and streaming analytic samples use one route-selected authority.
+        // The streaming artifact retains the exact matrix-free system and frozen
+        // inverse-probe bundle that produced its rational-logdet value; no dense
+        // retry or independently reassembled operator is allowed.
         // #1782 — a RECOVERABLE inner-solve refusal (a probed ρ whose undamped
         // joint Hessian is non-PD / whose inner solve cannot converge at that ρ)
         // is an INFEASIBLE-ρ signal, NOT a fatal defect: the value-only lanes
@@ -3829,81 +4082,83 @@ impl OuterObjective for SaeManifoldOuterObjective {
         // while ordered_beta_bernoulli (whose seed happens to stay PD) survived. Treat it the
         // same infeasible way here so the three lanes agree; a genuinely
         // non-recoverable error still propagates.
-        let (cost, loss, cache) = match self.term.penalized_quasi_laplace_criterion_with_cache(
-            self.target.view(),
-            &rho_state,
-            self.registry.as_ref(),
-            self.inner_max_iter,
-            self.learning_rate,
-            self.ridge_ext_coord,
-            self.ridge_beta,
-        ) {
-            Ok(evaluated) => evaluated,
-            // A non-PD per-row/cross-row/Schur factor has no defined Laplace
-            // evidence at this ρ. Return the objective contract's typed
-            // infeasible evaluation so the optimizer rejects/backtracks. A
-            // finite sentinel here would be a different objective. Genuine
-            // evaluation defects still hard-error below.
-            Err(err) if Self::is_recoverable_value_probe_refusal(&err) => {
-                self.probe_telemetry.record_refusal_kind(&err);
-                log::debug!("SAE criterion eval mapped refusal to +inf: {err}");
-                self.probe_telemetry.infeasible_criterion_evals += 1;
-                return Ok(OuterEval::infeasible(rho.len()));
-            }
-            Err(err) => return Err(EstimationError::RemlOptimizationFailed(err)),
-        };
+        let direct_logdet_admitted = self
+            .term
+            .streaming_plan()
+            .map_err(EstimationError::RemlOptimizationFailed)?
+            .direct_logdet_admitted();
+        let evaluation =
+            match self.evaluate_outer_criterion_route(&rho_state, direct_logdet_admitted, false) {
+                Ok(evaluated) => evaluated,
+                Err(SaeCriterionError::VanishedAtoms(atoms)) => {
+                    log::debug!(
+                        "SAE analytic evaluation reached fixed-K structural boundary: {atoms}"
+                    );
+                    self.probe_telemetry.infeasible_criterion_evals += 1;
+                    return Ok(OuterEval::infeasible(rho.len()));
+                }
+                // A non-PD per-row/cross-row/Schur factor has no defined Laplace
+                // evidence at this ρ. Return the objective contract's typed
+                // infeasible evaluation so the optimizer rejects/backtracks. A
+                // finite sentinel here would be a different objective. Genuine
+                // evaluation defects still hard-error below.
+                Err(SaeCriterionError::Numerical(err))
+                    if Self::is_recoverable_value_probe_refusal(&err) =>
+                {
+                    self.probe_telemetry.record_refusal_kind(&err);
+                    log::debug!("SAE criterion eval mapped refusal to +inf: {err}");
+                    self.probe_telemetry.infeasible_criterion_evals += 1;
+                    return Ok(OuterEval::infeasible(rho.len()));
+                }
+                // #2336 — an indefinite exact `A` leaves the Laplace normaliser
+                // `½log|A|` UNDEFINED at this ρ, so this evaluation is INFEASIBLE, not
+                // defective. That is the same class `is_recoverable_value_probe_refusal`
+                // already maps to `+inf`, for the reason its #1782 note gives: the
+                // indefinite basin is adjacent to the PD optimum, so the outer solver
+                // must read `+∞` and steer back into the PD region rather than abort the
+                // whole fit. #2330 Phase-2a made `½log|A|` the ranked value, which is
+                // what made this reachable — the majorizer `B` was PD by construction and
+                // could never trip it. Escaping the saddle is the ACCEPTED lane's job
+                // (the #2336 terminal escape, upstream in the criterion); by the time a
+                // refusal surfaces here the escape is already exhausted, and a probe must
+                // stay probe-infeasible rather than grind.
+                Err(err @ SaeCriterionError::IndefiniteObservedInformation { .. }) => {
+                    self.probe_telemetry.record_refusal_kind(&err.to_string());
+                    log::debug!("SAE criterion mapped indefinite-A refusal to +inf: {err}");
+                    self.probe_telemetry.infeasible_criterion_evals += 1;
+                    return Ok(OuterEval::infeasible(rho.len()));
+                }
+                Err(SaeCriterionError::Numerical(err)) => {
+                    return Err(EstimationError::RemlOptimizationFailed(err));
+                }
+            };
+        let cost = evaluation.cost;
         self.record_fit_data_collapse_verdict(&rho_state)
             .map_err(EstimationError::RemlOptimizationFailed)?;
         if !cost.is_finite() {
             self.probe_telemetry.infeasible_criterion_evals += 1;
             return Ok(OuterEval::infeasible(rho.len()));
         }
-        // Exact implicit derivative through the converged inner state. The arrow
-        // solver first applies a rank-revealing projection of the closed-form
-        // chart gauge and penalty-aware decoder nulls, then solves the resulting
-        // implicit-function system. A system that remains singular or unreliable
-        // is a typed `OuterGradientError`: it is not a usable derivative and must
-        // terminate this evaluation instead of being hidden behind a plain inverse
-        // or a differenced value path.
-        let lambda_smooth = rho_state
-            .lambda_smooth_vec()
-            .map_err(EstimationError::RemlOptimizationFailed)?;
-        let grad_components = self
-            .term
-            .outer_gradient_arrow_solver(&cache, &lambda_smooth)
-            .and_then(|solver| {
-                self.term
-                    .analytic_outer_rho_gradient_components_with_bundle(
-                        self.target.view(),
-                        &rho_state,
-                        &loss,
-                        &cache,
-                        &solver,
-                        None,
-                    )
-            })
+        let gradient = self
+            .analytic_gradient_for_outer_evaluation(&rho_state, &evaluation)
             .map_err(|err| EstimationError::RemlOptimizationFailed(err.to_string()))?;
-        let mut gradient = grad_components.gradient();
-        // #2231 Inc-B (stage 2) — ADD the block-relevance tail's explicit data +
-        // change-of-variables channels `½·R̃_ℓ − n·p_ℓ/2`
-        // ([`Self::block_log_lambda_gradient`]) to the components assembler's
-        // tail, which now carries the block coordinate's `−½·Γᵀθ̂_ρ` Laplace
-        // adjoint (`crosscoder_block_ift_rhs` feeds the exact-stationarity solve
-        // the target-scaling RHS `−½·Jᵀ_M Z̃^{(ℓ)}`). Explicit + adjoint together
-        // are the COMPLETE `∂C/∂log λ_ℓ` of the priced criterion — overwriting
-        // here would re-truncate the gradient to a fictitious fixed-θ̂ criterion
-        // (#2087 desync class). No-op for a plain SAE (`None` ⇒ the tail stays
-        // empty and untouched).
-        if let Some(block_grad) = self
-            .block_log_lambda_gradient(&rho_state)
-            .map_err(EstimationError::RemlOptimizationFailed)?
-        {
-            let tail = gradient.len() - block_grad.len();
-            for (l, g_l) in block_grad.into_iter().enumerate() {
-                gradient[tail + l] += g_l;
-            }
-        }
         let beta_hat = self.term.flatten_beta();
+        // PATH C (#2253) — assemble the exact fixed-stratum outer Hessian from the
+        // landed analytic channels. The assembler currently REFUSES (only the
+        // solver-free explicit channel is implemented), so this yields
+        // `Unavailable` and the planner stays on the analytic-gradient BFGS route
+        // that `capability()` declares. When every channel lands the assembler
+        // succeeds, this becomes a `Dense` curvature, and `capability()` flips to
+        // `Dense` so the small-dense planner routes ARC through it.
+        let hessian = match self.term.exact_fixed_stratum_outer_hessian(
+            self.target.view(),
+            &rho_state,
+            &evaluation.loss,
+            &evaluation.cache,
+        ) {
+            Ok(dense) => HessianValue::Dense(dense),
+            Err(_incomplete) => HessianValue::Unavailable,
+        };
         // #1206 — the gradient lane (`OuterEvalOrder::ValueAndGradient`, consumed
         // by the outer BFGS Armijo line search) MUST return a cost whose gradient
         // is the gradient we return: the consistent pair `(f, ∇f)` for the pure
@@ -3929,14 +4184,14 @@ impl OuterObjective for SaeManifoldOuterObjective {
         // `outer_gradient_arrow_solver`, not something to paper over with a
         // differenced value path.
         self.current_rho = rho_state;
-        self.last_loss = Some(loss);
-        if self.termination.record(cost) {
+        self.last_loss = Some(evaluation.loss);
+        if !self.audit_installed_state && self.termination.record(cost) {
             self.bank_checkpoint(rho);
         }
         Ok(OuterEval {
             cost,
             gradient,
-            hessian: HessianValue::Unavailable,
+            hessian,
             inner_beta_hint: Some(beta_hat),
         })
     }
@@ -4036,46 +4291,7 @@ impl OuterObjective for SaeManifoldOuterObjective {
                 })
             }
             OuterEvalOrder::ValueAndGradient => self.eval(rho),
-            OuterEvalOrder::ValueGradientHessian => {
-                // #2228/#2266 — outside the small-ρ dense regime there is no
-                // analytic outer Hessian (matrix-free streaming, or the O(K)-dim
-                // per-atom-ARD problem); the plan never selected ARC there, so
-                // the caller only ever consumes value+gradient and this order
-                // degrades to `eval` verbatim, returning `HessianValue::Unavailable`.
-                if !self.small_dense_analytic_hessian_regime() {
-                    return self.eval(rho);
-                }
-                // Central-difference the EXACT analytic outer gradient into a
-                // dense outer Hessian through the ONE canonical stepper
-                // (`fd_outer_hessian_from_gradient`, shared with the outer
-                // certificate's decrement rescue — no parallel FD path). Its
-                // probes request `ValueAndGradient` only, so this
-                // `ValueGradientHessian` order never recurses into a nested
-                // Hessian build. The probes at ρ±h·eⱼ re-solve the inner state,
-                // which perturbs only the warm-start basin ENTRY, never the
-                // converged root the analytic gradient differentiates; to leave
-                // the objective's incumbent state exactly AT ρ (side-effect-free
-                // for the ARC line search that follows), the AUTHORITATIVE
-                // value+gradient eval at ρ runs LAST, after the probes, and its
-                // deterministic (cost, ∇f) pair is returned with the dense
-                // Hessian attached.
-                let hessian = fd_outer_hessian_from_gradient(&mut *self, rho);
-                let mut eval = self.eval(rho)?;
-                // Infeasible ρ carries no defined curvature: `eval` already
-                // returned `OuterEval::infeasible` (Hessian `Unavailable`), which
-                // the ARC bridge rejects on the non-finite cost before it ever
-                // consults the Hessian — so the Dense⟺finite pairing holds. On a
-                // finite eval a `None` here means a probe hit a genuinely
-                // non-recoverable failure; leaving the Hessian `Unavailable` then
-                // surfaces loudly through the analytic-route contract rather than
-                // silently degrading ARC to a differenced fallback.
-                if eval.cost.is_finite()
-                    && let Some(h) = hessian
-                {
-                    eval.hessian = HessianValue::Dense(h);
-                }
-                Ok(eval)
-            }
+            OuterEvalOrder::ValueGradientHessian => self.eval(rho),
         }
     }
 
@@ -4107,15 +4323,24 @@ impl OuterObjective for SaeManifoldOuterObjective {
         rho: &Array1<f64>,
     ) -> Result<FixedPointCertificateEval, EstimationError> {
         self.check_cancelled()?;
-        let (evaluation, coordinates) = self
-            .efs_step_with_certificate(rho.view())
-            .map_err(EstimationError::RemlOptimizationFailed)?;
-        let rho_state = self
-            .baseline_rho
-            .from_flat(rho.view())
-            .map_err(EstimationError::InvalidInput)?;
-        let cost = evaluation.cost + self.block_jacobian(&rho_state);
-        Ok(FixedPointCertificateEval { cost, coordinates })
+        // EFS/MacKay step zeros are not the stationarity equations of the full
+        // profiled quasi-Laplace objective: the exact gradient also contains
+        // logdet state response, the third-order correction, and rank-response
+        // channels. Re-evaluate the authoritative analytic sample and expose its
+        // negative gradient as the signed feasible-descent residual. The generic
+        // fixed-point certificate projects this vector at the rho box and applies
+        // the same tolerance as the first-order optimizer, so an EFS proposal can
+        // accelerate iteration but can never certify a different root (#2253).
+        let evaluation = self.eval(rho)?;
+        let coordinates = evaluation
+            .gradient
+            .iter()
+            .map(|&gradient| FixedPointCoordinateCertificate::covered(-gradient, 1.0))
+            .collect();
+        Ok(FixedPointCertificateEval {
+            cost: evaluation.cost,
+            coordinates,
+        })
     }
 
     fn reset(&mut self) {
@@ -4140,19 +4365,15 @@ impl OuterObjective for SaeManifoldOuterObjective {
 
     fn seed_inner_state(&mut self, beta: &Array1<f64>) -> Result<SeedOutcome, EstimationError> {
         self.fit_verdict = None;
-        // Contract (see src/solver/reml/continuation.rs:727-737): an empty-β
-        // seed means "no warm-start available, use your own cold default" and
-        // MUST be accepted as a no-op. The continuation pre-warm forwards the
-        // previous eval's `inner_beta_hint`, but before the first accepted eval
-        // that hint is empty (`state.last_beta` starts empty). Rejecting it
-        // fatally dropped every continuation seed and forced a full cold solve
-        // on every outer seed — the slowness in gam#577. Only a *populated* β
-        // must match the decoder dimension.
+        // An empty-β seed means "no warm-start available; preserve the
+        // objective-owned state" and must be a no-op. Typed reactive-domain
+        // entry begins without a coefficient hint, while cache replay only
+        // calls this hook for a populated coefficient vector owned by the exact
+        // outer seed. Only a populated β must match the decoder dimension.
         if beta.is_empty() {
-            // NoSlot is the documented continuation reply for "no usable seed;
-            // proceed cold, no log" (outer_strategy.rs:1776). The real β slot
-            // gets populated on the next accepted eval, which publishes
-            // `inner_beta_hint`, so steps 2+ warm-start normally.
+            // NoSlot says that this call installed nothing. A subsequent exact
+            // evaluation may publish a populated `inner_beta_hint` for the next
+            // typed reactive waypoint.
             return Ok(SeedOutcome::NoSlot);
         }
         if beta.len() != self.term.beta_dim() {
@@ -4258,7 +4479,11 @@ impl OuterObjective for SaeManifoldOuterObjective {
     ) -> Result<Option<gam_solve::continuation_path::ContinuationScalarContract>, EstimationError>
     {
         if self.baseline_term.k_atoms() < 2
-            || !self.baseline_term.streaming_plan().direct_logdet_admitted()
+            || !self
+                .baseline_term
+                .streaming_plan()
+                .map_err(EstimationError::RemlOptimizationFailed)?
+                .direct_logdet_admitted()
         {
             return Ok(None);
         }
@@ -4553,10 +4778,9 @@ pub(crate) fn sae_manifold_newton_directional_decrease(
 ///     device with [`crate::gpu::pool::scatter_batched`] and runs one
 ///     `try_fast_abt_strided_batched` per device tile (computing
 ///     `S_k · B_k = S_k · (B_kᵀ)ᵀ`),
-///   * falls back, atom-by-atom, to the exact ndarray `S_k.dot(B_k)` whenever no
-///     GPU runtime is present, the pool returns `None`, or a tile's batched GEMM
-///     declines. The result is bit-for-bit identical to the all-CPU path (f64
-///     throughout, same accumulation order per product).
+///   * uses the exact ndarray `S_k.dot(B_k)` when no GPU is admitted; once a
+///     runtime is admitted, pool or batched-GEMM failures are propagated rather
+///     than disguised as CPU eligibility.
 ///
 /// Returns one `S_k · B_k` matrix per atom, in atom order. `symmetrize`
 /// pre-symmetrises each `S_k` (the assembly path needs `½(S+Sᵀ)`); the value /
@@ -4565,7 +4789,8 @@ pub(crate) fn sae_manifold_newton_directional_decrease(
 pub(crate) fn batched_smooth_sb(
     sb_inputs: &[(ArrayView2<'_, f64>, ArrayView2<'_, f64>)],
     symmetrize: bool,
-) -> Vec<Array2<f64>> {
+    gpu_policy: gam_gpu::GpuPolicy,
+) -> Result<Vec<Array2<f64>>, String> {
     let n_atoms = sb_inputs.len();
     // Materialise the (optionally symmetrised) S factors once; the GPU tile and
     // the CPU fallback both read these, so a single pass keeps the two routes
@@ -4588,8 +4813,8 @@ pub(crate) fn batched_smooth_sb(
         })
         .collect();
 
-    // Exact CPU fallback for a single atom, reused by both the no-GPU route and
-    // per-tile decline.
+    // Exact CPU product for a single atom, reused by the no-GPU route and groups
+    // that are structurally ineligible for batching.
     let cpu_one = |idx: usize| -> Array2<f64> { s_mats[idx].dot(&sb_inputs[idx].1) };
 
     // Size gate BEFORE the device probe (startup-tax ordering fix): each device
@@ -4599,7 +4824,7 @@ pub(crate) fn batched_smooth_sb(
     // `MIN_CALIBRATABLE_GEMM_FLOPS`, so when even the LARGEST group in
     // aggregate is under the floor, every tile on every device would decline
     // and each atom would take `cpu_one` — the exact result this early return
-    // produces without calling `GpuRuntime::global()` (whose first call creates
+    // produces without resolving `GpuRuntime` (whose first resolution creates
     // a CUDA primary context on every GPU). Shapes with an admissible group
     // probe and scatter exactly as before.
     {
@@ -4613,13 +4838,15 @@ pub(crate) fn batched_smooth_sb(
         }
         let max_group = group_flops.values().copied().max().unwrap_or(0);
         if max_group < crate::gpu::GpuDispatchPolicy::MIN_CALIBRATABLE_GEMM_FLOPS {
-            return (0..n_atoms).map(cpu_one).collect();
+            return Ok((0..n_atoms).map(cpu_one).collect());
         }
     }
 
-    let rt = match crate::gpu::device_runtime::GpuRuntime::global() {
+    let rt = match crate::gpu::device_runtime::GpuRuntime::resolve(gpu_policy)
+        .map_err(|error| format!("decoder-smoothness CUDA admission failed: {error}"))?
+    {
         Some(rt) => rt,
-        None => return (0..n_atoms).map(cpu_one).collect(),
+        None => return Ok((0..n_atoms).map(cpu_one).collect()),
     };
 
     // Group atom indices by uniform (m, p) shape; only same-shape groups can ride
@@ -4676,7 +4903,11 @@ pub(crate) fn batched_smooth_sb(
                     }
                 }
             }
-            let prod = crate::gpu::try_fast_abt_strided_batched(a.view(), bt.view())?;
+            let prod = crate::gpu::try_fast_abt_strided_batched_with_policy(
+                a.view(),
+                bt.view(),
+                gpu_policy,
+            )?;
             let mut sink = tile_results.lock().expect("tile_results mutex poisoned");
             for (t, &idx) in slice.iter().enumerate() {
                 sink.push((idx, prod.slice(s![t, .., ..]).to_owned()));
@@ -4693,24 +4924,28 @@ pub(crate) fn batched_smooth_sb(
                 for (idx, mat) in sink {
                     out[idx] = Some(mat);
                 }
-                // Any member a tile silently skipped (cannot happen with the
-                // contract, but keep the result total) falls back to CPU.
+                // A successful scatter must produce every member exactly once.
                 for &idx in &members {
                     if out[idx].is_none() {
-                        out[idx] = Some(cpu_one(idx));
+                        return Err(format!(
+                            "decoder-smoothness device scatter omitted atom {idx}"
+                        ));
                     }
                 }
             }
             None => {
-                for &idx in &members {
-                    out[idx] = Some(cpu_one(idx));
-                }
+                return Err(format!(
+                    "decoder-smoothness device scatter declined admitted group m={m}, p={p}, atoms={}",
+                    members.len()
+                ));
             }
         }
     }
     out.into_iter()
         .enumerate()
-        .map(|(idx, slot)| slot.unwrap_or_else(|| cpu_one(idx)))
+        .map(|(idx, slot)| {
+            slot.ok_or_else(|| format!("decoder-smoothness result missing atom {idx}"))
+        })
         .collect()
 }
 
@@ -5369,36 +5604,12 @@ mod linear_parity_anchor_1026_tests {
         SaeManifoldTerm::new(vec![atom], assignment).unwrap()
     }
 
-    /// #2228/#2266 — in the small-ρ dense regime the SAE outer objective must
-    /// DECLARE an analytic (dense) Hessian so the planner's guardless
-    /// `(Analytic gradient, Analytic Hessian) => Solver::Arc` arm fires — ARC
-    /// crosses the non-stationary saddle band by cubic regularization, where the
-    /// first-order Hybrid-EFS/BFGS lane (the historical `DeclaredHessianForm::
-    /// Unavailable` route) plateaus. This pins the full routing contract that
-    /// unblocks the E1 mint: the capability declares `Dense`, `plan` selects ARC
-    /// with `HessianSource::Analytic`, and — the paired half the analytic-route
-    /// contract in `build_bridge_hessian_for_source` requires — the
-    /// `ValueGradientHessian` eval materializes a symmetric dense outer Hessian,
-    /// while the `ValueAndGradient` order stays `Unavailable` (no wasted curvature
-    /// on line-search cost/gradient probes). The dense Hessian is verified to be
-    /// exactly the canonical `fd_outer_hessian_from_gradient` functional (the ONE
-    /// stepper the outer certificate's decrement rescue also consumes — no
-    /// parallel FD path), and is eigen-decomposed to confirm it is a usable
-    /// symmetric curvature the saddle certificate can read.
-    ///
-    /// (Full ARC step ACCEPTANCE across the 4.8×-over band additionally needs the
-    /// value↔gradient desync closure (#2228/#2266, a separate lane); the routing,
-    /// dense-Hessian assembly, and ARC selection pinned here are independently
-    /// correct and independently testable.)
+    /// The profiled SAE outer objective must never advertise a Hessian assembled
+    /// by perturbing rho and re-solving the inner fit. Until the exact
+    /// fixed-stratum adjoint HVP exists, both the capability and the highest eval
+    /// order report curvature unavailable while preserving the analytic gradient.
     #[test]
-    fn small_dense_sae_declares_dense_hessian_and_routes_arc_2266() {
-        use faer::Side;
-        use gam_linalg::faer_ndarray::strict_symmetric_eigh;
-        use gam_solve::rho_optimizer::{HessianSource, Solver, plan};
-
-        // A well-posed rank-2 linear SAE (K=1, d=1 ungated background tier) — the
-        // #1026 fixture, whose inner solve converges cleanly, standing in for the
-        // small-ρ dense E1 regime (K=1, low ρ-dimension, dense direct-logdet).
+    fn sae_outer_objective_never_advertises_finite_difference_curvature_2253() {
         let n = 40usize;
         let p = 6usize;
         let zf: Vec<f64> = (0..n)
@@ -5411,28 +5622,15 @@ mod linear_parity_anchor_1026_tests {
         let logits =
             Array2::from_shape_fn((n, 1), |(i, _)| -3.0 + 6.0 * (i as f64) / (n as f64 - 1.0));
 
-        let build_obj = || {
-            let term = single_linear_atom_term(coords.clone(), logits.clone(), p, true);
-            let init_rho = SaeManifoldRho::new(
-                (1.0e-4_f64).ln(),
-                (1.0e-2_f64).ln(),
-                vec![Array1::<f64>::zeros(1)],
-            );
-            SaeManifoldOuterObjective::new(term, target.clone(), None, init_rho, 60, 0.5, 1e-4, 1e-4)
-        };
-
-        let mut obj = build_obj();
-        let rho_flat = obj.baseline_rho.to_flat();
-        assert!(
-            rho_flat.len() <= SMALL_ANALYTIC_HESSIAN_MAX_PARAMS,
-            "fixture ρ-dimension {} must sit inside the small dense regime bound {}",
-            rho_flat.len(),
-            SMALL_ANALYTIC_HESSIAN_MAX_PARAMS
+        let term = single_linear_atom_term(coords, logits, p, true);
+        let init_rho = SaeManifoldRho::new(
+            (1.0e-4_f64).ln(),
+            (1.0e-2_f64).ln(),
+            vec![Array1::<f64>::zeros(1)],
         );
-
-        // (1) Capability declares an analytic dense Hessian, and the pure planner
-        //     therefore selects ARC with the analytic Hessian source — the whole
-        //     point: no first-order plateau at the saddle.
+        let mut obj =
+            SaeManifoldOuterObjective::new(term, target, None, init_rho, 60, 0.5, 1e-4, 1e-4);
+        let rho_flat = obj.baseline_rho.to_flat();
         let cap = obj.capability();
         assert_eq!(
             cap.gradient,
@@ -5441,102 +5639,15 @@ mod linear_parity_anchor_1026_tests {
         );
         assert_eq!(
             cap.hessian,
-            DeclaredHessianForm::Dense,
-            "the small-ρ dense regime must DECLARE an analytic dense outer Hessian \
-             (was Unavailable, forcing the first-order saddle plateau)"
+            DeclaredHessianForm::Unavailable,
+            "synthetic finite-difference curvature must never be declared analytic"
         );
-        let outer_plan = plan(&cap);
-        assert_eq!(
-            outer_plan.solver,
-            Solver::Arc,
-            "declaring a dense analytic Hessian must route the planner to ARC, \
-             not the first-order EFS/BFGS lane; got {outer_plan}"
-        );
-        assert_eq!(
-            outer_plan.hessian_source,
-            HessianSource::Analytic,
-            "ARC on the SAE dense regime consumes the analytic Hessian source"
-        );
-
-        // (2) The `ValueAndGradient` order (line-search cost/gradient probes) does
-        //     NOT pay for a Hessian; only `ValueGradientHessian` does. This is the
-        //     order-gating the ARC bridge relies on.
-        let vg = obj
-            .eval_with_order(&rho_flat, OuterEvalOrder::ValueAndGradient)
-            .expect("value+gradient eval at the seed");
-        assert!(
-            matches!(vg.hessian, HessianValue::Unavailable),
-            "the value+gradient order must not materialize a Hessian"
-        );
-
-        // (3) The `ValueGradientHessian` order materializes a Dense symmetric outer
-        //     Hessian — the paired half of the analytic-route contract. Computed on
-        //     a FRESH objective so its warm-start history matches the direct
-        //     canonical-FD reference in (4) exactly.
-        let mut obj_h = build_obj();
-        let vgh = obj_h
+        let eval = obj
             .eval_with_order(&rho_flat, OuterEvalOrder::ValueGradientHessian)
             .expect("value+gradient+Hessian eval at the seed");
         assert!(
-            vgh.cost.is_finite(),
-            "the dense-regime Hessian eval must be feasible at the seed"
-        );
-        let HessianValue::Dense(h) = vgh.hessian else {
-            panic!(
-                "the small-ρ dense regime must return HessianValue::Dense on the \
-                 ValueGradientHessian order; got {:?}",
-                vgh.hessian
-            );
-        };
-        let d = rho_flat.len();
-        assert_eq!(h.dim(), (d, d), "the outer Hessian must be ρ-dimension square");
-        for i in 0..d {
-            for j in 0..d {
-                assert!(h[[i, j]].is_finite(), "outer Hessian entry ({i},{j}) is non-finite");
-                assert!(
-                    (h[[i, j]] - h[[j, i]]).abs() <= 1e-9 * (1.0 + h[[i, j]].abs()),
-                    "outer Hessian must be symmetric: H[{i},{j}]={} vs H[{j},{i}]={}",
-                    h[[i, j]],
-                    h[[j, i]]
-                );
-            }
-        }
-
-        // (4) The eval-site Hessian IS the canonical FD-of-analytic-gradient
-        //     functional (the same stepper the outer certificate decrement rescue
-        //     consumes), computed on a freshly-built identical objective. This pins
-        //     the unification: no bespoke parallel FD path.
-        let mut obj_ref = build_obj();
-        let h_ref = fd_outer_hessian_from_gradient(&mut obj_ref, &rho_flat)
-            .expect("canonical FD outer Hessian at the seed");
-        for i in 0..d {
-            for j in 0..d {
-                assert!(
-                    (h[[i, j]] - h_ref[[i, j]]).abs() <= 1e-9 * (1.0 + h_ref[[i, j]].abs()),
-                    "the dense eval Hessian must equal the canonical \
-                     fd_outer_hessian_from_gradient functional at ({i},{j}): \
-                     {} vs {}",
-                    h[[i, j]],
-                    h_ref[[i, j]]
-                );
-            }
-        }
-
-        // (5) The dense Hessian is a usable symmetric curvature the saddle
-        //     certificate reads: its self-adjoint eigendecomposition succeeds with
-        //     finite eigenvalues. ARC follows any negative-curvature eigenvector off
-        //     a saddle by construction; the inertia is reported for the record.
-        let (evals, _evecs) =
-            strict_symmetric_eigh(&h, Side::Lower).expect("dense outer Hessian eigendecomposition");
-        assert!(
-            evals.iter().all(|v| v.is_finite()),
-            "outer Hessian eigenvalues must be finite: {evals:?}"
-        );
-        let n_neg = evals.iter().filter(|v| **v < 0.0).count();
-        let n_pos = evals.iter().filter(|v| **v > 0.0).count();
-        println!(
-            "[#2266] small-ρ dense SAE outer Hessian eigenvalues={evals:?} \
-             (negative={n_neg}, positive={n_pos}); ARC selected, saddle-capable route active"
+            matches!(eval.hessian, HessianValue::Unavailable),
+            "requesting a Hessian must not trigger off-point rho probes"
         );
     }
 

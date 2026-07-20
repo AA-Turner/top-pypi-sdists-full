@@ -71,16 +71,318 @@ use crate::vector_response::{
 };
 use gam_linalg::matrix::{DenseDesignMatrix, DesignMatrix, SymmetricMatrix};
 use gam_math::jet_scalar::{JetScalar, OneSeed, Order2, TwoSeed};
+use gam_math::nested_dual::JetField;
 use gam_problem::HyperOperator;
 use gam_solve::pirls::dense_block_xtwx;
 use ndarray::{Array1, Array2, Array3, ArrayView2};
 use std::sync::{Arc, Mutex};
+
+#[inline]
+fn multinomial_stable_shift(eta: &[f64]) -> f64 {
+    eta.iter().copied().fold(0.0_f64, f64::max)
+}
+
+/// Canonical stable normalization for active logits plus an implicit zero
+/// reference logit. Every probability consumer, including prediction and the
+/// higher-order Fisher schedule, receives its base state from this function.
+/// The returned `(shift, log_centered_denominator)` keeps scalar likelihood
+/// lowerings in the same cancellation-free coordinates without repeating the
+/// exponential pass.
+pub(crate) fn multinomial_logit_probabilities_into(
+    eta: &[f64],
+    probabilities: &mut [f64],
+) -> (f64, f64) {
+    assert_eq!(probabilities.len(), eta.len() + 1);
+    let shift = multinomial_stable_shift(eta);
+    let active_classes = eta.len();
+    let reference_mass = (-shift).exp();
+    let mut denominator = reference_mass;
+    for (axis, &logit) in eta.iter().enumerate() {
+        let mass = (logit - shift).exp();
+        probabilities[axis] = mass;
+        denominator += mass;
+    }
+    let inverse_denominator = denominator.recip();
+    for probability in &mut probabilities[..active_classes] {
+        *probability *= inverse_denominator;
+    }
+    probabilities[active_classes] = reference_mass * inverse_denominator;
+    (shift, denominator.ln())
+}
+
+/// Production [`gam_math::jet_tower::RowProgram`] for one reference-coded
+/// multinomial-logit row.
+///
+/// Active-class logits are the `M` primaries and class `M` is the implicit
+/// reference with logit zero. The generic row NLL is the mechanical tower
+/// oracle for the retained normalized-softmax/Fisher lowerings in this module;
+/// production parity tests invoke this type directly rather than restating its
+/// expression under `cfg(test)`.
+#[derive(Clone, Copy, Debug)]
+pub struct MultinomialLogitRowProgram<'row> {
+    eta: &'row [f64],
+    response: &'row [f64],
+    weight: f64,
+}
+
+impl<'row> MultinomialLogitRowProgram<'row> {
+    /// Construct one validated row. `eta` contains the active-class logits and
+    /// `response` contains the complete simplex row, including the implicit
+    /// reference class in its last slot.
+    pub fn new(eta: &'row [f64], response: &'row [f64], weight: f64) -> Result<Self, String> {
+        let active_classes = eta.len();
+        if active_classes == 0 {
+            return Err("MultinomialLogitRowProgram requires at least one active class".into());
+        }
+        if response.len() != active_classes + 1 {
+            return Err(format!(
+                "MultinomialLogitRowProgram response length {} must equal active classes + reference = {}",
+                response.len(),
+                active_classes + 1,
+            ));
+        }
+        if !weight.is_finite() || weight < 0.0 {
+            return Err(format!(
+                "MultinomialLogitRowProgram weight must be finite and non-negative, got {weight}"
+            ));
+        }
+        if let Some((axis, value)) = eta
+            .iter()
+            .copied()
+            .enumerate()
+            .find(|(_, value)| !value.is_finite())
+        {
+            return Err(format!(
+                "MultinomialLogitRowProgram eta[{axis}] must be finite, got {value}"
+            ));
+        }
+        if let Some((class, value)) = response
+            .iter()
+            .copied()
+            .enumerate()
+            .find(|(_, value)| !value.is_finite() || *value < 0.0)
+        {
+            return Err(format!(
+                "MultinomialLogitRowProgram response[{class}] must be finite and non-negative, got {value}"
+            ));
+        }
+        let response_mass: f64 = response.iter().sum();
+        let simplex_tolerance = 1.0e-10 * (1.0 + response.len() as f64);
+        if (response_mass - 1.0).abs() > simplex_tolerance {
+            return Err(format!(
+                "MultinomialLogitRowProgram response must sum to one, got {response_mass}"
+            ));
+        }
+        Ok(Self {
+            eta,
+            response,
+            weight,
+        })
+    }
+
+    fn require_row(row: usize) -> Result<(), String> {
+        if row != 0 {
+            return Err(format!(
+                "MultinomialLogitRowProgram holds exactly one row; got row {row}"
+            ));
+        }
+        Ok(())
+    }
+
+    /// Stable shift shared by the semantic row expression and its compiled
+    /// probability/Fisher schedule. Including the reference logit zero keeps
+    /// every exponential argument non-positive.
+    #[inline]
+    fn stable_shift(&self) -> f64 {
+        multinomial_stable_shift(self.eta)
+    }
+
+    /// The one semantic row NLL over an arbitrary scalar field. Constants enter
+    /// through `constant`, allowing the same body to evaluate plain `f64` and
+    /// every fixed Taylor scalar selected by [`gam_math::jet_tower::RowProgram`].
+    ///
+    /// Centering the response term before adding the reference-class share avoids
+    /// the catastrophic `shift - observed_logit` cancellation that a conventional
+    /// `shift + log(sum(exp(eta-shift))) - y'eta` spelling suffers in saturated
+    /// tails. The identity uses `sum(response) = 1`:
+    ///
+    /// `NLL/w = log(D) - sum_active y_a(eta_a-shift) + y_ref*shift`.
+    fn eval_expression<S: JetField>(&self, primaries: &[S], constant: impl Fn(f64) -> S) -> S {
+        assert_eq!(primaries.len(), self.eta.len());
+        if self.weight == 0.0 {
+            return constant(0.0);
+        }
+        let shift = self.stable_shift();
+        let mut denominator = constant((-shift).exp());
+        let mut centered_response = constant(0.0);
+        for (axis, primary) in primaries.iter().enumerate() {
+            let centered = primary.add(&constant(-shift));
+            let exponential_value = centered.value().exp();
+            let exponential = centered.compose_unary([
+                exponential_value,
+                exponential_value,
+                exponential_value,
+                exponential_value,
+                exponential_value,
+            ]);
+            denominator = denominator.add(&exponential);
+            let response = self.response[axis];
+            if response != 0.0 {
+                centered_response = centered_response.add(&centered.scale(response));
+            }
+        }
+        let denominator_value = denominator.value();
+        let reciprocal = 1.0 / denominator_value;
+        let log_denominator = denominator.compose_unary([
+            denominator_value.ln(),
+            reciprocal,
+            -reciprocal * reciprocal,
+            2.0 * reciprocal * reciprocal * reciprocal,
+            -6.0 * reciprocal * reciprocal * reciprocal * reciprocal,
+        ]);
+        let reference_response = self.response[self.eta.len()];
+        let nll = log_denominator.sub(&centered_response);
+        let nll = if reference_response == 0.0 {
+            nll
+        } else {
+            nll.add(&constant(reference_response * shift))
+        };
+        nll.scale(self.weight)
+    }
+
+    /// Stable scalar NLL from the exact semantic expression.
+    #[inline]
+    pub(crate) fn negative_log_likelihood(&self) -> f64 {
+        self.eval_expression(self.eta, |value| value)
+    }
+
+    /// Compile the semantic normalized-softmax row into probabilities. The
+    /// returned shift and centered log-denominator use the same representation as
+    /// [`Self::eval_expression`]; no probability clamp or alternate tail policy
+    /// exists anywhere in the live likelihood.
+    #[inline]
+    pub(crate) fn probabilities_into(&self, probabilities: &mut [f64]) -> (f64, f64) {
+        assert_eq!(probabilities.len(), self.response.len());
+        multinomial_logit_probabilities_into(self.eta, probabilities)
+    }
+
+    /// Scalar structure-compiled lowering of [`Self::eval_expression`] from a
+    /// normalization already produced for gradient/Hessian channels.
+    #[inline]
+    fn negative_log_likelihood_from_normalization(
+        &self,
+        shift: f64,
+        log_centered_denominator: f64,
+    ) -> f64 {
+        if self.weight == 0.0 {
+            return 0.0;
+        }
+        let mut centered_response = 0.0_f64;
+        for (axis, &response) in self.response[..self.eta.len()].iter().enumerate() {
+            if response != 0.0 {
+                centered_response += response * (self.eta[axis] - shift);
+            }
+        }
+        let reference_response = self.response[self.eta.len()];
+        let reference_term = if reference_response == 0.0 {
+            0.0
+        } else {
+            reference_response * shift
+        };
+        self.weight * (log_centered_denominator - centered_response + reference_term)
+    }
+
+    /// Structure-compiled value/gradient lowering of the semantic row. The
+    /// gradient is the NLL gradient; callers needing the log-likelihood negate
+    /// both channels.
+    pub(crate) fn value_gradient_into(
+        &self,
+        probabilities: &mut [f64],
+        gradient: &mut [f64],
+    ) -> f64 {
+        let active_classes = self.eta.len();
+        assert_eq!(gradient.len(), active_classes);
+        let (shift, log_centered_denominator) = self.probabilities_into(probabilities);
+        for axis in 0..active_classes {
+            gradient[axis] = self.weight * (probabilities[axis] - self.response[axis]);
+        }
+        self.negative_log_likelihood_from_normalization(shift, log_centered_denominator)
+    }
+
+    /// Diagonal-only structure-compiled Hessian lowering. This preserves the
+    /// O(M) preconditioner path without reintroducing a second softmax formula.
+    pub(crate) fn hessian_diagonal_into(&self, probabilities: &mut [f64], diagonal: &mut [f64]) {
+        let active_classes = self.eta.len();
+        assert_eq!(diagonal.len(), active_classes);
+        self.probabilities_into(probabilities);
+        for axis in 0..active_classes {
+            let probability = probabilities[axis];
+            diagonal[axis] = self.weight * probability * (1.0 - probability);
+        }
+    }
+
+    /// Structure-compiled value/gradient/Hessian lowering of the semantic row.
+    /// `gradient` is the NLL gradient and `hessian` is row-major. Both are
+    /// mechanically determined by the normalized masses produced above.
+    pub(crate) fn value_gradient_hessian_into(
+        &self,
+        probabilities: &mut [f64],
+        gradient: &mut [f64],
+        hessian: &mut [f64],
+    ) -> f64 {
+        let active_classes = self.eta.len();
+        assert_eq!(gradient.len(), active_classes);
+        assert_eq!(hessian.len(), active_classes * active_classes);
+        let value = self.value_gradient_into(probabilities, gradient);
+        for row in 0..active_classes {
+            let probability_row = probabilities[row];
+            for column in 0..active_classes {
+                let probability_column = probabilities[column];
+                hessian[row * active_classes + column] = self.weight
+                    * if row == column {
+                        probability_row * (1.0 - probability_column)
+                    } else {
+                        -probability_row * probability_column
+                    };
+            }
+        }
+        value
+    }
+}
+
+impl<const M: usize> gam_math::jet_tower::RowProgram<M> for MultinomialLogitRowProgram<'_> {
+    fn n_rows(&self) -> usize {
+        1
+    }
+
+    fn primaries(&self, row: usize) -> Result<[f64; M], String> {
+        Self::require_row(row)?;
+        self.eta.try_into().map_err(|_| {
+            format!(
+                "MultinomialLogitRowProgram has {} active logits but RowProgram dimension is {M}",
+                self.eta.len()
+            )
+        })
+    }
+
+    fn eval<S: JetScalar<M>>(&self, row: usize, p: &[S; M]) -> Result<S, String> {
+        Self::require_row(row)?;
+        if self.eta.len() != M {
+            return Err(format!(
+                "MultinomialLogitRowProgram has {} active logits but RowProgram dimension is {M}",
+                self.eta.len()
+            ));
+        }
+        Ok(self.eval_expression(p, S::constant))
+    }
+}
 
 /// Nilpotent coefficient selected from the canonical multinomial perturbation
 /// program below. `OneSeed<0>` selects the first directional derivative;
 /// `TwoSeed<0>` selects the mixed second directional derivative. There are no
 /// primary axes because this program differentiates only along supplied
 /// coefficient-space directions.
+///
 /// The pair of coefficient-space directions a Fisher perturbation is seeded
 /// along. First-directional seeds consume only `u`; the mixed second-directional
 /// seed consumes both. Bundling the pair keeps a single `seed` signature across
@@ -93,11 +395,29 @@ struct FisherDirection {
 }
 
 trait FisherPerturbation: JetScalar<0> {
+    type Channels: Copy;
+    const CONTIGUOUS_FULL: bool;
+
     fn seed(direction: FisherDirection) -> Self;
     fn coefficient(&self) -> f64;
+    fn from_channels(base: f64, channels: Self::Channels) -> Self;
+    fn normalized_channels(
+        probability: f64,
+        direction_u: f64,
+        mass: &Self,
+        inverse: &Self,
+    ) -> Self::Channels;
+    fn store_channels(channels: Self::Channels, weight: f64) -> Self::Channels;
+    fn fisher_weight(weight: f64) -> f64;
+    fn denominator<F>(m: usize, perturbed_mass: &F) -> Self
+    where
+        F: Fn(usize) -> (f64, f64, Self);
 }
 
 impl FisherPerturbation for OneSeed<0> {
+    type Channels = f64;
+    const CONTIGUOUS_FULL: bool = true;
+
     #[inline(always)]
     fn seed(direction: FisherDirection) -> Self {
         Self {
@@ -108,11 +428,57 @@ impl FisherPerturbation for OneSeed<0> {
 
     #[inline(always)]
     fn coefficient(&self) -> f64 {
-        JetScalar::value(&self.eps)
+        gam_math::nested_dual::JetField::value(&self.eps)
+    }
+
+    #[inline(always)]
+    fn from_channels(base: f64, channels: Self::Channels) -> Self {
+        Self {
+            base: <Order2<0> as JetScalar<0>>::constant(base),
+            eps: <Order2<0> as JetScalar<0>>::constant(channels),
+        }
+    }
+
+    #[inline(always)]
+    fn normalized_channels(
+        probability: f64,
+        direction_u: f64,
+        _: &Self,
+        inverse: &Self,
+    ) -> Self::Channels {
+        probability * (direction_u + gam_math::nested_dual::JetField::value(&inverse.eps))
+    }
+
+    #[inline(always)]
+    fn store_channels(channels: Self::Channels, weight: f64) -> Self::Channels {
+        channels * weight
+    }
+
+    #[inline(always)]
+    fn fisher_weight(_: f64) -> f64 {
+        1.0
+    }
+
+    #[inline(always)]
+    fn denominator<F>(m: usize, perturbed_mass: &F) -> Self
+    where
+        F: Fn(usize) -> (f64, f64, Self),
+    {
+        let mut eps_coefficient = 0.0;
+        for a in 0..m {
+            eps_coefficient += gam_math::nested_dual::JetField::value(&perturbed_mass(a).2.eps);
+        }
+        Self {
+            base: <Order2<0> as JetScalar<0>>::constant(1.0),
+            eps: <Order2<0> as JetScalar<0>>::constant(eps_coefficient),
+        }
     }
 }
 
 impl FisherPerturbation for TwoSeed<0> {
+    type Channels = [f64; 3];
+    const CONTIGUOUS_FULL: bool = false;
+
     #[inline(always)]
     fn seed(direction: FisherDirection) -> Self {
         Self {
@@ -125,7 +491,114 @@ impl FisherPerturbation for TwoSeed<0> {
 
     #[inline(always)]
     fn coefficient(&self) -> f64 {
-        JetScalar::value(&self.eps_del)
+        gam_math::nested_dual::JetField::value(&self.eps_del)
+    }
+
+    #[inline(always)]
+    fn from_channels(base: f64, channels: Self::Channels) -> Self {
+        Self {
+            base: <Order2<0> as JetScalar<0>>::constant(base),
+            eps: <Order2<0> as JetScalar<0>>::constant(channels[0]),
+            del: <Order2<0> as JetScalar<0>>::constant(channels[1]),
+            eps_del: <Order2<0> as JetScalar<0>>::constant(channels[2]),
+        }
+    }
+
+    #[inline(always)]
+    fn normalized_channels(_: f64, _: f64, mass: &Self, inverse: &Self) -> Self::Channels {
+        let normalized = gam_math::nested_dual::JetField::mul(mass, inverse);
+        [
+            gam_math::nested_dual::JetField::value(&normalized.eps),
+            gam_math::nested_dual::JetField::value(&normalized.del),
+            gam_math::nested_dual::JetField::value(&normalized.eps_del),
+        ]
+    }
+
+    #[inline(always)]
+    fn store_channels(channels: Self::Channels, _: f64) -> Self::Channels {
+        channels
+    }
+
+    #[inline(always)]
+    fn fisher_weight(weight: f64) -> f64 {
+        weight
+    }
+
+    #[inline(always)]
+    fn denominator<F>(m: usize, perturbed_mass: &F) -> Self
+    where
+        F: Fn(usize) -> (f64, f64, Self),
+    {
+        let mut denominator = Self::constant(1.0);
+        for a in 0..m {
+            let (probability, _, mass) = perturbed_mass(a);
+            denominator = gam_math::nested_dual::JetField::add(
+                &denominator,
+                &gam_math::nested_dual::JetField::sub(&mass, &Self::constant(probability)),
+            );
+        }
+        denominator
+    }
+}
+
+#[inline(always)]
+fn fisher_entry<S: FisherPerturbation>(
+    probability_a: S,
+    probability_b: S,
+    diagonal: bool,
+    output_weight: f64,
+) -> f64 {
+    let negative_product = gam_math::nested_dual::JetField::neg(
+        &gam_math::nested_dual::JetField::mul(&probability_a, &probability_b),
+    );
+    let entry = if diagonal {
+        gam_math::nested_dual::JetField::add(&probability_a, &negative_product)
+    } else {
+        negative_product
+    };
+    gam_math::nested_dual::JetField::scale(&entry, output_weight).coefficient()
+}
+
+#[inline(always)]
+fn write_static_fisher<S: FisherPerturbation, F: Fn(usize) -> f64, const M: usize>(
+    probability: &F,
+    normalized: &[S::Channels],
+    fisher: &mut [f64],
+    output_weight: f64,
+) {
+    for a in 0..M {
+        let pa = S::from_channels(probability(a), normalized[a]);
+        fisher[a * M + a] = fisher_entry(pa, pa, true, output_weight);
+        for b in (a + 1)..M {
+            let pb = S::from_channels(probability(b), normalized[b]);
+            let coefficient = fisher_entry(pa, pb, false, output_weight);
+            fisher[a * M + b] = coefficient;
+            fisher[b * M + a] = coefficient;
+        }
+    }
+}
+
+#[derive(Clone, Copy, Eq, PartialEq)]
+enum FisherOutputSchedule {
+    SymmetricTriangle,
+    ContiguousFull,
+}
+
+const AVX2_WITHOUT_AVX512: bool = cfg!(all(target_arch = "x86_64", target_feature = "avx2"))
+    && !cfg!(all(target_arch = "x86_64", target_feature = "avx512f"));
+
+/// Select a storage schedule for the same elementwise [`fisher_entry`]
+/// expression. First-order M=32 favors contiguous rows on AVX2-only targets,
+/// while AVX-512 favors symmetric triangular writes; larger first-order blocks
+/// amortize the full-row arithmetic on every target. Mixed-second output stays
+/// triangular. The associated order and target-feature constants erase the
+/// inactive schedule during monomorphization.
+#[inline(always)]
+fn fisher_output_schedule<S: FisherPerturbation>(m: usize) -> FisherOutputSchedule {
+    if S::CONTIGUOUS_FULL && (m >= 64 || (m == 32 && AVX2_WITHOUT_AVX512)) {
+        FisherOutputSchedule::ContiguousFull
+    } else {
+        FisherOutputSchedule::SymmetricTriangle
     }
 }
 
@@ -141,6 +614,13 @@ impl FisherPerturbation for TwoSeed<0> {
 /// zero and one, so this performs no transcendental calls. Instantiating the
 /// same expression at `OneSeed<0>` or `TwoSeed<0>` yields every live first- and
 /// second-directional Fisher path without a dense class-axis derivative tower.
+/// Only live nilpotent coefficients survive between phases: one contiguous
+/// weighted first channel or three mixed-second channels. The generated output
+/// lowering specializes the common Fisher entry at `M=2,3,8,32`; at first
+/// order M=32 selects an ISA-shaped triangular or contiguous schedule, and
+/// M>=64 uses contiguous full rows. Mixed-second and arbitrary-width output
+/// retain the same triangular expression. These are storage/loop lowerings of
+/// this expression, not independent derivative formulas.
 #[inline(always)]
 fn softmax_fisher_perturbation<S: FisherPerturbation>(
     m: usize,
@@ -148,38 +628,114 @@ fn softmax_fisher_perturbation<S: FisherPerturbation>(
     probability: impl Fn(usize) -> f64,
     direction_u: impl Fn(usize) -> f64,
     direction_v: impl Fn(usize) -> f64,
-    normalized: &mut [S],
+    normalized: &mut [S::Channels],
     fisher: &mut [f64],
 ) {
     assert_eq!(normalized.len(), m);
     assert_eq!(fisher.len(), m * m);
-    let one = S::constant(1.0);
-    let mut denominator = one;
-    for a in 0..m {
+    let perturbed_mass = |a| {
         let pa = probability(a);
+        let direction_u = direction_u(a);
         let delta = S::seed(FisherDirection {
-            u: direction_u(a),
+            u: direction_u,
             v: direction_v(a),
         });
-        let exp_delta = delta.compose_unary([1.0; 5]);
-        denominator = denominator.add(&exp_delta.sub(&one).scale(pa));
-        normalized[a] = exp_delta.scale(pa);
+        let mass = gam_math::nested_dual::JetField::scale(
+            &gam_math::nested_dual::JetField::compose_unary(&delta, [1.0; 5]),
+            pa,
+        );
+        (pa, direction_u, mass)
+    };
+    let denominator = S::denominator(m, &perturbed_mass);
+    let inverse =
+        gam_math::nested_dual::JetField::compose_unary(&denominator, [1.0, -1.0, 2.0, -6.0, 24.0]);
+    for (a, channels) in normalized.iter_mut().enumerate() {
+        let (pa, direction_u, mass) = perturbed_mass(a);
+        *channels = S::store_channels(
+            S::normalized_channels(pa, direction_u, &mass, &inverse),
+            weight,
+        );
     }
-    let inverse = denominator.compose_unary([1.0, -1.0, 2.0, -6.0, 24.0]);
-    for probability in normalized.iter_mut() {
-        *probability = probability.mul(&inverse);
+    let output_weight = S::fisher_weight(weight);
+    let lifted = |a| S::from_channels(probability(a), normalized[a]);
+    if m == 2 {
+        let p0 = lifted(0);
+        let p1 = lifted(1);
+        fisher[0] = fisher_entry(p0, p0, true, output_weight);
+        let off = fisher_entry(p0, p1, false, output_weight);
+        fisher[1] = off;
+        fisher[2] = off;
+        fisher[3] = fisher_entry(p1, p1, true, output_weight);
+        return;
+    }
+    if m == 3 {
+        let p0 = lifted(0);
+        let p1 = lifted(1);
+        let p2 = lifted(2);
+        fisher[0] = fisher_entry(p0, p0, true, output_weight);
+        let off01 = fisher_entry(p0, p1, false, output_weight);
+        fisher[1] = off01;
+        fisher[3] = off01;
+        let off02 = fisher_entry(p0, p2, false, output_weight);
+        fisher[2] = off02;
+        fisher[6] = off02;
+        fisher[4] = fisher_entry(p1, p1, true, output_weight);
+        let off12 = fisher_entry(p1, p2, false, output_weight);
+        fisher[5] = off12;
+        fisher[7] = off12;
+        fisher[8] = fisher_entry(p2, p2, true, output_weight);
+        return;
+    }
+    if m == 8 {
+        write_static_fisher::<S, _, 8>(&probability, normalized, fisher, output_weight);
+        return;
+    }
+    let output_schedule = fisher_output_schedule::<S>(m);
+    if m == 32 && output_schedule == FisherOutputSchedule::SymmetricTriangle {
+        write_static_fisher::<S, _, 32>(&probability, normalized, fisher, output_weight);
+        return;
+    }
+    if output_schedule == FisherOutputSchedule::ContiguousFull {
+        for a in 0..m {
+            let pa = lifted(a);
+            let row_start = a * m;
+            for b in 0..m {
+                fisher[row_start + b] = fisher_entry(pa, lifted(b), false, output_weight);
+            }
+            fisher[row_start + a] = fisher_entry(pa, pa, true, output_weight);
+        }
+        return;
     }
     for a in 0..m {
-        let pa = normalized[a];
-        let diagonal = pa.sub(&pa.mul(&pa)).scale(weight);
-        fisher[a * m + a] = diagonal.coefficient();
+        let pa = lifted(a);
+        fisher[a * m + a] = fisher_entry(pa, pa, true, output_weight);
         for b in (a + 1)..m {
-            let off_diagonal = pa.mul(&normalized[b]).neg().scale(weight);
-            let coefficient = off_diagonal.coefficient();
+            let coefficient = fisher_entry(pa, lifted(b), false, output_weight);
             fisher[a * m + b] = coefficient;
             fisher[b * m + a] = coefficient;
         }
     }
+}
+
+/// Numerical rank of a symmetric PSD penalty matrix, using the SAME relative
+/// zero classification as [`gam_problem::JointPenaltySpec::validate`]
+/// (`tol = 100·p·ε·max|eig|`), so the `nullspace_dim` a joint-spec builder
+/// declares from this rank always agrees with the spectrum the validator
+/// measures. A caller-declared structural nullity cannot be used for that
+/// purpose: identifiability-absorbed smooth penalties carry more
+/// numerical-zero directions than their structural claim (which is why the
+/// family no longer carries one).
+pub(crate) fn measured_penalty_rank(s: &Array2<f64>) -> Result<usize, String> {
+    let p = s.nrows();
+    if p == 0 {
+        return Ok(0);
+    }
+    use gam_linalg::faer_ndarray::FaerEigh;
+    let (eigenvalues, _) = FaerEigh::eigh(s, faer::Side::Lower)
+        .map_err(|e| format!("penalty rank eigendecomposition failed: {e}"))?;
+    let max_abs = eigenvalues.iter().fold(0.0_f64, |acc, &ev| acc.max(ev.abs()));
+    let tol = 100.0 * (p as f64) * f64::EPSILON * max_abs;
+    Ok(eigenvalues.iter().filter(|&&ev| ev > tol).count())
 }
 
 /// The reference-symmetric class-space metric `M = I_m − J_m/K` (`m = K−1`
@@ -209,10 +765,9 @@ pub(crate) fn centered_class_metric(m: usize, k: usize) -> Array2<f64> {
 /// * `y_one_hot.dim() == (N, K)`, with `K = total_classes ≥ 2`.
 /// * `weights.len() == N`, finite and non-negative.
 /// * `design.nrows() == N`, `design.ncols() == P`.
-/// * every penalty in `penalties` has shape `(P, P)` (symmetric, PSD), and
-///   `penalty_nullspace_dims.len() == penalties.len()`.
+/// * every penalty in `penalties` has shape `(P, P)` (symmetric, PSD).
 ///
-/// All four are validated by [`MultinomialFamily::new`].
+/// All are validated by [`MultinomialFamily::new`].
 #[derive(Clone, Debug)]
 pub struct MultinomialFamily {
     /// Categorical response matrix `Y ∈ ℝ^{N × K}`. Each row must be a point on
@@ -242,12 +797,6 @@ pub struct MultinomialFamily {
     /// over-smooths one term while under-smoothing another (#561). Carried as
     /// `Arc<Vec<…>>` so per-block specs share storage with zero copies.
     pub penalties: Arc<Vec<PenaltyMatrix>>,
-    /// Structural nullspace dimension of each penalty component in `penalties`,
-    /// parallel to it (one entry per term). Passed through to each block's
-    /// `nullspace_dims` so the exact penalized log-determinant partitions every
-    /// term's eigenspace correctly. Entries default to `0` when the caller has
-    /// no analytic rank information for a term.
-    pub penalty_nullspace_dims: Arc<Vec<usize>>,
     /// Cached likelihood evaluator. Constructed once with the same row
     /// weights as `weights` and reused across every `evaluate` call.
     likelihood: MultinomialLogitLikelihood,
@@ -291,6 +840,14 @@ pub struct MultinomialFamily {
     /// per-block path used historically; the outer loop then selects the true
     /// optimum. Defaults to `0.0` (`λ = 1`).
     initial_log_lambda: f64,
+    /// Optional PER-SPEC warm-start seeds for the joint smoothing penalties,
+    /// overriding the shared `initial_log_lambda` (one entry per joint spec, in
+    /// the builders' term-major spec order). This is how a caller follows the
+    /// outer refusal's "resume by seeding the outer search at rho_checkpoint"
+    /// hint for a joint-penalty family — the checkpoint is a PER-SPEC ρ vector
+    /// a single shared seed cannot express — and how fixed-ρ diagnostics pin
+    /// the joint λs when probing the criterion surface (#2349).
+    joint_initial_log_lambdas: Option<Vec<f64>>,
 }
 
 /// One frozen-`β` snapshot of every canonical-axis joint-Hessian directional
@@ -350,7 +907,6 @@ impl MultinomialFamily {
         total_classes: usize,
         design: Arc<Array2<f64>>,
         penalties: Arc<Vec<PenaltyMatrix>>,
-        penalty_nullspace_dims: Arc<Vec<usize>>,
     ) -> Result<Self, String> {
         if total_classes < 2 {
             return Err(format!(
@@ -383,13 +939,6 @@ impl MultinomialFamily {
             ));
         }
         let p = design.ncols();
-        if penalty_nullspace_dims.len() != penalties.len() {
-            return Err(format!(
-                "MultinomialFamily: penalty_nullspace_dims length {} != penalties length {}",
-                penalty_nullspace_dims.len(),
-                penalties.len()
-            ));
-        }
         for (t, penalty) in penalties.iter().enumerate() {
             if penalty.shape() != (p, p) {
                 return Err(format!(
@@ -428,11 +977,11 @@ impl MultinomialFamily {
             total_classes,
             design,
             penalties,
-            penalty_nullspace_dims,
             likelihood,
             axis_derivative_cache: Arc::new(Mutex::new(None)),
             use_joint_jeffreys_term: true,
             initial_log_lambda: 0.0,
+            joint_initial_log_lambdas: None,
         })
     }
 
@@ -450,6 +999,40 @@ impl MultinomialFamily {
     pub fn with_initial_log_lambda(mut self, log_lambda: f64) -> Self {
         self.initial_log_lambda = log_lambda;
         self
+    }
+
+    /// Seed PER-SPEC warm-start `log λ` values for the joint smoothing
+    /// penalties, in the builders' term-major spec order (equivariant carrier:
+    /// `s = t·K + c`; shared centered carrier: `s = t`). Overrides the shared
+    /// [`Self::with_initial_log_lambda`] seed entry-by-entry; the spec builders
+    /// reject a wrong length. This is the resume path for a joint-penalty
+    /// `rho_checkpoint` and the fixed-ρ pin for criterion diagnostics (#2349).
+    pub fn with_joint_initial_log_lambdas(mut self, seeds: Vec<f64>) -> Self {
+        self.joint_initial_log_lambdas = Some(seeds);
+        self
+    }
+
+    /// Per-spec joint warm-start seed: the override entry when present, else
+    /// the shared `initial_log_lambda`.
+    fn joint_seed(&self, spec_index: usize) -> f64 {
+        self.joint_initial_log_lambdas
+            .as_ref()
+            .and_then(|seeds| seeds.get(spec_index))
+            .copied()
+            .unwrap_or(self.initial_log_lambda)
+    }
+
+    /// Validate an override seed vector against the joint-spec count the
+    /// builder is about to produce.
+    fn validate_joint_seed_len(&self, expected: usize, carrier: &str) -> Result<(), String> {
+        match self.joint_initial_log_lambdas.as_ref() {
+            Some(seeds) if seeds.len() != expected => Err(format!(
+                "multinomial {carrier} carrier: joint_initial_log_lambdas has {} entries, \
+                 expected {expected} (one per joint spec, term-major)",
+                seeds.len()
+            )),
+            _ => Ok(()),
+        }
     }
 
     /// Build the canonical block specs for this family.
@@ -485,26 +1068,22 @@ impl MultinomialFamily {
                 // repeated columns for aliases, and strips every block past
                 // `class_0` to width 0 — the failure in #363.
                 //
-                // Each block carries the FULL per-term physical penalty list
-                // with its own log-λ coordinates. Multinomial smooth effects are
-                // genuinely class-specific: tying one λ_t across all active
-                // logits lets an easy/near-linear class force over-smoothing of
-                // a wiggly class (the #1855 truth-recovery failure). Keeping the
-                // penalties on the active-class blocks lets REML select the
-                // heterogeneous per-(class, term) smoothness required by held-out
-                // simplex and decision-boundary recovery while the
-                // channel-aware Jacobian above preserves the coefficient-space
-                // identifiability audit.
+                // The per-class blocks attach NO smooth penalty: the sole
+                // smoothing carrier is the permutation-equivariant per-class
+                // centered joint family `λ_{t,c}·(C_cᵀC_c ⊗ S_t)` (see
+                // `equivariant_class_penalty_specs`). Penalizing the ALR
+                // contrasts β_a here would re-anchor smoothness to the
+                // arbitrary reference class (#1587) — and attaching both
+                // carriers would double-count. Heterogeneous per-class
+                // smoothness (#1855) survives as the per-class λ_{t,c} on the
+                // gauge-free centered functions.
                 let mut spec = ParameterBlockSpec {
                     name: format!("class_{a}"),
                     design: DesignMatrix::Dense(DenseDesignMatrix::from(self.design.clone())),
                     offset: Array1::<f64>::zeros(self.design.nrows()),
-                    penalties: self.penalties.iter().cloned().collect(),
-                    nullspace_dims: (*self.penalty_nullspace_dims).clone(),
-                    initial_log_lambdas: Array1::<f64>::from_elem(
-                        self.penalties.len(),
-                        self.initial_log_lambda,
-                    ),
+                    penalties: Vec::new(),
+                    nullspace_dims: Vec::new(),
+                    initial_log_lambdas: Array1::<f64>::zeros(0),
                     initial_beta: None,
                     gauge_priority: priority,
                     jacobian_callback: None,
@@ -545,12 +1124,15 @@ impl MultinomialFamily {
     /// so the outer loop ties one shared `λ_t` across all classes (the gauge
     /// the centered metric requires; an untied per-(class,term) `λ` is itself a
     /// second source of reference dependence).
-    pub fn centered_joint_penalty_specs(&self) -> Vec<gam_problem::JointPenaltySpec> {
+    pub fn centered_joint_penalty_specs(
+        &self,
+    ) -> Result<Vec<gam_problem::JointPenaltySpec>, String> {
         let m = self.active_classes();
         let k = self.total_classes;
         let p = self.design.ncols();
         let metric = centered_class_metric(m, k);
         let raw_total = m * p;
+        self.validate_joint_seed_len(self.penalties.len(), "shared centered")?;
         self.penalties
             .iter()
             .enumerate()
@@ -567,15 +1149,105 @@ impl MultinomialFamily {
                         }
                     }
                 }
-                let ns_t = self.penalty_nullspace_dims.get(t).copied().unwrap_or(0);
-                gam_problem::JointPenaltySpec {
+                // rank(M ⊗ S_t) = m · rank(S_t); measure rank(S_t) with the
+                // validator's own zero classification (a structural nullity
+                // claim understates the numerical nullity for
+                // identifiability-absorbed smooths).
+                let rank_s = measured_penalty_rank(&s_t)
+                    .map_err(|e| format!("multinomial centered penalty term {t}: {e}"))?;
+                Ok(gam_problem::JointPenaltySpec {
                     label: Some(format!("multinomial_term_{t}")),
                     matrix,
-                    initial_log_lambda: self.initial_log_lambda,
-                    nullspace_dim: m * ns_t,
-                }
+                    initial_log_lambda: self.joint_seed(t),
+                    nullspace_dim: raw_total - m * rank_s,
+                })
             })
             .collect()
+    }
+
+    /// Build the permutation-EQUIVARIANT heterogeneous smoothing penalties:
+    /// for each smooth term `t`, `K` per-class penalties
+    /// `λ_{t,c} · γ_cᵀ S_t γ_c` on the CENTERED class functions
+    /// `γ_c = β_c − (1/K)Σ_b β_b` (with `β_ref ≡ 0`), one λ per class —
+    /// including the softmax reference class.
+    ///
+    /// This is the resolution of the #1587 (reference invariance) vs #1855
+    /// (heterogeneous per-class smoothness) tension. The reverted per-block
+    /// carrier penalized the ALR contrasts `β_a = γ_a − γ_ref`, whose
+    /// "per-class" smoothness is an artifact of which class is the baseline
+    /// (the family of diagonal ALR precisions is not closed under reference
+    /// changes). Penalizing the centered functions is reference-free by
+    /// construction: relabeling classes permutes the (γ_c, λ_{t,c}) pairs
+    /// together, so the fitted probabilities after label alignment are
+    /// identical, while REML still selects genuinely heterogeneous per-class
+    /// smoothness (a wiggly class takes a small λ_c, an easy class shrinks its
+    /// centered deviation toward the mean function).
+    ///
+    /// In stacked ALR coordinates `[β_0; …; β_{m−1}]` (`m = K−1`), class `c`'s
+    /// centering row is `C_a = e_aᵀ − 𝟙ᵀ/K` for an active class and
+    /// `C_ref = −𝟙ᵀ/K` for the reference, so spec `(t, c)` carries the PSD
+    /// rank-`rank(S_t)` matrix `(C_cᵀC_c) ⊗ S_t`. With all `λ_{t,c}` equal the
+    /// sum collapses exactly to the shared centered metric:
+    /// `Σ_c C_cᵀC_c = I − J/K = M`, so this family strictly generalizes
+    /// [`Self::centered_joint_penalty_specs`].
+    ///
+    /// `K = 2` is the degenerate case: `γ_ref = −γ_0`, both centered functions
+    /// have identical wiggliness, and the two per-class metrics are
+    /// proportional (only `λ_0 + λ_1` would be identified). The shared
+    /// centered spec is the correct model there, so this builder returns it.
+    pub fn equivariant_class_penalty_specs(
+        &self,
+    ) -> Result<Vec<gam_problem::JointPenaltySpec>, String> {
+        let m = self.active_classes();
+        let k = self.total_classes;
+        let p = self.design.ncols();
+        if k <= 2 {
+            return self.centered_joint_penalty_specs();
+        }
+        let raw_total = m * p;
+        self.validate_joint_seed_len(self.penalties.len() * k, "equivariant per-class")?;
+        let mut specs = Vec::with_capacity(self.penalties.len() * k);
+        for (t, pen) in self.penalties.iter().enumerate() {
+            let s_t = pen.to_dense();
+            // rank(C_cᵀC_c ⊗ S_t) = 1 · rank(S_t). The rank must agree with
+            // the spectrum the joint-penalty validator measures (a structural
+            // nullity claim understates the numerical nullity for
+            // identifiability-absorbed smooths), so measure it with the
+            // validator's own relative classification.
+            let rank_s = measured_penalty_rank(&s_t)
+                .map_err(|e| format!("multinomial equivariant penalty term {t}: {e}"))?;
+            let nullspace_dim = raw_total - rank_s;
+            for c in 0..k {
+                // Centering row for class c over the m active coordinates.
+                let row: Vec<f64> = (0..m)
+                    .map(|b| {
+                        let indicator = if c == b { 1.0 } else { 0.0 };
+                        indicator - 1.0 / (k as f64)
+                    })
+                    .collect();
+                let mut matrix = Array2::<f64>::zeros((raw_total, raw_total));
+                for a in 0..m {
+                    for b in 0..m {
+                        let scale = row[a] * row[b];
+                        if scale == 0.0 {
+                            continue;
+                        }
+                        for i in 0..p {
+                            for j in 0..p {
+                                matrix[[a * p + i, b * p + j]] = scale * s_t[[i, j]];
+                            }
+                        }
+                    }
+                }
+                specs.push(gam_problem::JointPenaltySpec {
+                    label: Some(format!("multinomial_term_{t}_class_{c}")),
+                    matrix,
+                    initial_log_lambda: self.joint_seed(t * k + c),
+                    nullspace_dim,
+                });
+            }
+        }
+        Ok(specs)
     }
 
     fn specs_match_workspace_shape(&self, specs: &[ParameterBlockSpec]) -> bool {
@@ -588,14 +1260,8 @@ impl MultinomialFamily {
                     && spec.offset.len() == n
                     && spec.stacked_design.is_none()
                     && spec.stacked_offset.is_none()
-                    // Production blocks carry the full per-term penalty/λ list.
-                    // Accept the empty legacy/joint form here as well so older
-                    // workspaces and diagnostic callers can still reuse the
-                    // family HVP/gradient/log-likelihood machinery.
-                    && (spec.initial_log_lambdas.len() == self.penalties.len()
-                        || spec.initial_log_lambdas.is_empty())
-                    && (spec.penalties.len() == self.penalties.len()
-                        || spec.penalties.is_empty())
+                    && spec.initial_log_lambdas.len() == self.penalties.len()
+                    && spec.penalties.len() == self.penalties.len()
             })
     }
 
@@ -627,16 +1293,15 @@ impl MultinomialFamily {
     /// the current `η`. Centralises the softmax-driven kernel so every
     /// downstream assembly (gradient, dense Hessian, directional derivative)
     /// reads from the same source.
-    fn evaluate_row_kernels(&self, eta: ArrayView2<'_, f64>) -> (f64, Array3<f64>, Array2<f64>) {
-        let log_lik = self.likelihood.log_lik(eta, self.y_one_hot.view());
-        // hess_block returns w_n · (δ_ab p_a − p_a p_b) (i.e. the canonical
-        // observed = Fisher information block under the logit link).
-        let fisher = self.likelihood.hess_block(eta, self.y_one_hot.view());
-        // grad_eta returns w_n · (y_a − p_a); the *negative-loglik* gradient
-        // we hand to the joint Newton step is its negation. We return the
-        // raw log-likelihood gradient and let assembly handle the sign.
-        let grad_eta_logl = self.likelihood.grad_eta(eta, self.y_one_hot.view());
-        (log_lik, fisher, grad_eta_logl)
+    fn evaluate_row_kernels(
+        &self,
+        eta: ArrayView2<'_, f64>,
+    ) -> Result<(f64, Array3<f64>, Array2<f64>), String> {
+        let (log_lik, grad_eta_logl, fisher) = self
+            .likelihood
+            .value_gradient_hessian(eta, self.y_one_hot.view())
+            .map_err(|error| error.to_string())?;
+        Ok((log_lik, fisher, grad_eta_logl))
     }
 
     /// Assemble the per-block gradient `∂(−log L)/∂β_a = X^T (p_a − y_a)`
@@ -733,38 +1398,44 @@ impl MultinomialFamily {
     /// Joint log-likelihood and stacked gradient evaluated from cached softmax
     /// probabilities, without re-collecting η or re-running the row kernels.
     ///
-    /// `probs_full` is the `(N, K)` softmax matrix at the workspace's frozen β.
-    /// The weighted multinomial log-likelihood is `Σ_n w_n Σ_k y_{n,k} log p_{n,k}`
-    /// and the gradient of `log L` wrt the active blocks is
+    /// `eta` and `probs_full` are the frozen row program's logits and `(N, K)`
+    /// normalized masses. The value is re-evaluated through the canonical stable
+    /// row expression (probabilities can underflow to exact zero, so taking their
+    /// logarithm is not a valid tail representation); the gradient reuses the
+    /// cached normalized masses. The gradient of `log L` wrt the active blocks is
     /// `∂log L/∂β_a = X^T (w ⊙ (y − p))_a`, laid out output-major to match
     /// [`Self::assemble_joint_hessian`]. Reused by the frozen-β workspace so the
     /// inner joint-Newton gradient load and line-search log-likelihood reads
     /// share the same cached probabilities as the matrix-free `H·v` contraction.
     fn joint_loglik_and_gradient_from_probs(
         &self,
+        eta: ArrayView2<'_, f64>,
         probs_full: ArrayView2<'_, f64>,
-    ) -> (f64, Array1<f64>) {
+    ) -> Result<(f64, Array1<f64>), String> {
         let n = self.weights.len();
         let p = self.design.ncols();
         let m = self.active_classes();
         let k = self.total_classes;
         let design_view = self.design.view();
+        assert_eq!(eta.dim(), (n, m));
+        assert_eq!(probs_full.dim(), (n, k));
         let mut log_lik = 0.0_f64;
+        let mut eta_row = vec![0.0_f64; m];
+        let mut response_row = vec![0.0_f64; k];
         for row in 0..n {
             let w = self.weights[row];
             if w == 0.0 {
                 continue;
             }
-            for c in 0..k {
-                let y = self.y_one_hot[[row, c]];
-                if y != 0.0 {
-                    // Mirror `MultinomialLogitLikelihood::log_lik`: clamp the
-                    // probability away from zero by 1e-300 to guard log(0) on
-                    // underflow (the residual still drives the gradient).
-                    let pc = probs_full[[row, c]].max(1.0e-300);
-                    log_lik += w * y * pc.ln();
-                }
+            for axis in 0..m {
+                eta_row[axis] = eta[[row, axis]];
             }
+            for class in 0..k {
+                response_row[class] = self.y_one_hot[[row, class]];
+            }
+            let program = MultinomialLogitRowProgram::new(&eta_row, &response_row, w)
+                .map_err(|error| format!("invalid frozen multinomial row {row}: {error}"))?;
+            log_lik -= program.negative_log_likelihood();
         }
         let mut grad = Array1::<f64>::zeros(m * p);
         for a in 0..m {
@@ -778,7 +1449,7 @@ impl MultinomialFamily {
                 grad[a * p + i] = acc;
             }
         }
-        (log_lik, grad)
+        Ok((log_lik, grad))
     }
 
     /// Apply a coefficient-space direction `d_β` to the design to obtain
@@ -1007,7 +1678,7 @@ impl MultinomialFamily {
         let design = self.design.view();
         let mut out = Array3::<f64>::zeros((n, m, m));
         let mut d_eta = vec![0.0_f64; m];
-        let mut normalized = vec![<OneSeed<0> as JetScalar<0>>::constant(0.0); m];
+        let mut normalized = vec![0.0; m];
         let out_flat = out
             .as_slice_mut()
             .expect("owned Fisher jet must be contiguous");
@@ -1057,7 +1728,7 @@ impl MultinomialFamily {
         let mut out = Array3::<f64>::zeros((n, m, m));
         let mut d_eta_u = vec![0.0_f64; m];
         let mut d_eta_v = vec![0.0_f64; m];
-        let mut normalized = vec![<TwoSeed<0> as JetScalar<0>>::constant(0.0); m];
+        let mut normalized = vec![[0.0; 3]; m];
         let out_flat = out
             .as_slice_mut()
             .expect("owned Fisher jet must be contiguous");
@@ -1234,7 +1905,7 @@ impl MultinomialFamily {
                 let a0 = axis / p;
                 let i0 = axis % p;
                 let mut mat = vec![0.0_f64; dim * dim];
-                let mut normalized = vec![<OneSeed<0> as JetScalar<0>>::constant(0.0); m];
+                let mut normalized = vec![0.0; m];
                 let mut jhat = vec![0.0_f64; m * m];
                 for row in 0..n {
                     let w = self.weights[row];
@@ -1356,7 +2027,7 @@ impl MultinomialFamily {
                 let a0 = axis / p;
                 let i0 = axis % p;
                 let mut mat = vec![0.0_f64; dim * dim];
-                let mut normalized = vec![<TwoSeed<0> as JetScalar<0>>::constant(0.0); m];
+                let mut normalized = vec![[0.0; 3]; m];
                 let mut jhat = vec![0.0_f64; m * m];
                 for row in 0..n {
                     let w = self.weights[row];
@@ -1479,14 +2150,17 @@ impl CustomFamily for MultinomialFamily {
     }
 
     fn joint_penalty_specs(&self) -> Result<Vec<gam_problem::JointPenaltySpec>, String> {
-        // The formula path attaches the physical smooth penalties to each
-        // active-class block so REML can select the heterogeneous per-class
-        // smoothness required by multinomial truth-recovery/classification
-        // problems. A centered joint penalty is still available for diagnostics
-        // through `centered_joint_penalty_specs`, but it is not the production
-        // smoothing carrier because one shared λ_t over-smooths class-specific
-        // decision surfaces.
-        Ok(Vec::new())
+        // The smoothing carrier is the permutation-equivariant per-class
+        // centered penalty family: K per-term λ_{t,c} on the CENTERED class
+        // functions γ_c (see `equivariant_class_penalty_specs`). This restores
+        // the #1587 reference invariance the per-block ALR carrier broke
+        // (relabeling the arbitrary baseline changed fitted probabilities)
+        // while keeping the heterogeneous per-class smoothness #1855 requires
+        // — per-CLASS λ on gauge-free functions, not per-contrast λ in the
+        // reference-anchored frame. The per-class blocks attach NO smooth
+        // penalty (see `build_block_specs`); double-carrying both would
+        // penalize (I + Σ_c C_cᵀC_c) ⊗ S_t.
+        self.equivariant_class_penalty_specs()
     }
 
     fn exact_newton_joint_hessian_beta_dependent(&self) -> bool {
@@ -1556,7 +2230,7 @@ impl CustomFamily for MultinomialFamily {
 
     fn evaluate(&self, block_states: &[ParameterBlockState]) -> Result<FamilyEvaluation, String> {
         let eta = self.collect_eta_matrix(block_states)?;
-        let (log_lik, fisher, grad_eta_logl) = self.evaluate_row_kernels(eta.view());
+        let (log_lik, fisher, grad_eta_logl) = self.evaluate_row_kernels(eta.view())?;
         let working_sets = self.assemble_block_diagonal_working_sets(&fisher, &grad_eta_logl)?;
         Ok(FamilyEvaluation {
             log_likelihood: log_lik,
@@ -1566,7 +2240,9 @@ impl CustomFamily for MultinomialFamily {
 
     fn log_likelihood_only(&self, block_states: &[ParameterBlockState]) -> Result<f64, String> {
         let eta = self.collect_eta_matrix(block_states)?;
-        Ok(self.likelihood.log_lik(eta.view(), self.y_one_hot.view()))
+        self.likelihood
+            .log_lik(eta.view(), self.y_one_hot.view())
+            .map_err(|error| error.to_string())
     }
 
     fn exact_newton_joint_hessian(
@@ -1574,7 +2250,7 @@ impl CustomFamily for MultinomialFamily {
         block_states: &[ParameterBlockState],
     ) -> Result<Option<Array2<f64>>, String> {
         let eta = self.collect_eta_matrix(block_states)?;
-        let (_, fisher, _) = self.evaluate_row_kernels(eta.view());
+        let (_, fisher, _) = self.evaluate_row_kernels(eta.view())?;
         let hessian = self.assemble_joint_hessian(&fisher)?;
         Ok(Some(hessian))
     }
@@ -1585,8 +2261,10 @@ impl CustomFamily for MultinomialFamily {
         _: &[ParameterBlockSpec],
     ) -> Result<Option<ExactNewtonJointGradientEvaluation>, String> {
         let eta = self.collect_eta_matrix(block_states)?;
-        let log_lik = self.likelihood.log_lik(eta.view(), self.y_one_hot.view());
-        let grad_eta_logl = self.likelihood.grad_eta(eta.view(), self.y_one_hot.view());
+        let (log_lik, grad_eta_logl) = self
+            .likelihood
+            .value_gradient(eta.view(), self.y_one_hot.view())
+            .map_err(|error| error.to_string())?;
         let gradient = self.assemble_joint_gradient(&grad_eta_logl);
         Ok(Some(ExactNewtonJointGradientEvaluation {
             log_likelihood: log_lik,
@@ -1609,6 +2287,7 @@ impl CustomFamily for MultinomialFamily {
         Ok(Some(Arc::new(MultinomialHessianWorkspace {
             family: self.clone(),
             block_states: block_states.to_vec(),
+            eta,
             probs,
         })))
     }
@@ -1745,6 +2424,10 @@ impl CustomFamily for MultinomialFamily {
 struct MultinomialHessianWorkspace {
     family: MultinomialFamily,
     block_states: Vec<ParameterBlockState>,
+    /// Frozen active logits. Values cannot be reconstructed from probabilities
+    /// after tail underflow, so the canonical row expression retains them for
+    /// exact value/gradient workspace queries.
+    eta: Array2<f64>,
     /// Per-row softmax probabilities `(N, K)` (including the reference column
     /// at index `K − 1`), frozen at the construction `β`. The Fisher block is
     /// a function of these alone, so the matrix-free `H·v` contraction reuses
@@ -1781,7 +2464,7 @@ impl ExactNewtonJointHessianWorkspace for MultinomialHessianWorkspace {
     fn joint_log_likelihood_evaluation(&self) -> Result<Option<f64>, String> {
         let (log_lik, _) = self
             .family
-            .joint_loglik_and_gradient_from_probs(self.probs.view());
+            .joint_loglik_and_gradient_from_probs(self.eta.view(), self.probs.view())?;
         Ok(Some(log_lik))
     }
 
@@ -1790,7 +2473,7 @@ impl ExactNewtonJointHessianWorkspace for MultinomialHessianWorkspace {
     ) -> Result<Option<ExactNewtonJointGradientEvaluation>, String> {
         let (log_likelihood, gradient) = self
             .family
-            .joint_loglik_and_gradient_from_probs(self.probs.view());
+            .joint_loglik_and_gradient_from_probs(self.eta.view(), self.probs.view())?;
         Ok(Some(ExactNewtonJointGradientEvaluation {
             log_likelihood,
             gradient,
@@ -2078,67 +2761,24 @@ mod tests {
     use gam_problem::DenseMatrixHyperOperator;
     use ndarray::array;
 
-    /// #932 production single-source parity: the LIVE multinomial hand tower
+    /// #932 production single-source parity: the live multinomial tower
     /// (`joint_loglik_and_gradient_from_probs`, `hessian_matvec_into_with_probs`,
     /// and the third/fourth `directional_fisher_jet_rows` /
-    /// `second_directional_fisher_jet_rows` closed forms that the #1082
-    /// Jeffreys/Firth inner cycle runs) is pinned, by INVOKING PRODUCTION, against
-    /// the universal gam-math jet — and against an independent finite-difference
-    /// witness that never touches the jet.
+    /// `second_directional_fisher_jet_rows` coefficient projections that the
+    /// #1082 Jeffreys/Firth inner cycle runs) is pinned, by INVOKING PRODUCTION,
+    /// against the universal gam-math jet — and against an independent
+    /// finite-difference witness that never touches the jet.
     ///
-    /// The live hand tower is deliberately RETAINED (documented performance
-    /// exception at the code sites): the generic per-row `Tower4` cannot replace
-    /// the X-factored β-space scatter the hot path assembles without the same
-    /// order-of-magnitude regression the sibling SAE softmax cutover measured
-    /// (25–57×). This module is the non-ignored oracle that makes the retained
-    /// hand tower non-divergent: any dropped or sign-flipped term in the live
-    /// closed forms is loud here.
+    /// Production differentiates the one normalized-softmax Fisher expression
+    /// through compact nilpotent channels; only the X-factored coefficient-space
+    /// scatter is specialized. This module makes any dropped or sign-flipped
+    /// coefficient loud without retaining separate production calculus.
     mod jet_single_source_932 {
         use super::*;
-        use gam_math::jet_scalar::JetScalar;
         use gam_math::jet_tower::{
-            RowProgram, program_fourth_contracted, program_row_kernel, program_third_contracted,
+            program_fourth_contracted, program_row_kernel, program_third_contracted,
         };
         use std::sync::Arc;
-
-        /// The multinomial-logit row NLL written ONCE through the jet scalar:
-        /// `ℓ(η) = w·ln(1 + Σ_a e^{η_a}) − w·η_obs`. The active-class log-odds are
-        /// the `M` primaries; the reference class `M` is pinned at `η ≡ 0`.
-        struct MultinomialJetRow<const M: usize> {
-            eta: [f64; M],
-            obs: usize,
-            w: f64,
-        }
-
-        impl<const M: usize> RowProgram<M> for MultinomialJetRow<M> {
-            fn n_rows(&self) -> usize {
-                1
-            }
-            fn primaries(&self, row: usize) -> Result<[f64; M], String> {
-                if row != 0 {
-                    return Err(format!(
-                        "MultinomialJetRow holds exactly one row; got row {row}"
-                    ));
-                }
-                Ok(self.eta)
-            }
-            fn eval<S: JetScalar<M>>(&self, row: usize, p: &[S; M]) -> Result<S, String> {
-                if row != 0 {
-                    return Err(format!(
-                        "MultinomialJetRow holds exactly one row; got row {row}"
-                    ));
-                }
-                let mut z = S::constant(1.0);
-                for a in 0..M {
-                    z = z.add(&p[a].exp());
-                }
-                let mut ell = z.ln().scale(self.w);
-                if self.obs < M {
-                    ell = ell.sub(&p[self.obs].scale(self.w));
-                }
-                Ok(ell)
-            }
-        }
 
         /// Build a single-row `K = M + 1` family with the design collapsed to the
         /// `1×1` identity (`P = 1`, `X = [[1.0]]`), so the coefficient-space
@@ -2149,15 +2789,21 @@ mod tests {
             let mut y = Array2::<f64>::zeros((1, k));
             y[[0, obs]] = 1.0;
             let design = Arc::new(array![[1.0_f64]]);
+            MultinomialFamily::new(y, array![w], k, design, Arc::new(Vec::new()))
+                .expect("single-row multinomial family")
+        }
+
+        fn single_row_family_response(response: &[f64], w: f64) -> MultinomialFamily {
+            let y = Array2::from_shape_vec((1, response.len()), response.to_vec())
+                .expect("single-row simplex response");
             MultinomialFamily::new(
                 y,
                 array![w],
-                k,
-                design,
-                Arc::new(Vec::new()),
+                response.len(),
+                Arc::new(array![[1.0_f64]]),
                 Arc::new(Vec::new()),
             )
-            .expect("single-row multinomial family")
+            .expect("single-row multinomial family with simplex response")
         }
 
         /// Deterministic LCG (NO `rand`, NO clock seeding — #932 rules).
@@ -2253,15 +2899,23 @@ mod tests {
                 let obs = trial % (M + 1);
                 let w = rng.uniform(0.25, 2.5);
                 let family = single_row_family(obs, w, M + 1);
-                let prog = MultinomialJetRow { eta, obs, w };
+                let mut response = vec![0.0; M + 1];
+                response[obs] = 1.0;
+                let prog =
+                    crate::multinomial_reml::MultinomialLogitRowProgram::new(&eta, &response, w)
+                        .expect("valid multinomial row program");
 
                 // ── Jet ORACLE vs LIVE production (≤1e-9) ──────────────────────
-                let (jet_v, jet_g, jet_h) = program_row_kernel(&prog, 0).expect("jet row kernel");
+                let (jet_v, jet_g, jet_h) =
+                    program_row_kernel::<M, _>(&prog, 0).expect("jet row kernel");
 
                 // Value + gradient from the live log-lik assembler (NLL = −log_lik,
                 // ∇NLL = −∇log_lik).
                 let probs = active_probs(&family, &eta);
-                let (log_lik, grad_ll) = family.joint_loglik_and_gradient_from_probs(probs.view());
+                let eta_matrix = Array2::from_shape_vec((1, M), eta.to_vec()).expect("eta matrix");
+                let (log_lik, grad_ll) = family
+                    .joint_loglik_and_gradient_from_probs(eta_matrix.view(), probs.view())
+                    .expect("valid frozen multinomial row");
                 close(
                     jet_v,
                     -log_lik,
@@ -2290,7 +2944,7 @@ mod tests {
                     }
                 }
 
-                // Third + fourth directional Fisher jets from the live closed forms.
+                // Third + fourth directional Fisher jets from the live generated expression.
                 let dir: [f64; M] = std::array::from_fn(|_| rng.uniform(-1.5, 1.5));
                 let u: [f64; M] = std::array::from_fn(|_| rng.uniform(-1.5, 1.5));
                 let jet_third = program_third_contracted(&prog, 0, &dir).expect("jet third");
@@ -2365,6 +3019,345 @@ mod tests {
         fn multinomial_live_tower_matches_jet_and_fd() {
             run_parity::<2>(0x9322_2020_0710_face);
             run_parity::<3>(0x0bad_c0de_0710_2020);
+        }
+
+        /// Saturated active/reference classes and label-smoothed targets all use
+        /// the same centered semantic expression. This catches the former
+        /// probability-clamp split: values remain exact after a probability has
+        /// underflowed to zero, while V/G/H/t3/t4 stay finite and agree with the
+        /// production structure-compiled schedules.
+        #[test]
+        fn multinomial_extreme_tails_share_one_stable_row_program_932() {
+            const M: usize = 3;
+            let cases = [
+                ([1_000.0, -1_000.0, -750.0], [0.0, 0.0, 0.0, 1.0], 1.25),
+                ([-1_000.0, -900.0, -800.0], [0.0, 0.0, 1.0, 0.0], 0.75),
+                ([1_000.0, 1_000.0, -1_000.0], [0.2, 0.3, 0.1, 0.4], 2.0),
+                ([f64::MAX, -f64::MAX, 0.0], [1.0, 0.0, 0.0, 0.0], 1.0),
+                ([f64::MAX, -f64::MAX, 0.0], [0.0, 0.0, 0.0, 1.0], 0.0),
+            ];
+            let direction = [0.7, -0.4, 1.1];
+            let direction_u = [-0.3, 0.9, 0.2];
+
+            for (case, (eta, response, weight)) in cases.into_iter().enumerate() {
+                let program = MultinomialLogitRowProgram::new(&eta, &response, weight)
+                    .expect("valid extreme-tail row program");
+                let (canonical_value, canonical_gradient, canonical_hessian) =
+                    program_row_kernel::<3, _>(&program, 0).expect("canonical extreme-tail V/G/H");
+                let canonical_third = program_third_contracted(&program, 0, &direction)
+                    .expect("canonical extreme-tail third");
+                let canonical_fourth =
+                    program_fourth_contracted(&program, 0, &direction_u, &direction)
+                        .expect("canonical extreme-tail fourth");
+
+                assert!(canonical_value.is_finite(), "case {case} value");
+                assert!(
+                    canonical_gradient.iter().all(|value| value.is_finite()),
+                    "case {case} gradient"
+                );
+                assert!(
+                    canonical_hessian
+                        .iter()
+                        .flatten()
+                        .all(|value| value.is_finite()),
+                    "case {case} Hessian"
+                );
+                assert!(
+                    canonical_third
+                        .iter()
+                        .flatten()
+                        .all(|value| value.is_finite()),
+                    "case {case} third"
+                );
+                assert!(
+                    canonical_fourth
+                        .iter()
+                        .flatten()
+                        .all(|value| value.is_finite()),
+                    "case {case} fourth"
+                );
+
+                let family = single_row_family_response(&response, weight);
+                let eta_matrix =
+                    Array2::from_shape_vec((1, M), eta.to_vec()).expect("tail eta matrix");
+                let response_matrix = Array2::from_shape_vec((1, M + 1), response.to_vec())
+                    .expect("tail response matrix");
+                let (live_log_likelihood, live_gradient, live_hessian) = family
+                    .likelihood
+                    .value_gradient_hessian(eta_matrix.view(), response_matrix.view())
+                    .expect("valid multinomial tail row");
+                close(
+                    canonical_value,
+                    -live_log_likelihood,
+                    1.0e-12,
+                    &format!("tail case {case} value"),
+                );
+                for row in 0..M {
+                    close(
+                        canonical_gradient[row],
+                        -live_gradient[[0, row]],
+                        1.0e-12,
+                        &format!("tail case {case} gradient[{row}]"),
+                    );
+                    for column in 0..M {
+                        close(
+                            canonical_hessian[row][column],
+                            live_hessian[[0, row, column]],
+                            1.0e-12,
+                            &format!("tail case {case} Hessian[{row}][{column}]"),
+                        );
+                    }
+                }
+
+                let live_third = prod_third(&family, &eta, &direction);
+                let live_fourth = prod_fourth(&family, &eta, &direction_u, &direction);
+                for row in 0..M {
+                    for column in 0..M {
+                        close(
+                            canonical_third[row][column],
+                            live_third[row][column],
+                            1.0e-12,
+                            &format!("tail case {case} third[{row}][{column}]"),
+                        );
+                        close(
+                            canonical_fourth[row][column],
+                            live_fourth[row][column],
+                            1.0e-12,
+                            &format!("tail case {case} fourth[{row}][{column}]"),
+                        );
+                    }
+                }
+            }
+        }
+
+        /// The target-shaped M=32 storage schedules must remain an exact lowering
+        /// of the canonical multinomial row program. This invokes the live
+        /// `directional_fisher_jet_rows` and `second_directional_fisher_jet_rows`
+        /// production entries, so x86-64-v3 exercises the contiguous first-order
+        /// schedule while AVX-512-native builds exercise the symmetric static
+        /// schedule. Mixed-second output is symmetric on both targets. The
+        /// worker's 1 MiB stack is deliberately smaller than the 1,082,368-byte
+        /// `TwoSeed<32>` primary array: passing proves the canonical evaluator
+        /// selected its bounded heap storage rather than relying on test-runner
+        /// stack configuration.
+        #[test]
+        fn multinomial_m32_production_directional_routes_match_canonical_jet_932() {
+            const REGRESSION_STACK_BYTES: usize = 1024 * 1024;
+            let worker = std::thread::Builder::new()
+                .name("multinomial-m32-canonical-stack-bound".to_string())
+                .stack_size(REGRESSION_STACK_BYTES)
+                .spawn(|| {
+                    const M: usize = 32;
+                    assert_eq!(
+                        M * std::mem::size_of::<gam_math::jet_scalar::TwoSeed<M>>(),
+                        1_082_368,
+                        "M=32 canonical fourth-order seed footprint changed"
+                    );
+                    let first_schedule = fisher_output_schedule::<OneSeed<0>>(M);
+                    let expected_first = if AVX2_WITHOUT_AVX512 {
+                        FisherOutputSchedule::ContiguousFull
+                    } else {
+                        FisherOutputSchedule::SymmetricTriangle
+                    };
+                    assert!(
+                        first_schedule == expected_first,
+                        "M=32 first-directional Fisher schedule does not match the target ISA"
+                    );
+                    assert!(
+                        fisher_output_schedule::<TwoSeed<0>>(M)
+                            == FisherOutputSchedule::SymmetricTriangle,
+                        "M=32 second-directional Fisher schedule must retain symmetric output"
+                    );
+
+                    for trial in 0..4 {
+                        let eta: [f64; M] = std::array::from_fn(|axis| {
+                            0.9 * ((axis * 7 + trial * 3 + 1) as f64 * 0.17).sin()
+                                - 0.35 * ((axis + trial + 2) as f64 * 0.11).cos()
+                        });
+                        let direction: [f64; M] = std::array::from_fn(|axis| {
+                            0.7 * ((axis * 5 + trial + 3) as f64 * 0.13).cos()
+                                - 0.2 * ((axis + 2 * trial + 1) as f64 * 0.19).sin()
+                        });
+                        let direction_u: [f64; M] = std::array::from_fn(|axis| {
+                            -0.6 * ((axis * 3 + trial + 4) as f64 * 0.09).sin()
+                                + 0.25 * ((axis + trial + 5) as f64 * 0.23).cos()
+                        });
+                        let observed_class = if trial % 2 == 0 { trial } else { M };
+                        let weight = 0.8 + 0.3 * trial as f64;
+                        let family = single_row_family(observed_class, weight, M + 1);
+                        let mut response = vec![0.0; M + 1];
+                        response[observed_class] = 1.0;
+                        let program = MultinomialLogitRowProgram::new(&eta, &response, weight)
+                            .expect("valid M=32 multinomial row program");
+
+                        let production_first = prod_third(&family, &eta, &direction);
+                        let canonical_first = program_third_contracted(&program, 0, &direction)
+                            .expect("canonical M=32 first-directional Fisher contraction");
+                        let production_second =
+                            prod_fourth(&family, &eta, &direction_u, &direction);
+                        let canonical_second =
+                            program_fourth_contracted(&program, 0, &direction_u, &direction)
+                                .expect("canonical M=32 second-directional Fisher contraction");
+
+                        for row in 0..M {
+                            for column in 0..M {
+                                close(
+                                    production_first[row][column],
+                                    canonical_first[row][column],
+                                    JET_TOL,
+                                    &format!(
+                                        "M=32 trial {trial} first-directional[{row}][{column}]"
+                                    ),
+                                );
+                                close(
+                                    production_second[row][column],
+                                    canonical_second[row][column],
+                                    JET_TOL,
+                                    &format!(
+                                        "M=32 trial {trial} second-directional[{row}][{column}]"
+                                    ),
+                                );
+                            }
+                        }
+                    }
+                })
+                .expect("spawn bounded-stack M=32 parity worker");
+            if let Err(payload) = worker.join() {
+                std::panic::resume_unwind(payload);
+            }
+        }
+
+        /// #932 release speed gate for the multinomial-logit row. The production
+        /// structure-compiled value/gradient/Hessian lowering
+        /// ([`MultinomialLogitRowProgram::value_gradient_hessian_into`]) is timed
+        /// against the generic gam-math forward-mode jet tower
+        /// ([`program_row_kernel`]) — the naive automatic-differentiation baseline
+        /// the retained specialization must beat, since #932 removed this family's
+        /// `cfg(test)` hand restatement. Emits the harness-parsed
+        /// `hand_over_production` token (generic-tower time over production time)
+        /// per active-class width; the MSI release harness fails closed whenever
+        /// any measured cell is `<= 1`.
+        ///
+        /// The batch of distinct rows supplies genuine per-row input variation, so
+        /// the optimizer cannot hoist the pure row call out of the sweep, and the
+        /// finite checksum over every returned channel keeps the whole sweep live
+        /// without `std::hint::black_box`.
+        #[test]
+        fn release_measure_multinomial_specialized_vs_generic_tower_932() {
+            fn measure<const M: usize>(seed: u64) {
+                use std::time::Instant;
+
+                const ROWS: usize = 512;
+                let mut rng = Lcg(seed);
+                let mut etas: Vec<[f64; M]> = Vec::with_capacity(ROWS);
+                let mut responses: Vec<Vec<f64>> = Vec::with_capacity(ROWS);
+                let mut weights: Vec<f64> = Vec::with_capacity(ROWS);
+                for row in 0..ROWS {
+                    let eta: [f64; M] = std::array::from_fn(|_| rng.uniform(-2.5, 2.5));
+                    let observed = row % (M + 1);
+                    let mut response = vec![0.0; M + 1];
+                    response[observed] = 1.0;
+                    etas.push(eta);
+                    responses.push(response);
+                    weights.push(rng.uniform(0.25, 2.5));
+                }
+                let programs: Vec<MultinomialLogitRowProgram> = (0..ROWS)
+                    .map(|row| {
+                        MultinomialLogitRowProgram::new(&etas[row], &responses[row], weights[row])
+                            .expect("valid multinomial batch row")
+                    })
+                    .collect();
+
+                let mut probabilities = vec![0.0_f64; M + 1];
+                let mut gradient = vec![0.0_f64; M];
+                let mut hessian = vec![0.0_f64; M * M];
+
+                // Warm both paths and pin that the production lowering and the
+                // generic tower emit the same V/G/H, so the two timings measure
+                // equal work.
+                for program in &programs {
+                    let (tower_value, tower_gradient, tower_hessian) =
+                        program_row_kernel::<M, _>(program, 0).expect("tower warm kernel");
+                    let production_value = program.value_gradient_hessian_into(
+                        &mut probabilities,
+                        &mut gradient,
+                        &mut hessian,
+                    );
+                    close(
+                        tower_value,
+                        production_value,
+                        JET_TOL,
+                        &format!("M={M} release-measure value parity"),
+                    );
+                    for a in 0..M {
+                        close(
+                            tower_gradient[a],
+                            gradient[a],
+                            JET_TOL,
+                            &format!("M={M} release-measure gradient[{a}] parity"),
+                        );
+                        for b in 0..M {
+                            close(
+                                tower_hessian[a][b],
+                                hessian[a * M + b],
+                                JET_TOL,
+                                &format!("M={M} release-measure hessian[{a}][{b}] parity"),
+                            );
+                        }
+                    }
+                }
+
+                let best_secs = |sweep: &mut dyn FnMut() -> f64| -> f64 {
+                    let mut best = f64::INFINITY;
+                    for _ in 0..5 {
+                        let started = Instant::now();
+                        let checksum = sweep();
+                        assert!(
+                            checksum.is_finite(),
+                            "multinomial release-measure checksum must stay finite"
+                        );
+                        best = best.min(started.elapsed().as_secs_f64());
+                    }
+                    best
+                };
+
+                let mut production_sweep = || {
+                    let mut checksum = 0.0_f64;
+                    for program in &programs {
+                        let value = program.value_gradient_hessian_into(
+                            &mut probabilities,
+                            &mut gradient,
+                            &mut hessian,
+                        );
+                        checksum += value + gradient[0] + hessian[0];
+                    }
+                    checksum
+                };
+                let production_secs = best_secs(&mut production_sweep);
+
+                let mut tower_sweep = || {
+                    let mut checksum = 0.0_f64;
+                    for program in &programs {
+                        let (value, tower_gradient, tower_hessian) =
+                            program_row_kernel::<M, _>(program, 0).expect("tower kernel");
+                        checksum += value + tower_gradient[0] + tower_hessian[0][0];
+                    }
+                    checksum
+                };
+                let tower_secs = best_secs(&mut tower_sweep);
+
+                let production_ns = production_secs * 1e9 / ROWS as f64;
+                let tower_ns = tower_secs * 1e9 / ROWS as f64;
+                eprintln!(
+                    "MULTINOMIAL-RELEASE-932 M={M} rows={ROWS} production_ns={production_ns:.3} \
+                     generic_tower_ns={tower_ns:.3} hand_over_production={:.6}",
+                    tower_ns / production_ns,
+                );
+            }
+
+            measure::<2>(0x9322_2020_0715_face);
+            measure::<3>(0x0bad_c0de_0715_2020);
+            measure::<8>(0x1234_5678_0715_abcd);
         }
     }
 
@@ -2679,8 +3672,7 @@ mod tests {
         let penalties = Arc::new(vec![crate::custom_family::PenaltyMatrix::Dense(
             Array2::<f64>::from_shape_fn((p, p), |(i, j)| if i == j { 1.0 } else { 0.0 }),
         )]);
-        let nullspace_dims = Arc::new(vec![0usize]);
-        MultinomialFamily::new(y, weights, k, design, penalties, nullspace_dims)
+        MultinomialFamily::new(y, weights, k, design, penalties)
             .expect("toy MultinomialFamily must construct")
     }
 
@@ -2722,19 +3714,23 @@ mod tests {
     }
 
     #[test]
-    fn per_term_smoothing_is_carried_by_active_class_blocks() {
+    fn per_term_smoothing_is_carried_by_equivariant_class_penalties() {
         let single = toy_family(6, 4, 3);
         for spec in &single.build_block_specs() {
-            assert_eq!(spec.penalties.len(), 1);
-            assert_eq!(spec.initial_log_lambdas.len(), 1);
-            assert_eq!(spec.nullspace_dims.len(), 1);
+            assert!(
+                spec.penalties.is_empty()
+                    && spec.initial_log_lambdas.is_empty()
+                    && spec.nullspace_dims.is_empty(),
+                "per-class blocks must attach no smooth penalty — the ALR-anchored \
+                 per-block carrier is reference-dependent (#1587); the equivariant \
+                 per-class centered joint family is the sole carrier"
+            );
         }
-        assert!(
-            single
-                .joint_penalty_specs()
-                .expect("joint specs")
-                .is_empty(),
-            "production smoothing is carried by per-class blocks so each class can select its own λ"
+        let joint = single.joint_penalty_specs().expect("joint specs");
+        assert_eq!(
+            joint.len(),
+            3, // K = 3 per-class specs for the single term
+            "one per-class centered penalty per (term, class), reference included"
         );
 
         let p = 5;
@@ -2762,17 +3758,50 @@ mod tests {
                 })
                 .collect::<Vec<_>>(),
         );
-        let nullspace_dims = Arc::new(vec![0usize; n_terms]);
-        let multi = MultinomialFamily::new(y, weights, k, design, penalties, nullspace_dims)
+        let multi = MultinomialFamily::new(y, weights, k, design, penalties)
             .expect("multi-term MultinomialFamily must construct");
         let specs = multi.build_block_specs();
         assert_eq!(specs.len(), k - 1, "one block per active class");
         for spec in &specs {
-            assert_eq!(spec.penalties.len(), n_terms);
-            assert_eq!(spec.initial_log_lambdas.len(), n_terms);
-            assert_eq!(spec.nullspace_dims.len(), n_terms);
+            assert!(spec.penalties.is_empty());
+            assert!(spec.initial_log_lambdas.is_empty());
+            assert!(spec.nullspace_dims.is_empty());
         }
-        assert!(multi.joint_penalty_specs().expect("joint specs").is_empty());
+        let joint = multi.joint_penalty_specs().expect("joint specs");
+        assert_eq!(
+            joint.len(),
+            n_terms * k,
+            "K per-class centered penalties per term, term-major"
+        );
+        let m = k - 1;
+        let raw_total = m * p;
+        for (t_idx, term_specs) in joint.chunks(k).enumerate() {
+            // Equal λ across the K per-class specs must reproduce the shared
+            // centered metric penalty M ⊗ S_t exactly: Σ_c C_cᵀC_c = I − J/K.
+            let mut sum = Array2::<f64>::zeros((raw_total, raw_total));
+            for (c, spec) in term_specs.iter().enumerate() {
+                assert_eq!(
+                    spec.label.as_deref(),
+                    Some(format!("multinomial_term_{t_idx}_class_{c}").as_str())
+                );
+                // rank(C_cᵀC_c ⊗ S_t) = rank(S_t) = p (diagonal PD fixtures).
+                assert_eq!(spec.nullspace_dim, raw_total - p);
+                sum += &spec.matrix;
+            }
+            let centered = multi
+                .centered_joint_penalty_specs()
+                .expect("centered specs");
+            let target = &centered[t_idx].matrix;
+            let max_err = sum
+                .iter()
+                .zip(target.iter())
+                .map(|(a, b)| (a - b).abs())
+                .fold(0.0_f64, f64::max);
+            assert!(
+                max_err < 1e-14,
+                "Σ_c C_cᵀC_c ⊗ S_t must equal M ⊗ S_t (max err {max_err:.2e})"
+            );
+        }
     }
 
     #[test]
@@ -2802,13 +3831,25 @@ mod tests {
                 })
                 .collect::<Vec<_>>(),
         );
-        let nullspace_dims = Arc::new(vec![0usize; n_terms]);
-        let multi = MultinomialFamily::new(y, weights, k, design, penalties, nullspace_dims)
+        let multi = MultinomialFamily::new(y, weights, k, design, penalties)
             .expect("multi-term MultinomialFamily must construct");
         let specs = multi.build_block_specs();
         assert_eq!(specs.len(), k - 1);
+        // Independent per-class smoothness survives as one λ_{t,c} per (term,
+        // class) on the CENTERED class functions — a gauge-free coordinate per
+        // class — never as per-block ALR penalties (reference-anchored, #1587).
+        let joint = multi.joint_penalty_specs().expect("joint specs");
+        assert_eq!(joint.len(), n_terms * k);
+        let labels: Vec<&str> = joint.iter().filter_map(|s| s.label.as_deref()).collect();
+        assert_eq!(labels.len(), n_terms * k, "every spec carries its own label");
+        let unique: std::collections::HashSet<&str> = labels.iter().copied().collect();
+        assert_eq!(
+            unique.len(),
+            labels.len(),
+            "distinct labels ⇒ one independent outer λ per (term, class)"
+        );
         for spec in &specs {
-            assert_eq!(spec.penalties.len(), n_terms);
+            assert!(spec.penalties.is_empty());
         }
     }
 
@@ -3322,8 +4363,7 @@ mod tests {
         let x = Arc::new(Array2::<f64>::ones((n, 1)));
         let zero = Array2::<f64>::zeros((1, 1));
         let s = Arc::new(vec![crate::custom_family::PenaltyMatrix::Dense(zero)]);
-        let nd = Arc::new(vec![0usize]);
-        let err = MultinomialFamily::new(y, w, 1, x, s, nd).expect_err("K = 1 must be rejected");
+        let err = MultinomialFamily::new(y, w, 1, x, s).expect_err("K = 1 must be rejected");
         assert!(err.contains("K"));
     }
 
@@ -3362,8 +4402,7 @@ mod tests {
         let penalties = Arc::new(vec![crate::custom_family::PenaltyMatrix::Dense(
             Array2::<f64>::from_shape_fn((p, p), |(i, j)| if i == j { 1.0 } else { 0.0 }),
         )]);
-        let nullspace_dims = Arc::new(vec![0usize]);
-        MultinomialFamily::new(y, weights, k, design, penalties, nullspace_dims)
+        MultinomialFamily::new(y, weights, k, design, penalties)
             .expect("family_with_weights must construct")
     }
 
@@ -3755,16 +4794,15 @@ mod tests {
     // #932 doctrine oracle for the softmax directional / second-directional
     // joint-Hessian assembly.
     //
-    // The production hand path builds the per-canonical-axis derivatives of the
+    // The production generated path builds the per-canonical-axis derivatives of the
     // joint softmax Fisher Hessian `H(β) = block(Xᵀ W(β) X)`,
     // `W = diag(p) − p pᵀ`, in one fused row sweep
     // (`assemble_all_axis_directional_derivatives`,
-    // `assemble_all_axis_second_directional_derivatives`). Those hand
-    // `diag(p)−ppᵀ` directional assemblies are FAST and STAY in production, but
-    // — exactly like every other #932 family — they must be pinned to a
-    // MECHANICAL single source so a dropped or mis-weighted softmax-Jacobian
-    // term (the #736/#947 bug genus) is caught here, not in a silently wrong
-    // outer Jeffreys drift.
+    // `assemble_all_axis_second_directional_derivatives`). Their
+    // `diag(p)−ppᵀ` coefficients come from the same normalized-softmax
+    // perturbation expression as the general-direction path. This independent
+    // finite-difference oracle catches a dropped or mis-weighted coefficient
+    // (the #736/#947 bug genus), not divergence between production formulas.
     //
     // MECHANICAL SOURCE (independent of the assembly under test):
     //  * `H(β) = exact_newton_joint_hessian(β)` is the STATIC joint Fisher
@@ -3978,9 +5016,8 @@ mod tests {
             p, p,
         )
         ))]);
-        let nullspace_dims = Arc::new(vec![p]); // fully unpenalized block
         let weights = Array1::<f64>::ones(n);
-        let family = MultinomialFamily::new(y, weights, k, design, penalties, nullspace_dims)
+        let family = MultinomialFamily::new(y, weights, k, design, penalties)
             .expect("separated multinomial family must construct");
 
         let m = family.active_classes();

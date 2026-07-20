@@ -11,8 +11,8 @@ pub(crate) use crate::estimate::EstimationError;
 pub(crate) use crate::estimate::reml::{FirthDenseOperator, FirthDesignFactor};
 
 pub(crate) use gam_linalg::faer_ndarray::{
-    FaerCholesky, FaerEigh, FaerLinalgError, FaerSymmetricFactor, array1_to_col_matmut, fast_ab,
-    fast_av, fast_av_into,
+    FaerCholesky, FaerEigh, FaerLinalgError, FaerQr, FaerSymmetricFactor, array1_to_col_matmut,
+    fast_ab, fast_av, fast_av_into,
 };
 
 pub(crate) use gam_linalg::sparse_exact::{factorize_sparse_spd, solve_sparse_spd};
@@ -47,7 +47,12 @@ pub(crate) use faer::sparse::{
     SparseColMatMut, SparseColMatRef, SparseRowMat, SymbolicSparseColMat, SymbolicSparseColMatRef,
 };
 
-pub(crate) use faer::{Accum, Par, Side, Unbind, get_global_parallelism};
+// `Unbind` is intentionally NOT re-exported here: the deny-warnings build
+// flags this glob re-export as unused (trait-method resolution via a glob
+// re-export chain does not count as a use for the lint). The two call sites
+// that need `.unbound()` (newton_solve.rs, gam_working_model.rs) import
+// `faer::Unbind` directly instead. See #2306/build.
+pub(crate) use faer::{Accum, Par, Side, get_global_parallelism};
 
 pub(crate) use ndarray::{Array1, Array2, ArrayView1, ArrayView2, ArrayView3, ShapeBuilder, Zip};
 
@@ -71,6 +76,7 @@ pub(crate) use std::sync::{Arc, Mutex, OnceLock};
 pub use crate::active_set::{ACTIVE_SET_PRIMAL_FEASIBILITY_TOL, ConstraintKktDiagnostics};
 
 pub use gam_problem::LinearInequalityConstraints;
+pub use gam_problem::{ConstraintSet, KhatriRaoConeConstraints, PlacedConstraintBlock};
 
 pub(crate) use gam_linalg::utils::{array_is_finite, inf_norm, row_chunk_for_byte_budget};
 

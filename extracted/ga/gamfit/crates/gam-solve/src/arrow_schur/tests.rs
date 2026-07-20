@@ -4,6 +4,20 @@ use super::*;
 use approx::assert_abs_diff_eq;
 use ndarray::array;
 
+fn gpu_available_or_fail() -> bool {
+    gam_gpu::device_runtime::GpuRuntime::resolve(gam_gpu::GpuPolicy::Auto)
+        .unwrap_or_else(|error| panic!("GPU probe fault in Arrow-Schur test: {error}"))
+        .is_some()
+}
+
+#[test]
+fn arrow_solve_options_own_gpu_policy_2322() {
+    let off = ArrowSolveOptions::direct().with_gpu_policy(gam_gpu::GpuPolicy::Off);
+    let required = ArrowSolveOptions::direct().with_gpu_policy(gam_gpu::GpuPolicy::Required);
+    assert_eq!(off.gpu_policy, gam_gpu::GpuPolicy::Off);
+    assert_eq!(required.gpu_policy, gam_gpu::GpuPolicy::Required);
+}
+
 /// #1995: compact SAE rows hand `block_gemm_subtract` dense scratch matrices
 /// whose nonzeros occupy only the active top-k beta columns. The CPU fallback
 /// must produce the same Schur update as a dense GEMM while doing work only on
@@ -75,7 +89,7 @@ fn beta_gauge_evidence_fixture(gauge_row: [f64; 3]) -> ArrowSchurSystem {
 pub(crate) fn beta_gauge_quotient_value_inverse_and_gradient_are_orbit_invariant_2022() {
     let sys_a = beta_gauge_evidence_fixture([7.0, 2.0, -3.0]);
     let sys_b = beta_gauge_evidence_fixture([-11.0, 9.0, 8.0]);
-    let options = ArrowSolveOptions::direct().with_ill_conditioning_tolerated();
+    let options = ArrowSolveOptions::direct().with_positive_definite_evidence();
     let (_, _, cache_a) =
         solve_arrow_newton_step_with_options(&sys_a, 0.0, 0.0, &options).expect("factor A");
     let (_, _, cache_b) =
@@ -163,6 +177,61 @@ pub(crate) fn beta_gauge_quotient_value_inverse_and_gradient_are_orbit_invariant
         slq_b.estimate.to_bits(),
         "dense and matrix-free quotient operators must erase the same gauge row"
     );
+}
+
+/// #2228 — the wide-`p` InexactPCG Newton step must gauge-fix identically to the
+/// dense Faddeev–Popov pin. Forcing the matrix-free lane on a gauge-quotiented
+/// system, the step must carry no gauge-orbit component (`Q·Δβ ≈ 0`) and match
+/// the dense Direct-mode pinned step componentwise on the identifiable
+/// complement. Before the fix this call `Err`ed ("InexactPCG does not return an
+/// evidence factor"); an un-pinned PCG solve would instead leave an arbitrary
+/// component along the singular gauge direction `[1, 0, 0]`.
+#[test]
+pub(crate) fn inexact_pcg_gauge_quotient_projects_step_and_matches_dense_pin_2228() {
+    let sys = beta_gauge_evidence_fixture([7.0, 2.0, -3.0]);
+    let (_, dbeta_direct, _) = solve_arrow_newton_step_with_options(
+        &sys,
+        0.0,
+        0.0,
+        &ArrowSolveOptions::direct().with_positive_definite_evidence(),
+    )
+    .expect("dense pinned step");
+    // Force the matrix-free lane on the SAME small gauge-quotiented system, with
+    // a tight CG tolerance so the componentwise match is not limited by the loose
+    // default ranking tolerance.
+    let mut pcg_options = ArrowSolveOptions::inexact_pcg().with_positive_definite_evidence();
+    pcg_options.pcg.relative_tolerance = 1e-12;
+    pcg_options.trust_region.steihaug_relative_tolerance = 1e-12;
+    let (_, dbeta_pcg, _) = solve_arrow_newton_step_with_options(&sys, 0.0, 0.0, &pcg_options)
+        .expect("matrix-free pinned step");
+    // (a) no gauge-orbit motion: the declared gauge direction `[1, 0, 0]` is
+    // erased from the matrix-free step, exactly as the dense pin erases it.
+    let gauge = array![1.0, 0.0, 0.0];
+    assert_abs_diff_eq!(gauge.dot(&dbeta_pcg), 0.0, epsilon = 1e-11);
+    // (b) the matrix-free step matches the dense Faddeev–Popov step.
+    for i in 0..3 {
+        assert_abs_diff_eq!(dbeta_pcg[i], dbeta_direct[i], epsilon = 1e-9);
+    }
+}
+
+/// #2228 byte-exact guard: routing the fit-step matvec through
+/// `ReducedSchurOperator` is bit-identical to the bare `schur_matvec` apply when
+/// the system carries no β-gauge quotient, so the wide-`p` InexactPCG lane is
+/// unchanged for every non-SAE-fit caller.
+#[test]
+pub(crate) fn reduced_schur_operator_matvec_is_bit_identical_without_quotient_2228() {
+    let mut sys = ArrowSchurSystem::new(0, 0, 3);
+    sys.hbb = array![[6.0, 1.0, -2.0], [1.0, 4.0, 0.5], [-2.0, 0.5, 5.0]];
+    assert!(sys.beta_gauge_quotient.is_none());
+    let factors = ArrowFactorSlab::from_blocks(Vec::new());
+    let backend = CpuBatchedBlockSolver;
+    let x = array![0.7, -1.3, 2.1];
+    let routed = ReducedSchurOperator::new(&sys, &factors, 0.0, &backend, None).apply_owned(&x);
+    let mut bare = array![0.0, 0.0, 0.0];
+    schur_matvec(&sys, &factors, 0.0, &x, &mut bare, &backend, None);
+    for i in 0..3 {
+        assert_eq!(routed[i].to_bits(), bare[i].to_bits(), "matvec entry {i}");
+    }
 }
 
 /// `SparseBlockKroneckerPenaltyOp` must reproduce the dense
@@ -1076,11 +1145,11 @@ pub(crate) fn factor_one_row_conditions_barely_pd_block_via_ridge() {
         }
     }
 
-    // Evidence/log-det mode (`tolerate_ill_conditioning = true`) must
+    // Evidence/log-det factorization must
     // accept the same barely-PD block and return its genuine Cholesky
     // factor — the diagonal gives an exact log-determinant.
     let factor = factor_one_row(&row, 0.0, d, 0, true)
-        .expect("tolerate_ill_conditioning must accept a barely-PD-but-PD block");
+        .expect("evidence factorization must accept a barely-PD-but-PD block");
     // L Lᵀ must reproduce the original block (the factor is real, not a
     // damped surrogate).
     for i in 0..d {
@@ -1105,7 +1174,7 @@ pub(crate) fn factor_one_row_conditions_barely_pd_block_via_ridge() {
     let npd = factor_one_row(&row_npd, 0.0, d, 0, true);
     assert!(
         matches!(npd, Err(ArrowSchurError::PerRowFactorFailed { .. })),
-        "non-PD block must error even with tolerate_ill_conditioning; got {npd:?}"
+        "non-PD block must error without an explicit deflation policy; got {npd:?}"
     );
 
     // Sanity: a well-conditioned block at the same dimension still
@@ -1235,7 +1304,7 @@ pub(crate) fn evidence_row_spectral_deflates_indefinite_non_gauge_block_at_unit_
         recon[[2, 2]]
     );
 
-    // The undamped evidence factor (tolerate_ill_conditioning, ridge_t = 0,
+    // The undamped evidence factor (evidence policy, ridge_t = 0,
     // gauge passed in) now SUCCEEDS on this block via spectral deflation
     // rather than refusing — so the SAE driver gets a finite, BIAS-FREE
     // evidence cache and never falls back to a ρ-dependent ridge.
@@ -1900,6 +1969,166 @@ pub(crate) fn schur_inverse_beta_block_matches_dense() {
     assert!(cache.schur_inverse_block(0..(k + 1)).is_err());
 }
 
+/// #2253/#2228 λ→0 gate: the deflated β-Schur pseudo-inverse must (a) match
+/// the plain selected inverse to round-off in the INTERIOR (no direction near
+/// the rank floor ⇒ nothing deflates ⇒ no silent bias), and (b) stay FINITE at
+/// the ρ lower face where a doubly-null (data-null ∧ penalty-null) decoder
+/// direction gives the β-Schur factor a ~zero pivot and the plain
+/// back-substitution returns `Inf`/`NaN`. The reusable one-eigh applier
+/// (`schur_deflated_applier`) must be bit-identical to the per-call form.
+#[test]
+pub(crate) fn schur_inverse_deflated_finite_at_boundary_matches_plain_interior() {
+    // ---- Interior: same SPD fixture as the dense-oracle test above. ----
+    let n = 3usize;
+    let d = 2usize;
+    let k = 2usize;
+    let mut sys = ArrowSchurSystem::new(n, d, k);
+    sys.rows[0].htt = array![[4.0_f64, 0.5], [0.5, 3.0]];
+    sys.rows[0].htbeta = array![[1.0_f64, 0.2], [-0.3, 0.7]];
+    sys.rows[1].htt = array![[5.0_f64, -0.4], [-0.4, 2.5]];
+    sys.rows[1].htbeta = array![[0.6_f64, -0.1], [0.4, 0.9]];
+    sys.rows[2].htt = array![[3.5_f64, 0.2], [0.2, 4.5]];
+    sys.rows[2].htbeta = array![[-0.2_f64, 0.5], [0.8, -0.6]];
+    for row in sys.rows.iter_mut() {
+        row.gt = array![0.0_f64, 0.0];
+    }
+    sys.hbb = array![[12.0_f64, 0.7], [0.7, 10.0]];
+    sys.gb = array![0.0_f64, 0.0];
+    let options = ArrowSolveOptions::direct();
+    let (_dt, _db, cache) = solve_arrow_newton_step_with_options(&sys, 0.0, 0.0, &options)
+        .expect("direct arrow solve should factor this SPD system");
+
+    let applier = cache
+        .schur_deflated_applier()
+        .expect("interior cache must support the deflated applier");
+    for col in 0..k {
+        let mut e = Array1::<f64>::zeros(k);
+        e[col] = 1.0;
+        let plain = cache.schur_inverse_apply(e.view()).expect("plain apply");
+        let deflated = cache
+            .schur_inverse_apply_deflated(e.view())
+            .expect("deflated apply");
+        let reused = applier(e.view());
+        for r in 0..k {
+            assert!(
+                (plain[r] - deflated[r]).abs() < 1e-9,
+                "interior: deflated[{r}] {} vs plain {} (col {col}) — nothing may deflate",
+                deflated[r],
+                plain[r]
+            );
+            assert_eq!(
+                deflated[r], reused[r],
+                "one-eigh applier must be bit-identical to the per-call deflated apply"
+            );
+        }
+    }
+    let plain_block = cache.schur_inverse_block(0..k).expect("plain block");
+    let deflated_block = cache
+        .schur_inverse_block_deflated(0..k)
+        .expect("deflated block");
+    for r in 0..k {
+        for c in 0..k {
+            assert!(
+                (plain_block[[r, c]] - deflated_block[[r, c]]).abs() < 1e-9,
+                "interior block[{r},{c}]: deflated {} vs plain {}",
+                deflated_block[[r, c]],
+                plain_block[[r, c]]
+            );
+        }
+    }
+
+    // ---- Boundary: the evidence factor unit-pins the exactly-null third
+    // direction and carries the authoritative raw/conditioned spectrum. ----
+    let kb = 3usize;
+    let mut boundary = cache.clone();
+    boundary.k = kb;
+    boundary.schur_factor = Some(array![
+        [2.0_f64, 0.0, 0.0],
+        [0.0, 1.5, 0.0],
+        [0.0, 0.0, 1.0]
+    ]);
+    boundary.beta_schur_deflation = Some(BetaSchurDeflationSpectrum {
+        evecs: Array2::<f64>::eye(kb),
+        raw_evals: array![4.0_f64, 2.25, 0.0],
+        cond_evals: array![4.0_f64, 2.25, 1.0],
+        deflated: std::sync::Arc::from([false, false, true]),
+    });
+    // The htbeta coupling is irrelevant to the β-Schur back-substitution under
+    // test; drop it so the cloned d=2 row blocks (built for k=2) cannot be
+    // consulted with a k=3 RHS.
+    boundary.htbeta = ArrowHtbetaCache::Dense {
+        blocks: std::sync::Arc::from(
+            vec![
+                Array2::<f64>::zeros((d, kb)),
+                Array2::<f64>::zeros((d, kb)),
+                Array2::<f64>::zeros((d, kb)),
+            ]
+            .into_boxed_slice(),
+        ),
+        estimated_bytes: 0,
+    };
+
+    // Every inverse entry point consumes the stored mask; the conditioned
+    // unit pin never reappears as a real degree of freedom.
+    let mut e_null = Array1::<f64>::zeros(kb);
+    e_null[2] = 1.0;
+    let plain_null = boundary
+        .schur_inverse_apply(e_null.view())
+        .expect("ordinary apply is deflation-aware at the boundary");
+    assert!(
+        plain_null.iter().all(|v| v.abs() < 1e-12),
+        "ordinary apply must annihilate the stored β-null direction"
+    );
+
+    // Deflated path: finite by construction; the null direction contributes 0.
+    let deflated_null = boundary
+        .schur_inverse_apply_deflated(e_null.view())
+        .expect("deflated apply at the boundary");
+    assert!(
+        deflated_null.iter().all(|v| v.is_finite()),
+        "deflated apply must be finite at the boundary"
+    );
+    assert!(
+        deflated_null.iter().all(|v| v.abs() < 1e-9),
+        "the doubly-null direction is unidentifiable and must contribute 0"
+    );
+
+    // Kept subspace: the deflated inverse must agree with the dense inverse of
+    // the leading 2×2 SPD block M = L₂L₂ᵀ (the survivors), i.e. deflation only
+    // removes the null direction, never distorts the kept one.
+    let m2_inv = array![[0.25_f64, 0.0], [0.0, 1.0 / 2.25]];
+    for col in 0..2 {
+        let mut e = Array1::<f64>::zeros(kb);
+        e[col] = 1.0;
+        let z = boundary
+            .schur_inverse_apply_deflated(e.view())
+            .expect("deflated apply on kept direction");
+        for r in 0..2 {
+            assert!(
+                (z[r] - m2_inv[[r, col]]).abs() < 1e-9,
+                "kept-subspace entry [{r},{col}]: deflated {} vs dense M₂⁻¹ {}",
+                z[r],
+                m2_inv[[r, col]]
+            );
+        }
+        assert!(
+            z[2].abs() < 1e-9,
+            "kept columns must not leak into the deflated null direction"
+        );
+    }
+
+    // The EDF-style trace contraction (what the SAE per-atom smoothness dof
+    // computes) is finite through the deflated block even with the null pivot.
+    let block = boundary
+        .schur_inverse_block_deflated(0..kb)
+        .expect("deflated block at the boundary");
+    let trace: f64 = (0..kb).map(|j| block[[j, j]]).sum();
+    assert!(
+        trace.is_finite(),
+        "boundary EDF trace must be finite; got {trace}"
+    );
+}
+
 /// Evidence/log-det mode: a per-row `H_tt` that is PD but ill-conditioned
 /// (κ above the safe-Schur ceiling) is handled differently by the two
 /// solve paths. The default `direct()` path conditions each row to the
@@ -1908,7 +2137,7 @@ pub(crate) fn schur_inverse_beta_block_matches_dense() {
 /// correctly reports a recoverable factorization error and the
 /// LM-escalating wrapper recovers it with a finite, well-conditioned step.
 ///
-/// `with_ill_conditioning_tolerated()` accepts the RAW (undamped) blocks.
+/// The positive-definite evidence policy accepts the RAW (undamped) blocks.
 /// Its contract has two sides, pinned on two fixtures:
 ///   * row-PD but assembled-INDEFINITE H (strong coupling into near-null
 ///     t-directions) → honest refusal. Per-row PD does not imply bordered-
@@ -1990,7 +2219,7 @@ pub(crate) fn ill_conditioning_tolerated_returns_cache_with_exact_logdet() {
     // and tolerating ill-CONDITIONING must never fabricate a determinant
     // for an in-DEFINITE system — the SchurFactorFailed refusal is the
     // contract, not a defect.
-    let opts = ArrowSolveOptions::direct().with_ill_conditioning_tolerated();
+    let opts = ArrowSolveOptions::direct().with_positive_definite_evidence();
     let tolerate_indefinite = solve_arrow_newton_step_with_options(&sys, 0.0, 0.0, &opts);
     assert!(
         matches!(
@@ -2183,7 +2412,7 @@ pub(crate) fn device_dispatch_predicate_gates_on_work_not_rows() {
 /// options (`pcg.max_iterations.min(trust_region.max_iterations)`) — fires for
 /// the SAE LLM shape (n~2000 rows × k~2048 border × d~8 frame depth) while
 /// staying off for tiny shapes where launch latency dominates. The gate's
-/// device-presence short-circuit (`GpuRuntime::global()?`) makes the helper
+/// typed device-absence short-circuit makes the helper
 /// itself return `None` on a CPU-only host, so the routing logic is asserted
 /// through the predicate it consults (the device==CPU 1e-10 numeric parity is
 /// asserted by the box harness).
@@ -2249,7 +2478,7 @@ pub(crate) fn matrix_free_sae_gate_uses_work_predicate_not_dense_floor() {
 /// and the result equals the direct CPU artifacts solve bit-for-bit.
 #[test]
 pub(crate) fn device_seam_declines_without_gpu_and_matches_cpu() {
-    if gam_gpu::device_runtime::GpuRuntime::global().is_some() {
+    if gpu_available_or_fail() {
         // On a CUDA host the device may legitimately serve the step; this
         // host-only invariant does not apply. The box harness asserts the
         // device==CPU 1e-10 parity instead.
@@ -2260,7 +2489,11 @@ pub(crate) fn device_seam_declines_without_gpu_and_matches_cpu() {
 
     // The seam helpers both decline when no device is present.
     assert!(try_device_arrow_direct(&sys, 0.0, 0.0, &options).is_none());
-    assert!(maybe_inject_gpu_schur_matvec(&sys, 0.0, 0.0, &options).is_none());
+    assert!(
+        maybe_inject_gpu_schur_matvec(&sys, 0.0, 0.0, &options)
+            .expect("GPU runtime resolution must not fault on the CPU host")
+            .is_none()
+    );
 
     // The public core entry therefore equals the direct CPU artifacts solve.
     let (dt_core, db_core, diag) =
@@ -2390,7 +2623,8 @@ pub(crate) fn cross_row_preconditioner_build_honors_pd_floor_1795() {
     // spectral floor unit-deflates the collapsed direction relative to λ_max=3.
     sys.hbb = array![[1.0_f64, 2.0], [2.0, 1.0]];
 
-    let unfloored = ArrowBlockDiagInverse::build(&sys, 0.0, 0.0, None, false, &backend);
+    let unfloored =
+        ArrowBlockDiagInverse::build(&sys, 0.0, 0.0, None, &backend, gam_gpu::GpuPolicy::Auto);
     assert!(
         matches!(unfloored, Err(ArrowSchurError::SchurFactorFailed { .. })),
         "un-floored cross-row preconditioner must surface the non-PD Schur"
@@ -2401,8 +2635,8 @@ pub(crate) fn cross_row_preconditioner_build_honors_pd_floor_1795() {
         0.0,
         0.0,
         Some(SPECTRAL_DEFLATION_REL_FLOOR),
-        false,
         &backend,
+        gam_gpu::GpuPolicy::Auto,
     )
     .expect("cross-row preconditioner must honor the spectral PD-floor");
 
@@ -2614,11 +2848,25 @@ pub(crate) fn parallel_dense_schur_reduction_deterministic_and_matches_sequentia
 
         // (a) Determinism: two independent parallel reductions are bit-identical.
         let mut s_a = seed();
-        reduce_row_schur_contributions(&sys, &htt_factors, &backend, kind, &mut s_a)
-            .expect("parallel reduction a");
+        reduce_row_schur_contributions(
+            &sys,
+            &htt_factors,
+            &backend,
+            kind,
+            &mut s_a,
+            gam_gpu::GpuPolicy::Auto,
+        )
+        .expect("parallel reduction a");
         let mut s_b = seed();
-        reduce_row_schur_contributions(&sys, &htt_factors, &backend, kind, &mut s_b)
-            .expect("parallel reduction b");
+        reduce_row_schur_contributions(
+            &sys,
+            &htt_factors,
+            &backend,
+            kind,
+            &mut s_b,
+            gam_gpu::GpuPolicy::Auto,
+        )
+        .expect("parallel reduction b");
         for a in 0..k {
             for b in 0..k {
                 assert_eq!(
@@ -2923,8 +3171,15 @@ pub(crate) fn parallel_block_diag_inverse_apply_deterministic_and_solves() {
     let backend = CpuBatchedBlockSolver;
     let ridge_t = 1e-4;
     let ridge_beta = 1e-5;
-    let precond = ArrowBlockDiagInverse::build(&sys, ridge_t, ridge_beta, None, false, &backend)
-        .expect("block-diagonal inverse must build");
+    let precond = ArrowBlockDiagInverse::build(
+        &sys,
+        ridge_t,
+        ridge_beta,
+        None,
+        &backend,
+        gam_gpu::GpuPolicy::Auto,
+    )
+    .expect("block-diagonal inverse must build");
     let total_dt = sys.row_offsets[n];
     let r_t = Array1::from_iter((0..total_dt).map(|i| 0.15 * (i as f64).sin() + 0.02));
     let r_beta = Array1::from_iter((0..k).map(|a| 0.25 * (a as f64).cos() - 0.05));
@@ -3048,11 +3303,16 @@ pub(crate) fn parallel_penalty_prologue_bit_identical_to_serial() {
     let x = Array1::from_iter((0..k).map(|a| 0.4 * (a as f64 * 0.31).cos() - 0.17));
     let xs = x.as_slice().unwrap();
 
-    // Serial reference: penalty_matvec_add + ridge axpy into a zeroed buffer.
+    // Serial reference: a hand GEMV `hbb·x + ridge·x`, independent of
+    // `penalty_matvec_add` (which itself now parallelizes at this border width,
+    // so it can no longer serve as the serial oracle for either stage).
     let mut serial = vec![0.0_f64; k];
-    sys.penalty_matvec_add(xs, &mut serial);
     for a in 0..k {
-        serial[a] += ridge * xs[a];
+        let mut acc = 0.0_f64;
+        for b in 0..k {
+            acc += sys.hbb[[a, b]] * xs[b];
+        }
+        serial[a] = acc + ridge * xs[a];
     }
 
     // Parallel prologue (parallel=true engages the rayon dense GEMV at this k).
@@ -3072,6 +3332,54 @@ pub(crate) fn parallel_penalty_prologue_bit_identical_to_serial() {
             ser_branch[a].to_bits(),
             serial[a].to_bits(),
             "serial prologue branch must match the reference at index {a}"
+        );
+    }
+}
+
+/// `penalty_matvec_add` is the serial `H_ββ·x` accumulate left inside the
+/// per-CG-iteration cross-row matvec (`arrow_cross_row_matvec`); at the wide SAE
+/// border it fans over output rows. Because each `y[a] += Σ_b hbb[a,b]·x[b]` is
+/// one thread's own dot in the same `b` order as serial, the parallel accumulate
+/// is **bit-identical** to serial (not merely deterministic), so the criterion
+/// ranking cannot move. Also pins the accumulate semantics — the parallel path
+/// must ADD into a pre-seeded `y`, not overwrite it.
+#[test]
+pub(crate) fn parallel_penalty_matvec_add_bit_identical_to_serial() {
+    let k = 576usize; // ≥ SCHUR_PROLOGUE_PARALLEL_K_MIN: trips the parallel GEMV
+    assert!(k >= SCHUR_PROLOGUE_PARALLEL_K_MIN);
+    let d = 4usize;
+    let n = 8usize; // rows below the per-row floor: isolate the GEMV branch
+    let sys = dense_arrow_system(n, d, k);
+    let x = Array1::from_iter((0..k).map(|a| 0.6 * (a as f64 * 0.23).sin() + 0.11));
+    let xs = x.as_slice().unwrap();
+    // Pre-seed `y` so the accumulate (not overwrite) semantics are exercised.
+    let seed: Vec<f64> = (0..k).map(|a| (a as f64 * 0.017).cos() - 0.3).collect();
+
+    // Hand serial reference: `y = seed + hbb·x`.
+    let mut serial = seed.clone();
+    for a in 0..k {
+        let mut acc = 0.0_f64;
+        for b in 0..k {
+            acc += sys.hbb[[a, b]] * xs[b];
+        }
+        serial[a] += acc;
+    }
+
+    // Two parallel calls: bit-identical to serial AND to each other.
+    let mut par_a = seed.clone();
+    sys.penalty_matvec_add(xs, &mut par_a);
+    let mut par_b = seed.clone();
+    sys.penalty_matvec_add(xs, &mut par_b);
+    for a in 0..k {
+        assert_eq!(
+            par_a[a].to_bits(),
+            serial[a].to_bits(),
+            "parallel penalty_matvec_add must be bit-identical to serial at index {a}"
+        );
+        assert_eq!(
+            par_a[a].to_bits(),
+            par_b[a].to_bits(),
+            "parallel penalty_matvec_add must be run-to-run deterministic at index {a}"
         );
     }
 }
@@ -3315,7 +3623,7 @@ pub(crate) fn sae_direct_inner_solve_engages_device_and_matches_cpu_1551() {
     let artifacts = solve_arrow_newton_step_artifacts(&sys, ridge_t, ridge_beta, &options)
         .expect("SAE Direct artifacts solve");
 
-    if gam_gpu::device_runtime::GpuRuntime::global().is_none() {
+    if !gpu_available_or_fail() {
         // No CUDA device: the seam must have declined and run the CPU path. The
         // step must NOT be flagged device-served. (Parity below still holds.)
         assert!(
@@ -3410,7 +3718,7 @@ pub(crate) fn sae_inexact_pcg_inner_solve_engages_device_and_matches_cpu_1551() 
     let artifacts = solve_arrow_newton_step_artifacts(&sys, ridge_t, ridge_beta, &options)
         .expect("SAE InexactPCG artifacts solve");
 
-    if gam_gpu::device_runtime::GpuRuntime::global().is_none() {
+    if !gpu_available_or_fail() {
         assert!(
             !artifacts.pcg_diagnostics.used_device_arrow,
             "no CUDA device present, yet the InexactPCG step was flagged device-served"
@@ -3488,7 +3796,7 @@ pub(crate) fn device_arrow_and_host_procedural_matvec_flags_are_mutually_exclusi
     // Exercise the explicit InexactPCG entry (the one that injects a host
     // procedural matvec via `maybe_inject_gpu_schur_matvec`) and the Direct entry
     // through the public core.
-    let on_cuda = gam_gpu::device_runtime::GpuRuntime::global().is_some();
+    let on_cuda = gpu_available_or_fail();
     let mut inexact_used_device = false;
     for options in [
         ArrowSolveOptions::inexact_pcg(),
@@ -4582,8 +4890,9 @@ pub(crate) fn build_dense_schur_direct_refuses_oversize_border_1017() {
         .factor_blocks(&sys.rows, 0.0, d, false)
         .expect("SPD per-row blocks must factor");
 
-    let err = build_dense_schur_direct(&sys, &htt_factors, 1e-6, &backend)
-        .expect_err("oversize border must be refused, not allocated");
+    let err =
+        build_dense_schur_direct(&sys, &htt_factors, 1e-6, &backend, gam_gpu::GpuPolicy::Auto)
+            .expect_err("oversize border must be refused, not allocated");
     match err {
         ArrowSchurError::SchurFactorFailed { reason } => {
             assert!(
@@ -4594,8 +4903,9 @@ pub(crate) fn build_dense_schur_direct_refuses_oversize_border_1017() {
         other => panic!("expected SchurFactorFailed for oversize border, got {other:?}"),
     }
 
-    let err = build_dense_schur_sqrt_ba(&sys, &htt_factors, 1e-6, &backend)
-        .expect_err("oversize square-root BA border must be refused, not allocated");
+    let err =
+        build_dense_schur_sqrt_ba(&sys, &htt_factors, 1e-6, &backend, gam_gpu::GpuPolicy::Auto)
+            .expect_err("oversize square-root BA border must be refused, not allocated");
     match err {
         ArrowSchurError::SchurFactorFailed { reason } => {
             assert!(
@@ -4781,12 +5091,20 @@ fn slq_reduced_schur_log_det_matches_dense_evidence() {
 
     // Exact dense reduced-Schur log|S| — the O(k²) assembly + O(k³) Cholesky the
     // matrix-free primitive avoids.
-    let schur = build_dense_schur_direct(&sys, &htt_factors, ridge_beta, &backend)
-        .expect("dense reduced Schur must build for the well-conditioned fixture");
+    let schur = build_dense_schur_direct(
+        &sys,
+        &htt_factors,
+        ridge_beta,
+        &backend,
+        gam_gpu::GpuPolicy::Auto,
+    )
+    .expect("dense reduced Schur must build for the well-conditioned fixture");
     let l = cholesky_lower(&schur).expect("reduced Schur must be SPD");
     let exact_logdet: f64 = (0..k).map(|i| 2.0 * l[[i, i]].ln()).sum();
 
-    // Matrix-free SLQ estimate — never forms S.
+    // Matrix-free SLQ estimate — never forms S. Well-conditioned SPD fixture with
+    // no near-null directions, so the plain SPD estimator matches the exact
+    // Cholesky log-determinant (unit deflation would be a no-op here).
     let slq = slq_reduced_schur_log_det(
         &sys,
         &htt_factors,
@@ -4794,6 +5112,7 @@ fn slq_reduced_schur_log_det_matches_dense_evidence() {
         &backend,
         None,
         None,
+        ArrowEvidencePolicy::Strict,
         48,
         60,
         seed,
@@ -4818,6 +5137,7 @@ fn slq_reduced_schur_log_det_matches_dense_evidence() {
         &backend,
         None,
         None,
+        ArrowEvidencePolicy::Strict,
         48,
         60,
         seed,
@@ -4829,15 +5149,20 @@ fn slq_reduced_schur_log_det_matches_dense_evidence() {
 
     // One-call convenience: log_det_tt is EXACT (same undamped factorization as
     // the manual sum), and log|S| approximates the dense reduced-Schur log-det.
-    let options = ArrowSolveOptions::direct().with_ill_conditioning_tolerated();
+    let options = ArrowSolveOptions::direct().with_positive_definite_evidence();
     let (log_det_tt, slq_conv) =
         matrix_free_arrow_evidence_log_det(&sys, 0.0, ridge_beta, &options, 48, 60, seed)
             .expect("matrix-free evidence log-det must succeed for the SPD fixture");
     // Reference factorization must use the SAME options-derived
-    // `tolerate_ill_conditioning` the convenience factors with (via
+    // the evidence policy the convenience factors use (via
     // `factor_blocks_for_system`), so the diagonal sum is bit-comparable.
     let htt_factors_conv = backend
-        .factor_blocks(&sys.rows, 0.0, d, options.tolerate_ill_conditioning)
+        .factor_blocks(
+            &sys.rows,
+            0.0,
+            d,
+            options.evidence_policy.factors_undamped_evidence(),
+        )
         .expect("SPD per-row blocks must factor");
     // Flat (row, axis) accumulation in the SAME order the convenience uses, so
     // the f64 associativity matches bit-for-bit.
@@ -4873,14 +5198,25 @@ fn matrix_free_arrow_evidence_surrogate_none_matches_slq_some_builds_and_reuses(
     let backend = CpuBatchedBlockSolver;
     let ridge_beta = 1e-6;
     let seed = 0x2080_5A17_C0DE_u64;
-    let options = ArrowSolveOptions::direct().with_ill_conditioning_tolerated();
+    let options = ArrowSolveOptions::direct().with_positive_definite_evidence();
 
     // Dense oracle for the reduced-Schur log|S|.
     let htt_factors = backend
-        .factor_blocks(&sys.rows, 0.0, d, options.tolerate_ill_conditioning)
+        .factor_blocks(
+            &sys.rows,
+            0.0,
+            d,
+            options.evidence_policy.factors_undamped_evidence(),
+        )
         .expect("SPD per-row blocks must factor");
-    let schur = build_dense_schur_direct(&sys, &htt_factors, ridge_beta, &backend)
-        .expect("dense reduced Schur must build");
+    let schur = build_dense_schur_direct(
+        &sys,
+        &htt_factors,
+        ridge_beta,
+        &backend,
+        gam_gpu::GpuPolicy::Auto,
+    )
+    .expect("dense reduced Schur must build");
     let l = cholesky_lower(&schur).expect("reduced Schur must be SPD");
     let exact_logdet: f64 = (0..k).map(|i| 2.0 * l[[i, i]].ln()).sum();
 
@@ -5006,8 +5342,14 @@ fn rational_reduced_schur_log_det_matches_dense_evidence() {
 
     // Exact dense reduced-Schur log|S| and top eigenvalue — the O(k²) assembly
     // the matrix-free surrogate avoids, kept here only as the test oracle.
-    let schur = build_dense_schur_direct(&sys, &htt_factors, ridge_beta, &backend)
-        .expect("dense reduced Schur must build for the well-conditioned fixture");
+    let schur = build_dense_schur_direct(
+        &sys,
+        &htt_factors,
+        ridge_beta,
+        &backend,
+        gam_gpu::GpuPolicy::Auto,
+    )
+    .expect("dense reduced Schur must build for the well-conditioned fixture");
     let l = cholesky_lower(&schur).expect("reduced Schur must be SPD");
     let exact_logdet: f64 = (0..k).map(|i| 2.0 * l[[i, i]].ln()).sum();
     let true_lambda_max = dense_top_eigenvalue(&schur);
@@ -5187,8 +5529,14 @@ fn rational_reduced_schur_plan_derived_deflates_to_target() {
     let htt_factors = backend
         .factor_blocks(&sys.rows, 0.0, d, false)
         .expect("SPD per-row blocks must factor");
-    let schur = build_dense_schur_direct(&sys, &htt_factors, ridge_beta, &backend)
-        .expect("dense reduced Schur must build");
+    let schur = build_dense_schur_direct(
+        &sys,
+        &htt_factors,
+        ridge_beta,
+        &backend,
+        gam_gpu::GpuPolicy::Auto,
+    )
+    .expect("dense reduced Schur must build");
     let l = cholesky_lower(&schur).expect("reduced Schur must be SPD");
     let exact_logdet: f64 = (0..k).map(|i| 2.0 * l[[i, i]].ln()).sum();
 
@@ -5349,8 +5697,14 @@ fn hutchinson_reduced_schur_inverse_trace_matches_dense() {
     let htt_factors = backend
         .factor_blocks(&sys.rows, 0.0, d, false)
         .expect("SPD per-row blocks must factor");
-    let schur = build_dense_schur_direct(&sys, &htt_factors, ridge_beta, &backend)
-        .expect("dense reduced Schur must build");
+    let schur = build_dense_schur_direct(
+        &sys,
+        &htt_factors,
+        ridge_beta,
+        &backend,
+        gam_gpu::GpuPolicy::Auto,
+    )
+    .expect("dense reduced Schur must build");
     let l = cholesky_lower(&schur).expect("reduced Schur must be SPD");
     let exact_tr_inv = dense_trace_inverse(&l);
 
@@ -5452,8 +5806,14 @@ fn reduced_schur_inverse_apply_matches_dense_solve() {
     let htt_factors = backend
         .factor_blocks(&sys.rows, 0.0, d, false)
         .expect("SPD per-row blocks must factor");
-    let schur = build_dense_schur_direct(&sys, &htt_factors, ridge_beta, &backend)
-        .expect("dense reduced Schur must build");
+    let schur = build_dense_schur_direct(
+        &sys,
+        &htt_factors,
+        ridge_beta,
+        &backend,
+        gam_gpu::GpuPolicy::Auto,
+    )
+    .expect("dense reduced Schur must build");
     let l = cholesky_lower(&schur).expect("reduced Schur must be SPD");
 
     // Fixed Rademacher rhs (deterministic, no eigensolver needed).
@@ -5537,7 +5897,7 @@ fn reduced_schur_inverse_apply_matches_dense_solve() {
 fn matrix_free_full_arrow_apply_and_inverse_match_dense_cache() {
     let (n, d, k) = (24usize, 3usize, 48usize);
     let sys = dense_direct_system(n, d, k);
-    let options = ArrowSolveOptions::direct().with_ill_conditioning_tolerated();
+    let options = ArrowSolveOptions::direct().with_positive_definite_evidence();
     let (_, _, cache) = solve_arrow_newton_step_with_options(&sys, 0.0, 0.0, &options)
         .expect("undamped dense oracle factorization");
 
@@ -6197,8 +6557,12 @@ fn factor_dense_reduced_schur_reconstructs_original_illconditioned_matrix_2015()
         }
     }
 
-    let (factor, floored) =
-        factor_dense_reduced_schur(&schur, None, false).expect("planted matrix is PD");
+    let DenseReducedSchurFactorization {
+        factor,
+        conditioned_schur: floored,
+        beta_deflation: _,
+    } = factor_dense_reduced_schur(&schur, ReducedSchurPolicy::StrictNewton)
+        .expect("planted matrix is PD");
     assert!(
         floored.is_none(),
         "a genuinely PD matrix must not need the spectral floor"
@@ -6254,4 +6618,171 @@ fn factor_dense_reduced_schur_reconstructs_original_illconditioned_matrix_2015()
             x_true[i]
         );
     }
+}
+
+/// #2308 — an evidence β-null is pinned to unit stiffness in ORIGINAL β
+/// coordinates whether it is slightly negative (Cholesky refusal) or slightly
+/// positive (successful but sub-floor Cholesky). It contributes `log 1 = 0`,
+/// and the explicit mask records exactly the direction the inverse must drop.
+#[test]
+fn evidence_beta_schur_boundary_has_unit_logdet_and_authoritative_mask_2308() {
+    for collapsed in [-1.0e-12_f64, 1.0e-12_f64] {
+        let schur = array![[4.0_f64, 0.0], [0.0, collapsed]];
+        let evidence = factor_dense_reduced_schur(
+            &schur,
+            ReducedSchurPolicy::EvidenceUnitDeflation {
+                relative_floor: SPECTRAL_DEFLATION_REL_FLOOR,
+            },
+        )
+        .expect("evidence unit deflation");
+        let spectrum = evidence
+            .beta_deflation
+            .as_ref()
+            .expect("sub-floor β direction must carry metadata");
+        assert_eq!(&*spectrum.deflated, &[true, false]);
+        assert_eq!(
+            spectrum.raw_evals[0].is_sign_negative(),
+            collapsed.is_sign_negative(),
+            "the raw eigenspectrum must preserve which side of zero the boundary lies on"
+        );
+        let raw_scale = spectrum
+            .raw_evals
+            .iter()
+            .fold(0.0_f64, |scale, value| scale.max(value.abs()));
+        assert!(
+            spectrum.raw_evals[0].abs() < SPECTRAL_DEFLATION_REL_FLOOR * raw_scale,
+            "the authoritative mask must identify a genuinely sub-floor raw direction"
+        );
+
+        // A symmetric eigensolver is backward stable, not an exact scalar
+        // oracle. Certify each returned raw eigenpair against the source Schur
+        // operator with a gamma_n bound scaled by ||S||_inf; demanding 1e-18
+        // agreement with a diagonal literal is below the binary64 backward
+        // error of this O(1)-scaled problem.
+        let schur_norm_inf = (0..schur.nrows())
+            .map(|row| schur.row(row).iter().map(|value| value.abs()).sum::<f64>())
+            .fold(0.0_f64, f64::max);
+        let operation_count = schur.ncols().saturating_mul(2).saturating_add(2);
+        let accumulated = operation_count as f64 * (0.5 * f64::EPSILON);
+        assert!(accumulated < 1.0);
+        let gamma = accumulated / (1.0 - accumulated);
+        for eigen_index in 0..spectrum.raw_evals.len() {
+            let eigenvalue = spectrum.raw_evals[eigen_index];
+            let eigenvector = spectrum.evecs.column(eigen_index);
+            let eigenvector_norm = eigenvector
+                .iter()
+                .fold(0.0_f64, |norm, value| norm.max(value.abs()));
+            let mut residual_norm = 0.0_f64;
+            for row in 0..schur.nrows() {
+                let mut action = 0.0_f64;
+                for column in 0..schur.ncols() {
+                    action += schur[[row, column]] * eigenvector[column];
+                }
+                residual_norm = residual_norm.max((action - eigenvalue * eigenvector[row]).abs());
+            }
+            let backward_error_allowance =
+                gamma * (schur_norm_inf + eigenvalue.abs()) * eigenvector_norm;
+            assert!(
+                residual_norm <= backward_error_allowance,
+                "raw eigenpair {eigen_index} residual {residual_norm:e} exceeds its scale-derived backward-error allowance {backward_error_allowance:e}"
+            );
+        }
+        assert_eq!(spectrum.cond_evals[0], 1.0);
+        assert_eq!(spectrum.cond_evals[1], 4.0);
+
+        let log_det = (0..2)
+            .map(|axis| 2.0 * evidence.factor[[axis, axis]].ln())
+            .sum::<f64>();
+        assert_abs_diff_eq!(log_det, 4.0_f64.ln(), epsilon = 2e-14);
+        let conditioned = evidence
+            .conditioned_schur
+            .as_ref()
+            .expect("boundary operator was conditioned");
+        assert_abs_diff_eq!(conditioned[[0, 0]], 4.0, epsilon = 1e-14);
+        assert_abs_diff_eq!(conditioned[[1, 1]], 1.0, epsilon = 1e-14);
+    }
+}
+
+/// #2308 — in the full-rank interior evidence performs no conditioning and the
+/// ordinary log-determinant remains `log|S|`. Newton Tikhonov remains a separate
+/// policy with its own boundary value.
+#[test]
+fn evidence_beta_schur_interior_is_raw_and_newton_boundary_is_tikhonov_2308() {
+    let interior = array![[4.0_f64, 0.0], [0.0, 2.0]];
+    let evidence = factor_dense_reduced_schur(
+        &interior,
+        ReducedSchurPolicy::EvidenceUnitDeflation {
+            relative_floor: SPECTRAL_DEFLATION_REL_FLOOR,
+        },
+    )
+    .expect("interior evidence factor");
+    assert!(evidence.beta_deflation.is_none());
+    assert!(evidence.conditioned_schur.is_none());
+    let evidence_log_det = (0..2)
+        .map(|axis| 2.0 * evidence.factor[[axis, axis]].ln())
+        .sum::<f64>();
+    assert_abs_diff_eq!(evidence_log_det, 8.0_f64.ln(), epsilon = 2e-14);
+
+    let boundary = array![[4.0_f64, 0.0], [0.0, -1.0e-12]];
+    let newton = factor_dense_reduced_schur(
+        &boundary,
+        ReducedSchurPolicy::NewtonTikhonov {
+            relative_floor: SPECTRAL_DEFLATION_REL_FLOOR,
+        },
+    )
+    .expect("Newton Tikhonov factor");
+    assert!(newton.beta_deflation.is_none());
+    let newton_conditioned = newton
+        .conditioned_schur
+        .as_ref()
+        .expect("boundary Newton operator was Tikhonov-conditioned");
+    let newton_log_det = (0..2)
+        .map(|axis| 2.0 * newton.factor[[axis, axis]].ln())
+        .sum::<f64>();
+    let expected = (newton_conditioned[[0, 0]] * newton_conditioned[[1, 1]]
+        - newton_conditioned[[0, 1]] * newton_conditioned[[1, 0]])
+    .ln();
+    assert_abs_diff_eq!(newton_log_det, expected, epsilon = 2e-12);
+    assert!((newton_log_det - 4.0_f64.ln()).abs() > 1.0);
+}
+
+/// #2308 — the public cache seam always rebuilds the same undamped evidence
+/// operator, so changing the Newton ridge history cannot change its value,
+/// mask, or inverse. This exercises the metadata propagation rather than only
+/// the reduced-factor helper.
+#[test]
+fn evidence_cache_boundary_is_invariant_to_newton_damping_history_2308() {
+    let mut sys = ArrowSchurSystem::new(0, 0, 2);
+    sys.hbb = array![[4.0_f64, 0.0], [0.0, -1.0e-12]];
+    sys.gb = Array1::<f64>::zeros(2);
+    let options = ArrowSolveOptions::direct()
+        .with_newton_schur_tikhonov(SPECTRAL_DEFLATION_REL_FLOOR)
+        .with_evidence_unit_deflation(SPECTRAL_DEFLATION_REL_FLOOR);
+
+    let (_, _, ridge_zero) = solve_arrow_newton_step_with_options(&sys, 0.0, 0.0, &options)
+        .expect("ridge-zero step and evidence cache");
+    let (_, _, damped_step) = solve_arrow_newton_step_with_options(&sys, 0.0, 1.0e-3, &options)
+        .expect("damped step and undamped evidence cache");
+
+    for cache in [&ridge_zero, &damped_step] {
+        assert_abs_diff_eq!(
+            cache.arrow_log_det().expect("evidence logdet"),
+            4.0_f64.ln(),
+            epsilon = 2e-14
+        );
+        let spectrum = cache
+            .beta_schur_deflation
+            .as_ref()
+            .expect("β-null metadata reached cache");
+        assert_eq!(&*spectrum.deflated, &[true, false]);
+        let null_rhs = array![0.0_f64, 1.0];
+        let solved = cache
+            .schur_inverse_apply(null_rhs.view())
+            .expect("ordinary inverse consumes evidence mask");
+        assert!(solved.iter().all(|value| value.abs() < 1e-12));
+    }
+    assert_eq!(
+        ridge_zero.arrow_log_det().unwrap().to_bits(),
+        damped_step.arrow_log_det().unwrap().to_bits()
+    );
 }

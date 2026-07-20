@@ -110,6 +110,7 @@ pub(crate) fn reduce_row_schur_contributions<B: BatchedBlockSolver + Sync>(
     backend: &B,
     kind: SchurReductionKind,
     schur: &mut Array2<f64>,
+    gpu_policy: gam_gpu::GpuPolicy,
 ) -> Result<(), ArrowSchurError> {
     let n = sys.rows.len();
     let k = sys.k;
@@ -123,31 +124,35 @@ pub(crate) fn reduce_row_schur_contributions<B: BatchedBlockSolver + Sync>(
     // can carry. Such a shape would only inherit the tile split's inter-tile
     // reassociation (the documented, tolerance-bounded departure) while doing
     // 100% CPU work, so route it to the serial/rayon reference path below
-    // WITHOUT calling `GpuRuntime::global()` (whose first call creates a CUDA
+    // WITHOUT resolving GPU availability (whose first call creates a CUDA
     // primary context on every GPU). Shapes clearing the floor probe and tile
     // exactly as before.
     let assembly_work = 2u128 * (n as u128) * (sys.d as u128) * (k as u128) * (k as u128);
     let tiles = if assembly_work < gam_gpu::GpuDispatchPolicy::MIN_CALIBRATABLE_GEMM_FLOPS {
         None
     } else {
-        gam_gpu::device_runtime::GpuRuntime::global().and_then(|rt| {
-            let tiles = gam_gpu::pool::balanced_partition(rt, n);
-            // Engage the device stacked-GEMM reduction when a MULTI-GPU pool can
-            // overlap tiles, OR — the single-GPU gap this closes — when the one
-            // stacked `(total_d×k)ᵀ(total_d×k)` GEMM clears the runtime's own
-            // `gemm_min_flops`, so `try_fast_atb_on_ordinal` will actually offload
-            // it instead of declining back to CPU. This reduction is the dense
-            // build's O(n·d·k²) cost (measured on an H100 as ~28% of the fit in
-            // `block_gemm_subtract`), and on a single GPU it previously always ran
-            // on the CPU because the tile path required `len() > 1` — the device
-            // sat idle. `assembly_work` IS the stacked GEMM's flop count (2·k²·Σd),
-            // so this is exactly `try_fast_atb`'s own offload predicate; below the
-            // GEMM floor the launch/staging tax loses to the CPU, so we keep the
-            // deterministic CPU rayon fold there. Small K (e.g. K=8) never clears
-            // the floor and stays on the CPU — magic-by-default crossover, no flag.
-            let engage = tiles.len() > 1 || assembly_work >= rt.policy().gemm_min_flops as u128;
-            (engage && !tiles.is_empty()).then_some(tiles)
-        })
+        gam_gpu::device_runtime::GpuRuntime::resolve(gpu_policy)
+            .map_err(|error| ArrowSchurError::SchurFactorFailed {
+                reason: format!("GPU runtime resolution failed during Schur reduction: {error}"),
+            })?
+            .and_then(|rt| {
+                let tiles = gam_gpu::pool::balanced_partition(rt, n);
+                // Engage the device stacked-GEMM reduction when a MULTI-GPU pool can
+                // overlap tiles, OR — the single-GPU gap this closes — when the one
+                // stacked `(total_d×k)ᵀ(total_d×k)` GEMM clears the runtime's own
+                // `gemm_min_flops`, so `try_fast_atb_on_ordinal` will actually offload
+                // it instead of declining back to CPU. This reduction is the dense
+                // build's O(n·d·k²) cost (measured on an H100 as ~28% of the fit in
+                // `block_gemm_subtract`), and on a single GPU it previously always ran
+                // on the CPU because the tile path required `len() > 1` — the device
+                // sat idle. `assembly_work` IS the stacked GEMM's flop count (2·k²·Σd),
+                // so this is exactly `try_fast_atb`'s own offload predicate; below the
+                // GEMM floor the launch/staging tax loses to the CPU, so we keep the
+                // deterministic CPU rayon fold there. Small K (e.g. K=8) never clears
+                // the floor and stays on the CPU — magic-by-default crossover, no flag.
+                let engage = tiles.len() > 1 || assembly_work >= rt.policy().gemm_min_flops as u128;
+                (engage && !tiles.is_empty()).then_some(tiles)
+            })
     };
 
     let Some(tiles) = tiles else {
@@ -246,7 +251,7 @@ pub(crate) fn reduce_row_schur_contributions<B: BatchedBlockSolver + Sync>(
                     // offload to that device. A missing context or bind failure
                     // is intentionally consumed without escalation — the shims
                     // no-op back to CPU and the math is unchanged. Off Linux
-                    // `GpuRuntime::global()` is always `None`, so this branch
+                    // runtime resolution is always absent, so this branch
                     // is unreachable and the bind is omitted entirely.
                     #[cfg(target_os = "linux")]
                     {
@@ -292,6 +297,7 @@ pub(crate) fn build_dense_schur_direct<B: BatchedBlockSolver + Sync>(
     htt_factors: &ArrowFactorSlab,
     ridge_beta: f64,
     backend: &B,
+    gpu_policy: gam_gpu::GpuPolicy,
 ) -> Result<Array2<f64>, ArrowSchurError> {
     let k = sys.k;
     // Materialise H_ββ via the BetaPenaltyOp trait (#296): DensePenaltyOp
@@ -332,6 +338,7 @@ pub(crate) fn build_dense_schur_direct<B: BatchedBlockSolver + Sync>(
         backend,
         SchurReductionKind::Direct,
         &mut schur,
+        gpu_policy,
     )?;
     symmetrize_upper_from_lower(&mut schur);
     Ok(schur)
@@ -342,6 +349,7 @@ pub(crate) fn build_dense_schur_sqrt_ba<B: BatchedBlockSolver + Sync>(
     htt_factors: &ArrowFactorSlab,
     ridge_beta: f64,
     backend: &B,
+    gpu_policy: gam_gpu::GpuPolicy,
 ) -> Result<Array2<f64>, ArrowSchurError> {
     let k = sys.k;
     // Materialise H_ββ via the BetaPenaltyOp trait (#296).
@@ -377,6 +385,7 @@ pub(crate) fn build_dense_schur_sqrt_ba<B: BatchedBlockSolver + Sync>(
         backend,
         SchurReductionKind::SqrtBa,
         &mut schur,
+        gpu_policy,
     )?;
     symmetrize_upper_from_lower(&mut schur);
     Ok(schur)
@@ -501,29 +510,11 @@ pub(crate) fn spectral_pd_floored_schur(
     schur: &Array2<f64>,
     relative_floor: f64,
 ) -> Option<(Array2<f64>, Array2<f64>)> {
-    spectral_conditioned_schur_with_factor(schur, relative_floor, false)
+    spectral_pd_floored_schur_with_factor(schur, relative_floor)
 }
 
-/// Unit-stiffness quotient conditioning for the *reduced* evidence Schur block.
-///
-/// `spectral_pd_floored_schur` is the right object for Newton steps: it is a
-/// Levenberg-Marquardt floor that damps collapsed decoder directions just enough
-/// to compute a stable `Δβ`.  The Laplace evidence path is different.  Once the
-/// reduced Schur is being used only for a log determinant, a non-positive (or
-/// numerically null) reduced direction is a quotient/null direction, just like
-/// the per-row `H_tt` spectral-deflation case.  It must contribute the
-/// ρ-independent constant `log 1 = 0`, not `log(floor·max λ)`: the latter is a
-/// ρ-dependent Occam reward for collapsed/redundant decoders and can make the
-/// outer REML sweep prefer a worse planted-manifold optimum.
-pub(crate) fn spectral_unit_deflated_schur(
-    schur: &Array2<f64>,
-    relative_floor: f64,
-) -> Option<(Array2<f64>, Array2<f64>)> {
-    spectral_conditioned_schur_with_factor(schur, relative_floor, true)
-}
-
-/// Shared body for [`spectral_pd_floored_schur`] / [`spectral_unit_deflated_schur`]:
-/// symmetrise, eigendecompose, condition the spectrum per policy, and return BOTH
+/// Shared body for [`spectral_pd_floored_schur`]: symmetrise, eigendecompose,
+/// condition the spectrum, and return BOTH
 /// the conditioned matrix `Σ λ̃_i v_i v_iᵀ` (consumed by Steihaug / matvec /
 /// mixed-precision refinement) and its lower Cholesky factor.
 ///
@@ -537,10 +528,9 @@ pub(crate) fn spectral_unit_deflated_schur(
 /// refusal at a ρ whose conditioned evidence is perfectly well-defined. The QR
 /// route factors the exact conditioned spectrum, so it succeeds whenever the
 /// policy produced strictly positive `λ̃` (always, by construction).
-fn spectral_conditioned_schur_with_factor(
+fn spectral_pd_floored_schur_with_factor(
     schur: &Array2<f64>,
     relative_floor: f64,
-    unit_deflate_null_directions: bool,
 ) -> Option<(Array2<f64>, Array2<f64>)> {
     let n = schur.nrows();
     if n == 0 || schur.ncols() != n || !(relative_floor.is_finite() && relative_floor > 0.0) {
@@ -567,25 +557,15 @@ fn spectral_conditioned_schur_with_factor(
         return None;
     }
     let floor = relative_floor * max_abs;
-    let deflate_floor = floor * (1.0 - SPECTRAL_DEFLATION_HYSTERESIS_FRACTION);
     // Newton-step policy (LM): clamp every eigenvalue UP to a strictly positive
     // `floor` — healthy positive directions (`λ ≫ floor`) keep their EXACT
     // eigenvalue, collapsed/indefinite directions get the minimal stiffness for
-    // a stable `Δβ`. Evidence policy (`unit_deflate_null_directions`): a
-    // non-positive / numerically-null direction is a quotient direction and
-    // contributes the ρ-independent `log 1 = 0`, so it is set to UNIT stiffness
-    // instead (see the doc comments on the public wrappers).
+    // a stable `Δβ`.
     let mut conditioned = Array2::<f64>::zeros((n, n));
     let mut weighted_vt = Array2::<f64>::zeros((n, n));
     for eig_idx in 0..evals.len() {
         let lambda = evals[eig_idx];
-        let lambda_conditioned = if unit_deflate_null_directions {
-            if !lambda.is_finite() || lambda <= 0.0 || lambda < deflate_floor {
-                1.0
-            } else {
-                lambda.max(floor)
-            }
-        } else if lambda.is_finite() {
+        let lambda_conditioned = if lambda.is_finite() {
             lambda.max(floor)
         } else {
             floor
@@ -605,6 +585,96 @@ fn spectral_conditioned_schur_with_factor(
     let factor =
         spectral_qr_cholesky_factor(&weighted_vt).or_else(|| cholesky_lower(&conditioned).ok())?;
     Some((conditioned, factor))
+}
+
+/// Original-coordinate unit-deflation for an evidence reduced Schur.
+///
+/// The rank decision and unit pin are made in the caller's β coordinates. A
+/// Jacobi congruence is appropriate for a Newton solve but would turn a unit
+/// eigenvalue in scaled coordinates into a scale-dependent stiffness after
+/// unscaling, corrupting both `log 1 = 0` and the cached null-space metadata.
+fn factor_evidence_unit_deflated_schur(
+    schur: &Array2<f64>,
+    relative_floor: f64,
+) -> Option<DenseReducedSchurFactorization> {
+    let n = schur.nrows();
+    if n == 0 || schur.ncols() != n || !(relative_floor.is_finite() && relative_floor > 0.0) {
+        return None;
+    }
+    let mut sym = Array2::<f64>::zeros((n, n));
+    for i in 0..n {
+        for j in 0..n {
+            let value = 0.5 * (schur[[i, j]] + schur[[j, i]]);
+            if !value.is_finite() {
+                return None;
+            }
+            sym[[i, j]] = value;
+        }
+    }
+    let (raw_evals, evecs) = sym.eigh(Side::Lower).ok()?;
+    let max_abs = raw_evals.iter().fold(0.0_f64, |acc, &value| {
+        if value.is_finite() {
+            acc.max(value.abs())
+        } else {
+            acc
+        }
+    });
+    if !(max_abs.is_finite() && max_abs > 0.0) {
+        return None;
+    }
+    let deflate_floor = relative_floor * max_abs * (1.0 - SPECTRAL_DEFLATION_HYSTERESIS_FRACTION);
+    let deflated: Vec<bool> = raw_evals
+        .iter()
+        .map(|&value| !value.is_finite() || value < deflate_floor)
+        .collect();
+
+    // Preserve the ordinary equilibrated-Cholesky bit path in the interior.
+    // If Cholesky alone is numerically unable to factor a spectrally healthy
+    // operator, the spectral QR below still factors the identical raw spectrum.
+    if !deflated.iter().any(|&is_deflated| is_deflated)
+        && let Ok(interior) = factor_dense_reduced_schur(schur, ReducedSchurPolicy::StrictNewton)
+    {
+        return Some(interior);
+    }
+
+    let mut cond_evals = raw_evals.clone();
+    let mut conditioned = Array2::<f64>::zeros((n, n));
+    let mut weighted_vt = Array2::<f64>::zeros((n, n));
+    for eig_idx in 0..n {
+        if deflated[eig_idx] {
+            cond_evals[eig_idx] = 1.0;
+        }
+        let lambda = cond_evals[eig_idx];
+        if !(lambda.is_finite() && lambda > 0.0) {
+            return None;
+        }
+        let sqrt_lambda = lambda.sqrt();
+        for i in 0..n {
+            let vi = evecs[[i, eig_idx]];
+            weighted_vt[[eig_idx, i]] = sqrt_lambda * vi;
+            if vi != 0.0 {
+                for j in 0..n {
+                    conditioned[[i, j]] += lambda * vi * evecs[[j, eig_idx]];
+                }
+            }
+        }
+    }
+    let factor = spectral_qr_cholesky_factor(&weighted_vt)?;
+    let beta_deflation =
+        deflated
+            .iter()
+            .any(|&is_deflated| is_deflated)
+            .then(|| BetaSchurDeflationSpectrum {
+                evecs,
+                raw_evals,
+                cond_evals,
+                deflated: deflated.into(),
+            });
+    Some(DenseReducedSchurFactorization {
+        factor,
+        conditioned_schur: beta_deflation.as_ref().map(|_| conditioned),
+        beta_deflation,
+    })
 }
 
 /// Lower Cholesky factor of `A = WᵀW` computed from `W` itself: QR gives
@@ -659,8 +729,8 @@ fn jacobi_diagonal_scale(schur: &Array2<f64>) -> Array1<f64> {
 }
 
 /// Factor the dense reduced Schur complement `S`, returning its lower Cholesky
-/// factor (or, when `S` is not PD, the spectrally-floored reconstruction and
-/// ITS factor).
+/// factor, the conditioned operator when policy changed it, and authoritative
+/// β-null metadata for evidence unit deflation.
 ///
 /// #2015 — SOLVER-LEVEL conditioning fix (design: issue 2015 comment
 /// 4949898801). A real activation+behavior augmented target can carry output
@@ -683,15 +753,9 @@ fn jacobi_diagonal_scale(schur: &Array2<f64>) -> Array1<f64> {
 /// Cholesky factor of the CALLER'S ORIGINAL `schur`, just computed via a
 /// numerically superior route. Undoing the scale is one exact elementwise
 /// multiply (`factor[i,j] *= d[i]`, `floored[i,j] *= d[i]*d[j]`) — no further
-/// precision is lost recovering original units. Consequently this function's
-/// signature, return values, and units are UNCHANGED from before the fix, and
-/// every one of its ~15 callers across `newton_step.rs` / `reduced_solve.rs`
-/// (the direct solve, `mixed_precision_reduced_beta`'s certified refinement,
-/// `try_mixed_precision_arrow_solve`'s kappa gate, the evidence log-det
-/// diagonal sum, the Takahashi selected-inverse, `steihaug_dense_system`'s
-/// trust-region fallback) needs no change: they already operate on whatever
-/// `(factor, floored_schur)` this function hands back, in the SAME original
-/// units as always.
+/// precision is lost recovering original units. Evidence unit deflation
+/// deliberately bypasses this congruence and works in the original β
+/// coordinates so a unit-pinned null contributes exactly `log 1`.
 ///
 /// GPU cross-reference: the device/GPU dense-reference path
 /// (`gam_solve::gpu_kernels::arrow_schur::solve_arrow_newton_step_dense_reference`)
@@ -699,11 +763,50 @@ fn jacobi_diagonal_scale(schur: &Array2<f64>) -> Array1<f64> {
 /// does NOT yet get this equilibration. Both paths are exact; the GPU path is
 /// simply not yet as well-conditioned on an ill-scaled system. Porting the
 /// same technique there is a deliberate follow-up, not part of this change.
+///
+/// Newton-step damping and evidence quotient deflation are deliberately
+/// different policies: Tikhonov directions retain a small positive curvature
+/// for a stable step, while evidence-null directions are pinned to unit
+/// stiffness so their log-determinant contribution is exactly zero.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) enum ReducedSchurPolicy {
+    StrictNewton,
+    NewtonTikhonov { relative_floor: f64 },
+    EvidenceUnitDeflation { relative_floor: f64 },
+}
+
+impl ReducedSchurPolicy {
+    pub(crate) fn newton(relative_floor: Option<f64>) -> Self {
+        match relative_floor {
+            Some(relative_floor) => Self::NewtonTikhonov { relative_floor },
+            None => Self::StrictNewton,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct DenseReducedSchurFactorization {
+    pub(crate) factor: Array2<f64>,
+    pub(crate) conditioned_schur: Option<Array2<f64>>,
+    pub(crate) beta_deflation: Option<BetaSchurDeflationSpectrum>,
+}
+
 pub(crate) fn factor_dense_reduced_schur(
     schur: &Array2<f64>,
-    schur_pd_floor: Option<f64>,
-    unit_deflate_null_directions: bool,
-) -> Result<(Array2<f64>, Option<Array2<f64>>), ArrowSchurError> {
+    policy: ReducedSchurPolicy,
+) -> Result<DenseReducedSchurFactorization, ArrowSchurError> {
+    let newton_relative_floor = match policy {
+        ReducedSchurPolicy::StrictNewton => None,
+        ReducedSchurPolicy::NewtonTikhonov { relative_floor } => Some(relative_floor),
+        ReducedSchurPolicy::EvidenceUnitDeflation { relative_floor } => {
+            return factor_evidence_unit_deflated_schur(schur, relative_floor).ok_or_else(|| {
+                ArrowSchurError::SchurFactorFailed {
+                    reason: "evidence reduced Schur unit-deflation declined (no usable spectrum)"
+                        .to_string(),
+                }
+            });
+        }
+    };
     let n = schur.nrows();
     let d = jacobi_diagonal_scale(schur);
     let mut schur_scaled = Array2::<f64>::zeros((n, n));
@@ -734,23 +837,23 @@ pub(crate) fn factor_dense_reduced_schur(
             // dominated by the raw column-scale spread; the floored
             // reconstruction is undone back to original units below exactly like
             // the plain factor.
-            match schur_pd_floor {
-                Some(relative_floor) => match if unit_deflate_null_directions {
-                    spectral_unit_deflated_schur(&schur_scaled, relative_floor)
-                } else {
-                    spectral_pd_floored_schur(&schur_scaled, relative_floor)
-                } {
-                    Some((floored, floored_factor)) => (floored_factor, Some(floored)),
-                    None => {
-                        return Err(ArrowSchurError::SchurFactorFailed {
-                            reason: format!(
-                                "reduced Schur non-PD ({e}); spectral PD-floor declined \
+            match newton_relative_floor {
+                Some(relative_floor) => {
+                    match spectral_pd_floored_schur(&schur_scaled, relative_floor) {
+                        Some((floored, floored_factor)) => (floored_factor, Some(floored)),
+                        None => {
+                            return Err(ArrowSchurError::SchurFactorFailed {
+                                reason: format!(
+                                    "reduced Schur non-PD ({e}); spectral PD-floor declined \
                                  (no usable spectrum)"
-                            ),
-                        });
+                                ),
+                            });
+                        }
                     }
-                },
-                None => return Err(ArrowSchurError::SchurFactorFailed { reason: e }),
+                }
+                None => {
+                    return Err(ArrowSchurError::SchurFactorFailed { reason: e });
+                }
             }
         }
     };
@@ -771,7 +874,11 @@ pub(crate) fn factor_dense_reduced_schur(
         }
         floored
     });
-    Ok((factor, floored_schur))
+    Ok(DenseReducedSchurFactorization {
+        factor,
+        conditioned_schur: floored_schur,
+        beta_deflation: None,
+    })
 }
 
 pub(crate) fn solve_dense_reduced_system(
@@ -780,11 +887,12 @@ pub(crate) fn solve_dense_reduced_system(
     options: &ArrowSolveOptions,
     metric_weights: Option<&MetricWeights>,
 ) -> Result<(Array1<f64>, Option<Array2<f64>>, ArrowPcgDiagnostics), ArrowSchurError> {
-    let (factor, floored_schur) = factor_dense_reduced_schur(
-        schur,
-        options.schur_pd_floor,
-        options.tolerate_ill_conditioning,
-    )?;
+    let policy = ReducedSchurPolicy::newton(options.newton_schur_tikhonov_rel_floor);
+    let DenseReducedSchurFactorization {
+        factor,
+        conditioned_schur: floored_schur,
+        beta_deflation: _,
+    } = factor_dense_reduced_schur(schur, policy)?;
     if let Some(floored) = floored_schur {
         let direct = mixed_precision_reduced_beta(&floored, &factor, rhs_beta, options)
             .unwrap_or_else(|| cholesky_solve_vector(&factor, rhs_beta));
@@ -819,65 +927,55 @@ pub(crate) fn solve_dense_reduced_system(
     // `ridge_beta` and re-forms a better-conditioned Schur. This guard is
     // exclusive to the dense Direct / SqrtBA path (the only caller of this
     // function); the inexact-PCG path tolerates higher κ(S) and is unaffected.
-    // Evidence/log-det-only callers (`tolerate_ill_conditioning`) skip this
-    // rejection: the factor is genuinely PD (Cholesky above succeeded), so its
-    // diagonal still yields an exact `log|S|`, and an inaccurate Δβ is harmless
-    // because the step is discarded.
-    if !options.tolerate_ill_conditioning {
-        let schur_kappa = cholesky_factor_kappa_estimate(&factor);
-        if !schur_kappa.is_finite() || schur_kappa > safe_spd_kappa_max(schur.nrows()) {
-            // #1026 — over-complete SAE dictionaries park surplus atoms dead
-            // (β_k → 0), so the reduced Schur is PD (the Cholesky above succeeded)
-            // but ILL-CONDITIONED: the dead decoder subspace carries near-zero
-            // eigenvalues while the live subspace is healthy. The kappa gate's
-            // concern is an inaccurate Δβ from accumulated (H_tt)⁻¹ contamination —
-            // but on the dead subspace the correct Δβ IS ≈0 (those atoms have no
-            // signal), so the only "inaccuracy" is in directions whose true step is
-            // zero. When the spectral PD-floor is enabled (the SAE solve path),
-            // clamp exactly those collapsed directions up to `floor·max(λ)` and
-            // solve against the floored Schur: the live subspace keeps its EXACT
-            // Newton component, the dead subspace is damped to ≈0, and κ is bounded
-            // so Δβ is accurate where it matters. This is the same conditioning the
-            // non-PD branch above applies; here it also covers the PD-but-ill-
-            // conditioned case so the LM loop does not exhaust `ridge_β` trying to
-            // (futilely) lift a fundamentally rank-deficient dead-atom subspace.
-            // Without the floor (BA / non-SAE callers) the strict refusal stands.
-            if let Some(relative_floor) = options.schur_pd_floor
-                && let Some((floored, floored_factor)) =
-                    spectral_pd_floored_schur(schur, relative_floor)
+    let schur_kappa = cholesky_factor_kappa_estimate(&factor);
+    if !schur_kappa.is_finite() || schur_kappa > safe_spd_kappa_max(schur.nrows()) {
+        // #1026 — over-complete SAE dictionaries park surplus atoms dead
+        // (β_k → 0), so the reduced Schur is PD (the Cholesky above succeeded)
+        // but ILL-CONDITIONED: the dead decoder subspace carries near-zero
+        // eigenvalues while the live subspace is healthy. The kappa gate's
+        // concern is an inaccurate Δβ from accumulated (H_tt)⁻¹ contamination —
+        // but on the dead subspace the correct Δβ IS ≈0 (those atoms have no
+        // signal), so the only "inaccuracy" is in directions whose true step is
+        // zero. When the spectral PD-floor is enabled (the SAE solve path),
+        // clamp exactly those collapsed directions up to `floor·max(λ)` and
+        // solve against the floored Schur: the live subspace keeps its EXACT
+        // Newton component, the dead subspace is damped to ≈0, and κ is bounded
+        // so Δβ is accurate where it matters. This is the same conditioning the
+        // non-PD branch above applies; here it also covers the PD-but-ill-
+        // conditioned case so the LM loop does not exhaust `ridge_β` trying to
+        // (futilely) lift a fundamentally rank-deficient dead-atom subspace.
+        // Without the floor (BA / non-SAE callers) the strict refusal stands.
+        if let Some(relative_floor) = options.newton_schur_tikhonov_rel_floor
+            && let Some((floored, floored_factor)) =
+                spectral_pd_floored_schur(schur, relative_floor)
+        {
+            let direct = mixed_precision_reduced_beta(&floored, &floored_factor, rhs_beta, options)
+                .unwrap_or_else(|| cholesky_solve_vector(&floored_factor, rhs_beta));
+            if step_inside_trust_region(direct.view(), options.trust_region.radius, metric_weights)
             {
-                let direct =
-                    mixed_precision_reduced_beta(&floored, &floored_factor, rhs_beta, options)
-                        .unwrap_or_else(|| cholesky_solve_vector(&floored_factor, rhs_beta));
-                if step_inside_trust_region(
-                    direct.view(),
-                    options.trust_region.radius,
-                    metric_weights,
-                ) {
-                    return Ok((direct, Some(floored_factor), ArrowPcgDiagnostics::default()));
-                }
-                let identity = IdentityPreconditioner;
-                let (delta, diag) = steihaug_dense_system(
-                    &floored,
-                    rhs_beta,
-                    &identity,
-                    &ArrowPcgOptions {
-                        max_iterations: options.trust_region.max_iterations,
-                        relative_tolerance: options.trust_region.steihaug_relative_tolerance,
-                    },
-                    &options.trust_region,
-                    metric_weights,
-                )?;
-                return Ok((delta, Some(floored_factor), diag));
+                return Ok((direct, Some(floored_factor), ArrowPcgDiagnostics::default()));
             }
-            return Err(ArrowSchurError::SchurFactorFailed {
-                reason: format!(
-                    "reduced Schur complement Cholesky succeeded but is ill-conditioned \
+            let identity = IdentityPreconditioner;
+            let (delta, diag) = steihaug_dense_system(
+                &floored,
+                rhs_beta,
+                &identity,
+                &ArrowPcgOptions {
+                    max_iterations: options.trust_region.max_iterations,
+                    relative_tolerance: options.trust_region.steihaug_relative_tolerance,
+                },
+                &options.trust_region,
+                metric_weights,
+            )?;
+            return Ok((delta, Some(floored_factor), diag));
+        }
+        return Err(ArrowSchurError::SchurFactorFailed {
+            reason: format!(
+                "reduced Schur complement Cholesky succeeded but is ill-conditioned \
                      (kappa_estimate={schur_kappa:e}); accumulated per-row \
                      (H_tt)⁻¹ contamination would yield an inaccurate Δβ"
-                ),
-            });
-        }
+            ),
+        });
     }
     // Reduced-system solve. The f64 `factor` is always retained and returned —
     // its diagonal is the EXACT `log|S|` the evidence path reads, so the logdet
@@ -943,7 +1041,12 @@ pub fn solve_streaming_reduced_beta(
         // CPU `solve_dense_reduced_system`, which then drives the same proximal
         // ridge escalation. A genuine device PD failure is non-recoverable for
         // this attempt's `schur`, so we let the CPU path re-confirm and escalate.
-        if gam_gpu::device_runtime::GpuRuntime::is_available() {
+        if gam_gpu::device_runtime::GpuRuntime::resolve(options.gpu_policy)
+            .map_err(|error| ArrowSchurError::SchurFactorFailed {
+                reason: format!("GPU runtime resolution failed before reduced solve: {error}"),
+            })?
+            .is_some()
+        {
             match crate::gpu_kernels::arrow_schur::solve_reduced_beta_pcg(
                 &schur,
                 rhs_beta,
@@ -1521,6 +1624,7 @@ pub(crate) fn slq_reduced_schur_log_det<B: BatchedBlockSolver + Sync>(
     backend: &B,
     resident: Option<&SaeResidentReducedSchur>,
     gpu_matvec: Option<&GpuSchurMatvec>,
+    evidence_policy: ArrowEvidencePolicy,
     num_probes: usize,
     lanczos_steps: usize,
     seed: u64,
@@ -1536,7 +1640,28 @@ pub(crate) fn slq_reduced_schur_log_det<B: BatchedBlockSolver + Sync>(
     // the byte-identical CPU `schur_matvec` lane is taken.
     let op = ReducedSchurOperator::new(sys, htt_factors, ridge_beta, backend, resident)
         .with_gpu_matvec(gpu_matvec);
-    slq_logdet(k, |v| op.apply(v), num_probes, lanczos_steps, seed)
+    // The evidence log|S| must obey the SAME conditioning convention as the dense
+    // reduced-Schur factor (#2308). Under `UnitDeflation` a collapsed / near-null
+    // decoder direction is pinned to unit stiffness (`ln 1 = 0`), so the SLQ
+    // estimate uses the unit-deflated spectral function `φ(θ)=θ≥floor ? ln θ : 0`
+    // instead of the plain `ln` (which would floor a sub-null Ritz value to
+    // `RITZ_LN_FLOOR`, contributing `≈ −690` per collapsed direction and a
+    // ρ-dependent Occam reward). `Strict` / `PositiveDefinite` keep the plain SPD
+    // estimator — they never form an undamped evidence with nulls.
+    match evidence_policy {
+        ArrowEvidencePolicy::UnitDeflation { relative_floor } => slq_logdet_unit_deflated(
+            k,
+            |v| op.apply(v),
+            num_probes,
+            lanczos_steps,
+            seed,
+            relative_floor,
+        )
+        .as_logdet(),
+        ArrowEvidencePolicy::Strict | ArrowEvidencePolicy::PositiveDefinite => {
+            slq_logdet(k, |v| op.apply(v), num_probes, lanczos_steps, seed)
+        }
+    }
 }
 
 /// One-call matrix-free arrow evidence log-determinant for an assembled system.
@@ -1562,7 +1687,13 @@ pub fn matrix_free_arrow_evidence_log_det(
     seed: u64,
 ) -> Result<(f64, SlqLogDet), ArrowSchurError> {
     let backend = CpuBatchedBlockSolver;
-    let factorization = factor_blocks_for_system(sys, ridge_t, options, &backend)?;
+    let factorization = factor_blocks_for_system(
+        sys,
+        ridge_t,
+        options.evidence_policy.factors_undamped_evidence(),
+        &backend,
+        options.gpu_policy,
+    )?;
     let htt_factors = factorization.factors;
     let mut log_det_tt = 0.0_f64;
     for row in 0..htt_factors.len() {
@@ -1582,7 +1713,7 @@ pub fn matrix_free_arrow_evidence_log_det(
         ridge_beta,
         options,
         num_probes.saturating_mul(lanczos_steps),
-    );
+    )?;
     let gpu_matvec: Option<&GpuSchurMatvec> =
         options.gpu_matvec.as_ref().or(device_matvec.as_ref());
     let resident = if gpu_matvec.is_none() {
@@ -1597,6 +1728,7 @@ pub fn matrix_free_arrow_evidence_log_det(
         &backend,
         resident.as_ref(),
         gpu_matvec,
+        options.evidence_policy,
         num_probes,
         lanczos_steps,
         seed,
@@ -1626,18 +1758,18 @@ pub(crate) fn maybe_build_evidence_gpu_matvec(
     ridge_beta: f64,
     options: &ArrowSolveOptions,
     apply_budget: usize,
-) -> Option<GpuSchurMatvec> {
+) -> Result<Option<GpuSchurMatvec>, ArrowSchurError> {
     // A caller-supplied operator (threaded through `options.gpu_matvec`) already
     // owns its residency; the caller passes it directly, so never double-build.
     if options.gpu_matvec.is_some() {
-        return None;
+        return Ok(None);
     }
     if !sys.cross_row_penalties.is_empty() || options.streaming_chunk_size.is_some() {
-        return None;
+        return Ok(None);
     }
     // Size gate BEFORE the device probe (startup-tax ordering): the predicate
     // reads only associated constants, so a shape it rejects skips
-    // `GpuRuntime::global()` (whose first call creates a CUDA primary context on
+    // runtime availability resolution (whose first call creates a CUDA primary context on
     // every GPU); an admitted shape probes exactly as the PCG seam does.
     if !gam_gpu::GpuDispatchPolicy::default().reduced_schur_matvec_should_offload(
         sys.rows.len(),
@@ -1645,9 +1777,16 @@ pub(crate) fn maybe_build_evidence_gpu_matvec(
         sys.d,
         apply_budget.max(1),
     ) {
-        return None;
+        return Ok(None);
     }
-    gam_gpu::device_runtime::GpuRuntime::global()?;
+    if gam_gpu::device_runtime::GpuRuntime::resolve(options.gpu_policy)
+        .map_err(|error| ArrowSchurError::SchurFactorFailed {
+            reason: format!("evidence GPU runtime resolution failed: {error}"),
+        })?
+        .is_none()
+    {
+        return Ok(None);
+    }
     // #1017: framed matrix-free system with resident device operands — prefer the
     // device-resident DETERMINISTIC reduced-Schur apply (upload operands once,
     // cross only x/out per apply, atomics-free so the SLQ log|S| determinism
@@ -1656,16 +1795,23 @@ pub(crate) fn maybe_build_evidence_gpu_matvec(
     // this ridge) fall through to the backend/CPU path. Non-Linux/CPU: this always
     // returns `None` (no `device_sae_pcg`), so the lane is byte-identical.
     if sys.device_sae_pcg.is_some() {
-        if let Some(matvec) = crate::gpu_kernels::arrow_schur::build_framed_resident_evidence_matvec(
-            sys,
-            ridge_t,
-            ridge_beta,
-            apply_budget.max(1),
-        ) {
-            return Some(matvec);
+        if let Some(matvec) =
+            crate::gpu_kernels::arrow_schur::build_framed_resident_evidence_matvec(
+                sys,
+                ridge_t,
+                ridge_beta,
+                apply_budget.max(1),
+            )
+            .map_err(|failure| {
+                device_failure_as_arrow_error("resident evidence matvec build", failure)
+            })?
+        {
+            return Ok(Some(matvec));
         }
     }
-    crate::gpu_kernels::arrow_schur::gpu_schur_matvec_backend(sys, ridge_t, ridge_beta).ok()
+    crate::gpu_kernels::arrow_schur::gpu_schur_matvec_backend(sys, ridge_t, ridge_beta)
+        .map(Some)
+        .map_err(|failure| device_failure_as_arrow_error("evidence matvec build", failure))
 }
 
 /// Fixed configuration for the #2080 rational-surrogate evidence lane: the probe
@@ -1697,16 +1843,23 @@ pub struct SurrogateLaneState {
     plan: Option<RationalLogdetPlan>,
     cfg: SurrogateLaneConfig,
     /// When set, the next matrix-free evidence eval also computes the shared
-    /// `(probes, S⁻¹·probes)` bundle for the tr(S⁻¹·M) gradient channels (the
-    /// #2080 selected-inverse umbrella) and stashes it in `inverse_probes`. The
-    /// gradient lane (EFS α-step) sets this before its criterion call and takes
-    /// the bundle after; the value probes leave it unset and pay nothing.
+    /// `(probes, S⁻¹·probes)` bundle for EFS/MacKay proposal traces and stashes
+    /// it in `inverse_probes`. It is never an outer gradient artifact: the fixed
+    /// rational value's derivative is `logdet_derivative_bundle` below.
     request_inverse_probes: bool,
     /// The last-computed shared bundle: the FROZEN plan's probes `v_j` and their
     /// `S⁻¹ v_j` (t = 0) solves at the current operator. One bundle drives every
     /// selected-inverse trace `tr(S⁻¹·M) ≈ (1/m)Σ_j (S⁻¹v_j)ᵀ(M v_j)` off the
-    /// SAME probes as the value, so value and ρ-gradient never desync.
+    /// same frozen raw probes as the value plan. This is useful for EFS trace
+    /// proposals but is not the derivative of the shifted rational value.
     inverse_probes: Option<(Vec<Array1<f64>>, Vec<Array1<f64>>)>,
+    /// Request/stash the lossless weighted derivative representation emitted by
+    /// the next rational value evaluation.  Unlike `inverse_probes`, this is the
+    /// derivative of the fixed rational surrogate itself (all shifted solves and
+    /// frozen-Q columns), and is the only bundle admissible for its outer
+    /// gradient.
+    request_logdet_derivative_bundle: bool,
+    logdet_derivative_bundle: Option<RationalLogdetDerivativeBundle>,
     /// The previous ρ's `S⁻¹ v_j` solves, kept as the CG warm-start for the next
     /// bundle solve. `S⁻¹` is smooth in ρ, so a neighbouring-ρ solution is a near
     /// seed (common-random-numbers reuse — the discipline that makes the
@@ -1724,6 +1877,8 @@ impl SurrogateLaneState {
             cfg,
             request_inverse_probes: false,
             inverse_probes: None,
+            request_logdet_derivative_bundle: false,
+            logdet_derivative_bundle: None,
             warm_inverse_probes: None,
         }
     }
@@ -1747,6 +1902,21 @@ impl SurrogateLaneState {
     pub fn take_inverse_probes(&mut self) -> Option<(Vec<Array1<f64>>, Vec<Array1<f64>>)> {
         self.request_inverse_probes = false;
         self.inverse_probes.take()
+    }
+
+    /// Ask the next rational value evaluation to retain its complete weighted
+    /// derivative representation. Clears stale output eagerly so a failed value
+    /// cannot be paired with a previous operator's gradient.
+    pub fn request_logdet_derivative_bundle(&mut self) {
+        self.request_logdet_derivative_bundle = true;
+        self.logdet_derivative_bundle = None;
+    }
+
+    /// Consume the derivative representation produced by the most recent
+    /// requested rational value evaluation.
+    pub fn take_logdet_derivative_bundle(&mut self) -> Option<RationalLogdetDerivativeBundle> {
+        self.request_logdet_derivative_bundle = false;
+        self.logdet_derivative_bundle.take()
     }
 }
 
@@ -1776,7 +1946,13 @@ pub fn matrix_free_arrow_evidence_log_det_surrogate(
     lane: Option<&mut SurrogateLaneState>,
 ) -> Result<(f64, f64), ArrowSchurError> {
     let backend = CpuBatchedBlockSolver;
-    let factorization = factor_blocks_for_system(sys, ridge_t, options, &backend)?;
+    let factorization = factor_blocks_for_system(
+        sys,
+        ridge_t,
+        options.evidence_policy.factors_undamped_evidence(),
+        &backend,
+        options.gpu_policy,
+    )?;
     let htt_factors = factorization.factors;
     let mut log_det_tt = 0.0_f64;
     for row in 0..htt_factors.len() {
@@ -1798,7 +1974,7 @@ pub fn matrix_free_arrow_evidence_log_det_surrogate(
         .map(|s| s.cfg.num_probes.saturating_mul(s.cfg.cg_max_iters))
         .unwrap_or_else(|| slq_num_probes.saturating_mul(slq_lanczos_steps));
     let device_matvec =
-        maybe_build_evidence_gpu_matvec(sys, ridge_t, ridge_beta, options, cfg_apply_budget);
+        maybe_build_evidence_gpu_matvec(sys, ridge_t, ridge_beta, options, cfg_apply_budget)?;
     let gpu_matvec: Option<&GpuSchurMatvec> =
         options.gpu_matvec.as_ref().or(device_matvec.as_ref());
     let resident = if gpu_matvec.is_none() {
@@ -1816,6 +1992,7 @@ pub fn matrix_free_arrow_evidence_log_det_surrogate(
                 &backend,
                 resident.as_ref(),
                 gpu_matvec,
+                options.evidence_policy,
                 slq_num_probes,
                 slq_lanczos_steps,
                 slq_seed,
@@ -1860,12 +2037,13 @@ pub fn matrix_free_arrow_evidence_log_det_surrogate(
                 .as_ref()
                 .expect("plan installed just above when absent");
             let want_bundle = state.request_inverse_probes;
-            // Value (and, when the gradient lane asked for it, the shared
-            // (probes, S⁻¹·probes) bundle) computed under one borrow of the
-            // frozen plan; the bundle is stashed on the lane after the borrow
-            // ends. The bundle uses the plan's RAW probes v_j (not the deflation-
-            // projected ones) since tr(S⁻¹·M) contracts the full S⁻¹ v_j.
-            let (estimate, bundle) = {
+            let want_logdet_derivative = state.request_logdet_derivative_bundle;
+            // Value, its lossless shifted derivative representation, and any
+            // EFS-only `(probes, S⁻¹·probes)` trace bundle are computed under one
+            // borrow of the frozen plan and stashed after that borrow ends. The
+            // EFS bundle uses raw probes; the outer gradient consumes only the
+            // weighted shifted derivative bundle.
+            let (estimate, derivative_bundle, bundle) = {
                 // #1017: ONE reduced-Schur operator for the whole value ladder —
                 // the frozen plan walks its shift ladder through this single
                 // resident apply instead of re-capturing a `schur_matvec` closure
@@ -1887,6 +2065,18 @@ pub fn matrix_free_arrow_evidence_log_det_surrogate(
                         reason: "rational log-det surrogate evaluation returned non-finite"
                             .to_string(),
                     })?;
+                let estimate = eval.estimate;
+                let derivative_bundle = if want_logdet_derivative {
+                    Some(
+                        plan.into_directional_derivative_bundle(eval)
+                            .ok_or_else(|| ArrowSchurError::SchurFactorFailed {
+                                reason: "rational log-det derivative bundle assembly failed"
+                                    .to_string(),
+                            })?,
+                    )
+                } else {
+                    None
+                };
                 let bundle = if want_bundle {
                     let sinv = reduced_schur_inverse_probe_solves(
                         sys,
@@ -1907,8 +2097,12 @@ pub fn matrix_free_arrow_evidence_log_det_surrogate(
                 } else {
                     None
                 };
-                (eval.estimate, bundle)
+                (estimate, derivative_bundle, bundle)
             };
+            if want_logdet_derivative {
+                state.logdet_derivative_bundle = derivative_bundle;
+                state.request_logdet_derivative_bundle = false;
+            }
             if want_bundle {
                 // Keep the fresh solves as the next ρ's warm-start seed (CRN),
                 // then hand the bundle to the gradient lane.
@@ -4672,6 +4866,50 @@ pub(crate) fn steihaug_pcg_auto<B: BatchedBlockSolver + Sync>(
     } else {
         None
     };
+    // #2228 — a β-gauge-quotiented system has a reduced Schur that is singular
+    // along the gauge orbit, and every preconditioner in the ladder below
+    // (block-Jacobi, cluster, Schwarz, IC(0)) is formed from the UN-pinned
+    // operator, so it would misprice — or refuse as non-PD — that orbit
+    // direction. The matvec now applies the Faddeev–Popov pin `P S P + Q Qᵀ`,
+    // which is SPD and well-conditioned on the identifiable complement (the gauge
+    // dimension is tiny — one direction per circle/torus phase), so an identity
+    // preconditioner converges without a bespoke pinned diagonal. Route straight
+    // through it and skip the diagonal ladder, whose preconditioners assume the
+    // un-pinned Schur; the `None`-quotient path below is byte-identical.
+    if sys.beta_gauge_quotient.is_some() {
+        let identity = IdentityPreconditioner;
+        let (step, diag) = run_pcg_with_preconditioner(
+            sys,
+            htt_factors,
+            ridge_beta,
+            rhs,
+            |r| identity.apply(r),
+            pcg,
+            trust,
+            backend,
+            gpu_matvec,
+            metric_weights,
+            resident.as_ref(),
+        )?;
+        // Mirror the non-gauge contract: below the escalation threshold a MaxIter
+        // stop is accepted (the ladder returns it as `Ok`); above it the ladder
+        // would escalate the preconditioner, but the cluster/Schwarz/IC(0) tiers
+        // assume the un-pinned Schur and cannot precondition the gauge pin, so
+        // surface a recoverable failure and let the outer LM loop escalate the
+        // ridge instead (a bespoke pinned-diagonal preconditioner is the follow-up).
+        if diag.stopping_reason == PcgStopReason::MaxIter
+            && sys.k > PRECOND_ESCALATE_K_THRESHOLD
+        {
+            return Err(ArrowSchurError::PcgFailed {
+                reason: format!(
+                    "gauge-pinned Schur PCG (identity preconditioner) exhausted its \
+                     iteration budget without converging; final relative residual = {:e}",
+                    diag.final_relative_residual
+                ),
+            });
+        }
+        return Ok((step, diag));
+    }
     // #1026 — curvature-floor retry on the Jacobi tier. The unbounded SAE inner
     // PCG (trust radius = ∞) fails on `pᵀSp ≤ 0` when the reduced Schur is
     // indefinite (K≥4 co-collapse: a near-singular per-row `H_tt` over-subtracts
@@ -4970,28 +5208,23 @@ where
     let tol = pcg
         .relative_tolerance
         .max(trust.steihaug_relative_tolerance);
-    if let Some(gpu_mv) = gpu_matvec {
-        let gpu_mv = Arc::clone(gpu_mv);
-        steihaug_cg(
-            rhs,
-            move |p, out| gpu_mv(p, out),
-            apply_prec,
-            max_iters,
-            tol,
-            trust.radius,
-            metric_weights,
-        )
-    } else {
-        steihaug_cg(
-            rhs,
-            |p, out| schur_matvec(sys, htt_factors, ridge_beta, p, out, backend, resident),
-            apply_prec,
-            max_iters,
-            tol,
-            trust.radius,
-            metric_weights,
-        )
-    }
+    // #2228 — route the fit-step matvec through `ReducedSchurOperator`, which
+    // applies the Faddeev–Popov pin `v ↦ P S P v + Q Qᵀ v` when the system carries
+    // a β-gauge quotient and is byte-for-byte the bare `gpu_matvec` / `schur_matvec`
+    // apply when it does not. This gauge-fixes the wide-`p` InexactPCG Newton step
+    // exactly like the dense Direct/SqrtBA modes while leaving the `None`-quotient
+    // lane (every non-SAE-fit caller) unchanged.
+    let op = ReducedSchurOperator::new(sys, htt_factors, ridge_beta, backend, resident)
+        .with_gpu_matvec(gpu_matvec);
+    steihaug_cg(
+        rhs,
+        |p, out| op.apply_into(p, out),
+        apply_prec,
+        max_iters,
+        tol,
+        trust.radius,
+        metric_weights,
+    )
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -5338,19 +5571,9 @@ pub(crate) fn cholesky_lower(a: &Array2<f64>) -> Result<Array2<f64>, String> {
         ));
     }
 
-    // Only clone for the device attempt when a GPU is actually selected;
-    // `try_cholesky_lower_inplace` returns `None` on every CPU-only host, so the
-    // former unconditional `k×k` clone (≈32 MB at the SAE border) was pure waste
-    // on the CPU path that now dominates. `cuda_selected()` is a cheap policy +
-    // runtime-presence probe.
-    if gam_gpu::cuda_selected() {
-        let mut maybe_device = a.clone();
-        if gam_gpu::try_cholesky_lower_inplace(&mut maybe_device).is_some() {
-            return Ok(maybe_device);
-        }
-    }
-
-    // CPU fast path (#1017): at the SAE border width the reduced Schur is a
+    // CPU factorization seam (#1017): device routing happens explicitly in the
+    // arrow-Schur solve before reaching this reference/fallback primitive. At
+    // the SAE border width the reduced Schur is a
     // dense `k×k` (k≈2k–4k) whose scalar triple-loop factorization is O(k³/3)
     // and neither blocked nor SIMD-vectorized — the dominant per-Newton-step
     // cost on a CPU-only host. faer's blocked LLT computes the SAME `A = L Lᵀ`

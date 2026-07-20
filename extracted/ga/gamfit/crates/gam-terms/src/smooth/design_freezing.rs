@@ -83,8 +83,8 @@ fn freeze_smooth_basis_from_metadata(
             // longer happen. We therefore KEEP the original
             // `boundary_conditions`: they are the single source of truth the
             // intercept-suppression decision reads
-            // (`term_collection_has_one_sided_anchored_bspline`), and a
-            // one-sided anchored smooth suppresses the global intercept at fit
+            // (`term_collection_has_anchored_bspline`), and an anchored smooth
+            // (one *or* two sided) suppresses the global intercept at fit
             // time (#1238). Clearing them here flipped that decision at predict
             // and re-added a spurious intercept column → save→load→predict
             // 21-vs-22 design mismatch (#1265). Boundary conditions are left
@@ -115,7 +115,7 @@ fn freeze_smooth_basis_from_metadata(
         (
             SmoothBasisSpec::ThinPlate {
                 spec: s,
-                input_scales,
+                input_scale,
                 ..
             },
             BasisMetadata::ThinPlate {
@@ -123,7 +123,7 @@ fn freeze_smooth_basis_from_metadata(
                 length_scale,
                 periodic: meta_periodic,
                 identifiability_transform,
-                input_scales: meta_scales,
+                input_scale: metadata_scale,
                 radial_reparam,
             },
         ) => {
@@ -150,7 +150,7 @@ fn freeze_smooth_basis_from_metadata(
             };
             s.radial_reparam = radial_reparam.clone();
             s.periodic = meta_periodic.clone();
-            *input_scales = meta_scales.clone();
+            *input_scale = Some(*metadata_scale);
         }
         (
             SmoothBasisSpec::ThinPlate {
@@ -165,7 +165,7 @@ fn freeze_smooth_basis_from_metadata(
                 power,
                 nullspace_order,
                 identifiability_transform,
-                input_scales: meta_scales,
+                input_scale: metadata_scale,
                 aniso_log_scales: meta_aniso,
                 radial_reparam: meta_radial_reparam,
                 ..
@@ -208,7 +208,7 @@ fn freeze_smooth_basis_from_metadata(
                     boundary: OneDimensionalBoundary::Open,
                     radial_reparam: meta_radial_reparam.clone(),
                 },
-                input_scales: meta_scales.clone(),
+                input_scale: Some(*metadata_scale),
             };
         }
         (
@@ -267,12 +267,12 @@ fn freeze_smooth_basis_from_metadata(
         (
             SmoothBasisSpec::MeasureJet {
                 spec: s,
-                input_scales,
+                input_scale,
                 ..
             },
             BasisMetadata::MeasureJet {
                 centers,
-                input_scales: meta_scales,
+                input_scale: metadata_scale,
                 length_scale,
                 eps_band,
                 order_s,
@@ -316,12 +316,12 @@ fn freeze_smooth_basis_from_metadata(
                 },
                 None => MeasureJetIdentifiability::CenterSumToZero,
             };
-            *input_scales = meta_scales.clone();
+            *input_scale = Some(*metadata_scale);
         }
         (
             SmoothBasisSpec::Matern {
                 spec: s,
-                input_scales,
+                input_scale,
                 ..
             },
             BasisMetadata::Matern {
@@ -331,38 +331,28 @@ fn freeze_smooth_basis_from_metadata(
                 nu,
                 include_intercept,
                 identifiability_transform,
-                input_scales: meta_scales,
+                input_scale: metadata_scale,
                 aniso_log_scales: meta_aniso,
-                nullspace_shrinkage_survived: meta_nullspace_survived,
             },
         ) => {
             s.center_strategy = crate::basis::CenterStrategy::UserProvided(centers.clone());
-            s.length_scale = *length_scale;
+            s.length_scale.set_resolved(*length_scale);
             s.nu = *nu;
             s.include_intercept = *include_intercept;
-            // Pin the bootstrap-κ double-penalty nullspace-shrinkage decision into
-            // the frozen transform so the κ-optimizer's per-trial design rebuilds
-            // reproduce the SAME learned-penalty count (gam#787/#860); without
-            // this the κ-dependent spectral test in `build_nullspace_shrinkage_penalty`
-            // flips the count 6↔7 and the rebuilt ρ dimension disagrees with the
-            // frozen joint setup ("joint hyper rho dimension mismatch"). When there
-            // is no transform to freeze we keep `None` (unconstrained kernel needs
-            // no replayed survival decision).
             s.identifiability = match identifiability_transform {
                 Some(z) => MaternIdentifiability::FrozenTransform {
                     transform: z.clone(),
-                    nullspace_shrinkage_survived: Some(*meta_nullspace_survived),
                 },
                 None => MaternIdentifiability::None,
             };
             s.aniso_log_scales = meta_aniso.clone();
             s.periodic = meta_periodic.clone();
-            *input_scales = meta_scales.clone();
+            *input_scale = Some(*metadata_scale);
         }
         (
             SmoothBasisSpec::Duchon {
                 spec: s,
-                input_scales,
+                input_scale,
                 ..
             },
             BasisMetadata::Duchon {
@@ -372,7 +362,7 @@ fn freeze_smooth_basis_from_metadata(
                 power,
                 nullspace_order,
                 identifiability_transform,
-                input_scales: meta_scales,
+                input_scale: metadata_scale,
                 aniso_log_scales: meta_aniso,
                 radial_reparam,
                 ..
@@ -407,7 +397,7 @@ fn freeze_smooth_basis_from_metadata(
             };
             s.aniso_log_scales = meta_aniso.clone();
             s.periodic = meta_periodic.clone();
-            *input_scales = meta_scales.clone();
+            *input_scale = Some(*metadata_scale);
             // #1355: persist the frozen data-metric radial reparam so the
             // predict-time / κ-trial rebuild replays the EXACT fit-time rotated
             // radial basis (a fresh `V` from predict rows would differ).

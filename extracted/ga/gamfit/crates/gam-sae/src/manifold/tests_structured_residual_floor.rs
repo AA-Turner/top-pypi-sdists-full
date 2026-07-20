@@ -88,12 +88,9 @@ mod tests {
         })
         .expect("minimal seed");
         let SaeMinimalSeedReport {
-            atom_basis,
-            effective_atom_dim,
-            atom_centers,
+            geometry_plans,
             basis_values,
             basis_jacobian,
-            basis_sizes,
             decoder_coefficients,
             smooth_penalties,
             initial_logits,
@@ -104,12 +101,9 @@ mod tests {
         let registry = AnalyticPenaltyRegistry::new();
         let seed = build_sae_fit_seed(SaeFitSeedRequest {
             target: target.view(),
-            atom_basis: &atom_basis,
-            atom_dim: &effective_atom_dim,
-            atom_centers: &atom_centers,
+            geometry_plans: &geometry_plans,
             basis_values: basis_values.view(),
             basis_jacobian: basis_jacobian.view(),
-            basis_sizes: &basis_sizes,
             decoder_coefficients: decoder_coefficients.view(),
             smooth_penalties: smooth_penalties.view(),
             initial_logits: initial_logits.view(),
@@ -159,10 +153,12 @@ mod tests {
             promote_from_residual: false,
             run_structure_search: false,
             run_outer_rho_search: false,
-            structured_residual_passes: None,
+            structured_residual_passes: 2,
             cancel: None,
         })
         .expect("primary fit certifies (structured pass must degrade gracefully)")
+        .manifold_or_error()
+        .expect("planted circle must retain a manifold atom")
     }
 
     /// A near-exactly-explained target: the primary fit must CERTIFY (not refuse),

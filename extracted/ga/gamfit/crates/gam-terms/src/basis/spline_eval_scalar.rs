@@ -755,12 +755,6 @@ pub fn create_ispline_derivative_dense(
             out[[i, j - 1]] = running;
         }
     }
-    // Apply numerical floor for near-zero values.
-    for val in out.iter_mut() {
-        if val.abs() <= 1e-12 {
-            *val = 0.0;
-        }
-    }
     Ok(out)
 }
 
@@ -880,18 +874,17 @@ pub fn evaluate_bspline_derivative_scalar_into(
         let denom_left = knot_vector[i + degree] - knot_vector[i];
         let denom_right = knot_vector[i + degree + 1] - knot_vector[i + 1];
 
-        let left_term = if denom_left.abs() > KNOT_SPAN_DEGENERACY_FLOOR && i < num_basis_lower {
+        let left_term = if !knot_span_is_degenerate(denom_left) && i < num_basis_lower {
             lower_basis[i] / denom_left
         } else {
             0.0
         };
 
-        let right_term =
-            if denom_right.abs() > KNOT_SPAN_DEGENERACY_FLOOR && (i + 1) < num_basis_lower {
-                lower_basis[i + 1] / denom_right
-            } else {
-                0.0
-            };
+        let right_term = if !knot_span_is_degenerate(denom_right) && (i + 1) < num_basis_lower {
+            lower_basis[i + 1] / denom_right
+        } else {
+            0.0
+        };
 
         out[i] = k * (left_term - right_term);
     }
@@ -1000,7 +993,7 @@ pub(crate) fn validate_mspline_normalization_spans(
     let num_basis = knot_vector.len().saturating_sub(degree + 1);
     for i in 0..num_basis {
         let span = knot_vector[i + degree + 1] - knot_vector[i];
-        if span <= KNOT_SPAN_DEGENERACY_FLOOR {
+        if span <= 0.0 {
             crate::bail_invalid_basis!(
                 "invalid M-spline normalization span at i={i}: t[i+degree+1]-t[i]={span:.3e} must be > 0"
             );
@@ -1253,12 +1246,12 @@ pub(crate) fn evaluate_bspline_derivative_recurrence_into(
     for i in 0..num_basis {
         let denom1 = knot_vector[i + degree] - knot_vector[i];
         let denom2 = knot_vector[i + degree + 1] - knot_vector[i + 1];
-        let term1 = if denom1.abs() > KNOT_SPAN_DEGENERACY_FLOOR {
+        let term1 = if !knot_span_is_degenerate(denom1) {
             k * lower[i] / denom1
         } else {
             0.0
         };
-        let term2 = if denom2.abs() > KNOT_SPAN_DEGENERACY_FLOOR {
+        let term2 = if !knot_span_is_degenerate(denom2) {
             k * lower[i + 1] / denom2
         } else {
             0.0

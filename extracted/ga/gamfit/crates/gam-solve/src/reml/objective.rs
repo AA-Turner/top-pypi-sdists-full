@@ -139,7 +139,7 @@ impl<'a> RemlState<'a> {
                 p.len()
             );
         }
-        let rho_key = EvalCacheManager::sanitized_rhokey(p);
+        let rho_key = self.rhokey_sanitized(p);
         if let Some(eval) = self.cache_manager.cached_outer_eval(&rho_key) {
             log::debug!(
                 "[REML] eval#{} cache hit | cost {:.6e} | elapsed {:.1}ms",
@@ -951,15 +951,14 @@ impl<'a> RemlState<'a> {
 
     /// The penalized inner KKT residual `r = ∇_β L_pen(β̂)` at the accepted
     /// P-IRLS iterate, in the STABLE/TRANSFORMED coefficient basis, for engaging
-    /// the inner-KKT envelope correction `Ṽ = V − ½·rᵀH⁻¹r` on the flexible-link
-    /// outer path.
+    /// the inner-KKT envelope correction `Ṽ = V − ½·rᵀH⁻¹r` on design-moving
+    /// outer paths (ψ/anisotropy and flexible-link coordinates).
     ///
     /// The correction is engaged UNCONDITIONALLY whenever the residual is
     /// well-defined — it is the exact second-order value/gradient at the
     /// Newton-refined mode `β* = β̂ − H⁻¹r`, and it vanishes as `r → 0`, so a
     /// fully-converged inner solve is unchanged while a β̂ accepted at a
-    /// first-order inner cap (the `outer_inner_cap` schedule the flexible-link
-    /// optimizer uses) gets the stationary-mode gradient the raw capped β̂
+    /// first-order inner cap gets the stationary-mode gradient the raw capped β̂
     /// silently misreports. There is deliberately NO relative-residual gate: a
     /// threshold that suppressed the correction above some tolerance would
     /// silently present a non-stationary iterate as exact-KKT to the outer
@@ -1903,6 +1902,28 @@ impl<'a> RemlState<'a> {
         }
     }
 
+    /// Build an assembly for an objective carrying design-moving outer
+    /// coordinates (Matérn/Duchon/tensor ψ, anisotropy, or a flexible-link
+    /// extension). These paths may deliberately accept a capped inner iterate,
+    /// so they must all expose the stored inner KKT residual to the unified
+    /// evaluator. Keeping that policy at one seam prevents value-only probes,
+    /// gradient/Hessian evaluations, and EFS diagnostics from silently choosing
+    /// different stationary-mode objectives.
+    fn build_design_moving_assembly(
+        &self,
+        rho: &Array1<f64>,
+        bundle: &EvalShared,
+        mode: super::reml_outer_engine::EvalMode,
+        force_spectral_logdet: bool,
+        force_sparse: bool,
+    ) -> Result<super::assembly::InnerAssembly<'static>, EstimationError> {
+        if force_sparse {
+            self.build_sparse_assembly(rho, bundle, mode, true)
+        } else {
+            self.build_auto_assembly(rho, bundle, mode, force_spectral_logdet, true)
+        }
+    }
+
     /// Build the soft prior tuple for the given mode.
     pub(crate) fn build_prior(
         &self,
@@ -2162,11 +2183,8 @@ impl<'a> RemlState<'a> {
         // probe evaluates the SAME floored determinant the gradient path
         // differentiates — otherwise the LLT fast path's exact `Σ ln σ` desyncs
         // from the analytic `tr(G_ε Ḣ)` on the ψ block (the headline #1376 gap).
-        let mut assembly = if force_sparse {
-            self.build_sparse_assembly(rho, bundle, mode, false)?
-        } else {
-            self.build_auto_assembly(rho, bundle, mode, true, false)?
-        };
+        let mut assembly =
+            self.build_design_moving_assembly(rho, bundle, mode, true, force_sparse)?;
         let p_dim = assembly.beta.len();
         assembly.ext_coords = (0..synthetic_ext_count)
             .map(|_| super::reml_outer_engine::HyperCoord {
@@ -2262,13 +2280,16 @@ impl<'a> RemlState<'a> {
         // `log|H|` even on a value-only probe so the cost matches the floored
         // determinant the gradient path differentiates via `tr(G_ε Ḣ)`.
         let force_spectral_logdet = ext_coords.iter().any(|c| !c.is_penalty_like);
-        // ψ/aniso ext coordinates are equally hypersensitive to a capped inner
-        // β̂, but engaging the envelope correction here touches the whole
-        // Matérn/Duchon/tensor ψ suite; keep this path on the exact-KKT
-        // assumption for now (the SAS/mixture link-ext path below carries the
-        // #1876 fix). Present exact-KKT (populate_inner_kkt = false).
-        let mut assembly =
-            self.build_auto_assembly(rho, &bundle, mode, force_spectral_logdet, false)?;
+        // #2305: the ψ/aniso path and the SAS/mixture link-extension path are
+        // the same nested-optimization object. Both must evaluate the stationary
+        // inner mode when a capped P-IRLS iterate carries a nonzero KKT residual.
+        let mut assembly = self.build_design_moving_assembly(
+            rho,
+            &bundle,
+            mode,
+            force_spectral_logdet,
+            false,
+        )?;
         assembly.ext_coords = ext_coords;
         assembly.ext_coord_pair_fn = ext_pair_fn;
         assembly.rho_ext_pair_fn = rho_ext_pair_fn;
@@ -2371,7 +2392,7 @@ impl<'a> RemlState<'a> {
                 p.len()
             );
         }
-        let rho_key = EvalCacheManager::sanitized_rhokey(p);
+        let rho_key = self.rhokey_sanitized(p);
         if let Some(eval) = self.cache_manager.cached_outer_eval(&rho_key) {
             let gnorm = eval.gradient.iter().map(|g| g * g).sum::<f64>().sqrt();
             log::debug!(
@@ -2489,7 +2510,7 @@ impl<'a> RemlState<'a> {
                 allow_second_order
             );
         }
-        let rho_key = EvalCacheManager::sanitized_rhokey(p);
+        let rho_key = self.rhokey_sanitized(p);
         if let Some(eval) = self.cache_manager.cached_outer_eval(&rho_key) {
             let cache_satisfies_request = !allow_second_order || eval.hessian.is_analytic();
             if cache_satisfies_request {
@@ -2522,18 +2543,12 @@ impl<'a> RemlState<'a> {
         };
 
         // Genuinely value-only fulfilment (#979). A `Value` request never needs
-        // the outer gradient — the continuation pre-warm asks for it purely to
-        // run the inner P-IRLS and warm `warm_start_beta`, which the inner solve
-        // above (`obtain_eval_bundle`) has already done. The previous code rode
-        // the value+gradient path for `Value`, paying the full k²·n·p² LAML
-        // gradient assembly at EVERY continuation step (the dominant cost of the
-        // ~35s/seed marginal-slope pre-warm and the centers=20 non-finish). Skip
-        // the gradient assembly entirely: assemble the cost with `ValueOnly`,
-        // return a zero-length gradient (no outer optimiser ever consumes a
-        // `Value`-order gradient — the runner only requests `Value` for cost
-        // probes / pre-warm), and surface the warmed β so the continuation walk's
-        // `inner_beta_hint` forwarding is unchanged. ValueAndGradient and
-        // ValueGradientHessian are byte-identical to before.
+        // the outer gradient. The inner solve above (`obtain_eval_bundle`) has
+        // already established its owned mode, so assemble only the scalar cost,
+        // return a zero-length gradient, and surface the coefficient hint for a
+        // typed reactive waypoint when one is active. Line-search, screening,
+        // and domain probes therefore avoid the k²·n·p² LAML gradient assembly.
+        // ValueAndGradient and ValueGradientHessian are unchanged.
         if matches!(order, crate::rho_optimizer::OuterEvalOrder::Value) {
             let t_assemble = std::time::Instant::now();
             let result = if bundle.backend_kind() == GeometryBackendKind::SparseExactSpd {
@@ -2824,8 +2839,13 @@ impl<'a> RemlState<'a> {
         // evaluator (value-only), so cost and gradient stay in sync. The
         // correction vanishes as `r → 0`, so a converged inner solve is
         // unchanged.
-        let mut assembly =
-            self.build_auto_assembly(rho, &bundle, mode, force_spectral_logdet, true)?;
+        let mut assembly = self.build_design_moving_assembly(
+            rho,
+            &bundle,
+            mode,
+            force_spectral_logdet,
+            false,
+        )?;
         let ext_dim = ext_coords.len();
         let p_dim = ext_coords.first().map(|coord| coord.g.len()).unwrap_or(0);
         assembly.ext_coords = ext_coords;
@@ -2836,22 +2856,22 @@ impl<'a> RemlState<'a> {
             // builder then evaluates the nonzero profiled cross terms from the
             // first-order link drifts and IFT mode responses.
             assembly.rho_ext_pair_fn = Some(Box::new(move |_, _| {
-                super::reml_outer_engine::HyperCoordPair {
+                Ok(super::reml_outer_engine::HyperCoordPair {
                     a: 0.0,
                     g: Array1::zeros(p_dim),
                     b_mat: Array2::zeros((p_dim, p_dim)),
                     b_operator: None,
                     ld_s: 0.0,
-                }
+                })
             }));
             assembly.ext_coord_pair_fn = Some(Box::new(move |_, _| {
-                super::reml_outer_engine::HyperCoordPair {
+                Ok(super::reml_outer_engine::HyperCoordPair {
                     a: 0.0,
                     g: Array1::zeros(p_dim),
                     b_mat: Array2::zeros((p_dim, p_dim)),
                     b_operator: None,
                     ld_s: 0.0,
-                }
+                })
             }));
             assert!(ext_dim > 0);
         }
@@ -2893,14 +2913,11 @@ impl<'a> RemlState<'a> {
         // gradient path's floored determinant (the LLT exact-`Σ ln σ` fast path
         // desyncs from `tr(G_ε Ḣ)` on the ψ block otherwise).
         let force_spectral_logdet = ext_coords.iter().any(|c| !c.is_penalty_like);
-        let mut assembly = self.build_auto_assembly(
+        let mut assembly = self.build_design_moving_assembly(
             rho,
             bundle,
             super::reml_outer_engine::EvalMode::ValueOnly,
             force_spectral_logdet,
-            // EFS is a universal-form fixed-point λ update, not a
-            // gradient-descent step against the corrected objective; leave the
-            // inner-KKT envelope correction to the gradient/Hessian path.
             false,
         )?;
         assembly.ext_coords = ext_coords;

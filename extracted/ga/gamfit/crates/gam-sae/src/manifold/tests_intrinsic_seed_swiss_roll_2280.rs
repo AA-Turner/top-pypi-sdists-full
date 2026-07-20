@@ -19,7 +19,7 @@
 //! [`sae_intrinsic_seed_initial_coords`] and its end-to-end auto-seed path.
 
 use super::*;
-use gam_linalg::faer_ndarray::{fast_ata, fast_atb, FaerCholesky};
+use gam_linalg::faer_ndarray::{FaerCholesky, fast_ata, fast_atb};
 use ndarray::{Array2, Array3};
 
 /// fable-mobius's deterministic ~2-turn swiss-roll grid in R³ (no RNG): a flat
@@ -74,13 +74,19 @@ fn heldout_tps_r2(coords: &Array2<f64>, z: &Array2<f64>) -> f64 {
     let cmean = coords.mean_axis(ndarray::Axis(0)).unwrap();
     let mut cstd = [0.0_f64; 2];
     for k in 0..2 {
-        cstd[k] = (coords.column(k).iter().map(|&v| (v - cmean[k]).powi(2)).sum::<f64>()
+        cstd[k] = (coords
+            .column(k)
+            .iter()
+            .map(|&v| (v - cmean[k]).powi(2))
+            .sum::<f64>()
             / n as f64)
             .sqrt()
             .max(1e-12);
     }
     let n_centers = 70usize;
-    let centers: Vec<usize> = (0..n_centers).map(|i| i * (n - 1) / (n_centers - 1)).collect();
+    let centers: Vec<usize> = (0..n_centers)
+        .map(|i| i * (n - 1) / (n_centers - 1))
+        .collect();
     let width = 3 + n_centers;
     let mut phi = Array2::<f64>::zeros((n, width));
     let cs = |row: usize, k: usize| (coords[[row, k]] - cmean[k]) / cstd[k];
@@ -198,7 +204,8 @@ fn swiss_roll_auto_seed_propagates_unfolded_coords_end_to_end() {
     })
     .expect("auto swiss-roll seed builds");
     assert_eq!(
-        report.effective_atom_dim[0], 2,
+        report.geometry_plans[0].latent_dim(),
+        2,
         "a swiss roll is an intrinsically 2-D sheet; auto discovery must resolve d=2"
     );
     let r2 = heldout_tps_r2(&chart_of(&report.initial_coords, 0), &z);
@@ -207,45 +214,6 @@ fn swiss_roll_auto_seed_propagates_unfolded_coords_end_to_end() {
         "the auto-seed path must install the UNFOLDED geodesic chart as the final \
          seed coords (the intrinsic race winner must reach the coordinates, not just \
          the kind); held-out R²={r2}"
-    );
-}
-
-/// DIAGNOSTIC (temporary #2240 trace): call the discovery race directly and report
-/// what the auto path resolves for a single-cluster swiss roll — the winning basis
-/// kind, whether the intrinsic chart propagated, and its held-out R².
-#[test]
-fn diag_swiss_roll_discovery_trace() {
-    let z = swiss_roll_grid();
-    let n = z.nrows();
-    let labels = vec![0usize; n];
-    let choices =
-        crate::structure_harvest::discover_primary_atom_topologies(z.view(), &labels, 1, &[2])
-            .expect("discovery runs");
-    let choice = &choices[0];
-    let coord_r2 = choice
-        .coords
-        .as_ref()
-        .map(|c| heldout_tps_r2(&c.slice(ndarray::s![.., 0..2]).to_owned(), &z));
-    // Also directly measure the primitive intrinsic embedding through the same
-    // standardization build_intrinsic_primary_specs applies.
-    let embed = crate::manifold::intrinsic_geodesic_embedding(z.view(), 2).unwrap();
-    let mut istd = Array2::<f64>::zeros((n, 2));
-    for col in 0..2 {
-        let sd = (embed.column(col).iter().map(|&v| v * v).sum::<f64>() / n as f64).sqrt();
-        for row in 0..n {
-            istd[[row, col]] = embed[[row, col]] / sd;
-        }
-    }
-    let embed_r2 = heldout_tps_r2(&istd, &z);
-    panic!(
-        "DIAG: winner_basis={:?} latent_dim={} n_harm={:?} n_duchon={:?} coords_some={} coord_r2={:?} raw_embed_r2={}",
-        choice.basis_kind,
-        choice.latent_dim,
-        choice.n_harmonics,
-        choice.n_duchon_centers,
-        choice.coords.is_some(),
-        coord_r2,
-        embed_r2
     );
 }
 
@@ -284,5 +252,8 @@ fn swiss_roll_intrinsic_seed_is_deterministic() {
     let dims = vec![2usize];
     let a = sae_intrinsic_seed_initial_coords(z.view(), &kinds, &dims).unwrap();
     let b = sae_intrinsic_seed_initial_coords(z.view(), &kinds, &dims).unwrap();
-    assert_eq!(a, b, "intrinsic swiss-roll seed must be bit-identical run-to-run");
+    assert_eq!(
+        a, b,
+        "intrinsic swiss-roll seed must be bit-identical run-to-run"
+    );
 }

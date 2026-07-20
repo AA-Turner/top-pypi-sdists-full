@@ -7,42 +7,86 @@
 //! typed report. Bindings only translate their wire representation into
 //! [`SaeOosRequest`] and serialize [`SaeOosReport`].
 
-use std::sync::Arc;
-
 use gam_terms::analytic_penalties::AnalyticPenaltyRegistry;
-use gam_terms::basis::{DuchonNullspaceOrder, duchon_sae_atom_penalty, monomial_exponents};
 use ndarray::{Array1, Array2, Array3, ArrayView2, s};
 
 use crate::hybrid_split::AtomLinearImage;
 use crate::inference::steering::{
-    PatchedForwardKl, SteerPlan, TargetDoseConfig, TargetDosePlan, TargetDoseRequest, steer_delta,
+    AppliedDoseProbe, SteerPlan, TargetDoseConfig, TargetDosePlan, TargetDoseRequest, steer_delta,
     steer_to_target_nats,
 };
 
 use super::{
-    AssignmentMode, CylinderHarmonicEvaluator, DuchonCoordinateEvaluator, EuclideanPatchEvaluator,
-    MobiusHarmonicEvaluator, PeriodicHarmonicEvaluator, SaeAssignment, SaeAtomBasisKind,
-    SaeBasisEvaluator, SaeBasisSecondJet, SaeCertifyRequest, SaeFitError, SaeFitReport,
-    SaeManifoldAtom, SaeManifoldLoss, SaeManifoldRho, SaeManifoldTerm, SaeStreamingPlan,
-    SphereChartEvaluator, TorusHarmonicEvaluator, run_sae_manifold_certify,
-    sae_pca_seed_initial_coords,
+    AssignmentMode, SaeAssignment, SaeAtomBasisKind, SaeAtomGeometryPlan, SaeCertifyRequest,
+    SaeFitError, SaeManifoldAtom, SaeManifoldLoss, SaeManifoldRho, SaeManifoldTerm,
+    SaeStreamingPlan, run_sae_manifold_certify, sae_pca_seed_initial_coords,
 };
 
-const SAE_MAX_PERIODIC_HARMONICS: usize = 4096;
-const SAE_EUCLIDEAN_PATCH_RECOVERY_MAX_DEGREE: usize = 3;
 const SAE_ACTIVE_ASSIGNMENT_MASS: f64 = 1.0e-8;
 
-/// Persisted definition of one trained atom needed by frozen-decoder OOS
-/// inference. `basis_size` is retained as an independent schema invariant and
-/// must agree with the decoder row count and the rebuilt analytic basis width.
+/// Exact persisted definition of one trained atom needed by frozen-decoder OOS
+/// inference. Topology, resolution, reference metric, dimension, and basis
+/// width have one authority: `geometry`. The decoder is validated against the
+/// width derived by that plan at construction.
 #[derive(Clone, Debug)]
 pub struct SaeOosAtomSpec {
-    pub basis_kind: SaeAtomBasisKind,
-    pub latent_dim: usize,
+    geometry: SaeAtomGeometryPlan,
     pub decoder: Array2<f64>,
-    pub centers: Option<Array2<f64>>,
-    pub n_harmonics: Option<usize>,
-    pub basis_size: usize,
+}
+
+impl SaeOosAtomSpec {
+    pub fn new(geometry: SaeAtomGeometryPlan, decoder: Array2<f64>) -> Result<Self, String> {
+        let expected_width = geometry.basis_size()?;
+        if decoder.nrows() != expected_width || decoder.ncols() == 0 {
+            return Err(format!(
+                "SaeOosAtomSpec::new: decoder shape {:?} must be ({expected_width}, p) with p >= 1 for plan {:?}",
+                decoder.dim(),
+                geometry.kind()
+            ));
+        }
+        if decoder.iter().any(|value| !value.is_finite()) {
+            return Err("SaeOosAtomSpec::new: decoder must be finite".to_string());
+        }
+        Ok(Self { geometry, decoder })
+    }
+
+    pub fn geometry(&self) -> &SaeAtomGeometryPlan {
+        &self.geometry
+    }
+
+    pub fn basis_kind(&self) -> &SaeAtomBasisKind {
+        self.geometry.kind()
+    }
+
+    pub fn latent_dim(&self) -> usize {
+        self.geometry.latent_dim()
+    }
+
+    pub fn basis_size(&self) -> Result<usize, String> {
+        self.geometry.basis_size()
+    }
+}
+
+/// Pair persisted typed geometry plans with their frozen decoders. There is no
+/// compatibility path from parallel kind/dimension/order/width scalars and no
+/// resolution inference from decoder width.
+pub fn persisted_oos_atom_specs(
+    geometry_plans: &[SaeAtomGeometryPlan],
+    decoder_blocks: &[ArrayView2<'_, f64>],
+) -> Result<Vec<SaeOosAtomSpec>, String> {
+    let k_atoms = geometry_plans.len();
+    if decoder_blocks.len() != k_atoms {
+        return Err(format!(
+            "persisted_oos_atom_specs: decoder count {} must equal geometry-plan count {k_atoms}",
+            decoder_blocks.len(),
+        ));
+    }
+    geometry_plans
+        .iter()
+        .cloned()
+        .zip(decoder_blocks)
+        .map(|(geometry, decoder)| SaeOosAtomSpec::new(geometry, decoder.to_owned()))
+        .collect()
 }
 
 /// Assignment family for a frozen-decoder OOS solve.
@@ -127,371 +171,45 @@ fn finite_positive(name: &str, value: f64) -> Result<(), String> {
     }
 }
 
-fn periodic_basis_size(n_harmonics: usize) -> Result<usize, String> {
-    if n_harmonics == 0 || n_harmonics > SAE_MAX_PERIODIC_HARMONICS {
-        return Err(format!(
-            "run_sae_manifold_oos: periodic harmonic count must be in 1..={SAE_MAX_PERIODIC_HARMONICS}; got {n_harmonics}"
-        ));
-    }
-    n_harmonics
-        .checked_mul(2)
-        .and_then(|twice| twice.checked_add(1))
-        .ok_or_else(|| {
-            format!("run_sae_manifold_oos: periodic basis width overflows for H={n_harmonics}")
-        })
-}
-
-fn torus_basis_size(latent_dim: usize, n_harmonics: usize) -> Result<usize, String> {
-    let axis_width = periodic_basis_size(n_harmonics)?;
-    (0..latent_dim).try_fold(1usize, |width, _| {
-        width.checked_mul(axis_width).ok_or_else(|| {
-            format!(
-                "run_sae_manifold_oos: torus basis width overflows for d={latent_dim}, H={n_harmonics}"
-            )
-        })
-    })
-}
-
-fn duchon_atom_m(dim: usize) -> usize {
-    dim / 2 + 2
-}
-
-fn duchon_nullspace_from_m(m: usize) -> DuchonNullspaceOrder {
-    match m {
-        1 => DuchonNullspaceOrder::Zero,
-        2 => DuchonNullspaceOrder::Linear,
-        other => DuchonNullspaceOrder::Degree(other - 1),
-    }
-}
-
-fn euclidean_degree_for_basis_size(dim: usize, basis_size: usize) -> Result<usize, String> {
-    (0..=SAE_EUCLIDEAN_PATCH_RECOVERY_MAX_DEGREE)
-        .find(|&degree| monomial_exponents(dim, degree).len() == basis_size)
-        .ok_or_else(|| {
-            format!(
-                "run_sae_manifold_oos: Euclidean basis width {basis_size} is not a degree <= {SAE_EUCLIDEAN_PATCH_RECOVERY_MAX_DEGREE} monomial basis in dimension {dim}"
-            )
-        })
-}
-
-fn cylinder_line_degree(harmonics: usize, basis_size: usize) -> Result<usize, String> {
-    let circle_width = periodic_basis_size(harmonics)?;
-    if basis_size == 0 || basis_size % circle_width != 0 {
-        return Err(format!(
-            "run_sae_manifold_oos: cylinder basis width {basis_size} is not divisible by persisted circle width {circle_width}"
-        ));
-    }
-    let line_width = basis_size / circle_width;
-    if line_width == 0 {
-        return Err(format!(
-            "run_sae_manifold_oos: cylinder line width must be positive; got {line_width}"
-        ));
-    }
-    Ok(line_width - 1)
-}
-
-fn mobius_width_degree(harmonics: usize, basis_size: usize) -> Result<usize, String> {
-    periodic_basis_size(harmonics)?;
-    let mut candidates = Vec::new();
-    for degree in 1..=SAE_EUCLIDEAN_PATCH_RECOVERY_MAX_DEGREE {
-        let evaluator = MobiusHarmonicEvaluator::new(harmonics, degree)?;
-        if evaluator.basis_size() == basis_size {
-            candidates.push(degree);
-        }
-    }
-    match candidates.as_slice() {
-        [degree] => Ok(*degree),
-        [] => Err(format!(
-            "run_sae_manifold_oos: Mobius H={harmonics} has no width degree <= {SAE_EUCLIDEAN_PATCH_RECOVERY_MAX_DEGREE} matching basis width {basis_size}"
-        )),
-        _ => Err(format!(
-            "run_sae_manifold_oos: Mobius H={harmonics}, width {basis_size} maps to multiple width degrees {candidates:?}"
-        )),
-    }
-}
-
-fn periodic_penalty(n_harmonics: usize) -> Result<Array2<f64>, String> {
-    let m = periodic_basis_size(n_harmonics)?;
-    let mut penalty = Array2::<f64>::zeros((m, m));
-    penalty[[0, 0]] = 1.0e-8;
-    for h in 1..=n_harmonics {
-        let value = (h as f64).powi(4);
-        penalty[[2 * h - 1, 2 * h - 1]] = value;
-        penalty[[2 * h, 2 * h]] = value;
-    }
-    Ok(penalty)
-}
-
-fn sphere_penalty() -> Array2<f64> {
-    let mut penalty = Array2::<f64>::eye(7);
-    penalty[[0, 0]] = 1.0e-8;
-    penalty
-}
-
-fn torus_penalty(evaluator: &TorusHarmonicEvaluator) -> Array2<f64> {
-    let axis_m = evaluator.axis_basis_size();
-    let latent_dim = evaluator.latent_dim;
-    let m = evaluator.basis_size();
-    let mut penalty = Array2::<f64>::zeros((m, m));
-    let mut index = vec![0usize; latent_dim];
-    for flat in 0..m {
-        let squared_frequency: usize = index
-            .iter()
-            .map(|&axis_index| axis_index.div_ceil(2).pow(2))
-            .sum();
-        penalty[[flat, flat]] = if squared_frequency == 0 {
-            1.0e-8
-        } else {
-            (squared_frequency as f64).powi(2)
-        };
-        for axis in (0..latent_dim).rev() {
-            index[axis] += 1;
-            if index[axis] < axis_m {
-                break;
-            }
-            index[axis] = 0;
-        }
-    }
-    penalty
-}
-
-fn euclidean_penalty(dim: usize, degree: usize) -> Array2<f64> {
-    let exponents = monomial_exponents(dim, degree);
-    let mut penalty = Array2::<f64>::zeros((exponents.len(), exponents.len()));
-    for (col, exponent) in exponents.iter().enumerate() {
-        if exponent.iter().any(|&power| power != 0) {
-            penalty[[col, col]] = 1.0;
-        }
-    }
-    penalty
-}
-
-fn analytic_roughness_penalty(
-    evaluator: &dyn SaeBasisSecondJet,
-    coords: ArrayView2<'_, f64>,
-) -> Result<Array2<f64>, String> {
-    let second = evaluator.second_jet(coords)?;
-    let (_, m, d, d_again) = second.dim();
-    if d != d_again {
-        return Err(format!(
-            "run_sae_manifold_oos: analytic second jet must be square in latent axes; got {:?}",
-            second.dim()
-        ));
-    }
-    let mut penalty = Array2::<f64>::zeros((m, m));
-    for row in 0..second.shape()[0] {
-        for a in 0..d {
-            for b in 0..d {
-                for mu in 0..m {
-                    let h_mu = second[[row, mu, a, b]];
-                    for nu in mu..m {
-                        penalty[[mu, nu]] += h_mu * second[[row, nu, a, b]];
-                    }
-                }
-            }
-        }
-    }
-    for mu in 0..m {
-        for nu in (mu + 1)..m {
-            penalty[[nu, mu]] = penalty[[mu, nu]];
-        }
-    }
-    Ok(penalty)
-}
-
 fn build_oos_atom(
     atom_index: usize,
     spec: &SaeOosAtomSpec,
     start_coords: ArrayView2<'_, f64>,
     p_out: usize,
 ) -> Result<SaeManifoldAtom, String> {
-    if spec.latent_dim == 0 {
+    let geometry = spec.geometry();
+    let basis_size = geometry.basis_size()?;
+    let latent_dim = geometry.latent_dim();
+    if start_coords.ncols() != latent_dim {
         return Err(format!(
-            "run_sae_manifold_oos: atom {atom_index} latent_dim must be positive"
+            "run_sae_manifold_oos: atom {atom_index} coordinate width {} does not match geometry latent_dim {latent_dim}",
+            start_coords.ncols()
         ));
     }
-    if spec.basis_size == 0 || spec.decoder.dim() != (spec.basis_size, p_out) {
+    if spec.decoder.dim() != (basis_size, p_out) {
         return Err(format!(
-            "run_sae_manifold_oos: atom {atom_index} decoder shape {:?} must equal declared ({}, {p_out})",
-            spec.decoder.dim(),
-            spec.basis_size
+            "run_sae_manifold_oos: atom {atom_index} decoder shape {:?} must equal plan-derived ({basis_size}, {p_out})",
+            spec.decoder.dim()
         ));
     }
-    if !spec.decoder.iter().all(|value| value.is_finite()) {
+    if spec.decoder.iter().any(|value| !value.is_finite()) {
         return Err(format!(
             "run_sae_manifold_oos: atom {atom_index} decoder contains non-finite values"
         ));
     }
-    if let Some(centers) = &spec.centers {
-        if centers.ncols() != spec.latent_dim || !centers.iter().all(|value| value.is_finite()) {
-            return Err(format!(
-                "run_sae_manifold_oos: atom {atom_index} centers must be finite with {} columns; got {:?}",
-                spec.latent_dim,
-                centers.dim()
-            ));
-        }
-    }
-
-    let (phi, jet, penalty, evaluator): (
-        Array2<f64>,
-        Array3<f64>,
-        Array2<f64>,
-        Arc<dyn SaeBasisSecondJet>,
-    ) = match &spec.basis_kind {
-        SaeAtomBasisKind::Periodic => {
-            if spec.latent_dim != 1 {
-                return Err(format!(
-                    "run_sae_manifold_oos: periodic atom {atom_index} requires latent_dim=1; got {}",
-                    spec.latent_dim
-                ));
-            }
-            let harmonics = spec.n_harmonics.ok_or_else(|| {
-                format!("run_sae_manifold_oos: periodic atom {atom_index} requires n_harmonics")
-            })?;
-            let expected = periodic_basis_size(harmonics)?;
-            if expected != spec.basis_size {
-                return Err(format!(
-                    "run_sae_manifold_oos: periodic atom {atom_index} H={harmonics} builds width {expected}, not declared width {}",
-                    spec.basis_size
-                ));
-            }
-            let evaluator = Arc::new(PeriodicHarmonicEvaluator::new(expected)?);
-            let (phi, jet) = evaluator.evaluate(start_coords)?;
-            (phi, jet, periodic_penalty(harmonics)?, evaluator)
-        }
-        SaeAtomBasisKind::Sphere => {
-            if spec.latent_dim != 2 || spec.basis_size != 7 {
-                return Err(format!(
-                    "run_sae_manifold_oos: sphere atom {atom_index} requires latent_dim=2 and basis_size=7; got dim={}, width={}",
-                    spec.latent_dim, spec.basis_size
-                ));
-            }
-            if spec.n_harmonics.is_some() {
-                return Err(format!(
-                    "run_sae_manifold_oos: sphere atom {atom_index} must not carry harmonic metadata"
-                ));
-            }
-            let evaluator = Arc::new(SphereChartEvaluator);
-            let (phi, jet) = evaluator.evaluate(start_coords)?;
-            (phi, jet, sphere_penalty(), evaluator)
-        }
-        SaeAtomBasisKind::Torus => {
-            let harmonics = spec.n_harmonics.ok_or_else(|| {
-                format!("run_sae_manifold_oos: torus atom {atom_index} requires n_harmonics")
-            })?;
-            let expected = torus_basis_size(spec.latent_dim, harmonics)?;
-            if expected != spec.basis_size {
-                return Err(format!(
-                    "run_sae_manifold_oos: torus atom {atom_index} builds width {expected}, not declared width {}",
-                    spec.basis_size,
-                ));
-            }
-            let evaluator = Arc::new(TorusHarmonicEvaluator::new(spec.latent_dim, harmonics)?);
-            let (phi, jet) = evaluator.evaluate(start_coords)?;
-            let penalty = torus_penalty(&evaluator);
-            (phi, jet, penalty, evaluator)
-        }
-        SaeAtomBasisKind::Duchon => {
-            if spec.n_harmonics.is_some() {
-                return Err(format!(
-                    "run_sae_manifold_oos: Duchon atom {atom_index} must not carry harmonic metadata"
-                ));
-            }
-            let centers = spec.centers.as_ref().ok_or_else(|| {
-                format!("run_sae_manifold_oos: Duchon atom {atom_index} requires centers")
-            })?;
-            let m = duchon_atom_m(spec.latent_dim);
-            let evaluator = Arc::new(DuchonCoordinateEvaluator::new(centers.clone(), m)?);
-            let (phi, jet) = evaluator.evaluate(start_coords)?;
-            let penalty = duchon_sae_atom_penalty(centers.view(), duchon_nullspace_from_m(m))
-                .map_err(|error| error.to_string())?;
-            (phi, jet, penalty, evaluator)
-        }
-        SaeAtomBasisKind::Linear
-        | SaeAtomBasisKind::EuclideanPatch
-        | SaeAtomBasisKind::Poincare => {
-            if spec.n_harmonics.is_some() {
-                return Err(format!(
-                    "run_sae_manifold_oos: polynomial atom {atom_index} must not carry harmonic metadata"
-                ));
-            }
-            let degree = euclidean_degree_for_basis_size(spec.latent_dim, spec.basis_size)?;
-            let evaluator = Arc::new(EuclideanPatchEvaluator::new(spec.latent_dim, degree)?);
-            let (phi, jet) = evaluator.evaluate(start_coords)?;
-            let penalty = euclidean_penalty(spec.latent_dim, degree);
-            (phi, jet, penalty, evaluator)
-        }
-        SaeAtomBasisKind::Cylinder => {
-            if spec.latent_dim != 2 {
-                return Err(format!(
-                    "run_sae_manifold_oos: cylinder atom {atom_index} requires latent_dim=2; got {}",
-                    spec.latent_dim
-                ));
-            }
-            let harmonics = spec.n_harmonics.ok_or_else(|| {
-                format!(
-                    "run_sae_manifold_oos: cylinder atom {atom_index} requires persisted n_harmonics"
-                )
-            })?;
-            let line_degree = cylinder_line_degree(harmonics, spec.basis_size)?;
-            let evaluator = Arc::new(CylinderHarmonicEvaluator::new(harmonics, line_degree)?);
-            let (phi, jet) = evaluator.evaluate(start_coords)?;
-            let penalty = analytic_roughness_penalty(evaluator.as_ref(), start_coords)?;
-            (phi, jet, penalty, evaluator)
-        }
-        SaeAtomBasisKind::Mobius => {
-            if spec.latent_dim != 2 {
-                return Err(format!(
-                    "run_sae_manifold_oos: Mobius atom {atom_index} requires latent_dim=2; got {}",
-                    spec.latent_dim
-                ));
-            }
-            let harmonics = spec.n_harmonics.ok_or_else(|| {
-                format!("run_sae_manifold_oos: Mobius atom {atom_index} requires n_harmonics")
-            })?;
-            let width_degree = mobius_width_degree(harmonics, spec.basis_size)?;
-            let evaluator = Arc::new(MobiusHarmonicEvaluator::new(harmonics, width_degree)?);
-            let (phi, jet) = evaluator.evaluate(start_coords)?;
-            let penalty = analytic_roughness_penalty(evaluator.as_ref(), start_coords)?;
-            (phi, jet, penalty, evaluator)
-        }
-        SaeAtomBasisKind::FiniteSet => {
-            return Err(format!(
-                "run_sae_manifold_oos: finite-set atom {atom_index} has no continuous OOS coordinate solve"
-            ));
-        }
-        SaeAtomBasisKind::Precomputed(label) => {
-            return Err(format!(
-                "run_sae_manifold_oos: precomputed atom {atom_index} ({label:?}) has no analytic basis refresh"
-            ));
-        }
-    };
-
-    if phi.dim() != (start_coords.nrows(), spec.basis_size)
-        || jet.dim() != (start_coords.nrows(), spec.basis_size, spec.latent_dim)
-        || penalty.dim() != (spec.basis_size, spec.basis_size)
-    {
-        return Err(format!(
-            "run_sae_manifold_oos: atom {atom_index} rebuilt shapes phi={:?}, jet={:?}, penalty={:?} disagree with (N={}, M={}, D={})",
-            phi.dim(),
-            jet.dim(),
-            penalty.dim(),
-            start_coords.nrows(),
-            spec.basis_size,
-            spec.latent_dim
-        ));
-    }
+    let bundle = geometry.evaluate_bundle(start_coords)?;
 
     Ok(SaeManifoldAtom::new_with_provided_function_gram(
         format!("oos_atom_{atom_index}"),
-        spec.basis_kind.clone(),
-        spec.latent_dim,
-        phi,
-        jet,
+        geometry.kind().clone(),
+        latent_dim,
+        bundle.basis_values,
+        bundle.basis_jacobian,
         spec.decoder.clone(),
-        penalty,
+        bundle.reference_penalty,
     )?
-    .with_basis_second_jet(evaluator))
+    .with_basis_second_jet(bundle.evaluator)
+    .with_geometry_plan(geometry.clone())?)
 }
 
 fn build_rho(
@@ -602,9 +320,9 @@ pub fn run_sae_manifold_oos(request: SaeOosRequest) -> Result<SaeOosReport, Stri
 
     let basis_kinds: Vec<SaeAtomBasisKind> = atom_specs
         .iter()
-        .map(|spec| spec.basis_kind.clone())
+        .map(|spec| spec.basis_kind().clone())
         .collect();
-    let latent_dims: Vec<usize> = atom_specs.iter().map(|spec| spec.latent_dim).collect();
+    let latent_dims: Vec<usize> = atom_specs.iter().map(SaeOosAtomSpec::latent_dim).collect();
     let cold_coords = initial_coords.is_none();
     let cold_logits = initial_logits.is_none();
     let start_coords = match initial_coords {
@@ -677,7 +395,7 @@ pub fn run_sae_manifold_oos(request: SaeOosRequest) -> Result<SaeOosReport, Stri
     let mut atoms = Vec::with_capacity(k_atoms);
     for (atom_index, spec) in atom_specs.iter().enumerate() {
         let coords = start_coords
-            .slice(s![atom_index, 0..n_obs, 0..spec.latent_dim])
+            .slice(s![atom_index, 0..n_obs, 0..spec.latent_dim()])
             .to_owned();
         atoms.push(build_oos_atom(atom_index, spec, coords.view(), p_out)?);
         coord_blocks.push(coords);
@@ -728,7 +446,7 @@ pub fn run_sae_manifold_oos(request: SaeOosRequest) -> Result<SaeOosReport, Stri
         .enumerate()
     {
         atom_reports.push(SaeOosAtomReport {
-            basis_kind: atom_specs[atom_index].basis_kind.clone(),
+            basis_kind: atom_specs[atom_index].basis_kind().clone(),
             decoder: term.atoms[atom_index].decoder_coefficients.clone(),
             coords,
             assignments: assignments.column(atom_index).to_owned(),
@@ -739,7 +457,7 @@ pub fn run_sae_manifold_oos(request: SaeOosRequest) -> Result<SaeOosReport, Stri
     let active_mask = (0..k_atoms)
         .map(|atom_index| assignments.column(atom_index).sum() > SAE_ACTIVE_ASSIGNMENT_MASS)
         .collect();
-    let streaming_plan = term.streaming_plan();
+    let streaming_plan = term.streaming_plan()?;
 
     Ok(SaeOosReport {
         atoms: atom_reports,
@@ -914,10 +632,10 @@ fn build_steer_term(request: SteerTermRequest) -> Result<SaeManifoldTerm, String
     let mut atoms = Vec::with_capacity(k_atoms);
     for (atom_index, spec) in atom_specs.iter().enumerate() {
         let block = &coords[atom_index];
-        if block.dim() != (n_obs, spec.latent_dim) {
+        if block.dim() != (n_obs, spec.latent_dim()) {
             return Err(format!(
                 "{caller}: coords[{atom_index}] must be (N, d)=({n_obs}, {}); got {:?}",
-                spec.latent_dim,
+                spec.latent_dim(),
                 block.dim()
             ));
         }
@@ -931,7 +649,7 @@ fn build_steer_term(request: SteerTermRequest) -> Result<SaeManifoldTerm, String
     }
     let manifolds = atom_specs
         .iter()
-        .map(|spec| spec.basis_kind.latent_manifold(spec.latent_dim))
+        .map(|spec| spec.basis_kind().latent_manifold(spec.latent_dim()))
         .collect();
     let assignment_state =
         SaeAssignment::from_blocks_with_mode_and_manifolds(logits, coord_blocks, manifolds, mode)?;
@@ -1018,12 +736,13 @@ pub struct SaeSteerToTargetRequest {
 }
 
 /// Solve for the amplitude that realizes `target_nats` on atom `atom_k`'s chord.
-/// The optional `probe` (a patched-forward KL callback, `a → KL`) drives the
-/// closed-loop secant correction and the readout-KL radius; with `probe = None`
-/// the returned [`TargetDosePlan`] is the unvalidated closed-form seed.
+/// The optional plan-aware probe drives the bracketed closed-loop correction and
+/// records exact directional local-Fisher and patched-forward measurements for
+/// the same effective delta; with `probe = None` the returned [`TargetDosePlan`]
+/// is the exact-factor-only closed-form seed.
 pub fn run_sae_manifold_steer_to_target(
     request: SaeSteerToTargetRequest,
-    probe: Option<&mut PatchedForwardKl<'_>>,
+    probe: Option<&mut AppliedDoseProbe<'_>>,
 ) -> Result<TargetDosePlan, String> {
     let SaeSteerToTargetRequest {
         atoms,
@@ -1069,6 +788,7 @@ pub fn run_sae_manifold_steer_to_target(
         },
         probe,
     )
+    .map_err(|error| error.to_string())
 }
 
 /// Fully owned, Python-free request to certify an externally-trained
@@ -1076,7 +796,8 @@ pub fn run_sae_manifold_steer_to_target(
 /// frozen dictionary [`run_sae_manifold_oos`] / [`run_sae_manifold_steer`]
 /// rebuild from [`SaeOosAtomSpec`] + trained coordinates/logits — no
 /// coordinate or decoder solve; the caller's own (e.g. torch) training loop
-/// already produced them — installs it VERBATIM as
+/// already produced them. It maps physical target/decoder columns into the
+/// explicitly declared Tier-0 frame, installs that exact state as
 /// [`SaeCertifyRequest::base_term`], and delegates to
 /// [`run_sae_manifold_certify`] for the shared post-fit diagnostics /
 /// anytime-valid structure certificate pipeline. This is the entry a torch-lane
@@ -1084,11 +805,20 @@ pub fn run_sae_manifold_steer_to_target(
 /// without pretending a stationarity certificate exists for state this entry
 /// never optimized.
 pub struct SaeCertifyExternalRequest {
-    /// The training target the externally-trained decoder was fit against.
+    /// The training target in the same physical output frame exposed by the
+    /// persisted decoder blocks.
     pub target: Array2<f64>,
     /// Persisted trained atoms (decoder + basis schema), identical to the OOS
     /// dictionary definition.
     pub atoms: Vec<SaeOosAtomSpec>,
+    /// Optional shared Tier-0 mean peeled before training. When present, the
+    /// installed state is audited against `target - mean`, then certified
+    /// reconstructions are lifted back into the physical frame.
+    pub tier0_mean: Option<Array1<f64>>,
+    /// Optional positive Tier-0 column scale used during training. Persisted
+    /// decoder blocks are physical, so both target and decoder columns are
+    /// divided by this scale before the exact installed-state audit.
+    pub tier0_scale: Option<Array1<f64>>,
     /// The model's TRAINED per-row on-manifold coordinates, one `(n_obs,
     /// latent_dim)` block per atom.
     pub coords: Vec<Array2<f64>>,
@@ -1128,13 +858,16 @@ pub struct SaeCertifyExternalRequest {
 /// [`run_sae_manifold_oos`] / [`run_sae_manifold_steer`] (same
 /// [`SaeOosAtomSpec`] contract) so a torch-lane caller's decoder/coords/logits
 /// rebuild into the identical dictionary a native fit or OOS encode would, then
-/// hands the rebuilt term to [`run_sae_manifold_certify`] verbatim.
+/// hands the exact rebuilt internal-frame term to
+/// [`run_sae_manifold_certify`].
 pub fn run_sae_manifold_certify_external(
     request: SaeCertifyExternalRequest,
-) -> Result<SaeFitReport, SaeFitError> {
+) -> Result<super::SaeExternalCertificationOutcome, SaeFitError> {
     let SaeCertifyExternalRequest {
-        target,
-        atoms: atom_specs,
+        mut target,
+        atoms: mut atom_specs,
+        tier0_mean,
+        tier0_scale,
         coords,
         logits,
         assignment,
@@ -1173,6 +906,49 @@ pub fn run_sae_manifold_certify_external(
             "run_sae_manifold_certify_external: n_obs and p_out must be positive; got ({n_obs}, {p_out})"
         )
         .into());
+    }
+    if !target.iter().all(|value| value.is_finite()) {
+        return Err("run_sae_manifold_certify_external: target must be finite"
+            .to_string()
+            .into());
+    }
+    if let Some(mean) = tier0_mean.as_ref() {
+        if mean.len() != p_out || !mean.iter().all(|value| value.is_finite()) {
+            return Err(format!(
+                "run_sae_manifold_certify_external: tier0_mean must be a finite length-{p_out} vector; got length {}",
+                mean.len()
+            )
+            .into());
+        }
+        for mut row in target.rows_mut() {
+            row -= mean;
+        }
+    }
+    if let Some(scale) = tier0_scale.as_ref() {
+        if scale.len() != p_out || !scale.iter().all(|value| value.is_finite() && *value > 0.0) {
+            return Err(format!(
+                "run_sae_manifold_certify_external: tier0_scale must be a finite positive length-{p_out} vector; got length {}",
+                scale.len()
+            )
+            .into());
+        }
+        for (atom_index, spec) in atom_specs.iter_mut().enumerate() {
+            if spec.decoder.ncols() != p_out {
+                return Err(format!(
+                    "run_sae_manifold_certify_external: atoms[{atom_index}] decoder must have {p_out} output columns before Tier-0 conversion; got {}",
+                    spec.decoder.ncols()
+                )
+                .into());
+            }
+            for (column, value) in spec.decoder.columns_mut().into_iter().zip(scale) {
+                for coefficient in column {
+                    *coefficient /= *value;
+                }
+            }
+        }
+        for mut row in target.rows_mut() {
+            row /= scale;
+        }
     }
     if logits.dim() != (n_obs, k_atoms) || !logits.iter().all(|value| value.is_finite()) {
         return Err(format!(
@@ -1230,15 +1006,15 @@ pub fn run_sae_manifold_certify_external(
         }
     };
 
-    let latent_dims: Vec<usize> = atom_specs.iter().map(|spec| spec.latent_dim).collect();
+    let latent_dims: Vec<usize> = atom_specs.iter().map(SaeOosAtomSpec::latent_dim).collect();
     let mut coord_blocks = Vec::with_capacity(k_atoms);
     let mut atoms = Vec::with_capacity(k_atoms);
     for (atom_index, spec) in atom_specs.iter().enumerate() {
         let block = &coords[atom_index];
-        if block.dim() != (n_obs, spec.latent_dim) {
+        if block.dim() != (n_obs, spec.latent_dim()) {
             return Err(format!(
                 "run_sae_manifold_certify_external: coords[{atom_index}] must be (N, d)=({n_obs}, {}); got {:?}",
-                spec.latent_dim,
+                spec.latent_dim(),
                 block.dim()
             )
             .into());
@@ -1254,7 +1030,7 @@ pub fn run_sae_manifold_certify_external(
     }
     let manifolds = atom_specs
         .iter()
-        .map(|spec| spec.basis_kind.latent_manifold(spec.latent_dim))
+        .map(|spec| spec.basis_kind().latent_manifold(spec.latent_dim()))
         .collect();
     let assignment_state =
         SaeAssignment::from_blocks_with_mode_and_manifolds(logits, coord_blocks, manifolds, mode)?;
@@ -1265,7 +1041,7 @@ pub fn run_sae_manifold_certify_external(
 
     let initial_rho = build_rho(regularization, &latent_dims, mode)?;
 
-    run_sae_manifold_certify(SaeCertifyRequest {
+    let outcome = run_sae_manifold_certify(SaeCertifyRequest {
         base_term,
         target,
         registry,
@@ -1278,8 +1054,36 @@ pub fn run_sae_manifold_certify_external(
         isometry_pin_active,
         metric_provenance,
         run_structure_search,
-        cancel: None,
-    })
+    })?;
+    let mut report = match outcome {
+        super::SaeExternalCertificationOutcome::Certified(report) => report,
+        super::SaeExternalCertificationOutcome::NonStationary(report) => {
+            return Ok(super::SaeExternalCertificationOutcome::NonStationary(
+                report,
+            ));
+        }
+    };
+    if let Some(mean) = tier0_mean.as_ref() {
+        report
+            .term
+            .set_tier0_mean(mean.clone())
+            .map_err(SaeFitError::Fit)?;
+    }
+    if let Some(scale) = tier0_scale.as_ref() {
+        report
+            .term
+            .set_tier0_scale(scale.clone())
+            .map_err(SaeFitError::Fit)?;
+    }
+    for mut row in report.fitted.rows_mut() {
+        if let Some(scale) = tier0_scale.as_ref() {
+            row *= scale;
+        }
+        if let Some(mean) = tier0_mean.as_ref() {
+            row += mean;
+        }
+    }
+    Ok(super::SaeExternalCertificationOutcome::Certified(report))
 }
 
 #[cfg(test)]
@@ -1292,15 +1096,19 @@ mod tests {
             Array2::from_shape_vec((4, 2), vec![0.0, 1.0, 1.0, 0.0, 0.0, -1.0, -1.0, 0.0]).unwrap();
         SaeOosRequest {
             target,
-            atoms: vec![SaeOosAtomSpec {
-                basis_kind: SaeAtomBasisKind::Periodic,
-                latent_dim: 1,
-                decoder: Array2::from_shape_vec((3, 2), vec![0.0, 0.0, 1.0, 0.0, 0.0, 1.0])
+            atoms: vec![
+                SaeOosAtomSpec::new(
+                    SaeAtomGeometryPlan::new(
+                        SaeAtomBasisKind::Periodic,
+                        1,
+                        crate::manifold::SaeBasisResolution::PeriodicHarmonics { order: 1 },
+                        crate::manifold::SaeReferenceMetricPlan::UnitCircle,
+                    )
                     .unwrap(),
-                centers: None,
-                n_harmonics: Some(1),
-                basis_size: 3,
-            }],
+                    Array2::from_shape_vec((3, 2), vec![0.0, 0.0, 1.0, 0.0, 0.0, 1.0]).unwrap(),
+                )
+                .unwrap(),
+            ],
             assignment: SaeOosAssignmentKind::Softmax,
             alpha: 1.0,
             tau: 0.5,
@@ -1317,6 +1125,123 @@ mod tests {
             top_k: None,
             hybrid_linear_images: Vec::new(),
         }
+    }
+
+    fn assert_deck_twin_rebuild(
+        geometry: SaeAtomGeometryPlan,
+        coords: Array2<f64>,
+        derivative_signs: [f64; 2],
+    ) {
+        let width = geometry.basis_size().unwrap();
+        let spec = SaeOosAtomSpec::new(geometry.clone(), Array2::zeros((width, 1))).unwrap();
+        let atom = build_oos_atom(0, &spec, coords.view(), 1).unwrap();
+        assert_eq!(atom.geometry_plan(), Some(&geometry));
+        assert_eq!(atom.basis_kind(), geometry.kind());
+        assert_eq!(atom.latent_dim(), 2);
+        assert_eq!(atom.smooth_penalty()[[0, 0]], 0.0);
+        for column in 0..width {
+            assert!(
+                (atom.basis_values[[0, column]] - atom.basis_values[[1, column]]).abs() <= 1.0e-12,
+                "deck-twin value mismatch at column {column}"
+            );
+            for axis in 0..2 {
+                assert!(
+                    (atom.basis_jacobian[[1, column, axis]]
+                        - derivative_signs[axis] * atom.basis_jacobian[[0, column, axis]])
+                    .abs()
+                        <= 1.0e-11,
+                    "deck-twin derivative mismatch at column {column}, axis {axis}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn typed_oos_replays_projective_plane_deck_invariance() {
+        let latitude = 0.31;
+        let longitude = -0.47;
+        let coords = Array2::from_shape_vec(
+            (2, 2),
+            vec![
+                latitude,
+                longitude,
+                -latitude,
+                longitude + std::f64::consts::PI,
+            ],
+        )
+        .unwrap();
+        assert_deck_twin_rebuild(
+            SaeAtomGeometryPlan::projective_plane(2).unwrap(),
+            coords,
+            [-1.0, 1.0],
+        );
+    }
+
+    #[test]
+    fn typed_oos_replays_klein_bottle_deck_invariance() {
+        let theta = 0.13;
+        let phi = 0.27;
+        let coords = Array2::from_shape_vec((2, 2), vec![theta, phi, theta + 0.5, -phi]).unwrap();
+        assert_deck_twin_rebuild(
+            SaeAtomGeometryPlan::klein_bottle(2).unwrap(),
+            coords,
+            [1.0, -1.0],
+        );
+    }
+
+    #[test]
+    fn typed_oos_spec_rejects_decoder_width_independent_of_plan() {
+        let geometry = SaeAtomGeometryPlan::projective_plane(1).unwrap();
+        let width = geometry.basis_size().unwrap();
+        assert!(SaeOosAtomSpec::new(geometry, Array2::zeros((width + 1, 1))).is_err());
+    }
+
+    #[test]
+    fn geometry_plan_attachment_is_one_shot_and_gram_checked() {
+        let geometry = SaeAtomGeometryPlan::projective_plane(1).unwrap();
+        let coords = Array2::from_shape_vec((1, 2), vec![0.2, 0.3]).unwrap();
+        let width = geometry.basis_size().unwrap();
+        let spec = SaeOosAtomSpec::new(geometry.clone(), Array2::zeros((width, 1))).unwrap();
+        let atom = build_oos_atom(0, &spec, coords.view(), 1).unwrap();
+        assert!(atom.with_geometry_plan(geometry.clone()).is_err());
+
+        let bundle = geometry.evaluate_bundle(coords.view()).unwrap();
+        let mut wrong_penalty = bundle.reference_penalty;
+        wrong_penalty[[1, 1]] += 1.0;
+        let mismatched = SaeManifoldAtom::new_with_provided_function_gram(
+            "mismatched",
+            geometry.kind().clone(),
+            geometry.latent_dim(),
+            bundle.basis_values,
+            bundle.basis_jacobian,
+            Array2::zeros((width, 1)),
+            wrong_penalty,
+        )
+        .unwrap()
+        .with_basis_second_jet(bundle.evaluator)
+        .with_geometry_plan(geometry);
+        assert!(mismatched.is_err());
+    }
+
+    #[test]
+    fn geometry_plan_atomically_sets_reference_metric_provenance() {
+        let reference_coords = Array2::from_shape_vec((2, 2), vec![0.1, 0.2, -0.2, 0.1]).unwrap();
+        let geometry = SaeAtomGeometryPlan::new(
+            SaeAtomBasisKind::Poincare,
+            2,
+            crate::manifold::SaeBasisResolution::Polynomial { degree: 2 },
+            crate::manifold::SaeReferenceMetricPlan::UnitPoincareBall {
+                reference_coords: reference_coords.clone(),
+            },
+        )
+        .unwrap();
+        let width = geometry.basis_size().unwrap();
+        let spec = SaeOosAtomSpec::new(geometry, Array2::zeros((width, 1))).unwrap();
+        let atom = build_oos_atom(0, &spec, reference_coords.view(), 1).unwrap();
+        assert_eq!(
+            atom.reference_roughness_kind(),
+            crate::manifold::SaeReferenceRoughnessKind::PoincareConformalDirichlet
+        );
     }
 
     #[test]
@@ -1373,7 +1298,7 @@ mod tests {
     #[test]
     fn typed_oos_entry_rejects_decoder_schema_drift() {
         let mut request = periodic_request();
-        request.atoms[0].basis_size = 5;
+        request.atoms[0].decoder = Array2::zeros((5, 2));
         let error = run_sae_manifold_oos(request).err().unwrap();
         assert!(error.contains("decoder shape"), "{error}");
     }

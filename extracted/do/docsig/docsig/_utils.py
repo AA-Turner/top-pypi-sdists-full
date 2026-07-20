@@ -13,6 +13,10 @@ from pathlib import Path as _Path
 from .messages import TEMPLATE as _TEMPLATE
 from .messages import E as _E
 
+SENTENCE_ABBREVIATIONS = frozenset(
+    {"e.g.", "i.e.", "mr.", "dr.", "vs.", "etc.", "u.s."},
+)
+
 
 def almost_equal(str1: str, str2: str, mini: float, maxi: float) -> bool:
     """Return True if the strings are equal or ratio in (mini, maxi).
@@ -67,14 +71,16 @@ def sentence_tokenizer(text: str) -> list[str]:
     :param text: Input string.
     :return: Non-overlapping sentence strings in order.
     """
-    abbreviations = {"e.g.", "i.e.", "mr.", "dr.", "vs.", "etc.", "u.s."}
+    abbreviations = SENTENCE_ABBREVIATIONS
     result = []
     start = 0
 
-    for match in _re.finditer(r"[.!?]\s+", text):
+    for match in _re.finditer(r"(?<!\.)[.!?]\s+", text):
         end = match.end()
         candidate = text[start:end].strip()
-        last_word = candidate.lower().split()[-1]
+        raw_last = candidate.lower().split()[-1]
+        # strip leading punctuation so "(e.g." matches "e.g."
+        last_word = _re.sub(r"^[^\w.]+", "", raw_last)
         if last_word in abbreviations:
             continue
 

@@ -2,7 +2,7 @@ use super::*;
 
 pub(crate) const SAE_BYTES_PER_F64: usize = 8;
 
-pub(crate) const SAE_HOST_IN_CORE_FALLBACK_BYTES: usize = 2 * 1024 * 1024 * 1024;
+pub(crate) const SAE_HOST_IN_CORE_USEFUL_WORK_FLOOR_BYTES: usize = 2 * 1024 * 1024 * 1024;
 
 pub(crate) const SAE_HOST_MEMORY_BUDGET_FRACTION_NUMERATOR: usize = 3;
 
@@ -35,22 +35,10 @@ pub(crate) const SAE_HOST_MEMORY_RESERVE_FLOOR_BYTES: usize = 256 * 1024 * 1024;
 /// below every supported compute-capability generation and every MIG slice), so
 /// a plan whose peak fits under 64 MiB cannot have its admission flipped by the
 /// device-budget cap. Those CPU-sized shapes therefore skip
-/// `GpuRuntime::global()` — and the CUDA primary-context creation on all GPUs
+/// device-runtime resolution — and the CUDA primary-context creation on all GPUs
 /// that the first probe performs — entirely. Larger shapes still probe and use
 /// the exact device-aware budget as before.
 pub(crate) const SAE_MIN_DEVICE_POOL_IN_CORE_BUDGET_BYTES: usize = 64 * 1024 * 1024;
-
-/// Absolute floor for the *matrix-free streaming* admission test. The chunked
-/// matrix-free plan exists precisely to bound peak memory by the chunk window
-/// rather than the full problem, so it must stay admittable even when the
-/// in-core budget collapses to ~0 (memory-starved / oversubscribed box, or a
-/// cgroup whose `available − reserve` underflows to zero). A starved box can
-/// always afford a few chunk windows plus the border vector workspace; gating
-/// streaming on the same budget as the dense direct plan would refuse the one
-/// plan that was designed to run there. The dense direct path keeps gating on
-/// the real budget — it can genuinely OOM — so this floor only ever relaxes the
-/// streaming fallback, never admits a full-batch in-core solve.
-pub(crate) const SAE_MIN_STREAMING_BUDGET_FLOOR_BYTES: usize = 64 * 1024 * 1024;
 
 /// Absolute size below which a *direct* (dense, full-batch) plan is always
 /// admissible provided it fits the reported available memory, regardless of the
@@ -74,7 +62,7 @@ pub struct SaeStreamingPlan {
     pub estimated_direct_peak_bytes: usize,
     pub estimated_matrix_free_peak_bytes: usize,
     pub in_core_budget_bytes: usize,
-    pub host_available_bytes: usize,
+    pub process_available_bytes: usize,
     pub direct_admitted: bool,
     pub matrix_free_admitted: bool,
 }
@@ -87,7 +75,7 @@ pub(crate) fn sae_streaming_plan_from_budget(
     border_dim: usize,
     in_core_budget_bytes: usize,
     chunk_window_bytes: usize,
-    host_available_bytes: usize,
+    process_available_bytes: usize,
 ) -> SaeStreamingPlan {
     let per_row_words = total_basis
         .saturating_mul(1 + d_max)
@@ -117,9 +105,7 @@ pub(crate) fn sae_streaming_plan_from_budget(
     let direct_peak_bytes = full_batch_bytes
         .saturating_add(row_cross_bytes)
         .saturating_add(dense_schur_bytes);
-    // Matrix-free streaming budget, floored so the chunked/sparse plan stays
-    // admittable on a starved box (see SAE_MIN_STREAMING_BUDGET_FLOOR_BYTES).
-    let matrix_free_budget = in_core_budget_bytes.max(SAE_MIN_STREAMING_BUDGET_FLOOR_BYTES);
+    let matrix_free_budget = in_core_budget_bytes;
     let chunk_resident_bytes = chunk_window_bytes.min(full_batch_bytes.max(per_row_bytes));
     let border_vector_bytes = border_dim
         .saturating_mul(SAE_BYTES_PER_F64)
@@ -163,15 +149,12 @@ pub(crate) fn sae_streaming_plan_from_budget(
     // fallback). It only ever admits plans too small to OOM, so large plans stay
     // gated on the real budget and still stream.
     let direct_fits_tiny = direct_peak_bytes <= SAE_DIRECT_ALWAYS_ADMIT_BYTES
-        && direct_peak_bytes <= host_available_bytes;
+        && direct_peak_bytes <= process_available_bytes;
     let direct_admitted = direct_peak_bytes <= in_core_budget_bytes || direct_fits_tiny;
-    // The matrix-free streaming plan is the bounded-memory fallback: its peak is
-    // the chunk window plus the row-cross and border-vector workspace, not the
-    // full batch. Admit it against the larger of the in-core budget and an
-    // absolute streaming floor so a starved box (budget collapsed to ~0) can
-    // still run the plan that was designed for exactly that regime. The direct
-    // (dense, full-batch) admission above is intentionally NOT floored — it can
-    // OOM, so it stays gated on the real budget.
+    // Matrix-free streaming bounds its peak to the chunk, row-cross and border
+    // workspaces, but it is still a real allocation. Admit it against the same
+    // authoritative process budget: a genuine zero means exhausted memory,
+    // not permission to manufacture a positive allowance.
     let matrix_free_admitted = matrix_free_peak_bytes <= matrix_free_budget;
     let rows_per_chunk = (chunk_window_bytes / per_row_bytes).max(SAE_MIN_STREAMING_CHUNK_ROWS);
     SaeStreamingPlan {
@@ -187,7 +170,7 @@ pub(crate) fn sae_streaming_plan_from_budget(
         estimated_direct_peak_bytes: direct_peak_bytes,
         estimated_matrix_free_peak_bytes: matrix_free_peak_bytes,
         in_core_budget_bytes,
-        host_available_bytes,
+        process_available_bytes,
         direct_admitted,
         matrix_free_admitted,
     }
@@ -199,7 +182,8 @@ pub fn sae_streaming_plan_for_shape(
     k_atoms: usize,
     d_max: usize,
     border_dim: usize,
-) -> SaeStreamingPlan {
+    gpu_policy: gam_gpu::GpuPolicy,
+) -> Result<SaeStreamingPlan, String> {
     // Size gate BEFORE any CUDA probe (startup-tax fix, #1017 ordering): decide
     // admission against `min(host budget, conservative device-pool floor)`
     // first. If the direct plan is admitted even under that pessimistic budget,
@@ -211,7 +195,7 @@ pub fn sae_streaming_plan_for_shape(
     // consumer's threshold whichever budget is installed). Return the
     // HOST-budget plan — carrying the honest CPU-fit budget in
     // `in_core_budget_bytes` for downstream gates like the #2080 escalation
-    // ledger — without touching `GpuRuntime::global()`, i.e. without creating a
+    // ledger — without resolving a device runtime, i.e. without creating a
     // CUDA primary context on every GPU for a fit that stays on the CPU. Larger
     // shapes fall through to the exact probed-budget logic below, bit-for-bit
     // as before.
@@ -239,7 +223,7 @@ pub fn sae_streaming_plan_for_shape(
         // (dense-vs-SLQ evidence routing) on the same branch a probed budget
         // would have chosen — on a starved host whose budget collapsed below
         // even a tiny Schur, fall through to the exact probed logic.
-        return sae_streaming_plan_from_budget(
+        return Ok(sae_streaming_plan_from_budget(
             n_obs,
             total_basis,
             k_atoms,
@@ -248,10 +232,12 @@ pub fn sae_streaming_plan_for_shape(
             host_budget,
             host_window,
             host_available,
-        );
+        ));
     }
     let (budget, chunk_window, host_available) =
-        match crate::gpu::device_runtime::GpuRuntime::global() {
+        match crate::gpu::device_runtime::GpuRuntime::resolve(gpu_policy)
+            .map_err(|error| format!("SAE streaming-plan CUDA admission failed: {error}"))?
+        {
             Some(rt) if rt.device_count() > 0 => {
                 let aggregate_budget: usize = rt
                     .device_ordinals()
@@ -262,7 +248,7 @@ pub fn sae_streaming_plan_for_shape(
                     let per_device_budget = aggregate_budget / rt.device_count();
                     let window = (per_device_budget / 16)
                         .max(SAE_CPU_L2_CACHE_BYTES * SAE_CHUNK_CACHE_MULTIPLE);
-                    let host_available = sae_host_available_memory_bytes();
+                    let host_available = sae_process_available_memory_bytes();
                     (
                         (aggregate_budget / 4).min(host_available),
                         window,
@@ -294,7 +280,7 @@ pub fn sae_streaming_plan_for_shape(
                 )
             }
         };
-    sae_streaming_plan_from_budget(
+    Ok(sae_streaming_plan_from_budget(
         n_obs,
         total_basis,
         k_atoms,
@@ -303,7 +289,7 @@ pub fn sae_streaming_plan_for_shape(
         budget,
         chunk_window,
         host_available,
-    )
+    ))
 }
 
 impl SaeStreamingPlan {
@@ -345,7 +331,8 @@ impl SaeStreamingPlan {
         // repulsion (`add_sae_decoder_repulsion`) keeps atoms apart so the
         // collapse rarely forms; this is the solve-path backstop for when it
         // still does mid-iterate.
-        options.schur_pd_floor = Some(gam_solve::arrow_schur::SPECTRAL_DEFLATION_REL_FLOOR);
+        options.newton_schur_tikhonov_rel_floor =
+            Some(gam_solve::arrow_schur::SPECTRAL_DEFLATION_REL_FLOOR);
         options
     }
 
@@ -359,29 +346,22 @@ impl SaeStreamingPlan {
 //
 // The front door ([`crate::front_door::admit_topk_manifold`]) routes a hard
 // TopK-support fit ([`crate::assignment::AssignmentMode::TopK`]) at K > P to
-// the CURVED framed/streaming engine instead of the linear sparse-code
+// the CURVED support-sparse engine instead of the linear sparse-code
 // trainer. This section owns that lane's memory ledger. The honest shape is:
 //
 //   * assignment state  O(N · k_active): per-row TopK active sets — `k` active
 //     indices + `k` gate values + `k · d_max` on-manifold coordinates per row.
 //     TopK logits are read-only routing inputs (never live Newton state), so
 //     no dense `N×K` gate state exists in this lane.
-//   * routing window    O(chunk_rows · K): dense scores are materialized one
-//     row chunk at a time to select each row's top-k support, then dropped.
-//   * framed decoder    O(K · M · r): per-atom decoder blocks in the reduced
-//     Grassmann frame (`M_k × r_k`, re-expanded through `U_k` only at
-//     emission — issue #972 / #2135), never the full `K · M · P` slab.
-//   * border workspace  O(K · M · r · vectors): the framed arrow-Schur border
+//   * routing workspace O(P + k_active · (2 + d_max)): one centered response
+//     row and its bounded TopK selection heap. Atom scores are consumed one at
+//     a time, so the workspace is independent of K.
+//   * decoder           O(K · M · P): per-atom final-function coefficient
+//     blocks. Zero-occupancy atoms are pruned before these blocks are built.
+//   * border workspace  O(K · M · P · vectors): the support Arrow-Schur border
 //     solve's Krylov vectors, at the crate-wide
 //     `SAE_MATRIX_FREE_VECTOR_WORKSPACE_MULTIPLIER` convention.
 // ---------------------------------------------------------------------------
-
-/// Admission-time bound on the framed decoder rank `r` per atom. Mirrors the
-/// in-frame curved cascade's learned-rank upper clamp
-/// (`InFrameCurvedConfig::frame_rank_max = 32`, bracketing the reviewer's
-/// `r ≈ 8–32` band): a framed atom's border block is `M_k × min(P, r)`, so the
-/// admission ledger charges `min(P, 32)` per output direction.
-pub(crate) const SAE_TOPK_ADMISSION_FRAME_RANK_BOUND: usize = 32;
 
 /// Admission-time upper bound on a seedable atom's basis size `M_k`, from the
 /// `d_max` the front door knows before any basis is built. Covers every kind
@@ -416,52 +396,30 @@ pub struct SaeTopKCurvedBudget {
     pub support_k: usize,
     /// Maximum per-atom latent dimension.
     pub d_max: usize,
-    /// `N·K·(1+d_max)·8` — the dense routing-logit + coordinate seed the
-    /// resident driver materializes today at the FFI seam. Gates the RESIDENT
-    /// sub-lane; the chunked-seed driver (integration seam below) removes it.
-    pub resident_seed_bytes: usize,
     /// `N·k_active·(2+d_max)·8` — per-row TopK active sets (indices + gate
     /// values + coordinates), the honest `O(N·k_active)` assignment state.
     pub active_state_bytes: usize,
-    /// `seed_chunk_rows·K·8` — the transient dense-score window used to select
-    /// each chunk's top-k support; never `N·K` resident.
-    pub routing_window_bytes: usize,
-    /// `K·M̂·r̂·8` — framed per-atom decoder blocks at the admission bounds
-    /// `M̂ = sae_topk_admission_atom_basis_bound(d_max)`,
-    /// `r̂ = min(P, SAE_TOPK_ADMISSION_FRAME_RANK_BOUND)`.
-    pub framed_decoder_bytes: usize,
-    /// `K·M̂·r̂·8·SAE_MATRIX_FREE_VECTOR_WORKSPACE_MULTIPLIER` — the framed
-    /// border solve's Krylov vector workspace.
+    /// `(P + k_active·(2+d_max))·8` — the largest row-local routing workspace.
+    /// Scores are consumed atom-by-atom into the bounded support heap, so this
+    /// charge is independent of K.
+    pub routing_workspace_bytes: usize,
+    /// `K·M̂·P·8` — the conservative pre-routing decoder bound, where
+    /// `M̂ = sae_topk_admission_atom_basis_bound(d_max)`. The realized decoder
+    /// is smaller whenever routing prunes zero-occupancy atoms.
+    pub decoder_bytes: usize,
+    /// `K·M̂·P·8·SAE_MATRIX_FREE_VECTOR_WORKSPACE_MULTIPLIER` — the
+    /// support Arrow-Schur border solve's vector workspace.
     pub border_vector_bytes: usize,
-    /// Streaming-lane peak: `active_state + routing_window + framed_decoder +
+    /// Support-lane peak: `active_state + routing_workspace + decoder +
     /// border_vector` bytes.
     pub streaming_peak_bytes: usize,
-    /// Budget the streaming peak is admitted against:
-    /// `max(in_core_budget_bytes, SAE_MIN_STREAMING_BUDGET_FLOOR_BYTES)`,
-    /// the same starved-box floor convention as the matrix-free plan.
+    /// Authoritative process-memory admission ceiling retained alongside the
+    /// estimate so refusal diagnostics expose both sides of the inequality.
     pub streaming_budget_bytes: usize,
-    /// The un-floored in-core budget the resident seed is gated on.
+    /// The headroom-reserved process budget used to derive the support budget.
     pub in_core_budget_bytes: usize,
-    /// True when the dense resident seed fits the in-core budget: today's
-    /// engine runs this shape in core.
-    pub resident_seed_admitted: bool,
-    /// True when the streaming peak fits the (floored) streaming budget: the
-    /// chunked-seed curved lane can run this shape once the driver seam is
-    /// wired, without ever holding the dense `N×K` seed.
+    /// True when the canonical support-sparse peak fits that process budget.
     pub streaming_admitted: bool,
-}
-
-impl SaeTopKCurvedBudget {
-    /// Rows per routing chunk for the chunked-seed driver: sized so one dense
-    /// score window stays inside the cache-multiple chunk convention
-    /// (`SAE_CPU_L2_CACHE_BYTES · SAE_CHUNK_CACHE_MULTIPLE`), floored at
-    /// `SAE_MIN_STREAMING_CHUNK_ROWS` and capped at `N`.
-    pub fn seed_chunk_rows(&self) -> usize {
-        let per_row_bytes = self.n_atoms.saturating_mul(SAE_BYTES_PER_F64).max(1);
-        ((SAE_CPU_L2_CACHE_BYTES * SAE_CHUNK_CACHE_MULTIPLE) / per_row_bytes)
-            .max(SAE_MIN_STREAMING_CHUNK_ROWS)
-            .min(self.n_obs.max(1))
-    }
 }
 
 /// Pure admission arithmetic for the overcomplete curved TopK lane. See the
@@ -474,193 +432,52 @@ pub(crate) fn sae_topk_curved_budget_from_budget(
     support_k: usize,
     in_core_budget_bytes: usize,
 ) -> SaeTopKCurvedBudget {
-    let resident_seed_bytes = n_obs
-        .saturating_mul(n_atoms)
-        .saturating_mul(1usize.saturating_add(d_max))
-        .saturating_mul(SAE_BYTES_PER_F64);
     let active_state_bytes = n_obs
         .saturating_mul(support_k)
         .saturating_mul(2usize.saturating_add(d_max))
         .saturating_mul(SAE_BYTES_PER_F64);
     let basis_bound = sae_topk_admission_atom_basis_bound(d_max);
-    let rank_bound = output_dim.min(SAE_TOPK_ADMISSION_FRAME_RANK_BOUND);
-    let framed_decoder_bytes = n_atoms
+    let routing_workspace_bytes = output_dim
+        .saturating_add(support_k.saturating_mul(2usize.saturating_add(d_max)))
+        .saturating_mul(SAE_BYTES_PER_F64);
+    let decoder_bytes = n_atoms
         .saturating_mul(basis_bound)
-        .saturating_mul(rank_bound)
+        .saturating_mul(output_dim)
         .saturating_mul(SAE_BYTES_PER_F64);
     let border_vector_bytes =
-        framed_decoder_bytes.saturating_mul(SAE_MATRIX_FREE_VECTOR_WORKSPACE_MULTIPLIER);
+        decoder_bytes.saturating_mul(SAE_MATRIX_FREE_VECTOR_WORKSPACE_MULTIPLIER);
     let mut budget = SaeTopKCurvedBudget {
         n_obs,
         output_dim,
         n_atoms,
         support_k,
         d_max,
-        resident_seed_bytes,
         active_state_bytes,
-        routing_window_bytes: 0,
-        framed_decoder_bytes,
+        routing_workspace_bytes,
+        decoder_bytes,
         border_vector_bytes,
         streaming_peak_bytes: 0,
-        streaming_budget_bytes: in_core_budget_bytes.max(SAE_MIN_STREAMING_BUDGET_FLOOR_BYTES),
+        streaming_budget_bytes: in_core_budget_bytes,
         in_core_budget_bytes,
-        resident_seed_admitted: resident_seed_bytes <= in_core_budget_bytes,
         streaming_admitted: false,
     };
-    budget.routing_window_bytes = budget
-        .seed_chunk_rows()
-        .saturating_mul(n_atoms)
-        .saturating_mul(SAE_BYTES_PER_F64);
     budget.streaming_peak_bytes = budget
         .active_state_bytes
-        .saturating_add(budget.routing_window_bytes)
-        .saturating_add(budget.framed_decoder_bytes)
+        .saturating_add(budget.routing_workspace_bytes)
+        .saturating_add(budget.decoder_bytes)
         .saturating_add(budget.border_vector_bytes);
     budget.streaming_admitted = budget.streaming_peak_bytes <= budget.streaming_budget_bytes;
     budget
 }
 
-/// INTEGRATION SEAM (overcomplete curved TopK lane — orchestrator wiring).
-///
-/// This is the ONE call the owned driver files must make to run a `K > P`
-/// hard-TopK curved fit without the dense `N×K` seed. Specifically,
-/// `fit_drivers.rs` (and the FFI seed builder it serves) must, whenever the
-/// assignment mode is [`crate::assignment::AssignmentMode::TopK`] and
-/// `n_atoms > output_dim`, call
-///
-/// ```ignore
-/// let lane = crate::manifold::admit_topk_curved_lane(
-///     n_obs, output_dim, n_atoms, d_max, support_k,
-/// )?;
-/// ```
-///
-/// BEFORE allocating any `(N, K)` routing-logit or `(K, N, d_max)` coordinate
-/// seed, and then:
-///
-///   * if `lane.resident_seed_admitted` — proceed exactly as today (the dense
-///     seed fits in core; behavior unchanged);
-///   * otherwise (`lane.streaming_admitted`) — build the routing seed in row
-///     chunks of `lane.seed_chunk_rows()` rows, retain per row ONLY the
-///     `support_k` active indices / gate values / coordinates
-///     (`lane.active_state_bytes` total), and hand the framed
-///     `SparseRankOnePenaltyOp` carriers the per-chunk active sets. The dense
-///     window (`lane.routing_window_bytes`) is dropped after each chunk.
-///
-/// Until that wiring lands, the front door refuses the
-/// `!resident_seed_admitted && streaming_admitted` region with an actionable
-/// error naming this function, so no admitted shape can OOM on the dense seed.
-///
-/// Returns the full ledger on admission (resident OR streaming); a typed `Err`
-/// when the shape exceeds even the streaming budget — a TopK manifold request
-/// is never silently substituted with the linear sparse-code lane.
-pub fn admit_topk_curved_lane(
-    n_obs: usize,
-    output_dim: usize,
-    n_atoms: usize,
-    d_max: usize,
-    support_k: usize,
-) -> Result<SaeTopKCurvedBudget, String> {
-    if n_obs == 0 || output_dim == 0 || n_atoms == 0 {
-        return Err(format!(
-            "admit_topk_curved_lane requires positive N, P, and K; got N={n_obs}, P={output_dim}, K={n_atoms}"
-        ));
-    }
-    if d_max == 0 {
-        return Err("admit_topk_curved_lane requires d_max >= 1".to_string());
-    }
-    if support_k == 0 || support_k > n_atoms {
-        return Err(format!(
-            "admit_topk_curved_lane requires 1 <= support_k <= K={n_atoms}; got {support_k}"
-        ));
-    }
-    let (in_core_budget_bytes, host_available) = sae_host_in_core_budget_bytes();
-    let budget = sae_topk_curved_budget_from_budget(
-        n_obs,
-        output_dim,
-        n_atoms,
-        d_max,
-        support_k,
-        in_core_budget_bytes,
-    );
-    if budget.resident_seed_admitted || budget.streaming_admitted {
-        return Ok(budget);
-    }
-    Err(format!(
-        "topk curved lane refused: streaming peak {} bytes (active sets {} + routing window {} \
-         + framed decoder {} + border workspace {}) exceeds the streaming budget {} bytes \
-         (host available {host_available}) at N={n_obs}, P={output_dim}, K={n_atoms}, \
-         k_active={support_k}, d_max={d_max}. Reduce n_obs or support_k — a TOPK MANIFOLD \
-         request is never silently substituted with the linear sparse-code lane",
-        budget.streaming_peak_bytes,
-        budget.active_state_bytes,
-        budget.routing_window_bytes,
-        budget.framed_decoder_bytes,
-        budget.border_vector_bytes,
-        budget.streaming_budget_bytes,
-    ))
-}
-
-pub(crate) fn sae_host_available_memory_bytes() -> usize {
-    let mut sys = sysinfo::System::new();
-    sys.refresh_memory();
-    let available = sys.available_memory() as usize;
-    let available = if available == 0 {
-        SAE_HOST_IN_CORE_FALLBACK_BYTES
-    } else {
-        available
-    };
-    // In a container/cgroup the global "available" can vastly exceed the cgroup
-    // memory budget the process is actually allowed; admitting against the host
-    // figure OOM-kills the container. Clamp to the cgroup headroom (limit −
-    // current usage) whenever a finite limit is present.
-    match sae_cgroup_available_bytes() {
-        Some(cgroup) => available.min(cgroup),
-        None => available,
-    }
-}
-
-/// Bytes still available to this process under its cgroup memory controller, if
-/// a finite limit is configured (`limit − current`). Returns `None` when there
-/// is no cgroup limit (unlimited / `max`) or the controller cannot be read
-/// (non-Linux, missing files) — in which case the global figure stands.
-fn sae_cgroup_available_bytes() -> Option<usize> {
-    // cgroup v2 unified hierarchy.
-    if let Some(limit) = sae_read_usize_file("/sys/fs/cgroup/memory.max") {
-        let current = sae_read_usize_file("/sys/fs/cgroup/memory.current").unwrap_or(0);
-        return Some(limit.saturating_sub(current));
-    }
-    // cgroup v1 memory controller.
-    if let Some(limit) = sae_read_usize_file("/sys/fs/cgroup/memory/memory.limit_in_bytes") {
-        let current =
-            sae_read_usize_file("/sys/fs/cgroup/memory/memory.usage_in_bytes").unwrap_or(0);
-        return Some(limit.saturating_sub(current));
-    }
-    None
-}
-
-/// Parse a single unsigned integer from a sysfs/cgroup file. Returns `None`
-/// for `max` (cgroup v2 "no limit"), a v1 sentinel limit larger than any sane
-/// physical budget (effectively unlimited), an unreadable file, or unparseable
-/// contents.
-fn sae_read_usize_file(path: &str) -> Option<usize> {
-    let raw = std::fs::read_to_string(path).ok()?;
-    let trimmed = raw.trim();
-    if trimmed == "max" {
-        return None;
-    }
-    let value: usize = trimmed.parse().ok()?;
-    // cgroup v1 encodes "unlimited" as a near-`u64::MAX` sentinel; treat any
-    // implausibly large limit (≥ 2^62 bytes) as no limit.
-    if value >= (1usize << 62) {
-        return None;
-    }
-    Some(value)
+pub(crate) fn sae_process_available_memory_bytes() -> usize {
+    gam_runtime::resource::detect_memory_availability().available_bytes_usize()
 }
 
 /// Pure in-core budget rule, factored out of [`sae_host_in_core_budget_bytes`]
 /// so the admission bound can be tested without reading live system memory.
 ///
-/// The in-core fallback floor is a *useful-work* minimum, not a license to
+/// The in-core useful-work floor is a minimum target, not a license to
 /// admit more than the box actually has. The budget is `max(fraction, floor)`
 /// capped at the *usable* memory `available − reserve`, where the reserve keeps
 /// OS/allocator headroom free (`available` is an over-estimate). A dense direct
@@ -680,10 +497,10 @@ pub(crate) const fn sae_host_in_core_budget_from_available(available: usize) -> 
     let usable = available.saturating_sub(reserve);
     let fraction = (available.saturating_mul(SAE_HOST_MEMORY_BUDGET_FRACTION_NUMERATOR))
         / SAE_HOST_MEMORY_BUDGET_FRACTION_DENOMINATOR;
-    let floored = if fraction > SAE_HOST_IN_CORE_FALLBACK_BYTES {
+    let floored = if fraction > SAE_HOST_IN_CORE_USEFUL_WORK_FLOOR_BYTES {
         fraction
     } else {
-        SAE_HOST_IN_CORE_FALLBACK_BYTES
+        SAE_HOST_IN_CORE_USEFUL_WORK_FLOOR_BYTES
     };
     // Cap at usable: if the floor exceeds usable memory the budget collapses to
     // usable, so the direct-plan admission gate refuses and the term streams.
@@ -691,7 +508,7 @@ pub(crate) const fn sae_host_in_core_budget_from_available(available: usize) -> 
 }
 
 pub(crate) fn sae_host_in_core_budget_bytes() -> (usize, usize) {
-    let available = sae_host_available_memory_bytes();
+    let available = sae_process_available_memory_bytes();
     (sae_host_in_core_budget_from_available(available), available)
 }
 
@@ -700,22 +517,23 @@ mod cpu_sized_plan_laziness_tests {
     //! Pins the CUDA startup-tax fix at the SAE fit's front budgeting step:
     //! planning a CPU-sized manifold fit (the profiled K=6 / N=700 / d=24 class
     //! of shapes, whose whole working set is a few MiB) must take the
-    //! size-gated early return and NEVER call `GpuRuntime::global()` — the call
+    //! size-gated early return and NEVER resolve `GpuRuntime` — resolution
     //! whose first execution probes the driver and creates a CUDA primary
     //! context on every GPU (`cuDevicePrimaryCtxRetain`, ~10% of the profiled
     //! small-fit wall clock on an 8×B200 node). Runs on any host: the invariant
     //! is the control-flow ordering, observed via the process-wide
-    //! `global_call_count` counter (nextest = one process per test).
+    //! `resolution_call_count` counter (nextest = one process per test).
     use super::*;
     use crate::gpu::device_runtime::GpuRuntime;
 
     #[test]
     fn cpu_sized_streaming_plan_never_probes_the_device() {
-        let before = GpuRuntime::global_call_count();
+        let before = GpuRuntime::resolution_call_count();
         // The profiled small-fit shape class: N=700 rows, K=6 atoms, a few
         // dozen basis columns, d_max=2, border ≈ K·d ≈ 144. Working set is a
         // couple of MiB — direct-admitted under ANY budget.
-        let plan = sae_streaming_plan_for_shape(700, 60, 6, 2, 144);
+        let plan = sae_streaming_plan_for_shape(700, 60, 6, 2, 144, gam_gpu::GpuPolicy::Auto)
+            .expect("CPU-sized plan must not require CUDA resolution");
         assert!(
             plan.direct_admitted,
             "the CPU-sized fixture must be direct-admitted (peak {} B)",
@@ -724,10 +542,10 @@ mod cpu_sized_plan_laziness_tests {
         assert!(!plan.streaming);
         assert_eq!(plan.chunk_size, 700);
         assert_eq!(
-            GpuRuntime::global_call_count(),
+            GpuRuntime::resolution_call_count(),
             before,
             "planning a CPU-sized SAE fit must short-circuit BEFORE \
-             GpuRuntime::global(), so no CUDA context is ever created"
+             runtime resolution, so no CUDA context is ever created"
         );
     }
 
@@ -735,13 +553,14 @@ mod cpu_sized_plan_laziness_tests {
     fn oversized_streaming_plan_still_consults_the_device_budget() {
         // A shape whose working set overflows the pessimistic floor must fall
         // through to the probed-budget logic (GPU-sized behaviour unchanged).
-        let before = GpuRuntime::global_call_count();
+        let before = GpuRuntime::resolution_call_count();
         // The plan itself is irrelevant here; the test asserts the side effect
         // that computing it consulted the device budget.
-        sae_streaming_plan_for_shape(2_000_000, 4_096, 512, 8, 32_768);
+        sae_streaming_plan_for_shape(2_000_000, 4_096, 512, 8, 32_768, gam_gpu::GpuPolicy::Auto)
+            .expect("oversized plan must preserve a successful CUDA resolution");
         assert!(
-            GpuRuntime::global_call_count() > before,
-            "an oversized plan must consult GpuRuntime::global() for the \
+            GpuRuntime::resolution_call_count() > before,
+            "an oversized plan must resolve GpuRuntime for the \
              pooled device budget exactly as before"
         );
     }
@@ -751,7 +570,8 @@ mod cpu_sized_plan_laziness_tests {
         // The early-returned plan must record the honest host in-core budget
         // (downstream gates like the #2080 escalation ledger compare against
         // it), not the 64 MiB pessimistic decision floor.
-        let plan = sae_streaming_plan_for_shape(700, 60, 6, 2, 144);
+        let plan = sae_streaming_plan_for_shape(700, 60, 6, 2, 144, gam_gpu::GpuPolicy::Auto)
+            .expect("CPU-sized plan must not require CUDA resolution");
         let (host_budget, _) = sae_host_in_core_budget_bytes();
         assert_eq!(
             plan.in_core_budget_bytes, host_budget,
@@ -781,9 +601,9 @@ mod host_in_core_budget_tests {
         for &avail in &[
             0usize,
             1,
-            SAE_HOST_IN_CORE_FALLBACK_BYTES - 1,
-            SAE_HOST_IN_CORE_FALLBACK_BYTES,
-            SAE_HOST_IN_CORE_FALLBACK_BYTES + 1,
+            SAE_HOST_IN_CORE_USEFUL_WORK_FLOOR_BYTES - 1,
+            SAE_HOST_IN_CORE_USEFUL_WORK_FLOOR_BYTES,
+            SAE_HOST_IN_CORE_USEFUL_WORK_FLOOR_BYTES + 1,
             16 * 1024 * 1024 * 1024,
         ] {
             let budget = sae_host_in_core_budget_from_available(avail);
@@ -803,7 +623,7 @@ mod host_in_core_budget_tests {
         let fraction = avail * SAE_HOST_MEMORY_BUDGET_FRACTION_NUMERATOR
             / SAE_HOST_MEMORY_BUDGET_FRACTION_DENOMINATOR;
         assert_eq!(budget, fraction);
-        assert!(budget >= SAE_HOST_IN_CORE_FALLBACK_BYTES);
+        assert!(budget >= SAE_HOST_IN_CORE_USEFUL_WORK_FLOOR_BYTES);
     }
 
     /// The budget must keep an OS/allocator reserve free: it can never exceed
@@ -844,7 +664,7 @@ mod host_in_core_budget_tests {
             budget, usable,
             "below-floor budget must collapse to usable {usable}, got {budget}"
         );
-        assert!(budget < SAE_HOST_IN_CORE_FALLBACK_BYTES);
+        assert!(budget < SAE_HOST_IN_CORE_USEFUL_WORK_FLOOR_BYTES);
 
         // A direct plan needing 1.5 GiB (> usable) must NOT be admitted.
         let plan = sae_streaming_plan_from_budget(
@@ -926,14 +746,10 @@ mod topk_curved_budget_tests {
     /// Every byte figure in the ledger follows its documented formula exactly.
     #[test]
     fn topk_curved_budget_formulas_are_the_documented_arithmetic() {
-        let (n, p, k, d, s) = (4096usize, 512usize, 32_000usize, 1usize, 8usize);
-        let budget_bytes = 16 * 1024 * 1024 * 1024usize;
+        let (n, p, k, d, s) = (4096usize, 64usize, 10_000usize, 1usize, 8usize);
+        let budget_bytes = 8 * 1024 * 1024 * 1024usize;
         let ledger = sae_topk_curved_budget_from_budget(n, p, k, d, s, budget_bytes);
 
-        assert_eq!(
-            ledger.resident_seed_bytes,
-            n * k * (1 + d) * SAE_BYTES_PER_F64
-        );
         assert_eq!(
             ledger.active_state_bytes,
             n * s * (2 + d) * SAE_BYTES_PER_F64
@@ -944,76 +760,43 @@ mod topk_curved_budget_tests {
             32 + 3,
             "d_max=1: patch bound 32 + (2·3)/2 dominates 2d+1=3"
         );
-        let r_hat = p.min(SAE_TOPK_ADMISSION_FRAME_RANK_BOUND);
         assert_eq!(
-            ledger.framed_decoder_bytes,
-            k * m_hat * r_hat * SAE_BYTES_PER_F64
+            ledger.routing_workspace_bytes,
+            (p + s * (2 + d)) * SAE_BYTES_PER_F64
         );
+        assert_eq!(ledger.decoder_bytes, k * m_hat * p * SAE_BYTES_PER_F64);
         assert_eq!(
             ledger.border_vector_bytes,
-            ledger.framed_decoder_bytes * SAE_MATRIX_FREE_VECTOR_WORKSPACE_MULTIPLIER
-        );
-        assert_eq!(
-            ledger.routing_window_bytes,
-            ledger.seed_chunk_rows() * k * SAE_BYTES_PER_F64
+            ledger.decoder_bytes * SAE_MATRIX_FREE_VECTOR_WORKSPACE_MULTIPLIER
         );
         assert_eq!(
             ledger.streaming_peak_bytes,
             ledger.active_state_bytes
-                + ledger.routing_window_bytes
-                + ledger.framed_decoder_bytes
+                + ledger.routing_workspace_bytes
+                + ledger.decoder_bytes
                 + ledger.border_vector_bytes
         );
-        assert_eq!(
-            ledger.streaming_budget_bytes,
-            budget_bytes.max(SAE_MIN_STREAMING_BUDGET_FLOOR_BYTES)
-        );
-        // The honest assignment state is O(N·k_active): orders of magnitude
-        // below the dense N·K seed in the overcomplete regime.
-        assert!(ledger.active_state_bytes * 100 < ledger.resident_seed_bytes);
-        // This shape fits both sub-lanes at a 4 GiB budget.
-        assert!(ledger.resident_seed_admitted);
+        assert_eq!(ledger.streaming_budget_bytes, budget_bytes);
         assert!(ledger.streaming_admitted);
     }
 
-    /// The streaming lane admits shapes whose DENSE seed is over budget — the
-    /// exact region the chunked-seed integration seam exists for — and the
-    /// seam refuses only past the streaming budget, with the no-substitution
-    /// contract in the message.
+    /// Routing and assignment memory are support-shaped even when K grows.
     #[test]
-    fn topk_streaming_admits_beyond_resident_and_seam_validates() {
-        let (n, p, k, d, s) = (1_000_000usize, 512usize, 32_000usize, 1usize, 8usize);
-        // Resident seed = 1e6 · 32000 · 2 · 8 = 512 GB: never in core. The
-        // streamed peak is ~9.7 GB, dominated by the framed border workspace
-        // (K·M̂·r̂·8·32 ≈ 8.5 GiB), so a 16 GiB budget admits streaming.
-        let budget_bytes = 16 * 1024 * 1024 * 1024usize;
-        let ledger = sae_topk_curved_budget_from_budget(n, p, k, d, s, budget_bytes);
-        assert!(!ledger.resident_seed_admitted);
-        assert!(
-            ledger.streaming_admitted,
-            "streaming peak {} must fit the 16 GiB budget: the O(N·k_active) state is small",
-            ledger.streaming_peak_bytes
-        );
-        // Chunk sizing: floored at the minimum streaming chunk and capped at N.
-        assert!(ledger.seed_chunk_rows() >= SAE_MIN_STREAMING_CHUNK_ROWS);
-        assert!(ledger.seed_chunk_rows() <= n);
-
-        // Degenerate shapes are caller errors at the seam.
-        assert!(admit_topk_curved_lane(0, p, k, d, s).is_err());
-        assert!(admit_topk_curved_lane(n, p, k, 0, s).is_err());
-        assert!(admit_topk_curved_lane(n, p, k, d, 0).is_err());
-        assert!(admit_topk_curved_lane(n, p, k, d, k + 1).is_err());
-
-        // Past the streaming budget the ledger refuses; the refusal must carry
-        // the no-substitution contract.
-        let starved = sae_topk_curved_budget_from_budget(n, p, k, d, s, 0);
+    fn topk_routing_workspace_is_independent_of_atom_count() {
+        let shape = |k| sae_topk_curved_budget_from_budget(1024, 64, k, 2, 4, usize::MAX);
+        let ten_thousand = shape(10_000);
+        let twenty_thousand = shape(20_000);
         assert_eq!(
-            starved.streaming_budget_bytes,
-            SAE_MIN_STREAMING_BUDGET_FLOOR_BYTES
+            ten_thousand.active_state_bytes,
+            twenty_thousand.active_state_bytes
         );
-        assert!(
-            !starved.streaming_admitted,
-            "the framed decoder + border workspace exceed the 64 MiB streaming floor at K=32000"
+        assert_eq!(
+            ten_thousand.routing_workspace_bytes,
+            twenty_thousand.routing_workspace_bytes
+        );
+        assert_eq!(
+            ten_thousand.routing_workspace_bytes,
+            (64 + 4 * (2 + 2)) * SAE_BYTES_PER_F64
         );
     }
 }

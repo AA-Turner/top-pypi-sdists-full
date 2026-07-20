@@ -15,6 +15,7 @@ use super::binomial_q_derivs::{
 };
 use super::dispersion_family::{DispersionRowKernel, dispersion_row_kernel};
 use super::test_support::{binomial_location_scale_nll_tower, dispersion_tweedie_nll_generic};
+use crate::custom_family::CustomFamilyHyperLayout;
 use crate::fit_orchestration::{FitConfig, FitResult, fit_from_formula};
 
 /// Dense `Tower4<2>` Tweedie row NLL oracle: the #932 all-channels instantiation
@@ -47,6 +48,18 @@ use num_dual::{
     DualNum, second_derivative, second_partial_derivative, third_partial_derivative_vec,
 };
 use statrs::function::gamma::ln_gamma;
+
+fn test_design_hyper_layout(
+    derivative_blocks: &[Vec<CustomFamilyBlockPsiDerivative>],
+) -> CustomFamilyHyperLayout {
+    let axis_count = derivative_blocks.iter().map(Vec::len).sum::<usize>();
+    CustomFamilyHyperLayout::new(
+        derivative_blocks.to_vec(),
+        Vec::new(),
+        Array1::zeros(axis_count),
+    )
+    .expect("test design hyper layout")
+}
 
 pub(crate) fn intercept_block(n: usize) -> ParameterBlockInput {
     ParameterBlockInput {
@@ -139,12 +152,20 @@ pub(crate) fn assert_rel_close(label: &str, actual: f64, expected: f64, tol: f64
     );
 }
 
+pub(crate) struct HandNonWiggleQDirectional {
+    pub(crate) delta_q: f64,
+    pub(crate) delta_q_t: f64,
+    pub(crate) delta_q_ls: f64,
+    pub(crate) delta_q_tl: f64,
+    pub(crate) delta_q_ll: f64,
+}
+
 pub(crate) fn hand_binomial_q_directional(
     q: NonWiggleQDerivs,
     d_eta_t: f64,
     d_eta_ls: f64,
-) -> NonWiggleQDirectional {
-    NonWiggleQDirectional {
+) -> HandNonWiggleQDirectional {
+    HandNonWiggleQDirectional {
         delta_q: q.q_t * d_eta_t + q.q_ls * d_eta_ls,
         delta_q_t: q.q_tl * d_eta_ls,
         delta_q_ls: q.q_tl * d_eta_t + q.q_ll * d_eta_ls,
@@ -453,10 +474,10 @@ pub(crate) fn binomial_location_scale_joint_hessian_matches_single_sourced_tower
 /// #932: at βw = 0 the WIGGLE joint-Hessian assembler must reduce EXACTLY to
 /// the (already tower-pinned) non-wiggle assembler on the (η_t, η_ls) block.
 ///
-/// `wiggle_hessian_row_pieces` hand-derives the composed-index `q = q0 +
-/// Σ_j βw_j·B_j(q0)` chain through `m = B'·βw + 1` and `g2 = B''·βw`; its
-/// `coeff_tw_*` / `coeff_lw_*` / `coeffww` cross blocks are the #736 genus and
-/// have no exact (non-FD, non-operator-vs-dense) oracle. A full wiggle tower is
+/// The canonical wiggle row program differentiates the composed index `q = q0 +
+/// Σ_j βw_j·B_j(q0)` through `m = B'·βw + 1` and `g2 = B''·βw`; its
+/// `coeff_tw_*` / `coeff_lw_*` / `coeff_ww` cross blocks are the #736 genus. A
+/// full wiggle tower is
 /// a larger unit (#932 comment), but one structurally-certain invariant is
 /// cheap and independent: at `βw = 0` we have `m = 1`, `g2 = 0`, `etaw = 0`, so
 /// `q = q0` and the wiggle base coefficients collapse to the non-wiggle ones
@@ -1178,7 +1199,8 @@ pub(crate) fn gaussian_joint_psi_firstweights_score_ls_carries_logb_chain_rule_f
     let firstweights = gaussian_joint_psi_firstweights(&rows, &array![0.0], &array![1.0]);
     let sigma = crate::sigma_link::logb_sigma_from_eta_scalar(eta_ls[0]);
     let kappa = 1.0 - crate::sigma_link::LOGB_SIGMA_FLOOR / sigma;
-    let expected = kappa * (weights[0] - rows.n[0]);
+    let standardized_residual = (y[0] - etamu[0]) / sigma;
+    let expected = kappa * (weights[0] - weights[0] * standardized_residual.powi(2));
 
     assert!(
         (firstweights.score_ls[0] - expected).abs() <= 1e-12,
@@ -1368,7 +1390,8 @@ pub(crate) fn gaussian_joint_psisecondweights_eta_ab_term_carries_logb_chain_rul
     );
     let sigma = crate::sigma_link::logb_sigma_from_eta_scalar(eta_ls[0]);
     let kappa = 1.0 - crate::sigma_link::LOGB_SIGMA_FLOOR / sigma;
-    let expected = kappa * (weights[0] - rows.n[0]);
+    let standardized_residual = (y[0] - etamu[0]) / sigma;
+    let expected = kappa * (weights[0] - weights[0] * standardized_residual.powi(2));
 
     assert!(
         (secondweights.objective_psi_psirow[0] - expected).abs() <= 1e-12,
@@ -2465,7 +2488,7 @@ pub(crate) fn gaussian_location_scale_workspace_d2h_operator_matches_dense() {
 pub(crate) fn binomial_location_scale_wiggle_workspace_matvec_matches_dense() {
     // Probit + linkwiggle is the production-pipeline supervised link.
     // This is the load-bearing cross-block test: it pins the b/d wiggle
-    // coefficients (`coeff_tw_b/d`, `coeff_lw_b/d`, `coeffww`) and the
+    // coefficients (`coeff_tw_b/d`, `coeff_lw_b/d`, `coeff_ww`) and the
     // t↔ℓ block against the dense assembly used by
     // `exact_newton_joint_hessian` for the wiggle variant.
     let (family, states, specs, _xt, _xls, wiggle_design_current) = bls_wiggle_workspace_fixture();
@@ -2522,6 +2545,24 @@ pub(crate) fn bls_wiggle_workspace_fixture() -> (
     Array2<f64>,
     Array2<f64>,
 ) {
+    bls_wiggle_workspace_fixture_with_link(InverseLink::Standard(StandardLink::Probit))
+}
+
+/// Link-parametrized variant of [`bls_wiggle_workspace_fixture`]. The expected
+/// Fisher information derivative machinery is link-agnostic (it consumes only
+/// `f, f1, f2` from the shared q-information kernel plus the warp geometry), so
+/// exercising a second link — e.g. logit — is an independent angle on the same
+/// assembly (gam#2353).
+pub(crate) fn bls_wiggle_workspace_fixture_with_link(
+    link_kind: InverseLink,
+) -> (
+    BinomialLocationScaleWiggleFamily,
+    Vec<ParameterBlockState>,
+    Vec<ParameterBlockSpec>,
+    Array2<f64>,
+    Array2<f64>,
+    Array2<f64>,
+) {
     let n = 10usize;
     let pt = 3usize;
     let pls = 2usize;
@@ -2548,7 +2589,7 @@ pub(crate) fn bls_wiggle_workspace_fixture() -> (
     let family = BinomialLocationScaleWiggleFamily {
         y,
         weights,
-        link_kind: InverseLink::Standard(StandardLink::Probit),
+        link_kind,
         threshold_design: Some(threshold_design.clone()),
         log_sigma_design: Some(log_sigma_design.clone()),
         wiggle_knots: knots,
@@ -2743,7 +2784,33 @@ pub(crate) fn binomial_location_scale_wiggle_workspace_dh_operator_finite_differ
 
 #[test]
 pub(crate) fn binomial_location_scale_wiggle_expected_info_derivatives_match_finite_difference() {
-    let (family, states, specs, xt, xls, xw_at_base) = bls_wiggle_workspace_fixture();
+    check_bls_wiggle_expected_info_derivatives_match_fd(bls_wiggle_workspace_fixture());
+}
+
+/// Same expected-info directional/second-directional FD acceptance gate on the
+/// LOGIT link — an independent angle on the link-agnostic derivative assembly.
+/// A regression of the gam#2353 spurious-curvature term would surface here too
+/// because logit changes every `f, f1, f2` yet reuses the identical warp
+/// geometry and coefficient assembly.
+#[test]
+pub(crate) fn binomial_location_scale_wiggle_expected_info_derivatives_match_finite_difference_logit()
+{
+    check_bls_wiggle_expected_info_derivatives_match_fd(bls_wiggle_workspace_fixture_with_link(
+        InverseLink::Standard(StandardLink::Logit),
+    ));
+}
+
+fn check_bls_wiggle_expected_info_derivatives_match_fd(
+    fixture: (
+        BinomialLocationScaleWiggleFamily,
+        Vec<ParameterBlockState>,
+        Vec<ParameterBlockSpec>,
+        Array2<f64>,
+        Array2<f64>,
+        Array2<f64>,
+    ),
+) {
+    let (family, states, specs, xt, xls, xw_at_base) = fixture;
     let p = states[0].beta.len() + states[1].beta.len() + states[2].beta.len();
     let pt = states[0].beta.len();
     let pls = states[1].beta.len();
@@ -4075,15 +4142,14 @@ pub(crate) fn simple_matern_term_collection(
                 spec: MaternBasisSpec {
                     periodic: None,
                     center_strategy: CenterStrategy::EqualMass { num_centers: 6 },
-                    length_scale,
+                    length_scale: gam_terms::basis::MaternLengthScale::fixed(length_scale),
                     nu: MaternNu::ThreeHalves,
                     include_intercept: false,
                     double_penalty: false,
                     identifiability: MaternIdentifiability::CenterSumToZero,
                     aniso_log_scales: None,
-                    nullspace_shrinkage_survived: None,
                 },
-                input_scales: None,
+                input_scale: None,
             },
             shape: ShapeConstraint::None,
             joint_null_rotation: None,
@@ -4435,7 +4501,7 @@ pub(crate) fn binomial_location_scale_exact_newton_spatial_joint_hyper_returns_f
             ..BlockwiseFitOptions::default()
         },
         &rho,
-        &derivative_blocks,
+        &test_design_hyper_layout(&derivative_blocks),
         None,
         gam_problem::EvalMode::ValueGradientHessian,
     )
@@ -4520,7 +4586,7 @@ pub(crate) fn binomial_location_scalewiggle_exact_newton_spatial_joint_hyper_ret
             ..BlockwiseFitOptions::default()
         },
         &rho,
-        &derivative_blocks,
+        &test_design_hyper_layout(&derivative_blocks),
         None,
         gam_problem::EvalMode::ValueGradientHessian,
     )
@@ -4615,7 +4681,7 @@ pub(crate) fn gaussian_location_scale_exact_newton_spatial_joint_hyper_returns_f
             ..BlockwiseFitOptions::default()
         },
         &rho,
-        &derivative_blocks,
+        &test_design_hyper_layout(&derivative_blocks),
         None,
         gam_problem::EvalMode::ValueGradientHessian,
     )
@@ -4648,12 +4714,13 @@ pub(crate) fn assert_joint_psi_hook_surface<F: CustomFamily>(
     intercept: f64,
     label: &str,
 ) {
+    let hyper_layout = test_design_hyper_layout(derivative_blocks);
     let psi_terms = family
-        .exact_newton_joint_psi_terms(block_states, blocks, derivative_blocks, 0)
+        .exact_newton_joint_psi_terms(block_states, blocks, &hyper_layout, 0)
         .expect("joint psi terms call")
         .unwrap_or_else(|| panic!("{label} family should return joint psi terms"));
     let psi2_terms = family
-        .exact_newton_joint_psisecond_order_terms(block_states, blocks, derivative_blocks, 0, 0)
+        .exact_newton_joint_psisecond_order_terms(block_states, blocks, &hyper_layout, 0, 0)
         .expect("joint psi second-order call")
         .unwrap_or_else(|| panic!("{label} family should return joint psi second-order terms"));
     let total = block_states
@@ -4686,7 +4753,7 @@ pub(crate) fn assert_joint_psi_hook_surface<F: CustomFamily>(
         .exact_newton_joint_psihessian_directional_derivative(
             block_states,
             blocks,
-            derivative_blocks,
+            &hyper_layout,
             0,
             &d_beta_flat,
         )
@@ -5481,7 +5548,12 @@ pub(crate) fn gaussian_log_sigma_psi_terms_match_autodiff_scalar_objective() {
     ];
 
     let psi_terms = family
-        .exact_newton_joint_psi_terms(&states, &specs, &derivative_blocks, 0)
+        .exact_newton_joint_psi_terms(
+            &states,
+            &specs,
+            &test_design_hyper_layout(&derivative_blocks),
+            0,
+        )
         .expect("joint psi terms")
         .expect("expected gaussian psi terms");
 
@@ -5691,7 +5763,13 @@ pub(crate) fn gaussian_log_sigma_psi_second_order_terms_match_autodiff_scalar_ob
     ];
 
     let psi2_terms = family
-        .exact_newton_joint_psisecond_order_terms(&states, &specs, &derivative_blocks, 0, 0)
+        .exact_newton_joint_psisecond_order_terms(
+            &states,
+            &specs,
+            &test_design_hyper_layout(&derivative_blocks),
+            0,
+            0,
+        )
         .expect("joint psi psi terms")
         .expect("expected gaussian psi psi terms");
 
@@ -6138,14 +6216,14 @@ pub(crate) fn gaussian_row_scalar_cache_is_exact_and_eliminates_recompute() {
     );
 
     // Bit-identical cached contents vs the independent reference.
-    let fields: [(&Array1<f64>, &Array1<f64>); 7] = [
+    let fields: [(&Array1<f64>, &Array1<f64>); 4] = [
         (&hit.obs_weight, &reference.obs_weight),
-        (&hit.w, &reference.w),
-        (&hit.m, &reference.m),
-        (&hit.n, &reference.n),
+        (
+            &hit.standardized_residual,
+            &reference.standardized_residual,
+        ),
+        (&hit.inv_sigma, &reference.inv_sigma),
         (&hit.kappa, &reference.kappa),
-        (&hit.kappa_prime, &reference.kappa_prime),
-        (&hit.kappa_dprime, &reference.kappa_dprime),
     ];
     for (got, want) in fields {
         for (a, b) in got.iter().zip(want.iter()) {
@@ -6190,7 +6268,11 @@ pub(crate) fn gaussian_row_scalar_cache_is_exact_and_eliminates_recompute() {
     );
     let recomputed_collide = gaussian_jointrow_scalars(&y, &etamu, &eta_ls_interior, &weights)
         .expect("collide reference");
-    for (a, b) in collide.w.iter().zip(recomputed_collide.w.iter()) {
+    for (a, b) in collide
+        .standardized_residual
+        .iter()
+        .zip(recomputed_collide.standardized_residual.iter())
+    {
         assert_eq!(
             a.to_bits(),
             b.to_bits(),
@@ -7427,13 +7509,14 @@ pub(crate) fn wiggle_block_design_matches_ispline_basis() {
 
 #[test]
 pub(crate) fn split_wiggle_penalty_orders_uses_requested_order_one_as_primary() {
-    let (primary, extras) = split_wiggle_penalty_orders(2, &[1, 2, 3, 3]);
+    let (primary, extras) =
+        split_wiggle_penalty_orders(2, &[1, 2, 3, 3]).expect("valid derivative orders");
     assert_eq!(primary, 1);
     assert_eq!(extras, vec![2, 3]);
 }
 
 #[test]
-pub(crate) fn append_selected_wiggle_penalty_orders_keeps_order_one() {
+pub(crate) fn selected_wiggle_function_penalties_keep_order_one() {
     let q_seed = Array1::linspace(-1.0, 1.0, 11);
     let degree = 3usize;
     let num_internal_knots = 5usize;
@@ -7447,7 +7530,7 @@ pub(crate) fn append_selected_wiggle_penalty_orders_keeps_order_one() {
         select_wiggle_basis_from_seed(q_seed.view(), &cfg, &[1, 3]).expect("selected wiggle basis");
 
     assert_eq!(selected.block.penalties.len(), 2);
-    assert_eq!(selected.block.nullspace_dims, vec![1, 3]);
+    assert_eq!(selected.block.nullspace_dims, vec![0, 2]);
 }
 
 #[test]
@@ -7671,7 +7754,7 @@ pub(crate) fn binomial_location_scale_batched_gradient_matches_finite_difference
             &specs,
             &options,
             rho,
-            &derivative_blocks,
+            &test_design_hyper_layout(&derivative_blocks),
             None,
             gam_problem::EvalMode::ValueAndGradient,
         )
@@ -8465,7 +8548,12 @@ pub(crate) fn gaussian_location_scale_psi_joint_hessian_pins_fisher_cross_zero()
 
         // 1st-order ψ joint Hessian.
         let psi = family
-            .exact_newton_joint_psi_terms(&states, &specs, &derivative_blocks, 0)
+            .exact_newton_joint_psi_terms(
+                &states,
+                &specs,
+                &test_design_hyper_layout(&derivative_blocks),
+                0,
+            )
             .expect("psi terms call")
             .expect("gaussian psi terms present");
         let h_psi = materialize(&psi.hessian_psi, psi.hessian_psi_operator.as_deref(), total);
@@ -8478,7 +8566,13 @@ pub(crate) fn gaussian_location_scale_psi_joint_hessian_pins_fisher_cross_zero()
 
         // 2nd-order ψ joint Hessian.
         let psi2 = family
-            .exact_newton_joint_psisecond_order_terms(&states, &specs, &derivative_blocks, 0, 0)
+            .exact_newton_joint_psisecond_order_terms(
+                &states,
+                &specs,
+                &test_design_hyper_layout(&derivative_blocks),
+                0,
+                0,
+            )
             .expect("psi 2nd-order call")
             .expect("gaussian psi 2nd-order present");
         let h_psi2 = materialize(
@@ -8499,7 +8593,7 @@ pub(crate) fn gaussian_location_scale_psi_joint_hessian_pins_fisher_cross_zero()
             .exact_newton_joint_psihessian_directional_derivative(
                 &states,
                 &specs,
-                &derivative_blocks,
+                &test_design_hyper_layout(&derivative_blocks),
                 0,
                 &d_beta,
             )
@@ -8592,7 +8686,12 @@ pub(crate) fn gaussian_location_scale_psi_joint_hessian_pins_fisher_cross_zero()
 
         // 1st-order ψ.
         let psi = family
-            .exact_newton_joint_psi_terms(&states, &specs, &derivative_blocks, 0)
+            .exact_newton_joint_psi_terms(
+                &states,
+                &specs,
+                &test_design_hyper_layout(&derivative_blocks),
+                0,
+            )
             .expect("wiggle psi terms call")
             .expect("wiggle psi terms present");
         let h_psi = materialize(&psi.hessian_psi, psi.hessian_psi_operator.as_deref(), total);
@@ -8600,7 +8699,13 @@ pub(crate) fn gaussian_location_scale_psi_joint_hessian_pins_fisher_cross_zero()
 
         // 2nd-order ψ.
         let psi2 = family
-            .exact_newton_joint_psisecond_order_terms(&states, &specs, &derivative_blocks, 0, 0)
+            .exact_newton_joint_psisecond_order_terms(
+                &states,
+                &specs,
+                &test_design_hyper_layout(&derivative_blocks),
+                0,
+                0,
+            )
             .expect("wiggle psi 2nd-order call")
             .expect("wiggle psi 2nd-order present");
         let h_psi2 = materialize(
@@ -8616,7 +8721,7 @@ pub(crate) fn gaussian_location_scale_psi_joint_hessian_pins_fisher_cross_zero()
             .exact_newton_joint_psihessian_directional_derivative(
                 &states,
                 &specs,
-                &derivative_blocks,
+                &test_design_hyper_layout(&derivative_blocks),
                 0,
                 &d_beta,
             )
@@ -8627,16 +8732,18 @@ pub(crate) fn gaussian_location_scale_psi_joint_hessian_pins_fisher_cross_zero()
     }
 }
 
-/// #932 exact-tower oracle for the binomial location-scale WIGGLE joint Hessian.
+/// #932 exact-tower oracle for the canonical binomial location-scale WIGGLE
+/// order-two row program.
 ///
-/// `BinomialLocationScaleWiggleFamily::wiggle_hessian_row_pieces` hand-derives the
-/// per-row joint-Hessian coefficients for the composed index
+/// `BinomialLocationScaleWiggleFamily::wiggle_order2_rows` lowers the shared
+/// row expression into per-row joint-Hessian coefficients for the composed
+/// index
 /// `q = q0(η_t, η_ls) + Σ_j βw_j·B_j(q0)` via the chain factors `m = B'·βw + 1`,
 /// `g2 = B''·βw`. The cross-block coefficients (`coeff_tw_*`, `coeff_lw_*`,
-/// `coeffww`: threshold/log-sigma × wiggle and wiggle × wiggle) are exactly the
+/// `coeff_ww`: threshold/log-sigma × wiggle and wiggle × wiggle) are exactly the
 /// #736 dropped/sign-flipped cross-term genus, and until now no exact oracle
-/// pinned them to an independent tower — only an operator-vs-dense check (both
-/// built from the same hand pieces) and an FD approximation covered them.
+/// pinned them to an independent tower — only an operator-vs-dense check and
+/// an FD approximation covered them.
 ///
 /// This is the #932 single-source guard. For each row `i` and basis column `j`
 /// we build an INDEPENDENT order-2 jet `Tower2<3>` over `(η_t, η_ls, βw_j)`
@@ -8649,13 +8756,14 @@ pub(crate) fn gaussian_location_scale_psi_joint_hessian_pins_fisher_cross_zero()
 ///   `h[0][0]=coeff_tt`, `h[0][1]=coeff_tl`, `h[1][1]=coeff_ll`,
 ///   `h[0][2]=coeff_tw_b·B_j + coeff_tw_d·B'_j`,
 ///   `h[1][2]=coeff_lw_b·B_j + coeff_lw_d·B'_j`,
-///   `h[2][2]=coeffww·B_j²`.
-/// A dropped or sign-flipped hand coefficient shifts a block well outside 1e-9
+///   `h[2][2]=coeff_ww·B_j²`.
+/// A dropped or sign-flipped generated coefficient shifts a block well outside
+/// 1e-9
 /// and fails loudly, for probit / logit / cloglog. The value channel is
 /// irrelevant to the Hessian (`compose_unary`'s `h` reads only `f'`/`f''`), so a
 /// placeholder `0.0` is passed for the objective value.
 #[test]
-pub(crate) fn binomial_location_scale_wiggle_hessian_row_pieces_match_jet_tower_932() {
+pub(crate) fn binomial_location_scale_wiggle_order2_rows_match_jet_tower_932() {
     use super::binomial_q_derivs::binomial_neglog_q_derivatives_dispatch;
     use gam_math::jet_tower::Tower2;
 
@@ -8682,8 +8790,8 @@ pub(crate) fn binomial_location_scale_wiggle_hessian_row_pieces_match_jet_tower_
         };
 
         let pieces = family
-            .wiggle_hessian_row_pieces(&states)
-            .expect("wiggle hessian row pieces");
+            .wiggle_order2_rows(&states)
+            .expect("canonical wiggle order-two rows");
 
         let eta_t = &states[BinomialLocationScaleWiggleFamily::BLOCK_T].eta;
         let eta_ls = &states[BinomialLocationScaleWiggleFamily::BLOCK_LOG_SIGMA].eta;
@@ -8700,8 +8808,9 @@ pub(crate) fn binomial_location_scale_wiggle_hessian_row_pieces_match_jet_tower_
         )
         .expect("binomial location-scale core");
 
-        // Same basis tensors the hand path consumes: pieces.{b0,d0} are exactly
-        // B and B' it used; recompute B'' for the order-2 composition.
+        // Same basis tensors the canonical row program consumes:
+        // pieces.{b0,d0} are exactly B and B' it used; recompute B'' for the
+        // order-2 composition.
         let b0 = &pieces.b0;
         let d0 = &pieces.d0;
         let dd0 = family
@@ -8747,41 +8856,41 @@ pub(crate) fn binomial_location_scale_wiggle_hessian_row_pieces_match_jet_tower_
 
                 assert!(
                     close(h[0][0], pieces.coeff_tt[i]),
-                    "{link:?} coeff_tt[{i},{j}]: tower={:.9e} hand={:.9e}",
+                    "{link:?} coeff_tt[{i},{j}]: tower={:.9e} canonical={:.9e}",
                     h[0][0],
                     pieces.coeff_tt[i]
                 );
                 assert!(
                     close(h[0][1], pieces.coeff_tl[i]),
-                    "{link:?} coeff_tl[{i},{j}]: tower={:.9e} hand={:.9e}",
+                    "{link:?} coeff_tl[{i},{j}]: tower={:.9e} canonical={:.9e}",
                     h[0][1],
                     pieces.coeff_tl[i]
                 );
                 assert!(
                     close(h[1][1], pieces.coeff_ll[i]),
-                    "{link:?} coeff_ll[{i},{j}]: tower={:.9e} hand={:.9e}",
+                    "{link:?} coeff_ll[{i},{j}]: tower={:.9e} canonical={:.9e}",
                     h[1][1],
                     pieces.coeff_ll[i]
                 );
 
                 let tw = pieces.coeff_tw_b[i] * b0[[i, j]] + pieces.coeff_tw_d[i] * d0[[i, j]];
                 let lw = pieces.coeff_lw_b[i] * b0[[i, j]] + pieces.coeff_lw_d[i] * d0[[i, j]];
-                let ww = pieces.coeffww[i] * b0[[i, j]] * b0[[i, j]];
+                let ww = pieces.coeff_ww[i] * b0[[i, j]] * b0[[i, j]];
                 assert!(
                     close(h[0][2], tw),
-                    "{link:?} (η_t,βw) cross[{i},{j}]: tower={:.9e} hand={:.9e}",
+                    "{link:?} (η_t,βw) cross[{i},{j}]: tower={:.9e} canonical={:.9e}",
                     h[0][2],
                     tw
                 );
                 assert!(
                     close(h[1][2], lw),
-                    "{link:?} (η_ls,βw) cross[{i},{j}]: tower={:.9e} hand={:.9e}",
+                    "{link:?} (η_ls,βw) cross[{i},{j}]: tower={:.9e} canonical={:.9e}",
                     h[1][2],
                     lw
                 );
                 assert!(
                     close(h[2][2], ww),
-                    "{link:?} (βw,βw)[{i},{j}]: tower={:.9e} hand={:.9e}",
+                    "{link:?} (βw,βw)[{i},{j}]: tower={:.9e} canonical={:.9e}",
                     h[2][2],
                     ww
                 );
@@ -9071,8 +9180,7 @@ fn nb_location_scale_inner_solve_converges_on_heteroscedastic_counts() {
     // when the inner solve fails to converge — the non-convergence the profile
     // objective escalates to the fatal abort. Before the fix this returns
     // `Err(Optimization{ "...inner solve did not converge..." })`.
-    let result =
-        fit_custom_family_fixed_log_lambdas(&family, &specs, &options, None, 0, None, true);
+    let result = fit_custom_family_fixed_log_lambdas(&family, &specs, &options, None);
     let fit = result.unwrap_or_else(|e| {
         panic!(
             "NB location-scale inner solve must converge on heteroscedastic count data \

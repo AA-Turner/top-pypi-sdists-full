@@ -10,20 +10,19 @@ use crate::families::custom_family::joint_newton_defaults::{
     joint_hessian_has_cross_block_coupling,
 };
 use crate::families::custom_family::options::{
-    BlockwiseFitOptions, OuterDerivativePolicy, assert_derivative_blocks_match_specs,
+    BlockwiseFitOptions, OuterDerivativePolicy, assert_hyper_layout_matches_specs,
     assert_rho_matches_specs, assert_states_match_specs, assert_valid_blockspecs,
     assert_valid_options, default_coefficient_hessian_cost, default_outer_derivative_policy_costs,
     exact_outer_order_with_outer_hvp, validate_hessian_workspace_ready,
 };
 use crate::families::custom_family::psi_design::{
-    CustomFamilyBlockPsiDerivative, ExactNewtonJointHessianWorkspace,
+    CustomFamilyHyperLayout, ExactNewtonJointHessianWorkspace,
 };
 use gam_linalg::matrix::DesignMatrix;
 use gam_problem::{
     BlockGeometryDirectionalDerivative, BlockWorkingSet, ExactNewtonJointPsiSecondOrderTerms,
     ExactNewtonJointPsiTerms, ExactNewtonJointPsiWorkspace, ExactNewtonOuterObjective,
-    ExactOuterDerivativeOrder, LinearInequalityConstraints, ParameterBlockSpec,
-    ParameterBlockState, PseudoLogdetMode,
+    ExactOuterDerivativeOrder, ParameterBlockSpec, ParameterBlockState, PseudoLogdetMode,
 };
 use ndarray::{Array1, Array2};
 use std::sync::Arc;
@@ -50,7 +49,7 @@ pub struct ExactNewtonJointGradientEvaluation {
 /// and accumulates all K traces in a single streaming pass.
 ///
 /// All three vectors have length equal to the total number of outer
-/// hyperparameters (K = `rho.len() + Σ derivative_blocks[b].len()`), in the
+/// hyperparameters (K = `rho.len() + hyper_layout.len()`), in the
 /// same coordinate order as the unified evaluator's gradient: ρ-coords first,
 /// ψ-coords appended.
 ///
@@ -91,6 +90,7 @@ pub struct BatchedOuterGradientTerms {
 /// `custom_family::ExactNewtonOuterCurvature` path keeps resolving without a
 /// duplicate definition.
 pub use gam_problem::ExactNewtonOuterCurvature;
+pub use gam_problem::{ConstraintSet, KhatriRaoConeConstraints, PlacedConstraintBlock};
 
 /// Shared lifecycle for an unbiased sampled outer-derivative pilot.
 ///
@@ -179,6 +179,28 @@ pub trait CustomFamily {
 
     /// Evaluate log-likelihood and per-block working quantities at current block predictors.
     fn evaluate(&self, block_states: &[ParameterBlockState]) -> Result<FamilyEvaluation, String>;
+
+    /// Build family-owned current-state scalars for a post-fit
+    /// identifiability audit.
+    ///
+    /// Dynamic Jacobian callbacks must not reconstruct cross-block primary
+    /// geometry from one block's coefficient slice. A family that returns
+    /// `Some` here supplies the exact per-row state shared by all callbacks;
+    /// the fit engine then re-audits the converged raw-coordinate model with
+    /// those scalars. Static families return `None` and skip that audit.
+    fn current_identifiability_family_scalars(
+        &self,
+        _: &[ParameterBlockState],
+    ) -> Result<Option<Arc<dyn std::any::Any + Send + Sync>>, String> {
+        Ok(None)
+    }
+
+    /// Scale stored on the converged identifiability linearization state.
+    /// Families returning dynamic scalars override this when their callbacks
+    /// use a non-unit probit/frailty scale.
+    fn identifiability_probit_frailty_scale(&self) -> f64 {
+        1.0
+    }
 
     /// Compute only the log-likelihood without building working sets.
     ///
@@ -638,14 +660,17 @@ pub trait CustomFamily {
         Ok(None)
     }
 
-    /// Optional linear inequality constraints for a block update:
-    /// `A * beta_block >= b`.
+    /// Optional inequality constraints for a block update: `A * beta_block
+    /// >= b`, carried either as explicit rows or as a factored cone
+    /// ([`ConstraintSet`]). Small blocks return
+    /// `ConstraintSet::Dense(...)`; a Khatri-Rao tensor block returns the
+    /// factored monotonicity cone so the row set never materializes.
     fn block_linear_constraints(
         &self,
         _: &[ParameterBlockState],
         _: usize,
         block_spec: &ParameterBlockSpec,
-    ) -> Result<Option<LinearInequalityConstraints>, String> {
+    ) -> Result<Option<ConstraintSet>, String> {
         // Default implementation ignores this parameter.
         assert!(!block_spec.name.is_empty());
         Ok(None)
@@ -853,18 +878,14 @@ pub trait CustomFamily {
         &self,
         block_states: &[ParameterBlockState],
         specs: &[ParameterBlockSpec],
-        derivative_blocks: &[Vec<CustomFamilyBlockPsiDerivative>],
+        hyper_layout: &CustomFamilyHyperLayout,
         rho: &Array1<f64>,
         options: &BlockwiseFitOptions,
         hessian_workspace: Option<Arc<dyn ExactNewtonJointHessianWorkspace>>,
     ) -> Result<Option<BatchedOuterGradientTerms>, String> {
         assert_valid_blockspecs(specs, "batched outer gradient terms");
         assert_states_match_specs(block_states, specs, "batched outer gradient terms");
-        assert_derivative_blocks_match_specs(
-            derivative_blocks,
-            specs,
-            "batched outer gradient terms",
-        );
+        assert_hyper_layout_matches_specs(hyper_layout, specs, "batched outer gradient terms");
         assert_rho_matches_specs(rho, specs, "batched outer gradient terms");
         assert_valid_options(options, "batched outer gradient terms");
         validate_hessian_workspace_ready(
@@ -888,17 +909,13 @@ pub trait CustomFamily {
         &self,
         block_states: &[ParameterBlockState],
         specs: &[ParameterBlockSpec],
-        derivative_blocks: &[Vec<CustomFamilyBlockPsiDerivative>],
+        hyper_layout: &CustomFamilyHyperLayout,
         rho: &Array1<f64>,
         hessian_workspace: Option<Arc<dyn ExactNewtonJointHessianWorkspace>>,
     ) -> Result<Option<BatchedOuterHessianTerms>, String> {
         assert_valid_blockspecs(specs, "batched outer Hessian terms");
         assert_states_match_specs(block_states, specs, "batched outer Hessian terms");
-        assert_derivative_blocks_match_specs(
-            derivative_blocks,
-            specs,
-            "batched outer Hessian terms",
-        );
+        assert_hyper_layout_matches_specs(hyper_layout, specs, "batched outer Hessian terms");
         assert_rho_matches_specs(rho, specs, "batched outer Hessian terms");
         validate_hessian_workspace_ready(
             &hessian_workspace,
@@ -1500,6 +1517,30 @@ pub trait CustomFamily {
         false
     }
 
+    /// Whether this family's penalized inner objective `−ℓ(β) + ½βᵀS(λ)β` is
+    /// SELF-CONCORDANT in the coefficients, so the coupled-joint inner Newton
+    /// may globalize with a self-concordant DAMPED step (`α = 1/(1+λ_N)`,
+    /// `λ_N` the Newton decrement) instead of the trust-region ratio search.
+    ///
+    /// Default `false`: every family keeps the existing trust-region
+    /// globalization byte-for-byte. The conditional transformation model
+    /// (`transformation_normal`, direct-α chart) overrides to `true`: its
+    /// log-density carries the change-of-variables Jacobian `+log h'(y)` with
+    /// `h'` AFFINE in β (the direct-α payoff), so `−log h'` is a canonical
+    /// self-concordant barrier; the Gaussian log-kernel `−½h²` and the quadratic
+    /// penalty are trivially self-concordant. The self-concordant damped step has
+    /// the textbook bounded-decrease-then-quadratic guarantee, which the
+    /// trust-region metric lacks on the barrier's `1/h'²` curvature — where it
+    /// otherwise collapses to a ~1e-6 linear-rate crawl toward the tiny-positive
+    /// `h'` interior optimum (gam#979). The endpoint normalizer `−log Z` is
+    /// convex but not reliably self-concordant, so it is left to the retained
+    /// trust-ratio acceptance gate; the damping keys only on the barrier's
+    /// Newton decrement. This flag changes STEP POLICY only — the KKT/curvature
+    /// certificates still gate acceptance unchanged.
+    fn inner_objective_is_self_concordant(&self) -> bool {
+        false
+    }
+
     /// Internal helper: do the outer-REML `_with_specs` defaults trust the
     /// inner-fit's block-diagonal-from-blocks output for this family?
     ///
@@ -1838,7 +1879,7 @@ pub trait CustomFamily {
         &self,
         _: &[ParameterBlockState],
         _: &[ParameterBlockSpec],
-        _: &[Vec<CustomFamilyBlockPsiDerivative>],
+        _: &CustomFamilyHyperLayout,
         _: usize,
     ) -> Result<Option<ExactNewtonJointPsiTerms>, String> {
         // Default implementation ignores this parameter.
@@ -1860,7 +1901,7 @@ pub trait CustomFamily {
         &self,
         _: &[ParameterBlockState],
         _: &[ParameterBlockSpec],
-        _: &[Vec<CustomFamilyBlockPsiDerivative>],
+        _: &CustomFamilyHyperLayout,
         _: usize,
         _: usize,
     ) -> Result<Option<ExactNewtonJointPsiSecondOrderTerms>, String> {
@@ -1883,7 +1924,7 @@ pub trait CustomFamily {
         &self,
         _: &[ParameterBlockState],
         _: &[ParameterBlockSpec],
-        _: &[Vec<CustomFamilyBlockPsiDerivative>],
+        _: &CustomFamilyHyperLayout,
     ) -> Result<Option<Arc<dyn ExactNewtonJointPsiWorkspace>>, String> {
         Ok(None)
     }
@@ -1902,11 +1943,11 @@ pub trait CustomFamily {
         &self,
         states: &[ParameterBlockState],
         specs: &[ParameterBlockSpec],
-        derivs: &[Vec<CustomFamilyBlockPsiDerivative>],
+        hyper_layout: &CustomFamilyHyperLayout,
         options: &BlockwiseFitOptions,
     ) -> Result<Option<Arc<dyn ExactNewtonJointPsiWorkspace>>, String> {
         assert_valid_options(options, "exact Newton joint psi workspace");
-        self.exact_newton_joint_psi_workspace(states, specs, derivs)
+        self.exact_newton_joint_psi_workspace(states, specs, hyper_layout)
     }
 
     /// Whether the family's exact joint ψ workspace should also be built for
@@ -1940,7 +1981,7 @@ pub trait CustomFamily {
         &self,
         _: &[ParameterBlockState],
         _: &[ParameterBlockSpec],
-        _: &[Vec<CustomFamilyBlockPsiDerivative>],
+        _: &CustomFamilyHyperLayout,
         _: usize,
         arr: &Array1<f64>,
     ) -> Result<Option<Array2<f64>>, String> {

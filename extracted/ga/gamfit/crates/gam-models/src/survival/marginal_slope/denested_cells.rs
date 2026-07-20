@@ -51,7 +51,7 @@ impl SurvivalMarginalSlopeFamily {
         let h_obs = self.score_warp_observed_value(row, beta_h)?;
         let u_obs = a + b * z_obs;
         let link_span = if let (Some(runtime), Some(beta_w)) = (self.link_dev.as_ref(), beta_w) {
-            runtime.local_cubic_at(beta_w, u_obs)?
+            runtime.local_cubic_at(beta_w.view(), u_obs)?
         } else {
             Self::zero_score_warp_span()
         };
@@ -199,13 +199,6 @@ impl SurvivalMarginalSlopeFamily {
             coeff_bbbu,
         })
     }
-
-    // #932-2 increment 3: `observed_fixed_eta_second_partial` /
-    // `observed_fixed_chi_second_partial` (the FIXED g×h / g×w second-partial channels
-    // of the hand timepoint Hessian) feed ONLY the now test-only hand oracle — the
-    // production jet path single-sources these cross channels through the multivariate
-    // `flex_jet::cell_coeff_jets` / `cell_chi_poly_jets`. Moved to the test-masked
-    // `flex_oracle_structs_tests` module.
 
     pub(crate) fn evaluate_survival_denom_d(
         &self,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: doccmd
-Version: 2026.5.25
+Version: 2026.7.19
 Summary: Run commands against code blocks in reStructuredText and Markdown files.
 Author-email: Adam Dangoor <adamdangoor@gmail.com>
 License-Expression: MIT
@@ -27,7 +27,7 @@ Requires-Dist: cloup>=3.0.0
 Requires-Dist: dulwich>=0.22.1
 Requires-Dist: pygments>=2.18.0
 Requires-Dist: sybil<11.0.0,>=9.3.0
-Requires-Dist: sybil-extras==2026.5.25
+Requires-Dist: sybil-extras==2026.7.19
 Provides-Extra: dev
 Requires-Dist: actionlint-py==1.7.12.24; extra == "dev"
 Requires-Dist: ansi==0.3.7; extra == "dev"
@@ -37,23 +37,23 @@ Requires-Dist: doc8==2.0.0; extra == "dev"
 Requires-Dist: furo==2025.12.19; extra == "dev"
 Requires-Dist: hadolint-bin==2.14.0; sys_platform != "win32" and extra == "dev"
 Requires-Dist: interrogate==1.7.0; extra == "dev"
-Requires-Dist: mypy[faster-cache]==2.1.0; extra == "dev"
+Requires-Dist: mypy[faster-cache]==2.3.0; extra == "dev"
 Requires-Dist: mypy-strict-kwargs==2026.5.20.1; extra == "dev"
-Requires-Dist: prek==0.4.1; extra == "dev"
-Requires-Dist: pydocstringformatter==0.7.5; extra == "dev"
+Requires-Dist: prek==0.4.10; extra == "dev"
+Requires-Dist: pydocstringformatter==1.0.0; extra == "dev"
 Requires-Dist: pydocstyle==6.3; extra == "dev"
 Requires-Dist: pygments==2.20.0; extra == "dev"
-Requires-Dist: pylint[spelling]==4.0.5; extra == "dev"
+Requires-Dist: pylint[spelling]==4.0.6; extra == "dev"
 Requires-Dist: pylint-per-file-ignores==3.2.1; extra == "dev"
-Requires-Dist: pyproject-fmt==2.21.2; extra == "dev"
-Requires-Dist: pyrefly==1.0.0; extra == "dev"
-Requires-Dist: pyright==1.1.409; extra == "dev"
+Requires-Dist: pyproject-fmt==2.25.3; extra == "dev"
+Requires-Dist: pyrefly==1.1.1; extra == "dev"
+Requires-Dist: pyright==1.1.411; extra == "dev"
 Requires-Dist: pyroma==5.0.1; extra == "dev"
-Requires-Dist: pytest==9.0.3; extra == "dev"
+Requires-Dist: pytest==9.1.1; extra == "dev"
 Requires-Dist: pytest-cov==7.1.0; extra == "dev"
-Requires-Dist: pytest-regressions==2.10.0; extra == "dev"
+Requires-Dist: pytest-regressions==2.11.0; extra == "dev"
 Requires-Dist: pyyaml==6.0.3; extra == "dev"
-Requires-Dist: ruff==0.15.14; extra == "dev"
+Requires-Dist: ruff==0.15.22; extra == "dev"
 Requires-Dist: shellcheck-py==0.11.0.1; extra == "dev"
 Requires-Dist: shfmt-py==4.0.0; extra == "dev"
 Requires-Dist: sphinx>=8.1.3; extra == "dev"
@@ -62,16 +62,16 @@ Requires-Dist: sphinx-copybutton==0.5.2; extra == "dev"
 Requires-Dist: sphinx-inline-tabs==2025.12.21.14; extra == "dev"
 Requires-Dist: sphinx-lint==1.0.2; extra == "dev"
 Requires-Dist: sphinx-pyproject==0.3.0; extra == "dev"
-Requires-Dist: sphinx-substitution-extensions==2026.1.12; extra == "dev"
+Requires-Dist: sphinx-substitution-extensions==2026.6.17; extra == "dev"
 Requires-Dist: sphinxcontrib-spelling==8.0.2; extra == "dev"
 Requires-Dist: sphinxcontrib-towncrier==0.5.0a0; extra == "dev"
-Requires-Dist: strict-kwargs==2026.5.20; extra == "dev"
+Requires-Dist: strict-kwargs==2026.6.8.post1; extra == "dev"
 Requires-Dist: towncrier==25.8.0; extra == "dev"
-Requires-Dist: ty==0.0.39; extra == "dev"
+Requires-Dist: ty==0.0.60; extra == "dev"
 Requires-Dist: types-pygments==2.20.0.20260518; extra == "dev"
 Requires-Dist: vulture==2.16; extra == "dev"
 Requires-Dist: yamlfix==1.19.1; extra == "dev"
-Requires-Dist: zizmor==1.25.2; extra == "dev"
+Requires-Dist: zizmor==1.27.0; extra == "dev"
 Provides-Extra: release
 Requires-Dist: check-wheel-contents==0.6.3; extra == "release"
 Requires-Dist: homebrew-pypi-poet==0.10; extra == "release"
@@ -131,7 +131,7 @@ Pre-built Linux (x86) binaries
 
 .. code-block:: console
 
-   $ curl --fail -L https://github.com/adamtheturtle/doccmd/releases/download/2026.05.19/doccmd-linux -o /usr/local/bin/doccmd &&
+   $ curl --fail -L https://github.com/adamtheturtle/doccmd/releases/download/2026.05.25/doccmd-linux -o /usr/local/bin/doccmd &&
        chmod +x /usr/local/bin/doccmd
 
 Pre-built macOS (ARM) binaries
@@ -139,7 +139,7 @@ Pre-built macOS (ARM) binaries
 
 .. code-block:: console
 
-   $ curl --fail -L https://github.com/adamtheturtle/doccmd/releases/download/2026.05.19/doccmd-macos -o /usr/local/bin/doccmd &&
+   $ curl --fail -L https://github.com/adamtheturtle/doccmd/releases/download/2026.05.25/doccmd-macos -o /usr/local/bin/doccmd &&
        chmod +x /usr/local/bin/doccmd
 
 Pre-built macOS (ARM) binaries
@@ -147,7 +147,7 @@ Pre-built macOS (ARM) binaries
 
 .. code-block:: console
 
-   $ curl --fail -L https://github.com/adamtheturtle/doccmd/releases/download/2026.05.19/doccmd-macos -o /usr/local/bin/doccmd &&
+   $ curl --fail -L https://github.com/adamtheturtle/doccmd/releases/download/2026.05.25/doccmd-macos -o /usr/local/bin/doccmd &&
        chmod +x /usr/local/bin/doccmd
 
 You may need to remove the quarantine attribute to run the binary:
@@ -177,7 +177,7 @@ Requires `Nix`_.
 
 .. code-block:: shell
 
-   $ nix --extra-experimental-features 'nix-command flakes' run "github:adamtheturtle/doccmd/2026.05.19" -- --help
+   $ nix --extra-experimental-features 'nix-command flakes' run "github:adamtheturtle/doccmd/2026.05.25" -- --help
 
 To avoid passing ``--extra-experimental-features`` every time, `enable flakes`_ permanently.
 
@@ -200,7 +200,7 @@ To run ``doccmd`` with `pre-commit`_, add hooks like the following to your ``.pr
 .. code-block:: yaml
 
    -   repo: https://github.com/adamtheturtle/doccmd-pre-commit
-       rev: v2026.5.19
+       rev: v2026.5.25
        hooks:
        -   id: doccmd
            args: ["--language", "shell", "--command", "shellcheck --shell=bash"]

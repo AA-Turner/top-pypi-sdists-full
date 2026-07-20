@@ -236,6 +236,10 @@ impl SaeManifoldTerm {
             // desyncs value vs gradient in the logit block and stalls the inner solve
             // (#1625). Freezing it here makes value/gradient/curvature consistent.
             self.refresh_barrier_coactivation_gate();
+            // #2343 — freeze the AMPLITUDE barrier's turn-on radius `ε²` at the same
+            // chokepoint so its gradient/curvature and its line-search value share
+            // one `ε` while each atom's live norm moves with the trial decoders.
+            self.refresh_amplitude_barrier_gate();
         }
         let n = self.n_obs();
         let p = self.output_dim();
@@ -322,14 +326,20 @@ impl SaeManifoldTerm {
         // Per-atom smoothness-gradient GEMMs `½(S_k+S_kᵀ)·B_k` are independent
         // across atoms; batch them across ALL GPUs (uniform-shape tiles) and
         // scale by `lambda_smooth` below. `symmetrize = true` reproduces the
-        // per-atom symmetrised `scaled_s/λ` used by the Kronecker op. Exact CPU
-        // fallback per atom keeps the result bit-for-bit with the all-CPU path.
+        // per-atom symmetrised `scaled_s/λ` used by the Kronecker op. Device-free
+        // and sub-threshold groups use exact CPU products; admitted failures
+        // propagate.
         let sym_sb_inputs: Vec<(ArrayView2<'_, f64>, ArrayView2<'_, f64>)> = self
             .atoms
             .iter()
-            .map(|atom| (atom.smooth_penalty.view(), atom.decoder_coefficients.view()))
+            .map(|atom| {
+                (
+                    atom.smooth_penalty().view(),
+                    atom.decoder_coefficients.view(),
+                )
+            })
             .collect();
-        let sym_sb_all = batched_smooth_sb(&sym_sb_inputs, true);
+        let sym_sb_all = batched_smooth_sb(&sym_sb_inputs, true, self.gpu_policy)?;
         for (atom_idx, atom) in self.atoms.iter().enumerate() {
             let m = atom.basis_size();
             let off = beta_offsets[atom_idx];
@@ -337,7 +347,8 @@ impl SaeManifoldTerm {
             let mut scaled_s = Array2::<f64>::zeros((m, m));
             for i in 0..m {
                 for j in 0..m {
-                    let s_ij = 0.5 * (atom.smooth_penalty[[i, j]] + atom.smooth_penalty[[j, i]]);
+                    let s_ij =
+                        0.5 * (atom.smooth_penalty()[[i, j]] + atom.smooth_penalty()[[j, i]]);
                     scaled_s[[i, j]] = lambda_smooth[atom_idx] * s_ij;
                 }
             }
@@ -450,6 +461,7 @@ impl SaeManifoldTerm {
         let fixed_decoder = self.fixed_decoder_assembly;
         let admission_plan = self
             .streaming_plan()
+            .map_err(|err| format!("SaeManifoldTerm::assemble_arrow_schur: {err}"))?
             .admitted_or_error(self.n_obs(), self.output_dim(), self.k_atoms())
             .map_err(|err| format!("SaeManifoldTerm::assemble_arrow_schur: {err}"))?;
         // #1407: fixed-decoder builds NO dense β-Hessian (hbb) — force the
@@ -838,7 +850,7 @@ impl SaeManifoldTerm {
                             let mut jac_compact = Array2::<f64>::zeros((q_active, p));
                             // Coordinate JVP rows for active atoms only.
                             for (j, &k) in active.iter().enumerate() {
-                                let d = self.atoms[k].latent_dim;
+                                let d = self.atoms[k].latent_dim();
                                 let a_k = assignments[k];
                                 let coord_start = starts[j];
                                 for axis in 0..d {
@@ -874,7 +886,7 @@ impl SaeManifoldTerm {
                             );
                             // Coordinate columns for all atoms.
                             for atom_idx in 0..k_atoms {
-                                let d = self.atoms[atom_idx].latent_dim;
+                                let d = self.atoms[atom_idx].latent_dim();
                                 let off = coord_offsets[atom_idx];
                                 let a_k = assignments[atom_idx];
                                 for axis in 0..d {
@@ -1468,7 +1480,7 @@ impl SaeManifoldTerm {
                 }
             }
             if let Some(deflation) = self
-                .row_gauge_deflation_for_layout(row_layout.as_ref())
+                .row_gauge_deflation_for_layout(row_layout.as_ref())?
                 .or_else(|| {
                     // #974 — see the main-path site: enable spectral discovery of
                     // the rank-deficient-metric-null `H_tt` directions on the
@@ -1831,39 +1843,48 @@ impl SaeManifoldTerm {
         if self.add_sae_decoder_repulsion(&mut sys, penalty_scale, dense_beta_curvature) {
             beta_penalty_assembly.record_curvature(dense_beta_curvature);
         }
-        // #1026/#1522 — interior-point collapse-prevention barriers. The amplitude
-        // barrier supplies the OUTWARD radial force at the zero-decoder collapse
-        // point (the principal failure state the threshold repulsion skips), and
-        // the separation barrier supplies the alignment-divergent separating
-        // curvature on normalized shapes weighted by coactivation. Both accumulate
-        // into the full-`B` β-tier here, BEFORE the frame transform, so a framed
-        // system carries them identically to the analytic β penalties.
-        // #1610 — on the dense path the barrier's Levenberg majorizer scatters
-        // onto `sys.hbb`; on the matrix-free / framed production path `sys.hbb` is
-        // unused, so the barrier hands back a per-atom scalar ridge which we fold
-        // into `smooth_scaled_s` (the single source for the CPU composite penalty
-        // op AND the device smooth blocks), restoring the collapse-prevention
-        // curvature the operator was silently dropping there.
+        // #1026/#1522/#2343 — interior-point collapse-prevention barriers. The
+        // AMPLITUDE barrier (`add_sae_amplitude_barrier`, #2343) supplies the
+        // OUTWARD radial force at the zero-decoder collapse point (the principal
+        // failure state the collinearity-gated repulsion skips and the separation
+        // barrier drops as sub-floor), and the SEPARATION barrier supplies the
+        // alignment-divergent separating curvature on normalized shapes weighted by
+        // coactivation. Both accumulate into the full-`B` β-tier here, BEFORE the
+        // frame transform, so a framed system carries them identically to the
+        // analytic β penalties.
+        // #1610/#2343 — on the dense path each barrier's Levenberg majorizer
+        // scatters onto `sys.hbb`; on the matrix-free / framed production path
+        // `sys.hbb` is unused, so each hands back a per-atom scalar ridge (into the
+        // SHARED `sep_atom_curv`) which we fold into `smooth_scaled_s` (the single
+        // source for the CPU composite penalty op AND the device smooth blocks),
+        // restoring the collapse-prevention curvature the operator would otherwise
+        // drop there.
         let mut sep_atom_curv = vec![0.0_f64; self.atoms.len()];
         // #1038 — full-`B` self-concordant rank-1 carriers `(d2, ∂o/∂B)` the barrier
         // hands back on the matrix-free / framed path (empty on the dense path, which
         // scatters the rank-1 straight into `hbb`). Installed as `SparseRankOnePenaltyOp`
         // on the structured penalty op below, projected to factored coords when framed.
         let mut sep_rank1: Vec<(f64, Vec<(usize, f64)>)> = Vec::new();
-        if self.add_sae_separation_barrier(
+        // #2343 — amplitude barrier FIRST: its radial ridge lands in the SAME
+        // shared `sep_atom_curv` the separation barrier's `lev` uses, folded once
+        // below regardless of which barrier(s) engaged.
+        let amplitude_wrote =
+            self.add_sae_amplitude_barrier(&mut sys, penalty_scale, dense_beta_curvature, &mut sep_atom_curv);
+        let separation_wrote = self.add_sae_separation_barrier(
             &mut sys,
             penalty_scale,
             dense_beta_curvature,
             &mut sep_atom_curv,
             &mut sep_rank1,
-        ) {
+        );
+        if amplitude_wrote || separation_wrote {
             if dense_beta_curvature {
                 beta_penalty_assembly.record_curvature(true);
             } else {
-                // Fold the per-atom majorizer `lev_k·I_{M_k}` into the smooth
-                // penalty factor `λ S_k`. With `⊗ I_p` (full-`B`) or `⊗ I_{r_k}`
-                // (factored, `U_kᵀU_k = I`) this is exactly the `lev_k·I` block
-                // diagonal the dense path writes — and it now flows through the
+                // Fold the per-atom majorizer `lev_k·I_{M_k}` (from BOTH barriers)
+                // into the smooth penalty factor `λ S_k`. With `⊗ I_p` (full-`B`) or
+                // `⊗ I_{r_k}` (factored, `U_kᵀU_k = I`) this is exactly the `lev_k·I`
+                // block diagonal the dense path writes — and it now flows through the
                 // structured penalty op and the device smooth blocks. No
                 // `deferred_factored` mark: the curvature is in the smooth op, not
                 // a deferred dense block, so the device path stays engaged.
@@ -2219,7 +2240,7 @@ impl SaeManifoldTerm {
             self.reclaim_border_hbb_workspace(&mut sys);
         }
         if let Some(deflation) = self
-            .row_gauge_deflation_for_layout(row_layout.as_ref())
+            .row_gauge_deflation_for_layout(row_layout.as_ref())?
             .or_else(|| {
                 // #974 — enable evidence-mode spectral discovery of the
                 // metric-null / indefinite quotient directions a rank-deficient

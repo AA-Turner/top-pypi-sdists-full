@@ -13,22 +13,14 @@
 //! the `CustomFamily` impl, block Jacobians, fit setup, and the entry point.
 //!
 
-// Public surface: the marginal-slope identifiability pipeline (global-T
-// assembly, per-term parametric design compile, raw↔compiled β projection) is
-// the same public API the pre-#1521 monolith exposed as
-// `gam::identifiability::marginal_slope`. Its entry points are exercised by this
-// module's own unit tests and are public for downstream consumers; keeping the
-// module `pub` (not `pub(crate)`) preserves that contract and the dead-code
-// exemption rustc grants reachable public API.
-pub mod identifiability;
-
 pub(crate) use crate::custom_family::{
     BlockWorkingSet, BlockwiseFitOptions, CustomFamily, CustomFamilyWarmStart,
     ExactNewtonJointGradientEvaluation, ExactNewtonJointHessianWorkspace, FamilyEvaluation,
     ParameterBlockSpec, ParameterBlockState, PenaltyMatrix, custom_family_outer_derivatives,
-    evaluate_custom_family_joint_hyper_efs_shared, evaluate_custom_family_joint_hyper_shared,
-    fit_custom_family, fit_custom_family_fixed_log_lambda_warm_start,
-    joint_hyper_options_for_outer_tolerance,
+    evaluate_custom_family_joint_hyper_efs_owned_shared,
+    evaluate_custom_family_joint_hyper_owned_shared, fit_custom_family,
+    fit_custom_family_fixed_log_lambda_warm_start,
+    fit_custom_family_fixed_log_lambdas_from_owned_mode, joint_hyper_options_for_outer_tolerance,
 };
 pub(crate) use gam_problem::{
     ExactNewtonJointPsiSecondOrderTerms, ExactNewtonJointPsiTerms, ExactNewtonJointPsiWorkspace,
@@ -40,7 +32,7 @@ pub(crate) use gam_linalg::faer_ndarray::{FaerCholesky, fast_atv, fast_av, fast_
 
 pub(crate) use crate::bms::{
     CrossBlockIdentifiabilityWarning, DeviationBlockConfig, DeviationRuntime, LatentZNormalization,
-    LatentZPolicy, MarginalSlopeCovariance, ParametricAnchorBlock,
+    LatentZPolicy, MarginalSlopeCovariance, MarginalSlopeCovarianceRef, ParametricAnchorBlock,
     marginal_slope_covariance_from_scores, marginal_slope_preserving_scale,
     marginal_slope_probit_eta, padded_deviation_seed,
 };
@@ -56,19 +48,16 @@ pub(crate) use crate::bms::{
 
 pub(crate) use crate::cubic_cell_kernel as exact_kernel;
 
-pub(crate) use gam_math::jet_partitions::MultiDirJet;
-
-pub(crate) use crate::survival::lognormal_kernel::FrailtySpec;
+pub(crate) use crate::survival::lognormal_kernel::{FrailtyScale, FrailtySpec};
 
 pub(crate) use crate::marginal_slope_shared::{
-    DirectionalScaleJets, ObservedDenestedCellPartials, add_optional_matrix, add_optional_vector,
+    ObservedDenestedCellPartials, add_optional_matrix, add_optional_vector,
     add_two_surface_psi_outer, build_denested_partition_cells as shared_denested_partition_cells,
-    chunked_row_reduction, directional_obj_grad_hess, eval_coeff4_at,
-    is_sigma_aux_index as shared_is_sigma_aux_index,
+    chunked_row_reduction, eval_coeff4_at, first_parameter_directional_order2_terms,
+    first_parameter_order2_terms,
     observed_denested_cell_partials as shared_observed_denested_cell_partials, outer_row_indices,
     outer_row_weights_by_index, outer_weighted_rows, parameter_block_specs_match_rows,
-    probit_frailty_scale, probit_frailty_scale_multi_dir_jet, psi_derivative_location,
-    scale_coeff4,
+    probit_frailty_scale, psi_derivative_location, scale_coeff4, second_parameter_order2_terms,
 };
 
 pub(crate) use crate::parameter_block::ParameterBlockInput;
@@ -100,8 +89,9 @@ pub(crate) use gam_solve::pirls::LinearInequalityConstraints;
 pub(crate) use crate::probability::signed_probit_logcdf_and_mills_ratio;
 
 pub(crate) use crate::fit_orchestration::drivers::{
-    ExactJointHyperSetup, build_term_collection_designs_and_freeze_joint,
-    optimize_spatial_length_scale_exact_joint, spatial_length_scale_term_indices,
+    ExactJointEfsEvaluation, ExactJointEvaluation, ExactJointHyperSetup, SpatialFitProvenance,
+    build_term_collection_designs_and_freeze_joint, optimize_spatial_length_scale_exact_joint,
+    spatial_length_scale_term_indices,
 };
 pub(crate) use gam_terms::smooth::{
     BlockwisePenalty, SpatialLengthScaleOptimizationOptions, SpatialLogKappaCoords,
@@ -125,6 +115,7 @@ pub(crate) use std::sync::atomic::AtomicUsize;
 pub(crate) use std::sync::{Arc, Mutex};
 
 mod accumulate;
+mod alo_replay;
 mod block_jacobians;
 mod block_layout;
 mod calibration;
@@ -133,6 +124,7 @@ mod custom_family_impl;
 mod denested_cells;
 mod error;
 mod eval_rigid;
+mod eval_family;
 mod eval_score;
 mod eval_sigma;
 mod family;
@@ -140,16 +132,12 @@ mod feasibility;
 mod fit_entry;
 mod fit_setup;
 mod flex_sensitivity;
-pub mod gpu;
-pub mod gpu_prep;
 mod hessian;
 mod intercept;
 mod joint_eval;
 mod joint_workspace;
-mod kkt_refusal;
+mod logslope_layout;
 mod newton_operators;
-#[cfg(test)]
-mod poly_arith_tests;
 mod primary_geometry;
 mod psi_terms;
 mod pullback;
@@ -159,6 +147,7 @@ mod spec;
 mod timepoint_exact;
 mod timewiggle_geometry;
 
+pub use alo_replay::*;
 pub use block_jacobians::*;
 pub(crate) use block_layout::*;
 pub use error::*;
@@ -168,13 +157,11 @@ pub(crate) use fit_setup::*;
 pub(crate) use hessian::*;
 pub(crate) use joint_eval::*;
 pub(crate) use joint_workspace::*;
-pub(crate) use kkt_refusal::*;
+pub(crate) use logslope_layout::*;
 pub(crate) use primary_geometry::*;
 pub(crate) use row_kernel::*;
 pub use row_math::*;
 pub use spec::*;
 
-#[cfg(test)]
-mod flex_oracle_structs_tests;
 #[cfg(test)]
 mod tests;

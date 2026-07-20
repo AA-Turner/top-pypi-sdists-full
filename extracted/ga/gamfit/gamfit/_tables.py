@@ -10,13 +10,15 @@ from typing import Any, cast
 SUPPORTED_OUTPUT_KINDS = {"dict", "numpy", "pandas", "polars", "pyarrow"}
 
 
-class PredictionResult(dict[str, list[Any]]):
+class PredictionResult(dict[str, Any]):
     """Dict-shaped prediction table with attribute access to columns.
 
     ``Model.predict(..., return_type="dict")`` and dict-shaped tabular
     defaults return this class. It behaves like a normal ``dict`` for
     subscription and iteration, while also allowing field access such as
     ``pred.mean``, ``pred.std_error``, and ``pred.mean_lower``.
+    Model-based interval results also carry the scalar metadata field
+    ``pred.covariance_source`` / ``pred["covariance_source"]``.
     """
 
     _ALIASES = {
@@ -25,7 +27,7 @@ class PredictionResult(dict[str, list[Any]]):
         "se_mean": "std_error",
     }
 
-    def __getattr__(self, name: str) -> list[Any]:
+    def __getattr__(self, name: str) -> Any:
         key = self._ALIASES.get(name, name)
         try:
             return self[key]
@@ -100,7 +102,18 @@ def normalize_table(data: Any) -> tuple[list[str], Any, str]:
     ):
         from ._binding import rust_module
 
-        return headers, rust_module().encoded_table_from_arrow(headers, data), kind
+        # A pandas index is row identity, never a model variable. Pandas 3's
+        # Arrow C stream materializes a non-RangeIndex as an extra schema field,
+        # while `data.columns` correctly excludes it. Canonicalize row identity
+        # before export so the Arrow schema is exactly the declared data-column
+        # schema. `drop=True` preserves every data column and pandas' copy-on-write
+        # frame keeps this a metadata operation rather than a numeric-table copy.
+        arrow_source = data.reset_index(drop=True) if kind == "pandas" else data
+        return (
+            headers,
+            rust_module().encoded_table_from_arrow(headers, arrow_source),
+            kind,
+        )
 
     categorical = categorical_dtype_columns(data, kind, columns=columns)
     numeric_positions = [

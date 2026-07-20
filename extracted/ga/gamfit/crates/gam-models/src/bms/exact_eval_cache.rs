@@ -8,20 +8,10 @@ pub(super) fn log_exact_work(n: usize) -> bool {
     n >= EXACT_WORK_LOG_MIN_ROWS
 }
 
-/// Cross-platform available-RAM probe backed by `sysinfo`. Returns the bytes
-/// the OS reports as available for new allocations (free + reclaimable cache);
-/// the underlying `System` instance is leaked behind a `OnceLock` so the cost
-/// of `new_with_specifics` is paid once per process.
+/// Current cgroup-aware process-memory allowance from the runtime's single
+/// authoritative OS probe.
 pub(super) fn runtime_available_memory_bytes() -> u64 {
-    static SYSTEM: OnceLock<Mutex<sysinfo::System>> = OnceLock::new();
-    let lock = SYSTEM.get_or_init(|| {
-        let refresh =
-            sysinfo::RefreshKind::new().with_memory(sysinfo::MemoryRefreshKind::everything());
-        Mutex::new(sysinfo::System::new_with_specifics(refresh))
-    });
-    let mut system = lock.lock().expect("sysinfo system mutex poisoned");
-    system.refresh_memory_specifics(sysinfo::MemoryRefreshKind::everything());
-    system.available_memory()
+    gam_runtime::resource::detect_memory_availability().available_bytes()
 }
 
 /// Process-global counter of bytes currently pinned by live BMS row-primary
@@ -276,12 +266,11 @@ impl Drop for RowPrimaryEvalPin {
 ///   the fused gradient+dense-H path via
 ///   [`BernoulliMarginalSlopeFamily::cached_row_primary_hessian`] and
 ///   [`BernoulliMarginalSlopeFamily::cached_row_primary_eval`].
-/// - `Device` (Linux/CUDA only): row Hessian + designs live on the GPU.
-///   HVP / diagonal / dense-block consumers route through the device-aware
-///   GPU entry points; the fused CPU gradient pass is the rare fallback (only
-///   when `p_total` exceeds the dense-block kernel's shared-memory cap) and
-///   recomputes the row kernel on the fly in that case, so the GPU output
-///   for `(neglog, grad)` is not mirrored on the host.
+/// - `Device` (Linux/CUDA only): row value, gradient, Hessian, and designs live
+///   on the GPU. Log-likelihood / score / HVP / diagonal / dense consumers route
+///   through device entry points. Widths above the direct dense kernel's
+///   shared-memory bound materialize through bounded multi-RHS device HVPs;
+///   device failures propagate instead of changing algorithms.
 pub enum RowPrimaryEvalCache {
     Empty,
     Host(RowPrimaryEvalPin),
@@ -292,8 +281,9 @@ pub enum RowPrimaryEvalCache {
     /// build scratch stays one tile wide and the inner operator never falls
     /// back to recomputing row Hessians per probe.
     Tiled(RowPrimaryEvalTiles),
-    /// Device-resident row Hessian + designs. HVP / diagonal / dense-block
-    /// consumers route through the device-aware GPU entry points.
+    /// Device-resident row value + gradient + Hessian + designs. Every
+    /// downstream joint-value/score/Hessian consumer routes through the
+    /// device-aware entry points.
     #[cfg(target_os = "linux")]
     Device(crate::bms::gpu::row::DeviceResidentRowHess),
 }
@@ -320,9 +310,8 @@ impl RowPrimaryEvalCache {
 
     /// Returns the host-resident pin when the cache is materialised as a
     /// host pin. Returns `None` for the device-resident variant — callers
-    /// that need to read the full `r x r` Hessian per row must either
-    /// route through the device-aware HVP / diagonal entry points or fall
-    /// back to recomputing the row Hessian on the fly.
+    /// that need to read the full `r x r` Hessian per row must route through
+    /// the device-aware HVP / diagonal entry points.
     #[inline]
     pub(crate) fn host_pin(&self) -> Option<&RowPrimaryEvalPin> {
         match self {
@@ -343,6 +332,37 @@ impl RowPrimaryEvalCache {
             Self::Device(hess) => Some(hess),
             _ => None,
         }
+    }
+
+    /// Reject a host row-calculus entry point after the device cache has been
+    /// selected. Device selection is an algorithm commitment, so a caller
+    /// must consume the resident value/gradient/Hessian channels instead of
+    /// silently recomputing the canonical row program on CPU.
+    /// Whether this cache is device-resident. Structurally `false` off-Linux,
+    /// where the `Device` variant does not exist, so the rejection below reads
+    /// the same on every platform instead of cfg-ing the check away (which left
+    /// `operation` unused off-Linux and broke the macOS/Windows wheel builds
+    /// under `-D warnings`).
+    #[inline]
+    fn is_device_resident(&self) -> bool {
+        #[cfg(target_os = "linux")]
+        {
+            matches!(self, Self::Device(_))
+        }
+        #[cfg(not(target_os = "linux"))]
+        {
+            false
+        }
+    }
+
+    #[inline]
+    pub(crate) fn reject_device_cpu_recompute(&self, operation: &str) -> Result<(), String> {
+        if self.is_device_resident() {
+            return Err(format!(
+                "BMS {operation}: device-resident row evaluation selected; CPU row recomputation is forbidden"
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -379,6 +399,27 @@ pub(super) struct FlexAxisFourthRowTensors {
     pub(super) qg: Array2<f64>,
     /// Symmetric fourth-derivative tensor contracted with `(e_g, e_g)`.
     pub(super) gg: Array2<f64>,
+}
+
+/// Lazy derivative-channel cache for one canonical BMS FLEX row program.
+///
+/// The row has one semantic program identity, while third- and fourth-order
+/// contractions retain independent lazy cells so a VGH/first-outer pass never
+/// forces degree-21 moments. Sharing the outer row slot removes the former
+/// pair of parallel cache hierarchies without coupling their work budgets.
+pub(super) struct BmsFlexRowProgramDerivativeCache {
+    pub(super) third: gam_runtime::resource::RayonSafeOnce<Result<FlexAxisThirdRowTensors, String>>,
+    pub(super) fourth:
+        gam_runtime::resource::RayonSafeOnce<Result<FlexAxisFourthRowTensors, String>>,
+}
+
+impl BmsFlexRowProgramDerivativeCache {
+    pub(super) fn new() -> Self {
+        Self {
+            third: gam_runtime::resource::RayonSafeOnce::new(),
+            fourth: gam_runtime::resource::RayonSafeOnce::new(),
+        }
+    }
 }
 
 /// Shared precomputed state plus pre-solved per-row contexts. All row
@@ -450,26 +491,11 @@ pub(super) struct BernoulliMarginalSlopeExactEvalCache {
     pub(super) rigid_fourth_full:
         gam_runtime::resource::RayonSafeOnce<Result<Vec<[[[[f64; 2]; 2]; 2]; 2]>, String>>,
 
-    /// Flexible-path per-row axis-projected third-derivative tensors. See
-    /// [`FlexAxisThirdRowTensors`] for the contraction algebra. Only consulted
-    /// on the FLEX path — rigid rows keep their own `rigid_third_full` cache.
-    ///
-    /// Two-level lazy: the outer `RayonSafeOnce` allocates a per-row slot table
-    /// (one inner `RayonSafeOnce` per global row) on first touch; each row's
-    /// tensors are then built **on demand** when that row is first read. Outer
-    /// derivative passes are row-subsampled, so per-row laziness builds (and
-    /// risks erroring on) only the rows actually consumed, not all `n`. Each
-    /// inner build is fallible and sticky (same contract as `rigid_third_full`).
-    pub(super) flex_axis_third_tensors: gam_runtime::resource::RayonSafeOnce<
-        Vec<gam_runtime::resource::RayonSafeOnce<Result<FlexAxisThirdRowTensors, String>>>,
-    >,
-
-    /// Flexible-path per-row axis-projected fourth-derivative tensors. Built
-    /// independently from `flex_axis_third_tensors` so first-order outer work
-    /// never forces degree-21 fourth-order cell moments.
-    pub(super) flex_axis_fourth_tensors: gam_runtime::resource::RayonSafeOnce<
-        Vec<gam_runtime::resource::RayonSafeOnce<Result<FlexAxisFourthRowTensors, String>>>,
-    >,
+    /// One lazy slot per canonical FLEX row program. Each slot owns separate
+    /// third/fourth channel cells, preserving order-specific work while making
+    /// the program/cache identity single-sourced.
+    pub(super) flex_row_program_derivatives:
+        gam_runtime::resource::RayonSafeOnce<Vec<BmsFlexRowProgramDerivativeCache>>,
 
     /// Lazily-built full-data outer row list (`index = position`, `weight = 1.0`,
     /// `stratum = 0` for every row in `0..n`). The full-data variant of

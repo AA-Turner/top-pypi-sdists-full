@@ -32,11 +32,11 @@ pub(crate) fn score_warp_component_range(
     coord * p..(coord + 1) * p
 }
 
-pub(crate) fn score_warp_component_beta(
+pub(crate) fn score_warp_component_beta<'a>(
     runtime: &DeviationRuntime,
-    beta: &Array1<f64>,
+    beta: ArrayView1<'a, f64>,
     coord: usize,
-) -> Result<Array1<f64>, String> {
+) -> Result<ArrayView1<'a, f64>, String> {
     let range = score_warp_component_range(runtime, coord);
     if range.end > beta.len() {
         return Err(SurvivalMarginalSlopeError::IncompatibleDimensions {
@@ -48,7 +48,7 @@ pub(crate) fn score_warp_component_beta(
         }
         .into());
     }
-    Ok(beta.slice(s![range]).to_owned())
+    Ok(beta.slice_move(s![range]))
 }
 
 /// Stripe a (post-reparam) scalar score-warp `base` across K z coordinates
@@ -320,7 +320,7 @@ pub(crate) fn block_slices(
     }
     let time = 0..family.design_entry.ncols();
     let marginal = time.end..time.end + family.marginal_design.ncols();
-    let logslope = marginal.end..marginal.end + family.logslope_design.ncols();
+    let logslope = marginal.end..marginal.end + family.logslope_layout.coefficient_design().ncols();
     let mut cursor = logslope.end;
     let score_warp = family.score_warp.as_ref().map(|runtime| {
         let range = cursor..cursor + runtime.basis_dim() * family.score_dim();
@@ -351,52 +351,6 @@ pub(crate) fn block_slices(
     }
 }
 
-/// Owned scratch buffers backing a
-/// [`crate::survival::marginal_slope::gpu::SurvivalFlexGpuRowInputs`] descriptor.
-///
-/// Built per-call by
-/// [`SurvivalMarginalSlopeFamily::build_survival_flex_gpu_row_batch`];
-/// callers hold the batch by value across the GPU `try_*` entry so the
-/// borrowed slices returned by [`Self::as_inputs`] live for the dispatch.
-pub(crate) struct SurvivalFlexGpuRowBatch {
-    pub(crate) n: usize,
-    pub(crate) p: usize,
-    pub(crate) q0: Vec<f64>,
-    pub(crate) q1: Vec<f64>,
-    pub(crate) qd1: Vec<f64>,
-    pub(crate) z: Vec<f64>,
-    pub(crate) g: Vec<f64>,
-    pub(crate) beta: Vec<f64>,
-    pub(crate) weights: Vec<f64>,
-    pub(crate) event: Vec<f64>,
-}
-
-impl SurvivalFlexGpuRowBatch {
-    /// Borrow the buffers as a
-    /// [`crate::survival::marginal_slope::gpu::SurvivalFlexGpuRowInputs`] descriptor.
-    pub(crate) fn as_inputs<'a>(
-        &'a self,
-        family: &SurvivalMarginalSlopeFamily,
-    ) -> crate::survival::marginal_slope::gpu::SurvivalFlexGpuRowInputs<'a> {
-        crate::survival::marginal_slope::gpu::SurvivalFlexGpuRowInputs {
-            n: self.n,
-            r: N_PRIMARY,
-            p: self.p,
-            score_dim: family.score_dim(),
-            beta: &self.beta,
-            q0: &self.q0,
-            q1: &self.q1,
-            qd1: &self.qd1,
-            z: &self.z,
-            g: &self.g,
-            weights: &self.weights,
-            event: &self.event,
-            derivative_guard: family.derivative_guard,
-            probit_scale: family.probit_frailty_scale(),
-        }
-    }
-}
-
 // ── Primary-space helpers ─────────────────────────────────────────────
 
 // Primary scalar indices: 0=q0, 1=q1, 2=qd1, 3=g
@@ -418,33 +372,6 @@ pub(crate) struct FlexPrimarySlices {
     pub(crate) infl: Option<usize>,
     pub(crate) total: usize,
 }
-
-/// Pack a private `SurvivalFlexTimepointExact` into the Block 10
-/// pub-substrate input type so the shared CPU/GPU pure assembler in
-/// `crate::survival::marginal_slope::gpu` can consume it without taking a
-/// dependency on the family's private jet structs.
-pub(crate) fn block10_pack_base(
-    base: &SurvivalFlexTimepointExact,
-) -> crate::survival::marginal_slope::gpu::SurvivalFlexBlock10TimepointBase {
-    crate::survival::marginal_slope::gpu::SurvivalFlexBlock10TimepointBase {
-        eta: base.eta,
-        chi: base.chi,
-        d: base.d,
-        eta_u: base.eta_u.to_vec(),
-        eta_uv: base.eta_uv.iter().copied().collect(),
-        chi_u: base.chi_u.to_vec(),
-        chi_uv: base.chi_uv.iter().copied().collect(),
-        d_u: base.d_u.to_vec(),
-        d_uv: base.d_uv.iter().copied().collect(),
-    }
-}
-
-// #932-2 cutover: `block10_pack_dir`/`block10_pack_bi` are removed — the production
-// contracted path now reads the Block-10 directional/bidirectional packs directly
-// from the `Jet3`/`Jet4` builders (`compute_survival_timepoint_{directional,
-// bidirectional}_jet_from_cached` return the gpu pack), so the hand-pack adapters
-// (which converted the now-test-only `SurvivalFlexTimepoint{Directional,
-// BiDirectional}Exact` structs) have no remaining consumer.
 
 pub(crate) fn flex_primary_slices(family: &SurvivalMarginalSlopeFamily) -> FlexPrimarySlices {
     let q0 = 0usize;

@@ -46,7 +46,7 @@ def test_tuple_outputs_with_cache() -> None:
     f = pipeline.func("i")
     r = f.call_full_output(a=1, b=2, x=3)["i"]
     assert r == f(a=1, b=2, x=3)
-    key = ("d-e", (("a", 1), ("b", 2), ("x", 3)))
+    key = (pipeline["d"]._cache_id, (("a", 1), ("b", 2), ("x", 3)))
     assert pipeline.cache is not None
     assert pipeline.cache.cache[key] == (6, 1)
 
@@ -135,18 +135,19 @@ def test_simple_cache() -> None:
     pipeline = Pipeline([f], cache_type="simple")
     assert pipeline("c", a=1, b=2) == (1, 2)
     assert pipeline.cache is not None
-    assert pipeline.cache.cache == {("c", (("a", 1), ("b", 2))): (1, 2)}
+    cid = pipeline["c"]._cache_id
+    assert pipeline.cache.cache == {(cid, (("a", 1), ("b", 2))): (1, 2)}
     pipeline.cache.clear()
     assert pipeline("c", a={"a": 1}, b=[2]) == ({"a": 1}, [2])
     m = _HASH_MARKER
     assert pipeline.cache.cache == {
-        ("c", (("a", (m, dict, (("a", 1),))), ("b", (m, list, (2,))))): ({"a": 1}, [2]),
+        (cid, (("a", (m, dict, (("a", 1),))), ("b", (m, list, (2,))))): ({"a": 1}, [2]),
     }
     assert len(pipeline.cache.cache) == 1
     pipeline.cache.clear()
     assert pipeline("c", a={"a"}, b=[2]) == ({"a"}, [2])
     assert pipeline.cache.cache == {
-        ("c", (("a", (m, set, ("a",))), ("b", (m, list, (2,))))): ({"a"}, [2]),
+        (cid, (("a", (m, set, ("a",))), ("b", (m, list, (2,))))): ({"a"}, [2]),
     }
     assert len(pipeline.cache.cache) == 1
 
@@ -184,8 +185,8 @@ def test_sharing_defaults() -> None:
     assert pipeline("d", a=1) == 3
     assert pipeline.cache is not None
     assert pipeline.cache.cache == {
-        ("c", (("a", 1), ("b", 1))): 2,
-        ("d", (("a", 1), ("b", 1))): 3,
+        (pipeline["c"]._cache_id, (("a", 1), ("b", 1))): 2,
+        (pipeline["d"]._cache_id, (("a", 1), ("b", 1))): 3,
     }
     # Call again, should use cache
     assert pipeline("d", a=1) == 3
@@ -202,6 +203,48 @@ def test_sharing_defaults() -> None:
         result = pipeline.map(inputs={"a": 1, "b": 2}, parallel=False, storage="dict")
         assert result["d"].output == 5
         assert calls == {"f": 2, "g": 2}
+
+
+@pytest.mark.parametrize(
+    ("output_names", "auto_subpipeline"),
+    [
+        pytest.param(["metric"], False, id="output_names"),
+        pytest.param(None, True, id="auto_subpipeline"),
+    ],
+)
+def test_map_subpipeline_shares_cache(
+    output_names: list[str] | None,
+    auto_subpipeline: bool,
+) -> None:
+    calls = {"simulate": 0, "metric": 0}
+
+    @pipefunc(output_name="sim", mapspec="x[i] -> sim[i]", cache=True)
+    def simulate(x):
+        calls["simulate"] += 1
+        return x * 10
+
+    @pipefunc(output_name="metric", mapspec="sim[i] -> metric[i]", cache=True)
+    def metric(sim):
+        calls["metric"] += 1
+        return sim + 1
+
+    pipeline = Pipeline(
+        [simulate, metric],
+        cache_type="hybrid",
+        cache_kwargs={"shared": False},
+    )
+    for _ in range(2):
+        pipeline.map(
+            {"x": [1, 2, 3]},
+            output_names=output_names,
+            auto_subpipeline=auto_subpipeline,
+            parallel=False,
+            storage="dict",
+        )
+
+    assert calls == {"simulate": 3, "metric": 3}
+    assert pipeline.cache is not None
+    assert len(pipeline.cache) == 6
 
 
 def test_autoset_cache() -> None:
@@ -288,3 +331,88 @@ def test_cache_with_custom__pipefunc_hash__() -> None:
     assert counter["call"] == 2
 
     assert pfunc._cache_id == "out-1"
+
+
+def _make_versioned_pipeline(version: int, cache_dir: Path) -> Pipeline:
+    if version == 1:
+
+        @pipefunc(output_name="c", cache=True)
+        def f(a):
+            return a + 1
+
+    else:
+
+        @pipefunc(output_name="c", cache=True)
+        def f(a):
+            return a + 2
+
+    return Pipeline(
+        [f],
+        cache_type="disk",
+        cache_kwargs={"cache_dir": cache_dir, "with_lru_cache": False},
+    )
+
+
+def test_disk_cache_invalidated_when_function_changes(tmp_path: Path) -> None:
+    """Editing a function must invalidate its cached results (issue #964)."""
+    p1 = _make_versioned_pipeline(1, tmp_path)
+    assert p1.run(kwargs={"a": 1}) == 2
+
+    # "Edit" the function (same name, same output_name, different body),
+    # as happens when re-running an edited notebook cell.
+    p2 = _make_versioned_pipeline(2, tmp_path)
+    assert p2.run(kwargs={"a": 1}) == 3  # stale cache would return 2
+
+    # The original version's entry is still valid.
+    p1b = _make_versioned_pipeline(1, tmp_path)
+    assert p1b.run(kwargs={"a": 1}) == 2
+
+
+def test_cache_id_stable_for_identical_source() -> None:
+    def make() -> PipeFunc:
+        @pipefunc(output_name="c", cache=True)
+        def f(a):
+            return a + 1
+
+        return f
+
+    assert make()._cache_id == make()._cache_id
+
+
+def test_cache_id_warns_when_unfingerprintable(monkeypatch: pytest.MonkeyPatch) -> None:
+    from pipefunc import _pipefunc as pipefunc_module
+
+    monkeypatch.setattr(pipefunc_module, "compute_function_hash", lambda _: None)
+
+    @pipefunc(output_name="c", cache=True)
+    def f(a):
+        return a
+
+    with pytest.warns(UserWarning, match="Cannot fingerprint"):
+        assert f._cache_id == "c"
+
+
+def test_nested_pipefunc_cache_id_tracks_children() -> None:
+    from pipefunc import NestedPipeFunc
+
+    def make(version: int) -> NestedPipeFunc:
+        if version == 1:
+
+            @pipefunc(output_name="c")
+            def f(a):
+                return a + 1
+
+        else:
+
+            @pipefunc(output_name="c")
+            def f(a):
+                return a + 2
+
+        @pipefunc(output_name="d")
+        def g(c):
+            return 2 * c
+
+        return NestedPipeFunc([f, g], output_name="d")
+
+    assert make(1)._cache_id == make(1)._cache_id
+    assert make(1)._cache_id != make(2)._cache_id

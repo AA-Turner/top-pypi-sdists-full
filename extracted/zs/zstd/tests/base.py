@@ -22,18 +22,16 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger('ZSTD')
 log.info("Python version: %s" % sys.version)
 log.info("Machine:%s; processor:%s; system:%r; release:%r" % ( platform.machine(), platform.processor(), platform.system(), platform.release()))
-log.info("Module exported interfac e:%r"% dir(zstd))
-log.info("libzstd linked external: %r"% zstd.ZSTD_external())
-log.info("libzstd built with legacy formats support: %r"% zstd.ZSTD_legacy_support())
-log.info("zstd max number of threads: %r"% zstd.ZSTD_max_threads_count())
-log.info("zstd found CPU cores : %r"% zstd.ZSTD_threads_count())
-log.info("zstd default compression level: %r"% zstd.ZSTD_default_compression_level())
-log.info("zstd max compression level: %r"% zstd.ZSTD_max_compression_level())
-log.info("zstd min compression level: %r"% zstd.ZSTD_min_compression_level())
+log.info("Module exported interface:%r"% dir(zstd))
+log.info("libzstd linked external:%r"% zstd.ZSTD_external())
+log.info("libzstd built with legacy formats support:%r"% zstd.ZSTD_legacy_support())
+log.info("zstd max number of threads:%r"% zstd.ZSTD_max_threads_count())
+log.info("zstd found CPU cores :%r"% zstd.ZSTD_threads_count())
+log.info("zstd default compression level:%r"% zstd.ZSTD_default_compression_level())
+log.info("zstd max compression level:%r"% zstd.ZSTD_max_compression_level())
+log.info("zstd min compression level:%r"% zstd.ZSTD_min_compression_level())
 log.info("pyzstd module version: %r"% zstd.version())
 log.info("libzstd version: %r"% zstd.ZSTD_version())
-log.info("Compiled with libzstd version: %r"% zstd.ZSTD_version_compiled())
-log.info("Loaded with libzstd version: %r"% zstd.ZSTD_version_loaded())
 
 
 # Classic lorem ipsum
@@ -59,7 +57,7 @@ class BaseTestZSTD(unittest.TestCase):
     VERSION_INT = 10507
     # minimal external version, must be >=1.4.0
     VERSION_INT_MIN = 1 * 100*100 + 4* 1*100 + 0
-    PKG_VERSION = "1.5.7.3"
+    PKG_VERSION = "1.5.7.2"
 
     def helper_version(self):
         #if zstd.ZSTD_external():

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ttkbootstrap"
-version = "1.20.4"
+version = "2.0.0"
 description = "A supercharged theme extension for tkinter that enables on-demand modern flat style themes inspired by Bootstrap."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -53,4 +53,15 @@ Documentation = "https://ttkbootstrap.readthedocs.io/en/latest/"
 where = ["src"]
 
 [tool.setuptools.package-data]
-"ttkbootstrap" = ["themes/*.json", "assets/*"]
+# app_icons ships only the two runtime assets built by tools/make_app_ico.py
+# (the .ico for Windows, the .png for macOS/Linux). The per-size source PNGs live
+# in the repo-root assets/app_icons/ and are build inputs, not shipped.
+"ttkbootstrap" = ["themes/*.json", "assets/*", "assets/icons/*", "assets/elements/*", "assets/app_icons/ttkbootstrap.ico", "assets/app_icons/ttkbootstrap.png"]
+
+[tool.pytest.ini_options]
+# Only the headless suite under tests/ is collected. Interactive mainloop()
+# demos live in examples/ and are not tests.
+testpaths = ["tests"]
+markers = [
+    "gui: requires a Tk display (deselect with -m 'not gui')",
+]

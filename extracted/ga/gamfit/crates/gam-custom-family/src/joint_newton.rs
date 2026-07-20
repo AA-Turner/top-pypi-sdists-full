@@ -178,6 +178,40 @@ pub(crate) fn joint_hessian_source_curvature_is_finite(source: &JointHessianSour
     }
 }
 
+/// Loud contract-boundary variant of [`joint_hessian_source_curvature_is_finite`].
+/// Where the boolean probe answers "does the joint curvature carry a non-finite
+/// entry", this returns the canonical smooth-regularized logdet-boundary error
+/// (the same phrasing `validate_block_hessians_finite` emits for a per-block
+/// exact-Newton Hessian) locating the first offending entry. It is used at the
+/// initial-iterate (cycle 0) boundary: a non-finite entry in the family's
+/// analytic joint curvature *at the starting β* is a contract violation against
+/// the family's second derivative — the solve cannot even begin — so it is a
+/// typed hard failure, not a ρ-rejection. (A non-finite entry that only emerges
+/// *after* the coupled Newton loop has driven β to an overflowing operating
+/// point is a genuine ρ-degeneracy and stays a graceful non-converged exit;
+/// gam#1088.) The `Operator` variant probes its assembled `diagonal`, exactly
+/// as the boolean twin does, since the full operator is never materialized here.
+pub(crate) fn joint_hessian_source_finite_check(source: &JointHessianSource) -> Result<(), String> {
+    let offender = match source {
+        JointHessianSource::Dense(h_joint) => h_joint
+            .indexed_iter()
+            .find_map(|((row, col), &value)| (!value.is_finite()).then_some((row, col, value))),
+        JointHessianSource::Operator { diagonal, .. } => diagonal
+            .iter()
+            .enumerate()
+            .find_map(|(idx, &value)| (!value.is_finite()).then_some((idx, idx, value))),
+    };
+    match offender {
+        None => Ok(()),
+        Some((row, col, value)) => Err(CustomFamilyError::NumericalFailure {
+            reason: format!(
+                "smooth-regularized logdet Hessian contains non-finite entry at ({row}, {col}): {value}"
+            ),
+        }
+        .into()),
+    }
+}
+
 pub(crate) fn materialize_joint_hessian_source(
     source: &JointHessianSource,
     total: usize,
@@ -1198,14 +1232,114 @@ pub(crate) fn use_exact_newton_strict_spd<F: CustomFamily + ?Sized>(family: &F) 
     family.exact_newton_outerobjective() == ExactNewtonOuterObjective::StrictPseudoLaplace
 }
 
-pub(crate) fn blockwise_logdet_terms<F: CustomFamily + Clone + Send + Sync + 'static>(
-    family: &F,
+/// Evaluate the coefficient-Hessian determinant in the same active-face
+/// geometry used by the unified outer evaluator.
+///
+/// At a locally constant active set, coefficient perturbations live in
+/// `null(A_active)`. Curvature normal to that face is neither integrated by the
+/// Laplace approximation nor differentiated by the constrained outer kernel,
+/// so asking a full-space Cholesky to certify it is mathematically wrong. The
+/// fully-pinned convention remains the fixed-mode full-curvature criterion used
+/// by `try_tangent_projected_evaluate`.
+pub(crate) fn active_face_logdet_with_ridge_policy(
+    matrix: &Array2<f64>,
+    active_constraints: Option<&ActiveLinearConstraintBlock>,
+    strict_spd: bool,
+    n_observations: usize,
+    ridge_floor: f64,
+    ridge_policy: RidgePolicy,
+    full_space_logdet_correction: f64,
+) -> Result<f64, String> {
+    let mut projected = None;
+    let mut logdet_correction = full_space_logdet_correction;
+    if let Some(active) = active_constraints {
+        if active.a.ncols() != matrix.nrows() || matrix.nrows() != matrix.ncols() {
+            return Err(format!(
+                "active-face logdet shape mismatch: Hessian is {}x{}, active block is {}x{}",
+                matrix.nrows(),
+                matrix.ncols(),
+                active.a.nrows(),
+                active.a.ncols(),
+            ));
+        }
+        match active_constraint_tangent_geometry(&active.a)? {
+            ActiveConstraintTangentGeometry::Tangent(z) => {
+                let tangent_dim = z.ncols();
+                projected = Some(z.t().dot(matrix).dot(&z));
+                logdet_correction = if matrix.nrows() == 0 {
+                    0.0
+                } else {
+                    full_space_logdet_correction * tangent_dim as f64 / matrix.nrows() as f64
+                };
+            }
+            ActiveConstraintTangentGeometry::FullyPinned => {}
+        }
+    }
+    let determinant_matrix = projected.as_ref().unwrap_or(matrix);
+    let logdet = if strict_spd {
+        strict_exact_pseudo_logdet(determinant_matrix, n_observations)?
+    } else {
+        stable_logdet_with_ridge_policy(determinant_matrix, ridge_floor, ridge_policy).map_err(
+            |error| {
+                let face = match (&projected, active_constraints) {
+                    (Some(reduced), _) => format!(
+                        "tangent-projected face (tangent_dim={}, full_dim={})",
+                        reduced.nrows(),
+                        matrix.nrows()
+                    ),
+                    (None, Some(active)) => format!(
+                        "fully-pinned face (active_rows={}, full_dim={})",
+                        active.a.nrows(),
+                        matrix.nrows()
+                    ),
+                    (None, None) => format!(
+                        "no active-constraint block supplied (full_dim={}) — a constrained \
+                         mode evaluated here would wrongly ask full-space curvature to be SPD",
+                        matrix.nrows()
+                    ),
+                };
+                format!("{error}; geometry: {face}")
+            },
+        )?
+    };
+    Ok(logdet + logdet_correction)
+}
+
+/// Rebuild `log|S(lambda)|_+` on the same active-face tangent used for the
+/// coefficient-Hessian determinant. Returning `None` preserves the existing
+/// full-curvature convention when the active rows fully pin coefficient space.
+pub(crate) fn active_face_penalty_logdet(
     specs: &[ParameterBlockSpec],
-    states: &mut [ParameterBlockState],
+    ranges: &[(usize, usize)],
     block_log_lambdas: &[Array1<f64>],
-    options: &BlockwiseFitOptions,
-) -> Result<(f64, f64), String> {
-    blockwise_logdet_terms_with_workspace(family, specs, states, block_log_lambdas, options, None)
+    active_constraints: &ActiveLinearConstraintBlock,
+    ridge: f64,
+) -> Result<Option<f64>, String> {
+    let ActiveConstraintTangentGeometry::Tangent(z) =
+        active_constraint_tangent_geometry(&active_constraints.a)?
+    else {
+        return Ok(None);
+    };
+    let mut tangent_components = Vec::new();
+    let mut lambdas = Vec::new();
+    for (b, spec) in specs.iter().enumerate() {
+        let (start, end) = ranges[b];
+        let z_block = z.slice(ndarray::s![start..end, ..]);
+        let block_lambdas = exact_lambdas_from_log_strengths(
+            &block_log_lambdas[b],
+            &format!("active-face penalty logdet block {b} log strength"),
+        )?;
+        for (penalty, &lambda) in spec.penalties.iter().zip(block_lambdas.iter()) {
+            tangent_components.push(z_block.t().dot(&penalty.to_dense()).dot(&z_block));
+            lambdas.push(lambda);
+        }
+    }
+    if tangent_components.is_empty() {
+        return Ok(Some(0.0));
+    }
+    let penalty = PenaltyPseudologdet::from_components(&tangent_components, &lambdas, ridge)
+        .map_err(|error| format!("active-face penalty pseudo-logdet failed: {error}"))?;
+    Ok(Some(penalty.value()))
 }
 
 pub(crate) fn blockwise_logdet_terms_with_workspace<
@@ -1217,6 +1351,8 @@ pub(crate) fn blockwise_logdet_terms_with_workspace<
     block_log_lambdas: &[Array1<f64>],
     options: &BlockwiseFitOptions,
     preferred_workspace: Option<Arc<dyn ExactNewtonJointHessianWorkspace>>,
+    cached_jeffreys_hphi: Option<&Array2<f64>>,
+    active_constraints: Option<&ActiveLinearConstraintBlock>,
 ) -> Result<(f64, f64), String> {
     let include_logdet_h = include_exact_newton_logdet_h(family, options);
     let include_logdet_s = include_exact_newton_logdet_s(family, options);
@@ -1248,7 +1384,8 @@ pub(crate) fn blockwise_logdet_terms_with_workspace<
     // information with the expected Fisher information the certificate does
     // not transfer (observed grows on saturated rows where expected decays),
     // so the pre-check is bypassed and the exact gate always runs.
-    let outer_precheck_eligible = include_logdet_h
+    let outer_precheck_eligible = cached_jeffreys_hphi.is_none()
+        && include_logdet_h
         && total > 0
         && family.joint_jeffreys_information_matches_observed_hessian();
     let outer_jeffreys_precheck_skips = match preferred_workspace.as_ref() {
@@ -1305,27 +1442,38 @@ pub(crate) fn blockwise_logdet_terms_with_workspace<
         }
         _ => false,
     };
-    let logdet_jeffreys_hphi: Option<Array2<f64>> = if include_logdet_h
-        && !outer_jeffreys_precheck_skips
-        && !options.seed_screening
-        && family.joint_jeffreys_term_required()
-    {
-        // Skipped during seed screening: this per-axis Jeffreys curvature
-        // (O(p · per-axis-Hdot)) augments the outer LAML logdet `½ log|H+Sλ+H_Φ|`,
-        // a refinement the screening SCORE does not need. Screening ranks seeds by
-        // the un-augmented `½ log|H+Sλ|` plus the value-only Firth penalty already
-        // in `penalty_value`; the load-bearing H_Φ is restored for the real fit
-        // (gam#729/#808).
-        match build_joint_jeffreys_subspace(specs, &ranges)? {
-            Some(z_joint) => {
-                custom_family_joint_jeffreys_term(family, states, specs, &ranges, &z_joint)?
-                    .map(|(_phi, _grad, hphi)| hphi)
+    let logdet_jeffreys_hphi: Option<Array2<f64>> =
+        if !include_logdet_h || options.seed_screening || !family.joint_jeffreys_term_required() {
+            None
+        } else if let Some(hphi) = cached_jeffreys_hphi {
+            if hphi.dim() != (total, total) {
+                return Err(format!(
+                    "cached joint Jeffreys H_phi has shape {:?}, expected ({total}, {total})",
+                    hphi.dim()
+                ));
             }
-            None => None,
-        }
-    } else {
-        None
-    };
+            // The caller supplies this only after an exact, bitwise beta-key match.
+            // Reusing the already-authoritative H_phi keeps the outer logdet on the
+            // same augmented Hessian as the converged Newton step without paying a
+            // second all-axis Jeffreys sweep at that identical coefficient point.
+            Some(hphi.clone())
+        } else if !outer_jeffreys_precheck_skips {
+            // Skipped during seed screening: this per-axis Jeffreys curvature
+            // (O(p · per-axis-Hdot)) augments the outer LAML logdet `½ log|H+Sλ+H_Φ|`,
+            // a refinement the screening SCORE does not need. Screening ranks seeds by
+            // the un-augmented `½ log|H+Sλ|` plus the value-only Firth penalty already
+            // in `penalty_value`; the load-bearing H_Φ is restored for the real fit
+            // (gam#729/#808).
+            match build_joint_jeffreys_subspace(specs, &ranges)? {
+                Some(z_joint) => {
+                    custom_family_joint_jeffreys_term(family, states, specs, &ranges, &z_joint)?
+                        .map(|(_phi, _grad, hphi)| hphi)
+                }
+                None => None,
+            }
+        } else {
+            None
+        };
     let compute_block_logdet_term = |b: usize| -> Result<(Array2<f64>, f64), String> {
         let spec = &specs[b];
         let (start, end) = ranges[b];
@@ -1428,6 +1576,22 @@ pub(crate) fn blockwise_logdet_terms_with_workspace<
         s_lambdas.push(s_lambda);
         penalty_logdet_s_total += block_logdet;
     }
+    if include_logdet_s
+        && let Some(active) = active_constraints
+        && let Some(tangent_logdet) = active_face_penalty_logdet(
+            specs,
+            &ranges,
+            block_log_lambdas,
+            active,
+            if options.ridge_policy.accounts_for_objective() {
+                effective_solverridge(options.ridge_floor)
+            } else {
+                0.0
+            },
+        )?
+    {
+        penalty_logdet_s_total = tangent_logdet;
+    }
     if !include_logdet_h {
         return Ok((0.0, penalty_logdet_s_total));
     }
@@ -1447,16 +1611,15 @@ pub(crate) fn blockwise_logdet_terms_with_workspace<
         if let Some(hphi) = logdet_jeffreys_hphi.as_ref() {
             h_joint.scaled_add(curvature.rho_curvature_scale, hphi);
         }
-        let logdet_h_scaled = if strict_spd {
-            strict_exact_pseudo_logdet(&h_joint, joint_observation_count(states))?
-        } else {
-            stable_logdet_with_ridge_policy(
-                &h_joint,
-                options.ridge_floor * curvature.rho_curvature_scale,
-                options.ridge_policy,
-            )?
-        };
-        let logdet_h_total = logdet_h_scaled + curvature.hessian_logdet_correction;
+        let logdet_h_total = active_face_logdet_with_ridge_policy(
+            &h_joint,
+            active_constraints,
+            strict_spd,
+            joint_observation_count(states),
+            options.ridge_floor * curvature.rho_curvature_scale,
+            options.ridge_policy,
+            curvature.hessian_logdet_correction,
+        )?;
         return Ok((logdet_h_total, penalty_logdet_s_total));
     }
     let exact_joint_source = if let Some(workspace) = preferred_workspace.as_ref() {
@@ -1507,11 +1670,15 @@ pub(crate) fn blockwise_logdet_terms_with_workspace<
         if let Some(hphi) = logdet_jeffreys_hphi.as_ref() {
             h_joint.scaled_add(1.0, hphi);
         }
-        let logdet_h_total = if strict_spd {
-            strict_exact_pseudo_logdet(&h_joint, joint_observation_count(states))?
-        } else {
-            stable_logdet_with_ridge_policy(&h_joint, options.ridge_floor, options.ridge_policy)?
-        };
+        let logdet_h_total = active_face_logdet_with_ridge_policy(
+            &h_joint,
+            active_constraints,
+            strict_spd,
+            joint_observation_count(states),
+            options.ridge_floor,
+            options.ridge_policy,
+            0.0,
+        )?;
         return Ok((logdet_h_total, penalty_logdet_s_total));
     }
     // Fallback: try the non-rescaled symmetrized path (for families that
@@ -1533,11 +1700,15 @@ pub(crate) fn blockwise_logdet_terms_with_workspace<
         if let Some(hphi) = logdet_jeffreys_hphi.as_ref() {
             h_joint.scaled_add(1.0, hphi);
         }
-        let logdet_h_total = if strict_spd {
-            strict_exact_pseudo_logdet(&h_joint, joint_observation_count(states))?
-        } else {
-            stable_logdet_with_ridge_policy(&h_joint, options.ridge_floor, options.ridge_policy)?
-        };
+        let logdet_h_total = active_face_logdet_with_ridge_policy(
+            &h_joint,
+            active_constraints,
+            strict_spd,
+            joint_observation_count(states),
+            options.ridge_floor,
+            options.ridge_policy,
+            0.0,
+        )?;
         return Ok((logdet_h_total, penalty_logdet_s_total));
     }
 
@@ -1551,6 +1722,9 @@ pub(crate) fn blockwise_logdet_terms_with_workspace<
     }
 
     let mut logdet_h_total = 0.0;
+    let mut active_face_hessian = active_constraints
+        .is_some()
+        .then(|| Array2::<f64>::zeros((total, total)));
     let logdet_s_total = penalty_logdet_s_total;
     for b in 0..specs.len() {
         let spec = &specs[b];
@@ -1586,11 +1760,33 @@ pub(crate) fn blockwise_logdet_terms_with_workspace<
 
         let mut h = xtwx;
         h += s_lambda;
-        logdet_h_total += if strict_spd {
-            strict_exact_pseudo_logdet(&h, joint_observation_count(states))?
+        if let Some(h_joint) = active_face_hessian.as_mut() {
+            let (start, end) = ranges[b];
+            h_joint
+                .slice_mut(ndarray::s![start..end, start..end])
+                .assign(&h);
         } else {
-            stable_logdet_with_ridge_policy(&h, options.ridge_floor, options.ridge_policy)?
-        };
+            logdet_h_total += active_face_logdet_with_ridge_policy(
+                &h,
+                None,
+                strict_spd,
+                joint_observation_count(states),
+                options.ridge_floor,
+                options.ridge_policy,
+                0.0,
+            )?;
+        }
+    }
+    if let Some(h_joint) = active_face_hessian {
+        logdet_h_total = active_face_logdet_with_ridge_policy(
+            &h_joint,
+            active_constraints,
+            strict_spd,
+            joint_observation_count(states),
+            options.ridge_floor,
+            options.ridge_policy,
+            0.0,
+        )?;
     }
     Ok((logdet_h_total, logdet_s_total))
 }
@@ -2277,6 +2473,19 @@ pub(crate) struct KktRefusalReport {
     pub(crate) hpen_null_gradient_inf: f64,
     pub(crate) hpen_null_vector_block_inf: Vec<f64>,
     pub(crate) hpen_null_vector_carrying_block: Option<usize>,
+    /// Likelihood-only |λ|_max of the joint Hessian BEFORE the penalty is added.
+    /// Decides whether the conditioning that inflated the relative rank cutoff
+    /// (`KKT_REFUSAL_RANK_TOL·λ_max`) — the reason a genuinely curved direction is
+    /// flagged "null" — comes from the likelihood or the penalty. `NaN` when the
+    /// spectrum is unavailable.
+    pub(crate) hlik_max_abs_eigenvalue: f64,
+    /// Total penalized curvature `uᵀH_pen u` along the flagged near-null direction
+    /// `u`, and its likelihood-only part `uᵀH_lik u`. A genuine gauge/unidentified
+    /// direction has BOTH ≈ 0; a merely ill-conditioned (relatively-small-but-real)
+    /// direction has a nonzero total; the likelihood part separates a penalty-only
+    /// identification from a likelihood one. `NaN` when unavailable.
+    pub(crate) hpen_null_curvature: f64,
+    pub(crate) hpen_null_likelihood_curvature: f64,
 
     pub(crate) active_set_rows_total: usize,
     pub(crate) accepted_step_inf: f64,
@@ -2307,6 +2516,21 @@ pub(crate) use gam_problem::diagnostics::KktRefusalDiagnosis;
 /// nullity of `H_pen`. Matches the threshold the surrounding REML
 /// penalty-rank machinery uses for "structurally zero".
 pub(crate) const KKT_REFUSAL_RANK_TOL: f64 = 1e-10;
+
+/// Machine-resolution floor for an eigenvalue of a `dimension`-wide symmetric
+/// Hessian whose largest absolute eigenvalue is `lambda_max_abs`.
+///
+/// This is the single rank boundary shared by the exact joint-Newton step and
+/// every range-space convergence projection. A mode above this floor carries
+/// numerically resolvable curvature and must remain in the step and in the KKT
+/// residual, even when a much wider conditioning diagnostic such as
+/// [`KKT_REFUSAL_RANK_TOL`] would label it near-singular.
+pub(crate) fn joint_hessian_numerical_eigenvalue_floor(
+    lambda_max_abs: f64,
+    dimension: usize,
+) -> f64 {
+    lambda_max_abs * (dimension as f64).sqrt() * f64::EPSILON
+}
 
 /// Residual band (as a multiple of the KKT residual tolerance) inside which
 /// the inner joint Newton is considered to be in its convergence ENDGAME and
@@ -2524,7 +2748,7 @@ pub(crate) mod whitened_spectrum {
             let whitened_rhs = &d_inv_sqrt * rhs;
             let c = evecs.t().dot(&whitened_rhs);
             let lambda_max_abs = gamma.iter().map(|v| v.abs()).fold(0.0_f64, f64::max);
-            let numerical_floor = lambda_max_abs * (p as f64).sqrt() * f64::EPSILON;
+            let numerical_floor = joint_hessian_numerical_eigenvalue_floor(lambda_max_abs, p);
             let rank_cutoff = rank_tol * lambda_max_abs;
             let null_cutoff = rank_cutoff.max(numerical_floor);
             // gam#979 diagnostic (WARN survives the default INFO filter that
@@ -2560,6 +2784,22 @@ pub(crate) mod whitened_spectrum {
                 null_cutoff,
                 numerical_floor,
             })
+        }
+
+        /// Whether the penalized coefficient objective has a numerically
+        /// resolvable direction of negative curvature at the current iterate.
+        ///
+        /// First-order stationarity is not a mode certificate for a nonconvex
+        /// custom family. In particular, CTN's squared SCOP shape chart has
+        /// finite stationary hyperplanes at `gamma_k = 0`; the score vanishes
+        /// there while the exact Hessian can be strictly indefinite. Keep the
+        /// threshold identical to the trust-region step's numerical-rank
+        /// threshold so every direction that blocks convergence is also one the
+        /// Moré–Sorensen hard-case step can resolve.
+        pub(crate) fn has_resolvable_negative_curvature(&self) -> bool {
+            self.gamma
+                .iter()
+                .any(|&value| value < -self.numerical_floor)
         }
 
         /// `‖η(λ)‖²_2 = Σ_{identified k} c_k² / (γ_k + λ)²` — the squared `D`-metric
@@ -2676,7 +2916,7 @@ pub(crate) mod whitened_spectrum {
         pub(crate) fn weakly_identified_decrement(&self) -> f64 {
             let p = self.gamma.len();
             // Reconstruct the genuine numerical-rank floor used by `decompose`.
-            let numerical_floor = self.lambda_max_abs * (p as f64).sqrt() * f64::EPSILON;
+            let numerical_floor = joint_hessian_numerical_eigenvalue_floor(self.lambda_max_abs, p);
             let mut acc = 0.0_f64;
             for k in 0..p {
                 let abs_gamma = self.gamma[k].abs();
@@ -2800,46 +3040,72 @@ pub(crate) mod whitened_spectrum {
 
             // Boundary solution: find λ ≥ λ_lo with ‖η(λ)‖ = trust_radius.
             let lambda_lo = (-gamma_min_id).max(0.0);
-            // Hard case detection: is rhs orthogonal to the minimal-curvature
-            // eigenspace? If so ‖η(λ_lo)‖ is finite and may be below the radius.
-            let min_mode_tol = self.null_cutoff.max(self.lambda_max_abs * 1e-12);
+            // Hard case detection uses the ACTUAL pole eigenspace of the
+            // computed symmetric problem. The convergence-rank cutoff is much
+            // broader and must not be used as an eigenvalue-multiplicity
+            // tolerance: on an ill-conditioned CTN Hessian it can group a weak
+            // negative minimum with zero or positive modes and choose the
+            // hard-case boundary component along the wrong eigenvector.
+            //
+            // Build the Moore-Penrose base directly at λ_lo, omitting only
+            // eigenvalues exactly equal to the computed minimum. This is also
+            // the norm of the step that `assemble(lambda_lo, ...)` constructs;
+            // the old code estimated it at a λ_max-scaled offset from the pole
+            // and then assembled at λ_lo, so its τ did not put the returned
+            // step on the trust boundary.
             let mut hard_case_component_sq = 0.0;
+            let mut rhs_norm_sq = 0.0;
+            let mut hard_case_base_norm_sq = 0.0;
             let mut k_min_witness = None;
             for k in 0..self.gamma.len() {
-                // Step floor (gam#979/#1449): identified set is above the
-                // machine-rank floor.
                 if self.gamma[k].abs() <= self.numerical_floor {
                     continue;
                 }
-                if (self.gamma[k] - gamma_min_id).abs() <= min_mode_tol {
+                rhs_norm_sq += self.c[k] * self.c[k];
+                if self.gamma[k] == gamma_min_id {
                     hard_case_component_sq += self.c[k] * self.c[k];
-                    k_min_witness = Some(k);
-                }
-            }
-            // Evaluate the norm just above the pole. With a real rhs component at the
-            // minimal mode the norm diverges at λ_lo, so the secular root is interior
-            // to (λ_lo, ∞) and a small relative offset brackets it. With no such
-            // component (hard case) the norm at λ_lo is finite.
-            let lambda_lo_eval = lambda_lo + self.lambda_max_abs.max(1.0) * 1e-12;
-            if hard_case_component_sq <= (self.lambda_max_abs.max(1.0) * 1e-12).powi(2) {
-                let norm_at_lo = self.step_norm_sq(lambda_lo_eval).sqrt();
-                if norm_at_lo < trust_radius {
-                    // Hard case: λ = λ_lo, then add τ·v_min to reach the boundary.
-                    if let Some(k_min) = k_min_witness {
-                        let deficit =
-                            (trust_radius * trust_radius - norm_at_lo * norm_at_lo).max(0.0);
-                        let tau = deficit.sqrt();
-                        return self.assemble(lambda_lo, Some((k_min, tau)));
+                    if k_min_witness.is_none() {
+                        k_min_witness = Some(k);
                     }
-                    return self.assemble(lambda_lo, None);
+                } else {
+                    let denominator = self.gamma[k] + lambda_lo;
+                    if denominator > 0.0 {
+                        let coefficient = self.c[k] / denominator;
+                        hard_case_base_norm_sq += coefficient * coefficient;
+                    }
                 }
             }
+            let hard_case_rhs_floor =
+                rhs_norm_sq.sqrt() * (self.gamma.len() as f64).sqrt() * f64::EPSILON;
+            if hard_case_component_sq.sqrt() <= hard_case_rhs_floor
+                && hard_case_base_norm_sq < trust_radius * trust_radius
+            {
+                // At the hard case, H+λ_lo D is PSD-singular, the base is its
+                // Moore-Penrose solution, and the missing norm is supplied in
+                // the true minimum eigenspace. Its sign is immaterial for an
+                // exactly orthogonal RHS; preserve the sign of a tiny rounded
+                // component to maximize the linear decrease when present.
+                if let Some(k_min) = k_min_witness {
+                    let deficit = (trust_radius * trust_radius - hard_case_base_norm_sq).max(0.0);
+                    let tau = deficit.sqrt().copysign(self.c[k_min]);
+                    return self.assemble(lambda_lo, Some((k_min, tau)));
+                }
+                return self.assemble(lambda_lo, None);
+            }
+            // With a real RHS component at the pole the norm diverges at
+            // λ_lo, so the secular root is strictly above it. `next_up` is the
+            // closest representable lower bracket and is scale-covariant; an
+            // absolute `max(λ_max, 1)·1e-12` offset can jump past the root when
+            // the whole problem or its negative mode is small.
+            let lambda_lo_eval = lambda_lo.next_up();
             // Safeguarded Newton on φ(λ) = 1/‖η(λ)‖ − 1/r (well-behaved, ~linear),
             // bracketed in [lo, hi]. φ is increasing in λ (‖η‖ decreasing), φ(lo)<0,
             // and we grow hi until φ(hi)>0.
             let target = trust_radius;
             let mut lo = lambda_lo_eval;
-            let mut hi = lambda_lo_eval.max(self.lambda_max_abs).max(1.0);
+            let mut hi = lambda_lo_eval
+                .max(self.lambda_max_abs)
+                .max(f64::MIN_POSITIVE);
             let mut grow_guard = 0;
             while self.step_norm_sq(hi).sqrt() > target && grow_guard < 200 {
                 hi *= 2.0;
@@ -3037,6 +3303,64 @@ mod trust_region_subproblem_tests {
         let dd = &d * &step.delta;
         let lam = dd.dot(&(&rhs - &h.dot(&step.delta))) / dd.dot(&dd);
         assert!(lam >= 1.0 - 1e-6, "λ must dominate -γ_min=1, got {lam}");
+    }
+
+    /// A strict saddle has zero first-order residual, so an unconstrained
+    /// reflected-Newton seed is also exactly zero. The finite-radius
+    /// Moré–Sorensen solve must nevertheless take its hard-case boundary step
+    /// along the negative eigenspace; otherwise a first-order convergence test
+    /// can mint the saddle as a fitted Laplace mode.
+    #[test]
+    pub(crate) fn zero_gradient_strict_saddle_takes_hard_case_boundary_step() {
+        let h = array![[-2.0, 0.0], [0.0, 1.0]];
+        let rhs = array![0.0, 0.0];
+        let d = array![1.0, 1.0];
+        let spec = WhitenedHessianSpectrum::decompose(&h, &rhs, &d, KKT_REFUSAL_RANK_TOL).unwrap();
+        assert!(spec.has_resolvable_negative_curvature());
+
+        let radius = 0.5;
+        let step = spec.trust_region_step(radius);
+        let norm = metric_norm(&step.delta, &d);
+        assert!((norm - radius).abs() < 1e-10, "hard-case step norm {norm}");
+        let predicted_reduction = rhs.dot(&step.delta) - 0.5 * step.delta.dot(&h.dot(&step.delta));
+        assert!(
+            predicted_reduction > 0.0,
+            "strict-saddle hard-case step must lower the quadratic model"
+        );
+    }
+
+    /// The convergence-rank cutoff may be many orders of magnitude wider than
+    /// a resolvable negative eigenvalue when an unrelated penalty mode sets the
+    /// spectrum scale. The hard-case witness must still be the true minimum
+    /// eigenvector, not a nearby positive mode that happens to fall inside that
+    /// broad rank band.
+    #[test]
+    pub(crate) fn weak_negative_hard_case_uses_true_minimum_mode() {
+        let h = array![[-1.0e-3, 0.0, 0.0], [0.0, 2.0e-3, 0.0], [0.0, 0.0, 1.0e8]];
+        let rhs = array![0.0, 0.0, 0.0];
+        let d = array![1.0, 1.0, 1.0];
+        let spec = WhitenedHessianSpectrum::decompose(&h, &rhs, &d, KKT_REFUSAL_RANK_TOL).unwrap();
+        assert!(spec.has_resolvable_negative_curvature());
+
+        let radius = 0.5;
+        let step = spec.trust_region_step(radius);
+        let norm = metric_norm(&step.delta, &d);
+        assert!((norm - radius).abs() < 1e-10, "hard-case step norm {norm}");
+        assert!(
+            step.delta[0].abs() > radius * (1.0 - 1e-10),
+            "hard case must use the true negative mode, got {:?}",
+            step.delta
+        );
+        assert!(
+            step.delta[1].abs() < 1e-12 && step.delta[2].abs() < 1e-12,
+            "positive modes must not receive the hard-case witness, got {:?}",
+            step.delta
+        );
+        let predicted_reduction = rhs.dot(&step.delta) - 0.5 * step.delta.dot(&h.dot(&step.delta));
+        assert!(
+            predicted_reduction > 0.0,
+            "true-minimum hard-case step must lower the quadratic model"
+        );
     }
 
     /// Self-vanishing: as rhs → 0 the step → 0 regardless of the radius, so the
@@ -3351,7 +3675,7 @@ pub(crate) fn compute_kkt_refusal_report(
     ranges: &[(usize, usize)],
     cached_joint_gradient: Option<&Array1<f64>>,
     cached_active_sets: &[Option<Vec<usize>>],
-    block_constraints: &[Option<LinearInequalityConstraints>],
+    block_constraints: &[Option<ConstraintSet>],
     joint_hessian_source: Option<&JointHessianSource>,
     total_p: usize,
     ridge: f64,
@@ -3475,12 +3799,28 @@ pub(crate) fn compute_kkt_refusal_report(
     let mut hpen_null_gradient_inf = f64::NAN;
     let mut hpen_null_vector_block_inf = Vec::new();
     let mut hpen_null_vector_carrying_block = None;
+    let mut hlik_max_abs_eigenvalue = f64::NAN;
+    let mut hpen_null_curvature = f64::NAN;
+    let mut hpen_null_likelihood_curvature = f64::NAN;
     let mut hpen_spectrum_unavailable = false;
     if total_p > 0
         && let Some(source) = joint_hessian_source
         && let Ok(mut h_joint) =
             materialize_joint_hessian_source(source, total_p, "KKT refusal diagnostic spectrum")
     {
+        // Capture the likelihood-only spectrum BEFORE the penalty is folded in.
+        // If the relative rank cutoff (`KKT_REFUSAL_RANK_TOL·λ_max`) that flags a
+        // direction "null" was inflated by a likelihood-side curvature blow-up
+        // rather than the penalty, `λ_max(H_lik) ≈ λ_max(H_pen)`; a penalty-driven
+        // inflation leaves `λ_max(H_lik)` small. Runs only on the refusal path.
+        let mut h_likelihood = h_joint.clone();
+        symmetrize_dense_in_place(&mut h_likelihood);
+        if let Ok((lik_evals, _)) = FaerEigh::eigh(&h_likelihood, Side::Lower) {
+            hlik_max_abs_eigenvalue = lik_evals
+                .iter()
+                .map(|x: &f64| x.abs())
+                .fold(0.0_f64, f64::max);
+        }
         let model_diagonal_ridge = if ridge_policy.accounts_for_objective() && ridge > 0.0 {
             ridge
         } else {
@@ -3516,6 +3856,7 @@ pub(crate) fn compute_kkt_refusal_report(
                 {
                     let mut best_component = 0.0_f64;
                     let mut best_block_inf = vec![0.0_f64; ranges.len()];
+                    let mut best_k = None;
                     for k in 0..evals.len() {
                         if evals[k].abs() >= cutoff {
                             continue;
@@ -3523,6 +3864,7 @@ pub(crate) fn compute_kkt_refusal_report(
                         let component = evecs.column(k).dot(residual).abs();
                         if component > best_component {
                             best_component = component;
+                            best_k = Some(k);
                             best_block_inf.clear();
                             best_block_inf.extend(ranges.iter().map(|(start, end)| {
                                 evecs
@@ -3541,6 +3883,15 @@ pub(crate) fn compute_kkt_refusal_report(
                         .filter(|(_, v)| v.is_finite())
                         .max_by(|a, b| a.1.partial_cmp(b.1).unwrap_or(std::cmp::Ordering::Equal))
                         .map(|(i, _)| i);
+                    // Split the flagged direction's curvature into its total
+                    // penalized value and its likelihood-only part. Gauge/null ⇒
+                    // both ≈ 0; ill-conditioned-but-identified ⇒ nonzero total; a
+                    // penalty-only identification ⇒ likelihood part ≈ 0.
+                    if let Some(k) = best_k {
+                        let u = evecs.column(k);
+                        hpen_null_curvature = evals[k];
+                        hpen_null_likelihood_curvature = u.dot(&h_likelihood.dot(&u));
+                    }
                 }
                 hpen_eigenvalues_sorted_desc = sorted;
             }
@@ -3589,6 +3940,9 @@ pub(crate) fn compute_kkt_refusal_report(
         hpen_null_gradient_inf,
         hpen_null_vector_block_inf,
         hpen_null_vector_carrying_block,
+        hlik_max_abs_eigenvalue,
+        hpen_null_curvature,
+        hpen_null_likelihood_curvature,
         active_set_rows_total,
         accepted_step_inf,
         proposal_step_inf,
@@ -3637,9 +3991,22 @@ impl KktRefusalReport {
     }
 
     pub(crate) fn null_direction_label(&self) -> String {
+        // Curvature split for the flagged direction: total penalized curvature
+        // uᵀH_pen u, its likelihood-only part uᵀH_lik u, and the likelihood-only
+        // λ_max. Reads: both curvatures ≈ 0 ⇒ genuine gauge/null; nonzero total ⇒
+        // ill-conditioned-but-identified (the relative cutoff was inflated —
+        // compare λ_max(H_lik) to λ_max(H_pen) to see whether the inflation is
+        // likelihood- or penalty-sourced); likelihood part ≈ 0 with nonzero total
+        // ⇒ penalty-only identification.
+        let curvature_split = format!(
+            "curv(uᵀH_pen u)={:.3e}, curv_lik(uᵀH_lik u)={:.3e}, λ_max(H_lik)={:.3e}",
+            self.hpen_null_curvature,
+            self.hpen_null_likelihood_curvature,
+            self.hlik_max_abs_eigenvalue,
+        );
         match self.hpen_null_vector_carrying_block {
             Some(idx) => format!(
-                "{} (idx={}, |u_block|∞={:.3e}, |uᵀg_proj|={:.3e})",
+                "{} (idx={}, |u_block|∞={:.3e}, |uᵀg_proj|={:.3e}, {})",
                 self.block_names.get(idx).map(String::as_str).unwrap_or("?"),
                 idx,
                 self.hpen_null_vector_block_inf
@@ -3647,8 +4014,12 @@ impl KktRefusalReport {
                     .copied()
                     .unwrap_or(f64::NAN),
                 self.hpen_null_gradient_inf,
+                curvature_split,
             ),
-            None => format!("none (|uᵀg_proj|={:.3e})", self.hpen_null_gradient_inf),
+            None => format!(
+                "none (|uᵀg_proj|={:.3e}, {})",
+                self.hpen_null_gradient_inf, curvature_split,
+            ),
         }
     }
 
@@ -3982,17 +4353,19 @@ pub(crate) fn joint_line_search_log_likelihood_with_workspace<
     if !family.inner_joint_workspace_log_likelihood_available(specs) {
         return Ok(None);
     }
-    let Some(workspace) =
-        family.exact_newton_joint_hessian_workspace_with_options(states, specs, options)?
-    else {
-        return Ok(None);
-    };
-    match workspace.joint_log_likelihood_evaluation()? {
-        Some(log_likelihood) => Ok(Some((log_likelihood, workspace))),
-        // The workspace advertised a log-likelihood but did not produce one;
-        // fall back to the cheap scalar sweep rather than fabricating a value.
-        None => Ok(None),
-    }
+    let workspace = family
+        .exact_newton_joint_hessian_workspace_with_options(states, specs, options)?
+        .ok_or_else(|| {
+            "family advertises inner joint workspace log-likelihoods, but returned no workspace"
+                .to_string()
+        })?;
+    let log_likelihood = workspace
+        .joint_log_likelihood_evaluation()?
+        .ok_or_else(|| {
+            "family advertises inner joint workspace log-likelihoods, but its workspace returned no log-likelihood"
+                .to_string()
+        })?;
+    Ok(Some((log_likelihood, workspace)))
 }
 
 pub(crate) fn coefficient_line_search_options(
@@ -4038,14 +4411,25 @@ pub(crate) fn load_joint_gradient_evaluation<F: CustomFamily + Clone + Send + Sy
 ) -> Result<JointGradientLoad, String> {
     let workspace = match preferred_workspace {
         Some(workspace) => Some(workspace),
-        None if prefer_workspace && family.inner_joint_workspace_gradient_available(specs) => {
-            family.exact_newton_joint_hessian_workspace_with_options(states, specs, options)?
-        }
+        None if prefer_workspace => Some(
+            family
+                .exact_newton_joint_hessian_workspace_with_options(states, specs, options)?
+                .ok_or_else(|| {
+                    "joint Newton requested an exact Hessian workspace, but the family returned none"
+                        .to_string()
+                })?,
+        ),
         None => None,
     };
-    if let Some(workspace_ref) = workspace.as_ref()
-        && let Some(joint_eval) = workspace_ref.joint_gradient_evaluation()?
-    {
+    if family.inner_joint_workspace_gradient_available(specs) {
+        let workspace_ref = workspace.as_ref().ok_or_else(|| {
+            "family advertises inner joint workspace gradients, but no workspace was retained"
+                .to_string()
+        })?;
+        let joint_eval = workspace_ref.joint_gradient_evaluation()?.ok_or_else(|| {
+            "family advertises inner joint workspace gradients, but its workspace returned none"
+                .to_string()
+        })?;
         return Ok((
             joint_eval.log_likelihood,
             Some(joint_eval.gradient),
@@ -4189,157 +4573,81 @@ pub(crate) fn residual_in_steady_geometric_descent(
         })
 }
 
-/// Inf-norm of the active-set-projected stationarity residual restricted to the
-/// **range** of the joint penalized Hessian `H_pen = H + S(λ) + ridge·I`.
-///
-/// A penalized smooth whose penalty has a polynomial null space the censored /
-/// location-scale data does not pin down (TP / Bernstein trend directions in a
-/// survival `time_transform` or `log_sigma` channel, gam#553) leaves a residual
-/// that lives entirely in `ker(H_pen)`: along that direction the objective has
-/// neither curvature nor a constraint, so it is a genuinely *free* gauge
-/// direction, not an unresolved KKT defect. The total residual inf-norm then
-/// stays large forever and the phantom-multiplier refusal never clears, aborting
-/// the fit at REML startup even though the iterate is stationary on the entire
-/// identifiable (range) subspace.
-///
-/// The downstream outer IFT trace already removes the null-space component via
-/// the projected pseudo-inverse `U_S·H_proj⁻¹·U_Sᵀ`, so only a *range-space*
-/// residual component can bias the envelope gradient (see the "do NOT
-/// soft-accept" investigation note at the certifier call site). This returns the
-/// range-space inf-norm so the certifier can accept iff that — the only part
-/// that matters for outer correctness — is at tolerance, while a real defect
-/// (residual with mass in the curved subspace) still refuses.
-///
-/// Returns `None` when the penalized Hessian cannot be materialized or
-/// eigendecomposed, or carries no numerical null space — in which case the
-/// caller keeps the strict total-residual refusal (no null space ⇒ range = all).
-/// Per-block inf-norms of the range-space (identified-subspace) component of the
-/// projected stationarity residual (gam#979). Same construction as
-/// [`projected_residual_range_space_inf`] — project the residual onto range(H_pen)
-/// by dropping its ker(H_pen) coordinates — but return the inf-norm restricted to
-/// EACH block's coordinate range instead of one global scalar.
-///
-/// The per-block stationarity gate (`all_block_stationarity_small`) must test the
-/// residual on the IDENTIFIED subspace, not the raw active-set-projected residual.
-/// On the survival I-spline time block the unpenalized affine baseline direction
-/// is a genuine ker(H_pen) gauge mode: the raw per-block residual keeps the full
-/// gradient component along it (large), so the raw gate falsely rejects a solve
-/// that IS stationary on every identifiable direction. The range-projected
-/// per-block residual drops exactly that gauge mass (the outer IFT pseudo-inverse
-/// projects it out anyway, gam#553), so the gate sees the true identified-subspace
-/// stationarity. Returns `None` when there is no null space (range == whole space)
-/// — there the raw per-block residual already IS the range residual, so the caller
-/// keeps its existing gate unchanged.
-pub(crate) fn projected_residual_range_space_per_block_inf(
-    projected_residual: &Array1<f64>,
-    joint_hessian_source: &JointHessianSource,
-    ranges: &[(usize, usize)],
-    s_lambdas: &[Array2<f64>],
-    ridge: f64,
-    ridge_policy: RidgePolicy,
-    total_p: usize,
-) -> Option<Vec<f64>> {
-    if total_p == 0 || projected_residual.len() != total_p {
-        return None;
-    }
-    let mut h_joint = materialize_joint_hessian_source(
-        joint_hessian_source,
-        total_p,
-        "penalty-null-space per-block certificate spectrum",
-    )
-    .ok()?;
-    let model_diagonal_ridge = if ridge_policy.accounts_for_objective() && ridge > 0.0 {
-        ridge
-    } else {
-        0.0
-    };
-    add_joint_penalty_to_matrix(&mut h_joint, ranges, s_lambdas, model_diagonal_ridge, None);
-    symmetrize_dense_in_place(&mut h_joint);
-    let (evals, evecs) = FaerEigh::eigh(&h_joint, Side::Lower).ok()?;
-    let max_abs = evals.iter().map(|x: &f64| x.abs()).fold(0.0_f64, f64::max);
-    if !(max_abs.is_finite() && max_abs > 0.0) {
-        return None;
-    }
-    let cutoff = KKT_REFUSAL_RANK_TOL * max_abs;
-    let nullity = evals.iter().filter(|x| x.abs() < cutoff).count();
-    if nullity == 0 {
-        return None;
-    }
-    let mut range_component = Array1::<f64>::zeros(total_p);
-    for k in 0..evals.len() {
-        if evals[k].abs() < cutoff {
-            continue;
-        }
-        let coeff = evecs.column(k).dot(projected_residual);
-        range_component.scaled_add(coeff, &evecs.column(k));
-    }
-    Some(
-        ranges
-            .iter()
-            .map(|&(start, end)| {
-                range_component
-                    .slice(ndarray::s![start..end])
-                    .iter()
-                    .map(|x: &f64| x.abs())
-                    .fold(0.0_f64, f64::max)
-            })
-            .collect(),
-    )
-}
+#[cfg(test)]
+mod penalized_hessian_rank_tests {
+    use super::*;
 
-pub(crate) fn projected_residual_range_space_inf(
-    projected_residual: &Array1<f64>,
-    joint_hessian_source: &JointHessianSource,
-    ranges: &[(usize, usize)],
-    s_lambdas: &[Array2<f64>],
-    ridge: f64,
-    ridge_policy: RidgePolicy,
-    total_p: usize,
-) -> Option<f64> {
-    if total_p == 0 || projected_residual.len() != total_p {
-        return None;
+    /// gam#979: a small positive penalty mode is identified coefficient
+    /// curvature, not a gauge. At the survival marginal-slope width (`p=26`),
+    /// condition `2e14` remains safely inside the exact Newton eigensolver's
+    /// machine-rank limit `1 / (sqrt(p) eps) ~= 8.8e14`.
+    ///
+    /// The Newton step must therefore retain the mode. Historically separate
+    /// convergence projectors used `1e-10 * lambda_max`: Newton moved this
+    /// coefficient, but an exit could erase its residual as gauge. Those
+    /// projectors no longer exist; strict KKT convergence owns acceptance.
+    #[test]
+    fn p26_penalty_identified_condition_2e14_mode_remains_in_newton_step_979() {
+        const P: usize = 26;
+        const WEAK_CURVATURE: f64 = 5.0e-15;
+        const WEAK_INDEX: usize = P - 1;
+
+        // Likelihood information identifies the first 25 coordinates. The
+        // final coordinate is identified only by a strictly positive penalty,
+        // so ker(H_lik) intersect ker(S) is empty and H_pen is full rank.
+        let mut h_likelihood = Array2::<f64>::eye(P);
+        h_likelihood[[WEAK_INDEX, WEAK_INDEX]] = 0.0;
+        let mut penalty = Array2::<f64>::zeros((P, P));
+        penalty[[WEAK_INDEX, WEAK_INDEX]] = WEAK_CURVATURE;
+        let ranges = vec![(0, P)];
+        let s_lambdas = vec![penalty.clone()];
+        let mut h_penalized = h_likelihood.clone();
+        add_joint_penalty_to_matrix(&mut h_penalized, &ranges, &s_lambdas, 0.0, None);
+
+        let condition = 1.0 / WEAK_CURVATURE;
+        assert!(
+            (condition / 2.0e14 - 1.0).abs() <= 8.0 * f64::EPSILON,
+            "fixture condition must be 2e14, got {condition:.16e}"
+        );
+
+        let mut rhs = Array1::<f64>::zeros(P);
+        rhs[WEAK_INDEX] = 0.25;
+        let metric = Array1::<f64>::ones(P);
+        let spectrum = whitened_spectrum::WhitenedHessianSpectrum::decompose(
+            &h_penalized,
+            &rhs,
+            &metric,
+            KKT_REFUSAL_RANK_TOL,
+        )
+        .expect("diagonal penalized Hessian must decompose");
+        assert!(
+            WEAK_CURVATURE > spectrum.numerical_floor,
+            "positive penalty mode must be machine-resolvable: weak={WEAK_CURVATURE:.16e}, floor={:.16e}",
+            spectrum.numerical_floor,
+        );
+        assert!(
+            WEAK_CURVATURE <= spectrum.null_cutoff,
+            "fixture must remain inside the old conditioning band: weak={WEAK_CURVATURE:.16e}, cutoff={:.16e}",
+            spectrum.null_cutoff,
+        );
+
+        let step = spectrum.trust_region_step(0.5);
+        assert_eq!(
+            step.nullity, 0,
+            "a machine-resolvable penalty mode is not Newton null space"
+        );
+        assert!(
+            step.delta[WEAK_INDEX] > 0.49,
+            "trust-region Newton must move the weak identified coefficient; delta={:?}",
+            step.delta,
+        );
+        assert!(
+            step.delta
+                .slice(ndarray::s![..WEAK_INDEX])
+                .iter()
+                .all(|value| value.abs() <= 1.0e-12),
+            "the diagonal witness has no step on the zero-RHS strong modes; delta={:?}",
+            step.delta,
+        );
     }
-    let mut h_joint = materialize_joint_hessian_source(
-        joint_hessian_source,
-        total_p,
-        "penalty-null-space certificate spectrum",
-    )
-    .ok()?;
-    let model_diagonal_ridge = if ridge_policy.accounts_for_objective() && ridge > 0.0 {
-        ridge
-    } else {
-        0.0
-    };
-    add_joint_penalty_to_matrix(&mut h_joint, ranges, s_lambdas, model_diagonal_ridge, None);
-    symmetrize_dense_in_place(&mut h_joint);
-    let (evals, evecs) = FaerEigh::eigh(&h_joint, Side::Lower).ok()?;
-    let max_abs = evals.iter().map(|x: &f64| x.abs()).fold(0.0_f64, f64::max);
-    if !(max_abs.is_finite() && max_abs > 0.0) {
-        return None;
-    }
-    let cutoff = KKT_REFUSAL_RANK_TOL * max_abs;
-    let nullity = evals.iter().filter(|x| x.abs() < cutoff).count();
-    if nullity == 0 {
-        // No data-unconstrained null space — the range is the whole space, so
-        // the strict total-residual refusal already governs. Signal "no relief".
-        return None;
-    }
-    // Range-space residual = residual minus its projection onto ker(H_pen).
-    // Equivalently, accumulate the residual's coordinates along every
-    // range-space (|λ| ≥ cutoff) eigenvector. The eigenbasis is orthonormal,
-    // so ‖P_range r‖∞ is read off the reconstructed range component.
-    let mut range_component = Array1::<f64>::zeros(total_p);
-    for k in 0..evals.len() {
-        if evals[k].abs() < cutoff {
-            continue;
-        }
-        let coeff = evecs.column(k).dot(projected_residual);
-        range_component.scaled_add(coeff, &evecs.column(k));
-    }
-    Some(
-        range_component
-            .iter()
-            .map(|x: &f64| x.abs())
-            .fold(0.0_f64, f64::max),
-    )
 }

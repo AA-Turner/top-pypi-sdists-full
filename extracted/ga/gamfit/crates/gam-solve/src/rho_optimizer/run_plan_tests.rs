@@ -1,7 +1,7 @@
 use super::*;
 use ::opt::FixedPointObjective;
 use ndarray::array;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 // ─── #934 first-order optimality certificate ──────────────────────
@@ -513,6 +513,194 @@ fn curvature_widening_still_rejects_genuine_nonstationarity() {
     );
 }
 
+fn terminal_fidelity_feedback(cap_value: usize) -> InnerProgressFeedback {
+    InnerProgressFeedback {
+        cap: Arc::new(AtomicUsize::new(cap_value)),
+        accepted_iter: Arc::new(AtomicUsize::new(0)),
+        last_iters: Arc::new(AtomicUsize::new(cap_value)),
+        last_converged: Arc::new(AtomicBool::new(false)),
+        ift_residual: Arc::new(AtomicU64::new(f64::NAN.to_bits())),
+        accept_rho: Arc::new(AtomicU64::new(f64::NAN.to_bits())),
+        force_cold: Arc::new(AtomicBool::new(false)),
+    }
+}
+
+/// Standard REML regression for #2309.  The search cache contains a
+/// cap-produced sample whose moderate gradient is paired with artificial stiff
+/// curvature; the old certificate reused it and widened its bound enough to
+/// certify.  Terminal certification must clear that cache, evaluate at cap=0,
+/// and reject the genuinely non-stationary full-fidelity gradient.
+#[test]
+fn standard_reml_certificate_uses_fresh_uncapped_inner_state_2309() {
+    struct StandardState {
+        feedback: InnerProgressFeedback,
+        coarse_cache_present: bool,
+        reset_count: usize,
+        evaluated_caps: Vec<usize>,
+    }
+
+    let feedback = terminal_fidelity_feedback(3);
+    let problem = OuterProblem::new(1)
+        .with_gradient(Derivative::Analytic)
+        .with_hessian(DeclaredHessianForm::Dense)
+        .with_tolerance(1.0e-6)
+        .with_outer_inner_cap(feedback.clone());
+    let config = problem.config();
+    let state = StandardState {
+        feedback,
+        coarse_cache_present: true,
+        reset_count: 0,
+        evaluated_caps: Vec::new(),
+    };
+    let mut obj = problem.build_objective(
+        state,
+        |_: &mut StandardState, _: &Array1<f64>| Ok(10.0),
+        |state: &mut StandardState, _: &Array1<f64>| {
+            let cap = state.feedback.cap.load(Ordering::Relaxed);
+            state.evaluated_caps.push(cap);
+            if state.coarse_cache_present {
+                return Ok(OuterEval {
+                    cost: 10.0,
+                    gradient: array![0.5],
+                    hessian: HessianValue::Dense(array![[1.25e8]]),
+                    inner_beta_hint: None,
+                });
+            }
+            state.feedback.last_iters.store(12, Ordering::Relaxed);
+            state
+                .feedback
+                .last_converged
+                .store(cap == 0, Ordering::Relaxed);
+            Ok(OuterEval {
+                cost: 10.0,
+                gradient: array![37.0],
+                hessian: HessianValue::Dense(array![[1.0]]),
+                inner_beta_hint: None,
+            })
+        },
+        Some(|state: &mut StandardState| {
+            state.reset_count += 1;
+            state.coarse_cache_present = false;
+            state.feedback.last_iters.store(0, Ordering::Relaxed);
+            state
+                .feedback
+                .last_converged
+                .store(false, Ordering::Relaxed);
+        }),
+        None::<fn(&mut StandardState, &Array1<f64>) -> Result<EfsEval, EstimationError>>,
+    );
+    let mut result = OuterResult::new(
+        array![0.0],
+        10.0,
+        1,
+        true,
+        OuterPlan {
+            solver: Solver::Arc,
+            hessian_source: HessianSource::Analytic,
+        },
+    );
+
+    assert!(
+        certify_outer_optimality(&mut obj, &config, "standard REML #2309", &mut result).is_err(),
+        "the full-fidelity gradient has real descent and must not inherit the coarse widened bound",
+    );
+    assert_eq!(obj.state.reset_count, 1);
+    assert_eq!(obj.state.evaluated_caps, vec![0]);
+    assert_eq!(obj.state.feedback.cap.load(Ordering::Relaxed), 3);
+    assert_eq!(result.final_gradient.as_ref(), Some(&array![37.0]));
+}
+
+/// Mixture/SAS regression for the augmented `[rho | link]` layout.  It proves
+/// that terminal reset happens before the final link state is evaluated and
+/// that a coarse rho-only artifact cannot donate its curvature-scaled bound to
+/// the fresh link-coordinate gradient.
+#[test]
+fn mixture_reml_certificate_recomputes_augmented_theta_at_full_fidelity_2309() {
+    struct MixtureState {
+        feedback: InnerProgressFeedback,
+        coarse_rho_cache_present: bool,
+        reset_count: usize,
+        evaluated_caps: Vec<usize>,
+        last_theta: Option<Array1<f64>>,
+    }
+
+    let feedback = terminal_fidelity_feedback(3);
+    let problem = OuterProblem::new(2)
+        .with_gradient(Derivative::Analytic)
+        .with_hessian(DeclaredHessianForm::Dense)
+        .with_psi_dim(1)
+        .with_tolerance(1.0e-6)
+        .with_outer_inner_cap(feedback.clone());
+    let config = problem.config();
+    let state = MixtureState {
+        feedback,
+        coarse_rho_cache_present: true,
+        reset_count: 0,
+        evaluated_caps: Vec::new(),
+        last_theta: None,
+    };
+    let mut obj = problem.build_objective(
+        state,
+        |_: &mut MixtureState, _: &Array1<f64>| Ok(10.0),
+        |state: &mut MixtureState, theta: &Array1<f64>| {
+            let cap = state.feedback.cap.load(Ordering::Relaxed);
+            state.evaluated_caps.push(cap);
+            state.last_theta = Some(theta.clone());
+            if state.coarse_rho_cache_present {
+                return Ok(OuterEval {
+                    cost: 10.0,
+                    gradient: array![0.0, 0.5],
+                    hessian: HessianValue::Dense(array![[1.0, 0.0], [0.0, 1.25e8]]),
+                    inner_beta_hint: None,
+                });
+            }
+            state.feedback.last_iters.store(14, Ordering::Relaxed);
+            state
+                .feedback
+                .last_converged
+                .store(cap == 0, Ordering::Relaxed);
+            Ok(OuterEval {
+                cost: 10.0,
+                gradient: array![0.0, 37.0],
+                hessian: HessianValue::Dense(array![[1.0, 0.0], [0.0, 1.0]]),
+                inner_beta_hint: None,
+            })
+        },
+        Some(|state: &mut MixtureState| {
+            state.reset_count += 1;
+            state.coarse_rho_cache_present = false;
+            state.last_theta = None;
+            state.feedback.last_iters.store(0, Ordering::Relaxed);
+            state
+                .feedback
+                .last_converged
+                .store(false, Ordering::Relaxed);
+        }),
+        None::<fn(&mut MixtureState, &Array1<f64>) -> Result<EfsEval, EstimationError>>,
+    );
+    let theta_hat = array![0.2, -0.8];
+    let mut result = OuterResult::new(
+        theta_hat.clone(),
+        10.0,
+        1,
+        true,
+        OuterPlan {
+            solver: Solver::Arc,
+            hessian_source: HessianSource::Analytic,
+        },
+    );
+
+    assert!(
+        certify_outer_optimality(&mut obj, &config, "mixture REML #2309", &mut result).is_err(),
+        "the full-fidelity link gradient has real descent and must not inherit the coarse widened bound",
+    );
+    assert_eq!(obj.state.reset_count, 1);
+    assert_eq!(obj.state.evaluated_caps, vec![0]);
+    assert_eq!(obj.state.last_theta.as_ref(), Some(&theta_hat));
+    assert_eq!(obj.state.feedback.cap.load(Ordering::Relaxed), 3);
+    assert_eq!(result.final_gradient.as_ref(), Some(&array![0.0, 37.0]));
+}
+
 fn audit_gradient_only_roundoff_residual_2269(
     residual: f64,
 ) -> Result<OuterCriterionCertificate, EstimationError> {
@@ -578,6 +766,108 @@ fn gradient_only_certificate_uses_objective_roundoff_resolution_2269() {
 fn gradient_only_certificate_rejects_residual_above_roundoff_2269() {
     let arithmetic_floor = 80.0 * f64::EPSILON.sqrt();
     assert!(audit_gradient_only_roundoff_residual_2269(2.0 * arithmetic_floor).is_err());
+}
+
+/// Slope reported on the saturated coordinate's gradient (#2299). In the bias
+/// case it is deterministic logdet-cancellation noise inconsistent with the flat
+/// value; in the slope case it is the true ramp slope the value actually carries.
+const SATURATED_FLAT_SLOPE_2299: f64 = 3.2e-2;
+
+/// Criterion for a two-coordinate outer surface at ρ̂ = 0. Coordinate 0 is
+/// genuinely curved (½ρ₀²); coordinate 1 is a fully-saturated smooth's log-λ.
+/// With `real_slope == false` the criterion is EXACTLY flat in ρ₁ (its reported
+/// gradient is pure numerical bias); with `real_slope == true` it carries a real
+/// `SATURATED_FLAT_SLOPE_2299` ramp whose value moves under a unit log-λ step.
+fn saturated_flat_cost_2299(real_slope: bool, rho: &Array1<f64>) -> f64 {
+    let base = 0.5 * rho[0] * rho[0] + 1.0;
+    if real_slope {
+        base + SATURATED_FLAT_SLOPE_2299 * rho[1]
+    } else {
+        base
+    }
+}
+
+/// Drive the terminal certifier at ρ̂ = 0 on the #2299 saturated-coordinate
+/// surface. The measured projected gradient is `[0, 3.2e-2]` and the outer
+/// Hessian is `diag(1, 0)` (ρ₁'s curvature collapsed to zero, edf saturated) in
+/// BOTH cases — they differ only in whether the objective VALUE moves along ρ₁
+/// under the large-step probe, which is exactly what the flatness certificate
+/// arbitrates.
+fn certify_saturated_flat_coordinate_2299(
+    real_slope: bool,
+) -> Result<OuterCriterionCertificate, EstimationError> {
+    let problem = OuterProblem::new(2)
+        .with_gradient(Derivative::Analytic)
+        .with_hessian(DeclaredHessianForm::Dense)
+        .with_tolerance(1.0e-6);
+    let config = problem.config();
+    let mut obj = problem.build_objective(
+        (),
+        move |_: &mut (), rho: &Array1<f64>| Ok(saturated_flat_cost_2299(real_slope, rho)),
+        move |_: &mut (), rho: &Array1<f64>| {
+            Ok(OuterEval {
+                cost: saturated_flat_cost_2299(real_slope, rho),
+                gradient: array![rho[0], SATURATED_FLAT_SLOPE_2299],
+                hessian: HessianValue::Dense(array![[1.0, 0.0], [0.0, 0.0]]),
+                inner_beta_hint: None,
+            })
+        },
+        None::<fn(&mut ())>,
+        None::<fn(&mut (), &Array1<f64>) -> Result<EfsEval, EstimationError>>,
+    );
+    let mut result = OuterResult::new(
+        array![0.0, 0.0],
+        saturated_flat_cost_2299(real_slope, &array![0.0, 0.0]),
+        1,
+        true,
+        OuterPlan {
+            solver: Solver::Arc,
+            hessian_source: HessianSource::Analytic,
+        },
+    );
+    certify_outer_optimality(&mut obj, &config, "large-step-flatness-2299", &mut result)
+}
+
+/// A coordinate whose curvature has collapsed and whose VALUE is flat under a
+/// full e-fold λ move must certify even though its analytic gradient carries a
+/// deterministic 3.2e-2 cancellation bias (the reproducibility floor cannot see
+/// a deterministic bias, and the Newton decrement anti-rescues on the near-null
+/// direction). The large-step probe proves the coordinate is flat and projects
+/// its biased component out of |Pg|.
+#[test]
+fn large_step_flatness_certifies_saturated_coordinate_bias_2299() {
+    let cert = certify_saturated_flat_coordinate_2299(false)
+        .expect("a coordinate flat under a full e-fold λ move must certify despite its biased gradient");
+    assert!(cert.certifies(), "{}", cert.summary());
+    assert!(
+        cert.stationarity.projected_norm() <= cert.stationarity.bound(),
+        "certified residual {:.3e} exceeds bound {:.3e}",
+        cert.stationarity.projected_norm(),
+        cert.stationarity.bound(),
+    );
+    // The bias was PROJECTED OUT — not merely absorbed by a widened bound: the
+    // certified residual is the (vanishing) gradient of the genuinely-curved
+    // coordinate, well below the biased 3.2e-2 the raw gradient reported.
+    assert!(
+        cert.stationarity.projected_norm() < 0.5 * SATURATED_FLAT_SLOPE_2299,
+        "the saturated coordinate's biased gradient was not removed: {}",
+        cert.summary(),
+    );
+}
+
+/// The SAME surface with a REAL slope on the saturated coordinate — its value
+/// moves under the large-step probe — must still refuse: a genuine pseudologdet
+/// ramp is not flat, so its gradient component stays in |Pg| and the point is
+/// non-stationary.
+#[test]
+fn large_step_flatness_rejects_real_slope_coordinate_2299() {
+    let err = certify_saturated_flat_coordinate_2299(true)
+        .expect_err("a coordinate whose value MOVES under a full e-fold λ step is not flat and must refuse");
+    let msg = format!("{err}");
+    assert!(
+        msg.contains("stationary") || msg.contains("converge"),
+        "rejection must be a typed stationarity failure, got: {msg}"
+    );
 }
 
 /// The projection must NOT blunt the certificate's real job: genuine
@@ -1310,10 +1600,71 @@ fn closure_objective_delegates() {
         exact_polish_fn: None,
         screening_proxy_fn: None::<fn(&mut i32, &Array1<f64>) -> Result<f64, EstimationError>>,
         seed_fn: None::<fn(&mut i32, &Array1<f64>) -> Result<SeedOutcome, EstimationError>>,
-        continuation_prewarm: true,
+        terminal_eval_order: None,
     };
     assert_eq!(obj.capability().n_params, 1);
     assert_eq!(obj.eval_cost(&Array1::zeros(1)).unwrap(), 1.0);
+}
+
+#[test]
+fn closure_terminal_order_overrides_efs_finalization() {
+    let problem = OuterProblem::new(1)
+        .with_gradient(Derivative::Analytic)
+        .with_hessian(DeclaredHessianForm::Unavailable);
+    let mut obj = problem
+        .build_objective_with_eval_order(
+            (Vec::<OuterEvalOrder>::new(), 0usize),
+            |_, _: &Array1<f64>| Ok(0.0),
+            |_, _: &Array1<f64>| {
+                Ok(OuterEval {
+                    cost: 0.0,
+                    gradient: array![0.0],
+                    hessian: HessianValue::Unavailable,
+                    inner_beta_hint: None,
+                })
+            },
+            |state: &mut (Vec<OuterEvalOrder>, usize),
+             _: &Array1<f64>,
+             order: OuterEvalOrder| {
+                state.0.push(order);
+                Ok(OuterEval {
+                    cost: 0.0,
+                    gradient: array![0.0],
+                    hessian: HessianValue::Unavailable,
+                    inner_beta_hint: None,
+                })
+            },
+            None::<fn(&mut (Vec<OuterEvalOrder>, usize))>,
+            Some(
+                |state: &mut (Vec<OuterEvalOrder>, usize), _: &Array1<f64>| {
+                    state.1 += 1;
+                    Ok(EfsEval {
+                        cost: 0.0,
+                        steps: vec![0.0],
+                        beta: None,
+                        psi_gradient: None,
+                        psi_indices: None,
+                        inner_hessian_scale: None,
+                        logdet_enclosure_gap: None,
+                        consecutive_restored_incumbents: None,
+                    })
+                },
+            ),
+        )
+        .with_terminal_eval_order(OuterEvalOrder::ValueAndGradient);
+    let efs_plan = OuterPlan {
+        solver: Solver::Efs,
+        hessian_source: HessianSource::EfsFixedPoint,
+    };
+
+    obj.finalize_outer_result(&array![0.0], &efs_plan)
+        .expect("terminal analytic installation");
+
+    assert_eq!(obj.state.0, vec![OuterEvalOrder::ValueAndGradient]);
+    assert_eq!(
+        obj.state.1, 0,
+        "the EFS search evaluator must not overwrite analytic terminal ownership",
+    );
 }
 
 #[test]
@@ -1348,7 +1699,7 @@ fn closure_objective_seed_inner_state_delegates_when_hook_present() {
         exact_polish_fn: None,
         screening_proxy_fn: None::<fn(&mut Vec<f64>, &Array1<f64>) -> Result<f64, EstimationError>>,
         seed_fn: None::<fn(&mut Vec<f64>, &Array1<f64>) -> Result<SeedOutcome, EstimationError>>,
-        continuation_prewarm: true,
+        terminal_eval_order: None,
     }
     .with_seed_inner_state(|state: &mut Vec<f64>, beta: &Array1<f64>| {
         state.extend(beta.iter().copied());
@@ -1358,6 +1709,146 @@ fn closure_objective_seed_inner_state_delegates_when_hook_present() {
     let outcome = obj.seed_inner_state(&array![1.5, -2.0]).unwrap();
     assert_eq!(outcome, SeedOutcome::Installed);
     assert_eq!(obj.state, vec![1.5, -2.0]);
+}
+
+#[test]
+fn writable_inner_seed_hook_does_not_authorize_off_target_evaluations() {
+    #[derive(Default)]
+    struct State {
+        seen: Vec<Array1<f64>>,
+        seed_calls: usize,
+    }
+
+    let literal_seed = array![0.375];
+    let problem = OuterProblem::new(1)
+        .with_gradient(Derivative::Analytic)
+        .with_hessian(DeclaredHessianForm::Unavailable)
+        .with_initial_rho(literal_seed.clone())
+        .with_bounds(array![-8.0], array![8.0])
+        .with_max_iter(1)
+        .with_seed_config(gam_problem::SeedConfig {
+            max_seeds: 1,
+            seed_budget: 1,
+            ..Default::default()
+        });
+    let literal_for_cost = literal_seed.clone();
+    let literal_for_eval = literal_seed.clone();
+    let mut obj = problem
+        .build_objective(
+            State::default(),
+            move |state: &mut State, theta: &Array1<f64>| {
+                state.seen.push(theta.clone());
+                let delta = theta[0] - literal_for_cost[0];
+                Ok(0.5 * delta * delta)
+            },
+            move |state: &mut State, theta: &Array1<f64>| {
+                state.seen.push(theta.clone());
+                let delta = theta[0] - literal_for_eval[0];
+                Ok(OuterEval {
+                    cost: 0.5 * delta * delta,
+                    gradient: array![delta],
+                    hessian: HessianValue::Unavailable,
+                    inner_beta_hint: Some(array![11.0]),
+                })
+            },
+            Some(|_: &mut State| {}),
+            None::<fn(&mut State, &Array1<f64>) -> Result<EfsEval, EstimationError>>,
+        )
+        .with_seed_inner_state(|state: &mut State, _: &Array1<f64>| {
+            state.seed_calls += 1;
+            Ok(SeedOutcome::Installed)
+        });
+    let config = problem.config();
+    let cap = obj.capability();
+    let the_plan = plan(&cap);
+    let outcome = run_outer_with_plan(
+        &mut obj,
+        &config,
+        "writable seed hook phase authority",
+        &cap,
+        &the_plan,
+        true,
+    )
+    .expect("literal stationary seed must be accepted");
+    assert!(matches!(outcome, PlanRunOutcome::Converged(_)));
+    assert!(!obj.state.seen.is_empty());
+    assert!(obj.state.seen.iter().all(|theta| {
+        theta.len() == literal_seed.len()
+            && theta
+                .iter()
+                .zip(literal_seed.iter())
+                .all(|(actual, expected)| actual.to_bits() == expected.to_bits())
+    }));
+    assert_eq!(
+        obj.state.seed_calls, 0,
+        "a writable hook is cache replay capability, not permission to invent a continuation phase",
+    );
+}
+
+#[test]
+fn auxiliary_psi_is_never_synthetically_oversmoothed() {
+    #[derive(Default)]
+    struct State {
+        seen: Vec<Array1<f64>>,
+    }
+
+    let literal_seed = array![0.25, -1.75];
+    let problem = OuterProblem::new(2)
+        .with_gradient(Derivative::Analytic)
+        .with_hessian(DeclaredHessianForm::Unavailable)
+        .with_psi_dim(1)
+        .with_initial_rho(literal_seed.clone())
+        .with_bounds(array![-8.0, -8.0], array![8.0, 8.0])
+        .with_max_iter(1)
+        .with_seed_config(gam_problem::SeedConfig {
+            max_seeds: 1,
+            seed_budget: 1,
+            num_auxiliary_trailing: 1,
+            ..Default::default()
+        });
+    let literal_for_cost = literal_seed.clone();
+    let literal_for_eval = literal_seed.clone();
+    let mut obj = problem
+        .build_objective(
+            State::default(),
+            move |state: &mut State, theta: &Array1<f64>| {
+                state.seen.push(theta.clone());
+                let delta = theta - &literal_for_cost;
+                Ok(0.5 * delta.dot(&delta))
+            },
+            move |state: &mut State, theta: &Array1<f64>| {
+                state.seen.push(theta.clone());
+                let delta = theta - &literal_for_eval;
+                Ok(OuterEval {
+                    cost: 0.5 * delta.dot(&delta),
+                    gradient: delta,
+                    hessian: HessianValue::Unavailable,
+                    inner_beta_hint: Some(array![7.0]),
+                })
+            },
+            Some(|_: &mut State| {}),
+            None::<fn(&mut State, &Array1<f64>) -> Result<EfsEval, EstimationError>>,
+        )
+        .with_seed_inner_state(|_: &mut State, _: &Array1<f64>| Ok(SeedOutcome::Installed));
+    let config = problem.config();
+    let cap = obj.capability();
+    let the_plan = plan(&cap);
+    let outcome = run_outer_with_plan(
+        &mut obj,
+        &config,
+        "psi phase authority",
+        &cap,
+        &the_plan,
+        true,
+    )
+    .expect("literal stationary joint seed must be accepted");
+    assert!(matches!(outcome, PlanRunOutcome::Converged(_)));
+    assert!(!obj.state.seen.is_empty());
+    assert!(obj
+        .state
+        .seen
+        .iter()
+        .all(|theta| theta[1].to_bits() == literal_seed[1].to_bits()));
 }
 
 #[test]
@@ -1416,7 +1907,7 @@ fn hybrid_efs_backtracking_uses_half_step_after_first_rejection() {
         exact_polish_fn: None,
         screening_proxy_fn: None::<fn(&mut (), &Array1<f64>) -> Result<f64, EstimationError>>,
         seed_fn: None::<fn(&mut (), &Array1<f64>) -> Result<SeedOutcome, EstimationError>>,
-        continuation_prewarm: true,
+        terminal_eval_order: None,
     };
     let mut bridge = OuterFixedPointBridge {
         obj: &mut obj,
@@ -1495,7 +1986,7 @@ fn fixed_point_stops_on_second_consecutive_restored_incumbent_2241() {
         exact_polish_fn: None,
         screening_proxy_fn: None::<fn(&mut usize, &Array1<f64>) -> Result<f64, EstimationError>>,
         seed_fn: None::<fn(&mut usize, &Array1<f64>) -> Result<SeedOutcome, EstimationError>>,
-        continuation_prewarm: true,
+        terminal_eval_order: None,
     };
     let mut bridge = OuterFixedPointBridge {
         obj: &mut obj,
@@ -1784,7 +2275,7 @@ fn analytic_route_unavailable_hessian_is_fatal() {
 /// its raw gradient never vanishes. This drives the ARC bridge directly (no
 /// 380s end-to-end fit) and asserts the stall is reached and certified.
 #[test]
-fn arc_bridge_cost_stall_certifies_at_bound_separation() {
+fn arc_bridge_finite_cost_stall_defers_at_bound_separation() {
     // A flat objective at the lower bound `rho = -10` whose raw gradient is a
     // constant `g = +1`: its descent step `-g = -1` points further DOWN, out of
     // the feasible box, so under the corrected KKT projection (#1074, a14b71220)
@@ -1843,36 +2334,78 @@ fn arc_bridge_cost_stall_certifies_at_bound_separation() {
         cost_stall_bounds: Some((lo.clone(), hi.clone())),
     };
     // Hammer eval_hessian at the lower bound — the ARC per-iterate oracle path.
-    // The guard tolerates the first `COST_STALL_WINDOW` no-improve steps, then
-    // halts with the sentinel.
-    let mut sentinel_fired = false;
+    // Every finite sample, including the one that fills the stall window, must
+    // retain its Hessian so ARC owns the convergence verdict.
     for _ in 0..(COST_STALL_WINDOW + 2) {
-        match SecondOrderObjective::eval_hessian(&mut bridge, &lo) {
-            Ok(_) => {}
-            Err(ObjectiveEvalError::Fatal { message }) => {
-                assert_eq!(
-                    message, COST_STALL_CONVERGED_SENTINEL,
-                    "ARC cost-stall must halt via the shared convergence sentinel"
-                );
-                sentinel_fired = true;
-                break;
-            }
-            Err(other) => panic!("unexpected ARC bridge error: {other:?}"),
-        }
+        let sample = SecondOrderObjective::eval_hessian(&mut bridge, &lo)
+            .expect("finite ARC stall sample must reach the second-order solver");
+        assert_eq!(sample.hessian, Some(array![[1.0]]));
     }
-    assert!(
-        sentinel_fired,
-        "ARC bridge must halt the cost-stall valley within {} evals (separation never settles otherwise)",
-        COST_STALL_WINDOW + 2
-    );
     let published = exit.lock().unwrap().take().expect("best iterate published");
     assert!(
-        published.converged,
-        "an at-bound stall with a ZERO projected KKT residual must certify CONVERGED \
-         (raw |g|=1 is the out-of-bounds separation gradient, not non-stationarity)"
+        !published.converged,
+        "the bridge may retain a recovery checkpoint but cannot certify finite \
+         second-order convergence before ARC checks reduced curvature"
     );
     assert_eq!(published.rho, lo, "best iterate is the bound-pinned ρ");
     assert_eq!(published.value, 1.0);
+}
+
+/// #979: a finite cost/gradient stall at an interior strict saddle must never
+/// intercept the analytic Hessian. ARC needs the negative eigenvalue to take its
+/// cubic hard-case step; a first-order bridge sentinel would strand the search at
+/// the same indefinite point later rejected by final certification.
+#[test]
+fn arc_bridge_finite_stall_delivers_interior_negative_curvature() {
+    let point = array![0.0];
+    let problem = OuterProblem::new(1)
+        .with_gradient(Derivative::Analytic)
+        .with_hessian(DeclaredHessianForm::Either);
+    let mut obj = problem.build_objective_with_eval_order(
+        (),
+        |_: &mut (), _: &Array1<f64>| Ok(1.0),
+        |_: &mut (), _: &Array1<f64>| {
+            Err(EstimationError::InvalidInput(
+                "legacy eager eval should not run".to_string(),
+            ))
+        },
+        |_: &mut (), _: &Array1<f64>, order: OuterEvalOrder| {
+            Ok(OuterEval {
+                cost: 1.0,
+                gradient: array![0.0],
+                hessian: match order {
+                    OuterEvalOrder::ValueGradientHessian => HessianValue::Dense(array![[-1.0]]),
+                    _ => HessianValue::Unavailable,
+                },
+                inner_beta_hint: None,
+            })
+        },
+        None::<fn(&mut ())>,
+        None::<fn(&mut (), &Array1<f64>) -> Result<EfsEval, EstimationError>>,
+    );
+    let exit: Arc<Mutex<Option<CostStallExit>>> = Arc::new(Mutex::new(None));
+    let guard = CostStallGuard::new(1.0e-6, 3, 1.0e-3, exit.clone());
+    let mut bridge = OuterSecondOrderBridge {
+        obj: &mut obj,
+        layout: OuterThetaLayout::new(1, 0),
+        hessian_source: HessianSource::Analytic,
+        materialize_operator_max_dim: OUTER_HVP_MATERIALIZE_MAX_DIM,
+        eval_count: 0,
+        outer_inner_cap: None,
+        g_norm_initial: None,
+        last_g_norm: None,
+        last_value_grad_rho: None,
+        cost_stall: Some(guard),
+        cost_stall_bounds: Some((array![-10.0], array![10.0])),
+    };
+
+    for _ in 0..5 {
+        let sample = SecondOrderObjective::eval_hessian(&mut bridge, &point)
+            .expect("strict-saddle Hessian must reach ARC after the stall window fills");
+        assert_eq!(sample.hessian, Some(array![[-1.0]]));
+    }
+    let published = exit.lock().unwrap().take().expect("best checkpoint published");
+    assert!(!published.converged);
 }
 
 /// Near-separable multinomial timeout (#1082/#1237), FEASIBLE bound-pinned arm.
@@ -1887,7 +2420,7 @@ fn arc_bridge_cost_stall_certifies_at_bound_separation() {
 /// no-improvement, so the window fills and ARC halts at the best feasible
 /// iterate. This drives the ARC bridge directly and asserts the halt.
 #[test]
-fn arc_bridge_cost_stall_halts_on_kkt_stationary_bound_descent() {
+fn arc_bridge_finite_stall_defers_kkt_stationary_bound_descent() {
     let lo = array![-10.0];
     let hi = array![10.0];
     // Strictly-decreasing cost so the cost-improvement test alone would NEVER
@@ -1942,31 +2475,15 @@ fn arc_bridge_cost_stall_halts_on_kkt_stationary_bound_descent() {
         cost_stall: Some(guard),
         cost_stall_bounds: Some((lo.clone(), hi.clone())),
     };
-    let mut sentinel_fired = false;
     for _ in 0..(COST_STALL_WINDOW + 2) {
-        match SecondOrderObjective::eval_hessian(&mut bridge, &lo) {
-            Ok(_) => {}
-            Err(ObjectiveEvalError::Fatal { message }) => {
-                assert_eq!(
-                    message, COST_STALL_CONVERGED_SENTINEL,
-                    "KKT-stationary-at-bound halt must use the shared convergence sentinel"
-                );
-                sentinel_fired = true;
-                break;
-            }
-            Err(other) => panic!("unexpected ARC bridge error: {other:?}"),
-        }
+        let sample = SecondOrderObjective::eval_hessian(&mut bridge, &lo)
+            .expect("finite bound sample must reach ARC with curvature");
+        assert_eq!(sample.hessian, Some(array![[1.0]]));
     }
-    assert!(
-        sentinel_fired,
-        "ARC bridge must halt the bound-pinned descent within {} evals even though the raw \
-         cost is still strictly decreasing (the projected KKT residual is zero)",
-        COST_STALL_WINDOW + 2
-    );
     let published = exit.lock().unwrap().take().expect("best iterate published");
     assert!(
-        published.converged,
-        "a KKT-stationary at-bound stall (projected |g|=0 ≤ 1e-3) must certify CONVERGED"
+        !published.converged,
+        "ARC, not the finite bridge stall, must certify a PSD bound optimum"
     );
     assert_eq!(published.rho, lo, "best iterate is the bound-pinned ρ");
 }
@@ -2050,8 +2567,8 @@ fn arc_bridge_cost_stall_halts_on_infeasible_separation_run() {
             Ok(_) => panic!("an infeasible (cost=∞) trial must not return a finite sample"),
             Err(ObjectiveEvalError::Fatal { message }) => {
                 assert_eq!(
-                    message, COST_STALL_CONVERGED_SENTINEL,
-                    "infeasible-run halt must use the shared convergence sentinel"
+                    message, ARC_INFEASIBLE_STALL_SENTINEL,
+                    "infeasible-run halt must use the non-converged ARC checkpoint sentinel"
                 );
                 sentinel_fired = true;
                 break;
@@ -2068,8 +2585,9 @@ fn arc_bridge_cost_stall_halts_on_infeasible_separation_run() {
     );
     let published = exit.lock().unwrap().take().expect("best iterate published");
     assert!(
-        published.converged,
-        "halt back to the feasible iterate (projected |g|≈1e-9 ≤ 1e-3) must certify CONVERGED"
+        !published.converged,
+        "an infeasible current probe has no synchronized Hessian, so its stored \
+         best can only be a non-converged checkpoint"
     );
     assert_eq!(
         published.rho, feasible_rho,
@@ -2119,6 +2637,48 @@ fn arc_cost_stall_guard_uses_cached_initial_sample_as_feasible_best() {
     assert_eq!(published.value, 10.0);
     assert_eq!(published.grad_norm, 5.0e-4);
     assert!(published.converged);
+}
+
+/// A run of infeasible cubic trials cannot justify halting at an incumbent
+/// whose synchronized reduced Hessian proves negative curvature. That pattern
+/// is a domain-wall encounter during saddle escape, not a separating optimum;
+/// ARC must retain control so increasing sigma can shrink the escape step.
+#[test]
+fn arc_infeasible_stall_refuses_cached_strict_saddle_2316() {
+    let exit: Arc<Mutex<Option<CostStallExit>>> = Arc::new(Mutex::new(None));
+    let mut guard = CostStallGuard::new(1.0e-6, 3, 1.0e-3, exit);
+    let seed = array![0.0, 0.0];
+    guard.observe_second_order_seed(&seed, 10.0, 5.0e-2, Some(false));
+
+    let infeasible = array![-8.0, -8.0];
+    for probe in 0..9 {
+        assert!(
+            matches!(
+                guard.observe_infeasible(&infeasible),
+                CostStallVerdict::Continue
+            ),
+            "strict-saddle infeasible probe {probe} must return control to ARC"
+        );
+    }
+}
+
+#[test]
+fn reduced_hessian_psd_keeps_weak_bound_direction_in_critical_cone_2316() {
+    let lower = array![0.0, -2.0];
+    let upper = array![2.0, 2.0];
+    let point = array![0.0, 0.0];
+    let hessian = array![[-1.0, 0.0], [0.0, 2.0]];
+
+    assert_eq!(
+        reduced_hessian_psd_at_point(&point, &array![0.0, 0.0], &hessian, Some((&lower, &upper)),),
+        Some(false),
+        "a zero-multiplier lower-bound axis remains in the critical cone"
+    );
+    assert_eq!(
+        reduced_hessian_psd_at_point(&point, &array![1.0, 0.0], &hessian, Some((&lower, &upper))),
+        Some(true),
+        "strict complementarity removes the bound-normal direction"
+    );
 }
 
 #[test]
@@ -2204,7 +2764,7 @@ fn constrained_stationary_probe_replaces_stale_nonstationary_best() {
     // a converged verdict — superseding the (non-stationary, higher raw-cost)
     // seed.
     let boundary_probe = array![-10.0, -10.0];
-    let verdict = guard.observe_constrained_stationary(&boundary_probe, 0.5, 0.0, true);
+    let verdict = guard.observe_constrained_stationary(&boundary_probe, 0.5, 0.0, true, None);
     assert!(
         matches!(verdict, CostStallVerdict::Converged),
         "a finite constrained-stationary separation probe should halt immediately"
@@ -2251,7 +2811,8 @@ fn constrained_stationary_probe_keeps_better_incumbent() {
     // separation probe) while two more rail at λ→∞; its cost is hundreds of
     // units WORSE than the incumbent.
     let collapse_corner = array![30.0, 29.95, -30.0, -30.0];
-    let verdict = guard.observe_constrained_stationary(&collapse_corner, 587.84, 0.0, true);
+    let verdict =
+        guard.observe_constrained_stationary(&collapse_corner, 587.84, 0.0, true, None);
 
     // The probe regresses, so the guard must NOT halt-and-publish it as the
     // optimum on this single observation; it folds in as an ordinary
@@ -2275,8 +2836,9 @@ fn constrained_stationary_probe_keeps_better_incumbent() {
 
     // Driving the no-improvement window to its limit halts on the GOOD
     // incumbent, never on the collapse corner.
-    guard.observe_constrained_stationary(&collapse_corner, 587.84, 0.0, true);
-    let final_verdict = guard.observe_constrained_stationary(&collapse_corner, 587.84, 0.0, true);
+    guard.observe_constrained_stationary(&collapse_corner, 587.84, 0.0, true, None);
+    let final_verdict =
+        guard.observe_constrained_stationary(&collapse_corner, 587.84, 0.0, true, None);
     assert!(
         !matches!(final_verdict, CostStallVerdict::Continue),
         "the stall window should eventually fill and halt"
@@ -3380,7 +3942,8 @@ fn finite_outer_eval_reports_gradient_length_mismatch() {
 #[test]
 fn run_with_initial_seed_still_considers_generated_candidates() {
     let generated =
-        crate::seeding::generate_rho_candidates(1, None, &gam_problem::SeedConfig::default());
+        crate::seeding::generate_rho_candidates(1, None, &gam_problem::SeedConfig::default())
+            .expect("ordered seed bounds");
     let valid_seed = generated
         .first()
         .expect("seed generator should yield at least one candidate")
@@ -3650,9 +4213,10 @@ fn active_outer_domain_refuses_singleton_search_interval() {
         .expect_err("an active optimizer coordinate needs a nonzero-width interval");
     let message = error.to_string();
     assert!(
-        message.contains("no finite searchable interval")
-            && message.contains("fixed-rho")
-            && message.contains("lower < upper"),
+        message.contains("objective-domain intersection is empty or non-finite")
+            && message.contains("coordinate 0")
+            && message.contains("lower=700")
+            && message.contains("upper=700"),
         "unexpected singleton-domain refusal: {message}"
     );
 }
@@ -3835,11 +4399,40 @@ fn run_indefinite_analytic_seed_stays_on_arc() {
         None::<fn(&mut ())>,
         None::<fn(&mut (), &Array1<f64>) -> Result<EfsEval, EstimationError>>,
     );
-    let result = problem
+    // The seed is stationary (|g|=0) but sits on genuinely indefinite analytic
+    // curvature ([[-1.0]]) — a saddle/maximum, NOT an interior minimum. The
+    // second-order ARC plan must REFUSE it (a certified optimum cannot waive
+    // negative curvature; see `curvature_admissible`), returning typed
+    // non-convergence rather than minting. The refusal is itself the proof that
+    // the run STAYED on the analytic second-order plan and did not demote to
+    // BFGS: only the analytic-Hessian path can observe indefinite curvature and
+    // set `hessian_psd=NO` → "INDEFINITE CURVATURE AT INTERIOR OPTIMUM". A BFGS
+    // demote (BfgsApprox curvature) never inspects the analytic Hessian and
+    // would report `hessian_psd=n/a`, so it could not produce this verdict.
+    let err = problem
         .run(&mut obj, "indefinite seed geometry")
-        .expect("indefinite analytic seed geometry should stay on the second-order plan");
-    assert_eq!(result.plan_used.solver, Solver::Arc);
-    assert_eq!(result.plan_used.hessian_source, HessianSource::Analytic);
+        .expect_err(
+            "an indefinite analytic seed is a saddle: the second-order plan must refuse \
+             to certify it, not mint an optimum",
+        );
+    let EstimationError::RemlDidNotConverge {
+        reason,
+        projected_grad_norm,
+        ..
+    } = err
+    else {
+        panic!("expected typed REML non-convergence carrying the certificate verdict, got {err}");
+    };
+    assert!(
+        reason.contains("INDEFINITE CURVATURE AT INTERIOR OPTIMUM"),
+        "the refusal must be the analytic second-order curvature verdict (proving the run \
+         stayed on ARC/Analytic, not demoted to BFGS); got reason: {reason}"
+    );
+    assert!(
+        projected_grad_norm.is_some_and(|value| value.abs() <= 1.0e-9),
+        "the refusal is a CURVATURE verdict at a stationary point, not a stationarity \
+         failure: the projected gradient must be ~0; got {projected_grad_norm:?}"
+    );
 }
 
 #[test]
@@ -4144,7 +4737,7 @@ fn parsimony_multistart_breaks_after_sharp_well_penalized_first_seed() {
         seed_config.seed_budget = 2;
         seed_config.risk_profile = gam_problem::SeedRiskProfile::GeneralizedLinear;
         let candidates: Vec<Array1<f64>> =
-            crate::seeding::generate_rho_candidates(1, None, &seed_config);
+            crate::seeding::generate_rho_candidates(1, None, &seed_config).expect("ordered seed bounds");
         // The optimum must not coincide with any generated seed, so only true
         // seed-startup evals (which land exactly on a candidate) are counted.
         assert!(
@@ -4256,9 +4849,12 @@ fn run_starts_solver_with_direct_startup_eval() {
         None::<fn(&mut ())>,
         None::<fn(&mut (), &Array1<f64>) -> Result<EfsEval, EstimationError>>,
     );
-    problem
-        .run(&mut obj, "solver should start from a direct startup eval")
-        .expect("analytic plans should start with a direct full evaluation");
+    // This test pins the STARTUP eval ORDER, not convergence. The single-iter
+    // budget leaves a small residual gradient above the tight stationarity bound,
+    // so the run may legitimately refuse to certify — that outcome is orthogonal
+    // to what is asserted here. The `calls` trace records the startup sequence
+    // whether or not the run mints, so the run's Result is deliberately ignored.
+    drop(problem.run(&mut obj, "solver should start from a direct startup eval"));
     let calls = calls.lock().unwrap();
     let first_eval_idx = calls
         .iter()
@@ -4277,7 +4873,7 @@ fn run_screening_reorders_expensive_generated_seeds_before_full_startup_eval() {
     seed_config.seed_budget = 2;
     seed_config.risk_profile = gam_problem::SeedRiskProfile::GeneralizedLinear;
     let screening_cap = Arc::new(AtomicUsize::new(0));
-    let valid_seed = crate::seeding::generate_rho_candidates(1, None, &seed_config)
+    let valid_seed = crate::seeding::generate_rho_candidates(1, None, &seed_config).expect("ordered seed bounds")
         .last()
         .expect("seed generator should yield at least one candidate")
         .clone();
@@ -4345,6 +4941,56 @@ fn run_screening_reorders_expensive_generated_seeds_before_full_startup_eval() {
 }
 
 #[test]
+fn thrown_screening_error_is_fatal_across_multistart_and_solver_plans() {
+    const SENTINEL: &str = "fatal outer evaluation sentinel";
+
+    let mut seed_config = gam_problem::SeedConfig::default();
+    seed_config.max_seeds = 4;
+    seed_config.seed_budget = 2;
+    seed_config.risk_profile = gam_problem::SeedRiskProfile::GeneralizedLinear;
+    let screening_cap = Arc::new(AtomicUsize::new(0));
+    let calls = Arc::new(AtomicUsize::new(0));
+    let problem = OuterProblem::new(1)
+        .with_gradient(Derivative::Analytic)
+        .with_hessian(DeclaredHessianForm::Either)
+        .with_seed_config(seed_config)
+        .with_screening_cap(Arc::clone(&screening_cap))
+        .with_max_iter(1);
+    let mut obj = problem.build_objective(
+        (),
+        {
+            let calls = Arc::clone(&calls);
+            move |_: &mut (), _theta: &Array1<f64>| {
+                calls.fetch_add(1, Ordering::Relaxed);
+                Err(EstimationError::InvalidInput(SENTINEL.to_string()))
+            }
+        },
+        |_: &mut (), _theta: &Array1<f64>| -> Result<OuterEval, EstimationError> {
+            panic!("a fatal screening error must prevent full outer evaluation")
+        },
+        None::<fn(&mut ())>,
+        None::<fn(&mut (), &Array1<f64>) -> Result<EfsEval, EstimationError>>,
+    );
+
+    let error = match problem.run(&mut obj, "fatal screening error") {
+        Err(error) => error,
+        Ok(_) => panic!("a fatal screening error unexpectedly minted an outer result"),
+    };
+    assert!(error.is_fatal_outer_evaluation(), "{error}");
+    assert!(error.to_string().contains(SENTINEL), "{error}");
+    assert_eq!(
+        calls.load(Ordering::Relaxed),
+        1,
+        "a thrown evaluator error must not be replayed across seeds, cap stages, or solver plans"
+    );
+    assert_eq!(
+        screening_cap.load(Ordering::Relaxed),
+        0,
+        "fatal screening exit must restore the caller's inner-iteration cap"
+    );
+}
+
+#[test]
 fn initial_rho_with_single_seed_budget_skips_expensive_screening() {
     let mut seed_config = gam_problem::SeedConfig::default();
     seed_config.max_seeds = 4;
@@ -4367,6 +5013,13 @@ fn initial_rho_with_single_seed_budget_skips_expensive_screening() {
         .with_seed_config(seed_config)
         .with_screening_cap(Arc::clone(&screening_cap))
         .with_initial_rho(initial_seed.clone())
+        // Declare a problem size whose estimated PSIS work trips the terminal
+        // rho-uncertainty diagnostic cost gate, so its 32 `eval_cost` samples do
+        // NOT run here. This test isolates the SEED-SCREENING accounting (screening
+        // is skipped: `screening_cap == 0` and `screening_calls == 0`); the
+        // post-certification uncertainty diagnostic is a separate phase and would
+        // otherwise contaminate the cost-call count it pins.
+        .with_problem_size(1_000_000, 1)
         .with_max_iter(1);
     let mut obj = problem.build_objective(
         (),
@@ -4421,7 +5074,7 @@ fn run_screening_reorders_bfgs_seeds_before_full_startup_eval() {
     seed_config.risk_profile = gam_problem::SeedRiskProfile::Gaussian;
     let screening_cap = Arc::new(AtomicUsize::new(0));
     let initial_seed = array![9.0];
-    let valid_seed = crate::seeding::generate_rho_candidates(1, None, &seed_config)
+    let valid_seed = crate::seeding::generate_rho_candidates(1, None, &seed_config).expect("ordered seed bounds")
         .first()
         .expect("seed generator should yield at least one candidate")
         .clone();
@@ -4577,7 +5230,7 @@ fn rank_seeds_cascade_escalates_when_initial_cap_collapses_all() {
     seed_config.screen_max_inner_iterations = 3;
     let screening_cap = Arc::new(AtomicUsize::new(0));
     let initial_seed = array![5.0];
-    let valid_seed = crate::seeding::generate_rho_candidates(1, None, &seed_config)
+    let valid_seed = crate::seeding::generate_rho_candidates(1, None, &seed_config).expect("ordered seed bounds")
         .first()
         .expect("seed generator should yield at least one candidate")
         .clone();
@@ -4687,7 +5340,22 @@ fn run_efs_skips_global_cost_screening() {
                 })
             })
         },
-    );
+    )
+    // The EFS run path now requires an analytic fixed-point certificate to
+    // certify stationarity (#1095/#2228); a bare closure objective predates it
+    // and refuses. Supply a fully-covered zero-update certificate — the mock's
+    // EFS step is already the fixed point (all-zero steps) — so the run
+    // certifies through the cert layer WITHOUT any extra cost-screening or EFS
+    // solve (the certificate eval is separate from cost_fn/efs_fn, so the
+    // screening/efs call counts this test pins are unchanged).
+    .with_fixed_point_certificate(|_: &mut (), rho: &Array1<f64>| {
+        Ok(FixedPointCertificateEval {
+            cost: 0.0,
+            coordinates: (0..rho.len())
+                .map(|_| FixedPointCoordinateCertificate::covered(0.0, 1.0))
+                .collect(),
+        })
+    });
     problem
         .run(
             &mut obj,
@@ -4709,7 +5377,8 @@ fn run_efs_skips_global_cost_screening() {
 #[test]
 fn run_efs_skips_invalid_leading_seed_without_spending_budget() {
     let generated =
-        crate::seeding::generate_rho_candidates(15, None, &gam_problem::SeedConfig::default());
+        crate::seeding::generate_rho_candidates(15, None, &gam_problem::SeedConfig::default())
+            .expect("ordered seed bounds");
     let valid_seed = generated
         .first()
         .expect("seed generator should yield at least one candidate")
@@ -4726,7 +5395,21 @@ fn run_efs_skips_invalid_leading_seed_without_spending_budget() {
     let mut obj = problem.build_objective(
         (),
         |_: &mut (), _: &Array1<f64>| Ok(0.0),
-        |_: &mut (), theta: &Array1<f64>| Ok(OuterEval::infeasible(theta.len())),
+        // The contract under test is the seed SKIP, carried by the EFS closure
+        // below; the outer eval only has to let the run reach a terminal point.
+        // It previously returned `infeasible` everywhere, which today's analytic
+        // terminal certification rejects ("final-point value or gradient is
+        // non-finite"), masking the seed-budget assertion behind an unrelated
+        // refusal. Return a finite stationary eval so the run certifies and the
+        // assertion below actually observes which seed was used.
+        |_: &mut (), theta: &Array1<f64>| {
+            Ok(OuterEval {
+                cost: 0.0,
+                gradient: Array1::zeros(theta.len()),
+                hessian: HessianValue::Unavailable,
+                inner_beta_hint: None,
+            })
+        },
         None::<fn(&mut ())>,
         {
             let valid_seed = valid_seed.clone();
@@ -4749,7 +5432,24 @@ fn run_efs_skips_invalid_leading_seed_without_spending_budget() {
                 }
             })
         },
-    );
+    )
+    // The EFS run path now requires an analytic fixed-point certificate to
+    // certify stationarity (#1095/#2228); a bare closure objective predates it
+    // and refuses at the terminal point (this mock's outer eval is infeasible
+    // everywhere, deliberately — only the EFS closure carries the contract
+    // under test). Supply a fully-covered zero-update certificate — the valid
+    // seed's EFS step is already the fixed point (all-zero steps) — mirroring
+    // `run_efs_skips_global_cost_screening`. The seed-skip contract this test
+    // pins is unchanged: the invalid startup seed must be rejected WITHOUT
+    // consuming the single-seed budget, so the generated seed still runs.
+    .with_fixed_point_certificate(|_: &mut (), rho: &Array1<f64>| {
+        Ok(FixedPointCertificateEval {
+            cost: 0.0,
+            coordinates: (0..rho.len())
+                .map(|_| FixedPointCoordinateCertificate::covered(0.0, 1.0))
+                .collect(),
+        })
+    });
     let result = problem
         .run(&mut obj, "efs generated seed should remain reachable")
         .expect("invalid startup seeds should not consume the only EFS seed slot");
@@ -4784,10 +5484,17 @@ fn run_efs_runtime_fallback_marker_degrades_to_bfgs_immediately() {
             let efs_calls = Arc::clone(&efs_calls);
             Some(move |_: &mut (), _: &Array1<f64>| {
                 efs_calls.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                Err(EstimationError::RemlOptimizationFailed(format!(
-                    "{} synthetic runtime escape hatch",
-                    EFS_FIRST_ORDER_FALLBACK_MARKER,
-                )))
+                // The runner recognizes the EFS runtime-fallback marker only on a
+                // typed `GradientUnavailable` error (the eval_efs match arm in
+                // bridges.rs), which is the semantically-correct carrier — the
+                // marker signals "no fixed-point/gradient here, degrade to
+                // first order". Carry it in `context` so
+                // `requests_immediate_first_order_fallback` fires and the attempt
+                // degrades to BFGS after this single EFS call.
+                Err(EstimationError::GradientUnavailable {
+                    context: EFS_FIRST_ORDER_FALLBACK_MARKER,
+                    mode: "efs runtime escape hatch",
+                })
             })
         },
     );
@@ -4847,17 +5554,28 @@ fn effective_seed_budget_caps_expensive_solver_retries() {
         effective_seed_budget(4, Solver::HybridEfs, gam_problem::SeedRiskProfile::Survival,),
         1
     );
-    // #1575/#1074/#1426: Arc + GeneralizedLinear is floored to a single seed too
-    // (the initial.sp seed reaches the heavily-penalized GLM basin), regardless of
-    // the requested budget.
+    // #2376: Arc + a parsimonious profile (GeneralizedLinear / Survival) keeps
+    // the REQUESTED budget, so the #1373/#1575 promoted heavy interior seed at
+    // slot 1 stays reachable. Flooring these to 1 (the former #1575/#1074/#1426
+    // "the initial.sp seed reaches the heavily-penalized GLM basin" assumption)
+    // made the multi-start await gate's `seed_budget > 1` unsatisfiable and
+    // silently disabled the under-penalized-overshoot guard. The single-seed
+    // speed win for the common well-penalized case is now reclaimed at RUNTIME
+    // by `parsimony_second_seed_is_redundant`, not by capping the budget here.
     assert_eq!(
         effective_seed_budget(
             3,
             Solver::Arc,
             gam_problem::SeedRiskProfile::GeneralizedLinear,
         ),
-        1
+        3
     );
+    assert_eq!(
+        effective_seed_budget(3, Solver::Arc, gam_problem::SeedRiskProfile::Survival,),
+        3
+    );
+    // A caller that genuinely requests a single start still gets one: the
+    // parsimony second seed is only re-enabled when a budget ≥ 2 was asked for.
     assert_eq!(
         effective_seed_budget(
             1,
@@ -4866,16 +5584,23 @@ fn effective_seed_budget_caps_expensive_solver_retries() {
         ),
         1
     );
-    assert_eq!(
-        effective_seed_budget(3, Solver::Arc, gam_problem::SeedRiskProfile::Survival,),
-        1
-    );
     // #1689/#1757: Arc + Gaussian is floored to a single seed (the analytic
     // initial.sp seed lands the correct basin, so the second full outer solve is
     // redundant), regardless of the requested budget.
     assert_eq!(
         effective_seed_budget(3, Solver::Arc, gam_problem::SeedRiskProfile::Gaussian),
         1
+    );
+    // GaussianLocationScale is NOT floored (it uses lowest-cost keep-best but
+    // its promoted-seed multi-start needs budget ≥ 2); it falls through to the
+    // requested budget, matching the behaviour before #2376.
+    assert_eq!(
+        effective_seed_budget(
+            3,
+            Solver::Arc,
+            gam_problem::SeedRiskProfile::GaussianLocationScale,
+        ),
+        3
     );
     assert_eq!(
         effective_seed_budget(3, Solver::Bfgs, gam_problem::SeedRiskProfile::Survival,),
@@ -4955,9 +5680,13 @@ fn run_bfgs_projects_seed_before_seed_validation_eval() {
         None::<fn(&mut ())>,
         None::<fn(&mut (), &Array1<f64>) -> Result<EfsEval, EstimationError>>,
     );
-    problem
-        .run(&mut obj, "bfgs seed projection")
-        .expect("BFGS should evaluate the projected seed");
+    // This test pins seed PROJECTION (the initial ρ=[2.0] is clamped to the box
+    // upper bound [1.0] before the first sample eval), not convergence. The
+    // single-iter budget from the projected seed need not reach the [0.25]
+    // optimum, so the run may legitimately refuse to certify — orthogonal to the
+    // projection assertion. The `seen` trace records the first evaluated point
+    // whether or not the run mints, so the run's Result is deliberately ignored.
+    drop(problem.run(&mut obj, "bfgs seed projection"));
     assert_eq!(
         seen.lock().unwrap().first().cloned(),
         Some(array![1.0]),
@@ -5023,11 +5752,79 @@ fn checkpointing_objective_persists_finite_evals() {
 }
 
 #[test]
+fn checkpointing_objective_never_persists_reactive_initialization_waypoints() {
+    let (_d, session) = tmp_cache_session("ckpt-reactive-phase");
+    let mut inner =
+        ReactiveDomainObjective::new(0.125, ReactiveDomainMode::FiniteAtColdSeed);
+    let mut wrapped = CheckpointingObjective::new(&mut inner, Arc::clone(&session), Vec::new());
+
+    wrapped
+        .begin_reactive_domain_waypoint()
+        .expect("begin typed reactive waypoint");
+    let entry_cost = wrapped
+        .eval_cost(&array![2.5])
+        .expect("finite initialization waypoint");
+    assert!(entry_cost.is_finite());
+    assert!(
+        session.try_load().is_none(),
+        "a reactive initialization waypoint is not an outer candidate and must not become a restart seed",
+    );
+    wrapped
+        .commit_reactive_domain_waypoint(&array![2.5])
+        .expect("commit typed reactive waypoint");
+
+    wrapped
+        .eval_cost(&array![0.125])
+        .expect("literal target evaluation");
+    let payload = decode_iterate(
+        &session
+            .try_load()
+            .expect("literal target should checkpoint")
+            .payload,
+        1,
+    )
+    .expect("literal checkpoint decodes");
+    assert_eq!(payload.rho, vec![0.125]);
+}
+
+#[test]
 fn checkpointing_objective_rejects_wrong_dim_on_decode() {
     // A payload from a 3-dim fit is invalid input for a 5-dim resume.
     let bytes = encode_iterate(&array![1.0, 2.0, 3.0], None, None, 0.5, 0).expect("encode");
     assert!(decode_iterate(&bytes, 3).is_some());
     assert!(decode_iterate(&bytes, 5).is_none());
+}
+
+#[test]
+fn schema_two_iterate_is_rejected_after_hessian_provenance_break_2253() {
+    let obsolete = serde_json::json!({
+        "schema": 2,
+        "rho": [0.5],
+        "beta": [1.0],
+        "hessian": [4.0],
+        "hessian_dim": 1,
+        "cost": 2.0,
+        "eval_id": 7
+    });
+    let bytes = serde_json::to_vec(&obsolete).expect("serialize obsolete payload");
+    assert!(decode_iterate(&bytes, 1).is_none());
+}
+
+#[test]
+fn transferred_hessian_requires_current_analytic_capability_2253() {
+    let hessian = array![[2.0_f64, 0.0], [0.0, 3.0]];
+    assert!(
+        eligible_transferred_outer_hessian(
+            Some(&hessian),
+            DeclaredHessianForm::Unavailable,
+            2,
+        )
+        .is_none()
+    );
+    assert!(
+        eligible_transferred_outer_hessian(Some(&hessian), DeclaredHessianForm::Dense, 2)
+            .is_some()
+    );
 }
 
 #[test]
@@ -5217,6 +6014,87 @@ fn classify_extracts_beta_from_v2_payload() {
 }
 
 #[test]
+fn cached_beta_binds_only_to_its_bitwise_matching_generated_seed() {
+    struct ReplayObj {
+        installed: Option<Array1<f64>>,
+        seed_calls: usize,
+    }
+    impl OuterObjective for ReplayObj {
+        fn capability(&self) -> OuterCapability {
+            OuterCapability {
+                gradient: Derivative::Analytic,
+                hessian: DeclaredHessianForm::Unavailable,
+                n_params: 2,
+                psi_dim: 0,
+                fixed_point_available: false,
+                barrier_config: None,
+                prefer_gradient_only: false,
+                disable_fixed_point: false,
+            }
+        }
+
+        fn eval_cost(&mut self, theta: &Array1<f64>) -> Result<f64, EstimationError> {
+            Ok(theta.dot(theta))
+        }
+
+        fn eval(&mut self, theta: &Array1<f64>) -> Result<OuterEval, EstimationError> {
+            Ok(OuterEval {
+                cost: theta.dot(theta),
+                gradient: 2.0 * theta,
+                hessian: HessianValue::Unavailable,
+                inner_beta_hint: None,
+            })
+        }
+
+        fn reset(&mut self) {
+            self.installed = None;
+        }
+
+        fn seed_inner_state(&mut self, beta: &Array1<f64>) -> Result<SeedOutcome, EstimationError> {
+            self.seed_calls += 1;
+            self.installed = Some(beta.clone());
+            Ok(SeedOutcome::Installed)
+        }
+    }
+
+    let owner = array![1.0, 2.0];
+    let beta = array![7.0, 8.0, 9.0];
+    let config = OuterConfig {
+        initial_inner_seed: Some(BoundInnerSeed {
+            theta: owner.clone(),
+            beta: beta.clone(),
+        }),
+        ..OuterConfig::default()
+    };
+    let one_ulp_away = array![f64::from_bits(1.0_f64.to_bits() + 1), 2.0];
+    let candidates = [one_ulp_away, owner, array![-1.0, 2.0]];
+    let mut objective = ReplayObj {
+        installed: None,
+        seed_calls: 0,
+    };
+
+    for (index, candidate) in candidates.iter().enumerate() {
+        objective.reset();
+        install_matching_initial_inner_seed(
+            &mut objective,
+            &config,
+            candidate,
+            "bitwise seed ownership",
+        )
+        .expect("cache replay decision");
+        if index == 1 {
+            assert_eq!(objective.installed, Some(beta.clone()));
+        } else {
+            assert!(
+                objective.installed.is_none(),
+                "cached beta leaked into non-owning generated seed {index}",
+            );
+        }
+    }
+    assert_eq!(objective.seed_calls, 1);
+}
+
+#[test]
 fn run_calls_seed_inner_state_with_cached_beta() {
     // End-to-end read-side wiring: a cache hit carrying β must call
     // OuterObjective::seed_inner_state(&beta) *before* the first BFGS
@@ -5224,6 +6102,7 @@ fn run_calls_seed_inner_state_with_cached_beta() {
     // that records the β it was seeded with.
     struct RecordingObj {
         seeded: Arc<Mutex<Option<Array1<f64>>>>,
+        first_eval_seeded: Arc<Mutex<Option<Array1<f64>>>>,
         eval_count: Arc<Mutex<usize>>,
     }
     impl OuterObjective for RecordingObj {
@@ -5246,7 +6125,11 @@ fn run_calls_seed_inner_state_with_cached_beta() {
             Ok(theta.dot(theta))
         }
         fn eval(&mut self, theta: &Array1<f64>) -> Result<OuterEval, EstimationError> {
-            *self.eval_count.lock().unwrap() += 1;
+            let mut eval_count = self.eval_count.lock().unwrap();
+            if *eval_count == 0 {
+                *self.first_eval_seeded.lock().unwrap() = self.seeded.lock().unwrap().clone();
+            }
+            *eval_count += 1;
             // f(θ) = ‖θ‖² → ∇f = 2θ, ∇²f = 2I.
             Ok(OuterEval {
                 cost: theta.dot(theta),
@@ -5255,7 +6138,9 @@ fn run_calls_seed_inner_state_with_cached_beta() {
                 inner_beta_hint: None,
             })
         }
-        fn reset(&mut self) {}
+        fn reset(&mut self) {
+            *self.seeded.lock().unwrap() = None;
+        }
         fn seed_inner_state(&mut self, beta: &Array1<f64>) -> Result<SeedOutcome, EstimationError> {
             *self.seeded.lock().unwrap() = Some(beta.clone());
             Ok(SeedOutcome::Installed)
@@ -5274,9 +6159,11 @@ fn run_calls_seed_inner_state_with_cached_beta() {
     session.checkpoint(&bytes, Some(5.0), Some(3));
 
     let seeded: Arc<Mutex<Option<Array1<f64>>>> = Arc::new(Mutex::new(None));
+    let first_eval_seeded: Arc<Mutex<Option<Array1<f64>>>> = Arc::new(Mutex::new(None));
     let eval_count: Arc<Mutex<usize>> = Arc::new(Mutex::new(0));
     let mut obj = RecordingObj {
         seeded: Arc::clone(&seeded),
+        first_eval_seeded: Arc::clone(&first_eval_seeded),
         eval_count: Arc::clone(&eval_count),
     };
 
@@ -5290,11 +6177,11 @@ fn run_calls_seed_inner_state_with_cached_beta() {
         Err(err) => assert!(!err.to_string().is_empty()),
     }
 
-    let observed = seeded.lock().unwrap().clone();
+    let observed = first_eval_seeded.lock().unwrap().clone();
     assert_eq!(
         observed,
         Some(array![7.5, 8.5, 9.5]),
-        "dispatcher must call seed_inner_state with the cached β before run_outer",
+        "the first exact evaluation after the per-seed reset must observe the cached β",
     );
 }
 
@@ -5650,14 +6537,17 @@ fn all_saturated_cached_rho_is_honored_as_seed() {
 }
 
 #[test]
-fn exact_final_cache_hit_skips_outer_validation() {
+fn exact_final_cache_hit_resumes_and_recertifies_without_resolving() {
     let (_d, session) = tmp_cache_session("final-skip");
     let payload = encode_iterate(&array![2.5], None, None, 0.25, 7).expect("encode");
     session.finalize(&payload, Some(0.25), Some(7));
 
     let seen: Arc<Mutex<Vec<Array1<f64>>>> = Arc::new(Mutex::new(Vec::new()));
-    // The exact final cache hit short-circuits before any solver runs, so
-    // the declared derivatives only need to make a well-formed plan.
+    // An exact final cache hit seeds the solver AT the cached rho and re-runs
+    // certification of the CURRENT criterion (run.rs resume-and-recertify): the
+    // cache donates only the starting point, never the shipped value, so a stale
+    // or version-drifted cache can never change the outcome (#2363). These trivial
+    // derivatives make the recertify pass converge in a single step.
     let problem = OuterProblem::new(1)
         .with_gradient(Derivative::Analytic)
         .with_hessian(DeclaredHessianForm::Unavailable)
@@ -5687,270 +6577,423 @@ fn exact_final_cache_hit_skips_outer_validation() {
 
     let result = problem
         .run(&mut obj, "final-skip")
-        .expect("final exact hit should return cached outer result");
+        .expect("exact final cache hit must resume-and-recertify from the cached rho");
+    // Resumed FROM the cached rho (not the -3.0 initial): the recertify lands on
+    // the cached optimum.
     assert_eq!(result.rho, array![2.5]);
-    assert_eq!(result.final_value, 0.25);
-    assert_eq!(result.iterations, 7);
+    // The shipped value is the RECOMPUTED true objective at rho=2.5, which is
+    // (2.5-2.5)^2 = 0, NOT the fictional stored 0.25. Outcome-invariance: the
+    // cache donates the seed, the current criterion decides the value.
+    assert_eq!(result.final_value, 0.0);
     assert!(result.converged);
+    // Accelerator half AND proof the run RESUMED from the cached rho: the recertify
+    // must certify in ~0-1 outer iterations. The Hessian-free gradient solve here
+    // could not reach the 2.5 optimum from the -3.0 initial in a single step, so a
+    // bound of 1 is only reachable if the solver was SEEDED at the cached rho
+    // (screen_initial_rho = false). A regression that cold-solved from -3.0 on
+    // every cache hit would blow this bound -- skipping that work is the whole
+    // point of the cache -- and no other test would catch it.
+    assert!(
+        result.iterations <= 1,
+        "resume-at-cached-optimum must not cold-solve; got {} iterations",
+        result.iterations,
+    );
+    // The cache donates only the SEED: the resume path optimizes through the
+    // gradient objective, so `seen` (the cost_fn trace) legitimately stays empty.
     assert!(
         seen.lock().unwrap().is_empty(),
-        "exact final hit should not evaluate the outer objective"
+        "resume path uses the gradient objective, not cost_fn; saw {:?}",
+        *seen.lock().unwrap(),
     );
 }
 
-// ─── continuation pre-warm budget on a warm-start store hit ──────────
+// ─── #2334 terminal-coefficient-mode reset for cap-less mode owners ──
+//
+// The terminal certification sequence installs the selected point twice at
+// `result.rho`: once via `finalize_outer_result` (where a mode-owning
+// objective installs its owned coefficient mode) and once via the analytic
+// re-eval in `certify_outer_optimality` (which sets `result.final_value`). On
+// a nonconvex / bimodal inner solve those two evaluations can land in
+// DIFFERENT coefficient basins unless each re-installs from the same clean
+// baseline through `reset()`. That reset was gated solely on
+// `config.outer_inner_cap.is_some()`, which the custom-family fit never sets
+// (it holds its inner cap in a different field), so the reset never fired and
+// the downstream bitwise bind `terminal_mode.objective == final_value` could
+// spuriously fail. `owns_terminal_coefficient_mode()` now forces that reset
+// independently of the cap.
 
-/// An expensive-shape outer problem with no cache hit keeps its
-/// shape-derived continuation pre-warm budget. This pins the cold-start
-/// contract so the hit-path skip below is provably the only behavior change.
+/// A deterministic stand-in for a warm-start-sensitive bimodal inner solve.
+///
+/// Each derivative-bearing terminal evaluation (`eval` / `eval_with_order` /
+/// `finalize`) reads a warm-parity flag: in the "bumped" parity the inner
+/// solve lands in a basin whose objective is offset by `BASIN_BUMP`; every
+/// such evaluation flips the parity, modeling an inner solve whose consecutive
+/// warm-started solves alternate basins. `reset()` re-baselines the parity to
+/// the un-bumped basin. The outer gradient is basin-independent (`= ρ`), so
+/// the fit still certifies stationarity at ρ = 0 regardless of basin — exactly
+/// the real defect's shape, where the two inner optima share the outer
+/// gradient but differ in objective value.
+///
+/// Consequence: with NO terminal reset, `finalize` and the certifying re-eval
+/// are one flip apart, so their objective values differ by `BASIN_BUMP`
+/// (whole-basin disagreement, not roundoff). With the terminal reset, both
+/// start from the un-bumped baseline and agree bitwise.
+struct BimodalTerminalObjective {
+    owns_terminal: bool,
+    warm_bumped: Arc<Mutex<bool>>,
+    finalize_installed: Arc<Mutex<Option<f64>>>,
+}
+
+const BASIN_BUMP: f64 = 2.6; // ~ the observed terminal(9.1931e2) − certified(9.1671e2) gap
+
+impl BimodalTerminalObjective {
+    fn basin_eval(&self, rho: &Array1<f64>) -> OuterEval {
+        let mut warm = self.warm_bumped.lock().unwrap();
+        let bump = if *warm { BASIN_BUMP } else { 0.0 };
+        *warm = !*warm; // consecutive warm-started solves alternate basins
+        OuterEval {
+            cost: 0.5 * rho.dot(rho) + bump,
+            gradient: rho.clone(),
+            hessian: HessianValue::Unavailable,
+            inner_beta_hint: None,
+        }
+    }
+}
+
+impl OuterObjective for BimodalTerminalObjective {
+    fn capability(&self) -> OuterCapability {
+        OuterCapability {
+            gradient: Derivative::Analytic,
+            hessian: DeclaredHessianForm::Unavailable,
+            n_params: 1,
+            psi_dim: 0,
+            fixed_point_available: false,
+            barrier_config: None,
+            prefer_gradient_only: false,
+            disable_fixed_point: true,
+        }
+    }
+    fn eval_cost(&mut self, rho: &Array1<f64>) -> Result<f64, EstimationError> {
+        // The basin-independent value: keeps the search / diagnostic FD probes
+        // clean so convergence is driven purely by the (basin-independent)
+        // gradient. Only the derivative-bearing terminal installers carry the
+        // basin offset.
+        Ok(0.5 * rho.dot(rho))
+    }
+    fn eval(&mut self, rho: &Array1<f64>) -> Result<OuterEval, EstimationError> {
+        Ok(self.basin_eval(rho))
+    }
+    fn eval_with_order(
+        &mut self,
+        rho: &Array1<f64>,
+        _: OuterEvalOrder,
+    ) -> Result<OuterEval, EstimationError> {
+        Ok(self.basin_eval(rho))
+    }
+    fn finalize_outer_result(
+        &mut self,
+        rho: &Array1<f64>,
+        _: &OuterPlan,
+    ) -> Result<(), EstimationError> {
+        // Install the owned coefficient mode: record the objective value the
+        // mode carries, exactly as the custom-family evaluator does.
+        let installed = self.basin_eval(rho).cost;
+        *self.finalize_installed.lock().unwrap() = Some(installed);
+        Ok(())
+    }
+    fn owns_terminal_coefficient_mode(&self) -> bool {
+        self.owns_terminal
+    }
+    fn reset(&mut self) {
+        *self.warm_bumped.lock().unwrap() = false;
+    }
+    fn seed_inner_state(&mut self, _: &Array1<f64>) -> Result<SeedOutcome, EstimationError> {
+        // The bimodal basin is carried by `warm_bumped`, not an inner-β slot.
+        Ok(SeedOutcome::NoSlot)
+    }
+}
+
+fn run_bimodal_terminal(owns_terminal: bool) -> (f64, f64) {
+    let warm_bumped = Arc::new(Mutex::new(false));
+    let finalize_installed = Arc::new(Mutex::new(None));
+    let mut obj = BimodalTerminalObjective {
+        owns_terminal,
+        warm_bumped: Arc::clone(&warm_bumped),
+        finalize_installed: Arc::clone(&finalize_installed),
+    };
+    // Seed AT the stationary point (∇ = ρ = 0) so the outer search certifies
+    // at iteration 0 and control passes straight into the terminal sequence.
+    let problem = OuterProblem::new(1)
+        .with_gradient(Derivative::Analytic)
+        .with_hessian(DeclaredHessianForm::Unavailable)
+        .with_initial_rho(array![0.0])
+        .with_screen_initial_rho(false)
+        .with_seed_config(gam_problem::SeedConfig {
+            max_seeds: 1,
+            seed_budget: 1,
+            ..Default::default()
+        });
+    let result = problem
+        .run(&mut obj, "bimodal-terminal")
+        .expect("stationary seed must certify");
+    assert!(result.converged, "stationary seed must converge");
+    let installed = finalize_installed
+        .lock()
+        .unwrap()
+        .expect("finalize must have installed a terminal mode");
+    (installed, result.final_value)
+}
+
 #[test]
-fn prewarm_budget_cold_start_keeps_shape_budget() {
-    let cap = OuterCapability {
-        gradient: Derivative::Analytic,
-        hessian: DeclaredHessianForm::Unavailable,
-        // n_params >= EXPENSIVE_PREWARM_RHO_DIM makes this an "expensive" shape.
-        n_params: EXPENSIVE_PREWARM_RHO_DIM,
-        psi_dim: 0,
-        fixed_point_available: false,
-        barrier_config: None,
-        prefer_gradient_only: false,
-        disable_fixed_point: false,
-    };
-    let config = OuterConfig {
-        warm_start_cache_hit: false,
-        ..OuterConfig::default()
-    };
-    // Single-seed expensive shape => SINGLE_EXPENSIVE_PREWARM_BUDGET (capped at
-    // PATH_BUDGET). The exact value is the existing cold-start contract; the
-    // load-bearing assertion is that it is strictly positive (pre-warm runs).
-    let budget = continuation_prewarm_step_budget(&config, &cap, 1, 1);
+fn terminal_reset_binds_bimodal_mode_owner_bitwise() {
+    // WITH the ownership flag: the terminal reset fires before BOTH the
+    // finalize install and the certifying re-eval, so the mode's objective and
+    // the certified value come from the same un-bumped baseline — bitwise equal.
+    let (installed, final_value) = run_bimodal_terminal(true);
     assert_eq!(
-        budget,
-        SINGLE_EXPENSIVE_PREWARM_BUDGET.min(crate::estimate::reml::continuation::PATH_BUDGET),
-        "cold-start expensive single-seed shape must keep its shape-derived budget"
+        installed.to_bits(),
+        final_value.to_bits(),
+        "terminal-coefficient-mode owner: finalize-installed objective ({installed:.17e}) \
+         must bitwise-match the certified final_value ({final_value:.17e})",
+    );
+}
+
+#[test]
+fn without_ownership_flag_bimodal_terminal_bind_fails() {
+    // WITHOUT the flag (and no outer_inner_cap wired, exactly the custom-family
+    // situation): no terminal reset, so finalize and the certifying re-eval are
+    // one warm-parity flip apart and settle in different basins — a whole-basin
+    // bitwise mismatch, i.e. the spurious bind failure this fix removes.
+    let (installed, final_value) = run_bimodal_terminal(false);
+    assert_ne!(
+        installed.to_bits(),
+        final_value.to_bits(),
+        "control: without the ownership flag the bimodal finalize/certify pair must disagree",
     );
     assert!(
-        budget > 0,
-        "cold start must still run the continuation pre-warm"
+        (installed - final_value).abs() >= BASIN_BUMP - 1e-9,
+        "the disagreement must be a whole-basin gap (~{BASIN_BUMP}), not roundoff: \
+         installed={installed:.17e} final_value={final_value:.17e}",
     );
 }
 
-/// On a warm-start store hit the seed is already near-optimal, so the
-/// continuation pre-warm budget collapses to zero regardless of problem
-/// shape — the only difference vs the cold-start case above is the flag.
+// ─── #2357 interior strict-saddle escape ──────────────────────────
+
+// A 2-D outer objective with a genuine interior saddle at ρ=(0,0) and a pair of
+// PSD minima at ρ=(0,±1):
+//
+//   f(ρ) = ½·ρ₀²  +  ¼·ρ₁⁴ − ½·ρ₁²
+//   ∇f    = (ρ₀,  ρ₁³ − ρ₁)
+//   H     = [[1, 0], [0, 3ρ₁² − 1]]
+//
+// At ρ=(0,0): ∇=0 (first-order stationary) but H=diag(1,−1) is INDEFINITE — a
+// strict saddle. The two minima ρ₁=±1 carry H=diag(1,2) (PSD) and f=−¼. A
+// gradient-only convergence gate that arrives at the saddle stops there; only
+// the certified negative-curvature escape reaches a minimum. This is the
+// synthetic distillation of the periodic-te() cold-start refusal in #2357.
+fn saddle_cost(rho: &Array1<f64>) -> f64 {
+    let r0 = rho[0];
+    let r1 = rho[1];
+    0.5 * r0 * r0 + 0.25 * r1 * r1 * r1 * r1 - 0.5 * r1 * r1
+}
+
+fn saddle_eval(rho: &Array1<f64>) -> OuterEval {
+    let r0 = rho[0];
+    let r1 = rho[1];
+    OuterEval {
+        cost: saddle_cost(rho),
+        gradient: array![r0, r1 * r1 * r1 - r1],
+        hessian: HessianValue::Dense(array![[1.0, 0.0], [0.0, 3.0 * r1 * r1 - 1.0]]),
+        inner_beta_hint: None,
+    }
+}
+
+fn saddle_problem() -> OuterProblem {
+    OuterProblem::new(2)
+        .with_gradient(Derivative::Analytic)
+        .with_hessian(DeclaredHessianForm::Dense)
+        .with_initial_rho(array![0.0, 0.0])
+        .with_screen_initial_rho(false)
+        .with_seed_config(gam_problem::SeedConfig {
+            max_seeds: 1,
+            seed_budget: 1,
+            ..Default::default()
+        })
+}
+
 #[test]
-fn prewarm_budget_warm_start_cache_hit_is_zero() {
-    let cap = OuterCapability {
-        gradient: Derivative::Analytic,
-        hessian: DeclaredHessianForm::Unavailable,
-        n_params: EXPENSIVE_PREWARM_RHO_DIM,
-        psi_dim: 0,
-        fixed_point_available: false,
-        barrier_config: None,
-        prefer_gradient_only: false,
-        disable_fixed_point: false,
-    };
-    let config = OuterConfig {
-        warm_start_cache_hit: true,
-        ..OuterConfig::default()
-    };
-    let budget = continuation_prewarm_step_budget(&config, &cap, 1, 1);
+fn certify_mints_saddle_escape_reseed_at_interior_saddle() {
+    // Directly audit the saddle point: the certificate must refuse it for
+    // indefinite interior curvature AND publish a negative-curvature escape
+    // reseed strictly BELOW the saddle objective, moving along the indefinite
+    // axis rather than the positive-curvature one (#2357).
+    let problem = saddle_problem();
+    let mut obj = problem.build_objective(
+        (),
+        |_: &mut (), rho: &Array1<f64>| Ok(saddle_cost(rho)),
+        |_: &mut (), rho: &Array1<f64>| Ok(saddle_eval(rho)),
+        None::<fn(&mut ())>,
+        None::<fn(&mut (), &Array1<f64>) -> Result<EfsEval, EstimationError>>,
+    );
+    let rejection = audit_stationary_point(&mut obj, array![0.0, 0.0], "saddle-escape #2357")
+        .expect_err("an interior strict saddle must be refused, not certified");
+    let result = &rejection.result;
+    let cert = result
+        .criterion_certificate
+        .as_ref()
+        .expect("refused certificate must be recorded");
+    assert!(
+        cert.is_stationary(),
+        "the gradient must clear the stationarity band at the saddle"
+    );
     assert_eq!(
-        budget, 0,
-        "a warm-start store hit must skip the redundant continuation pre-warm"
+        cert.hessian_psd,
+        Some(false),
+        "the saddle Hessian must read indefinite"
+    );
+    assert!(
+        cert.lambdas_railed.is_empty(),
+        "the saddle is interior, not railed"
+    );
+    let reseed = result
+        .saddle_escape_reseed
+        .as_ref()
+        .expect("a refused interior saddle must mint a negative-curvature escape reseed");
+    let saddle_f = saddle_cost(&array![0.0, 0.0]);
+    assert!(
+        saddle_cost(reseed) < saddle_f - 1e-9,
+        "escape reseed {reseed:?} (f={}) must strictly descend below the saddle f={saddle_f}",
+        saddle_cost(reseed),
+    );
+    assert!(
+        reseed[1].abs() > 1e-6,
+        "escape must step along the indefinite ρ₁ axis, not the PSD ρ₀ axis: {reseed:?}"
     );
 }
 
-// ─── #979 cost-cliff pre-warm budget scaling ─────────────────────────
+#[test]
+fn outer_search_escapes_interior_saddle_and_certifies_minimum() {
+    // Full pipeline: seeded AT the saddle, the outer search must escape via the
+    // one-shot negative-curvature reseed and certify a genuine PSD minimum at
+    // ρ₁=±1 — not refuse the whole fit at the saddle (#2357).
+    let problem = saddle_problem();
+    let mut obj = problem.build_objective(
+        (),
+        |_: &mut (), rho: &Array1<f64>| Ok(saddle_cost(rho)),
+        |_: &mut (), rho: &Array1<f64>| Ok(saddle_eval(rho)),
+        None::<fn(&mut ())>,
+        None::<fn(&mut (), &Array1<f64>) -> Result<EfsEval, EstimationError>>,
+    );
+    let result = problem
+        .run(&mut obj, "saddle-escape pipeline #2357")
+        .expect("the outer search must escape the saddle and certify a minimum");
+    assert!(
+        result.converged,
+        "must converge at a minimum, not refuse at the saddle"
+    );
+    assert!(
+        (result.rho[1].abs() - 1.0).abs() < 1e-4,
+        "must land on a PSD minimum ρ₁=±1, got ρ={:?}",
+        result.rho,
+    );
+    assert!(
+        result.rho[0].abs() < 1e-4,
+        "ρ₀ must be 0 at the minimum: {:?}",
+        result.rho,
+    );
+    assert!(
+        result
+            .criterion_certificate
+            .as_ref()
+            .is_some_and(|c| c.certifies() && c.hessian_psd == Some(true)),
+        "the escaped minimum must carry a PSD certificate",
+    );
+}
 
-/// Build a single-seed cold `OuterConfig` reporting `p_coefficients`, with a
-/// cheap rho dimension so `expensive_shape` is driven only by the coefficient
-/// dim (mirrors the binary marginal-slope outer: a couple of ρ, a basis that
-/// grows with center count).
-fn prewarm_config_for_p(p_coefficients: usize) -> (OuterConfig, OuterCapability) {
-    let cap = OuterCapability {
-        gradient: Derivative::Analytic,
-        hessian: DeclaredHessianForm::Unavailable,
-        // Below EXPENSIVE_PREWARM_RHO_DIM so the rho dimension never declares
-        // the shape expensive on its own — the coefficient dim is the lever.
-        n_params: 2,
-        psi_dim: 0,
-        fixed_point_available: false,
-        barrier_config: None,
-        prefer_gradient_only: false,
-        disable_fixed_point: false,
-    };
-    let config = OuterConfig {
-        warm_start_cache_hit: false,
-        rho_uncertainty_problem_size: crate::rho_uncertainty::RhoUncertaintyProblemSize {
-            n_obs: Some(2500),
-            p_coefficients: Some(p_coefficients),
+/// #2370: an inverted per-coordinate ρ-box (lower > upper) must surface as a
+/// typed `EstimationError::InvalidInput` from the outer runner, NOT panic in
+/// `project_to_bounds`' `f64::clamp(min, max)` (`min > max`) and escape as an
+/// opaque "panicked inside Rust boundary" `GamError` across the FFI. The
+/// custom-family effective-df ceiling once emitted an upper bound below
+/// `rho_lower_bound`, inverting the box; the runner now rejects any such box up
+/// front, before a seed is projected against it.
+#[test]
+fn inverted_rho_box_is_a_typed_error_not_a_clamp_panic_2370() {
+    let problem = OuterProblem::new(1)
+        .with_gradient(Derivative::Analytic)
+        .with_hessian(DeclaredHessianForm::Unavailable)
+        .with_initial_rho(array![0.0])
+        // lower (-10) strictly ABOVE upper (-11.855…): the exact inversion the
+        // effective-df ceiling produced for a binomial flexible_link fit.
+        .with_bounds(array![-10.0], array![-11.855421824787882])
+        .with_seed_config(gam_problem::SeedConfig {
+            max_seeds: 1,
+            seed_budget: 1,
+            ..Default::default()
+        });
+    let mut obj = problem.build_objective(
+        (),
+        move |_: &mut (), rho: &Array1<f64>| Ok(0.5 * rho[0] * rho[0]),
+        move |_: &mut (), rho: &Array1<f64>| {
+            Ok(OuterEval {
+                cost: 0.5 * rho[0] * rho[0],
+                gradient: array![rho[0]],
+                hessian: HessianValue::Unavailable,
+                inner_beta_hint: None,
+            })
         },
-        ..OuterConfig::default()
-    };
-    (config, cap)
-}
-
-/// The continuation pre-warm step budget must SCALE DOWN as the coefficient
-/// dimension (center count) grows past the #979 cost cliff, instead of paying
-/// the full `PATH_BUDGET` of multi-second inner solves per seed. This pins the
-/// binary marginal-slope acceptance regime: two `matern(centers=K)` formulas
-/// give `p ≈ 2K`, so centers ∈ {4, 12, 20} land at p ≈ {8, 24, 40}.
-#[test]
-fn prewarm_budget_scales_down_past_cost_cliff() {
-    let path_budget = crate::estimate::reml::continuation::PATH_BUDGET;
-
-    // centers ≈ 4 (p ≈ 8): below the cliff, the cheap fit keeps the full
-    // budget so the seed-continuation accuracy is untouched.
-    let (cfg4, cap4) = prewarm_config_for_p(8);
-    let b4 = continuation_prewarm_step_budget(&cfg4, &cap4, 1, 1);
-    assert_eq!(
-        b4, path_budget,
-        "a cheap (small-p) cold fit must keep the full pre-warm budget"
+        None::<fn(&mut ())>,
+        None::<fn(&mut (), &Array1<f64>) -> Result<EfsEval, EstimationError>>,
     );
-
-    // centers ≈ 8 (p ≈ 16): just past the cliff, the budget must already have
-    // collapsed far below PATH_BUDGET (the empirical centers≈8→10 cliff).
-    let (cfg8, cap8) = prewarm_config_for_p(16);
-    let b8 = continuation_prewarm_step_budget(&cfg8, &cap8, 1, 1);
-    assert!(
-        b8 < path_budget && b8 >= PREWARM_MIN_SCALED_BUDGET,
-        "just past the cost cliff the pre-warm budget must collapse below \
-         PATH_BUDGET ({path_budget}) yet stay >= {PREWARM_MIN_SCALED_BUDGET}; got {b8}"
-    );
-
-    // centers ≈ 12 (p ≈ 24) and centers ≈ 20 (p ≈ 40): the budget is
-    // non-increasing in p, and the per-seed pre-warm WORK proxy `budget · p`
-    // stays bounded (so the centers=20 fit does not pay 64 inner solves).
-    let (cfg12, cap12) = prewarm_config_for_p(24);
-    let b12 = continuation_prewarm_step_budget(&cfg12, &cap12, 1, 1);
-    let (cfg20, cap20) = prewarm_config_for_p(40);
-    let b20 = continuation_prewarm_step_budget(&cfg20, &cap20, 1, 1);
-
-    assert!(
-        b8 >= b12 && b12 >= b20,
-        "pre-warm budget must be non-increasing in center count: \
-         p=16->{b8}, p=24->{b12}, p=40->{b20}"
-    );
-    assert!(
-        b20 >= PREWARM_MIN_SCALED_BUDGET,
-        "even the largest fit must still anneal >= {PREWARM_MIN_SCALED_BUDGET} \
-         legs so the warm β stays near-optimal; got {b20}"
-    );
-    // Bounded total work: budget · p must not exceed the target product (plus
-    // one p of slack for the integer-division floor), for every above-cliff p.
-    for (b, p) in [(b8, 16usize), (b12, 24), (b20, 40)] {
-        assert!(
-            b * p <= PREWARM_COST_BUDGET_COEFF_PRODUCT + p,
-            "above-cliff pre-warm work budget·p={} must stay bounded by ~{} (p={p})",
-            b * p,
-            PREWARM_COST_BUDGET_COEFF_PRODUCT
-        );
+    let err = problem
+        .run(&mut obj, "inverted rho box 2370")
+        .expect_err("inverted ρ-box must be rejected as a typed error, not panic");
+    match err {
+        EstimationError::InvalidInput(msg) => {
+            assert!(
+                msg.to_lowercase().contains("bound"),
+                "InvalidInput should name the bound problem, got: {msg}",
+            );
+        }
+        other => panic!("expected EstimationError::InvalidInput for an inverted box, got {other:?}"),
     }
 }
 
-/// gam#979 — the continuation pre-warm fire/collapse magnitude must be a
-/// DETERMINISTIC function of the PROBLEM, never of disk-cache / parallel-load
-/// state, and at or past the per-step cost cliff the COLD (fired) budget must be
-/// bounded by the small documented `MULTI_SEED_PREWARM_BUDGET` tier.
-///
-/// The bug (#979 Experiment-2): a representative two-formula marginal-slope fit
-/// at the centers≈8 cliff (p ≈ 16) FIRED a ~12-step cold pre-warm of multi-second
-/// inner solves (~108s) under parallel/all-cold load, but a sequential rerun that
-/// happened to hit the persisted warm-start disk cache skipped it entirely (~4.5s).
-/// Identical inputs, "seconds vs intractable", decided by load/timing — because
-/// the only thing bounding the cold walk was the inverse-p taper from a base of
-/// PATH_BUDGET (64 → 12), and the only thing making it fast was the load-sensitive
-/// cache hit. This pins the two structural properties the fix establishes, with
-/// EXACT (`<=`, not approximate) ceilings:
-///
-///   1. For every representative marginal-slope cliff config (centers ≈ 8..12,
-///      p ≈ {16, 20, 24}), the COLD (`warm_start_cache_hit = false`) pre-warm
-///      step budget is `<= MULTI_SEED_PREWARM_BUDGET` (the owner's small "4–6"
-///      intent), so the fired walk can never blow up to the 12-step / ~108s cliff.
-///   2. The warm-start cache hit can only ever REDUCE the budget (to a redundant
-///      skip-to-0), never decide bounded-vs-unbounded: `warm_budget <= cold_budget`
-///      and the worst case is the deterministic, already-bounded cold budget. So
-///      the fire/collapse magnitude does NOT depend on the load-sensitive flag.
+/// #2370 companion: a NON-inverted but touching box (lower == upper, a pinned
+/// coordinate) is legitimate and must NOT be rejected — the guard keys on strict
+/// inversion only, so a genuinely pinned λ still optimizes.
 #[test]
-fn prewarm_cold_budget_is_bounded_and_load_independent_at_cliff_979() {
-    // Two `basis(centers=K)` formulas give p ≈ 2K, so the centers≈8 cliff lands
-    // at p ≈ 16 and centers≈12 at p ≈ 24. n_params (rho dim) is a small 2 — the
-    // legacy "expensive shape" gate (p ≥ 24 or rho dim ≥ 4) does NOT fire here,
-    // which is exactly why the pre-fix cold base stayed at PATH_BUDGET.
-    for p in [16usize, 20, 24] {
-        let (cold_cfg, cap) = prewarm_config_for_p(p);
-        assert!(
-            !cold_cfg.warm_start_cache_hit,
-            "the cold config must report no cache hit (p={p})"
-        );
-        let cold_budget = continuation_prewarm_step_budget(&cold_cfg, &cap, 1, 1);
-
-        // (1) The COLD fired budget is bounded by the small documented tier —
-        //     EXACTLY `<= MULTI_SEED_PREWARM_BUDGET`, not the larger
-        //     `SINGLE_EXPENSIVE_PREWARM_BUDGET` and certainly not PATH_BUDGET.
-        //     Pre-fix this was 12 at p=16 (PATH_BUDGET-tapered) and the test fails.
-        assert!(
-            cold_budget <= MULTI_SEED_PREWARM_BUDGET,
-            "cold pre-warm budget {cold_budget} must be <= MULTI_SEED_PREWARM_BUDGET \
-             ({MULTI_SEED_PREWARM_BUDGET}) at the #979 cliff (p={p}); a larger fired \
-             budget is the ~108s centers≈8 cold blowup"
-        );
-        // Still a real anneal (capping must not regress seed-continuation accuracy).
-        assert!(
-            cold_budget >= PREWARM_MIN_SCALED_BUDGET,
-            "cold pre-warm budget {cold_budget} must stay >= {PREWARM_MIN_SCALED_BUDGET} \
-             so the warmed β is near-optimal (p={p})"
-        );
-
-        // (2) The warm-start cache hit is a redundant skip layered ON TOP of an
-        //     already-bounded cold budget: flipping the load-sensitive flag can
-        //     only ever REDUCE work (to 0), never turn bounded into unbounded.
-        let warm_cfg = OuterConfig {
-            warm_start_cache_hit: true,
-            ..cold_cfg
-        };
-        let warm_budget = continuation_prewarm_step_budget(&warm_cfg, &cap, 1, 1);
-        assert_eq!(
-            warm_budget, 0,
-            "a warm-start cache hit must skip the redundant pre-warm (p={p})"
-        );
-        assert!(
-            warm_budget <= cold_budget,
-            "the load-sensitive cache flag must only ever reduce the pre-warm budget \
-             ({warm_budget} <= {cold_budget}); it must never be the difference between \
-             a bounded and an unbounded fired walk (p={p})"
-        );
-    }
-}
-
-/// The cost-scaling helper is the identity below the cliff and never returns
-/// zero (the pre-warm must always run at least its floor of legs on a cold
-/// fit, so capping cannot regress the seed-continuation accuracy).
-#[test]
-fn cost_scaled_prewarm_budget_is_bounded_and_never_zero() {
-    let path_budget = crate::estimate::reml::continuation::PATH_BUDGET;
-    // Identity below the cliff.
-    for p in [0usize, 1, 8, PREWARM_COST_CLIFF_COEFF_DIM] {
-        assert_eq!(
-            cost_scaled_prewarm_budget(path_budget, p),
-            path_budget,
-            "below/at the cliff the budget is unscaled (p={p})"
-        );
-    }
-    // Past the cliff: in [floor, base], non-increasing, never zero.
-    let mut prev = path_budget + 1;
-    for p in (PREWARM_COST_CLIFF_COEFF_DIM + 1)..=256 {
-        let b = cost_scaled_prewarm_budget(path_budget, p);
-        assert!(
-            b >= PREWARM_MIN_SCALED_BUDGET,
-            "p={p} budget {b} below floor"
-        );
-        assert!(b <= path_budget, "p={p} budget {b} above base");
-        assert!(
-            b <= prev,
-            "p={p} budget {b} not non-increasing (prev {prev})"
-        );
-        prev = b;
-    }
+fn pinned_equal_rho_bounds_are_accepted_2370() {
+    let problem = OuterProblem::new(1)
+        .with_gradient(Derivative::Analytic)
+        .with_hessian(DeclaredHessianForm::Unavailable)
+        .with_initial_rho(array![2.0])
+        .with_bounds(array![2.0], array![2.0])
+        .with_seed_config(gam_problem::SeedConfig {
+            max_seeds: 1,
+            seed_budget: 1,
+            ..Default::default()
+        });
+    let mut obj = problem.build_objective(
+        (),
+        move |_: &mut (), rho: &Array1<f64>| Ok(0.5 * rho[0] * rho[0]),
+        move |_: &mut (), rho: &Array1<f64>| {
+            Ok(OuterEval {
+                cost: 0.5 * rho[0] * rho[0],
+                gradient: array![rho[0]],
+                hessian: HessianValue::Unavailable,
+                inner_beta_hint: None,
+            })
+        },
+        None::<fn(&mut ())>,
+        None::<fn(&mut (), &Array1<f64>) -> Result<EfsEval, EstimationError>>,
+    );
+    let result = problem
+        .run(&mut obj, "pinned rho box 2370")
+        .expect("a pinned (lower == upper) coordinate is a valid box");
+    assert!(
+        (result.rho[0] - 2.0).abs() < 1e-9,
+        "pinned coordinate must stay at its bound, got {:?}",
+        result.rho,
+    );
 }

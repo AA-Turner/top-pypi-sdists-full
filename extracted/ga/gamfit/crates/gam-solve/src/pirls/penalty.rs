@@ -101,6 +101,107 @@ impl PirlsPenalty {
         }
     }
 
+    /// Whether assembling `S = E' E` has squared the penalty-root condition
+    /// number far enough to discard more than half of binary64's significant
+    /// digits.  Above `1/sqrt(eps)` in row energy, a Cholesky solve of the Gram
+    /// is numerically a different problem from a QR solve of its PSD root.
+    ///
+    /// Reparameterized dense penalties store mutually orthogonal spectral-root
+    /// rows, so their squared row norms are exactly the represented positive
+    /// eigenvalues.  Diagonal penalties never incur cancellation while being
+    /// assembled and therefore retain the direct diagonal/Gram solve.
+    pub(super) fn requires_root_solve(&self, stabilizing_floor: f64) -> bool {
+        let Self::Dense { e_transformed, .. } = self else {
+            return false;
+        };
+        let mut min_positive = if stabilizing_floor.is_finite() && stabilizing_floor > 0.0 {
+            stabilizing_floor
+        } else {
+            f64::INFINITY
+        };
+        let mut max_energy = if stabilizing_floor.is_finite() && stabilizing_floor > 0.0 {
+            stabilizing_floor
+        } else {
+            0.0
+        };
+        for row in e_transformed.rows() {
+            let energy = row.dot(&row);
+            if energy.is_infinite() {
+                return true;
+            }
+            if energy > 0.0 && energy.is_finite() {
+                min_positive = min_positive.min(energy);
+                max_energy = max_energy.max(energy);
+            }
+        }
+        min_positive.is_finite() && max_energy / min_positive > f64::EPSILON.sqrt().recip()
+    }
+
+    pub(super) fn write_root_rows(&self, out: &mut Array2<f64>, first_row: usize) {
+        match self {
+            Self::Dense { e_transformed, .. } => {
+                let end = first_row + e_transformed.nrows();
+                out.slice_mut(ndarray::s![first_row..end, ..])
+                    .assign(e_transformed);
+            }
+            Self::Diagonal {
+                diag,
+                positive_indices,
+                ..
+            } => {
+                for (local_row, &coefficient) in positive_indices.iter().enumerate() {
+                    out[[first_row + local_row, coefficient]] = diag[coefficient].sqrt();
+                }
+            }
+        }
+    }
+
+    /// Write the affine penalty residual `q` whose normal-equation image is
+    /// the exact shifted penalty gradient: `E' q = S beta - linear_shift`.
+    ///
+    /// Keeping this residual in root space lets the stiff-penalty PIRLS path
+    /// solve the augmented least-squares problem directly. Forming the two
+    /// large terms in coefficient space and subtracting them first would lose
+    /// precisely the stationarity digits that the root solve is meant to
+    /// preserve.
+    pub(super) fn write_root_residual(
+        &self,
+        beta: &Array1<f64>,
+        out: &mut Array1<f64>,
+        first_row: usize,
+    ) {
+        match self {
+            Self::Dense {
+                e_transformed,
+                linear_shift,
+                ..
+            } => {
+                let e_beta = fast_av(e_transformed, beta);
+                for (local_row, row) in e_transformed.rows().into_iter().enumerate() {
+                    let energy = row.dot(&row);
+                    let affine_shift = if energy > 0.0 {
+                        row.dot(linear_shift) / energy
+                    } else {
+                        0.0
+                    };
+                    out[first_row + local_row] = e_beta[local_row] - affine_shift;
+                }
+            }
+            Self::Diagonal {
+                diag,
+                positive_indices,
+                linear_shift,
+                ..
+            } => {
+                for (local_row, &coefficient) in positive_indices.iter().enumerate() {
+                    let root = diag[coefficient].sqrt();
+                    out[first_row + local_row] =
+                        root * beta[coefficient] - linear_shift[coefficient] / root;
+                }
+            }
+        }
+    }
+
     pub(super) fn add_to_hessian(&self, hessian: &mut Array2<f64>) {
         match self {
             Self::Dense { s_transformed, .. } => {
@@ -116,8 +217,21 @@ impl PirlsPenalty {
 
     pub(super) fn apply(&self, beta: &Array1<f64>) -> Array1<f64> {
         match self {
-            Self::Dense { s_transformed, .. } => {
-                gam_linalg::faer_ndarray::fast_av(s_transformed, beta)
+            Self::Dense { e_transformed, .. } => {
+                // Apply the dense penalty through its square root rather than
+                // through the assembled Gram matrix:
+                //
+                //     S beta = E' (E beta),  S = E' E.
+                //
+                // Forming `S` is unavoidable for the direct Hessian solve, but
+                // using it again for the gradient squares the conditioning of
+                // `E`.  At wide smoothing-parameter ratios a coefficient can
+                // have large cancelling coordinates, so `beta.dot(S beta)` can
+                // even become negative although the represented penalty is
+                // positive semidefinite.  Keeping value and gradient on the
+                // root representation makes them one coherent numerical atom.
+                let e_beta = fast_av(e_transformed, beta);
+                fast_atv(e_transformed, &e_beta)
             }
             Self::Diagonal { diag, .. } => diag * beta,
         }
@@ -158,8 +272,97 @@ impl PirlsPenalty {
     }
 
     pub(super) fn shifted_quadratic(&self, beta: &Array1<f64>) -> f64 {
-        let s_beta = self.apply(beta);
-        beta.dot(&s_beta) - 2.0 * beta.dot(self.linear_shift()) + self.constant_shift()
+        let unshifted = match self {
+            Self::Dense { e_transformed, .. } => {
+                let e_beta = fast_av(e_transformed, beta);
+                e_beta.dot(&e_beta)
+            }
+            Self::Diagonal { diag, .. } => beta
+                .iter()
+                .zip(diag.iter())
+                .map(|(&coefficient, &weight)| weight * coefficient * coefficient)
+                .sum(),
+        };
+        unshifted - 2.0 * beta.dot(self.linear_shift()) + self.constant_shift()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::PirlsPenalty;
+    use ndarray::{Array1, array};
+
+    #[test]
+    fn dense_penalty_value_and_gradient_use_the_psd_root() {
+        // The small eigen-direction is exactly representable in E, but is lost
+        // when E' E is rounded: every entry of the Gram rounds to 1e32.  This is
+        // the cancellation pattern reached by stiff outer-REML trial points in
+        // #2316.  The represented penalty is nevertheless unambiguously
+        // ||E beta||^2 = 4 with gradient E'(E beta) = [2, -2].
+        let e_transformed = array![[1.0e16, 1.0e16], [1.0, -1.0]];
+        let s_transformed = e_transformed.t().dot(&e_transformed);
+        let penalty = PirlsPenalty::Dense {
+            s_transformed,
+            e_transformed,
+            linear_shift: Array1::zeros(2),
+            constant_shift: 0.0,
+            prior_mean_target: Array1::zeros(2),
+        };
+        let beta = array![1.0, -1.0];
+
+        assert_eq!(penalty.shifted_quadratic(&beta), 4.0);
+        assert_eq!(penalty.shifted_gradient(&beta), array![2.0, -2.0]);
+    }
+
+    #[test]
+    fn root_solve_gate_is_derived_from_gram_precision_loss() {
+        let stiff = PirlsPenalty::Dense {
+            s_transformed: array![[1.0e10, 0.0], [0.0, 1.0]],
+            e_transformed: array![[1.0e5, 0.0], [0.0, 1.0]],
+            linear_shift: Array1::zeros(2),
+            constant_shift: 0.0,
+            prior_mean_target: Array1::zeros(2),
+        };
+        let ordinary = PirlsPenalty::Dense {
+            s_transformed: array![[1.0e6, 0.0], [0.0, 1.0]],
+            e_transformed: array![[1.0e3, 0.0], [0.0, 1.0]],
+            linear_shift: Array1::zeros(2),
+            constant_shift: 0.0,
+            prior_mean_target: Array1::zeros(2),
+        };
+
+        assert!(stiff.requires_root_solve(0.0));
+        assert!(!ordinary.requires_root_solve(0.0));
+
+        let rank_one = PirlsPenalty::Dense {
+            s_transformed: array![[1.0e10, 1.0e10], [1.0e10, 1.0e10]],
+            e_transformed: array![[1.0e5, 1.0e5]],
+            linear_shift: Array1::zeros(2),
+            constant_shift: 0.0,
+            prior_mean_target: Array1::zeros(2),
+        };
+        assert!(rank_one.requires_root_solve(1.0));
+        assert!(!rank_one.requires_root_solve(1.0e4));
+    }
+
+    #[test]
+    fn affine_root_residual_maps_to_shifted_penalty_gradient() {
+        let root = array![[3.0, 0.0], [0.0, 2.0]];
+        let linear_shift = array![4.5, -2.0];
+        let penalty = PirlsPenalty::Dense {
+            s_transformed: root.t().dot(&root),
+            e_transformed: root.clone(),
+            linear_shift,
+            constant_shift: 0.0,
+            prior_mean_target: Array1::zeros(2),
+        };
+        let beta = array![0.25, -0.75];
+        let mut residual = Array1::<f64>::zeros(4);
+
+        penalty.write_root_residual(&beta, &mut residual, 2);
+        let mapped = root.t().dot(&residual.slice(ndarray::s![2..]).to_owned());
+
+        assert_eq!(mapped, penalty.shifted_gradient(&beta));
     }
 }
 

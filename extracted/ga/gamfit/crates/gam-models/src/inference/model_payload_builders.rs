@@ -21,18 +21,21 @@ use crate::bms::{
 };
 use crate::cubic_cell_kernel::ANCHORED_DEVIATION_KERNEL;
 use crate::fit_orchestration::drivers::freeze_term_collection_from_design;
-use crate::fit_orchestration::{FitConfig, StandardFitResult};
+use crate::fit_orchestration::{FitConfig, StandardFitResult, expectile_tau_for_config};
 use crate::inference::model::{
-    FittedFamily, FittedModelPayload, MODEL_PAYLOAD_VERSION, ModelKind, SavedAnchorComponent,
-    SavedAnchorKind, SavedCompiledFlexBlock, SavedLatentZNormalization, SavedResidualCascade,
-    SavedSplineScan, TransformationScoreCalibration,
+    FittedEstimator, FittedFamily, FittedModelPayload, MODEL_PAYLOAD_VERSION, ModelKind,
+    SavedAnchorComponent, SavedAnchorKind, SavedCompiledFlexBlock, SavedLatentZNormalization,
+    SavedResidualCascade, SavedSplineScan, SavedSurvivalLocationScaleStructure,
+    SavedTransformationNormalGeometry, TransformationNormalParameterization,
+    TransformationScoreCalibration,
 };
 use crate::scale_design::ScaleDeviationTransform;
 use crate::survival::construction::{
     SavedSurvivalTimeBasis, SurvivalBaselineConfig, survival_baseline_targetname,
 };
 use crate::survival::location_scale::{
-    ResidualDistribution, residual_distribution_from_inverse_link,
+    ResidualDistribution, SurvivalCovariateTimeBasis, SurvivalLocationScaleTimeParameterization,
+    residual_distribution_from_inverse_link,
 };
 use crate::transformation_normal::TransformationNormalFamily;
 use faer::Side;
@@ -271,6 +274,7 @@ fn standard_conformal_substrates(
         || fit_config.weight_column.is_some()
         || fit_config.offset_column.is_some()
         || fit_config.flexible_link
+        || design.affine_offset.iter().any(|value| *value != 0.0)
     {
         return (None, None);
     }
@@ -325,6 +329,7 @@ pub fn assemble_standard_payload(
         saved_link_state,
         wiggle_knots,
         wiggle_degree,
+        wiggle_penalty_metadata,
         wiggle_saved_warp_beta,
         wiggle_saved_index_shift,
         ..
@@ -339,6 +344,15 @@ pub fn assemble_standard_payload(
         .likelihood_family
         .clone()
         .unwrap_or_else(LikelihoodSpec::gaussian_identity);
+    let estimator = expectile_tau_for_config(fit_config)
+        .map_err(|error| format!("failed to persist estimator metadata: {error}"))?
+        .map_or(FittedEstimator::Likelihood, |tau| {
+            FittedEstimator::Expectile { tau }
+        });
+    let family_label = match estimator {
+        FittedEstimator::Likelihood => family.name().to_string(),
+        FittedEstimator::Expectile { tau } => format!("expectile({tau})"),
+    };
     let (gaussian_jackknife_plus, full_conformal) =
         standard_conformal_substrates(&formula, dataset, fit_config, &family, &fit, &design);
     let latent_cloglog_state = if family.is_latent_cloglog() {
@@ -359,14 +373,16 @@ pub fn assemble_standard_payload(
             mixture_state: saved_mixture_state_from_fit(&fit),
             sas_state: saved_sas_state_from_fit(&fit),
         },
-        family.name().to_string(),
+        family_label,
     );
+    payload.estimator = estimator;
     payload.unified = Some(fit.clone());
     payload.fit_result = Some(fit.clone());
     payload.data_schema = Some(dataset.schema.clone());
     payload.link = fitted_inverse_link(&fit.fitted_link).or_else(|| Some(family.link.clone()));
     payload.linkwiggle_knots = wiggle_knots.map(|knots| knots.to_vec());
     payload.linkwiggle_degree = wiggle_degree;
+    payload.linkwiggle_penalty_metadata = wiggle_penalty_metadata;
     payload.beta_link_wiggle = wiggle_saved_warp_beta;
     payload.link_wiggle_index_shift = wiggle_saved_index_shift;
     match &fit.fitted_link {
@@ -783,9 +799,46 @@ pub fn assemble_transformation_normal_payload(
     );
     payload.transformation_response_degree = Some(family.response_degree());
     payload.transformation_response_median = Some(family.response_median());
+    payload.transformation_geometry = Some(transformation_normal_geometry(family));
+    // Persist the monotonicity-cone carrier Ψ (the fitted covariate design at
+    // κ̂), row-major n × p_cov, so constrained posterior sampling can certify
+    // draws against the positivity cone without replaying the (non-bitwise)
+    // spatial warp. The covariate design is materialized during fitting, so this
+    // is a cache hit; a post-fit materialization failure is an internal invariant
+    // break, not a recoverable condition.
+    let cone_carrier = family
+        .covariate_dense_arc()
+        .expect("CTN covariate design must materialize for the persisted cone carrier");
+    payload.transformation_cone_carrier = Some(cone_carrier.iter().copied().collect());
     payload.transformation_score_calibration = Some(score_calibration);
     source.apply_to(&mut payload);
     payload
+}
+
+/// Snapshot the direct-α CTN geometry (gam#2306) a saved model needs to replay
+/// the transform and the certified-domain prediction refusal.
+///
+/// The response value basis is `[1, I_1, …, I_K]` (`p_resp` columns), so the
+/// shape-coordinate count is `p_resp − 1` (column 0 is the unconstrained
+/// location field). The Khatri-Rao positivity-cone carrier is the `n × p_cov`
+/// covariate design, and the certified response support is the clamped-knot
+/// span `[knots.first, knots.last]` the endpoint bases were evaluated at.
+fn transformation_normal_geometry(
+    family: &TransformationNormalFamily,
+) -> SavedTransformationNormalGeometry {
+    let knots = family.response_knots();
+    let lo = knots.iter().copied().fold(f64::INFINITY, f64::min);
+    let hi = knots.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+    SavedTransformationNormalGeometry {
+        parameterization: TransformationNormalParameterization::DirectAlpha,
+        response_degree: family.response_degree(),
+        response_knot_count: knots.len(),
+        shape_coordinate_count: family.p_resp().saturating_sub(1),
+        cone_carrier_covariate_width: family.p_cov(),
+        cone_carrier_row_count: family.n_obs(),
+        certified_response_support: (lo, hi),
+        response_median: family.response_median(),
+    }
 }
 
 /// Which likelihood a (non-survival) location-scale model carries: Gaussian
@@ -961,6 +1014,8 @@ pub struct SurvivalMarginalSlopeInputs<'a> {
     pub z_column: String,
     pub latent_z_normalization: SavedLatentZNormalization,
     pub baseline_logslope: f64,
+    /// Frozen nonlinear time-wiggle authority, including the raw fitted tail.
+    pub timewiggle: Option<SurvivalTimewiggle>,
     pub score_warp_runtime: Option<&'a DeviationRuntime>,
     pub link_dev_runtime: Option<&'a DeviationRuntime>,
     /// Width `p₁` of the absorbed Stage-1 influence block (#461) when the fit
@@ -968,6 +1023,8 @@ pub struct SurvivalMarginalSlopeInputs<'a> {
     /// this is persisted only so the predictor accounts for the extra trailing
     /// block in the saved block count.
     pub influence_absorber_width: Option<usize>,
+    pub influence_absorber_design: Option<&'a Array2<f64>>,
+    pub score_covariance: &'a Array2<f64>,
 }
 
 /// Construct a Royston-Parmar survival [`FittedModelPayload`] through the
@@ -1046,6 +1103,13 @@ pub fn assemble_survival_marginal_slope_payload(
     payload.latent_measure = Some(LatentMeasureKind::StandardNormal);
     payload.logslope_baseline = Some(inputs.baseline_logslope);
     payload.logslope_baselines = Some(vec![inputs.baseline_logslope]);
+    if let Some(timewiggle) = inputs.timewiggle {
+        payload.baseline_timewiggle_degree = Some(timewiggle.degree);
+        payload.baseline_timewiggle_knots = Some(timewiggle.knots);
+        payload.baseline_timewiggle_penalty_orders = timewiggle.penalty_orders;
+        payload.baseline_timewiggle_double_penalty = timewiggle.double_penalty;
+        apply_timewiggle_beta(&mut payload, timewiggle.beta);
+    }
     payload.score_warp_runtime = inputs
         .score_warp_runtime
         .map(serialize_anchored_deviation_runtime);
@@ -1053,6 +1117,17 @@ pub fn assemble_survival_marginal_slope_payload(
         .link_dev_runtime
         .map(serialize_anchored_deviation_runtime);
     payload.influence_absorber_width = inputs.influence_absorber_width;
+    payload.influence_absorber_design = inputs
+        .influence_absorber_design
+        .map(|design| design.rows().into_iter().map(|row| row.to_vec()).collect());
+    payload.survival_marginal_slope_score_covariance = Some(
+        inputs
+            .score_covariance
+            .rows()
+            .into_iter()
+            .map(|row| row.to_vec())
+            .collect(),
+    );
     source.apply_to(&mut payload);
     payload
 }
@@ -1163,8 +1238,8 @@ pub fn assemble_survival_transformation_payload(
 /// Source-agnostic semantic content of a survival location-scale
 /// (Royston-Parmar with a learned residual link) saved model. Centralizing
 /// fixes the drift where CLI and FFI disagreed on `formula_noise`,
-/// `baseline_timewiggle_*`, and `survival_noise_projection_ridge_alpha`.
-pub struct SurvivalLocationScaleInputs<'a> {
+/// `baseline_timewiggle_*`, and exact location-scale replay topology.
+pub struct SurvivalLocationScaleInputs {
     pub formula: String,
     pub data_schema: DataSchema,
     /// Fit result with the fitted inverse-link state and link-wiggle artifacts
@@ -1185,11 +1260,13 @@ pub struct SurvivalLocationScaleInputs<'a> {
     pub time_basis: SavedSurvivalTimeBasis,
     pub ridge_lambda: f64,
     pub survival_likelihood_label: String,
+    pub time_parameterization: SurvivalLocationScaleTimeParameterization,
+    pub threshold_time_basis: Option<SurvivalCovariateTimeBasis>,
+    pub log_sigma_time_basis: Option<SurvivalCovariateTimeBasis>,
     pub formula_noise: Option<String>,
     pub survival_beta_time: Vec<f64>,
     pub survival_beta_threshold: Vec<f64>,
     pub survival_beta_log_sigma: Vec<f64>,
-    pub noise_transform: &'a ScaleDeviationTransform,
     pub resolved_thresholdspec: TermCollectionSpec,
     pub resolved_log_sigmaspec: TermCollectionSpec,
 }
@@ -1197,7 +1274,7 @@ pub struct SurvivalLocationScaleInputs<'a> {
 /// Assemble the canonical survival location-scale payload (the single source of
 /// truth for that on-disk contract).
 pub fn assemble_survival_location_scale_payload(
-    inputs: SurvivalLocationScaleInputs<'_>,
+    inputs: SurvivalLocationScaleInputs,
     source: SavedModelSourceMetadata,
 ) -> FittedModelPayload {
     let survival_distribution =
@@ -1234,24 +1311,15 @@ pub fn assemble_survival_location_scale_payload(
     payload.apply_survival_time_basis(&inputs.time_basis);
     payload.survivalridge_lambda = Some(inputs.ridge_lambda);
     payload.survival_likelihood = Some(inputs.survival_likelihood_label);
+    payload.survival_location_scale_structure = Some(SavedSurvivalLocationScaleStructure {
+        time_parameterization: inputs.time_parameterization,
+        threshold_time_basis: inputs.threshold_time_basis,
+        log_sigma_time_basis: inputs.log_sigma_time_basis,
+    });
     payload.formula_noise = inputs.formula_noise;
     payload.survival_beta_time = Some(inputs.survival_beta_time);
     payload.survival_beta_threshold = Some(inputs.survival_beta_threshold);
     payload.survival_beta_log_sigma = Some(inputs.survival_beta_log_sigma);
-    payload.survival_noise_projection = Some(
-        inputs
-            .noise_transform
-            .projection_coef
-            .rows()
-            .into_iter()
-            .map(|row| row.to_vec())
-            .collect(),
-    );
-    payload.survival_noise_center = Some(inputs.noise_transform.weighted_column_mean.to_vec());
-    payload.survival_noise_scale = Some(inputs.noise_transform.rescale.to_vec());
-    payload.survival_noise_non_intercept_start = Some(inputs.noise_transform.non_intercept_start);
-    payload.survival_noise_projection_ridge_alpha =
-        Some(inputs.noise_transform.projection_ridge_alpha);
     payload.survival_distribution = survival_distribution;
     payload.resolved_termspec = Some(inputs.resolved_thresholdspec);
     payload.resolved_termspec_noise = Some(inputs.resolved_log_sigmaspec);

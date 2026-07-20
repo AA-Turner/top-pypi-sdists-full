@@ -81,24 +81,27 @@ use std::sync::Arc;
 use ndarray::{Array1, Array2, ArrayView1, ArrayView2, Axis};
 
 use crate::atom_codes::SparseAtomCodes;
-use crate::basis::{
-    CylinderHarmonicEvaluator, DuchonCoordinateEvaluator, EuclideanPatchEvaluator,
-    MobiusHarmonicEvaluator, PeriodicHarmonicEvaluator, SaeBasisSecondJet, SphereChartEvaluator,
-    TorusHarmonicEvaluator,
-};
+use crate::basis::SaeBasisSecondJet;
 use crate::description_length::{BirthMdlPrescreen, predicted_birth_dl_bits};
 use crate::frames::GrassmannFrame;
 use crate::manifold::{
     AssignmentMode, AtlasSeamKind, GraphStructureSelection, LearnedGraphAtom, OccupancyLaw,
-    SAE_MAX_PERIODIC_HARMONICS, SaeAtomBasisKind, SaeManifoldAtom, SaeManifoldRho, SaeManifoldTerm,
-    SaeReferenceRoughness, SphereChartTransition, UnitSpeedChartTransition,
-    amplitude_concentration_certificate, classify_occupancy_interval,
+    SAE_MAX_PERIODIC_HARMONICS, SaeAtomBasisKind, SaeAtomGeometryPlan, SaeBasisResolution,
+    SaeManifoldAtom, SaeManifoldRho, SaeManifoldTerm, SaeReferenceMetricPlan,
+    SphereChartTransition, UnitSpeedChartTransition, amplitude_concentration_certificate,
+    anisotropic_flat_product_torus_penalty,
+    anisotropic_flat_product_torus_penalty_aspect_derivative, classify_occupancy_interval,
+    embedded_donut_torus_reference_penalty,
+    embedded_donut_torus_reference_penalty_aspect_derivative,
 };
 use crate::migration_ledger::SaeMigrationLedger;
 use crate::null_sampler::{NULL_REPLICATES, coactivation_exceedance_for_pairs};
 use gam_linalg::faer_ndarray::FaerSvd;
 use gam_runtime::warm_start::Fingerprinter;
-use gam_solve::gaussian_reml::gaussian_reml_multi_closed_form;
+use gam_solve::gaussian_reml::{
+    gaussian_reml_multi_shared_dispersion_closed_form,
+    gaussian_reml_multi_shared_dispersion_penalty_gradient_from_fit,
+};
 use gam_solve::inference::residual_factor::{ResidualFactorInput, StructuredResidualModel};
 use gam_solve::structure_search::{
     ChartGlueOutcome, CollapseAction, MoveBudget, MoveProposal, SearchLedger, SearchOutcome,
@@ -113,6 +116,7 @@ use gam_terms::latent::{LatentIdMode, LatentManifold};
 use gam_terms::structure::anova_atom::{
     CarveReport, FissionDecision, carve, carve_input_from_fitted_atom, fission_decision,
 };
+use opt::{BracketedRootConfig, FirstOrderSample, ObjectiveEvalError, find_root_bracketed};
 use std::sync::atomic::{AtomicBool, Ordering};
 
 /// Per-row soft-assignment mass below which an atom is treated as INACTIVE on
@@ -365,8 +369,8 @@ fn post_move_structure_hash(term: &SaeManifoldTerm, mv: &StructureMove) -> u64 {
     // the parent's plus the move tag above.
     fp.write_usize(term.atoms.len());
     for atom in &term.atoms {
-        fp.write_str(basis_kind_tag(&atom.basis_kind));
-        fp.write_usize(atom.latent_dim);
+        fp.write_str(basis_kind_tag(atom.basis_kind()));
+        fp.write_usize(atom.latent_dim());
     }
     let digest = fp.finalize();
     let bytes = digest.as_bytes();
@@ -415,6 +419,8 @@ fn basis_kind_tag(kind: &SaeAtomBasisKind) -> &str {
         SaeAtomBasisKind::Periodic => "periodic",
         SaeAtomBasisKind::Sphere => "sphere",
         SaeAtomBasisKind::Torus => "torus",
+        SaeAtomBasisKind::ProjectivePlane => "projective_plane",
+        SaeAtomBasisKind::KleinBottle => "klein_bottle",
         SaeAtomBasisKind::Linear => "linear",
         SaeAtomBasisKind::EuclideanPatch => "euclidean_patch",
         SaeAtomBasisKind::Poincare => "poincare",
@@ -938,7 +944,7 @@ fn run_within_atom_carve(
     atom: usize,
 ) -> Option<Result<CarveReport, String>> {
     let a = &term.atoms[atom];
-    if a.latent_dim != 2 {
+    if a.latent_dim() != 2 {
         return None;
     }
     let evaluator = a.basis_evaluator.as_ref()?;
@@ -1290,10 +1296,10 @@ fn fit_seam_transition(term: &SaeManifoldTerm, a: usize, b: usize) -> Option<Sea
     }
     let atom_a = &term.atoms[a];
     let atom_b = &term.atoms[b];
-    if atom_a.latent_dim != 1
-        || atom_b.latent_dim != 1
-        || !matches!(atom_a.basis_kind, SaeAtomBasisKind::Periodic)
-        || !matches!(atom_b.basis_kind, SaeAtomBasisKind::Periodic)
+    if atom_a.latent_dim() != 1
+        || atom_b.latent_dim() != 1
+        || !matches!(atom_a.basis_kind(), SaeAtomBasisKind::Periodic)
+        || !matches!(atom_b.basis_kind(), SaeAtomBasisKind::Periodic)
     {
         return None;
     }
@@ -1601,55 +1607,42 @@ fn sphere_linear_block(atom: &SaeManifoldAtom) -> Option<Array2<f64>> {
     Some(decoder.slice(ndarray::s![1..4, ..]).to_owned())
 }
 
-/// Exact inverse of a `3×3` matrix (Cramer). `None` if singular.
-fn inverse_3x3(m: &[[f64; 3]; 3]) -> Option<[[f64; 3]; 3]> {
-    let det = m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1])
-        - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0])
-        + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
-    if !det.is_finite() || det.abs() < 1e-12 {
-        return None;
-    }
-    let inv_det = 1.0 / det;
-    let mut inv = [[0.0; 3]; 3];
-    inv[0][0] = (m[1][1] * m[2][2] - m[1][2] * m[2][1]) * inv_det;
-    inv[0][1] = (m[0][2] * m[2][1] - m[0][1] * m[2][2]) * inv_det;
-    inv[0][2] = (m[0][1] * m[1][2] - m[0][2] * m[1][1]) * inv_det;
-    inv[1][0] = (m[1][2] * m[2][0] - m[1][0] * m[2][2]) * inv_det;
-    inv[1][1] = (m[0][0] * m[2][2] - m[0][2] * m[2][0]) * inv_det;
-    inv[1][2] = (m[0][2] * m[1][0] - m[0][0] * m[1][2]) * inv_det;
-    inv[2][0] = (m[1][0] * m[2][1] - m[1][1] * m[2][0]) * inv_det;
-    inv[2][1] = (m[0][1] * m[2][0] - m[0][0] * m[2][1]) * inv_det;
-    inv[2][2] = (m[0][0] * m[1][1] - m[0][1] * m[1][0]) * inv_det;
-    Some(inv)
-}
-
 /// Nearest orthogonal matrix to `m` (the orthogonal polar factor `U Vᵀ` of its
-/// SVD) via Higham's polar iteration `Q ← ½(Q + Q⁻ᵀ)`.  This is the orthogonal
-/// Procrustes solution `argmin_{QᵀQ=I} ‖Q − M‖_F`; convergence is quadratic once
-/// near the factor, so a few dozen iterations reach machine precision.  `None`
-/// if any iterate is singular (a degenerate, non-invertible frame product).
+/// SVD). This is the orthogonal Procrustes solution
+/// `argmin_{QᵀQ=I} ‖Q − M‖_F`. The factor is accepted only when the SVD proves
+/// full numerical rank at its machine backward-error scale.
 fn nearest_orthogonal_3x3(m: [[f64; 3]; 3]) -> Option<[[f64; 3]; 3]> {
-    let mut q = m;
-    for _ in 0..128 {
-        let inv = inverse_3x3(&q)?;
-        let mut next = [[0.0; 3]; 3];
-        let mut diff = 0.0;
-        for i in 0..3 {
-            for j in 0..3 {
-                // inv transpose: (Q⁻ᵀ)[i][j] = inv[j][i].
-                next[i][j] = 0.5 * (q[i][j] + inv[j][i]);
-                diff += (next[i][j] - q[i][j]).abs();
-            }
-        }
-        q = next;
-        if diff < 1e-15 {
-            break;
-        }
-    }
-    if q.iter().flatten().any(|x| !x.is_finite()) {
+    let matrix = Array2::from_shape_fn((3, 3), |(row, column)| m[row][column]);
+    if matrix.iter().any(|value| !value.is_finite()) {
         return None;
     }
-    Some(q)
+    let (left, singular_values, right_t) = matrix.svd(true, true).ok()?;
+    let spectral_scale = singular_values.iter().copied().fold(0.0_f64, f64::max);
+    let numerical_rank_threshold =
+        f64::EPSILON * matrix.nrows().max(matrix.ncols()) as f64 * spectral_scale;
+    // `U V^T` exists even for a rank-deficient product, but its action on the
+    // nullspace is arbitrary and can change the reported orientation sign.
+    // An exact seam therefore requires a unique polar factor at machine
+    // precision; statistically uncertain alignments belong to the noisy
+    // holonomy certificate instead.
+    if spectral_scale == 0.0
+        || singular_values
+            .iter()
+            .any(|&value| value <= numerical_rank_threshold)
+    {
+        return None;
+    }
+    let orthogonal = left?.dot(&right_t?);
+    if orthogonal.iter().any(|value| !value.is_finite()) {
+        return None;
+    }
+    let mut result = [[0.0; 3]; 3];
+    for row in 0..3 {
+        for column in 0..3 {
+            result[row][column] = orthogonal[[row, column]];
+        }
+    }
+    Some(result)
 }
 
 /// Decode a sphere chart's `(7, p)` decoder at explicit intrinsic unit vectors
@@ -1720,10 +1713,10 @@ fn is_sphere_pair(term: &SaeManifoldTerm, a: usize, b: usize) -> bool {
     }
     let sa = &term.atoms[a];
     let sb = &term.atoms[b];
-    sa.latent_dim == 2
-        && sb.latent_dim == 2
-        && matches!(sa.basis_kind, SaeAtomBasisKind::Sphere)
-        && matches!(sb.basis_kind, SaeAtomBasisKind::Sphere)
+    sa.latent_dim() == 2
+        && sb.latent_dim() == 2
+        && matches!(sa.basis_kind(), SaeAtomBasisKind::Sphere)
+        && matches!(sb.basis_kind(), SaeAtomBasisKind::Sphere)
 }
 
 /// Fit the ambient-rotation seam transition between two sphere charts and
@@ -1779,7 +1772,14 @@ fn fit_sphere_seam_transition(
     }
     // B's north pole u_b = [0,0,1] into A's coordinate; A's north pole into B's.
     let b_pole_in_a = lat_of(rotate_unit(&rotation, [0.0, 0.0, 1.0]));
-    let inv_rotation = inverse_3x3(&rotation)?;
+    // The polar factor is orthogonal by construction, so its exact algebraic
+    // inverse is its transpose; no determinant cutoff or second solve exists.
+    let mut inv_rotation = [[0.0; 3]; 3];
+    for row in 0..3 {
+        for column in 0..3 {
+            inv_rotation[row][column] = rotation[column][row];
+        }
+    }
     let a_pole_in_b = lat_of(rotate_unit(&inv_rotation, [0.0, 0.0, 1.0]));
     let b_pole_interior_to_a = b_pole_in_a > a_lat_lo && b_pole_in_a < a_lat_hi;
     let a_pole_interior_to_b = a_pole_in_b > b_lat_lo && a_pole_in_b < b_lat_hi;
@@ -1818,7 +1818,7 @@ fn fit_sphere_seam_transition(
 }
 
 /// The sphere pole-seam equivalence certificate (#1890 Increment 2). Returns the
-/// exact ambient-rotation transition (`b -> a`) plus its equivalence log-e-value,
+/// fitted orthogonal transition (`b -> a`) plus its equivalence log-e-value,
 /// or `None` if the pair is not an identifiable pole seam.  Only genuine POLE
 /// seams (each pole interior to the other chart) are certified for registration;
 /// a regular sphere overlap has no register/fuse outcome wired in this lane and
@@ -1842,7 +1842,8 @@ fn sphere_glue_pair_evalue(
         &seam.points_b,
         &seam.mapped_b_to_a,
     )?;
-    let transition = SphereChartTransition::new(b, a, seam.rotation, AtlasSeamKind::Pole).ok()?;
+    let transition =
+        SphereChartTransition::new_fitted(b, a, seam.rotation, AtlasSeamKind::Pole).ok()?;
     Some((transition, log_e))
 }
 
@@ -1874,23 +1875,31 @@ fn harvest_glue_proposals(
         return (0, 0);
     }
     let floor = ACTIVE_SUPPORT_REL_FLOOR / k as f64;
-    let supports: Vec<Vec<bool>> = (0..k)
+    // Packed row supports (one bit per row) so the K²/2 pairwise co-fire counts
+    // below are word-parallel popcounts over n/64 words instead of an O(n)
+    // boolean scan per pair: O(K²·n) bool loads → O(K²·n/64) popcnt words.
+    let support_words = n_rows.div_ceil(64);
+    let supports: Vec<Vec<u64>> = (0..k)
         .map(|atom| {
-            (0..n_rows)
-                .map(|r| assignments[[r, atom]] > floor)
-                .collect()
+            let mut words = vec![0u64; support_words];
+            for r in 0..n_rows {
+                if assignments[[r, atom]] > floor {
+                    words[r / 64] |= 1u64 << (r % 64);
+                }
+            }
+            words
         })
         .collect();
     let support_sizes: Vec<usize> = supports
         .iter()
-        .map(|s| s.iter().filter(|&&x| x).count())
+        .map(|words| words.iter().map(|w| w.count_ones() as usize).sum())
         .collect();
     // Ambient decoder frames — only for d=1 periodic atoms (the over-tiling
     // signature); every other atom is a `None` and never a glue endpoint.
     let frames: Vec<Option<GrassmannFrame>> = (0..k)
         .map(|atom| {
             let at = &term.atoms[atom];
-            if at.latent_dim == 1 && matches!(at.basis_kind, SaeAtomBasisKind::Periodic) {
+            if at.latent_dim() == 1 && matches!(at.basis_kind(), SaeAtomBasisKind::Periodic) {
                 GrassmannFrame::from_decoder_row_space(at.decoder_coefficients.view())
             } else {
                 None
@@ -1925,9 +1934,11 @@ fn harvest_glue_proposals(
             // Disjoint-support gate: keep only pairs that co-fire no MORE than
             // independence predicts (the anti-correlated / disjoint signature the
             // fusion lane cannot see). Positively co-active pairs are fusion's.
-            let inter = (0..n_rows)
-                .filter(|&r| supports[a][r] && supports[b][r])
-                .count();
+            let inter: usize = supports[a]
+                .iter()
+                .zip(supports[b].iter())
+                .map(|(&wa, &wb)| (wa & wb).count_ones() as usize)
+                .sum();
             let expected = support_sizes[a] as f64 * support_sizes[b] as f64 / n_rows as f64;
             if inter as f64 > expected {
                 continue;
@@ -1972,19 +1983,22 @@ fn harvest_glue_proposals(
     // always REGISTERED (a pole seam is never single-chart-coverable).
     let mut sphere_candidates: Vec<(usize, usize)> = Vec::new();
     for a in 0..k {
-        if support_sizes[a] == 0 || !matches!(term.atoms[a].basis_kind, SaeAtomBasisKind::Sphere) {
+        if support_sizes[a] == 0 || !matches!(term.atoms[a].basis_kind(), SaeAtomBasisKind::Sphere)
+        {
             continue;
         }
         for b in (a + 1)..k {
             if support_sizes[b] == 0
-                || !matches!(term.atoms[b].basis_kind, SaeAtomBasisKind::Sphere)
+                || !matches!(term.atoms[b].basis_kind(), SaeAtomBasisKind::Sphere)
                 || term.charts_share_atlas(a, b)
             {
                 continue;
             }
-            let inter = (0..n_rows)
-                .filter(|&r| supports[a][r] && supports[b][r])
-                .count();
+            let inter: usize = supports[a]
+                .iter()
+                .zip(supports[b].iter())
+                .map(|(&wa, &wb)| (wa & wb).count_ones() as usize)
+                .sum();
             let expected = support_sizes[a] as f64 * support_sizes[b] as f64 / n_rows as f64;
             if inter as f64 > expected {
                 continue;
@@ -2120,12 +2134,14 @@ pub fn apply_structure_move(
                                 "apply_structure_move: sphere seam ({a},{b}) is not a pole seam"
                             ));
                         }
-                        child.register_sphere_chart_transition(SphereChartTransition::new(
-                            *b,
-                            *a,
-                            seam.rotation,
-                            AtlasSeamKind::Pole,
-                        )?)?;
+                        child.register_sphere_chart_transition(
+                            SphereChartTransition::new_fitted(
+                                *b,
+                                *a,
+                                seam.rotation,
+                                AtlasSeamKind::Pole,
+                            )?,
+                        )?;
                     }
                     ChartGlueOutcome::Fuse => {
                         return Err(format!(
@@ -2212,8 +2228,10 @@ pub enum BirthSeed {
     /// born via the topology race (the legacy birth path).
     ResidualFactor(Array2<f64>),
     /// A curl circle seed: periodic-harmonic `(m, p)` decoder (`m` odd, `>= 3`),
-    /// per-row phase coordinate `(n, 1)`, and per-row own-presence gate (`n`).
+    /// its exact analytic geometry plan, per-row phase coordinate `(n, 1)`, and
+    /// per-row own-presence gate (`n`).
     Circle {
+        geometry: SaeAtomGeometryPlan,
         decoder: Array2<f64>,
         phase_coords: Array2<f64>,
         gate: Vec<f64>,
@@ -2245,12 +2263,14 @@ pub fn apply_structure_move_seeded(
             match seed {
                 BirthSeed::ResidualFactor(decoder) => born_atom(term, rho, decoder.view()),
                 BirthSeed::Circle {
+                    geometry,
                     decoder,
                     phase_coords,
                     gate,
                 } => born_circle_atom(
                     term,
                     rho,
+                    geometry.clone(),
                     decoder.clone(),
                     phase_coords.clone(),
                     gate.clone(),
@@ -2348,7 +2368,7 @@ fn fold_atom_into(term: &mut SaeManifoldTerm, a: usize, b: usize) -> Result<(), 
 /// its folded partner's mass (call this AFTER the folds); any per-atom diagnostic
 /// caches are reset so the post-glue refit rebuilds them against the reduced
 /// dictionary rather than indexing a stale length-`K`.
-fn remove_atoms(
+pub(crate) fn remove_atoms(
     term: &mut SaeManifoldTerm,
     rho: &mut SaeManifoldRho,
     remove: &std::collections::BTreeSet<usize>,
@@ -2551,9 +2571,9 @@ fn compact_glued_atoms(
                 && transition.sign == -1
                 && matches!(transition.seam_kind, AtlasSeamKind::Regular) => {}
             (CertifiedGlueTransition::Sphere(transition), ChartGlueOutcome::RegisterAtlas)
-                if transition.from_chart == b
-                    && transition.to_chart == a
-                    && matches!(transition.seam_kind, AtlasSeamKind::Pole) => {}
+                if transition.from_chart() == b
+                    && transition.to_chart() == a
+                    && matches!(transition.seam_kind(), AtlasSeamKind::Pole) => {}
             _ => {
                 return Err(format!(
                     "compact_glued_atoms: accepted glue ({a},{b}) is incompatible with its certified transition"
@@ -2634,24 +2654,28 @@ fn refresh_registered_atlas_transitions(term: &mut SaeManifoldTerm) -> Result<()
         .collect();
     for transition in registered_spheres {
         // `fit_sphere_seam_transition(a,b)` likewise returns the map b -> a.
-        let seam = fit_sphere_seam_transition(term, transition.to_chart, transition.from_chart)
+        let seam = fit_sphere_seam_transition(term, transition.to_chart(), transition.from_chart())
             .ok_or_else(|| {
                 format!(
                     "terminal sphere atlas seam {}->{} is no longer identifiable",
-                    transition.from_chart, transition.to_chart
+                    transition.from_chart(),
+                    transition.to_chart()
                 )
             })?;
-        if seam.seam_kind != transition.seam_kind {
+        if seam.seam_kind != transition.seam_kind() {
             return Err(format!(
                 "terminal sphere atlas seam {}->{} changed kind ({:?} -> {:?})",
-                transition.from_chart, transition.to_chart, transition.seam_kind, seam.seam_kind
+                transition.from_chart(),
+                transition.to_chart(),
+                transition.seam_kind(),
+                seam.seam_kind
             ));
         }
-        term.refresh_sphere_chart_transition(SphereChartTransition::new(
-            transition.from_chart,
-            transition.to_chart,
+        term.refresh_sphere_chart_transition(SphereChartTransition::new_fitted(
+            transition.from_chart(),
+            transition.to_chart(),
             seam.rotation,
-            transition.seam_kind,
+            transition.seam_kind(),
         )?)?;
     }
     Ok(())
@@ -2775,9 +2799,8 @@ fn duplicate_atom(
 #[derive(Clone)]
 struct TopologyRaceFit {
     evaluator: Arc<dyn SaeBasisSecondJet>,
-    basis_kind: SaeAtomBasisKind,
+    geometry: SaeAtomGeometryPlan,
     manifold: LatentManifold,
-    latent_dim: usize,
     /// The `(n × d)` coordinates the winning basis was evaluated at — the born
     /// atom's coordinate block, dimension-matched to the winning evaluator.
     coords: Array2<f64>,
@@ -2796,14 +2819,35 @@ struct TopologyRaceFit {
 /// each candidate; the race then fits it to the birth target.
 struct TopologyCandidateSpec {
     kind: AutoTopologyKind,
-    basis_kind: SaeAtomBasisKind,
+    geometry: SaeAtomGeometryPlan,
     manifold: LatentManifold,
-    latent_dim: usize,
-    evaluator: Arc<dyn SaeBasisSecondJet>,
     /// The `(n, d)` coordinates this candidate evaluates its basis at. A `d = 1`
     /// candidate reads the template coordinate column; a `d = 2` candidate reads
     /// the first two columns (or pads with the single column the seed carries).
     coords: Array2<f64>,
+}
+
+impl TopologyCandidateSpec {
+    fn new(
+        kind: AutoTopologyKind,
+        geometry: SaeAtomGeometryPlan,
+        manifold: LatentManifold,
+        coords: Array2<f64>,
+    ) -> Result<Self, String> {
+        if coords.ncols() != geometry.latent_dim() {
+            return Err(format!(
+                "TopologyCandidateSpec::new: coordinate width {} != geometry latent_dim {}",
+                coords.ncols(),
+                geometry.latent_dim()
+            ));
+        }
+        Ok(Self {
+            kind,
+            geometry,
+            manifold,
+            coords,
+        })
+    }
 }
 
 /// Build the topology candidate set whose required intrinsic dimension matches
@@ -2873,27 +2917,41 @@ fn topology_candidates_for_dim(
     match d_k {
         1 => {
             let n_harmonics = (2 * d_k + 1).max(3) | 1; // odd, ≥ 3
-            specs.push(TopologyCandidateSpec {
-                kind: AutoTopologyKind::Circle,
-                basis_kind: SaeAtomBasisKind::Periodic,
-                manifold: LatentManifold::Circle { period: 1.0 },
-                latent_dim: 1,
-                evaluator: Arc::new(PeriodicHarmonicEvaluator::new(n_harmonics)?),
-                coords: coords_d(1),
-            });
-            specs.push(TopologyCandidateSpec {
-                kind: AutoTopologyKind::Euclidean,
-                basis_kind: SaeAtomBasisKind::EuclideanPatch,
-                manifold: LatentManifold::Euclidean,
-                latent_dim: 1,
-                evaluator: Arc::new(EuclideanPatchEvaluator::new(1, 3)?),
-                coords: coords_d(1),
-            });
+            let harmonic_order = (n_harmonics - 1) / 2;
+            specs.push(TopologyCandidateSpec::new(
+                AutoTopologyKind::Circle,
+                SaeAtomGeometryPlan::new(
+                    SaeAtomBasisKind::Periodic,
+                    1,
+                    SaeBasisResolution::PeriodicHarmonics {
+                        order: harmonic_order,
+                    },
+                    SaeReferenceMetricPlan::UnitCircle,
+                )?,
+                LatentManifold::Circle { period: 1.0 },
+                coords_d(1),
+            )?);
+            specs.push(TopologyCandidateSpec::new(
+                AutoTopologyKind::Euclidean,
+                SaeAtomGeometryPlan::new(
+                    SaeAtomBasisKind::EuclideanPatch,
+                    1,
+                    SaeBasisResolution::Polynomial { degree: 3 },
+                    SaeReferenceMetricPlan::EuclideanPolynomial,
+                )?,
+                LatentManifold::Euclidean,
+                coords_d(1),
+            )?);
         }
         2 => {
-            specs.push(TopologyCandidateSpec {
-                kind: AutoTopologyKind::Torus,
-                basis_kind: SaeAtomBasisKind::Torus,
+            specs.push(TopologyCandidateSpec::new(
+                AutoTopologyKind::Torus,
+                SaeAtomGeometryPlan::new(
+                    SaeAtomBasisKind::Torus,
+                    2,
+                    SaeBasisResolution::TorusHarmonics { per_axis_order: 2 },
+                    SaeReferenceMetricPlan::FlatRectangularTorus { tau: 0.0 },
+                )?,
                 // T² = S¹ × S¹: each axis is a unit-period circle (the
                 // fraction-of-period convention `TorusHarmonicEvaluator` shares
                 // with the periodic 1-D atom). This MUST match the production
@@ -2901,17 +2959,29 @@ fn topology_candidates_for_dim(
                 // `sae::manifold::atom`); a flat `Euclidean` manifold would leave
                 // the born atom's angles un-wrapped and the joint refit would
                 // retract on the wrong geometry.
-                manifold: LatentManifold::Product(vec![
+                LatentManifold::Product(vec![
                     LatentManifold::Circle { period: 1.0 },
                     LatentManifold::Circle { period: 1.0 },
                 ]),
-                latent_dim: 2,
-                evaluator: Arc::new(TorusHarmonicEvaluator::new(2, 2)?),
-                coords: coords_d(2),
-            });
-            specs.push(TopologyCandidateSpec {
-                kind: AutoTopologyKind::Sphere,
-                basis_kind: SaeAtomBasisKind::Sphere,
+                coords_d(2),
+            )?);
+            specs.push(TopologyCandidateSpec::new(
+                AutoTopologyKind::KleinBottle,
+                SaeAtomGeometryPlan::klein_bottle(2)?,
+                LatentManifold::Product(vec![
+                    LatentManifold::Circle { period: 1.0 },
+                    LatentManifold::Circle { period: 1.0 },
+                ]),
+                coords_d(2),
+            )?);
+            specs.push(TopologyCandidateSpec::new(
+                AutoTopologyKind::Sphere,
+                SaeAtomGeometryPlan::new(
+                    SaeAtomBasisKind::Sphere,
+                    2,
+                    SaeBasisResolution::SphereChart,
+                    SaeReferenceMetricPlan::SphereChart,
+                )?,
                 // The `SphereChartEvaluator` is a (lat, lon) intrinsic chart, so
                 // the latent manifold is the 2-D product of a bounded latitude
                 // interval and a wrapped longitude circle — NOT
@@ -2919,7 +2989,7 @@ fn topology_candidates_for_dim(
                 // unit 3-vectors the chart never produces. This matches the
                 // production seeding (`AtomTopology::Sphere` →
                 // Product[Interval(-π/2, π/2), Circle(τ)] in `sae::manifold::atom`).
-                manifold: LatentManifold::Product(vec![
+                LatentManifold::Product(vec![
                     LatentManifold::Interval {
                         lo: -std::f64::consts::FRAC_PI_2,
                         hi: std::f64::consts::FRAC_PI_2,
@@ -2928,21 +2998,44 @@ fn topology_candidates_for_dim(
                         period: std::f64::consts::TAU,
                     },
                 ]),
-                latent_dim: 2,
-                evaluator: Arc::new(SphereChartEvaluator),
-                coords: coords_d(2),
-            });
-            specs.push(TopologyCandidateSpec {
-                kind: AutoTopologyKind::Euclidean,
-                basis_kind: SaeAtomBasisKind::EuclideanPatch,
-                manifold: LatentManifold::Euclidean,
-                latent_dim: 2,
-                evaluator: Arc::new(EuclideanPatchEvaluator::new(2, 2)?),
-                coords: coords_d(2),
-            });
-            specs.push(TopologyCandidateSpec {
-                kind: AutoTopologyKind::Cylinder,
-                basis_kind: SaeAtomBasisKind::Cylinder,
+                coords_d(2),
+            )?);
+            specs.push(TopologyCandidateSpec::new(
+                AutoTopologyKind::ProjectivePlane,
+                SaeAtomGeometryPlan::projective_plane(1)?,
+                LatentManifold::Product(vec![
+                    LatentManifold::Interval {
+                        lo: -std::f64::consts::FRAC_PI_2,
+                        hi: std::f64::consts::FRAC_PI_2,
+                    },
+                    LatentManifold::Circle {
+                        period: std::f64::consts::TAU,
+                    },
+                ]),
+                coords_d(2),
+            )?);
+            specs.push(TopologyCandidateSpec::new(
+                AutoTopologyKind::Euclidean,
+                SaeAtomGeometryPlan::new(
+                    SaeAtomBasisKind::EuclideanPatch,
+                    2,
+                    SaeBasisResolution::Polynomial { degree: 2 },
+                    SaeReferenceMetricPlan::EuclideanPolynomial,
+                )?,
+                LatentManifold::Euclidean,
+                coords_d(2),
+            )?);
+            specs.push(TopologyCandidateSpec::new(
+                AutoTopologyKind::Cylinder,
+                SaeAtomGeometryPlan::new(
+                    SaeAtomBasisKind::Cylinder,
+                    2,
+                    SaeBasisResolution::CylinderHarmonics {
+                        circle_order: 2,
+                        line_degree: 2,
+                    },
+                    SaeReferenceMetricPlan::CylinderProduct,
+                )?,
                 // Cylinder S¹ × ℝ: axis 0 is a unit-period circle (the
                 // fraction-of-period convention `CylinderHarmonicEvaluator` shares
                 // with the periodic / torus atoms), axis 1 is the unbounded flat
@@ -2953,28 +3046,29 @@ fn topology_candidates_for_dim(
                 // wrap the linear axis spuriously. The harmonic / degree budget
                 // mirrors the torus (2 circle harmonics) and the patch (degree 2)
                 // so the cross-topology design widths stay commensurable.
-                manifold: LatentManifold::Product(vec![
+                LatentManifold::Product(vec![
                     LatentManifold::Circle { period: 1.0 },
                     LatentManifold::Euclidean,
                 ]),
-                latent_dim: 2,
-                evaluator: Arc::new(CylinderHarmonicEvaluator::new(2, 2)?),
-                coords: coords_d(2),
-            });
+                coords_d(2),
+            )?);
         }
         _ => {
             // d_k ≥ 3: a flat Euclidean patch is the only realizable core basis
             // (the curved families top out at d = 2). The race degenerates to a
             // single candidate — still honest (the winner is reported), just not
             // a contest.
-            specs.push(TopologyCandidateSpec {
-                kind: AutoTopologyKind::Euclidean,
-                basis_kind: SaeAtomBasisKind::EuclideanPatch,
-                manifold: LatentManifold::Euclidean,
-                latent_dim: d_k,
-                evaluator: Arc::new(EuclideanPatchEvaluator::new(d_k, 2)?),
-                coords: coords_d(d_k),
-            });
+            specs.push(TopologyCandidateSpec::new(
+                AutoTopologyKind::Euclidean,
+                SaeAtomGeometryPlan::new(
+                    SaeAtomBasisKind::EuclideanPatch,
+                    d_k,
+                    SaeBasisResolution::Polynomial { degree: 2 },
+                    SaeReferenceMetricPlan::EuclideanPolynomial,
+                )?,
+                LatentManifold::Euclidean,
+                coords_d(d_k),
+            )?);
         }
     }
     Ok(specs)
@@ -3018,9 +3112,283 @@ fn fit_topology_candidate(
     target: ArrayView2<'_, f64>,
     weights: ArrayView1<'_, f64>,
 ) -> Result<TopologyAutoFitEvidence<TopologyRaceFit>, String> {
+    if spec.geometry.kind() == &SaeAtomBasisKind::Torus {
+        fit_torus_metric_candidate(spec, target, weights)
+    } else {
+        fit_topology_candidate_at_fixed_metric(spec, target, weights)
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+enum TorusMetricFamily {
+    Flat,
+    EmbeddedDonut,
+}
+
+fn torus_metric_penalty_and_coordinate_derivative(
+    per_axis_order: usize,
+    family: TorusMetricFamily,
+    coordinate: f64,
+) -> Result<(Array2<f64>, Array2<f64>, f64), String> {
+    match family {
+        // q = A^-2 makes the flat eigenvalues affine in the optimized
+        // coordinate and keeps a nonzero one-sided gradient at the square
+        // boundary A=1. Optimizing tau directly would have dA/dtau=0 there and
+        // could falsely certify the seed as stationary.
+        TorusMetricFamily::Flat => {
+            if !(coordinate.is_finite() && coordinate > 0.0 && coordinate <= 1.0) {
+                return Err(format!(
+                    "flat torus inverse-aspect-squared coordinate must lie in (0, 1], got {coordinate}"
+                ));
+            }
+            let aspect = coordinate.sqrt().recip();
+            let penalty = anisotropic_flat_product_torus_penalty(per_axis_order, aspect)?;
+            let mut derivative =
+                anisotropic_flat_product_torus_penalty_aspect_derivative(per_axis_order, aspect)?;
+            let aspect_derivative = -0.5 * coordinate.powf(-1.5);
+            derivative.mapv_inplace(|value| value * aspect_derivative);
+            Ok((penalty, derivative, aspect.acosh()))
+        }
+        // beta = A - sqrt(A^2-1) = exp(-tau) is the natural generating-
+        // integral coordinate already used by the exact donut blocks. It maps
+        // the full proper-donut domain A>1 to beta in (0,1) without overflow.
+        TorusMetricFamily::EmbeddedDonut => {
+            if !(coordinate.is_finite() && coordinate > 0.0 && coordinate < 1.0) {
+                return Err(format!(
+                    "embedded donut beta coordinate must lie in (0, 1), got {coordinate}"
+                ));
+            }
+            let aspect = (1.0 + coordinate * coordinate) / (2.0 * coordinate);
+            let penalty = embedded_donut_torus_reference_penalty(per_axis_order, aspect)?;
+            let mut derivative =
+                embedded_donut_torus_reference_penalty_aspect_derivative(per_axis_order, aspect)?;
+            let aspect_derivative = 0.5 * (1.0 - coordinate.recip().powi(2));
+            derivative.mapv_inplace(|value| value * aspect_derivative);
+            Ok((penalty, derivative, -coordinate.ln()))
+        }
+    }
+}
+
+fn evaluate_torus_metric_profile(
+    phi: ArrayView2<'_, f64>,
+    target: ArrayView2<'_, f64>,
+    weights: ArrayView1<'_, f64>,
+    per_axis_order: usize,
+    family: TorusMetricFamily,
+    coordinate: f64,
+) -> Result<FirstOrderSample, ObjectiveEvalError> {
+    let (penalty, penalty_derivative, _) =
+        torus_metric_penalty_and_coordinate_derivative(per_axis_order, family, coordinate)
+            .map_err(ObjectiveEvalError::fatal)?;
+    let fit = gaussian_reml_multi_shared_dispersion_closed_form(
+        phi,
+        target,
+        penalty.view(),
+        Some(weights),
+        None,
+    )
+    .map_err(|error| ObjectiveEvalError::fatal(format!("torus metric REML: {error}")))?;
+    let penalty_gradient = gaussian_reml_multi_shared_dispersion_penalty_gradient_from_fit(
+        phi,
+        target,
+        penalty.view(),
+        Some(weights),
+        &fit,
+    )
+    .map_err(|error| ObjectiveEvalError::fatal(format!("torus metric REML gradient: {error}")))?;
+    let coordinate_gradient = penalty_gradient
+        .iter()
+        .zip(penalty_derivative.iter())
+        .map(|(left, right)| left * right)
+        .sum::<f64>();
+    if !coordinate_gradient.is_finite() {
+        return Err(ObjectiveEvalError::fatal(
+            "torus metric REML coordinate gradient is non-finite",
+        ));
+    }
+    Ok(FirstOrderSample {
+        value: fit.reml_score,
+        gradient: Array1::from_vec(vec![coordinate_gradient]),
+    })
+}
+
+fn optimize_torus_metric_coordinate(
+    phi: ArrayView2<'_, f64>,
+    target: ArrayView2<'_, f64>,
+    weights: ArrayView1<'_, f64>,
+    per_axis_order: usize,
+    family: TorusMetricFamily,
+    lower: f64,
+    upper: f64,
+) -> Result<f64, String> {
+    if !(lower.is_finite() && upper.is_finite() && lower < upper) {
+        return Err(format!(
+            "torus reference-metric coordinate domain [{lower}, {upper}] is invalid"
+        ));
+    }
+    let evaluate = |coordinate: f64| {
+        evaluate_torus_metric_profile(phi, target, weights, per_axis_order, family, coordinate)
+    };
+    let lower_sample = evaluate(lower)
+        .map_err(|error| format!("{family:?} torus lower-endpoint profile: {error}"))?;
+    let upper_sample = evaluate(upper)
+        .map_err(|error| format!("{family:?} torus upper-endpoint profile: {error}"))?;
+    let lower_gradient = lower_sample.gradient[0];
+    let upper_gradient = upper_sample.gradient[0];
+    let position_tolerance = f64::EPSILON.sqrt();
+    // Scale stationarity by the derivative itself, not by the absolute REML
+    // score: adding a constant to an objective must not change which point is
+    // considered converged.
+    let gradient_scale = lower_gradient.abs().max(upper_gradient.abs()).max(1.0);
+    let gradient_tolerance = position_tolerance * gradient_scale;
+
+    // This is a scalar constrained problem, so its exact first-order KKT
+    // conditions are stronger and cheaper than a multidimensional line-search
+    // heuristic. At the lower wall the feasible derivative must be nonnegative;
+    // at the upper wall it must be nonpositive. If neither wall satisfies KKT,
+    // continuity gives the correctly oriented negative-to-positive derivative
+    // bracket of an interior minimum. `find_root_bracketed` preserves that
+    // certificate without finite differences or a monotonicity assumption.
+    let lower_is_kkt = lower_gradient >= -gradient_tolerance;
+    let upper_is_kkt = upper_gradient <= gradient_tolerance;
+    let coordinate = match (lower_is_kkt, upper_is_kkt) {
+        (true, false) => lower,
+        (false, true) => upper,
+        (true, true) => {
+            if lower_sample.value <= upper_sample.value {
+                lower
+            } else {
+                upper
+            }
+        }
+        (false, false) => {
+            let config = BracketedRootConfig::new(
+                position_tolerance,
+                gradient_tolerance,
+                f64::MANTISSA_DIGITS as usize,
+            );
+            find_root_bracketed(
+                |candidate| {
+                    if candidate == lower {
+                        Ok(lower_gradient)
+                    } else if candidate == upper {
+                        Ok(upper_gradient)
+                    } else {
+                        evaluate(candidate).map(|sample| sample.gradient[0])
+                    }
+                },
+                lower,
+                upper,
+                &config,
+            )
+            .map_err(|error| {
+                format!(
+                    "{family:?} torus reference-metric stationary solve did not converge: {error}; endpoint profile=[({lower}, value={}, gradient={lower_gradient}), ({upper}, value={}, gradient={upper_gradient})]",
+                    lower_sample.value, upper_sample.value
+                )
+            })?
+            .root
+        }
+    };
+    if !(coordinate.is_finite() && coordinate >= lower && coordinate <= upper) {
+        return Err(format!(
+            "torus reference-metric optimizer returned invalid coordinate {coordinate} outside [{lower}, {upper}]"
+        ));
+    }
+    Ok(coordinate)
+}
+
+fn fit_torus_metric_candidate(
+    spec: &TopologyCandidateSpec,
+    target: ArrayView2<'_, f64>,
+    weights: ArrayView1<'_, f64>,
+) -> Result<TopologyAutoFitEvidence<TopologyRaceFit>, String> {
+    let SaeBasisResolution::TorusHarmonics { per_axis_order } = spec.geometry.resolution() else {
+        return Err("torus candidate does not carry a torus harmonic resolution".to_string());
+    };
+    let evaluator = spec.geometry.build_evaluator()?;
+    let (phi, _) = evaluator.evaluate(spec.coords.view())?;
+    let numerical_resolution = f64::EPSILON.sqrt();
+
+    let flat_coordinate = optimize_torus_metric_coordinate(
+        phi.view(),
+        target,
+        weights,
+        *per_axis_order,
+        TorusMetricFamily::Flat,
+        f64::EPSILON,
+        1.0,
+    )?;
+    let (_, _, flat_tau) = torus_metric_penalty_and_coordinate_derivative(
+        *per_axis_order,
+        TorusMetricFamily::Flat,
+        flat_coordinate,
+    )?;
+    let flat_geometry = SaeAtomGeometryPlan::new(
+        SaeAtomBasisKind::Torus,
+        2,
+        SaeBasisResolution::TorusHarmonics {
+            per_axis_order: *per_axis_order,
+        },
+        SaeReferenceMetricPlan::FlatRectangularTorus { tau: flat_tau },
+    )?;
+    let flat_spec = TopologyCandidateSpec::new(
+        AutoTopologyKind::Torus,
+        flat_geometry,
+        spec.manifold.clone(),
+        spec.coords.clone(),
+    )?;
+    let flat_fit = fit_topology_candidate_at_fixed_metric(&flat_spec, target, weights)?;
+
+    let embedded_lower = numerical_resolution;
+    let embedded_upper = 1.0 - numerical_resolution.sqrt();
+    let embedded_coordinate = optimize_torus_metric_coordinate(
+        phi.view(),
+        target,
+        weights,
+        *per_axis_order,
+        TorusMetricFamily::EmbeddedDonut,
+        embedded_lower,
+        embedded_upper,
+    )?;
+    let (_, _, embedded_tau) = torus_metric_penalty_and_coordinate_derivative(
+        *per_axis_order,
+        TorusMetricFamily::EmbeddedDonut,
+        embedded_coordinate,
+    )?;
+    let embedded_geometry = SaeAtomGeometryPlan::new(
+        SaeAtomBasisKind::Torus,
+        2,
+        SaeBasisResolution::TorusHarmonics {
+            per_axis_order: *per_axis_order,
+        },
+        SaeReferenceMetricPlan::EmbeddedDonutTorus { tau: embedded_tau },
+    )?;
+    let embedded_spec = TopologyCandidateSpec::new(
+        AutoTopologyKind::Torus,
+        embedded_geometry,
+        spec.manifold.clone(),
+        spec.coords.clone(),
+    )?;
+    let embedded_fit = fit_topology_candidate_at_fixed_metric(&embedded_spec, target, weights)?;
+    if embedded_fit.raw_reml < flat_fit.raw_reml {
+        Ok(embedded_fit)
+    } else {
+        Ok(flat_fit)
+    }
+}
+
+fn fit_topology_candidate_at_fixed_metric(
+    spec: &TopologyCandidateSpec,
+    target: ArrayView2<'_, f64>,
+    weights: ArrayView1<'_, f64>,
+) -> Result<TopologyAutoFitEvidence<TopologyRaceFit>, String> {
     let n = target.nrows();
-    let (phi, jet) = spec.evaluator.evaluate(spec.coords.view())?;
-    let m = phi.ncols();
+    let bundle = spec.geometry.evaluate_bundle(spec.coords.view())?;
+    let phi = bundle.basis_values;
+    let jet = bundle.basis_jacobian;
+    let penalty = bundle.reference_penalty;
+    let evaluator = bundle.evaluator;
     if phi.nrows() != n {
         return Err(format!(
             "fit_topology_candidate: basis rows {} != target rows {n}",
@@ -3049,41 +3417,6 @@ fn fit_topology_candidate(
         return Err("fit_topology_candidate: degenerate (zero-mass) birth target".into());
     }
 
-    // The candidate basis's declared reference-function Gram, the smoothness
-    // operator the topology evidence prices. Every candidate is compared under
-    // the same fixed reference measure and second-derivative seminorm
-    // `S_ref = Σ_n Σ_{a,c} Φ''_{·,a,c}(t_n)ᵀ Φ''_{·,a,c}(t_n)`, read off its
-    // analytic second jet `Φ''[n, μ, a, c]`. A flat (line / patch) basis has a small Gram
-    // (its low-degree monomials are barely curved), a periodic / sphere basis a
-    // large one for its high harmonics: exactly the smoothness price the race must
-    // weigh against data fit. Computed identically for every candidate so the
-    // cross-topology comparison stays commensurable.
-    let second_jet = spec.evaluator.second_jet(spec.coords.view())?; // (n, m, d, d)
-    let d = spec.latent_dim;
-    let mut s_raw = Array2::<f64>::zeros((m, m));
-    for row in 0..n {
-        for a in 0..d {
-            for c in 0..d {
-                // Outer product of the (a,c) second-derivative column over basis
-                // functions, accumulated into the roughness Gram.
-                for mu in 0..m {
-                    let hmu = second_jet[[row, mu, a, c]];
-                    if hmu == 0.0 {
-                        continue;
-                    }
-                    for nu in mu..m {
-                        s_raw[[mu, nu]] += hmu * second_jet[[row, nu, a, c]];
-                    }
-                }
-            }
-        }
-    }
-    for mu in 0..m {
-        for nu in (mu + 1)..m {
-            s_raw[[nu, mu]] = s_raw[[mu, nu]];
-        }
-    }
-
     // Score each candidate by its PROPER closed-form Gaussian REML evidence
     // (#977/#1026), NOT a hand-rolled fixed-λ Laplace term. The previous score
     // (`½·SSE + ½·log|H|` at a stamped λ = 1, unit dispersion) was wrong on two
@@ -3110,9 +3443,23 @@ fn fit_topology_candidate(
     // freedom `tr[(ΦᵀWΦ + λS)⁻¹ ΦᵀWΦ]`. We feed `reml_score` as `raw_reml` and
     // `edf` as `effective_dim`, and report `null_dim = 0` so the TK normalizer does
     // NOT re-subtract a null-space term the REML score already integrated out.
-    let reml_fit =
-        gaussian_reml_multi_closed_form(phi.view(), target, s_raw.view(), Some(weights), None)
-            .map_err(|e| format!("fit_topology_candidate: REML evidence: {e:?}"))?;
+    // The ambient columns are coordinates of ONE vector-valued observation, so
+    // topology evidence must profile one shared dispersion.  Profiling a
+    // separate variance per output lets a PCA chart win tautologically: the PC
+    // axes are exact linear functions of themselves (zero residual and
+    // effectively -infinite evidence) even when the chart entirely misses an
+    // orthogonal manifold direction.  Pooling the vector deviance before its
+    // logarithm makes the race pay for every missed ambient direction while
+    // retaining the same closed-form REML, posterior-mean coefficients, and
+    // grid-free smoothing-parameter optimization.
+    let reml_fit = gaussian_reml_multi_shared_dispersion_closed_form(
+        phi.view(),
+        target,
+        penalty.view(),
+        Some(weights),
+        None,
+    )
+    .map_err(|e| format!("fit_topology_candidate: REML evidence: {e:?}"))?;
     let lambda = reml_fit.lambda;
     if !(lambda.is_finite() && lambda >= 0.0) {
         return Err(format!(
@@ -3132,9 +3479,6 @@ fn fit_topology_candidate(
         effective_dim = 1.0;
     }
 
-    // The born atom carries the topology candidate's declared function-space
-    // roughness Gram unchanged. Decoder fitting never rewrites that objective.
-    let penalty = s_raw.clone();
     Ok(TopologyAutoFitEvidence {
         topology_name: spec.kind.display_name(),
         raw_reml,
@@ -3148,10 +3492,9 @@ fn fit_topology_candidate(
         effective_dim,
         n_obs: n,
         fit_handle: TopologyRaceFit {
-            evaluator: spec.evaluator.clone(),
-            basis_kind: spec.basis_kind.clone(),
+            evaluator,
+            geometry: spec.geometry.clone(),
             manifold: spec.manifold.clone(),
-            latent_dim: spec.latent_dim,
             coords: spec.coords.clone(),
             phi,
             jet,
@@ -3424,7 +3767,7 @@ fn race_birth_topology(
     // flexible flat/patch fit override that true topology. Only a flat verdict — the
     // least-bad chart for a folded plane — can be a fold worth unrolling.
     let template_is_sheet = matches!(
-        template_winner.as_ref().map(|(fit, _)| &fit.basis_kind),
+        template_winner.as_ref().map(|(fit, _)| fit.geometry.kind()),
         Some(SaeAtomBasisKind::EuclideanPatch)
     );
     let intrinsic_winner = if template_is_sheet {
@@ -3614,6 +3957,10 @@ fn race_spec_set(
 pub struct PrimaryTopologyChoice {
     pub basis_kind: SaeAtomBasisKind,
     pub latent_dim: usize,
+    /// Complete geometry selected by evidence, after resolution growth. This is
+    /// the only way a continuously optimized reference metric can cross the
+    /// primary-discovery boundary without being reconstructed as a default.
+    pub geometry: SaeAtomGeometryPlan,
     /// Evidence-selected harmonic resolution for a periodic (circle) winner
     /// (#2243): the number of Fourier harmonics the seed circle carries, chosen
     /// by REML marginal likelihood rather than the historical fixed budget.
@@ -3637,14 +3984,12 @@ pub struct PrimaryTopologyChoice {
     /// topology race scores with rather than the fixed `SAE_DEFAULT_TORUS_HARMONICS`
     /// budget. `None` for every other kind.
     pub n_torus_harmonics: Option<usize>,
-    /// The `(n, latent_dim)` seed chart to install for this atom when the
-    /// INTRINSIC-metric seed won the primary race (#2240/#2280). `Some` only when
-    /// the geodesic (Isomap) embedding beat the PCA chart on evidence: a
-    /// swiss-roll-class fold must be seeded UNFOLDED, so the winning intrinsic
-    /// coordinates ride out of the race rather than being re-creased by the linear
-    /// PCA seed downstream. `None` when the PCA seed won (the default seed path
-    /// already reproduces its chart) — every non-auto atom carries `None`.
-    pub coords: Option<Array2<f64>>,
+    /// The `(n, latent_dim)` coordinate realization on which this topology won
+    /// the primary race (#2240/#2280). Kind and coordinates are one atomic
+    /// evidence candidate: an intrinsic sheet carries its unfolded Isomap chart,
+    /// while every PCA/natural-chart winner carries the exact chart it was scored
+    /// on rather than asking the seed builder to reconstruct an approximation.
+    pub coords: Array2<f64>,
 }
 
 /// Per-atom topology discovery for the PRIMARY seed dictionary (#2238/#2239).
@@ -3773,20 +4118,17 @@ pub fn discover_primary_atom_topologies(
                 for row in 0..n_obs {
                     coords[[row, 0]] = phase(proj[[row, 0]], proj[[row, 1]]);
                 }
-                let n_harmonics = 3;
-                let evaluator = PeriodicHarmonicEvaluator::new(n_harmonics).map_err(|error| {
-                    format!(
-                        "discover_primary_atom_topologies: circle evaluator failed for auto atom {atom_idx}: {error}"
-                    )
-                })?;
-                specs.push(TopologyCandidateSpec {
-                    kind: AutoTopologyKind::Circle,
-                    basis_kind: SaeAtomBasisKind::Periodic,
-                    manifold: LatentManifold::Circle { period: 1.0 },
-                    latent_dim: 1,
-                    evaluator: Arc::new(evaluator),
-                    coords: coords.clone(),
-                });
+                specs.push(TopologyCandidateSpec::new(
+                    AutoTopologyKind::Circle,
+                    SaeAtomGeometryPlan::new(
+                        SaeAtomBasisKind::Periodic,
+                        1,
+                        SaeBasisResolution::PeriodicHarmonics { order: 1 },
+                        SaeReferenceMetricPlan::UnitCircle,
+                    )?,
+                    LatentManifold::Circle { period: 1.0 },
+                    coords.clone(),
+                )?);
                 coords
             };
             let mut sheet_coords: Option<Array2<f64>> = None;
@@ -3799,19 +4141,17 @@ pub fn discover_primary_atom_topologies(
                     coords[[row, 0]] = proj[[row, 0]] / sd0;
                     coords[[row, 1]] = proj[[row, 1]] / sd1;
                 }
-                let evaluator = EuclideanPatchEvaluator::new(2, 2).map_err(|error| {
-                    format!(
-                        "discover_primary_atom_topologies: flat evaluator failed for auto atom {atom_idx}: {error}"
-                    )
-                })?;
-                specs.push(TopologyCandidateSpec {
-                    kind: AutoTopologyKind::Euclidean,
-                    basis_kind: SaeAtomBasisKind::EuclideanPatch,
-                    manifold: LatentManifold::Euclidean,
-                    latent_dim: 2,
-                    evaluator: Arc::new(evaluator),
-                    coords: coords.clone(),
-                });
+                specs.push(TopologyCandidateSpec::new(
+                    AutoTopologyKind::Euclidean,
+                    SaeAtomGeometryPlan::new(
+                        SaeAtomBasisKind::EuclideanPatch,
+                        2,
+                        SaeBasisResolution::Polynomial { degree: 2 },
+                        SaeReferenceMetricPlan::EuclideanPolynomial,
+                    )?,
+                    LatentManifold::Euclidean,
+                    coords.clone(),
+                )?);
                 // #2240 — flexible thin-plate (Duchon) sheet over the SAME
                 // standardized 2-PC chart, with adaptive in-cluster centers:
                 // the rich 2-D candidate for swiss-roll-class factors a
@@ -3826,20 +4166,17 @@ pub fn discover_primary_atom_topologies(
                 if let Some(centers) =
                     duchon_sheet_centers(&coords, &rows, duchon_sheet_race_center_budget(rows.len()))
                 {
-                    let evaluator = DuchonCoordinateEvaluator::new(centers, DUCHON_SHEET_M)
-                        .map_err(|error| {
-                            format!(
-                                "discover_primary_atom_topologies: duchon-sheet evaluator failed for auto atom {atom_idx}: {error}"
-                            )
-                        })?;
-                    specs.push(TopologyCandidateSpec {
-                        kind: AutoTopologyKind::DuchonSheet,
-                        basis_kind: SaeAtomBasisKind::Duchon,
-                        manifold: LatentManifold::Euclidean,
-                        latent_dim: 2,
-                        evaluator: Arc::new(evaluator),
-                        coords: coords.clone(),
-                    });
+                    specs.push(TopologyCandidateSpec::new(
+                        AutoTopologyKind::DuchonSheet,
+                        SaeAtomGeometryPlan::new(
+                            SaeAtomBasisKind::Duchon,
+                            2,
+                            SaeBasisResolution::DuchonCoordinates { centers },
+                            SaeReferenceMetricPlan::EuclideanDuchon,
+                        )?,
+                        LatentManifold::Euclidean,
+                        coords.clone(),
+                    )?);
                 }
                 sheet_coords = Some(coords);
                 if n_pcs >= 3 {
@@ -3851,10 +4188,15 @@ pub fn discover_primary_atom_topologies(
                         coords[[row, 0]] = (z / norm).clamp(-1.0, 1.0).asin();
                         coords[[row, 1]] = y.atan2(x);
                     }
-                    specs.push(TopologyCandidateSpec {
-                        kind: AutoTopologyKind::Sphere,
-                        basis_kind: SaeAtomBasisKind::Sphere,
-                        manifold: LatentManifold::Product(vec![
+                    specs.push(TopologyCandidateSpec::new(
+                        AutoTopologyKind::Sphere,
+                        SaeAtomGeometryPlan::new(
+                            SaeAtomBasisKind::Sphere,
+                            2,
+                            SaeBasisResolution::SphereChart,
+                            SaeReferenceMetricPlan::SphereChart,
+                        )?,
+                        LatentManifold::Product(vec![
                             LatentManifold::Interval {
                                 lo: -std::f64::consts::FRAC_PI_2,
                                 hi: std::f64::consts::FRAC_PI_2,
@@ -3863,10 +4205,22 @@ pub fn discover_primary_atom_topologies(
                                 period: std::f64::consts::TAU,
                             },
                         ]),
-                        latent_dim: 2,
-                        evaluator: Arc::new(SphereChartEvaluator),
+                        coords.clone(),
+                    )?);
+                    specs.push(TopologyCandidateSpec::new(
+                        AutoTopologyKind::ProjectivePlane,
+                        SaeAtomGeometryPlan::projective_plane(1)?,
+                        LatentManifold::Product(vec![
+                            LatentManifold::Interval {
+                                lo: -std::f64::consts::FRAC_PI_2,
+                                hi: std::f64::consts::FRAC_PI_2,
+                            },
+                            LatentManifold::Circle {
+                                period: std::f64::consts::TAU,
+                            },
+                        ]),
                         coords,
-                    });
+                    )?);
                 }
                 if n_pcs >= 3 {
                     // Möbius band (#2240): recover one fundamental domain of the
@@ -3874,24 +4228,29 @@ pub fn discover_primary_atom_topologies(
                     // radial/transverse half-angle vector. The deck-invariant basis
                     // makes width-odd structure carry half-period angular factors —
                     // the non-orientable signature no other candidate can express.
-                    if let (Ok(coords), Ok(evaluator)) = (
+                    if let Ok(coords) =
                         crate::manifold::mobius_double_cover_coords_from_projection(
                             proj.view(),
                             &rows,
-                        ),
-                        MobiusHarmonicEvaluator::new(3, 2),
-                    ) {
-                        specs.push(TopologyCandidateSpec {
-                            kind: AutoTopologyKind::Mobius,
-                            basis_kind: SaeAtomBasisKind::Mobius,
-                            manifold: LatentManifold::Product(vec![
+                        )
+                    {
+                        specs.push(TopologyCandidateSpec::new(
+                            AutoTopologyKind::Mobius,
+                            SaeAtomGeometryPlan::new(
+                                SaeAtomBasisKind::Mobius,
+                                2,
+                                SaeBasisResolution::MobiusHarmonics {
+                                    circle_order: 3,
+                                    width_degree: 2,
+                                },
+                                SaeReferenceMetricPlan::MobiusQuotient,
+                            )?,
+                            LatentManifold::Product(vec![
                                 LatentManifold::Circle { period: 2.0 },
                                 LatentManifold::Interval { lo: -1.0, hi: 1.0 },
                             ]),
-                            latent_dim: 2,
-                            evaluator: Arc::new(evaluator),
                             coords,
-                        });
+                        )?);
                     }
                 }
                 if n_pcs >= 4 {
@@ -3902,22 +4261,29 @@ pub fn discover_primary_atom_topologies(
                         coords[[row, 0]] = phase(proj[[row, 0]], proj[[row, 1]]);
                         coords[[row, 1]] = phase(proj[[row, 2]], proj[[row, 3]]);
                     }
-                    let evaluator = TorusHarmonicEvaluator::new(2, 2).map_err(|error| {
-                        format!(
-                            "discover_primary_atom_topologies: torus evaluator failed for auto atom {atom_idx}: {error}"
-                        )
-                    })?;
-                    specs.push(TopologyCandidateSpec {
-                        kind: AutoTopologyKind::Torus,
-                        basis_kind: SaeAtomBasisKind::Torus,
-                        manifold: LatentManifold::Product(vec![
+                    specs.push(TopologyCandidateSpec::new(
+                        AutoTopologyKind::Torus,
+                        SaeAtomGeometryPlan::new(
+                            SaeAtomBasisKind::Torus,
+                            2,
+                            SaeBasisResolution::TorusHarmonics { per_axis_order: 2 },
+                            SaeReferenceMetricPlan::FlatRectangularTorus { tau: 0.0 },
+                        )?,
+                        LatentManifold::Product(vec![
                             LatentManifold::Circle { period: 1.0 },
                             LatentManifold::Circle { period: 1.0 },
                         ]),
-                        latent_dim: 2,
-                        evaluator: Arc::new(evaluator),
-                        coords: coords.clone(),
-                    });
+                        coords.clone(),
+                    )?);
+                    specs.push(TopologyCandidateSpec::new(
+                        AutoTopologyKind::KleinBottle,
+                        SaeAtomGeometryPlan::klein_bottle(2)?,
+                        LatentManifold::Product(vec![
+                            LatentManifold::Circle { period: 1.0 },
+                            LatentManifold::Circle { period: 1.0 },
+                        ]),
+                        coords.clone(),
+                    )?);
                     torus_coords = Some(coords);
                 }
             }
@@ -3937,71 +4303,61 @@ pub fn discover_primary_atom_topologies(
                 )
             })?;
             // Intrinsic-metric CHALLENGER (#2240/#2280): re-race the fold-sensitive
-            // d=2 candidates on the geodesic embedding of the birth image, which
-            // unrolls a swiss-roll-class fold the PCA chart creases. It enters under
-            // the SAME REML evidence and wins only by a strictly lower TK cost; a
-            // win also swaps in its unfolded chart for the Duchon-center growth.
-            // Fail-safe: any embedding/race failure leaves the PCA winner untouched.
-            //
-            // GATED to a FLAT PCA verdict (EuclideanPatch/Duchon): the challenger
-            // only ever offers the raw-coordinate flat + thin-plate charts, and a
-            // thin-plate sheet is flexible enough to out-fit a SPECIALIZED curved
-            // chart (sphere/torus/circle) on evidence even when that curved chart is
-            // the true topology (the #2238/#2239 contract). A genuinely curved factor
-            // gets a curved PCA winner; only a SHEET verdict (flat/Duchon — the
-            // least-bad chart for a folded plane) can be a fold worth unrolling. So
-            // the challenger runs iff PCA already said "sheet", never overriding a
-            // discovered sphere/torus/circle.
-            let pca_is_sheet = matches!(
-                pca_winner.as_ref().map(|(fit, _)| &fit.basis_kind),
-                Some(SaeAtomBasisKind::EuclideanPatch) | Some(SaeAtomBasisKind::Duchon)
-            );
-            let intrinsic_challenger = if pca_is_sheet {
-                match build_intrinsic_primary_specs(target, &rows, max_dims[atom_idx]) {
-                    Ok(Some((int_specs, int_chart))) => {
-                        match race_spec_set(int_specs, target, weights.view()) {
-                            Ok(Some((int_fit, int_score))) => Some((int_fit, int_score, int_chart)),
-                            _ => None,
-                        }
-                    }
-                    _ => None,
-                }
-            } else {
-                None
-            };
-            // When the intrinsic seed wins, its unfolded chart both drives the
-            // Duchon-center growth (`sheet_coords`) AND must be installed as the
-            // atom's final seed coordinates (`winning_intrinsic_chart`) so the
-            // downstream PCA seed does not re-crease the fold.
-            let mut winning_intrinsic_chart: Option<Array2<f64>> = None;
+            // d=2 candidates on the cluster-local geodesic embedding. It enters the
+            // SAME REML evidence race as every PCA-chart candidate; evidence, not a
+            // post-hoc PCA winner-class gate, decides whether unfolding is useful.
+            // An embedding or evidence failure is a failed discovery operation and
+            // is returned to the caller instead of silently substituting the PCA
+            // result.
+            let intrinsic_challenger =
+                match build_intrinsic_primary_specs(target, &rows, max_dims[atom_idx]).map_err(
+                    |error| {
+                        format!(
+                            "discover_primary_atom_topologies: intrinsic chart failed for auto atom {atom_idx}: {error}"
+                        )
+                    },
+                )? {
+                    Some(int_specs) => race_spec_set(int_specs, target, weights.view()).map_err(
+                        |error| {
+                        format!(
+                            "discover_primary_atom_topologies: intrinsic evidence race failed for auto atom {atom_idx}: {error}"
+                        )
+                    },
+                    )?,
+                    None => None,
+                };
+            // A race winner is ATOMIC: its topology kind and the coordinates on
+            // which that kind earned its evidence come from the same fitted
+            // handle.  Never track coordinate provenance in a parallel optional
+            // flag; that split allowed a Duchon kind verdict to survive while
+            // its intrinsic chart was discarded and rebuilt from PCA.
             let fit = match (pca_winner, intrinsic_challenger) {
-                (Some((p_fit, p_score)), Some((i_fit, i_score, i_chart))) => {
+                (Some((p_fit, p_score)), Some((i_fit, i_score))) => {
                     if i_score < p_score {
-                        sheet_coords = Some(i_chart.clone());
-                        winning_intrinsic_chart = Some(i_chart);
                         i_fit
                     } else {
                         p_fit
                     }
                 }
                 (Some((p_fit, _)), None) => p_fit,
-                (None, Some((i_fit, _, i_chart))) => {
-                    sheet_coords = Some(i_chart.clone());
-                    winning_intrinsic_chart = Some(i_chart);
-                    i_fit
-                }
+                (None, Some((i_fit, _))) => i_fit,
                 (None, None) => {
                     return Err(format!(
                         "discover_primary_atom_topologies: evidence race returned no winner for auto atom {atom_idx}"
                     ));
                 }
             };
+            let fit_kind = fit.geometry.kind().clone();
+            let fit_dim = fit.geometry.latent_dim();
+            if fit_kind == SaeAtomBasisKind::Duchon {
+                sheet_coords = Some(fit.coords.clone());
+            }
             // #2243 — for a circle winner, GROW the harmonic resolution by the
             // same REML evidence: the topology race ran the circle at a fixed low
             // budget only to discriminate topology, but a genuinely 1-D factor's
             // fidelity is capped by that budget. Every other kind carries a chart
             // whose resolution is not a harmonic count, so it selects none.
-            let n_harmonics = if fit.basis_kind == SaeAtomBasisKind::Periodic {
+            let n_harmonics = if fit_kind == SaeAtomBasisKind::Periodic {
                 Some(select_periodic_resolution(
                     circle_coords.view(),
                     target,
@@ -4016,7 +4372,7 @@ pub fn discover_primary_atom_topologies(
             // thin-plate centers): the race ran the sheet at the seed-economy
             // budget only to discriminate topology; a tightly rolled sheet's
             // fidelity is capped by that budget.
-            let n_duchon_centers = if fit.basis_kind == SaeAtomBasisKind::Duchon {
+            let n_duchon_centers = if fit_kind == SaeAtomBasisKind::Duchon {
                 let coords = sheet_coords.as_ref().ok_or_else(|| {
                     format!(
                         "discover_primary_atom_topologies: duchon-sheet winner without a 2-D chart for auto atom {atom_idx}"
@@ -4037,36 +4393,119 @@ pub fn discover_primary_atom_topologies(
             // to discriminate topology, but a genuinely toroidal factor with
             // high-frequency angular content on either circle factor is capped
             // by that order.
-            let n_torus_harmonics = if fit.basis_kind == SaeAtomBasisKind::Torus {
+            let n_torus_harmonics = if matches!(
+                &fit_kind,
+                SaeAtomBasisKind::Torus | SaeAtomBasisKind::KleinBottle
+            ) {
                 let coords = torus_coords.as_ref().ok_or_else(|| {
                     format!(
-                        "discover_primary_atom_topologies: torus winner without a 2-D chart for auto atom {atom_idx}"
+                        "discover_primary_atom_topologies: torus-cover winner without a 2-D chart for auto atom {atom_idx}"
                     )
                 })?;
-                Some(select_torus_resolution(
+                let selected = select_torus_resolution(
                     coords.view(),
                     target,
                     weights.view(),
                     rows.len(),
-                )?)
+                )?;
+                Some(if fit_kind == SaeAtomBasisKind::KleinBottle {
+                    selected.max(2)
+                } else {
+                    selected
+                })
             } else {
                 None
             };
-            // Install the winning intrinsic chart, projected to the resolved
-            // latent dimension, only when the intrinsic seed actually won.
-            let coords = winning_intrinsic_chart.map(|chart| {
-                let d = fit.latent_dim.min(chart.ncols());
-                let mut out = Array2::<f64>::zeros((chart.nrows(), fit.latent_dim));
-                for row in 0..chart.nrows() {
-                    for col in 0..d {
-                        out[[row, col]] = chart[[row, col]];
-                    }
+            // Install the exact chart realization the winner was scored on.
+            // This is required for intrinsic folds and equally correct for every
+            // natural curved chart; a kind-only verdict followed by a generic
+            // coordinate rebuild is a different candidate than the one that won.
+            let d = fit_dim.min(fit.coords.ncols());
+            let mut coords = Array2::<f64>::zeros((fit.coords.nrows(), fit_dim));
+            for row in 0..fit.coords.nrows() {
+                for col in 0..d {
+                    coords[[row, col]] = fit.coords[[row, col]];
                 }
-                out
-            });
+            }
+            let grown_torus_geometry = if fit_kind == SaeAtomBasisKind::Torus {
+                let per_axis_order = n_torus_harmonics.ok_or_else(|| {
+                    format!(
+                        "discover_primary_atom_topologies: torus winner without selected resolution for auto atom {atom_idx}"
+                    )
+                })?;
+                let grown_spec = TopologyCandidateSpec::new(
+                    AutoTopologyKind::Torus,
+                    SaeAtomGeometryPlan::new(
+                        SaeAtomBasisKind::Torus,
+                        2,
+                        SaeBasisResolution::TorusHarmonics { per_axis_order },
+                        SaeReferenceMetricPlan::FlatRectangularTorus { tau: 0.0 },
+                    )?,
+                    fit.manifold.clone(),
+                    fit.coords.clone(),
+                )?;
+                Some(
+                    fit_torus_metric_candidate(&grown_spec, target, weights.view())?
+                        .fit_handle
+                        .geometry,
+                )
+            } else {
+                None
+            };
+            let geometry = match &fit_kind {
+                SaeAtomBasisKind::Periodic => SaeAtomGeometryPlan::new(
+                    SaeAtomBasisKind::Periodic,
+                    1,
+                    SaeBasisResolution::PeriodicHarmonics {
+                        order: n_harmonics.ok_or_else(|| {
+                            format!(
+                                "discover_primary_atom_topologies: periodic winner without selected resolution for auto atom {atom_idx}"
+                            )
+                        })?,
+                    },
+                    SaeReferenceMetricPlan::UnitCircle,
+                )?,
+                SaeAtomBasisKind::Torus => grown_torus_geometry.ok_or_else(|| {
+                    format!(
+                        "discover_primary_atom_topologies: torus winner metric refit was not produced for auto atom {atom_idx}"
+                    )
+                })?,
+                SaeAtomBasisKind::KleinBottle => SaeAtomGeometryPlan::klein_bottle(
+                    n_torus_harmonics.ok_or_else(|| {
+                        format!(
+                            "discover_primary_atom_topologies: Klein winner without selected resolution for auto atom {atom_idx}"
+                        )
+                    })?,
+                )?,
+                SaeAtomBasisKind::Duchon => {
+                    let center_count = n_duchon_centers.ok_or_else(|| {
+                        format!(
+                            "discover_primary_atom_topologies: Duchon winner without selected centers for auto atom {atom_idx}"
+                        )
+                    })?;
+                    let chart = sheet_coords.as_ref().ok_or_else(|| {
+                        format!(
+                            "discover_primary_atom_topologies: Duchon winner without chart for auto atom {atom_idx}"
+                        )
+                    })?;
+                    let centers = duchon_sheet_centers(chart, &rows, center_count).ok_or_else(|| {
+                        format!(
+                            "discover_primary_atom_topologies: cannot realize {center_count} selected Duchon centers for auto atom {atom_idx}"
+                        )
+                    })?;
+                    SaeAtomGeometryPlan::new(
+                        SaeAtomBasisKind::Duchon,
+                        fit_dim,
+                        SaeBasisResolution::DuchonCoordinates { centers },
+                        SaeReferenceMetricPlan::EuclideanDuchon,
+                    )?
+                }
+                _ => fit.geometry.clone(),
+            };
             Ok(PrimaryTopologyChoice {
-                basis_kind: fit.basis_kind,
-                latent_dim: fit.latent_dim,
+                basis_kind: fit_kind,
+                latent_dim: fit_dim,
+                geometry,
                 n_harmonics,
                 n_duchon_centers,
                 n_torus_harmonics,
@@ -4088,20 +4527,22 @@ pub fn discover_primary_atom_topologies(
 /// SAME REML evidence and keeps the PCA winner on ties, so the intrinsic seed
 /// supplants the linear one only when its unfolding earns strictly higher evidence.
 ///
-/// Returns `(specs, chart)` where `chart` is the standardized intrinsic 2-D chart
-/// the winning sheet's resolution growth reads. `None` when the atom is `d < 2`
-/// (folds are a sheet story; `d = 1` line/circle is served by the PCA race), the
-/// cluster is too small for a geodesic graph, or the embedding is degenerate.
+/// Every returned spec owns the standardized intrinsic 2-D chart it is evaluated
+/// on, so the eventual fit handle carries coordinate provenance atomically.
+/// `None` when the atom is `d < 2` (folds are a sheet story; `d = 1` line/circle
+/// is served by the PCA race), the cluster is too small for a geodesic graph, or
+/// the embedding is degenerate.
 fn build_intrinsic_primary_specs(
     target: ArrayView2<'_, f64>,
     rows: &[usize],
     max_dim: usize,
-) -> Result<Option<(Vec<TopologyCandidateSpec>, Array2<f64>)>, String> {
+) -> Result<Option<Vec<TopologyCandidateSpec>>, String> {
     if max_dim < 2 || rows.len() < 3 {
         return Ok(None);
     }
     let n_obs = target.nrows();
-    let embed = crate::manifold::intrinsic_geodesic_embedding(target, 2)?;
+    let local_target = target.select(Axis(0), rows);
+    let embed = crate::manifold::intrinsic_geodesic_embedding(local_target.view(), 2)?;
     if embed.ncols() < 2 {
         return Ok(None);
     }
@@ -4113,56 +4554,51 @@ fn build_intrinsic_primary_specs(
     let mut coords = Array2::<f64>::zeros((n_obs, 2));
     for col in 0..2 {
         let mut acc = 0.0_f64;
-        for &row in rows {
-            acc += embed[[row, col]] * embed[[row, col]];
+        for local_row in 0..rows.len() {
+            acc += embed[[local_row, col]] * embed[[local_row, col]];
         }
         let sd = (acc * inv_count).sqrt();
         if !(sd > 1e-12) || !sd.is_finite() {
             return Ok(None);
         }
-        for row in 0..n_obs {
-            coords[[row, col]] = embed[[row, col]] / sd;
+        for (local_row, &global_row) in rows.iter().enumerate() {
+            coords[[global_row, col]] = embed[[local_row, col]] / sd;
         }
     }
     let mut specs: Vec<TopologyCandidateSpec> = Vec::with_capacity(2);
-    let flat = EuclideanPatchEvaluator::new(2, 2)
-        .map_err(|error| format!("intrinsic primary flat evaluator failed: {error}"))?;
-    specs.push(TopologyCandidateSpec {
-        kind: AutoTopologyKind::Euclidean,
-        basis_kind: SaeAtomBasisKind::EuclideanPatch,
-        manifold: LatentManifold::Euclidean,
-        latent_dim: 2,
-        evaluator: Arc::new(flat),
-        coords: coords.clone(),
-    });
+    specs.push(TopologyCandidateSpec::new(
+        AutoTopologyKind::Euclidean,
+        SaeAtomGeometryPlan::new(
+            SaeAtomBasisKind::EuclideanPatch,
+            2,
+            SaeBasisResolution::Polynomial { degree: 2 },
+            SaeReferenceMetricPlan::EuclideanPolynomial,
+        )?,
+        LatentManifold::Euclidean,
+        coords.clone(),
+    )?);
     if let Some(centers) =
         duchon_sheet_centers(&coords, rows, duchon_sheet_race_center_budget(rows.len()))
     {
-        let sheet = DuchonCoordinateEvaluator::new(centers, DUCHON_SHEET_M)
-            .map_err(|error| format!("intrinsic primary duchon evaluator failed: {error}"))?;
-        specs.push(TopologyCandidateSpec {
-            kind: AutoTopologyKind::DuchonSheet,
-            basis_kind: SaeAtomBasisKind::Duchon,
-            manifold: LatentManifold::Euclidean,
-            latent_dim: 2,
-            evaluator: Arc::new(sheet),
-            coords: coords.clone(),
-        });
+        specs.push(TopologyCandidateSpec::new(
+            AutoTopologyKind::DuchonSheet,
+            SaeAtomGeometryPlan::new(
+                SaeAtomBasisKind::Duchon,
+                2,
+                SaeBasisResolution::DuchonCoordinates { centers },
+                SaeReferenceMetricPlan::EuclideanDuchon,
+            )?,
+            LatentManifold::Euclidean,
+            coords.clone(),
+        )?);
     }
-    Ok(Some((specs, coords)))
+    Ok(Some(specs))
 }
 
-/// Duchon nullspace order `m` for the raced 2-D thin-plate sheet (#2240) —
-/// DERIVED (identity with the seed builder): mirrors the FFI seed path's
-/// `sae_duchon_atom_m(dim) = dim/2 + 2`, i.e. `m = 3` (degree-2 polynomial
-/// nullspace) at `dim = 2`, so the race scores the same function space the
-/// winning seed will build.
-const DUCHON_SHEET_M: usize = 3;
-
-/// Polynomial-nullspace dimension of the `DUCHON_SHEET_M` thin-plate sheet in
-/// 2-D — DERIVED: monomials of total degree ≤ 2 in two variables, `C(2+2, 2) =
-/// 6`. The center count must clear this for the kernel block to have positive
-/// rank.
+/// Polynomial-nullspace dimension of the plan-declared 2-D thin-plate sheet.
+/// The geometry authority derives `m = d/2 + 2 = 3`, so the nullspace contains
+/// the six monomials of total degree at most two. The center count must clear
+/// this dimension for the kernel block to have positive rank.
 const DUCHON_SHEET_NULLSPACE_DIM: usize = 6;
 
 /// Race-time center budget for the 2-D Duchon-sheet candidate (#2240) —
@@ -4247,18 +4683,21 @@ fn select_duchon_sheet_resolution(
         let Some(centers) = duchon_sheet_centers(sheet_coords, rows, n_centers) else {
             continue;
         };
-        let evaluator = match DuchonCoordinateEvaluator::new(centers, DUCHON_SHEET_M) {
-            Ok(evaluator) => evaluator,
+        let geometry = match SaeAtomGeometryPlan::new(
+            SaeAtomBasisKind::Duchon,
+            2,
+            SaeBasisResolution::DuchonCoordinates { centers },
+            SaeReferenceMetricPlan::EuclideanDuchon,
+        ) {
+            Ok(geometry) => geometry,
             Err(_) => continue,
         };
-        let spec = TopologyCandidateSpec {
-            kind: AutoTopologyKind::DuchonSheet,
-            basis_kind: SaeAtomBasisKind::Duchon,
-            manifold: LatentManifold::Euclidean,
-            latent_dim: 2,
-            evaluator: Arc::new(evaluator),
-            coords: sheet_coords.clone(),
-        };
+        let spec = TopologyCandidateSpec::new(
+            AutoTopologyKind::DuchonSheet,
+            geometry,
+            LatentManifold::Euclidean,
+            sheet_coords.clone(),
+        )?;
         // `raw_reml` is the proper REML evidence (lower is better) on a common
         // `n_obs`, so comparing it directly selects the same resolution the
         // race machinery would (see `select_periodic_resolution`).
@@ -4497,21 +4936,29 @@ fn select_torus_resolution(
 ///   the old periodic default; callers that require a fixed topology must name
 ///   that topology explicitly.
 ///
-/// Returns `(resolution_overrides, coord_overrides)`, both aligned with
+/// Returns `(resolution_overrides, coord_overrides, geometry_overrides)`, all aligned with
 /// `atom_basis`. `resolution_overrides[k]` is the per-atom basis-native
 /// resolution knob (`None` unless evidence-grown), interpreted per the resolved
 /// basis kind — Duchon center count for a flat/Duchon-sheet winner (#2240),
-/// per-axis harmonic order for a torus winner (#2243). `coord_overrides[k]` is the
-/// UNFOLDED geodesic seed chart to install when the intrinsic-metric seed won the
-/// primary race (#2280), `None` when the PCA seed won (the common path) — the
-/// caller overrides that atom's coordinate block with it so a folded factor is
-/// seeded unrolled rather than re-creased by the linear PCA seed.
+/// per-axis harmonic order for a torus winner (#2243). `coord_overrides[k]` is
+/// the exact coordinate realization of an auto winner (`None` only for an
+/// explicitly named, non-auto atom), so the caller installs the same kind+chart
+/// candidate that earned the evidence verdict. `geometry_overrides[k]` is the
+/// complete post-growth typed plan of an evidence winner; installing it is what
+/// preserves continuously selected reference metrics across seed construction.
 pub fn resolve_auto_primary_atoms(
     target: ArrayView2<'_, f64>,
     labels: &[usize],
     atom_basis: &mut [String],
     atom_dim: &mut [usize],
-) -> Result<(Vec<Option<usize>>, Vec<Option<Array2<f64>>>), String> {
+) -> Result<
+    (
+        Vec<Option<usize>>,
+        Vec<Option<Array2<f64>>>,
+        Vec<Option<SaeAtomGeometryPlan>>,
+    ),
+    String,
+> {
     let k_atoms = atom_basis.len();
     if atom_dim.len() != k_atoms {
         return Err(format!(
@@ -4520,12 +4967,12 @@ pub fn resolve_auto_primary_atoms(
         ));
     }
     let mut resolution_overrides: Vec<Option<usize>> = vec![None; k_atoms];
-    // Per-atom seed-chart overrides: `Some` only where the intrinsic-metric seed
-    // won the primary race (#2240/#2280), so the caller installs the UNFOLDED
-    // geodesic chart instead of the PCA seed for that atom.
+    // Per-atom seed-chart overrides: every auto winner carries the exact chart
+    // realization on which it earned its evidence. Non-auto atoms remain None.
     let mut coord_overrides: Vec<Option<Array2<f64>>> = vec![None; k_atoms];
+    let mut geometry_overrides: Vec<Option<SaeAtomGeometryPlan>> = vec![None; k_atoms];
     if !atom_basis.iter().any(|basis| basis == "auto") {
-        return Ok((resolution_overrides, coord_overrides));
+        return Ok((resolution_overrides, coord_overrides, geometry_overrides));
     }
     let choices = discover_primary_atom_topologies(target, labels, k_atoms, atom_dim)?;
     for atom_idx in 0..k_atoms {
@@ -4539,25 +4986,37 @@ pub fn resolve_auto_primary_atoms(
                 // evidence-selected per-axis harmonic order rides the resolution
                 // override so the seed builder grows the torus past its fixed
                 // `SAE_DEFAULT_TORUS_HARMONICS` budget. `None` cannot occur for a
-                // torus winner (discovery always selects an order), but a missing
-                // value conservatively leaves the builder's default.
+                // torus winner (discovery always selects an order); the complete
+                // plan below is the installation authority.
                 atom_basis[atom_idx] = "torus".to_string();
                 atom_dim[atom_idx] = choice.latent_dim;
                 resolution_overrides[atom_idx] = choice.n_torus_harmonics;
+                geometry_overrides[atom_idx] = Some(choice.geometry.clone());
             }
             SaeAtomBasisKind::Sphere => {
                 atom_basis[atom_idx] = "sphere".to_string();
                 atom_dim[atom_idx] = choice.latent_dim;
+                geometry_overrides[atom_idx] = Some(choice.geometry.clone());
+            }
+            SaeAtomBasisKind::ProjectivePlane => {
+                atom_basis[atom_idx] = "projective_plane".to_string();
+                atom_dim[atom_idx] = choice.latent_dim;
+                geometry_overrides[atom_idx] = Some(choice.geometry.clone());
+            }
+            SaeAtomBasisKind::KleinBottle => {
+                atom_basis[atom_idx] = "klein_bottle".to_string();
+                atom_dim[atom_idx] = choice.latent_dim;
+                resolution_overrides[atom_idx] = choice.n_torus_harmonics;
+                geometry_overrides[atom_idx] = Some(choice.geometry.clone());
             }
             SaeAtomBasisKind::Mobius => {
                 atom_basis[atom_idx] = "mobius".to_string();
                 atom_dim[atom_idx] = choice.latent_dim;
+                geometry_overrides[atom_idx] = Some(choice.geometry.clone());
             }
             SaeAtomBasisKind::EuclideanPatch => {
                 atom_basis[atom_idx] = "duchon".to_string();
                 atom_dim[atom_idx] = choice.latent_dim;
-                // If the intrinsic seed won, install its unfolded chart (#2280).
-                coord_overrides[atom_idx] = choice.coords.clone();
             }
             SaeAtomBasisKind::Duchon => {
                 // #2240 — the rich thin-plate sheet won the race outright.
@@ -4567,9 +5026,7 @@ pub fn resolve_auto_primary_atoms(
                 atom_basis[atom_idx] = "duchon".to_string();
                 atom_dim[atom_idx] = choice.latent_dim;
                 resolution_overrides[atom_idx] = choice.n_duchon_centers;
-                // If the intrinsic seed won, install its unfolded chart (#2280)
-                // so the thin-plate sheet is anchored on the unrolled fold.
-                coord_overrides[atom_idx] = choice.coords.clone();
+                geometry_overrides[atom_idx] = Some(choice.geometry.clone());
             }
             SaeAtomBasisKind::Periodic => {
                 atom_basis[atom_idx] = "periodic".to_string();
@@ -4578,11 +5035,12 @@ pub fn resolve_auto_primary_atoms(
                 // into the Fourier harmonic count for a periodic basis), so the
                 // seeded circle carries the resolution REML picked rather than
                 // the caller's default budget. `None` cannot occur for a
-                // periodic winner (discovery always selects a resolution), but a
-                // missing value conservatively leaves the caller's budget.
+                // periodic winner (discovery always selects a resolution), and
+                // the complete plan below is the installation authority.
                 if let Some(n_harmonics) = choice.n_harmonics {
                     atom_dim[atom_idx] = n_harmonics;
                 }
+                geometry_overrides[atom_idx] = Some(choice.geometry.clone());
             }
             ref unexpected => {
                 return Err(format!(
@@ -4590,8 +5048,9 @@ pub fn resolve_auto_primary_atoms(
                 ));
             }
         }
+        coord_overrides[atom_idx] = Some(choice.coords.clone());
     }
-    Ok((resolution_overrides, coord_overrides))
+    Ok((resolution_overrides, coord_overrides, geometry_overrides))
 }
 
 /// A small neutral routing logit a born atom is seeded at: large enough that the
@@ -4699,7 +5158,7 @@ fn born_atom(
         template_coords.view(),
         birth_target.view(),
         weights.view(),
-        template.latent_dim,
+        template.latent_dim(),
     )?;
     // The born atom + its coordinate block. The race-won path carries the winning
     // topology's coordinate block (dimension-matched to its evaluator, manifold
@@ -4709,23 +5168,17 @@ fn born_atom(
             // Build the born atom directly from the winning topology's realized
             // basis: its evaluator, penalized decoder, and declared reference
             // roughness. Decoder fitting does not redefine that seminorm.
-            let reference_roughness = if matches!(fit.basis_kind, SaeAtomBasisKind::Poincare) {
-                SaeReferenceRoughness::PoincareConformalDirichlet {
-                    reference_coords: fit.coords.clone(),
-                }
-            } else {
-                SaeReferenceRoughness::ProvidedFunctionGram(fit.penalty.clone())
-            };
-            let atom = SaeManifoldAtom::new(
+            let atom = SaeManifoldAtom::new_with_provided_function_gram(
                 format!("atom_born_{k}"),
-                fit.basis_kind.clone(),
-                fit.latent_dim,
+                fit.geometry.kind().clone(),
+                fit.geometry.latent_dim(),
                 fit.phi.clone(),
                 fit.jet.clone(),
                 fit.decoder.clone(),
-                reference_roughness,
+                fit.penalty.clone(),
             )?
-            .with_basis_second_jet(fit.evaluator.clone());
+            .with_basis_second_jet(fit.evaluator.clone())
+            .with_geometry_plan(fit.geometry.clone())?;
             // Coordinate block matched to the winning evaluator's intrinsic dim,
             // carrying the winning chart manifold so the joint refit retracts on
             // the right geometry.
@@ -4794,6 +5247,7 @@ fn born_atom(
 pub(crate) fn born_circle_atom(
     term: &SaeManifoldTerm,
     rho: &SaeManifoldRho,
+    geometry: SaeAtomGeometryPlan,
     harmonic_decoder: Array2<f64>,
     phase_coords: Array2<f64>,
     circle_gate: Vec<f64>,
@@ -4802,21 +5256,19 @@ pub(crate) fn born_circle_atom(
     if term.atoms.is_empty() {
         return Err("born_circle_atom: cannot birth from an empty dictionary".to_string());
     }
-    // The periodic-harmonic width `m` comes from the SEED decoder's own row
-    // count, not the template atom's basis size (#2101 tied it to `atoms[0]`,
-    // which forced every born circle to match atom-0's width). Curl seeds
-    // (`crate::manifold::curl`) carry their own odd harmonic width, and existing
-    // circle-seed callers pass a decoder already shaped to `atoms[0]` (odd, since
-    // `PeriodicHarmonicEvaluator::new` demands it), so deriving `m` here is
-    // backward-compatible AND lets curl birth a circle into a dictionary whose
-    // template atom is linear/even-width. A born atom carries its own
-    // `basis_values`, so a heterogeneous width is well-formed.
-    let m = harmonic_decoder.nrows();
-    let p = term.output_dim();
-    if m % 2 != 1 || m < 3 {
+    if geometry.kind() != &SaeAtomBasisKind::Periodic || geometry.latent_dim() != 1 {
         return Err(format!(
-            "born_circle_atom: harmonic decoder must have odd height >= 3 (constant + \
-             >= 1 sin/cos harmonic pair); got height {m}"
+            "born_circle_atom: geometry must declare a one-dimensional periodic atom; got kind={:?}, latent_dim={}",
+            geometry.kind(),
+            geometry.latent_dim()
+        ));
+    }
+    let m = geometry.basis_size()?;
+    let p = term.output_dim();
+    if harmonic_decoder.nrows() != m {
+        return Err(format!(
+            "born_circle_atom: decoder height {} != geometry basis width {m}",
+            harmonic_decoder.nrows()
         ));
     }
     if harmonic_decoder.ncols() != p {
@@ -4832,23 +5284,35 @@ pub(crate) fn born_circle_atom(
             phase_coords.dim()
         ));
     }
-    // A Periodic harmonic basis of the template's width, evaluated at the FRESH
-    // phase coordinate the born circle lives on.
-    let evaluator = std::sync::Arc::new(crate::manifold::PeriodicHarmonicEvaluator::new(m)?);
-    let (phi, jet) = {
-        use crate::manifold::SaeBasisEvaluator;
-        evaluator.evaluate(phase_coords.view())?
-    };
+    if circle_gate.len() != n {
+        return Err(format!(
+            "born_circle_atom: circle gate must have one entry per row ({n}); got {}",
+            circle_gate.len()
+        ));
+    }
+    if circle_gate
+        .iter()
+        .any(|gate| !gate.is_finite() && *gate != f64::NEG_INFINITY)
+    {
+        return Err(
+            "born_circle_atom: circle gate entries must be finite or negative infinity".to_string(),
+        );
+    }
+    // The plan is the sole authority for the basis, its analytic jets, and the
+    // declared unit-circle function Gram. The decoder is only a coefficient
+    // realization and cannot redefine any of those geometry fields.
+    let bundle = geometry.evaluate_bundle(phase_coords.view())?;
     let born = SaeManifoldAtom::new_with_provided_function_gram(
         format!("atom_born_{k}"),
-        SaeAtomBasisKind::Periodic,
-        1,
-        phi,
-        jet,
+        geometry.kind().clone(),
+        geometry.latent_dim(),
+        bundle.basis_values,
+        bundle.basis_jacobian,
         harmonic_decoder,
-        Array2::<f64>::eye(m),
+        bundle.reference_penalty,
     )?
-    .with_basis_second_jet(evaluator.clone());
+    .with_basis_second_jet(bundle.evaluator)
+    .with_geometry_plan(geometry)?;
 
     let born_coord_block = gam_terms::latent::LatentCoordValues::from_matrix_with_manifold(
         phase_coords.view(),
@@ -4877,7 +5341,7 @@ pub(crate) fn born_circle_atom(
         // (absent rows, `circle_gate` = −∞) keep the conservative birth default. Both
         // scales are derived — the dictionary's own logits and the ρ_i/λ₊ ratio — no
         // new constant.
-        let own_gate = circle_gate.get(row).copied().unwrap_or(f64::NEG_INFINITY);
+        let own_gate = circle_gate[row];
         let inc_max = (0..k)
             .map(|c| term.assignment.logits[[row, c]])
             .fold(f64::NEG_INFINITY, f64::max);
@@ -5244,7 +5708,7 @@ pub fn run_structure_search_rounds(
             std::collections::HashMap::new();
         let mut flatten_atoms: std::collections::HashSet<usize> = std::collections::HashSet::new();
         if let Some(cfg) = curl {
-            for cand in curl_candidates(&term, residuals.view(), &cfg) {
+            for cand in curl_candidates(&term, residuals.view(), &cfg)? {
                 if cooldown.blocked(&cand.members) {
                     continue;
                 }
@@ -5578,7 +6042,7 @@ fn linear_atom_frames(term: &SaeManifoldTerm) -> Vec<(usize, Array1<f64>, Vec<bo
     };
     let mut out = Vec::new();
     for (a, atom) in term.atoms.iter().enumerate() {
-        if !is_linear_like(&atom.basis_kind) {
+        if !is_linear_like(atom.basis_kind()) {
             continue;
         }
         let active_mask: Vec<bool> = (0..n).map(|r| assignments[[r, a]] > floor).collect();
@@ -5618,10 +6082,18 @@ fn curl_candidates(
     term: &SaeManifoldTerm,
     residuals: ArrayView2<'_, f64>,
     cfg: &CurlConfig,
-) -> Vec<CurlCandidate> {
+) -> Result<Vec<CurlCandidate>, String> {
+    let geometry = SaeAtomGeometryPlan::new(
+        SaeAtomBasisKind::Periodic,
+        1,
+        SaeBasisResolution::PeriodicHarmonics {
+            order: cfg.harmonics,
+        },
+        SaeReferenceMetricPlan::UnitCircle,
+    )?;
     let frames = linear_atom_frames(term);
     if frames.len() < 2 {
-        return Vec::new();
+        return Ok(Vec::new());
     }
     let n = term.assignment.logits.nrows();
     let p = term.output_dim();
@@ -5656,7 +6128,7 @@ fn curl_candidates(
         cfg.coalesce_max_overlap,
     );
     if signed.len() < 2 {
-        return Vec::new();
+        return Ok(Vec::new());
     }
 
     // A per-atom → frame index map so a signed direction can gather its members'
@@ -5773,6 +6245,7 @@ fn curl_candidates(
         cands.push(CurlCandidate {
             members,
             seed: BirthSeed::Circle {
+                geometry: geometry.clone(),
                 decoder: seed_circle.decoder,
                 phase_coords,
                 gate,
@@ -5798,7 +6271,7 @@ fn curl_candidates(
             break;
         }
     }
-    out
+    Ok(out)
 }
 
 /// Audit fitted circle atoms for degeneration (INTEGRATION_PLAN Phase 4.5). A
@@ -5817,7 +6290,7 @@ fn flatten_candidates(term: &SaeManifoldTerm) -> Vec<usize> {
     };
     let mut out = Vec::new();
     for (a, atom) in term.atoms.iter().enumerate() {
-        if !matches!(atom.basis_kind, SaeAtomBasisKind::Periodic) || atom.latent_dim != 1 {
+        if !matches!(atom.basis_kind(), SaeAtomBasisKind::Periodic) || atom.latent_dim() != 1 {
             continue;
         }
         let active_idx: Vec<usize> = (0..n).filter(|&r| assignments[[r, a]] > floor).collect();
@@ -6153,6 +6626,59 @@ mod tests {
     use ndarray::Array2;
     use std::sync::Arc;
 
+    #[test]
+    fn intrinsic_primary_chart_is_cluster_local_2240() {
+        let local_rows = 20usize;
+        let other_rows = 20usize;
+        let mut first = Array2::<f64>::zeros((local_rows + other_rows, 3));
+        let mut second = Array2::<f64>::zeros((local_rows + other_rows, 3));
+        for row in 0..local_rows {
+            let x = (row % 5) as f64;
+            let y = (row / 5) as f64;
+            let z = 0.15 * x * y;
+            for target in [&mut first, &mut second] {
+                target[[row, 0]] = x;
+                target[[row, 1]] = y;
+                target[[row, 2]] = z;
+            }
+        }
+        for offset in 0..other_rows {
+            let row = local_rows + offset;
+            let x = (offset % 5) as f64;
+            let y = (offset / 5) as f64;
+            first[[row, 0]] = 10.0 + x;
+            first[[row, 1]] = y;
+            second[[row, 0]] = 1.0e6 + 1.0e4 * x;
+            second[[row, 1]] = -1.0e6 + 1.0e4 * y;
+            second[[row, 2]] = 2.0e6;
+        }
+        let rows = (0..local_rows).collect::<Vec<_>>();
+        let first_specs = build_intrinsic_primary_specs(first.view(), &rows, 2)
+            .expect("first local embedding")
+            .expect("realizable first local chart");
+        let second_specs = build_intrinsic_primary_specs(second.view(), &rows, 2)
+            .expect("second local embedding")
+            .expect("realizable second local chart");
+        let first_chart = &first_specs[0].coords;
+        let second_chart = &second_specs[0].coords;
+
+        for row in 0..local_rows {
+            for col in 0..2 {
+                assert_eq!(
+                    first_chart[[row, col]].to_bits(),
+                    second_chart[[row, col]].to_bits(),
+                    "another atom's observations must not alter cluster-local geodesics"
+                );
+            }
+        }
+        for row in local_rows..(local_rows + other_rows) {
+            assert_eq!(first_chart[[row, 0]], 0.0);
+            assert_eq!(first_chart[[row, 1]], 0.0);
+            assert_eq!(second_chart[[row, 0]], 0.0);
+            assert_eq!(second_chart[[row, 1]], 0.0);
+        }
+    }
+
     /// A parent nominated more than once (by different partners at different
     /// significances) must collapse to EXACTLY ONE entry — the most-suspect
     /// (lowest-significance) one — and distinct parents must all survive, in
@@ -6220,6 +6746,278 @@ mod tests {
         assert_eq!(dims, vec![2], "failure must not rewrite latent dimension");
     }
 
+    #[test]
+    fn quotient_surface_candidates_are_reachable_with_their_cover_geometry() {
+        use gam_solve::AutoTopologyKind;
+
+        let coords = Array2::<f64>::zeros((32, 2));
+        let specs = topology_candidates_for_dim(coords.view(), 2).unwrap();
+        let projective = specs
+            .iter()
+            .find(|spec| spec.kind == AutoTopologyKind::ProjectivePlane)
+            .expect("RP2 must be enrolled in the two-dimensional evidence race");
+        assert_eq!(
+            projective.geometry.kind(),
+            &SaeAtomBasisKind::ProjectivePlane
+        );
+        assert_eq!(projective.geometry.basis_size().unwrap(), 6);
+        let klein = specs
+            .iter()
+            .find(|spec| spec.kind == AutoTopologyKind::KleinBottle)
+            .expect("Klein bottle must be enrolled in the two-dimensional evidence race");
+        assert_eq!(klein.geometry.kind(), &SaeAtomBasisKind::KleinBottle);
+        assert_eq!(klein.geometry.basis_size().unwrap(), 13);
+        assert_eq!(
+            klein.manifold,
+            LatentManifold::Product(vec![
+                LatentManifold::Circle { period: 1.0 },
+                LatentManifold::Circle { period: 1.0 },
+            ])
+        );
+    }
+
+    #[test]
+    fn torus_race_persists_the_evidence_selected_reference_metric() {
+        use ndarray::Array1;
+
+        let side = 10usize;
+        let n = side * side;
+        let mut coords = Array2::<f64>::zeros((n, 2));
+        for i in 0..side {
+            for j in 0..side {
+                let row = i * side + j;
+                coords[[row, 0]] = i as f64 / side as f64;
+                coords[[row, 1]] = j as f64 / side as f64;
+            }
+        }
+        let geometry = SaeAtomGeometryPlan::new(
+            SaeAtomBasisKind::Torus,
+            2,
+            SaeBasisResolution::TorusHarmonics { per_axis_order: 2 },
+            SaeReferenceMetricPlan::FlatRectangularTorus { tau: 0.0 },
+        )
+        .unwrap();
+        let bundle = geometry.evaluate_bundle(coords.view()).unwrap();
+        let mut decoder = Array2::<f64>::zeros((bundle.basis_values.ncols(), 3));
+        for row in 0..decoder.nrows() {
+            for col in 0..decoder.ncols() {
+                decoder[[row, col]] = (((row + 1) * (col + 2)) as f64).sin() / (1.0 + row as f64);
+            }
+        }
+        let mut target = bundle.basis_values.dot(&decoder);
+        for row in 0..n {
+            for col in 0..target.ncols() {
+                target[[row, col]] += ((row + 3 * col + 1) as f64).cos() / n as f64;
+            }
+        }
+        let weights = Array1::<f64>::ones(n);
+        let difference_step = f64::EPSILON.cbrt();
+        for family in [TorusMetricFamily::Flat, TorusMetricFamily::EmbeddedDonut] {
+            let coordinate = 0.5;
+            let analytic = evaluate_torus_metric_profile(
+                bundle.basis_values.view(),
+                target.view(),
+                weights.view(),
+                2,
+                family,
+                coordinate,
+            )
+            .unwrap();
+            let plus = evaluate_torus_metric_profile(
+                bundle.basis_values.view(),
+                target.view(),
+                weights.view(),
+                2,
+                family,
+                coordinate + difference_step,
+            )
+            .unwrap();
+            let minus = evaluate_torus_metric_profile(
+                bundle.basis_values.view(),
+                target.view(),
+                weights.view(),
+                2,
+                family,
+                coordinate - difference_step,
+            )
+            .unwrap();
+            let refitted_direction = (plus.value - minus.value) / (2.0 * difference_step);
+            let gap = (analytic.gradient[0] - refitted_direction).abs();
+            assert!(
+                gap <= difference_step * (1.0 + refitted_direction.abs()),
+                "{family:?} coordinate gradient {} disagrees with refitted direction {refitted_direction} by {gap}",
+                analytic.gradient[0]
+            );
+        }
+        let spec = TopologyCandidateSpec::new(
+            AutoTopologyKind::Torus,
+            geometry,
+            LatentManifold::Product(vec![
+                LatentManifold::Circle { period: 1.0 },
+                LatentManifold::Circle { period: 1.0 },
+            ]),
+            coords,
+        )
+        .unwrap();
+        let fit = fit_topology_candidate(&spec, target.view(), weights.view())
+            .expect("torus metric family must reach a converged evidence winner")
+            .fit_handle;
+        match fit.geometry.reference_metric() {
+            SaeReferenceMetricPlan::FlatRectangularTorus { tau } => {
+                assert!(tau.is_finite() && *tau >= 0.0)
+            }
+            SaeReferenceMetricPlan::EmbeddedDonutTorus { tau } => {
+                assert!(tau.is_finite() && *tau > 0.0)
+            }
+            other => panic!("torus race persisted a non-torus reference metric: {other:?}"),
+        }
+        let persisted_penalty = fit.geometry.build_reference_penalty().unwrap();
+        let max_gap = persisted_penalty
+            .iter()
+            .zip(fit.penalty.iter())
+            .fold(0.0_f64, |gap, (left, right)| gap.max((left - right).abs()));
+        assert!(
+            max_gap <= f64::EPSILON.sqrt(),
+            "winning metric plan and installed penalty diverged by {max_gap}"
+        );
+    }
+
+    #[test]
+    fn projective_plane_veronese_embedding_beats_the_unquotiented_sphere_chart() {
+        use ndarray::Array1;
+
+        let (n_latitude, n_longitude) = (10usize, 16usize);
+        let n = n_latitude * n_longitude;
+        let mut coords = Array2::<f64>::zeros((n, 2));
+        let mut target = Array2::<f64>::zeros((n, 4));
+        for latitude_index in 0..n_latitude {
+            let latitude = -std::f64::consts::FRAC_PI_2
+                + std::f64::consts::PI * (latitude_index as f64 + 0.5) / n_latitude as f64;
+            for longitude_index in 0..n_longitude {
+                let longitude = std::f64::consts::TAU * longitude_index as f64 / n_longitude as f64;
+                let row = latitude_index * n_longitude + longitude_index;
+                coords[[row, 0]] = latitude;
+                coords[[row, 1]] = longitude;
+                let x = latitude.cos() * longitude.cos();
+                let y = latitude.cos() * longitude.sin();
+                let z = latitude.sin();
+                target[[row, 0]] = x * y;
+                target[[row, 1]] = y * z;
+                target[[row, 2]] = z * x;
+                target[[row, 3]] = 0.5 * (x * x - y * y);
+            }
+        }
+        let manifold = LatentManifold::Product(vec![
+            LatentManifold::Interval {
+                lo: -std::f64::consts::FRAC_PI_2,
+                hi: std::f64::consts::FRAC_PI_2,
+            },
+            LatentManifold::Circle {
+                period: std::f64::consts::TAU,
+            },
+        ]);
+        let projective = TopologyCandidateSpec::new(
+            AutoTopologyKind::ProjectivePlane,
+            SaeAtomGeometryPlan::projective_plane(1).unwrap(),
+            manifold.clone(),
+            coords.clone(),
+        )
+        .unwrap();
+        let sphere = TopologyCandidateSpec::new(
+            AutoTopologyKind::Sphere,
+            SaeAtomGeometryPlan::new(
+                SaeAtomBasisKind::Sphere,
+                2,
+                SaeBasisResolution::SphereChart,
+                SaeReferenceMetricPlan::SphereChart,
+            )
+            .unwrap(),
+            manifold,
+            coords,
+        )
+        .unwrap();
+        let weights = Array1::<f64>::ones(n);
+        let projective_fit = fit_topology_candidate(&projective, target.view(), weights.view())
+            .expect("RP2 Veronese fit");
+        let sphere_fit = fit_topology_candidate(&sphere, target.view(), weights.view())
+            .expect("unquotiented sphere-chart fit");
+        assert!(
+            projective_fit.raw_reml < sphere_fit.raw_reml,
+            "RP2 invariant basis must win its Veronese DGP: RP2={}, sphere={}",
+            projective_fit.raw_reml,
+            sphere_fit.raw_reml
+        );
+    }
+
+    #[test]
+    fn klein_r4_embedding_beats_the_unrestricted_torus_cover() {
+        use ndarray::Array1;
+
+        let side = 14usize;
+        let n = side * side;
+        let mut coords = Array2::<f64>::zeros((n, 2));
+        let mut target = Array2::<f64>::zeros((n, 4));
+        for theta_index in 0..side {
+            for phi_index in 0..side {
+                let row = theta_index * side + phi_index;
+                let theta_fraction = theta_index as f64 / side as f64;
+                let phi_fraction = phi_index as f64 / side as f64;
+                coords[[row, 0]] = theta_fraction;
+                coords[[row, 1]] = phi_fraction;
+                let theta = std::f64::consts::TAU * theta_fraction;
+                let phi = std::f64::consts::TAU * phi_fraction;
+                let radial = 2.0 + 0.5 * phi.cos();
+                target[[row, 0]] = radial * (2.0 * theta).cos();
+                target[[row, 1]] = radial * (2.0 * theta).sin();
+                target[[row, 2]] = 0.5 * phi.sin() * theta.cos();
+                target[[row, 3]] = 0.5 * phi.sin() * theta.sin();
+                // A noiseless finite Fourier embedding is represented exactly
+                // by both candidate frames and therefore has no finite
+                // profiled Gaussian dispersion. Add a small deterministic
+                // observation perturbation so this is an evidence comparison,
+                // not an attempt to assign REML to a zero-residual sample.
+                for output in 0..target.ncols() {
+                    target[[row, output]] += (((row + 1) * (output + 3)) as f64).sin() / n as f64;
+                }
+            }
+        }
+        let manifold = LatentManifold::Product(vec![
+            LatentManifold::Circle { period: 1.0 },
+            LatentManifold::Circle { period: 1.0 },
+        ]);
+        let klein = TopologyCandidateSpec::new(
+            AutoTopologyKind::KleinBottle,
+            SaeAtomGeometryPlan::klein_bottle(2).unwrap(),
+            manifold.clone(),
+            coords.clone(),
+        )
+        .unwrap();
+        let torus = TopologyCandidateSpec::new(
+            AutoTopologyKind::Torus,
+            SaeAtomGeometryPlan::new(
+                SaeAtomBasisKind::Torus,
+                2,
+                SaeBasisResolution::TorusHarmonics { per_axis_order: 2 },
+                SaeReferenceMetricPlan::FlatRectangularTorus { tau: 0.0 },
+            )
+            .unwrap(),
+            manifold,
+            coords,
+        )
+        .unwrap();
+        let weights = Array1::<f64>::ones(n);
+        let klein_fit = fit_topology_candidate(&klein, target.view(), weights.view())
+            .expect("Klein quotient fit");
+        let torus_fit = fit_topology_candidate(&torus, target.view(), weights.view())
+            .expect("unrestricted torus-cover fit");
+        assert!(
+            klein_fit.raw_reml < torus_fit.raw_reml,
+            "Klein invariant basis must win its R4 DGP: Klein={}, torus={}",
+            klein_fit.raw_reml,
+            torus_fit.raw_reml
+        );
+    }
+
     /// #2238 — a genuinely two-dimensional primary factor must not be pinned to
     /// the old one-dimensional circle. A full 8x8 planar grid is represented
     /// exactly by the flat 2-D candidate, while phase alone discards radius.
@@ -6255,7 +7053,6 @@ mod tests {
     /// recovery — the two claims the companion issues turn on.
     #[test]
     fn auto_primary_topology_selects_curved_sphere_and_beats_circle_2238_2239() {
-        use crate::basis::SphereChartEvaluator;
         use gam_solve::AutoTopologyKind;
         use ndarray::Array1;
 
@@ -6326,24 +7123,35 @@ mod tests {
         for row in 0..n {
             circle_coords[[row, 0]] = lon[row] / std::f64::consts::TAU;
         }
-        let circle_spec = TopologyCandidateSpec {
-            kind: AutoTopologyKind::Circle,
-            basis_kind: SaeAtomBasisKind::Periodic,
-            manifold: LatentManifold::Circle { period: 1.0 },
-            latent_dim: 1,
-            evaluator: Arc::new(PeriodicHarmonicEvaluator::new(3).expect("periodic evaluator")),
-            coords: circle_coords,
-        };
+        let circle_spec = TopologyCandidateSpec::new(
+            AutoTopologyKind::Circle,
+            SaeAtomGeometryPlan::new(
+                SaeAtomBasisKind::Periodic,
+                1,
+                SaeBasisResolution::PeriodicHarmonics { order: 1 },
+                SaeReferenceMetricPlan::UnitCircle,
+            )
+            .unwrap(),
+            LatentManifold::Circle { period: 1.0 },
+            circle_coords,
+        )
+        .unwrap();
 
         let mut sphere_coords = Array2::<f64>::zeros((n, 2));
         for row in 0..n {
             sphere_coords[[row, 0]] = lat[row];
             sphere_coords[[row, 1]] = lon[row];
         }
-        let sphere_spec = TopologyCandidateSpec {
-            kind: AutoTopologyKind::Sphere,
-            basis_kind: SaeAtomBasisKind::Sphere,
-            manifold: LatentManifold::Product(vec![
+        let sphere_spec = TopologyCandidateSpec::new(
+            AutoTopologyKind::Sphere,
+            SaeAtomGeometryPlan::new(
+                SaeAtomBasisKind::Sphere,
+                2,
+                SaeBasisResolution::SphereChart,
+                SaeReferenceMetricPlan::SphereChart,
+            )
+            .unwrap(),
+            LatentManifold::Product(vec![
                 LatentManifold::Interval {
                     lo: -std::f64::consts::FRAC_PI_2,
                     hi: std::f64::consts::FRAC_PI_2,
@@ -6352,10 +7160,9 @@ mod tests {
                     period: std::f64::consts::TAU,
                 },
             ]),
-            latent_dim: 2,
-            evaluator: Arc::new(SphereChartEvaluator),
-            coords: sphere_coords,
-        };
+            sphere_coords,
+        )
+        .unwrap();
 
         let circle_r2 = recon_r2(&circle_spec);
         let sphere_r2 = recon_r2(&sphere_spec);
@@ -6373,149 +7180,6 @@ mod tests {
         assert!(
             sphere_r2 > circle_r2 + 0.2,
             "discovery must strictly beat the circle-pinned recovery (sphere={sphere_r2:.4} vs circle={circle_r2:.4})"
-        );
-    }
-
-    /// DIAGNOSTIC (temporary #2240): fit the PCA-folded Duchon sheet and the
-    /// intrinsic-unfolded Duchon sheet directly and print their in-sample REML
-    /// scores, to see why the intrinsic challenger loses the race.
-    #[test]
-    fn diag_swiss_roll_duchon_reml_scores() {
-        use ndarray::Array1;
-        let (n_t, n_h) = (45usize, 10usize);
-        let n = n_t * n_h;
-        let mut target = Array2::<f64>::zeros((n, 3));
-        for ti in 0..n_t {
-            let t = 1.2 * std::f64::consts::PI
-                + (3.2 - 1.2) * std::f64::consts::PI * ti as f64 / (n_t - 1) as f64;
-            for hi in 0..n_h {
-                let h = 10.0 * hi as f64 / (n_h - 1) as f64;
-                let row = ti * n_h + hi;
-                target[[row, 0]] = t * t.cos();
-                target[[row, 1]] = h;
-                target[[row, 2]] = t * t.sin();
-            }
-        }
-        let rows: Vec<usize> = (0..n).collect();
-        let weights = Array1::<f64>::ones(n);
-
-        // PCA standardized 2-PC chart, exactly as discover_primary_atom_topologies.
-        let mut mean = vec![0.0_f64; 3];
-        for &row in &rows {
-            for col in 0..3 {
-                mean[col] += target[[row, col]];
-            }
-        }
-        for v in &mut mean {
-            *v /= rows.len() as f64;
-        }
-        let mut local = Array2::<f64>::zeros((rows.len(), 3));
-        for (o, &r) in rows.iter().enumerate() {
-            for col in 0..3 {
-                local[[o, col]] = target[[r, col]] - mean[col];
-            }
-        }
-        let (_u, _s, vt) = local.svd(false, true).unwrap();
-        let vt = vt.unwrap();
-        let n_pcs = vt.nrows().min(4);
-        let mut proj = Array2::<f64>::zeros((n, n_pcs));
-        for row in 0..n {
-            for pc in 0..n_pcs {
-                let mut acc = 0.0;
-                for col in 0..3 {
-                    acc += (target[[row, col]] - mean[col]) * vt[[pc, col]];
-                }
-                proj[[row, pc]] = acc;
-            }
-        }
-        let sd = |pc: usize| -> f64 {
-            let mut acc = 0.0;
-            for &r in &rows {
-                acc += proj[[r, pc]] * proj[[r, pc]];
-            }
-            (acc / rows.len() as f64).sqrt().max(1e-12)
-        };
-        let (sd0, sd1) = (sd(0), sd(1));
-        let mut pca_coords = Array2::<f64>::zeros((n, 2));
-        for row in 0..n {
-            pca_coords[[row, 0]] = proj[[row, 0]] / sd0;
-            pca_coords[[row, 1]] = proj[[row, 1]] / sd1;
-        }
-        let budget = duchon_sheet_race_center_budget(rows.len());
-        let pca_centers = duchon_sheet_centers(&pca_coords, &rows, budget).unwrap();
-        let pca_duchon = TopologyCandidateSpec {
-            kind: AutoTopologyKind::DuchonSheet,
-            basis_kind: SaeAtomBasisKind::Duchon,
-            manifold: LatentManifold::Euclidean,
-            latent_dim: 2,
-            evaluator: Arc::new(
-                DuchonCoordinateEvaluator::new(pca_centers, DUCHON_SHEET_M).unwrap(),
-            ),
-            coords: pca_coords.clone(),
-        };
-        let pca_flat = TopologyCandidateSpec {
-            kind: AutoTopologyKind::Euclidean,
-            basis_kind: SaeAtomBasisKind::EuclideanPatch,
-            manifold: LatentManifold::Euclidean,
-            latent_dim: 2,
-            evaluator: Arc::new(EuclideanPatchEvaluator::new(2, 2).unwrap()),
-            coords: pca_coords.clone(),
-        };
-        let pca_duchon_reml = fit_topology_candidate(&pca_duchon, target.view(), weights.view())
-            .unwrap()
-            .raw_reml;
-        let pca_flat_reml = fit_topology_candidate(&pca_flat, target.view(), weights.view())
-            .unwrap()
-            .raw_reml;
-
-        // Intrinsic challenger specs on the geodesic-unfolded chart.
-        let (int_specs, int_chart) =
-            build_intrinsic_primary_specs(target.view(), &rows, 2).unwrap().unwrap();
-        let mut int_lines = String::new();
-        for spec in &int_specs {
-            let reml = fit_topology_candidate(spec, target.view(), weights.view())
-                .unwrap()
-                .raw_reml;
-            int_lines.push_str(&format!(" [{:?} reml={reml}]", spec.basis_kind));
-        }
-        // In-sample reconstruction R² of each chart (proof of fit quality).
-        let recon_r2 = |spec: &TopologyCandidateSpec| -> f64 {
-            let fit = fit_topology_candidate(spec, target.view(), weights.view())
-                .unwrap()
-                .fit_handle;
-            let recon = fit.phi.dot(&fit.decoder);
-            let (mut sr, mut st) = (0.0_f64, 0.0_f64);
-            for row in 0..n {
-                for col in 0..3 {
-                    let r = target[[row, col]] - recon[[row, col]];
-                    sr += r * r;
-                    let c = target[[row, col]] - mean[col];
-                    st += c * c;
-                }
-            }
-            1.0 - sr / st
-        };
-        let int_duchon = int_specs
-            .iter()
-            .find(|s| s.basis_kind == SaeAtomBasisKind::Duchon)
-            .unwrap();
-        let int_chart_span = {
-            let mut lo = [f64::INFINITY; 2];
-            let mut hi = [f64::NEG_INFINITY; 2];
-            for row in 0..n {
-                for c in 0..2 {
-                    lo[c] = lo[c].min(int_chart[[row, c]]);
-                    hi[c] = hi[c].max(int_chart[[row, c]]);
-                }
-            }
-            [hi[0] - lo[0], hi[1] - lo[1]]
-        };
-        panic!(
-            "DIAG2: pca_duchon_reml={pca_duchon_reml} pca_flat_reml={pca_flat_reml} int={int_lines} \
-             pca_duchon_insample_r2={} int_duchon_insample_r2={} int_chart_span={:?}",
-            recon_r2(&pca_duchon),
-            recon_r2(int_duchon),
-            int_chart_span
         );
     }
 
@@ -6562,16 +7226,19 @@ mod tests {
         // cos hθ, sin hθ}`, and `PeriodicHarmonicEvaluator::new` takes that (odd)
         // width, not the order.
         let circle_r2 = |h: usize| -> f64 {
-            let spec = TopologyCandidateSpec {
-                kind: AutoTopologyKind::Circle,
-                basis_kind: SaeAtomBasisKind::Periodic,
-                manifold: LatentManifold::Circle { period: 1.0 },
-                latent_dim: 1,
-                evaluator: Arc::new(
-                    PeriodicHarmonicEvaluator::new(2 * h + 1).expect("periodic evaluator"),
-                ),
-                coords: coords.clone(),
-            };
+            let spec = TopologyCandidateSpec::new(
+                AutoTopologyKind::Circle,
+                SaeAtomGeometryPlan::new(
+                    SaeAtomBasisKind::Periodic,
+                    1,
+                    SaeBasisResolution::PeriodicHarmonics { order: h },
+                    SaeReferenceMetricPlan::UnitCircle,
+                )
+                .unwrap(),
+                LatentManifold::Circle { period: 1.0 },
+                coords.clone(),
+            )
+            .unwrap();
             let fit = fit_topology_candidate(&spec, target.view(), weights.view())
                 .expect("candidate fit")
                 .fit_handle;
@@ -6653,17 +7320,22 @@ mod tests {
         // Reconstruction: the selected order recovers the whole signal while the
         // fixed order-3 default cannot touch the 5f half of the energy.
         let torus_r2 = |h: usize| -> f64 {
-            let spec = TopologyCandidateSpec {
-                kind: AutoTopologyKind::Torus,
-                basis_kind: SaeAtomBasisKind::Torus,
-                manifold: LatentManifold::Product(vec![
+            let spec = TopologyCandidateSpec::new(
+                AutoTopologyKind::Torus,
+                SaeAtomGeometryPlan::new(
+                    SaeAtomBasisKind::Torus,
+                    2,
+                    SaeBasisResolution::TorusHarmonics { per_axis_order: h },
+                    SaeReferenceMetricPlan::FlatRectangularTorus { tau: 0.0 },
+                )
+                .unwrap(),
+                LatentManifold::Product(vec![
                     LatentManifold::Circle { period: 1.0 },
                     LatentManifold::Circle { period: 1.0 },
                 ]),
-                latent_dim: 2,
-                evaluator: Arc::new(TorusHarmonicEvaluator::new(2, h).expect("torus evaluator")),
-                coords: coords.clone(),
-            };
+                coords.clone(),
+            )
+            .unwrap();
             let fit = fit_topology_candidate(&spec, target.view(), weights.view())
                 .expect("candidate fit")
                 .fit_handle;
@@ -7408,6 +8080,22 @@ mod tests {
     }
 
     #[test]
+    fn sphere_polar_factor_requires_identifiable_full_rank_alignment() {
+        let rank_deficient = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 0.0]];
+        assert!(nearest_orthogonal_3x3(rank_deficient).is_none());
+
+        let proper = [[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]];
+        let recovered = nearest_orthogonal_3x3(proper).unwrap();
+        for row in 0..3 {
+            for column in 0..3 {
+                assert!(
+                    (recovered[row][column] - proper[row][column]).abs() <= 16.0 * f64::EPSILON
+                );
+            }
+        }
+    }
+
+    #[test]
     fn closed_form_transition_uses_first_nonzero_harmonic_without_scanning() {
         let mut decoder_a = Array2::<f64>::zeros((5, 3));
         decoder_a[[3, 0]] = 2.0;
@@ -8095,19 +8783,20 @@ mod tests {
             .expect("line race has a realizable candidate");
 
         assert_eq!(
-            circle_fit.basis_kind,
-            SaeAtomBasisKind::Periodic,
+            circle_fit.geometry.kind(),
+            &SaeAtomBasisKind::Periodic,
             "a circular birth residual must win the circle (Periodic) topology"
         );
         assert_eq!(
-            line_fit.basis_kind,
-            SaeAtomBasisKind::EuclideanPatch,
+            line_fit.geometry.kind(),
+            &SaeAtomBasisKind::EuclideanPatch,
             "a straight birth residual must win the line (EuclideanPatch) topology"
         );
         // The crux: the two atoms get DIFFERENT topologies by evidence — the
         // dictionary is heterogeneous, not all-circle.
         assert_ne!(
-            circle_fit.basis_kind, line_fit.basis_kind,
+            circle_fit.geometry.kind(),
+            line_fit.geometry.kind(),
             "the discovery must assign DIFFERENT topologies to the circle and line \
              atoms (evidence-chosen, not inherited)"
         );
@@ -8138,21 +8827,21 @@ mod tests {
         let specs = topology_candidates_for_dim(coords.view(), 2).expect("d=2 candidates build");
         let has_cylinder = specs
             .iter()
-            .any(|s| s.basis_kind == SaeAtomBasisKind::Cylinder);
+            .any(|s| s.geometry.kind() == &SaeAtomBasisKind::Cylinder);
         assert!(
             has_cylinder,
             "the d=2 topology-race candidate set MUST include the Cylinder kind; got {:?}",
-            specs.iter().map(|s| &s.basis_kind).collect::<Vec<_>>()
+            specs.iter().map(|s| s.geometry.kind()).collect::<Vec<_>>()
         );
         let has_torus = specs
             .iter()
-            .any(|s| s.basis_kind == SaeAtomBasisKind::Torus);
+            .any(|s| s.geometry.kind() == &SaeAtomBasisKind::Torus);
         let has_sphere = specs
             .iter()
-            .any(|s| s.basis_kind == SaeAtomBasisKind::Sphere);
+            .any(|s| s.geometry.kind() == &SaeAtomBasisKind::Sphere);
         let has_patch = specs
             .iter()
-            .any(|s| s.basis_kind == SaeAtomBasisKind::EuclideanPatch);
+            .any(|s| s.geometry.kind() == &SaeAtomBasisKind::EuclideanPatch);
         assert!(
             has_torus && has_sphere && has_patch,
             "the d=2 race must be COMPLETE (torus + sphere + euclidean + cylinder)"
@@ -8177,11 +8866,11 @@ mod tests {
             .expect("cylinder race runs")
             .expect("cylinder race has a realizable candidate");
         assert_eq!(
-            cyl_fit.basis_kind,
-            SaeAtomBasisKind::Cylinder,
+            cyl_fit.geometry.kind(),
+            &SaeAtomBasisKind::Cylinder,
             "a cylindrical birth residual (periodic along one axis, linear along the \
              other) must win the Cylinder topology by evidence; got {:?}",
-            cyl_fit.basis_kind
+            cyl_fit.geometry.kind()
         );
     }
 
@@ -8533,7 +9222,7 @@ mod tests {
         let (term, rho) = shattered_plane_term(false);
         let residuals = residuals_of(&term);
         let cfg = CurlConfig::default();
-        let cands = curl_candidates(&term, residuals.view(), &cfg);
+        let cands = curl_candidates(&term, residuals.view(), &cfg).unwrap();
         assert!(
             !cands.is_empty(),
             "curl must recover the shattered circle (got no candidate)"
@@ -8553,14 +9242,34 @@ mod tests {
             "net evidence must favour the circle"
         );
 
+        // The typed seed is an atomic row-level contract. A truncated gate is
+        // schema corruption, not evidence that the omitted rows are absent.
+        let mut malformed_seed = cand.seed.clone();
+        let BirthSeed::Circle { gate, .. } = &mut malformed_seed else {
+            panic!("curl candidate must carry typed circle state");
+        };
+        gate.pop();
+        let malformed_error = apply_structure_move_seeded(
+            &term,
+            &rho,
+            &StructureMove::Birth { candidate: 0 },
+            &[malformed_seed],
+        )
+        .err()
+        .expect("a truncated circle gate must be rejected");
+        assert!(
+            malformed_error.contains("one entry per row"),
+            "unexpected truncated-gate error: {malformed_error}"
+        );
+
         // Born through the existing birth plumbing → a Periodic circle atom.
         let mv = StructureMove::Birth { candidate: 0 };
         let seeds = vec![cand.seed.clone()];
         let (born, _born_rho) = apply_structure_move_seeded(&term, &rho, &mv, &seeds).unwrap();
         let circle = born.k_atoms() - 1;
         assert_eq!(
-            born.atoms[circle].basis_kind,
-            SaeAtomBasisKind::Periodic,
+            born.atoms[circle].basis_kind(),
+            &SaeAtomBasisKind::Periodic,
             "curl births a Periodic (circle) atom"
         );
         // The born circle's own reconstruction traces the planted ring: every
@@ -8600,7 +9309,7 @@ mod tests {
         let (term, _rho) = shattered_plane_term(true);
         let residuals = residuals_of(&term);
         let cfg = CurlConfig::default();
-        let cands = curl_candidates(&term, residuals.view(), &cfg);
+        let cands = curl_candidates(&term, residuals.view(), &cfg).unwrap();
         assert!(
             cands.is_empty(),
             "a Gaussian-fill plane must not be curled (κ ≈ 2)"
@@ -8676,7 +9385,7 @@ mod tests {
     fn curl_killer_demo_planted_circle_wins_race() {
         let (term, _rho) = shattered_plane_term(false);
         let residuals = residuals_of(&term);
-        let cands = curl_candidates(&term, residuals.view(), &CurlConfig::default());
+        let cands = curl_candidates(&term, residuals.view(), &CurlConfig::default()).unwrap();
         assert!(
             !cands.is_empty(),
             "curl must recover the shattered circle before the race"
@@ -8749,7 +9458,7 @@ mod tests {
             "curl ON must certify exactly one circle Birth winner"
         );
         assert_eq!(
-            on.term.atoms.last().map(|a| &a.basis_kind),
+            on.term.atoms.last().map(|a| a.basis_kind()),
             Some(&SaeAtomBasisKind::Periodic),
             "the accepted curl winner must be the recovered circle atom"
         );
@@ -8761,7 +9470,7 @@ mod tests {
         let (gauss_term, _) = shattered_plane_term(true);
         let gauss_residuals = residuals_of(&gauss_term);
         let gauss_cands =
-            curl_candidates(&gauss_term, gauss_residuals.view(), &CurlConfig::default());
+            curl_candidates(&gauss_term, gauss_residuals.view(), &CurlConfig::default()).unwrap();
         assert!(
             gauss_cands.is_empty(),
             "a Gaussian-fill plane must not be curled"

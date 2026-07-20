@@ -83,7 +83,7 @@ pub fn build_term_collection_design_inner_with_policy(
     use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 
     let n = data.nrows();
-    let p_intercept = usize::from(!term_collection_has_one_sided_anchored_bspline(spec));
+    let p_intercept = usize::from(!term_collection_has_anchored_bspline(spec));
     let p_lin = spec.linear_terms.len();
 
     // Smooth construction, random-effect construction, and linear-column
@@ -155,7 +155,7 @@ pub fn build_term_collection_design_inner_with_policy(
         None => Vec::new(),
     };
 
-    let smooth = apply_global_smooth_identifiability(
+    let (smooth, affine_offset) = apply_global_smooth_identifiability(
         smooth_raw,
         data,
         &spec.linear_terms,
@@ -205,9 +205,10 @@ pub fn build_term_collection_design_inner_with_policy(
 
     let mut blocks = Vec::<DesignBlock>::new();
 
-    // Block 0: intercept — zero storage. A one-sided anchored B-spline consumes
-    // the absolute level at that endpoint, so a free intercept would violate
-    // the structural anchor.
+    // Block 0: intercept — zero storage. An anchored B-spline (one *or* two
+    // sided) consumes the absolute level at its pinned endpoint(s), so a free
+    // intercept would float the whole curve off the pin and violate the
+    // structural anchor.
     if p_intercept == 1 {
         blocks.push(DesignBlock::Intercept(n));
     }
@@ -285,13 +286,10 @@ pub fn build_term_collection_design_inner_with_policy(
         penaltyinfo.push(PenaltyBlockInfo {
             global_index,
             termname: Some(linear.name.clone()),
-            penalty: PenaltyInfo {
+            penalty: ActivePenaltyInfo {
                 source: PenaltySource::Other("LinearTermRidge".to_string()),
                 original_index: j,
-                active: true,
                 effective_rank: 1,
-                dropped_reason: None,
-                nullspace_dim_hint: 0,
                 normalization_scale: 1.0,
                 kronecker_factors: None,
             },
@@ -309,13 +307,10 @@ pub fn build_term_collection_design_inner_with_policy(
         penaltyinfo.push(PenaltyBlockInfo {
             global_index,
             termname: Some(name.clone()),
-            penalty: PenaltyInfo {
+            penalty: ActivePenaltyInfo {
                 source: PenaltySource::Other(format!("RandomEffectRidge({name})")),
                 original_index: re_idx,
-                active: true,
                 effective_rank: block_size,
-                dropped_reason: None,
-                nullspace_dim_hint: 0,
                 normalization_scale: 1.0,
                 kronecker_factors: None,
             },
@@ -354,12 +349,10 @@ pub fn build_term_collection_design_inner_with_policy(
         };
         penalties.push(bp);
         nullspace_dims.push(ns);
-        let mut penalty = localinfo.penalty.clone();
-        penalty.nullspace_dim_hint = ns;
         penaltyinfo.push(PenaltyBlockInfo {
             global_index,
             termname: localinfo.termname.clone(),
-            penalty,
+            penalty: localinfo.penalty.clone(),
         });
     }
     dropped_penaltyinfo.extend(smooth.dropped_penaltyinfo.iter().cloned());
@@ -419,6 +412,7 @@ pub fn build_term_collection_design_inner_with_policy(
 
     Ok(TermCollectionDesign {
         design,
+        affine_offset,
         penalties,
         nullspace_dims,
         penaltyinfo,
@@ -437,26 +431,61 @@ pub fn build_term_collection_design_inner_with_policy(
     })
 }
 
-pub fn term_collection_has_one_sided_anchored_bspline(spec: &TermCollectionSpec) -> bool {
+/// Whether any smooth term carries an anchored B-spline endpoint (one *or* two
+/// sided). Such a term fixes the function's absolute level through its endpoint
+/// pin, so it becomes the model's level gauge: the global intercept is
+/// suppressed and the term is not additionally sum-to-zero centered.
+pub fn term_collection_has_anchored_bspline(spec: &TermCollectionSpec) -> bool {
     spec.smooth_terms
         .iter()
-        .any(|term| smooth_basis_has_one_sided_anchored_bspline(&term.basis))
+        .any(|term| smooth_basis_has_anchored_bspline(&term.basis))
 }
 
-fn smooth_basis_has_one_sided_anchored_bspline(basis: &SmoothBasisSpec) -> bool {
+/// Whether any smooth term realizes an inhomogeneous endpoint anchor and thus
+/// contributes a fixed affine row offset.
+pub fn term_collection_has_nonzero_anchor(spec: &TermCollectionSpec) -> bool {
+    spec.smooth_terms
+        .iter()
+        .any(|term| smooth_basis_has_nonzero_anchor(&term.basis))
+}
+
+fn smooth_basis_has_nonzero_anchor(basis: &SmoothBasisSpec) -> bool {
+    match basis {
+        SmoothBasisSpec::ByVariable { inner, .. }
+        | SmoothBasisSpec::FactorSumToZero { inner, .. } => smooth_basis_has_nonzero_anchor(inner),
+        SmoothBasisSpec::BSpline1D { spec, .. } => spec.boundary_conditions.has_nonzero_anchor(),
+        SmoothBasisSpec::BySmooth { smooth, .. } => smooth_basis_has_nonzero_anchor(smooth),
+        SmoothBasisSpec::TensorBSpline { spec, .. } => spec
+            .marginalspecs
+            .iter()
+            .any(|marginal| marginal.boundary_conditions.has_nonzero_anchor()),
+        SmoothBasisSpec::FactorSmooth { spec } => {
+            spec.marginal.boundary_conditions.has_nonzero_anchor()
+        }
+        SmoothBasisSpec::ThinPlate { .. }
+        | SmoothBasisSpec::Sphere { .. }
+        | SmoothBasisSpec::ConstantCurvature { .. }
+        | SmoothBasisSpec::Matern { .. }
+        | SmoothBasisSpec::MeasureJet { .. }
+        | SmoothBasisSpec::Duchon { .. }
+        | SmoothBasisSpec::Pca { .. } => false,
+    }
+}
+
+fn smooth_basis_has_anchored_bspline(basis: &SmoothBasisSpec) -> bool {
     match basis {
         SmoothBasisSpec::ByVariable { inner, .. }
         | SmoothBasisSpec::FactorSumToZero { inner, .. } => {
-            smooth_basis_has_one_sided_anchored_bspline(inner)
+            smooth_basis_has_anchored_bspline(inner)
         }
         SmoothBasisSpec::BSpline1D { spec, .. } => {
-            bspline_conditions_have_one_sided_anchor(&spec.boundary_conditions)
+            bspline_conditions_have_anchor(&spec.boundary_conditions)
         }
         SmoothBasisSpec::BySmooth { smooth, .. } => {
-            smooth_basis_has_one_sided_anchored_bspline(smooth)
+            smooth_basis_has_anchored_bspline(smooth)
         }
         SmoothBasisSpec::TensorBSpline { spec, .. } => spec.marginalspecs.iter().any(|marginal| {
-            bspline_conditions_have_one_sided_anchor(&marginal.boundary_conditions)
+            bspline_conditions_have_anchor(&marginal.boundary_conditions)
         }),
         SmoothBasisSpec::FactorSmooth { .. }
         | SmoothBasisSpec::ThinPlate { .. }
@@ -469,10 +498,10 @@ fn smooth_basis_has_one_sided_anchored_bspline(basis: &SmoothBasisSpec) -> bool 
     }
 }
 
-fn bspline_conditions_have_one_sided_anchor(
+fn bspline_conditions_have_anchor(
     conditions: &crate::basis::BSplineBoundaryConditions,
 ) -> bool {
-    conditions.has_one_sided_anchor()
+    conditions.has_anchor()
 }
 
 pub fn build_term_collection_design(
@@ -505,10 +534,48 @@ pub fn build_term_collection_design_with_policy(
     build_term_collection_design_inner_with_policy(data, &planned_spec, policy)
 }
 
-/// Build the EXACT analytic average-derivative design `∂(design row)/∂x_c` of a
-/// term collection: the matrix `D` whose row `i` is `∂X[i,:]/∂x_{deriv_col}`,
-/// laid out column-for-column identically to `build_term_collection_design`, so
-/// `D · β = ∂m/∂x_{deriv_col}(x_i)` for the fitted coefficient vector `β` (#1120).
+/// Exact analytic derivative of an affine term-collection realization.
+#[derive(Debug, Clone)]
+pub struct TermCollectionDerivativeDesign {
+    /// `∂design(x)/∂x_c`, aligned column-for-column with the value design.
+    pub design: Array2<f64>,
+    /// `∂affine_offset(x)/∂x_c` on the same rows.
+    pub affine_offset: Array1<f64>,
+}
+
+impl TermCollectionDerivativeDesign {
+    /// Evaluate `∂affine_offset/∂x_c + (∂design/∂x_c) * beta`.
+    pub fn apply(&self, beta: ArrayView1<'_, f64>) -> Result<Array1<f64>, BasisError> {
+        if beta.len() != self.design.ncols() {
+            crate::bail_dim_basis!(
+                "term-collection derivative coefficient length {} does not match design width {}",
+                beta.len(),
+                self.design.ncols()
+            );
+        }
+        if self.affine_offset.len() != self.design.nrows() {
+            crate::bail_dim_basis!(
+                "term-collection derivative affine offset has {} rows but derivative design has {}",
+                self.affine_offset.len(),
+                self.design.nrows()
+            );
+        }
+        if beta.iter().any(|value| !value.is_finite())
+            || self.affine_offset.iter().any(|value| !value.is_finite())
+        {
+            crate::bail_invalid_basis!(
+                "term-collection derivative coefficients and affine offset must be finite"
+            );
+        }
+        Ok(self.design.dot(&beta.to_owned()) + &self.affine_offset)
+    }
+}
+
+/// Build the EXACT analytic average-derivative realization of a term
+/// collection: `D = ∂design/∂x_c` plus the distinct fixed channel
+/// `d = ∂affine_offset/∂x_c`. The two are laid out on the same rows as
+/// `build_term_collection_design`, so the fitted derivative is `d + D * beta`
+/// (#1120/#2297).
 ///
 /// This is a provably exact analytic derivative of the design, so the production
 /// path differentiates the model basis (a known analytic function) in closed form.
@@ -540,7 +607,7 @@ pub fn build_term_collection_derivative_design(
     data: ArrayView2<'_, f64>,
     spec: &TermCollectionSpec,
     deriv_col: usize,
-) -> Result<Array2<f64>, BasisError> {
+) -> Result<TermCollectionDerivativeDesign, BasisError> {
     if deriv_col >= data.ncols() {
         return Err(BasisError::InvalidInput(format!(
             "average-derivative column {deriv_col} out of range for data with {} columns",
@@ -555,6 +622,7 @@ pub fn build_term_collection_derivative_design(
     let n = data.nrows();
     let p_total = value.design.ncols();
     let mut d = Array2::<f64>::zeros((n, p_total));
+    let mut affine_derivative = Array1::<f64>::zeros(n);
 
     // Global layout: [intercept | linear | random_effects | smooth].
     let p_intercept = value.intercept_range.len();
@@ -593,7 +661,8 @@ pub fn build_term_collection_derivative_design(
             // Term does not involve the differentiated covariate ⇒ zero columns.
             continue;
         }
-        let block = smooth_term_first_derivative_block(data, termspec, term_value, deriv_col)?;
+        let (block, term_affine_derivative) =
+            smooth_term_first_derivative_block(data, termspec, term_value, deriv_col)?;
         let range = (term_value.coeff_range.start + smooth_start)
             ..(term_value.coeff_range.end + smooth_start);
         if block.ncols() != range.len() {
@@ -606,9 +675,22 @@ pub fn build_term_collection_derivative_design(
             )));
         }
         d.slice_mut(s![.., range]).assign(&block);
+        if let Some(term_offset) = term_affine_derivative {
+            if term_offset.len() != n {
+                return Err(BasisError::DimensionMismatch(format!(
+                    "average-derivative design: smooth term '{}' affine derivative has {} rows but the data has {n}",
+                    termspec.name,
+                    term_offset.len()
+                )));
+            }
+            affine_derivative += &term_offset;
+        }
     }
 
-    Ok(d)
+    Ok(TermCollectionDerivativeDesign {
+        design: d,
+        affine_offset: affine_derivative,
+    })
 }
 
 /// Analytic `∂/∂x_{deriv_col}` of a linear term's realized design column.
@@ -690,7 +772,7 @@ fn smooth_term_first_derivative_block(
     termspec: &SmoothTermSpec,
     term_value: &SmoothTerm,
     deriv_col: usize,
-) -> Result<Array2<f64>, BasisError> {
+) -> Result<(Array2<f64>, Option<Array1<f64>>), BasisError> {
     let feature_col = match &termspec.basis {
         SmoothBasisSpec::BSpline1D { feature_col, .. } => *feature_col,
         other => {
@@ -713,14 +795,21 @@ fn smooth_term_first_derivative_block(
         )));
     }
 
-    let (knots, degree, transform, periodic) = match &term_value.metadata {
+    let (knots, degree, transform, periodic, anchor_offset_coeffs) = match &term_value.metadata {
         BasisMetadata::BSpline1D {
             knots,
             degree,
             identifiability_transform,
             periodic,
+            anchor_offset_coeffs,
             ..
-        } => (knots, *degree, identifiability_transform.as_ref(), periodic),
+        } => (
+            knots,
+            *degree,
+            identifiability_transform.as_ref(),
+            periodic,
+            anchor_offset_coeffs.as_ref(),
+        ),
         other => {
             return Err(BasisError::InvalidInput(format!(
                 "analytic average-derivative design expected B-spline metadata for term '{}', \
@@ -752,9 +841,24 @@ fn smooth_term_first_derivative_block(
     )?;
     let deriv_basis = deriv_basis_arc.as_ref();
 
+    let affine_derivative = match anchor_offset_coeffs {
+        Some(beta_p) => {
+            if deriv_basis.ncols() != beta_p.len() {
+                return Err(BasisError::DimensionMismatch(format!(
+                    "B-spline term '{}': raw derivative basis has {} columns but the affine anchor lift has {} coefficients",
+                    termspec.name,
+                    deriv_basis.ncols(),
+                    beta_p.len()
+                )));
+            }
+            Some(deriv_basis.dot(beta_p))
+        }
+        None => None,
+    };
+
     // Push the basis derivative through the SAME frozen linear chart the value
-    // design used. (Additive offsets do not exist here: the chart is a pure
-    // linear reparameterization, so the chain rule passes it through unchanged.)
+    // design used. The fixed affine channel remains separate and is returned
+    // above, so neither channel is mistaken for a fitted coefficient.
     let block = match transform {
         Some(z) => {
             if deriv_basis.ncols() != z.nrows() {
@@ -770,7 +874,7 @@ fn smooth_term_first_derivative_block(
         }
         None => deriv_basis.to_owned(),
     };
-    Ok(block)
+    Ok((block, affine_derivative))
 }
 
 /// Short human-readable label for a smooth basis variant, used only in the
@@ -904,7 +1008,7 @@ fn apply_global_smooth_identifiability(
     data: ArrayView2<'_, f64>,
     linear_terms: &[LinearTermSpec],
     smoothspecs: &[SmoothTermSpec],
-) -> Result<SmoothDesign, BasisError> {
+) -> Result<(SmoothDesign, Array1<f64>), BasisError> {
     // Global smooth identifiability policy:
     //
     // 1. Any smooth that overlaps explicit linear terms is residualized against
@@ -924,13 +1028,35 @@ fn apply_global_smooth_identifiability(
     }
 
     if smooth.terms.is_empty() {
-        return Ok(smooth.into());
+        let RawSmoothDesign {
+            term_designs,
+            affine_offset,
+            penalties,
+            nullspace_dims,
+            penaltyinfo,
+            dropped_penaltyinfo,
+            terms,
+            coefficient_lower_bounds,
+            linear_constraints,
+        } = smooth;
+        return Ok((
+            SmoothDesign {
+                term_designs,
+                penalties,
+                nullspace_dims,
+                penaltyinfo,
+                dropped_penaltyinfo,
+                terms,
+                coefficient_lower_bounds,
+                linear_constraints,
+            },
+            affine_offset,
+        ));
     }
 
     let mut local_designs = vec![None; smooth.terms.len()];
-    let mut local_penalties = vec![Vec::<Array2<f64>>::new(); smooth.terms.len()];
-    let mut local_nullspaces = vec![Vec::<usize>::new(); smooth.terms.len()];
-    let mut local_penaltyinfo = vec![Vec::<PenaltyInfo>::new(); smooth.terms.len()];
+    let mut local_active_penalties = vec![Vec::<ActivePenalty>::new(); smooth.terms.len()];
+    let mut local_dropped_penalties = vec![Vec::<DroppedPenaltyInfo>::new(); smooth.terms.len()];
     let mut local_metadata = vec![None; smooth.terms.len()];
     let mut local_dims = vec![0usize; smooth.terms.len()];
     let mut local_linear_constraints = vec![None; smooth.terms.len()];
@@ -942,9 +1068,7 @@ fn apply_global_smooth_identifiability(
         ..
     } = analyze_smooth_ownership(smoothspecs);
 
-    use rayon::iter::{
-        IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
-    };
+    use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 
     for &idx in &ownership_order {
         let term = &smooth.terms[idx];
@@ -1095,46 +1219,34 @@ fn apply_global_smooth_identifiability(
             }
         }
 
-        let active_penaltyinfo = term
-            .penaltyinfo_local
-            .iter()
-            .filter(|info| info.active)
-            .cloned()
-            .collect::<Vec<_>>();
-        if active_penaltyinfo.len() != term.penalties_local.len() {
-            gam_problem::bail_invalid_basis!(
-                "internal penalty metadata mismatch for term '{}': activeinfos={}, penalties={}",
-                term.name,
-                active_penaltyinfo.len(),
-                term.penalties_local.len()
-            );
-        }
-        let penalties_constrained: Vec<Array2<f64>> = term
-            .penalties_local
+        let penalty_candidates = term
+            .active_penalties
             .par_iter()
-            .map(|s_local| {
-                if let Some(gauge) = coefficient_gauge.as_ref() {
-                    gauge.restrict_penalty(s_local)
+            .map(|penalty| -> Result<PenaltyCandidate, BasisError> {
+                let raw = ConstructiveQuadratic::try_from_dense_psd(
+                    penalty.matrix.clone(),
+                    "global smooth source penalty",
+                )?;
+                let restricted = if let Some(gauge) = coefficient_gauge.as_ref() {
+                    raw.restricted(gauge, "global smooth identifiability restriction")?
                 } else {
-                    s_local.clone()
-                }
-            })
-            .collect();
-        let penalty_candidates = penalties_constrained
-            .into_par_iter()
-            .zip(active_penaltyinfo.into_par_iter())
-            .map(|(matrix, info)| {
-                let (matrix, c_new) = normalize_penalty_in_constrained_space(&matrix);
-                PenaltyCandidate {
-                    nullspace_dim_hint: info.nullspace_dim_hint,
+                    raw
+                };
+                let (_, c_new) =
+                    normalize_penalty_in_constrained_space(restricted.dense());
+                let matrix = restricted.scaled(
+                    1.0 / c_new,
+                    "normalized global smooth penalty",
+                )?;
+                Ok(PenaltyCandidate {
                     matrix,
-                    source: info.source,
-                    normalization_scale: info.normalization_scale * c_new,
+                    source: penalty.info.source.clone(),
+                    normalization_scale: penalty.info.normalization_scale * c_new,
                     kronecker_factors: None,
                     op: None,
-                }
+                })
             })
-            .collect::<Vec<_>>();
+            .collect::<Result<Vec<_>, _>>()?;
         // #1476-class fix (central, basis-agnostic): when a non-trivial GLOBAL
         // identifiability/orthogonalization transform `z_opt` was applied above,
         // it congruence-restricts EVERY penalty — including a Marra & Wood double-
@@ -1184,16 +1296,19 @@ fn apply_global_smooth_identifiability(
             };
             // Snapshot each Primary's support + a clone of its matrix (immutable
             // borrow released before we mutate the ridges below).
-            let primaries: Vec<((usize, usize), Array2<f64>)> = penalty_candidates
+            let primaries: Vec<((usize, usize), ConstructiveQuadratic)> = penalty_candidates
                 .iter()
                 .filter(|c| matches!(c.source, PenaltySource::Primary))
-                .map(|c| {
-                    (
+                .map(|c| -> Result<_, BasisError> {
+                    Ok((
                         support_rows(&c.matrix),
-                        c.matrix.mapv(|value| value * c.normalization_scale),
-                    )
+                        c.matrix.scaled(
+                            c.normalization_scale,
+                            "physical global smooth primary",
+                        )?,
+                    ))
                 })
-                .collect();
+                .collect::<Result<Vec<_>, _>>()?;
             for candidate in &mut penalty_candidates {
                 if !matches!(candidate.source, PenaltySource::DoublePenaltyNullspace) {
                     continue;
@@ -1214,24 +1329,47 @@ fn apply_global_smooth_identifiability(
                         ))
                     })?;
                 let ((plo, phi), s_full) = owner;
-                // Rebuild from the physical Primary and ridge submatrices. The
-                // generalized `(S, S+R)` null solve preserves the function metric
-                // through this global congruence instead of replacing it by a
-                // coefficient-space projector.
-                let block = s_full.slice(s![*plo..*phi, *plo..*phi]).to_owned();
-                let ridge_full = candidate
-                    .matrix
-                    .mapv(|value| value * candidate.normalization_scale);
-                let ridge_block = ridge_full.slice(s![*plo..*phi, *plo..*phi]).to_owned();
+                // Rebuild from the physical Primary and ridge submatrices. Rank
+                // revelation on the Primary's retained energy factor preserves
+                // the structural null space through this global chart, while the
+                // restricted ridge supplies the function-metric action. No signed
+                // spectrum of a rounded dense congruence is classified (#2318).
+                let block = ConstructiveQuadratic::from_energy_factor(
+                    s_full.factor().slice(s![.., *plo..*phi]).to_owned(),
+                    "owned global smooth primary block",
+                )?;
+                let ridge_full = candidate.matrix.scaled(
+                    candidate.normalization_scale,
+                    "physical global smooth null ridge",
+                )?;
+                let ridge_block = ConstructiveQuadratic::from_energy_factor(
+                    ridge_full
+                        .factor()
+                        .slice(s![.., *plo..*phi])
+                        .to_owned(),
+                    "owned global smooth null-ridge block",
+                )?;
                 let rebuilt_block =
                     crate::basis::rebuild_metric_consistent_ridge(&block, &ridge_block)?;
                 match rebuilt_block {
                     Some(ridge_block) => {
-                        let mut full = Array2::<f64>::zeros((q, q));
-                        full.slice_mut(s![*plo..*phi, *plo..*phi])
-                            .assign(&ridge_block);
-                        let (matrix, scale) = normalize_penalty_in_constrained_space(&full);
-                        candidate.matrix = matrix;
+                        let mut full_factor = Array2::<f64>::zeros((
+                            ridge_block.factor().nrows(),
+                            q,
+                        ));
+                        full_factor
+                            .slice_mut(s![.., *plo..*phi])
+                            .assign(ridge_block.factor());
+                        let full = ConstructiveQuadratic::from_energy_factor(
+                            full_factor,
+                            "embedded global smooth null ridge",
+                        )?;
+                        let (_, scale) =
+                            normalize_penalty_in_constrained_space(full.dense());
+                        candidate.matrix = full.scaled(
+                            1.0 / scale,
+                            "normalized embedded global smooth null ridge",
+                        )?;
                         candidate.normalization_scale = scale;
                         candidate.kronecker_factors = None;
                         candidate.op = None;
@@ -1239,7 +1377,7 @@ fn apply_global_smooth_identifiability(
                     // Constrained bending block is full rank: no null space to
                     // shrink. Zero the ridge; the filter drops it.
                     None => {
-                        candidate.matrix = Array2::<f64>::zeros((q, q));
+                        candidate.matrix = ConstructiveQuadratic::zero(q);
                         candidate.normalization_scale = 1.0;
                         candidate.kronecker_factors = None;
                         candidate.op = None;
@@ -1247,8 +1385,7 @@ fn apply_global_smooth_identifiability(
                 }
             }
         }
-        let (penalties_constrained, nullspace_constrained, penaltyinfo_constrained) =
-            filter_active_penalty_candidates(penalty_candidates)?;
+        let filtered = filter_penalty_candidates(penalty_candidates)?;
         let linear_constraints_constrained =
             if let Some(lin_local) = term.linear_constraints_local.as_ref() {
                 if let Some(gauge) = coefficient_gauge.as_ref() {
@@ -1265,9 +1402,9 @@ fn apply_global_smooth_identifiability(
 
         local_dims[idx] = design_constrained.ncols();
         local_designs[idx] = Some(design_constrained);
-        local_penalties[idx] = penalties_constrained;
-        local_nullspaces[idx] = nullspace_constrained;
-        local_penaltyinfo[idx] = penaltyinfo_constrained;
+        local_active_penalties[idx] = filtered.active;
+        local_dropped_penalties[idx] = term.dropped_penalties.clone();
+        local_dropped_penalties[idx].extend(filtered.dropped);
         local_linear_constraints[idx] = linear_constraints_constrained;
         let realized_transform = match (term.joint_null_rotation.as_ref(), z_opt.as_ref()) {
             (Some(rotation), Some(z)) => {
@@ -1320,7 +1457,7 @@ fn apply_global_smooth_identifiability(
     let mut penalties_global = Vec::<BlockwisePenalty>::new();
     let mut nullspace_dims_global = Vec::<usize>::new();
     let mut penaltyinfo_global = Vec::<PenaltyBlockInfo>::new();
-    let mut dropped_penaltyinfo_global = smooth.dropped_penaltyinfo.clone();
+    let mut dropped_penaltyinfo_global = Vec::<DroppedPenaltyBlockInfo>::new();
     let mut coefficient_lower_bounds = Array1::<f64>::from_elem(total_p, f64::NEG_INFINITY);
     let mut any_bounds = false;
     let mut linear_constraintsrows: Vec<Array1<f64>> = Vec::new();
@@ -1331,35 +1468,20 @@ fn apply_global_smooth_identifiability(
         let p_local = local_dims[idx];
         let col_end = col_start + p_local;
 
-        let activeinfos = local_penaltyinfo[idx]
-            .iter()
-            .filter(|info| info.active)
-            .collect::<Vec<_>>();
-        if activeinfos.len() != local_penalties[idx].len() {
-            gam_problem::bail_invalid_basis!(
-                "internal penalty info mismatch for term '{}': activeinfos={}, penalties={}",
-                smooth.terms[idx].name,
-                activeinfos.len(),
-                local_penalties[idx].len()
-            );
-        }
-        for ((s_local, &ns), info) in local_penalties[idx]
-            .iter()
-            .zip(local_nullspaces[idx].iter())
-            .zip(activeinfos.into_iter())
-        {
+        for active_penalty in &local_active_penalties[idx] {
             let global_index = penalties_global.len();
-            penalties_global.push(BlockwisePenalty::new(col_start..col_end, s_local.clone()));
-            nullspace_dims_global.push(ns);
-            let mut penalty = info.clone();
-            penalty.nullspace_dim_hint = ns;
+            penalties_global.push(BlockwisePenalty::new(
+                col_start..col_end,
+                active_penalty.matrix.clone(),
+            ));
+            nullspace_dims_global.push(active_penalty.nullity);
             penaltyinfo_global.push(PenaltyBlockInfo {
                 global_index,
                 termname: Some(smooth.terms[idx].name.clone()),
-                penalty,
+                penalty: active_penalty.info.clone(),
             });
         }
-        for info in local_penaltyinfo[idx].iter().filter(|info| !info.active) {
+        for info in &local_dropped_penalties[idx] {
             dropped_penaltyinfo_global.push(DroppedPenaltyBlockInfo {
                 termname: Some(smooth.terms[idx].name.clone()),
                 penalty: info.clone(),
@@ -1370,9 +1492,8 @@ fn apply_global_smooth_identifiability(
             name: smooth.terms[idx].name.clone(),
             coeff_range: col_start..col_end,
             shape: smooth.terms[idx].shape,
-            penalties_local: local_penalties[idx].clone(),
-            nullspace_dims: local_nullspaces[idx].clone(),
-            penaltyinfo_local: local_penaltyinfo[idx].clone(),
+            active_penalties: local_active_penalties[idx].clone(),
+            dropped_penalties: local_dropped_penalties[idx].clone(),
             metadata: local_metadata[idx]
                 .clone()
                 .expect("local metadata must exist for every smooth term"),
@@ -1422,34 +1543,37 @@ fn apply_global_smooth_identifiability(
         "globally reparameterized smooth penalty metadata bookkeeping diverged"
     );
 
-    Ok(SmoothDesign {
-        term_designs: local_designs
-            .into_iter()
-            .map(|design| design.expect("local design must exist for every smooth term"))
-            .collect(),
-        penalties: penalties_global,
-        nullspace_dims: nullspace_dims_global,
-        penaltyinfo: penaltyinfo_global,
-        dropped_penaltyinfo: dropped_penaltyinfo_global,
-        terms: terms_out,
-        coefficient_lower_bounds: if any_bounds {
-            Some(coefficient_lower_bounds)
-        } else {
-            None
+    Ok((
+        SmoothDesign {
+            term_designs: local_designs
+                .into_iter()
+                .map(|design| design.expect("local design must exist for every smooth term"))
+                .collect(),
+            penalties: penalties_global,
+            nullspace_dims: nullspace_dims_global,
+            penaltyinfo: penaltyinfo_global,
+            dropped_penaltyinfo: dropped_penaltyinfo_global,
+            terms: terms_out,
+            coefficient_lower_bounds: if any_bounds {
+                Some(coefficient_lower_bounds)
+            } else {
+                None
+            },
+            linear_constraints: if linear_constraintsrows.is_empty() {
+                None
+            } else {
+                let mut a = Array2::<f64>::zeros((linear_constraintsrows.len(), total_p));
+                for (i, row) in linear_constraintsrows.iter().enumerate() {
+                    a.row_mut(i).assign(row);
+                }
+                Some(LinearInequalityConstraints {
+                    a,
+                    b: Array1::from_vec(linear_constraints_b),
+                })
+            },
         },
-        linear_constraints: if linear_constraintsrows.is_empty() {
-            None
-        } else {
-            let mut a = Array2::<f64>::zeros((linear_constraintsrows.len(), total_p));
-            for (i, row) in linear_constraintsrows.iter().enumerate() {
-                a.row_mut(i).assign(row);
-            }
-            Some(LinearInequalityConstraints {
-                a,
-                b: Array1::from_vec(linear_constraints_b),
-            })
-        },
-    })
+        smooth.affine_offset,
+    ))
 }
 
 /// If `termspec` is a single-level factor-by smooth (`s(x, by=fac)` expanded
@@ -1819,6 +1943,7 @@ fn with_identifiability_transform(
             periodic,
             degree,
             auto_shrink_note,
+            anchor_offset_coeffs,
         } => Ok(BasisMetadata::BSpline1D {
             knots: knots.clone(),
             periodic: *periodic,
@@ -1828,6 +1953,10 @@ fn with_identifiability_transform(
             )?,
             degree: *degree,
             auto_shrink_note: auto_shrink_note.clone(),
+            // The offset coefficients live in the raw-basis chart and are
+            // unaffected by an added constrained-chart identifiability
+            // transform; carry them through unchanged (#2297).
+            anchor_offset_coeffs: anchor_offset_coeffs.clone(),
         }),
         BasisMetadata::CubicRegression1D {
             knots,
@@ -1844,7 +1973,7 @@ fn with_identifiability_transform(
             length_scale,
             periodic,
             identifiability_transform,
-            input_scales,
+            input_scale,
             radial_reparam,
         } => Ok(BasisMetadata::ThinPlate {
             centers: centers.clone(),
@@ -1854,7 +1983,7 @@ fn with_identifiability_transform(
                 identifiability_transform.as_ref(),
                 transform,
             )?,
-            input_scales: input_scales.clone(),
+            input_scale: *input_scale,
             radial_reparam: radial_reparam.clone(),
         }),
         BasisMetadata::Sphere {
@@ -1891,7 +2020,7 @@ fn with_identifiability_transform(
         }),
         BasisMetadata::MeasureJet {
             centers,
-            input_scales,
+            input_scale,
             length_scale,
             eps_band,
             order_s,
@@ -1906,7 +2035,7 @@ fn with_identifiability_transform(
             sigma_coord,
         } => Ok(BasisMetadata::MeasureJet {
             centers: centers.clone(),
-            input_scales: input_scales.clone(),
+            input_scale: *input_scale,
             length_scale: *length_scale,
             eps_band: eps_band.clone(),
             order_s: *order_s,
@@ -1930,9 +2059,8 @@ fn with_identifiability_transform(
             nu,
             include_intercept,
             identifiability_transform,
-            input_scales,
+            input_scale,
             aniso_log_scales,
-            nullspace_shrinkage_survived,
         } => Ok(BasisMetadata::Matern {
             centers: centers.clone(),
             length_scale: *length_scale,
@@ -1943,9 +2071,8 @@ fn with_identifiability_transform(
                 identifiability_transform.as_ref(),
                 transform,
             )?,
-            input_scales: input_scales.clone(),
+            input_scale: *input_scale,
             aniso_log_scales: aniso_log_scales.clone(),
-            nullspace_shrinkage_survived: *nullspace_shrinkage_survived,
         }),
         BasisMetadata::Duchon {
             centers,
@@ -1954,7 +2081,7 @@ fn with_identifiability_transform(
             power,
             nullspace_order,
             identifiability_transform,
-            input_scales,
+            input_scale,
             aniso_log_scales,
             operator_collocation_points,
             radial_reparam,
@@ -1964,7 +2091,7 @@ fn with_identifiability_transform(
             periodic: periodic.clone(),
             power: *power,
             nullspace_order: *nullspace_order,
-            input_scales: input_scales.clone(),
+            input_scale: *input_scale,
             aniso_log_scales: aniso_log_scales.clone(),
             operator_collocation_points: operator_collocation_points.clone(),
             radial_reparam: radial_reparam.clone(),

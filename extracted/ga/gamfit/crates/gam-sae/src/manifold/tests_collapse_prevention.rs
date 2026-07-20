@@ -1384,9 +1384,26 @@ pub(crate) fn hybrid_collapse_is_load_bearing_and_dominates() {
     // residual `y_resp` equals its own mass-scaled contribution `a_k·γ_k`. The
     // common-evidence selector (#1202) scores both candidates against that
     // residual, so the target is required.
-    let target = term
+    // A PHYSICAL target: the term's curved reconstruction plus a tiny smooth
+    // residual, so the term does NOT reconstruct it to machine zero. This is
+    // REQUIRED for the hybrid split to run at all. `compute_hybrid_split_report`
+    // derives the rank-charge noise floor as `phi_hat = ||target - full||^2/(n*p)`;
+    // with `target == full` (the exact self-reconstruction this fixture used to
+    // pass) that floor is EXACTLY 0, at which `build_atom_candidates` cannot price
+    // the evidence and refuses every atom as `Unadjudicable` (#2362) -> an empty
+    // report. A real fit never reconstructs its target to zero. The perturbation
+    // is orders of magnitude below either atom's own contribution, so the
+    // straight-vs-curved discrimination below is unchanged; it only lifts phi_hat
+    // off the degenerate zero.
+    let full = term
         .try_fitted_for_rho(&rho)
         .expect("post-straighten curved reconstruction assembles");
+    let mut target = full.clone();
+    for i in 0..target.nrows() {
+        for j in 0..target.ncols() {
+            target[[i, j]] += 1.0e-3 * (0.7 * (i as f64 + 1.0) + 1.3 * (j as f64 + 1.0)).sin();
+        }
+    }
 
     // Compute and install the real hybrid-split report (closed-form, no outer
     // fit — sidesteps #1051).
@@ -1410,12 +1427,20 @@ pub(crate) fn hybrid_collapse_is_load_bearing_and_dominates() {
         "a straight atom must collapse at least one slot to the linear tail"
     );
 
-    // EV(curved) = 1 exactly, since the target IS the curved reconstruction.
-    let ev_curved = reconstruction_explained_variance(target.view(), target.view())
-        .expect("self-reconstruction EV defined");
+    // EV of the ALL-CURVED reconstruction against the physical target. The
+    // perturbation is tiny, so the curved fit still explains essentially all of
+    // the target — but not tautologically 1. (The prior `EV(target, target)`
+    // measured SELF-EV, which is 1 for any input and only looked meaningful when
+    // `target == full`.) The dominance floor below compares the COLLAPSED
+    // reconstruction against THIS curved baseline; because collapsing the
+    // straightened slot replaces its constant curve with the best straight line to
+    // the same residual, it can only match or beat the curved fit.
+    let ev_curved = reconstruction_explained_variance(target.view(), full.view())
+        .expect("curved-reconstruction EV defined");
     assert!(
-        (ev_curved - 1.0).abs() < 1e-12,
-        "target = curved fit ⇒ EV(curved) = 1; got {ev_curved}"
+        ev_curved > 0.99,
+        "the curved fit must explain essentially all of the barely-perturbed \
+         target; got {ev_curved}"
     );
 
     // The collapsed dictionary (straight slot decoded by its line) must
@@ -1584,9 +1609,26 @@ pub(crate) fn topk_reconstruction_composes_with_hybrid_collapse() {
             term.atoms[0].decoder_coefficients[[basis_row, out_col]] = 0.0;
         }
     }
-    let target = term
+    // A PHYSICAL target: the term's curved reconstruction plus a tiny smooth
+    // residual, so the term does NOT reconstruct it to machine zero. This is
+    // REQUIRED for the hybrid split to run at all. `compute_hybrid_split_report`
+    // derives the rank-charge noise floor as `phi_hat = ||target - full||^2/(n*p)`;
+    // with `target == full` (the exact self-reconstruction this fixture used to
+    // pass) that floor is EXACTLY 0, at which `build_atom_candidates` cannot price
+    // the evidence and refuses every atom as `Unadjudicable` (#2362) -> an empty
+    // report. A real fit never reconstructs its target to zero. The perturbation
+    // is orders of magnitude below either atom's own contribution, so the
+    // straight-vs-curved discrimination below is unchanged; it only lifts phi_hat
+    // off the degenerate zero.
+    let full = term
         .try_fitted_for_rho(&rho)
         .expect("post-straighten curved reconstruction assembles");
+    let mut target = full.clone();
+    for i in 0..target.nrows() {
+        for j in 0..target.ncols() {
+            target[[i, j]] += 1.0e-3 * (0.7 * (i as f64 + 1.0) + 1.3 * (j as f64 + 1.0)).sin();
+        }
+    }
     let report = term
         .compute_hybrid_split_report(&rho, Some(target.view()))
         .expect("hybrid split report computes")
@@ -1665,9 +1707,26 @@ pub(crate) fn oos_linear_images_drive_collapsed_reconstruction() {
             term.atoms[0].decoder_coefficients[[basis_row, out_col]] = 0.0;
         }
     }
-    let target = term
+    // A PHYSICAL target: the term's curved reconstruction plus a tiny smooth
+    // residual, so the term does NOT reconstruct it to machine zero. This is
+    // REQUIRED for the hybrid split to run at all. `compute_hybrid_split_report`
+    // derives the rank-charge noise floor as `phi_hat = ||target - full||^2/(n*p)`;
+    // with `target == full` (the exact self-reconstruction this fixture used to
+    // pass) that floor is EXACTLY 0, at which `build_atom_candidates` cannot price
+    // the evidence and refuses every atom as `Unadjudicable` (#2362) -> an empty
+    // report. A real fit never reconstructs its target to zero. The perturbation
+    // is orders of magnitude below either atom's own contribution, so the
+    // straight-vs-curved discrimination below is unchanged; it only lifts phi_hat
+    // off the degenerate zero.
+    let full = term
         .try_fitted_for_rho(&rho)
         .expect("curved reconstruction assembles");
+    let mut target = full.clone();
+    for i in 0..target.nrows() {
+        for j in 0..target.ncols() {
+            target[[i, j]] += 1.0e-3 * (0.7 * (i as f64 + 1.0) + 1.3 * (j as f64 + 1.0)).sin();
+        }
+    }
     let report = term
         .compute_hybrid_split_report(&rho, Some(target.view()))
         .expect("hybrid split report computes")
@@ -1795,6 +1854,35 @@ fn jeffreys_two_atom_term(n: usize, dec0: [f64; 3], dec1: [f64; 3]) -> SaeManifo
     SaeManifoldTerm::new(vec![atom0, atom1], assignment).unwrap()
 }
 
+/// The production separation barrier's SMOOTH spectral floor
+/// `m(λ) = ε·softplus((λ + ε)/ε)` ([`SaeManifoldTerm::barrier_spectral_m`]),
+/// restated here in closed form so the references below price the same object
+/// the production value does.
+///
+/// This floor — NOT the hard `m(λ) = λ + ε` these references used to hard-code —
+/// is applied to every eigenvalue of the component matrix `F`. The two agree only
+/// in the asymptotic regime `(λ + ε)/ε ≫ 1`, and this K=2 softmax fixture is far
+/// from it: two softmax gates over n = 48/64 rows give `N_eff ≈ 12/16`, hence
+/// `ε_C = 2·√(2/N_eff) ≈ 0.80/0.69`, so `(λ + ε)/ε` sits at ≈1–3 where softplus is
+/// still strongly curved. Pricing these fixtures with the hard floor overstated the
+/// barrier by ≈2.03× (n=48, o=0.98) and ≈1.85× (n=64, o=0.93) — the historical
+/// references predate the smooth floor and were never re-derived.
+///
+/// What stays independent is the part that actually tests the assembly: the
+/// component's `F = [[1, r], [r, 1]]` has eigenvalues `1 ± r` in CLOSED FORM, and
+/// `r = q·o`, `ε_C` are rebuilt here from the realized routing rather than read
+/// back from production. Only the scalar floor is a shared definition.
+fn barrier_spectral_m_reference(lam: f64, eps: f64) -> f64 {
+    let x = (lam + eps) / eps;
+    if x >= 30.0 {
+        lam + eps
+    } else if x <= -30.0 {
+        eps * x.exp()
+    } else {
+        eps * x.exp().ln_1p()
+    }
+}
+
 /// Independently reconstruct the two-atom Jeffreys value from the realized
 /// routing. Returns `(value, q, eps)`, where `q` is the coactivation cosine and
 /// `eps` is the sampling-resolution shift.
@@ -1811,7 +1899,12 @@ fn two_atom_jeffreys_reference(term: &SaeManifoldTerm, overlap: f64) -> (f64, f6
     let q = cross / (e0 * e1).sqrt();
     let eps = 2.0 * (2.0 / e0.min(e1)).sqrt();
     let r = q * overlap;
-    let value = -0.5 * ((1.0 + r + eps).ln() + (1.0 - r + eps).ln() - 2.0 * (1.0 + eps).ln());
+    // `F = [[1, r], [r, 1]]` ⇒ closed-form eigenvalues `1 ± r`; the production
+    // value is `−½·Σ_i [ln m(λ_i) − ln m(1)]` under the smooth spectral floor.
+    let value = -0.5
+        * (barrier_spectral_m_reference(1.0 + r, eps).ln()
+            + barrier_spectral_m_reference(1.0 - r, eps).ln()
+            - 2.0 * barrier_spectral_m_reference(1.0, eps).ln());
     (value, q, eps)
 }
 
@@ -1895,8 +1988,9 @@ fn jeffreys_total_information_factorization_is_sample_size_invariant() {
     let r = q * overlap;
     for sample_mass in [1.0_f64, 7.0, 1.0e3, 1.0e6] {
         let total_information_value = -0.5
-            * ((sample_mass * (1.0 + r + eps)).ln() + (sample_mass * (1.0 - r + eps)).ln()
-                - 2.0 * (sample_mass * (1.0 + eps)).ln());
+            * ((sample_mass * barrier_spectral_m_reference(1.0 + r, eps)).ln()
+                + (sample_mass * barrier_spectral_m_reference(1.0 - r, eps)).ln()
+                - 2.0 * (sample_mass * barrier_spectral_m_reference(1.0, eps)).ln());
         assert!(
             (total_information_value - production).abs() <= 2.0e-12,
             "the common s·log(N_eff) factor must cancel: N_eff={sample_mass:e}, \
@@ -1944,10 +2038,12 @@ fn unscaled_jeffreys_assembled_gradient_matches_penalized_objective_fd() {
     let mut base = term0.clone();
     base.refresh_decoder_repulsion_gate();
     base.refresh_barrier_coactivation_gate();
+    base.refresh_amplitude_barrier_gate(); // #2343 — third frozen per-assembly gate
     let base = base;
     let reinstall_frozen_gates = |t: &mut SaeManifoldTerm| {
         t.decoder_repulsion_gate = base.decoder_repulsion_gate.clone();
         t.barrier_coactivation_gate = base.barrier_coactivation_gate.clone();
+        t.amplitude_barrier_gate = base.amplitude_barrier_gate;
     };
 
     // The barrier must be live, otherwise the seam check would be vacuous.
@@ -2003,5 +2099,125 @@ fn unscaled_jeffreys_assembled_gradient_matches_penalized_objective_fd() {
         "assembled gb must be the exact gradient of the line-search objective \
          (unscaled Jeffreys barrier included on both sides): worst rel err \
          {worst_rel:.3e} at beta index {worst_idx}"
+    );
+}
+
+/// #2343 — IN-SITU acceptance: at the decoder-collapse point the interior
+/// AMPLITUDE barrier is the sole meaningful radial (amplitude) force, and the
+/// decoder repulsion is inert against it. Two clauses pin the root cause:
+///
+///  (1) the repulsion's OWN in-situ radial force — measured through the exact
+///      assembled penalty (`live_decoder_repulsion_penalty`, frozen gate + LIVE
+///      norms) — is negligible relative to the amplitude barrier. With the
+///      normalizer live the coherence is homogeneous degree 0 in each decoder
+///      radius, so its radial gradient vanishes by Euler's theorem
+///      (`Σ_{a,o} B·∂P/∂B ≡ 0`); the pre-fix FROZEN normalizer instead left the
+///      term degree 2 in the live radius with a stale `1/‖B‖⁴` amplification that
+///      produced a `+2.57e7` INWARD radial force — `5×` the barrier's outward one.
+///
+///  (2) the NET radial β-gradient of the collapsing atom therefore equals the
+///      barrier's ANALYTIC `∂P_A/∂B = g_coef·B` (the only term that prices
+///      amplitude) to within the small common-mode residual of the other live
+///      terms (data-fit / separation), `~1e-8` relative here.
+///
+/// Scale note: being INSIDE the barrier's turn-on radius forces `u = ‖B‖²_F ≲ f =
+/// 1e-12·max_k‖B_k‖²_F`, i.e. `u ~ 1e-13`. In that regime the exact Euler
+/// cancellation `E − (E/N)·N` is amplified by `κ ∝ 1/N ~ 1e15`, so finite double
+/// precision caps the repulsion's residual radial force at `~1e-7` ABSOLUTE — still
+/// `~1e-14` of the barrier (`~2e7`) and physically inert. The MACHINE-precision
+/// degree-0 property at O(1) decoder scale is pinned separately by the green
+/// `decoder_incoherence_repulsion_is_radially_free_euler` gam-terms unit test; the
+/// in-situ bounds below are relative to the barrier, the scale-invariant quantity
+/// the pre-fix bug violated (repulsion/barrier `~5`, wrong sign).
+#[test]
+fn repulsion_is_radially_inert_net_radial_is_analytic_barrier_2343() {
+    use gam_terms::analytic_penalties::AnalyticPenalty;
+
+    let (term0, target0, _rho) = small_two_atom_periodic_term();
+    let mut term = term0.clone();
+    let p = term.output_dim();
+
+    // Atom 1's decoder = ε · atom 0's decoder: EXACTLY collinear (output-Gram
+    // cosine² = 1, the maximal-coherence worst case for a radial leak) and deep
+    // inside the amplitude barrier's turn-on radius (‖B_1‖²_F ≪ f).
+    let eps = 1.0e-7_f64;
+    let b0 = term.atoms[0].decoder_coefficients.clone();
+    term.atoms[1].decoder_coefficients = &b0 * eps;
+
+    // Zero target so the data-fit gradient on the ≈0 decoder is itself O(ε): the
+    // dominant radial force on atom 1's block is the collapse-prevention stack.
+    let target = Array2::<f64>::zeros(target0.raw_dim());
+    let rho = SaeManifoldRho::new((1.0e-4_f64).ln(), (1.0e-4_f64).ln(), vec![array![0.0], array![0.0]]);
+    let sys = term
+        .assemble_arrow_schur(target.view(), &rho, None)
+        .expect("assembly must succeed at the collapse point");
+
+    // The repulsion must actually be live on this pair, or both clauses are
+    // vacuous (this is exactly the configuration the pre-fix inward force hit).
+    let gate = term
+        .decoder_repulsion_gate
+        .clone()
+        .expect("#2343: the decoder repulsion gate must be ENGAGED on the collinear pair");
+    assert!(
+        gate.iter().any(|&(j, k, w)| (j, k) == (0, 1) && w > 0.0),
+        "#2343: pair (0,1) must carry positive repulsion weight; gate = {gate:?}"
+    );
+
+    let offsets = term.beta_offsets();
+    let off1 = offsets[1];
+    let b1 = term.atoms[1].decoder_coefficients.clone();
+    let u: f64 = b1.iter().map(|v| v * v).sum();
+    let s = u.sqrt();
+    assert!(s > 0.0, "collapsing atom must retain a radial direction");
+    assert_eq!(b1.ncols(), p, "decoder block must be M×p_out");
+    let dir: Vec<f64> = b1.iter().map(|v| v / s).collect();
+
+    // Analytic amplitude barrier at the SAME frozen turn-on radius — the scale
+    // both clauses measure against (it is what prices amplitude here).
+    let norm_sq: Vec<f64> = term
+        .atoms
+        .iter()
+        .map(|atom| atom.decoder_coefficients.iter().map(|v| v * v).sum::<f64>())
+        .collect();
+    let f = SaeManifoldTerm::barrier_norm_floor_sq(&norm_sq);
+    let mu = SAE_AMPLITUDE_BARRIER_STRENGTH;
+    assert!(u < f, "atom 1 must sit inside the barrier turn-on radius: u={u:e} f={f:e}");
+    let g_coef = -2.0 * mu * f / (u * (u + f));
+    let expected = g_coef * s; // barrier radial force (outward, < 0)
+    assert!(expected < 0.0, "barrier radial force must be outward");
+
+    // ---- Clause (1): the repulsion's own in-situ radial force ≪ barrier. ----
+    let rep = term
+        .live_decoder_repulsion_penalty()
+        .expect("#2343: live repulsion penalty must exist when the gate is engaged");
+    let beta = term.flatten_beta();
+    let rep_grad = rep.grad_target(beta.view(), Array1::<f64>::zeros(0).view());
+    let rep_radial: f64 = (0..b1.len()).map(|i| rep_grad[off1 + i] * dir[i]).sum();
+    let rep_rel = rep_radial.abs() / expected.abs();
+    assert!(
+        rep_rel <= 1.0e-9,
+        "#2343 clause (1): the live-normalized repulsion must be radially INERT — its \
+         own in-situ radial β-gradient on the collapsing atom must be negligible \
+         against the amplitude barrier (degree-0 homogeneity, Euler). Got \
+         {rep_radial:.3e} vs barrier {expected:.3e} (relative {rep_rel:e}); the pre-fix \
+         frozen normalizer made this +2.57e7, i.e. ~5× the barrier."
+    );
+
+    // ---- Clause (2): the NET radial equals the analytic amplitude barrier. ----
+    let radial: f64 = (0..b1.len()).map(|i| sys.gb[off1 + i] * dir[i]).sum();
+    assert!(
+        radial < 0.0,
+        "#2343 clause (2): the net radial force must be OUTWARD (negative): \
+         radial={radial:e} expected={expected:e}"
+    );
+    let rel = (radial - expected).abs() / expected.abs();
+    assert!(
+        rel <= 1.0e-6,
+        "#2343 clause (2): with the repulsion radially inert (clause 1), the net radial \
+         β-gradient must equal the amplitude barrier's analytic g_coef·‖B_1‖ alone, to \
+         within the ~1e-8 common-mode residual of the other live terms (data-fit / \
+         separation): measured {radial:.12e} vs analytic {expected:.12e} (relative gap \
+         {rel:e}). The pre-fix frozen-normalizer repulsion flipped this to +2.07e7 \
+         (INWARD) — an O(1) sign change, far above this bound."
     );
 }

@@ -4,22 +4,24 @@ use crate::custom_family::{
     CustomFamily, CustomFamilyWarmStart, EvalMode, ExactNewtonJointGradientEvaluation,
     ExactNewtonJointHessianWorkspace, FamilyEvaluation, FamilyLinearizationState,
     ParameterBlockSpec, ParameterBlockState, PenaltyMatrix, custom_family_outer_derivatives,
-    evaluate_custom_family_joint_hyper_efs_shared, evaluate_custom_family_joint_hyper_shared,
-    fit_custom_family, joint_hyper_options_for_outer_tolerance,
+    evaluate_custom_family_joint_hyper_efs_owned_shared,
+    evaluate_custom_family_joint_hyper_owned_shared, fit_custom_family,
+    fit_custom_family_fixed_log_lambdas_from_owned_mode,
+    joint_hyper_options_for_outer_tolerance,
 };
 use crate::fit_orchestration::drivers::{
-    ExactJointHyperSetup, apply_spatial_anisotropy_pilot_initializer,
-    build_term_collection_designs_and_freeze_joint, optimize_spatial_length_scale_exact_joint,
-    spatial_length_scale_term_indices,
+    ExactJointEfsEvaluation, ExactJointEvaluation, ExactJointHyperSetup, SpatialFitProvenance,
+    apply_spatial_anisotropy_pilot_initializer, build_term_collection_designs_and_freeze_joint,
+    optimize_spatial_length_scale_exact_joint, spatial_length_scale_term_indices,
 };
 use crate::marginal_slope_shared::{
-    CoeffSupport, DirectionalScaleJets, ObservedDenestedCellPartials, SparsePrimaryCoeffJetView,
-    add_optional_matrix, add_optional_vector, add_two_surface_psi_outer,
+    CoeffSupport, ObservedDenestedCellPartials, SparsePrimaryCoeffJetView, add_optional_matrix,
+    add_optional_vector, add_two_surface_psi_outer,
     build_denested_partition_cells as shared_denested_partition_cells, chunked_row_reduction,
-    directional_obj_grad_hess, eval_coeff4_at, is_sigma_aux_index as shared_is_sigma_aux_index,
+    eval_coeff4_at, first_parameter_directional_order2_terms, first_parameter_order2_terms,
     observed_denested_cell_partials as shared_observed_denested_cell_partials, outer_row_indices,
     outer_weighted_rows, parameter_block_specs_match_rows, probit_frailty_scale,
-    probit_frailty_scale_multi_dir_jet, psi_derivative_location, scale_coeff4,
+    psi_derivative_location, scale_coeff4, second_parameter_order2_terms,
 };
 use crate::model_types::UnifiedFitResult;
 use crate::outer_subsample::WeightedOuterRow;
@@ -32,11 +34,13 @@ use crate::row_kernel::{
     RowKernel, RowKernelHessianWorkspace, build_row_kernel_cache, row_kernel_gradient,
     row_kernel_hessian_dense, row_kernel_log_likelihood,
 };
-use crate::spatial_psi_bridge::build_block_spatial_psi_derivatives;
-use crate::survival::lognormal_kernel::FrailtySpec;
+use crate::spatial_psi_bridge::{
+    CoefficientSpatialPsiBlockTransform, build_block_spatial_psi_derivatives,
+    build_block_spatial_psi_derivatives_with_transform,
+};
+use crate::survival::lognormal_kernel::{FrailtyScale, FrailtySpec};
 use crate::wiggle::initializewiggle_knots_from_seed;
 use gam_linalg::matrix::{DesignMatrix, SymmetricMatrix};
-use gam_math::jet_partitions::MultiDirJet;
 use gam_problem::{
     ExactNewtonJointPsiSecondOrderTerms, ExactNewtonJointPsiTerms, ExactNewtonJointPsiWorkspace,
     HyperOperator, InverseLink, StandardLink, WigglePenaltyConfig,
@@ -55,8 +59,18 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 
+mod alo_replay;
 pub mod deviation_runtime;
 pub mod gpu;
+pub(crate) use alo_replay::exact_runtime_from_saved;
+pub use alo_replay::{
+    BernoulliMarginalSlopeAloRowGeometry, BernoulliMarginalSlopeAloRowInput,
+    BernoulliMarginalSlopeSavedAloReplay, BernoulliMarginalSlopeSavedAloRowGeometry,
+    bernoulli_marginal_slope_alo_row_geometry,
+};
+pub(crate) use alo_replay::{
+    BernoulliMarginalSlopeSavedAloReplayInput, replay_saved_bernoulli_marginal_slope_alo,
+};
 pub use deviation_runtime::DeviationRuntime;
 pub use deviation_runtime::ParametricAnchorBlock;
 
@@ -1142,7 +1156,7 @@ impl LatentZConditionalCalibration {
     /// `solved_fit.beta_covariance()` lives in). With `score_β,i = ∂ℓ_i/∂β`,
     /// `s_i = ∂²ℓ_i/∂β∂ζ_i = J_iᵀ·(∂²ℓ_i/∂η_i∂ζ_i)` is the mixed `(β, ζ)`
     /// second derivative of the warped row kernel contracted through the slope
-    /// design Jacobian `J_i` — exactly the #932 RowNllProgram/Tower4 z-jet
+    /// design Jacobian `J_i` — exactly the #932 `RowProgram` z-jet
     /// channel (`z` is already a row-program input; one extra mixed `(β, z)` jet
     /// channel reads off `∂²ℓ/∂β∂z`). It must be evaluated at the converged `β̂`
     /// in the SAME reduced frame as `vb`.
@@ -1364,9 +1378,7 @@ pub(crate) fn weighted_ridge_sandwich_cov(
         }
     }
     let m_pinv = gam_linalg::utils::rank_certified_psd_pseudoinverse(&m_scaled, 1.0e-10)
-        .map_err(|e| {
-            format!("conditional latent calibration sandwich pseudo-inverse failed: {e}")
-        })?
+        .map_err(|e| format!("conditional latent calibration sandwich pseudo-inverse failed: {e}"))?
         .into_pseudoinverse();
     let mut cov = m_pinv.dot(&meat_scaled).dot(&m_pinv);
     // Undo the symmetric scaling: cov_raw = D⁻¹ cov_scaled D⁻¹.
@@ -2140,6 +2152,7 @@ pub(super) const BERNOULLI_MARGSLOPE_LINE_SEARCH_EARLY_EXIT_CHUNK_ROWS: usize = 
 pub(crate) mod block_specs;
 pub(crate) mod exact_eval_cache;
 pub(crate) mod family;
+pub(crate) mod flex_row_program;
 pub(crate) mod gradient_paths;
 pub(crate) mod hessian_paths;
 pub(crate) mod install_flex;
@@ -2179,8 +2192,9 @@ pub(crate) mod cell_moment_assembly;
 #[cfg(test)]
 mod test_support;
 // #932 INDEPENDENT adversarial verifier (bms-flex-verify): a high-order
-// finite-difference oracle on the production hand path
-// `compute_row_analytic_flex_from_parts_into` + a moving-edge Leibniz
+// finite-difference oracle on the production compiled lowering
+// `lower_bms_flex_row_order2_from_parts` of the canonical BMS FLEX program,
+// plus a moving-edge Leibniz
 // cross-check + a planted-corruption tripwire. Bare `#[cfg(test)] mod` with the
 // allowed `*_tests` name so the build.rs ban-scanner exempts it; owned solely by
 // the verifier (never edits the implementer's row_primary_hessian /
@@ -2212,6 +2226,7 @@ pub(crate) use family::{
     build_link_deviation_block_from_knots_design_seed_and_weights,
     build_score_warp_deviation_block_from_seed,
 };
+pub(crate) use gradient_paths::MarginalSlopeCovarianceRef;
 pub(crate) use gradient_paths::signed_probit_neglog_unary_stack;
 pub(crate) use gradient_paths::standardize_latent_z_with_policy;
 pub(crate) use gradient_paths::{

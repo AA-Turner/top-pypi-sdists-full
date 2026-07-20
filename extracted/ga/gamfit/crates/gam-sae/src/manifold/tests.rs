@@ -419,36 +419,21 @@ pub(crate) fn circle_certificate_fixture(
 
 #[test]
 pub(crate) fn dictionary_incoherence_report_orthogonal_frames_has_zero_mu_hat() {
-    let term = circle_certificate_fixture(2.0, &[(0, 1), (2, 3)]);
+    let term = circle_certificate_fixture(4.0, &[(0, 1), (2, 3)]);
     let report = dictionary_incoherence_report(&term).unwrap();
     assert_abs_diff_eq!(report.mu_hat, 0.0, epsilon = 1.0e-12);
     assert_eq!(report.per_atom_kappa_hat.len(), 2);
-    // The report carries a verdict (no longer a "not implemented" caveat).
-    // The verdict is consistent with the threshold function evaluated on the
-    // report's own quantities — the report does not fabricate a verdict.
-    let kappa_max = report
-        .per_atom_kappa_hat
-        .iter()
-        .copied()
-        .fold(0.0_f64, f64::max);
-    let recomputed = curved_dictionary_global_optimality_verdict(
-        report.mu_hat,
-        kappa_max,
-        report.peak_activity_floor,
-        report.snr_proxy,
-        report.per_atom_kappa_hat.len(),
+    assert!(
+        report.snr_proxy > 1.0,
+        "fixture must cross the certificate SNR gate; got {}",
+        report.snr_proxy
     );
-    assert_eq!(report.global_optimality, recomputed);
-    // μ̂ = 0 (orthogonal frames) ⇒ when the preconditions hold (κ̂ < 1,
-    // SNR > 1) the certificate certifies, since the budget is positive and
-    // μ̂ cannot exceed it. κ̂ = 1/radius = 0.5 < 1 here, so the only gate is
-    // SNR; assert certification whenever SNR clears the noise floor.
-    if report.snr_proxy > 1.0 {
-        assert!(
-            report.global_optimality.is_certified(),
-            "μ̂=0, κ̂=0.5<1, SNR>1 ⇒ must certify; got {}",
+    match report.global_optimality {
+        GlobalOptimalityVerdict::CertifiedGlobal { margin } => assert!(margin > 0.0),
+        GlobalOptimalityVerdict::Uncertified { margin } => panic!(
+            "orthogonal frames with κ̂=0.25 and SNR>1 must certify; margin={margin}, note={}",
             report.note
-        );
+        ),
     }
 }
 
@@ -634,6 +619,44 @@ pub(crate) fn ard_axis_prior_value_grad_fd_consistent() {
             assert_abs_diff_eq!(p.hess, fd_hess, epsilon = 1.0e-5);
         }
     }
+}
+
+/// Prior energy and line-search increments must remain resolved below the
+/// `sqrt(EPSILON)` scale. This is the regime where subtracting endpoint energies
+/// falsely turns a nonzero Newton decrease into zero.
+#[test]
+pub(crate) fn ard_axis_prior_tiny_energy_and_increment_are_resolved() {
+    let alpha = 1.7_f64;
+    let tiny = 1.0e-12;
+    let periodic = ArdAxisPrior::eval(alpha, tiny, Some(std::f64::consts::TAU));
+    let quadratic_limit = 0.5 * alpha * tiny * tiny;
+    assert!(
+        periodic.value > 0.0,
+        "nonzero periodic energy must not round to zero"
+    );
+    assert!(
+        (periodic.value - quadratic_limit).abs() <= 1.0e-15 * quadratic_limit,
+        "tiny periodic energy must retain its quadratic limit"
+    );
+
+    for &period in &[None, Some(std::f64::consts::TAU)] {
+        let from = 0.7_f64;
+        let to = from + tiny;
+        let delta = ArdAxisPrior::value_delta(alpha, from, to, period);
+        let first_order = ArdAxisPrior::eval(alpha, from, period).grad * (to - from);
+        assert!(delta.is_finite() && delta > 0.0);
+        assert!(
+            (delta - first_order).abs() <= 2.0e-12 * first_order.abs(),
+            "stable prior increment {delta:.17e} must agree with its local derivative {first_order:.17e}"
+        );
+    }
+
+    let period = 1.0_f64;
+    let across_cut = ArdAxisPrior::value_delta(alpha, period - tiny, tiny, Some(period));
+    assert!(
+        across_cut.abs() <= 1.0e-4 * alpha * tiny * tiny,
+        "equivalent points across the periodic cut must have the same energy"
+    );
 }
 
 /// The manifold → per-axis periodicity map must classify every topology's
@@ -1281,6 +1304,87 @@ pub(crate) fn compact_layout_riemannian_geometry_matches_dense_on_full_support()
     assert!(
         any_curvature,
         "assembled compact htt is all-zero — the test data did not exercise curvature"
+    );
+}
+
+/// #2295 — a compact mixed-dimensional row must preserve every ambient axis.
+/// `LatentManifold::Euclidean` is `R^d` at the coordinate-block boundary but a
+/// scalar factor inside `Product`; storing one `Euclidean` child for this plane
+/// used to make the product one axis too short and panic in every projection,
+/// retraction, and Riemannian-Hessian operation after the preceding Circle.
+#[test]
+pub(crate) fn compact_mixed_dimensional_manifold_expands_euclidean_axes_2295() {
+    let circle_coords = array![[0.12_f64], [0.63]];
+    let (circle_phi, circle_jet) = periodic_basis(&circle_coords);
+    let circle_atom = SaeManifoldAtom::new_with_provided_function_gram(
+        "circle",
+        SaeAtomBasisKind::Periodic,
+        1,
+        circle_phi,
+        circle_jet,
+        Array2::<f64>::zeros((3, 2)),
+        Array2::<f64>::eye(3),
+    )
+    .unwrap()
+    .with_basis_evaluator(Arc::new(TestPeriodicEvaluator));
+
+    let plane_coords = array![[0.2_f64, -0.4], [0.7, 0.1]];
+    let plane_evaluator = Arc::new(EuclideanPatchEvaluator::new(2, 1).unwrap());
+    let (plane_phi, plane_jet) = plane_evaluator.evaluate(plane_coords.view()).unwrap();
+    let plane_atom = SaeManifoldAtom::new_with_provided_function_gram(
+        "plane",
+        SaeAtomBasisKind::EuclideanPatch,
+        2,
+        plane_phi,
+        plane_jet,
+        Array2::<f64>::zeros((3, 2)),
+        Array2::<f64>::eye(3),
+    )
+    .unwrap()
+    .with_basis_evaluator(plane_evaluator);
+
+    let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
+        Array2::<f64>::zeros((2, 2)),
+        vec![circle_coords, plane_coords],
+        vec![
+            LatentManifold::Circle { period: 1.0 },
+            LatentManifold::Euclidean,
+        ],
+        AssignmentMode::top_k_support(2),
+    )
+    .unwrap();
+    let term = SaeManifoldTerm::new(vec![circle_atom, plane_atom], assignment).unwrap();
+    let assignments = vec![array![1.0_f64, 1.0], array![1.0, 1.0]];
+    let layout =
+        SaeRowLayout::from_topk_gates(&assignments, 2, vec![1, 2], term.assignment.coord_offsets())
+            .unwrap();
+
+    let (manifold, point) = term.compact_row_ext_manifold_and_point(0, &layout);
+    assert_eq!(point.len(), 3);
+    assert_eq!(manifold.ambient_dim(point.len()), point.len());
+
+    let gradient = array![0.3_f64, -0.2, 0.5];
+    let velocity = array![0.04_f64, -0.03, 0.02];
+    let euclidean_hessian = array![[2.0_f64, 0.1, 0.0], [0.1, 1.5, -0.2], [0.0, -0.2, 1.0]];
+    assert_eq!(manifold.project_point(point.view()).len(), 3);
+    assert_eq!(
+        manifold
+            .project_gradient_to_tangent(point.view(), gradient.view())
+            .len(),
+        3
+    );
+    assert_eq!(
+        manifold
+            .project_vector_to_gradient_tangent(point.view(), gradient.view(), velocity.view(),)
+            .len(),
+        3
+    );
+    assert_eq!(manifold.retract(point.view(), velocity.view()).len(), 3);
+    assert_eq!(
+        manifold
+            .riemannian_hessian_matrix(point.view(), gradient.view(), euclidean_hessian.view())
+            .dim(),
+        (3, 3)
     );
 }
 
@@ -1991,10 +2095,12 @@ pub(crate) fn per_fit_config_isolates_barrier_and_ordered_beta_bernoulli_alpha()
     term_a.set_fit_config(SaeFitConfig {
         separation_barrier_strength_override: Some(0.1),
         ordered_beta_bernoulli_alpha_override: Some(0.2),
+        gpu_policy: gam_gpu::GpuPolicy::Off,
     });
     term_b.set_fit_config(SaeFitConfig {
         separation_barrier_strength_override: Some(3.0),
         ordered_beta_bernoulli_alpha_override: Some(5.0),
+        gpu_policy: gam_gpu::GpuPolicy::Required,
     });
 
     // Round-trips through the config accessor.
@@ -2006,9 +2112,13 @@ pub(crate) fn per_fit_config_isolates_barrier_and_ordered_beta_bernoulli_alpha()
         term_b.fit_config().separation_barrier_strength_override,
         Some(3.0)
     );
+    assert_eq!(term_a.fit_config().gpu_policy, gam_gpu::GpuPolicy::Off);
+    assert_eq!(term_b.fit_config().gpu_policy, gam_gpu::GpuPolicy::Required);
 
-    // ordered Beta--Bernoulli-α: the per-fit override is the resolved α (bypassing the mode schedule),
-    // and the two terms resolve different α values.
+    // ordered Beta--Bernoulli-α: the per-fit override is the resolved α
+    // (bypassing the mode schedule), and the two terms resolve different α
+    // values.  α parameterizes the prior used by the fit; it does not rewrite
+    // an already-materialized assignment matrix.
     assert_eq!(
         term_a
             .assignment
@@ -2020,17 +2130,6 @@ pub(crate) fn per_fit_config_isolates_barrier_and_ordered_beta_bernoulli_alpha()
             .assignment
             .resolved_ordered_beta_bernoulli_alpha(&rho_b),
         Some(5.0)
-    );
-
-    // Distinct α ⇒ distinct gates (the ordered geometric prior π_k differs).
-    let gates_a = term_a.assignment.try_assignments().unwrap();
-    let gates_b = term_b.assignment.try_assignments().unwrap();
-    let gate_gap = (&gates_a - &gates_b)
-        .iter()
-        .fold(0.0_f64, |m, d| m.max(d.abs()));
-    assert!(
-        gate_gap > 1e-6,
-        "distinct per-fit ordered Beta--Bernoulli-α overrides must produce distinct gates; gap {gate_gap:e}"
     );
 
     // Barrier strength (K=2, so the barrier is live): the per-fit override is the
@@ -2078,6 +2177,7 @@ pub(crate) fn per_fit_barrier_isolated_under_concurrent_fits() {
                     term.set_fit_config(SaeFitConfig {
                         separation_barrier_strength_override: Some(mu),
                         ordered_beta_bernoulli_alpha_override: None,
+                        gpu_policy: gam_gpu::GpuPolicy::Off,
                     });
                     // Hammer the barrier-strength read while the sibling thread
                     // hammers its own with a different μ. The per-fit field is
@@ -2936,7 +3036,7 @@ pub(crate) fn objective_stall_cannot_substitute_for_kkt_envelope_2253() {
 #[test]
 pub(crate) fn reml_retries_refinement_after_non_pd_undamped_evidence_factor() {
     let (mut term0, target, rho) = small_two_atom_periodic_term();
-    let options = ArrowSolveOptions::direct().with_ill_conditioning_tolerated();
+    let options = ArrowSolveOptions::direct().with_positive_definite_evidence();
     let cold_sys = term0
         .assemble_arrow_schur(target.view(), &rho, None)
         .unwrap();
@@ -3112,7 +3212,7 @@ pub(crate) fn reconstruction_dispersion_uses_ard_shrunk_coordinate_edf() {
     let sys = term
         .assemble_arrow_schur(target.view(), &rho, None)
         .unwrap();
-    let options = ArrowSolveOptions::direct().with_ill_conditioning_tolerated();
+    let options = ArrowSolveOptions::direct().with_positive_definite_evidence();
     let (_delta_t, _delta_beta, cache) =
         solve_arrow_newton_step_with_options(&sys, 0.0, 0.0, &options).unwrap();
 
@@ -3203,7 +3303,7 @@ fn matrix_free_smoothness_edf_from_probes_matches_dense_selected_inverse() {
     let sys = term
         .assemble_arrow_schur(target.view(), &rho, None)
         .unwrap();
-    let options = ArrowSolveOptions::direct().with_ill_conditioning_tolerated();
+    let options = ArrowSolveOptions::direct().with_positive_definite_evidence();
     let (_delta_t, _delta_beta, cache) =
         solve_arrow_newton_step_with_options(&sys, 0.0, 0.0, &options).unwrap();
     let lambda = rho.lambda_smooth_vec().unwrap();
@@ -3290,7 +3390,7 @@ fn matrix_free_ard_traces_from_probes_matches_dense_selected_inverse() {
     let sys = term
         .assemble_arrow_schur(target.view(), &rho, None)
         .unwrap();
-    let options = ArrowSolveOptions::direct().with_ill_conditioning_tolerated();
+    let options = ArrowSolveOptions::direct().with_positive_definite_evidence();
     let (_delta_t, _delta_beta, cache) =
         solve_arrow_newton_step_with_options(&sys, 0.0, 0.0, &options).unwrap();
 
@@ -3376,7 +3476,7 @@ fn matrix_free_ard_logdet_hessian_trace_from_probes_matches_dense() {
     let sys = term
         .assemble_arrow_schur(target.view(), &rho, None)
         .unwrap();
-    let options = ArrowSolveOptions::direct().with_ill_conditioning_tolerated();
+    let options = ArrowSolveOptions::direct().with_positive_definite_evidence();
     let (_delta_t, _delta_beta, cache) =
         solve_arrow_newton_step_with_options(&sys, 0.0, 0.0, &options).unwrap();
 
@@ -3463,7 +3563,7 @@ fn analytic_outer_gradient_with_bundle_matches_dense_assembly() {
     let sys = term
         .assemble_arrow_schur(target.view(), &rho, None)
         .unwrap();
-    let options = ArrowSolveOptions::direct().with_ill_conditioning_tolerated();
+    let options = ArrowSolveOptions::direct().with_positive_definite_evidence();
     let (_delta_t, _delta_beta, cache) =
         solve_arrow_newton_step_with_options(&sys, 0.0, 0.0, &options).unwrap();
     let loss = term.loss(target.view(), &rho).unwrap();
@@ -3496,6 +3596,7 @@ fn analytic_outer_gradient_with_bundle_matches_dense_assembly() {
             &cache,
             &solver,
             Some((&probes, &sinv)),
+            None,
         )
         .unwrap();
 
@@ -3576,7 +3677,7 @@ fn solve_exact_stationarity_is_self_adjoint_2080() {
     let sys = term
         .assemble_arrow_schur(target.view(), &rho, None)
         .unwrap();
-    let options = ArrowSolveOptions::direct().with_ill_conditioning_tolerated();
+    let options = ArrowSolveOptions::direct().with_positive_definite_evidence();
     let (_delta_t, _delta_beta, cache) =
         solve_arrow_newton_step_with_options(&sys, 0.0, 0.0, &options).unwrap();
     let solver = DeflatedArrowSolver::plain(&cache);
@@ -3585,9 +3686,7 @@ fn solve_exact_stationarity_is_self_adjoint_2080() {
     assert!(n_params >= 2, "fixture must expose ≥2 outer coordinates");
     // Two production IFT right-hand sides (the sparse coordinate and the smooth
     // coordinate), so the test exercises A⁺ on genuine, distinct arrow vectors.
-    let u = term
-        .outer_rho_gradient_ift_rhs(&rho, 0, &cache)
-        .unwrap();
+    let u = term.outer_rho_gradient_ift_rhs(&rho, 0, &cache).unwrap();
     let v = term
         .outer_rho_gradient_ift_rhs(&rho, n_params - 1, &cache)
         .unwrap();
@@ -3598,10 +3697,28 @@ fn solve_exact_stationarity_is_self_adjoint_2080() {
         .solve_exact_stationarity(&rho, target.view(), &cache, &solver, &v)
         .unwrap();
     // ⟨A⁺u, v⟩ vs ⟨u, A⁺v⟩ (pub arrow-vector fields; no type import needed).
-    let lhs = a_u.t.iter().zip(v.t.iter()).map(|(a, b)| a * b).sum::<f64>()
-        + a_u.beta.iter().zip(v.beta.iter()).map(|(a, b)| a * b).sum::<f64>();
-    let rhs = u.t.iter().zip(a_v.t.iter()).map(|(a, b)| a * b).sum::<f64>()
-        + u.beta.iter().zip(a_v.beta.iter()).map(|(a, b)| a * b).sum::<f64>();
+    let lhs = a_u
+        .t
+        .iter()
+        .zip(v.t.iter())
+        .map(|(a, b)| a * b)
+        .sum::<f64>()
+        + a_u
+            .beta
+            .iter()
+            .zip(v.beta.iter())
+            .map(|(a, b)| a * b)
+            .sum::<f64>();
+    let rhs =
+        u.t.iter()
+            .zip(a_v.t.iter())
+            .map(|(a, b)| a * b)
+            .sum::<f64>()
+            + u.beta
+                .iter()
+                .zip(a_v.beta.iter())
+                .map(|(a, b)| a * b)
+                .sum::<f64>();
     let scale = lhs.abs().max(rhs.abs()).max(1.0);
     assert!(
         (lhs - rhs).abs() <= 1.0e-6 * scale,
@@ -3658,7 +3775,7 @@ pub(crate) fn latent_block_inverse_diagonal_hutchinson_matches_exact_trace() {
     let sys = term
         .assemble_arrow_schur(target.view(), &rho, None)
         .unwrap();
-    let options = ArrowSolveOptions::direct().with_ill_conditioning_tolerated();
+    let options = ArrowSolveOptions::direct().with_positive_definite_evidence();
     let (_delta_t, _delta_beta, cache) =
         solve_arrow_newton_step_with_options(&sys, 0.0, 0.0, &options).unwrap();
 
@@ -3722,7 +3839,7 @@ pub(crate) fn streaming_plan_routes_by_memory_budget_with_identical_logdet() {
     let d_max = term0
         .atoms
         .iter()
-        .map(|atom| atom.latent_dim)
+        .map(SaeManifoldAtom::latent_dim)
         .max()
         .unwrap();
     let dense_plan = sae_streaming_plan_from_budget(
@@ -3773,7 +3890,7 @@ pub(crate) fn streaming_plan_routes_by_memory_budget_with_identical_logdet() {
     let sys = full
         .assemble_arrow_schur(target.view(), &rho, None)
         .unwrap();
-    let options = ArrowSolveOptions::direct().with_ill_conditioning_tolerated();
+    let options = ArrowSolveOptions::direct().with_positive_definite_evidence();
     let factor_result = solve_arrow_newton_step_with_options(&sys, 0.0, 0.0, &options).unwrap();
     let full_logdet = arrow_log_det_from_cache(&factor_result.2).unwrap();
     let mut streaming = StreamingArrowSchur::from_system(&sys, streaming_plan.chunk_size);
@@ -3818,15 +3935,11 @@ pub(crate) fn giant_host_working_set_plan_flips_to_matrix_free_before_dense_allo
 }
 
 #[test]
-pub(crate) fn matrix_free_plan_admits_when_in_core_budget_collapses_to_zero() {
-    // On a memory-starved / oversubscribed box (or a cgroup whose
-    // `available − reserve` underflows), `sae_host_in_core_budget_from_available`
-    // can return a budget of 0. Before the streaming floor, that rejected EVERY
-    // plan — including the chunked matrix-free fallback whose peak is bounded by
-    // the chunk window — so `admitted_or_error` failed with "exceeds budget 0
-    // bytes" and the whole SAE fit aborted at K=1 (the real-OLMo CPU ladder
-    // wall). The matrix-free streaming path must stay admittable for a small
-    // working set regardless of the collapsed in-core budget.
+pub(crate) fn matrix_free_plan_refuses_genuinely_exhausted_process_budget() {
+    // A zero from the authoritative detector means the current process or its
+    // cgroup is genuinely exhausted. Matrix-free bounds the allocation but
+    // does not make it free, so inventing an absolute positive floor here can
+    // still trigger the kernel OOM killer.
     let n_obs = 508usize;
     let total_basis = 6usize;
     let k_atoms = 1usize;
@@ -3845,18 +3958,8 @@ pub(crate) fn matrix_free_plan_admits_when_in_core_budget_collapses_to_zero() {
     // The dense direct plan is correctly refused (it can OOM and the budget is 0).
     assert!(!plan.direct_admitted);
     assert!(plan.streaming);
-    // But the bounded matrix-free streaming plan IS admitted against the absolute
-    // streaming floor, so the fit can proceed instead of aborting.
-    assert!(
-        plan.estimated_matrix_free_peak_bytes <= SAE_MIN_STREAMING_BUDGET_FLOOR_BYTES,
-        "tiny working set must fit the streaming floor: peak={}",
-        plan.estimated_matrix_free_peak_bytes
-    );
-    assert!(
-        plan.matrix_free_admitted,
-        "matrix-free streaming must be admitted at zero in-core budget"
-    );
-    assert!(plan.admitted_or_error(n_obs, border_dim, k_atoms).is_ok());
+    assert!(!plan.matrix_free_admitted);
+    assert!(plan.admitted_or_error(n_obs, border_dim, k_atoms).is_err());
 }
 
 /// Build a `K`-atom hard-TopK SAE term with a planted small support.
@@ -4173,7 +4276,7 @@ pub(crate) fn rank_revealing_reduction_collapses_unexcited_circle_harmonic_to_fu
     );
     assert_eq!(term.atoms[0].decoder_coefficients.nrows(), 3);
     assert_eq!(term.atoms[0].basis_jacobian.dim(), (6, 3, 1));
-    assert_eq!(term.atoms[0].smooth_penalty.dim(), (3, 3));
+    assert_eq!(term.atoms[0].smooth_penalty().dim(), (3, 3));
 
     // The reduced data Gram is full rank (no eigenvalue at the spectral floor).
     use gam_linalg::faer_ndarray::FaerEigh;

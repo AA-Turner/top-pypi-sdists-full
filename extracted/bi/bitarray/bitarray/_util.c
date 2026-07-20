@@ -159,11 +159,11 @@ bit-endianness (`little` or `big`).");
 
 /* ------------------------------- count_n ----------------------------- */
 
-/* Return smallest index i for which a.count(vi, 0, i) == n.  When n exceeds
+/* Return smallest index i for which a[:i].count(vi) == n.  When n exceeds
    the total count, the result is a negative number; the negative of the
    total count + 1, which is useful for displaying error messages. */
 static Py_ssize_t
-count_n_core(bitarrayobject *a, Py_ssize_t n, int vi)
+count_n_lock_held(bitarrayobject *a, Py_ssize_t n, int vi)
 {
     const Py_ssize_t nbits = a->nbits;
     uint64_t *wbuff = WBUFF(a);
@@ -212,8 +212,8 @@ static PyObject *
 count_n(PyObject *module, PyObject *args)
 {
     bitarrayobject *a;
-    Py_ssize_t n, i;
-    int vi = 1;
+    Py_ssize_t nbits, n, i;
+    int vi = 1, err = 0;
 
     if (!PyArg_ParseTuple(args, "O!n|O&:count_n", bitarray_type,
                           (PyObject *) &a, &n, conv_pybit, &vi))
@@ -222,11 +222,19 @@ count_n(PyObject *module, PyObject *args)
         PyErr_SetString(PyExc_ValueError, "non-negative integer expected");
         return NULL;
     }
-    if (n > a->nbits)
-        return PyErr_Format(PyExc_ValueError, "n = %zd larger than bitarray "
-                            "length %zd", n, a->nbits);
 
-    i = count_n_core(a, n, vi);        /* do actual work here */
+    Py_BEGIN_CRITICAL_SECTION(a);
+    nbits = a->nbits;
+    if (n > nbits)
+        err = 1;
+    else
+        i = count_n_lock_held(a, n, vi);
+    Py_END_CRITICAL_SECTION();
+
+    if (err)
+        return PyErr_Format(PyExc_ValueError, "n = %zd larger than bitarray "
+                            "length %zd", n, nbits);
+
     if (i < 0)
         return PyErr_Format(PyExc_ValueError, "n = %zd exceeds total count "
                             "(a.count(%d) = %zd)", n, vi, -(i + 1));
@@ -253,11 +261,13 @@ parity(PyObject *module, PyObject *obj)
         return NULL;
 
     a = (bitarrayobject *) obj;
+    Py_BEGIN_CRITICAL_SECTION(a);
     wbuff = WBUFF(a);
     x = zlw(a);
     i = a->nbits / 64;
     while (i--)
         x ^= *wbuff++;
+    Py_END_CRITICAL_SECTION();
     return PyLong_FromLong(parity_64(x));
 }
 
@@ -268,14 +278,30 @@ Return parity of bitarray `a`.\n\
 `parity(a)` is equivalent to `a.count() % 2` but more efficient.");
 
 
+static char count_table[256];
+static char parity_table[256];
+static char sum_table[2][256];
+static char sum_sqr_table[2][256];
+static char xor_table[2][256];
+
+static void
+setup_misc_tables(void) {
+    setup_table(count_table, 'c');
+    setup_table(parity_table, 'p');
+    setup_table(sum_table[0], 'a');
+    setup_table(sum_table[1], 'A');
+    setup_table(sum_sqr_table[0], 's');
+    setup_table(sum_sqr_table[1], 'S');
+    setup_table(xor_table[0], 'x');
+    setup_table(xor_table[1], 'X');
+}
+
 /* Internal functions, like sum_indices(), but bitarrays are limited in
    size.  For details see: devel/test_sum_indices.py
 */
 static PyObject *
 ssqi(PyObject *module, PyObject *args)
 {
-    static char count_table[256], sum_table[256], sum_sqr_table[256];
-    static int setup = -1;      /* endianness of tables */
     bitarrayobject *a;
     uint64_t nbytes, i;
     uint64_t sm = 0;            /* accumulated sum */
@@ -289,28 +315,23 @@ ssqi(PyObject *module, PyObject *args)
     if (((uint64_t) a->nbits) > (mode == 1 ? 6074001000LLU : 3810778LLU))
         return PyErr_Format(PyExc_OverflowError, "ssqi %zd", a->nbits);
 
-    if (setup != a->endian) {
-        setup_table(count_table, 'c');
-        setup_table(sum_table, IS_LE(a) ? 'a' : 'A');
-        setup_table(sum_sqr_table, IS_LE(a) ? 's' : 'S');
-        setup = a->endian;
-    }
-
+    Py_BEGIN_CRITICAL_SECTION(a);
     nbytes = Py_SIZE(a);
     set_padbits(a);
     for (i = 0; i < nbytes; i++) {
         unsigned char c = a->ob_item[i];
         if (c) {
-            uint64_t k = count_table[c], z1 = sum_table[c];
+            uint64_t k = count_table[c], z1 = sum_table[IS_BE(a)][c];
             if (mode == 1) {
                 sm += k * 8LLU * i + z1;
             }
             else {
-                uint64_t z2 = (unsigned char) sum_sqr_table[c];
+                uint64_t z2 = (unsigned char) sum_sqr_table[IS_BE(a)][c];
                 sm += (k * 64LLU * i + 16LLU * z1) * i + z2;
             }
         }
     }
+    Py_END_CRITICAL_SECTION();
     return PyLong_FromUnsignedLongLong(sm);
 }
 
@@ -318,8 +339,6 @@ ssqi(PyObject *module, PyObject *args)
 static PyObject *
 xor_indices(PyObject *module, PyObject *obj)
 {
-    static char parity_table[256], xor_table[256];
-    static int setup = -1;      /* endianness of xor_table */
     bitarrayobject *a;
     Py_ssize_t res = 0, nbytes, i;
 
@@ -327,21 +346,17 @@ xor_indices(PyObject *module, PyObject *obj)
         return NULL;
 
     a = (bitarrayobject *) obj;
+    Py_BEGIN_CRITICAL_SECTION(a);
     nbytes = Py_SIZE(a);
     set_padbits(a);
-
-    if (setup != a->endian) {
-        setup_table(xor_table, IS_LE(a) ? 'x' : 'X');
-        setup_table(parity_table, 'p');
-        setup = a->endian;
-    }
 
     for (i = 0; i < nbytes; i++) {
         unsigned char c = a->ob_item[i];
         if (parity_table[c])
             res ^= i << 3;
-        res ^= xor_table[c];
+        res ^= xor_table[IS_BE(a)][c];
     }
+    Py_END_CRITICAL_SECTION();
     return PyLong_FromSsize_t(res);
 }
 
@@ -355,19 +370,14 @@ This is essentially equivalent to\n\
 /* --------------------------- binary functions ------------------------ */
 
 static PyObject *
-binary_function(PyObject *args, const char *format, const char oper)
+binary_func_lock_held(bitarrayobject *a, bitarrayobject *b, const char oper)
 {
     Py_ssize_t cnt = 0, cwords, i;
-    bitarrayobject *a, *b;
     uint64_t *wbuff_a, *wbuff_b;
     int rbits;
 
-    if (!PyArg_ParseTuple(args, format,
-                          bitarray_type, (PyObject *) &a,
-                          bitarray_type, (PyObject *) &b))
-        return NULL;
-    if (ensure_eq_size_endian(a, b) < 0)
-        return NULL;
+    assert(a->nbits == b->nbits);
+    assert(a->endian == b->endian);
 
     wbuff_a = WBUFF(a);
     wbuff_b = WBUFF(b);
@@ -414,6 +424,29 @@ binary_function(PyObject *args, const char *format, const char oper)
         Py_UNREACHABLE();
     }
     return PyLong_FromSsize_t(cnt);
+}
+
+static PyObject *
+binary_function(PyObject *args, const char *format, const char oper)
+{
+    PyObject *res;
+    bitarrayobject *a, *b;
+    int ret;
+
+    if (!PyArg_ParseTuple(args, format,
+                          bitarray_type, (PyObject *) &a,
+                          bitarray_type, (PyObject *) &b))
+        return NULL;
+
+    Py_BEGIN_CRITICAL_SECTION2(a, b);
+    ret = ensure_eq_size_endian(a, b);
+    if (ret == 0)
+        res = binary_func_lock_held(a, b, oper);
+    Py_END_CRITICAL_SECTION2();
+
+    if (ret < 0)
+        return NULL;
+    return res;
 }
 
 #define COUNT_FUNC(oper, ostr)                                          \
@@ -466,40 +499,47 @@ correspond_all(PyObject *module, PyObject *args)
     Py_ssize_t nff = 0, nft = 0, ntf = 0, ntt = 0, cwords, i;
     bitarrayobject *a, *b;
     uint64_t u, v, not_u, not_v;
-    int rbits;
+    int ret, rbits;
 
     if (!PyArg_ParseTuple(args, "O!O!:correspond_all",
                           bitarray_type, (PyObject *) &a,
                           bitarray_type, (PyObject *) &b))
         return NULL;
-    if (ensure_eq_size_endian(a, b) < 0)
+
+    Py_BEGIN_CRITICAL_SECTION2(a, b);
+    ret = ensure_eq_size_endian(a, b);
+    if (ret == 0) {
+        cwords = a->nbits / 64;     /* complete 64-bit words */
+        rbits = a->nbits % 64;      /* remaining bits */
+
+        for (i = 0; i < cwords; i++) {
+            u = WBUFF(a)[i];
+            v = WBUFF(b)[i];
+            not_u = ~u;
+            not_v = ~v;
+            nff += popcnt_64(not_u & not_v);
+            nft += popcnt_64(not_u & v);
+            ntf += popcnt_64(u & not_v);
+            ntt += popcnt_64(u & v);
+        }
+
+        if (rbits) {
+            u = zlw(a);
+            v = zlw(b);
+            not_u = ~u;
+            not_v = ~v;
+            /* for nff we need to subtract the number of unused 1 bits */
+            nff += popcnt_64(not_u & not_v) - (64 - rbits);
+            nft += popcnt_64(not_u & v);
+            ntf += popcnt_64(u & not_v);
+            ntt += popcnt_64(u & v);
+        }
+    }
+    Py_END_CRITICAL_SECTION2();
+
+    if (ret < 0)
         return NULL;
 
-    cwords = a->nbits / 64;     /* complete 64-bit words */
-    rbits = a->nbits % 64;      /* remaining bits */
-
-    for (i = 0; i < cwords; i++) {
-        u = WBUFF(a)[i];
-        v = WBUFF(b)[i];
-        not_u = ~u;
-        not_v = ~v;
-        nff += popcnt_64(not_u & not_v);
-        nft += popcnt_64(not_u & v);
-        ntf += popcnt_64(u & not_v);
-        ntt += popcnt_64(u & v);
-    }
-
-    if (rbits) {
-        u = zlw(a);
-        v = zlw(b);
-        not_u = ~u;
-        not_v = ~v;
-        /* for nff we need to subtract the number of unused 1 bits */
-        nff += popcnt_64(not_u & not_v) - (64 - rbits);
-        nft += popcnt_64(not_u & v);
-        ntf += popcnt_64(u & not_v);
-        ntt += popcnt_64(u & v);
-    }
     return Py_BuildValue("nnnn", nff, nft, ntf, ntt);
 }
 
@@ -597,22 +637,42 @@ serialize(PyObject *module, PyObject *obj)
 {
     bitarrayobject *a;
     PyObject *result;
-    Py_ssize_t nbytes;
+    Py_ssize_t nbits;
     char *str;
+    int err = 0;
 
     if (ensure_bitarray(obj) < 0)
         return NULL;
 
     a = (bitarrayobject *) obj;
-    nbytes = Py_SIZE(a);
-    result = PyBytes_FromStringAndSize(NULL, nbytes + 1);
+
+    Py_BEGIN_CRITICAL_SECTION(a);
+    nbits = a->nbits;
+    Py_END_CRITICAL_SECTION();
+
+    result = PyBytes_FromStringAndSize(NULL, BYTES(nbits) + 1);
     if (result == NULL)
         return NULL;
 
-    str = PyBytes_AsString(result);
-    set_padbits(a);
-    *str = (IS_BE(a) ? 0x10 : 0x00) | ((char) PADBITS(a));
-    memcpy(str + 1, a->ob_item, (size_t) nbytes);
+    Py_BEGIN_CRITICAL_SECTION(a);
+    if (a->nbits == nbits) {
+        str = PyBytes_AsString(result);
+        set_padbits(a);
+        *str = (IS_BE(a) ? 0x10 : 0x00) | ((char) PADBITS(a));
+        if (nbits)
+            memcpy(str + 1, a->ob_item, (size_t) BYTES(nbits));
+    }
+    else {
+        err = 1;
+    }
+    Py_END_CRITICAL_SECTION();
+
+    if (err) {
+        Py_DECREF(result);
+        PyErr_SetString(PyExc_RuntimeError,
+                        "bitarray changed size during serialize()");
+        return NULL;
+    }
     return result;
 }
 
@@ -654,7 +714,8 @@ deserialize(PyObject *module, PyObject *buffer)
     /* set bit-endianness and buffer */
     a->endian = head & 0x10 ? ENDIAN_BIG : ENDIAN_LITTLE;
     assert(Py_SIZE(a) == view.len - 1);
-    memcpy(a->ob_item, ((char *) view.buf) + 1, (size_t) view.len - 1);
+    if (Py_SIZE(a))
+        memcpy(a->ob_item, ((char *) view.buf) + 1, (size_t) view.len - 1);
 
     PyBuffer_Release(&view);
     return (PyObject *) a;
@@ -689,7 +750,7 @@ hex_to_int(char c)
 /* return hexadecimal string from bitarray,
    on failure set exception and return NULL */
 static char *
-ba2hex_core(bitarrayobject *a, Py_ssize_t group, char *sep)
+ba2hex_lock_held(bitarrayobject *a, Py_ssize_t group, char *sep)
 {
     const int be = IS_BE(a);
     size_t strsize = a->nbits / 4, j, nsep;
@@ -744,7 +805,9 @@ ba2hex(PyObject *module, PyObject *args, PyObject *kwds)
         return NULL;
     }
 
-    str = ba2hex_core(a, group, sep);
+    Py_BEGIN_CRITICAL_SECTION(a);
+    str = ba2hex_lock_held(a, group, sep);
+    Py_END_CRITICAL_SECTION();
     if (str == NULL)
         return NULL;
 
@@ -838,14 +901,26 @@ static const char base32_alphabet[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 static const char base64_alphabet[] =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
+static signed char digit_table[2][128];
+
+static void
+setup_digit_table(void)
+{
+    int i;
+
+    memset(digit_table, 0xff, sizeof digit_table);  /* 0xff -> -1 */
+    for (i = 0; i < 32; i++)
+        digit_table[0][(unsigned char) base32_alphabet[i]] = i;
+    for (i = 0; i < 64; i++)
+        digit_table[1][(unsigned char) base64_alphabet[i]] = i;
+}
+
 /* Given the length of the base m in [1..6] and a character c, return
    its index in the base 2**m alphabet, or -1 if c is not included.
    Note: i >> m is true when i is not in range(0, 2**m) */
 static int
 digit_to_int(int m, char c)
 {
-    static signed char table[2][128];
-    static int setup = 0;
     int i;
 
     assert(1 <= m && m <= 6);
@@ -857,15 +932,7 @@ digit_to_int(int m, char c)
     if (0x80 & c)  /* non-ASCII */
         return -1;
 
-    if (!setup) {
-        memset(table, 0xff, sizeof table);  /* (signed char) 0xff -> -1 */
-        for (i = 0; i < 32; i++)
-            table[0][(unsigned char) base32_alphabet[i]] = i;
-        for (i = 0; i < 64; i++)
-            table[1][(unsigned char) base64_alphabet[i]] = i;
-        setup = 1;
-    }
-    return table[m - 5][(unsigned char) c];      /* base 32, 64 */
+    return digit_table[m - 5][(unsigned char) c];      /* base 32, 64 */
 }
 
 /* return m = log2(n) for m in [1..6] */
@@ -890,7 +957,7 @@ base_to_length(int n)
 /* return ASCII string from bitarray and base length m,
    on failure set exception and return NULL */
 static char *
-ba2base_core(bitarrayobject *a, int m, Py_ssize_t group, char *sep)
+ba2base_lock_held(bitarrayobject *a, int m, Py_ssize_t group, char *sep)
 {
     const int le = IS_LE(a);
     const char *alphabet;
@@ -963,10 +1030,12 @@ ba2base(PyObject *module, PyObject *args, PyObject *kwds)
         return NULL;
     }
 
+    Py_BEGIN_CRITICAL_SECTION(a);
     if (m == 4)
-        str = ba2hex_core(a, group, sep);
+        str = ba2hex_lock_held(a, group, sep);
     else
-        str = ba2base_core(a, m, group, sep);
+        str = ba2base_lock_held(a, m, group, sep);
+    Py_END_CRITICAL_SECTION();
 
     if (str == NULL)
         return NULL;
@@ -1083,7 +1152,7 @@ next_char(PyObject *iter)
     if (v == -1 && PyErr_Occurred())
         return -1;
 
-    if (v >> 8) {
+    if (v < 0 || v > 255) {
         PyErr_Format(PyExc_ValueError,
                      "byte must be in range(0, 256), got: %zd", v);
         return -1;
@@ -1533,68 +1602,83 @@ sc_encode_header(char *str, bitarrayobject *a)
    allocation if we run out */
 #define ALLOC_SIZE  32768
 
-static PyObject *
-sc_encode(PyObject *module, PyObject *obj)
+/* Encode bitarray `a` into the private bytes object referenced by `*out`.
+   The lock for `a` must be held by the caller.  The output may be resized,
+   so `out` is passed as `PyObject **` to propagate a possibly changed
+   pointer back to the caller.
+   Return encoded length (bytes written into `out`), or -1 on error. */
+static Py_ssize_t
+sc_encode_lock_held(bitarrayobject *a, PyObject **out)
 {
-    PyObject *out;
     char *str;                  /* output buffer */
     Py_ssize_t len = 0;         /* bytes written into output buffer */
-    bitarrayobject *a;
     Py_ssize_t offset = 0;      /* block offset into bitarray a in bytes */
     Py_ssize_t *rts;            /* running totals of segments */
     Py_ssize_t total;           /* total population count of bitarray */
 
-    if (ensure_bitarray(obj) < 0)
-        return NULL;
-
-    a = (bitarrayobject *) obj;
     set_padbits(a);
     if ((rts = sc_rts(a)) == NULL)
-        return NULL;
+        return -1;
 
-    if ((out = PyBytes_FromStringAndSize(NULL, ALLOC_SIZE)) == NULL)
-        goto error;
-
-    str = PyBytes_AS_STRING(out);
+    str = PyBytes_AS_STRING(*out);
     len += sc_encode_header(str, a);
 
     total = rts[NSEG(a)];
     /* encode blocks as long as we haven't reached the end of the bitarray
        and haven't reached the total population count yet */
     while (offset < Py_SIZE(a) && rts[offset / SEGSIZE] != total) {
-        Py_ssize_t allocated = PyBytes_GET_SIZE(out);
+        Py_ssize_t allocated = PyBytes_GET_SIZE(*out);
 
         /* Make sure we have enough memory in output buffer for next block.
            The largest block possible is a type 0 block with 128 segments.
            Its size is: 1 head byte + 128 * 32 raw bytes.
            Plus, we also may have the stop byte. */
         if (allocated < len + 1 + 128 * 32 + 1) {
-            if (_PyBytes_Resize(&out, allocated + ALLOC_SIZE) < 0)
-                goto error;
-            str = PyBytes_AS_STRING(out);
+            if (_PyBytes_Resize(out, allocated + ALLOC_SIZE) < 0) {
+                PyMem_Free(rts);
+                return -1;
+            }
+            str = PyBytes_AS_STRING(*out);
         }
         offset += sc_encode_block(str, &len, a, rts, offset);
     }
     PyMem_Free(rts);
     str[len++] = 0x00;          /* add stop byte */
 
-    if (_PyBytes_Resize(&out, len) < 0)
+    return len;
+}
+
+static PyObject *
+sc_encode(PyObject *module, PyObject *obj)
+{
+    PyObject *out;   /* bytes object to be returned */
+    Py_ssize_t len;  /* bytes written into output bytes buffer */
+
+    if (ensure_bitarray(obj) < 0)
         return NULL;
 
-    return out;
+    if ((out = PyBytes_FromStringAndSize(NULL, ALLOC_SIZE)) == NULL)
+        return NULL;
 
- error:
-    PyMem_Free(rts);
-    return NULL;
+    Py_BEGIN_CRITICAL_SECTION(obj);
+    len = sc_encode_lock_held((bitarrayobject *) obj, &out);
+    Py_END_CRITICAL_SECTION();
+
+    if (len < 0 || _PyBytes_Resize(&out, len) < 0) {
+        Py_XDECREF(out);
+        return NULL;
+    }
+    return out;
 }
+
 #undef ALLOC_SIZE
 
 PyDoc_STRVAR(sc_encode_doc,
 "sc_encode(bitarray, /) -> bytes\n\
 \n\
-Compress a sparse bitarray and return its binary representation.\n\
-This representation is useful for efficiently storing sparse bitarrays.\n\
-Use `sc_decode()` for decompressing (decoding).");
+Compress a bitarray using sparse encoding and return its binary\n\
+representation.  This representation is useful for efficiently storing\n\
+sparse bitarrays.  Use `sc_decode()` for decompressing (decoding).");
 
 
 /* read header from 'iter' and set 'endian' and 'nbits', return 0 on success
@@ -1857,29 +1941,35 @@ vl_encode(PyObject *module, PyObject *obj)
         return NULL;
 
     a = (bitarrayobject *) obj;
+
+    Py_BEGIN_CRITICAL_SECTION(a);
     nbits = a->nbits;
     n = (nbits + LEN_PAD_BITS + 6) / 7;  /* number of resulting bytes */
     padding = (int) (7 * n - LEN_PAD_BITS - nbits);
 
     result = PyBytes_FromStringAndSize(NULL, n);
+    if (result) {
+        str = PyBytes_AsString(result);
+        str[0] = nbits > 4 ? 0x80 : 0x00;  /* lead bit */
+        str[0] |= padding << 4;            /* encode padding */
+        for (i = 0; i < 4 && i < nbits; i++)
+            str[0] |= (0x08 >> i) * getbit(a, i);
+
+        for (i = 4; i < nbits; i++) {
+            int k = (i - 4) % 7;
+
+            if (k == 0) {
+                j++;
+                str[j] = j < n - 1 ? 0x80 : 0x00;  /* lead bit */
+            }
+            str[j] |= (0x40 >> k) * getbit(a, i);
+        }
+    }
+    Py_END_CRITICAL_SECTION();
+
     if (result == NULL)
         return NULL;
 
-    str = PyBytes_AsString(result);
-    str[0] = nbits > 4 ? 0x80 : 0x00;  /* lead bit */
-    str[0] |= padding << 4;            /* encode padding */
-    for (i = 0; i < 4 && i < nbits; i++)
-        str[0] |= (0x08 >> i) * getbit(a, i);
-
-    for (i = 4; i < nbits; i++) {
-        int k = (i - 4) % 7;
-
-        if (k == 0) {
-            j++;
-            str[j] = j < n - 1 ? 0x80 : 0x00;  /* lead bit */
-        }
-        str[j] |= (0x40 >> k) * getbit(a, i);
-    }
     assert(j == n - 1);
 
     return result;
@@ -2249,6 +2339,9 @@ PyMODINIT_FUNC
 PyInit__util(void)
 {
     PyObject *m;
+
+    setup_misc_tables();
+    setup_digit_table();
 
     bitarray_type = (PyTypeObject *) bitarray_module_attr("bitarray");
     if (bitarray_type == NULL)

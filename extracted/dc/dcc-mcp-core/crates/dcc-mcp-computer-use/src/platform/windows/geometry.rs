@@ -217,24 +217,21 @@ pub(super) fn target_unavailable() -> ComputerUseError {
 pub(super) fn overlay_geometries(
     target: HWND,
     target_rect: &RECT,
-) -> ComputerUseResult<(OverlayGeometry, BorderGeometries)> {
+) -> ComputerUseResult<(OverlayGeometry, CornerGeometries)> {
     let (monitor, display_rect) = monitor_work_area(target_rect).ok_or_else(target_unavailable)?;
     let dpi = monitor_dpi(monitor, Some(target));
     Ok((
-        banner_geometry(target_rect, &display_rect, dpi),
-        border_geometries(target_rect, dpi),
+        capsule_geometry(target_rect, &display_rect, dpi),
+        corner_geometries(target_rect, dpi),
     ))
 }
 
-pub(super) fn banner_geometry(rect: &RECT, display_rect: &RECT, dpi: u32) -> OverlayGeometry {
+pub(super) fn capsule_geometry(rect: &RECT, display_rect: &RECT, dpi: u32) -> OverlayGeometry {
     let target_width = rect.right.saturating_sub(rect.left).max(1);
     let display_width = display_rect.right.saturating_sub(display_rect.left).max(1);
     let display_height = display_rect.bottom.saturating_sub(display_rect.top).max(1);
-    let width = target_width
-        .max(scaled_pixels(520, dpi))
-        .min(scaled_pixels(1040, dpi))
-        .min(display_width);
-    let height = scaled_pixels(62, dpi).min(display_height);
+    let width = scaled_pixels(480, dpi).min(display_width);
+    let height = scaled_pixels(44, dpi).min(display_height);
     let centered_x = rect
         .left
         .saturating_add(target_width.saturating_sub(width) / 2);
@@ -246,46 +243,116 @@ pub(super) fn banner_geometry(rect: &RECT, display_rect: &RECT, dpi: u32) -> Ove
     (x, y, width, height)
 }
 
-pub(super) fn border_geometries(rect: &RECT, dpi: u32) -> BorderGeometries {
-    let maximum_thickness = scaled_pixels(BORDER_THICKNESS, dpi);
-    let width = rect
-        .right
-        .saturating_sub(rect.left)
-        .max(maximum_thickness.saturating_mul(2));
-    let height = rect
-        .bottom
-        .saturating_sub(rect.top)
-        .max(maximum_thickness.saturating_mul(2));
+pub(super) fn capsule_glow_geometries(geometry: OverlayGeometry) -> [(OverlayGeometry, u8); 3] {
+    let halo = (geometry.3 / 10).max(4);
+    [
+        (
+            expanded_overlay_geometry(geometry, halo.saturating_mul(3)),
+            CONTROL_CAPSULE_GLOW_ALPHAS[0],
+        ),
+        (
+            expanded_overlay_geometry(geometry, halo.saturating_mul(2)),
+            CONTROL_CAPSULE_GLOW_ALPHAS[1],
+        ),
+        (
+            expanded_overlay_geometry(geometry, halo),
+            CONTROL_CAPSULE_GLOW_ALPHAS[2],
+        ),
+    ]
+}
+
+fn expanded_overlay_geometry(
+    (x, y, width, height): OverlayGeometry,
+    spread: i32,
+) -> OverlayGeometry {
+    (
+        x.saturating_sub(spread),
+        y.saturating_sub(spread),
+        width.saturating_add(spread.saturating_mul(2)),
+        height.saturating_add(spread.saturating_mul(2)),
+    )
+}
+
+pub(super) fn corner_geometries(rect: &RECT, dpi: u32) -> CornerGeometries {
+    let width = rect.right.saturating_sub(rect.left).max(1);
+    let height = rect.bottom.saturating_sub(rect.top).max(1);
     let layers = [
-        (BORDER_THICKNESS, 34_u8, true),
-        (36, 42_u8, true),
-        (26, 54_u8, true),
-        (16, 70_u8, true),
-        (7, CONTROL_BORDER_ALPHA, false),
+        (CORNER_GLOW_LENGTH, CORNER_GLOW_THICKNESS, 48_u8, true),
+        (CORNER_MID_LENGTH, CORNER_MID_THICKNESS, 92_u8, true),
+        (
+            CORNER_ACCENT_LENGTH,
+            CORNER_ACCENT_THICKNESS,
+            CONTROL_BORDER_ALPHA,
+            false,
+        ),
     ];
     layers
         .into_iter()
-        .flat_map(|(logical_thickness, alpha, focus)| {
+        .flat_map(|(logical_length, logical_thickness, alpha, focus)| {
             let thickness = scaled_pixels(logical_thickness, dpi);
+            let length = scaled_pixels(logical_length, dpi)
+                .min(width / 2)
+                .min(height / 2)
+                .max(thickness);
             [
-                ((rect.left, rect.top, width, thickness), alpha, focus),
+                ((rect.left, rect.top, length, thickness), alpha, focus),
+                ((rect.left, rect.top, thickness, length), alpha, focus),
                 (
                     (
-                        rect.left,
-                        rect.bottom.saturating_sub(thickness),
-                        width,
+                        rect.right.saturating_sub(length),
+                        rect.top,
+                        length,
                         thickness,
                     ),
                     alpha,
                     focus,
                 ),
-                ((rect.left, rect.top, thickness, height), alpha, focus),
                 (
                     (
                         rect.right.saturating_sub(thickness),
                         rect.top,
                         thickness,
-                        height,
+                        length,
+                    ),
+                    alpha,
+                    focus,
+                ),
+                (
+                    (
+                        rect.left,
+                        rect.bottom.saturating_sub(thickness),
+                        length,
+                        thickness,
+                    ),
+                    alpha,
+                    focus,
+                ),
+                (
+                    (
+                        rect.left,
+                        rect.bottom.saturating_sub(length),
+                        thickness,
+                        length,
+                    ),
+                    alpha,
+                    focus,
+                ),
+                (
+                    (
+                        rect.right.saturating_sub(length),
+                        rect.bottom.saturating_sub(thickness),
+                        length,
+                        thickness,
+                    ),
+                    alpha,
+                    focus,
+                ),
+                (
+                    (
+                        rect.right.saturating_sub(thickness),
+                        rect.bottom.saturating_sub(length),
+                        thickness,
+                        length,
                     ),
                     alpha,
                     focus,
@@ -300,6 +367,14 @@ pub(super) fn point_in_rect(point: POINT, rect: &RECT) -> bool {
 }
 
 pub(super) fn pointer_mask_geometry(screen_x: i32, screen_y: i32) -> OverlayGeometry {
+    pointer_geometry(screen_x, screen_y, POINTER_EFFECT_SIZE)
+}
+
+pub(super) fn pointer_ring_geometry(screen_x: i32, screen_y: i32) -> OverlayGeometry {
+    pointer_geometry(screen_x, screen_y, POINTER_RING_SIZE)
+}
+
+fn pointer_geometry(screen_x: i32, screen_y: i32, logical_size: i32) -> OverlayGeometry {
     let monitor = unsafe {
         MonitorFromPoint(
             POINT {
@@ -314,7 +389,7 @@ pub(super) fn pointer_mask_geometry(screen_x: i32, screen_y: i32) -> OverlayGeom
     } else {
         monitor_dpi(monitor, None)
     };
-    let size = scaled_pixels(POINTER_EFFECT_SIZE, dpi);
+    let size = scaled_pixels(logical_size, dpi);
     let offset = size / 2;
     (
         screen_x.saturating_sub(offset),

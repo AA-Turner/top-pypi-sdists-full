@@ -1,15 +1,21 @@
+pub mod affine_design;
+pub mod alo;
 pub mod conformal;
+pub mod generative;
 pub mod input;
 pub mod interval_policy;
 pub mod linalg;
 pub mod posterior_bands;
 pub mod posterior_predict;
 
+pub use affine_design::*;
+pub use alo::*;
 pub use conformal::*;
 pub use gam_models::inference::predict_io::{
     BernoulliMarginalSlopePredictor, PredictInput, PredictResult,
 };
 pub use gam_problem::dispersion_cov::se_from_covariance;
+pub use generative::*;
 pub use posterior_bands::*;
 pub use posterior_predict::*;
 
@@ -276,11 +282,11 @@ fn selected_uncertainty_backend<'a>(
     expected_dim: usize,
     requested_mode: InferenceCovarianceMode,
     label: &str,
-) -> Result<(PredictionCovarianceBackend<'a>, bool), EstimationError> {
+) -> Result<(PredictionCovarianceBackend<'a>, InferenceCovarianceMode), EstimationError> {
     match requested_mode {
         InferenceCovarianceMode::Conditional => {
             conditional_prediction_backend(fit, expected_dim, label)?
-                .map(|backend| (backend, false))
+                .map(|backend| (backend, InferenceCovarianceMode::Conditional))
                 .ok_or_else(|| {
                     EstimationError::InvalidInput(
                 "fit result does not contain conditional covariance or a usable penalized Hessian"
@@ -288,21 +294,7 @@ fn selected_uncertainty_backend<'a>(
             )
                 })
         }
-        InferenceCovarianceMode::ConditionalPlusSmoothingPreferred => {
-            if let Some(covariance) = fit.beta_covariance_corrected() {
-                return Ok((
-                    PredictionCovarianceBackend::from_dense(covariance.view()),
-                    true,
-                ));
-            }
-            selected_uncertainty_backend(
-                fit,
-                expected_dim,
-                InferenceCovarianceMode::Conditional,
-                label,
-            )
-        }
-        InferenceCovarianceMode::ConditionalPlusSmoothingRequired => {
+        InferenceCovarianceMode::SmoothingCorrected => {
             let covariance = fit.beta_covariance_corrected().ok_or_else(|| {
                 EstimationError::InvalidInput(
                     "fit result does not contain smoothing-corrected covariance".to_string(),
@@ -310,7 +302,7 @@ fn selected_uncertainty_backend<'a>(
             })?;
             Ok((
                 PredictionCovarianceBackend::from_dense(covariance.view()),
-                true,
+                InferenceCovarianceMode::SmoothingCorrected,
             ))
         }
     }
@@ -329,14 +321,13 @@ fn selected_uncertainty_backend<'a>(
 pub trait UncertaintyCovarianceSource {
     /// Build a [`PredictionCovarianceBackend`] satisfying the requested
     /// covariance mode (or an error if the source cannot honor it). The
-    /// returned bool reports whether the smoothing-corrected covariance was
-    /// actually used (always `false` for raw `Array2` sources).
+    /// returned source records the exact covariance definition actually used.
     fn select_uncertainty_backend(
         &self,
         expected_dim: usize,
         mode: InferenceCovarianceMode,
         label: &str,
-    ) -> Result<(PredictionCovarianceBackend<'_>, bool), EstimationError>;
+    ) -> Result<(PredictionCovarianceBackend<'_>, InferenceCovarianceMode), EstimationError>;
     /// Optional fitted adaptive-link state (SAS / BetaLogistic / Mixture /
     /// latent cloglog). Standard links and raw covariance sources return
     /// `None` and are handled with the family's own `InverseLink`.
@@ -351,7 +342,7 @@ pub trait UncertaintyCovarianceSource {
     /// it to `β_BC = A·β̂`), the matching CONDITIONAL covariance is `A·V·Aᵀ`, not
     /// the raw `Vb` the conditional backend reports. The smoothing-corrected
     /// covariance already folds `A` in, so callers apply this ONLY on the
-    /// conditional path (`covariance_corrected_used == false`). `None` ⇒ no
+    /// conditional path. `None` ⇒ no
     /// adjustment (raw `Array2` sources, or `A` unavailable) — a safe no-op.
     fn resolved_bias_correction_jacobian(&self) -> Option<ArrayView2<'_, f64>> {
         None
@@ -388,7 +379,7 @@ impl UncertaintyCovarianceSource for UnifiedFitResult {
         expected_dim: usize,
         mode: InferenceCovarianceMode,
         label: &str,
-    ) -> Result<(PredictionCovarianceBackend<'_>, bool), EstimationError> {
+    ) -> Result<(PredictionCovarianceBackend<'_>, InferenceCovarianceMode), EstimationError> {
         selected_uncertainty_backend(self, expected_dim, mode, label)
     }
     fn resolved_fitted_link_state(&self, family: &LikelihoodSpec) -> Option<FittedLinkState> {
@@ -483,7 +474,7 @@ impl UncertaintyCovarianceSource for PredictionCovarianceWithScale<'_> {
         expected_dim: usize,
         mode: InferenceCovarianceMode,
         label: &str,
-    ) -> Result<(PredictionCovarianceBackend<'_>, bool), EstimationError> {
+    ) -> Result<(PredictionCovarianceBackend<'_>, InferenceCovarianceMode), EstimationError> {
         if self.covariance.nrows() != expected_dim || self.covariance.ncols() != expected_dim {
             return Err(EstimationError::InvalidInput(format!(
                 "{label}: covariance dimension mismatch: expected {expected_dim}x{expected_dim}, got {}x{}",
@@ -492,12 +483,11 @@ impl UncertaintyCovarianceSource for PredictionCovarianceWithScale<'_> {
             )));
         }
         match mode {
-            InferenceCovarianceMode::Conditional
-            | InferenceCovarianceMode::ConditionalPlusSmoothingPreferred => Ok((
+            InferenceCovarianceMode::Conditional => Ok((
                 PredictionCovarianceBackend::from_dense(self.covariance),
-                false,
+                InferenceCovarianceMode::Conditional,
             )),
-            InferenceCovarianceMode::ConditionalPlusSmoothingRequired => {
+            InferenceCovarianceMode::SmoothingCorrected => {
                 Err(EstimationError::InvalidInput(format!(
                     "{label}: raw covariance source cannot provide smoothing-corrected covariance"
                 )))
@@ -535,7 +525,7 @@ impl UncertaintyCovarianceSource for Array2<f64> {
         expected_dim: usize,
         mode: InferenceCovarianceMode,
         label: &str,
-    ) -> Result<(PredictionCovarianceBackend<'_>, bool), EstimationError> {
+    ) -> Result<(PredictionCovarianceBackend<'_>, InferenceCovarianceMode), EstimationError> {
         if self.nrows() != expected_dim || self.ncols() != expected_dim {
             return Err(EstimationError::InvalidInput(format!(
                 "{label}: covariance dimension mismatch: expected {expected_dim}x{expected_dim}, got {}x{}",
@@ -544,11 +534,11 @@ impl UncertaintyCovarianceSource for Array2<f64> {
             )));
         }
         match mode {
-            InferenceCovarianceMode::Conditional
-            | InferenceCovarianceMode::ConditionalPlusSmoothingPreferred => {
-                Ok((PredictionCovarianceBackend::from_dense(self.view()), false))
-            }
-            InferenceCovarianceMode::ConditionalPlusSmoothingRequired => {
+            InferenceCovarianceMode::Conditional => Ok((
+                PredictionCovarianceBackend::from_dense(self.view()),
+                InferenceCovarianceMode::Conditional,
+            )),
+            InferenceCovarianceMode::SmoothingCorrected => {
                 Err(EstimationError::InvalidInput(format!(
                     "{label}: raw covariance source cannot provide smoothing-corrected covariance"
                 )))
@@ -1307,6 +1297,12 @@ pub struct PredictPosteriorMeanResult {
     /// Response-scale observation (prediction) interval upper bound; companion of
     /// [`PredictPosteriorMeanResult::observation_lower`].
     pub observation_upper: Option<Array1<f64>>,
+    /// Covariance used to integrate the posterior-mean point. This is
+    /// conditional by definition, independent of the interval request.
+    pub point_covariance_source: InferenceCovarianceMode,
+    /// Exact covariance used for the attached SE and interval. `None` for a
+    /// point-only request.
+    pub uncertainty_covariance_source: Option<InferenceCovarianceMode>,
 }
 
 /// Options for the posterior-mean prediction path
@@ -1339,20 +1335,20 @@ impl PosteriorMeanOptions {
     pub fn point_only() -> Self {
         Self {
             confidence_level: None,
-            covariance_mode: InferenceCovarianceMode::ConditionalPlusSmoothingPreferred,
+            covariance_mode: InferenceCovarianceMode::SmoothingCorrected,
             include_observation_interval: false,
         }
     }
 
-    /// Credible bounds at `level` with the default smoothing-preferred
-    /// covariance and no observation interval — the common default request. The
-    /// smoothing-preferred default matches [`PredictUncertaintyOptions`] so the
+    /// Credible bounds at `level` with required smoothing-corrected covariance
+    /// and no observation interval — the common default request. The
+    /// smoothing-corrected default matches [`PredictUncertaintyOptions`] so the
     /// posterior-mean families (binomial, link-wiggle) include the same
     /// smoothing-parameter uncertainty every other family does by default.
     pub fn with_level(level: f64) -> Self {
         Self {
             confidence_level: Some(level),
-            covariance_mode: InferenceCovarianceMode::ConditionalPlusSmoothingPreferred,
+            covariance_mode: InferenceCovarianceMode::SmoothingCorrected,
             include_observation_interval: false,
         }
     }
@@ -1406,12 +1402,19 @@ pub enum InferenceCovarianceMode {
     /// Use conditional posterior covariance only:
     ///   Var(beta | lambda_hat) ~= H_{rho_hat}^{-1}.
     Conditional,
-    /// Prefer first-order smoothing-corrected covariance when available:
+    /// Require first-order smoothing-corrected covariance:
     ///   Var(beta) ~= H_{rho_hat}^{-1} + J Var(rho_hat) J^T.
-    /// Falls back to conditional if correction is unavailable.
-    ConditionalPlusSmoothingPreferred,
-    /// Require the first-order smoothing-corrected covariance; error if unavailable.
-    ConditionalPlusSmoothingRequired,
+    /// Absence is an error; this mode never substitutes conditional covariance.
+    SmoothingCorrected,
+}
+
+impl InferenceCovarianceMode {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Conditional => "conditional",
+            Self::SmoothingCorrected => "smoothing-corrected",
+        }
+    }
 }
 
 /// Per-axis training support range used by boundary and OOD corrections.
@@ -1543,7 +1546,7 @@ impl Default for PredictUncertaintyOptions {
     fn default() -> Self {
         Self {
             confidence_level: 0.95,
-            covariance_mode: InferenceCovarianceMode::ConditionalPlusSmoothingPreferred,
+            covariance_mode: InferenceCovarianceMode::SmoothingCorrected,
             mean_interval_method: MeanIntervalMethod::TransformEta,
             includeobservation_interval: true,
             apply_bias_correction: true,
@@ -1714,10 +1717,8 @@ pub struct PredictUncertaintyResult {
     /// Optional observation interval bounds.
     pub observation_lower: Option<Array1<f64>>,
     pub observation_upper: Option<Array1<f64>>,
-    /// Covariance mode requested by caller.
-    pub covariance_mode_requested: InferenceCovarianceMode,
-    /// True if smoothing-corrected covariance was used.
-    pub covariance_corrected_used: bool,
+    /// Exact covariance definition used for the reported uncertainty.
+    pub covariance_source: InferenceCovarianceMode,
 }
 
 fn predict_gam_posterior_mean_from_backend(
@@ -1791,6 +1792,8 @@ fn predict_gam_posterior_mean_from_backendwith_bc(
         mean_upper: None,
         observation_lower: None,
         observation_upper: None,
+        point_covariance_source: InferenceCovarianceMode::Conditional,
+        uncertainty_covariance_source: None,
     })
 }
 
@@ -1799,8 +1802,7 @@ pub struct CoefficientUncertaintyResult {
     pub standard_error: Array1<f64>,
     pub lower: Array1<f64>,
     pub upper: Array1<f64>,
-    pub corrected: bool,
-    pub covariance_mode_requested: InferenceCovarianceMode,
+    pub covariance_source: InferenceCovarianceMode,
 }
 
 /// Generic engine prediction for external designs.
@@ -1914,7 +1916,7 @@ where
 ///
 /// The linear predictor variance uses:
 /// Var(η_i) = x_i^T Var(β) x_i. With the default
-/// [`InferenceCovarianceMode::ConditionalPlusSmoothingPreferred`], `Var(β)` is
+/// [`InferenceCovarianceMode::SmoothingCorrected`], `Var(β)` is
 /// the smoothing-parameter-marginalized `Vp` when the fit exposes it, i.e. the
 /// Kass--Steffey / Wood--Pya--Säfken first-order correction
 /// `Vb + (∂β/∂ρ) V_ρ (∂β/∂ρ)^T`. Therefore the analytic SE path reports
@@ -2543,7 +2545,7 @@ where
     }
 
     let requested_mode = options.covariance_mode;
-    let (backend, covariance_corrected_used) = source.select_uncertainty_backend(
+    let (backend, covariance_source) = source.select_uncertainty_backend(
         beta.len(),
         requested_mode,
         "predict_gamwith_uncertainty",
@@ -2596,9 +2598,10 @@ where
     let mean = apply_family_inverse_link(&eta, &likelihood)?;
 
     // On the conditional path, a bias-corrected centre needs the A·V·Aᵀ band
-    // (the corrected covariance already folds A in, so exclude it via
-    // `!covariance_corrected_used` to avoid double-applying A). #1870.
-    let bias_jacobian = if bias_applied && !covariance_corrected_used {
+    // (the smoothing-corrected covariance already folds A in, so exclude it on
+    // that path to avoid double-applying A). #1870.
+    let bias_jacobian = if bias_applied && covariance_source == InferenceCovarianceMode::Conditional
+    {
         source
             .resolved_bias_correction_jacobian()
             .filter(|a| a.nrows() == beta.len() && a.ncols() == beta.len())
@@ -2899,8 +2902,7 @@ where
         mean_upper,
         observation_lower,
         observation_upper,
-        covariance_mode_requested: requested_mode,
-        covariance_corrected_used,
+        covariance_source,
     })
 }
 
@@ -3131,38 +3133,24 @@ pub fn coefficient_uncertaintywith_mode(
     // Coefficient SEs are extracted from either:
     // - conditional covariance H^{-1}, or
     // - first-order corrected covariance H^{-1} + J V_rho J^T.
-    let (se, corrected) = match covariance_mode {
-        InferenceCovarianceMode::Conditional => (
+    let se = match covariance_mode {
+        InferenceCovarianceMode::Conditional => {
             fit.beta_standard_errors().cloned().ok_or_else(|| {
                 EstimationError::InvalidInput(
                     "fit result does not contain conditional coefficient standard errors"
                         .to_string(),
                 )
-            })?,
-            false,
-        ),
-        InferenceCovarianceMode::ConditionalPlusSmoothingPreferred => {
-            if let Some(se_corr) = fit.beta_standard_errors_corrected() {
-                (se_corr.clone(), true)
-            } else if let Some(se_base) = fit.beta_standard_errors() {
-                (se_base.clone(), false)
-            } else {
-                return Err(EstimationError::InvalidInput(
-                    "fit result does not contain coefficient standard errors".to_string(),
-                ));
-            }
+            })?
         }
-        InferenceCovarianceMode::ConditionalPlusSmoothingRequired => (
-            fit.beta_standard_errors_corrected()
-                .cloned()
-                .ok_or_else(|| {
-                    EstimationError::InvalidInput(
-                        "fit result does not contain smoothing-corrected coefficient standard errors"
-                            .to_string(),
-                    )
-                })?,
-            true,
-        ),
+        InferenceCovarianceMode::SmoothingCorrected => fit
+            .beta_standard_errors_corrected()
+            .cloned()
+            .ok_or_else(|| {
+                EstimationError::InvalidInput(
+                    "fit result does not contain smoothing-corrected coefficient standard errors"
+                        .to_string(),
+                )
+            })?,
     };
 
     if se.len() != fit.beta.len() {
@@ -3182,8 +3170,7 @@ pub fn coefficient_uncertaintywith_mode(
         standard_error: se,
         lower,
         upper,
-        corrected,
-        covariance_mode_requested: covariance_mode,
+        covariance_source: covariance_mode,
     })
 }
 
@@ -3589,6 +3576,8 @@ mod tests {
             mean_upper: None,
             observation_lower: None,
             observation_upper: None,
+            point_covariance_source: InferenceCovarianceMode::Conditional,
+            uncertainty_covariance_source: None,
         };
         enrich_posterior_mean_bounds(
             &mut result,
@@ -3639,6 +3628,8 @@ mod tests {
             mean_upper: None,
             observation_lower: None,
             observation_upper: None,
+            point_covariance_source: InferenceCovarianceMode::Conditional,
+            uncertainty_covariance_source: None,
         };
         enrich_posterior_mean_bounds(
             &mut result,
@@ -4030,7 +4021,7 @@ mod tests {
             auxiliary_matrix: None,
         };
         let options = PredictUncertaintyOptions {
-            covariance_mode: InferenceCovarianceMode::ConditionalPlusSmoothingRequired,
+            covariance_mode: InferenceCovarianceMode::SmoothingCorrected,
             includeobservation_interval: false,
             apply_bias_correction: false,
             edgeworth_one_sided: false,
@@ -4050,7 +4041,10 @@ mod tests {
             .predict_full_uncertainty(&input, &corrected_fit, &options)
             .expect("required corrected covariance should be available");
         assert!((out.eta_standard_error[0] - 3.0).abs() <= 1e-12);
-        assert!(out.covariance_corrected_used);
+        assert_eq!(
+            out.covariance_source,
+            InferenceCovarianceMode::SmoothingCorrected
+        );
 
         let missing_fit = gaussian_location_scale_fit_with_covariance(
             array![0.0],
@@ -4193,8 +4187,6 @@ mod tests {
             smoothing_correction: None,
             smoothing_correction_method: None,
             penalized_hessian: Array2::<f64>::eye(p).into(),
-            working_weights: Array1::zeros(0),
-            working_response: Array1::zeros(0),
             reparam_qs: None,
             dispersion: gam_problem::Dispersion::UNIT,
             beta_covariance: Some(covariance.clone().into()),
@@ -5835,7 +5827,7 @@ mod tests {
                 mean,
                 eta_se: Some(Array1::from_elem(3, 0.01)),
                 mean_se: Some(Array1::from_elem(3, 0.01)),
-                covariance_corrected_used: false,
+                covariance_source: InferenceCovarianceMode::Conditional,
             })
         }
 

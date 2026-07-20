@@ -40,18 +40,28 @@ use gam_gpu::gpu_error::GpuError;
 #[cfg(target_os = "linux")]
 use gam_gpu::gpu_error::GpuResultExt;
 
-/// Hard ceiling on `r` (primary local dimension). Matches the BMS-FLEX row
-/// kernel's [`crate::bms::gpu::row::MAX_R`] so the same cached Hessian
-/// bundle can feed both kernels without revalidation. Linux-only because
-/// the consumers (`validate` impls and the launcher) are Linux-only.
-#[cfg(target_os = "linux")]
-pub(crate) const MAX_R: usize = crate::bms::gpu::row::MAX_R;
-
 /// `blockDim.x` for the per-row matvec / diagonal kernels. One CUDA block per
-/// row; the 32 threads of the block parallelise the inner `r`-loop. Linux-only
-/// because the launcher that consumes it is Linux-only.
+/// row; the 32 threads form a reusable direction tile and sweep every runtime
+/// primary width in synchronized batches. Linux-only because the launcher that
+/// consumes it is Linux-only.
 #[cfg(target_os = "linux")]
 const ROW_HV_THREADS: u32 = 32;
+
+#[cfg(target_os = "linux")]
+fn checked_row_shape_len(context: &str, dimensions: &[usize]) -> Result<usize, GpuError> {
+    dimensions
+        .iter()
+        .copied()
+        .try_fold(1_usize, |product, dimension| {
+            product
+                .checked_mul(dimension)
+                .ok_or_else(|| GpuError::DriverCallFailed {
+                    reason: format!(
+                        "row_hessian_ops {context}: shape product overflow for dimensions {dimensions:?}"
+                    ),
+                })
+        })
+}
 
 /// Per-call input bundle for [`launch_row_hessian_matvec`].
 ///
@@ -105,33 +115,34 @@ pub(crate) struct RowHessianDiagOutputs {
 impl<'a> RowHessianMatvecInputs<'a> {
     /// Validate every shape the device kernel relies on.
     pub(crate) fn validate(&self) -> Result<(), GpuError> {
+        if self.n_rows == 0 {
+            return Err(GpuError::DriverCallFailed {
+                reason: "row_hessian_matvec inputs: n_rows must be > 0".to_string(),
+            });
+        }
         if self.r == 0 {
             return Err(GpuError::DriverCallFailed {
                 reason: "row_hessian_matvec inputs: r must be > 0".to_string(),
             });
         }
-        if self.r > MAX_R {
-            gam_gpu::gpu_bail!(
-                "row_hessian_matvec inputs: r={} exceeds MAX_R={MAX_R}",
-                self.r
-            );
-        }
-        if self.h_rows.len() != self.n_rows * self.r * self.r {
+        let nr = checked_row_shape_len("matvec [n,r]", &[self.n_rows, self.r])?;
+        let nrr = checked_row_shape_len("matvec [n,r,r]", &[self.n_rows, self.r, self.r])?;
+        if self.h_rows.len() != nrr {
             gam_gpu::gpu_bail!(
                 "row_hessian_matvec inputs: h_rows.len()={} != n_rows({})*r({})*r = {}",
                 self.h_rows.len(),
                 self.n_rows,
                 self.r,
-                self.n_rows * self.r * self.r
+                nrr
             );
         }
-        if self.v_rows.len() != self.n_rows * self.r {
+        if self.v_rows.len() != nr {
             gam_gpu::gpu_bail!(
                 "row_hessian_matvec inputs: v_rows.len()={} != n_rows({})*r({}) = {}",
                 self.v_rows.len(),
                 self.n_rows,
                 self.r,
-                self.n_rows * self.r
+                nr
             );
         }
         Ok(())
@@ -142,24 +153,24 @@ impl<'a> RowHessianMatvecInputs<'a> {
 impl<'a> RowHessianDiagInputs<'a> {
     /// Validate every shape the device kernel relies on.
     pub(crate) fn validate(&self) -> Result<(), GpuError> {
+        if self.n_rows == 0 {
+            return Err(GpuError::DriverCallFailed {
+                reason: "row_hessian_diag inputs: n_rows must be > 0".to_string(),
+            });
+        }
         if self.r == 0 {
             return Err(GpuError::DriverCallFailed {
                 reason: "row_hessian_diag inputs: r must be > 0".to_string(),
             });
         }
-        if self.r > MAX_R {
-            gam_gpu::gpu_bail!(
-                "row_hessian_diag inputs: r={} exceeds MAX_R={MAX_R}",
-                self.r
-            );
-        }
-        if self.h_rows.len() != self.n_rows * self.r * self.r {
+        let nrr = checked_row_shape_len("diagonal [n,r,r]", &[self.n_rows, self.r, self.r])?;
+        if self.h_rows.len() != nrr {
             gam_gpu::gpu_bail!(
                 "row_hessian_diag inputs: h_rows.len()={} != n_rows({})*r({})*r = {}",
                 self.h_rows.len(),
                 self.n_rows,
                 self.r,
-                self.n_rows * self.r * self.r
+                nrr
             );
         }
         Ok(())
@@ -199,25 +210,35 @@ __global__ void row_hessian_matvec_kernel(
     const int tid = threadIdx.x;
     const int nthr = blockDim.x;
 
-    // Stage the direction in shared memory so each `u`-row reuses it.
-    // MAX_R = 32 (matches host const); we keep the array fixed-size and
-    // index-guard with `r` for the partial-warp case.
-    __shared__ double v_shared[32];
-    for (int u = tid; u < r; u += nthr) {
-        v_shared[u] = v_rows[row * r + u];
-    }
-    __syncthreads();
+    // The shared array is an algorithmic tile, not a semantic width bound.
+    // Every synchronized u-batch sweeps all v-tiles, so r=33 and arbitrary
+    // wider checked shapes execute the same contraction without local arrays
+    // proportional to r.
+    extern __shared__ double v_shared[];
 
-    // Each thread handles a strided subset of output rows `u`.
     const double* h_base = h_rows + (size_t)row * (size_t)r * (size_t)r;
     double*       y_base = y_rows + (size_t)row * (size_t)r;
-    for (int u = tid; u < r; u += nthr) {
-        const double* h_row = h_base + (size_t)u * (size_t)r;
+    for (int u_base = 0; u_base < r; u_base += nthr) {
+        const int u = u_base + tid;
         double acc = 0.0;
-        for (int v = 0; v < r; ++v) {
-            acc += h_row[v] * v_shared[v];
+        for (int v_base = 0; v_base < r; v_base += nthr) {
+            const int loaded_v = v_base + tid;
+            v_shared[tid] = loaded_v < r
+                ? v_rows[(size_t)row * (size_t)r + (size_t)loaded_v]
+                : 0.0;
+            __syncthreads();
+            if (u < r) {
+                const double* h_tile = h_base + (size_t)u * (size_t)r + (size_t)v_base;
+                const int tile_len = r - v_base < nthr ? r - v_base : nthr;
+                for (int local_v = 0; local_v < tile_len; ++local_v) {
+                    acc += h_tile[local_v] * v_shared[local_v];
+                }
+            }
+            __syncthreads();
         }
-        y_base[u] = acc;
+        if (u < r) {
+            y_base[u] = acc;
+        }
     }
 }
 
@@ -260,11 +281,7 @@ impl RowOpsBackend {
         static BACKEND: OnceLock<Result<RowOpsBackend, GpuError>> = OnceLock::new();
         BACKEND
             .get_or_init(|| {
-                let runtime = gam_gpu::device_runtime::GpuRuntime::global().ok_or_else(|| {
-                    GpuError::DriverLibraryUnavailable {
-                        reason: "row_hessian_ops backend: no CUDA runtime available".to_string(),
-                    }
-                })?;
+                let runtime = gam_gpu::device_runtime::GpuRuntime::require()?;
                 let ctx = gam_gpu::device_runtime::cuda_context_for(
                     runtime.selected_device().ordinal,
                 )
@@ -320,6 +337,7 @@ fn launch_matvec_linux(
     let stream = &backend.stream;
     let n = inputs.n_rows;
     let r = inputs.r;
+    let nr = checked_row_shape_len("matvec output [n,r]", &[n, r])?;
 
     let d_h = stream
         .clone_htod(inputs.h_rows)
@@ -328,7 +346,7 @@ fn launch_matvec_linux(
         .clone_htod(inputs.v_rows)
         .gpu_ctx("row_hessian_matvec upload v_rows")?;
     let mut d_y = stream
-        .alloc_zeros::<f64>(n * r)
+        .alloc_zeros::<f64>(nr)
         .gpu_ctx("row_hessian_matvec alloc y_rows")?;
 
     let func = backend
@@ -336,15 +354,22 @@ fn launch_matvec_linux(
         .load_function("row_hessian_matvec_kernel")
         .gpu_ctx("row_hessian_matvec load_function")?;
 
-    let cfg = LaunchConfig {
-        grid_dim: (n as u32, 1, 1),
-        block_dim: (ROW_HV_THREADS, 1, 1),
-        shared_mem_bytes: 0,
-    };
     let n_i32 = i32::try_from(n)
         .map_err(|_| gpu_err!("row_hessian_matvec: n_rows={n} exceeds i32 range"))?;
+    let n_u32 = u32::try_from(n)
+        .map_err(|_| gpu_err!("row_hessian_matvec: n_rows={n} exceeds u32 range"))?;
     let r_i32 =
         i32::try_from(r).map_err(|_| gpu_err!("row_hessian_matvec: r={r} exceeds i32 range"))?;
+    let shared_mem_bytes = ROW_HV_THREADS
+        .checked_mul(u32::try_from(std::mem::size_of::<f64>()).map_err(|_| {
+            gpu_err!("row_hessian_matvec: f64 byte width exceeds CUDA shared-memory range")
+        })?)
+        .ok_or_else(|| gpu_err!("row_hessian_matvec: shared tile byte count overflow"))?;
+    let cfg = LaunchConfig {
+        grid_dim: (n_u32, 1, 1),
+        block_dim: (ROW_HV_THREADS, 1, 1),
+        shared_mem_bytes,
+    };
 
     let mut builder = stream.launch_builder(&func);
     builder
@@ -356,9 +381,9 @@ fn launch_matvec_linux(
 
     // SAFETY: every kernel argument is either an `i32` (passed by value)
     // or a device pointer to a buffer whose length was validated above
-    // (`validate()` matches the kernel's exact indexing pattern). The
-    // shared-memory `v_shared[32]` array in the kernel source is sized for
-    // MAX_R = 32, and `validate()` rejects r > MAX_R.
+    // (`validate()` matches the kernel's exact indexing pattern). Dynamic
+    // shared memory is exactly one `ROW_HV_THREADS` tile sized by the Rust
+    // launch authority; synchronized batches cover the complete runtime width.
     unsafe { builder.launch(cfg) }.gpu_ctx("row_hessian_matvec launch")?;
     stream
         .synchronize()
@@ -375,12 +400,13 @@ fn launch_diag_linux(inputs: RowHessianDiagInputs<'_>) -> Result<RowHessianDiagO
     let stream = &backend.stream;
     let n = inputs.n_rows;
     let r = inputs.r;
+    let nr = checked_row_shape_len("diagonal output [n,r]", &[n, r])?;
 
     let d_h = stream
         .clone_htod(inputs.h_rows)
         .gpu_ctx("row_hessian_diag upload h_rows")?;
     let mut d_d = stream
-        .alloc_zeros::<f64>(n * r)
+        .alloc_zeros::<f64>(nr)
         .gpu_ctx("row_hessian_diag alloc d_rows")?;
 
     let func = backend
@@ -388,15 +414,17 @@ fn launch_diag_linux(inputs: RowHessianDiagInputs<'_>) -> Result<RowHessianDiagO
         .load_function("row_hessian_diag_kernel")
         .gpu_ctx("row_hessian_diag load_function")?;
 
+    let n_i32 =
+        i32::try_from(n).map_err(|_| gpu_err!("row_hessian_diag: n_rows={n} exceeds i32 range"))?;
+    let n_u32 =
+        u32::try_from(n).map_err(|_| gpu_err!("row_hessian_diag: n_rows={n} exceeds u32 range"))?;
+    let r_i32 =
+        i32::try_from(r).map_err(|_| gpu_err!("row_hessian_diag: r={r} exceeds i32 range"))?;
     let cfg = LaunchConfig {
-        grid_dim: (n as u32, 1, 1),
+        grid_dim: (n_u32, 1, 1),
         block_dim: (ROW_HV_THREADS, 1, 1),
         shared_mem_bytes: 0,
     };
-    let n_i32 =
-        i32::try_from(n).map_err(|_| gpu_err!("row_hessian_diag: n_rows={n} exceeds i32 range"))?;
-    let r_i32 =
-        i32::try_from(r).map_err(|_| gpu_err!("row_hessian_diag: r={r} exceeds i32 range"))?;
 
     let mut builder = stream.launch_builder(&func);
     builder.arg(&n_i32).arg(&r_i32).arg(&d_h).arg(&mut d_d);
@@ -415,11 +443,8 @@ fn launch_diag_linux(inputs: RowHessianDiagInputs<'_>) -> Result<RowHessianDiagO
     Ok(RowHessianDiagOutputs { d_rows })
 }
 
-/// CPU oracle for [`launch_row_hessian_matvec`]. Mirrors the per-row
-/// `scratch.hess.dot(&row_dir)` contraction in CPU
-/// [`crate::bms::BernoulliMarginalSlopeFamily::exact_newton_joint_hessian_matvec_from_cache`].
-/// Used by the parity test below; kept `pub(crate)` so future Phase 5
-/// dispatcher work can reuse the exact reference algebra.
+/// CPU execution of the same per-row Hessian matvec. This is the live
+/// non-CUDA route used by the host-pin joint-Hessian consumers.
 pub(crate) fn cpu_row_hessian_matvec(inputs: &RowHessianMatvecInputs<'_>) -> Vec<f64> {
     let n = inputs.n_rows;
     let r = inputs.r;
@@ -438,21 +463,20 @@ pub(crate) fn cpu_row_hessian_matvec(inputs: &RowHessianMatvecInputs<'_>) -> Vec
     y
 }
 
-/// CPU oracle for [`launch_row_hessian_diag`]. Mirrors the per-row
-/// `row_hess[[u, u]]` reads in CPU
-/// [`crate::bms::BernoulliMarginalSlopeFamily::exact_newton_joint_hessian_diagonal_from_cache`].
+/// CPU execution of the same per-row Hessian diagonal extraction. This is the
+/// live non-CUDA route used by the host-pin preconditioner consumers.
 pub(crate) fn cpu_row_hessian_diag(inputs: &RowHessianDiagInputs<'_>) -> Vec<f64> {
     let n = inputs.n_rows;
     let r = inputs.r;
-    let mut d = vec![0.0_f64; n * r];
+    let mut diagonal = vec![0.0_f64; n * r];
     for row in 0..n {
         let h_base = row * r * r;
-        let v_base = row * r;
+        let diagonal_base = row * r;
         for u in 0..r {
-            d[v_base + u] = inputs.h_rows[h_base + u * r + u];
+            diagonal[diagonal_base + u] = inputs.h_rows[h_base + u * r + u];
         }
     }
-    d
+    diagonal
 }
 
 #[cfg(test)]
@@ -530,10 +554,10 @@ mod tests {
         assert_eq!(d, vec![2.0, 3.0, 4.0, 5.0]);
     }
 
-    // Uses Linux-only `GpuError`/`MAX_R`/`validate()`; gated to match.
+    // Uses Linux-only `GpuError`/`validate()`; gated to match.
     #[cfg(target_os = "linux")]
     #[test]
-    fn validate_rejects_mismatched_shapes() {
+    fn validation_checks_shapes_without_a_primary_width_cap_932() {
         let h_rows = vec![1.0; 8];
         let v_rows = vec![1.0; 3]; // wrong: should be 4 for n=2, r=2
         let inputs = RowHessianMatvecInputs {
@@ -549,21 +573,27 @@ mod tests {
             other => panic!("expected DriverCallFailed, got {other:?}"),
         }
 
-        let big_r = MAX_R + 1;
-        let h_rows = vec![0.0; big_r * big_r];
-        let v_rows = vec![0.0; big_r];
-        let inputs = RowHessianMatvecInputs {
+        let r = 33;
+        let h_rows = vec![0.0; r * r];
+        let v_rows = vec![0.0; r];
+        RowHessianMatvecInputs {
             n_rows: 1,
-            r: big_r,
+            r,
             h_rows: &h_rows,
             v_rows: &v_rows,
-        };
-        match inputs.validate() {
-            Err(GpuError::DriverCallFailed { reason }) => {
-                assert!(reason.contains("MAX_R"), "unexpected reason: {reason}");
-            }
-            other => panic!("expected DriverCallFailed for over-MAX_R, got {other:?}"),
         }
+        .validate()
+        .expect("r=33 must cross the old tile width without a semantic cap");
+
+        let overflow = RowHessianMatvecInputs {
+            n_rows: usize::MAX,
+            r: 2,
+            h_rows: &[],
+            v_rows: &[],
+        }
+        .validate()
+        .expect_err("overflowing shapes must fail before slice comparison");
+        assert!(overflow.to_string().contains("shape product overflow"));
     }
 
     /// CPU↔GPU parity for both kernels. The GPU launch entry points only
@@ -573,18 +603,21 @@ mod tests {
     /// `bms_flex_row_kernel_matches_cpu_oracle_when_cuda_available`.
     ///
     /// Tolerances: abs ≤ 2e-8, rel ≤ 2e-7 per the Block 9 Phase 2/3
-    /// charter. Fixture has r = 5 and n_rows = 4 to keep the test fast on
-    /// CI while exercising both the strided thread loop (r < 32) and the
-    /// per-row uploads.
+    /// charter. Fixture has r = 33 and n_rows = 4 to cross the 32-value
+    /// algorithm tile and prove that tile width is not a primary-width cap.
     #[cfg(target_os = "linux")]
     #[test]
     fn row_hessian_kernels_match_cpu_oracle_when_cuda_available() {
-        let Some(_runtime) = gam_gpu::device_runtime::GpuRuntime::global() else {
-            eprintln!("[row_hessian_ops parity] no CUDA runtime — skipping CUDA parity");
-            return;
-        };
+        match gam_gpu::device_runtime::GpuRuntime::resolve(gam_gpu::GpuPolicy::Auto) {
+            Ok(Some(_)) => {}
+            Ok(None) => {
+                eprintln!("[row_hessian_ops parity] no CUDA device — skipping CUDA parity");
+                return;
+            }
+            Err(error) => panic!("[row_hessian_ops parity] CUDA probe failed: {error}"),
+        }
         let n_rows = 4;
-        let r = 5;
+        let r = 33;
         let (h_rows, v_rows) = make_fixture(n_rows, r);
 
         let matvec_inputs = RowHessianMatvecInputs {

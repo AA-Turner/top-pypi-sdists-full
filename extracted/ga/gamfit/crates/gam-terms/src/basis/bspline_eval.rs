@@ -1,17 +1,16 @@
 use super::*;
 
-/// Absolute floor below which a B-spline knot span (`t_{i+k} - t_i`) is treated
-/// as degenerate: the corresponding Cox–de Boor / derivative-recurrence
-/// denominator is then skipped (its term contributes zero), and a zero-support
-/// basis function is rejected. Set well above `f64::EPSILON` so that knot
-/// vectors with near-coincident knots are caught before the division amplifies
-/// rounding noise, yet far below any meaningful covariate-scale knot spacing.
-pub(crate) const KNOT_SPAN_DEGENERACY_FLOOR: f64 = 1e-12;
-
-/// Absolute distance by which a covariate value must lie outside the clamped
-/// B-spline domain before the linear extrapolation correction is applied; below
-/// this the point is treated as on-boundary and no extrapolation term is added.
-pub(crate) const BSPLINE_EXTRAPOLATION_THRESHOLD: f64 = 1e-12;
+/// Whether a knot difference is structurally degenerate.
+///
+/// Cox–de Boor terms are scale-free ratios. The only undefined denominator in
+/// a validated nondecreasing knot vector is therefore an exactly repeated knot,
+/// whose conventional contribution is zero. A magnitude tolerance—absolute or
+/// relative—changes the represented spline when physical units change or when
+/// a valid nonuniform knot pattern contains a narrow span.
+#[inline]
+pub(crate) fn knot_span_is_degenerate(span: f64) -> bool {
+    span == 0.0
+}
 
 /// Default number of rows in each block the streaming design evaluators
 /// materialize at a time when the caller does not supply an explicit chunk
@@ -147,7 +146,7 @@ pub fn apply_linear_extension_from_first_derivative(
 
     let mut needs_ext = false;
     for i in 0..z_raw.len() {
-        if (z_raw[i] - z_clamped[i]).abs() > BSPLINE_EXTRAPOLATION_THRESHOLD {
+        if z_raw[i] != z_clamped[i] {
             needs_ext = true;
             break;
         }
@@ -169,7 +168,7 @@ pub fn apply_linear_extension_from_first_derivative(
 
     for i in 0..z_raw.len() {
         let dz = z_raw[i] - z_clamped[i];
-        if dz.abs() <= BSPLINE_EXTRAPOLATION_THRESHOLD {
+        if dz == 0.0 {
             continue;
         }
         for j in 0..basisvalues.ncols() {
@@ -370,17 +369,8 @@ pub(crate) fn has_clamped_bspline_boundaries(knotview: ArrayView1<f64>, degree: 
     }
     let left = knotview[0];
     let right = knotview[knotview.len() - 1];
-    let scale = (right - left).abs().max(1.0);
-    let tol = KNOT_SPAN_DEGENERACY_FLOOR * scale;
-    let left_clamped = knotview
-        .iter()
-        .take(clamp_count)
-        .all(|&k| (k - left).abs() <= tol);
-    let right_clamped = knotview
-        .iter()
-        .rev()
-        .take(clamp_count)
-        .all(|&k| (k - right).abs() <= tol);
+    let left_clamped = knotview.iter().take(clamp_count).all(|&k| k == left);
+    let right_clamped = knotview.iter().rev().take(clamp_count).all(|&k| k == right);
     left_clamped && right_clamped
 }
 
@@ -618,7 +608,7 @@ pub(crate) fn validate_knot_spans_nondegenerate(
     let num_basis = knot_vector.len() - degree - 1;
     for i in 0..num_basis {
         let span = knot_vector[i + degree + 1] - knot_vector[i];
-        if span <= KNOT_SPAN_DEGENERACY_FLOOR {
+        if span <= 0.0 {
             return Err(BasisError::InvalidKnotVector(format!(
                 "basis function {i} has zero support: t[i+degree+1]-t[i]={span:.3e} must be > 0"
             )));
@@ -725,12 +715,12 @@ pub(crate) fn evaluate_splines_derivative_sparse_intowith_lower(
     for i in 0..num_basis {
         let denom_left = knotview[i + degree] - knotview[i];
         let denom_right = knotview[i + degree + 1] - knotview[i + 1];
-        let left_term = if denom_left.abs() > KNOT_SPAN_DEGENERACY_FLOOR {
+        let left_term = if !knot_span_is_degenerate(denom_left) {
             lowervalues[i] / denom_left
         } else {
             0.0
         };
-        let right_term = if denom_right.abs() > KNOT_SPAN_DEGENERACY_FLOOR {
+        let right_term = if !knot_span_is_degenerate(denom_right) {
             lowervalues[i + 1] / denom_right
         } else {
             0.0
@@ -1121,9 +1111,9 @@ pub fn create_difference_penalty_matrix(
             let mut log_span_sum = 0.0_f64;
             for i in 0..nrows {
                 let span = g[i + o] - g[i];
-                if span.abs() <= KNOT_SPAN_DEGENERACY_FLOOR {
+                if !span.is_finite() || span <= 0.0 {
                     return Err(BasisError::InvalidKnotVector(format!(
-                        "singular divided-difference span at order {o}, row {i}: coefficient coordinates g[{}]={:.6e} and g[{i}]={:.6e} collapse",
+                        "divided-difference coordinates must be finite and strictly increasing at order {o}, row {i}: g[{}]={:.6e}, g[{i}]={:.6e}",
                         i + o,
                         g[i + o],
                         g[i]

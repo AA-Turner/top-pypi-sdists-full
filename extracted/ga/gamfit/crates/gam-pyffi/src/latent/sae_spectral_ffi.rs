@@ -421,6 +421,7 @@ struct AuditTopologyRecord {
 struct AuditAtlasReport {
     chart_blocks: Vec<usize>,
     diagram: gam::terms::sae::inference::atlas_nerve::AtlasNerveDiagram,
+    holonomy_unavailable_reason: Option<String>,
 }
 
 fn betti_signature_dict<'py>(
@@ -584,10 +585,10 @@ fn topology_records_from_codes(
 /// (`‖A·G − G·A‖_F`) by [`certify_square_transfer`], and validity is the
 /// library's own gate ([`AtlasTransferGate::from_square_transfer`]). Any other
 /// block width, fewer than two co-firing rows, a singular coordinate Gram, or a
-/// non-finite operator exposes no certifiable transfer at this boundary, so the
-/// gate is UNCERTIFIED (`valid = false`, unknown/`inf` defects) — never
-/// fabricated valid. `block_a`/`block_b` index the dictionary blocks the two
-/// charts read; `chart_a`/`chart_b` are the nerve-vertex labels.
+/// non-finite operator exposes no transfer gate at this boundary; the nerve
+/// records the observed overlap as rejected because no certificate exists.
+/// `block_a`/`block_b` index the dictionary blocks the two charts read;
+/// `chart_a`/`chart_b` are the nerve-vertex labels.
 fn chart_transfer_gate_sparse(
     route: &AuditSparseRoute,
     support_a: &gam::terms::sae::inference::atlas_nerve::AtlasChart,
@@ -596,17 +597,12 @@ fn chart_transfer_gate_sparse(
     block_b: usize,
     chart_a: usize,
     chart_b: usize,
-) -> gam::terms::sae::inference::atlas_nerve::AtlasTransferGate {
+) -> Result<Option<gam::terms::sae::inference::atlas_nerve::AtlasTransferGate>, String> {
+    use gam::terms::sae::inference::atlas_holonomy::AtlasHolonomyEdgeId;
     use gam::terms::sae::inference::atlas_nerve::AtlasTransferGate;
-    let uncertified = || AtlasTransferGate {
-        a: chart_a,
-        b: chart_b,
-        valid: false,
-        transport_defect: f64::INFINITY,
-        equivariance_defect: f64::INFINITY,
-    };
+    let edge = AtlasHolonomyEdgeId::new(chart_a, chart_b, 0)?;
     if route.block_size != 2 {
-        return uncertified();
+        return Ok(None);
     }
     let mut xa: Vec<f64> = Vec::new();
     let mut xb: Vec<f64> = Vec::new();
@@ -651,20 +647,18 @@ fn chart_transfer_gate_sparse(
     }
     let n_co = xa.len() / 2;
     if n_co < 2 {
-        return uncertified();
+        return Ok(None);
     }
-    let (Ok(x_a), Ok(x_b)) = (
-        ndarray::Array2::from_shape_vec((n_co, 2), xa),
-        ndarray::Array2::from_shape_vec((n_co, 2), xb),
-    ) else {
-        return uncertified();
-    };
+    let x_a = ndarray::Array2::from_shape_vec((n_co, 2), xa)
+        .map_err(|error| format!("chart {chart_a} overlap coordinates are malformed: {error}"))?;
+    let x_b = ndarray::Array2::from_shape_vec((n_co, 2), xb)
+        .map_err(|error| format!("chart {chart_b} overlap coordinates are malformed: {error}"))?;
     // Empirical chart-to-chart transfer operator `A = (X_aᵀX_a)⁻¹ X_aᵀX_b`
     // solving `X_a A ≈ X_b` over the co-firing rows.
     let Ok(operator) =
         gam::terms::sae::chart_transfer::pulled_back_operator(x_a.view(), x_b.view())
     else {
-        return uncertified();
+        return Ok(None);
     };
     // Both charts are circles, so the shared infinitesimal-rotation generator is
     // the SO(2) generator `[[0,−1],[1,0]]`.
@@ -674,15 +668,100 @@ fn chart_transfer_gate_sparse(
         generator.view(),
         generator.view(),
     ) {
-        Ok(cert) => AtlasTransferGate::from_square_transfer(chart_a, chart_b, cert, 2),
-        Err(_) => uncertified(),
+        Ok(cert) => Ok(Some(AtlasTransferGate::from_square_transfer(edge, cert, 2))),
+        Err(_) => Ok(None),
     }
+}
+
+/// Build the fitted Gaussian-PCA holonomy analysis on a deterministic global
+/// cross-fit. Even rows fit every live chart's pilot frame; odd rows are
+/// assigned to exactly one live chart for inference. Consequently no pilot row
+/// is reused for inference and patch inference sets are pairwise disjoint.
+/// Spectrum values remain typed plug-in estimates, so the core reports an
+/// analyzed refusal rather than manufacturing a finite-sample certificate.
+fn cross_fitted_holonomy_from_ambient(
+    charts: &[gam::terms::sae::inference::atlas_nerve::AtlasChart],
+    admitted_edges: &[gam::terms::sae::inference::atlas_holonomy::AtlasHolonomyEdgeId],
+    data: ndarray::ArrayView2<'_, f64>,
+    familywise_alpha: f64,
+) -> Result<gam::terms::sae::inference::atlas_holonomy::AtlasHolonomyCertificate, String> {
+    use gam::terms::sae::inference::atlas_holonomy::{
+        AtlasFamilywiseLevel, AtlasHolonomyCertificate, GaussianPatchRowSplit,
+        GaussianPcaErrorModel, GaussianPcaPatch, PopulationCrossGramProvenance,
+        ProjectedAtlasEdgeSpec,
+    };
+    if data.ncols() < 3 {
+        return Err(format!(
+            "cross-fitted atlas holonomy needs at least three ambient coordinates, got {}",
+            data.ncols()
+        ));
+    }
+    let mut live_by_row = vec![Vec::<usize>::new(); data.nrows()];
+    for (chart, patch) in charts.iter().enumerate() {
+        for &row in patch.support_rows() {
+            if row >= data.nrows() {
+                return Err(format!(
+                    "atlas chart {chart} support row {row} exceeds ambient data height {}",
+                    data.nrows()
+                ));
+            }
+            live_by_row[row].push(chart);
+        }
+    }
+    let mut pilot_rows = vec![Vec::<usize>::new(); charts.len()];
+    let mut inference_rows = vec![Vec::<usize>::new(); charts.len()];
+    for (row, live) in live_by_row.iter().enumerate() {
+        if row % 2 == 0 {
+            for &chart in live {
+                pilot_rows[chart].push(row);
+            }
+        } else if !live.is_empty() {
+            let owner = live[(row / 2) % live.len()];
+            inference_rows[owner].push(row);
+        }
+    }
+    let mut patches = Vec::with_capacity(charts.len());
+    for chart in 0..charts.len() {
+        let split = GaussianPatchRowSplit::new(
+            std::mem::take(&mut pilot_rows[chart]),
+            std::mem::take(&mut inference_rows[chart]),
+        )?;
+        patches.push(GaussianPcaPatch::fit_cross_fitted_plugin(
+            chart,
+            split,
+            data.view(),
+            data.ncols(),
+        )?);
+    }
+    let error_model = GaussianPcaErrorModel::independent(&patches)?;
+    let edge_specs = admitted_edges
+        .iter()
+        .copied()
+        .map(|edge| {
+            ProjectedAtlasEdgeSpec::new(
+                edge.a(),
+                edge.b(),
+                edge.overlap(),
+                PopulationCrossGramProvenance::EstimatedOnly,
+                0.0,
+            )
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    AtlasHolonomyCertificate::gaussian_pca(
+        patches,
+        edge_specs,
+        error_model,
+        AtlasFamilywiseLevel::new(familywise_alpha)?,
+        None,
+    )
 }
 
 fn atlas_nerve_from_sparse_route(
     route: &AuditSparseRoute,
     activation_threshold: f32,
     requested_blocks: Option<&[usize]>,
+    ambient_data: Option<ndarray::ArrayView2<'_, f64>>,
+    familywise_alpha: Option<f64>,
 ) -> Result<Option<AuditAtlasReport>, String> {
     if route.block_size == 1 {
         return Ok(None);
@@ -744,7 +823,7 @@ fn atlas_nerve_from_sparse_route(
     }
     let mut gates = Vec::with_capacity(coactive_pairs.len());
     for (a, b) in coactive_pairs {
-        gates.push(chart_transfer_gate_sparse(
+        if let Some(gate) = chart_transfer_gate_sparse(
             route,
             &charts[a],
             &charts[b],
@@ -752,13 +831,511 @@ fn atlas_nerve_from_sparse_route(
             chart_blocks[b],
             a,
             b,
-        ));
+        )? {
+            gates.push(gate);
+        }
     }
-    let diagram = gam::terms::sae::inference::atlas_nerve::build_atlas_nerve(&charts, &gates)?;
+    let preliminary =
+        gam::terms::sae::inference::atlas_nerve::build_atlas_nerve(&charts, &gates, None, None)?;
+    let admitted_edges: Vec<_> = preliminary
+        .edges
+        .iter()
+        .filter(|edge| edge.admitted)
+        .map(|edge| {
+            gam::terms::sae::inference::atlas_holonomy::AtlasHolonomyEdgeId::new(
+                edge.a,
+                edge.b,
+                edge.overlap,
+            )
+        })
+        .collect::<Result<_, _>>()?;
+    let (holonomy_certificate, holonomy_unavailable_reason) = match (
+        ambient_data,
+        familywise_alpha,
+    ) {
+        (Some(data), Some(alpha)) => {
+            match cross_fitted_holonomy_from_ambient(&charts, &admitted_edges, data, alpha) {
+                Ok(certificate) => (Some(certificate), None),
+                Err(reason) => (None, Some(reason)),
+            }
+        }
+        (None, None) => (
+            None,
+            Some(
+                "ambient observations and a familywise level were not supplied for cross-fitted holonomy"
+                    .to_string(),
+            ),
+        ),
+        _ => {
+            return Err(
+                "cross-fitted atlas holonomy requires ambient observations and familywise alpha together"
+                    .to_string(),
+            );
+        }
+    };
+    let diagram = match holonomy_certificate {
+        Some(certificate) => gam::terms::sae::inference::atlas_nerve::build_atlas_nerve(
+            &charts,
+            &gates,
+            None,
+            Some(certificate),
+        )?,
+        None => preliminary,
+    };
     Ok(Some(AuditAtlasReport {
         chart_blocks,
         diagram,
+        holonomy_unavailable_reason,
     }))
+}
+
+fn atlas_refusal_code(
+    refusal: &gam::terms::sae::inference::atlas_holonomy::AtlasStatisticalRefusal,
+) -> &'static str {
+    use gam::terms::sae::inference::atlas_holonomy::AtlasStatisticalRefusal;
+    match refusal {
+        AtlasStatisticalRefusal::PilotProjectionUncertified { .. } => {
+            "pilot_projection_uncertified"
+        }
+        AtlasStatisticalRefusal::PopulationSpectrumUncertified { .. } => {
+            "population_spectrum_uncertified"
+        }
+        AtlasStatisticalRefusal::GaussianLinearizationIsPlugin { .. } => {
+            "gaussian_linearization_is_plugin"
+        }
+        AtlasStatisticalRefusal::DegenerateFirstOrderLimitUnresolved { .. } => {
+            "degenerate_first_order_limit_unresolved"
+        }
+        AtlasStatisticalRefusal::PopulationCrossGramMarginUncertified { .. } => {
+            "population_cross_gram_margin_uncertified"
+        }
+        AtlasStatisticalRefusal::SingularProjectedCrossGram { .. } => {
+            "singular_projected_cross_gram"
+        }
+        AtlasStatisticalRefusal::PatchTailCrossesEigengap { .. } => "patch_tail_crosses_eigengap",
+        AtlasStatisticalRefusal::OrientationFlipBoundExceedsLevel { .. } => {
+            "orientation_flip_bound_exceeds_level"
+        }
+        AtlasStatisticalRefusal::ImproperCycleHolonomy { .. } => "improper_cycle_holonomy",
+        AtlasStatisticalRefusal::PolarLinearizationUnresolved { .. } => {
+            "polar_linearization_unresolved"
+        }
+        AtlasStatisticalRefusal::CycleAngleBranchCutCrossed { .. } => {
+            "cycle_angle_branch_cut_crossed"
+        }
+        AtlasStatisticalRefusal::GaussBonnetRoundingMarginExhausted { .. } => {
+            "gauss_bonnet_rounding_margin_exhausted"
+        }
+        AtlasStatisticalRefusal::GaussBonnetErrorBoundExceedsLevel { .. } => {
+            "gauss_bonnet_error_bound_exceeds_level"
+        }
+        AtlasStatisticalRefusal::GaussBonnetGaussianLinearizationIsPlugin => {
+            "gauss_bonnet_gaussian_linearization_is_plugin"
+        }
+        AtlasStatisticalRefusal::GaussBonnetFirstOrderLimitDegenerate { .. } => {
+            "gauss_bonnet_first_order_limit_degenerate"
+        }
+    }
+}
+
+fn atlas_refusal_dict<'py>(
+    py: Python<'py>,
+    refusal: &gam::terms::sae::inference::atlas_holonomy::AtlasStatisticalRefusal,
+) -> PyResult<Bound<'py, PyDict>> {
+    use gam::terms::sae::inference::atlas_holonomy::AtlasStatisticalRefusal;
+    let out = PyDict::new(py);
+    out.set_item("code", atlas_refusal_code(refusal))?;
+    let set_edge = |out: &Bound<'py, PyDict>,
+                    edge: gam::terms::sae::inference::atlas_holonomy::AtlasHolonomyEdgeId|
+     -> PyResult<()> {
+        out.set_item("edge_a", edge.a())?;
+        out.set_item("edge_b", edge.b())?;
+        out.set_item("overlap", edge.overlap())?;
+        Ok(())
+    };
+    match refusal {
+        AtlasStatisticalRefusal::PilotProjectionUncertified { chart }
+        | AtlasStatisticalRefusal::PopulationSpectrumUncertified { chart } => {
+            out.set_item("chart", chart)?;
+        }
+        AtlasStatisticalRefusal::GaussianLinearizationIsPlugin { cycle_index }
+        | AtlasStatisticalRefusal::ImproperCycleHolonomy { cycle_index } => {
+            out.set_item("cycle_index", cycle_index)?;
+        }
+        AtlasStatisticalRefusal::DegenerateFirstOrderLimitUnresolved {
+            cycle_index,
+            bilinear_quadratic_bias_diagnostic,
+            bilinear_quadratic_variance_diagnostic,
+        } => {
+            out.set_item("cycle_index", cycle_index)?;
+            out.set_item(
+                "bilinear_quadratic_bias_diagnostic",
+                bilinear_quadratic_bias_diagnostic,
+            )?;
+            out.set_item(
+                "bilinear_quadratic_variance_diagnostic",
+                bilinear_quadratic_variance_diagnostic,
+            )?;
+        }
+        AtlasStatisticalRefusal::PopulationCrossGramMarginUncertified { edge } => {
+            set_edge(&out, *edge)?;
+        }
+        AtlasStatisticalRefusal::SingularProjectedCrossGram {
+            edge,
+            smallest_singular_value,
+            numerical_rank_threshold,
+        } => {
+            set_edge(&out, *edge)?;
+            out.set_item("smallest_singular_value", smallest_singular_value)?;
+            out.set_item("numerical_rank_threshold", numerical_rank_threshold)?;
+        }
+        AtlasStatisticalRefusal::PatchTailCrossesEigengap {
+            edge,
+            chart,
+            covariance_error_bound,
+            eigengap_lower,
+        } => {
+            set_edge(&out, *edge)?;
+            out.set_item("chart", chart)?;
+            out.set_item("covariance_error_bound", covariance_error_bound)?;
+            out.set_item("eigengap_lower", eigengap_lower)?;
+        }
+        AtlasStatisticalRefusal::OrientationFlipBoundExceedsLevel {
+            flip_probability_bound,
+            allocated_alpha,
+        } => {
+            out.set_item("flip_probability_bound", flip_probability_bound)?;
+            out.set_item("allocated_alpha", allocated_alpha)?;
+        }
+        AtlasStatisticalRefusal::PolarLinearizationUnresolved {
+            cycle_index,
+            edge,
+            cross_gram_error_bound,
+            population_smallest_singular_value_lower_bound,
+        } => {
+            out.set_item("cycle_index", cycle_index)?;
+            set_edge(&out, *edge)?;
+            out.set_item("cross_gram_error_bound", cross_gram_error_bound)?;
+            out.set_item(
+                "population_smallest_singular_value_lower_bound",
+                population_smallest_singular_value_lower_bound,
+            )?;
+        }
+        AtlasStatisticalRefusal::CycleAngleBranchCutCrossed {
+            cycle_index,
+            absolute_angle,
+            uncertainty_radius,
+        } => {
+            out.set_item("cycle_index", cycle_index)?;
+            out.set_item("absolute_angle", absolute_angle)?;
+            out.set_item("uncertainty_radius", uncertainty_radius)?;
+        }
+        AtlasStatisticalRefusal::GaussBonnetRoundingMarginExhausted {
+            residual_to_integer_curvature,
+            total_remainder_bound,
+        } => {
+            out.set_item(
+                "residual_to_integer_curvature",
+                residual_to_integer_curvature,
+            )?;
+            out.set_item("total_remainder_bound", total_remainder_bound)?;
+        }
+        AtlasStatisticalRefusal::GaussBonnetErrorBoundExceedsLevel {
+            misround_probability_bound,
+            allocated_alpha,
+        } => {
+            out.set_item("misround_probability_bound", misround_probability_bound)?;
+            out.set_item("allocated_alpha", allocated_alpha)?;
+        }
+        AtlasStatisticalRefusal::GaussBonnetFirstOrderLimitDegenerate {
+            first_order_variance,
+        } => {
+            out.set_item("first_order_variance", first_order_variance)?;
+        }
+        AtlasStatisticalRefusal::GaussBonnetGaussianLinearizationIsPlugin => {}
+    }
+    Ok(out)
+}
+
+fn atlas_refusal_list<'py>(
+    py: Python<'py>,
+    refusals: &[gam::terms::sae::inference::atlas_holonomy::AtlasStatisticalRefusal],
+) -> PyResult<Bound<'py, pyo3::types::PyList>> {
+    let out = pyo3::types::PyList::empty(py);
+    for refusal in refusals {
+        out.append(atlas_refusal_dict(py, refusal)?)?;
+    }
+    Ok(out)
+}
+
+fn gaussian_holonomy_analysis_dict<'py>(
+    py: Python<'py>,
+    analysis: &gam::terms::sae::inference::atlas_holonomy::GaussianPcaHolonomyAnalysis,
+) -> PyResult<(Bound<'py, PyDict>, Vec<&'static str>, bool)> {
+    use gam::terms::sae::inference::atlas_holonomy::{
+        AtlasCycleAsymptoticRegime, AtlasInferenceOccupancyPrescription,
+        AtlasPilotOccupancyPrescription, CrossPatchCovarianceProvenance,
+        GaussBonnetCovarianceAuthority, GaussianPcaCovarianceAuthority,
+        GaussianPcaSpectrumProvenance, PilotProjectionProvenance,
+    };
+    let out = PyDict::new(py);
+    out.set_item("familywise_alpha", analysis.familywise_level().alpha())?;
+    out.set_item(
+        "covariance_authority",
+        match analysis.error_model().authority() {
+            GaussianPcaCovarianceAuthority::CertifiedGaussianLinearization => {
+                "certified_gaussian_linearization"
+            }
+            GaussianPcaCovarianceAuthority::AsymptoticPlugIn => "asymptotic_plugin",
+        },
+    )?;
+    out.set_item(
+        "cross_patch_covariance_provenance",
+        match analysis.error_model().cross_patch_provenance() {
+            CrossPatchCovarianceProvenance::DisjointInferenceRows => "disjoint_inference_rows",
+            CrossPatchCovarianceProvenance::ExplicitJointCovariance => "explicit_joint_covariance",
+        },
+    )?;
+    let patches = pyo3::types::PyList::empty(py);
+    for patch in analysis.patch_summaries() {
+        let row = PyDict::new(py);
+        row.set_item("chart", patch.chart)?;
+        row.set_item("pilot_rows", patch.projection_fit_rows)?;
+        row.set_item("inference_rows", patch.inference_rows)?;
+        row.set_item(
+            "covariance_degrees_of_freedom",
+            patch.covariance_degrees_of_freedom,
+        )?;
+        row.set_item("ambient_dimension", patch.ambient_dimension)?;
+        row.set_item("retained_dimension", patch.retained_dimension)?;
+        row.set_item(
+            "pilot_projection_provenance",
+            match patch.pilot_projection {
+                PilotProjectionProvenance::ExactAnalyticCapture => "exact_analytic_capture",
+                PilotProjectionProvenance::IndependentPilotEstimate => "independent_pilot_estimate",
+            },
+        )?;
+        row.set_item(
+            "spectrum_provenance",
+            match patch.spectrum_provenance {
+                GaussianPcaSpectrumProvenance::CertifiedPopulation(_) => "certified_population",
+                GaussianPcaSpectrumProvenance::PlugInEstimate { .. } => "plugin_estimate",
+            },
+        )?;
+        row.set_item("noise_variance", patch.noise_variance_estimate)?;
+        row.set_item("signal_variance", patch.signal_variance_estimate)?;
+        patches.append(row)?;
+    }
+    out.set_item("patches", patches)?;
+    match analysis.orientation_flip_probability_bound() {
+        Some(bound) => out.set_item("orientation_flip_probability_bound", bound)?,
+        None => out.set_item("orientation_flip_probability_bound", py.None())?,
+    }
+    out.set_item(
+        "orientation_refusals",
+        atlas_refusal_list(py, analysis.orientation().refusals())?,
+    )?;
+    out.set_item(
+        "orientation_decision",
+        match analysis.orientation().certified_value() {
+            Some(gam::terms::sae::manifold::AtlasOrientability::Orientable) => "orientable",
+            Some(gam::terms::sae::manifold::AtlasOrientability::NonOrientable) => "non_orientable",
+            None => "refused",
+        },
+    )?;
+    out.set_item(
+        "orientation_error_probability_bound",
+        analysis.orientation().error_probability_bound(),
+    )?;
+    let prescriptions = pyo3::types::PyList::empty(py);
+    for prescription in analysis.sample_prescription() {
+        let row = PyDict::new(py);
+        row.set_item("chart", prescription.chart)?;
+        row.set_item("current_pilot_rows", prescription.current_pilot_rows)?;
+        row.set_item(
+            "pilot_requirement",
+            match prescription.pilot {
+                AtlasPilotOccupancyPrescription::ExactCaptureNoSamplingRequirement => {
+                    "exact_capture_no_sampling_requirement"
+                }
+                AtlasPilotOccupancyPrescription::PopulationCaptureTheoremRequired => {
+                    "population_capture_theorem_required"
+                }
+            },
+        )?;
+        row.set_item(
+            "current_inference_rows",
+            prescription.current_inference_rows,
+        )?;
+        row.set_item(
+            "current_covariance_degrees_of_freedom",
+            prescription.current_covariance_degrees_of_freedom,
+        )?;
+        match prescription.inference {
+            AtlasInferenceOccupancyPrescription::Required {
+                rows,
+                covariance_degrees_of_freedom,
+                projected_dimension,
+                aligned_frame_error_budget,
+            } => {
+                row.set_item("inference_requirement", "required_occupancy")?;
+                row.set_item("required_inference_rows", rows)?;
+                row.set_item(
+                    "required_covariance_degrees_of_freedom",
+                    covariance_degrees_of_freedom,
+                )?;
+                row.set_item("projected_dimension", projected_dimension)?;
+                row.set_item("aligned_frame_error_budget", aligned_frame_error_budget)?;
+            }
+            AtlasInferenceOccupancyPrescription::RequiredRowsExceedRepresentableRange {
+                projected_dimension,
+                aligned_frame_error_budget,
+            } => {
+                row.set_item(
+                    "inference_requirement",
+                    "required_rows_exceed_representable_range",
+                )?;
+                row.set_item("required_inference_rows", py.None())?;
+                row.set_item("required_covariance_degrees_of_freedom", py.None())?;
+                row.set_item("projected_dimension", projected_dimension)?;
+                row.set_item("aligned_frame_error_budget", aligned_frame_error_budget)?;
+            }
+            AtlasInferenceOccupancyPrescription::PopulationTailInputsRequired => {
+                row.set_item("inference_requirement", "population_tail_inputs_required")?;
+                row.set_item("required_inference_rows", py.None())?;
+                row.set_item("required_covariance_degrees_of_freedom", py.None())?;
+                row.set_item("projected_dimension", py.None())?;
+                row.set_item("aligned_frame_error_budget", py.None())?;
+            }
+        }
+        prescriptions.append(row)?;
+    }
+    out.set_item("sample_prescription", prescriptions)?;
+    let cycles = pyo3::types::PyList::empty(py);
+    let mut refusal_codes = std::collections::BTreeSet::new();
+    for refusal in analysis.orientation().refusals() {
+        refusal_codes.insert(atlas_refusal_code(refusal));
+    }
+    let mut fully_certified = analysis.orientation().certified_value().is_some();
+    for cycle in analysis.cycles() {
+        let row = PyDict::new(py);
+        row.set_item("cycle_index", cycle.cycle_index)?;
+        row.set_item("closed_chart_walk", cycle.closed_chart_walk())?;
+        row.set_item("absolute_angle", cycle.absolute_angle)?;
+        let regime = match cycle.asymptotic_regime {
+            Some(AtlasCycleAsymptoticRegime::FirstOrderGaussian {
+                authority: GaussianPcaCovarianceAuthority::CertifiedGaussianLinearization,
+                ..
+            }) => "certified_first_order_gaussian",
+            Some(AtlasCycleAsymptoticRegime::FirstOrderGaussian {
+                authority: GaussianPcaCovarianceAuthority::AsymptoticPlugIn,
+                ..
+            }) => "plugin_first_order_gaussian",
+            Some(AtlasCycleAsymptoticRegime::FirstOrderDegenerate { .. }) => {
+                "first_order_degenerate_unresolved"
+            }
+            None => "unavailable",
+        };
+        row.set_item("asymptotic_regime", regime)?;
+        row.set_item("first_order_variance", cycle.first_order_variance)?;
+        row.set_item(
+            "naive_edgewise_first_order_variance",
+            cycle.naive_edgewise_first_order_variance,
+        )?;
+        row.set_item(
+            "covariance_aggregation_adjustment",
+            cycle.covariance_aggregation_adjustment,
+        )?;
+        row.set_item(
+            "bilinear_quadratic_bias_diagnostic",
+            cycle.bilinear_quadratic_bias_diagnostic,
+        )?;
+        row.set_item(
+            "bilinear_quadratic_variance_diagnostic",
+            cycle.bilinear_quadratic_variance_diagnostic,
+        )?;
+        row.set_item("standard_error", cycle.standard_error)?;
+        row.set_item(
+            "polar_linearization_remainder_bound",
+            cycle.polar_linearization_remainder_bound,
+        )?;
+        row.set_item("geometric_remainder_bound", cycle.geometric_remainder_bound)?;
+        row.set_item(
+            "refusals",
+            atlas_refusal_list(py, cycle.decision.refusals())?,
+        )?;
+        row.set_item(
+            "decision",
+            match cycle.decision.certified_value() {
+                Some(
+                    gam::terms::sae::inference::atlas_holonomy::AtlasCycleConclusion::NonTrivialHolonomy,
+                ) => "nontrivial_holonomy",
+                Some(
+                    gam::terms::sae::inference::atlas_holonomy::AtlasCycleConclusion::NotRejected,
+                ) => "not_rejected",
+                None => "refused",
+            },
+        )?;
+        row.set_item(
+            "error_probability_bound",
+            cycle.decision.error_probability_bound(),
+        )?;
+        for refusal in cycle.decision.refusals() {
+            refusal_codes.insert(atlas_refusal_code(refusal));
+        }
+        fully_certified &= cycle.decision.certified_value().is_some();
+        cycles.append(row)?;
+    }
+    out.set_item("cycles", cycles)?;
+    if let Some(confidence) = analysis.gauss_bonnet() {
+        let gauss_bonnet = PyDict::new(py);
+        gauss_bonnet.set_item(
+            "covariance_authority",
+            match confidence.covariance_authority {
+                GaussBonnetCovarianceAuthority::CertifiedIndependentGaussianSources => {
+                    "certified_independent_gaussian_sources"
+                }
+                GaussBonnetCovarianceAuthority::AsymptoticPlugIn => "asymptotic_plugin",
+            },
+        )?;
+        gauss_bonnet.set_item("first_order_variance", confidence.first_order_variance)?;
+        gauss_bonnet.set_item("standard_error", confidence.standard_error)?;
+        gauss_bonnet.set_item(
+            "misround_probability_bound",
+            confidence.misround_probability_bound,
+        )?;
+        gauss_bonnet.set_item(
+            "refusals",
+            atlas_refusal_list(py, confidence.decision.refusals())?,
+        )?;
+        gauss_bonnet.set_item(
+            "decision",
+            if confidence.decision.certified_value().is_some() {
+                "certified_integer"
+            } else {
+                "refused"
+            },
+        )?;
+        gauss_bonnet.set_item(
+            "certified_euler_characteristic",
+            confidence
+                .decision
+                .certified_value()
+                .map(|value| value.value()),
+        )?;
+        gauss_bonnet.set_item(
+            "error_probability_bound",
+            confidence.decision.error_probability_bound(),
+        )?;
+        for refusal in confidence.decision.refusals() {
+            refusal_codes.insert(atlas_refusal_code(refusal));
+        }
+        fully_certified &= confidence.decision.certified_value().is_some();
+        out.set_item("gauss_bonnet", gauss_bonnet)?;
+    } else {
+        out.set_item("gauss_bonnet", py.None())?;
+    }
+    Ok((out, refusal_codes.into_iter().collect(), fully_certified))
 }
 
 fn atlas_nerve_dict<'py>(
@@ -780,6 +1357,102 @@ fn atlas_nerve_dict<'py>(
     out.set_item("n_edges", diagram.n_edges)?;
     out.set_item("n_triangles", diagram.n_triangles)?;
     out.set_item("n_tetrahedra", diagram.n_tetrahedra)?;
+    out.set_item("simplex_counts", diagram.simplex_counts.clone())?;
+    // The alternating simplex sum is an exact statistic of the admitted
+    // finite nerve. It is not, by itself, a finite-sample Gauss--Bonnet claim
+    // about the sampled manifold, so keep the two values separately named.
+    out.set_item("nerve_euler_characteristic", diagram.euler_characteristic)?;
+    match diagram.certified_gauss_bonnet_euler_characteristic() {
+        Some(value) => out.set_item("certified_euler_characteristic", value.value())?,
+        None => out.set_item("certified_euler_characteristic", py.None())?,
+    }
+    out.set_item("good_cover_certified", diagram.good_cover_certified)?;
+    match diagram.holonomy_certificate.as_ref() {
+        Some(certificate) => out.set_item("holonomy_provenance", certificate.provenance_label())?,
+        None => out.set_item("holonomy_provenance", py.None())?,
+    }
+    match diagram.holonomy_certificate.as_ref() {
+        Some(
+            gam::terms::sae::inference::atlas_holonomy::AtlasHolonomyCertificate::ExactAnalytic(_),
+        ) => {
+            out.set_item("holonomy_status", "analyzed_certified")?;
+            out.set_item("holonomy_refusal_codes", py.None())?;
+            out.set_item("holonomy_unavailable_reason", py.None())?;
+            out.set_item("holonomy_analysis", py.None())?;
+        }
+        Some(
+            gam::terms::sae::inference::atlas_holonomy::AtlasHolonomyCertificate::GaussianPcaPlugin(
+                analysis,
+            ),
+        ) => {
+            let (payload, refusal_codes, fully_certified) =
+                gaussian_holonomy_analysis_dict(py, analysis)?;
+            out.set_item(
+                "holonomy_status",
+                if fully_certified {
+                    "analyzed_certified"
+                } else {
+                    "analyzed_refused"
+                },
+            )?;
+            if refusal_codes.is_empty() {
+                out.set_item("holonomy_refusal_codes", py.None())?;
+            } else {
+                out.set_item("holonomy_refusal_codes", refusal_codes)?;
+            }
+            out.set_item("holonomy_unavailable_reason", py.None())?;
+            out.set_item("holonomy_analysis", payload)?;
+        }
+        None => {
+            // Sparse block routing supplies fitted pairwise transfers, but not
+            // the independent PCA fit/inference splits, population spectral
+            // bounds, or shared-source curvature covariance required by the
+            // Gaussian finite-sample proof. Absence is not a negative result.
+            out.set_item("holonomy_status", "not_analyzed")?;
+            out.set_item("holonomy_analysis", py.None())?;
+            out.set_item("holonomy_refusal_codes", py.None())?;
+            out.set_item(
+                "holonomy_unavailable_reason",
+                report
+                    .holonomy_unavailable_reason
+                    .as_deref()
+                    .unwrap_or("cross-fitted holonomy inputs were unavailable"),
+            )?;
+        }
+    }
+    match diagram.certified_orientability() {
+        Some(gam::terms::sae::manifold::AtlasOrientability::Orientable) => {
+            out.set_item("certified_orientability", "orientable")?
+        }
+        Some(gam::terms::sae::manifold::AtlasOrientability::NonOrientable) => {
+            out.set_item("certified_orientability", "non_orientable")?
+        }
+        None => out.set_item("certified_orientability", py.None())?,
+    }
+    let promotion = diagram.certified_compression();
+    let promotion_dict = PyDict::new(py);
+    promotion_dict.set_item("certified", promotion.earns_standard_name())?;
+    promotion_dict.set_item(
+        "kind",
+        match promotion.kind {
+            gam::terms::sae::manifold::GraphCompressionKind::Circle => "circle",
+            gam::terms::sae::manifold::GraphCompressionKind::Interval => "interval",
+            gam::terms::sae::manifold::GraphCompressionKind::FiniteSet => "finite_set",
+            gam::terms::sae::manifold::GraphCompressionKind::Disk => "disk",
+            gam::terms::sae::manifold::GraphCompressionKind::Cylinder => "cylinder",
+            gam::terms::sae::manifold::GraphCompressionKind::MobiusStrip => "mobius_strip",
+            gam::terms::sae::manifold::GraphCompressionKind::Torus => "torus",
+            gam::terms::sae::manifold::GraphCompressionKind::Sphere => "sphere",
+            gam::terms::sae::manifold::GraphCompressionKind::ProjectivePlane => "projective_plane",
+            gam::terms::sae::manifold::GraphCompressionKind::KleinBottle => "klein_bottle",
+            gam::terms::sae::manifold::GraphCompressionKind::Graph => "graph",
+        },
+    )?;
+    promotion_dict.set_item("name", promotion.name)?;
+    promotion_dict.set_item("generic_bits", promotion.generic_edge_bits)?;
+    promotion_dict.set_item("named_bits", promotion.named_bits)?;
+    promotion_dict.set_item("bits_saved", promotion.bits_saved)?;
+    out.set_item("topology_promotion", promotion_dict)?;
     out.set_item("sampled_support_size", diagram.sampled_support_size)?;
     out.set_item("covering_side", diagram.covering_side.as_str())?;
     out.set_item("max_filtration", diagram.max_filtration)?;
@@ -797,13 +1470,24 @@ fn atlas_nerve_dict<'py>(
 /// out. Returns `{computed: false, reason}` for shapes the nerve does not apply to
 /// (scalar `block_size == 1` or fewer than two selected charts), matching
 /// `atlas_nerve_dict`'s skipped-report contract.
+///
+/// Supplying `observations` (the ambient activation rows these charts were read
+/// from, one row per route row) together with `familywise_alpha` promotes the
+/// front door from a combinatorial-only nerve to a certified fit: it runs the
+/// cross-fitted Gaussian-PCA holonomy producer and threads the resulting
+/// finite-sample certificate — projected-PCA patches, disjoint-inference-row
+/// error model, and every typed refusal — through the diagram. The two arguments
+/// travel together because a topology promotion must state the error probability
+/// it spends; omitting both keeps the pure combinatorial reduction.
 #[pyfunction(signature = (
     indices,
     values,
     n_units,
     block_size,
     activation_threshold = 1.0e-6,
-    blocks = None
+    blocks = None,
+    observations = None,
+    familywise_alpha = None
 ))]
 fn atlas_nerve_diagram<'py>(
     py: Python<'py>,
@@ -813,6 +1497,8 @@ fn atlas_nerve_diagram<'py>(
     block_size: usize,
     activation_threshold: f32,
     blocks: Option<Vec<usize>>,
+    observations: Option<PyReadonlyArray2<'py, f64>>,
+    familywise_alpha: Option<f64>,
 ) -> PyResult<Py<PyDict>> {
     let route = AuditSparseRoute::new(
         indices.as_array().to_owned(),
@@ -822,8 +1508,21 @@ fn atlas_nerve_diagram<'py>(
         "atlas route",
     )
     .map_err(PyValueError::new_err)?;
+    // When the caller supplies the ambient activations these charts were read
+    // from together with a familywise level, run the cross-fitted Gaussian-PCA
+    // holonomy producer and thread a real finite-sample certificate through the
+    // nerve. Without both, the front door stays a combinatorial-only nerve; the
+    // two travel together because a topology promotion must always state the
+    // error probability it is willing to spend.
+    let observations = observations.map(|array| array.as_array().to_owned());
     let report = detach_py_result(py, "atlas_nerve_diagram", move || {
-        atlas_nerve_from_sparse_route(&route, activation_threshold, blocks.as_deref())
+        atlas_nerve_from_sparse_route(
+            &route,
+            activation_threshold,
+            blocks.as_deref(),
+            observations.as_ref().map(|array| array.view()),
+            familywise_alpha,
+        )
     })?;
     let reason = if block_size == 1 {
         "scalar block_size == 1 exposes no atlas nerve"
@@ -1112,10 +1811,25 @@ fn sparse_atlas_nerve_richness_statistic(
     chart_blocks: &[usize],
     activation_threshold: f64,
 ) -> Result<f64, String> {
-    let report =
-        atlas_nerve_from_sparse_route(route, activation_threshold as f32, Some(chart_blocks))?
-            .ok_or_else(|| "atlas null statistic requires at least two block charts".to_string())?;
-    Ok((report.diagram.n_edges + report.diagram.n_triangles + report.diagram.n_tetrahedra) as f64)
+    let report = atlas_nerve_from_sparse_route(
+        route,
+        activation_threshold as f32,
+        Some(chart_blocks),
+        None,
+        None,
+    )?
+    .ok_or_else(|| "atlas null statistic requires at least two block charts".to_string())?;
+    let richness = report
+        .diagram
+        .simplex_counts
+        .iter()
+        .skip(1)
+        .map(|&count| count as f64)
+        .sum::<f64>();
+    if !richness.is_finite() {
+        return Err("atlas nerve richness overflowed finite reporting range".to_string());
+    }
+    Ok(richness)
 }
 
 #[derive(Clone, Copy, Default)]
@@ -1277,9 +1991,7 @@ fn standing_sparse_null_calibration(
         nulls,
         roc,
     )?;
-    Ok(Some(nb::ClaimNullCalibration::from_calibrated_roc(
-        report,
-    )?))
+    Ok(Some(nb::ClaimNullCalibration::from_calibrated_roc(report)?))
 }
 
 /// Typed knob bundle for `audit_sae`, decoded from the single Python-side
@@ -1699,10 +2411,13 @@ fn audit_sae<'py>(
 
         let topology_records =
             topology_records_from_codes(&coordinate_reports, block_size, activation_threshold);
+        let atlas_data = data_values.mapv(f64::from);
         let atlas_nerve = atlas_nerve_from_sparse_route(
             &route,
             activation_threshold,
             coordinate_blocks.as_deref(),
+            Some(atlas_data.view()),
+            Some(delta),
         )?;
         let absorption = absorption_audit(&route, activation_threshold, max_absorption_pairs);
 
@@ -1828,6 +2543,369 @@ mod sae_spectral_ffi_tests {
                 .is_some(),
             "missing key {key}"
         );
+    }
+
+    #[test]
+    fn atlas_nerve_uses_canonical_overlap_zero_without_fabricating_holonomy() {
+        let route = AuditSparseRoute::new(
+            ndarray::array![[0_u32, 1_u32], [0_u32, 1_u32]],
+            ndarray::array![
+                [[1.0_f32, 0.0_f32], [1.0_f32, 0.0_f32]],
+                [[0.0_f32, 1.0_f32], [0.0_f32, 1.0_f32]],
+            ],
+            2,
+            2,
+            "atlas test route",
+        )
+        .unwrap();
+        let report = atlas_nerve_from_sparse_route(&route, 0.0, None, None, None)
+            .unwrap()
+            .unwrap();
+        assert_eq!(report.diagram.edges.len(), 1);
+        assert_eq!(report.diagram.edges[0].overlap, 0);
+        assert!(report.diagram.edges[0].transfer_valid);
+        assert!(report.diagram.edges[0].admitted);
+        assert!(report.diagram.holonomy_certificate.is_none());
+        assert_eq!(report.diagram.certified_orientability(), None);
+
+        Python::attach(|py| {
+            let dict = atlas_nerve_dict(py, Some(&report), "unused").unwrap();
+            assert!(
+                dict.get_item("euler_characteristic")
+                    .expect("read retired ambiguous Euler key")
+                    .is_none()
+            );
+            let nerve_euler: i128 = dict
+                .get_item("nerve_euler_characteristic")
+                .unwrap()
+                .unwrap()
+                .extract()
+                .unwrap();
+            assert_eq!(nerve_euler, report.diagram.euler_characteristic);
+            let status: String = dict
+                .get_item("holonomy_status")
+                .unwrap()
+                .unwrap()
+                .extract()
+                .unwrap();
+            assert_eq!(status, "not_analyzed");
+            assert!(
+                dict.get_item("holonomy_provenance")
+                    .unwrap()
+                    .unwrap()
+                    .is_none()
+            );
+            assert!(
+                dict.get_item("certified_orientability")
+                    .unwrap()
+                    .unwrap()
+                    .is_none()
+            );
+            assert!(
+                dict.get_item("certified_euler_characteristic")
+                    .unwrap()
+                    .unwrap()
+                    .is_none()
+            );
+            let promotion = dict
+                .get_item("topology_promotion")
+                .unwrap()
+                .unwrap()
+                .cast_into::<PyDict>()
+                .unwrap();
+            assert!(
+                !promotion
+                    .get_item("certified")
+                    .unwrap()
+                    .unwrap()
+                    .extract::<bool>()
+                    .unwrap()
+            );
+        });
+    }
+
+    #[test]
+    fn audit_atlas_builds_cross_fitted_plugin_and_exposes_typed_refusals() {
+        const ROWS: usize = 64;
+        let mut indices = ndarray::Array2::<u32>::zeros((ROWS, 2));
+        let mut values = ndarray::Array3::<f32>::zeros((ROWS, 2, 2));
+        let mut ambient = ndarray::Array2::<f64>::zeros((ROWS, 3));
+        for row in 0..ROWS {
+            indices[[row, 0]] = 0;
+            indices[[row, 1]] = 1;
+            let angle = std::f64::consts::TAU * row as f64 / ROWS as f64;
+            let (sine, cosine) = angle.sin_cos();
+            for chart in 0..2 {
+                values[[row, chart, 0]] = cosine as f32;
+                values[[row, chart, 1]] = sine as f32;
+            }
+            ambient[[row, 0]] = cosine;
+            ambient[[row, 1]] = sine;
+            ambient[[row, 2]] = 0.05 * (2.0 * angle).cos();
+        }
+        let route =
+            AuditSparseRoute::new(indices, values, 2, 2, "cross-fitted atlas route").unwrap();
+        let report =
+            atlas_nerve_from_sparse_route(&route, 0.0, None, Some(ambient.view()), Some(0.05))
+                .unwrap()
+                .unwrap();
+        assert!(report.diagram.holonomy_certificate.is_some());
+
+        Python::attach(|py| {
+            let dict = atlas_nerve_dict(py, Some(&report), "unused").unwrap();
+            let status: String = dict
+                .get_item("holonomy_status")
+                .unwrap()
+                .unwrap()
+                .extract()
+                .unwrap();
+            assert_eq!(status, "analyzed_refused");
+            let missing: Vec<String> = dict
+                .get_item("holonomy_refusal_codes")
+                .unwrap()
+                .unwrap()
+                .extract()
+                .unwrap();
+            assert!(missing.contains(&"population_spectrum_uncertified".to_string()));
+            assert!(missing.contains(&"population_cross_gram_margin_uncertified".to_string()));
+            let analysis = dict
+                .get_item("holonomy_analysis")
+                .unwrap()
+                .unwrap()
+                .cast_into::<PyDict>()
+                .unwrap();
+            let authority: String = analysis
+                .get_item("covariance_authority")
+                .unwrap()
+                .unwrap()
+                .extract()
+                .unwrap();
+            assert_eq!(authority, "asymptotic_plugin");
+            let cross_patch: String = analysis
+                .get_item("cross_patch_covariance_provenance")
+                .unwrap()
+                .unwrap()
+                .extract()
+                .unwrap();
+            assert_eq!(cross_patch, "disjoint_inference_rows");
+            let patches = analysis
+                .get_item("patches")
+                .unwrap()
+                .unwrap()
+                .cast_into::<pyo3::types::PyList>()
+                .unwrap();
+            assert_eq!(patches.len(), 2);
+            for patch in patches.iter() {
+                let patch = patch.cast_into::<PyDict>().unwrap();
+                assert_eq!(
+                    patch
+                        .get_item("pilot_rows")
+                        .unwrap()
+                        .unwrap()
+                        .extract::<usize>()
+                        .unwrap(),
+                    32
+                );
+                assert_eq!(
+                    patch
+                        .get_item("inference_rows")
+                        .unwrap()
+                        .unwrap()
+                        .extract::<usize>()
+                        .unwrap(),
+                    16
+                );
+                assert_eq!(
+                    patch
+                        .get_item("spectrum_provenance")
+                        .unwrap()
+                        .unwrap()
+                        .extract::<String>()
+                        .unwrap(),
+                    "plugin_estimate"
+                );
+            }
+            let prescriptions = analysis
+                .get_item("sample_prescription")
+                .unwrap()
+                .unwrap()
+                .cast_into::<pyo3::types::PyList>()
+                .unwrap();
+            assert_eq!(prescriptions.len(), 2);
+            for prescription in prescriptions.iter() {
+                let prescription = prescription.cast_into::<PyDict>().unwrap();
+                assert_eq!(
+                    prescription
+                        .get_item("current_pilot_rows")
+                        .unwrap()
+                        .unwrap()
+                        .extract::<usize>()
+                        .unwrap(),
+                    32
+                );
+                assert_eq!(
+                    prescription
+                        .get_item("pilot_requirement")
+                        .unwrap()
+                        .unwrap()
+                        .extract::<String>()
+                        .unwrap(),
+                    "exact_capture_no_sampling_requirement"
+                );
+                assert_eq!(
+                    prescription
+                        .get_item("current_inference_rows")
+                        .unwrap()
+                        .unwrap()
+                        .extract::<usize>()
+                        .unwrap(),
+                    16
+                );
+                assert_eq!(
+                    prescription
+                        .get_item("inference_requirement")
+                        .unwrap()
+                        .unwrap()
+                        .extract::<String>()
+                        .unwrap(),
+                    "population_tail_inputs_required"
+                );
+                assert!(
+                    prescription
+                        .get_item("required_inference_rows")
+                        .unwrap()
+                        .unwrap()
+                        .is_none()
+                );
+            }
+            let orientation_refusals = analysis
+                .get_item("orientation_refusals")
+                .unwrap()
+                .unwrap()
+                .cast_into::<pyo3::types::PyList>()
+                .unwrap();
+            assert!(!orientation_refusals.is_empty());
+        });
+    }
+
+    #[test]
+    fn atlas_nerve_diagram_front_door_threads_a_real_holonomy_certificate() {
+        // The standalone front door must be able to run a real fit, not only the
+        // combinatorial nerve: supplying the ambient activation rows plus a
+        // familywise level drives the cross-fitted Gaussian-PCA producer and
+        // threads a genuine finite-sample certificate through the diagram, rather
+        // than the historical `None, None` combinatorial-only path.
+        const ROWS: usize = 64;
+        let mut indices = ndarray::Array2::<u32>::zeros((ROWS, 2));
+        let mut values = ndarray::Array3::<f32>::zeros((ROWS, 2, 2));
+        let mut ambient = ndarray::Array2::<f64>::zeros((ROWS, 3));
+        for row in 0..ROWS {
+            indices[[row, 0]] = 0;
+            indices[[row, 1]] = 1;
+            let angle = std::f64::consts::TAU * row as f64 / ROWS as f64;
+            let (sine, cosine) = angle.sin_cos();
+            for chart in 0..2 {
+                values[[row, chart, 0]] = cosine as f32;
+                values[[row, chart, 1]] = sine as f32;
+            }
+            ambient[[row, 0]] = cosine;
+            ambient[[row, 1]] = sine;
+            ambient[[row, 2]] = 0.05 * (2.0 * angle).cos();
+        }
+
+        Python::attach(|py| {
+            let indices_py = indices.clone().into_pyarray(py);
+            let values_py = values.clone().into_pyarray(py);
+            let ambient_py = ambient.clone().into_pyarray(py);
+
+            // Real fit: ambient observations + familywise level are threaded
+            // through, so a Gaussian-PCA certificate is produced end-to-end.
+            let certified = atlas_nerve_diagram(
+                py,
+                indices_py.readonly(),
+                values_py.readonly(),
+                2,
+                2,
+                0.0,
+                None,
+                Some(ambient_py.readonly()),
+                Some(0.05),
+            )
+            .unwrap();
+            let certified = certified.bind(py);
+            let status: String = certified
+                .get_item("holonomy_status")
+                .unwrap()
+                .unwrap()
+                .extract()
+                .unwrap();
+            assert_ne!(
+                status, "not_analyzed",
+                "supplying ambient observations must produce a real holonomy certificate"
+            );
+            assert!(
+                certified
+                    .get_item("holonomy_provenance")
+                    .unwrap()
+                    .unwrap()
+                    .extract::<String>()
+                    .unwrap()
+                    .contains("gaussian"),
+                "the threaded certificate must be the fitted Gaussian-PCA plugin"
+            );
+            assert!(
+                certified
+                    .get_item("holonomy_unavailable_reason")
+                    .unwrap()
+                    .unwrap()
+                    .is_none(),
+                "a produced certificate leaves no unavailable reason"
+            );
+
+            // Contrast: without the ambient inputs the front door stays a pure
+            // combinatorial nerve and reports no analyzed holonomy.
+            let indices_py = indices.clone().into_pyarray(py);
+            let values_py = values.clone().into_pyarray(py);
+            let combinatorial = atlas_nerve_diagram(
+                py,
+                indices_py.readonly(),
+                values_py.readonly(),
+                2,
+                2,
+                0.0,
+                None,
+                None,
+                None,
+            )
+            .unwrap();
+            let combinatorial = combinatorial.bind(py);
+            let combinatorial_status: String = combinatorial
+                .get_item("holonomy_status")
+                .unwrap()
+                .unwrap()
+                .extract()
+                .unwrap();
+            assert_eq!(combinatorial_status, "not_analyzed");
+        });
+    }
+
+    #[test]
+    fn uncertifiable_chart_transfer_emits_no_gate() {
+        let route = AuditSparseRoute::new(
+            ndarray::array![[0_u32, 1_u32], [0_u32, 1_u32]],
+            ndarray::Array3::<f32>::ones((2, 2, 3)),
+            2,
+            3,
+            "atlas uncertified route",
+        )
+        .unwrap();
+        let report = atlas_nerve_from_sparse_route(&route, 0.0, None, None, None)
+            .unwrap()
+            .unwrap();
+        assert_eq!(report.diagram.edges.len(), 1);
+        assert_eq!(report.diagram.edges[0].overlap, 0);
+        assert!(!report.diagram.edges[0].transfer_valid);
+        assert!(!report.diagram.edges[0].admitted);
     }
 
     #[test]

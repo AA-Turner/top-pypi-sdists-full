@@ -37,6 +37,7 @@ class ScheduledQuery:
         max_retries: int | None = None,
         resources: ResourceRequests | None = None,
         environment: str | None = None,
+        write_to: str | None = None,
     ):
         """Create an offline query which runs on a schedule.
 
@@ -93,6 +94,9 @@ class ScheduledQuery:
             for specific use cases.
         resource_group
             The resource group to use for the query. If not set, the default resource group will be used.
+        write_to
+            A storage URI (e.g. `s3://bucket/path/`) to which each run's output rows
+            are written directly, in addition to online/offline store persistence.
 
         Returns
         -------
@@ -186,6 +190,7 @@ class ScheduledQuery:
 
         self.num_shards = num_shards
         self.num_workers = num_workers
+        self.write_to = write_to
         from chalk.client.client_impl import encode_unload_resolvers
 
         self.unload_resolvers = encode_unload_resolvers(unload_resolvers)

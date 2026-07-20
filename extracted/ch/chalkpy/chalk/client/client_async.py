@@ -696,6 +696,7 @@ class AsyncChalkClient:
         use_metaplanner: bool | None = None,
         unload_resolvers: UnloadResolvers = None,
         feature_for_lower_upper_bound: FeatureReference | None = None,
+        write_to: str | None = None,
     ) -> Dataset:
         """Compute feature values from the offline store or by running offline/online resolvers.
         See `Dataset` for more information.
@@ -820,6 +821,9 @@ class AsyncChalkClient:
             or a dict mapping resolvers to a tuple of partition expressions.
             Partition expressions can be strings (raw FQNs), `Filter` objects
             (e.g., ``Bean.jar_id == Jar.id``), or ``Underscore`` expressions.
+        write_to
+            A storage URI (e.g. `s3://bucket/path`) to which the engine should write
+            the query's output rows directly.
 
         Other Parameters
         ----------------

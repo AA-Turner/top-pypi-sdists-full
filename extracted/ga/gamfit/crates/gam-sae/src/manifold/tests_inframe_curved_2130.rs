@@ -385,11 +385,11 @@ fn planted_low_rank_curved_recovered_inframe_p2048() {
         ledger.inframe_cov_bytes
     );
 
-    // The p=2048 in-frame fit is tractable in wall-clock terms (the whole point).
-    assert!(
-        elapsed.as_secs_f64() < 30.0,
-        "in-frame fit at p={p} took {elapsed:?}; should be fast"
-    );
+    // Tractability is certified by the memory/shrink-order assertions above
+    // (border_shrink, cov_shrink, byte ledgers) — algorithmic properties that
+    // hold on any box. A wall-clock ceiling here was a calibration-box
+    // assumption; the elapsed time stays printed as the perf record.
+    eprintln!("[inframe-curved] p={p} fit elapsed={elapsed:?}");
 
     assert_eq!(result.curved_prediction.n_rows(), n);
     assert_eq!(result.curved_prediction.output_dim(), p);
@@ -553,15 +553,15 @@ fn residual_span_frame_is_the_production_hook_low_rank_and_spans_truth() {
         ..Default::default()
     };
     let iso_rows: Vec<usize> = (0..64).collect();
-    let got = residual_span_frame(iso.view(), &iso_rows, &tight).expect("runs");
+    let got = residual_span_frame(iso.view(), &iso_rows, &tight)
+        .expect("runs")
+        .expect("rank_max below ambient width must return a strict low-rank frame");
     // rank_max=4 < p=8 so a frame is still returned, but it must be a strict
     // low-rank projection (r <= 4), never the full width.
-    if let Some(f) = got {
-        assert!(
-            f.rank() <= 4 && f.rank() < 8,
-            "seam frame must stay strictly low-rank"
-        );
-    }
+    assert!(
+        got.rank() <= 4 && got.rank() < 8,
+        "seam frame must stay strictly low-rank"
+    );
 }
 
 #[test]

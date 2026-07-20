@@ -130,6 +130,7 @@ from chalk.client.models import (
     OfflineQueryParquetUploadURLResponse,
     OfflineQueryProfileSummary,
     OfflineQueryReport,
+    OfflineQueryWriteTo,
     OfflineStoreTable,
     OnlineQuery,
     OnlineQueryContext,
@@ -2643,6 +2644,7 @@ https://docs.chalk.ai/cli/apply
         use_metaplanner: bool | None = None,
         unload_resolvers: UnloadResolvers = None,
         feature_for_lower_upper_bound: Optional[FeatureReference] = None,
+        write_to: str | None = None,
     ) -> DatasetImpl:
         run_asynchronously = (
             use_multiple_computers
@@ -2834,6 +2836,7 @@ https://docs.chalk.ai/cli/apply
             query_name_version=query_name_version,
             use_metaplanner=use_metaplanner,
             unload_resolvers=encode_unload_resolvers(unload_resolvers),
+            write_to=write_to,
         )
 
         initialized_dataset = dataset_from_response(response, self)
@@ -4312,6 +4315,7 @@ https://docs.chalk.ai/cli/apply
         query_name_version: str | None = None,
         use_metaplanner: bool | None = False,
         unload_resolvers: list[dict[str, Any]] | None = None,
+        write_to: str | None = None,
     ) -> DatasetResponse:
         if not (
             isinstance(recompute_features, list)
@@ -4400,6 +4404,7 @@ https://docs.chalk.ai/cli/apply
             query_name_version=query_name_version,
             use_metaplanner=use_metaplanner,
             unload_resolvers=unload_resolvers,
+            write_to=OfflineQueryWriteTo(uri=write_to) if write_to is not None else None,
         )
 
         response = self._create_dataset_request(

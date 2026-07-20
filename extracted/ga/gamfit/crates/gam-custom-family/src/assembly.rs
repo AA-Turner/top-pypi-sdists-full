@@ -1458,7 +1458,7 @@ pub(crate) fn joint_outer_evaluate(
     )?;
     if !objective.is_finite() {
         log::warn!(
-            "joint outer evaluation produced non-finite objective: log_likelihood={} penalty_value={} block_logdet_h={} block_logdet_s={} include_logdet_h={} include_logdet_s={} rho_curvature_scale={}",
+            "joint outer evaluation produced non-finite objective: log_likelihood={} penalty_value={} block_logdet_h={:?} block_logdet_s={:?} include_logdet_h={} include_logdet_s={} rho_curvature_scale={}",
             inner.log_likelihood,
             inner.penalty_value,
             inner.block_logdet_h,
@@ -1538,6 +1538,8 @@ pub(crate) fn joint_outer_evaluate(
         outer_hessian,
         warm_start: warm,
         inner_converged: inner.converged,
+        hyper_values: Array1::zeros(0),
+        inner: inner.clone(),
     })
 }
 
@@ -1839,14 +1841,18 @@ pub(crate) fn outerobjectivegradienthessian_internal<
     rho_prior: gam_problem::RhoPrior,
     eval_mode: EvalMode,
 ) -> Result<OuterObjectiveEvalResult, String> {
-    let derivative_blocks = vec![Vec::<CustomFamilyBlockPsiDerivative>::new(); specs.len()];
+    let hyper_layout = CustomFamilyHyperLayout::new(
+        vec![Vec::<CustomFamilyBlockPsiDerivative>::new(); specs.len()],
+        Vec::new(),
+        Array1::zeros(0),
+    )?;
     evaluate_custom_family_hyper_internal(
         family,
         specs,
         options,
         penalty_counts,
         rho,
-        &derivative_blocks,
+        &hyper_layout,
         warm_start,
         rho_prior,
         eval_mode,
@@ -1862,7 +1868,15 @@ pub(crate) fn outerobjectiveefs<F: CustomFamily + Clone + Send + Sync + 'static>
     rho: &Array1<f64>,
     warm_start: Option<&ConstrainedWarmStart>,
     rho_prior: gam_problem::RhoPrior,
-) -> Result<(gam_problem::EfsEval, ConstrainedWarmStart, bool), String> {
+) -> Result<
+    (
+        gam_problem::EfsEval,
+        ConstrainedWarmStart,
+        bool,
+        BlockwiseInnerResult,
+    ),
+    String,
+> {
     let include_logdet_h = include_exact_newton_logdet_h(family, options);
     let include_logdet_s = include_exact_newton_logdet_s(family, options);
     let strict_spd = use_exact_newton_strict_spd(family);
@@ -1875,14 +1889,13 @@ pub(crate) fn outerobjectiveefs<F: CustomFamily + Clone + Send + Sync + 'static>
             inner.cycles,
             rho.len(),
         );
-        return nonconverged_outer_efs_result(
+        let (eval, warm, converged) = nonconverged_outer_efs_result(
             &inner,
             rho,
             rho.len(),
-            include_logdet_h,
-            include_logdet_s,
             "custom-family EFS non-converged inner solve",
-        );
+        )?;
+        return Ok((eval, warm, converged, inner));
     }
     let ridge = effective_solverridge(options.ridge_floor);
     let moderidge = if options.ridge_policy.accounts_for_objective() {
@@ -2251,7 +2264,7 @@ pub(crate) fn outerobjectiveefs<F: CustomFamily + Clone + Send + Sync + 'static>
         cached_inner: Some(cached_inner_mode_from_result(&inner)),
     };
 
-    Ok((efs_eval, warm, inner.converged))
+    Ok((efs_eval, warm, inner.converged, inner))
 }
 
 pub(crate) fn normalize_outer_eval_error_detail(error: &str) -> &str {
@@ -2440,13 +2453,19 @@ pub(crate) fn assemble_block_local_s_psi_psi(
 #[derive(Clone)]
 pub struct BlockwiseInnerResult {
     pub block_states: Vec<ParameterBlockState>,
+    /// Exact working-set evidence evaluated at `block_states` by the inner
+    /// solve. `None` only when an owned exact-Hessian workspace was the sole
+    /// family evaluation source.
+    pub(crate) terminal_working_sets: Option<Vec<BlockWorkingSet>>,
     pub active_sets: Vec<Option<Vec<usize>>>,
     pub log_likelihood: f64,
     pub penalty_value: f64,
     pub cycles: usize,
     pub converged: bool,
-    pub block_logdet_h: f64,
-    pub block_logdet_s: f64,
+    /// Laplace Hessian log-determinant, defined only at a certified inner mode.
+    pub block_logdet_h: Option<f64>,
+    /// Penalty pseudo-logdeterminant, defined only at a certified inner mode.
+    pub block_logdet_s: Option<f64>,
     /// Cached assembled penalty matrices S(ρ) = Σ_k exp(ρ_k) S_k per block.
     /// Avoids redundant re-assembly in the outer objective evaluation.
     pub s_lambdas: Vec<Array2<f64>>,
@@ -2467,6 +2486,10 @@ impl std::fmt::Debug for BlockwiseInnerResult {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("BlockwiseInnerResult")
             .field("block_states", &self.block_states)
+            .field(
+                "terminal_working_sets",
+                &self.terminal_working_sets.as_ref().map(Vec::len),
+            )
             .field("active_sets", &self.active_sets)
             .field("log_likelihood", &self.log_likelihood)
             .field("penalty_value", &self.penalty_value)
@@ -2497,9 +2520,10 @@ pub(crate) struct CachedInnerMode {
     pub(crate) penalty_value: f64,
     pub(crate) cycles: usize,
     pub(crate) converged: bool,
-    pub(crate) block_logdet_h: f64,
-    pub(crate) block_logdet_s: f64,
+    pub(crate) block_logdet_h: Option<f64>,
+    pub(crate) block_logdet_s: Option<f64>,
     pub(crate) joint_workspace: Option<Arc<dyn ExactNewtonJointHessianWorkspace>>,
     pub(crate) kkt_residual: Option<ProjectedKktResidual>,
     pub(crate) active_constraints: Option<Arc<ActiveLinearConstraintBlock>>,
+    pub(crate) terminal_working_sets: Option<Vec<BlockWorkingSet>>,
 }

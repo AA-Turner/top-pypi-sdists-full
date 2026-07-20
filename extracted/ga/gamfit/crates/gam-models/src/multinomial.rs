@@ -64,7 +64,8 @@
 //! Fisher block instead.
 
 use crate::custom_family::{
-    BlockwiseFitOptions, ParameterBlockState, PenaltyMatrix, fit_custom_family_with_rho_prior,
+    BlockwiseFitOptions, ParameterBlockSpec, ParameterBlockState, PenaltyMatrix,
+    fit_custom_family_with_rho_prior,
 };
 use crate::fit_orchestration::drivers::freeze_term_collection_from_design;
 use crate::fit_orchestration::{
@@ -624,9 +625,16 @@ pub fn fit_penalized_multinomial(
         );
     }
     let m = k - 1;
-    if lambdas.len() != m {
+    // #2344: the fixed-λ contract is K per-CLASS lambdas (reference class
+    // included), matching the permutation-equivariant carrier the REML route
+    // selects (1326d0794). K−1 per-CONTRAST lambdas anchored the smoothing to
+    // the arbitrary ALR baseline — relabeling the classes changed the fitted
+    // model. No backcompat shim: K lambdas is the honest contract for nominal
+    // classes.
+    if lambdas.len() != k {
         crate::bail_invalid_estim!(
-            "fit_penalized_multinomial: lambdas length {} ≠ K-1 = {m}",
+            "fit_penalized_multinomial: lambdas length {} ≠ K = {k} (one λ per class, \
+             reference class included — the permutation-equivariant per-class contract, #2344)",
             lambdas.len()
         );
     }
@@ -714,11 +722,11 @@ pub fn fit_penalized_multinomial(
             fisher_w_override,
             max_iter,
             tol,
-            // #1587: production multinomial still uses the per-class Diagonal
-            // metric pending the REML per-class→per-term λ re-key that the
-            // reference-symmetric Centered metric requires (shared λ). The
-            // Centered engine path + its invariance proof land first.
-            class_penalty_metric: crate::penalized_vector_glm::ClassPenaltyMetric::Diagonal,
+            // #2344: the permutation-equivariant per-class metric — the fixed-λ
+            // twin of the REML equivariant carrier (1326d0794). K per-class
+            // lambdas on the centered class functions; reference-free by
+            // construction, collapsing to the shared Centered metric at equal λ.
+            class_penalty_metric: crate::penalized_vector_glm::ClassPenaltyMetric::EquivariantPerClass,
             resume_from: vector_resume,
         },
         &likelihood,
@@ -790,6 +798,21 @@ fn handle_multinomial_fixed_lambda_stall(
         // boundary already used around the faer / cudarc entry points, and keeps
         // the separation path no worse than the pre-#1854 clean error while the
         // Firth refit is still being hardened.
+        // Start the Firth refit from the well-conditioned origin (β = 0), NOT
+        // from the stalled Newton iterate. That stalled iterate is the runaway
+        // separated point (`|η| ≥ 25`), where the softmax Fisher information
+        // `I(β)` is numerically singular (every fitted probability is pinned to
+        // the {0,1} simplex boundary, so `I → 0`). Warm-starting the Firth
+        // Newton there is catastrophic: the first step `(I + λS)⁻¹ U*` is
+        // unbounded and every backtracked candidate stays on the boundary, so
+        // the line search exhausts without an accepted step and the refit stalls
+        // at iteration 1 — it can never climb back to the interior Firth mode.
+        // The Firth objective's interior mode is start-independent (the
+        // `firth_solver_rejects_a_truncated_iterate` resume contract asserts the
+        // same mode is reached from any interior start), and from `β = 0` the
+        // information is well-conditioned, so a plain from-zero refit converges
+        // reliably on exactly the separated data that defeated the fixed-λ
+        // Newton above.
         let firth = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             fit_penalized_multinomial_firth_fallback(
                 design,
@@ -799,10 +822,7 @@ fn handle_multinomial_fixed_lambda_stall(
                 row_weights,
                 max_iter,
                 tol,
-                Some(FirthResume {
-                    coefficients: stall.coefficients.view(),
-                    completed_iterations: 0,
-                }),
+                None,
             )
         }));
         match firth {
@@ -1056,13 +1076,19 @@ fn fit_penalized_multinomial_firth_fallback(
                 }
             }
         }
+        // #2344: equivariant per-class penalty ½·Σ_{a,b} A[a,b]·β_aᵀSβ_b —
+        // the same metric the shared vector-GLM engine applies, so the Firth
+        // arm optimizes the identical reference-free objective.
+        let a_mat = crate::penalized_vector_glm::equivariant_class_metric(lambdas, m);
         let mut pen = 0.0_f64;
         for a in 0..m {
-            let la = lambdas[a];
-            if la != 0.0 {
-                let bcol = beta.column(a);
-                let sbeta = penalty.dot(&bcol);
-                pen += 0.5 * la * bcol.dot(&sbeta);
+            let bcol = beta.column(a);
+            for b in 0..m {
+                let coef = a_mat[[a, b]];
+                if coef != 0.0 {
+                    let sbeta = penalty.dot(&beta.column(b));
+                    pen += 0.5 * coef * bcol.dot(&sbeta);
+                }
             }
         }
         ll - pen + 0.5 * logdet_info
@@ -1134,30 +1160,40 @@ fn fit_penalized_multinomial_firth_fallback(
                     }
                 }
             }
-            // Smoothing penalty gradient: U[(a,i)] −= λ_a (S β_a)_i.
-            for a in 0..m {
-                let la = lambdas[a];
-                if la != 0.0 {
-                    let sbeta = penalty.dot(&beta.column(a));
+            // Smoothing penalty gradient (#2344 equivariant metric):
+            // U[(a,i)] −= Σ_b A[a,b]·(S β_b)_i.
+            let a_mat = crate::penalized_vector_glm::equivariant_class_metric(lambdas, m);
+            for b in 0..m {
+                let sbeta = penalty.dot(&beta.column(b));
+                for a in 0..m {
+                    let coef = a_mat[[a, b]];
+                    if coef == 0.0 {
+                        continue;
+                    }
                     let ao = a * p;
                     for i in 0..p {
-                        u[ao + i] -= la * sbeta[i];
+                        u[ao + i] -= coef * sbeta[i];
                     }
                 }
             }
             u
         };
 
-    // Penalized Hessian H = I + blockdiag_a(λ_a S) (positive definite).
+    // Penalized Hessian H = I + A(λ) ⊗ S (#2344 equivariant metric; PSD sum
+    // of rank-1 class projections, so H stays positive definite).
     let penalized_hessian = |info: &Array2<f64>| -> Array2<f64> {
         let mut h = info.clone();
+        let a_mat = crate::penalized_vector_glm::equivariant_class_metric(lambdas, m);
         for a in 0..m {
-            let la = lambdas[a];
-            if la != 0.0 {
-                let ao = a * p;
+            for b in 0..m {
+                let coef = a_mat[[a, b]];
+                if coef == 0.0 {
+                    continue;
+                }
+                let (ao, bo) = (a * p, b * p);
                 for i in 0..p {
                     for j in 0..p {
-                        h[[ao + i, ao + j]] += la * penalty[[i, j]];
+                        h[[ao + i, bo + j]] += coef * penalty[[i, j]];
                     }
                 }
             }
@@ -1325,11 +1361,19 @@ fn fit_penalized_multinomial_firth_fallback(
         }
     }
 
+    // #2344 equivariant metric: the reported penalty term matches the
+    // objective the solve optimized.
+    let a_mat = crate::penalized_vector_glm::equivariant_class_metric(lambdas, m);
     let mut penalty_term = 0.0_f64;
     for a in 0..m {
         let beta_col = coefficients_active.column(a);
-        let sbeta = penalty.dot(&beta_col);
-        penalty_term += 0.5 * lambdas[a] * beta_col.dot(&sbeta);
+        for b in 0..m {
+            let coef = a_mat[[a, b]];
+            if coef != 0.0 {
+                let sbeta = penalty.dot(&coefficients_active.column(b));
+                penalty_term += 0.5 * coef * beta_col.dot(&sbeta);
+            }
+        }
     }
 
     // Recompute the Firth score and Newton decrement AT the final accepted
@@ -1828,7 +1872,7 @@ impl MultinomialSavedModel {
                         coeff_range: start..end,
                         edf,
                         nullspace_dim: span.nullspace_dim,
-                        residual_df: f64::INFINITY,
+                        residual_df: None,
                         scale: gam_terms::inference::smooth_test::SmoothTestScale::Known,
                     },
                 );
@@ -1937,21 +1981,47 @@ impl MultinomialModelEnvelope {
     /// discriminator so a non-multinomial payload is rejected with a clear
     /// error rather than silently mis-predicted.
     pub fn from_json_bytes(bytes: &[u8]) -> Result<Self, EstimationError> {
+        // Gate on the envelope header (`model_class` + `format_version`) *before*
+        // deserializing the versioned `saved` body. The header parse ignores the
+        // body, so a payload that predates a field which has since become
+        // required (e.g. `saved.formula`) is rejected on the version gate rather
+        // than on whatever inner field is now missing — the version check is the
+        // contract that tells a caller their payload is stale, and it must fire
+        // first regardless of how the body schema has since evolved.
+        #[derive(Deserialize)]
+        struct EnvelopeHeader {
+            #[serde(default)]
+            model_class: Option<String>,
+            #[serde(default)]
+            format_version: Option<u32>,
+        }
+        let header: EnvelopeHeader = serde_json::from_slice(bytes).map_err(|err| {
+            EstimationError::InvalidInput(format!("failed to deserialize multinomial model: {err}"))
+        })?;
+        match header.model_class.as_deref() {
+            Some(MULTINOMIAL_MODEL_CLASS) => {}
+            other => {
+                return Err(EstimationError::InvalidInput(format!(
+                    "multinomial model: model_class = {other:?}, expected {MULTINOMIAL_MODEL_CLASS:?}",
+                )));
+            }
+        }
+        match header.format_version {
+            Some(MULTINOMIAL_MODEL_FORMAT_VERSION) => {}
+            Some(version) => {
+                return Err(EstimationError::InvalidInput(format!(
+                    "multinomial model: format_version = {version}, expected {MULTINOMIAL_MODEL_FORMAT_VERSION}",
+                )));
+            }
+            None => {
+                return Err(EstimationError::InvalidInput(format!(
+                    "multinomial model: format_version is absent (unversioned payload), expected {MULTINOMIAL_MODEL_FORMAT_VERSION}",
+                )));
+            }
+        }
         let envelope: Self = serde_json::from_slice(bytes).map_err(|err| {
             EstimationError::InvalidInput(format!("failed to deserialize multinomial model: {err}"))
         })?;
-        if envelope.model_class != MULTINOMIAL_MODEL_CLASS {
-            return Err(EstimationError::InvalidInput(format!(
-                "multinomial model: model_class = {:?}, expected {MULTINOMIAL_MODEL_CLASS:?}",
-                envelope.model_class
-            )));
-        }
-        if envelope.format_version != MULTINOMIAL_MODEL_FORMAT_VERSION {
-            return Err(EstimationError::InvalidInput(format!(
-                "multinomial model: format_version = {}, expected {}",
-                envelope.format_version, MULTINOMIAL_MODEL_FORMAT_VERSION,
-            )));
-        }
         envelope.saved.validate()?;
         Ok(envelope)
     }
@@ -2077,6 +2147,12 @@ fn build_formula_design_for_multinomial(
     let design = build_term_collection_design(data.values.view(), &spec).map_err(|err| {
         EstimationError::InvalidInput(format!("multinomial fit: build design: {err}"))
     })?;
+    if design.affine_offset.iter().any(|value| *value != 0.0) {
+        crate::bail_invalid_estim!(
+            "multinomial fit does not support non-zero smooth anchors: the reference-coded \
+             softmax requires an explicit affine offset for every non-reference class"
+        );
+    }
     Ok((spec, design, y_col, parsed.response, y_kind))
 }
 
@@ -2234,9 +2310,28 @@ fn resolve_multinomial_row_weights(
 /// (`ColumnKindTag::Categorical`); reference class = last level. Returns a
 /// [`MultinomialSavedModel`] that can be serialised to bytes for the Python
 /// wrapper or used in-process for `predict_probabilities`.
-pub fn fit_penalized_multinomial_formula(
+/// Everything [`fit_penalized_multinomial_formula`] constructs BEFORE the REML
+/// solve: the family (unbiased criterion, Jeffreys disarmed), the per-class
+/// block specs with seeded `initial_log_lambdas`, the calibrated solver
+/// options, and the design artifacts the post-solve repack consumes. Exposed
+/// at crate level so diagnostics can drive the EXACT production objective at
+/// fixed smoothing parameters (finite-difference gates on the outer ρ-gradient
+/// of the coalesced joint penalty family, #2349) instead of replicating the
+/// construction and diverging from it.
+pub(crate) struct PenalizedMultinomialFormulaParts {
+    pub(crate) family: MultinomialFamily,
+    pub(crate) blocks: Vec<ParameterBlockSpec>,
+    pub(crate) options: BlockwiseFitOptions,
+    pub(crate) spec: TermCollectionSpec,
+    pub(crate) design: TermCollectionDesign,
+    pub(crate) class_levels: Vec<String>,
+    pub(crate) parametric_standardization: Vec<(usize, f64, f64)>,
+    pub(crate) penalties_arc: Arc<Vec<PenaltyMatrix>>,
+}
+
+pub(crate) fn penalized_multinomial_formula_parts(
     request: &MultinomialFitRequest<'_>,
-) -> Result<MultinomialSavedModel, EstimationError> {
+) -> Result<PenalizedMultinomialFormulaParts, EstimationError> {
     let MultinomialFitRequest {
         data,
         formula,
@@ -2370,7 +2465,6 @@ pub fn fit_penalized_multinomial_formula(
         .into_iter()
         .map(|penalty| scale_multinomial_formula_penalty(penalty, penalty_scale))
         .collect();
-    let per_term_nullspace_dims = design.nullspace_dims.clone();
 
     // ── Custom-family driven REML/LAML path ───────────────────────────────
     // Each active class becomes one ParameterBlockSpec, all sharing X and the
@@ -2378,7 +2472,6 @@ pub fn fit_penalized_multinomial_formula(
     // `init_lambda` (one entry per term).
     let design_arc = Arc::new(x_dense);
     let penalties_arc = Arc::new(per_term_penalties);
-    let nullspace_dims_arc = Arc::new(per_term_nullspace_dims);
     let weights = resolve_multinomial_row_weights(data, config)?;
     if weights.len() != n_obs {
         crate::bail_invalid_estim!(
@@ -2397,7 +2490,6 @@ pub fn fit_penalized_multinomial_formula(
         k,
         design_arc.clone(),
         penalties_arc.clone(),
-        nullspace_dims_arc.clone(),
     )
     .map_err(EstimationError::InvalidInput)?
     .with_joint_jeffreys_term(false)
@@ -2562,6 +2654,38 @@ pub fn fit_penalized_multinomial_formula(
         compute_covariance: true,
         ..BlockwiseFitOptions::default()
     };
+    Ok(PenalizedMultinomialFormulaParts {
+        family,
+        blocks,
+        options,
+        spec,
+        design,
+        class_levels,
+        parametric_standardization,
+        penalties_arc,
+    })
+}
+
+pub fn fit_penalized_multinomial_formula(
+    request: &MultinomialFitRequest<'_>,
+) -> Result<MultinomialSavedModel, EstimationError> {
+    let PenalizedMultinomialFormulaParts {
+        family,
+        blocks,
+        options,
+        spec,
+        design,
+        class_levels,
+        parametric_standardization,
+        penalties_arc,
+    } = penalized_multinomial_formula_parts(request)?;
+    let MultinomialFitRequest {
+        data,
+        formula,
+        config,
+        ..
+    } = *request;
+    let m = family.active_classes();
     // ── Conditional Firth/Jeffreys engagement (#715 arm (b) / #753) ──────────
     // Attempt 1: the unbiased criterion (Jeffreys disarmed above). If the
     // returned mode is converged, finite, and interior, it is the exact penalized-REML
@@ -2721,79 +2845,106 @@ pub fn fit_penalized_multinomial_formula(
     // per-class EDF, and `Σ_a edf_a = tr(F) = edf_total`.
     let joint_recon = fit.artifacts.joint_log_lambdas.as_ref().and_then(|jll| {
         let n_components = penalties_arc.len();
-        if jll.len() != n_components || n_components == 0 {
+        if n_components == 0 {
             return None;
         }
+        // The coupled joint penalty family at the selected λ's, in raw stacked
+        // (class-major) coordinates — exactly the operator the inner solve and
+        // covariance path penalize with. Under the equivariant carrier this is
+        // K per-class specs per term, grouped term-major (`s = t·g + c`); the
+        // K = 2 degenerate arm returns one shared centered spec per term.
+        let joint_specs = family.equivariant_class_penalty_specs().ok()?;
+        if jll.len() != joint_specs.len() || joint_specs.len() % n_components != 0 {
+            return None;
+        }
+        let specs_per_term = joint_specs.len() / n_components;
         let expected_joint = p_per_class.saturating_mul(m);
         let hinv = fit
             .covariance_conditional
             .as_ref()
             .filter(|c| c.nrows() == expected_joint && c.ncols() == expected_joint)?;
-        // The coupled joint penalty components `M ⊗ S_t` at the selected `λ_t`,
-        // in raw stacked (class-major) coordinates — exactly the operator the
-        // inner solve and the now-fixed covariance path penalize with.
-        let joint_specs = family.centered_joint_penalty_specs();
-        if joint_specs.len() != n_components {
-            return None;
-        }
         let lam: Vec<f64> = jll.iter().map(|&l| l.exp()).collect();
-        // Per-component `H⁻¹ (M ⊗ S_t)` (full mp×mp), reused for both the joint
-        // influence matrix and the per-(class, component) trace decomposition.
-        let mut hinv_st: Vec<Array2<f64>> = Vec::with_capacity(n_components);
+        // Per-spec `H⁻¹ M_s` (full mp×mp), reused for both the joint influence
+        // matrix and the per-(class, component) trace decomposition.
+        let mut hinv_st: Vec<Array2<f64>> = Vec::with_capacity(joint_specs.len());
         for spec in &joint_specs {
             if spec.matrix.nrows() != expected_joint || spec.matrix.ncols() != expected_joint {
                 return None;
             }
             hinv_st.push(hinv.dot(&spec.matrix));
         }
-        // F = I − H⁻¹ S_λ = I − Σ_t λ_t H⁻¹ (M ⊗ S_t).
+        // F = I − H⁻¹ S_λ = I − Σ_s λ_s H⁻¹ M_s.
         let mut f = Array2::<f64>::eye(expected_joint);
-        for (t, hs) in hinv_st.iter().enumerate() {
-            f.scaled_add(-lam[t], hs);
+        for (s, hs) in hinv_st.iter().enumerate() {
+            f.scaled_add(-lam[s], hs);
         }
-        // Per-class diagonal-block trace of F (the honest per-class EDF), and the
-        // per-(class, component) penalty trace `tr_{a,t} = λ_t · Σ_{i∈class a}
-        // (H⁻¹ (M⊗S_t))[i,i]` for the per-penalty EDF rollup.
+        // Per-class diagonal-block trace of F (the honest per-class EDF), and
+        // the per-(class, component) penalty trace
+        // `tr_{a,t} = Σ_{c∈term t} λ_{t,c} · Σ_{i∈class a} (H⁻¹ M_{t,c})[i,i]`
+        // for the per-penalty EDF rollup.
         let mut edf_per_class = Vec::with_capacity(m);
         // class-major per-penalty EDF (class 0's components, then class 1's, …),
-        // aligned 1:1 with the flat per-component λ replicated per class.
+        // aligned 1:1 with the flat per-(class, component) λ report below.
         let mut edf_per_penalty = Vec::with_capacity(m * n_components);
         for a in 0..m {
             let base = a * p_per_class;
             let mut class_trace = 0.0_f64;
             for t in 0..n_components {
                 let mut tr_at = 0.0_f64;
-                for i in 0..p_per_class {
-                    tr_at += hinv_st[t][[base + i, base + i]];
+                for c in 0..specs_per_term {
+                    let s = t * specs_per_term + c;
+                    let mut tr = 0.0_f64;
+                    for i in 0..p_per_class {
+                        tr += hinv_st[s][[base + i, base + i]];
+                    }
+                    tr_at += lam[s] * tr;
                 }
-                tr_at *= lam[t];
                 class_trace += tr_at;
                 // A single component's per-class trace EDF `rank(S_t) − tr_{a,t}`,
-                // bounded by its local rank (≤ p_per_class).
-                let ns_t = nullspace_dims_arc.get(t).copied().unwrap_or(0);
-                let rank_t = (p_per_class as f64 - ns_t as f64).max(0.0);
+                // bounded by its local rank (≤ p_per_class). Derive rank(S_t)
+                // from the spec's MEASURED nullity (per-class spec: rank =
+                // m·p − nullspace_dim; shared centered spec: m·rank), so the
+                // reporting rank matches the pseudo-logdet rank exactly.
+                let spec0 = &joint_specs[t * specs_per_term];
+                let joint_rank = expected_joint - spec0.nullspace_dim;
+                let rank_t = if specs_per_term > 1 {
+                    joint_rank as f64
+                } else {
+                    (joint_rank as f64) / (m as f64)
+                };
                 edf_per_penalty.push((rank_t - tr_at).clamp(0.0, p_per_class as f64));
             }
             edf_per_class.push((p_per_class as f64 - class_trace).clamp(0.0, p_per_class as f64));
         }
-        Some((f, edf_per_class, edf_per_penalty, n_components, lam))
+        // Per-(class, component) λ report, class-major. Under the equivariant
+        // carrier the smoothing applied to active class `a`'s centered function
+        // for term `t` is its own `λ_{t,c=a}` (spec index `t·K + a`); under the
+        // K = 2 shared arm every class reports the one `λ_t`.
+        let mut lam_flat = Vec::with_capacity(m * n_components);
+        for a in 0..m {
+            for t in 0..n_components {
+                let s = if specs_per_term > 1 {
+                    t * specs_per_term + a
+                } else {
+                    t
+                };
+                lam_flat.push(lam[s]);
+            }
+        }
+        Some((f, edf_per_class, edf_per_penalty, n_components, lam_flat))
     });
 
     // Flatten every (class, component) smoothing parameter in class-major order.
-    // Under the joint-penalty architecture each active class carries the SAME
-    // per-component λ set (the centered metric ties `λ_t` across classes for
-    // reference-class invariance), so the flat vector is the selected `λ_t`
-    // replicated `K-1` times and `lambdas_per_block = [n_components; K-1]`. When
-    // the joint reconstruction is unavailable (legacy fixed-λ path or absent
+    // Under the equivariant joint-penalty architecture each active class `a`
+    // reports its own `λ_{t,a}` per term (the per-class centered penalties;
+    // the K = 2 degenerate arm replicates the shared `λ_t`), so the flat vector
+    // is class-major with `lambdas_per_block = [n_components; K-1]`. When the
+    // joint reconstruction is unavailable (legacy fixed-λ path or absent
     // covariance) fall back to the raw — now empty — per-block λ lists.
     let (lambdas_per_block, lambdas_flat): (Vec<usize>, Vec<f64>) = match joint_recon.as_ref() {
-        Some((_, _, _, n_components, lam)) => {
+        Some((_, _, _, n_components, lam_flat)) => {
             let per_block = vec![*n_components; m];
-            let mut flat = Vec::with_capacity(m * n_components);
-            for _ in 0..m {
-                flat.extend(lam.iter().copied());
-            }
-            (per_block, flat)
+            (per_block, lam_flat.clone())
         }
         None => {
             let per_block: Vec<usize> = fit.blocks.iter().map(|b| b.lambdas.len()).collect();
@@ -3112,6 +3263,12 @@ fn build_multinomial_predict_design(
             "multinomial predict: rebuild design from saved termspec: {err}"
         ))
     })?;
+    if design.affine_offset.iter().any(|value| *value != 0.0) {
+        crate::bail_invalid_estim!(
+            "multinomial predict does not support non-zero smooth anchors: the saved \
+             reference-coded softmax has no per-class affine offset channel"
+        );
+    }
     let x_dense = design
         .design
         .try_to_dense_by_chunks("multinomial predict design")
@@ -3272,7 +3429,8 @@ mod fisher_override_tests {
             y[[i, i % k]] = 1.0;
         }
         let penalty = Array2::<f64>::eye(p);
-        let lambdas = Array1::<f64>::from_elem(k - 1, 0.5);
+        // #2344: K per-class lambdas (reference class included).
+        let lambdas = Array1::<f64>::from_elem(k, 0.5);
         (design, y, penalty, lambdas)
     }
 
@@ -3677,7 +3835,8 @@ mod fisher_override_tests {
             y[[row, class]] = 1.0;
         }
         let penalty = Array2::<f64>::zeros((2, 2));
-        let lambdas = Array1::<f64>::zeros(2);
+        // #2344: K per-class lambdas (reference class included); K = 3 here.
+        let lambdas = Array1::<f64>::zeros(3);
         let out = fit_penalized_multinomial(MultinomialFitInputs {
             design: design.view(),
             y_one_hot: y.view(),
@@ -3895,6 +4054,10 @@ mod fisher_override_tests {
         let (design, y, penalty, lambdas) = toy();
         let n = design.nrows();
         let m = y.ncols() - 1;
+        // #2344: toy() now carries K per-class lambdas for the multinomial
+        // ENTRY; the direct Centered-metric ENGINE calls below read
+        // M = lambdas.len(), so hand them the M-length shared-lambda vector.
+        let engine_lambdas = Array1::<f64>::from_elem(m, lambdas[0]);
         // Analytic block at β = 0: p_a = 1/K = 1/3, so diag = p_a(1−p_a),
         // off-diag = −p_a p_b. Scale that exact block by 4.
         let pk = 1.0 / (y.ncols() as f64);
@@ -3914,7 +4077,7 @@ mod fisher_override_tests {
                 design: design.view(),
                 y: y.view(),
                 penalty: penalty.view(),
-                lambdas: lambdas.view(),
+                lambdas: engine_lambdas.view(),
                 fisher_w_override: Some(over.view()),
                 max_iter: 1,
                 tol: 1.0e-9,
@@ -3930,7 +4093,7 @@ mod fisher_override_tests {
                 design: design.view(),
                 y: y.view(),
                 penalty: penalty.view(),
-                lambdas: lambdas.view(),
+                lambdas: engine_lambdas.view(),
                 fisher_w_override: None,
                 max_iter: 1,
                 tol: 1.0e-9,
@@ -3988,7 +4151,8 @@ mod separation_firth_tests {
         }
         // S = 0: no smoothing direction can bound the separated logits.
         let penalty = Array2::<f64>::zeros((p, p));
-        let lambdas = Array1::<f64>::from_elem(k - 1, 1.0);
+        // #2344: K per-class lambdas (reference class included).
+        let lambdas = Array1::<f64>::from_elem(k, 1.0);
         (design, y, penalty, lambdas)
     }
 
@@ -4360,5 +4524,234 @@ mod reference_class_invariance_tests {
             "predicted probabilities must be invariant to the reference class; \
              cross-labeling drift = {drift:.3e} (refit noise = {refit_noise:.3e})"
         );
+    }
+
+    /// #2349 diagnostic (zz_measure): finite-difference the OUTER REML
+    /// criterion of the EXACT production multinomial objective at the refusal
+    /// checkpoint from MSI job 13390650. The certificate there claimed
+    /// `|Pg| = 2.047` against a bound of `2.697e-3` after the optimizer
+    /// stalled — if the fixed-ρ criterion's central FD gradient at that same
+    /// checkpoint is comparably large, the surface is genuinely non-stationary
+    /// and the stall is the optimizer's; if it is orders of magnitude smaller,
+    /// the analytic outer gradient is desynced from the criterion (the
+    /// coalesced overlapping joint-family pseudo-logdet is the suspect).
+    /// Prints only; never asserts a bound.
+    #[test]
+    fn zz_measure_2349_outer_gradient_fd_at_refusal_checkpoint() {
+        let td = tempdir().expect("tempdir");
+        let dir = td.path();
+        let (x, cls) = sample_classes(0, 300);
+        let labels: Vec<String> = cls
+            .iter()
+            .map(|&c| ["A", "B", "C"][c].to_string())
+            .collect();
+        let train = dataset_xy(dir, "fd2349", &x, &labels);
+        let config = FitConfig::default();
+        let request = MultinomialFitRequest {
+            init_lambda: 1.0,
+            max_iter: 60,
+            tol: 1e-6,
+            ..MultinomialFitRequest::new(&train, "y ~ s(x)", &config)
+        };
+        let parts = penalized_multinomial_formula_parts(&request)
+            .expect("production formula parts must build");
+        // Unbiased-arm refusal checkpoint (MSI job 13390650, #2349): the
+        // 6-coordinate joint ρ = 2 terms × 3 per-class λ, term-major.
+        let rho_star = [
+            6.50584039279757,
+            -1.6183906983083074,
+            5.922109861708934,
+            -0.5810545109816936,
+            -0.4894709703255621,
+            1.299144316808675,
+        ];
+        // The criterion probe needs no posterior covariance — and at this
+        // checkpoint it CANNOT have one: the joint precision H + S_λ is
+        // measurably singular there (1 flat direction, the first hard datum
+        // this gate produced), so the covariance factorization honestly
+        // refuses. The REML criterion value is still well-defined through the
+        // pseudo-logdet.
+        let mut probe_options = parts.options.clone();
+        probe_options.compute_covariance = false;
+        eprintln!(
+            "#2349 gate state: use_remlobjective={} (RidgedQuadraticReml default => \
+             logdet_h/logdet_s included in the fixed-lambda score iff this is true)",
+            probe_options.use_remlobjective
+        );
+        let v_at_with = |rho: &[f64], use_reml: bool| -> f64 {
+            let fam = parts
+                .family
+                .clone()
+                .with_joint_initial_log_lambdas(rho.to_vec());
+            let mut opts = probe_options.clone();
+            opts.use_remlobjective = use_reml;
+            let fit = crate::custom_family::fit_custom_family_fixed_log_lambdas(
+                &fam,
+                &parts.blocks,
+                &opts,
+                None,
+            )
+            .expect("fixed-lambda inner solve at the checkpoint must converge");
+            fit.reml_score
+        };
+        let v_plain = v_at_with(&rho_star, false);
+        let v_laml = v_at_with(&rho_star, true);
+        eprintln!(
+            "#2349 V(rho*): plain(penalized NLL)={v_plain:.9e} \
+             laml(+0.5logdetH-0.5logdetS)={v_laml:.9e} logdet_pair={:.9e} \
+             (the refusal reported final objective 2.687403e2 at this checkpoint — \
+             whichever variant matches IS the outer criterion)",
+            v_laml - v_plain
+        );
+        let outer_uses_laml = (v_laml - 2.687403e2).abs() < (v_plain - 2.687403e2).abs();
+        let v_at = |rho: &[f64]| -> f64 { v_at_with(rho, outer_uses_laml) };
+        // Term-for-term decomposition of the fixed-ρ score so the ~12.5 offset
+        // from the outer criterion can be attributed to a specific missing
+        // term. A ρ-CONSTANT offset leaves the FD gradient verdict intact; a
+        // missing ½·log|S_λ|₊ (strongly ρ-dependent, O(1) gradient per
+        // coordinate) would contaminate it.
+        {
+            let fam = parts
+                .family
+                .clone()
+                .with_joint_initial_log_lambdas(rho_star.to_vec());
+            let fit = crate::custom_family::fit_custom_family_fixed_log_lambdas(
+                &fam,
+                &parts.blocks,
+                &probe_options,
+                None,
+            )
+            .expect("fixed-lambda decomposition fit at the checkpoint");
+            eprintln!(
+                "#2349 decompose: reml_score={:.9e} penalized_objective={:.9e} \
+                 log_likelihood={:.9e} deviance={:.9e}",
+                fit.reml_score, fit.penalized_objective, fit.log_likelihood, fit.deviance
+            );
+        }
+        let h = 1.0e-3;
+        let mut grad_fd = [0.0_f64; 6];
+        for s in 0..6 {
+            let mut plus = rho_star;
+            plus[s] += h;
+            let mut minus = rho_star;
+            minus[s] -= h;
+            grad_fd[s] = (v_at(&plus) - v_at(&minus)) / (2.0 * h);
+            eprintln!("#2349 FD dV/drho[{s}] = {:+.6e}", grad_fd[s]);
+        }
+        let norm = grad_fd.iter().map(|g| g * g).sum::<f64>().sqrt();
+        eprintln!(
+            "#2349 |FD grad| = {norm:.6e} on the {} criterion \
+             (certificate claimed |Pg|=2.047e0, bound 2.697e-3)",
+            if outer_uses_laml { "LAML" } else { "plain penalized-NLL" }
+        );
+
+        // ── Warm-start stall isolation (#2349, round 3) ────────────────────
+        //
+        // The unbiased-arm refusal recorded objective 268.740 at its OWN best
+        // iterate ρ*, while a cold fixed-λ solve at the same ρ* reaches
+        // 256.166 — the outer's warm-started inner state sat ~12.6 above the
+        // mode of a CONVEX objective while claiming convergence. If that stall
+        // is real it must reproduce in isolation: warm-start the fixed-λ solve
+        // at ρ* from the mode of a DISTANT ρ (the outer's actual eval pattern)
+        // and compare against the cold value. A warm-started value ≫ cold with
+        // an Ok return is the minimal repro of a lying inner certificate; an
+        // Err is the honest refusal; a matching value clears the inner solver
+        // and points the 12.6 gap at the outer eval bookkeeping instead.
+        for delta in [2.0_f64, -2.0] {
+            let rho_far: Vec<f64> = rho_star.iter().map(|r| r + delta).collect();
+            let fam_far = parts
+                .family
+                .clone()
+                .with_joint_initial_log_lambdas(rho_far.clone());
+            let far_fit = crate::custom_family::fit_custom_family_fixed_log_lambdas(
+                &fam_far,
+                &parts.blocks,
+                &probe_options,
+                None,
+            )
+            .expect("cold fixed-lambda solve at the far point");
+            let far_beta: Vec<f64> = far_fit
+                .block_states
+                .iter()
+                .flat_map(|bs| bs.beta.iter().copied())
+                .collect();
+            let block_cols: Vec<usize> =
+                parts.blocks.iter().map(|s| s.design.ncols()).collect();
+            let warm = crate::custom_family::CustomFamilyWarmStart::from_cached_beta(
+                &block_cols,
+                &ndarray::Array1::from(far_beta),
+            )
+            .expect("warm start from far-point mode");
+            let fam_star = parts
+                .family
+                .clone()
+                .with_joint_initial_log_lambdas(rho_star.to_vec());
+            match crate::custom_family::fit_custom_family_fixed_log_lambdas(
+                &fam_star,
+                &parts.blocks,
+                &probe_options,
+                Some(&warm),
+            ) {
+                Ok(fit) => eprintln!(
+                    "#2349 warm-from(delta={delta:+.1}): V={:.9e} (cold {:.9e}, refusal 2.687403e2) \
+                     gap_to_cold={:+.3e}",
+                    fit.reml_score,
+                    v_laml,
+                    fit.reml_score - v_laml
+                ),
+                Err(e) => eprintln!(
+                    "#2349 warm-from(delta={delta:+.1}): inner REFUSED honestly: {}",
+                    format!("{e}").chars().take(220).collect::<String>()
+                ),
+            }
+        }
+
+        // ── Round 5: the LABELED production evaluator at ρ* + FD gate ─────
+        //
+        // Round 4's hyper-evaluator saw no outer coordinates (grad=[], and its
+        // objective 245.99 matched an unpenalized solve): the joint λs are
+        // OUTER coordinates only through the labeled layout. This round calls
+        // the exact production functional (canonicalize → pulled-back joint
+        // specs → labeled layout → outerobjectivegradienthessian_labeled) at
+        // the checkpoint. Its objective settles whether the refusal's 268.740
+        // is that functional's value (and the 12.574 a criterion difference vs
+        // the fixed-λ LAML) — and the analytic-vs-FD comparison per coordinate
+        // is the obj↔grad desync gate (issue suspect 1) on the REAL surface.
+        {
+            let fam = parts
+                .family
+                .clone()
+                .with_joint_initial_log_lambdas(rho_star.to_vec());
+            let eval_at = |rho_vec: &[f64]| -> (f64, ndarray::Array1<f64>, bool) {
+                crate::custom_family::evaluate_labeled_outer_criterion_for_diagnostics(
+                    &fam,
+                    &parts.blocks,
+                    &probe_options,
+                    &ndarray::Array1::from(rho_vec.to_vec()),
+                )
+                .expect("labeled outer evaluation at the checkpoint")
+            };
+            let (v0, g0, conv0) = eval_at(&rho_star);
+            eprintln!(
+                "#2349 labeled-evaluator at rho*: V={v0:.9e} (refusal 2.687403e2, \
+                 fixed-lambda LAML 2.561663540e2) inner_converged={conv0} |analytic g|={:.6e}",
+                g0.iter().map(|g| g * g).sum::<f64>().sqrt()
+            );
+            let h = 1.0e-3;
+            for s in 0..6 {
+                let mut plus = rho_star;
+                plus[s] += h;
+                let mut minus = rho_star;
+                minus[s] -= h;
+                let (vp, _, _) = eval_at(&plus);
+                let (vm, _, _) = eval_at(&minus);
+                let fd = (vp - vm) / (2.0 * h);
+                eprintln!(
+                    "#2349 labeled grad[{s}]: analytic={:+.6e} fd={fd:+.6e} diff={:+.3e}",
+                    g0[s],
+                    g0[s] - fd
+                );
+            }
+        }
     }
 }

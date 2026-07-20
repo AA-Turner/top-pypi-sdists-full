@@ -1,17 +1,13 @@
 // Split from tests.rs under the #780 oversized-file gate: recovery-suite +
-// registry/assignment tests from line ~6560 onward. Same module scope via
-// `use super::tests::*` so shared fixtures keep working.
-#![allow(unused_imports)]
-use super::tests::*;
+// registry/assignment tests from line ~6560 onward. Shared fixtures come via
+// the parent-module glob below.
 use super::*;
 use approx::assert_abs_diff_eq;
-use gam_linalg::faer_ndarray::fast_ata;
 use gam_solve::arrow_schur::{
     ArrowFactorSlab, ArrowHtbetaCache, ArrowPcgDiagnostics, ArrowSolverMode, ArrowUndampedFactors,
 };
 use gam_solve::evidence::arrow_log_det_from_cache;
-use gam_terms::analytic_penalties::ARDPenalty;
-use ndarray::{Array5, array};
+use ndarray::array;
 
 /// Torus T^2 fit on synthetic data with a known two-frequency signal.
 /// Drives a single torus atom through the [`SaeManifoldTerm`] Newton loop
@@ -960,6 +956,7 @@ pub(crate) fn near_singular_outer_gradient_cache() -> ArrowFactorCache {
         htt_factors_undamped: ArrowUndampedFactors::SameAsDamped,
         schur_factor: Some(array![[1.0_f64]]),
         schur_factor_is_undamped: true,
+        beta_schur_deflation: None,
         joint_hessian_log_det: None,
         solver_mode: ArrowSolverMode::Direct,
         ridge_t: 0.0,
@@ -990,6 +987,7 @@ pub(crate) fn diagonal_latent_cache(diagonal: &[f64]) -> ArrowFactorCache {
         htt_factors_undamped: ArrowUndampedFactors::SameAsDamped,
         schur_factor: None,
         schur_factor_is_undamped: true,
+        beta_schur_deflation: None,
         joint_hessian_log_det: None,
         solver_mode: ArrowSolverMode::Direct,
         ridge_t: 0.0,
@@ -1149,6 +1147,7 @@ pub(crate) fn rank_deficient_beta_outer_gradient_cache() -> ArrowFactorCache {
         htt_factors_undamped: ArrowUndampedFactors::SameAsDamped,
         schur_factor: Some(schur),
         schur_factor_is_undamped: true,
+        beta_schur_deflation: None,
         joint_hessian_log_det: None,
         solver_mode: ArrowSolverMode::Direct,
         ridge_t: 0.0,
@@ -1244,12 +1243,9 @@ pub(crate) fn outer_gradient_internal_invariant_is_typed_1436() {
     );
 }
 
-/// gam#577 / gam#579 root cause: the continuation pre-warm forwards an
-/// EMPTY β before the first accepted eval (`state.last_beta` starts
-/// empty). The seed hook must treat that as the documented "no warm-start
-/// available, proceed cold" no-op (`SeedOutcome::NoSlot`) rather than
-/// erroring on `β length 0 != decoder dim` — the error dropped EVERY
-/// continuation seed and forced a full cold solve on every outer seed.
+/// An empty β means that cache or typed reactive entry has no coefficient
+/// state to install. The hook must preserve the objective-owned state and
+/// report `NoSlot`, rather than interpreting zero length as a decoder mismatch.
 #[test]
 pub(crate) fn seed_inner_state_accepts_empty_beta_as_noslot() {
     let mut obj = warmstart_test_objective();
@@ -1265,12 +1261,11 @@ pub(crate) fn seed_inner_state_accepts_empty_beta_as_noslot() {
 
 /// A populated β whose length matches the decoder dimension must be
 /// INSTALLED and then GENUINELY REUSED by the next inner solve — this is
-/// the warm-start the continuation walk relies on for the big speedup
-/// (gam#577 / gam#579). We verify reuse behaviorally with a β produced by a
-/// converged evidence solve—the state a real continuation step supplies—then run
+/// the exact-seed cache and typed reactive waypoint contract rely on. We verify
+/// reuse behaviorally with a β produced by a converged evidence solve, then run
 /// one eval with zero inner Newton iterations and confirm the published
 /// `inner_beta_hint` is exactly that seed. An arbitrary off-optimum β can have no
-/// defined frozen quasi-Laplace score and is not a valid continuation witness.
+/// defined frozen quasi-Laplace score and is not a valid ownership witness.
 #[test]
 pub(crate) fn seed_inner_state_installs_and_reuses_matching_beta() {
     let mut source = warmstart_test_objective();
@@ -1374,12 +1369,12 @@ pub(crate) fn reference_function_gram_is_fixed_and_has_exact_trace_form() {
         gram.clone(),
     )
     .unwrap();
-    let frozen = atom.smooth_penalty.clone();
+    let frozen = atom.smooth_penalty().clone();
     atom.decoder_coefficients.mapv_inplace(|value| value * 7.0);
     atom.basis_jacobian.fill(13.0);
-    assert_eq!(atom.smooth_penalty, frozen);
+    assert_eq!(atom.smooth_penalty(), &frozen);
     assert_eq!(
-        atom.reference_roughness_kind,
+        atom.reference_roughness_kind(),
         SaeReferenceRoughnessKind::ProvidedFunctionGram
     );
 

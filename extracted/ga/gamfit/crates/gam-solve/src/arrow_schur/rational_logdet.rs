@@ -136,6 +136,44 @@ pub struct RationalLogdetEval {
     pub cg_iterations: usize,
 }
 
+/// Lossless low-rank representation of the derivative of one fixed rational
+/// log-determinant evaluation.
+///
+/// For every symmetric operator direction `D`,
+///
+/// `plan.directional_derivative(eval, D) = (1/r) Σ_a x_a^T D x_a`,
+///
+/// where `x_a` are [`Self::vectors`] and `r` is their count.  The vectors fold
+/// in every quadrature weight, the Hutchinson `1/m`, and the deterministic
+/// deflation block.  Consequently consumers that already assemble arrow
+/// selected-inverse contractions from probe pairs can use `(vectors, vectors)`
+/// without pretending that the vectors are raw probes or unshifted `S^-1`
+/// solves.  This representation is the derivative of the rational SURROGATE,
+/// not an estimator of the derivative of the exact log determinant.
+pub struct RationalLogdetDerivativeBundle {
+    pub vectors: Vec<Array1<f64>>,
+}
+
+impl RationalLogdetDerivativeBundle {
+    /// Apply the represented derivative to a symmetric operator direction.
+    pub fn directional_derivative(
+        &self,
+        dmatvec: &(impl Fn(ArrayView1<f64>) -> Array1<f64> + Sync),
+    ) -> Option<f64> {
+        if self.vectors.is_empty() {
+            return None;
+        }
+        let inv_rank = 1.0 / self.vectors.len() as f64;
+        let derivative = self
+            .vectors
+            .iter()
+            .map(|vector| vector.dot(&dmatvec(vector.view())))
+            .sum::<f64>()
+            * inv_rank;
+        derivative.is_finite().then_some(derivative)
+    }
+}
+
 impl RationalLogdetPlan {
     /// Build a plan for spectrum bracket `[lambda_min, lambda_max]` (rough
     /// estimates are fine — the window is padded two decades on each side),
@@ -323,10 +361,11 @@ impl RationalLogdetPlan {
 
     /// Evaluate the surrogate `L̃ ≈ log det S` through `matvec(v) = S·v`.
     ///
-    /// Each shifted system is solved by plain CG to relative residual
+    /// Each shifted system is solved by plain CG to normwise backward error
     /// `cg_rel_tol`, walking the shift ladder from the largest `t` (near-trivial
     /// solves) down to the smallest, warm-starting each solve from the previous
-    /// shift's solution for the same probe.
+    /// shift's solution for the same probe. A stricter RHS-relative residual
+    /// also terminates the solve when it is attainable.
     pub fn evaluate(
         &self,
         matvec: &(impl Fn(ArrayView1<f64>) -> Array1<f64> + Sync),
@@ -496,15 +535,106 @@ impl RationalLogdetPlan {
         let acc = acc_defl + acc_probe / m;
         acc.is_finite().then_some(acc)
     }
+
+    /// Collapse [`RationalLogdetEval`]'s complete shifted-solve ladder into a
+    /// lossless weighted low-rank derivative representation.
+    ///
+    /// This is deliberately derived from the same evaluation that produced the
+    /// value.  Re-solving only the raw probes at shift zero would instead encode
+    /// `tr(S^-1 D)`, which is generally NOT the derivative of this fixed-node
+    /// rational surrogate and would reopen the objective/gradient desynchrony
+    /// the surrogate exists to prevent.
+    pub fn into_directional_derivative_bundle(
+        &self,
+        eval: RationalLogdetEval,
+    ) -> Option<RationalLogdetDerivativeBundle> {
+        let expected_deflation_nodes =
+            usize::from(!eval.deflation_basis.is_empty()) * self.nodes.len();
+        if eval.shifted_solves.len() != self.nodes.len()
+            || eval.deflation_solves.len() != expected_deflation_nodes
+        {
+            return None;
+        }
+        let probe_count = self.probes.len();
+        if probe_count == 0
+            || eval
+                .shifted_solves
+                .iter()
+                .any(|solves| solves.len() != probe_count)
+            || eval
+                .deflation_solves
+                .iter()
+                .any(|solves| solves.len() != eval.deflation_basis.len())
+        {
+            return None;
+        }
+        let term_count = self.nodes.len().checked_mul(
+            probe_count.checked_add(eval.deflation_basis.len())?,
+        )?;
+        if term_count == 0 {
+            return None;
+        }
+        let mut vectors = Vec::with_capacity(term_count);
+        let rank = term_count as f64;
+        let probes = probe_count as f64;
+        let mut deflation_by_node = eval.deflation_solves;
+        if deflation_by_node.is_empty() {
+            deflation_by_node.resize_with(self.nodes.len(), Vec::new);
+        }
+        for ((mut probe_solves, mut deflation_solves), &(_, weight)) in eval
+            .shifted_solves
+            .into_iter()
+            .zip(deflation_by_node)
+            .zip(&self.nodes)
+        {
+            if !(weight.is_finite() && weight > 0.0) {
+                return None;
+            }
+            let probe_scale = (rank * weight / probes).sqrt();
+            let deflation_scale = (rank * weight).sqrt();
+            if !(probe_scale.is_finite() && deflation_scale.is_finite()) {
+                return None;
+            }
+            for mut solve in probe_solves.drain(..) {
+                if solve.len() != self.dim {
+                    return None;
+                }
+                solve *= probe_scale;
+                vectors.push(solve);
+            }
+            for mut solve in deflation_solves.drain(..) {
+                if solve.len() != self.dim {
+                    return None;
+                }
+                solve *= deflation_scale;
+                vectors.push(solve);
+            }
+        }
+        Some(RationalLogdetDerivativeBundle { vectors })
+    }
 }
 
 /// Plain CG on `(A + t·I) y = b` through the un-shifted `matvec(v) = A·v`,
 /// warm-started from `y0`. Returns the solution and the iteration count only
-/// after the TRUE residual meets `rel_tol`; exhaustion and non-finite/SPD
-/// breakdowns return `None`. Returning an iteration-capped last iterate would
-/// make the value consume an approximate inverse while the derivative formula
-/// differentiates an exact inverse, re-opening the #2080 objective/gradient
-/// desynchronisation this module exists to prevent.
+/// after the TRUE residual certifies either the stricter RHS-relative residual
+/// or the requested normwise backward error; exhaustion and non-finite/SPD
+/// breakdowns return `None`. The matrix-free backward-error denominator uses
+/// the largest Rayleigh quotient observed over the CG directions. For SPD `A`,
+/// this is a lower bound on `||A||₂`, hence
+///
+/// `||r||₂ / (lambda_observed ||y||₂ + ||b||₂)`
+///
+/// is a conservative upper bound on the usual normwise backward error. This
+/// closes the f64 roundoff gap where `||r||/||b||` cannot reach a requested
+/// tolerance even though the computed solution already solves a nearby system
+/// to that tolerance. When the recursively updated CG residual reaches the
+/// RHS-relative threshold before the true residual does, the recurrence is
+/// restarted from the true residual (reliable residual replacement) rather
+/// than rejecting a recoverable solve. Returning an uncertified
+/// iteration-capped last iterate would make the value consume an uncontrolled
+/// approximate inverse while the derivative formula differentiates an exact
+/// inverse, re-opening the #2080 objective/gradient desynchronisation this
+/// module exists to prevent.
 fn shifted_cg(
     matvec: &(impl Fn(ArrayView1<f64>) -> Array1<f64> + Sync),
     t: f64,
@@ -531,11 +661,68 @@ fn shifted_cg(
     }
     let tol = rel_tol * b_norm;
     let mut iters = 0usize;
-    while rs.sqrt() > tol && iters < max_iters {
+    let mut observed_operator_norm = 0.0_f64;
+    loop {
+        if rs.sqrt() <= tol {
+            // Recursive CG residuals lose their equality to `b - A y` through
+            // roundoff, especially on the smallest shifts.  A recursive
+            // convergence report is therefore only a prompt to inspect the
+            // actual residual.  If it has not converged, restart the Krylov
+            // recurrence from that exact residual and spend the remaining
+            // caller-provided iteration budget.  The former terminal check
+            // returned `None` immediately here, even when one reliable update
+            // was enough to satisfy the requested contract.
+            let true_residual = b - &apply(y.view());
+            let true_rs = true_residual.dot(&true_residual);
+            if !true_rs.is_finite() {
+                return None;
+            }
+            let true_residual_norm = true_rs.sqrt();
+            let y_norm = y.dot(&y).sqrt();
+            if !y_norm.is_finite() {
+                return None;
+            }
+            // Evaluate the backward-error ratio in the log domain. The scale
+            // `lambda_observed * ||y|| + ||b||` can overflow even when every
+            // operand and the certified ratio are representable.
+            let backward_error_certified =
+                if observed_operator_norm > 0.0 && y_norm > 0.0 {
+                    let log_operator_solution = observed_operator_norm.ln() + y_norm.ln();
+                    let log_rhs = b_norm.ln();
+                    let log_scale = log_operator_solution.max(log_rhs);
+                    let log_denominator = log_scale
+                        + ((log_operator_solution - log_scale).exp()
+                            + (log_rhs - log_scale).exp())
+                        .ln();
+                    true_residual_norm.ln() - log_denominator <= rel_tol.ln()
+                } else {
+                    false
+                };
+            if true_residual_norm <= tol || backward_error_certified {
+                return Some((y, iters));
+            }
+            if iters >= max_iters {
+                return None;
+            }
+            r = true_residual;
+            rs = true_rs;
+            p = r.clone();
+        }
+        if iters >= max_iters {
+            return None;
+        }
         let ap = apply(p.view());
         let denom = p.dot(&ap);
         if !(denom.is_finite() && denom > 0.0) {
             return None;
+        }
+        let p_norm_sq = p.dot(&p);
+        if !(p_norm_sq.is_finite() && p_norm_sq > 0.0) {
+            return None;
+        }
+        let rayleigh = denom / p_norm_sq;
+        if rayleigh.is_finite() {
+            observed_operator_norm = observed_operator_norm.max(rayleigh);
         }
         let alpha = rs / denom;
         y.scaled_add(alpha, &p);
@@ -548,12 +735,6 @@ fn shifted_cg(
         rs = rs_new;
         iters += 1;
     }
-    // CG's recursively updated residual can drift from the actual residual on
-    // an ill-conditioned shifted system. The inverse bundle is admissible only
-    // when the operator's true residual meets the requested contract.
-    let true_residual = b - &apply(y.view());
-    let true_residual_norm = true_residual.dot(&true_residual).sqrt();
-    (true_residual_norm.is_finite() && true_residual_norm <= tol).then_some((y, iters))
 }
 
 /// Modified Gram-Schmidt orthonormalisation of a column block, DROPPING any
@@ -898,6 +1079,51 @@ mod tests {
         assert!(
             grad > 0.0,
             "SPD direction must increase log det, got {grad}"
+        );
+    }
+
+    #[test]
+    fn fixed_probe_derivative_bundle_matches_rational_directional_not_raw_inverse() {
+        // Use an intentionally coarse, fixed quadrature window so the rational
+        // surrogate's derivative is decisively different from the exact
+        // shift-zero trace.  The production bundle must reproduce the former:
+        // substituting `(v, S^-1 v)` here would make this regression fail.
+        let diagonal = array![0.2, 3.0, 17.0];
+        let direction = array![1.0, 2.0, 4.0];
+        let matvec = |v: ArrayView1<f64>| &diagonal * &v;
+        let dmatvec = |v: ArrayView1<f64>| &direction * &v;
+        let plan = RationalLogdetPlan::build(3, 3, 71, 0.2, 17.0, 0.25)
+            .expect("fixed rational plan");
+        let eval = plan
+            .evaluate(&matvec, 1.0e-13, 64)
+            .expect("fixed rational evaluation");
+        let authority = plan
+            .directional_derivative(&eval, &dmatvec)
+            .expect("rational directional derivative");
+        let bundle = plan
+            .into_directional_derivative_bundle(eval)
+            .expect("lossless rational derivative bundle");
+        let represented = bundle
+            .directional_derivative(&dmatvec)
+            .expect("represented directional derivative");
+        let scale = authority.abs().max(1.0);
+        assert!(
+            (represented - authority).abs() <= 64.0 * f64::EPSILON * scale,
+            "lossless bundle derivative {represented:.16e} != rational authority \
+             {authority:.16e}"
+        );
+
+        // Rademacher probes resolve this diagonal exact-inverse trace exactly;
+        // it is therefore a clean stand-in for the obsolete raw t=0 bundle.
+        let raw_shift_zero = direction
+            .iter()
+            .zip(diagonal.iter())
+            .map(|(&d, &s)| d / s)
+            .sum::<f64>();
+        assert!(
+            (raw_shift_zero - authority).abs() > 1.0e-4,
+            "fixture must separate the rational derivative ({authority:.9e}) from the \
+             raw shift-zero inverse trace ({raw_shift_zero:.9e})"
         );
     }
 

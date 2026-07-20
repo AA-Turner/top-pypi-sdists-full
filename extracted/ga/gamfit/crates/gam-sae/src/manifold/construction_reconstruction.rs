@@ -123,60 +123,6 @@ mod ard_edf_certificate_tests {
     }
 }
 
-fn persisted_atom_basis_values(
-    kind: &SaeAtomBasisKind,
-    coords: ArrayView2<'_, f64>,
-    decoder_width: usize,
-    latent_dim: usize,
-    atom_idx: usize,
-) -> Result<Array2<f64>, String> {
-    match kind {
-        SaeAtomBasisKind::Periodic => {
-            if decoder_width == 0 || decoder_width % 2 == 0 {
-                return Err(format!(
-                    "reconstruct_persisted_atom_set: periodic atom {atom_idx} decoder width \
-                     must be odd and positive; got {decoder_width}"
-                ));
-            }
-            if coords.ncols() == 0 {
-                return Err(format!(
-                    "reconstruct_persisted_atom_set: periodic atom {atom_idx} needs at least \
-                     one coordinate column"
-                ));
-            }
-            if latent_dim != 1 {
-                return Err(format!(
-                    "reconstruct_persisted_atom_set: periodic atom {atom_idx} expects \
-                     latent_dim=1, got {latent_dim}"
-                ));
-            }
-            let evaluator = PeriodicHarmonicEvaluator::new(decoder_width)?;
-            let (phi, _jet) = evaluator.evaluate(coords.slice(s![.., 0..1]))?;
-            Ok(phi)
-        }
-        SaeAtomBasisKind::Sphere => {
-            if decoder_width != 7 {
-                return Err(format!(
-                    "reconstruct_persisted_atom_set: sphere atom {atom_idx} decoder width \
-                     must be 7, got {decoder_width}"
-                ));
-            }
-            if latent_dim != 2 {
-                return Err(format!(
-                    "reconstruct_persisted_atom_set: sphere atom {atom_idx} expects \
-                     latent_dim=2, got {latent_dim}"
-                ));
-            }
-            let (phi, _jet) = SphereChartEvaluator.evaluate(coords)?;
-            Ok(phi)
-        }
-        other => Err(format!(
-            "reconstruct_persisted_atom_set: atom {atom_idx} basis {other:?} is not a \
-             centers-free analytic persisted basis; rebuild a SaeManifoldTerm for this topology"
-        )),
-    }
-}
-
 /// Reconstruct a persisted SAE-manifold atom set from frozen coordinates,
 /// assignment masses, and decoder blocks.
 ///
@@ -186,19 +132,17 @@ fn persisted_atom_basis_values(
 /// basis evaluation, GEMM, and weighted atom sum here prevents the Python facade
 /// from becoming a second decoder implementation.
 pub fn reconstruct_persisted_atom_set(
-    basis_kinds: &[SaeAtomBasisKind],
-    atom_dims: &[usize],
+    geometry_plans: &[SaeAtomGeometryPlan],
     decoder_blocks: &[ArrayView2<'_, f64>],
     coords: &[ArrayView2<'_, f64>],
     assignments: ArrayView2<'_, f64>,
     p_out: usize,
 ) -> Result<Array2<f64>, String> {
-    let k_atoms = basis_kinds.len();
-    if atom_dims.len() != k_atoms || decoder_blocks.len() != k_atoms || coords.len() != k_atoms {
+    let k_atoms = geometry_plans.len();
+    if decoder_blocks.len() != k_atoms || coords.len() != k_atoms {
         return Err(format!(
-            "reconstruct_persisted_atom_set: metadata lengths must all equal K={k_atoms} \
-             (atom_dims={}, decoder_blocks={}, coords={})",
-            atom_dims.len(),
+            "reconstruct_persisted_atom_set: decoder and coordinate counts must equal \
+             geometry-plan count K={k_atoms} (decoder_blocks={}, coords={})",
             decoder_blocks.len(),
             coords.len()
         ));
@@ -215,12 +159,14 @@ pub fn reconstruct_persisted_atom_set(
     }
     let mut out = Array2::<f64>::zeros((n_rows, p_out));
     for atom_idx in 0..k_atoms {
+        let plan = &geometry_plans[atom_idx];
+        let basis_width = plan.basis_size()?;
         let decoder = decoder_blocks[atom_idx];
-        let (basis_width, decoder_p) = decoder.dim();
-        if decoder_p != p_out {
+        if decoder.dim() != (basis_width, p_out) {
             return Err(format!(
-                "reconstruct_persisted_atom_set: atom {atom_idx} decoder output width \
-                 {decoder_p} != p_out {p_out}"
+                "reconstruct_persisted_atom_set: atom {atom_idx} decoder shape {:?} must \
+                 equal plan-derived ({basis_width}, {p_out})",
+                decoder.dim()
             ));
         }
         let atom_coords = coords[atom_idx];
@@ -230,13 +176,15 @@ pub fn reconstruct_persisted_atom_set(
                 atom_coords.nrows()
             ));
         }
-        let phi = persisted_atom_basis_values(
-            &basis_kinds[atom_idx],
-            atom_coords,
-            basis_width,
-            atom_dims[atom_idx],
-            atom_idx,
-        )?;
+        if atom_coords.ncols() != plan.latent_dim() {
+            return Err(format!(
+                "reconstruct_persisted_atom_set: atom {atom_idx} coordinate width {} must \
+                 equal plan latent_dim {}",
+                atom_coords.ncols(),
+                plan.latent_dim()
+            ));
+        }
+        let (phi, _) = plan.build_evaluator()?.evaluate(atom_coords)?;
         if phi.dim() != (n_rows, basis_width) {
             return Err(format!(
                 "reconstruct_persisted_atom_set: atom {atom_idx} basis {:?} != ({n_rows}, {basis_width})",
@@ -257,122 +205,69 @@ pub fn reconstruct_persisted_atom_set(
     Ok(out)
 }
 
-/// Stateless on-manifold STEER of a persisted atom set (gam#2234): the ambient
-/// steering DELTA `a_{ik}·(Φ_k(t_i ⊕ δ) − Φ_k(t_i))·B_k` for the single atom
-/// `steer_atom`, one row per input row, shape `(n_rows, p_out)`. The caller adds
-/// it to the ambient activation `x`.
-///
-/// This is the stateless counterpart of [`SaeManifoldTerm::steer_rows`] for the
-/// Python facade's persisted-artifact path (E1), single-sourced against the SAME
-/// [`persisted_atom_basis_values`] evaluator as [`reconstruct_persisted_atom_set`]
-/// so the facade never becomes a second decoder. The group action `⊕` is the
-/// atom's own [`LatentManifold::retract`] (Circle phase add modulo period,
-/// Euclidean translate, product blockwise), derived from the persisted basis kind
-/// — never re-implemented modular arithmetic. The persisted decoder folds the
-/// atom magnitude in its coefficients (as in `reconstruct_persisted_atom_set`).
-/// Gates are read from the persisted `assignments` and left untouched by the steer.
-pub fn steer_persisted_atom_set(
-    basis_kinds: &[SaeAtomBasisKind],
-    atom_dims: &[usize],
-    decoder_blocks: &[ArrayView2<'_, f64>],
-    coords: &[ArrayView2<'_, f64>],
-    assignments: ArrayView2<'_, f64>,
-    p_out: usize,
-    steer_atom: usize,
-    delta: ArrayView1<'_, f64>,
-) -> Result<Array2<f64>, String> {
-    let k_atoms = basis_kinds.len();
-    if atom_dims.len() != k_atoms || decoder_blocks.len() != k_atoms || coords.len() != k_atoms {
-        return Err(format!(
-            "steer_persisted_atom_set: metadata lengths must all equal K={k_atoms} \
-             (atom_dims={}, decoder_blocks={}, coords={})",
-            atom_dims.len(),
-            decoder_blocks.len(),
-            coords.len()
-        ));
-    }
-    if steer_atom >= k_atoms {
-        return Err(format!(
-            "steer_persisted_atom_set: steer_atom {steer_atom} out of range (K={k_atoms})"
-        ));
-    }
-    let n_rows = assignments.nrows();
-    if assignments.ncols() != k_atoms {
-        return Err(format!(
-            "steer_persisted_atom_set: assignments {:?} must have K={k_atoms} columns",
-            assignments.dim()
-        ));
-    }
-    if p_out == 0 {
-        return Err("steer_persisted_atom_set: p_out must be positive".to_string());
-    }
-    let d = atom_dims[steer_atom];
-    if delta.len() != d {
-        return Err(format!(
-            "steer_persisted_atom_set: delta length {} != atom {steer_atom} latent_dim {d}",
-            delta.len()
-        ));
-    }
-    let decoder = decoder_blocks[steer_atom];
-    let (basis_width, decoder_p) = decoder.dim();
-    if decoder_p != p_out {
-        return Err(format!(
-            "steer_persisted_atom_set: atom {steer_atom} decoder output width {decoder_p} != \
-             p_out {p_out}"
-        ));
-    }
-    let atom_coords = coords[steer_atom];
-    if atom_coords.nrows() != n_rows {
-        return Err(format!(
-            "steer_persisted_atom_set: atom {steer_atom} coords rows {} != {n_rows}",
-            atom_coords.nrows()
-        ));
-    }
-    if atom_coords.ncols() != d {
-        return Err(format!(
-            "steer_persisted_atom_set: atom {steer_atom} coords cols {} != latent_dim {d}",
-            atom_coords.ncols()
-        ));
-    }
-    // The group action `t ⊕ δ` via the atom's own manifold retraction.
-    let manifold = basis_kinds[steer_atom].latent_manifold(d);
-    let mut steered = Array2::<f64>::zeros((n_rows, d));
-    for row in 0..n_rows {
-        let moved = manifold.retract(atom_coords.row(row), delta);
-        for a in 0..d {
-            steered[[row, a]] = moved[a];
-        }
-    }
-    let phi_base = persisted_atom_basis_values(
-        &basis_kinds[steer_atom],
-        atom_coords,
-        basis_width,
-        d,
-        steer_atom,
-    )?;
-    let phi_steer = persisted_atom_basis_values(
-        &basis_kinds[steer_atom],
-        steered.view(),
-        basis_width,
-        d,
-        steer_atom,
-    )?;
-    let base_dec = phi_base.dot(&decoder);
-    let steer_dec = phi_steer.dot(&decoder);
-    let mut out = Array2::<f64>::zeros((n_rows, p_out));
-    for row in 0..n_rows {
-        let gate = assignments[[row, steer_atom]];
-        if gate == 0.0 {
-            continue;
-        }
-        for col in 0..p_out {
-            out[[row, col]] = gate * (steer_dec[[row, col]] - base_dec[[row, col]]);
-        }
-    }
-    Ok(out)
-}
-
 impl SaeManifoldTerm {
+    /// Lower bound on every valid reconstruction dispersion at this fitted
+    /// state. The dispersion denominator is residual degrees of freedom and
+    /// cannot exceed the scalar observation count `N*P`; therefore the
+    /// criterion's authoritative RSS divided by `N*P` is the bound. The
+    /// whitening/raw-frame choice is shared with [`Self::reconstruction_dispersion`]
+    /// so the structural rank decision cannot price another likelihood.
+    pub(crate) fn reconstruction_dispersion_lower_bound(
+        &self,
+        loss: &SaeManifoldLoss,
+        residual: Option<ArrayView2<'_, f64>>,
+    ) -> Result<f64, String> {
+        let n_scalar = self.n_obs().checked_mul(self.output_dim()).ok_or_else(|| {
+            "reconstruction_dispersion_lower_bound: scalar observation count overflowed".to_string()
+        })?;
+        if n_scalar == 0 {
+            return Err(
+                "reconstruction_dispersion_lower_bound: scalar observation count is zero"
+                    .to_string(),
+            );
+        }
+        Ok(self.reconstruction_residual_sum_squares(loss, residual)? / n_scalar as f64)
+    }
+
+    fn reconstruction_residual_sum_squares(
+        &self,
+        loss: &SaeManifoldLoss,
+        residual: Option<ArrayView2<'_, f64>>,
+    ) -> Result<f64, String> {
+        if let Some(residual) = residual.as_ref() {
+            if residual.dim() != (self.n_obs(), self.output_dim()) {
+                return Err(format!(
+                    "reconstruction residual shape {:?} does not match ({}, {})",
+                    residual.dim(),
+                    self.n_obs(),
+                    self.output_dim(),
+                ));
+            }
+            if residual.iter().any(|value| !value.is_finite()) {
+                return Err("reconstruction residual must be finite".to_string());
+            }
+        }
+        let metric_whitens = self
+            .row_metric
+            .as_ref()
+            .is_some_and(|metric| metric.whitens_likelihood());
+        let rss = if metric_whitens {
+            residual
+                .as_ref()
+                .map(|values| values.iter().map(|value| value * value).sum::<f64>())
+                .unwrap_or(2.0 * loss.data_fit)
+        } else {
+            2.0 * loss.data_fit
+        };
+        if rss.is_finite() && rss >= 0.0 {
+            Ok(rss)
+        } else {
+            Err(format!(
+                "reconstruction residual sum of squares must be finite and non-negative; got {rss}"
+            ))
+        }
+    }
+
     /// Gaussian reconstruction dispersion `φ̂`, the scale that turns the
     /// unscaled inverse-Hessian β-block `S_β⁻¹` into a posterior covariance
     /// `Cov(β) = φ̂·S_β⁻¹` — the same `Vb = φ·H⁻¹` convention the main GAM
@@ -438,18 +333,7 @@ impl SaeManifoldTerm {
         // at the requested rho' for every structured pass), and the shape
         // bands are φ-scaled output-frame covariances. Price φ from the RAW
         // residual whenever the caller supplied it and the metric whitens.
-        let metric_whitens = self
-            .row_metric
-            .as_ref()
-            .is_some_and(|metric| metric.whitens_likelihood());
-        let rss = if metric_whitens && residual.is_some() {
-            residual
-                .as_ref()
-                .map(|res| res.iter().map(|value| value * value).sum::<f64>())
-                .unwrap_or(2.0 * loss.data_fit)
-        } else {
-            2.0 * loss.data_fit
-        };
+        let rss = self.reconstruction_residual_sum_squares(loss, residual)?;
         let smooth_edf: f64 = self
             .decoder_smoothness_effective_dof_per_atom(cache, &rho.lambda_smooth_vec()?)
             .map_err(|e| format!("reconstruction_dispersion: smooth edf: {e}"))?
@@ -476,7 +360,7 @@ impl SaeManifoldTerm {
             .map_err(|e| format!("reconstruction_dispersion: ARD traces: {e}"))?;
         let mut coord_edf = 0.0_f64;
         for (k, atom) in self.atoms.iter().enumerate() {
-            let d_k = atom.latent_dim;
+            let d_k = atom.latent_dim();
             if traces[k].len() != d_k {
                 return Err(format!(
                     "reconstruction_dispersion: trace shape mismatch at atom {k} \
@@ -584,7 +468,7 @@ impl SaeManifoldTerm {
                 .schur_inverse_block(block_ranges[k].clone())
                 .map_err(|e| format!("assemble_shape_uncertainty: atom {k}: {e}"))?;
             let n_rows = atom.n_obs();
-            let d = atom.latent_dim;
+            let d = atom.latent_dim();
             // Evenly-strided evaluation rows bound the band cost.
             let stride = n_rows.div_ceil(SHAPE_BAND_MAX_POINTS).max(1);
             let eval_rows: Vec<usize> = (0..n_rows).step_by(stride).collect();
@@ -697,7 +581,7 @@ impl SaeManifoldTerm {
         ridge_ext_coord: f64,
         ridge_beta: f64,
     ) -> Result<SaeShapeUncertainty, String> {
-        let plan = self.streaming_plan().admitted_or_error(
+        let plan = self.streaming_plan()?.admitted_or_error(
             self.n_obs(),
             self.output_dim(),
             self.k_atoms(),
@@ -710,15 +594,17 @@ impl SaeManifoldTerm {
             let dispersion = (2.0 * loss.data_fit / n_scalar).max(f64::MIN_POSITIVE);
             return Ok(self.unavailable_shape_uncertainty(dispersion));
         }
-        let (_cost, loss, cache) = self.penalized_quasi_laplace_criterion_with_cache(
-            target,
-            rho,
-            registry,
-            inner_max_iter,
-            learning_rate,
-            ridge_ext_coord,
-            ridge_beta,
-        )?;
+        let (_cost, loss, cache) = self
+            .penalized_quasi_laplace_criterion_with_cache(
+                target,
+                rho,
+                registry,
+                inner_max_iter,
+                learning_rate,
+                ridge_ext_coord,
+                ridge_beta,
+            )
+            .map_err(|error| error.to_string())?;
         let residual = self.reconstruction_residual(target, rho)?;
         let dispersion =
             self.reconstruction_dispersion(&loss, &cache, rho, Some(residual.view()))?;
@@ -976,9 +862,9 @@ impl SaeManifoldTerm {
 mod persisted_reconstruct_tests {
     use super::*;
 
-    // Exercises `reconstruct_persisted_atom_set` (and, transitively,
-    // `persisted_atom_basis_values`): a stateless K=1 periodic-atom round trip that
-    // must equal `a_i · (Φ(t_i) · B)` computed directly from the same evaluator.
+    // Exercises `reconstruct_persisted_atom_set`: a stateless K=1 periodic-atom
+    // round trip that must equal `a_i · (Φ(t_i) · B)` computed directly from the
+    // exact evaluator declared by the persisted geometry plan.
     #[test]
     fn reconstruct_persisted_periodic_atom_matches_direct_decode() {
         let n_rows = 4usize;
@@ -989,9 +875,15 @@ mod persisted_reconstruct_tests {
             Array2::from_shape_vec((width, p_out), vec![0.5, -0.2, 0.3, 0.9, -0.4, 0.1]).unwrap();
         let assignments = Array2::from_shape_vec((n_rows, 1), vec![1.0, 0.5, 0.8, 0.2]).unwrap();
 
+        let plan = SaeAtomGeometryPlan::new(
+            SaeAtomBasisKind::Periodic,
+            1,
+            SaeBasisResolution::PeriodicHarmonics { order: 1 },
+            SaeReferenceMetricPlan::UnitCircle,
+        )
+        .unwrap();
         let out = reconstruct_persisted_atom_set(
-            &[SaeAtomBasisKind::Periodic],
-            &[1usize],
+            &[plan],
             &[decoder.view()],
             &[coords.view()],
             assignments.view(),

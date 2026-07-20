@@ -19,6 +19,7 @@ from chalk._gen.chalk.artifacts.v1 import cron_aggregate_backfill_pb2 as cron_ag
 from chalk._gen.chalk.artifacts.v1.cdc_pb2 import CDCSource, CDCTableReference
 from chalk._gen.chalk.artifacts.v1.cron_query_pb2 import CronQuery, RecomputeSettings
 from chalk._gen.chalk.common.v1 import chalk_error_pb2
+from chalk._gen.chalk.common.v1.offline_query_pb2 import OfflineQueryWriteTo as ProtoOfflineQueryWriteTo
 from chalk._gen.chalk.common.v1.offline_query_pb2 import UnloadResolverSpec
 from chalk._gen.chalk.lsp.v1 import lsp_pb2
 from chalk._lsp.error_builder import LSPErrorBuilder
@@ -366,6 +367,7 @@ def export_from_registries(
                 resources=resources_proto,
                 environment_override=cron.environment,
                 dataset_name=cron.dataset_name,
+                write_to=(ProtoOfflineQueryWriteTo(uri=cron.write_to) if cron.write_to is not None else None),
             )
         )
 

@@ -4,22 +4,23 @@
 //! dispersion-channel joint-curvature corrections.
 
 use super::weighted_design_products::{mirror_upper_to_lower, xt_diag_x_design, xt_diag_y_design};
-// `Order2<2>::value()` is the JetScalar trait method; bring the trait into scope
-// so the dispersion row-NLL value reads (`-tower.value()`) resolve (E0599 fix).
+// Concrete `Order2` algebra methods live on the shared `JetField` supertrait;
+// keep it in scope alongside `JetScalar` so the row programs resolve them.
 use super::{
     BlockwiseTermFitResult, GamlssLambdaLayout, LOCATION_SCALE_N_OUTPUTS,
     LocationScaleFamilyBuilder, build_location_scale_block, fit_location_scale_terms,
-    identity_penalty, solve_penalizedweighted_projection, spatial_length_scale_term_indices,
+    solve_penalizedweighted_projection, spatial_length_scale_term_indices,
 };
 use crate::block_layout::block_count::validate_block_count;
 use crate::custom_family::{
     BlockWorkingSet, BlockwiseFitOptions, CustomFamily, CustomFamilyBlockPsiDerivative,
-    FamilyEvaluation, ParameterBlockSpec, ParameterBlockState, PenaltyMatrix,
+    FamilyEvaluation, ParameterBlockSpec, ParameterBlockState,
 };
 use crate::gamlss::GamlssError;
 use crate::model_types::UnifiedFitResult;
 use gam_linalg::matrix::LinearOperator;
 use gam_math::jet_scalar::JetScalar;
+use gam_math::nested_dual::JetField;
 use gam_terms::smooth::{
     SpatialLengthScaleOptimizationOptions, TermCollectionDesign, TermCollectionSpec,
     get_spatial_length_scale, spatial_term_uses_per_axis_psi,
@@ -861,6 +862,64 @@ pub(crate) fn dispersion_row_observed_hessian_weights(
     (h[0][0], h[0][1], h[1][1])
 }
 
+/// Exact row-local geometry consumed by saved-model case deletion.
+///
+/// The score is the gradient of the weighted negative log-likelihood in the
+/// affine coordinates `(eta_mu, eta_d)`.  `observed_hessian` is its observed
+/// Hessian, not a Fisher working-weight surrogate and not the outer product of
+/// the score.  Keeping those two objects separate is essential for ALO: the
+/// observed Hessian controls the deletion denominator, while the score outer
+/// product controls the sandwich variance.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct DispersionAloRowGeometry {
+    pub nll_score: [f64; 2],
+    pub observed_hessian: [[f64; 2]; 2],
+}
+
+/// Replay the exact fitted row likelihood in its two affine predictor
+/// coordinates for saved-model ALO.
+///
+/// This is intentionally a thin public boundary over the same order-two jet
+/// program used by the fitter, so diagnostics cannot drift onto a second,
+/// hand-maintained approximation of the dispersion likelihood.
+pub fn dispersion_alo_row_geometry(
+    kind: DispersionFamilyKind,
+    row: usize,
+    y: f64,
+    eta_mu: f64,
+    eta_d: f64,
+    prior_weight: f64,
+) -> Result<DispersionAloRowGeometry, String> {
+    validate_dispersion_row_geometry_inputs(kind, row, y, eta_mu, eta_d, prior_weight)?;
+    if prior_weight == 0.0 {
+        return Ok(DispersionAloRowGeometry {
+            nll_score: [0.0; 2],
+            observed_hessian: [[0.0; 2]; 2],
+        });
+    }
+    let tower = dispersion_eta_nll_order2(kind, y, eta_mu, eta_d, prior_weight);
+    let (_, gradient, hessian) = tower.into_channels();
+    let geometry = DispersionAloRowGeometry {
+        nll_score: gradient,
+        observed_hessian: hessian,
+    };
+    if geometry
+        .nll_score
+        .iter()
+        .chain(geometry.observed_hessian.iter().flatten())
+        .any(|value| !value.is_finite())
+    {
+        return Err(GamlssError::RowGeometryUnrepresentable {
+            row,
+            quantity: "dispersion-family ALO row geometry",
+            eta: eta_mu,
+            value: f64::NAN,
+        }
+        .into());
+    }
+    Ok(geometry)
+}
+
 #[inline]
 pub(crate) fn tower_score_info<const K: usize>(
     tower: &gam_math::jet_scalar::Order2<K>,
@@ -1600,13 +1659,6 @@ impl LocationScaleFamilyBuilder for DispersionGlmLocationScaleTermBuilder {
         &self.noisespec
     }
 
-    fn noise_penalty_count(&self, noise_design: &TermCollectionDesign) -> usize {
-        // Mirror the Gaussian/Binomial scale block: a full-span shrinkage
-        // penalty pins the log-precision nullspace so REML does not optimise
-        // the dispersion smoothing on a flat surface.
-        noise_design.penalties.len() + 1
-    }
-
     fn build_blocks(
         &self,
         theta: &Array1<f64>,
@@ -1621,10 +1673,19 @@ impl LocationScaleFamilyBuilder for DispersionGlmLocationScaleTermBuilder {
         );
         layout.validate_theta_len(theta.len(), "dispersion location-scale")?;
 
+        let mean_offset = mean_design
+            .compose_offset(self.mean_offset.view(), "dispersion location-scale mean")
+            .map_err(|error| error.to_string())?;
+        let noise_offset = noise_design
+            .compose_offset(
+                self.noise_offset.view(),
+                "dispersion location-scale log-precision",
+            )
+            .map_err(|error| error.to_string())?;
         let mut meanspec = build_location_scale_block(
             "mu",
             mean_design.design.clone(),
-            self.mean_offset.clone(),
+            mean_offset,
             mean_design.penalties_as_penalty_matrix(),
             mean_design.nullspace_dims.clone(),
             layout.mean_from(theta),
@@ -1634,15 +1695,23 @@ impl LocationScaleFamilyBuilder for DispersionGlmLocationScaleTermBuilder {
             "DispersionLocationScale::build_blocks: mu",
         )?;
 
-        let p_disp = noise_design.design.ncols();
-        let mut disp_penalties = noise_design.penalties_as_penalty_matrix();
-        disp_penalties.push(PenaltyMatrix::Dense(identity_penalty(p_disp)));
-        let mut disp_nullspace = noise_design.nullspace_dims.clone();
-        disp_nullspace.push(0);
+        // SPEC-5: the log-precision block is penalized by its formula-native
+        // function-space penalties only (a smooth term carries its own
+        // REML-selected function-metric null-space shrinkage when
+        // `double_penalty=true`, the default). The previous full-span
+        // `identity_penalty` ridge was a basis-dependent coefficient-space prior
+        // that double-penalized the range space and shrank the fitted dispersion
+        // surface toward its coordinate origin — the exact over-shrinkage the
+        // Gaussian location-scale path dropped in `de5599435` (#1561). Mirroring
+        // that path here removes the extra REML smoothing coordinate the ridge
+        // introduced, so the coupled inner solve no longer optimizes the
+        // dispersion smoothing against a phantom full-span penalty.
+        let disp_penalties = noise_design.penalties_as_penalty_matrix();
+        let disp_nullspace = noise_design.nullspace_dims.clone();
         let mut dispspec = build_location_scale_block(
             "log_precision",
             noise_design.design.clone(),
-            self.noise_offset.clone(),
+            noise_offset,
             disp_penalties,
             disp_nullspace,
             layout.noise_from(theta),
@@ -1939,6 +2008,66 @@ mod tests {
     use super::test_support::{dispersion_gamma_nll_order2, dispersion_nb_nll_order2};
     use super::*;
     use crate::gamlss::test_support::dispersion_tweedie_nll_generic;
+    use gam_math::nested_dual::JetField;
+
+    #[test]
+    fn saved_alo_gamma_row_geometry_matches_closed_form_and_keeps_meat_distinct() {
+        let y = 4.0;
+        let mu: f64 = 2.0;
+        let nu: f64 = 3.0;
+        let weight = 1.7;
+        let geometry = dispersion_alo_row_geometry(
+            DispersionFamilyKind::Gamma,
+            0,
+            y,
+            mu.ln(),
+            nu.ln(),
+            weight,
+        )
+        .expect("Gamma row geometry must be representable");
+
+        let ratio = y / mu;
+        let a = gam_math::jet_tower::digamma(nu) - nu.ln() - 1.0 + mu.ln() - y.ln() + ratio;
+        let expected_score = [weight * nu * (1.0 - ratio), weight * nu * a];
+        let expected_hessian = [
+            [weight * nu * ratio, weight * nu * (1.0 - ratio)],
+            [
+                weight * nu * (1.0 - ratio),
+                weight * nu * (a + nu * gam_math::jet_tower::trigamma(nu) - 1.0),
+            ],
+        ];
+        for coordinate in 0..2 {
+            assert_close(
+                "Gamma ALO score",
+                geometry.nll_score[coordinate],
+                expected_score[coordinate],
+                2e-12,
+            );
+            for other in 0..2 {
+                assert_close(
+                    "Gamma ALO observed Hessian",
+                    geometry.observed_hessian[coordinate][other],
+                    expected_hessian[coordinate][other],
+                    2e-12,
+                );
+            }
+        }
+
+        let score_meat = [
+            [
+                expected_score[0] * expected_score[0],
+                expected_score[0] * expected_score[1],
+            ],
+            [
+                expected_score[1] * expected_score[0],
+                expected_score[1] * expected_score[1],
+            ],
+        ];
+        assert_ne!(
+            geometry.observed_hessian, score_meat,
+            "the deletion curvature must not be replaced by score covariance"
+        );
+    }
 
     /// Order-≤1 `ln Γ` compose: only the value (`d[0] = lnΓ`) and first-derivative
     /// (`d[1] = ψ`) stack slots are consumed by an [`Order1`] jet, so we evaluate
@@ -2160,7 +2289,7 @@ mod tests {
     /// dense `Tower4<2>` evaluation of the same row expression.
     #[test]
     pub(crate) fn order2_matches_dense_tower_all_channels() {
-        use gam_math::jet_scalar::{JetScalar, Order2};
+        use gam_math::jet_scalar::Order2;
         use gam_math::jet_tower::Tower4;
 
         fn check_o2_vs_tower4(label: &str, o2: Order2<2>, t4: Tower4<2>) {
@@ -2241,7 +2370,7 @@ mod tests {
     /// observable float.
     #[test]
     pub(crate) fn pruned_disp_towers_bit_identical_to_full_order2() {
-        use gam_math::jet_scalar::{JetScalar, Order2};
+        use gam_math::jet_scalar::Order2;
 
         // Deterministic LCG so the sweep is reproducible without an rng dep.
         let mut state: u64 = 0x9E3779B97F4A7C15;
@@ -2408,7 +2537,16 @@ mod tests {
         );
         assert!(kernel.loglik.is_finite());
         assert!(kernel.mean_weight.is_finite());
-        assert!((kernel.mean_weight / huge - 0.5).abs() <= 8.0 * f64::EPSILON);
+        // The kernel takes LOG-space inputs and re-exponentiates: its internal
+        // precision is `huge.ln().exp()`, which differs from `huge` by the
+        // exp∘ln round-trip (~|ln huge|·EPSILON ≈ 460·EPSILON relative at
+        // η≈460), so dividing by the pre-log `huge` injects ~50·EPSILON of pure
+        // round-trip noise. Reference the precision the kernel actually sees:
+        // with μ==θ, `mean_weight = θ/(1+θ/μ) = θ/2` is exact (a bit-for-bit
+        // exponent decrement), so `mean_weight / precision == 0.5` exactly and
+        // the tight tolerance stays a genuine balanced-tail geometry guard.
+        let precision = huge.ln().exp();
+        assert!((kernel.mean_weight / precision - 0.5).abs() <= 8.0 * f64::EPSILON);
         assert!(kernel.disp_weight.is_finite() && kernel.disp_weight > 0.0);
 
         let eta_info = nb_log_precision_fisher_jensen(1.0, 1.0e17);

@@ -28,9 +28,7 @@ pub(crate) use gam::families::bms::BernoulliMarginalSlopeFitResult;
 
 pub(crate) use gam::families::inverse_link::{apply_inverse_link_spec_vec, apply_inverse_link_vec};
 
-pub(crate) use gam::families::scale_design::{
-    build_scale_deviation_transform, infer_non_intercept_start,
-};
+pub(crate) use gam::families::scale_design::build_scale_deviation_transform;
 
 pub(crate) use gam::families::survival::construction::{
     SavedSurvivalTimeBasis, survival_likelihood_modename,
@@ -84,9 +82,9 @@ pub(crate) use gam::data::{
 pub(crate) use gam::inference::formula_dsl::{parse_formula, parse_surv_response};
 
 pub(crate) use gam::inference::model::{
-    FittedFamily, FittedModel, FittedModelPayload, GroupMetadata, MODEL_PAYLOAD_VERSION, ModelKind,
-    PredictModelClass, SavedDeploymentExtension, SavedLatentZNormalization,
-    append_deployment_extension_columns,
+    FittedEstimator, FittedFamily, FittedModel, FittedModelPayload, GroupMetadata,
+    MODEL_PAYLOAD_VERSION, ModelKind, PredictModelClass, SavedDeploymentExtension,
+    SavedLatentZNormalization, append_deployment_extension_columns,
 };
 
 pub(crate) use gam::inference::model_payload_builders::{
@@ -135,7 +133,7 @@ pub(crate) use gam::families::survival::marginal_slope::SurvivalMarginalSlopeFit
 
 pub(crate) use gam::terms::basis::{
     BasisOptions, CenterStrategy, Dense, DuchonBasisSpec, DuchonNullspaceOrder,
-    DuchonOperatorPenaltySpec, MaternBasisSpec, MaternIdentifiability, MaternNu,
+    DuchonOperatorPenaltySpec, MaternBasisSpec, MaternIdentifiability, MaternLengthScale, MaternNu,
     OneDimensionalBoundary, OperatorPenaltySpec, PeriodicBSplineBasisSpec, SpatialIdentifiability,
     SphereMethod, SphereWahbaKernel, SphericalSplineBasisSpec, SphericalSplineIdentifiability,
     SplineScratch, auto_centers_1d_equal_mass, auto_knot_vector_1d_quantile,
@@ -181,11 +179,11 @@ pub(crate) use gam::terms::sae::sparse_dict::{
 };
 
 pub(crate) use gam::terms::sae::manifold::{
-    GumbelTemperatureSchedule, SPHERE_CHART_PENALTY_DIAGONAL, SaeAtomBasisKind,
+    GumbelTemperatureSchedule, SPHERE_CHART_PENALTY_DIAGONAL, SaeAtomGeometryPlan,
     SaeFisherRowMetricRequest, SaeFitAssignmentKind, SaeFitSeedReport, SaeFitSeedRequest,
     SaeMinimalSeedReport, SaeMinimalSeedRequest, ScheduleKind, build_sae_fisher_row_metric,
-    build_sae_fit_seed, build_sae_minimal_seed, sae_atom_basis_kind_from_str,
-    sae_atom_basis_kind_name, sae_fitted_atom_plans, sphere_chart_basis_jet,
+    build_sae_fit_seed, build_sae_minimal_seed, sae_atom_basis_kind_name, sae_fitted_atom_plans,
+    sphere_chart_basis_jet,
 };
 
 pub(crate) use gam::terms::decoders::skip_transcoder::{
@@ -211,8 +209,8 @@ pub(crate) use gam::families::transformation_normal::TransformationNormalFitResu
 pub(crate) use gam::types::{InverseLink, LikelihoodSpec, ResponseFamily, RhoPrior, StandardLink};
 
 pub(crate) use gam::families::fit_orchestration::{
-    FitConfig, FitRequest, FitResult, WorkflowError, fit_model, materialize, resolve_offset_column,
-    resolve_weight_column,
+    FitConfig, FitRequest, FitResult, WorkflowError, fit_model, materialize,
+    materialize_structural, resolve_offset_column, resolve_weight_column,
 };
 
 pub(crate) use ndarray::{

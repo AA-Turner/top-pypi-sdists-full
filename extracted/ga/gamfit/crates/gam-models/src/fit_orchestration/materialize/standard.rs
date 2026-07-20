@@ -1,4 +1,5 @@
 use super::*;
+use crate::survival::lognormal_kernel::FrailtyScale;
 
 pub(crate) fn materialize_standard<'a>(
     parsed: &ParsedFormula,
@@ -74,10 +75,7 @@ pub(crate) fn materialize_standard<'a>(
     let term_parsed = latent_parsed.as_ref().unwrap_or(parsed);
     let term_col_map = term_data.column_map();
 
-    let policy = resolved_resource_policy(
-        config,
-        gam_runtime::resource::ProblemHints::default(),
-    );
+    let policy = resolved_resource_policy(config, gam_runtime::resource::ProblemHints::default());
     let mut spec = build_termspec_with_geometry_and_overrides(
         &term_parsed.terms,
         term_data,
@@ -131,11 +129,11 @@ pub(crate) fn materialize_standard<'a>(
     let latent_cloglog = if family.is_latent_cloglog() {
         let sigma = match config.frailty.clone() {
             FrailtySpec::HazardMultiplier {
-                sigma_fixed: Some(sigma),
+                scale: FrailtyScale::Fixed { sigma },
                 loading: crate::survival::lognormal_kernel::HazardLoading::Full,
             } => sigma,
             FrailtySpec::HazardMultiplier {
-                sigma_fixed: Some(_),
+                scale: FrailtyScale::Fixed { .. },
                 loading,
             } => {
                 return Err(WorkflowError::MissingDependency {
@@ -146,7 +144,8 @@ pub(crate) fn materialize_standard<'a>(
                 .into());
             }
             FrailtySpec::HazardMultiplier {
-                sigma_fixed: None, ..
+                scale: FrailtyScale::Learned { .. },
+                ..
             } => {
                 return Err(WorkflowError::MissingDependency {
                     reason:
@@ -304,7 +303,24 @@ pub(crate) fn materialize_standard<'a>(
             // `StandardBinomialWiggleConfig` doc + #320). Magic-by-default:
             // no caller-supplied options are required for the Python /
             // formula-DSL path.
-            refit_options: BlockwiseFitOptions::default(),
+            refit_options: BlockwiseFitOptions {
+                // The link-wiggle refit is a custom-family solve, and
+                // `BlockwiseFitOptions::default()` leaves `compute_covariance`
+                // OFF -- which makes `compute_joint_covariance_required` return
+                // `Ok(None)` and strands the saved model with no joint
+                // covariance at all. Every other custom-family consumer whose
+                // saved model has to serve inference (marginal-slope,
+                // multinomial, location-scale) turns it on explicitly. A fitted
+                // link-wiggle model owes external callers its
+                // `[Mean, LinkWiggle]` variance and mean--wiggle cross terms, so
+                // it must too (#2299). `covariance_best_effort` keeps a
+                // degenerate warp Hessian from converting a converged fit into a
+                // hard error: the fit is still minted, covariance is reported as
+                // a typed absence.
+                compute_covariance: true,
+                covariance_best_effort: true,
+                ..BlockwiseFitOptions::default()
+            },
         })
     });
 

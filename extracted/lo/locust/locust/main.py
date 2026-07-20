@@ -164,6 +164,9 @@ def main():
     parser = get_parser()
     options = parser.parse_args()
 
+    if options.stats_history_enabled and (options.csv_prefix is None):
+        parser.error("'--csv-full-history' requires '--csv'.")
+
     stats.validate_stats_configuration()
 
     if options.headful:
@@ -322,10 +325,11 @@ def main():
             )
 
     if os.name != "nt":
+        minimum_open_file_limit = 10000
+        soft_limit = None
         try:
             import resource
 
-            minimum_open_file_limit = 10000
             (soft_limit, hard_limit) = resource.getrlimit(resource.RLIMIT_NOFILE)
 
             if soft_limit < minimum_open_file_limit:
@@ -333,9 +337,9 @@ def main():
                 # It does not work on all OS:es, but we should be no worse off for trying.
                 limits = minimum_open_file_limit, hard_limit
                 resource.setrlimit(resource.RLIMIT_NOFILE, limits)
-        except BaseException:
+        except Exception:
             logger.warning(
-                f"""System open file limit '{soft_limit} is below minimum setting '{minimum_open_file_limit}'.
+                f"""System open file limit '{soft_limit}' is below minimum setting '{minimum_open_file_limit}'.
 It's not high enough for load testing, and the OS didn't allow locust to increase it by itself.
 See https://github.com/locustio/locust/wiki/Installation#increasing-maximum-number-of-open-files-limit for more info."""
             )
@@ -576,8 +580,6 @@ See https://github.com/locustio/locust/wiki/Installation#increasing-maximum-numb
 
     if options.csv_prefix:
         gevent.spawn(stats_csv_writer.stats_writer).link_exception(greenlet_exception_handler)
-    if options.stats_history_enabled and (options.csv_prefix is None):
-        parser.error("'--csv-full-history' requires '--csv'.")
 
     if options.headless:
         start_automatic_run()

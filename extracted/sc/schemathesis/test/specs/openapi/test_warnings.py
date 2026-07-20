@@ -1,3 +1,5 @@
+import pytest
+
 import schemathesis
 from schemathesis.config import SchemathesisWarning
 from schemathesis.specs.openapi.warnings import MissingDeserializerWarning, detect_missing_deserializers
@@ -11,7 +13,8 @@ def test_missing_deserializer_warning_properties():
     )
 
     assert warning.kind == SchemathesisWarning.MISSING_DESERIALIZER
-    assert warning.message == "Cannot validate response 200: no deserializer registered for application/msgpack"
+    assert warning.message == "200"
+    assert warning.group == "application/msgpack"
 
 
 def test_detect_missing_deserializers_with_custom_media_type(ctx):
@@ -206,3 +209,42 @@ def test_detect_missing_deserializers_with_malformed_media_type(ctx):
 
     assert len(warnings) == 1
     assert warnings[0].content_type == "application/msgpack"
+
+
+# A `text/html` body typed as a string needs no deserializer, regardless of what sibling media types declare.
+@pytest.mark.parametrize(
+    ("content", "expected"),
+    [
+        (
+            {
+                "application/geo+json": {"schema": {"type": "object", "properties": {"id": {"type": "integer"}}}},
+                "text/html": {"schema": {"type": "string"}},
+            },
+            [],
+        ),
+        (
+            {
+                "text/html": {"schema": {"type": "string"}},
+                "application/msgpack": {"schema": {"type": "object", "properties": {"id": {"type": "integer"}}}},
+            },
+            ["application/msgpack"],
+        ),
+        (
+            {
+                "text/html": {"example": "<p>hi</p>"},
+                "application/msgpack": {"schema": {"type": "object", "properties": {"id": {"type": "integer"}}}},
+            },
+            ["application/msgpack"],
+        ),
+    ],
+    ids=["unstructured-sibling", "structured-non-first", "schemaless-sibling"],
+)
+def test_detect_missing_deserializers_judges_each_media_type_separately(ctx, content, expected):
+    schema = ctx.openapi.load_schema(
+        {"/users": {"get": {"responses": {"200": {"description": "Success", "content": content}}}}}
+    )
+
+    assert detect_missing_deserializers(schema["/users"]["GET"]) == [
+        MissingDeserializerWarning(operation_label="GET /users", status_code="200", content_type=content_type)
+        for content_type in expected
+    ]

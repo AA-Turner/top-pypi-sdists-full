@@ -3,6 +3,7 @@
 import difflib
 import os
 import platform
+import re
 import shlex
 import shutil
 import subprocess
@@ -13,7 +14,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, replace
 from enum import Enum, auto, unique
 from importlib.metadata import PackageNotFoundError, version
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from threading import Lock
 from typing import TypeVar
 from uuid import uuid4
@@ -122,16 +123,26 @@ class _TempFilePathMaker:
             A path to the temporary file.
         """
         source_path = Path(example.path)
-        # Sanitize the source filename: replace dots and dashes with ``_``
-        # and lower-case it. Use ``.name`` (not ``.stem``) to include the
-        # extension. Lower-casing keeps the generated name a valid module
-        # name now that each temporary file lives in its own package
-        # directory, so tools such as ``ruff`` (rule ``N999``) do not
-        # flag it for a source document with upper-case letters in its
-        # name (for example ``README.rst``).
-        sanitized_source = (
-            source_path.name.replace(".", "_").replace("-", "_").lower()
+        # Sanitize the source filename into a valid Python module name.
+        # Use ``.name`` (not ``.stem``) to include the extension, then
+        # lower-case it and replace every character that is not a valid
+        # Python identifier character (i.e. not alphanumeric and not
+        # ``_``) with ``_``. This subsumes replacing dots and dashes (and
+        # spaces) with ``_``. If the result starts with a digit, prefix
+        # it with ``_`` because module names cannot start with a digit.
+        # Keeping the generated name a valid module name means that tools
+        # such as ``ruff`` (rule ``N999``) do not flag it for a source
+        # document whose name would otherwise be invalid (for example
+        # ``README.rst`` with upper-case letters or ``123 bad.rst`` with a
+        # leading digit and a space).
+        raw_name = source_path.name.lower()
+        sanitized_source = re.sub(
+            pattern=r"[^0-9a-z_]",
+            repl="_",
+            string=raw_name,
         )
+        if sanitized_source and sanitized_source[0].isdigit():
+            sanitized_source = f"_{sanitized_source}"
         unique_id = uuid4().hex[:4]
         filename = self._template.format(
             prefix=self._prefix,
@@ -156,7 +167,13 @@ class _TempFilePathMaker:
         )
         with self._lock:
             self._created_directories.append(directory)
-        return directory / filename
+        final_path = directory / filename
+        # Defense in depth: ``_validate_template`` guarantees that the
+        # formatted file name is a base name confined to ``directory``, so
+        # the resolved parent must be ``directory`` itself. A violation
+        # would mean the file could escape the isolation directory.
+        assert final_path.parent == directory  # noqa: S101
+        return final_path
 
     def cleanup(self) -> None:
         """Remove every directory created for this maker's examples.
@@ -286,20 +303,67 @@ def _validate_template(
         )
         raise click.BadParameter(message=message, ctx=ctx, param=param)
 
+    # Reject templates that could resolve outside the per-example
+    # isolation directory. The formatted name is joined directly to a
+    # freshly-created directory, so it must be a single safe path
+    # component (a base name): no path separators, parent references, or
+    # absolute paths. Both separator conventions are treated as
+    # separators regardless of the host OS.
+    posix_path = PurePosixPath(formatted)
+    windows_path = PureWindowsPath(formatted)
+    has_separator = any(separator in formatted for separator in ("/", "\\"))
+    is_absolute = posix_path.is_absolute() or windows_path.is_absolute()
+    has_parent_reference = ".." in (*posix_path.parts, *windows_path.parts)
+    if has_separator or is_absolute or has_parent_reference:
+        message = (
+            "Template must produce a file name within the temporary "
+            "directory: it may not contain path separators, parent "
+            "references, or absolute paths."
+        )
+        raise click.BadParameter(message=message, ctx=ctx, param=param)
+
     return value
+
+
+@beartype
+def _get_markup_language(
+    *,
+    file_path: Path,
+    suffix_map: Mapping[str, MarkupLanguage],
+) -> MarkupLanguage | None:
+    """Return the markup language for a file based on its configured
+    suffix.
+
+    Matches the file name against configured suffixes (which may contain
+    more than one dot, e.g. ``.test.rst``), preferring the longest match.
+    """
+    file_name = file_path.name
+    matching_suffixes = [
+        suffix
+        for suffix in suffix_map
+        if suffix != "." and file_name.endswith(suffix)
+    ]
+    if not matching_suffixes:
+        return None
+    longest_suffix = max(matching_suffixes, key=len)
+    return suffix_map[longest_suffix]
 
 
 @beartype
 def _validate_given_files_have_known_suffixes(
     *,
     given_files: Iterable[Path],
-    known_suffixes: Iterable[str],
+    suffix_map: Mapping[str, MarkupLanguage],
 ) -> None:
     """Validate that the given files have known suffixes."""
     given_files_unknown_suffix = [
         document_path
         for document_path in given_files
-        if document_path.suffix not in known_suffixes
+        if _get_markup_language(
+            file_path=document_path,
+            suffix_map=suffix_map,
+        )
+        is None
     ]
 
     for given_file_unknown_suffix in given_files_unknown_suffix:
@@ -317,6 +381,30 @@ def _validate_no_empty_string(
     if not value:
         msg = "This value cannot be empty."
         raise click.BadParameter(message=msg, ctx=ctx, param=param)
+    return value
+
+
+@beartype
+def _validate_command(
+    ctx: click.Context | None,
+    param: click.Parameter | None,
+    value: str,
+) -> str:
+    """Validate that the command is not empty and is well-formed."""
+    try:
+        args = shlex.split(s=value)
+    except ValueError as exc:
+        message = f"Malformed command: {exc}"
+        raise click.BadParameter(
+            message=message,
+            ctx=ctx,
+            param=param,
+        ) from exc
+
+    if not args:
+        message = "The command cannot be empty."
+        raise click.BadParameter(message=message, ctx=ctx, param=param)
+
     return value
 
 
@@ -488,10 +576,10 @@ def _log_error(message: str) -> None:
 
 
 @beartype
-def _detect_newline(content_bytes: bytes) -> bytes | None:
+def _detect_newline(content: str) -> str | None:
     """Detect the newline character used in the content."""
-    for newline in (b"\r\n", b"\n", b"\r"):
-        if newline in content_bytes:
+    for newline in ("\r\n", "\n", "\r"):
+        if newline in content:
             return newline
     return None
 
@@ -688,7 +776,11 @@ def _process_file_path(
 ) -> list[_CollectedError]:
     """Process a single documentation file."""
     local_errors: list[_CollectedError] = []
-    markup_language = suffix_map[file_path.suffix]
+    markup_language = _get_markup_language(
+        file_path=file_path,
+        suffix_map=suffix_map,
+    )
+    assert markup_language is not None  # noqa: S101
     encoding = _get_encoding(document_path=file_path)
     if encoding is None:
         could_not_determine_encoding_msg = (
@@ -706,10 +798,8 @@ def _process_file_path(
         return local_errors
 
     content_bytes = file_path.read_bytes()
-    newline_bytes = _detect_newline(content_bytes=content_bytes)
-    newline = (
-        newline_bytes.decode(encoding=encoding) if newline_bytes else None
-    )
+    content_str = content_bytes.decode(encoding=encoding)
+    newline = _detect_newline(content=content_str)
     sybils_with_makers: Sequence[_SybilWithTempFileMaker] = []
     for code_block_language in languages:
         temporary_file_extension = _get_temporary_file_extension(
@@ -1156,20 +1246,19 @@ def _get_sybil(
 # Option decorators expose an unknown parameter type to pyright.
 @cloup.option_group(
     "Required options",
-    # See https://github.com/janluke/cloup/issues/200.
-    cloup.option(  # pyright: ignore[reportUnknownMemberType]
+    cloup.option(
         "command",
         "-c",
         "--command",
         type=str,
         required=True,
+        callback=_validate_command,
         help="The command to run against code blocks.",
     ),
 )
 @cloup.option_group(
     "Code block selection",
-    # See https://github.com/janluke/cloup/issues/200.
-    cloup.option(  # pyright: ignore[reportUnknownMemberType]
+    cloup.option(
         "languages",
         "-l",
         "--language",
@@ -1189,8 +1278,7 @@ def _get_sybil(
             ]
         ),
     ),
-    # See https://github.com/janluke/cloup/issues/200.
-    cloup.option(  # pyright: ignore[reportUnknownMemberType]
+    cloup.option(
         "--pycon-language",
         "pycon_languages",
         type=str,
@@ -1214,8 +1302,7 @@ def _get_sybil(
             ]
         ),
     ),
-    # See https://github.com/janluke/cloup/issues/200.
-    cloup.option(  # pyright: ignore[reportUnknownMemberType]
+    cloup.option(
         "--detect-pycon-language",
         "detect_pycon_languages",
         type=str,
@@ -1241,8 +1328,7 @@ def _get_sybil(
             ]
         ),
     ),
-    # See https://github.com/janluke/cloup/issues/200.
-    cloup.option(  # pyright: ignore[reportUnknownMemberType]
+    cloup.option(
         "skip_markers",
         "--skip-marker",
         type=str,
@@ -1273,8 +1359,7 @@ def _get_sybil(
         multiple=True,
         callback=_deduplicate,
     ),
-    # See https://github.com/janluke/cloup/issues/200.
-    cloup.option(  # pyright: ignore[reportUnknownMemberType]
+    cloup.option(
         "--sphinx-jinja2/--no-sphinx-jinja2",
         "sphinx_jinja2",
         default=False,
@@ -1289,8 +1374,7 @@ def _get_sybil(
 )
 @cloup.option_group(
     "Grouping options",
-    # See https://github.com/janluke/cloup/issues/200.
-    cloup.option(  # pyright: ignore[reportUnknownMemberType]
+    cloup.option(
         "group_markers",
         "--group-marker",
         type=str,
@@ -1320,8 +1404,7 @@ def _get_sybil(
         multiple=True,
         callback=_deduplicate,
     ),
-    # See https://github.com/janluke/cloup/issues/200.
-    cloup.option(  # pyright: ignore[reportUnknownMemberType]
+    cloup.option(
         "--group-file/--no-group-file",
         "group_file",
         default=False,
@@ -1337,8 +1420,7 @@ def _get_sybil(
             "them."
         ),
     ),
-    # See https://github.com/janluke/cloup/issues/200.
-    cloup.option(  # pyright: ignore[reportUnknownMemberType]
+    cloup.option(
         "--pad-groups/--no-pad-groups",
         is_flag=True,
         default=True,
@@ -1352,8 +1434,7 @@ def _get_sybil(
             "they generally need to look at the file without padding."
         ),
     ),
-    # See https://github.com/janluke/cloup/issues/200.
-    cloup.option(  # pyright: ignore[reportUnknownMemberType]
+    cloup.option(
         "--fail-on-group-write/--no-fail-on-group-write",
         "fail_on_group_write",
         default=True,
@@ -1365,8 +1446,7 @@ def _get_sybil(
             "``doccmd`` does not support writing to grouped code blocks."
         ),
     ),
-    # See https://github.com/janluke/cloup/issues/200.
-    cloup.option(  # pyright: ignore[reportUnknownMemberType]
+    cloup.option(
         "group_mdx_by_attribute",
         "--group-mdx-by-attribute",
         type=str,
@@ -1389,8 +1469,7 @@ def _get_sybil(
 )
 @cloup.option_group(
     "Temporary file options",
-    # See https://github.com/janluke/cloup/issues/200.
-    cloup.option(  # pyright: ignore[reportUnknownMemberType]
+    cloup.option(
         "temporary_file_extension",
         "--temporary-file-extension",
         type=str,
@@ -1402,8 +1481,7 @@ def _get_sybil(
         ),
         callback=_validate_file_extension_or_none,
     ),
-    # See https://github.com/janluke/cloup/issues/200.
-    cloup.option(  # pyright: ignore[reportUnknownMemberType]
+    cloup.option(
         "temporary_file_name_prefix",
         "--temporary-file-name-prefix",
         type=str,
@@ -1417,8 +1495,7 @@ def _get_sybil(
             "configurations."
         ),
     ),
-    # See https://github.com/janluke/cloup/issues/200.
-    cloup.option(  # pyright: ignore[reportUnknownMemberType]
+    cloup.option(
         "temporary_file_name_template",
         "--temporary-file-name-template",
         type=str,
@@ -1437,8 +1514,7 @@ def _get_sybil(
             "Example: '{prefix}_{unique}{suffix}' produces 'doccmd_a1b2.py'."
         ),
     ),
-    # See https://github.com/janluke/cloup/issues/200.
-    cloup.option(  # pyright: ignore[reportUnknownMemberType]
+    cloup.option(
         "--pad-file/--no-pad-file",
         is_flag=True,
         default=True,
@@ -1451,8 +1527,7 @@ def _get_sybil(
             "they generally need to look at the file without padding."
         ),
     ),
-    # See https://github.com/janluke/cloup/issues/200.
-    cloup.option(  # pyright: ignore[reportUnknownMemberType]
+    cloup.option(
         "--write-to-file/--no-write-to-file",
         "write_to_file",
         is_flag=True,
@@ -1467,8 +1542,7 @@ def _get_sybil(
 )
 @cloup.option_group(
     "File discovery options",
-    # See https://github.com/janluke/cloup/issues/200.
-    cloup.option(  # pyright: ignore[reportUnknownMemberType]
+    cloup.option(
         "--rst-extension",
         "rst_suffixes",
         type=str,
@@ -1484,8 +1558,7 @@ def _get_sybil(
         show_default=True,
         callback=_validate_file_extensions,
     ),
-    # See https://github.com/janluke/cloup/issues/200.
-    cloup.option(  # pyright: ignore[reportUnknownMemberType]
+    cloup.option(
         "--myst-extension",
         "myst_suffixes",
         type=str,
@@ -1501,8 +1574,7 @@ def _get_sybil(
         show_default=True,
         callback=_validate_file_extensions,
     ),
-    # See https://github.com/janluke/cloup/issues/200.
-    cloup.option(  # pyright: ignore[reportUnknownMemberType]
+    cloup.option(
         "--markdown-extension",
         "markdown_suffixes",
         type=str,
@@ -1516,8 +1588,7 @@ def _get_sybil(
         show_default=True,
         callback=_validate_file_extensions,
     ),
-    # See https://github.com/janluke/cloup/issues/200.
-    cloup.option(  # pyright: ignore[reportUnknownMemberType]
+    cloup.option(
         "--mdx-extension",
         "mdx_suffixes",
         type=str,
@@ -1530,8 +1601,7 @@ def _get_sybil(
         show_default=True,
         callback=_validate_file_extensions,
     ),
-    # See https://github.com/janluke/cloup/issues/200.
-    cloup.option(  # pyright: ignore[reportUnknownMemberType]
+    cloup.option(
         "--djot-extension",
         "djot_suffixes",
         type=str,
@@ -1544,8 +1614,7 @@ def _get_sybil(
         show_default=True,
         callback=_validate_file_extensions,
     ),
-    # See https://github.com/janluke/cloup/issues/200.
-    cloup.option(  # pyright: ignore[reportUnknownMemberType]
+    cloup.option(
         "--norg-extension",
         "norg_suffixes",
         type=str,
@@ -1558,20 +1627,24 @@ def _get_sybil(
         show_default=True,
         callback=_validate_file_extensions,
     ),
-    # See https://github.com/janluke/cloup/issues/200.
-    cloup.option(  # pyright: ignore[reportUnknownMemberType]
+    cloup.option(
         "--max-depth",
         type=click.IntRange(min=1),
         default=sys.maxsize,
         show_default=False,
         help="Maximum depth to search for files in directories.",
     ),
-    # See https://github.com/janluke/cloup/issues/200.
-    cloup.option(  # pyright: ignore[reportUnknownMemberType]
+    cloup.option(
         "--exclude",
         "exclude_patterns",
         type=str,
         multiple=True,
+        callback=multi_callback(
+            callbacks=[
+                _deduplicate,
+                sequence_validator(validator=_validate_no_empty_string),
+            ]
+        ),
         help=(
             "A glob-style pattern that matches file paths to ignore while "
             "recursively discovering files in directories. "
@@ -1579,8 +1652,7 @@ def _get_sybil(
             "Use forward slashes on all platforms."
         ),
     ),
-    # See https://github.com/janluke/cloup/issues/200.
-    cloup.option(  # pyright: ignore[reportUnknownMemberType]
+    cloup.option(
         "--respect-gitignore/--no-respect-gitignore",
         "respect_gitignore",
         is_flag=True,
@@ -1595,8 +1667,7 @@ def _get_sybil(
 )
 @cloup.option_group(
     "Execution options",
-    # See https://github.com/janluke/cloup/issues/200.
-    cloup.option(  # pyright: ignore[reportUnknownMemberType]
+    cloup.option(
         "--use-pty",
         "use_pty_option",
         type=click.Choice(choices=_UsePty, case_sensitive=False),
@@ -1616,8 +1687,7 @@ def _get_sybil(
             "'detect': Automatically determine based on environment (default)."
         ),
     ),
-    # See https://github.com/janluke/cloup/issues/200.
-    cloup.option(  # pyright: ignore[reportUnknownMemberType]
+    cloup.option(
         "--example-workers",
         type=click.IntRange(min=0),
         default=1,
@@ -1632,8 +1702,7 @@ def _get_sybil(
             "Output may be interleaved when using parallel execution."
         ),
     ),
-    # See https://github.com/janluke/cloup/issues/200.
-    cloup.option(  # pyright: ignore[reportUnknownMemberType]
+    cloup.option(
         "--document-workers",
         type=click.IntRange(min=0),
         default=1,
@@ -1651,8 +1720,7 @@ def _get_sybil(
 )
 @cloup.option_group(
     "Error handling",
-    # See https://github.com/janluke/cloup/issues/200.
-    cloup.option(  # pyright: ignore[reportUnknownMemberType]
+    cloup.option(
         "--fail-on-parse-error/--no-fail-on-parse-error",
         "fail_on_parse_error",
         default=False,
@@ -1663,8 +1731,7 @@ def _get_sybil(
             "parsed."
         ),
     ),
-    # See https://github.com/janluke/cloup/issues/200.
-    cloup.option(  # pyright: ignore[reportUnknownMemberType]
+    cloup.option(
         "--continue-on-error/--no-continue-on-error",
         "continue_on_error",
         default=False,
@@ -1680,8 +1747,7 @@ def _get_sybil(
 )
 @cloup.option_group(
     "Output options",
-    # See https://github.com/janluke/cloup/issues/200.
-    cloup.option(  # pyright: ignore[reportUnknownMemberType]
+    cloup.option(
         "--verbose",
         "-v",
         is_flag=True,
@@ -1767,7 +1833,7 @@ def main(
             for document_path in document_paths
             if document_path.is_file()
         ],
-        known_suffixes=suffix_map.keys(),
+        suffix_map=suffix_map,
     )
 
     file_paths = _get_file_paths(

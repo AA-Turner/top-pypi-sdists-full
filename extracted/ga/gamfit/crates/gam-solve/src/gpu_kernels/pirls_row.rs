@@ -565,7 +565,17 @@ fn row_gamma_log(
     let observed_ratio = match mode {
         CurvatureMode::Fisher => None,
         CurvatureMode::Observed => {
-            let weighted_ratio = positive_mul_div(w_fisher, input.y, mu);
+            // Ratio-first: at `y == mu` the observed weight must reproduce the
+            // Fisher weight EXACTLY (`y/mu` is bit-for-bit 1.0), which the
+            // product-first reordering destroys by one ulp. The reordering
+            // fallback remains for tails where the direct form is not
+            // representable.
+            let direct = w_fisher * (input.y / mu);
+            let weighted_ratio = if direct.is_finite() && direct > 0.0 {
+                direct
+            } else {
+                positive_mul_div(w_fisher, input.y, mu)
+            };
             if !(weighted_ratio.is_finite() && weighted_ratio > 0.0) {
                 return Err(row_error(
                     row,
@@ -1730,13 +1740,19 @@ fn common_device_prolog() -> String {
     // brace stays literal (no `format!` grammar to escape), and substitute the
     // two host solver bounds by unique sentinel token.
     r#"
+// NVRTC math builtins: prototypes must carry an execution space. Newer
+// NVRTC (CUDA 12.x JIT semantics) rejects unannotated declarations outright
+// ("host functions are not allowed in JIT mode"), which failed every
+// pirls_row kernel compile on real hardware while CPU-only CI stayed green
+// (#2313 hardware sweep). `__device__` matches how the CUDA math library
+// declares them; the definitions come from libdevice as before.
 extern "C" {
-    double exp(double);
-    double log(double);
-    double log1p(double);
-    double expm1(double);
-    double fabs(double);
-    double erfc(double);
+    __device__ double exp(double);
+    __device__ double log(double);
+    __device__ double log1p(double);
+    __device__ double expm1(double);
+    __device__ double fabs(double);
+    __device__ double erfc(double);
 }
 
 static constexpr double PIRLS_LOG_ETA_MIN = __PIRLS_LOG_ETA_MIN__;

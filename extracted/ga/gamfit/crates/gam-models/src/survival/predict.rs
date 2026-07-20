@@ -11,6 +11,7 @@ use std::collections::HashMap;
 
 use ndarray::{Array1, Array2, ArrayView2, s};
 
+use crate::fit_orchestration::prepare_survival_time_stack;
 use crate::inference::model::{
     FittedFamily, FittedModel as SavedModel, SavedBaselineTimeWiggleRuntime,
     load_survival_time_basis_config_from_model, survival_baseline_config_from_model,
@@ -18,7 +19,6 @@ use crate::inference::model::{
 use crate::inference::predict_io::{BernoulliMarginalSlopePredictor, PredictInput};
 use crate::model_types::{BlockRole, FittedBlock, FittedLinkState, UnifiedFitResult};
 use crate::probability::signed_probit_logcdf_and_mills_ratio;
-use crate::scale_design::scale_transform_from_payload;
 use crate::survival::construction::{
     SurvivalBaselineConfig, SurvivalBaselineTarget, SurvivalLikelihoodMode,
     SurvivalTimeBuildOutput, add_survival_time_derivative_guard_offset, build_survival_time_basis,
@@ -28,6 +28,7 @@ use crate::survival::construction::{
     require_structural_survival_time_basis, resolved_survival_time_basis_config_from_build,
     survival_derivative_guard_for_likelihood, survival_likelihood_modename,
 };
+use crate::survival::latent::fixed_latent_hazard_frailty;
 use crate::survival::lognormal_kernel::FrailtySpec;
 use crate::survival::{CompetingRisksCifResult, assemble_competing_risks_cif_from_endpoints};
 use crate::wiggle::buildwiggle_block_input_from_knots;
@@ -109,8 +110,8 @@ pub enum SurvivalPredictError {
     IncompatibleSchema { reason: String },
     /// The requested combination of saved-model mode and predict-time
     /// options is not implemented in this library entry point yet (e.g.
-    /// uncertainty for non-location-scale, latent window prediction,
-    /// competing-risks with `with_uncertainty`).
+    /// uncertainty for a plug-in non-location-scale prediction or latent
+    /// window prediction).
     UnsupportedConfiguration { reason: String },
     /// Posterior-mean prediction requires the fitted joint coefficient
     /// covariance in exactly the same block-concatenated coordinate system as
@@ -202,6 +203,28 @@ pub enum SurvivalPredictEstimand {
     Plugin,
 }
 
+/// Exact coefficient-covariance definition used for competing-risks
+/// uncertainty.
+///
+/// Selection is strict: requesting [`Self::SmoothingCorrected`] requires a
+/// saved smoothing-corrected covariance and never substitutes the conditional
+/// covariance.  The resolved value is carried on
+/// [`CompetingRisksPredictResult`] so public frontends report what they used.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SurvivalPredictionCovarianceMode {
+    Conditional,
+    SmoothingCorrected,
+}
+
+impl SurvivalPredictionCovarianceMode {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Conditional => "conditional",
+            Self::SmoothingCorrected => "smoothing-corrected",
+        }
+    }
+}
+
 /// Inputs to the unified survival predict pipeline.
 pub struct SurvivalPredictRequest<'a> {
     pub model: &'a SavedModel,
@@ -213,11 +236,11 @@ pub struct SurvivalPredictRequest<'a> {
     /// If `None`, every row is evaluated at its own `age_exit`. If
     /// `Some(grid)`, every row is evaluated at every time in the grid.
     pub time_grid: Option<&'a [f64]>,
-    /// When true, the result also carries delta-method standard errors
-    /// for the survival surface (response scale) and the linear
-    /// predictor.  Currently honored for `LocationScale` only; other
-    /// likelihood modes return `Err` rather than silently dropping
-    /// the request.
+    /// When true, the result also carries posterior standard errors for the
+    /// reported surfaces and linear predictors. Posterior-mean prediction uses
+    /// the same joint coefficient quadrature as the point estimand; explicit
+    /// plug-in single-event prediction retains its model-specific uncertainty
+    /// implementation.
     pub with_uncertainty: bool,
     /// Response-scale estimand. [`SurvivalPredictEstimand::PosteriorMean`] is
     /// the default; plug-in prediction is available only as an explicit opt-in.
@@ -240,16 +263,271 @@ pub struct SurvivalPredictResult {
     /// exit time.  Length `n`.  Populated under the same conditions as
     /// `survival_se`.
     pub eta_se: Option<Array1<f64>>,
+    /// Exact coefficient-covariance definition behind `survival_se`/`eta_se`.
+    /// Result-owned provenance (#2296): presenters must serialize this, never
+    /// the requested mode. `None` iff the result carries no uncertainty
+    /// surfaces.
+    pub covariance_source: Option<SurvivalPredictionCovarianceMode>,
 }
 
-/// Conditional-posterior covariance projected onto the coefficients that can
-/// affect a survival prediction.  The absorbed stage-one influence block in a
+/// Exact plug-in survival probability over each requested latent-hazard window.
+///
+/// The latent survival and latent-binary fits share the same persisted hazard
+/// law; they differ only in which response functional is presented to users.
+/// This result deliberately exposes the common probability
+/// `P(T > exit | T > entry, x)`. Observation generation can therefore sample
+/// the fitted window event indicator as Bernoulli with probability
+/// `1 - window_survival` without reconstructing a censoring or inspection law.
+pub struct LatentWindowSurvivalResult {
+    pub window_survival: Array1<f64>,
+    pub likelihood_mode: SurvivalLikelihoodMode,
+}
+
+/// Evaluate the saved latent hazard-multiplier law over the rows' own windows.
+///
+/// This is the library authority for both `latent` and `latent-binary` saved
+/// models. It replays the persisted covariate design, anchored time basis,
+/// loaded/unloaded baseline decomposition, fitted mean/time coefficients, and
+/// fixed lognormal hazard multiplier. No response column, refit, or surrogate
+/// family participates in the calculation.
+pub fn predict_latent_window_survival(
+    req: SurvivalPredictRequest<'_>,
+) -> Result<LatentWindowSurvivalResult, SurvivalPredictError> {
+    let SurvivalPredictRequest {
+        model,
+        data,
+        col_map,
+        training_headers,
+        primary_offset,
+        noise_offset,
+        time_grid,
+        with_uncertainty,
+        estimand,
+    } = req;
+    if time_grid.is_some() {
+        return Err(SurvivalPredictError::InvalidInput {
+            reason: "latent-window prediction consumes each row's saved entry/exit columns; an independent time_grid is not a window law".to_string(),
+        });
+    }
+    if with_uncertainty || estimand != SurvivalPredictEstimand::Plugin {
+        return Err(SurvivalPredictError::UnsupportedConfiguration {
+            reason: "latent-window observation generation requires the fitted plug-in hazard law; posterior coefficient integration is a different sampling target".to_string(),
+        });
+    }
+
+    let likelihood_mode = require_saved_survival_likelihood_mode(model)?;
+    if !matches!(
+        likelihood_mode,
+        SurvivalLikelihoodMode::Latent | SurvivalLikelihoodMode::LatentBinary
+    ) {
+        return Err(SurvivalPredictError::UnsupportedConfiguration {
+            reason: format!(
+                "latent-window prediction requires latent or latent-binary likelihood mode, got {}",
+                survival_likelihood_modename(likelihood_mode)
+            ),
+        });
+    }
+    if model.has_baseline_time_wiggle() {
+        return Err(SurvivalPredictError::IncompatibleSchema {
+            reason:
+                "saved latent survival/binary model contains forbidden baseline timewiggle metadata"
+                    .to_string(),
+        });
+    }
+
+    let n = data.nrows();
+    if primary_offset.len() != n || noise_offset.len() != n {
+        return Err(SurvivalPredictError::InvalidInput {
+            reason: format!(
+                "latent-window offset length mismatch: rows={n}, primary={}, noise={}",
+                primary_offset.len(),
+                noise_offset.len()
+            ),
+        });
+    }
+    if noise_offset.iter().any(|value| *value != 0.0) {
+        return Err(SurvivalPredictError::InvalidInput {
+            reason: "latent-window survival has no secondary offset coordinate".to_string(),
+        });
+    }
+
+    let termspec = resolve_termspec_for_prediction(
+        &model.resolved_termspec,
+        training_headers,
+        col_map,
+        "resolved_termspec",
+    )?;
+    let clipped = model.axis_clip_to_training_ranges(data, col_map);
+    let covariate_input = clipped.as_ref().map_or(data, |array| array.view());
+    let covariate_design = build_term_collection_design(covariate_input, &termspec)
+        .map_err(|error| format!("failed to build latent-window covariate design: {error}"))?;
+    let effective_primary_offset = covariate_design
+        .compose_offset(primary_offset.view(), "latent-window covariate block")
+        .map_err(|error| error.to_string())?;
+
+    let time_columns = resolve_saved_survival_time_columns(model, col_map)?;
+    let mut age_entry = Array1::<f64>::zeros(n);
+    let mut age_exit = Array1::<f64>::zeros(n);
+    for row in 0..n {
+        let (entry, exit) = normalize_survival_time_pair(
+            time_columns.row_entry_time(data, row),
+            data[[row, time_columns.exit_col]],
+            row,
+        )?;
+        age_entry[row] = entry;
+        age_exit[row] = exit;
+    }
+
+    let time_config = load_survival_time_basis_config_from_model(model)?;
+    let mut time_build = build_survival_time_basis(&age_entry, &age_exit, time_config, None)?;
+    let resolved_time_config = resolved_survival_time_basis_config_from_build(
+        &time_build.basisname,
+        time_build.degree,
+        time_build.knots.as_ref(),
+        time_build.keep_cols.as_ref(),
+        time_build.smooth_lambda,
+    )?;
+    let time_anchor =
+        model
+            .survival_time_anchor
+            .ok_or_else(|| SurvivalPredictError::MissingFitMetadata {
+                reason: "saved latent-window model is missing survival_time_anchor".to_string(),
+            })?;
+    let anchor_row = evaluate_survival_time_basis_row(time_anchor, &resolved_time_config)?;
+    center_survival_time_designs_at_anchor(
+        &mut time_build.x_entry_time,
+        &mut time_build.x_exit_time,
+        &anchor_row,
+    )?;
+    require_structural_survival_time_basis(
+        &time_build.basisname,
+        "saved latent-window prediction",
+    )?;
+
+    let frailty =
+        model
+            .family_state
+            .frailty()
+            .ok_or_else(|| SurvivalPredictError::MissingFitMetadata {
+                reason: "saved latent-window model is missing its hazard-multiplier frailty"
+                    .to_string(),
+            })?;
+    let (sigma, loading) = fixed_latent_hazard_frailty(frailty, "saved latent-window prediction")
+        .map_err(|reason| SurvivalPredictError::MissingFitMetadata { reason })?;
+    let baseline_config = saved_survival_runtime_baseline_config(model)?;
+    let prepared = prepare_survival_time_stack(
+        &age_entry,
+        &age_exit,
+        &baseline_config,
+        likelihood_mode,
+        None,
+        time_anchor,
+        survival_derivative_guard_for_likelihood(likelihood_mode),
+        &time_build,
+        None,
+        Some(loading),
+    )?;
+
+    let fit = fit_result_from_saved_model_for_prediction(model)?;
+    let mean_block = fit.block_by_role(BlockRole::Mean).ok_or_else(|| {
+        SurvivalPredictError::MissingFitMetadata {
+            reason: "saved latent-window model is missing its mean coefficient block".to_string(),
+        }
+    })?;
+    let time_block = fit.block_by_role(BlockRole::Time).ok_or_else(|| {
+        SurvivalPredictError::MissingFitMetadata {
+            reason: "saved latent-window model is missing its time coefficient block".to_string(),
+        }
+    })?;
+    if mean_block.beta.len() != covariate_design.design.ncols() {
+        return Err(SurvivalPredictError::IncompatibleSchema {
+            reason: format!(
+                "latent-window mean/design mismatch: beta has {} coefficients but design has {} columns",
+                mean_block.beta.len(),
+                covariate_design.design.ncols()
+            ),
+        });
+    }
+    if time_block.beta.len() != prepared.time_design_exit.ncols() {
+        let hint = stale_weibull_time_basis_hint(
+            &time_build.basisname,
+            time_block.beta.len() == prepared.time_design_exit.ncols() + 1,
+        );
+        return Err(SurvivalPredictError::IncompatibleSchema {
+            reason: format!(
+                "latent-window time/design mismatch: beta has {} coefficients but design has {} columns{hint}",
+                time_block.beta.len(),
+                prepared.time_design_exit.ncols()
+            ),
+        });
+    }
+
+    let eta = covariate_design.design.dot(&mean_block.beta) + &effective_primary_offset;
+    let q_entry = prepared.time_design_entry.dot(&time_block.beta) + &prepared.eta_offset_entry;
+    let q_exit = prepared.time_design_exit.dot(&time_block.beta) + &prepared.eta_offset_exit;
+    let quadrature = gam_solve::quadrature::QuadratureContext::new();
+    let mut window_survival = Array1::<f64>::zeros(n);
+    for row in 0..n {
+        let latent_row = crate::survival::lognormal_kernel::LatentSurvivalRow::right_censored(
+            q_entry[row].exp(),
+            q_exit[row].exp(),
+            prepared.unloaded_mass_entry[row],
+            prepared.unloaded_mass_exit[row],
+        );
+        let jet = crate::survival::lognormal_kernel::LatentSurvivalRowJet::evaluate(
+            &quadrature,
+            &latent_row,
+            eta[row],
+            sigma,
+        )
+        .map_err(|error| SurvivalPredictError::NumericalFailure {
+            reason: format!("latent-window row {row} evaluation failed: {error}"),
+        })?;
+        let survival = jet.log_lik.exp();
+        if !(survival.is_finite() && (0.0..=1.0).contains(&survival)) {
+            return Err(SurvivalPredictError::NumericalFailure {
+                reason: format!(
+                    "latent-window row {row} produced invalid conditional survival {survival}"
+                ),
+            });
+        }
+        window_survival[row] = survival;
+    }
+
+    Ok(LatentWindowSurvivalResult {
+        window_survival,
+        likelihood_mode,
+    })
+}
+
+fn select_survival_prediction_covariance<'a>(
+    conditional: Option<&'a Array2<f64>>,
+    smoothing_corrected: Option<&'a Array2<f64>>,
+    mode: SurvivalPredictionCovarianceMode,
+) -> Result<&'a Array2<f64>, SurvivalPredictError> {
+    match mode {
+        SurvivalPredictionCovarianceMode::Conditional => {
+            conditional.ok_or_else(|| SurvivalPredictError::PosteriorCovariance {
+                reason: "fit result does not contain conditional covariance".to_string(),
+            })
+        }
+        SurvivalPredictionCovarianceMode::SmoothingCorrected => {
+            smoothing_corrected.ok_or_else(|| SurvivalPredictError::PosteriorCovariance {
+                reason: "fit result does not contain smoothing-corrected covariance".to_string(),
+            })
+        }
+    }
+}
+
+/// Exact selected posterior covariance projected onto coefficients that can
+/// affect a survival prediction. The absorbed stage-one influence block in a
 /// marginal-slope fit is persisted for inference provenance but deliberately
 /// drops out of deployment, so its trailing coordinates are not quadrature
 /// dimensions.
 fn survival_prediction_posterior_factor(
     model: &SavedModel,
-) -> Result<(Array1<f64>, Array2<f64>), SurvivalPredictError> {
+    covariance_mode: SurvivalPredictionCovarianceMode,
+) -> Result<(Array1<f64>, Array2<f64>, Vec<usize>), SurvivalPredictError> {
     let fit = fit_result_from_saved_model_for_prediction(model)?;
     let inactive_tail = if require_saved_survival_likelihood_mode(model)?
         == SurvivalLikelihoodMode::MarginalSlope
@@ -269,16 +547,16 @@ fn survival_prediction_posterior_factor(
             ),
         }
     })?;
-    let covariance = fit.beta_covariance().ok_or_else(|| {
-        SurvivalPredictError::PosteriorCovariance {
-            reason: "posterior-mean survival prediction requires the saved conditional coefficient covariance; refit with the current REML path"
-                .to_string(),
-        }
-    })?;
+    let covariance = select_survival_prediction_covariance(
+        fit.beta_covariance(),
+        fit.beta_covariance_corrected(),
+        covariance_mode,
+    )?;
     if covariance.nrows() != fit.beta.len() || covariance.ncols() != fit.beta.len() {
         return Err(SurvivalPredictError::PosteriorCovariance {
             reason: format!(
-                "saved survival conditional covariance has shape {}x{}, expected {}x{} in fitted block order",
+                "saved survival {} covariance has shape {}x{}, expected {}x{} in fitted block order",
+                covariance_mode.as_str(),
                 covariance.nrows(),
                 covariance.ncols(),
                 fit.beta.len(),
@@ -286,9 +564,11 @@ fn survival_prediction_posterior_factor(
             ),
         });
     }
+    let cone_coords = survival_posterior_cone_coordinates(model, active_len)?;
     Ok((
         fit.beta.clone(),
         covariance.slice(s![..active_len, ..active_len]).to_owned(),
+        cone_coords,
     ))
 }
 
@@ -433,9 +713,35 @@ fn conditional_event_density(
 /// polynomial through total degree three in the active rank-`r` subspace, use
 /// the full covariance (including cross-block/cross-cause terms), and require
 /// no sampling seed or dimension-specific tuning constant.
+///
+/// `cone_coords` names the coefficient positions (indices into the active
+/// subspace `0..active_len`) that were constrained to the nonnegativity cone
+/// `β_j ≥ 0` when the fit was certified — the structural monotone-I-spline
+/// baseline time columns of a Royston-Parmar survival fit. The parameter space
+/// of such a model is the cone `C = {β_j ≥ 0 : j ∈ cone}`, so the Laplace
+/// posterior is `N(β̂, Vb)` **truncated to `C`**, not the untruncated Gaussian.
+/// Its quadrature nodes must lie in `C`; a node that pokes a structural time
+/// coefficient below zero manufactures a non-monotone baseline log-cumulative
+/// hazard whose derivative the plugin evaluator then (correctly) refuses
+/// (`royston_parmar_survival_hazard_components`, #2375). For each factor
+/// direction we therefore shrink the symmetric ±step to the largest value that
+/// keeps BOTH nodes feasible (the standard fraction-to-boundary rule):
+///
+/// ```text
+///   α_k = min( √rank,  min_{j ∈ cone, f_{j,k} ≠ 0}  β̂_j / |f_{j,k}| )
+///   nodes = β̂ ± α_k · f_{·,k},   weight 1/(2·rank)  (unchanged)
+/// ```
+///
+/// This keeps the rule symmetric about `β̂` (so it stays exact for linear
+/// functionals and leaves the posterior mean unbiased), keeps every node inside
+/// `C` by construction, and represents `(α_k/√rank)² · Vb` of the spread along
+/// a constrained direction — the right direction of travel, since a truncated
+/// Gaussian genuinely has smaller variance than its untruncated parent. Passing
+/// an empty `cone_coords` recovers the exact unconstrained rule verbatim.
 fn for_each_survival_posterior_node<F>(
     posterior_mean: &Array1<f64>,
     active_covariance: &Array2<f64>,
+    cone_coords: &[usize],
     mut consume: F,
 ) -> Result<(), SurvivalPredictError>
 where
@@ -461,9 +767,29 @@ where
     if rank == 0 {
         return consume(posterior_mean, 1.0);
     }
-    let scale = (rank as f64).sqrt();
+    let nominal_scale = (rank as f64).sqrt();
     let weight = 1.0 / (2 * rank) as f64;
     for column in 0..rank {
+        // Fraction-to-boundary step for the cone `{β_j ≥ 0 : j ∈ cone}`. Each
+        // symmetric node is `β̂ ± scale · f_{·,column}`; feasibility of both
+        // nodes at coordinate `j` requires `|scale · f_{j,column}| ≤ β̂_j`, i.e.
+        // `scale ≤ β̂_j / |f_{j,column}|`. `β̂_j` is clamped at 0 so a coordinate
+        // already numerically pinned at the wall collapses that direction's
+        // step to 0 rather than admitting an infeasible (negative-step) node.
+        let mut scale = nominal_scale;
+        for &j in cone_coords {
+            if j >= active_len {
+                continue;
+            }
+            let load = factorization.factor[[j, column]].abs();
+            if load == 0.0 {
+                continue;
+            }
+            let limit = posterior_mean[j].max(0.0) / load;
+            if limit < scale {
+                scale = limit;
+            }
+        }
         for sign in [-1.0_f64, 1.0_f64] {
             let mut node = posterior_mean.clone();
             for row in 0..active_len {
@@ -475,33 +801,221 @@ where
     Ok(())
 }
 
+/// Structural-monotonicity cone coordinates for a saved survival model's
+/// posterior quadrature — the coefficient positions the fit constrained to
+/// `β_j ≥ 0` (the leading I-spline baseline time columns, per cause).
+///
+/// Only the transformation (Royston-Parmar) family carries a *coordinate* cone:
+/// the fit realizes structural monotonicity as a per-coordinate lower-bound box
+/// `lb[j] = 0` over the leading `p_time_base + p_timewiggle` columns of every
+/// cause block (`fit_survival_transformation_model` /
+/// `fit_cause_specific_survival_transformation_custom`). Weibull carries a
+/// parametric `log t` baseline with no structural cone; marginal-slope enforces
+/// monotonicity with row-wise (not coordinate) constraints; location-scale and
+/// latent posteriors are not routed through this quadrature. In all those cases
+/// this returns an empty cone, recovering the untruncated quadrature verbatim.
+fn survival_posterior_cone_coordinates(
+    model: &SavedModel,
+    active_len: usize,
+) -> Result<Vec<usize>, SurvivalPredictError> {
+    if require_saved_survival_likelihood_mode(model)? != SurvivalLikelihoodMode::Transformation {
+        return Ok(Vec::new());
+    }
+    // Baseline I-spline width (time-independent: it is fixed by the saved knots
+    // / kept columns, not the evaluation times). The timewiggle arm saves the
+    // base basis as `None`, in which case the whole learned time block is the
+    // monotone wiggle tail counted separately below.
+    let time_cfg = load_survival_time_basis_config_from_model(model)
+        .map_err(|err| SurvivalPredictError::MissingFitMetadata {
+            reason: err.to_string(),
+        })?;
+    let p_time_base = if matches!(
+        time_cfg,
+        crate::survival::construction::SurvivalTimeBasisConfig::None
+    ) {
+        0
+    } else {
+        let dummy = Array1::from_elem(1, 1.0_f64);
+        build_survival_time_basis(&dummy, &dummy, time_cfg, None)
+            .map_err(|reason| SurvivalPredictError::MissingFitMetadata { reason })?
+            .x_exit_time
+            .ncols()
+    };
+
+    let fit = fit_result_from_saved_model_for_prediction(model)?;
+    let cause_count = model
+        .survival_cause_count
+        .unwrap_or(fit.blocks.len())
+        .max(1);
+    // Per-cause monotone timewiggle width (0 when the model carries none). The
+    // cone spans the leading `p_time_base + p_timewiggle` coefficients of each
+    // cause block — exactly the structural columns the fit lower-bounds at 0.
+    let per_cause_wiggle: Vec<usize> = if cause_count > 1 {
+        saved_cause_specific_timewiggles(model, &fit, cause_count)?
+            .iter()
+            .map(|w| w.as_ref().map_or(0, |runtime| runtime.beta.len()))
+            .collect()
+    } else {
+        vec![
+            model
+                .saved_baseline_time_wiggle()
+                .map_err(|err| SurvivalPredictError::MissingFitMetadata {
+                    reason: err.to_string(),
+                })?
+                .map_or(0, |runtime| runtime.beta.len()),
+        ]
+    };
+
+    let mut cone = Vec::new();
+    let mut cursor = 0usize;
+    for (cause, block) in fit.blocks.iter().enumerate() {
+        let block_len = block.beta.len();
+        let width = (p_time_base + per_cause_wiggle.get(cause).copied().unwrap_or(0)).min(block_len);
+        for j in cursor..cursor + width {
+            if j < active_len {
+                cone.push(j);
+            }
+        }
+        cursor += block_len;
+    }
+    Ok(cone)
+}
+
+fn posterior_standard_error_matrix(
+    mean: &Array2<f64>,
+    second_moment: &Array2<f64>,
+    label: &str,
+) -> Result<Array2<f64>, SurvivalPredictError> {
+    if second_moment.dim() != mean.dim() {
+        return Err(SurvivalPredictError::IncompatibleSchema {
+            reason: format!(
+                "posterior {label} moment shape mismatch: mean={:?}, second={:?}",
+                mean.dim(),
+                second_moment.dim(),
+            ),
+        });
+    }
+    let mut standard_error = Array2::<f64>::zeros(mean.raw_dim());
+    for ((row, column), slot) in standard_error.indexed_iter_mut() {
+        let first = mean[[row, column]];
+        let second = second_moment[[row, column]];
+        if !(first.is_finite() && second.is_finite()) {
+            return Err(SurvivalPredictError::NumericalFailure {
+                reason: format!(
+                    "posterior {label} moments must be finite at row {row}, time column {column}: mean={first}, second={second}"
+                ),
+            });
+        }
+        let variance = second - first * first;
+        let roundoff_tolerance =
+            128.0 * f64::EPSILON * second.abs().max((first * first).abs()).max(1.0);
+        if variance < -roundoff_tolerance {
+            return Err(SurvivalPredictError::NumericalFailure {
+                reason: format!(
+                    "posterior {label} variance is negative beyond roundoff at row {row}, time column {column}: {variance}"
+                ),
+            });
+        }
+        *slot = variance.max(0.0).sqrt();
+    }
+    Ok(standard_error)
+}
+
+fn posterior_standard_error_vector(
+    mean: &Array1<f64>,
+    second_moment: &Array1<f64>,
+    label: &str,
+) -> Result<Array1<f64>, SurvivalPredictError> {
+    if second_moment.len() != mean.len() {
+        return Err(SurvivalPredictError::IncompatibleSchema {
+            reason: format!(
+                "posterior {label} moment length mismatch: mean={}, second={}",
+                mean.len(),
+                second_moment.len(),
+            ),
+        });
+    }
+    let mut standard_error = Array1::<f64>::zeros(mean.len());
+    for row in 0..mean.len() {
+        let first = mean[row];
+        let second = second_moment[row];
+        if !(first.is_finite() && second.is_finite()) {
+            return Err(SurvivalPredictError::NumericalFailure {
+                reason: format!(
+                    "posterior {label} moments must be finite at row {row}: mean={first}, second={second}"
+                ),
+            });
+        }
+        let variance = second - first * first;
+        let roundoff_tolerance =
+            128.0 * f64::EPSILON * second.abs().max((first * first).abs()).max(1.0);
+        if variance < -roundoff_tolerance {
+            return Err(SurvivalPredictError::NumericalFailure {
+                reason: format!(
+                    "posterior {label} variance is negative beyond roundoff at row {row}: {variance}"
+                ),
+            });
+        }
+        standard_error[row] = variance.max(0.0).sqrt();
+    }
+    Ok(standard_error)
+}
+
+fn posterior_standard_error_surfaces(
+    mean: &[Array2<f64>],
+    second_moment: &[Array2<f64>],
+    label: &str,
+) -> Result<Vec<Array2<f64>>, SurvivalPredictError> {
+    if second_moment.len() != mean.len() {
+        return Err(SurvivalPredictError::IncompatibleSchema {
+            reason: format!(
+                "posterior {label} cause count mismatch: mean={}, second={}",
+                mean.len(),
+                second_moment.len(),
+            ),
+        });
+    }
+    mean.iter()
+        .zip(second_moment)
+        .enumerate()
+        .map(|(cause, (first, second))| {
+            posterior_standard_error_matrix(first, second, &format!("{label} cause {}", cause + 1))
+        })
+        .collect()
+}
+
+fn posterior_standard_error_vectors(
+    mean: &[Array1<f64>],
+    second_moment: &[Array1<f64>],
+    label: &str,
+) -> Result<Vec<Array1<f64>>, SurvivalPredictError> {
+    if second_moment.len() != mean.len() {
+        return Err(SurvivalPredictError::IncompatibleSchema {
+            reason: format!(
+                "posterior {label} cause count mismatch: mean={}, second={}",
+                mean.len(),
+                second_moment.len(),
+            ),
+        });
+    }
+    mean.iter()
+        .zip(second_moment)
+        .enumerate()
+        .map(|(cause, (first, second))| {
+            posterior_standard_error_vector(first, second, &format!("{label} cause {}", cause + 1))
+        })
+        .collect()
+}
+
 fn predict_survival_posterior_mean(
     req: SurvivalPredictRequest<'_>,
+    covariance_mode: SurvivalPredictionCovarianceMode,
 ) -> Result<SurvivalPredictResult, SurvivalPredictError> {
-    let (posterior_mean, active_covariance) = survival_prediction_posterior_factor(req.model)?;
-    let mut result = predict_survival(SurvivalPredictRequest {
-        model: req.model,
-        data: req.data,
-        col_map: req.col_map,
-        training_headers: req.training_headers,
-        primary_offset: req.primary_offset,
-        noise_offset: req.noise_offset,
-        time_grid: req.time_grid,
-        with_uncertainty: false,
-        estimand: SurvivalPredictEstimand::Plugin,
-    })?;
-    let (n_rows, n_times) = result.survival.dim();
-    let mut survival_mean = Array2::<f64>::zeros((n_rows, n_times));
-    let mut survival_second = Array2::<f64>::zeros((n_rows, n_times));
-    let mut density_mean = Array2::<f64>::zeros((n_rows, n_times));
-    let mut hazard_mean = Array2::<f64>::zeros((n_rows, n_times));
-    let mut eta_mean = Array1::<f64>::zeros(n_rows);
-    let mut eta_second = Array1::<f64>::zeros(n_rows);
-
-    for_each_survival_posterior_node(&posterior_mean, &active_covariance, |node, weight| {
-        let draw_model = saved_model_with_survival_coefficients(req.model, node)?;
-        let draw = predict_survival(SurvivalPredictRequest {
-            model: &draw_model,
+    let (posterior_mean, active_covariance, cone_coords) =
+        survival_prediction_posterior_factor(req.model, covariance_mode)?;
+    let mut result = predict_survival(
+        SurvivalPredictRequest {
+            model: req.model,
             data: req.data,
             col_map: req.col_map,
             training_headers: req.training_headers,
@@ -510,7 +1024,33 @@ fn predict_survival_posterior_mean(
             time_grid: req.time_grid,
             with_uncertainty: false,
             estimand: SurvivalPredictEstimand::Plugin,
-        })?;
+        },
+        covariance_mode,
+    )?;
+    let (n_rows, n_times) = result.survival.dim();
+    let mut survival_mean = Array2::<f64>::zeros((n_rows, n_times));
+    let mut survival_second = Array2::<f64>::zeros((n_rows, n_times));
+    let mut density_mean = Array2::<f64>::zeros((n_rows, n_times));
+    let mut hazard_mean = Array2::<f64>::zeros((n_rows, n_times));
+    let mut eta_mean = Array1::<f64>::zeros(n_rows);
+    let mut eta_second = Array1::<f64>::zeros(n_rows);
+
+    for_each_survival_posterior_node(&posterior_mean, &active_covariance, &cone_coords, |node, weight| {
+        let draw_model = saved_model_with_survival_coefficients(req.model, node)?;
+        let draw = predict_survival(
+            SurvivalPredictRequest {
+                model: &draw_model,
+                data: req.data,
+                col_map: req.col_map,
+                training_headers: req.training_headers,
+                primary_offset: req.primary_offset,
+                noise_offset: req.noise_offset,
+                time_grid: req.time_grid,
+                with_uncertainty: false,
+                estimand: SurvivalPredictEstimand::Plugin,
+            },
+            covariance_mode,
+        )?;
         if draw.survival.dim() != (n_rows, n_times)
             || draw.hazard.dim() != (n_rows, n_times)
             || draw.cumulative_hazard.dim() != (n_rows, n_times)
@@ -580,63 +1120,113 @@ fn predict_survival_posterior_mean(
                 .sqrt()
         })
     });
+    result.covariance_source = req.with_uncertainty.then_some(covariance_mode);
     Ok(result)
 }
 
-fn predict_competing_risks_posterior_mean(
+fn predict_competing_risks_with_posterior(
     req: SurvivalPredictRequest<'_>,
+    covariance_mode: SurvivalPredictionCovarianceMode,
 ) -> Result<CompetingRisksPredictResult, SurvivalPredictError> {
-    if req.with_uncertainty {
-        return Err(SurvivalPredictError::UnsupportedConfiguration {
-            reason: "competing-risks survival prediction does not yet expose posterior surface standard errors"
-                .to_string(),
-        });
-    }
-    let (posterior_mean, active_covariance) = survival_prediction_posterior_factor(req.model)?;
-    let mut result = predict_competing_risks_survival(SurvivalPredictRequest {
-        model: req.model,
-        data: req.data,
-        col_map: req.col_map,
-        training_headers: req.training_headers,
-        primary_offset: req.primary_offset,
-        noise_offset: req.noise_offset,
-        time_grid: req.time_grid,
-        with_uncertainty: false,
-        estimand: SurvivalPredictEstimand::Plugin,
-    })?;
+    let posterior_mean_estimand = req.estimand == SurvivalPredictEstimand::PosteriorMean;
+    let (posterior_mean, active_covariance, cone_coords) =
+        survival_prediction_posterior_factor(req.model, covariance_mode)?;
+    // The public posterior-mean point is always the conditional-posterior
+    // estimand. A smoothing-corrected interval changes only its reported
+    // uncertainty, exactly as on the standard-family path. If corrected
+    // covariance becomes available for this model class, compute the
+    // conditional point once and the corrected second moments separately;
+    // never silently change the point estimand with the interval mode.
+    let separate_conditional_point = posterior_mean_estimand
+        && req.with_uncertainty
+        && covariance_mode == SurvivalPredictionCovarianceMode::SmoothingCorrected;
+    let mut result = if separate_conditional_point {
+        predict_competing_risks_with_posterior(
+            SurvivalPredictRequest {
+                model: req.model,
+                data: req.data,
+                col_map: req.col_map,
+                training_headers: req.training_headers,
+                primary_offset: req.primary_offset,
+                noise_offset: req.noise_offset,
+                time_grid: req.time_grid,
+                with_uncertainty: false,
+                estimand: SurvivalPredictEstimand::PosteriorMean,
+            },
+            SurvivalPredictionCovarianceMode::Conditional,
+        )?
+    } else {
+        predict_competing_risks_survival(
+            SurvivalPredictRequest {
+                model: req.model,
+                data: req.data,
+                col_map: req.col_map,
+                training_headers: req.training_headers,
+                primary_offset: req.primary_offset,
+                noise_offset: req.noise_offset,
+                time_grid: req.time_grid,
+                with_uncertainty: false,
+                estimand: SurvivalPredictEstimand::Plugin,
+            },
+            SurvivalPredictionCovarianceMode::Conditional,
+        )?
+    };
     let cause_count = result.cif.len();
     let (n_rows, n_times) = result.overall_survival.dim();
     let mut survival_mean = (0..cause_count)
         .map(|_| Array2::<f64>::zeros((n_rows, n_times)))
         .collect::<Vec<_>>();
-    let mut density_mean = (0..cause_count)
+    let mut survival_second = (0..cause_count)
         .map(|_| Array2::<f64>::zeros((n_rows, n_times)))
         .collect::<Vec<_>>();
     let mut hazard_mean = (0..cause_count)
         .map(|_| Array2::<f64>::zeros((n_rows, n_times)))
         .collect::<Vec<_>>();
+    let mut hazard_second = (0..cause_count)
+        .map(|_| Array2::<f64>::zeros((n_rows, n_times)))
+        .collect::<Vec<_>>();
+    let mut cumulative_hazard_mean = (0..cause_count)
+        .map(|_| Array2::<f64>::zeros((n_rows, n_times)))
+        .collect::<Vec<_>>();
+    let mut cumulative_hazard_second = (0..cause_count)
+        .map(|_| Array2::<f64>::zeros((n_rows, n_times)))
+        .collect::<Vec<_>>();
     let mut cif_mean = (0..cause_count)
         .map(|_| Array2::<f64>::zeros((n_rows, n_times)))
         .collect::<Vec<_>>();
+    let mut cif_second = (0..cause_count)
+        .map(|_| Array2::<f64>::zeros((n_rows, n_times)))
+        .collect::<Vec<_>>();
     let mut overall_mean = Array2::<f64>::zeros((n_rows, n_times));
+    let mut overall_second = Array2::<f64>::zeros((n_rows, n_times));
+    let mut eta_mean = (0..cause_count)
+        .map(|_| Array1::<f64>::zeros(n_rows))
+        .collect::<Vec<_>>();
+    let mut eta_second = (0..cause_count)
+        .map(|_| Array1::<f64>::zeros(n_rows))
+        .collect::<Vec<_>>();
 
-    for_each_survival_posterior_node(&posterior_mean, &active_covariance, |node, weight| {
+    for_each_survival_posterior_node(&posterior_mean, &active_covariance, &cone_coords, |node, weight| {
         let draw_model = saved_model_with_survival_coefficients(req.model, node)?;
-        let draw = predict_competing_risks_survival(SurvivalPredictRequest {
-            model: &draw_model,
-            data: req.data,
-            col_map: req.col_map,
-            training_headers: req.training_headers,
-            primary_offset: req.primary_offset,
-            noise_offset: req.noise_offset,
-            time_grid: req.time_grid,
-            with_uncertainty: false,
-            estimand: SurvivalPredictEstimand::Plugin,
-        })?;
+        let draw = predict_competing_risks_survival(
+            SurvivalPredictRequest {
+                model: &draw_model,
+                data: req.data,
+                col_map: req.col_map,
+                training_headers: req.training_headers,
+                primary_offset: req.primary_offset,
+                noise_offset: req.noise_offset,
+                time_grid: req.time_grid,
+                with_uncertainty: false,
+                estimand: SurvivalPredictEstimand::Plugin,
+            },
+            SurvivalPredictionCovarianceMode::Conditional,
+        )?;
         if draw.cif.len() != cause_count
             || draw.survival.len() != cause_count
             || draw.hazard.len() != cause_count
             || draw.cumulative_hazard.len() != cause_count
+            || draw.linear_predictor.len() != cause_count
             || draw.overall_survival.dim() != (n_rows, n_times)
             || draw.times != result.times
             || draw.endpoint_names != result.endpoint_names
@@ -652,6 +1242,7 @@ fn predict_competing_risks_posterior_mean(
                 || draw.hazard[cause].dim() != (n_rows, n_times)
                 || draw.cumulative_hazard[cause].dim() != (n_rows, n_times)
                 || draw.cif[cause].dim() != (n_rows, n_times)
+                || draw.linear_predictor[cause].len() != n_rows
             {
                 return Err(SurvivalPredictError::IncompatibleSchema {
                     reason: format!(
@@ -661,56 +1252,95 @@ fn predict_competing_risks_posterior_mean(
                 });
             }
             for row in 0..n_rows {
+                let eta = draw.linear_predictor[cause][row];
+                eta_mean[cause][row] += weight * eta;
+                eta_second[cause][row] += weight * eta * eta;
                 for time in 0..n_times {
                     let survival = draw.survival[cause][[row, time]];
                     let hazard = draw.hazard[cause][[row, time]];
-                    let density = conditional_event_density(
-                        survival,
-                        draw.cumulative_hazard[cause][[row, time]],
-                        hazard,
-                    )?;
+                    let cumulative_hazard = draw.cumulative_hazard[cause][[row, time]];
+                    let cif = draw.cif[cause][[row, time]];
                     survival_mean[cause][[row, time]] += weight * survival;
-                    density_mean[cause][[row, time]] += weight * density;
+                    survival_second[cause][[row, time]] += weight * survival * survival;
                     hazard_mean[cause][[row, time]] += weight * hazard;
-                    cif_mean[cause][[row, time]] += weight * draw.cif[cause][[row, time]];
+                    hazard_second[cause][[row, time]] += weight * hazard * hazard;
+                    cumulative_hazard_mean[cause][[row, time]] += weight * cumulative_hazard;
+                    cumulative_hazard_second[cause][[row, time]] +=
+                        weight * cumulative_hazard * cumulative_hazard;
+                    cif_mean[cause][[row, time]] += weight * cif;
+                    cif_second[cause][[row, time]] += weight * cif * cif;
                 }
             }
         }
         for row in 0..n_rows {
             for time in 0..n_times {
-                overall_mean[[row, time]] += weight * draw.overall_survival[[row, time]];
+                let overall_survival = draw.overall_survival[[row, time]];
+                overall_mean[[row, time]] += weight * overall_survival;
+                overall_second[[row, time]] += weight * overall_survival * overall_survival;
             }
         }
         Ok(())
     })?;
 
-    for cause in 0..cause_count {
-        for row in 0..n_rows {
-            for time in 0..n_times {
-                let survival = survival_mean[cause][[row, time]].clamp(0.0, 1.0);
-                let density = density_mean[cause][[row, time]];
-                if !(density.is_finite() && density >= 0.0) {
-                    return Err(SurvivalPredictError::NumericalFailure {
-                        reason: format!(
-                            "posterior competing-risks density is invalid for cause {}, row {row}, time column {time}: {density}",
-                            cause + 1
-                        ),
-                    });
-                }
-                result.survival[cause][[row, time]] = survival;
-                result.cumulative_hazard[cause][[row, time]] = -survival.ln();
-                result.hazard[cause][[row, time]] = if survival > 0.0 {
-                    density / survival
-                } else if hazard_mean[cause][[row, time]] == 0.0 {
-                    0.0
-                } else {
-                    f64::INFINITY
-                };
-                result.cif[cause][[row, time]] = cif_mean[cause][[row, time]].clamp(0.0, 1.0);
-            }
-        }
+    let (hazard_se, survival_se, cumulative_hazard_se, cif_se, overall_survival_se, eta_se) =
+        if req.with_uncertainty {
+            (
+                Some(posterior_standard_error_surfaces(
+                    &hazard_mean,
+                    &hazard_second,
+                    "competing-risks hazard",
+                )?),
+                Some(posterior_standard_error_surfaces(
+                    &survival_mean,
+                    &survival_second,
+                    "competing-risks survival",
+                )?),
+                Some(posterior_standard_error_surfaces(
+                    &cumulative_hazard_mean,
+                    &cumulative_hazard_second,
+                    "competing-risks cumulative hazard",
+                )?),
+                Some(posterior_standard_error_surfaces(
+                    &cif_mean,
+                    &cif_second,
+                    "competing-risks cumulative incidence",
+                )?),
+                Some(posterior_standard_error_matrix(
+                    &overall_mean,
+                    &overall_second,
+                    "competing-risks overall survival",
+                )?),
+                Some(posterior_standard_error_vectors(
+                    &eta_mean,
+                    &eta_second,
+                    "competing-risks linear predictor",
+                )?),
+            )
+        } else {
+            (None, None, None, None, None, None)
+        };
+
+    if posterior_mean_estimand && !separate_conditional_point {
+        result.hazard = hazard_mean;
+        result.survival = survival_mean
+            .into_iter()
+            .map(|surface| surface.mapv(|value| value.clamp(0.0, 1.0)))
+            .collect();
+        result.cumulative_hazard = cumulative_hazard_mean;
+        result.cif = cif_mean
+            .into_iter()
+            .map(|surface| surface.mapv(|value| value.clamp(0.0, 1.0)))
+            .collect();
+        result.overall_survival = overall_mean.mapv(|value| value.clamp(0.0, 1.0));
+        result.linear_predictor = eta_mean;
     }
-    result.overall_survival = overall_mean.mapv(|value| value.clamp(0.0, 1.0));
+    result.hazard_se = hazard_se;
+    result.survival_se = survival_se;
+    result.cumulative_hazard_se = cumulative_hazard_se;
+    result.cif_se = cif_se;
+    result.overall_survival_se = overall_survival_se;
+    result.eta_se = eta_se;
+    result.covariance_source = req.with_uncertainty.then_some(covariance_mode);
     Ok(result)
 }
 
@@ -1092,6 +1722,21 @@ pub struct CompetingRisksPredictResult {
     /// Per-endpoint linear predictor at each row's own exit time, endpoint x row.
     pub linear_predictor: Vec<Array1<f64>>,
     pub likelihood_mode: SurvivalLikelihoodMode,
+    /// Exact covariance definition used for posterior standard errors.
+    /// `None` means no uncertainty was requested.
+    pub covariance_source: Option<SurvivalPredictionCovarianceMode>,
+    /// Posterior standard deviation of each cause-specific hazard surface.
+    pub hazard_se: Option<Vec<Array2<f64>>>,
+    /// Posterior standard deviation of each endpoint-specific survival surface.
+    pub survival_se: Option<Vec<Array2<f64>>>,
+    /// Posterior standard deviation of each cause-specific cumulative hazard.
+    pub cumulative_hazard_se: Option<Vec<Array2<f64>>>,
+    /// Posterior standard deviation of each cause-specific cumulative incidence.
+    pub cif_se: Option<Vec<Array2<f64>>>,
+    /// Posterior standard deviation of the all-cause survival surface.
+    pub overall_survival_se: Option<Array2<f64>>,
+    /// Posterior standard deviation of each cause-specific linear predictor.
+    pub eta_se: Option<Vec<Array1<f64>>>,
 }
 
 /// Run the survival prediction pipeline.
@@ -1101,9 +1746,10 @@ pub struct CompetingRisksPredictResult {
 /// FFI wraps it with JSON serialization.
 pub fn predict_survival(
     req: SurvivalPredictRequest<'_>,
+    covariance_mode: SurvivalPredictionCovarianceMode,
 ) -> Result<SurvivalPredictResult, SurvivalPredictError> {
     if req.estimand == SurvivalPredictEstimand::PosteriorMean {
-        return predict_survival_posterior_mean(req);
+        return predict_survival_posterior_mean(req, covariance_mode);
     }
     let SurvivalPredictRequest {
         model,
@@ -1154,6 +1800,9 @@ pub fn predict_survival(
             ),
         });
     }
+    let effective_primary_offset = cov_design
+        .compose_offset(primary_offset.view(), "survival prediction covariate block")
+        .map_err(|error| error.to_string())?;
 
     use rayon::iter::{IntoParallelIterator, ParallelIterator};
     let pairs: Result<Vec<(f64, f64)>, String> = (0..n)
@@ -1196,13 +1845,14 @@ pub fn predict_survival(
             &age_entry,
             &age_exit,
             &cov_design,
-            primary_offset,
+            &effective_primary_offset,
             noise_offset,
             training_headers,
             col_map,
             data,
             time_grid,
             with_uncertainty,
+            covariance_mode,
         )
         .map_err(SurvivalPredictError::from);
     }
@@ -1341,7 +1991,7 @@ pub fn predict_survival(
             col_map,
             training_headers,
             &cov_design.design,
-            primary_offset,
+            &effective_primary_offset,
             noise_offset,
             &time_build,
             &eta_offset_entry,
@@ -1425,7 +2075,7 @@ pub fn predict_survival(
                             &row_time,
                             &r_eta_exit,
                             &r_deriv_exit,
-                            primary_offset[i],
+                            effective_primary_offset[i],
                         )
                     }
                     SurvivalLikelihoodMode::Transformation | SurvivalLikelihoodMode::Weibull => {
@@ -1439,7 +2089,7 @@ pub fn predict_survival(
                             cov_row,
                             r_eta_exit[0],
                             r_deriv_exit[0],
-                            primary_offset[i],
+                            effective_primary_offset[i],
                         )
                     }
                     SurvivalLikelihoodMode::Latent
@@ -1509,14 +2159,16 @@ pub fn predict_survival(
         likelihood_mode: saved_likelihood_mode,
         survival_se: None,
         eta_se: None,
+        covariance_source: None,
     })
 }
 
 pub fn predict_competing_risks_survival(
     req: SurvivalPredictRequest<'_>,
+    covariance_mode: SurvivalPredictionCovarianceMode,
 ) -> Result<CompetingRisksPredictResult, SurvivalPredictError> {
-    if req.estimand == SurvivalPredictEstimand::PosteriorMean {
-        return predict_competing_risks_posterior_mean(req);
+    if req.estimand == SurvivalPredictEstimand::PosteriorMean || req.with_uncertainty {
+        return predict_competing_risks_with_posterior(req, covariance_mode);
     }
     let SurvivalPredictRequest {
         model,
@@ -1526,16 +2178,9 @@ pub fn predict_competing_risks_survival(
         primary_offset,
         noise_offset,
         time_grid,
-        with_uncertainty,
+        with_uncertainty: _,
         estimand: _,
     } = req;
-
-    if with_uncertainty {
-        return Err(SurvivalPredictError::UnsupportedConfiguration {
-            reason: "competing-risks survival prediction does not yet support with_uncertainty"
-                .to_string(),
-        });
-    }
 
     let saved_likelihood_mode = require_saved_survival_likelihood_mode(model)?;
     if !matches!(
@@ -1610,6 +2255,12 @@ pub fn predict_competing_risks_survival(
             ),
         });
     }
+    let effective_primary_offset = cov_design
+        .compose_offset(
+            primary_offset.view(),
+            "competing-risks prediction covariate block",
+        )
+        .map_err(|error| error.to_string())?;
 
     use rayon::iter::{IntoParallelIterator, ParallelIterator};
     let pairs: Result<Vec<(f64, f64)>, String> = (0..n)
@@ -1832,7 +2483,7 @@ pub fn predict_competing_risks_survival(
                     &cov_rows[i],
                     r_eta_exit,
                     r_deriv_exit,
-                    primary_offset[i],
+                    effective_primary_offset[i],
                 )
             };
 
@@ -2007,6 +2658,13 @@ pub fn predict_competing_risks_survival(
         overall_survival,
         linear_predictor,
         likelihood_mode: saved_likelihood_mode,
+        covariance_source: None,
+        hazard_se: None,
+        survival_se: None,
+        cumulative_hazard_se: None,
+        cif_se: None,
+        overall_survival_se: None,
+        eta_se: None,
     })
 }
 
@@ -2148,6 +2806,12 @@ fn build_marginal_slope_predict_context(
     let logslope_input = logslope_clipped.as_ref().map_or(data, |arr| arr.view());
     let logslope_design = build_term_collection_design(logslope_input, &logslopespec)
         .map_err(|e| format!("failed to build survival marginal-slope logslope design: {e}"))?;
+    let effective_noise_offset = logslope_design
+        .compose_offset(
+            noise_offset.view(),
+            "survival marginal-slope logslope block",
+        )
+        .map_err(|error| error.to_string())?;
 
     let fit_saved = fit_result_from_saved_model_for_prediction(model)?;
     let (predictor, _pred_input, _predictor_fit) = build_saved_survival_marginal_slope_predictor(
@@ -2162,7 +2826,7 @@ fn build_marginal_slope_predict_context(
         eta_offset_exit,
         derivative_offset_exit,
         primary_offset,
-        noise_offset,
+        &effective_noise_offset,
     )?;
 
     let blocks = &fit_saved.blocks;
@@ -2192,7 +2856,7 @@ fn build_marginal_slope_predict_context(
         logslope_design: logslope_design.design.clone(),
         cov_eta,
         z_raw,
-        noise_offset: noise_offset.clone(),
+        noise_offset: effective_noise_offset,
     })
 }
 
@@ -2221,9 +2885,13 @@ fn evaluate_marginal_slope_row(
         .as_ref()
         .map_or(0, |runtime| runtime.beta.len());
     if beta_time.len() != p_time_base + p_timewiggle {
+        let hint = stale_weibull_time_basis_hint(
+            &row_time.basisname,
+            beta_time.len() == p_time_base + p_timewiggle + 1,
+        );
         return Err(SurvivalPredictError::IncompatibleSchema {
             reason: format!(
-                "saved survival marginal-slope time coefficient mismatch: beta has {} entries but expected base={} plus timewiggle={}",
+                "saved survival marginal-slope time coefficient mismatch: beta has {} entries but expected base={} plus timewiggle={}{hint}",
                 beta_time.len(),
                 p_time_base,
                 p_timewiggle
@@ -2466,9 +3134,10 @@ fn evaluate_rp_row_with_beta(
     let p_cov = cov_row.len();
     let p = p_time + p_timewiggle + p_cov;
     if beta.len() != p {
+        let hint = stale_weibull_time_basis_hint(&row_time.basisname, beta.len() == p + 1);
         return Err(SurvivalPredictError::IncompatibleSchema {
             reason: format!(
-                "survival RP coefficient mismatch: beta has {} entries but design has {} columns",
+                "survival RP coefficient mismatch: beta has {} entries but design has {} columns{hint}",
                 beta.len(),
                 p
             ),
@@ -2480,12 +3149,16 @@ fn evaluate_rp_row_with_beta(
             .slice_mut(s![.., ..p_time])
             .assign(&row_time.x_exit_time.to_dense());
     }
-    let mut eta_derivative = derivative_time_offset_row;
+    let offset_derivative_component = derivative_time_offset_row;
+    let mut eta_derivative = offset_derivative_component;
+    let mut time_derivative_component = 0.0_f64;
     if p_time > 0 {
-        eta_derivative += row_time
+        time_derivative_component = row_time
             .x_derivative_time
             .dot(&beta.slice(s![..p_time]).to_owned())[0];
+        eta_derivative += time_derivative_component;
     }
+    let mut wiggle_derivative_component = 0.0_f64;
     if let Some(runtime) = saved_timewiggle {
         let knots = Array1::from_vec(runtime.knots.clone());
         let beta_w = beta.slice(s![p_time..p_time + p_timewiggle]).to_owned();
@@ -2525,7 +3198,25 @@ fn evaluate_rp_row_with_beta(
             &knots,
             runtime.degree,
         )?;
-        eta_derivative += derivative_design.dot(&beta_w)[0];
+        wiggle_derivative_component = derivative_design.dot(&beta_w)[0];
+        eta_derivative += wiggle_derivative_component;
+    }
+    // Cold-path diagnostic (fires only when the assembled log-cumulative-hazard
+    // derivative is about to be refused): decompose `eta_t` into its additive
+    // components and report the time-coefficient / derivative-basis extrema so a
+    // refused prediction is traceable to the specific negative term instead of
+    // only surfacing the aggregate. Never fires on the accepted path.
+    if !(eta_derivative.is_finite() && eta_derivative >= 0.0) {
+        let time_beta = beta.slice(s![..p_time]);
+        let beta_min = time_beta.iter().copied().fold(f64::INFINITY, f64::min);
+        let beta_max = time_beta.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+        let dtime = row_time.x_derivative_time.to_dense();
+        let dmin = dtime.iter().copied().fold(f64::INFINITY, f64::min);
+        let dmax = dtime.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+        log::info!(
+            "[rp-predict/eta_t-refusal] eta_t={eta_derivative:.12e} = offset({offset_derivative_component:.12e}) + time({time_derivative_component:.12e}) + wiggle({wiggle_derivative_component:.12e}); p_time={p_time} p_timewiggle={p_timewiggle} p_cov={p_cov} time_beta=[{beta_min:.6e},{beta_max:.6e}] x_derivative_time=[{dmin:.6e},{dmax:.6e}] has_wiggle={}",
+            saved_timewiggle.is_some(),
+        );
     }
     if p_cov > 0 {
         x_exit
@@ -2643,9 +3334,8 @@ fn royston_parmar_survival_hazard_components(
 ///
 /// Mirrors the CLI's LocationScale predict path (main.rs::run_predict_survival
 /// LocationScale arm) but stays library-only: builds the threshold/log_sigma
-/// designs from the saved frozen specs, replays the saved scale-deviation
-/// transform on the noise design, applies the survival time-derivative guard,
-/// and calls `predict_survival_location_scale`.
+/// designs from the saved frozen specs and resolved time margins, applies the
+/// survival time-derivative guard, and calls `predict_survival_location_scale`.
 ///
 /// Plugin survival only — uncertainty paths still live in the CLI.
 fn predict_survival_location_scale_batch(
@@ -2660,13 +3350,12 @@ fn predict_survival_location_scale_batch(
     data: ArrayView2<'_, f64>,
     time_grid: Option<&[f64]>,
     with_uncertainty: bool,
+    covariance_mode: SurvivalPredictionCovarianceMode,
 ) -> Result<SurvivalPredictResult, String> {
-    use crate::scale_design::build_scale_deviation_operator;
     use crate::survival::construction::evaluate_survival_time_basis_row;
     use crate::survival::location_scale::{
         SurvivalLocationScalePredictInput, predict_survival_location_scale,
-        predict_survival_location_scale_from_linear_components,
-        predict_survival_location_scalewith_uncertainty,
+        predict_survival_location_scalewith_uncertainty, replay_survival_covariate_channels,
     };
     use gam_linalg::matrix::DesignMatrix;
 
@@ -2693,26 +3382,19 @@ fn predict_survival_location_scale_batch(
     let saved_likelihood_mode = SurvivalLikelihoodMode::LocationScale;
     let baseline_cfg = saved_survival_runtime_baseline_config(model)?;
     let saved_fit = saved_survival_location_scale_fit_result(model)?;
-    // Reduced parametric-AFT regime (issue #892): the fit removed the time warp
-    // entirely (`h ≡ 0`, zero free time columns) and carried the σ-scaled `log t`
-    // baseline as a per-row LOCATION shift `η_t → η_t − log t`, so the
-    // standardized residual is `u = inv_sigma·(log t − η_t) = (log t − μ)/σ` and
-    // σ is identified through the event Jacobian's `−log σ` term (the
-    // survreg / lifelines / flexsurv AFT gauge). The saved model therefore carries
-    // a time-warp β that is identically ZERO: the reduced time block has zero free
-    // columns and the Gauge-owned affine shift is zero, so the finalized
-    // `beta_time = T·β_reduced + a` is an all-zero length-`p` vector (exact zeros
-    // — no arithmetic noise — or empty when p==0). A genuine
-    // flexible location-scale fit always retains a non-zero unpenalized monotone
-    // log-t trend in its warp (its affine null space is never shrunk away), so an
-    // all-zero `beta_time` uniquely identifies the reduced regime. Predict must
-    // MIRROR the `−log t` location shift instead of reconstructing a warp from the
-    // zero `beta_time`; otherwise `S(t|x)` carries no `log t` dependence and is
-    // wrong for every saved reduced-AFT model. Detected from the saved payload
-    // alone (zero time-warp β + no learned baseline timewiggle), so no new
-    // persisted flag is needed. (`iter().all` is `true` on an empty β too.)
-    let reduced_parametric_aft =
-        !model.has_baseline_time_wiggle() && saved_fit.beta_time().iter().all(|&b| b == 0.0);
+    // Reduced AFT changes the likelihood program (`h ≡ 0` and `-log(t)` moves
+    // to the location channel), so it is persisted as topology. Coefficient
+    // values are never interpreted as a model-class discriminator.
+    let saved_structure = model
+        .survival_location_scale_structure
+        .as_ref()
+        .ok_or_else(|| {
+            "saved location-scale survival model is missing exact replay structure".to_string()
+        })?;
+    let reduced_parametric_aft = matches!(
+        saved_structure.time_parameterization,
+        crate::survival::location_scale::SurvivalLocationScaleTimeParameterization::ReducedParametricAft
+    );
     let time_cfg = load_survival_time_basis_config_from_model(model)?;
     let mut time_build = build_survival_time_basis(age_entry, age_exit, time_cfg.clone(), None)?;
     let resolved_time_cfg = resolved_survival_time_basis_config_from_build(
@@ -2824,13 +3506,12 @@ fn predict_survival_location_scale_batch(
     let raw_sigma_design =
         gam_terms::smooth::build_term_collection_design(sigma_input, &log_sigmaspec)
             .map_err(|err| format!("failed to build survival log-sigma design: {err}"))?;
-    let survival_noise_transform = scale_transform_from_payload(
-        &model.survival_noise_projection,
-        &model.survival_noise_center,
-        &model.survival_noise_scale,
-        model.survival_noise_non_intercept_start,
-        model.survival_noise_projection_ridge_alpha,
-    )?;
+    let effective_noise_offset = raw_sigma_design
+        .compose_offset(
+            noise_offset.view(),
+            "survival location-scale log-sigma block",
+        )
+        .map_err(|error| error.to_string())?;
 
     let x_time_exit_dense = time_build
         .x_exit_time
@@ -2865,27 +3546,59 @@ fn predict_survival_location_scale_batch(
             }
             Ok(DesignMatrix::from(repeated))
         };
-    let threshold_matrix = repeat_rows(
+    let expand_vector = |values: &Array1<f64>| -> Array1<f64> {
+        if per_row_eval {
+            values.clone()
+        } else {
+            Array1::from_shape_fn(total_rows, |k| values[k / eval_width])
+        }
+    };
+    if saved_structure.threshold_time_basis.is_some()
+        && threshold_design
+            .affine_offset
+            .iter()
+            .any(|value| *value != 0.0)
+    {
+        return Err(
+            "saved time-varying survival threshold cannot carry a non-zero smooth anchor"
+                .to_string(),
+        );
+    }
+    if saved_structure.log_sigma_time_basis.is_some()
+        && raw_sigma_design
+            .affine_offset
+            .iter()
+            .any(|value| *value != 0.0)
+    {
+        return Err(
+            "saved time-varying survival log-sigma cannot carry a non-zero smooth anchor"
+                .to_string(),
+        );
+    }
+    let threshold_base_matrix = repeat_rows(
         &threshold_design.design,
         "survival location-scale prediction threshold design",
     )?;
-    let raw_sigma_matrix = repeat_rows(
+    let raw_sigma_base_matrix = repeat_rows(
         &raw_sigma_design.design,
         "survival location-scale prediction log-sigma design",
     )?;
-
-    // Scale-deviation primary mirrors the fit's full location design: `x_time_exit`
-    // carries the full centered basis (plus any timewiggle columns) in every regime
-    // — including the reduced parametric-AFT regime, where the basis is retained at
-    // full width with an all-zero `beta_time` — matching the fit's `time_design_exit`.
-    let time_design = DesignMatrix::from(x_time_exit.clone());
-    let survival_primary_design =
-        DesignMatrix::hstack(vec![time_design, threshold_matrix.clone()])?;
-    let prepared_sigma_design = if let Some(transform) = survival_noise_transform.as_ref() {
-        build_scale_deviation_operator(survival_primary_design, raw_sigma_matrix, transform)?
-    } else {
-        raw_sigma_matrix
-    };
+    let mut threshold_replay = replay_survival_covariate_channels(
+        &threshold_base_matrix,
+        &expand_vector(primary_offset),
+        &eval_entry,
+        &eval_exit,
+        saved_structure.threshold_time_basis.as_ref(),
+        "survival location-scale threshold",
+    )?;
+    let sigma_replay = replay_survival_covariate_channels(
+        &raw_sigma_base_matrix,
+        &expand_vector(&effective_noise_offset),
+        &eval_entry,
+        &eval_exit,
+        saved_structure.log_sigma_time_basis.as_ref(),
+        "survival location-scale log-sigma",
+    )?;
     let link_wiggle_knots = model
         .linkwiggle_knots
         .as_ref()
@@ -2899,13 +3612,6 @@ fn predict_survival_location_scale_batch(
         .as_ref()
         .map_or(0, |w| w.beta.len());
 
-    let expand_vector = |values: &Array1<f64>| -> Array1<f64> {
-        if per_row_eval {
-            values.clone()
-        } else {
-            Array1::from_shape_fn(total_rows, |k| values[k / eval_width])
-        }
-    };
     // Threshold (location) offset. In the reduced parametric-AFT regime the
     // σ-scaled `log t` baseline rides the location channel: shift the effective
     // location `η_t → η_t − log t` per query time so the predicted standardized
@@ -2914,17 +3620,13 @@ fn predict_survival_location_scale_batch(
     // per-(row, time) query exit times in the same flattened layout as the
     // expanded offsets; `−log t` uses the same `SURVIVAL_TIME_FLOOR` floor as the
     // fit's `checked_log_survival_times` (issue #892).
-    let eta_threshold_offset = {
-        let mut offset = expand_vector(primary_offset);
-        if reduced_parametric_aft {
-            for (slot, &t) in offset.iter_mut().zip(eval_exit.iter()) {
-                *slot -= t
-                    .max(crate::survival::construction::SURVIVAL_TIME_FLOOR)
-                    .ln();
-            }
+    if reduced_parametric_aft {
+        for (slot, &t) in threshold_replay.offset.iter_mut().zip(eval_exit.iter()) {
+            *slot -= t
+                .max(crate::survival::construction::SURVIVAL_TIME_FLOOR)
+                .ln();
         }
-        offset
-    };
+    }
     // Build the SurvivalLocationScalePredictInput once, with replicated /
     // expanded designs and offsets, regardless of `per_row_eval`.  This
     // unifies the mean-only and uncertainty paths and lets the
@@ -2935,10 +3637,10 @@ fn predict_survival_location_scale_batch(
         time_wiggle_knots: time_wiggle_knots.clone(),
         time_wiggle_degree,
         time_wiggle_ncols,
-        x_threshold: threshold_matrix,
-        eta_threshold_offset,
-        x_log_sigma: prepared_sigma_design,
-        eta_log_sigma_offset: expand_vector(noise_offset),
+        x_threshold: threshold_replay.design_exit.clone(),
+        eta_threshold_offset: threshold_replay.offset.clone(),
+        x_log_sigma: sigma_replay.design_exit.clone(),
+        eta_log_sigma_offset: sigma_replay.offset.clone(),
         x_link_wiggle: None,
         link_wiggle_knots: link_wiggle_knots.clone(),
         link_wiggle_degree,
@@ -2953,12 +3655,27 @@ fn predict_survival_location_scale_batch(
         Option<Array1<f64>>,
         Option<Array1<f64>>,
     ) = if with_uncertainty {
-        let cov = saved_fit.beta_covariance().ok_or_else(|| {
-            "survival location-scale uncertainty: saved fit is missing the \
-             posterior covariance; refit with the current CLI / library to \
-             populate beta_covariance"
-                .to_string()
-        })?;
+        // #2296: resolve the requested covariance definition exactly. A
+        // smoothing-corrected request must never be satisfied with the
+        // conditional matrix; location-scale fits do not persist a corrected
+        // covariance today, so that request is a typed refusal, not a
+        // silently narrower band.
+        let cov = match select_survival_prediction_covariance(
+            saved_fit.beta_covariance(),
+            saved_fit.beta_covariance_corrected(),
+            covariance_mode,
+        ) {
+            Ok(cov) => cov,
+            Err(SurvivalPredictError::PosteriorCovariance { reason })
+                if covariance_mode == SurvivalPredictionCovarianceMode::Conditional =>
+            {
+                return Err(format!(
+                    "survival location-scale uncertainty: {reason}; refit with the \
+                     current CLI / library to populate beta_covariance"
+                ));
+            }
+            Err(err) => return Err(String::from(err)),
+        };
         let unc = predict_survival_location_scalewith_uncertainty(
             &pred_input,
             &saved_fit,
@@ -2978,69 +3695,39 @@ fn predict_survival_location_scale_batch(
             Some(response_se),
             Some(unc.eta_standard_error),
         )
-    } else if per_row_eval {
+    } else {
         let pred = predict_survival_location_scale(&pred_input, &saved_fit)
             .map_err(|err| format!("survival location-scale predict failed: {err}"))?;
         (pred.eta, pred.survival_prob, None, None)
-    } else {
-        let beta_threshold = saved_fit.beta_threshold();
-        let beta_log_sigma = saved_fit.beta_log_sigma();
-        let eta_t_subject =
-            cov_design.design.matrixvectormultiply(&beta_threshold) + primary_offset;
-        // `expand_vector(noise_offset)` already lives on `pred_input` as
-        // `eta_log_sigma_offset`; reuse it instead of re-expanding the noise
-        // offset (a per-call allocation when the time grid is explicit).
-        let eta_ls_subject = prepared_sigma_design_view(&pred_input)
-            .matrixvectormultiply(&beta_log_sigma)
-            + &pred_input.eta_log_sigma_offset;
-        // This explicit-grid branch rebuilds the per-(row, time) location predictor
-        // from the per-subject `eta_t_subject` directly (bypassing
-        // `pred_input.eta_threshold_offset`), so it must apply the reduced-AFT
-        // `−log t` location shift here too — otherwise the grid path would predict a
-        // `log t`-flat surface even though the per-row path is shifted (issue #892).
-        let mut eta_t = expand_vector(&eta_t_subject);
-        if reduced_parametric_aft {
-            for (slot, &t) in eta_t.iter_mut().zip(eval_exit.iter()) {
-                *slot -= t
-                    .max(crate::survival::construction::SURVIVAL_TIME_FLOOR)
-                    .ln();
-            }
-        }
-        let pred = predict_survival_location_scale_from_linear_components(
-            &pred_input.x_time_exit,
-            &eta_offset_exit,
-            time_wiggle_knots.as_ref(),
-            time_wiggle_degree,
-            time_wiggle_ncols,
-            &eta_t,
-            &eta_ls_subject,
-            link_wiggle_knots.as_ref(),
-            link_wiggle_degree,
-            &saved_inverse_link,
-            &saved_fit,
-        )
-        .map_err(|err| format!("survival location-scale predict failed: {err}"))?;
-        (pred.eta, pred.survival_prob, None, None)
     };
 
-    let eta_derivative_full = if reduced_parametric_aft {
-        // Reduced-AFT regime: the warp is `h ≡ 0` and the location carries the
-        // `−log t` shift, so the standardized-residual time derivative is
-        // `du/dt = d/dt[inv_sigma·(log t − μ)] = inv_sigma / t` (the fit's
-        // `qdot = inv_sigma/t`). The time-warp design contributes nothing, so
-        // reconstruct `eta_derivative` directly from `inv_sigma` and the query
-        // times rather than from the (empty) time-derivative design (issue #892).
-        use crate::sigma_link::exp_sigma_inverse_from_eta_scalar;
-        let beta_log_sigma = saved_fit.beta_log_sigma();
-        let eta_ls = prepared_sigma_design_view(&pred_input).matrixvectormultiply(&beta_log_sigma)
-            + &pred_input.eta_log_sigma_offset;
-        let mut deriv = Array1::<f64>::zeros(eval_exit.len());
-        for (k, slot) in deriv.iter_mut().enumerate() {
-            let inv_sigma = exp_sigma_inverse_from_eta_scalar(eta_ls[k]);
-            let t = eval_exit[k].max(crate::survival::construction::SURVIVAL_TIME_FLOOR);
-            *slot = inv_sigma / t;
+    let beta_threshold = saved_fit.beta_threshold();
+    let beta_log_sigma = saved_fit.beta_log_sigma();
+    let eta_threshold = threshold_replay
+        .design_exit
+        .matrixvectormultiply(&beta_threshold)
+        + &threshold_replay.offset;
+    let mut eta_threshold_derivative = threshold_replay
+        .design_derivative_exit
+        .as_ref()
+        .map(|design| design.matrixvectormultiply(&beta_threshold))
+        .unwrap_or_else(|| Array1::zeros(total_rows));
+    if reduced_parametric_aft {
+        for (slot, &time) in eta_threshold_derivative.iter_mut().zip(eval_exit.iter()) {
+            *slot -= 1.0 / time.max(crate::survival::construction::SURVIVAL_TIME_FLOOR);
         }
-        deriv
+    }
+    let eta_log_sigma = sigma_replay
+        .design_exit
+        .matrixvectormultiply(&beta_log_sigma)
+        + &sigma_replay.offset;
+    let eta_log_sigma_derivative = sigma_replay
+        .design_derivative_exit
+        .as_ref()
+        .map(|design| design.matrixvectormultiply(&beta_log_sigma))
+        .unwrap_or_else(|| Array1::zeros(total_rows));
+    let hdot = if reduced_parametric_aft {
+        Array1::zeros(total_rows)
     } else {
         let x_time_derivative = time_build
             .x_derivative_time
@@ -3056,6 +3743,42 @@ fn predict_survival_location_scale_batch(
             &saved_fit,
         )?
     };
+    let inv_sigma = eta_log_sigma.mapv(crate::sigma_link::exp_sigma_inverse_from_eta_scalar);
+    let q_base = -&eta_threshold * &inv_sigma;
+    let mut qdot =
+        &inv_sigma * &(&eta_threshold * &eta_log_sigma_derivative - &eta_threshold_derivative);
+    if let Some(beta_wiggle) = saved_fit.beta_link_wiggle() {
+        let knots = link_wiggle_knots.as_ref().ok_or_else(|| {
+            "saved location-scale link-wiggle coefficients are missing knots".to_string()
+        })?;
+        let degree = link_wiggle_degree.ok_or_else(|| {
+            "saved location-scale link-wiggle coefficients are missing degree".to_string()
+        })?;
+        let derivative_basis = crate::wiggle::monotone_wiggle_basis_with_derivative_order(
+            q_base.view(),
+            knots,
+            degree,
+            1,
+        )?;
+        if derivative_basis.ncols() != beta_wiggle.len() {
+            return Err(format!(
+                "saved location-scale link-wiggle derivative width mismatch: design={}, beta={}",
+                derivative_basis.ncols(),
+                beta_wiggle.len()
+            ));
+        }
+        qdot *= &(derivative_basis.dot(&beta_wiggle) + 1.0);
+    }
+    let eta_derivative_full = hdot + qdot;
+    if eta_derivative_full
+        .iter()
+        .any(|value| !(value.is_finite() && *value > 0.0))
+    {
+        return Err(
+            "saved location-scale survival event-rate derivative must be finite and positive"
+                .to_string(),
+        );
+    }
     let hazard_full = location_scale_hazard_from_eta_derivative(
         &eta_full,
         &eta_derivative_full,
@@ -3144,16 +3867,8 @@ fn predict_survival_location_scale_batch(
         likelihood_mode: saved_likelihood_mode,
         survival_se,
         eta_se: eta_se_per_row,
+        covariance_source: with_uncertainty.then_some(covariance_mode),
     })
-}
-
-/// Helper: borrow the prepared sigma design back from the pred_input
-/// without consuming it.  Used so the mean-only fast path can reuse the
-/// log-sigma design without an extra clone.
-fn prepared_sigma_design_view(
-    input: &crate::survival::location_scale::SurvivalLocationScalePredictInput,
-) -> &gam_linalg::matrix::DesignMatrix {
-    &input.x_log_sigma
 }
 
 pub(crate) struct LocationScaleEtaComponents {
@@ -3822,9 +4537,13 @@ pub fn build_saved_survival_marginal_slope_predictor(
         .as_ref()
         .map_or(0, |runtime| runtime.beta.len());
     if beta_time.len() != p_time_base + p_timewiggle {
+        let hint = stale_weibull_time_basis_hint(
+            &time_build.basisname,
+            beta_time.len() == p_time_base + p_timewiggle + 1,
+        );
         return Err(SurvivalPredictError::IncompatibleSchema {
             reason: format!(
-                "saved survival marginal-slope time coefficient mismatch: beta has {} entries but expected base={} plus timewiggle={}",
+                "saved survival marginal-slope time coefficient mismatch: beta has {} entries but expected base={} plus timewiggle={}{hint}",
                 beta_time.len(),
                 p_time_base,
                 p_timewiggle
@@ -3954,10 +4673,304 @@ pub fn build_saved_survival_marginal_slope_predictor(
     Ok((predictor, pred_input, predictor_fit))
 }
 
+/// Typed hint appended to a survival time-coefficient / design mismatch when the
+/// saved model looks like a pre-#2301 linear Weibull fit. The built-in Weibull
+/// linear time basis dropped its redundant constant column (2 → 1 columns), so a
+/// model saved before that change carries exactly one extra time coefficient
+/// against the rebuilt 1-column basis. Naming it keeps the load path from
+/// silently misindexing the stale constant coefficient as the shape.
+fn stale_weibull_time_basis_hint(basisname: &str, extra_time_coefficient: bool) -> &'static str {
+    if basisname == "linear" && extra_time_coefficient {
+        " (this looks like a model saved before the #2301 Weibull time-basis \
+         change, which removed the redundant constant column; refit the model)"
+    } else {
+        ""
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::probability::{normal_cdf, normal_pdf};
+
+    #[test]
+    fn competing_risks_covariance_mode_selects_exact_requested_matrix() {
+        let conditional = ndarray::array![[1.0, 0.2], [0.2, 2.0]];
+        let corrected = ndarray::array![[1.5, 0.4], [0.4, 3.0]];
+
+        let selected_conditional = select_survival_prediction_covariance(
+            Some(&conditional),
+            Some(&corrected),
+            SurvivalPredictionCovarianceMode::Conditional,
+        )
+        .expect("conditional covariance");
+        let selected_corrected = select_survival_prediction_covariance(
+            Some(&conditional),
+            Some(&corrected),
+            SurvivalPredictionCovarianceMode::SmoothingCorrected,
+        )
+        .expect("smoothing-corrected covariance");
+
+        assert_eq!(selected_conditional, &conditional);
+        assert_eq!(selected_corrected, &corrected);
+        assert_eq!(
+            SurvivalPredictionCovarianceMode::Conditional.as_str(),
+            "conditional"
+        );
+        assert_eq!(
+            SurvivalPredictionCovarianceMode::SmoothingCorrected.as_str(),
+            "smoothing-corrected"
+        );
+    }
+
+    #[test]
+    fn competing_risks_smoothing_covariance_never_falls_back() {
+        let conditional = ndarray::array![[1.0]];
+        let error = select_survival_prediction_covariance(
+            Some(&conditional),
+            None,
+            SurvivalPredictionCovarianceMode::SmoothingCorrected,
+        )
+        .expect_err("a corrected request must not substitute conditional covariance");
+        assert_eq!(
+            error.to_string(),
+            "fit result does not contain smoothing-corrected covariance"
+        );
+    }
+
+    #[test]
+    fn posterior_quadrature_second_moment_honors_cross_coordinate_covariance() {
+        let posterior_mean = ndarray::array![0.4, -0.2];
+        let covariance = ndarray::array![[0.9, 0.35], [0.35, 0.6]];
+        let mut functional_mean = 0.0_f64;
+        let mut functional_second = 0.0_f64;
+        let mut recovered_cross_covariance = 0.0_f64;
+
+        for_each_survival_posterior_node(&posterior_mean, &covariance, &[], |node, weight| {
+            let functional = node[0] + 2.0 * node[1];
+            functional_mean += weight * functional;
+            functional_second += weight * functional * functional;
+            recovered_cross_covariance +=
+                weight * (node[0] - posterior_mean[0]) * (node[1] - posterior_mean[1]);
+            Ok(())
+        })
+        .expect("joint posterior quadrature");
+
+        let expected_mean = posterior_mean[0] + 2.0 * posterior_mean[1];
+        let expected_variance =
+            covariance[[0, 0]] + 4.0 * covariance[[1, 1]] + 4.0 * covariance[[0, 1]];
+        assert!((functional_mean - expected_mean).abs() <= 1e-12);
+        assert!((recovered_cross_covariance - covariance[[0, 1]]).abs() <= 1e-12);
+
+        let mean_surface = Array2::from_elem((1, 1), functional_mean);
+        let second_surface = Array2::from_elem((1, 1), functional_second);
+        let standard_error = posterior_standard_error_matrix(
+            &mean_surface,
+            &second_surface,
+            "joint-covariance witness",
+        )
+        .expect("posterior standard error");
+        assert!((standard_error[[0, 0]].powi(2) - expected_variance).abs() <= 1e-11);
+    }
+
+    #[test]
+    fn posterior_quadrature_zero_covariance_has_zero_standard_error() {
+        let posterior_mean = ndarray::array![0.25, -0.75];
+        let covariance = Array2::<f64>::zeros((2, 2));
+        let mut functional_mean = 0.0_f64;
+        let mut functional_second = 0.0_f64;
+        let mut node_count = 0usize;
+
+        for_each_survival_posterior_node(&posterior_mean, &covariance, &[], |node, weight| {
+            let functional = node[0].exp() + node[1].sin();
+            functional_mean += weight * functional;
+            functional_second += weight * functional * functional;
+            node_count += 1;
+            Ok(())
+        })
+        .expect("rank-zero posterior quadrature");
+
+        assert_eq!(node_count, 1, "rank-zero covariance has one exact node");
+        let standard_error = posterior_standard_error_matrix(
+            &Array2::from_elem((1, 1), functional_mean),
+            &Array2::from_elem((1, 1), functional_second),
+            "rank-zero witness",
+        )
+        .expect("rank-zero posterior standard error");
+        assert_eq!(standard_error[[0, 0]], 0.0);
+    }
+
+    #[test]
+    fn posterior_quadrature_keeps_cone_coordinates_feasible_and_unbiased() {
+        // Coordinate 0 is a structural monotone-I-spline baseline time
+        // coefficient the fit constrained to β_0 ≥ 0; coordinate 1 is an
+        // unconstrained covariate intercept. The covariance loads coordinate 0
+        // with a spread wider than β̂_0, so the untruncated √rank·σ sigma point
+        // steps β_0 below zero — the exact #2375 infeasible-node signature that
+        // manufactures a non-monotone RP baseline the plugin evaluator refuses.
+        let posterior_mean = ndarray::array![0.354, -8.30];
+        let covariance = ndarray::array![[0.2304, 0.30], [0.30, 0.9604]];
+
+        // Without the cone, the untruncated rule produces an infeasible node.
+        let mut min_cone0_unconstrained = f64::INFINITY;
+        for_each_survival_posterior_node(&posterior_mean, &covariance, &[], |node, _weight| {
+            min_cone0_unconstrained = min_cone0_unconstrained.min(node[0]);
+            Ok(())
+        })
+        .expect("unconstrained quadrature");
+        assert!(
+            min_cone0_unconstrained < 0.0,
+            "fixture must reproduce the infeasible-node bug (min β_0 = {min_cone0_unconstrained})"
+        );
+
+        // With the cone, every node stays feasible AND the rule stays unbiased
+        // (symmetric ± steps, unchanged weights → the posterior mean is exact).
+        let mut mean0 = 0.0_f64;
+        let mut mean1 = 0.0_f64;
+        let mut weight_sum = 0.0_f64;
+        let mut min_cone0 = f64::INFINITY;
+        for_each_survival_posterior_node(&posterior_mean, &covariance, &[0], |node, weight| {
+            assert!(
+                node[0] >= -1e-12,
+                "cone coordinate stepped below its β_0 ≥ 0 wall: {}",
+                node[0]
+            );
+            min_cone0 = min_cone0.min(node[0]);
+            mean0 += weight * node[0];
+            mean1 += weight * node[1];
+            weight_sum += weight;
+            Ok(())
+        })
+        .expect("cone-truncated quadrature");
+        assert!((weight_sum - 1.0).abs() <= 1e-12, "weights must sum to one");
+        assert!(
+            (mean0 - posterior_mean[0]).abs() <= 1e-12
+                && (mean1 - posterior_mean[1]).abs() <= 1e-12,
+            "cone truncation must leave the posterior mean unbiased (got [{mean0}, {mean1}])"
+        );
+
+        // Truncation shrinks — never inflates — the represented spread along the
+        // constrained coordinate (a truncated Gaussian has smaller variance).
+        let mut var0_unconstrained = 0.0_f64;
+        for_each_survival_posterior_node(&posterior_mean, &covariance, &[], |node, weight| {
+            var0_unconstrained += weight * (node[0] - posterior_mean[0]).powi(2);
+            Ok(())
+        })
+        .expect("unconstrained spread");
+        let mut var0_cone = 0.0_f64;
+        for_each_survival_posterior_node(&posterior_mean, &covariance, &[0], |node, weight| {
+            var0_cone += weight * (node[0] - posterior_mean[0]).powi(2);
+            Ok(())
+        })
+        .expect("cone spread");
+        assert!(
+            var0_cone <= var0_unconstrained + 1e-12 && var0_cone < var0_unconstrained,
+            "cone spread {var0_cone} must be strictly smaller than the untruncated {var0_unconstrained}"
+        );
+    }
+
+    #[test]
+    fn posterior_quadrature_cone_is_a_noop_far_from_the_wall() {
+        // When β̂ sits comfortably inside the cone (every √rank·σ node stays
+        // feasible), the fraction-to-boundary step never binds, so the cone rule
+        // must reproduce the untruncated covariance to full precision — the fix
+        // is inert on the healthy fits that dominate production.
+        let posterior_mean = ndarray::array![40.0, -0.2];
+        let covariance = ndarray::array![[0.9, 0.35], [0.35, 0.6]];
+        let mut recovered_var0 = 0.0_f64;
+        let mut recovered_cross = 0.0_f64;
+        for_each_survival_posterior_node(&posterior_mean, &covariance, &[0], |node, weight| {
+            recovered_var0 += weight * (node[0] - posterior_mean[0]).powi(2);
+            recovered_cross +=
+                weight * (node[0] - posterior_mean[0]) * (node[1] - posterior_mean[1]);
+            Ok(())
+        })
+        .expect("cone quadrature far from the wall");
+        assert!((recovered_var0 - covariance[[0, 0]]).abs() <= 1e-11);
+        assert!((recovered_cross - covariance[[0, 1]]).abs() <= 1e-11);
+    }
+
+    /// A cone coefficient sitting EXACTLY on its wall (`β̂_j = 0`) is the
+    /// ordinary state of an active box face, not an edge case: the fit's
+    /// `coefficient_lower_bounds` pins increments there routinely. The
+    /// fraction-to-boundary limit is then `0 / |f_j| = 0`, so every direction
+    /// that loads that coordinate collapses to the mean and contributes no
+    /// spread, while directions that do not load it keep the full `√rank` step.
+    ///
+    /// This is the one place the rule cannot represent the posterior it is
+    /// approximating: a truncated Gaussian at an active bound is ONE-SIDED and
+    /// carries real mass, but no symmetric `±` pair can express that. Reporting
+    /// zero spread there is the conservative feasible answer rather than a
+    /// fabricated one, and pinning it here means a future switch to an
+    /// asymmetric rule has to change this test deliberately instead of silently.
+    #[test]
+    fn posterior_quadrature_radius_collapses_on_an_active_bound() {
+        // Distinct eigenvalues so the PSD factor is axis-aligned and "the
+        // direction that loads the pinned coordinate" is unambiguous.
+        let posterior_mean = ndarray::array![0.0, 0.75];
+        let covariance = ndarray::array![[0.5, 0.0], [0.0, 0.2]];
+
+        let mut min_pinned = f64::INFINITY;
+        let mut max_pinned = f64::NEG_INFINITY;
+        let mut spread_unpinned = 0.0_f64;
+        for_each_survival_posterior_node(&posterior_mean, &covariance, &[0], |node, weight| {
+            min_pinned = min_pinned.min(node[0]);
+            max_pinned = max_pinned.max(node[0]);
+            spread_unpinned += weight * (node[1] - posterior_mean[1]).powi(2);
+            Ok(())
+        })
+        .expect("active-bound quadrature");
+
+        assert!(
+            min_pinned >= 0.0,
+            "an active bound must never be crossed, got {min_pinned}"
+        );
+        assert!(
+            max_pinned.abs() <= 1e-12,
+            "a direction loading an active-bound coordinate carries zero symmetric spread, \
+             but the coordinate reached {max_pinned}"
+        );
+        // The unconstrained coordinate is untouched: collapsing one direction
+        // must not collapse the whole rule.
+        assert!(
+            (spread_unpinned - covariance[[1, 1]]).abs() <= 1e-11,
+            "a coordinate outside the cone keeps its full spread, got {spread_unpinned} want {}",
+            covariance[[1, 1]]
+        );
+    }
+
+    /// Round-off guard for the `β̂_j.max(0.0)` clamp in the fraction-to-boundary
+    /// limit. A converged active-set coefficient can land a few ulps BELOW its
+    /// wall, and the unclamped ratio `β̂_j / |f_j|` would then be NEGATIVE — a
+    /// negative step that silently inverts the `±` geometry of that direction
+    /// instead of shrinking it. The clamp sends the limit to zero, so the pair
+    /// collapses onto `β̂` and truncation never drives a coordinate further
+    /// outside the cone than the fit already left it.
+    #[test]
+    fn posterior_quadrature_clamps_a_roundoff_negative_cone_coordinate() {
+        let roundoff_below_wall = -1e-15_f64;
+        let posterior_mean = ndarray::array![roundoff_below_wall, 0.75];
+        let covariance = ndarray::array![[0.5, 0.0], [0.0, 0.2]];
+
+        let mut nodes = Vec::new();
+        for_each_survival_posterior_node(&posterior_mean, &covariance, &[0], |node, _weight| {
+            nodes.push(node[0]);
+            Ok(())
+        })
+        .expect("round-off-negative cone quadrature");
+
+        for value in &nodes {
+            assert!(
+                *value >= roundoff_below_wall,
+                "truncation must never push a cone coordinate further below the wall than the \
+                 fit left it: node {value} < β̂ {roundoff_below_wall}"
+            );
+            assert!(
+                (*value - roundoff_below_wall).abs() <= 1e-12,
+                "a coordinate at the wall carries no spread, got {value}"
+            );
+        }
+    }
 
     #[test]
     fn probit_survival_hazard_uses_density_over_survival() {

@@ -18,9 +18,10 @@
 //! formula DSL via `SurvInterval(L, R, event) ~ ...`.
 
 use crate::custom_family::{
-    BlockWorkingSet, BlockwiseFitOptions, CustomFamily, ExactNewtonJointGradientEvaluation,
-    ExactNewtonJointHessianWorkspace, FamilyEvaluation, ParameterBlockSpec, ParameterBlockState,
-    PenaltyMatrix, fit_custom_family, fit_custom_family_fixed_log_lambdas,
+    BlockWorkingSet, BlockwiseFitOptions, ConstraintSet, CustomFamily,
+    ExactNewtonJointGradientEvaluation, ExactNewtonJointHessianWorkspace, FamilyEvaluation,
+    ParameterBlockSpec, ParameterBlockState, PenaltyMatrix, fit_custom_family,
+    fit_custom_family_fixed_log_lambdas,
 };
 use crate::fit_orchestration::drivers::freeze_term_collection_from_design;
 use crate::gamlss::{FamilyMetadata, ParameterLink};
@@ -36,11 +37,14 @@ use crate::survival::location_scale::{
     TimeBlockInput, project_onto_linear_constraints, structural_time_coefficient_constraints,
 };
 use crate::survival::lognormal_kernel::{
-    FrailtySpec, HazardLoading, LatentSurvivalEventType, LatentSurvivalRow, LatentSurvivalRowJet,
-    log_kernel_bundle,
+    FrailtyScale, FrailtySpec, HazardLoading, LatentSurvivalEventType, LatentSurvivalRow,
+    LatentSurvivalRowJet, log_kernel_bundle,
 };
 use gam_linalg::matrix::{DenseDesignMatrix, DesignMatrix, SymmetricMatrix};
 use gam_math::jet_scalar::{JetScalar, OneSeed, Order2, TwoSeed};
+// `value`/`compose_unary`/… now live on the shared `JetField` base (JetScalar: JetField);
+// the concrete `row_jet.base.value()` reads below need it in scope.
+use gam_math::nested_dual::JetField;
 use gam_solve::pirls::LinearInequalityConstraints;
 use gam_terms::smooth::{TermCollectionDesign, TermCollectionSpec, build_term_collection_design};
 use ndarray::{Array1, Array2, ArrayView1, ArrayView2, s};
@@ -533,23 +537,21 @@ fn fixed_latent_hazard_frailty_typed(
     frailty: &FrailtySpec,
     context: &str,
 ) -> Result<(f64, HazardLoading), LatentSurvivalError> {
+    frailty
+        .validate()
+        .map_err(|err| LatentSurvivalError::InvalidFrailty {
+            reason: err.to_string(),
+        })?;
     match frailty {
         FrailtySpec::HazardMultiplier {
-            sigma_fixed: Some(sigma),
+            scale: FrailtyScale::Fixed { sigma },
             loading,
-        } if sigma.is_finite() && *sigma >= 0.0 => Ok((*sigma, *loading)),
+        } => Ok((*sigma, *loading)),
         FrailtySpec::HazardMultiplier {
-            sigma_fixed: Some(sigma),
+            scale: FrailtyScale::Learned { .. },
             ..
         } => Err(LatentSurvivalError::InvalidFrailty {
-            reason: format!(
-                "{context} requires a finite fixed hazard-multiplier sigma >= 0, got {sigma}"
-            ),
-        }),
-        FrailtySpec::HazardMultiplier {
-            sigma_fixed: None, ..
-        } => Err(LatentSurvivalError::InvalidFrailty {
-            reason: format!("{context} currently requires a fixed hazard-multiplier sigma"),
+            reason: format!("{context} requires a fixed hazard-multiplier sigma"),
         }),
         FrailtySpec::GaussianShift { .. } => Err(LatentSurvivalError::InvalidFrailty {
             reason: format!("{context} requires HazardMultiplier frailty, not GaussianShift"),
@@ -596,10 +598,17 @@ pub fn fit_latent_survival_terms(
     frailty: FrailtySpec,
     options: &BlockwiseFitOptions,
 ) -> Result<LatentSurvivalTermFitResult, String> {
-    let latent_sd = validate_latent_survival_inputs(data, &spec, &frailty)?;
+    let frailty_scale = validate_latent_survival_inputs(data, &spec, &frailty)?;
+    let (latent_sd, learned_initial_sigma) = match frailty_scale {
+        FrailtyScale::Fixed { sigma } => (Some(sigma), None),
+        FrailtyScale::Learned { initial_sigma } => (None, Some(initial_sigma)),
+    };
     let hazard_loading = latent_hazard_loading(&frailty, "latent-survival")?;
     let mean_design =
         build_term_collection_design(data, &spec.meanspec).map_err(|e| e.to_string())?;
+    let mean_offset = mean_design
+        .compose_offset(spec.mean_offset.view(), "latent-survival mean block")
+        .map_err(|e| e.to_string())?;
     let resolvedspec = freeze_term_collection_from_design(&spec.meanspec, &mean_design)
         .map_err(|e| e.to_string())?;
     let time_prepared = prepare_latent_time_block(
@@ -654,11 +663,11 @@ pub fn fit_latent_survival_terms(
 
     let mut blocks = vec![
         build_time_blockspec(&time_prepared, &spec.time_block),
-        build_mean_blockspec(&mean_design, spec.mean_offset.clone()),
+        build_mean_blockspec(&mean_design, mean_offset),
     ];
-    if latent_sd.is_none() {
+    if let Some(initial_sigma) = learned_initial_sigma {
         blocks.push(build_log_sigma_blockspec(
-            LEARNABLE_LATENT_SD_SEED,
+            initial_sigma,
             mean_design.design.nrows(),
         ));
     }
@@ -711,9 +720,6 @@ pub fn fit_latent_survival_terms(
             &blocks,
             options,
             None,
-            0,
-            None,
-            true,
         );
         let warm_fit = match warm_fit_result {
             Ok(fit) => fit,
@@ -751,9 +757,6 @@ pub fn fit_latent_survival_terms(
                     &blocks,
                     options,
                     None,
-                    0,
-                    None,
-                    true,
                 )
                 .map_err(|event_error| {
                     format!(
@@ -806,6 +809,9 @@ pub fn fit_latent_binary_terms(
     let (_, hazard_loading) = fixed_latent_hazard_frailty(&frailty, "latent-binary")?;
     let mean_design =
         build_term_collection_design(data, &spec.meanspec).map_err(|e| e.to_string())?;
+    let mean_offset = mean_design
+        .compose_offset(spec.mean_offset.view(), "latent-binary mean block")
+        .map_err(|e| e.to_string())?;
     let resolvedspec = freeze_term_collection_from_design(&spec.meanspec, &mean_design)
         .map_err(|e| e.to_string())?;
     let time_prepared = prepare_latent_time_block(&spec.time_block, None, spec.derivative_guard)?;
@@ -826,7 +832,7 @@ pub fn fit_latent_binary_terms(
 
     let blocks = vec![
         build_time_blockspec(&time_prepared, &spec.time_block),
-        build_mean_blockspec(&mean_design, spec.mean_offset.clone()),
+        build_mean_blockspec(&mean_design, mean_offset),
     ];
     let fit = fit_custom_family(&family, &blocks, options).map_err(|e| e.to_string())?;
     let baseline_offset_residuals = family.offset_channel_residuals(&fit.block_states)?;
@@ -840,7 +846,7 @@ pub fn fit_latent_binary_terms(
 
 /// Latent-survival adapter for the shared [`LatentIntervalModel`] driver.
 ///
-/// Survival permits a learnable sigma (`sigma_fixed == None`) and carries the
+/// Survival permits [`FrailtyScale::Learned`] and carries the
 /// per-row unloaded baseline hazard at exit (which feeds the exact-event
 /// loaded/unloaded split); everything else is validated by the shared engine.
 struct LatentSurvivalModel;
@@ -857,25 +863,19 @@ impl LatentIntervalModel for LatentSurvivalModel {
     fn frailty_policy(
         frailty: &FrailtySpec,
     ) -> Result<LatentFrailtyResolution, LatentSurvivalError> {
+        frailty
+            .validate()
+            .map_err(|err| LatentSurvivalError::InvalidFrailty {
+                reason: err.to_string(),
+            })?;
         match frailty {
             FrailtySpec::HazardMultiplier {
-                sigma_fixed,
+                scale,
                 loading,
-            } => {
-                if let Some(sigma) = sigma_fixed
-                    && (!sigma.is_finite() || *sigma < 0.0)
-                {
-                    return Err(LatentSurvivalError::InvalidFrailty {
-                        reason: format!(
-                            "latent-survival requires a finite hazard-multiplier sigma >= 0, got {sigma}"
-                        ),
-                    });
-                }
-                Ok(LatentFrailtyResolution {
-                    sigma: *sigma_fixed,
-                    loading: *loading,
-                })
-            }
+            } => Ok(LatentFrailtyResolution {
+                scale: *scale,
+                loading: *loading,
+            }),
             FrailtySpec::GaussianShift { .. } => Err(LatentSurvivalError::InvalidFrailty {
                 reason: "latent-survival requires HazardMultiplier frailty, not GaussianShift"
                     .to_string(),
@@ -892,7 +892,7 @@ fn validate_latent_survival_inputs(
     data: ArrayView2<'_, f64>,
     spec: &LatentSurvivalTermSpec,
     frailty: &FrailtySpec,
-) -> Result<Option<f64>, LatentSurvivalError> {
+) -> Result<FrailtyScale, LatentSurvivalError> {
     let row = LatentIntervalRowView {
         frailty,
         age_entry: &spec.age_entry,
@@ -957,7 +957,7 @@ impl LatentIntervalModel for LatentBinaryModel {
     ) -> Result<LatentFrailtyResolution, LatentSurvivalError> {
         let (sigma, loading) = fixed_latent_hazard_frailty_typed(frailty, "latent-binary")?;
         Ok(LatentFrailtyResolution {
-            sigma: Some(sigma),
+            scale: FrailtyScale::Fixed { sigma },
             loading,
         })
     }
@@ -981,15 +981,12 @@ fn validate_latent_binary_inputs(
         derivative_guard: spec.derivative_guard,
         time_block: &spec.time_block,
     };
-    // The binary `frailty_policy` always yields `Some(sigma)` (it rejects the
-    // learnable-scale case), so the shared driver's `Option<f64>` is `Some`
-    // here; surface a structured error rather than unwrapping if that ever
-    // changes.
-    validate_latent_interval_inputs::<LatentBinaryModel>(data, &row)?.ok_or_else(|| {
-        LatentSurvivalError::InvalidFrailty {
+    match validate_latent_interval_inputs::<LatentBinaryModel>(data, &row)? {
+        FrailtyScale::Fixed { sigma } => Ok(sigma),
+        FrailtyScale::Learned { .. } => Err(LatentSurvivalError::InvalidFrailty {
             reason: "latent-binary requires a fixed latent sigma".to_string(),
-        }
-    })
+        }),
+    }
 }
 
 fn prepare_latent_time_block(
@@ -1155,14 +1152,6 @@ fn build_mean_blockspec(design: &TermCollectionDesign, offset: Array1<f64>) -> P
         stacked_offset: None,
     }
 }
-
-/// Starting latent-frailty standard deviation when `sigma` is learnable
-/// (`sigma_fixed == None`). The log-sigma block is seeded at `log(0.5)` so the
-/// optimizer begins from a moderate, well-conditioned dispersion (σ = 0.5,
-/// neither a near-degenerate σ → 0 that flattens the frailty integral nor a
-/// large σ that makes the Gauss-Hermite quadrature heavy-tailed) and then
-/// learns the data's actual scale. Only an initial value, not a constraint.
-const LEARNABLE_LATENT_SD_SEED: f64 = 0.5;
 
 fn build_log_sigma_blockspec(initial_sigma: f64, n_obs: usize) -> ParameterBlockSpec {
     ParameterBlockSpec {
@@ -1537,7 +1526,13 @@ fn latent_kernel_term_sequence_inline(
 ) -> LatentTermBuffer {
     let mut terms = LatentTermBuffer::from_slice(base_terms);
     terms.retain(|term| term.coeff != 0.0);
-    for direction in axes.iter().chain(suffix.iter()) {
+    // The canonical subset-cache recurrence strips the least-significant
+    // selected slot and applies it after recursively building the remaining
+    // mask. Its deterministic floating-point order is therefore highest slot
+    // to lowest slot. Preserve that order here so the allocation-free packed
+    // path and the independent MultiDir layout accumulate identical analytic
+    // coefficients, including cancellation-heavy tail derivatives.
+    for direction in axes.iter().chain(suffix.iter()).rev() {
         terms = latent_kernel_differentiate_terms_inline(&terms, *direction);
     }
     terms
@@ -1660,10 +1655,10 @@ mod tests_multidir_kernel {
 /// `suffixes` describes the nilpotent parts carried by the requested scalar:
 /// `[]` for the ordinary order-two base, `[u]` for the `OneSeed` epsilon part,
 /// and `[u]`, `[v]`, `[u,v]` for the three non-base `TwoSeed` parts.  For each
-/// part we differentiate the SAME kernel-term program in the order
-/// `[primary_a, primary_b, suffix...]`.  That ordering is deliberately the
-/// pre-cutover `MultiDirJet` ordering, so every requested raw derivative is
-/// assembled by the same recurrence and signed-log reduction as its oracle.
+/// part we differentiate the SAME kernel-term program in the canonical
+/// highest-slot-to-lowest-slot order used by the pre-cutover `MultiDirJet`
+/// subset cache. Every requested raw derivative is therefore assembled by the
+/// same recurrence, accumulation order, and signed-log reduction as its oracle.
 /// The expensive quadrature bundle is then evaluated ONCE at the maximum `k`
 /// required by the complete output instead of once per Hessian cell.
 fn latent_kernel_sum_order2_parts<const K: usize>(
@@ -1673,7 +1668,7 @@ fn latent_kernel_sum_order2_parts<const K: usize>(
     primary_directions: &[LatentKernelPrimaryDirection; K],
     suffixes: &[&[LatentKernelPrimaryDirection]],
     context: &str,
-) -> Result<(f64, [Order2<K>; 4]), LatentSurvivalError> {
+) -> Result<[Order2<K>; 4], LatentSurvivalError> {
     assert!(
         !suffixes.is_empty() && suffixes.len() <= 4,
         "latent kernel lift supports one to four order-two parts"
@@ -1802,7 +1797,96 @@ fn latent_kernel_sum_order2_parts<const K: usize>(
         }
         parts[part] = Order2(tower);
     }
-    Ok((base_log_sum, parts))
+    Ok(latent_kernel_normalized_log_parts(
+        base_log_sum,
+        parts,
+        suffixes.len(),
+    ))
+}
+
+/// Convert normalized kernel-sum moments into derivatives of the log sum.
+///
+/// `normalized_parts` is the single analytic recurrence's compact moment
+/// layout: the base carries `(1, S_a/S, S_ab/S)`, the one-seed parts carry
+/// `(S_u/S, S_au/S, S_abu/S)`, and the two-seed cross part carries
+/// `(S_uv/S, S_auv/S, S_abuv/S)`. For each requested output channel we expose
+/// those moments as a four-slot derivative table `(a,b,u,v)` and let the shared
+/// compensated truncated-Taylor reducer perform `log` composition. This avoids
+/// the severe tail cancellation caused by composing projected `Order2` products
+/// in stages, while retaining one recurrence, one moment layout, and one general
+/// composition rule for Order2, OneSeed, and TwoSeed.
+fn latent_kernel_normalized_log_parts<const K: usize>(
+    base_log_sum: f64,
+    normalized_parts: [Order2<K>; 4],
+    part_count: usize,
+) -> [Order2<K>; 4] {
+    assert!(matches!(part_count, 1 | 2 | 4));
+    let log_stack = latent_unary_derivatives_log(1.0);
+    let compose_log = |moments: [f64; 16]| {
+        gam_math::jet_partitions::compose_unary_four_slot_coefficients(moments, log_stack)
+    };
+    let moments_for = |a: usize, b: usize| {
+        let base = &normalized_parts[0].0;
+        let u = &normalized_parts[1].0;
+        let v = &normalized_parts[2].0;
+        let uv = &normalized_parts[3].0;
+        [
+            1.0,
+            base.g[a],
+            base.g[b],
+            base.h[a][b],
+            u.v,
+            u.g[a],
+            u.g[b],
+            u.h[a][b],
+            v.v,
+            v.g[a],
+            v.g[b],
+            v.h[a][b],
+            uv.v,
+            uv.g[a],
+            uv.g[b],
+            uv.h[a][b],
+        ]
+    };
+
+    let mut out = [Order2::<K>::constant(0.0); 4];
+    out[0].0.v = base_log_sum;
+    if part_count >= 2 {
+        out[1].0.v = normalized_parts[1].0.v;
+    }
+    if part_count == 4 {
+        out[2].0.v = normalized_parts[2].0.v;
+        let composed = compose_log(moments_for(0, 0));
+        out[3].0.v = composed[0b1100];
+    }
+
+    for a in 0..K {
+        let composed = compose_log(moments_for(a, a));
+        out[0].0.g[a] = composed[0b0001];
+        if part_count >= 2 {
+            out[1].0.g[a] = composed[0b0101];
+        }
+        if part_count == 4 {
+            out[2].0.g[a] = composed[0b1001];
+            out[3].0.g[a] = composed[0b1101];
+        }
+        for b in a..K {
+            let composed = compose_log(moments_for(a, b));
+            out[0].0.h[a][b] = composed[0b0011];
+            if part_count >= 2 {
+                out[1].0.h[a][b] = composed[0b0111];
+            }
+            if part_count == 4 {
+                out[2].0.h[a][b] = composed[0b1011];
+                out[3].0.h[a][b] = composed[0b1111];
+            }
+            for part in 0..part_count {
+                out[part].0.h[b][a] = out[part].0.h[a][b];
+            }
+        }
+    }
+    out
 }
 
 #[inline]
@@ -1856,7 +1940,7 @@ impl<const K: usize> LatentPrimaryJetBackend<K> for LatentOrder2Backend {
         context: &str,
     ) -> Result<Self::Jet, LatentSurvivalError> {
         let suffixes: [&[LatentKernelPrimaryDirection]; 1] = [&[]];
-        let (base_log_sum, parts) = latent_kernel_sum_order2_parts(
+        let parts = latent_kernel_sum_order2_parts(
             quadctx,
             base_terms,
             state,
@@ -1864,9 +1948,7 @@ impl<const K: usize> LatentPrimaryJetBackend<K> for LatentOrder2Backend {
             &suffixes,
             context,
         )?;
-        let mut out = parts[0].compose_unary(latent_unary_derivatives_log(1.0));
-        out.0.v += base_log_sum;
-        Ok(out)
+        Ok(parts[0])
     }
 }
 
@@ -1889,7 +1971,7 @@ impl<const K: usize> LatentPrimaryJetBackend<K> for LatentOneSeedBackend<K> {
         let seed = latent_kernel_direction_linear_combination(primary_directions, &self.direction);
         let seed_suffix = [seed];
         let suffixes: [&[LatentKernelPrimaryDirection]; 2] = [&[], &seed_suffix];
-        let (base_log_sum, parts) = latent_kernel_sum_order2_parts(
+        let parts = latent_kernel_sum_order2_parts(
             quadctx,
             base_terms,
             state,
@@ -1897,13 +1979,10 @@ impl<const K: usize> LatentPrimaryJetBackend<K> for LatentOneSeedBackend<K> {
             &suffixes,
             context,
         )?;
-        let mut out = OneSeed {
+        Ok(OneSeed {
             base: parts[0],
             eps: parts[1],
-        }
-        .compose_unary(latent_unary_derivatives_log(1.0));
-        out.base.0.v += base_log_sum;
-        Ok(out)
+        })
     }
 }
 
@@ -1933,7 +2012,7 @@ impl<const K: usize> LatentPrimaryJetBackend<K> for LatentTwoSeedBackend<K> {
         let suffix_uv = [seed_u, seed_v];
         let suffixes: [&[LatentKernelPrimaryDirection]; 4] =
             [&[], &suffix_u, &suffix_v, &suffix_uv];
-        let (base_log_sum, parts) = latent_kernel_sum_order2_parts(
+        let parts = latent_kernel_sum_order2_parts(
             quadctx,
             base_terms,
             state,
@@ -1941,15 +2020,12 @@ impl<const K: usize> LatentPrimaryJetBackend<K> for LatentTwoSeedBackend<K> {
             &suffixes,
             context,
         )?;
-        let mut out = TwoSeed {
+        Ok(TwoSeed {
             base: parts[0],
             eps: parts[1],
             del: parts[2],
             eps_del: parts[3],
-        }
-        .compose_unary(latent_unary_derivatives_log(1.0));
-        out.base.0.v += base_log_sum;
-        Ok(out)
+        })
     }
 }
 
@@ -4401,6 +4477,296 @@ fn binary_from_log_survival_through_fourth(
     Ok((base, outer_scale_prime, -ell_pppp))
 }
 
+/// Fitted frailty-scale coordinate used by exact saved latent-survival ALO.
+///
+/// A fixed scale is likelihood metadata and therefore contributes no fitted
+/// coordinate. A learned scale is represented by the exact raw `log_sigma`
+/// coefficient consumed by the fitter; replay evaluates `sigma = exp(eta)`
+/// inside the same primary row program.
+#[derive(Clone, Copy, Debug)]
+pub enum LatentSurvivalAloSigma {
+    Fixed(f64),
+    LearnedLogScale(f64),
+}
+
+/// One saved latent-survival row in the fitter's affine primary coordinates.
+pub struct LatentSurvivalAloRowInput<'a> {
+    pub quadrature: &'a QuadratureContext,
+    pub hazard_loading: HazardLoading,
+    pub event_code: u8,
+    pub prior_weight: f64,
+    pub q_entry: f64,
+    pub q_exit: f64,
+    pub qdot_exit: f64,
+    pub q_right: f64,
+    pub mu: f64,
+    pub sigma: LatentSurvivalAloSigma,
+    pub unloaded_mass_entry: f64,
+    pub unloaded_mass_exit: f64,
+    pub unloaded_mass_right: f64,
+    pub unloaded_hazard_exit: f64,
+}
+
+/// One saved latent-binary row in its three live affine coordinates
+/// `[q_entry, q_exit, mu]`.
+pub struct LatentBinaryAloRowInput<'a> {
+    pub quadrature: &'a QuadratureContext,
+    pub hazard_loading: HazardLoading,
+    pub event: u8,
+    pub prior_weight: f64,
+    pub q_entry: f64,
+    pub q_exit: f64,
+    pub mu: f64,
+    pub sigma: f64,
+    pub unloaded_mass_entry: f64,
+    pub unloaded_mass_exit: f64,
+}
+
+/// Exact NLL row geometry returned by the saved latent-window replay seam.
+pub struct LatentWindowAloRowGeometry {
+    pub nll_score: Array1<f64>,
+    pub observed_hessian: Array2<f64>,
+    pub coordinate_values: Array1<f64>,
+}
+
+fn validate_saved_alo_weight(weight: f64, context: &str) -> Result<(), String> {
+    if weight.is_finite() && weight >= 0.0 {
+        Ok(())
+    } else {
+        Err(format!(
+            "{context} prior weight must be finite and non-negative, got {weight}"
+        ))
+    }
+}
+
+fn checked_saved_alo_scale_vector(
+    values: Array1<f64>,
+    scale: f64,
+    context: &str,
+) -> Result<Array1<f64>, String> {
+    let mut out = Array1::<f64>::zeros(values.len());
+    for (axis, value) in values.into_iter().enumerate() {
+        let product = scale * value;
+        if !product.is_finite() || (scale != 0.0 && value != 0.0 && product == 0.0) {
+            return Err(format!(
+                "{context}[{axis}] is not representable: {scale:?} * {value:?}"
+            ));
+        }
+        out[axis] = product;
+    }
+    Ok(out)
+}
+
+fn checked_saved_alo_scale_matrix(
+    values: Array2<f64>,
+    scale: f64,
+    context: &str,
+) -> Result<Array2<f64>, String> {
+    let mut out = Array2::<f64>::zeros(values.dim());
+    for ((row, column), value) in values.indexed_iter() {
+        let product = scale * value;
+        if !product.is_finite() || (scale != 0.0 && *value != 0.0 && product == 0.0) {
+            return Err(format!(
+                "{context}[{row},{column}] is not representable: {scale:?} * {value:?}"
+            ));
+        }
+        out[[row, column]] = product;
+    }
+    Ok(out)
+}
+
+/// Replay one saved latent-survival likelihood row through the exact fitting
+/// program.
+///
+/// Coordinates are `[q_entry, q_exit, qdot_exit, q_right, mu]` followed by
+/// `log_sigma` only when that scale was learned. The primary authority returns
+/// log-likelihood score and negative log-likelihood Hessian; this boundary
+/// applies the row weight and flips only the score to the NLL convention.
+pub fn latent_survival_alo_row_geometry(
+    input: LatentSurvivalAloRowInput<'_>,
+) -> Result<LatentWindowAloRowGeometry, String> {
+    validate_saved_alo_weight(input.prior_weight, "latent-survival ALO")?;
+    let mut coordinate_values = vec![
+        input.q_entry,
+        input.q_exit,
+        input.qdot_exit,
+        input.q_right,
+        input.mu,
+    ];
+    let (sigma, include_log_sigma) = match input.sigma {
+        LatentSurvivalAloSigma::Fixed(sigma) => (sigma, false),
+        LatentSurvivalAloSigma::LearnedLogScale(log_sigma) => {
+            coordinate_values.push(log_sigma);
+            (log_sigma.exp(), true)
+        }
+    };
+    let coordinate_values = Array1::from_vec(coordinate_values);
+    let dimension = coordinate_values.len();
+    if input.prior_weight == 0.0 {
+        return Ok(LatentWindowAloRowGeometry {
+            nll_score: Array1::zeros(dimension),
+            observed_hessian: Array2::zeros((dimension, dimension)),
+            coordinate_values,
+        });
+    }
+    if !matches!(input.event_code, 0 | 1 | LATENT_SURVIVAL_EVENT_INTERVAL) {
+        return Err(format!(
+            "latent-survival ALO event code must be 0, 1, or the interval sentinel {LATENT_SURVIVAL_EVENT_INTERVAL}, got {}",
+            input.event_code
+        ));
+    }
+    if !sigma.is_finite()
+        || sigma < 0.0
+        || (include_log_sigma && (sigma == 0.0 || !coordinate_values[5].is_finite()))
+    {
+        return Err(format!(
+            "latent-survival ALO frailty scale is invalid: sigma={sigma:?}, learned={include_log_sigma}"
+        ));
+    }
+    if coordinate_values.iter().any(|value| !value.is_finite()) {
+        return Err("latent-survival ALO affine coordinates must be finite".to_string());
+    }
+    let event_type = latent_survival_event_type_for(input.event_code);
+    let row = build_latent_survival_row(
+        0,
+        input.hazard_loading,
+        event_type,
+        input.q_entry,
+        input.q_exit,
+        input.qdot_exit,
+        input.q_right,
+        input.unloaded_mass_entry,
+        input.unloaded_mass_exit,
+        input.unloaded_mass_right,
+        input.unloaded_hazard_exit,
+    )
+    .map_err(String::from)?;
+    let (_, log_likelihood_score, negative_log_likelihood_hessian) =
+        latent_survival_row_primary_gradient_hessian(
+            input.quadrature,
+            &row,
+            LatentSurvivalPrimaryPoint {
+                q_entry: input.q_entry,
+                q_exit: input.q_exit,
+                qdot_exit: input.qdot_exit,
+                q_right: input.q_right,
+                mu: input.mu,
+                sigma,
+            },
+            include_log_sigma,
+        )?;
+    let nll_score = checked_saved_alo_scale_vector(
+        log_likelihood_score.slice(s![0..dimension]).to_owned(),
+        -input.prior_weight,
+        "latent-survival ALO NLL score",
+    )?;
+    let observed_hessian = checked_saved_alo_scale_matrix(
+        negative_log_likelihood_hessian
+            .slice(s![0..dimension, 0..dimension])
+            .to_owned(),
+        input.prior_weight,
+        "latent-survival ALO observed Hessian",
+    )?;
+    Ok(LatentWindowAloRowGeometry {
+        nll_score,
+        observed_hessian,
+        coordinate_values,
+    })
+}
+
+/// Replay one saved latent-binary row through the exact right-censored latent
+/// survival authority and the fitter's analytic binary-from-log-survival
+/// chain. `W` is the observed NLL Hessian; the score outer product remains a
+/// separate downstream ALO covariance channel.
+pub fn latent_binary_alo_row_geometry(
+    input: LatentBinaryAloRowInput<'_>,
+) -> Result<LatentWindowAloRowGeometry, String> {
+    validate_saved_alo_weight(input.prior_weight, "latent-binary ALO")?;
+    let coordinate_values = Array1::from_vec(vec![input.q_entry, input.q_exit, input.mu]);
+    const DIMENSION: usize = 3;
+    if input.prior_weight == 0.0 {
+        return Ok(LatentWindowAloRowGeometry {
+            nll_score: Array1::zeros(DIMENSION),
+            observed_hessian: Array2::zeros((DIMENSION, DIMENSION)),
+            coordinate_values,
+        });
+    }
+    if input.event > 1 {
+        return Err(format!(
+            "latent-binary ALO event must be 0 or 1, got {}",
+            input.event
+        ));
+    }
+    if !input.sigma.is_finite() || input.sigma < 0.0 {
+        return Err(format!(
+            "latent-binary ALO frailty sigma must be finite and non-negative, got {:?}",
+            input.sigma
+        ));
+    }
+    if coordinate_values.iter().any(|value| !value.is_finite()) {
+        return Err("latent-binary ALO affine coordinates must be finite".to_string());
+    }
+    let row = build_latent_survival_row(
+        0,
+        input.hazard_loading,
+        LatentSurvivalEventType::RightCensored,
+        input.q_entry,
+        input.q_exit,
+        1.0,
+        input.q_exit,
+        input.unloaded_mass_entry,
+        input.unloaded_mass_exit,
+        0.0,
+        0.0,
+    )
+    .map_err(String::from)?;
+    let (log_survival, survival_score, survival_negative_hessian) =
+        latent_survival_row_primary_gradient_hessian(
+            input.quadrature,
+            &row,
+            LatentSurvivalPrimaryPoint {
+                q_entry: input.q_entry,
+                q_exit: input.q_exit,
+                qdot_exit: 1.0,
+                q_right: input.q_exit,
+                mu: input.mu,
+                sigma: input.sigma,
+            },
+            false,
+        )?;
+    let binary = binary_from_log_survival(log_survival, input.event).map_err(String::from)?;
+    let primary_indices = [
+        LATENT_SURVIVAL_PRIMARY_Q_ENTRY,
+        LATENT_SURVIVAL_PRIMARY_Q_EXIT,
+        LATENT_SURVIVAL_PRIMARY_MU,
+    ];
+    let binary_log_likelihood_score = Array1::from_shape_fn(DIMENSION, |axis| {
+        binary.grad_scale * survival_score[primary_indices[axis]]
+    });
+    let binary_negative_log_likelihood_hessian =
+        Array2::from_shape_fn((DIMENSION, DIMENSION), |(left, right)| {
+            let source_left = primary_indices[left];
+            let source_right = primary_indices[right];
+            binary.neg_hess_scale * survival_negative_hessian[[source_left, source_right]]
+                + binary.outer_scale * survival_score[source_left] * survival_score[source_right]
+        });
+    let nll_score = checked_saved_alo_scale_vector(
+        binary_log_likelihood_score,
+        -input.prior_weight,
+        "latent-binary ALO NLL score",
+    )?;
+    let observed_hessian = checked_saved_alo_scale_matrix(
+        binary_negative_log_likelihood_hessian,
+        input.prior_weight,
+        "latent-binary ALO observed Hessian",
+    )?;
+    Ok(LatentWindowAloRowGeometry {
+        nll_score,
+        observed_hessian,
+        coordinate_values,
+    })
+}
+
 impl LatentBinaryFamily {
     /// Assemble the per-row [`LatentSurvivalRow`] for a row treated as a pure
     /// right-censored survival contribution (exit time is the censoring
@@ -5435,10 +5801,13 @@ impl CustomFamily for LatentSurvivalFamily {
         _: &[ParameterBlockState],
         block_idx: usize,
         block_spec: &ParameterBlockSpec,
-    ) -> Result<Option<LinearInequalityConstraints>, String> {
+    ) -> Result<Option<ConstraintSet>, String> {
         assert!(!block_spec.name.is_empty());
         if block_idx == Self::BLOCK_TIME {
-            Ok(self.time_linear_constraints.clone())
+            Ok(self
+                .time_linear_constraints
+                .clone()
+                .map(ConstraintSet::Dense))
         } else {
             Ok(None)
         }
@@ -5708,10 +6077,13 @@ impl CustomFamily for LatentBinaryFamily {
         _: &[ParameterBlockState],
         block_idx: usize,
         block_spec: &ParameterBlockSpec,
-    ) -> Result<Option<LinearInequalityConstraints>, String> {
+    ) -> Result<Option<ConstraintSet>, String> {
         assert!(!block_spec.name.is_empty());
         if block_idx == Self::BLOCK_TIME {
-            Ok(self.time_linear_constraints.clone())
+            Ok(self
+                .time_linear_constraints
+                .clone()
+                .map(ConstraintSet::Dense))
         } else {
             Ok(None)
         }
@@ -5813,6 +6185,100 @@ mod tests {
 
     fn learnable_sigma_test_joint_beta() -> Array1<f64> {
         array![0.15, 0.25, 0.1, -0.15, 0.35_f64.ln()]
+    }
+
+    #[test]
+    fn saved_latent_survival_alo_matches_deterministic_frailty_oracle() {
+        const K: usize = 5;
+        let weight = 1.7;
+        let quadrature = QuadratureContext::new();
+        let geometry = latent_survival_alo_row_geometry(LatentSurvivalAloRowInput {
+            quadrature: &quadrature,
+            hazard_loading: HazardLoading::Full,
+            event_code: 0,
+            prior_weight: weight,
+            q_entry: -0.4,
+            q_exit: 0.2,
+            qdot_exit: 1.1,
+            q_right: 0.2,
+            mu: -0.1,
+            sigma: LatentSurvivalAloSigma::Fixed(0.0),
+            unloaded_mass_entry: 0.0,
+            unloaded_mass_exit: 0.0,
+            unloaded_mass_right: 0.0,
+            unloaded_hazard_exit: 0.0,
+        })
+        .expect("exact saved latent-survival row");
+
+        let values: [f64; K] = geometry
+            .coordinate_values
+            .as_slice()
+            .expect("owned coordinates are contiguous")
+            .try_into()
+            .expect("fixed-scale latent survival has five primaries");
+        let variables: [Order2<K>; K] =
+            std::array::from_fn(|axis| Order2::variable(values[axis], axis));
+        // At sigma=0 and full loading, right-censoring has
+        // NLL = w[exp(q_exit + mu) - exp(q_entry + mu)].
+        let oracle = variables[1]
+            .add(&variables[4])
+            .exp()
+            .sub(&variables[0].add(&variables[4]).exp())
+            .scale(weight);
+        for left in 0..K {
+            assert!((geometry.nll_score[left] - oracle.g()[left]).abs() <= 3e-12);
+            for right in 0..K {
+                assert!(
+                    (geometry.observed_hessian[[left, right]] - oracle.h()[left][right]).abs()
+                        <= 4e-12
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn saved_latent_binary_alo_matches_deterministic_frailty_oracle() {
+        const K: usize = 3;
+        let weight = 0.8;
+        let quadrature = QuadratureContext::new();
+        let geometry = latent_binary_alo_row_geometry(LatentBinaryAloRowInput {
+            quadrature: &quadrature,
+            hazard_loading: HazardLoading::Full,
+            event: 1,
+            prior_weight: weight,
+            q_entry: -0.6,
+            q_exit: 0.3,
+            mu: -0.2,
+            sigma: 0.0,
+            unloaded_mass_entry: 0.0,
+            unloaded_mass_exit: 0.0,
+        })
+        .expect("exact saved latent-binary row");
+
+        let values: [f64; K] = geometry
+            .coordinate_values
+            .as_slice()
+            .expect("owned coordinates are contiguous")
+            .try_into()
+            .expect("latent binary has three live primaries");
+        let variables: [Order2<K>; K] =
+            std::array::from_fn(|axis| Order2::variable(values[axis], axis));
+        let log_survival = variables[0]
+            .add(&variables[2])
+            .exp()
+            .sub(&variables[1].add(&variables[2]).exp());
+        let one = variables[0].compose_unary([1.0, 0.0, 0.0, 0.0, 0.0]);
+        // Event NLL = -w log(1 - exp(log_survival)).
+        let oracle = one.sub(&log_survival.exp()).ln().neg().scale(weight);
+        for left in 0..K {
+            assert!((geometry.nll_score[left] - oracle.g()[left]).abs() <= 4e-12);
+            for right in 0..K {
+                assert!(
+                    (geometry.observed_hessian[[left, right]] - oracle.h()[left][right]).abs()
+                        <= 6e-12
+                );
+            }
+        }
     }
 
     /// Regression (frailty scale block deletion): a learnable-σ latent-survival
@@ -6457,7 +6923,7 @@ mod tests {
 
     fn loaded_frailty() -> FrailtySpec {
         FrailtySpec::HazardMultiplier {
-            sigma_fixed: Some(0.3),
+            scale: FrailtyScale::Fixed { sigma: 0.3 },
             loading: HazardLoading::LoadedVsUnloaded,
         }
     }
@@ -6474,16 +6940,15 @@ mod tests {
         let p_time = 2;
         let data = Array2::<f64>::zeros((n, 3));
 
-        // 1. A clean spec validates and round-trips the resolved sigma.
-        //    Survival keeps the (possibly learnable) Option; binary unwraps to
-        //    the fixed scalar.
+        // 1. A clean spec validates and round-trips the typed scale.
+        //    Binary then extracts the required fixed scalar.
         let surv_sigma = validate_latent_survival_inputs(
             data.view(),
             &valid_survival_spec(n, p_time),
             &loaded_frailty(),
         )
         .expect("valid survival spec must validate");
-        assert_eq!(surv_sigma, Some(0.3));
+        assert_eq!(surv_sigma, FrailtyScale::Fixed { sigma: 0.3 });
         let bin_sigma = validate_latent_binary_inputs(
             data.view(),
             &valid_binary_spec(n, p_time),
@@ -6581,10 +7046,10 @@ mod tests {
             "latent-binary row 2 has invalid event target 7; expected 0 or 1"
         );
 
-        // 6. Frailty policy divergence: survival accepts a learnable scale
-        //    (`sigma_fixed = None` ⇒ `Ok(None)`), binary rejects it.
+        // 6. Frailty policy divergence: survival accepts a learned scale,
+        //    binary rejects it.
         let learnable = FrailtySpec::HazardMultiplier {
-            sigma_fixed: None,
+            scale: FrailtyScale::Learned { initial_sigma: 0.5 },
             loading: HazardLoading::LoadedVsUnloaded,
         };
         let surv_learnable = validate_latent_survival_inputs(
@@ -6593,7 +7058,10 @@ mod tests {
             &learnable,
         )
         .expect("survival accepts a learnable latent scale");
-        assert_eq!(surv_learnable, None);
+        assert_eq!(
+            surv_learnable,
+            FrailtyScale::Learned { initial_sigma: 0.5 }
+        );
         let bin_learnable =
             validate_latent_binary_inputs(data.view(), &valid_binary_spec(n, p_time), &learnable)
                 .expect_err("binary requires a fixed latent scale");
@@ -7549,29 +8017,45 @@ mod tests {
     ) {
         let mut max_abs = (got.0 - reference.0).abs();
         let mut max_rel = max_abs / got.0.abs().max(reference.0.abs()).max(1e-13);
-        for (left, right) in got
-            .1
-            .iter()
-            .chain(got.2.iter())
-            .chain(got.3.iter())
-            .chain(got.4.iter())
-            .zip(
-                reference
-                    .1
-                    .iter()
-                    .chain(reference.2.iter())
-                    .chain(reference.3.iter())
-                    .chain(reference.4.iter()),
-            )
-        {
+        let mut max_abs_channel = "value".to_string();
+        let mut max_abs_values = (got.0, reference.0);
+        let mut max_rel_channel = "value".to_string();
+        let mut max_rel_values = (got.0, reference.0);
+        let mut record = |channel: String, left: f64, right: f64| {
             let absolute = (left - right).abs();
             let relative = absolute / left.abs().max(right.abs()).max(1e-13);
-            max_abs = max_abs.max(absolute);
-            max_rel = max_rel.max(relative);
+            if absolute > max_abs {
+                max_abs = absolute;
+                max_abs_channel = channel.clone();
+                max_abs_values = (left, right);
+            }
+            if relative > max_rel {
+                max_rel = relative;
+                max_rel_channel = channel;
+                max_rel_values = (left, right);
+            }
+        };
+        for (a, (&left, &right)) in got.1.iter().zip(reference.1.iter()).enumerate() {
+            record(format!("gradient[{a}]"), left, right);
+        }
+        for ((a, b), &left) in got.2.indexed_iter() {
+            record(format!("hessian[{a},{b}]"), left, reference.2[[a, b]]);
+        }
+        for ((a, b), &left) in got.3.indexed_iter() {
+            record(format!("third[{a},{b}]"), left, reference.3[[a, b]]);
+        }
+        for ((a, b), &left) in got.4.indexed_iter() {
+            record(format!("fourth[{a},{b}]"), left, reference.4[[a, b]]);
         }
         assert!(
             max_abs <= 5e-11 || max_rel <= 5e-10,
-            "{label}: one-pass channels differ from the pre-cutover MultiDirJet oracle: max_abs={max_abs:e}, max_rel={max_rel:e}"
+            "{label}: one-pass channels differ from the pre-cutover MultiDirJet oracle: \
+             max_abs={max_abs:e} at {max_abs_channel} (one-pass={}, oracle={}); \
+             max_rel={max_rel:e} at {max_rel_channel} (one-pass={}, oracle={})",
+            max_abs_values.0,
+            max_abs_values.1,
+            max_rel_values.0,
+            max_rel_values.1,
         );
     }
 

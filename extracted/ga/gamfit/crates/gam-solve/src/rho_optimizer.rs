@@ -44,16 +44,18 @@ use std::sync::Mutex;
 
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 
+pub mod asymptote_certificate;
 mod bridges;
 mod capability;
 mod hessian_operator;
+pub mod kl_certificate;
 mod objective;
 mod run;
 mod run_plan;
 mod seed_screening;
 
 pub(crate) use crate::model_types::CERTIFICATE_RAIL_MARGIN;
-pub use crate::model_types::{OuterCriterionCertificate, OuterStationarityCertificate};
+pub use crate::model_types::{OuterCriterionCertificate, OuterStationarityCertificate, RailCoordinate};
 pub(crate) use bridges::*;
 pub use capability::*;
 pub use gam_problem::{DeclaredHessianForm, Derivative, HessianValue, OuterEval};
@@ -66,15 +68,11 @@ pub use run::OuterProblem;
 // Re-export the outer-loop result struct at `pub` (the blanket `run` re-export
 // above is `pub(crate)`) so the lifted gam-models fit-orchestration driver can
 // name `gam_solve::rho_optimizer::OuterResult` (#1521).
-pub use run::OuterResult;
+pub use run::{CertifiedOuterResult, OuterResult};
 // Re-export the converged-via certificate vocabulary (#2235/#2241) so callers
 // that thread the termination verdict into their own payloads (gam-sae's
 // SaeOuterTermination) can name the variants.
 pub use run::OuterConvergedVia;
-// Re-export the canonical FD-of-analytic-gradient outer-Hessian stepper at
-// `pub` so the gam-sae SAE objective materializes its small-ρ dense outer
-// Hessian (#2228/#2266 ARC route) through the SAME functional the outer
-// certificate's decrement rescue uses — one stepper, no parallel FD path.
-pub use run::fd_outer_hessian_from_gradient;
+pub use run::{OuterStationaryPointRejection, audit_stationary_point};
 pub(crate) use run_plan::*;
 pub(crate) use seed_screening::*;

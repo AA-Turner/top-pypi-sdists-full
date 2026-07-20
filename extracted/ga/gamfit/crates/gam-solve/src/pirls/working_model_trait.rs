@@ -40,9 +40,84 @@ pub trait WorkingModel {
         false
     }
 
+    /// Solve the unconstrained LM system in the model's native numerical
+    /// representation.  Generic working models own only an assembled Hessian;
+    /// concrete models that retain a better-conditioned square root can
+    /// override this atom without changing constraints or trust-region logic.
+    fn solve_unconstrained_direction(
+        &mut self,
+        beta: &Coefficients,
+        state: &WorkingState,
+        loop_lambda: f64,
+        lm_d2: &Array1<f64>,
+        regularized_hessian: &Array2<f64>,
+        direction_out: &mut Array1<f64>,
+    ) -> Result<(), EstimationError> {
+        if beta.as_ref().len() != state.gradient.len() {
+            crate::bail_invalid_estim!(
+                "PIRLS coefficient length {} does not match gradient length {}",
+                beta.as_ref().len(),
+                state.gradient.len()
+            );
+        }
+        if !(loop_lambda.is_finite() && loop_lambda >= 0.0) {
+            crate::bail_invalid_estim!(
+                "PIRLS LM damping must be finite and nonnegative, got {loop_lambda}"
+            );
+        }
+        if lm_d2.len() != state.gradient.len() {
+            crate::bail_invalid_estim!(
+                "PIRLS LM diagonal length {} does not match gradient length {}",
+                lm_d2.len(),
+                state.gradient.len()
+            );
+        }
+        solve_newton_direction_dense(regularized_hessian, &state.gradient, direction_out)?;
+        Ok(())
+    }
+
+    /// Return an exact squared Newton decrement for the supplied coefficient
+    /// state when the model owns a numerically stronger representation than
+    /// the assembled coefficient-space gradient/Hessian.
+    ///
+    /// The certificate must describe `beta` and `state` themselves.  A
+    /// decrement computed while solving a previous LM step cannot be reused
+    /// after that step has changed the coefficients.
+    fn exact_unconstrained_decrement_sq(
+        &mut self,
+        beta: &Coefficients,
+        state: &WorkingState,
+    ) -> Result<Option<f64>, EstimationError> {
+        if beta.as_ref().len() != state.gradient.len() {
+            crate::bail_invalid_estim!(
+                "PIRLS coefficient length {} does not match gradient length {}",
+                beta.as_ref().len(),
+                state.gradient.len()
+            );
+        }
+        Ok(None)
+    }
+
+    /// Add the model-specific curvature term omitted from `WorkingState`'s
+    /// assembled statistical/penalty Hessian when evaluating the bare
+    /// objective quadratic `dᵀ H d`.
+    ///
+    /// Most models store the complete objective Hessian and return zero.  Firth
+    /// keeps `HΦ` beside its cancellation-safe root operands because the outer
+    /// Laplace layer also consumes `H₀` and `HΦ` separately; its correction is
+    /// therefore `-dᵀHΦd`.
+    fn objective_hessian_quadratic_correction(
+        &self,
+        direction: &Array1<f64>,
+    ) -> Result<f64, EstimationError> {
+        assert!(array_is_finite(direction));
+        Ok(0.0)
+    }
+
     /// Dispersion factor `k` the inner working weight carries but the reported
     /// deviance (`state.deviance` / `CandidateScreen::deviance`) does not, so the
-    /// LM gain-ratio / stall-detection objective must be `k·deviance + penalty`
+    /// LM gain-ratio / stall-detection objective must be
+    /// `½(k·deviance + penalty)`
     /// to stay consistent with the `k`-scaled gradient and Hessian the step is
     /// built from. `1.0` for families whose weight carries no such factor (the
     /// solver objective is already self-consistent there). See
@@ -70,7 +145,7 @@ pub enum CandidateEvaluation {
 }
 
 impl CandidateEvaluation {
-    /// The penalized objective `dev_scale·deviance + penalty` (minus the Firth
+    /// The penalized objective `½(dev_scale·deviance + penalty)` (minus the Firth
     /// Jeffreys term when active). `dev_scale` is the family dispersion factor
     /// `k` (see `WorkingModel::penalized_deviance_scale`): the trial's deviance
     /// must be scaled by the SAME `k` the accepted state's is, so the LM
@@ -78,11 +153,11 @@ impl CandidateEvaluation {
     #[inline]
     pub(crate) fn penalized_objective(&self, firth_bias_reduction: bool, dev_scale: f64) -> f64 {
         match self {
-            Self::Screen(s) => dev_scale * s.deviance + s.penalty_term,
+            Self::Screen(s) => 0.5 * (dev_scale * s.deviance + s.penalty_term),
             Self::Full(state) => {
-                let mut value = dev_scale * state.deviance + state.penalty_term;
+                let mut value = 0.5 * (dev_scale * state.deviance + state.penalty_term);
                 if firth_bias_reduction && let Some(j) = state.jeffreys_logdet() {
-                    value -= 2.0 * j;
+                    value -= j;
                 }
                 value
             }

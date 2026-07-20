@@ -889,6 +889,8 @@ impl SaeBasisThirdJet for SphereChartEvaluator {
 /// and it has no effect on the span, orthonormality, or reconstruction.
 #[derive(Debug, Clone)]
 struct SphHarmonicColumn {
+    /// Spherical-harmonic degree `l`.
+    degree: usize,
     /// Signed order `m ∈ [-l, l]`: `m ≥ 0` uses `cos(m·lon)`, `m < 0` uses
     /// `sin(|m|·lon)`.
     m: i64,
@@ -931,6 +933,22 @@ struct SphHarmonicColumn {
 pub struct SphericalHarmonicEvaluator {
     degree: usize,
     columns: Vec<SphHarmonicColumn>,
+}
+
+/// Spectral identity of one real spherical-harmonic column.
+///
+/// The evaluator's public column order is triangular in `(degree, order)`:
+/// degree `l` contributes orders `-l..=l`.  Carrying this identity beside the
+/// analytic evaluator lets quotient constructions restrict the cover's exact
+/// eigenspaces without re-deriving indexing conventions.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SphericalHarmonicMode {
+    pub degree: usize,
+    pub order: i64,
+    /// Positive-Laplacian eigenvalue `l(l+1)` on the unit sphere.
+    pub laplace_eigenvalue: f64,
+    /// Diagonal `L²(S²)` Gram entry.  The real harmonics are orthonormal.
+    pub l2_gram_weight: f64,
 }
 
 /// Legendre polynomials `P_0..=P_degree` as ascending-power coefficient vectors,
@@ -983,7 +1001,11 @@ fn spherical_harmonic_norm(l: usize, m: i64) -> f64 {
         ratio /= k as f64;
     }
     let base = ((2 * l + 1) as f64 / (4.0 * std::f64::consts::PI) * ratio).sqrt();
-    if m == 0 { base } else { base * std::f64::consts::SQRT_2 }
+    if m == 0 {
+        base
+    } else {
+        base * std::f64::consts::SQRT_2
+    }
 }
 
 /// One-dimensional order-3 jet `[f, f', f'', f''']` product (Leibniz).
@@ -999,12 +1021,19 @@ fn sph_jet_mul(a: [f64; 4], b: [f64; 4]) -> [f64; 4] {
 
 impl SphericalHarmonicEvaluator {
     pub fn new(degree: usize) -> Result<Self, String> {
+        let side = degree.checked_add(1).ok_or_else(|| {
+            "SphericalHarmonicEvaluator: basis width overflowed usize".to_string()
+        })?;
+        let basis_size = side.checked_mul(side).ok_or_else(|| {
+            "SphericalHarmonicEvaluator: basis width overflowed usize".to_string()
+        })?;
         let polys = legendre_polynomials(degree);
-        let mut columns = Vec::with_capacity((degree + 1) * (degree + 1));
+        let mut columns = Vec::with_capacity(basis_size);
         for l in 0..=degree {
             for m in -(l as i64)..=(l as i64) {
                 let am = m.unsigned_abs() as usize;
                 columns.push(SphHarmonicColumn {
+                    degree: l,
                     m,
                     am,
                     norm: spherical_harmonic_norm(l, m),
@@ -1022,6 +1051,22 @@ impl SphericalHarmonicEvaluator {
 
     pub fn basis_size(&self) -> usize {
         self.columns.len()
+    }
+
+    /// Exact `(l,m)` and Laplace-eigenvalue metadata in evaluator column order.
+    pub fn spectral_modes(&self) -> Vec<SphericalHarmonicMode> {
+        self.columns
+            .iter()
+            .map(|column| {
+                let degree = column.degree as f64;
+                SphericalHarmonicMode {
+                    degree: column.degree,
+                    order: column.m,
+                    laplace_eigenvalue: degree * (degree + 1.0),
+                    l2_gram_weight: 1.0,
+                }
+            })
+            .collect()
     }
 
     /// Latitude amplitude jet `[R, R', R'', R''']` of a column via order-3 jet
@@ -1084,7 +1129,11 @@ impl SaeBasisEvaluator for SphericalHarmonicEvaluator {
         // Base (η-invariant) block: monopole + dipole `l ≤ 1` (the base sphere
         // embedding). The quadrupole and higher harmonics `l ≥ 2` are the
         // η-dialed curvature refinement, mirroring the fixed sphere chart.
-        let curved = self.columns.iter().map(|col| col.curved).collect::<Vec<_>>();
+        let curved = self
+            .columns
+            .iter()
+            .map(|col| col.curved)
+            .collect::<Vec<_>>();
         Ok(PhiEtaSplit::from_curved_mask(curved))
     }
 
@@ -1191,8 +1240,8 @@ pub fn select_spherical_harmonic_degree(
     target: ArrayView2<'_, f64>,
     max_degree: usize,
 ) -> Result<usize, String> {
-    use gam_linalg::faer_ndarray::{FaerCholesky, fast_ata, fast_atb};
     use faer::Side;
+    use gam_linalg::faer_ndarray::{FaerCholesky, fast_ata, fast_atb};
 
     if coords.nrows() != target.nrows() {
         return Err(format!(
@@ -1216,7 +1265,9 @@ pub fn select_spherical_harmonic_degree(
     let rhs = fast_atb(&phi, &target.to_owned());
     let decoder = gram
         .cholesky(Side::Lower)
-        .map_err(|err| format!("select_spherical_harmonic_degree: gram factorization failed: {err:?}"))?
+        .map_err(|err| {
+            format!("select_spherical_harmonic_degree: gram factorization failed: {err:?}")
+        })?
         .solve_mat(&rhs);
 
     // Per-degree mean coefficient energy over the (2l+1) orders and all outputs.
@@ -1263,10 +1314,48 @@ pub fn select_spherical_harmonic_degree(
 /// (each axis contributes `2H+1` factors, so the total basis size is
 /// `(2H+1)^d`). The latent coords are angular phases in `[0, 1)` (consistent
 /// with the periodic 1-D atoms).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RealHarmonicComponent {
+    Constant,
+    Sine { harmonic: usize },
+    Cosine { harmonic: usize },
+}
+
+impl RealHarmonicComponent {
+    pub fn harmonic(self) -> usize {
+        match self {
+            Self::Constant => 0,
+            Self::Sine { harmonic } | Self::Cosine { harmonic } => harmonic,
+        }
+    }
+
+    /// Sign under reflection of the corresponding circle coordinate.
+    pub fn reflection_sign(self) -> i8 {
+        match self {
+            Self::Sine { .. } => -1,
+            Self::Constant | Self::Cosine { .. } => 1,
+        }
+    }
+}
+
+/// Spectral identity of one tensor-product real Fourier column.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TorusHarmonicMode {
+    pub components: Vec<RealHarmonicComponent>,
+    /// Positive-Laplacian eigenvalue `sum_a k_a^2`, up to the common `(2π)^2`
+    /// chart-unit scale absorbed by the smoothing strength.
+    pub laplace_eigenvalue: f64,
+    /// Diagonal Gram entry under normalized Haar measure on the torus.  Each
+    /// sine/cosine factor contributes `1/2`; constant factors contribute one.
+    pub l2_gram_weight: f64,
+}
+
 #[derive(Debug, Clone)]
 pub struct TorusHarmonicEvaluator {
-    pub latent_dim: usize,
-    pub num_harmonics: usize,
+    latent_dim: usize,
+    num_harmonics: usize,
+    axis_basis_size: usize,
+    basis_size: usize,
 }
 
 impl TorusHarmonicEvaluator {
@@ -1277,26 +1366,92 @@ impl TorusHarmonicEvaluator {
         if num_harmonics == 0 {
             return Err("TorusHarmonicEvaluator requires num_harmonics >= 1".to_string());
         }
+        let axis_width = num_harmonics
+            .checked_mul(2)
+            .and_then(|twice| twice.checked_add(1))
+            .ok_or_else(|| {
+                "TorusHarmonicEvaluator: per-axis basis width overflowed usize".to_string()
+            })?;
+        let basis_size = (0..latent_dim)
+            .try_fold(1usize, |width, _| width.checked_mul(axis_width))
+            .ok_or_else(|| {
+                "TorusHarmonicEvaluator: tensor basis width overflowed usize".to_string()
+            })?;
         Ok(Self {
             latent_dim,
             num_harmonics,
+            axis_basis_size: axis_width,
+            basis_size,
         })
     }
 
+    pub fn latent_dim(&self) -> usize {
+        self.latent_dim
+    }
+
+    pub fn num_harmonics(&self) -> usize {
+        self.num_harmonics
+    }
+
     pub fn axis_basis_size(&self) -> usize {
-        2 * self.num_harmonics + 1
+        self.axis_basis_size
     }
 
     pub fn basis_size(&self) -> usize {
-        // (2H+1)^d — computed iteratively to surface overflow.
-        let axis_m = self.axis_basis_size();
-        let mut total: usize = 1;
-        for _ in 0..self.latent_dim {
-            total = total
-                .checked_mul(axis_m)
-                .expect("TorusHarmonicEvaluator: basis size overflowed usize");
+        self.basis_size
+    }
+
+    /// Real Fourier component represented by one per-axis column index.
+    pub fn axis_component(axis_column: usize) -> RealHarmonicComponent {
+        if axis_column == 0 {
+            RealHarmonicComponent::Constant
+        } else {
+            let harmonic = axis_column.div_ceil(2);
+            if axis_column % 2 == 1 {
+                RealHarmonicComponent::Sine { harmonic }
+            } else {
+                RealHarmonicComponent::Cosine { harmonic }
+            }
         }
-        total
+    }
+
+    /// Exact tensor Fourier modes and Laplace eigenvalues in evaluator column
+    /// order (last axis fastest).
+    pub fn spectral_modes(&self) -> Vec<TorusHarmonicMode> {
+        let axis_m = self.axis_basis_size();
+        let mut index = vec![0usize; self.latent_dim];
+        let mut modes = Vec::with_capacity(self.basis_size());
+        for _ in 0..self.basis_size() {
+            let components: Vec<RealHarmonicComponent> =
+                index.iter().copied().map(Self::axis_component).collect();
+            let laplace_eigenvalue = components
+                .iter()
+                .map(|component| {
+                    let harmonic = component.harmonic() as f64;
+                    harmonic * harmonic
+                })
+                .sum();
+            let l2_gram_weight = components.iter().fold(1.0, |weight, component| {
+                if *component == RealHarmonicComponent::Constant {
+                    weight
+                } else {
+                    0.5 * weight
+                }
+            });
+            modes.push(TorusHarmonicMode {
+                components,
+                laplace_eigenvalue,
+                l2_gram_weight,
+            });
+            for axis in (0..self.latent_dim).rev() {
+                index[axis] += 1;
+                if index[axis] < axis_m {
+                    break;
+                }
+                index[axis] = 0;
+            }
+        }
+        modes
     }
 }
 
@@ -1622,6 +1777,545 @@ impl SaeBasisThirdJet for TorusHarmonicEvaluator {
             }
         }
         Ok(t3)
+    }
+}
+
+/// One-dimensional real character of an involutive deck transformation.
+///
+/// This type is deliberately narrower than a signed-permutation action.  It
+/// certifies that one cover column `f` is itself an eigenvector of pullback by
+/// the non-identity deck map `g`: `g*f = f` or `g*f = -f`.  The exact Reynolds
+/// projector is therefore
+///
+/// `P_Gamma f = (f + g*f) / 2 = f` for `Trivial`, and `0` for `Sign`.
+///
+/// A basis that is merely permuted by `g` cannot use this representation: for
+/// example, swapping two columns retains their orbit sum, not either column.
+/// Such an action requires an explicit restriction matrix `Q`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum DeckInvolutionCharacter {
+    Trivial,
+    Sign,
+}
+
+impl DeckInvolutionCharacter {
+    /// Eigenvalue of the exact group average `(I + g*) / 2` on this column.
+    fn reynolds_projector_eigenvalue(self) -> u8 {
+        match self {
+            Self::Trivial => 1,
+            Self::Sign => 0,
+        }
+    }
+}
+
+/// Spectral metadata for every cover column, in cover evaluator order.
+///
+/// Requiring a full character table, rather than accepting a caller-selected
+/// mask, makes the group average the single authority for quotient width,
+/// column restriction, Gram entries, penalty eigenvalues, and nullity.
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct CoverSpectralCharacter {
+    deck_character: DeckInvolutionCharacter,
+    laplace_eigenvalue: f64,
+    l2_gram_weight: f64,
+    curved_if_retained: bool,
+}
+
+/// Exact diagonal-character restriction of an analytic cover evaluator.
+///
+/// Static column selection is exact only because each supported cover column
+/// is a simultaneous one-dimensional character of the deck involution.  Mere
+/// signed permutation of a basis is insufficient; non-diagonal actions require
+/// orbit sums or a dense restriction matrix `Q`.  Values and analytic
+/// first/second/third jets are restricted from one cover evaluator, while the
+/// same complete character table determines width, Gram, spectral penalties,
+/// and null space.
+#[derive(Debug, Clone)]
+pub struct QuotientSpectralEvaluator {
+    quotient_name: String,
+    cover: Arc<dyn SaeBasisThirdJet>,
+    cover_width: usize,
+    cover_columns: Vec<usize>,
+    laplace_eigenvalues: Vec<f64>,
+    l2_gram_weights: Vec<f64>,
+    curved_columns: Vec<bool>,
+}
+
+/// Number of invariant real spherical harmonics on `RP²` through even cover
+/// degree `2H`: `sum_{r=0}^H (4r+1) = (H+1)(2H+1)`.
+pub fn projective_plane_basis_size(harmonic_order: usize) -> Result<usize, String> {
+    if harmonic_order == 0 {
+        return Err("projective_plane_basis_size requires harmonic_order >= 1".to_string());
+    }
+    harmonic_order
+        .checked_add(1)
+        .and_then(|left| {
+            harmonic_order
+                .checked_mul(2)
+                .and_then(|twice| twice.checked_add(1))
+                .and_then(|right| left.checked_mul(right))
+        })
+        .ok_or_else(|| "projective_plane_basis_size overflowed usize".to_string())
+}
+
+/// Number of invariant real torus harmonics on the flat Klein quotient through
+/// equal per-axis order `H`: `1 + 2 floor(H/2) + H + 2H²`.
+pub fn klein_bottle_basis_size(num_harmonics: usize) -> Result<usize, String> {
+    if num_harmonics == 0 {
+        return Err("klein_bottle_basis_size requires num_harmonics >= 1".to_string());
+    }
+    let cross_width = num_harmonics
+        .checked_mul(num_harmonics)
+        .and_then(|square| square.checked_mul(2))
+        .ok_or_else(|| "klein_bottle_basis_size overflowed usize".to_string())?;
+    1usize
+        .checked_add(2 * (num_harmonics / 2))
+        .and_then(|width| width.checked_add(num_harmonics))
+        .and_then(|width| width.checked_add(cross_width))
+        .ok_or_else(|| "klein_bottle_basis_size overflowed usize".to_string())
+}
+
+impl QuotientSpectralEvaluator {
+    /// Build a quotient from a cover and its complete diagonal character table.
+    ///
+    /// `characters[cover_column]` must certify the pullback eigencharacter of
+    /// that exact cover column.  The Reynolds projector derives the retained
+    /// columns; callers cannot supply an already-filtered mask.  A connected
+    /// closed cover and quotient have one zero-eigenvalue mode (the constant),
+    /// whose character is trivial and which remains in the homotopy base.
+    fn from_diagonal_involution_characters(
+        quotient_name: impl Into<String>,
+        cover: Arc<dyn SaeBasisThirdJet>,
+        cover_width: usize,
+        characters: Vec<CoverSpectralCharacter>,
+    ) -> Result<Self, String> {
+        let quotient_name = quotient_name.into();
+        if quotient_name.trim().is_empty() {
+            return Err("QuotientSpectralEvaluator requires a non-empty quotient name".to_string());
+        }
+        if cover_width == 0 {
+            return Err(format!(
+                "QuotientSpectralEvaluator[{quotient_name}]: cover width must be positive"
+            ));
+        }
+        if characters.len() != cover_width {
+            return Err(format!(
+                "QuotientSpectralEvaluator[{quotient_name}]: diagonal character table width {} != cover width {cover_width}",
+                characters.len()
+            ));
+        }
+
+        let mut cover_columns = Vec::with_capacity(cover_width);
+        let mut laplace_eigenvalues = Vec::with_capacity(cover_width);
+        let mut l2_gram_weights = Vec::with_capacity(cover_width);
+        let mut curved_columns = Vec::with_capacity(cover_width);
+        let mut nullity = 0usize;
+        for (cover_column, mode) in characters.into_iter().enumerate() {
+            if !(mode.laplace_eigenvalue.is_finite() && mode.laplace_eigenvalue >= 0.0) {
+                return Err(format!(
+                    "QuotientSpectralEvaluator[{quotient_name}]: cover column {cover_column} has invalid Laplace eigenvalue {}",
+                    mode.laplace_eigenvalue
+                ));
+            }
+            if !(mode.l2_gram_weight.is_finite() && mode.l2_gram_weight > 0.0) {
+                return Err(format!(
+                    "QuotientSpectralEvaluator[{quotient_name}]: cover column {cover_column} has invalid L2 Gram weight {}",
+                    mode.l2_gram_weight
+                ));
+            }
+            if mode.laplace_eigenvalue == 0.0 {
+                if mode.deck_character != DeckInvolutionCharacter::Trivial {
+                    return Err(format!(
+                        "QuotientSpectralEvaluator[{quotient_name}]: the constant cover mode at column {cover_column} must have trivial deck character"
+                    ));
+                }
+                nullity += 1;
+                if mode.curved_if_retained {
+                    return Err(format!(
+                        "QuotientSpectralEvaluator[{quotient_name}]: the constant null mode cannot be curvature-scaled"
+                    ));
+                }
+            }
+            if mode.deck_character.reynolds_projector_eigenvalue() == 1 {
+                cover_columns.push(cover_column);
+                laplace_eigenvalues.push(mode.laplace_eigenvalue);
+                l2_gram_weights.push(mode.l2_gram_weight);
+                curved_columns.push(mode.curved_if_retained);
+            }
+        }
+        if nullity != 1 {
+            return Err(format!(
+                "QuotientSpectralEvaluator[{quotient_name}]: connected closed quotient requires exactly one constant null mode; found {nullity}"
+            ));
+        }
+
+        Ok(Self {
+            quotient_name,
+            cover,
+            cover_width,
+            cover_columns,
+            laplace_eigenvalues,
+            l2_gram_weights,
+            curved_columns,
+        })
+    }
+
+    /// Real harmonics on `RP² = S²/{u ~ -u}` through quotient order `H`.
+    ///
+    /// Antipodal parity is `Y_lm(-u) = (-1)^l Y_lm(u)`, hence precisely the
+    /// even degrees `l = 0, 2, ..., 2H` survive.
+    pub fn projective_plane(harmonic_order: usize) -> Result<Self, String> {
+        if harmonic_order == 0 {
+            return Err(
+                "QuotientSpectralEvaluator::projective_plane requires harmonic_order >= 1"
+                    .to_string(),
+            );
+        }
+        let max_degree = harmonic_order.checked_mul(2).ok_or_else(|| {
+            "QuotientSpectralEvaluator::projective_plane: maximum cover degree overflowed usize"
+                .to_string()
+        })?;
+        let cover_side = max_degree.checked_add(1).ok_or_else(|| {
+            "QuotientSpectralEvaluator::projective_plane: cover width overflowed usize".to_string()
+        })?;
+        cover_side.checked_mul(cover_side).ok_or_else(|| {
+            "QuotientSpectralEvaluator::projective_plane: cover width overflowed usize".to_string()
+        })?;
+        let expected_width = projective_plane_basis_size(harmonic_order)?;
+
+        let cover = SphericalHarmonicEvaluator::new(max_degree)?;
+        let cover_width = cover.basis_size();
+        let characters = cover
+            .spectral_modes()
+            .into_iter()
+            .map(|mode| CoverSpectralCharacter {
+                deck_character: if mode.degree % 2 == 0 {
+                    DeckInvolutionCharacter::Trivial
+                } else {
+                    DeckInvolutionCharacter::Sign
+                },
+                laplace_eigenvalue: mode.laplace_eigenvalue,
+                l2_gram_weight: mode.l2_gram_weight,
+                // `l = 0,2` contains the constant and Veronese embedding; only
+                // higher even degrees are the curvature refinement.
+                curved_if_retained: mode.degree > 2,
+            })
+            .collect::<Vec<_>>();
+        let evaluator = Self::from_diagonal_involution_characters(
+            "projective-plane",
+            Arc::new(cover),
+            cover_width,
+            characters,
+        )?;
+        if evaluator.basis_size() != expected_width {
+            return Err(format!(
+                "QuotientSpectralEvaluator::projective_plane: group average produced width {}, expected {expected_width}",
+                evaluator.basis_size()
+            ));
+        }
+        Ok(evaluator)
+    }
+
+    /// Real harmonics on the flat Klein bottle
+    /// `T²/{(theta, phi) ~ (theta + 1/2, -phi)}` through order `H` per axis.
+    /// `H >= 2` is required because the standard smooth `R⁴` Klein embedding
+    /// uses theta harmonics one and two; its constant plus six coordinate modes
+    /// form the seven-column homotopy base.
+    pub fn klein_bottle(num_harmonics: usize) -> Result<Self, String> {
+        if num_harmonics < 2 {
+            return Err(
+                "QuotientSpectralEvaluator::klein_bottle requires num_harmonics >= 2 for the standard R4 embedding"
+                    .to_string(),
+            );
+        }
+        let expected_width = klein_bottle_basis_size(num_harmonics)?;
+
+        let cover = TorusHarmonicEvaluator::new(2, num_harmonics)?;
+        let cover_width = cover.basis_size();
+        let mut characters = Vec::with_capacity(cover_width);
+        for (cover_column, mode) in cover.spectral_modes().into_iter().enumerate() {
+            let [theta_component, phi_component] = mode.components.as_slice() else {
+                return Err(format!(
+                    "QuotientSpectralEvaluator::klein_bottle: torus cover mode {cover_column} did not have two factors"
+                ));
+            };
+            let theta_harmonic = theta_component.harmonic();
+            let phi_harmonic = phi_component.harmonic();
+            let half_turn_sign = if theta_harmonic % 2 == 0 { 1 } else { -1 };
+            let deck_character = if half_turn_sign * phi_component.reflection_sign() == 1 {
+                DeckInvolutionCharacter::Trivial
+            } else {
+                DeckInvolutionCharacter::Sign
+            };
+            // Standard R4 Klein embedding in this unit-period chart:
+            //   {1,
+            //    sin/cos(4πθ),
+            //    sin/cos(4πθ) cos(2πφ),
+            //    sin/cos(2πθ) sin(2πφ)}.
+            // These are exactly one constant plus six coordinate columns.
+            let embedding_mode = (theta_harmonic == 0 && phi_harmonic == 0)
+                || (theta_harmonic == 2 && phi_harmonic == 0)
+                || (theta_harmonic == 2
+                    && phi_harmonic == 1
+                    && phi_component.reflection_sign() == 1)
+                || (theta_harmonic == 1
+                    && phi_harmonic == 1
+                    && phi_component.reflection_sign() == -1);
+            characters.push(CoverSpectralCharacter {
+                deck_character,
+                laplace_eigenvalue: mode.laplace_eigenvalue,
+                l2_gram_weight: mode.l2_gram_weight,
+                curved_if_retained: !embedding_mode,
+            });
+        }
+        let evaluator = Self::from_diagonal_involution_characters(
+            "klein-bottle",
+            Arc::new(cover),
+            cover_width,
+            characters,
+        )?;
+        if evaluator.basis_size() != expected_width {
+            return Err(format!(
+                "QuotientSpectralEvaluator::klein_bottle: group average produced width {}, expected {expected_width}",
+                evaluator.basis_size()
+            ));
+        }
+        Ok(evaluator)
+    }
+
+    pub fn quotient_name(&self) -> &str {
+        &self.quotient_name
+    }
+
+    pub fn basis_size(&self) -> usize {
+        self.cover_columns.len()
+    }
+
+    pub fn cover_width(&self) -> usize {
+        self.cover_width
+    }
+
+    pub fn cover_columns(&self) -> &[usize] {
+        &self.cover_columns
+    }
+
+    pub fn laplace_eigenvalues(&self) -> &[f64] {
+        &self.laplace_eigenvalues
+    }
+
+    pub fn l2_gram_weights(&self) -> &[f64] {
+        &self.l2_gram_weights
+    }
+
+    /// Exact diagonal `L²` function-space Gram inherited from the cover.
+    pub fn function_space_gram(&self) -> Array2<f64> {
+        let mut gram = Array2::<f64>::zeros((self.basis_size(), self.basis_size()));
+        for (column, &weight) in self.l2_gram_weights.iter().enumerate() {
+            gram[[column, column]] = weight;
+        }
+        gram
+    }
+
+    /// Exact spectral penalty `G · diag(lambda_laplace^power)`.
+    ///
+    /// The Gram factor matters for the unnormalized real Fourier columns: it
+    /// makes the generalized penalty eigenvalues exactly the cover Laplacian's
+    /// eigenvalues rather than silently changing them by column convention.
+    pub fn spectral_penalty(&self, power: u32) -> Result<Array2<f64>, String> {
+        if power == 0 {
+            return Err(format!(
+                "QuotientSpectralEvaluator[{}]::spectral_penalty requires power >= 1",
+                self.quotient_name
+            ));
+        }
+        let exponent = i32::try_from(power).map_err(|_| {
+            format!(
+                "QuotientSpectralEvaluator[{}]::spectral_penalty power {power} exceeds i32::MAX",
+                self.quotient_name
+            )
+        })?;
+        let mut penalty = Array2::<f64>::zeros((self.basis_size(), self.basis_size()));
+        for column in 0..self.basis_size() {
+            let value =
+                self.l2_gram_weights[column] * self.laplace_eigenvalues[column].powi(exponent);
+            if !value.is_finite() {
+                return Err(format!(
+                    "QuotientSpectralEvaluator[{}]::spectral_penalty overflowed at quotient column {column}",
+                    self.quotient_name
+                ));
+            }
+            penalty[[column, column]] = value;
+        }
+        Ok(penalty)
+    }
+
+    pub fn nullspace_dimension(&self) -> usize {
+        self.laplace_eigenvalues
+            .iter()
+            .filter(|&&eigenvalue| eigenvalue == 0.0)
+            .count()
+    }
+
+    fn validate_cover_value_jet(
+        &self,
+        phi: &Array2<f64>,
+        jet: &Array3<f64>,
+        n_rows: usize,
+        latent_dim: usize,
+    ) -> Result<(), String> {
+        if phi.dim() != (n_rows, self.cover_width) {
+            return Err(format!(
+                "QuotientSpectralEvaluator[{}]: cover Phi shape {:?} != ({n_rows}, {})",
+                self.quotient_name,
+                phi.dim(),
+                self.cover_width
+            ));
+        }
+        if jet.dim() != (n_rows, self.cover_width, latent_dim) {
+            return Err(format!(
+                "QuotientSpectralEvaluator[{}]: cover jet shape {:?} != ({n_rows}, {}, {latent_dim})",
+                self.quotient_name,
+                jet.dim(),
+                self.cover_width
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl SaeBasisEvaluator for QuotientSpectralEvaluator {
+    fn evaluate(&self, coords: ArrayView2<'_, f64>) -> Result<(Array2<f64>, Array3<f64>), String> {
+        let n_rows = coords.nrows();
+        let latent_dim = coords.ncols();
+        let mut phi = Array2::<f64>::zeros((n_rows, self.basis_size()));
+        let mut jet = Array3::<f64>::zeros((n_rows, self.basis_size(), latent_dim));
+        self.evaluate_into(&mut phi, &mut jet, coords)?;
+        Ok((phi, jet))
+    }
+
+    fn evaluate_into(
+        &self,
+        phi: &mut Array2<f64>,
+        jet: &mut Array3<f64>,
+        coords: ArrayView2<'_, f64>,
+    ) -> Result<(), String> {
+        let n_rows = coords.nrows();
+        let latent_dim = coords.ncols();
+        let quotient_width = self.basis_size();
+        if phi.dim() != (n_rows, quotient_width) {
+            return Err(format!(
+                "QuotientSpectralEvaluator[{}]::evaluate_into: Phi buffer {:?} != ({n_rows}, {quotient_width})",
+                self.quotient_name,
+                phi.dim()
+            ));
+        }
+        if jet.dim() != (n_rows, quotient_width, latent_dim) {
+            return Err(format!(
+                "QuotientSpectralEvaluator[{}]::evaluate_into: jet buffer {:?} != ({n_rows}, {quotient_width}, {latent_dim})",
+                self.quotient_name,
+                jet.dim()
+            ));
+        }
+
+        let (cover_phi, cover_jet) = self.cover.evaluate(coords)?;
+        self.validate_cover_value_jet(&cover_phi, &cover_jet, n_rows, latent_dim)?;
+        for (quotient_column, &cover_column) in self.cover_columns.iter().enumerate() {
+            for row in 0..n_rows {
+                phi[[row, quotient_column]] = cover_phi[[row, cover_column]];
+                for axis in 0..latent_dim {
+                    jet[[row, quotient_column, axis]] = cover_jet[[row, cover_column, axis]];
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn phi_eta_split(&self, n_basis: usize) -> Result<PhiEtaSplit, String> {
+        if n_basis != self.basis_size() {
+            return Err(format!(
+                "QuotientSpectralEvaluator[{}]::phi_eta_split: n_basis {n_basis} != evaluator width {}",
+                self.quotient_name,
+                self.basis_size()
+            ));
+        }
+        Ok(PhiEtaSplit::from_curved_mask(self.curved_columns.clone()))
+    }
+
+    /// A quotient mask couples cover factors and is not a tensor-product basis.
+    fn factor_basis_sizes(&self) -> Option<(usize, usize)> {
+        None
+    }
+
+    fn second_jet_dyn(&self, coords: ArrayView2<'_, f64>) -> Option<Result<Array4<f64>, String>> {
+        Some(<Self as SaeBasisSecondJet>::second_jet(self, coords))
+    }
+
+    fn third_jet_dyn(&self, coords: ArrayView2<'_, f64>) -> Option<Result<Array5<f64>, String>> {
+        Some(<Self as SaeBasisThirdJet>::third_jet(self, coords))
+    }
+}
+
+impl SaeBasisSecondJet for QuotientSpectralEvaluator {
+    fn second_jet(&self, coords: ArrayView2<'_, f64>) -> Result<Array4<f64>, String> {
+        let n_rows = coords.nrows();
+        let latent_dim = coords.ncols();
+        let cover_hessian = self.cover.second_jet(coords)?;
+        if cover_hessian.dim() != (n_rows, self.cover_width, latent_dim, latent_dim) {
+            return Err(format!(
+                "QuotientSpectralEvaluator[{}]: cover second-jet shape {:?} != ({n_rows}, {}, {latent_dim}, {latent_dim})",
+                self.quotient_name,
+                cover_hessian.dim(),
+                self.cover_width
+            ));
+        }
+        let mut hessian = Array4::<f64>::zeros((n_rows, self.basis_size(), latent_dim, latent_dim));
+        for (quotient_column, &cover_column) in self.cover_columns.iter().enumerate() {
+            for row in 0..n_rows {
+                for axis_a in 0..latent_dim {
+                    for axis_b in 0..latent_dim {
+                        hessian[[row, quotient_column, axis_a, axis_b]] =
+                            cover_hessian[[row, cover_column, axis_a, axis_b]];
+                    }
+                }
+            }
+        }
+        Ok(hessian)
+    }
+}
+
+impl SaeBasisThirdJet for QuotientSpectralEvaluator {
+    fn third_jet(&self, coords: ArrayView2<'_, f64>) -> Result<Array5<f64>, String> {
+        let n_rows = coords.nrows();
+        let latent_dim = coords.ncols();
+        let cover_third = self.cover.third_jet(coords)?;
+        if cover_third.dim() != (n_rows, self.cover_width, latent_dim, latent_dim, latent_dim) {
+            return Err(format!(
+                "QuotientSpectralEvaluator[{}]: cover third-jet shape {:?} != ({n_rows}, {}, {latent_dim}, {latent_dim}, {latent_dim})",
+                self.quotient_name,
+                cover_third.dim(),
+                self.cover_width
+            ));
+        }
+        let mut third = Array5::<f64>::zeros((
+            n_rows,
+            self.basis_size(),
+            latent_dim,
+            latent_dim,
+            latent_dim,
+        ));
+        for (quotient_column, &cover_column) in self.cover_columns.iter().enumerate() {
+            for row in 0..n_rows {
+                for axis_a in 0..latent_dim {
+                    for axis_b in 0..latent_dim {
+                        for axis_c in 0..latent_dim {
+                            third[[row, quotient_column, axis_a, axis_b, axis_c]] =
+                                cover_third[[row, cover_column, axis_a, axis_b, axis_c]];
+                        }
+                    }
+                }
+            }
+        }
+        Ok(third)
     }
 }
 
@@ -3262,8 +3956,7 @@ mod tests {
                 noisy[[row, c]] += 0.01 * (2.0 * rng() - 1.0);
             }
         }
-        let selected =
-            select_spherical_harmonic_degree(coords.view(), noisy.view(), 6).unwrap();
+        let selected = select_spherical_harmonic_degree(coords.view(), noisy.view(), 6).unwrap();
         assert_eq!(
             selected, 3,
             "spectral-noise-floor bandwidth selection must recover the planted degree 3"
@@ -3279,11 +3972,9 @@ mod tests {
     #[test]
     fn spherical_harmonic_jets_match_finite_differences() {
         let evaluator = SphericalHarmonicEvaluator::new(4).unwrap();
-        let coords = Array2::from_shape_vec(
-            (4, 2),
-            vec![0.3, 0.7, -0.9, 2.1, 1.2, -1.3, -0.1, 4.0],
-        )
-        .unwrap();
+        let coords =
+            Array2::from_shape_vec((4, 2), vec![0.3, 0.7, -0.9, 2.1, 1.2, -1.3, -0.1, 4.0])
+                .unwrap();
         let h = 1e-5;
         let m = evaluator.basis_size();
         let hess = evaluator.second_jet(coords.view()).unwrap();
@@ -3326,8 +4017,7 @@ mod tests {
                     for a in 0..2 {
                         for b in 0..2 {
                             let fd = (hp[[row, col, a, b]] - hm[[row, col, a, b]]) / (2.0 * h);
-                            max_t_err =
-                                max_t_err.max((third[[row, col, a, b, axis]] - fd).abs());
+                            max_t_err = max_t_err.max((third[[row, col, a, b, axis]] - fd).abs());
                         }
                     }
                 }
@@ -3337,6 +4027,354 @@ mod tests {
             max_t_err < 1e-4,
             "spherical-harmonic third jet must match FD of the Hessian; max err {max_t_err}"
         );
+    }
+
+    fn assert_machine_close(actual: f64, expected: f64, label: &str) {
+        let tolerance = 4096.0 * f64::EPSILON * (1.0 + actual.abs().max(expected.abs()));
+        assert!(
+            (actual - expected).abs() <= tolerance,
+            "{label}: actual={actual:.17e}, expected={expected:.17e}, tolerance={tolerance:.3e}"
+        );
+    }
+
+    /// Normwise roundoff certificate for a deck-covariant spectral derivative.
+    ///
+    /// The quotient stores Laplace eigenvalues without the common torus chart
+    /// factor `(2*pi)^2`.  A retained mode with eigenvalue `lambda` therefore
+    /// has per-coordinate angular frequency at most `2*pi*sqrt(lambda)`, and an
+    /// order-`r` derivative has absolute envelope at most that frequency to the
+    /// `r`th power.  This envelope is the relevant scale when the exact result
+    /// vanishes: evaluating the deck twin forms a phase shifted by an integer
+    /// multiple of pi, whose libm argument-reduction error is then amplified by
+    /// the derivative frequency even though the rounded output itself is near
+    /// zero.  Spherical quotient frequencies are smaller, so the same bound is
+    /// conservative for the projective-plane cover.
+    fn assert_spectral_deck_close(
+        actual: f64,
+        expected: f64,
+        laplace_eigenvalue: f64,
+        derivative_order: i32,
+        label: &str,
+    ) {
+        let angular_frequency = std::f64::consts::TAU * laplace_eigenvalue.sqrt();
+        let derivative_envelope = if derivative_order == 0 {
+            1.0
+        } else {
+            angular_frequency.powi(derivative_order)
+        };
+        // 64 rounded-operation units cover the deck-coordinate map, phase
+        // construction/reduction, tensor products, and sign application.  The
+        // analytic envelope—not the observed near-zero result—sets the scale.
+        let tolerance =
+            64.0 * f64::EPSILON * (1.0 + derivative_envelope + actual.abs().max(expected.abs()));
+        assert!(
+            (actual - expected).abs() <= tolerance,
+            "{label}: actual={actual:.17e}, expected={expected:.17e}, spectral envelope={derivative_envelope:.6e}, tolerance={tolerance:.3e}"
+        );
+    }
+
+    /// Independent oracle for the restriction constructor: evaluate the exact
+    /// Reynolds group average `(f(x) + f(gx)) / 2` on every cover column.
+    /// Retained columns must be fixed by the average and omitted columns must
+    /// be annihilated.  This catches both an incomplete character table and the
+    /// invalid use of column selection for a deck action that mixes columns.
+    fn assert_group_average_equals_diagonal_restriction(
+        evaluator: &QuotientSpectralEvaluator,
+        cover: &dyn SaeBasisEvaluator,
+        cover_eigenvalues: &[f64],
+        coords: &Array2<f64>,
+        twins: &Array2<f64>,
+    ) {
+        let (cover_phi, _) = cover.evaluate(coords.view()).unwrap();
+        let (twin_cover_phi, _) = cover.evaluate(twins.view()).unwrap();
+        let (quotient_phi, _) = evaluator.evaluate(coords.view()).unwrap();
+        assert_eq!(cover_phi.dim(), twin_cover_phi.dim());
+        assert_eq!(cover_phi.ncols(), evaluator.cover_width());
+        assert_eq!(cover_eigenvalues.len(), evaluator.cover_width());
+        assert_eq!(quotient_phi.ncols(), evaluator.basis_size());
+
+        let mut quotient_column = 0usize;
+        for cover_column in 0..cover_phi.ncols() {
+            let retained =
+                evaluator.cover_columns().get(quotient_column).copied() == Some(cover_column);
+            for row in 0..cover_phi.nrows() {
+                let group_average =
+                    0.5 * (cover_phi[[row, cover_column]] + twin_cover_phi[[row, cover_column]]);
+                if retained {
+                    assert_spectral_deck_close(
+                        group_average,
+                        cover_phi[[row, cover_column]],
+                        cover_eigenvalues[cover_column],
+                        0,
+                        "trivial-character column fixed by exact group average",
+                    );
+                    assert_spectral_deck_close(
+                        quotient_phi[[row, quotient_column]],
+                        group_average,
+                        cover_eigenvalues[cover_column],
+                        0,
+                        "quotient restriction equals exact group average",
+                    );
+                } else {
+                    assert_spectral_deck_close(
+                        group_average,
+                        0.0,
+                        cover_eigenvalues[cover_column],
+                        0,
+                        "sign-character column annihilated by exact group average",
+                    );
+                }
+            }
+            if retained {
+                quotient_column += 1;
+            }
+        }
+        assert_eq!(quotient_column, evaluator.basis_size());
+    }
+
+    /// If `q(twin(t)) = q(t)`, jets in cover coordinates obey the chain rule
+    /// `J(twin)D = J(t)`, `D' H(twin)D = H(t)`, and the analogous order-3
+    /// identity.  Checking all four orders pins both invariance and the exact
+    /// analytic quotient jets without finite differencing.
+    fn assert_quotient_deck_covariance(
+        evaluator: &QuotientSpectralEvaluator,
+        coords: &Array2<f64>,
+        twins: &Array2<f64>,
+        deck_jacobian_diagonal: [f64; 2],
+    ) {
+        let (phi, jet) = evaluator.evaluate(coords.view()).unwrap();
+        let (twin_phi, twin_jet) = evaluator.evaluate(twins.view()).unwrap();
+        let hessian = evaluator.second_jet(coords.view()).unwrap();
+        let twin_hessian = evaluator.second_jet(twins.view()).unwrap();
+        let third = evaluator.third_jet(coords.view()).unwrap();
+        let twin_third = evaluator.third_jet(twins.view()).unwrap();
+        for row in 0..coords.nrows() {
+            for column in 0..evaluator.basis_size() {
+                assert_spectral_deck_close(
+                    twin_phi[[row, column]],
+                    phi[[row, column]],
+                    evaluator.laplace_eigenvalues()[column],
+                    0,
+                    "deck-invariant quotient value",
+                );
+                for axis_a in 0..2 {
+                    assert_spectral_deck_close(
+                        twin_jet[[row, column, axis_a]] * deck_jacobian_diagonal[axis_a],
+                        jet[[row, column, axis_a]],
+                        evaluator.laplace_eigenvalues()[column],
+                        1,
+                        "deck-covariant quotient first jet",
+                    );
+                    for axis_b in 0..2 {
+                        assert_spectral_deck_close(
+                            twin_hessian[[row, column, axis_a, axis_b]]
+                                * deck_jacobian_diagonal[axis_a]
+                                * deck_jacobian_diagonal[axis_b],
+                            hessian[[row, column, axis_a, axis_b]],
+                            evaluator.laplace_eigenvalues()[column],
+                            2,
+                            "deck-covariant quotient second jet",
+                        );
+                        for axis_c in 0..2 {
+                            assert_spectral_deck_close(
+                                twin_third[[row, column, axis_a, axis_b, axis_c]]
+                                    * deck_jacobian_diagonal[axis_a]
+                                    * deck_jacobian_diagonal[axis_b]
+                                    * deck_jacobian_diagonal[axis_c],
+                                third[[row, column, axis_a, axis_b, axis_c]],
+                                evaluator.laplace_eigenvalues()[column],
+                                3,
+                                "deck-covariant quotient third jet",
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fn assert_exact_quotient_spectral_contract(evaluator: &QuotientSpectralEvaluator) {
+        let gram = evaluator.function_space_gram();
+        let penalty = evaluator.spectral_penalty(2).unwrap();
+        assert_eq!(gram.dim(), (evaluator.basis_size(), evaluator.basis_size()));
+        assert_eq!(penalty.dim(), gram.dim());
+        assert_eq!(evaluator.nullspace_dimension(), 1);
+        let mut positive_penalty_diagonal = 0usize;
+        for row in 0..evaluator.basis_size() {
+            assert!(gram[[row, row]] > 0.0);
+            assert_machine_close(
+                penalty[[row, row]],
+                gram[[row, row]] * evaluator.laplace_eigenvalues()[row].powi(2),
+                "restricted spectral penalty",
+            );
+            if penalty[[row, row]] > 0.0 {
+                positive_penalty_diagonal += 1;
+            }
+            for column in 0..evaluator.basis_size() {
+                if row != column {
+                    assert_eq!(gram[[row, column]], 0.0);
+                    assert_eq!(penalty[[row, column]], 0.0);
+                }
+            }
+        }
+        assert_eq!(
+            positive_penalty_diagonal,
+            evaluator.basis_size() - 1,
+            "the exact restricted penalty null space must contain only constants"
+        );
+    }
+
+    #[test]
+    fn quotient_spectral_projective_plane_group_average_jets_penalty_and_null_are_exact() {
+        let harmonic_order = 3;
+        let evaluator = QuotientSpectralEvaluator::projective_plane(harmonic_order).unwrap();
+        assert_eq!(evaluator.quotient_name(), "projective-plane");
+        assert_eq!(evaluator.basis_size(), 28);
+
+        let cover = SphericalHarmonicEvaluator::new(2 * harmonic_order).unwrap();
+        let cover_modes = cover.spectral_modes();
+        assert_eq!(evaluator.cover_width(), cover.basis_size());
+        for (quotient_column, &cover_column) in evaluator.cover_columns().iter().enumerate() {
+            assert_eq!(
+                evaluator.laplace_eigenvalues()[quotient_column],
+                cover_modes[cover_column].laplace_eigenvalue
+            );
+            assert_eq!(
+                evaluator.l2_gram_weights()[quotient_column],
+                cover_modes[cover_column].l2_gram_weight
+            );
+        }
+        let split = evaluator.phi_eta_split(evaluator.basis_size()).unwrap();
+        assert_eq!(split.base_cols.len(), 6, "l=0 and l=2 form the RP2 core");
+        assert_exact_quotient_spectral_contract(&evaluator);
+
+        let coords = Array2::from_shape_vec(
+            (5, 2),
+            vec![-1.2, -2.8, -0.47, -0.31, 0.0, 0.91, 0.63, 2.17, 1.31, 5.4],
+        )
+        .unwrap();
+        let mut twins = coords.clone();
+        for row in 0..twins.nrows() {
+            twins[[row, 0]] = -twins[[row, 0]];
+            twins[[row, 1]] += std::f64::consts::PI;
+        }
+        let cover_eigenvalues = cover_modes
+            .iter()
+            .map(|mode| mode.laplace_eigenvalue)
+            .collect::<Vec<_>>();
+        assert_group_average_equals_diagonal_restriction(
+            &evaluator,
+            &cover,
+            &cover_eigenvalues,
+            &coords,
+            &twins,
+        );
+        assert_quotient_deck_covariance(&evaluator, &coords, &twins, [-1.0, 1.0]);
+    }
+
+    #[test]
+    fn quotient_spectral_klein_group_average_jets_penalty_and_null_are_exact() {
+        let num_harmonics = 3;
+        let evaluator = QuotientSpectralEvaluator::klein_bottle(num_harmonics).unwrap();
+        assert_eq!(evaluator.quotient_name(), "klein-bottle");
+        assert_eq!(evaluator.basis_size(), 24);
+
+        let cover = TorusHarmonicEvaluator::new(2, num_harmonics).unwrap();
+        let cover_modes = cover.spectral_modes();
+        assert_eq!(evaluator.cover_width(), cover.basis_size());
+        for (quotient_column, &cover_column) in evaluator.cover_columns().iter().enumerate() {
+            assert_eq!(
+                evaluator.laplace_eigenvalues()[quotient_column],
+                cover_modes[cover_column].laplace_eigenvalue
+            );
+            assert_eq!(
+                evaluator.l2_gram_weights()[quotient_column],
+                cover_modes[cover_column].l2_gram_weight
+            );
+        }
+        let split = evaluator.phi_eta_split(evaluator.basis_size()).unwrap();
+        assert_eq!(
+            split.base_cols.len(),
+            7,
+            "the standard R4 Klein embedding is one constant plus six coordinates"
+        );
+        assert_eq!(split.curved_cols.len(), evaluator.basis_size() - 7);
+        let mut embedding_category_counts = [0usize; 4];
+        for quotient_column in split.base_cols {
+            let cover_mode = &cover_modes[evaluator.cover_columns()[quotient_column]];
+            let theta = cover_mode.components[0];
+            let phi = cover_mode.components[1];
+            match (theta.harmonic(), phi.harmonic(), phi.reflection_sign()) {
+                (0, 0, 1) => embedding_category_counts[0] += 1,
+                (2, 0, 1) => embedding_category_counts[1] += 1,
+                (2, 1, 1) => embedding_category_counts[2] += 1,
+                (1, 1, -1) => embedding_category_counts[3] += 1,
+                identity => panic!("unexpected Klein embedding-base character {identity:?}"),
+            }
+        }
+        assert_eq!(embedding_category_counts, [1, 2, 2, 2]);
+        assert_exact_quotient_spectral_contract(&evaluator);
+
+        let coords = Array2::from_shape_vec(
+            (5, 2),
+            vec![-0.3, -0.41, 0.0, 0.0, 0.17, 0.29, 0.73, -0.88, 1.21, 1.7],
+        )
+        .unwrap();
+        let mut twins = coords.clone();
+        for row in 0..twins.nrows() {
+            twins[[row, 0]] += 0.5;
+            twins[[row, 1]] = -twins[[row, 1]];
+        }
+        let cover_eigenvalues = cover_modes
+            .iter()
+            .map(|mode| mode.laplace_eigenvalue)
+            .collect::<Vec<_>>();
+        assert_group_average_equals_diagonal_restriction(
+            &evaluator,
+            &cover,
+            &cover_eigenvalues,
+            &coords,
+            &twins,
+        );
+        assert_quotient_deck_covariance(&evaluator, &coords, &twins, [1.0, -1.0]);
+    }
+
+    #[test]
+    fn quotient_and_cover_constructors_enforce_minimum_order_and_checked_widths() {
+        assert!(projective_plane_basis_size(0).is_err());
+        assert!(klein_bottle_basis_size(0).is_err());
+        assert!(QuotientSpectralEvaluator::projective_plane(0).is_err());
+        assert!(QuotientSpectralEvaluator::klein_bottle(0).is_err());
+        assert!(QuotientSpectralEvaluator::klein_bottle(1).is_err());
+
+        let projective_plane = QuotientSpectralEvaluator::projective_plane(1).unwrap();
+        assert_eq!(projective_plane.basis_size(), 6);
+        assert_eq!(
+            projective_plane.basis_size(),
+            projective_plane_basis_size(1).unwrap()
+        );
+        let klein_bottle = QuotientSpectralEvaluator::klein_bottle(2).unwrap();
+        assert_eq!(klein_bottle.basis_size(), 13);
+        assert_eq!(
+            klein_bottle.basis_size(),
+            klein_bottle_basis_size(2).unwrap()
+        );
+        assert_eq!(
+            klein_bottle
+                .phi_eta_split(klein_bottle.basis_size())
+                .unwrap()
+                .base_cols
+                .len(),
+            7
+        );
+
+        assert!(projective_plane_basis_size(usize::MAX).is_err());
+        assert!(klein_bottle_basis_size(usize::MAX).is_err());
+        assert!(QuotientSpectralEvaluator::projective_plane(usize::MAX).is_err());
+        assert!(QuotientSpectralEvaluator::klein_bottle(usize::MAX).is_err());
+        assert!(SphericalHarmonicEvaluator::new(usize::MAX).is_err());
+        assert!(TorusHarmonicEvaluator::new(1, usize::MAX).is_err());
+        assert!(TorusHarmonicEvaluator::new(usize::BITS as usize, 1).is_err());
     }
 
     #[test]

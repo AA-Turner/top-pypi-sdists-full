@@ -59,7 +59,7 @@ impl SurvivalMarginalSlopeFamily {
             .score_warp
             .as_ref()
             .ok_or_else(|| "missing survival score-warp runtime".to_string())?;
-        score_warp_component_beta(runtime, beta_h, coord)
+        Ok(score_warp_component_beta(runtime, beta_h.view(), coord)?.to_owned())
     }
 
     #[inline]
@@ -97,12 +97,12 @@ impl SurvivalMarginalSlopeFamily {
             return Ok(Self::zero_score_warp_span());
         };
         if self.score_dim() == 1 {
-            return runtime.local_cubic_at(beta_h, value);
+            return runtime.local_cubic_at(beta_h.view(), value);
         }
         let mut sum = Self::zero_score_warp_span();
         for coord in 0..self.score_dim() {
-            let local_beta = score_warp_component_beta(runtime, beta_h, coord)?;
-            let span = runtime.local_cubic_at(&local_beta, value)?;
+            let local_beta = score_warp_component_beta(runtime, beta_h.view(), coord)?;
+            let span = runtime.local_cubic_at(local_beta, value)?;
             if coord == 0 {
                 sum = exact_kernel::LocalSpanCubic {
                     left: span.left,
@@ -128,10 +128,10 @@ impl SurvivalMarginalSlopeFamily {
         };
         let mut value = 0.0;
         for coord in 0..self.score_dim() {
-            let local_beta = score_warp_component_beta(runtime, beta_h, coord)?;
+            let local_beta = score_warp_component_beta(runtime, beta_h.view(), coord)?;
             let z_coord = self.z[[row, coord]];
             value += runtime
-                .local_cubic_at(&local_beta, z_coord)?
+                .local_cubic_at(local_beta, z_coord)?
                 .evaluate(z_coord);
         }
         Ok(value)
@@ -185,81 +185,43 @@ impl SurvivalMarginalSlopeFamily {
         Ok([multiplier * basis_span.evaluate(z_coord), 0.0, 0.0, 0.0])
     }
 
-    pub(crate) fn logslope_vector_for_row(
-        &self,
-        row: usize,
-        logslope_eta: &Array1<f64>,
-    ) -> Result<Vec<f64>, String> {
-        let k = self.score_dim();
-        if self.logslope_surface_ranges.len() == k && k > 1 && logslope_eta.len() == self.n {
-            return Err(
-                    "survival marginal-slope internal logslope vector requested scalar eta for a per-z surface layout"
-                        .to_string(),
-                );
-        }
-        if logslope_eta.len() == self.n {
-            return Ok(vec![logslope_eta[row]; k]);
-        }
-        if logslope_eta.len() == self.n * k {
-            let start = row * k;
-            return Ok(logslope_eta.slice(s![start..start + k]).to_vec());
-        }
-        Err(SurvivalMarginalSlopeError::IncompatibleDimensions {
-            reason: format!(
-                "survival marginal-slope logslope eta length {} is incompatible with n={} and score dim K={k}",
-                logslope_eta.len(),
-                self.n
-            ),
-        }
-        .into())
-    }
-
     pub(crate) fn per_z_logslope_active(&self) -> bool {
-        self.score_dim() > 1 && self.logslope_surface_ranges.len() == self.score_dim()
+        self.score_dim() > 1 && self.logslope_layout.is_per_score()
     }
 
-    pub(crate) fn logslope_surface_values_for_row(
+    pub(crate) fn logslope_row_workspace(&self) -> Result<LogslopeRowWorkspace, String> {
+        self.logslope_layout.row_workspace(self.score_dim())
+    }
+
+    pub(crate) fn fill_logslope_values_for_row(
         &self,
         row: usize,
-        beta_logslope: &Array1<f64>,
-    ) -> Result<Vec<f64>, String> {
-        let k = self.score_dim();
-        if !self.per_z_logslope_active() {
-            return self.logslope_vector_for_row(row, beta_logslope);
-        }
-        let g_row = self
-            .logslope_design
-            .try_row_chunk(row..row + 1)
-            .map_err(|e| format!("logslope_surface_values_for_row logslope row chunk: {e}"))?;
-        let row_view = g_row.row(0);
-        let mut out = Vec::with_capacity(k);
-        for range in &self.logslope_surface_ranges {
-            out.push(
-                row_view
-                    .slice(s![range.clone()])
-                    .dot(&beta_logslope.slice(s![range.clone()])),
+        block_states: &[ParameterBlockState],
+        workspace: &mut LogslopeRowWorkspace,
+    ) -> Result<(), String> {
+        if self.per_z_logslope_active() {
+            return self.logslope_layout.fill_per_score_row(
+                row,
+                block_states[2].beta.view(),
+                workspace,
             );
         }
-        Ok(out)
-    }
-
-    pub(crate) fn logslope_surface_row(&self, row: usize) -> Result<Array1<f64>, String> {
-        let chunk = self
-            .logslope_design
-            .try_row_chunk(row..row + 1)
-            .map_err(|e| format!("logslope_surface_row logslope row chunk: {e}"))?;
-        Ok(chunk.row(0).to_owned())
-    }
-
-    pub(crate) fn shared_logslope_covariance_scale(&self) -> Result<f64, String> {
-        let k = self.score_dim();
-        if k == 1 {
-            return Ok(1.0);
+        if block_states[2].eta.len() != self.n {
+            return Err(SurvivalMarginalSlopeError::IncompatibleDimensions {
+                reason: format!(
+                    "shared survival marginal-slope logslope eta length {} does not match n={}",
+                    block_states[2].eta.len(),
+                    self.n,
+                ),
+            }
+            .into());
         }
-        let ones = vec![1.0; k];
-        self.score_covariance.quadratic_form(&ones).map_err(|err| {
-            format!("survival marginal-slope shared log-slope covariance scale: {err}")
-        })
+        self.logslope_layout
+            .fill_shared_values(block_states[2].eta[row], workspace)
+    }
+
+    pub(crate) fn shared_logslope_covariance_scale(&self) -> f64 {
+        self.score_covariance.ones_quadratic_form()
     }
 
     pub(crate) fn exact_shared_score_summary(
@@ -269,11 +231,13 @@ impl SurvivalMarginalSlopeFamily {
         context: &str,
     ) -> Result<(f64, f64), String> {
         let k = self.score_dim();
-        if k == 1 {
-            return Ok((self.z[[row, 0]], 1.0));
-        }
+        let z_sum = if k == 1 {
+            self.z[[row, 0]]
+        } else {
+            self.z.row(row).sum()
+        };
         let logslope_eta_len = block_states[2].eta.len();
-        if logslope_eta_len != self.n {
+        if k > 1 && logslope_eta_len != self.n {
             return Err(SurvivalMarginalSlopeError::IncompatibleDimensions {
                 reason: format!(
                     "{context}: survival marginal-slope exact shared-slope calculus for K={k} requires one log-slope eta per row (n={}); got eta len {logslope_eta_len}. Per-z log-slope derivatives require a {}-primary row kernel.",
@@ -283,9 +247,6 @@ impl SurvivalMarginalSlopeFamily {
             }
             .into());
         }
-        Ok((
-            self.z.row(row).sum(),
-            self.shared_logslope_covariance_scale()?,
-        ))
+        Ok((z_sum, self.shared_logslope_covariance_scale()))
     }
 }

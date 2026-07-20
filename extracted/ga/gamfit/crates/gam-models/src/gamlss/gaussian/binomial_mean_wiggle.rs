@@ -706,7 +706,7 @@ impl CustomFamily for BinomialMeanWiggleFamily {
         _: &[ParameterBlockState],
         block_idx: usize,
         spec: &ParameterBlockSpec,
-    ) -> Result<Option<LinearInequalityConstraints>, String> {
+    ) -> Result<Option<ConstraintSet>, String> {
         if block_idx != Self::BLOCK_WIGGLE {
             return Ok(None);
         }
@@ -1417,9 +1417,14 @@ impl CustomFamily for BinomialMeanWiggleFamily {
         &self,
         block_states: &[ParameterBlockState],
         specs: &[ParameterBlockSpec],
-        derivative_blocks: &[Vec<CustomFamilyBlockPsiDerivative>],
+        hyper_layout: &crate::custom_family::CustomFamilyHyperLayout,
         psi_index: usize,
     ) -> Result<Option<gam_problem::ExactNewtonJointPsiTerms>, String> {
+        if hyper_layout.family_axis_count() != 0 {
+            return Err("BinomialMeanWiggleFamily does not declare family-owned hyper axes"
+                .to_string());
+        }
+        let derivative_blocks = hyper_layout.design_derivative_blocks();
         validate_block_count::<GamlssError>("BinomialMeanWiggleFamily", 2, block_states.len())?;
         if derivative_blocks.len() != 2 {
             return Err(GamlssError::DimensionMismatch { reason: format!(
@@ -1687,7 +1692,12 @@ impl ExactNewtonJointHessianWorkspace for BinomialMeanWiggleHessianWorkspace {
     }
 
     fn hessian_diagonal(&self) -> Result<Option<Array1<f64>>, String> {
-        Ok(None)
+        // The source resolver requires a finite diagonal alongside the HVP to
+        // build an operator curvature source; `None` here made every
+        // joint-workspace fit of this family die at the inner-solve boundary
+        // with "supplied no inner-solve curvature source" (#2299 link-wiggle
+        // gate). The static operator's diagonal is exact and O(n·(p_η+p_w)).
+        Ok(Some(self.hessian_operator.diagonal()))
     }
 
     fn directional_derivative(
@@ -1796,7 +1806,9 @@ mod exact_frozen_monotonicity_tests {
         let constraints = family
             .block_linear_constraints(&[], BinomialMeanWiggleFamily::BLOCK_WIGGLE, &spec)
             .expect("frozen constraint construction")
-            .expect("wiggle block must be constrained");
+            .expect("wiggle block must be constrained")
+            .to_dense()
+            .expect("wiggle cone is a small dense system");
         assert_eq!(constraints.a, Array2::<f64>::eye(3));
         assert_eq!(constraints.b, Array1::<f64>::zeros(3));
 

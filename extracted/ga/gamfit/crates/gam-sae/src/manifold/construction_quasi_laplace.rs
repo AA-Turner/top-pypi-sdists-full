@@ -5,6 +5,25 @@
 // it keeps the SAME module scope and private-field access. Keeps the tracked
 // construction.rs under the 10k limit.
 
+/// One coherent matrix-free outer sample. The value, factor cache, reduced
+/// operator, and lossless rational derivative are all emitted by the same
+/// frozen surrogate evaluation, so no consumer can accidentally differentiate
+/// a reassembled or differently-randomized operator.
+pub(crate) struct StreamingOuterEvaluation {
+    pub(crate) cost: f64,
+    pub(crate) loss: SaeManifoldLoss,
+    pub(crate) cache: ArrowFactorCache,
+    pub(crate) system: ArrowSchurSystem,
+    /// Lossless low-rank derivative of the rational value (all shifts and the
+    /// frozen deflation block). This, never the raw shift-zero inverse probes,
+    /// owns the outer logdet trace and theta-adjoint channels.
+    pub(crate) logdet_derivative_bundle: RationalLogdetDerivativeBundle,
+    /// Optional raw `(z, S^-1 z)` bundle used only for EFS/MacKay proposal
+    /// traces. Its root is not the rational surrogate derivative and it must
+    /// never enter the authoritative outer gradient.
+    pub(crate) efs_inverse_probe_bundle: Option<(Vec<Array1<f64>>, Vec<Array1<f64>>)>,
+}
+
 impl SaeManifoldTerm {
     /// Custom penalized quasi-Laplace score for the SAE term at a fixed `ρ`.
     ///
@@ -61,7 +80,7 @@ impl SaeManifoldTerm {
         learning_rate: f64,
         ridge_ext_coord: f64,
         ridge_beta: f64,
-    ) -> Result<(f64, SaeManifoldLoss), String> {
+    ) -> Result<(f64, SaeManifoldLoss), SaeCriterionError> {
         self.penalized_quasi_laplace_criterion_with_refine_policy(
             target,
             rho,
@@ -84,7 +103,7 @@ impl SaeManifoldTerm {
         ridge_ext_coord: f64,
         ridge_beta: f64,
         refine_progress_extension: bool,
-    ) -> Result<(f64, SaeManifoldLoss), String> {
+    ) -> Result<(f64, SaeManifoldLoss), SaeCriterionError> {
         self.penalized_quasi_laplace_criterion_with_refine_policy_and_lane(
             target,
             rho,
@@ -113,7 +132,7 @@ impl SaeManifoldTerm {
         ridge_beta: f64,
         refine_progress_extension: bool,
         lane: Option<&mut SurrogateLaneState>,
-    ) -> Result<(f64, SaeManifoldLoss), String> {
+    ) -> Result<(f64, SaeManifoldLoss), SaeCriterionError> {
         self.assignment.validate_rho_domain(rho)?;
         // #976 evidence-ledger scope: one criterion evaluation = one per-atom
         // reseed budget. The joint-fit driver no longer clears the ledger on
@@ -122,7 +141,7 @@ impl SaeManifoldTerm {
         // progress-budget-collapse pathology), so the criterion entry owns the
         // clear.
         self.collapse_events.clear();
-        let plan = self.streaming_plan().admitted_or_error(
+        let plan = self.streaming_plan()?.admitted_or_error(
             self.n_obs(),
             self.output_dim(),
             self.k_atoms(),
@@ -179,7 +198,7 @@ impl SaeManifoldTerm {
         learning_rate: f64,
         ridge_ext_coord: f64,
         ridge_beta: f64,
-    ) -> Result<(f64, SaeManifoldLoss, ArrowFactorCache), String> {
+    ) -> Result<(f64, SaeManifoldLoss, ArrowFactorCache), SaeCriterionError> {
         self.penalized_quasi_laplace_criterion_with_cache_refine_policy(
             target,
             rho,
@@ -202,14 +221,14 @@ impl SaeManifoldTerm {
         ridge_ext_coord: f64,
         ridge_beta: f64,
         refine_progress_extension: bool,
-    ) -> Result<(f64, SaeManifoldLoss, ArrowFactorCache), String> {
+    ) -> Result<(f64, SaeManifoldLoss, ArrowFactorCache), SaeCriterionError> {
         self.assignment.validate_rho_domain(rho)?;
         // #976 evidence-ledger scope (see `penalized_quasi_laplace_criterion_with_refine_policy_
         // and_lane`): direct cache-lane callers also get a fresh per-evaluation
         // reseed budget here; the double clear when routed through the value
         // entry is an idempotent no-op.
         self.collapse_events.clear();
-        let admission_plan = self.streaming_plan().admitted_or_error(
+        let admission_plan = self.streaming_plan()?.admitted_or_error(
             self.n_obs(),
             self.output_dim(),
             self.k_atoms(),
@@ -293,8 +312,9 @@ impl SaeManifoldTerm {
         //    once per refine round — lives inside
         //    `converge_inner_for_undamped_logdet`.
         let options = ArrowSolveOptions::direct()
-            .with_ill_conditioning_tolerated()
-            .with_schur_pd_floor(gam_solve::arrow_schur::SPECTRAL_DEFLATION_REL_FLOOR);
+            .with_gpu_policy(self.gpu_policy)
+            .with_newton_schur_tikhonov(gam_solve::arrow_schur::SPECTRAL_DEFLATION_REL_FLOOR)
+            .with_evidence_unit_deflation(gam_solve::arrow_schur::SPECTRAL_DEFLATION_REL_FLOOR);
         let cache = self.converge_inner_for_undamped_logdet(
             target,
             rho,
@@ -314,11 +334,15 @@ impl SaeManifoldTerm {
             refine_progress_extension,
         )?;
         loss.criterion_gauge_deflated_directions = cache.gauge_deflated_directions;
-        let log_det = arrow_log_det_from_cache(&cache).ok_or_else(|| {
-            "SaeManifoldTerm::penalized_quasi_laplace_criterion: arrow_log_det_from_cache returned None \
-             (undamped joint Hessian log-det unavailable for the Laplace normaliser)"
-                .to_string()
-        })?;
+        // #2330 Phase-2: rank the EXACT observed-information Laplace term ½log|A|
+        // (A = B + ΔC = ∇²_θθ L), not the majorizer surrogate ½log|B|. One
+        // eigendecomposition yields BOTH the joint log|A| and the coordinate-block
+        // log|A_tt|, applying the shared PD floor; an indefinite A (a majorizer
+        // saddle) returns the typed IndefiniteObservedInformation refusal, which
+        // makes saddle-ρ probe-infeasible (+inf) and steers the outer away until
+        // the #2336 accepted-lane saddle-escape lands.
+        let (log_det, log_det_tt) =
+            self.exact_observed_information_log_dets(rho, target, &cache)?;
 
         // 3. Smoothing-penalty Occam term `−½·Σ_k r_k·rank(S_k)·log λ_smooth`
         //    plus the profiled-frame evidence-dimension correction
@@ -356,6 +380,16 @@ impl SaeManifoldTerm {
             // atom detection silently degrades (R→0 keeps rank_eff≈rank), so surface
             // it loudly rather than hiding a re-admitted co-collapse.
             let residual = self.reconstruction_residual(target, rho)?;
+            let mut grams = self.empty_decoder_gram_accumulator();
+            self.accumulate_decoder_gram(&mut grams)?;
+            let n_eff = self.per_atom_effective_sample_size();
+            let dispersion_lower_bound =
+                self.reconstruction_dispersion_lower_bound(&loss, Some(residual.view()))?;
+            if let Some(atoms) =
+                self.vanished_atoms_from_signal_upper_bound(&grams, &n_eff, dispersion_lower_bound)?
+            {
+                return Err(SaeCriterionError::VanishedAtoms(atoms));
+            }
             let disp = self
                 .reconstruction_dispersion(&loss, &cache, rho, Some(residual.view()))
                 .map_err(|e| {
@@ -363,12 +397,11 @@ impl SaeManifoldTerm {
                         "SaeManifoldTerm::penalized_quasi_laplace_criterion: rank-charge dispersion is required: {e}"
                     )
                 })?;
-            let d_eff = self.per_atom_realised_rank_dof(rho, disp)?;
+            let d_eff = self.rank_dof_from_grams(&grams, &n_eff, rho, disp)?;
             // Occupancy-aware effective sample size N_eff,k = Σ_i a_{ik}², the #2a
             // per-atom BIC log-scale (same quantity `per_atom_realised_rank_dof` uses
             // internally for the MP edge; recomputed here — a cheap Σa² — to price the
             // charge in the same currency).
-            let n_eff = self.per_atom_effective_sample_size();
             // #5 VETO — categorical Laplace-VALIDITY condition (blend-null null-license
             // fix, recov matrix 12484591): an atom with rank_eff==0 (⟺ d_eff==0)
             // reconstructs NOTHING. Its quasi-Laplace score is not "small" — it is INVALID:
@@ -399,7 +432,9 @@ impl SaeManifoldTerm {
             // owns both the rank-zero veto and the exact replacement
             // `0.5 log|H| - 0.5 log|H_tt| + rank_charge`; dense, streaming, and
             // criterion-as-atoms assembly therefore cannot drift apart.
-            let log_det_tt = coordinate_block_log_det(&cache)?;
+            // log_det (= log|A|) and log_det_tt (= log|A_tt|) are produced together
+            // above from the exact observed information; `coordinate_block_log_det`
+            // (the majorizer ½log|B_tt|) is no longer the ranked coordinate term.
             let quasi_laplace_complexity =
                 rank_adjusted_quasi_laplace_complexity(log_det, log_det_tt, &d_eff, &n_eff)?;
             loss.total() + extra_penalty_energy + quasi_laplace_complexity - occam
@@ -760,12 +795,32 @@ impl SaeManifoldTerm {
         // factor failed and the loop kept extending via `saw_refine_progress`
         // from earlier rounds, accumulating minutes of wasted work (#1094).
         let mut consecutive_objective_stalls: usize = 0;
-        // #2228 Stage-2 — terminal exact-Newton invocations remaining for this
-        // criterion evaluation. Each invocation runs a bounded superlinear
-        // polish (`terminal_exact_newton_polish`) from the objective-stall
-        // plateau; two invocations of ≤12 steps bound the extra cost while
-        // covering a re-stall after an intervening refine round.
-        let mut terminal_newton_rounds: usize = 2;
+        // #2228 — the ½λ²/scale-MINIMIZING iterate seen across the inner
+        // solve (captured in the polish, where the decrement is computed per
+        // step). ACCEPTANCE KEYS ON THE CERTIFICATE, NOT ‖g‖ — the ‖g‖-min
+        // and ½λ²/scale-min iterates DIFFER near an indefinite mode, and the
+        // stall acceptance is priced on ½λ²/scale, so that is the honest
+        // best-seen. Read ONLY at the terminal give-up exits (FINAL-GATE +
+        // the non-convergence refusals); the continuation never reads it, so
+        // the iterating trajectory is byte-identical (unlike the prior
+        // restore-in-polish variants). The band is UNCHANGED: the decrement
+        // certificate floors at ~ε (quadratic in g), 8 orders under the 1e-8
+        // band, so a plateau above the band is a solver stall — reported
+        // honestly at best-seen, never accepted past the band.
+        let mut best_seen: Option<(f64, f64, SaeManifoldMutableState)> = None;
+        // #2228 Stage-2 / #2132 — whether the terminal exact-Newton polish
+        // (`terminal_exact_newton_polish`) is armed for the NEXT objective-stall
+        // plateau. Re-armed by any materially-descending refine round, so a
+        // long solve that alternates MM plateaus with real descent gets one
+        // polish per plateau instead of a fixed ration (the measured K=3
+        // planted-circle fit descended 5793 → 4347 across three plateaus and
+        // was refused at the third purely because a 2-invocation budget was
+        // spent — at a point 100× LESS stationary than the plateaus the budget
+        // had rescued). Runaway is impossible by construction: invoking the
+        // polish disarms it, and only an intervening materially-descending
+        // round re-arms, so a plateau the polish cannot unlock refuses on its
+        // second visit with the polish disarmed.
+        let mut terminal_newton_polish_armed = true;
         loop {
             let mut sys = self
                 .assemble_arrow_schur(target, rho, registry)
@@ -788,7 +843,7 @@ impl SaeManifoldTerm {
             // factorisation-independent: it is NOT amplified by an inverse, so a
             // genuinely stationary but ill-conditioned fit (tiny g, possibly large
             // Δ in a flat direction) is correctly recognised as converged. The
-            // `with_ill_conditioning_tolerated` Direct factor below documents that
+            // positive-definite evidence Direct factor below documents that
             // its Δ may be inaccurate in exactly those flat directions, so using Δ
             // alone as the convergence gate would falsely reject healthy fits.
             let grad_norm_sq: f64 = Self::system_grad_norm_sq(&sys);
@@ -1206,8 +1261,8 @@ impl SaeManifoldTerm {
                     // loop-top KKT gate and the idempotence certificate remain
                     // the sole acceptance authority, exactly as at the stall
                     // branch.
-                    if terminal_newton_rounds > 0 {
-                        terminal_newton_rounds -= 1;
+                    if terminal_newton_polish_armed {
+                        terminal_newton_polish_armed = false;
                         if self.terminal_exact_newton_polish(
                             target,
                             rho_fixed,
@@ -1217,6 +1272,7 @@ impl SaeManifoldTerm {
                             previous_loss_total.abs() + 1.0,
                             options,
                             64,
+                            &mut best_seen,
                         )? {
                             *criterion_fixed_point = false;
                             consecutive_objective_stalls = 0;
@@ -1259,14 +1315,56 @@ impl SaeManifoldTerm {
                             final_db.view(),
                         )
                         .max(0.0);
-                        let predicted_relative_decrease =
+                        let excursion_cert =
                             0.5 * newton_decrement_sq / final_objective_scale;
-                        if predicted_relative_decrease <= SAE_MANIFOLD_INNER_OBJECTIVE_STALL_REL_TOL
+                        // #2228 — the acceptance verdict keys on the BEST-SEEN
+                        // certificate, not the excursion the polish left. The
+                        // band is UNCHANGED; a best-seen plateau ABOVE it is a
+                        // solver stall, refused honestly below with the best-
+                        // seen ‖g‖. When best-seen clears the band we certify
+                        // THERE (restore + re-factor) — the continuation is
+                        // over, so nothing consumes the restore.
+                        let best_clears = best_seen
+                            .as_ref()
+                            .is_some_and(|(c, _, _)| {
+                                *c < excursion_cert
+                                    && *c <= SAE_MANIFOLD_INNER_OBJECTIVE_STALL_REL_TOL
+                            });
+                        if best_clears {
+                            let (best_cert, best_g, best_state) =
+                                best_seen.as_ref().expect("best_clears gated on Some");
+                            let excursion = self.snapshot_mutable_state();
+                            self.restore_mutable_state(best_state)?;
+                            let refactored = self
+                                .assemble_arrow_schur(target, rho, registry)
+                                .ok()
+                                .and_then(|mut best_sys| {
+                                    self.factor_deflated_evidence_with_grad_norms(
+                                        &mut best_sys,
+                                        &lambda_smooth,
+                                        options,
+                                    )
+                                    .ok()
+                                });
+                            if let Some(best_factor) = refactored {
+                                log::debug!(
+                                    "SAE #2228 certify-at-best-seen: ‖g‖ {grad_norm:.6e} \
+                                     \u{2192} {best_g:.6e}, ½λ²/scale {excursion_cert:.6e} \
+                                     \u{2192} {best_cert:.6e} after {total_inner_iter} iters"
+                                );
+                                return Ok(best_factor.cache);
+                            }
+                            // Re-factor at best-seen failed: restore the
+                            // excursion so state + final_cache stay consistent,
+                            // then fall through to the honest refusal below.
+                            self.restore_mutable_state(&excursion)?;
+                        } else if excursion_cert
+                            <= SAE_MANIFOLD_INNER_OBJECTIVE_STALL_REL_TOL
                         {
                             log::debug!(
                                 "SAE inner final-gate decrement acceptance: ‖g‖={grad_norm:.6e} \
                                  (tol {grad_tolerance:.6e}) λ²={newton_decrement_sq:.6e} \
-                                 ½λ²/scale={predicted_relative_decrease:.6e} after \
+                                 ½λ²/scale={excursion_cert:.6e} after \
                                  {total_inner_iter} inner iterations"
                             );
                             return Ok(final_cache);
@@ -1275,6 +1373,28 @@ impl SaeManifoldTerm {
                     // Inner solve did not converge; the returned Err carries
                     // the non-convergence diagnostic (gradient /
                     // quotient-gradient norms and the tolerance) to the caller.
+                    // #2228 — report a CONSISTENT best-seen snapshot: recompute
+                    // BOTH norms at the best-seen state, never the best-seen raw
+                    // mixed with the excursion's stale quotient. Terminal give-up
+                    // path, so the restore has no downstream state to corrupt.
+                    let (grad_norm, quotient_grad_norm) = match best_seen.as_ref() {
+                        Some((_, _, best_state)) => {
+                            self.restore_mutable_state(best_state)?;
+                            match self.assemble_arrow_schur(target, rho, registry) {
+                                Ok(best_sys) => {
+                                    let g2 = Self::system_grad_norm_sq(&best_sys);
+                                    let q = self.quotient_gradient_norm_from_system(
+                                        &best_sys,
+                                        g2,
+                                        &lambda_smooth,
+                                    );
+                                    (g2.sqrt(), q)
+                                }
+                                Err(_) => (grad_norm, quotient_grad_norm),
+                            }
+                        }
+                        None => (grad_norm, quotient_grad_norm),
+                    };
                     return Err(format!(
                         "SaeManifoldTerm::penalized_quasi_laplace_criterion: inner solve did not converge at fixed ρ; \
                          neither the KKT gradient ‖g‖={grad_norm:.6e} nor the quotient KKT gradient \
@@ -1502,8 +1622,8 @@ impl SaeManifoldTerm {
                 // and the idempotence certificate (the state moved, so
                 // `criterion_fixed_point` is cleared and one evidence re-entry
                 // must recur exactly before acceptance, same as any hook move).
-                if terminal_newton_rounds > 0 {
-                    terminal_newton_rounds -= 1;
+                if terminal_newton_polish_armed {
+                    terminal_newton_polish_armed = false;
                     if self.terminal_exact_newton_polish(
                         target,
                         rho_fixed,
@@ -1522,6 +1642,7 @@ impl SaeManifoldTerm {
                         // GMRES steps contract slower than pure quadratic, so
                         // the cap must not impersonate a convergence bound.
                         64,
+                        &mut best_seen,
                     )? {
                         *criterion_fixed_point = false;
                         consecutive_objective_stalls = 0;
@@ -1537,6 +1658,19 @@ impl SaeManifoldTerm {
                 // the extended progress budget indefinitely.
                 consecutive_objective_stalls += 1;
                 if consecutive_objective_stalls >= SAE_MANIFOLD_INNER_OBJECTIVE_STALL_MIN_ROUNDS {
+                    // #2228 — recompute the raw ‖g‖ at the best-seen state so the
+                    // reported residual is the best-seen iterate's, not the
+                    // excursion's. Terminal give-up path; restore is safe.
+                    let grad_norm = match best_seen.as_ref() {
+                        Some((_, _, best_state)) => {
+                            self.restore_mutable_state(best_state)?;
+                            match self.assemble_arrow_schur(target, rho, registry) {
+                                Ok(best_sys) => Self::system_grad_norm_sq(&best_sys).sqrt(),
+                                Err(_) => grad_norm,
+                            }
+                        }
+                        None => grad_norm,
+                    };
                     return Err(format!(
                         "SaeManifoldTerm::penalized_quasi_laplace_criterion: inner solve did not converge at fixed ρ; \
                          objective stalled for {consecutive_objective_stalls} consecutive refine \
@@ -1548,8 +1682,10 @@ impl SaeManifoldTerm {
                 }
             } else {
                 // The stall streak broke (this round is materially descending or
-                // the fraction baseline is not yet meaningful).
+                // the fraction baseline is not yet meaningful). Material descent
+                // re-arms the terminal polish for the next plateau (#2132).
                 consecutive_objective_stalls = 0;
+                terminal_newton_polish_armed = true;
             }
         }
     }
@@ -1740,9 +1876,15 @@ impl SaeManifoldTerm {
         objective_scale: f64,
         options: &ArrowSolveOptions,
         max_steps: usize,
+        // #2228 — caller's cross-round best-seen accumulator, keyed on the
+        // ½λ²/scale certificate. Captured HERE because the polish is where the
+        // decrement is evaluated per step and where ‖g‖ walks up off the
+        // certificate-min iterate.
+        best_seen: &mut Option<(f64, f64, SaeManifoldMutableState)>,
     ) -> Result<bool, String> {
         let mut made_progress = false;
         let mut prev_grad_norm = f64::INFINITY;
+        let mut prev_decrement_sq = f64::INFINITY;
         for _ in 0..max_steps {
             let mut sys = self
                 .assemble_arrow_schur(target, rho_fixed, registry)
@@ -1760,13 +1902,6 @@ impl SaeManifoldTerm {
                 // idempotence certificate decide acceptance.
                 return Ok(true);
             }
-            if !(grad_norm < prev_grad_norm) {
-                log::debug!(
-                    "terminal Newton bail: no contraction (‖g‖={grad_norm:.6e} ≥ prev={prev_grad_norm:.6e})"
-                );
-                break;
-            }
-            prev_grad_norm = grad_norm;
             // Ridge-0 deflated criterion factor = the B-preconditioner for the
             // exact-pencil GMRES (identical to the outer IFT's preconditioner).
             let factor = match self.factor_deflated_evidence_with_grad_norms(
@@ -1782,6 +1917,42 @@ impl SaeManifoldTerm {
                     break;
                 }
             };
+            // DUAL-CURRENCY no-contraction bail (#2132/#2228/#2267 — the same
+            // ε/raw-‖g‖ currency inconsistency the backtrack merit fixed, one loop
+            // out). Near an indefinite mode the raw ‖g‖ is NON-monotone ACROSS
+            // polish iterations (measured: ‖g‖ 1.78e-3 → 4.59e-3 while the fit is
+            // still converging), so a strict raw-‖g‖-contraction bail kills a
+            // polish that is still driving the affine Newton decrement λ²=gᵀH⁻¹g
+            // down — and the refine loop then re-arms and re-enters, grinding
+            // (measured: 25 bail→retry cycles to walltime after the merit patch).
+            // Bail only when NEITHER currency improves on its BEST-seen value; λ²
+            // is the curvature-aware quantity that certifies real progress at the
+            // saddle, and best-seen (not last-step) prevents pure oscillation from
+            // earning windows forever. The max_steps cap remains the hard backstop.
+            let decrement_sq = sae_manifold_newton_directional_decrease(
+                &sys,
+                factor.delta_t.view(),
+                factor.delta_beta.view(),
+            )
+            .max(0.0);
+            let cert = if objective_scale.is_finite() && objective_scale > 0.0 {
+                0.5 * decrement_sq / objective_scale
+            } else {
+                f64::INFINITY
+            };
+            if cert.is_finite() && best_seen.as_ref().is_none_or(|(c, _, _)| cert < *c) {
+                *best_seen = Some((cert, grad_norm, self.snapshot_mutable_state()));
+            }
+            if !(grad_norm < prev_grad_norm) && !(decrement_sq < prev_decrement_sq) {
+                log::debug!(
+                    "terminal Newton bail: no contraction in either currency \
+                     (‖g‖={grad_norm:.6e} ≥ best {prev_grad_norm:.6e}, \
+                     λ²={decrement_sq:.6e} ≥ best {prev_decrement_sq:.6e})"
+                );
+                break;
+            }
+            prev_grad_norm = grad_norm.min(prev_grad_norm);
+            prev_decrement_sq = decrement_sq.min(prev_decrement_sq);
             let cache = factor.cache;
             let solver = match self.outer_gradient_arrow_solver(&cache, lambda_smooth) {
                 Ok(solver) => solver,
@@ -1842,9 +2013,18 @@ impl SaeManifoldTerm {
             // rise its own model predicts, or every step is rejected and the
             // fit parks 1.3× above tolerance (measured on the tier-0 fixtures:
             // ‖g‖ 8.0e-5 vs tol 6.1e-5, refused at budget). The gradient-norm
-            // contraction below remains the sole merit; this budget only stops
+            // contraction below is the PRIMARY merit; this budget only stops
             // objective blow-ups, not model-consistent saddle approaches.
             let model_predicted_change = 0.5 * sae_inner(&rhs, &newton).abs();
+            // λ²_pre = gᵀH⁻¹g at the pre-step state (the exact Newton decrement,
+            // = 2·model_predicted_change). The affine SECONDARY merit below accepts
+            // a step that contracts THIS even when raw ‖g‖ does not — the
+            // indefinite/stiff class (#2132/#2228/#2267) where ‖g‖ is non-monotone
+            // under the exact-Newton step, so a valid move toward stationarity would
+            // be rejected by the raw-‖g‖-only merit and the fit refused off-optimum
+            // (measured: "step committed ‖g‖ 3.04e-1→2.73e-1" then "all backtracks
+            // rejected" cycling per tol-round — the merit-rejects-valid-step grind).
+            let pre_decrement_sq = 2.0 * model_predicted_change;
             let obj_rise_budget = SAE_MANIFOLD_INNER_OBJECTIVE_STALL_REL_TOL * objective_scale
                 + model_predicted_change;
             let snapshot = self.snapshot_mutable_state();
@@ -1861,16 +2041,47 @@ impl SaeManifoldTerm {
                 let trial_obj = self
                     .penalized_objective_total(target, rho_fixed, registry, 1.0)
                     .unwrap_or(f64::INFINITY);
-                let trial_grad = self
-                    .assemble_arrow_schur(target, rho_fixed, registry)
-                    .ok()
-                    .map(|trial_sys| Self::system_grad_norm_sq(&trial_sys).sqrt());
-                // Gradient-norm merit (this is root-finding at a stalled
-                // objective, so ‖g‖ is the monotone quantity) with the
-                // objective held to the stall detector's own no-change band.
+                // Two affine-consistent merits from the SAME trial system: the raw
+                // KKT gradient norm (PRIMARY — the stronger certificate on a PD
+                // Hessian, where it contracts quadratically) and the exact Newton
+                // decrement λ²_trial = gᵀH⁻¹g (SECONDARY — the monotone quantity at
+                // the indefinite / stiff inner Hessian the over-parametrized circle
+                // charts produce, where raw ‖g‖ is non-monotone under the exact-Newton
+                // step). Accepting on EITHER lets the polish descend the indefinite
+                // class instead of parking above tol and grinding (#2132/#2228/#2267);
+                // this aligns the polish merit with the ½λ² currency of the stall-accept
+                // it feeds, closing the three-currency inconsistency without loosening
+                // any tolerance.
+                let (trial_grad, trial_decrement_sq) =
+                    match self.assemble_arrow_schur(target, rho_fixed, registry) {
+                        Ok(mut trial_sys) => {
+                            let g = Self::system_grad_norm_sq(&trial_sys).sqrt();
+                            let decrement = self
+                                .factor_deflated_evidence_with_grad_norms(
+                                    &mut trial_sys,
+                                    lambda_smooth,
+                                    options,
+                                )
+                                .map(|factor| {
+                                    sae_manifold_newton_directional_decrease(
+                                        &trial_sys,
+                                        factor.delta_t.view(),
+                                        factor.delta_beta.view(),
+                                    )
+                                    .max(0.0)
+                                })
+                                .ok();
+                            (Some(g), decrement)
+                        }
+                        Err(_) => (None, None),
+                    };
+                // Objective held to the stall detector's own no-change band (plus the
+                // model's predicted rise for the indefinite saddle approach).
                 let obj_ok = trial_obj.is_finite() && trial_obj <= pre_obj + obj_rise_budget;
                 let grad_ok = trial_grad.is_some_and(|g| g.is_finite() && g < grad_norm);
-                if obj_ok && grad_ok {
+                let decrement_ok =
+                    trial_decrement_sq.is_some_and(|d| d.is_finite() && d < pre_decrement_sq);
+                if obj_ok && (grad_ok || decrement_ok) {
                     accepted = true;
                     made_progress = true;
                     break;
@@ -2206,7 +2417,7 @@ impl SaeManifoldTerm {
         self.assignment.validate_rho_domain(rho)?;
         let mut acc = 0.0_f64;
         for (atom_idx, atom) in self.atoms.iter().enumerate() {
-            let rank_s = Self::symmetric_rank(&atom.smooth_penalty)?;
+            let rank_s = Self::symmetric_rank(atom.smooth_penalty())?;
             // Penalized decoder dimension: `r_k` coordinate channels carry the
             // `S_k` roughness penalty (full-`B` path ⇒ `r_k == p`).
             let penalized_channel_dim = atom.border_frame_rank() * rank_s;
@@ -2229,7 +2440,7 @@ impl SaeManifoldTerm {
         self.assignment.validate_rho_domain(rho)?;
         let mut out = Vec::with_capacity(self.atoms.len());
         for atom in self.atoms.iter() {
-            let rank_s = Self::symmetric_rank(&atom.smooth_penalty)?;
+            let rank_s = Self::symmetric_rank(atom.smooth_penalty())?;
             let penalized_channel_dim = atom.border_frame_rank() * rank_s;
             out.push(0.5 * (penalized_channel_dim as f64));
         }
@@ -2253,7 +2464,7 @@ impl SaeManifoldTerm {
         learning_rate: f64,
         ridge_ext_coord: f64,
         ridge_beta: f64,
-    ) -> Result<(f64, SaeManifoldLoss, ArrowFactorCache), String> {
+    ) -> Result<(f64, SaeManifoldLoss, ArrowFactorCache), SaeCriterionError> {
         self.penalized_quasi_laplace_criterion_streaming_exact_with_cache_and_lane(
             target,
             rho,
@@ -2278,7 +2489,126 @@ impl SaeManifoldTerm {
         ridge_ext_coord: f64,
         ridge_beta: f64,
         lane: Option<&mut SurrogateLaneState>,
-    ) -> Result<(f64, SaeManifoldLoss, ArrowFactorCache), String> {
+    ) -> Result<(f64, SaeManifoldLoss, ArrowFactorCache), SaeCriterionError> {
+        let (cost, loss, cache, _system) = self
+            .penalized_quasi_laplace_criterion_streaming_exact_with_cache_lane_and_system(
+                target,
+                rho,
+                registry,
+                inner_max_iter,
+                learning_rate,
+                ridge_ext_coord,
+                ridge_beta,
+                lane,
+            )?;
+        Ok((cost, loss, cache))
+    }
+
+    /// Matrix-free outer value/gradient artifact. Unlike the scalar/cache
+    /// convenience entries, this requires the rational surrogate to retain its
+    /// complete weighted shifted-solve derivative and the exact
+    /// `ArrowSchurSystem` used to produce it. Optional shift-zero inverse probes
+    /// are requested separately and are scoped to EFS proposals. Per-row
+    /// spectral deflation is rejected explicitly: the border-only derivative
+    /// representation does not contain the Daleckii--Krein correction, and a
+    /// dense retry would violate both the declared memory route and the single-
+    /// functional derivative contract.
+    pub(crate) fn penalized_quasi_laplace_streaming_outer_evaluation(
+        &mut self,
+        target: ArrayView2<'_, f64>,
+        rho: &SaeManifoldRho,
+        registry: Option<&AnalyticPenaltyRegistry>,
+        inner_max_iter: usize,
+        learning_rate: f64,
+        ridge_ext_coord: f64,
+        ridge_beta: f64,
+        lane: &mut SurrogateLaneState,
+        need_efs_inverse_probes: bool,
+    ) -> Result<StreamingOuterEvaluation, SaeCriterionError> {
+        lane.request_logdet_derivative_bundle();
+        if need_efs_inverse_probes {
+            lane.request_inverse_probes();
+        }
+        let evaluated = self
+            .penalized_quasi_laplace_criterion_streaming_exact_with_cache_lane_and_system(
+                target,
+                rho,
+                registry,
+                inner_max_iter,
+                learning_rate,
+                ridge_ext_coord,
+                ridge_beta,
+                Some(&mut *lane),
+            );
+        let (cost, loss, cache, system) = match evaluated {
+            Ok(evaluated) => evaluated,
+            Err(error) => {
+                drop(lane.take_logdet_derivative_bundle());
+                drop(lane.take_inverse_probes());
+                return Err(error);
+            }
+        };
+        let logdet_derivative_bundle = lane.take_logdet_derivative_bundle().ok_or_else(|| {
+            SaeCriterionError::Numerical(
+                "streaming outer evaluation did not emit the rational value's derivative bundle"
+                    .to_string(),
+            )
+        })?;
+        let efs_inverse_probe_bundle = lane.take_inverse_probes();
+        if need_efs_inverse_probes && efs_inverse_probe_bundle.is_none() {
+            return Err(SaeCriterionError::Numerical(
+                "streaming EFS evaluation did not emit its requested shift-zero inverse probes"
+                    .to_string(),
+            ));
+        }
+        let system = system.ok_or_else(|| {
+            SaeCriterionError::Numerical(
+                "streaming outer evaluation did not retain its matrix-free evidence system"
+                    .to_string(),
+            )
+        })?;
+        if let Some((row, directions)) = cache
+            .deflated_row_directions
+            .iter()
+            .enumerate()
+            .find(|(_, directions)| !directions.is_empty())
+        {
+            return Err(SaeCriterionError::Numerical(format!(
+                "streaming outer derivative is undefined for row {row} with {} spectral \
+                 deflation direction(s): the selected-inverse bundle does not carry the \
+                 Daleckii--Krein correction",
+                directions.len()
+            )));
+        }
+        Ok(StreamingOuterEvaluation {
+            cost,
+            loss,
+            cache,
+            system,
+            logdet_derivative_bundle,
+            efs_inverse_probe_bundle,
+        })
+    }
+
+    fn penalized_quasi_laplace_criterion_streaming_exact_with_cache_lane_and_system(
+        &mut self,
+        target: ArrayView2<'_, f64>,
+        rho: &SaeManifoldRho,
+        registry: Option<&AnalyticPenaltyRegistry>,
+        inner_max_iter: usize,
+        learning_rate: f64,
+        ridge_ext_coord: f64,
+        ridge_beta: f64,
+        lane: Option<&mut SurrogateLaneState>,
+    ) -> Result<
+        (
+            f64,
+            SaeManifoldLoss,
+            ArrowFactorCache,
+            Option<ArrowSchurSystem>,
+        ),
+        SaeCriterionError,
+    > {
         self.assignment.validate_rho_domain(rho)?;
         let mut rho_fixed = rho.clone();
         let initial_fit = self.run_joint_fit_arrow_schur_for_quasi_laplace(
@@ -2302,8 +2632,9 @@ impl SaeManifoldTerm {
         // `PerRowFactorFailed` at base ridge 0. Sharing the driver also keeps the
         // streaming and dense log-determinants bit-identical (#847).
         let options = ArrowSolveOptions::direct()
-            .with_ill_conditioning_tolerated()
-            .with_schur_pd_floor(gam_solve::arrow_schur::SPECTRAL_DEFLATION_REL_FLOOR);
+            .with_gpu_policy(self.gpu_policy)
+            .with_newton_schur_tikhonov(gam_solve::arrow_schur::SPECTRAL_DEFLATION_REL_FLOOR)
+            .with_evidence_unit_deflation(gam_solve::arrow_schur::SPECTRAL_DEFLATION_REL_FLOOR);
         // The converged arrow-factor cache is the per-row factored Hessian
         // (matrix-free, feasible at massive K — the dense border_dim² Schur is
         // never materialised here); it is RETURNED so the EFS lane can take its
@@ -2327,7 +2658,7 @@ impl SaeManifoldTerm {
         // #9: accumulate the per-atom Grams + N_eff + log_det_tt in the same
         // log-det pass. These are required by the canonical rank-charge criterion.
         let mut rank_inputs = StreamingRankInputs::default();
-        let log_det = self.streaming_exact_arrow_log_det_with_lane(
+        let (log_det, evidence_system) = self.streaming_exact_arrow_log_det_with_lane_and_system(
             target,
             rho,
             registry,
@@ -2362,6 +2693,15 @@ impl SaeManifoldTerm {
             // chunk-accumulated Grams. The β/Schur block (the ‖B‖-independent part
             // of log_det) is untouched — bit-identical dense↔streaming by design.
             let residual = self.reconstruction_residual(target, rho)?;
+            let dispersion_lower_bound =
+                self.reconstruction_dispersion_lower_bound(&loss, Some(residual.view()))?;
+            if let Some(atoms) = self.vanished_atoms_from_signal_upper_bound(
+                &ri.grams,
+                &ri.n_eff,
+                dispersion_lower_bound,
+            )? {
+                return Err(SaeCriterionError::VanishedAtoms(atoms));
+            }
             let disp = self
                 .reconstruction_dispersion(
                     &loss,
@@ -2384,7 +2724,7 @@ impl SaeManifoldTerm {
                 rank_adjusted_quasi_laplace_complexity(log_det, ri.log_det_tt, &d_eff, &ri.n_eff)?;
             loss.total() + extra_penalty_energy + quasi_laplace_complexity - occam
         };
-        Ok((v, loss, converged_cache))
+        Ok((v, loss, converged_cache, evidence_system))
     }
 
     /// Value-only streaming criterion — the cache-returning
@@ -2398,7 +2738,7 @@ impl SaeManifoldTerm {
         learning_rate: f64,
         ridge_ext_coord: f64,
         ridge_beta: f64,
-    ) -> Result<(f64, SaeManifoldLoss), String> {
+    ) -> Result<(f64, SaeManifoldLoss), SaeCriterionError> {
         self.penalized_quasi_laplace_criterion_streaming_exact_with_lane(
             target,
             rho,
@@ -2423,7 +2763,7 @@ impl SaeManifoldTerm {
         ridge_ext_coord: f64,
         ridge_beta: f64,
         lane: Option<&mut SurrogateLaneState>,
-    ) -> Result<(f64, SaeManifoldLoss), String> {
+    ) -> Result<(f64, SaeManifoldLoss), SaeCriterionError> {
         let (cost, loss, _cache) = self
             .penalized_quasi_laplace_criterion_streaming_exact_with_cache_and_lane(
                 target,
@@ -2483,7 +2823,7 @@ impl SaeManifoldTerm {
             full_chunk.row_loss_weights = Some(weights[0..n_total].to_vec());
         }
         if let Some(inputs) = rank_inputs.as_deref_mut() {
-            full_chunk.accumulate_decoder_gram(&mut inputs.grams);
+            full_chunk.accumulate_decoder_gram(&mut inputs.grams)?;
             let assignments = full_chunk.assignment.assignments();
             for atom in 0..inputs.n_eff.len() {
                 let support = SupportMeasure::from_assignment_matrix(assignments.view(), atom)
@@ -2511,9 +2851,27 @@ impl SaeManifoldTerm {
         target: ArrayView2<'_, f64>,
         rho: &SaeManifoldRho,
         registry: Option<&AnalyticPenaltyRegistry>,
-        mut rank_inputs: Option<&mut StreamingRankInputs>,
+        rank_inputs: Option<&mut StreamingRankInputs>,
         lane: Option<&mut SurrogateLaneState>,
     ) -> Result<f64, String> {
+        self.streaming_exact_arrow_log_det_with_lane_and_system(
+            target,
+            rho,
+            registry,
+            rank_inputs,
+            lane,
+        )
+        .map(|(log_det, _system)| log_det)
+    }
+
+    fn streaming_exact_arrow_log_det_with_lane_and_system(
+        &mut self,
+        target: ArrayView2<'_, f64>,
+        rho: &SaeManifoldRho,
+        registry: Option<&AnalyticPenaltyRegistry>,
+        mut rank_inputs: Option<&mut StreamingRankInputs>,
+        mut lane: Option<&mut SurrogateLaneState>,
+    ) -> Result<(f64, Option<ArrowSchurSystem>), String> {
         if target.dim() != (self.n_obs(), self.output_dim()) {
             return Err(format!(
                 "SaeManifoldTerm::streaming_exact_arrow_log_det: target must be ({}, {}); got {:?}",
@@ -2531,12 +2889,17 @@ impl SaeManifoldTerm {
             ri.n_eff = vec![0.0; self.k_atoms()];
             ri.log_det_tt = 0.0;
         }
-        let plan = self.streaming_plan().admitted_or_error(
+        let plan = self.streaming_plan()?.admitted_or_error(
             self.n_obs(),
             self.output_dim(),
             self.k_atoms(),
         )?;
-        if plan.estimated_dense_schur_bytes > plan.in_core_budget_bytes {
+        // A gradient-bearing streaming evaluation always uses the rational
+        // matrix-free value, even when a chunked dense Schur would barely fit:
+        // only the rational lane emits the frozen selected-inverse bundle whose
+        // contractions are the exact derivative of that value. Value-only SLQ
+        // callers retain the historical memory-derived split.
+        if plan.estimated_dense_schur_bytes > plan.in_core_budget_bytes || lane.is_some() {
             // #988 memory-matrix-free evidence route. The dense k×k reduced Schur
             // (≈8 GB at the K=32k manifold border) does NOT fit the in-core
             // budget, so estimate log|S| via Stochastic Lanczos Quadrature on the
@@ -2546,8 +2909,9 @@ impl SaeManifoldTerm {
             // storage the inner PCG already holds, not the extra O(k²) dense S.
             //
             let options = ArrowSolveOptions::direct()
-                .with_ill_conditioning_tolerated()
-                .with_schur_pd_floor(gam_solve::arrow_schur::SPECTRAL_DEFLATION_REL_FLOOR);
+                .with_gpu_policy(self.gpu_policy)
+                .with_newton_schur_tikhonov(gam_solve::arrow_schur::SPECTRAL_DEFLATION_REL_FLOOR)
+                .with_evidence_unit_deflation(gam_solve::arrow_schur::SPECTRAL_DEFLATION_REL_FLOOR);
             // Assemble the WHOLE system once (a single "chunk" over all rows) so the
             // matrix-free reduced-Schur apply `v ↦ S·v` can iterate every row; the
             // per-row block storage is exactly what the inner solve already holds.
@@ -2570,7 +2934,7 @@ impl SaeManifoldTerm {
                 SCHUR_SLQ_LOGDET_PROBES,
                 SCHUR_SLQ_LOGDET_LANCZOS_STEPS,
                 SCHUR_SLQ_LOGDET_SEED,
-                lane,
+                lane.as_deref_mut(),
             )
             .map_err(|err| {
                 format!(
@@ -2586,7 +2950,7 @@ impl SaeManifoldTerm {
             if let Some(ri) = rank_inputs.as_deref_mut() {
                 ri.log_det_tt = log_det_tt;
             }
-            return Ok(log_det_tt + log_det_schur);
+            return Ok((log_det_tt + log_det_schur, Some(sys)));
         }
         let n_total = self.n_obs();
         let chunk_size = plan.chunk_size.min(n_total.max(1));
@@ -2602,8 +2966,9 @@ impl SaeManifoldTerm {
         let mut schur_acc = Array2::<f64>::zeros((border_dim, border_dim));
         let mut log_det_tt = 0.0_f64;
         let options = ArrowSolveOptions::direct()
-            .with_ill_conditioning_tolerated()
-            .with_schur_pd_floor(gam_solve::arrow_schur::SPECTRAL_DEFLATION_REL_FLOOR);
+            .with_gpu_policy(self.gpu_policy)
+            .with_newton_schur_tikhonov(gam_solve::arrow_schur::SPECTRAL_DEFLATION_REL_FLOOR)
+            .with_evidence_unit_deflation(gam_solve::arrow_schur::SPECTRAL_DEFLATION_REL_FLOOR);
         let mut start = 0usize;
         while start < n_total {
             let end = (start + chunk_size).min(n_total);
@@ -2632,7 +2997,7 @@ impl SaeManifoldTerm {
                 chunk.row_loss_weights = Some(w[start..end].to_vec());
             }
             if let Some(ri) = rank_inputs.as_deref_mut() {
-                chunk.accumulate_decoder_gram(&mut ri.grams);
+                chunk.accumulate_decoder_gram(&mut ri.grams)?;
                 let asg = chunk.assignment.assignments();
                 for k in 0..ri.n_eff.len() {
                     let support = SupportMeasure::from_assignment_matrix(asg.view(), k)
@@ -2661,7 +3026,7 @@ impl SaeManifoldTerm {
         if let Some(ri) = rank_inputs.as_deref_mut() {
             ri.log_det_tt = log_det_tt;
         }
-        Ok(log_det_tt + log_det_schur)
+        Ok((log_det_tt + log_det_schur, None))
     }
 
     /// Per-atom decoder-smoothness penalty quadratic form (#1556): entry `k` is
@@ -2669,20 +3034,25 @@ impl SaeManifoldTerm {
     /// per-atom denominator of atom `k`'s λ_smooth Fellner-Schall update. The sum
     /// over atoms is `βᵀ(⊕_k S_k ⊗ I_p)β`, the un-scaled total penalty energy.
     /// `S_k` is symmetrised defensively (as the assembler does); the per-atom
-    /// `½(S+Sᵀ)·B_k` GEMMs ride the multi-GPU batched smoothness GEMM with an
-    /// exact per-atom CPU fallback.
-    pub(crate) fn decoder_smoothness_quadratic_form_per_atom(&self) -> Vec<f64> {
+    /// `½(S+Sᵀ)·B_k` GEMMs ride the multi-GPU batched smoothness GEMM. Device-free
+    /// and sub-threshold groups use exact CPU products; admitted failures propagate.
+    pub(crate) fn decoder_smoothness_quadratic_form_per_atom(&self) -> Result<Vec<f64>, String> {
         let sb_inputs: Vec<(ArrayView2<'_, f64>, ArrayView2<'_, f64>)> = self
             .atoms
             .iter()
-            .map(|atom| (atom.smooth_penalty.view(), atom.decoder_coefficients.view()))
+            .map(|atom| {
+                (
+                    atom.smooth_penalty().view(),
+                    atom.decoder_coefficients.view(),
+                )
+            })
             .collect();
-        let sb_all = batched_smooth_sb(&sb_inputs, true);
+        let sb_all = batched_smooth_sb(&sb_inputs, true, self.gpu_policy)?;
         let mut per_atom = vec![0.0_f64; self.atoms.len()];
         for (atom_idx, (atom, sb)) in self.atoms.iter().zip(sb_all.iter()).enumerate() {
             per_atom[atom_idx] = (&atom.decoder_coefficients * sb).sum();
         }
-        per_atom
+        Ok(per_atom)
     }
 
     /// Per-atom effective penalized dof of the decoder smoothness penalty
@@ -2734,10 +3104,22 @@ impl SaeManifoldTerm {
                 )
                 .map_err(|reason| ArrowSchurError::SchurFactorFailed { reason });
         }
+        // #2253/#2228 λ→0 boundary: the plain per-column back-substitution
+        // divides by the doubly-null (data-null ∧ penalty-null) β-Schur pivots
+        // at the ρ lower face and returns `Inf`/`NaN` — the EDF value is the
+        // ONLY outer-gradient piece that contracts `(H⁻¹)_ββ`, so it is the
+        // piece that diverges while the criterion value stays finite. Route
+        // every column through the deflated spectral pseudo-inverse instead:
+        // the eigendecomposition happens ONCE (`schur_deflated_applier`), a
+        // doubly-null direction contributes exactly 0 dof (it is
+        // unidentifiable, not a real degree of freedom), and in the interior
+        // no direction deflates so the trace matches the plain path to
+        // round-off.
+        let apply = cache.schur_deflated_applier()?;
         let mut per_atom = vec![0.0_f64; self.atoms.len()];
         let mut m_col = Array1::<f64>::zeros(k);
         for (atom_idx, atom) in self.atoms.iter().enumerate() {
-            let s = &atom.smooth_penalty;
+            let s = atom.smooth_penalty();
             let m = atom.basis_size();
             let off = offsets[atom_idx];
             let r = out_dim(atom_idx);
@@ -2751,7 +3133,7 @@ impl SaeManifoldTerm {
                         let s_nu_mu = 0.5 * (s[[nu, mu]] + s[[mu, nu]]);
                         m_col[off + nu * r + oc] = lambda * s_nu_mu;
                     }
-                    let z = cache.schur_inverse_apply(m_col.view())?;
+                    let z = apply(m_col.view());
                     trace += z[col];
                 }
             }
@@ -2806,10 +3188,29 @@ impl SaeManifoldTerm {
                 |rhs| Ok(solver.solve(zero_t.view(), rhs)?.beta),
             );
         }
+        // #2253/#2228 λ→0 boundary: route the β-only columns through the ONE
+        // deflated spectral pseudo-inverse (see
+        // `decoder_smoothness_effective_dof_per_atom`) so a doubly-null decoder
+        // direction contributes 0 dof instead of `Inf`/`NaN`. With a zero
+        // t-RHS the full arrow solve's β component IS the β-Schur selected
+        // inverse (`solve(0, m).beta = S_β⁻¹ m`), so the deflated applier is
+        // the exact drop-in — but ONLY on the plain bordered arrow. When a
+        // gauge Woodbury deflation is installed (`!plain_selected_inverse_
+        // available`) the solve carries a rank-R gauge correction the β-Schur
+        // applier omits; there the known nulls are already stiffened by
+        // `κQQᵀ`, so the plain per-column solve stays (finite by
+        // construction of the gauge stiffness).
         let mut per_atom = vec![0.0_f64; self.atoms.len()];
         let mut m_col = Array1::<f64>::zeros(k);
+        let deflated_apply = if solver.plain_selected_inverse_available() {
+            Some(cache.schur_deflated_applier().map_err(|e| {
+                format!("decoder_smoothness_effective_dof_with_solver_per_atom: {e:?}")
+            })?)
+        } else {
+            None
+        };
         for (atom_idx, atom) in self.atoms.iter().enumerate() {
-            let s = &atom.smooth_penalty;
+            let s = atom.smooth_penalty();
             let m = atom.basis_size();
             let off = offsets[atom_idx];
             let r = out_dim(atom_idx);
@@ -2824,7 +3225,10 @@ impl SaeManifoldTerm {
                         let s_nu_mu = 0.5 * (s[[nu, mu]] + s[[mu, nu]]);
                         m_col[off + nu * r + oc] = lambda * s_nu_mu;
                     }
-                    let z = solver.solve(zero_t.view(), m_col.view())?.beta;
+                    let z = match deflated_apply.as_ref() {
+                        Some(apply) => apply(m_col.view()),
+                        None => solver.solve(zero_t.view(), m_col.view())?.beta,
+                    };
                     trace += z[col];
                 }
             }
@@ -3656,8 +4060,8 @@ impl SaeManifoldTerm {
             let expected = (
                 atom.n_obs(),
                 atom.basis_size(),
-                atom.latent_dim,
-                atom.latent_dim,
+                atom.latent_dim(),
+                atom.latent_dim(),
             );
             if jet.dim() != expected {
                 return Err(format!(
@@ -3675,8 +4079,7 @@ impl SaeManifoldTerm {
     // [#780 line-count gate] The per-row jet / reconstruction-channel cluster
     // (`reconstruction_row_program_for_logdet`, the const-generic
     // reconstruction / β-border channel fills and their dynamic dispatchers,
-    // `row_jets_for_logdet`, `row_jets_for_logdet_batch4`, `batch4_assemble`,
-    // and `refill_jet_window`) lives in the sibling
+    // `row_jets_for_logdet`, and `refill_jet_window`) lives in the sibling
     // `construction_row_jet_logdet_channels.rs` file, inlined via `include!`
     // below at module scope as a second `impl SaeManifoldTerm` block. Splitting
     // it out keeps this tracked file under the 10k limit; `include!` preserves
@@ -3797,6 +4200,32 @@ impl SaeManifoldTerm {
         }
     }
 
+    /// #2330 Phase-2 — the EXACT (un-clamped) periodic-ARD curvature θ-derivative
+    /// for `A = B + ΔC`. `ard_majorized_hessian_derivative` differentiates the
+    /// PSD majorizer `w·max(α cos κt, 0)` (zero on the clamped half); the exact
+    /// prior Hessian `w·α cos κt` is signed, so its θ-derivative is
+    /// `∂/∂t[w·α cos κt] = −w·α κ sin κt` on BOTH branches. That is exactly
+    /// `∂B/∂θ_ard + ∂ΔC/∂θ_ard` (the majorizer half + the restored negative half),
+    /// i.e. the ARD leg of `∂A/∂θ`. Euclidean axes have constant curvature ⇒ 0.
+    pub(crate) fn ard_exact_hessian_derivative(
+        &self,
+        alpha: f64,
+        row: usize,
+        atom: usize,
+        axis: usize,
+    ) -> f64 {
+        let periods = self.assignment.coords[atom].effective_axis_periods();
+        match periods[axis] {
+            None => 0.0,
+            Some(period) => {
+                let kappa = std::f64::consts::TAU / period;
+                let t = self.assignment.coords[atom].row(row)[axis];
+                let w_row = self.row_loss_weights.as_deref().map_or(1.0, |w| w[row]);
+                -w_row * alpha * kappa * (kappa * t).sin()
+            }
+        }
+    }
+
     pub fn outer_rho_gradient_ift_rhs(
         &self,
         rho: &SaeManifoldRho,
@@ -3864,8 +4293,8 @@ impl SaeManifoldTerm {
                 for channel in 0..r {
                     let mut acc = 0.0_f64;
                     for nu in 0..m {
-                        let s_sym =
-                            0.5 * (atom.smooth_penalty[[mu, nu]] + atom.smooth_penalty[[nu, mu]]);
+                        let s_sym = 0.5
+                            * (atom.smooth_penalty()[[mu, nu]] + atom.smooth_penalty()[[nu, mu]]);
                         acc += s_sym * coeffs[[nu, channel]];
                     }
                     beta[off + mu * r + channel] = lambda * acc;
@@ -3952,6 +4381,58 @@ impl SaeManifoldTerm {
         let second_jets = self.atom_second_jets()?;
         let border = self.border_channels_for_cache(cache)?;
         let whiten = self.whiten_logdet_row_jets();
+        if matches!(self.assignment.mode, AssignmentMode::Softmax { .. }) {
+            // #2304 resident path: the packed channel tensors are reduced in
+            // place (on device when the plan admits it) and only the per-row
+            // t/β coefficients return.
+            //
+            // The probe is `−½·√w·Z̃` on the block's columns, zero elsewhere
+            // (the −½ applied at emit time). With a whitening metric, the
+            // historical consumer whitened BOTH the jets and this vector to
+            // rank space and dotted there; `⟨Uᵀa, Uᵀv⟩ = ⟨a, U(Uᵀv)⟩`
+            // exactly, so the metric folds into the probe as `M_n v` and the
+            // raw jets are contracted directly.
+            let probe_for_row = |row: usize| -> Result<Vec<f64>, String> {
+                let sqrt_w = self
+                    .row_loss_weights
+                    .as_deref()
+                    .map_or(1.0, |w| w[row].sqrt());
+                let v: Vec<f64> = (0..p)
+                    .map(|col| {
+                        if col_range.contains(&col) {
+                            sqrt_w * target[[row, col]]
+                        } else {
+                            0.0
+                        }
+                    })
+                    .collect();
+                if whiten {
+                    let metric = self.row_metric.as_ref().ok_or_else(|| {
+                        "crosscoder_block_ift_rhs: whitening metric absent".to_string()
+                    })?;
+                    Ok(metric.apply_metric_row(row, ndarray::aview1(&v)))
+                } else {
+                    Ok(v)
+                }
+            };
+            self.contracted_softmax_linear_rhs(
+                cache,
+                &second_jets,
+                &border,
+                probe_for_row,
+                |row, q, t_row, beta_row| {
+                    let base = cache.row_offsets[row];
+                    for (var_idx, &value) in t_row.iter().enumerate().take(q) {
+                        t[base + var_idx] = -0.5 * value;
+                    }
+                    for (channel, &value) in border.iter().zip(beta_row) {
+                        beta[channel.index] += -0.5 * value;
+                    }
+                    Ok(())
+                },
+            )?;
+            return Ok(SaeArrowVector { t, beta });
+        }
         let mut jet_window: std::collections::VecDeque<SaeRowJets> =
             std::collections::VecDeque::new();
         let mut jet_window_next = 0usize;
@@ -3972,9 +4453,9 @@ impl SaeManifoldTerm {
             if whiten {
                 self.apply_whiten_to_logdet_row_jets(row, &mut jets)?;
             }
-            // `−½·√w·Z̃` on the block's columns, zero elsewhere; whitened by the
-            // SAME row metric the jets carry so the product reconstructs
-            // `−½·w·Jᵀ M Z̃^{(ℓ)}` (the jets already hold one `√w`/`Uᵀ` factor).
+            // The non-softmax rank-space dot: jets are whitened to `Uᵀ·`
+            // channels, so the vector is whitened the same way (never
+            // `M_n v` here — that fold belongs to the contracted path above).
             let sqrt_w = self
                 .row_loss_weights
                 .as_deref()
@@ -4220,9 +4701,9 @@ impl SaeManifoldTerm {
 
         // #1557 — reuse one K-sized scratch row across all N rows (alias-free).
         let mut assignments = Array1::<f64>::zeros(self.k_atoms());
-        // #932 SIMD: jets are built in aligned 4-row SIMD batches through a
-        // bounded (≤4-row) look-ahead window; unaligned / non-softmax / remainder
-        // rows fall back to the scalar per-row path (bit-identical either way).
+        // #932 complete schedule: softmax rows are built in memory-ledgered
+        // CPU/CUDA tiles through one bounded look-ahead window; non-softmax
+        // gates use their distinct dynamic row program.
         let mut jet_window: std::collections::VecDeque<SaeRowJets> =
             std::collections::VecDeque::new();
         let mut jet_window_next = 0usize;
@@ -4974,7 +5455,7 @@ impl SaeManifoldTerm {
         learning_rate: f64,
         ridge_ext_coord: f64,
         ridge_beta: f64,
-    ) -> Result<SaeCriterion, String> {
+    ) -> Result<SaeCriterion, SaeCriterionError> {
         let (production_value, loss, cache) = self.penalized_quasi_laplace_criterion_with_cache(
             target,
             rho,
@@ -5001,9 +5482,12 @@ impl SaeManifoldTerm {
             .map_err(|err| format!("SaeManifoldTerm::criterion_as_atoms: {err}"))?;
         let data_fit_priors_value = loss.total() + extra_penalty_energy;
 
-        let solver = self.outer_gradient_arrow_solver(&cache, &rho.lambda_smooth_vec()?)?;
-        let components =
-            self.analytic_outer_rho_gradient_components(target, rho, &loss, &cache, &solver)?;
+        let solver = self
+            .outer_gradient_arrow_solver(&cache, &rho.lambda_smooth_vec()?)
+            .map_err(|error| SaeCriterionError::Numerical(error.to_string()))?;
+        let components = self
+            .analytic_outer_rho_gradient_components(target, rho, &loss, &cache, &solver)
+            .map_err(|error| SaeCriterionError::Numerical(error.to_string()))?;
         let criterion = SaeCriterion::assemble(
             data_fit_priors_value,
             quasi_laplace_complexity,
@@ -5017,11 +5501,11 @@ impl SaeManifoldTerm {
         let identity_roundoff =
             64.0 * f64::EPSILON * (1.0 + production_value.abs().max(assembled_value.abs()));
         if (assembled_value - production_value).abs() > identity_roundoff {
-            return Err(format!(
+            return Err(SaeCriterionError::Numerical(format!(
                 "criterion_as_atoms: assembled value {assembled_value:.17e} does not equal \
                  production value {production_value:.17e} from the same cache \
                  (roundoff={identity_roundoff:.3e})"
-            ));
+            )));
         }
         Ok(criterion)
     }

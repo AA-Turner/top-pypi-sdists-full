@@ -1,4 +1,37 @@
 use super::*;
+use serde::{Deserialize, Serialize};
+
+/// Exact time-axis parameterization selected by the fitted location-scale
+/// model. Saved replay must dispatch on this structural fit result, never on
+/// coefficient values (an all-zero fitted warp is data, not a type tag).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SurvivalLocationScaleTimeParameterization {
+    /// The ordinary monotone time-warp channel `h(t)` is present.
+    MonotoneWarp,
+    /// The warp was removed and `-log(t)` is carried by the location channel.
+    ReducedParametricAft,
+}
+
+/// Resolved B-spline authority for a time-varying threshold or log-scale
+/// covariate margin. Knots are fit-time values, not prediction-time estimates.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct SurvivalCovariateTimeBasis {
+    pub degree: usize,
+    pub knots: Vec<f64>,
+}
+
+/// Exact prediction-row designs for one saved threshold/log-scale block.
+/// Time-varying blocks carry all three likelihood channels; static blocks
+/// carry only the exit design and use the same value at entry with zero time
+/// derivative inside the row program.
+#[derive(Clone)]
+pub struct SurvivalCovariateReplayDesign {
+    pub design_exit: DesignMatrix,
+    pub design_entry: Option<DesignMatrix>,
+    pub design_derivative_exit: Option<DesignMatrix>,
+    pub offset: Array1<f64>,
+}
 
 /// How a time block's parameterization enforces the derivative-guard
 /// monotonicity `q'(t) ≥ guard`.
@@ -157,11 +190,21 @@ pub(crate) struct SurvivalLocationScaleSpec {
 pub enum SurvivalCovariateTermBlockTemplate {
     Static,
     TimeVarying {
+        time_basis: SurvivalCovariateTimeBasis,
         time_basis_entry: Array2<f64>,
         time_basis_exit: Array2<f64>,
         time_basis_derivative_exit: Array2<f64>,
         time_penalties: Vec<Array2<f64>>,
     },
+}
+
+impl SurvivalCovariateTermBlockTemplate {
+    pub fn resolved_time_basis(&self) -> Option<&SurvivalCovariateTimeBasis> {
+        match self {
+            Self::Static => None,
+            Self::TimeVarying { time_basis, .. } => Some(time_basis),
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -206,6 +249,9 @@ pub const DEFAULT_SURVIVAL_LOCATION_SCALE_DERIVATIVE_GUARD: f64 = 1e-6;
 
 pub struct SurvivalLocationScaleTermFitResult {
     pub fit: UnifiedFitResult,
+    pub time_parameterization: SurvivalLocationScaleTimeParameterization,
+    pub threshold_time_basis: Option<SurvivalCovariateTimeBasis>,
+    pub log_sigma_time_basis: Option<SurvivalCovariateTimeBasis>,
     pub resolved_thresholdspec: TermCollectionSpec,
     pub resolved_log_sigmaspec: TermCollectionSpec,
     pub threshold_design: TermCollectionDesign,
@@ -253,6 +299,14 @@ pub struct SurvivalLocationScaleFitResultParts {
     /// `None` = no gradient measured at termination; `Some(g)` = measured.
     /// `outer_converged` is the authoritative convergence signal.
     pub outer_gradient_norm: Option<f64>,
+    /// Exact analytic stationarity certificate owned by the nested smoothing /
+    /// spatial solve. `None` is valid only when `outer_iterations == 0`.
+    ///
+    /// Finalization changes coefficient coordinates, not the optimized
+    /// criterion, so it must carry this proof through instead of replacing it
+    /// with a convergence boolean.
+    pub criterion_certificate:
+        Option<gam_solve::rho_optimizer::OuterCriterionCertificate>,
     pub outer_converged: bool,
     pub covariance_conditional: Option<Array2<f64>>,
     pub geometry: Option<FitGeometry>,
@@ -373,6 +427,7 @@ pub fn survival_fit_from_parts(
         used_device,
         outer_iterations,
         outer_gradient_norm,
+        criterion_certificate,
         outer_converged,
         covariance_conditional,
         geometry,
@@ -528,22 +583,28 @@ pub fn survival_fit_from_parts(
     if let Some(geom) = geometry.as_ref() {
         geom.validate_numeric_finiteness()
             .map_err(|e| e.to_string())?;
-        let (rows, cols) = geom.penalized_hessian.dim();
-        if rows != total_p || cols != total_p {
+        let mut saved_block_widths =
+            vec![beta_time.len(), beta_threshold.len(), beta_log_sigma.len()];
+        if let Some(beta) = beta_link_wiggle.as_ref() {
+            saved_block_widths.push(beta.len());
+        }
+        if geom.coefficient_gauge.raw_widths() != saved_block_widths {
             return Err(SurvivalLocationScaleError::InvalidConfiguration {
                 reason: format!(
-                    "survival_fit.geometry.penalized_hessian must be {}x{}, got {}x{}",
-                    total_p, total_p, rows, cols
+                    "survival_fit.geometry coefficient-gauge raw block widths {:?} do not match saved coefficient widths {:?}",
+                    geom.coefficient_gauge.raw_widths(),
+                    saved_block_widths,
                 ),
             }
             .into());
         }
-        if geom.working_weights.len() != geom.working_response.len() {
-            return Err(SurvivalLocationScaleError::DimensionMismatch {
+        let active_p = geom.coefficient_gauge.reduced_total();
+        let (rows, cols) = geom.penalized_hessian.dim();
+        if rows != active_p || cols != active_p {
+            return Err(SurvivalLocationScaleError::InvalidConfiguration {
                 reason: format!(
-                    "survival_fit.geometry working length mismatch: weights={}, response={}",
-                    geom.working_weights.len(),
-                    geom.working_response.len()
+                    "survival_fit.geometry active-coordinate penalized_hessian must be {}x{}, got {}x{}",
+                    active_p, active_p, rows, cols
                 ),
             }
             .into());
@@ -658,8 +719,6 @@ pub fn survival_fit_from_parts(
             smoothing_correction: None,
             smoothing_correction_method: None,
             penalized_hessian: geom.penalized_hessian.clone(),
-            working_weights: geom.working_weights.clone(),
-            working_response: geom.working_response.clone(),
             reparam_qs: None,
             dispersion: gam_solve::estimate::Dispersion::UNIT,
             beta_covariance: covariance_conditional.clone().map(Into::into),
@@ -708,7 +767,7 @@ pub fn survival_fit_from_parts(
             null_space_dim: None,
             survival_link_wiggle_knots: link_wiggle_knots,
             survival_link_wiggle_degree: link_wiggle_degree,
-            criterion_certificate: None,
+            criterion_certificate,
             rho_posterior_certificate: None,
             rho_posterior_escalation: None,
             rho_covariance: None,

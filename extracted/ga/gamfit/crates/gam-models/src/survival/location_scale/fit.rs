@@ -11,8 +11,8 @@ use super::*;
 /// `−ℓ̂`. The conditional covariance is the inverse of the observed information
 /// `H` (the joint negative-log-likelihood Hessian at the MLE), and the
 /// geometry's penalized Hessian is `H` itself — matching the exact-Newton joint
-/// geometry the coupled survival path stores (`working_weights`/`working_response`
-/// are the zero-length convention used by exact-Newton joint families). The
+/// geometry the coupled survival path stores. Exact-Newton curvature has no
+/// single diagonal row representation, so `working` is explicitly `None`. The
 /// shared [`crate::custom_family::blockwise_fit_from_parts`] assembler then
 /// computes EDF (= parameter count, since unpenalized) and the inference block
 /// exactly as for any custom-family fit.
@@ -57,9 +57,14 @@ pub(crate) fn fit_reduced_parametric_aft(
     };
 
     let geometry = Some(FitGeometry {
+        coefficient_gauge: gam_problem::gauge::Gauge::identity(
+            &specs
+                .iter()
+                .map(|spec| spec.design.ncols())
+                .collect::<Vec<_>>(),
+        ),
         penalized_hessian: h.into(),
-        working_weights: Array1::<f64>::zeros(0),
-        working_response: Array1::<f64>::zeros(0),
+        working: None,
     });
 
     // The block states carry their η in the family's native row layout — the
@@ -102,6 +107,7 @@ pub(crate) fn fit_reduced_parametric_aft(
             geometry,
             precomputed_edf: None,
             joint_log_lambdas: None,
+            smoothing_corrected: None,
         },
         &assembly_specs,
     )
@@ -113,8 +119,18 @@ pub(crate) fn fit_reduced_parametric_aft(
 /// runs, because the location-scale finalizer empties `UnifiedFitResult::block_states`
 /// (see `survival_fit_from_parts` — `block_states: Vec::new()`), and the family's
 /// `offset_channel_geometry` method needs the raw, populated per-block state.
-pub(crate) fn fit_survival_location_scale_with_geometry(
+enum SurvivalLocationScaleFitAuthority<'a> {
+    Direct,
+    Certified {
+        theta: &'a Array1<f64>,
+        outer: &'a gam_solve::rho_optimizer::CertifiedOuterResult,
+        mode: crate::custom_family::CustomFamilyOwnedMode,
+    },
+}
+
+fn fit_survival_location_scale_with_geometry_authority(
     spec: SurvivalLocationScaleSpec,
+    authority: SurvivalLocationScaleFitAuthority<'_>,
 ) -> Result<(UnifiedFitResult, SurvivalLocationScaleConvergedGeometry), String> {
     let prepared = prepare_survival_location_scale_model(&spec)?;
     let options = survival_blockwise_fit_options(&spec);
@@ -129,9 +145,37 @@ pub(crate) fn fit_survival_location_scale_with_geometry(
     // genuinely flexible or penalized survival LS fit keeps the full coupled
     // path below.
     let fit = if prepared.is_reduced_parametric_aft() {
+        if matches!(
+            &authority,
+            SurvivalLocationScaleFitAuthority::Certified { .. }
+        ) {
+            return Err(SurvivalLocationScaleError::InternalInvariant {
+                reason: "a reduced unpenalized AFT fit cannot carry an optimized smoothing certificate"
+                    .to_string(),
+            }
+            .into());
+        }
         fit_reduced_parametric_aft(&prepared, &options)?
     } else {
-        fit_custom_family(&prepared.family, &prepared.blockspecs, &options)?
+        match authority {
+            SurvivalLocationScaleFitAuthority::Direct => {
+                fit_custom_family(&prepared.family, &prepared.blockspecs, &options)?
+            }
+            SurvivalLocationScaleFitAuthority::Certified { theta, outer, mode } => {
+                let exact_options = crate::outer_subsample::exact_outer_options_for_row_set(
+                    &options,
+                    &crate::row_kernel::RowSet::All,
+                );
+                fit_custom_family_fixed_log_lambdas_from_owned_mode(
+                    &prepared.family,
+                    &prepared.blockspecs,
+                    &exact_options,
+                    mode,
+                    theta,
+                    outer,
+                )?
+            }
+        }
     };
     // `finalize_survival_location_scale_fit` indexes the populated block
     // states directly, so an empty result from the inner fit violates this
@@ -155,6 +199,27 @@ pub(crate) fn fit_survival_location_scale_with_geometry(
     ))
 }
 
+pub(crate) fn fit_survival_location_scale_with_geometry(
+    spec: SurvivalLocationScaleSpec,
+) -> Result<(UnifiedFitResult, SurvivalLocationScaleConvergedGeometry), String> {
+    fit_survival_location_scale_with_geometry_authority(
+        spec,
+        SurvivalLocationScaleFitAuthority::Direct,
+    )
+}
+
+fn fit_survival_location_scale_with_geometry_from_outer(
+    spec: SurvivalLocationScaleSpec,
+    theta: &Array1<f64>,
+    outer: &gam_solve::rho_optimizer::CertifiedOuterResult,
+    mode: crate::custom_family::CustomFamilyOwnedMode,
+) -> Result<(UnifiedFitResult, SurvivalLocationScaleConvergedGeometry), String> {
+    fit_survival_location_scale_with_geometry_authority(
+        spec,
+        SurvivalLocationScaleFitAuthority::Certified { theta, outer, mode },
+    )
+}
+
 /// Converged-fit geometry returned alongside the finalized location-scale fit:
 /// the offset-channel residuals + curvatures (for the baseline-θ gradient/Hessian)
 /// and the exact inverse-link data-fit θ-gradient (`None` when the link has no
@@ -172,12 +237,12 @@ pub(crate) fn select_survival_link_wiggle_basis_from_pilot(
 ) -> Result<SelectedWiggleBasis, String> {
     let eta_threshold = pilot
         .threshold_design
-        .design
-        .dot(&pilot.fit.beta_threshold());
+        .apply(pilot.fit.beta_threshold().view())
+        .map_err(|error| error.to_string())?;
     let eta_log_sigma = pilot
         .log_sigma_design
-        .design
-        .dot(&pilot.fit.beta_log_sigma());
+        .apply(pilot.fit.beta_log_sigma().view())
+        .map_err(|error| error.to_string())?;
     let q_seed = Array1::from_iter(
         eta_threshold
             .iter()
@@ -345,6 +410,18 @@ pub(crate) fn fit_survival_location_scale_terms(
         },
         wiggle_rho0.len(),
     );
+    // This is the same structural predicate consumed by
+    // `PreparedSurvivalLocationScaleModel::is_reduced_parametric_aft`: every
+    // smoothing coordinate is absent, and neither time nor link wiggles exist.
+    // Persist the result while the fit topology is still available; saved
+    // replay must not attempt to recover it from fitted coefficient values.
+    let time_parameterization =
+        if layout.total() == 0 && protected_timewiggle_cols == 0 && spec.linkwiggle_block.is_none()
+        {
+            SurvivalLocationScaleTimeParameterization::ReducedParametricAft
+        } else {
+            SurvivalLocationScaleTimeParameterization::MonotoneWarp
+        };
     let mut rho0 = Array1::<f64>::zeros(layout.total());
     if layout.k_time > 0 {
         if time_rho0.len() != layout.k_time {
@@ -394,11 +471,12 @@ pub(crate) fn fit_survival_location_scale_terms(
         //
         // The previous fix seeded the *interior* point ρ = 8. That did NOT cure
         // the hang: the inner blockwise REML optimizer re-optimizes ρ_time
-        // freely from its seed against an inner per-coordinate ρ box bound of
-        // ±10 (`fit_custom_family_with_rho_prior`'s `.with_rho_bound(10.0)`).
+        // freely from its seed against a per-coordinate ρ box bound (then ±10;
+        // today `gam_custom_family::EFFECTIVE_DF_CEILING`, tightened per term
+        // by the effective-df floor).
         // λ = exp(8) ≈ 3·10³ already sits INSIDE the "dead-flat region" that
-        // very bound exists to fence off (see the `with_rho_bound` rationale in
-        // `custom_family.rs`): with a flat REML gradient and near-singular
+        // very bound exists to fence off (see the ceiling's rationale in
+        // `gam-custom-family/src/fit.rs`): with a flat REML gradient and near-singular
         // curvature there, the optimizer wanders between ρ = 8 and the ρ = 10
         // boundary one micro-step at a time and the retry-stall detector spins
         // on the flat surface — producing the >200s no-iteration-log hang. A
@@ -406,14 +484,15 @@ pub(crate) fn fit_survival_location_scale_terms(
         // unconstrained projected-gradient stationarity test it would need is
         // exactly the test the flat ridge makes ill-posed.
         //
-        // Seed instead at the inner ρ box bound itself. At the bound the
+        // Seed instead at the ρ box bound itself. At the bound the
         // box-constraint KKT condition (the REML gradient pushes further into
         // strong smoothing, against an active bound) certifies stationarity
         // *immediately* at iteration 0 for the time coordinate — there is no
         // interior flat region left to wander, because the optimizer is pinned
-        // at the wall. λ = exp(10) ≈ 22k is the affine-nullspace limit (the
-        // bound's own rationale calls this "statistically indistinguishable
-        // from shrunk to nullspace"), i.e. exactly the parametric-AFT affine
+        // at the wall. λ = exp(EFFECTIVE_DF_CEILING = 12) ≈ 1.6·10⁵ is deep in
+        // the affine-nullspace limit (the ceiling's own rationale calls this
+        // regime "statistically indistinguishable from shrunk to nullspace"),
+        // i.e. exactly the parametric-AFT affine
         // baseline. This is a regime-specific *initialization*, not a cap or a
         // tolerance change: the I-spline basis dimensions are untouched, so any
         // independent rebuild of the time basis (predictor reconstruction) is
@@ -435,15 +514,19 @@ pub(crate) fn fit_survival_location_scale_terms(
         // null space to collapse onto (or a timewiggle keeps the flexibility),
         // pinning that surviving time ρ at the strong-smoothing limit.
         if constant_scale {
-            // ρ = 10 == the inner blockwise solver's per-coordinate ρ box bound
-            // (`custom_family.rs` `with_rho_bound(10.0)`). Seeding AT the bound
-            // (not interior, as the prior ρ = 8 seed did) makes the box
-            // constraint active from iteration 0, so outer stationarity
-            // certifies immediately instead of crawling the flat ridge.
-            const PARAMETRIC_AFT_TIME_RHO_SEED: f64 = 10.0;
+            // Seed AT the custom-family outer box ceiling (not interior, as the
+            // prior ρ = 8 seed was) so the box constraint is active from
+            // iteration 0 and outer stationarity certifies immediately instead
+            // of crawling the flat ridge. The invariant is "seed sits ON the
+            // coordinate's realized wall", not any numeric value: a stranded
+            // local `10.0` re-opened a two-e-fold ridge crawl when the ceiling
+            // moved to 12 (#2356). Referencing the ceiling itself is exact even
+            // when the term's realized upper bound is tighter (the
+            // effective-df-floor tightening): `run_plan` projects every seed
+            // onto the realized per-coordinate box before use.
             let mut time_seed = rho0.slice_mut(s![range.start..range.end]);
             for v in time_seed.iter_mut() {
-                *v = PARAMETRIC_AFT_TIME_RHO_SEED;
+                *v = gam_custom_family::EFFECTIVE_DF_CEILING;
             }
         }
     }
@@ -503,7 +586,8 @@ pub(crate) fn fit_survival_location_scale_terms(
         &spec.log_sigmaspec,
         rho0,
         kappa_options,
-    );
+    )
+    .map_err(|error| error.to_string())?;
 
     let time_beta_hint = std::cell::RefCell::new(spec.time_block.initial_beta.clone());
     let threshold_beta_hint = std::cell::RefCell::new(None::<Array1<f64>>);
@@ -707,15 +791,25 @@ pub(crate) fn fit_survival_location_scale_terms(
         true,
         None,
         outer_policy,
-        |theta, specs: &[TermCollectionSpec], designs: &[TermCollectionDesign]| {
+        |theta, specs: &[TermCollectionSpec], designs: &[TermCollectionDesign], provenance| {
             let rho = theta.slice(s![..joint_setup.rho_dim()]).to_owned();
-            let (fit, geom) = fit_survival_location_scale_with_geometry(build_spec(
+            let assembled = build_spec(
                 &rho,
                 &specs[0],
                 &specs[1],
                 &designs[0],
                 &designs[1],
-            )?)?;
+            )?;
+            let (fit, geom) = match provenance {
+                SpatialFitProvenance::NoOuterOptimization => {
+                    fit_survival_location_scale_with_geometry(assembled)?
+                }
+                SpatialFitProvenance::Certified { outer, mode } => {
+                    fit_survival_location_scale_with_geometry_from_outer(
+                        assembled, theta, outer, mode,
+                    )?
+                }
+            };
             time_beta_hint.replace(Some(fit.beta_time()));
             threshold_beta_hint.replace(Some(fit.beta_threshold()));
             log_sigma_beta_hint.replace(Some(fit.beta_log_sigma()));
@@ -771,6 +865,11 @@ pub(crate) fn fit_survival_location_scale_terms(
             if prepared.family.x_link_wiggle.is_some() {
                 derivative_blocks.push(Vec::new());
             }
+            let hyper_layout = CustomFamilyHyperLayout::new(
+                derivative_blocks,
+                Vec::new(),
+                theta.slice(s![joint_setup.rho_dim()..]).to_owned(),
+            )?;
             // If the caller asked for a Hessian but the family can't provide
             // an analytic one, downgrade the request to ValueAndGradient.
             // ValueOnly stays ValueOnly so cost-only line-search probes skip
@@ -781,38 +880,37 @@ pub(crate) fn fit_survival_location_scale_terms(
                 }
                 other => other,
             };
-            let mut eval_options = survival_blockwise_fit_options(&assembled);
-            match row_set {
-                crate::row_kernel::RowSet::All => {}
-                crate::row_kernel::RowSet::Subsample { rows, n_full } => {
-                    eval_options.outer_score_subsample = Some(Arc::new(
-                        crate::outer_subsample::OuterScoreSubsample::from_weighted_rows(
-                            (**rows).clone(),
-                            *n_full,
-                            *n_full as u64,
-                        ),
-                    ));
-                }
-            }
-            let eval = evaluate_custom_family_joint_hyper(
+            let eval_options = crate::outer_subsample::exact_outer_options_for_row_set(
+                &survival_blockwise_fit_options(&assembled),
+                row_set,
+            );
+            let owned = evaluate_custom_family_joint_hyper_owned(
                 &prepared.family,
                 &prepared.blockspecs,
                 &eval_options,
                 &rho,
-                &derivative_blocks,
+                &hyper_layout,
                 exact_warm_start.borrow().as_ref(),
                 effective_mode,
             )
             .map_err(|e| e.to_string())?;
-            exact_warm_start.replace(Some(eval.warm_start.clone()));
-            if !eval.inner_converged {
+            exact_warm_start.replace(Some(owned.result.warm_start.clone()));
+            if !owned.result.inner_converged {
                 return Err(
                     "survival location-scale exact joint inner solve did not converge".to_string(),
                 );
             }
-            Ok((eval.objective, eval.gradient, eval.outer_hessian))
+            Ok(ExactJointEvaluation {
+                objective: owned.result.objective,
+                gradient: owned.result.gradient,
+                hessian: owned.result.outer_hessian,
+                mode: owned.mode,
+            })
         },
-        |theta, specs: &[TermCollectionSpec], designs: &[TermCollectionDesign]| {
+        |theta,
+         specs: &[TermCollectionSpec],
+         designs: &[TermCollectionDesign],
+         row_set: &crate::row_kernel::RowSet| {
             if !analytic_joint_gradient_available {
                 return Err(SurvivalLocationScaleError::InvalidConfiguration { reason: "analytic spatial psi derivatives are unavailable for survival exact two-block path"
                         .to_string(), }.into());
@@ -855,23 +953,35 @@ pub(crate) fn fit_survival_location_scale_terms(
             if prepared.family.x_link_wiggle.is_some() {
                 derivative_blocks.push(Vec::new());
             }
-            let eval = evaluate_custom_family_joint_hyper_efs(
+            let hyper_layout = CustomFamilyHyperLayout::new(
+                derivative_blocks,
+                Vec::new(),
+                theta.slice(s![joint_setup.rho_dim()..]).to_owned(),
+            )?;
+            let eval_options = crate::outer_subsample::exact_outer_options_for_row_set(
+                &survival_blockwise_fit_options(&assembled),
+                row_set,
+            );
+            let owned = evaluate_custom_family_joint_hyper_efs_owned(
                 &prepared.family,
                 &prepared.blockspecs,
-                &survival_blockwise_fit_options(&assembled),
+                &eval_options,
                 &rho,
-                &derivative_blocks,
+                &hyper_layout,
                 exact_warm_start.borrow().as_ref(),
             )
             .map_err(|e| e.to_string())?;
-            exact_warm_start.replace(Some(eval.warm_start.clone()));
-            if !eval.inner_converged {
+            exact_warm_start.replace(Some(owned.result.warm_start.clone()));
+            if !owned.result.inner_converged {
                 return Err(
                     "survival location-scale exact joint EFS inner solve did not converge"
                         .to_string(),
                 );
             }
-            Ok(eval.efs_eval)
+            Ok(ExactJointEfsEvaluation {
+                evaluation: owned.result.efs_eval,
+                mode: owned.mode,
+            })
         },
         crate::marginal_slope_shared::make_beta_seed_validator(&pending_beta_seed),
     )?;
@@ -907,6 +1017,9 @@ pub(crate) fn fit_survival_location_scale_terms(
         };
     Ok(SurvivalLocationScaleTermFitResult {
         fit: solved.fit,
+        time_parameterization,
+        threshold_time_basis: spec.threshold_template.resolved_time_basis().cloned(),
+        log_sigma_time_basis: spec.log_sigma_template.resolved_time_basis().cloned(),
         resolved_thresholdspec: resolved_specs.remove(0),
         resolved_log_sigmaspec: resolved_specs.remove(0),
         threshold_design: designs.remove(0),

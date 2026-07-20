@@ -37,6 +37,7 @@ class TestJenkinsIntegrationCreateDto(unittest.TestCase):
             return JenkinsIntegrationCreateDto(
                 name = '',
                 url = '',
+                browse_url = '',
                 username = '',
                 token = '',
                 broker_id = '',

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "victron_mqtt"
-version = "2026.7.4"
+version = "2026.7.5"
 description = "Python library for communicating with Victron Venus OS MQTT interface"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -47,6 +47,15 @@ extra-dependencies = [
 [tool.hatch.envs.types.scripts]
 check = "mypy --install-types --non-interactive {args:victron_mqtt tests}"
 pyright = "python -m pyright {args:victron_mqtt tests}"
+
+[tool.hatch.envs.lint]
+extra-dependencies = [
+  "pylint>=3.0",
+]
+[tool.hatch.envs.lint.scripts]
+# Scoped to shippable code; the package installed in this env resolves imports
+# (avoids pylint import-error). Tests are covered by ruff + pyright.
+pylint = "python -m pylint {args:victron_mqtt examples}"
 
 [tool.hatch.envs.test]
 dependencies = [

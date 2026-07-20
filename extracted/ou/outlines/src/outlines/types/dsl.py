@@ -751,7 +751,11 @@ def python_types_to_terms(ptype: Any, recursion_depth: int = 0) -> Term:
     elif is_str_instance(ptype):
         return String(ptype)
     elif is_int_instance(ptype) or is_float_instance(ptype):
-        return Regex(str(ptype))
+        # Escape regex metacharacters so the literal value matches literally.
+        # Without this a float's ``.`` becomes a wildcard (e.g. ``1.5`` would
+        # also match ``1x5``). Kept as a ``Regex`` (not ``String``) so numbers
+        # stay JSON-unquoted inside container types via ``_ensure_json_quoted``.
+        return Regex(re.escape(str(ptype)))
 
     # Structured types
     structured_type_checks = [
@@ -831,21 +835,22 @@ def _ensure_json_quoted(term: Term) -> Term:
 
 
 def _handle_union(args: tuple, recursion_depth: int) -> Alternatives:
-    # Handle the Optional[T] type
-    if len(args) == 2 and (type(None) in args or None in args):
-        other_ptype = next(arg for arg in args if arg not in (type(None), None))
-        return Alternatives(
-            [
-                python_types_to_terms(other_ptype, recursion_depth + 1),
-                # ``None`` is a keyword, not a string value: keep it a ``Regex``
-                # (like ``True``/``False``) so it is not JSON-quoted when the
-                # ``Optional`` ends up nested inside a container type.
-                Regex("None"),
-            ]
-        )
-    return Alternatives(
-        [python_types_to_terms(arg, recursion_depth + 1) for arg in args]
-    )
+    # Peel off the None member(s) for any arity (not just the 2-arg Optional[T]
+    # case): a union such as `Union[int, str, None]` / `Optional[Union[int, str]]`
+    # must map None instead of recursing into NoneType (which has no handler and
+    # raised "Type NoneType is currently not supported").
+    has_none = type(None) in args or None in args
+    terms = [
+        python_types_to_terms(arg, recursion_depth + 1)
+        for arg in args
+        if arg not in (type(None), None)
+    ]
+    if has_none:
+        # `None` is a keyword, not a string value: keep it a `Regex` (like
+        # `True`/`False`) so it is not JSON-quoted when the union ends up
+        # nested inside a container type.
+        terms.append(Regex("None"))
+    return Alternatives(terms)
 
 
 def _handle_list(args: tuple, recursion_depth: int) -> Sequence:

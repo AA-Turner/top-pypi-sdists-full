@@ -40,6 +40,12 @@ pub struct DenseSpectralOperator {
     pub(crate) projected_factor_cache: ProjectedFactorCache,
     /// Full dimension.
     pub(crate) n_dim: usize,
+    /// Raw (unregularized) eigenvalues σ_i of H, in eigenpair order. The fused
+    /// second-order reductions need `σ` itself (not `r_ε(σ)`) to reassociate
+    /// the logdet-Hessian diagonal cancellation-free.
+    pub(crate) raw_eigenvalues: Vec<f64>,
+    /// The spectral regularization scale ε used to build every kernel.
+    pub(crate) epsilon: f64,
 }
 
 impl DenseSpectralOperator {
@@ -198,6 +204,8 @@ impl DenseSpectralOperator {
             cached_logdet,
             projected_factor_cache: ProjectedFactorCache::default(),
             n_dim: n,
+            raw_eigenvalues: eigenvalues.to_vec(),
+            epsilon,
         })
     }
 
@@ -213,6 +221,322 @@ impl DenseSpectralOperator {
     /// trace directly in row space without forming `A F` in coefficient space.
     pub fn logdet_gradient_factor(&self) -> &Array2<f64> {
         &self.g_factor
+    }
+
+    /// Cancellation-free logdet-gradient reduction for a SQUARE FULL-RANK block
+    /// penalty: computes `tr(G_ε(H)·λ_k S_k) − rank(S_k)` with the `−rank`
+    /// subtraction distributed across eigenpairs.
+    ///
+    /// The ρ_k-gradient of the LAML `½·log|H|` cost carries the term
+    /// `½·(tr(G_ε(H)·λ_k S_k) − ∂_{ρ_k} log|S(λ)|₊)`.  For a penalty coordinate
+    /// whose block is the SOLE penalty of its span the det derivative is the
+    /// exact integer `rank(S_k)`, and at the over-smoothing rail (λ_k → ∞,
+    /// H ≈ λ_k S_k) the trace `tr(G_ε(H)·λ_k S_k) → rank(S_k)` so the difference
+    /// of the two aggregate quantities catastrophically cancels — the surviving
+    /// O(1/λ_k) gradient is then set by the last few bits of a `rank`-sized sum,
+    /// which drift with the host's FMA/SIMD summation order.  Reforming the
+    /// subtraction eigenpair-by-eigenpair keeps every intermediate at the true
+    /// O(1/λ_k) scale, so the result is host-arithmetic-independent.
+    ///
+    /// Uses the identity, valid ONLY when the block is square and full rank
+    /// (`end − start == rank(S_k)`), so the range projection `P_k` of `S_k` is
+    /// the block-coordinate identity:
+    ///
+    /// ```text
+    ///   tr(G_ε λ_k S_k) − rank = Σ_j [ λ_k · (g_jᵀ S_k g_j) − Σ_{i∈block} u_j[i]² ]
+    /// ```
+    ///
+    /// where `g_j = g_factor[:, j] = √φ'(σ_j)·u_j` and `u_j = eigenvectors[:, j]`.
+    /// The aggregate `Σ_j Σ_{i∈block} u_j[i]² = Σ_{i∈block} ‖U[i,:]‖² = width =
+    /// rank` holds for ANY eigenbasis (the rows of the full orthogonal `U` are
+    /// unit-norm, mask or no mask), so this is valid under a masked numerical
+    /// null space too (`active_rank() < dim()`, `HardPseudo`): the `−rank`
+    /// distribution runs over the complete (unmasked) `eigenvectors`, while the
+    /// `+` trace reads `g_factor`, which is zeroed on the masked eigenpairs, so
+    /// the fused value is `trace_active − rank` — exactly the active-subspace
+    /// trace minus the integer rank the masked naive path pairs, and still
+    /// cancellation-free (the masked pairs add only the non-negative lump
+    /// `0 − Σ_{i∈block} u_j[i]²`). The `first ≈ rank` gate at the call site is
+    /// what certifies the block is a proportional singleton whose det derivative
+    /// is the integer rank.
+    pub(crate) fn fused_logdet_gradient_minus_rank_full_block(
+        &self,
+        s_block: &Array2<f64>,
+        start: usize,
+        end: usize,
+        scale: f64,
+    ) -> f64 {
+        let g_block = self.g_factor.slice(ndarray::s![start..end, ..]);
+        let u_block = self.eigenvectors.slice(ndarray::s![start..end, ..]);
+        // S_k · g_block once: (width × n), column j is S_k g_j[block].
+        let sg = s_block.dot(&g_block);
+        let mut fused = 0.0;
+        for j in 0..self.n_dim {
+            let s_term: f64 = sg
+                .column(j)
+                .iter()
+                .zip(g_block.column(j).iter())
+                .map(|(&a, &b)| a * b)
+                .sum();
+            let p_term: f64 = u_block.column(j).iter().map(|&u| u * u).sum();
+            fused += scale * s_term - p_term;
+        }
+        fused
+    }
+
+    /// Cancellation-free logdet-gradient reduction for a RANK-DEFICIENT singleton
+    /// penalty block: computes `tr(G_ε(H)·λ_k S_k) − rank(S_k)` for a block whose
+    /// penalty `S_k` has a structural null space (`rank(S_k) < end − start`, e.g.
+    /// a spline curvature / difference penalty).
+    ///
+    /// [`fused_logdet_gradient_minus_rank_full_block`] distributes the `−rank`
+    /// subtraction over the block-coordinate identity `P_block`, whose trace is
+    /// the block WIDTH.  That equals the det derivative `∂_{ρ_k} log|λ_k S_k|₊ =
+    /// rank(S_k)` ONLY when the block is full rank (`width = rank`).  For a
+    /// rank-deficient block the det derivative is still the integer `rank(S_k)`
+    /// (a proportional singleton `log|λ_k S_k|₊ = rank·ρ_k + const`) but
+    /// `tr(P_block) = width > rank`, so the full-block fusion over-subtracts.
+    ///
+    /// The correct per-eigenpair `−rank` distribution is the ORTHOGONAL
+    /// PROJECTOR `P_{S_k} = Q Qᵀ` onto `range(S_k)` (with `Q` the orthonormal
+    /// range basis, `QᵀQ = I_r`), because
+    /// `Σ_j (u_j^{blk})ᵀ P_{S_k} (u_j^{blk}) = tr(P_{S_k}·I_block) = rank(S_k)`
+    /// over the complete eigenbasis.  So per eigenpair
+    ///
+    /// ```text
+    ///   fused += λ_k·(g_jᵀ S_k g_j) − ‖Qᵀ u_j^{blk}‖²
+    /// ```
+    ///
+    /// is `tr(G_ε λ_k S_k) − rank(S_k)` reassociated with the subtraction matched
+    /// eigenpair-by-eigenpair.  At the over-smoothing rail the `+` term (mass of
+    /// `G_ε λ_k S_k` on eigendirection `j`) and the `−` term (mass of `u_j` in
+    /// `range(S_k)`) each approach the same per-pair value, so their difference
+    /// stays at the true O(1/λ_k) scale and never emerges from the last bits of a
+    /// rank-sized aggregate — exactly as in the full-rank fusion, of which this
+    /// is the strict generalization (`P_{S_k} = P_block` when `width = rank`).
+    ///
+    /// The `Σ_j ‖Qᵀ u_j^blk‖² = tr(P_{S_k}) = rank` identity holds for ANY
+    /// eigenbasis (`Σ_j u_j u_jᵀ = I` over the complete, unmasked `eigenvectors`),
+    /// so this is valid under a masked numerical null space too
+    /// (`active_rank() < dim()`, `HardPseudo`): the `+` trace reads the masked
+    /// `g_factor`, so the fused value is the active-subspace trace minus the
+    /// integer rank, matching the masked naive pairing and cancellation-free.
+    /// Callers gate only on the det derivative being the integer rank
+    /// (proportional singleton, so `−rank` is the exact det pairing).
+    pub(crate) fn fused_logdet_gradient_minus_rank_deficient_block(
+        &self,
+        s_block: &Array2<f64>,
+        start: usize,
+        end: usize,
+        scale: f64,
+    ) -> f64 {
+        use faer::Side;
+        let width = end - start;
+        // Orthonormal basis `Q` (width × r) of `range(S_k)` from the block
+        // eigenspectrum. The rank tolerance mirrors `penalty_matrix_root` so
+        // `r` matches the coordinate's own `rank()` (the det derivative the
+        // caller certified as the integer `−rank`).
+        let (evals, evecs) = s_block
+            .eigh(Side::Lower)
+            .expect("rank-deficient penalty block eigendecomposition");
+        let max_ev = evals.iter().copied().fold(0.0_f64, f64::max);
+        let tol = (width.max(1) as f64) * f64::EPSILON * max_ev.max(1e-12);
+        let active: Vec<usize> = evals
+            .iter()
+            .enumerate()
+            .filter(|(_, v)| **v > tol)
+            .map(|(i, _)| i)
+            .collect();
+        let r = active.len();
+
+        let g_block = self.g_factor.slice(ndarray::s![start..end, ..]);
+        let u_block = self.eigenvectors.slice(ndarray::s![start..end, ..]);
+        // S_k · g_block once: (width × n), column j is S_k g_j[block].
+        let sg = s_block.dot(&g_block);
+        // Range coordinates of every eigenvector's block restriction:
+        // `qt_u[:, j] = Qᵀ u_j^{blk}` (r × n), so `‖qt_u[:, j]‖²` is the mass of
+        // `u_j^{blk}` inside `range(S_k)` — the per-eigenpair `−rank` share.
+        let mut qt_u = Array2::<f64>::zeros((r, self.n_dim));
+        for (out_row, &idx) in active.iter().enumerate() {
+            for j in 0..self.n_dim {
+                let mut acc = 0.0;
+                for local in 0..width {
+                    acc += evecs[[local, idx]] * u_block[[local, j]];
+                }
+                qt_u[[out_row, j]] = acc;
+            }
+        }
+
+        let mut fused = 0.0;
+        for j in 0..self.n_dim {
+            let s_term: f64 = sg
+                .column(j)
+                .iter()
+                .zip(g_block.column(j).iter())
+                .map(|(&a, &b)| a * b)
+                .sum();
+            let p_term: f64 = qt_u.column(j).iter().map(|&v| v * v).sum();
+            fused += scale * s_term - p_term;
+        }
+        fused
+    }
+
+    /// General cancellation-free logdet-gradient reduction for a SINGLETON penalty
+    /// coordinate whose det derivative `det1[k] = λ_k·tr(S_λ⁺ S_k)` is FRACTIONAL —
+    /// the joint-normalizer case (`log|Σ_l λ_l S_l|₊`) that arises when penalty
+    /// blocks overlap (a full-span stabilization ridge, coalesced same-span pairs,
+    /// or any post-reparam coupling). Neither the block-indicator fusion
+    /// ([`fused_logdet_gradient_minus_rank_full_block`]) nor the range-projector
+    /// fusion ([`fused_logdet_gradient_minus_rank_deficient_block`]) applies there,
+    /// because both distribute an INTEGER `−rank`, whereas the joint det derivative
+    /// is not the integer rank of `S_k`.
+    ///
+    /// The correct per-H-eigenpair `−det1[k]` distribution uses the range chart of
+    /// the JOINT penalty `S_λ = Σ_l λ_l S_l`, supplied as its whitening factor
+    /// `W_S` (p × rank(S_λ), with `W_S W_Sᵀ = S_λ⁺`):
+    ///
+    /// ```text
+    ///   w_jk = λ_k · u_jᵀ S_λ⁺ S_k u_j = λ_k · (W_Sᵀ u_j)·(W_Sᵀ S_k u_j)
+    ///   fused_k = Σ_j [ φ'(σ_j)·(u_jᵀ λ_k S_k u_j) − w_jk ]
+    /// ```
+    ///
+    /// `Σ_j w_jk = λ_k·tr(S_λ⁺ S_k) = det1[k]` identically over the complete
+    /// eigenbasis, so `fused_k = tr(G_ε λ_k S_k) − det1[k]` — the same quantity the
+    /// naive `trace − det1` path forms, reassociated with the subtraction matched
+    /// eigenpair-by-eigenpair. At the over-smoothing rail `H → S_λ`, so
+    /// `u_jᵀ[φ'(σ_j)I − S_λ⁺] → 0` per direction and each term stays at the true
+    /// O(1/λ_k) scale — cancellation-free, exactly as the two special-case fusions
+    /// (of which this is the strict generalization: `W_S W_Sᵀ = P_{S_k}/λ_k` when
+    /// `S_λ = λ_k S_k`).
+    ///
+    /// Returns `(fused_k, Σ_j w_jk)`. The caller compares the returned weight sum
+    /// against the cost's own `det1[k]` and only trusts the fused value when they
+    /// agree — the runtime self-consistency gate that keeps this off any lane
+    /// whose `det1` is not this exact joint quantity.
+    ///
+    /// Valid under a masked numerical null space too (`active_rank() < dim()`,
+    /// `HardPseudo`): the weight sum runs over the complete (unmasked)
+    /// `eigenvectors`, so `Σ_j w_jk = det1[k]` still holds (and the
+    /// self-consistency gate still passes), while the `+` trace reads the masked
+    /// `g_factor`, giving `trace_active − det1[k]` — the masked naive pairing,
+    /// cancellation-free.
+    pub(crate) fn fused_logdet_gradient_weighted_block(
+        &self,
+        s_block: &Array2<f64>,
+        start: usize,
+        end: usize,
+        scale: f64,
+        penalty_whitening: &Array2<f64>,
+    ) -> (f64, f64) {
+        let g_block = self.g_factor.slice(ndarray::s![start..end, ..]);
+        let u_block = self.eigenvectors.slice(ndarray::s![start..end, ..]);
+        // Trace-term factor: sg[:,j] = S_k g_j[block]; s_k_u[:,j] = S_k u_j[block].
+        let sg = s_block.dot(&g_block);
+        let s_k_u_block = s_block.dot(&u_block);
+        // W_Sᵀ u_j for every H-eigenvector (r × n), and W_Sᵀ (S_k u_j) using only
+        // the block rows of S_k u_j (nonzero only there).
+        let wt_u = gam_linalg::faer_ndarray::fast_atb(penalty_whitening, &self.eigenvectors);
+        let ws_block = penalty_whitening.slice(ndarray::s![start..end, ..]);
+        let wt_sk_u = gam_linalg::faer_ndarray::fast_atb(&ws_block.to_owned(), &s_k_u_block);
+
+        let mut fused = 0.0;
+        let mut weight_sum = 0.0;
+        for j in 0..self.n_dim {
+            let trace_term: f64 = scale
+                * sg.column(j)
+                    .iter()
+                    .zip(g_block.column(j).iter())
+                    .map(|(&a, &b)| a * b)
+                    .sum::<f64>();
+            let w_jk: f64 = scale
+                * wt_u
+                    .column(j)
+                    .iter()
+                    .zip(wt_sk_u.column(j).iter())
+                    .map(|(&a, &b)| a * b)
+                    .sum::<f64>();
+            fused += trace_term - w_jk;
+            weight_sum += w_jk;
+        }
+        (fused, weight_sum)
+    }
+
+    /// Cancellation-free logdet-HESSIAN diagonal reduction for a block-local
+    /// penalty coordinate: computes `tr(G_ε Ḧ_kk) + Γ-cross(Ḣ_k, Ḣ_k)` — the
+    /// full `2·L_kk` logdet contribution of `∂²_{ρ_k} ½log|H|` — with the
+    /// second-order trace pair reassociated eigenpair-by-eigenpair.
+    ///
+    /// For a pure penalty coordinate (`Ḣ_k = Ḧ_kk = A = λ_k S_k`, no family
+    /// curvature correction) the naive assembly forms
+    ///
+    /// ```text
+    ///   base  =  tr(G_ε A)          = Σ_a φ'_a Ã_aa            → rank  (rail)
+    ///   cross =  Σ_{ab} Γ_ab Ã_ab²                              → −rank (rail)
+    /// ```
+    ///
+    /// (`Ã = Uᵀ A U`, `φ'(σ) = 1/√(σ²+4ε²)`, `Γ` the divided-difference kernel
+    /// with `Γ_aa = −σ_a/(σ_a²+4ε²)^{3/2}`).  At the over-smoothing rail
+    /// (`H ≈ λ_k S_k`) each aggregate approaches `rank(S_k)` and their sum's
+    /// true value is the O(1/λ_k) tail curvature `+c·e^{−ρ}` — which the naive
+    /// difference of two rank-sized sums surrenders to summation-order noise.
+    /// This is the SECOND-ORDER instance of the #2298 rail trace−rank
+    /// cancellation (first order fixed by the fused gradient reductions above);
+    /// it is why deep-λ outer Hessian diagonals came back `≈ g` with the
+    /// gradient's own sign (`hessian_psd=NO` at every deep-λ point, #2348).
+    ///
+    /// The reassociation pairs each diagonal eigenterm with its own cross
+    /// share.  Exactly, per active eigenpair `a`:
+    ///
+    /// ```text
+    ///   φ'_a Ã_aa + Γ_aa Ã_aa²  =  φ'_a · Ã_aa · (σ_a·b_a + 4ε²) / (σ_a²+4ε²),
+    ///   b_a = σ_a − Ã_aa
+    /// ```
+    ///
+    /// (algebraic identity: substitute `Γ_aa = −σ_a φ'_a/(σ_a²+4ε²)`).  The
+    /// residual `b_a` is the mass of `H − A` on eigendirection `a` — O(1) at
+    /// the rail while `σ_a, Ã_aa` are O(λ_k) — so every term stays at the true
+    /// O(1/λ_k) scale.  Off-diagonal cross terms `Γ_ab Ã_ab²` (a ≠ b) are kept
+    /// as-is: for in-block pairs `Ã_ab = −u_aᵀ(H−A)u_b` is already O(1) and
+    /// `Γ_ab = O(1/λ²)`, so they are single products with no cancellation.
+    ///
+    /// Value-identical to `trace_logdet_block_local(S_k, λ_k, ..) +
+    /// trace_logdet_hessian_cross(A, A)`; callers gate on
+    /// `active_rank() == dim()` and on the coordinate having no drift
+    /// correction (`Ḣ_k = A_k`), mirroring the fused-gradient gating.
+    pub(crate) fn fused_logdet_hessian_diagonal_block(
+        &self,
+        s_block: &Array2<f64>,
+        start: usize,
+        end: usize,
+        scale: f64,
+    ) -> f64 {
+        let u_block = self.eigenvectors.slice(ndarray::s![start..end, ..]);
+        // Ã = scale · u_blkᵀ (S · u_blk): n × n, symmetric.
+        let su = s_block.dot(&u_block);
+        let mut a_tilde = u_block.t().dot(&su);
+        a_tilde.mapv_inplace(|v| v * scale);
+
+        let four_eps_sq = 4.0 * self.epsilon * self.epsilon;
+        let mut fused = 0.0;
+        for a in 0..self.n_dim {
+            if !self.active_mask[a] {
+                continue;
+            }
+            let sigma = self.raw_eigenvalues[a];
+            let disc = sigma * sigma + four_eps_sq;
+            let phi_prime = 1.0 / disc.sqrt();
+            let t = a_tilde[[a, a]];
+            let residual = sigma - t;
+            fused += phi_prime * t * (sigma * residual + four_eps_sq) / disc;
+            for b in 0..self.n_dim {
+                if b == a || !self.active_mask[b] {
+                    continue;
+                }
+                let cross = a_tilde[[a, b]];
+                fused += self.logdet_hessian_kernel[[a, b]] * cross * cross;
+            }
+        }
+        fused
     }
 
     #[inline]

@@ -233,6 +233,21 @@ class TestLLMConfig:
         config = LLMConfig(backend="gjc")
         assert config.backend == "gjc"
 
+    def test_llm_config_accepts_zcode_backend(self) -> None:
+        """LLMConfig accepts zcode now that the zcode LLM adapter is registered."""
+        config = LLMConfig(backend="zcode")
+        assert config.backend == "zcode"
+
+    def test_llm_config_zcode_persists_in_orchestrator_config(self) -> None:
+        """zcode LLM backend survives persisted-config validation (OuroborosConfig).
+
+        Regression for the end-to-end gap where the capability/factory/loader
+        layers advertised zcode as an LLM backend but ``LLMConfig.backend``
+        rejected it, so a saved ``llm.backend: zcode`` could not load.
+        """
+        config = OuroborosConfig(llm=LLMConfig(backend="zcode"))
+        assert config.llm.backend == "zcode"
+
 
 class TestLLMTaskProfileConfig:
     """Test provider-neutral LLM task profile configuration."""
@@ -275,12 +290,14 @@ class TestExecutionConfig:
             retrospective_interval=5,
             tui_autolaunch=True,
             auto_evaluate=False,
+            decomposition_mode="bounce_only",
             context_pack=False,
         )
         assert config.max_iterations_per_ac == 20
         assert config.retrospective_interval == 5
         assert config.tui_autolaunch is True
         assert config.auto_evaluate is False
+        assert config.decomposition_mode == "bounce_only"
         assert config.context_pack is False
 
     def test_execution_config_defaults(self) -> None:
@@ -290,7 +307,13 @@ class TestExecutionConfig:
         assert config.retrospective_interval == 3
         assert config.tui_autolaunch is False
         assert config.auto_evaluate is True
+        assert config.decomposition_mode == "preflight"
         assert config.context_pack is True
+
+    def test_execution_config_rejects_invalid_decomposition_mode(self) -> None:
+        """ExecutionConfig only accepts known decomposition modes."""
+        with pytest.raises(ValidationError):
+            ExecutionConfig(decomposition_mode="invalid")  # type: ignore[arg-type]
 
 
 class TestResilienceConfig:
@@ -523,6 +546,22 @@ class TestOuroborosConfig:
         assert config.drift is not None
         assert config.runtime_controls is not None
         assert config.logging is not None
+
+    def test_execution_config_project_guidance_defaults_empty(self) -> None:
+        config = OuroborosConfig()
+        assert config.execution.project_guidance == ()
+
+    def test_execution_config_accepts_project_guidance_allowlist(self) -> None:
+        config = ExecutionConfig(project_guidance=["security", "team.rules"])
+        assert config.project_guidance == ("security", "team.rules")
+
+    def test_execution_config_rejects_path_like_project_guidance_ids(self) -> None:
+        with pytest.raises(ValidationError):
+            ExecutionConfig(project_guidance=["../escape"])
+
+    def test_execution_config_rejects_duplicate_project_guidance_ids(self) -> None:
+        with pytest.raises(ValidationError):
+            ExecutionConfig(project_guidance=["security", "security"])
 
     def test_ouroboros_config_accepts_llm_profiles(self) -> None:
         """OuroborosConfig stores task profiles and role mappings."""

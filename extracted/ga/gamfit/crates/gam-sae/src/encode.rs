@@ -240,15 +240,15 @@ impl BasisHessianLipschitz for TorusHarmonicEvaluator {
     }
     fn jacobian_sup(&self, chart: &ChartRegion) -> f64 {
         chart.assert_valid();
-        torus_jet_sup(self.num_harmonics, self.latent_dim, 1)
+        torus_jet_sup(self.num_harmonics(), self.latent_dim(), 1)
     }
     fn hessian_sup(&self, chart: &ChartRegion) -> f64 {
         chart.assert_valid();
-        torus_jet_sup(self.num_harmonics, self.latent_dim, 2)
+        torus_jet_sup(self.num_harmonics(), self.latent_dim(), 2)
     }
     fn third_sup(&self, chart: &ChartRegion) -> f64 {
         chart.assert_valid();
-        torus_jet_sup(self.num_harmonics, self.latent_dim, 3)
+        torus_jet_sup(self.num_harmonics(), self.latent_dim(), 3)
     }
 }
 
@@ -607,7 +607,10 @@ pub(crate) fn reconstruction_jet_sups(
     let decoder = full_decoder
         .as_ref()
         .map_or_else(|| atom.decoder_coefficients.view(), |b| b.view());
-    if matches!(atom.basis_kind, crate::manifold::SaeAtomBasisKind::Periodic) {
+    if matches!(
+        atom.basis_kind(),
+        crate::manifold::SaeAtomBasisKind::Periodic
+    ) {
         periodic_reconstruction_jet_sups(decoder)
     } else {
         let decoder_norm_sum = decoder_row_norm_sum(decoder);
@@ -898,8 +901,8 @@ pub(crate) fn family_jet_sups(
 ) -> Result<JetSups, String> {
     use crate::manifold::SaeAtomBasisKind::*;
     let m = atom.full_basis_size();
-    let d = atom.latent_dim;
-    let sups = match &atom.basis_kind {
+    let d = atom.latent_dim();
+    let sups = match atom.basis_kind() {
         Periodic => {
             let ev = PeriodicHarmonicEvaluator::new(m)?;
             JetSups::from_family(&ev, chart)
@@ -915,6 +918,12 @@ pub(crate) fn family_jet_sups(
         Sphere => {
             let ev = SphereChartEvaluator;
             JetSups::from_family(&ev, chart)
+        }
+        ProjectivePlane | KleinBottle => {
+            return Err(
+                "EncodeAtlas: quotient spectral jet sup requires a plan-native bound; route this atom through exact analytic encode"
+                    .to_string(),
+            );
         }
         Cylinder => {
             // Cylinder width is `(2H+1)·(D+1)` with the canonical flat-axis
@@ -1043,7 +1052,7 @@ pub(crate) fn patch_column_count(latent_dim: usize, degree: usize) -> usize {
 pub(crate) fn duchon_centers_from_atom(atom: &SaeManifoldAtom) -> Array2<f64> {
     // One center at the origin in latent_dim space is a sound conservative
     // default: the chart's own r_min / r_max bracket the true radial range.
-    Array2::<f64>::zeros((1, atom.latent_dim.max(1)))
+    Array2::<f64>::zeros((1, atom.latent_dim().max(1)))
 }
 
 /// The four per-column jet sups of a basis family over a chart.
@@ -1169,7 +1178,7 @@ impl<'a> EncodeObjective<'a> {
             return 0.0;
         };
         let mut l = 0.0;
-        for axis in 0..atom.latent_dim.min(alpha.len()) {
+        for axis in 0..atom.latent_dim().min(alpha.len()) {
             if let Some(period) = latent_axis_period(atom, axis) {
                 let kappa = std::f64::consts::TAU / period;
                 l += alpha[axis].abs() * kappa;
@@ -1296,14 +1305,14 @@ fn joint_encode_value_grad_hess(
                 atom.output_dim()
             ));
         }
-        if coords[atom_idx].len() != atom.latent_dim {
+        if coords[atom_idx].len() != atom.latent_dim() {
             return Err(format!(
                 "joint encode: atom {atom_idx} coordinate length {} != latent_dim {}",
                 coords[atom_idx].len(),
-                atom.latent_dim
+                atom.latent_dim()
             ));
         }
-        offsets.push(offsets[atom_idx] + atom.latent_dim);
+        offsets.push(offsets[atom_idx] + atom.latent_dim());
     }
     let q = *offsets.last().unwrap_or(&0);
     let mut recon = Array1::<f64>::zeros(p);
@@ -1319,7 +1328,7 @@ fn joint_encode_value_grad_hess(
                 "joint encode: atom {atom_idx} has no basis evaluator for its live coordinate block"
             ));
         };
-        let d = atom.latent_dim;
+        let d = atom.latent_dim();
         let m = atom.basis_size();
         let coord = coords[atom_idx]
             .view()
@@ -1356,7 +1365,7 @@ fn joint_encode_value_grad_hess(
             continue;
         };
         let start = offsets[atom_idx];
-        for axis in 0..atom.latent_dim.min(alpha.len()) {
+        for axis in 0..atom.latent_dim().min(alpha.len()) {
             if alpha[axis] == 0.0 {
                 continue;
             }
@@ -1420,13 +1429,13 @@ fn joint_encode_add_step(
     let mut offset = 0usize;
     for (atom_idx, atom) in atoms.iter().enumerate() {
         let mut next = coords[atom_idx].clone();
-        for axis in 0..atom.latent_dim {
+        for axis in 0..atom.latent_dim() {
             next[axis] += scale * step[offset + axis];
             if let Some(period) = latent_axis_period(atom, axis) {
                 next[axis] = next[axis].rem_euclid(period);
             }
         }
-        offset += atom.latent_dim;
+        offset += atom.latent_dim();
         out.push(next);
     }
     out
@@ -1444,7 +1453,7 @@ pub(crate) fn joint_encode_refine_row(
     metric_factor: Option<ArrayView2<'_, f64>>,
 ) -> Result<(Vec<Array1<f64>>, bool), String> {
     let mut coords = initial_coords.to_vec();
-    let q: usize = atoms.iter().map(|a| a.latent_dim).sum();
+    let q: usize = atoms.iter().map(SaeManifoldAtom::latent_dim).sum();
     if q == 0 {
         return Ok((coords, true));
     }
@@ -1551,7 +1560,7 @@ pub(crate) fn encode_grad_hess_core(
     amplitude: f64,
     objective: &EncodeObjective<'_>,
 ) -> Result<Option<(Array1<f64>, Array2<f64>)>, String> {
-    let d = atom.latent_dim;
+    let d = atom.latent_dim();
     let p = atom.output_dim();
     let m = atom.basis_size();
     let coords = t.to_shape((1, d)).map_err(|e| e.to_string())?.to_owned();
@@ -1842,7 +1851,7 @@ pub(crate) fn row_certificate_core(
                 lipschitz,
                 h: f64::INFINITY,
             },
-            Array1::<f64>::zeros(atom.latent_dim),
+            Array1::<f64>::zeros(atom.latent_dim()),
         )
     };
     // No second jet ⇒ no full Hessian ⇒ uncertifiable (flag).
@@ -2213,7 +2222,7 @@ fn latent_coordinate_distance(
 
 fn latent_axis_period(atom: &SaeManifoldAtom, axis: usize) -> Option<f64> {
     use crate::manifold::SaeAtomBasisKind::*;
-    match &atom.basis_kind {
+    match atom.basis_kind() {
         Periodic | Torus => Some(1.0),
         Cylinder if axis == 0 => Some(1.0),
         Sphere if axis == 1 => Some(std::f64::consts::TAU),
@@ -2325,7 +2334,7 @@ impl EncodeAtlas {
         target_norm_bound: f64,
         config: &AtlasConfig,
     ) -> Result<AtomEncodeAtlas, String> {
-        let d = atom.latent_dim;
+        let d = atom.latent_dim();
         if centers.ncols() != d {
             return Err(format!(
                 "build_atom_atlas_from_centers: centers have {} cols but atom latent_dim is {d}",
@@ -2356,7 +2365,7 @@ impl EncodeAtlas {
         // UNCERTIFIED (`certified_radius = 0`, no amortized predictor), so routing
         // skips it and every Duchon row flags for the exact multi-start encode.
         let duchon_uncertifiable =
-            matches!(atom.basis_kind, crate::manifold::SaeAtomBasisKind::Duchon);
+            matches!(atom.basis_kind(), crate::manifold::SaeAtomBasisKind::Duchon);
         for c in 0..centers.nrows() {
             let center = centers.row(c).to_owned();
             let nominal_radius = radii[c];
@@ -2522,7 +2531,7 @@ impl EncodeAtlas {
         )?
         else {
             return Ok((
-                Array1::<f64>::zeros(atom.latent_dim),
+                Array1::<f64>::zeros(atom.latent_dim()),
                 uncertified_certificate(chart.lipschitz),
             ));
         };
@@ -2579,7 +2588,7 @@ impl EncodeAtlas {
             .atoms
             .get(atom_index)
             .ok_or_else(|| format!("certified_encode_row: atom {atom_index} not in atlas"))?;
-        let d = atom.latent_dim;
+        let d = atom.latent_dim();
         // A per-row metric factor `U` must be `p × rank` (`M = U Uᵀ` acts on the
         // p-dim output). A shape mismatch is a caller bug — surface it rather than
         // silently certifying a wrong (or panicking) whitening.
@@ -2756,7 +2765,7 @@ impl EncodeAtlas {
             .atoms
             .get(atom_index)
             .ok_or_else(|| format!("amortized_encode_row: atom {atom_index} not in atlas"))?;
-        let d = atom.latent_dim;
+        let d = atom.latent_dim();
         let uncertified = || {
             (
                 Array1::<f64>::zeros(d),
@@ -2869,7 +2878,7 @@ impl EncodeAtlas {
                 amplitudes.len()
             ));
         }
-        let d = atom.latent_dim;
+        let d = atom.latent_dim();
         let encode_rows =
             |range: std::ops::Range<usize>| -> Result<Vec<(Array1<f64>, bool)>, String> {
                 range
@@ -2987,7 +2996,7 @@ impl EncodeAtlas {
                 amplitudes.len()
             ));
         }
-        let d = atom.latent_dim;
+        let d = atom.latent_dim();
         // Per-row encode is independent against a frozen dictionary (#1010), so
         // the corpus-rate batch fans out over rows (#1026 amortized-encoder leg /
         // #977 Stage-3 corpus encode). Each row produces an owned `(t, certified)`
@@ -3067,7 +3076,7 @@ impl EncodeAtlas {
     ) -> Result<(Array2<f64>, Vec<bool>), String> {
         let n = x.nrows();
         let p = atom.output_dim();
-        let d = atom.latent_dim;
+        let d = atom.latent_dim();
         if x.ncols() != p {
             return Err(format!(
                 "amortized_encode_batch_fast: x has {} cols but atom output dim is {p}",
@@ -3160,11 +3169,9 @@ impl EncodeAtlas {
                     let mut best_c = 0usize;
                     let mut best_d = f64::INFINITY;
                     for c in 0..valid_charts.len() {
-                        let mut dist = 0.0;
-                        for (r, xv) in recon_centers.row(c).iter().zip(x_row.iter()) {
-                            let diff = z * r - xv;
-                            dist += diff * diff;
-                        }
+                        // Shared F1 metric — allocation-free (no per-row/chart Vec),
+                        // so the massive-K fast route stays near-flat as K grows.
+                        let dist = amplitude_scaled_center_dist(recon_centers.row(c), x_row, z);
                         if dist < best_d {
                             best_d = dist;
                             best_c = c;
@@ -3599,11 +3606,11 @@ impl EncodeAtlas {
             let atom = atoms.get(best_atom).ok_or_else(|| {
                 format!("amortized_encode_with_index_fast: proposed atom {best_atom} out of range")
             })?;
-            if atom.latent_dim != latent_dim {
+            if atom.latent_dim() != latent_dim {
                 return Err(format!(
                     "amortized_encode_with_index_fast: atom {best_atom} latent_dim {} != declared \
                      {latent_dim}; heterogeneous-dim dictionaries are not supported by this path",
-                    atom.latent_dim
+                    atom.latent_dim()
                 ));
             }
             let Some(atom_atlas) = self.atoms.get(best_atom) else {
@@ -3714,7 +3721,7 @@ impl EncodeAtlas {
 /// for a degenerate center (`λ_min ≤ 0`), which marks an uncertifiable chart.
 pub(crate) fn center_beta(atom: &SaeManifoldAtom, center: &Array1<f64>, ridge: f64) -> Option<f64> {
     let evaluator = atom.basis_evaluator.as_ref()?.clone();
-    let d = atom.latent_dim;
+    let d = atom.latent_dim();
     let p = atom.output_dim();
     let m = atom.basis_size();
     let coords = center.view().to_shape((1, d)).ok()?.to_owned();
@@ -3816,11 +3823,7 @@ pub(crate) fn amortized_predict_row(
         if chart.certified_radius <= 0.0 {
             continue;
         }
-        let mut dist = 0.0;
-        for (r, xv) in chart.recon_center.iter().zip(x.iter()) {
-            let diff = amplitude * r - xv;
-            dist += diff * diff;
-        }
+        let dist = amplitude_scaled_center_dist(chart.recon_center.view(), x, amplitude);
         if dist < best_dist {
             best_dist = dist;
             best_ci = Some(ci);
@@ -3862,7 +3865,7 @@ pub(crate) fn center_amortized_jacobian(
     ridge: f64,
 ) -> Option<(Array2<f64>, Array1<f64>)> {
     let evaluator = atom.basis_evaluator.as_ref()?.clone();
-    let d = atom.latent_dim;
+    let d = atom.latent_dim();
     let p = atom.output_dim();
     let m = atom.basis_size();
     let coords = center.view().to_shape((1, d)).ok()?.to_owned();
@@ -3925,6 +3928,31 @@ pub(crate) fn center_amortized_jacobian(
     Some((a1, recon))
 }
 
+/// The single F1 routing metric: the amplitude-scaled center-reconstruction
+/// distance `Σ_j (z·m₁_j − x_j)²`, where `m₁` is the amplitude-1 center
+/// reconstruction `recon_center` and `z` is the row amplitude. Computed as the
+/// DIRECT squared distance in element order — never the algebraically-equal but
+/// cancellation-prone expansion `z²‖m₁‖² − 2z·(x·m₁)`, which loses ~‖x‖²·ε and can
+/// FLIP the argmin between two charts whose reconstructions coincide to rounding
+/// (period-wrapped seam charts). Every router — [`nearest_chart`],
+/// [`select_nearest_charts_topk`], the batched `amortized_encode_batch_fast`
+/// routing, and [`amortized_predict_row`] — scores through THIS function, so they
+/// break near-ties identically. `#[inline]` keeps it zero-overhead on the
+/// allocation-free massive-K fast-encode paths.
+#[inline]
+pub(crate) fn amplitude_scaled_center_dist(
+    recon: ArrayView1<'_, f64>,
+    x: ArrayView1<'_, f64>,
+    amplitude: f64,
+) -> f64 {
+    let mut dist = 0.0;
+    for (r, xv) in recon.iter().zip(x.iter()) {
+        let diff = amplitude * r - xv;
+        dist += diff * diff;
+    }
+    dist
+}
+
 /// The shared chart-routing comparator: the SINGLE amplitude-gating + tie-break
 /// decision every chart-routing top-k selection funnels through, so the CPU
 /// atlas encode ([`nearest_chart`], [`nearest_charts_topk`]) and the GPU-host
@@ -3964,12 +3992,7 @@ pub(crate) fn select_nearest_charts_topk(
         if !recon_into(idx, &mut recon) {
             continue;
         }
-        // Amplitude-scaled center distance, accumulated in place.
-        let mut dist = 0.0;
-        for (r, xv) in recon.iter().zip(x.iter()) {
-            let diff = amplitude * r - xv;
-            dist += diff * diff;
-        }
+        let dist = amplitude_scaled_center_dist(ArrayView1::from(recon.as_slice()), x, amplitude);
         scored.push((idx, dist));
     }
     // Sort by distance, then chart index for a deterministic, first-wins order.
@@ -4076,7 +4099,7 @@ pub(crate) fn encode_reconstruction_error_core(
     amplitude: f64,
     objective: &EncodeObjective<'_>,
 ) -> f64 {
-    let d = atom.latent_dim;
+    let d = atom.latent_dim();
     let p = atom.output_dim();
     let m = atom.basis_size();
     let coords = match coord.to_shape((1, d)) {
@@ -4175,10 +4198,10 @@ pub(crate) fn data_driven_chart_centers(
 ) -> Result<(Array2<f64>, Vec<f64>), String> {
     let n = coords.nrows();
     let d = coords.ncols();
-    if d != atom.latent_dim {
+    if d != atom.latent_dim() {
         return Err(format!(
             "data_driven_chart_centers: coords have {d} cols but atom latent_dim is {}",
-            atom.latent_dim
+            atom.latent_dim()
         ));
     }
     if n == 0 {
@@ -4241,9 +4264,9 @@ pub(crate) fn data_driven_chart_centers(
 
 pub(crate) fn chart_center_grid(atom: &SaeManifoldAtom, resolution: usize) -> Array2<f64> {
     use crate::manifold::SaeAtomBasisKind::*;
-    let d = atom.latent_dim;
-    match &atom.basis_kind {
-        Periodic | Torus => regular_product_grid(d, resolution, 0.0, 1.0, false),
+    let d = atom.latent_dim();
+    match atom.basis_kind() {
+        Periodic | Torus | KleinBottle => regular_product_grid(d, resolution, 0.0, 1.0, false),
         // Cylinder `S¹ × ℝ`: axis 0 is the periodic circle `[0, 1)` (no
         // endpoint, like the harmonic axes); axis 1 is the unbounded line,
         // covered by a strided unit box `[-0.5, 0.5]` about the origin (like the
@@ -4253,8 +4276,9 @@ pub(crate) fn chart_center_grid(atom: &SaeManifoldAtom, resolution: usize) -> Ar
         Cylinder => regular_product_grid(d, resolution, -0.5, 0.5, true),
         Mobius if d == 2 => mobius_chart_center_grid(resolution),
         Mobius => regular_product_grid(d, resolution, -1.0, 1.0, true),
-        Sphere if d == 2 => sphere_latlon_grid(resolution),
-        Linear | Sphere | Duchon | EuclideanPatch | Poincare | Precomputed(_) | FiniteSet => {
+        Sphere | ProjectivePlane if d == 2 => sphere_latlon_grid(resolution),
+        Linear | Sphere | ProjectivePlane | Duchon | EuclideanPatch | Poincare | Precomputed(_)
+        | FiniteSet => {
             // Unbounded / non-compact latents (and the finite-set index axis): a
             // strided cover of a unit box about the origin per axis. The certified
             // radius refines each chart; out-of-cover starts route to the exact
@@ -4388,8 +4412,10 @@ pub(crate) fn mobius_chart_center_grid(resolution: usize) -> Array2<f64> {
 /// a unit default that the certified radius refines.
 pub(crate) fn chart_nominal_radius(atom: &SaeManifoldAtom, resolution: usize) -> f64 {
     use crate::manifold::SaeAtomBasisKind::*;
-    match &atom.basis_kind {
-        Periodic | Torus => 0.5 / (capped_per_axis(atom.latent_dim, resolution) as f64),
+    match atom.basis_kind() {
+        Periodic | Torus | KleinBottle => {
+            0.5 / (capped_per_axis(atom.latent_dim(), resolution) as f64)
+        }
         // Must use the SAME capped per-axis count `sphere_latlon_grid` lays the
         // centers on: the coarsest tiling step is the longitude half-spacing `π/r`
         // with `r` the grid's per-axis count. Deriving the radius from the RAW
@@ -4400,7 +4426,7 @@ pub(crate) fn chart_nominal_radius(atom: &SaeManifoldAtom, resolution: usize) ->
         // uses `SHAPE_BAND_MAX_POINTS.isqrt()` — the largest `r` with `r² ≤`
         // the band-point budget — so the two stay in lockstep if the budget moves
         // (a hardcoded `22` here silently desyncs the moment the budget changes).
-        Sphere => {
+        Sphere | ProjectivePlane => {
             let r_cap = SHAPE_BAND_MAX_POINTS.isqrt();
             std::f64::consts::PI / (resolution.max(2).min(r_cap) as f64)
         }
@@ -4408,11 +4434,11 @@ pub(crate) fn chart_nominal_radius(atom: &SaeManifoldAtom, resolution: usize) ->
         // and a unit-box line step); the chart radius is a single scalar, so we
         // take the tighter (periodic) step `0.5/res` to keep every chart valid
         // on both axes. The certified Kantorovich radius refines it per chart.
-        Cylinder => 0.5 / (capped_per_axis(atom.latent_dim, resolution) as f64),
+        Cylinder => 0.5 / (capped_per_axis(atom.latent_dim(), resolution) as f64),
         // Angle spacing is `2/r` and width spacing is `2/(r-1)`; their
         // half-spacings are `1/r` and `1/(r-1)`, so the angular axis is the
         // conservative scalar chart radius.
-        Mobius => 1.0 / (capped_per_axis(atom.latent_dim, resolution) as f64),
+        Mobius => 1.0 / (capped_per_axis(atom.latent_dim(), resolution) as f64),
         Linear | Duchon | EuclideanPatch | Poincare | Precomputed(_) | FiniteSet => {
             1.0 / (resolution.max(2) as f64)
         }
@@ -4428,7 +4454,7 @@ pub(crate) fn chart_region(
 ) -> ChartRegion {
     use crate::manifold::SaeAtomBasisKind::*;
     let region = ChartRegion::new(center.clone(), radius);
-    match &atom.basis_kind {
+    match atom.basis_kind() {
         Duchon => {
             // r ranges over [‖t_c‖ − radius, ‖t_c‖ + radius] about the single
             // origin-anchored center used by the conservative radial bound.
@@ -4450,8 +4476,8 @@ pub(crate) fn chart_region(
         }
         // Cylinder has no radial kernel block (it is a harmonic × polynomial
         // tensor, not a Duchon radial basis), so it needs no radial r_min/r_max.
-        Periodic | Sphere | Torus | Cylinder | Mobius | Linear | EuclideanPatch | Poincare
-        | Precomputed(_) | FiniteSet => region,
+        Periodic | Sphere | Torus | ProjectivePlane | KleinBottle | Cylinder | Mobius | Linear
+        | EuclideanPatch | Poincare | Precomputed(_) | FiniteSet => region,
     }
 }
 
@@ -4467,7 +4493,7 @@ fn atom_row_tangents(
         return Ok(None);
     };
     let n = coords.nrows();
-    let d = atom.latent_dim;
+    let d = atom.latent_dim();
     let p = atom.output_dim();
     let (_phi, jet) = evaluator.evaluate(coords)?; // jet: (n, M, d)
     let m = jet.shape()[1];

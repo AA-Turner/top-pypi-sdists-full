@@ -13,7 +13,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+
+from ouroboros.orchestrator.decomposition_policy import DecompositionDecisionRecord
 
 if TYPE_CHECKING:
     from ouroboros.orchestrator.adapter import AgentMessage, RuntimeHandle
@@ -62,6 +64,10 @@ class ACExecutionResult:
             completion, if any.
         atomic_verifier_verdict: Separate verifier pass verdict for the
             parsed typed evidence at atomic completion, when available.
+        verify_gate_outcome: Cached seed-level verify gate result from an
+            earlier layer. The executor treats this as opaque to avoid a model
+            import cycle.
+        decomposition_decision: Finalized decomposition decision for this node.
     """
 
     ac_index: int
@@ -83,6 +89,8 @@ class ACExecutionResult:
     typed_evidence_validation: ValidationResult | None = None
     typed_evidence_error: str | None = None
     atomic_verifier_verdict: VerifierVerdict | None = None
+    verify_gate_outcome: Any | None = None
+    decomposition_decision: DecompositionDecisionRecord | None = None
 
     def __post_init__(self) -> None:
         """Normalize outcome so callers do not infer from error strings."""
@@ -124,6 +132,14 @@ class ACExecutionResult:
     def attempt_number(self) -> int:
         """Human-readable execution attempt number (1-based)."""
         return self.retry_attempt + 1
+
+    @property
+    def decomposition_trustworthy(self) -> bool:
+        """Whether this node's finalized split decision is explicitly trusted."""
+        return (
+            self.decomposition_decision is not None
+            and self.decomposition_decision.trustworthy is True
+        )
 
 
 class StageExecutionOutcome(str, Enum):  # noqa: UP042

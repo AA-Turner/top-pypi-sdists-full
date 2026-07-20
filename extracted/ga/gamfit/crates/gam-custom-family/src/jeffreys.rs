@@ -4,28 +4,6 @@
 
 use super::*;
 
-/// If `direction` is exactly a canonical unit axis `e_a` (one entry `1.0`, all
-/// others `0.0`) of length `p`, return its index `a`; otherwise `None`. Used to
-/// route the inner-Newton Jeffreys term's unit-axis queries to the precomputed
-/// all-axes batch (gam#979) while keeping the closure correct for any future
-/// non-unit direction.
-fn unit_axis_index(direction: &Array1<f64>, p: usize) -> Option<usize> {
-    if direction.len() != p {
-        return None;
-    }
-    let mut found: Option<usize> = None;
-    for (i, &v) in direction.iter().enumerate() {
-        if v == 0.0 {
-            continue;
-        }
-        if v != 1.0 || found.is_some() {
-            return None;
-        }
-        found = Some(i);
-    }
-    found
-}
-
 pub(crate) fn block_param_ranges(specs: &[ParameterBlockSpec]) -> Vec<(usize, usize)> {
     block_offsets_from_specs(specs)
         .iter()
@@ -248,33 +226,16 @@ pub(crate) fn custom_family_joint_jeffreys_term<F: CustomFamily + Clone + Send +
     if h_joint.nrows() != total_p || h_joint.ncols() != total_p {
         return Ok(None);
     }
-    // BATCHED all-axes first-directional derivatives (gam#979). `joint_jeffreys_term`
-    // only ever queries the canonical unit axes `{e_a}` (its `grad[k]`/`H_Φ` loop),
-    // so we build all `p` of them in ONE family call. For a coupled family whose
-    // per-axis `..._directional_derivative` reconstructs a fresh row kernel each
-    // call (rigid Bernoulli marginal-slope), the per-axis closure rebuilt the `O(n)`
-    // per-row tensor cache `p` times PER CYCLE — the dominant per-cycle cost on the
-    // arms-the-gate cycles. The batched hook builds the per-row tensor once and
-    // closes every axis from it (the BMS BLAS-3 override), or falls back to the
-    // bit-identical per-axis sweep (the trait default). `None` ⇒ some axis lacks
-    // the exact derivative; the closure then yields `None` and the term degenerates
-    // to `(gate_weight·phi, 0, 0)`, exactly as the per-axis first-`None` collapse did.
-    let all_axes: Option<Vec<Array2<f64>>> = family
-        .joint_jeffreys_information_directional_derivative_all_axes_with_specs(states, specs)?;
-    let term = gam_solve::estimate::reml::jeffreys_subspace::joint_jeffreys_term(
+    // The reduced information and its conditioning gate are authoritative and
+    // are prepared before this lazy provider can run.  A gated-off term therefore
+    // performs ZERO all-axes builds.  When active, the provider is called once and
+    // returns the same canonical `{Hdot[e_a]}` batch the prior eager path used.
+    let term = gam_solve::estimate::reml::jeffreys_subspace::joint_jeffreys_term_batched(
         h_joint.view(),
         z_joint.view(),
-        |direction: &Array1<f64>| -> Result<Option<Array2<f64>>, String> {
-            // `joint_jeffreys_term` only requests unit canonical axes. Resolve such
-            // a request from the precomputed batch (`None` batch ⇒ degenerate term).
-            if let Some(axis) = unit_axis_index(direction, total_p) {
-                return Ok(all_axes.as_ref().map(|axes| axes[axis].clone()));
-            }
-            // Defensive: a non-unit direction (never produced by the inner-Newton
-            // path) falls back to the exact per-direction family evaluation so the
-            // closure stays correct for any future caller.
-            family.joint_jeffreys_information_directional_derivative_with_specs(
-                states, specs, direction,
+        || {
+            family.joint_jeffreys_information_directional_derivative_all_axes_with_specs(
+                states, specs,
             )
         },
     )?;
@@ -561,6 +522,7 @@ pub(crate) fn custom_family_outer_jeffreys_hphi<F: CustomFamily + Clone + Send +
     states: &[ParameterBlockState],
     specs: &[ParameterBlockSpec],
     ranges: &[(usize, usize)],
+    eval_mode: EvalMode,
 ) -> Result<Option<(f64, Array2<f64>, Option<Array2<f64>>)>, String> {
     if !family.joint_jeffreys_term_required() {
         return Ok(None);
@@ -601,8 +563,12 @@ pub(crate) fn custom_family_outer_jeffreys_hphi<F: CustomFamily + Clone + Send +
     // divided-difference solve, preserving the value/gradient contract.
     let total_p = ranges.last().map(|(_, e)| *e).unwrap_or(0);
     let mut completion: Option<Array2<f64>> = None;
-    let completion_requested =
-        family.joint_jeffreys_information_contracted_trace_hessian_available();
+    // Value-only probes consume only `Phi` and the divided-difference `H_Phi`
+    // in the outer logdet.  The completion exists solely to refine the
+    // derivative-bearing mode-response operator, so constructing it here would
+    // perform an unused fourth-order family pass on every line-search probe.
+    let completion_requested = eval_mode != EvalMode::ValueOnly
+        && family.joint_jeffreys_information_contracted_trace_hessian_available();
     if completion_requested
         && let Some(h_joint) = family.joint_jeffreys_information_with_specs(states, specs)?
         && h_joint.nrows() == total_p
@@ -648,7 +614,14 @@ pub(crate) fn custom_family_outer_jeffreys_hphi_drift_batched<
     states: &[ParameterBlockState],
     specs: &[ParameterBlockSpec],
     ranges: &[(usize, usize)],
+    eval_mode: EvalMode,
 ) -> Result<Option<JeffreysHphiDriftBatchFn>, String> {
+    // The closure contributes only to outer derivatives.  A value-only probe
+    // never invokes a derivative provider, so do not even materialize the
+    // information matrix/eigensystem needed to construct this closure.
+    if eval_mode == EvalMode::ValueOnly {
+        return Ok(None);
+    }
     if !family.joint_jeffreys_term_required() {
         return Ok(None);
     }
@@ -667,14 +640,20 @@ pub(crate) fn custom_family_outer_jeffreys_hphi_drift_batched<
     if h_joint.nrows() != total_p || h_joint.ncols() != total_p {
         return Ok(None);
     }
+    let plan = gam_solve::estimate::reml::jeffreys_subspace::JointJeffreysPlan::prepare(
+        h_joint.view(),
+        z_joint.view(),
+    )?;
+    if !plan.is_active() {
+        return Ok(None);
+    }
     let family_owned = family.clone();
     let states_owned: Vec<ParameterBlockState> = states.to_vec();
     let specs_owned: Vec<ParameterBlockSpec> = specs.to_vec();
-    let z_columns = z_joint.clone();
     let batch: JeffreysHphiDriftBatchFn = Arc::new(move |deltas: &[Array1<f64>]| {
-        // Prepare the β-fixed base ONCE: the reduced-information eigendecomposition
-        // plus the `p` first directional derivatives `Hdot[e_a]` (the dominant
-        // cost). Acquire the WHOLE canonical-axis set in ONE batched hook call —
+        // The exact reduced-information plan authorized this closure before it
+        // was returned, so an inactive outer gate performs zero derivative work.
+        // Acquire the WHOLE canonical-axis set in ONE batched hook call —
         // the same path the value-path `joint_jeffreys_term` uses — so a family
         // that assembles every axis in one shared softmax/Gram pass (multinomial)
         // pays a SINGLE sweep instead of the `p` concurrent cache-miss sweeps the
@@ -689,15 +668,13 @@ pub(crate) fn custom_family_outer_jeffreys_hphi_drift_batched<
             )?;
         let base = match all_axes {
             Some(hdots) => {
-                gam_solve::estimate::reml::jeffreys_subspace::JeffreysHphiDriftBase::prepare_with_axes(
-                    h_joint.view(),
-                    z_columns.view(),
+                gam_solve::estimate::reml::jeffreys_subspace::JeffreysHphiDriftBase::prepare_with_plan_axes(
+                    plan.clone(),
                     hdots,
                 )?
             }
-            None => gam_solve::estimate::reml::jeffreys_subspace::JeffreysHphiDriftBase::prepare(
-                h_joint.view(),
-                z_columns.view(),
+            None => gam_solve::estimate::reml::jeffreys_subspace::JeffreysHphiDriftBase::prepare_from_plan(
+                plan.clone(),
                 |direction: &Array1<f64>| {
                     family_owned.joint_jeffreys_information_directional_derivative_with_specs(
                         &states_owned,

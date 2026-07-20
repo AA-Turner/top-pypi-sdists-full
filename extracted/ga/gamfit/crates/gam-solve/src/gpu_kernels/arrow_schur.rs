@@ -60,6 +60,26 @@ pub enum ArrowSchurGpuFailure {
     },
 }
 
+/// Resolve the configured runtime without conflating probe faults with an
+/// ordinary device decline. The existing GPU failure surface has a diagnostic
+/// string variant, so faults flow through it; only typed Auto/Off absence
+/// remains `Ok(None)` and may become `Unavailable` at a caller-specific gate.
+///
+/// Every call site sits inside a `cfg(target_os = "linux")` block (the CUDA
+/// backend compiles only there), so off-Linux this resolver has no callers and
+/// `-D dead-code` rejects it — which is what silently killed the Windows and
+/// macOS wheel jobs. Gate it to the platform that owns its callers rather than
+/// suppressing the lint.
+#[cfg(target_os = "linux")]
+fn resolve_runtime_for_device_path(
+) -> Result<Option<&'static gam_gpu::GpuRuntime>, ArrowSchurGpuFailure> {
+    gam_gpu::device_runtime::GpuRuntime::resolve(gam_gpu::global_policy()).map_err(|error| {
+        ArrowSchurGpuFailure::SchurFactorFailed {
+            reason: format!("GPU runtime resolution failed: {error}"),
+        }
+    })
+}
+
 /// Relative rounding margin (multiplier on `diag_scale · √ε`) added on top of
 /// the deficit-clearing shift in [`ridge_bump_to_make_pd`].
 ///
@@ -279,7 +299,7 @@ pub fn solve_arrow_newton_step(
         // dependent TRSM+GEMM on each tile's own stream, so no on-stream solve is
         // orphaned. On `Unavailable` (one device, shape below policy, transient)
         // fall through to the single-device fused / Layer-A paths below.
-        if gam_gpu::device_runtime::GpuRuntime::global()
+        if resolve_runtime_for_device_path()?
             .map(gam_gpu::device_runtime::GpuRuntime::device_count)
             .unwrap_or(0)
             > 1
@@ -639,16 +659,19 @@ pub fn build_framed_resident_evidence_matvec(
     ridge_t: f64,
     ridge_beta: f64,
     apply_budget: usize,
-) -> Option<crate::arrow_schur::GpuSchurMatvec> {
+) -> Result<Option<crate::arrow_schur::GpuSchurMatvec>, ArrowSchurGpuFailure> {
     #[cfg(not(target_os = "linux"))]
     {
         // No CUDA runtime exists off Linux. Refuse the same degenerate
         // requests the Linux path would (mirroring the stubs above), then
         // report that no resident evidence matvec is available.
         if sys.k == 0 || !ridge_t.is_finite() || !ridge_beta.is_finite() || apply_budget == 0 {
-            return None;
+            return Err(ArrowSchurGpuFailure::SchurFactorFailed {
+                reason: "resident evidence matvec received degenerate dimensions or ridge"
+                    .to_string(),
+            });
         }
-        None
+        Ok(None)
     }
     #[cfg(target_os = "linux")]
     {
@@ -1028,24 +1051,30 @@ pub trait SaeResidentFrame {
 pub fn build_sae_resident_frame(
     sys: &ArrowSchurSystem,
     cg_iters: usize,
-) -> Result<std::sync::Arc<dyn SaeResidentFrame + Send + Sync>, ArrowSchurGpuFailure> {
+) -> Result<
+    Option<std::sync::Arc<dyn SaeResidentFrame + Send + Sync>>,
+    ArrowSchurGpuFailure,
+> {
     // Target-independent admission: a zero-K system has no reduced-Schur block
     // to keep resident, and a zero CG budget can never consume the frame — both
     // decline on every host, keeping the per-trial flatten the single fallback
     // (on CUDA hosts this also spares a doomed device build attempt).
     if sys.k == 0 || cg_iters == 0 {
-        return Err(ArrowSchurGpuFailure::Unavailable);
+        return Ok(None);
     }
     #[cfg(target_os = "linux")]
     {
-        cuda::ResidentSaeFrameHandle::build(sys, cg_iters)
-            .map(|h| std::sync::Arc::new(h) as std::sync::Arc<dyn SaeResidentFrame + Send + Sync>)
-            .ok_or(ArrowSchurGpuFailure::Unavailable)
+        cuda::ResidentSaeFrameHandle::build(sys, cg_iters).map(|handle| {
+            handle.map(|frame| {
+                std::sync::Arc::new(frame)
+                    as std::sync::Arc<dyn SaeResidentFrame + Send + Sync>
+            })
+        })
     }
     // Non-CUDA host: there is no device to build a frame on.
     #[cfg(not(target_os = "linux"))]
     {
-        Err(ArrowSchurGpuFailure::Unavailable)
+        Ok(None)
     }
 }
 
@@ -1613,7 +1642,7 @@ mod cuda {
             return Err(ArrowSchurGpuFailure::Unavailable);
         }
 
-        let runtime = gam_gpu::device_runtime::GpuRuntime::global()
+        let runtime = super::resolve_runtime_for_device_path()?
             .ok_or(ArrowSchurGpuFailure::Unavailable)?;
         if runtime.device_count() < 2 {
             return Err(ArrowSchurGpuFailure::Unavailable);
@@ -2921,6 +2950,61 @@ extern "C" __global__ void arrow_sae_frame_scatter_h_det(
         for (int c = 0; c < q; ++c) {
             acc += htb[hbase + c * k + a] * svec[sbase + c];
         }
+    }
+    out[a] = -acc;
+}
+
+/* #1017 evidence-lane 2-STAGE deterministic scatter, STAGE 1 (partials):
+   partial[chunk][a] = Σ_{row∈chunk} Σ_c H_tβ[row][c,a]·svec[row,c], for the
+   contiguous row range [chunk·rows_per_chunk, …). grid = (⌈k/256⌉, n_chunks);
+   thread owns (a, chunk). Replaces the single-strip `arrow_sae_frame_scatter_h_det`
+   (⌈k/256⌉ CTAs — only 4 at k=911, one thread serial over ALL n_rows, ~94% of a
+   72-SM A10 idle) with ⌈k/256⌉·n_chunks CTAs. Rows are summed in fixed order
+   within the chunk and the chunks are reduced in order by stage 2, so the result
+   is a FIXED reassociation of the same ordered row sum — run-to-run bit-stable
+   (the SLQ log|S| determinism contract) and within the ≤1e-9 CPU-oracle gate. */
+extern "C" __global__ void arrow_sae_frame_scatter_h_det_partial(
+    const double* __restrict__ svec,
+    const int* __restrict__ htb_ptr,
+    const double* __restrict__ htb,
+    const int* __restrict__ q_of,
+    double* __restrict__ partial,
+    int k,
+    int max_q,
+    int n_rows,
+    int rows_per_chunk
+) {
+    int a = blockIdx.x * blockDim.x + threadIdx.x;
+    if (a >= k) { return; }
+    int chunk = blockIdx.y;
+    int row0 = chunk * rows_per_chunk;
+    int row1 = row0 + rows_per_chunk;
+    if (row1 > n_rows) { row1 = n_rows; }
+    double acc = 0.0;
+    for (int row = row0; row < row1; ++row) {
+        int q = q_of[row];
+        int hbase = htb_ptr[row];
+        int sbase = row * max_q;
+        for (int c = 0; c < q; ++c) {
+            acc += htb[hbase + c * k + a] * svec[sbase + c];
+        }
+    }
+    partial[(long long)chunk * k + a] = acc;
+}
+
+/* #1017 STAGE 2 (reduce): out[a] = -Σ_chunk partial[chunk][a], chunks summed in
+   fixed order 0..n_chunks. One thread per output coord `a`; ⌈k/256⌉ CTAs. */
+extern "C" __global__ void arrow_sae_frame_scatter_h_det_reduce(
+    const double* __restrict__ partial,
+    double* __restrict__ out,
+    int k,
+    int n_chunks
+) {
+    int a = blockIdx.x * blockDim.x + threadIdx.x;
+    if (a >= k) { return; }
+    double acc = 0.0;
+    for (int chunk = 0; chunk < n_chunks; ++chunk) {
+        acc += partial[(long long)chunk * k + a];
     }
     out[a] = -acc;
 }
@@ -4648,9 +4732,28 @@ extern "C" __global__ void arrow_sae_frame_diag_sub(
         ainv: CudaSlice<f64>,
         hvec: CudaSlice<f64>,
         svec: CudaSlice<f64>,
+        // #1017 2-stage deterministic scatter scratch: partial[n_chunks × k]
+        // holds each row-chunk's reduced-Schur contribution before the fixed-order
+        // reduce. Ridge-independent shape (derived from n_rows), so it is allocated
+        // once with the resident frame and reused across every apply.
+        scatter_partial: CudaSlice<f64>,
+        n_chunks: usize,
+        rows_per_chunk: usize,
         n_rows: usize,
         k: usize,
         max_q: usize,
+    }
+
+    /// #1017 chunking for the 2-stage deterministic reduced-Schur scatter: split
+    /// the `n_rows` row reduction into contiguous chunks so stage 1 launches
+    /// `⌈k/256⌉·n_chunks` CTAs (vs the single-strip `⌈k/256⌉`). ~128 chunks fills a
+    /// 72-SM A10 with several CTAs even at small `k`, while keeping the partial
+    /// buffer (`n_chunks·k`) small and the stage-2 reduce (`n_chunks` adds) cheap.
+    fn scatter_chunking(n_rows: usize) -> (usize, usize) {
+        let target_chunks = 128usize;
+        let rows_per_chunk = n_rows.div_ceil(target_chunks).max(1);
+        let n_chunks = n_rows.div_ceil(rows_per_chunk).max(1);
+        (rows_per_chunk, n_chunks)
     }
 
     fn flatten_device_sae_frame_data(
@@ -4691,6 +4794,7 @@ extern "C" __global__ void arrow_sae_frame_diag_sub(
                 .clone_htod(v)
                 .map_err(|_| ArrowSchurGpuFailure::Unavailable)
         };
+        let (rows_per_chunk, n_chunks) = scatter_chunking(host.n_rows);
         Ok(DeviceSaeFrameBuffers {
             s_off: htod_i(&host.s_off)?,
             s_m: htod_i(&host.s_m)?,
@@ -4720,6 +4824,11 @@ extern "C" __global__ void arrow_sae_frame_diag_sub(
             svec: stream
                 .alloc_zeros::<f64>(host.n_rows * host.max_q)
                 .map_err(|_| ArrowSchurGpuFailure::Unavailable)?,
+            scatter_partial: stream
+                .alloc_zeros::<f64>(n_chunks * host.k)
+                .map_err(|_| ArrowSchurGpuFailure::Unavailable)?,
+            n_chunks,
+            rows_per_chunk,
             n_rows: host.n_rows,
             k: host.k,
             max_q: host.max_q,
@@ -5007,13 +5116,18 @@ extern "C" __global__ void arrow_sae_frame_diag_sub(
             // and n_rows·max_q; the kernel guards row/coord bounds.
             unsafe { b.launch(cfg) }.map_err(|_| ArrowSchurGpuFailure::Unavailable)?;
         }
-        // out[a] = -Σ_i Σ_c H_tβ[i][c,a]·svec[i,c]  (deterministic; one thread per a).
+        // out[a] = -Σ_i Σ_c H_tβ[i][c,a]·svec[i,c] — 2-stage DETERMINISTIC scatter.
+        // Stage 1: partial[chunk][a] over contiguous row chunks, launching
+        // ⌈k/256⌉·n_chunks CTAs (vs the single-strip ⌈k/256⌉ = 4 at k=911 that left
+        // ~94% of the SMs idle). Rows summed in fixed order within each chunk.
+        let k_blocks = ((buffers.k as u32).saturating_add(255) / 256).max(1);
         {
             let kernel = module
-                .load_function("arrow_sae_frame_scatter_h_det")
+                .load_function("arrow_sae_frame_scatter_h_det_partial")
                 .map_err(|_| ArrowSchurGpuFailure::Unavailable)?;
+            let rows_per_chunk_i32 = checked_i32(buffers.rows_per_chunk)?;
             let cfg = LaunchConfig {
-                grid_dim: (((buffers.k as u32).saturating_add(255) / 256).max(1), 1, 1),
+                grid_dim: (k_blocks, checked_i32(buffers.n_chunks)? as u32, 1),
                 block_dim: (256, 1, 1),
                 shared_mem_bytes: 0,
             };
@@ -5022,12 +5136,34 @@ extern "C" __global__ void arrow_sae_frame_diag_sub(
                 .arg(&buffers.htb_ptr)
                 .arg(&buffers.htb)
                 .arg(&buffers.q_of)
-                .arg(&mut *out)
+                .arg(&mut buffers.scatter_partial)
                 .arg(&k_i32)
                 .arg(&max_q_i32)
-                .arg(&n_rows_i32);
-            // SAFETY: svec/cross-block/out are live buffers sized for n_rows·max_q
-            // / n_rows·k / k; the kernel writes one in-bounds out[a] per a<k.
+                .arg(&n_rows_i32)
+                .arg(&rows_per_chunk_i32);
+            // SAFETY: svec/cross-block are live buffers; scatter_partial is sized
+            // n_chunks·k; each thread writes one in-bounds partial[chunk·k+a], a<k.
+            unsafe { b.launch(cfg) }.map_err(|_| ArrowSchurGpuFailure::Unavailable)?;
+        }
+        // Stage 2: out[a] = -Σ_chunk partial[chunk][a], chunks reduced in fixed
+        // order — the fixed reassociation that keeps the scatter deterministic.
+        {
+            let kernel = module
+                .load_function("arrow_sae_frame_scatter_h_det_reduce")
+                .map_err(|_| ArrowSchurGpuFailure::Unavailable)?;
+            let n_chunks_i32 = checked_i32(buffers.n_chunks)?;
+            let cfg = LaunchConfig {
+                grid_dim: (k_blocks, 1, 1),
+                block_dim: (256, 1, 1),
+                shared_mem_bytes: 0,
+            };
+            let mut b = stream.launch_builder(&kernel);
+            b.arg(&buffers.scatter_partial)
+                .arg(&mut *out)
+                .arg(&k_i32)
+                .arg(&n_chunks_i32);
+            // SAFETY: scatter_partial sized n_chunks·k, out sized k; one in-bounds
+            // out[a] written per a<k.
             unsafe { b.launch(cfg) }.map_err(|_| ArrowSchurGpuFailure::Unavailable)?;
         }
         Ok(())
@@ -5088,7 +5224,7 @@ extern "C" __global__ void arrow_sae_frame_diag_sub(
             .ok_or(ArrowSchurGpuFailure::Unavailable)?;
         // No offload-policy filter here: the seam exists to validate the kernel on
         // ANY device, including the smallest hand-checkable fixture.
-        let runtime = gam_gpu::device_runtime::GpuRuntime::global()
+        let runtime = super::resolve_runtime_for_device_path()?
             .ok_or(ArrowSchurGpuFailure::Unavailable)?;
         let ctx = gam_gpu::device_runtime::cuda_context_for(runtime.selected_device().ordinal)
             .ok_or(ArrowSchurGpuFailure::Unavailable)?;
@@ -5139,7 +5275,7 @@ extern "C" __global__ void arrow_sae_frame_diag_sub(
             .frame
             .as_ref()
             .ok_or(ArrowSchurGpuFailure::Unavailable)?;
-        let runtime = gam_gpu::device_runtime::GpuRuntime::global()
+        let runtime = super::resolve_runtime_for_device_path()?
             .ok_or(ArrowSchurGpuFailure::Unavailable)?;
         let ctx = gam_gpu::device_runtime::cuda_context_for(runtime.selected_device().ordinal)
             .ok_or(ArrowSchurGpuFailure::Unavailable)?;
@@ -5191,7 +5327,7 @@ extern "C" __global__ void arrow_sae_frame_diag_sub(
             .frame
             .as_ref()
             .ok_or(ArrowSchurGpuFailure::Unavailable)?;
-        let runtime = gam_gpu::device_runtime::GpuRuntime::global()
+        let runtime = super::resolve_runtime_for_device_path()?
             .filter(|rt| {
                 rt.policy().reduced_schur_matvec_should_offload(
                     sys.rows.len(),
@@ -5395,25 +5531,44 @@ extern "C" __global__ void arrow_sae_frame_diag_sub(
         /// [`solve_sae_matrix_free_pcg_framed`] (framed data present, offload
         /// predicate over the CG budget, live runtime), upload the
         /// ridge-independent operands once with a zero `ainv` placeholder, and
-        /// stash the metadata needed to recompute `ainv` per trial. `None` on any
-        /// decline keeps the per-trial re-flatten path.
-        pub(crate) fn build(sys: &ArrowSchurSystem, cg_iters: usize) -> Option<Self> {
-            let data = sys.device_sae_pcg.as_ref()?;
-            let frame = data.frame.as_ref()?;
+        /// stash the metadata needed to recompute `ainv` per trial. Ordinary
+        /// shape/policy absence is `Ok(None)`; runtime and upload faults retain
+        /// their typed identity.
+        pub(crate) fn build(
+            sys: &ArrowSchurSystem,
+            cg_iters: usize,
+        ) -> Result<Option<Self>, ArrowSchurGpuFailure> {
+            let Some(data) = sys.device_sae_pcg.as_ref() else {
+                return Ok(None);
+            };
+            let Some(frame) = data.frame.as_ref() else {
+                return Ok(None);
+            };
             if sys.k == 0 || data.beta_dim != sys.k {
-                return None;
+                return Ok(None);
             }
-            let runtime = gam_gpu::device_runtime::GpuRuntime::global().filter(|rt| {
-                rt.policy().reduced_schur_matvec_should_offload(
-                    sys.rows.len(),
-                    sys.k,
-                    sys.d,
-                    cg_iters,
-                )
+            let Some(runtime) = super::resolve_runtime_for_device_path()? else {
+                return Ok(None);
+            };
+            if !runtime.policy().reduced_schur_matvec_should_offload(
+                sys.rows.len(),
+                sys.k,
+                sys.d,
+                cg_iters,
+            ) {
+                return Ok(None);
+            }
+            let ctx = gam_gpu::device_runtime::cuda_context_for(runtime.selected_device().ordinal)
+                .ok_or_else(|| ArrowSchurGpuFailure::SchurFactorFailed {
+                    reason: "resident SAE frame could not bind the admitted CUDA context"
+                        .to_string(),
+                })?;
+            let stream = ctx.new_stream().map_err(|error| {
+                ArrowSchurGpuFailure::SchurFactorFailed {
+                    reason: format!("resident SAE frame stream creation failed: {error}"),
+                }
             })?;
-            let ctx = gam_gpu::device_runtime::cuda_context_for(runtime.selected_device().ordinal)?;
-            let stream = ctx.new_stream().ok()?;
-            let host = super::flatten_frame_host_operands(sys, data, frame).ok()?;
+            let host = super::flatten_frame_host_operands(sys, data, frame)?;
             // #1017/#2230 residency measurement: the ridge-independent operand
             // bytes this frame uploads ONCE for the whole LM ridge ladder. The
             // per-trial flatten path re-uploaded this same total on EVERY trial
@@ -5428,8 +5583,8 @@ extern "C" __global__ void arrow_sae_frame_diag_sub(
                 host.max_q
             );
             let zero_ainv = vec![0.0_f64; host.n_rows * host.max_q * host.max_q];
-            let buffers = upload_frame_buffers(&host, &zero_ainv, &stream).ok()?;
-            Some(Self {
+            let buffers = upload_frame_buffers(&host, &zero_ainv, &stream)?;
+            Ok(Some(Self {
                 ctx,
                 stream,
                 buffers: std::sync::Mutex::new(buffers),
@@ -5437,7 +5592,7 @@ extern "C" __global__ void arrow_sae_frame_diag_sub(
                 max_q: host.max_q,
                 n_rows: host.n_rows,
                 k: host.k,
-            })
+            }))
         }
 
         /// Overwrite the resident per-row `ainv` for a fixed `ridge_t` (the single
@@ -5560,10 +5715,14 @@ extern "C" __global__ void arrow_sae_frame_diag_sub(
         ridge_t: f64,
         ridge_beta: f64,
         apply_budget: usize,
-    ) -> Option<crate::arrow_schur::GpuSchurMatvec> {
-        let handle = ResidentSaeFrameHandle::build(sys, apply_budget)?;
-        handle.prime_ainv(sys, ridge_t).ok()?;
-        let data = sys.device_sae_pcg.as_ref()?.clone();
+    ) -> Result<Option<crate::arrow_schur::GpuSchurMatvec>, ArrowSchurGpuFailure> {
+        let Some(handle) = ResidentSaeFrameHandle::build(sys, apply_budget)? else {
+            return Ok(None);
+        };
+        handle.prime_ainv(sys, ridge_t)?;
+        let Some(data) = sys.device_sae_pcg.as_ref().cloned() else {
+            return Ok(None);
+        };
         let handle = Arc::new(handle);
         let k = handle.k;
         let closure: crate::arrow_schur::GpuSchurMatvec =
@@ -5609,7 +5768,7 @@ extern "C" __global__ void arrow_sae_frame_diag_sub(
                     out_slice[a] += reduced[a];
                 }
             });
-        Some(closure)
+        Ok(Some(closure))
     }
 
     /// #1551 stage-isolating triage seam: run the framed reduced-Schur matvec
@@ -5650,7 +5809,7 @@ extern "C" __global__ void arrow_sae_frame_diag_sub(
         // modest-`d` LLM shapes register the real `n × k × d × cg_iters` arithmetic.
         // Kernels and numerics are untouched; only where the matvec runs changes,
         // and the host falls back to the bit-identical CPU matvec when this declines.
-        let runtime = gam_gpu::device_runtime::GpuRuntime::global()
+        let runtime = super::resolve_runtime_for_device_path()?
             .filter(|rt| {
                 rt.policy().reduced_schur_matvec_should_offload(
                     sys.rows.len(),
@@ -6340,7 +6499,7 @@ extern "C" __global__ void arrow_sae_frame_diag_sub(
                 .frame
                 .as_ref()
                 .ok_or(ArrowSchurGpuFailure::Unavailable)?;
-            let runtime = gam_gpu::device_runtime::GpuRuntime::global()
+            let runtime = super::super::resolve_runtime_for_device_path()?
                 .ok_or(ArrowSchurGpuFailure::Unavailable)?;
             let ctx = gam_gpu::device_runtime::cuda_context_for(runtime.selected_device().ordinal)
                 .ok_or(ArrowSchurGpuFailure::Unavailable)?;
@@ -6375,7 +6534,10 @@ extern "C" __global__ void arrow_sae_frame_diag_sub(
         /// kernel stage. Skips cleanly off-device.
         #[test]
         fn framed_sae_device_matvec_stage_diff_tiny_1551() {
-            if gam_gpu::device_runtime::GpuRuntime::global().is_none() {
+            if gam_gpu::device_runtime::GpuRuntime::resolve(gam_gpu::GpuPolicy::Auto)
+                .unwrap_or_else(|error| panic!("GPU probe fault in framed matvec test: {error}"))
+                .is_none()
+            {
                 return;
             }
             let p = 3usize;
@@ -6751,7 +6913,11 @@ mod tests {
             // variant is folded into the assert message as the diagnostic.
             Err(failure) => {
                 assert!(
-                    gam_gpu::device_runtime::GpuRuntime::global().is_none(),
+                    gam_gpu::device_runtime::GpuRuntime::resolve(gam_gpu::GpuPolicy::Auto)
+                        .unwrap_or_else(|error| {
+                            panic!("GPU probe fault in reduced-beta PCG test: {error}")
+                        })
+                        .is_none(),
                     "#1017: CUDA device present but the device reduced-beta PCG \
                      declined/faulted instead of returning a result (tag: {failure:?}) — \
                      the kernel does not run correctly on GPU"
@@ -7629,7 +7795,11 @@ mod tests {
                 // The exact `ArrowSchurGpuFailure` variant is folded into the assert.
                 Err(failure) => {
                     assert!(
-                        gam_gpu::device_runtime::GpuRuntime::global().is_none(),
+                        gam_gpu::device_runtime::GpuRuntime::resolve(gam_gpu::GpuPolicy::Auto)
+                            .unwrap_or_else(|error| {
+                                panic!("GPU probe fault in framed PCG test: {error}")
+                            })
+                            .is_none(),
                         "#1017: CUDA device present but the framed device SAE PCG \
                      declined/faulted instead of returning a result (tag: {failure:?}) — \
                      the kernel does not run correctly on GPU"
@@ -8001,7 +8171,11 @@ mod tests {
                     // (which deliberately ignores the offload floor) means the
                     // framed matvec kernel does not run on GPU.
                     assert!(
-                        gam_gpu::device_runtime::GpuRuntime::global().is_none(),
+                        gam_gpu::device_runtime::GpuRuntime::resolve(gam_gpu::GpuPolicy::Auto)
+                            .unwrap_or_else(|error| {
+                                panic!("GPU probe fault in framed matvec parity test: {error}")
+                            })
+                            .is_none(),
                         "#1551: CUDA device present but the framed device matvec \
                          declined/faulted (probe {pi}, tag: {failure:?}) — the kernel \
                          does not run on GPU"
@@ -8039,7 +8213,11 @@ mod tests {
             // the ~1e-13 fp64 GEMV round-off; a structural marshalling bug would
             // be O(1).)
             assert!(
-                gam_gpu::device_runtime::GpuRuntime::global().is_some(),
+                gam_gpu::device_runtime::GpuRuntime::resolve(gam_gpu::GpuPolicy::Auto)
+                    .unwrap_or_else(|error| {
+                        panic!("GPU probe fault after framed matvec execution: {error}")
+                    })
+                    .is_some(),
                 "#1551: matvec ran but no GPU runtime — unexpected"
             );
             assert!(worst <= 1e-9, "framed matvec parity worst rel = {worst:e}");

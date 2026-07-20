@@ -20,6 +20,7 @@ from ._stub import VALID_DESCRIPTION as _VALID_DESCRIPTION
 from ._stub import Param as _Param
 from ._stub import Params as _Params
 from ._stub import RetType as _RetType
+from ._utils import SENTENCE_ABBREVIATIONS as _SENTENCE_ABBREVIATIONS
 from ._utils import almost_equal as _almost_equal
 from ._utils import sentence_tokenizer as _sentence_tokenizer
 from .messages import E as _E
@@ -27,6 +28,36 @@ from .messages import Message as _Message
 
 _MIN_MATCH = 0.8
 _MAX_MATCH = 1.0
+_VALID_ENDINGS = (
+    "`",
+    ".",
+    "!",
+    "?",
+)
+
+
+def _last_prose_char(text: str) -> tuple[str | None, bool]:
+    # return the last character of non-code-block prose and whether the
+    # text ends inside a code block (a line ending with ::)
+    in_block = False
+    last_char = None
+    for line in text.strip().split("\n"):
+        stripped_ln = line.strip()
+        if in_block:
+            if stripped_ln and line[:1] not in (" ", "\t"):
+                in_block = False
+            else:
+                continue
+        if stripped_ln.startswith(".."):
+            # a directive or comment, e.g. `.. versionchanged:: 2.0`,
+            # is not prose, and its indented content belongs to it
+            in_block = True
+            continue
+        if stripped_ln.endswith("::"):
+            in_block = True
+        if stripped_ln:
+            last_char = stripped_ln[-1]
+    return last_char, in_block
 
 
 class FunctionChecker:  # pylint: disable=too-few-public-methods
@@ -227,23 +258,26 @@ class FunctionChecker:  # pylint: disable=too-few-public-methods
         if doc_description is not None and not all(
             stripped[0].isupper()
             for i in _sentence_tokenizer(doc_description)
-            if i and (stripped := i.strip())[0].isalpha()
+            if (
+                i
+                and (stripped := i.strip())[0].isalpha()
+                and stripped.lower().split()[0].rstrip(",;")
+                not in _SENTENCE_ABBREVIATIONS
+            )
         ):
             # description is not capitalized
             self._add(_E[305])
         # description-missing-period
-        if (
-            doc_description
-            and doc_description.strip()
-            and doc_description.strip()[-1]
-            not in (
-                "`",
-                ".",
-                "!",
-                "?",
-            )
-        ):
-            self._add(_E[306])
+        # a description that ends inside an RST code block (introduced
+        # by a line ending with ::) does not need a sentence terminator
+        if doc_description:
+            last_char, in_block = _last_prose_char(doc_description)
+            if (
+                not in_block
+                and last_char is not None
+                and last_char not in _VALID_ENDINGS
+            ):
+                self._add(_E[306])
 
     def _sig4xx_parameters(self, doc: _Param, sig: _Param) -> None:
         # freeze result as it is a property and PyCharm complains

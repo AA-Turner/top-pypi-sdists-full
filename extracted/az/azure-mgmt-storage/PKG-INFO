@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-mgmt-storage
-Version: 25.0.0
+Version: 25.1.0
 Summary: Microsoft Azure Storage Management Client Library for Python
 Author-email: Microsoft Corporation <azpysdkhelp@microsoft.com>
 License-Expression: MIT
@@ -10,12 +10,11 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: isodate>=0.6.1
@@ -49,7 +48,7 @@ pip install azure-identity
 
 ### Authentication
 
-By default, [Azure Active Directory](https://aka.ms/awps/aad) token authentication depends on correct configuration of the following environment variables.
+By default, [Microsoft Entra](https://learn.microsoft.com/entra/fundamentals/what-is-entra) token authentication depends on correct configuration of the following environment variables.
 
 - `AZURE_CLIENT_ID` for Azure client ID.
 - `AZURE_TENANT_ID` for Azure tenant ID.
@@ -86,6 +85,21 @@ If you encounter any bugs or have suggestions, please file an issue in the
 section of the project. 
 
 # Release History
+
+## 25.1.0 (2026-06-01)
+
+### Features Added
+
+  - Client `StorageManagementClient` added operation group `advanced_platform_metrics`
+  - Model `FileShareLimits` added property `guardrail_io_scalar`
+  - Model `FileShareLimits` added property `guardrail_bandwidth_scalar`
+  - Added enum `AdvancedPlatformMetricsFilterType`
+  - Added model `AdvancedPlatformMetricsRule`
+  - Added model `AdvancedPlatformMetricsRuleConfig`
+  - Added model `AdvancedPlatformMetricsRuleProperties`
+  - Added enum `AdvancedPlatformMetricsRuleType`
+  - Added enum `MetricsEmitted`
+  - Added operation group `AdvancedPlatformMetricsOperations`
 
 ## 25.0.0 (2026-05-19)
 

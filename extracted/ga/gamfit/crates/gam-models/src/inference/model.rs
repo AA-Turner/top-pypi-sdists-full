@@ -2,12 +2,16 @@ use crate::bms::{LatentMeasureKind, LatentZConditionalCalibration, LatentZRankIn
 use crate::survival::construction::{
     SurvivalBaselineConfig, SurvivalTimeBasisConfig, parse_survival_baseline_config,
 };
-use crate::survival::location_scale::ResidualDistribution;
-use crate::survival::lognormal_kernel::FrailtySpec;
+use crate::survival::location_scale::{
+    ResidualDistribution, SurvivalCovariateTimeBasis, SurvivalLocationScaleTimeParameterization,
+};
+use crate::survival::lognormal_kernel::{FrailtyScale, FrailtySpec};
 use crate::wiggle::{
+    WigglePenaltyMetadata, canonical_wiggle_function_penalties,
     monotone_wiggle_basis_with_derivative_order, validate_monotone_wiggle_beta_nonnegative,
 };
 use gam_linalg::faer_ndarray::array2_to_nested_vec;
+use gam_linalg::matrix::DesignMatrix;
 use gam_problem::types::{
     InverseLink, LatentCLogLogState, LikelihoodSpec, MixtureLinkState, ResponseFamily, SasLinkSpec,
     SasLinkState, StandardLink,
@@ -27,7 +31,7 @@ use gam_terms::smooth::{AdaptiveRegularizationDiagnostics, TermCollectionSpec};
 // and by saved-payload consumers. Re-export them so that public path stays
 // valid rather than forcing every caller onto the relocated crate path.
 pub use gam_data::{ColumnKindTag, DataSchema, SchemaColumn};
-use ndarray::{Array1, Array2};
+use ndarray::{Array1, Array2, ArrayView1};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -54,7 +58,122 @@ use std::path::Path;
 /// Do NOT bump for purely additive `Option<T>` fields that the save-time
 /// invariant (`validate_for_persistence`) does not yet require. Those are
 /// forward-compatible.
-pub const MODEL_PAYLOAD_VERSION: u32 = 8;
+pub const MODEL_PAYLOAD_VERSION: u32 = 13;
+
+/// Coefficient parameterization of a saved transformation-normal (CTN) fit.
+///
+/// The direct-α cutover (gam#2306) made the transform
+/// `h(y, x) = α_0(x) + Σ_k α_k(x)·I_k(y)` LINEAR in the coefficient matrix,
+/// with per-covariate-row monotonicity enforced by the factored Khatri-Rao
+/// positivity cone rather than the pre-cutover squared-γ latent chart. The
+/// marker exists so a reader can reject coefficients written under any other
+/// chart as a typed mismatch instead of silently reinterpreting them.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum TransformationNormalParameterization {
+    /// Direct-α chart: `h` linear in the coefficient matrix `A`, monotonicity
+    /// certified by the factored Khatri-Rao cone `α_k(x_i) = ψ_iᵀ A[k,:] ≥ 0`.
+    DirectAlpha,
+}
+
+/// Direct-α SCOP-CTN transformation geometry required to replay a saved
+/// transformation-normal fit (gam#2306).
+///
+/// Beyond the response knots/degree/median/transform snapshot, direct-α replay
+/// — and in particular the certified-domain refusal that
+/// [`crate::transformation_normal::transformation_normal_pit_score`] raises for
+/// out-of-support prediction — needs the coefficient parameterization marker,
+/// the response value-basis spec, the shape-coordinate count, the cone-carrier
+/// (Khatri-Rao factor) shape, and the response support the positivity cone was
+/// certified over. This is a REQUIRED v13 field for a transformation-normal
+/// model: loading a CTN payload that lacks it (a v12-or-older squared-γ model)
+/// is a typed rejection in [`FittedModelPayload::validate_for_persistence`],
+/// never a heuristic conversion.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct SavedTransformationNormalGeometry {
+    /// Coefficient chart. Only `DirectAlpha` is written by a v13+ CTN writer.
+    pub parameterization: TransformationNormalParameterization,
+    /// I-spline response value-basis degree (`response_degree`).
+    pub response_degree: usize,
+    /// Number of response knots persisted in `transformation_response_knots`
+    /// (a provenance cross-check: replay rebuilds the value basis from those
+    /// knots and this count must agree).
+    pub response_knot_count: usize,
+    /// Number of shape coordinates `p_resp − 1`: the non-negativity-constrained
+    /// I-spline columns. Response column 0 is the unconstrained location field.
+    pub shape_coordinate_count: usize,
+    /// Covariate-side design width `p_cov`. The Khatri-Rao cone carrier factor
+    /// is `n × p_cov`, so the coefficient block is `p_resp × p_cov`.
+    pub cone_carrier_covariate_width: usize,
+    /// Number of covariate rows the positivity cone was certified over (the
+    /// fitted observation count `n`).
+    pub cone_carrier_row_count: usize,
+    /// Response support `[y_lo, y_hi]` (the clamped-knot span) the transform and
+    /// positivity cone were certified over — the certified domain the
+    /// out-of-support prediction refusal is defined against.
+    pub certified_response_support: (f64, f64),
+    /// Response median anchoring the per-row monotonicity floor `ε·(y − median)`.
+    pub response_median: f64,
+}
+
+impl SavedTransformationNormalGeometry {
+    /// Self-contained structural validation. Cross-checks against the sibling
+    /// response-basis payload fields (knot count, degree) are done by the
+    /// caller in `validate_for_persistence`.
+    pub fn validate(&self, context: &str) -> Result<(), FittedModelError> {
+        match self.parameterization {
+            TransformationNormalParameterization::DirectAlpha => {}
+        }
+        if self.response_degree < 1 {
+            return Err(FittedModelError::PayloadCorrupt {
+                reason: format!(
+                    "{context} CTN geometry response_degree must be >= 1, got {}",
+                    self.response_degree
+                ),
+            });
+        }
+        if self.shape_coordinate_count == 0 {
+            return Err(FittedModelError::PayloadCorrupt {
+                reason: format!("{context} CTN geometry needs at least one shape coordinate"),
+            });
+        }
+        if self.cone_carrier_covariate_width == 0 || self.cone_carrier_row_count == 0 {
+            return Err(FittedModelError::PayloadCorrupt {
+                reason: format!(
+                    "{context} CTN geometry cone carrier must be non-empty: {} rows x {} covariate columns",
+                    self.cone_carrier_row_count, self.cone_carrier_covariate_width
+                ),
+            });
+        }
+        let (lo, hi) = self.certified_response_support;
+        if !(lo.is_finite() && hi.is_finite() && lo < hi) {
+            return Err(FittedModelError::PayloadCorrupt {
+                reason: format!(
+                    "{context} CTN geometry certified response support must be finite and ordered lo < hi, got [{lo}, {hi}]"
+                ),
+            });
+        }
+        if !self.response_median.is_finite() {
+            return Err(FittedModelError::PayloadCorrupt {
+                reason: format!(
+                    "{context} CTN geometry response_median must be finite, got {}",
+                    self.response_median
+                ),
+            });
+        }
+        Ok::<(), _>(())
+    }
+}
+
+/// Exact topology required to replay a saved survival location-scale fit.
+/// This is a required v11 payload field: `None` is explicit for every other
+/// family, while location-scale persistence requires `Some`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct SavedSurvivalLocationScaleStructure {
+    pub time_parameterization: SurvivalLocationScaleTimeParameterization,
+    pub threshold_time_basis: Option<SurvivalCovariateTimeBasis>,
+    pub log_sigma_time_basis: Option<SurvivalCovariateTimeBasis>,
+}
 
 /// Schema-free saved-model metadata keyed by stable group id.
 ///
@@ -234,6 +353,13 @@ pub struct FittedModelPayload {
     pub model_kind: ModelKind,
     pub family_state: FittedFamily,
     pub family: String,
+    /// Statistical criterion that produced the saved response surface.
+    ///
+    /// This is a required v12 field. In particular, an expectile fit uses a
+    /// Gaussian-identity inner solver but does not thereby acquire a Gaussian
+    /// observation law. Persisting the estimator separately prevents
+    /// generative consumers from manufacturing one after save/load.
+    pub estimator: FittedEstimator,
     /// Human-readable advisories produced while materializing this model —
     /// e.g. an mgcv-style "k was reduced to the data support" note when a
     /// cubic-regression marginal is capped, or a basis-degradation note. These
@@ -311,6 +437,12 @@ pub struct FittedModelPayload {
     pub linkwiggle_knots: Option<Vec<f64>>,
     #[serde(default)]
     pub linkwiggle_degree: Option<usize>,
+    /// Exact fit-time I-spline function-penalty semantics and ordered block
+    /// topology for a standard link-wiggle. Required for posterior sampling;
+    /// the sampler rebuilds these blocks through the canonical function-space
+    /// constructor and rejects any topology or lambda-count mismatch.
+    #[serde(default)]
+    pub linkwiggle_penalty_metadata: Option<WigglePenaltyMetadata>,
     #[serde(default)]
     pub beta_link_wiggle: Option<Vec<f64>>,
     /// Frozen-index mean-coordinate shift `s` for the standard binomial-mean
@@ -378,6 +510,14 @@ pub struct FittedModelPayload {
     /// the extra block and slice `γ` out of the joint covariance.
     #[serde(default)]
     pub influence_absorber_width: Option<usize>,
+    /// Exact residualized training-row design paired with the trailing
+    /// survival marginal-slope influence block. Mandatory in the v11 schema:
+    /// `None` is the explicit no-absorber state, while an absent JSON field is
+    /// rejected rather than interpreted as an old-model fallback.
+    pub influence_absorber_design: Option<Vec<Vec<f64>>>,
+    /// Exact latent-score covariance used by the fitted survival
+    /// marginal-slope preservation map. Mandatory in the current schema.
+    pub survival_marginal_slope_score_covariance: Option<Vec<Vec<f64>>>,
     #[serde(default)]
     pub survival_entry: Option<String>,
     #[serde(default)]
@@ -416,24 +556,16 @@ pub struct FittedModelPayload {
     pub survivalridge_lambda: Option<f64>,
     #[serde(default)]
     pub survival_likelihood: Option<String>,
+    /// Exact location-scale topology. This field intentionally has no serde
+    /// default: every v11 artifact must state `null` for non-location-scale
+    /// families or carry the complete structure for location-scale replay.
+    pub survival_location_scale_structure: Option<SavedSurvivalLocationScaleStructure>,
     #[serde(default)]
     pub survival_beta_time: Option<Vec<f64>>,
     #[serde(default)]
     pub survival_beta_threshold: Option<Vec<f64>>,
     #[serde(default)]
     pub survival_beta_log_sigma: Option<Vec<f64>>,
-    #[serde(default)]
-    pub survival_noise_projection: Option<Vec<Vec<f64>>>,
-    #[serde(default)]
-    pub survival_noise_center: Option<Vec<f64>>,
-    #[serde(default)]
-    pub survival_noise_scale: Option<Vec<f64>>,
-    #[serde(default)]
-    pub survival_noise_non_intercept_start: Option<usize>,
-    /// Survival analog of `noise_projection_ridge_alpha`: the Tikhonov ridge
-    /// used when fitting the survival log-sigma projection.
-    #[serde(default)]
-    pub survival_noise_projection_ridge_alpha: Option<f64>,
     #[serde(default)]
     pub survival_distribution: Option<ResidualDistribution>,
     #[serde(default)]
@@ -480,6 +612,23 @@ pub struct FittedModelPayload {
     /// Transformation-normal: median of the response used for anchoring.
     #[serde(default)]
     pub transformation_response_median: Option<f64>,
+    /// Transformation-normal: direct-α geometry record (gam#2306). REQUIRED for
+    /// a transformation-normal model at v13+; `None` for every other family and
+    /// for pre-cutover CTN payloads, whose load `validate_for_persistence`
+    /// refuses (typed) rather than heuristically converting.
+    #[serde(default)]
+    pub transformation_geometry: Option<SavedTransformationNormalGeometry>,
+    /// Transformation-normal: the monotonicity-cone carrier `Ψ` (the fitted
+    /// covariate design at `κ̂`), row-major `n × p_cov` where
+    /// `n = cone_carrier_row_count` and `p_cov = cone_carrier_covariate_width`
+    /// from [`SavedTransformationNormalGeometry`]. REQUIRED for a v13+ CTN model:
+    /// constrained posterior sampling rejects draws whose realized shape field
+    /// `Γ = Ψ Aᵀ` leaves the positivity cone, and the carrier is persisted (not
+    /// reconstructed) because `Ψ(κ̂)` goes through the exp/log spatial warp whose
+    /// replay is not bitwise-stable, and a sign flip on a near-zero `Γ` entry
+    /// would wrongly accept a non-monotone transformation.
+    #[serde(default)]
+    pub transformation_cone_carrier: Option<Vec<f64>>,
     /// Transformation-normal saved score contract. The score is the exact
     /// finite-support PIT:
     /// z = Phi^{-1}((Phi(h) - Phi(h_L)) / (Phi(h_U) - Phi(h_L))).
@@ -678,6 +827,7 @@ impl FittedModelPayload {
             model_kind,
             family_state,
             family,
+            estimator: FittedEstimator::Likelihood,
             inference_notes: Vec::new(),
             used_device: false,
             fit_result: None,
@@ -703,6 +853,7 @@ impl FittedModelPayload {
             gaussian_response_scale: None,
             linkwiggle_knots: None,
             linkwiggle_degree: None,
+            linkwiggle_penalty_metadata: None,
             beta_link_wiggle: None,
             link_wiggle_index_shift: None,
             baseline_timewiggle_knots: None,
@@ -724,6 +875,8 @@ impl FittedModelPayload {
             score_warp_runtime: None,
             link_deviation_runtime: None,
             influence_absorber_width: None,
+            influence_absorber_design: None,
+            survival_marginal_slope_score_covariance: None,
             survival_entry: None,
             survival_exit: None,
             survival_event: None,
@@ -743,14 +896,10 @@ impl FittedModelPayload {
             survival_time_anchor: None,
             survivalridge_lambda: None,
             survival_likelihood: None,
+            survival_location_scale_structure: None,
             survival_beta_time: None,
             survival_beta_threshold: None,
             survival_beta_log_sigma: None,
-            survival_noise_projection: None,
-            survival_noise_center: None,
-            survival_noise_scale: None,
-            survival_noise_non_intercept_start: None,
-            survival_noise_projection_ridge_alpha: None,
             survival_distribution: None,
             training_headers: None,
             training_table_kind: "unknown".to_string(),
@@ -761,6 +910,8 @@ impl FittedModelPayload {
             transformation_response_transform: None,
             transformation_response_degree: None,
             transformation_response_median: None,
+            transformation_geometry: None,
+            transformation_cone_carrier: None,
             transformation_score_calibration: None,
             resolved_termspec: None,
             resolved_termspec_noise: None,
@@ -855,6 +1006,18 @@ pub enum ModelKind {
     TransformationNormal,
 }
 
+/// Statistical criterion represented by a saved fitted surface.
+///
+/// `Likelihood` means the persisted [`LikelihoodSpec`] is also the fitted
+/// observation law. `Expectile` records the asymmetric least-squares target;
+/// it intentionally defines no observation sampler on its own.
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(tag = "estimator_kind", rename_all = "kebab-case")]
+pub enum FittedEstimator {
+    Likelihood,
+    Expectile { tau: f64 },
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "family_kind", rename_all = "kebab-case")]
 pub enum FittedFamily {
@@ -932,13 +1095,18 @@ impl PredictModelClass {
 pub struct SavedLinkWiggleRuntime {
     pub knots: Vec<f64>,
     pub degree: usize,
+    /// Canonical penalty metadata is mandatory for standard fitted
+    /// link-wiggles, whose posterior sampler consumes it. Other model classes
+    /// do not expose the standard joint-wiggle sampling target.
+    pub penalty_metadata: Option<WigglePenaltyMetadata>,
     pub beta: Vec<f64>,
     /// Frozen-index mean-coordinate shift `s` (#2141). When present the predict
     /// layer evaluates the warp basis at the frozen index
     /// `η̂ = base + X·s` rather than at the de-aliased base predictor `base`, so
-    /// predict reproduces the exact `q` (and deviance) the fit computed. `None`
-    /// for warp paths that never de-aliased (location-scale / dynamic-basis),
-    /// where the base predictor already is the warp index.
+    /// predict reproduces the exact `q` (and deviance) the fit computed. This is
+    /// mandatory for standard link-wiggle fits and `None` only for other model
+    /// classes whose warp path never de-aliased, where the base predictor is
+    /// already the warp index.
     pub index_shift: Option<Vec<f64>>,
 }
 
@@ -1152,10 +1320,49 @@ fn validate_survival_saved_block_matches_payload(
     Ok(block.beta.len())
 }
 
+fn validate_survival_covariate_time_basis(
+    basis: &SurvivalCovariateTimeBasis,
+    label: &str,
+) -> Result<usize, FittedModelError> {
+    let minimum_knots =
+        basis
+            .degree
+            .checked_add(2)
+            .ok_or_else(|| FittedModelError::SchemaMismatch {
+                reason: format!("location-scale survival saved {label} degree overflows"),
+            })?;
+    if basis.knots.len() < minimum_knots {
+        return Err(FittedModelError::SchemaMismatch {
+            reason: format!(
+                "location-scale survival saved {label} knot vector has length {}, but degree {} requires at least {minimum_knots}",
+                basis.knots.len(),
+                basis.degree
+            ),
+        });
+    }
+    if basis.knots.iter().any(|value| !value.is_finite())
+        || basis.knots.windows(2).any(|pair| pair[1] < pair[0])
+        || basis.knots.first() == basis.knots.last()
+    {
+        return Err(FittedModelError::SchemaMismatch {
+            reason: format!(
+                "location-scale survival saved {label} knots must be finite, nondecreasing, and span a nonzero interval"
+            ),
+        });
+    }
+    Ok(basis.knots.len() - basis.degree - 1)
+}
+
 fn validate_survival_location_scale_saved_fit(
     payload: &FittedModelPayload,
     link_wiggle: Option<&SavedLinkWiggleRuntime>,
 ) -> Result<(), FittedModelError> {
+    let structure = payload
+        .survival_location_scale_structure
+        .as_ref()
+        .ok_or_else(|| FittedModelError::MissingField {
+            reason: "location-scale survival model is missing exact replay structure".to_string(),
+        })?;
     let fit = payload
         .fit_result
         .as_ref()
@@ -1181,6 +1388,26 @@ fn validate_survival_location_scale_saved_fit(
         payload.survival_beta_log_sigma.as_ref(),
         "log-sigma",
     )?;
+    if let Some(basis) = structure.threshold_time_basis.as_ref() {
+        let width = validate_survival_covariate_time_basis(basis, "threshold time basis")?;
+        if p_threshold % width != 0 {
+            return Err(FittedModelError::SchemaMismatch {
+                reason: format!(
+                    "location-scale survival threshold width {p_threshold} is not divisible by its saved time-basis width {width}"
+                ),
+            });
+        }
+    }
+    if let Some(basis) = structure.log_sigma_time_basis.as_ref() {
+        let width = validate_survival_covariate_time_basis(basis, "log-sigma time basis")?;
+        if p_log_sigma % width != 0 {
+            return Err(FittedModelError::SchemaMismatch {
+                reason: format!(
+                    "location-scale survival log-sigma width {p_log_sigma} is not divisible by its saved time-basis width {width}"
+                ),
+            });
+        }
+    }
     let p_wiggle = match link_wiggle {
         Some(runtime) => {
             let block = fit.block_by_role(BlockRole::LinkWiggle).ok_or_else(|| {
@@ -1210,6 +1437,44 @@ fn validate_survival_location_scale_saved_fit(
         }
     };
     let expected = p_time + p_threshold + p_log_sigma + p_wiggle;
+
+    match structure.time_parameterization {
+        SurvivalLocationScaleTimeParameterization::MonotoneWarp => {}
+        SurvivalLocationScaleTimeParameterization::ReducedParametricAft => {
+            if payload.beta_baseline_timewiggle.is_some() || link_wiggle.is_some() {
+                return Err(FittedModelError::SchemaMismatch {
+                    reason: "reduced parametric-AFT location-scale survival cannot carry a time or link wiggle"
+                        .to_string(),
+                });
+            }
+            let time = fit
+                .block_by_role(BlockRole::Time)
+                .expect("time block was validated above");
+            if time.beta.iter().any(|value| *value != 0.0) {
+                return Err(FittedModelError::SchemaMismatch {
+                    reason: "reduced parametric-AFT location-scale survival time block must be the exact zero affine lift"
+                        .to_string(),
+                });
+            }
+        }
+    }
+    if let Some(timewiggle_beta) = payload.beta_baseline_timewiggle.as_ref() {
+        let time = fit
+            .block_by_role(BlockRole::Time)
+            .expect("time block was validated above");
+        if timewiggle_beta.len() > time.beta.len()
+            || time
+                .beta
+                .slice(ndarray::s![time.beta.len() - timewiggle_beta.len()..])
+                .to_vec()
+                != *timewiggle_beta
+        {
+            return Err(FittedModelError::SchemaMismatch {
+                reason: "location-scale survival baseline-timewiggle coefficients must equal the protected tail of the time block"
+                    .to_string(),
+            });
+        }
+    }
 
     if let Some(cov) = fit.beta_covariance()
         && (cov.nrows() != expected || cov.ncols() != expected)
@@ -1254,24 +1519,26 @@ fn validate_marginal_slope_saved_fit(
         "bernoulli",
         2,
         "marginal, logslope",
+        None,
     )
 }
 
 fn validate_survival_marginal_slope_saved_fit(
+    payload: &FittedModelPayload,
     fit: &UnifiedFitResult,
-    score_warp: Option<&SavedCompiledFlexBlock>,
-    link_deviation: Option<&SavedCompiledFlexBlock>,
     fit_label: &str,
 ) -> Result<(), FittedModelError> {
     validate_marginal_slope_saved_fit_impl(
         fit,
-        score_warp,
-        link_deviation,
+        payload.score_warp_runtime.as_ref(),
+        payload.link_deviation_runtime.as_ref(),
         fit_label,
         "survival",
         3,
         "time, marginal, slope",
+        payload.influence_absorber_width,
     )
+    .and_then(|()| validate_survival_marginal_slope_replay_state(payload, fit, fit_label))
 }
 
 /// Shared block-count + coefficient-dimension validation for the bernoulli
@@ -1289,10 +1556,12 @@ fn validate_marginal_slope_saved_fit_impl(
     family_kind: &str,
     base_block_count: usize,
     base_block_role_list: &str,
+    influence_absorber_width: Option<usize>,
 ) -> Result<(), FittedModelError> {
     let expected_blocks = base_block_count
         + usize::from(score_warp.is_some())
-        + usize::from(link_deviation.is_some());
+        + usize::from(link_deviation.is_some())
+        + usize::from(influence_absorber_width.is_some());
     if fit.blocks.len() != expected_blocks {
         let score_warp_suffix = if score_warp.is_some() {
             ", score-warp"
@@ -1304,9 +1573,14 @@ fn validate_marginal_slope_saved_fit_impl(
         } else {
             ""
         };
+        let influence_suffix = if influence_absorber_width.is_some() {
+            ", influence-absorber"
+        } else {
+            ""
+        };
         return Err(FittedModelError::SchemaMismatch {
             reason: format!(
-                "{family_kind} marginal-slope saved {fit_label} requires {expected_blocks} blocks [{base_block_role_list}{score_warp_suffix}{link_deviation_suffix}], got {}",
+                "{family_kind} marginal-slope saved {fit_label} requires {expected_blocks} blocks [{base_block_role_list}{score_warp_suffix}{link_deviation_suffix}{influence_suffix}], got {}",
                 fit.blocks.len(),
             ),
         });
@@ -1335,6 +1609,119 @@ fn validate_marginal_slope_saved_fit_impl(
                 ),
             });
         }
+    }
+    if let Some(width) = influence_absorber_width {
+        let idx = base_block_count
+            + usize::from(score_warp.is_some())
+            + usize::from(link_deviation.is_some());
+        if width == 0 || fit.blocks[idx].beta.len() != width {
+            return Err(FittedModelError::SchemaMismatch {
+                reason: format!(
+                    "{family_kind} marginal-slope saved {fit_label} influence absorber width is {width}, but its fitted block has {} coefficients",
+                    fit.blocks[idx].beta.len(),
+                ),
+            });
+        }
+    }
+    Ok(())
+}
+
+fn validate_survival_marginal_slope_replay_state(
+    payload: &FittedModelPayload,
+    fit: &UnifiedFitResult,
+    fit_label: &str,
+) -> Result<(), FittedModelError> {
+    let score_covariance = payload
+        .survival_marginal_slope_score_covariance
+        .as_ref()
+        .ok_or_else(|| FittedModelError::MissingField {
+            reason: format!(
+                "survival marginal-slope saved {fit_label} is missing its exact latent-score covariance"
+            ),
+        })?;
+    if score_covariance.len() != 1
+        || score_covariance[0].len() != 1
+        || !score_covariance[0][0].is_finite()
+        || score_covariance[0][0] < 0.0
+    {
+        return Err(FittedModelError::SchemaMismatch {
+            reason: format!(
+                "survival marginal-slope saved {fit_label} scalar latent-score covariance must be a finite non-negative 1x1 matrix"
+            ),
+        });
+    }
+    match (
+        payload.influence_absorber_width,
+        payload.influence_absorber_design.as_ref(),
+    ) {
+        (None, None) => {}
+        (Some(width), Some(rows)) => {
+            if rows.is_empty()
+                || rows
+                    .iter()
+                    .any(|row| row.len() != width || row.iter().any(|value| !value.is_finite()))
+            {
+                return Err(FittedModelError::SchemaMismatch {
+                    reason: format!(
+                        "survival marginal-slope saved {fit_label} influence absorber must be a non-empty finite rectangular matrix with width {width}"
+                    ),
+                });
+            }
+        }
+        _ => {
+            return Err(FittedModelError::SchemaMismatch {
+                reason: format!(
+                    "survival marginal-slope saved {fit_label} influence absorber width and exact training-row design must be present together"
+                ),
+            });
+        }
+    }
+
+    let timewiggle_metadata = (
+        payload.baseline_timewiggle_knots.as_ref(),
+        payload.baseline_timewiggle_degree,
+        payload.beta_baseline_timewiggle.as_ref(),
+    );
+    match timewiggle_metadata {
+        (None, None, None) => {}
+        (Some(knots), Some(degree), Some(beta)) => {
+            if beta.is_empty()
+                || knots.len() < degree.saturating_add(2)
+                || knots.iter().chain(beta).any(|value| !value.is_finite())
+            {
+                return Err(FittedModelError::SchemaMismatch {
+                    reason: format!(
+                        "survival marginal-slope saved {fit_label} has invalid exact baseline-timewiggle authority"
+                    ),
+                });
+            }
+            let time_beta = &fit.blocks[0].beta;
+            if time_beta.len() < beta.len()
+                || time_beta
+                    .slice(ndarray::s![time_beta.len() - beta.len()..])
+                    .to_vec()
+                    != *beta
+            {
+                return Err(FittedModelError::SchemaMismatch {
+                    reason: format!(
+                        "survival marginal-slope saved {fit_label} baseline-timewiggle beta does not equal the protected tail of the fitted time block"
+                    ),
+                });
+            }
+        }
+        _ => {
+            return Err(FittedModelError::SchemaMismatch {
+                reason: format!(
+                    "survival marginal-slope saved {fit_label} baseline-timewiggle knots, degree, and beta must be present together"
+                ),
+            });
+        }
+    }
+    if payload.beta_baseline_timewiggle_by_cause.is_some() {
+        return Err(FittedModelError::SchemaMismatch {
+            reason: "survival marginal-slope saved fit cannot carry cause-specific timewiggle coefficients"
+                .to_string(),
+        });
     }
     Ok(())
 }
@@ -1391,6 +1778,66 @@ impl SavedLinkWiggleRuntime {
     pub fn design(&self, q0: &Array1<f64>) -> Result<Array2<f64>, FittedModelError> {
         self.validate_monotone_derivative(q0)?;
         self.constrained_basis(q0, BasisOptions::value())
+    }
+
+    /// Reconstruct the exact index at which the saved link-wiggle basis is
+    /// evaluated.
+    ///
+    /// The frozen-basis de-aliased standard link fit persists a mean-coordinate
+    /// shift `s` so its fitted warp index is `base + X s` (#2141).  Other warp
+    /// paths persist no shift and evaluate at `base`.  Keeping this operation on
+    /// the saved runtime gives prediction and public affine-design export one
+    /// source of truth for the fitted coordinate frame.
+    pub fn warp_index(
+        &self,
+        base: &Array1<f64>,
+        mean_design: &DesignMatrix,
+    ) -> Result<Array1<f64>, FittedModelError> {
+        if mean_design.nrows() != base.len() {
+            return Err(FittedModelError::SchemaMismatch {
+                reason: format!(
+                    "link-wiggle base predictor has {} rows but mean design has {}",
+                    base.len(),
+                    mean_design.nrows()
+                ),
+            });
+        }
+        if let Some((row, value)) = base
+            .iter()
+            .copied()
+            .enumerate()
+            .find(|(_, value)| !value.is_finite())
+        {
+            return Err(FittedModelError::InvalidInput {
+                reason: format!("link-wiggle base predictor is non-finite at row {row}: {value}"),
+            });
+        }
+        let Some(shift) = self.index_shift.as_ref() else {
+            return Ok(base.clone());
+        };
+        if shift.len() != mean_design.ncols() {
+            return Err(FittedModelError::SchemaMismatch {
+                reason: format!(
+                    "link-wiggle frozen-index shift has {} entries but the mean design has {} columns",
+                    shift.len(),
+                    mean_design.ncols()
+                ),
+            });
+        }
+        if let Some((column, value)) = shift
+            .iter()
+            .copied()
+            .enumerate()
+            .find(|(_, value)| !value.is_finite())
+        {
+            return Err(FittedModelError::PayloadCorrupt {
+                reason: format!(
+                    "link-wiggle frozen-index shift is non-finite at column {column}: {value}"
+                ),
+            });
+        }
+        let shift = Array1::from_vec(shift.clone());
+        Ok(base + &mean_design.dot(&shift))
     }
 
     pub fn basis_row_scalar(&self, q0: f64) -> Result<Array1<f64>, FittedModelError> {
@@ -1736,7 +2183,7 @@ impl SavedCompiledFlexBlock {
 
     pub fn local_cubic_on_span(
         &self,
-        beta: &Array1<f64>,
+        beta: ArrayView1<'_, f64>,
         span_idx: usize,
     ) -> Result<crate::cubic_cell_kernel::LocalSpanCubic, FittedModelError> {
         self.validate_exact_replay_contract()?;
@@ -1754,7 +2201,7 @@ impl SavedCompiledFlexBlock {
 
     fn local_cubic_on_span_validated(
         &self,
-        beta: &Array1<f64>,
+        beta: ArrayView1<'_, f64>,
         span_idx: usize,
     ) -> Result<crate::cubic_cell_kernel::LocalSpanCubic, FittedModelError> {
         let points = &self.breakpoints;
@@ -1878,7 +2325,7 @@ impl SavedCompiledFlexBlock {
 
     pub fn local_cubic_at(
         &self,
-        beta: &Array1<f64>,
+        beta: ArrayView1<'_, f64>,
         value: f64,
     ) -> Result<crate::cubic_cell_kernel::LocalSpanCubic, FittedModelError> {
         self.validate_exact_replay_contract()?;
@@ -2117,6 +2564,25 @@ impl FittedFamily {
             | Self::LatentBinary { frailty } => Some(frailty),
             _ => None,
         }
+    }
+}
+
+/// The grouping column of a random-slope factor smooth (`s(x, g, bs="re")`),
+/// unwrapped through `by=`/sum-to-zero wrappers (#2365). `None` for every
+/// other basis: only the `Re` flavour is a genuine random effect under the
+/// held-out-group contract — `fs`/`sz` estimate a per-level deviation
+/// function, so an unseen level has no zero-deviation population fallback and
+/// stays strict, exactly like a fixed categorical factor (#2102/#2137).
+fn re_factor_smooth_group_col(basis: &gam_terms::smooth::SmoothBasisSpec) -> Option<usize> {
+    use gam_terms::smooth::{FactorSmoothFlavour, SmoothBasisSpec};
+    match basis {
+        SmoothBasisSpec::FactorSmooth { spec } => {
+            matches!(spec.flavour, FactorSmoothFlavour::Re).then_some(spec.group_col)
+        }
+        SmoothBasisSpec::ByVariable { inner, .. }
+        | SmoothBasisSpec::FactorSumToZero { inner, .. } => re_factor_smooth_group_col(inner),
+        SmoothBasisSpec::BySmooth { smooth, .. } => re_factor_smooth_group_col(smooth),
+        _ => None,
     }
 }
 
@@ -2735,6 +3201,11 @@ impl FittedModel {
         self.payload().family_state.likelihood()
     }
 
+    #[inline]
+    pub fn estimator(&self) -> FittedEstimator {
+        self.payload().estimator
+    }
+
     /// Columns this model consumes from a prediction frame — its *input
     /// contract*.
     ///
@@ -2944,17 +3415,16 @@ impl FittedModel {
                 reason: joint_wiggle_unsupported_link_message("link wiggle"),
             });
         }
-        let beta = match self.predict_model_class() {
-            // #1596: the frozen-basis de-aliased standard link-warp is fit in a
-            // reduced, identifiable coordinate `γ` and the fit_result LinkWiggle
-            // block stores `γ` (its true free parameters). The full-width
-            // standard-basis lift `β_w = Z·γ`, the coefficients the predict-time
-            // I-spline basis multiplies, is persisted in `payload.beta_link_wiggle`
-            // — prefer it when present. Without it (the dynamic-basis path) the
-            // block coefficients ARE the standard-basis warp, read directly.
-            PredictModelClass::Standard if payload.beta_link_wiggle.is_some() => {
-                payload.beta_link_wiggle.clone().expect("checked is_some")
-            }
+        let model_class = self.predict_model_class();
+        let beta = match model_class {
+            // The current frozen-basis fit residualizes `B` in observation
+            // space without changing the wiggle coefficient width. Saved-frame
+            // finalization then moves the complete fit, including every
+            // covariance, into `[Mean, LinkWiggle]` prediction coordinates.
+            // The payload copy is retained as replay metadata but must agree
+            // bit-for-bit with that canonical fitted block; accepting either
+            // source independently would let point prediction and uncertainty
+            // describe different models.
             PredictModelClass::Standard => {
                 let fit = payload.fit_result.as_ref().ok_or_else(|| {
                     FittedModelError::MissingField {
@@ -2973,14 +3443,46 @@ impl FittedModel {
                                 .to_string(),
                     });
                 }
-                fit.block_by_role(BlockRole::LinkWiggle)
-                    .ok_or_else(|| FittedModelError::MissingField {
+                let block = fit.block_by_role(BlockRole::LinkWiggle).ok_or_else(|| {
+                    FittedModelError::MissingField {
                         reason:
                             "standard link-wiggle model is missing LinkWiggle coefficient block"
                                 .to_string(),
-                    })?
-                    .beta
-                    .to_vec()
+                    }
+                })?;
+                let payload_beta = payload.beta_link_wiggle.as_ref().ok_or_else(|| {
+                    FittedModelError::MissingField {
+                        reason: "standard link-wiggle model is missing its exact saved prediction coefficients; refit"
+                            .to_string(),
+                    }
+                })?;
+                if payload_beta.len() != block.beta.len()
+                    || payload_beta
+                        .iter()
+                        .zip(block.beta.iter())
+                        .any(|(saved, fitted)| saved.to_bits() != fitted.to_bits())
+                {
+                    return Err(FittedModelError::SchemaMismatch {
+                        reason: "standard link-wiggle payload coefficients disagree with the fitted LinkWiggle block"
+                            .to_string(),
+                    });
+                }
+                let shift = payload.link_wiggle_index_shift.as_ref().ok_or_else(|| {
+                    FittedModelError::MissingField {
+                        reason: "standard link-wiggle model is missing its frozen-index shift; refit"
+                            .to_string(),
+                    }
+                })?;
+                if shift.len() != fit.blocks[0].beta.len() {
+                    return Err(FittedModelError::SchemaMismatch {
+                        reason: format!(
+                            "standard link-wiggle frozen-index shift has {} entries but the Mean block has {} coefficients",
+                            shift.len(),
+                            fit.blocks[0].beta.len(),
+                        ),
+                    });
+                }
+                block.beta.to_vec()
             }
             _ => payload
                 .beta_link_wiggle
@@ -2991,14 +3493,35 @@ impl FittedModel {
                             .to_string(),
                 })?,
         };
+        let penalty_metadata = payload.linkwiggle_penalty_metadata.clone();
+        if let Some(metadata) = penalty_metadata.as_ref() {
+            let canonical = canonical_wiggle_function_penalties(
+                &Array1::from_vec(knots.clone()),
+                degree,
+                &metadata.derivative_orders,
+                metadata.double_penalty,
+            )
+            .map_err(|reason| FittedModelError::PayloadCorrupt {
+                reason: format!("saved link-wiggle penalty metadata is invalid: {reason}"),
+            })?;
+            if canonical.metadata != *metadata {
+                return Err(FittedModelError::SchemaMismatch {
+                    reason: format!(
+                        "saved link-wiggle penalty topology {:?} disagrees with canonical topology {:?}",
+                        metadata.blocks, canonical.metadata.blocks,
+                    ),
+                });
+            }
+        }
         // #2141: the frozen-index shift lets predict evaluate the warp basis at
-        // the index `η̂` the fit pinned `B` at (`base + X·s`). `None` for
-        // pre-#2141 saves and for non-de-aliased warp paths, where the base
-        // predictor already is the warp index.
+        // the index `η̂` the fit pinned `B` at (`base + X·s`). Standard models
+        // were required to carry a complete shift above. Other model classes
+        // may omit it only when their base predictor already is the warp index.
         let index_shift = payload.link_wiggle_index_shift.clone();
         Ok(Some(SavedLinkWiggleRuntime {
             knots,
             degree,
+            penalty_metadata,
             beta,
             index_shift,
         }))
@@ -3221,12 +3744,7 @@ impl FittedModel {
                         .to_string(),
                 }
             })?;
-            validate_survival_marginal_slope_saved_fit(
-                fit,
-                runtime.score_warp.as_ref(),
-                runtime.link_deviation.as_ref(),
-                "fit_result",
-            )?;
+            validate_survival_marginal_slope_saved_fit(self.payload(), fit, "fit_result")?;
         }
         Ok(runtime)
     }
@@ -3486,7 +4004,7 @@ impl FittedModel {
             let SmoothBasisSpec::MeasureJet {
                 feature_cols,
                 spec: mj,
-                input_scales,
+                input_scale,
             } = &term.basis
             else {
                 continue;
@@ -3602,9 +4120,9 @@ impl FittedModel {
                 MeasureJetExtrapolationSpectrum::PerLevel(&lambda_phys)
             };
             // Query rows in the frozen geometry's coordinates: select the
-            // term's axes and replay the per-axis standardization exactly as
-            // the build dispatch does (divide by σ_a when input_scales is
-            // Some; the persisted centers are already post-standardization).
+            // term's axes and replay the uniform standardization exactly as
+            // the build dispatch does; persisted centers are already in that
+            // standardized frame.
             let mut queries = Array2::<f64>::zeros((data.nrows(), feature_cols.len()));
             for (j, &col) in feature_cols.iter().enumerate() {
                 if col >= data.ncols() {
@@ -3619,21 +4137,13 @@ impl FittedModel {
                 }
                 queries.column_mut(j).assign(&data.column(col));
             }
-            if let Some(scales) = input_scales {
-                if scales.len() != feature_cols.len() {
-                    return Err(FittedModelError::SchemaMismatch {
-                        reason: format!(
-                            "measure-jet term '{}': {} input scales for {} axes",
-                            term.name,
-                            scales.len(),
-                            feature_cols.len()
-                        ),
-                    });
-                }
-                for (j, &scale) in scales.iter().enumerate() {
-                    queries.column_mut(j).mapv_inplace(|v| v / scale);
-                }
-            }
+            let scale = (*input_scale).ok_or_else(|| FittedModelError::SchemaMismatch {
+                reason: format!(
+                    "measure-jet term '{}' is missing its frozen isotropic input scale",
+                    term.name
+                ),
+            })?;
+            scale.standardize(&mut queries);
             let support = gam_terms::basis::measure_jet_support_curve(
                 queries.view(),
                 centers.view(),
@@ -3941,6 +4451,19 @@ impl FittedModel {
                     out.insert(name.clone());
                 }
             }
+            // The `s(x, g, bs="re")` spelling is a smooth term whose basis is
+            // `FactorSmooth { flavour: Re }`, not a `random_effect_terms`
+            // entry — without this arm its group column never entered the
+            // lenient whitelist and the schema encode rejected a held-out
+            // group before the design operator could apply its zero-deviation
+            // contract (#2365).
+            for term in &spec.smooth_terms {
+                if let Some(group_col) = re_factor_smooth_group_col(&term.basis)
+                    && let Some(name) = training_headers.get(group_col)
+                {
+                    out.insert(name.clone());
+                }
+            }
         }
         out
     }
@@ -4017,6 +4540,46 @@ impl FittedModel {
         // MODEL_PAYLOAD_VERSION constant — every payload must round-trip
         // identically between writers and readers running the same schema.
         self.validate_payload_version()?;
+        let expectile_family_tag = {
+            let family = self.family.trim().to_ascii_lowercase();
+            family == "expectile" || family.starts_with("expectile(")
+        };
+        match self.estimator {
+            FittedEstimator::Likelihood if expectile_family_tag => {
+                return Err(FittedModelError::SchemaMismatch {
+                    reason:
+                        "saved family is tagged expectile but estimator metadata says likelihood"
+                            .to_string(),
+                });
+            }
+            FittedEstimator::Likelihood => {}
+            FittedEstimator::Expectile { tau } => {
+                if !tau.is_finite() || tau <= 0.0 || tau >= 1.0 {
+                    return Err(FittedModelError::SchemaMismatch {
+                        reason: format!(
+                            "saved expectile estimator requires finite tau strictly in (0, 1), got {tau}"
+                        ),
+                    });
+                }
+                let gaussian_identity_standard = self.model_kind == ModelKind::Standard
+                    && matches!(
+                        &self.family_state,
+                        FittedFamily::Standard { likelihood, .. }
+                            if likelihood == &LikelihoodSpec::gaussian_identity()
+                    );
+                if !gaussian_identity_standard || !expectile_family_tag {
+                    return Err(FittedModelError::SchemaMismatch {
+                        reason: format!(
+                            "saved expectile estimator requires an expectile-tagged standard \
+                             Gaussian-identity fit; got model_kind={:?}, family={:?}, likelihood={:?}",
+                            self.model_kind,
+                            self.family,
+                            self.family_state.likelihood(),
+                        ),
+                    });
+                }
+            }
+        }
         if self.training_table_kind.trim().is_empty() {
             return Err(FittedModelError::MissingField {
                 reason: "saved model training_table_kind must be non-empty".to_string(),
@@ -4158,6 +4721,82 @@ impl FittedModel {
                 }
             })?;
             score.validate("transformation-normal model")?;
+            // Direct-α cutover (gam#2306): the geometry record is REQUIRED. A
+            // CTN payload without it is a pre-cutover (v12-or-older) squared-γ
+            // model whose coefficients cannot be replayed under the direct-α
+            // contract — refuse it (typed) rather than heuristically convert.
+            let geometry = self.transformation_geometry.as_ref().ok_or_else(|| {
+                FittedModelError::MissingField {
+                    reason: "transformation-normal model is missing the direct-α geometry record \
+                             (transformation_geometry); this is a pre-cutover (v12-or-older) CTN \
+                             model whose squared-γ chart is not replayable under the direct-α \
+                             cutover (gam#2306) — refit"
+                        .to_string(),
+                }
+            })?;
+            geometry.validate("transformation-normal model")?;
+            // Cross-check the geometry against the sibling response-basis fields
+            // so a mismatched (hand-edited / partially-migrated) payload cannot
+            // slip through: replay rebuilds the value basis from these.
+            if let Some(knots) = self.transformation_response_knots.as_ref() {
+                if geometry.response_knot_count != knots.len() {
+                    return Err(FittedModelError::SchemaMismatch {
+                        reason: format!(
+                            "transformation-normal geometry response_knot_count {} disagrees with \
+                             transformation_response_knots length {}",
+                            geometry.response_knot_count,
+                            knots.len()
+                        ),
+                    });
+                }
+            }
+            if let Some(degree) = self.transformation_response_degree {
+                if geometry.response_degree != degree {
+                    return Err(FittedModelError::SchemaMismatch {
+                        reason: format!(
+                            "transformation-normal geometry response_degree {} disagrees with \
+                             transformation_response_degree {degree}",
+                            geometry.response_degree
+                        ),
+                    });
+                }
+            }
+            // The monotonicity-cone carrier Ψ is REQUIRED at v13: constrained
+            // posterior sampling rejects draws leaving the positivity cone, and
+            // Ψ(κ̂) is persisted (not replayed) because the spatial warp is not
+            // bitwise-stable. Its length must equal the geometry's cone dims.
+            let carrier = self.transformation_cone_carrier.as_ref().ok_or_else(|| {
+                FittedModelError::MissingField {
+                    reason: "transformation-normal model is missing the monotonicity-cone carrier \
+                             (transformation_cone_carrier); constrained posterior sampling cannot \
+                             certify draws against the positivity cone — refit"
+                        .to_string(),
+                }
+            })?;
+            let expected = geometry
+                .cone_carrier_row_count
+                .checked_mul(geometry.cone_carrier_covariate_width)
+                .ok_or_else(|| FittedModelError::SchemaMismatch {
+                    reason: "transformation-normal cone carrier dimensions overflow usize"
+                        .to_string(),
+                })?;
+            if carrier.len() != expected {
+                return Err(FittedModelError::SchemaMismatch {
+                    reason: format!(
+                        "transformation-normal cone carrier length {} disagrees with geometry \
+                         {} rows x {} covariate columns = {expected}",
+                        carrier.len(),
+                        geometry.cone_carrier_row_count,
+                        geometry.cone_carrier_covariate_width,
+                    ),
+                });
+            }
+            if carrier.iter().any(|value| !value.is_finite()) {
+                return Err(FittedModelError::SchemaMismatch {
+                    reason: "transformation-normal cone carrier contains a non-finite entry"
+                        .to_string(),
+                });
+            }
         }
         if matches!(self.family_state, FittedFamily::MarginalSlope { .. }) {
             if self.formula_logslope.is_none() {
@@ -4200,9 +4839,11 @@ impl FittedModel {
             match self.family_state.frailty() {
                 Some(FrailtySpec::None)
                 | Some(FrailtySpec::GaussianShift {
-                    sigma_fixed: Some(_),
+                    scale: FrailtyScale::Fixed { .. },
                 }) => {}
-                Some(FrailtySpec::GaussianShift { sigma_fixed: None }) => {
+                Some(FrailtySpec::GaussianShift {
+                    scale: FrailtyScale::Learned { .. },
+                }) => {
                     return Err(FittedModelError::IncompatibleConfig {
                         reason: "marginal-slope model requires a fixed GaussianShift sigma in family_state.frailty"
                             .to_string(),
@@ -4287,9 +4928,11 @@ impl FittedModel {
                 match frailty {
                     FrailtySpec::None
                     | FrailtySpec::GaussianShift {
-                        sigma_fixed: Some(_),
+                        scale: FrailtyScale::Fixed { .. },
                     } => {}
-                    FrailtySpec::GaussianShift { sigma_fixed: None } => {
+                    FrailtySpec::GaussianShift {
+                        scale: FrailtyScale::Learned { .. },
+                    } => {
                         return Err(FittedModelError::IncompatibleConfig {
                             reason: "survival marginal-slope model requires a fixed GaussianShift sigma in family_state.frailty"
                                 .to_string(),
@@ -4330,11 +4973,12 @@ impl FittedModel {
         if let FittedFamily::LatentSurvival { frailty } = &self.family_state {
             match frailty {
                 FrailtySpec::HazardMultiplier {
-                    sigma_fixed: Some(_),
+                    scale: FrailtyScale::Fixed { .. },
                     ..
                 } => {}
                 FrailtySpec::HazardMultiplier {
-                    sigma_fixed: None, ..
+                    scale: FrailtyScale::Learned { .. },
+                    ..
                 } => {
                     return Err(FittedModelError::IncompatibleConfig {
                         reason: "latent survival model requires a fixed HazardMultiplier sigma in family_state.frailty"
@@ -4358,11 +5002,12 @@ impl FittedModel {
         if let FittedFamily::LatentBinary { frailty } = &self.family_state {
             match frailty {
                 FrailtySpec::HazardMultiplier {
-                    sigma_fixed: Some(_),
+                    scale: FrailtyScale::Fixed { .. },
                     ..
                 } => {}
                 FrailtySpec::HazardMultiplier {
-                    sigma_fixed: None, ..
+                    scale: FrailtyScale::Learned { .. },
+                    ..
                 } => {
                     return Err(FittedModelError::IncompatibleConfig {
                         reason: "latent binary model requires a fixed HazardMultiplier sigma in family_state.frailty"
@@ -4432,8 +5077,20 @@ impl FittedModel {
                     .to_string(),
             });
         }
+        let is_survival_location_scale = matches!(self.family_state, FittedFamily::Survival { .. })
+            && self
+                .survival_likelihood
+                .as_deref()
+                .is_some_and(|value| value.eq_ignore_ascii_case("location-scale"));
+        if !is_survival_location_scale && self.survival_location_scale_structure.is_some() {
+            return Err(FittedModelError::SchemaMismatch {
+                reason: "non-location-scale model carries location-scale replay structure"
+                    .to_string(),
+            });
+        }
         let has_any_saved_link_wiggle = self.linkwiggle_knots.is_some()
             || self.linkwiggle_degree.is_some()
+            || self.linkwiggle_penalty_metadata.is_some()
             || self.beta_link_wiggle.is_some()
             || self
                 .fit_result
@@ -4444,6 +5101,15 @@ impl FittedModel {
         if has_any_saved_link_wiggle && saved_link_wiggle.is_none() {
             return Err(FittedModelError::SchemaMismatch {
                 reason: "saved model has incomplete link-wiggle state; expected metadata and coefficients"
+                    .to_string(),
+            });
+        }
+        if matches!(self.family_state, FittedFamily::Standard { .. })
+            && saved_link_wiggle.is_some()
+            && self.linkwiggle_penalty_metadata.is_none()
+        {
+            return Err(FittedModelError::MissingField {
+                reason: "standard link-wiggle model is missing canonical penalty metadata; refit"
                     .to_string(),
             });
         }
@@ -4476,11 +5142,7 @@ impl FittedModel {
                 });
             }
         }
-        if self
-            .survival_likelihood
-            .as_deref()
-            .is_some_and(|value| value.eq_ignore_ascii_case("location-scale"))
-        {
+        if is_survival_location_scale {
             validate_survival_location_scale_saved_fit(self.payload(), saved_link_wiggle.as_ref())?;
         }
 
@@ -4534,18 +5196,12 @@ impl FittedModel {
             .is_some_and(|value| value.eq_ignore_ascii_case("marginal-slope"))
         {
             validate_survival_marginal_slope_saved_fit(
+                self,
                 self.fit_result.as_ref().expect("checked above"),
-                self.score_warp_runtime.as_ref(),
-                self.link_deviation_runtime.as_ref(),
                 "fit_result",
             )?;
             if let Some(unified) = self.unified.as_ref() {
-                validate_survival_marginal_slope_saved_fit(
-                    unified,
-                    self.score_warp_runtime.as_ref(),
-                    self.link_deviation_runtime.as_ref(),
-                    "unified",
-                )?;
+                validate_survival_marginal_slope_saved_fit(self, unified, "unified")?;
             }
         }
 
@@ -4647,33 +5303,6 @@ impl FittedModel {
         }
         if let Some(v) = self.survival_beta_log_sigma.as_ref() {
             validate_all_finite("survival_beta_log_sigma", v.iter().copied()).map_err(corrupt)?;
-        }
-        if let Some(v) = self.survival_noise_projection.as_ref() {
-            validate_all_finite("survival_noise_projection", v.iter().flatten().copied())
-                .map_err(corrupt)?;
-            if self.survival_noise_projection_ridge_alpha.is_none() {
-                return Err(FittedModelError::MissingField {
-                    reason:
-                        "model has survival_noise_projection but is missing survival_noise_projection_ridge_alpha; refit"
-                            .to_string(),
-                });
-            }
-        }
-        if let Some(v) = self.survival_noise_center.as_ref() {
-            validate_all_finite("survival_noise_center", v.iter().copied()).map_err(corrupt)?;
-        }
-        if let Some(v) = self.survival_noise_projection_ridge_alpha {
-            ensure_finite_scalar("survival_noise_projection_ridge_alpha", v).map_err(corrupt)?;
-            if v < 0.0 {
-                return Err(FittedModelError::InvalidInput {
-                    reason: format!(
-                        "survival_noise_projection_ridge_alpha must be non-negative, got {v}"
-                    ),
-                });
-            }
-        }
-        if let Some(v) = self.survival_noise_scale.as_ref() {
-            validate_all_finite("survival_noise_scale", v.iter().copied()).map_err(corrupt)?;
         }
         if let Some(v) = self.mixture_link_param_covariance.as_ref() {
             validate_all_finite("mixture_link_param_covariance", v.iter().flatten().copied())
@@ -4829,6 +5458,170 @@ mod tests {
         }
     }
 
+    /// Minimal transformation-normal payload that reaches (and passes, when the
+    /// geometry record is present) the CTN branch of `validate_for_persistence`.
+    /// The response-basis snapshot fields are made consistent with the geometry
+    /// record so the cross-checks accept.
+    fn transformation_normal_payload(version: u32, fit: UnifiedFitResult) -> FittedModelPayload {
+        let mut payload = FittedModelPayload::new(
+            version,
+            "y ~ s(x)".to_string(),
+            ModelKind::TransformationNormal,
+            FittedFamily::TransformationNormal {
+                likelihood: LikelihoodSpec::gaussian_identity(),
+            },
+            "transformation-normal".to_string(),
+        );
+        payload.fit_result = Some(fit.clone());
+        payload.unified = Some(fit);
+        payload.data_schema = Some(DataSchema {
+            columns: vec![
+                SchemaColumn {
+                    name: "y".to_string(),
+                    kind: ColumnKindTag::Continuous,
+                    levels: vec![],
+                },
+                SchemaColumn {
+                    name: "x".to_string(),
+                    kind: ColumnKindTag::Continuous,
+                    levels: vec![],
+                },
+            ],
+        });
+        payload.set_training_feature_metadata(vec!["x".to_string()], vec![(0.0, 1.0)]);
+        payload.resolved_termspec = Some(empty_termspec());
+        let knots = vec![0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0];
+        payload.transformation_response_knots = Some(knots.clone());
+        payload.transformation_response_transform = Some(vec![vec![1.0]]);
+        payload.transformation_response_degree = Some(2);
+        payload.transformation_response_median = Some(0.5);
+        payload.transformation_score_calibration =
+            Some(TransformationScoreCalibration::finite_support_pit());
+        payload.transformation_geometry = Some(SavedTransformationNormalGeometry {
+            parameterization: TransformationNormalParameterization::DirectAlpha,
+            response_degree: 2,
+            response_knot_count: knots.len(),
+            shape_coordinate_count: 3,
+            cone_carrier_covariate_width: 2,
+            cone_carrier_row_count: 16,
+            certified_response_support: (0.0, 1.0),
+            response_median: 0.5,
+        });
+        // Monotonicity-cone carrier Ψ (row-major 16 × 2), required at v13.
+        payload.transformation_cone_carrier = Some(
+            (0..16 * 2).map(|i| 1.0 + 0.01 * i as f64).collect(),
+        );
+        payload
+    }
+
+    fn transformation_normal_fit() -> UnifiedFitResult {
+        saved_fit(vec![FittedBlock {
+            beta: Array1::from_vec(vec![0.1, 0.2, -0.3]),
+            role: BlockRole::Mean,
+            edf: 1.0,
+            lambdas: Array1::zeros(0),
+        }])
+    }
+
+    /// gam#2306 v13: the direct-α geometry record must survive a JSON
+    /// round-trip and keep validating, with every field preserved.
+    #[test]
+    fn transformation_normal_geometry_round_trips_and_validates() {
+        let payload = transformation_normal_payload(MODEL_PAYLOAD_VERSION, transformation_normal_fit());
+        let model = FittedModel::from_payload(payload);
+        model
+            .validate_for_persistence()
+            .expect("CTN model carrying the direct-α geometry record validates");
+
+        let json = serde_json::to_string(&model).expect("serialize CTN model");
+        let restored: FittedModel = serde_json::from_str(&json).expect("parse CTN model");
+        restored
+            .validate_for_persistence()
+            .expect("restored CTN model validates");
+        let geometry = restored
+            .payload()
+            .transformation_geometry
+            .as_ref()
+            .expect("restored payload carries the direct-α geometry record");
+        assert_eq!(
+            geometry.parameterization,
+            TransformationNormalParameterization::DirectAlpha
+        );
+        assert_eq!(geometry.response_degree, 2);
+        assert_eq!(geometry.response_knot_count, 7);
+        assert_eq!(geometry.shape_coordinate_count, 3);
+        assert_eq!(geometry.cone_carrier_covariate_width, 2);
+        assert_eq!(geometry.cone_carrier_row_count, 16);
+        assert_eq!(geometry.certified_response_support, (0.0, 1.0));
+        assert_eq!(geometry.response_median, 0.5);
+    }
+
+    /// gam#2306 v13: a CTN payload lacking the geometry record — a pre-cutover
+    /// (v12-or-older) squared-γ model, whose geometry slot deserializes to
+    /// `None` — must be a typed rejection, never a heuristic conversion.
+    #[test]
+    fn validate_for_persistence_rejects_ctn_without_geometry_record() {
+        let mut payload =
+            transformation_normal_payload(MODEL_PAYLOAD_VERSION, transformation_normal_fit());
+        payload.transformation_geometry = None;
+        let err = FittedModel::from_payload(payload)
+            .validate_for_persistence()
+            .expect_err("CTN model without the direct-α geometry record must be rejected");
+        assert!(
+            err.to_string().contains("transformation_geometry"),
+            "message names the field: {err}"
+        );
+        assert!(
+            err.to_string().contains("pre-cutover"),
+            "message explains the pre-cutover rejection: {err}"
+        );
+
+        // A geometry record that disagrees with the persisted response basis is
+        // also rejected (cross-check), so a partially-migrated payload cannot
+        // slip through.
+        let mut mismatched =
+            transformation_normal_payload(MODEL_PAYLOAD_VERSION, transformation_normal_fit());
+        if let Some(geometry) = mismatched.transformation_geometry.as_mut() {
+            geometry.response_knot_count += 1;
+        }
+        let err = FittedModel::from_payload(mismatched)
+            .validate_for_persistence()
+            .expect_err("geometry disagreeing with the persisted knots must be rejected");
+        assert!(
+            err.to_string().contains("response_knot_count"),
+            "message names the mismatch: {err}"
+        );
+    }
+
+    /// gam#2306 v13: the monotonicity-cone carrier Ψ is REQUIRED (constrained
+    /// posterior sampling certifies draws against it) and its length must match
+    /// the geometry cone dimensions — both are typed rejections.
+    #[test]
+    fn validate_for_persistence_rejects_ctn_without_or_with_mismatched_cone_carrier() {
+        let mut missing =
+            transformation_normal_payload(MODEL_PAYLOAD_VERSION, transformation_normal_fit());
+        missing.transformation_cone_carrier = None;
+        let err = FittedModel::from_payload(missing)
+            .validate_for_persistence()
+            .expect_err("CTN model without the cone carrier must be rejected");
+        assert!(
+            err.to_string().contains("transformation_cone_carrier"),
+            "message names the missing field: {err}"
+        );
+
+        let mut mismatched =
+            transformation_normal_payload(MODEL_PAYLOAD_VERSION, transformation_normal_fit());
+        // Geometry declares 16 × 2 = 32 entries; a shorter carrier is corruption.
+        mismatched.transformation_cone_carrier = Some(vec![0.0; 31]);
+        let err = FittedModel::from_payload(mismatched)
+            .validate_for_persistence()
+            .expect_err("a cone carrier disagreeing with the geometry dimensions must be rejected");
+        assert!(
+            err.to_string().contains("cone carrier length"),
+            "message names the dimension mismatch: {err}"
+        );
+    }
+
     /// #1030/#1034: a scan-bearing payload must round-trip through JSON +
     /// `validate_for_persistence` and replay the training Gaussian bridge
     /// bit-for-bit; structural corruption must fail loudly at validation.
@@ -4957,7 +5750,9 @@ mod tests {
             log_lambdas: Array1::zeros(0),
             lambdas: Array1::zeros(0),
             likelihood_family: Some(LikelihoodSpec::binomial_probit()),
-            likelihood_scale: LikelihoodScaleMetadata::Unspecified,
+            // Binomial carries a fixed unit dispersion; fit assembly now requires
+            // it to be stated explicitly (Unspecified is rejected for binomial).
+            likelihood_scale: LikelihoodScaleMetadata::FixedDispersion { phi: 1.0 },
             log_likelihood_normalization: LogLikelihoodNormalization::Full,
             log_likelihood: 0.0,
             deviance: 0.0,
@@ -5086,6 +5881,7 @@ mod tests {
         payload.formula_logslope = Some("1".to_string());
         payload.z_column = Some("z".to_string());
         payload.latent_z_normalization = Some(SavedLatentZNormalization { mean: 0.0, sd: 1.0 });
+        payload.survival_marginal_slope_score_covariance = Some(vec![vec![1.0]]);
         payload.logslope_baseline = Some(0.0);
         payload.link = Some(InverseLink::Standard(StandardLink::Probit));
         payload
@@ -5585,5 +6381,39 @@ mod tests {
             .saved_prediction_runtime()
             .expect_err("stale payload version should fail before runtime assembly");
         assert!(err.to_string().contains("payload schema mismatch"));
+    }
+
+    #[test]
+    fn saved_link_wiggle_warp_index_applies_exact_2141_mean_shift() {
+        let runtime = SavedLinkWiggleRuntime {
+            knots: vec![],
+            degree: 0,
+            penalty_metadata: None,
+            beta: vec![],
+            index_shift: Some(vec![0.25, -0.5]),
+        };
+        let design = DesignMatrix::from(array![[1.0, 2.0], [-3.0, 0.5]]);
+        let base = array![0.75, -0.25];
+        let index = runtime
+            .warp_index(&base, &design)
+            .expect("complete saved shift");
+        assert_eq!(index, array![0.0, -1.25]);
+    }
+
+    #[test]
+    fn saved_link_wiggle_warp_index_rejects_partial_shift_coordinates() {
+        let runtime = SavedLinkWiggleRuntime {
+            knots: vec![],
+            degree: 0,
+            penalty_metadata: None,
+            beta: vec![],
+            index_shift: Some(vec![0.25]),
+        };
+        let design = DesignMatrix::from(array![[1.0, 2.0]]);
+        let error = runtime
+            .warp_index(&array![0.5], &design)
+            .expect_err("partial #2141 shift metadata must fail loudly");
+        assert!(error.to_string().contains("shift has 1 entries"));
+        assert!(error.to_string().contains("mean design has 2 columns"));
     }
 }

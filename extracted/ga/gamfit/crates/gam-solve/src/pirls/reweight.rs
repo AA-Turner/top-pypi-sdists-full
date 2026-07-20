@@ -65,6 +65,39 @@ pub(super) fn madsen_lm_accept_factor(rho: f64) -> f64 {
     (1.0 - cube).clamp(1.0 / 3.0, 2.0)
 }
 
+/// Exact squared Newton decrement `gᵀH⁻¹g` for the bare penalized Hessian.
+///
+/// The ordinary in-loop bound derives this quantity from the damped LM step.
+/// That bound is intentionally conservative, but becomes vacuous when the
+/// statistical Hessian is extremely stiff and the LM damping is large: using
+/// the generic stabilization floor as a lower eigenvalue bound can inflate a
+/// machine-small decrement by many orders of magnitude. At a numerical
+/// objective plateau we pay for one bare factorization and certify the actual
+/// local quadratic geometry instead. Failure to factorize is not a
+/// certificate; callers simply continue the iteration.
+pub(super) fn exact_newton_decrement_sq(state: &WorkingState) -> Option<f64> {
+    if !state.gradient.iter().all(|value| value.is_finite()) {
+        return None;
+    }
+    let mut solution = Array1::<f64>::zeros(state.gradient.len());
+    match &state.hessian {
+        gam_linalg::matrix::SymmetricMatrix::Dense(hessian) => {
+            if !hessian.iter().all(|value| value.is_finite()) {
+                return None;
+            }
+            let factor = StableSolver::new().factorize(hessian).ok()?;
+            solve_direction_with_dense_factor(&factor, &state.gradient, &mut solution);
+            solution.mapv_inplace(|value| -value);
+        }
+        gam_linalg::matrix::SymmetricMatrix::Sparse(hessian) => {
+            let factor = factorize_sparse_spd(hessian).ok()?;
+            solve_sparse_spd_into(&factor, &state.gradient, &mut solution).ok()?;
+        }
+    }
+    let decrement_sq = state.gradient.dot(&solution);
+    (decrement_sq.is_finite() && decrement_sq >= 0.0).then_some(decrement_sq)
+}
+
 /// Whether a constrained iterate `(beta, gradient)` sits within the SAME
 /// degeneracy-aware constraint-KKT acceptance band the outer REML startup gate
 /// (`enforce_constraint_kkt`) applies, and so may be soft-accepted as a valid
@@ -448,6 +481,9 @@ where
         .as_ref()
         .map(|_| Vec::new());
     let mut consecutive_fisher_fallbacks = 0usize;
+    // Exact bare-Hessian decrement factorization is paid at most once per
+    // contiguous numerical plateau. Meaningful objective progress rearms it.
+    let mut exact_decrement_checked_at_plateau = false;
     // AA(1) state — engages only while `force_fisher_for_rest == true`. The
     // initial allocations stay None until the first Fisher-regime iteration,
     // so this is free when PIRLS stays on the observed-information Newton
@@ -476,19 +512,19 @@ where
     // `dev_scale` is the family's dispersion factor `k` (Gamma shape, Tweedie /
     // fixed-φ Gaussian 1/φ, else 1): the inner gradient and Hessian are built
     // from the `k`-scaled working weight, so the objective value must be
-    // `k·deviance + penalty` for the gain ratio (actual ÷ predicted reduction)
+    // `½(k·deviance + penalty)` for the gain ratio (actual ÷ predicted reduction)
     // and the accept test to compare like with like. Using the bare (unscaled)
     // deviance while the step targets `k·D + penalty` freezes the Gamma smooth
     // at heavily-penalized ρ (issue #2128).
     let penalizedobjective = |state: &WorkingState, dev_scale: f64| {
-        let mut value = dev_scale * state.deviance + state.penalty_term;
+        let mut value = 0.5 * (dev_scale * state.deviance + state.penalty_term);
         if options.firth_bias_reduction
             && let Some(jeffreys_logdet) = state.jeffreys_logdet()
         {
             // Jeffreys/Firth adds the identifiable-subspace Jeffreys term
             // Φ to the log-likelihood,
             // so the PIRLS deviance is reduced by 2 * Φ.
-            value -= 2.0 * jeffreys_logdet;
+            value -= jeffreys_logdet;
         }
         value
     };
@@ -856,7 +892,6 @@ where
                         lb,
                         &mut newton_direction,
                         bound_active_hint.as_mut(),
-                        None,
                     )
                 } else if let Some(arrow_cfg) = options.arrow_schur.as_ref() {
                     // Arrow-Schur structured-inner-solve path. The
@@ -961,7 +996,14 @@ where
                         }
                     }
                 } else {
-                    solve_newton_direction_dense(dense_reg, &state.gradient, &mut newton_direction)
+                    model.solve_unconstrained_direction(
+                        &beta,
+                        &state,
+                        loop_lambda,
+                        &lm_d2,
+                        dense_reg,
+                        &mut newton_direction,
+                    )
                 }
             } {
                 Ok(()) => &newton_direction,
@@ -1053,8 +1095,11 @@ where
             //     δ'(H+λD²)δ = δ'Hδ + λ·Σᵢ D²[i]·δᵢ²
             //               ⇒  δ'Hδ = δ'(H+λD²)δ − λ·Σᵢ D²[i]·δᵢ².
             // Subtracting `0.5·λ·Σᵢ D²[i]·δᵢ²` from the regularized-matrix
-            // quadratic recovers the bare-H quadratic without re-doing the
-            // matvec on `state.hessian`. With diagonal damping (H + λD²) the
+            // quadratic recovers the stored bare-H quadratic without re-doing
+            // the matvec on `state.hessian`. A model-specific correction then
+            // supplies any objective curvature intentionally stored outside
+            // `WorkingState` (the Firth `-HΦ` block). With diagonal damping
+            // (H + λD²) the
             // correction term generalises the scalar `λ‖δ‖²` to a D²-weighted
             // norm; this keeps the gain-ratio numerator calibrated regardless
             // of the column-scale anisotropy that exists across
@@ -1077,8 +1122,12 @@ where
                         .zip(lm_d2.iter())
                         .map(|(di, d2i)| d2i * di * di)
                         .sum();
-                    // δ'(H+λD²)δ − λ·Σᵢ D²[i]·δᵢ² = δ'Hδ
-                    let quad = 0.5 * (direction.dot(&q_term) - loop_lambda * d2_weighted_sq);
+                    let model_curvature_correction =
+                        model.objective_hessian_quadratic_correction(direction)?;
+                    // Stored curvature plus the model-specific omitted block.
+                    let quad = 0.5
+                        * (direction.dot(&q_term) - loop_lambda * d2_weighted_sq
+                            + model_curvature_correction);
                     -(lin + quad)
                 };
             lm_predred_total += predred_start.elapsed();
@@ -1236,6 +1285,23 @@ where
                         } else {
                             -1.0
                         };
+                        if rho > 100.0 && actual_reduction > noise_floor {
+                            log::info!(
+                                "[PIRLS gain-ratio audit] rho={:.6e} actual_reduction={:.6e} predicted_reduction={:.6e} linear_model_term={:.6e} direction_norm={:.6e} data_reduction={:.6e} penalty_reduction={:.6e} current_deviance={:.6e} candidate_deviance={:.6e} current_penalty={:.6e} candidate_penalty={:.6e}",
+                                rho,
+                                actual_reduction,
+                                predicted_reduction,
+                                lin,
+                                direction.dot(direction).sqrt(),
+                                0.5 * penalized_dev_scale
+                                    * (state.deviance - accepted_state.deviance),
+                                0.5 * (state.penalty_term - accepted_state.penalty_term),
+                                state.deviance,
+                                accepted_state.deviance,
+                                state.penalty_term,
+                                accepted_state.penalty_term,
+                            );
+                        }
                         if !(rho > 0.0 && candidate_penalized.is_finite()) {
                             if aa_attempt {
                                 aa_state.note_reject(iter);
@@ -1399,43 +1465,67 @@ where
                             .as_ref()
                             .expect("final_state set immediately above");
 
-                        // Newton-decrement acceptance (Boyd & Vandenberghe §9.5.1):
-                        // at the pre-step iterate the squared decrement is
-                        //     λ_N²(β) = gᵀ H⁻¹ g  =  −g · d_N,
-                        // where d_N = −H⁻¹g is the pure Newton step.
-                        //
-                        // The direction we just solved is d = −(H + λ_lm·I)⁻¹g,
-                        // so −lin = gᵀ(H + λ_lm·I)⁻¹g UNDER-estimates λ_N².
-                        // From the resolvent identity
-                        //     H⁻¹ = (H + λ_lm·I)⁻¹ + λ_lm·H⁻¹·(H + λ_lm·I)⁻¹,
-                        // applied between gᵀ and g and bounded by ‖H⁻¹‖₂ ≤
-                        // 1/λ_min(H), we get the *exact* upper bound
-                        //     λ_N² ≤ (−lin) · (1 + λ_lm/λ_min(H)).
-                        // PIRLS's `ensure_positive_definite_with_ridge` step
-                        // guarantees λ_min(H) ≥ `ridge_used` after the ridge
-                        // is folded in (with a 1e-12 absolute floor for the
-                        // ridge-free case). Multiplying −lin by that
-                        // correction makes the test a *provably* faithful
-                        // upper bound on the true Newton decrement, removing
-                        // the prior heuristic gate `loop_lambda ≤ 1.0`.
-                        //
-                        // The scale-invariant criterion
-                        //     λ_N² / (1 + |F(β)|) ≤ τ²
-                        // is the textbook Newton stopping rule: ½λ_N² is the
-                        // model's predicted decrease in F from this iterate,
-                        // so when it falls below the objective's natural
-                        // rounding scale, further inner iterations cannot
-                        // improve the certificate. This is an *additional*
-                        // acceptance — it never weakens the gradient-norm
-                        // tests, only certifies convergence in problems where
-                        // ‖g‖ is intrinsically large (very ill-conditioned
-                        // designs) but H⁻¹g is already tiny.
-                        let f_scale = 1.0 + current_penalized.abs();
-                        let lambda_floor = final_state_ref.ridge_used.max(1.0e-12);
-                        let nd_correction = 1.0 + loop_lambda / lambda_floor;
-                        let newton_decrement_sq_upper = (-lin).max(0.0) * nd_correction;
-                        let nd_threshold = kkt_tolerance * kkt_tolerance * f_scale;
-                        let nd_pass = newton_decrement_sq_upper <= nd_threshold;
+                        // Once realized progress is below the objective's
+                        // floating-point noise floor, compute the exact
+                        // bare-Hessian Newton decrement at the accepted state.
+                        // A damped decrement from the pre-step state is neither
+                        // a certificate for this state nor, under anisotropic
+                        // LM damping, convertible without an independently
+                        // certified lower spectral bound for H.  Do not reuse
+                        // it. This exact check is restricted to
+                        // unconstrained coefficient geometry: constrained KKT
+                        // points and Arrow-Schur joint states require their own
+                        // projected/block decrement, so the raw beta Hessian is
+                        // not a valid certificate for them.
+                        let numerical_plateau = actual_reduction.abs() <= noise_floor;
+                        let should_check_exact_nd =
+                            numerical_plateau && !exact_decrement_checked_at_plateau;
+                        exact_decrement_checked_at_plateau = numerical_plateau;
+                        let exact_decrement_sq = if should_check_exact_nd
+                            && !has_explicit_constraints
+                            && options.arrow_schur.is_none()
+                        {
+                            // Certify the accepted state itself.  The root
+                            // solve used to produce this LM step described the
+                            // pre-step state and cannot be carried across the
+                            // coefficient update.  Models that retain an
+                            // augmented least-squares root recompute the bare
+                            // decrement here without ever forming the
+                            // cancellation-prone coefficient gradient; other
+                            // models use the assembled exact Hessian solve.
+                            model
+                                .exact_unconstrained_decrement_sq(&beta, final_state_ref)?
+                                .or_else(|| exact_newton_decrement_sq(final_state_ref))
+                        } else {
+                            None
+                        };
+                        let exact_nd_threshold = kkt_tolerance
+                            * kkt_tolerance
+                            * (1.0
+                                + penalizedobjective(final_state_ref, penalized_dev_scale).abs());
+                        let exact_nd_pass = exact_decrement_sq
+                            .is_some_and(|decrement_sq| decrement_sq <= exact_nd_threshold);
+                        if should_check_exact_nd {
+                            log::info!(
+                                "[PIRLS exact-decrement] applicable={} decrement_sq={:.6e} threshold={:.6e} pass={} gradient_norm={:.6e} relative_gradient={:.6e} dimension_scale={:.6e} natural_scale={:.6e} objective={:.6e} actual_reduction={:.6e} predicted_reduction={:.6e} linear_model_term={:.6e} direction_norm={:.6e} data_reduction={:.6e} penalty_reduction={:.6e}",
+                                !has_explicit_constraints && options.arrow_schur.is_none(),
+                                exact_decrement_sq.unwrap_or(f64::NAN),
+                                exact_nd_threshold,
+                                exact_nd_pass,
+                                convergence_grad_norm,
+                                final_state_ref.relative_gradient_norm(convergence_grad_norm),
+                                final_state_ref.kkt_dimension_scale(),
+                                final_state_ref.gradient_natural_scale,
+                                final_state_ref.penalized_objective(),
+                                actual_reduction,
+                                predicted_reduction,
+                                lin,
+                                direction.dot(direction).sqrt(),
+                                0.5 * penalized_dev_scale
+                                    * (state.deviance - final_state_ref.deviance),
+                                0.5 * (state.penalty_term - final_state_ref.penalty_term),
+                            );
+                        }
 
                         // Strict KKT: scale-invariant under EITHER the
                         // dimension-based bound ‖g‖ < τ·√n·max(1,√p) OR the
@@ -1445,7 +1535,7 @@ where
                         // acceptance for ill-conditioned problems where ‖g‖
                         // is intrinsically large but H⁻¹g is already tiny.
                         if final_state_ref.certifies_kkt(convergence_grad_norm, kkt_tolerance)
-                            || nd_pass
+                            || exact_nd_pass
                         {
                             status = PirlsStatus::Converged;
                             break 'pirls_loop;
@@ -2030,14 +2120,11 @@ where
                 // iterate is β̂ + d. Factorize the BARE (undamped) penalized
                 // Hessian — `state.hessian` carries no LM ridge (the damping
                 // lived only on the throwaway `regularized` clone in the loop).
-                let direction = StableSolver::new()
-                    .factorize(bare_h)
-                    .ok()
-                    .map(|factor| {
-                        let mut d = Array1::<f64>::zeros(state.gradient.len());
-                        solve_direction_with_dense_factor(&factor, &state.gradient, &mut d);
-                        d
-                    });
+                let direction = StableSolver::new().factorize(bare_h).ok().map(|factor| {
+                    let mut d = Array1::<f64>::zeros(state.gradient.len());
+                    solve_direction_with_dense_factor(&factor, &state.gradient, &mut d);
+                    d
+                });
                 if let Some(direction) = direction {
                     let step_finite = direction.iter().all(|v| v.is_finite());
                     // Guard against a runaway step: an exact Newton refinement
@@ -2107,9 +2194,50 @@ where
         options.coefficient_lower_bounds.as_ref(),
         options.linear_constraints.as_ref(),
     );
-    if status.is_failed_max_iterations() {
-        // Strict KKT met after the loop bailed: reclassify as a valid
-        // (if non-strictly-converged) minimum. The remaining soft-acceptance
+    // Iteration exhaustion is itself a reason to pay for one final exact
+    // stationarity certificate. The hot-loop check is deliberately armed only
+    // by a floating-point objective plateau, but a stiff system can make
+    // resolvable monotone value progress for every permitted iteration while
+    // its Newton decrement is already machine-small. Refusing to check at the
+    // cap then turns the iteration budget into part of the mathematical
+    // convergence definition. Recompute from the final accepted state instead;
+    // the pre-step LM solve cannot certify this state.
+    // A soft stall is diagnostic, not terminal evidence.  It can be produced
+    // by an LM rejection before the accepted-state branch gets a chance to
+    // evaluate the exact decrement, so certify every finite non-converged
+    // checkpoint here rather than only iteration/LM exhaustion.  This also
+    // keeps the live fit-minting contract identical to the serialized-model
+    // contract: only a genuinely certified inner mode is recorded as
+    // `Converged`.
+    let can_still_certify = !status.is_converged() && status != PirlsStatus::Unstable;
+    let final_exact_decrement_sq = if can_still_certify && polish_allowed {
+        model
+            .exact_unconstrained_decrement_sq(&beta, &state)?
+            .or_else(|| exact_newton_decrement_sq(&state))
+    } else {
+        None
+    };
+    let final_decrement_threshold = if final_exact_decrement_sq.is_some() {
+        let final_dev_scale = model.penalized_deviance_scale()?;
+        kkt_tolerance * kkt_tolerance * (1.0 + penalizedobjective(&state, final_dev_scale).abs())
+    } else {
+        0.0
+    };
+    let final_exact_decrement_pass = final_exact_decrement_sq
+        .is_some_and(|decrement_sq| decrement_sq <= final_decrement_threshold);
+    if final_exact_decrement_sq.is_some() {
+        log::info!(
+            "[PIRLS final exact-decrement] decrement_sq={:.6e} threshold={:.6e} pass={} gradient_norm={:.6e} status_before={:?}",
+            final_exact_decrement_sq.unwrap_or(f64::NAN),
+            final_decrement_threshold,
+            final_exact_decrement_pass,
+            final_projected_grad,
+            status,
+        );
+    }
+    if can_still_certify {
+        // Strict KKT is a convergence certificate regardless of which bounded
+        // loop exit led to the final state. The remaining soft-acceptance
         // criteria (near-stationary plateau, boundary saturation, relative
         // band) are checked uniformly through `pirls_soft_acceptance` so the
         // post-loop rescue and the per-iter early-exit stay in lockstep —
@@ -2118,35 +2246,43 @@ where
         // here.
         if state.certifies_kkt(final_projected_grad, kkt_tolerance) {
             log::debug!(
-                "[PIRLS] post-loop rescue: strict KKT after MaxIterations \
-                 (‖g‖={final_projected_grad:.3e})"
+                "[PIRLS] final-state certification: strict KKT \
+                 (‖g‖={final_projected_grad:.3e})",
             );
-            status = PirlsStatus::StalledAtValidMinimum;
-        } else if pirls_soft_acceptance(
-            &state,
-            final_projected_grad,
-            SoftAcceptProgress::Realized {
-                dev_change: last_deviance_change,
-            },
-            max_abs_eta,
-            options.convergence_tolerance,
-            kkt_tolerance,
-        )
-        // A constrained fit may only be rescued onto a plateau / relative-band /
-        // boundary-saturation soft acceptance when its constraint-KKT residual
-        // is within the SAME degeneracy-aware band the outer gate applies, so
-        // the rescue cannot certify a stalled non-degenerate cone face the outer
-        // gate would reject (#873). Unconstrained fits keep the existing rescue.
-        .filter(|_| {
-            !has_explicit_constraints
-                || constraint_kkt_admits_soft_accept(
-                    options,
-                    beta.as_ref(),
-                    &state.gradient,
-                    kkt_tolerance,
-                )
-        })
-        .is_some()
+            status = PirlsStatus::Converged;
+        } else if final_exact_decrement_pass {
+            log::debug!(
+                "[PIRLS] final-state certification: exact decrement \
+                 (‖g‖={final_projected_grad:.3e}, decrement_sq={:.3e})",
+                final_exact_decrement_sq.unwrap_or(f64::NAN),
+            );
+            status = PirlsStatus::Converged;
+        } else if status.is_failed_max_iterations()
+            && pirls_soft_acceptance(
+                &state,
+                final_projected_grad,
+                SoftAcceptProgress::Realized {
+                    dev_change: last_deviance_change,
+                },
+                max_abs_eta,
+                options.convergence_tolerance,
+                kkt_tolerance,
+            )
+            // A constrained fit may only be rescued onto a plateau / relative-band /
+            // boundary-saturation soft acceptance when its constraint-KKT residual
+            // is within the SAME degeneracy-aware band the outer gate applies, so
+            // the rescue cannot certify a stalled non-degenerate cone face the outer
+            // gate would reject (#873). Unconstrained fits keep the existing rescue.
+            .filter(|_| {
+                !has_explicit_constraints
+                    || constraint_kkt_admits_soft_accept(
+                        options,
+                        beta.as_ref(),
+                        &state.gradient,
+                        kkt_tolerance,
+                    )
+            })
+            .is_some()
         {
             log::debug!(
                 "[PIRLS] post-loop rescue on soft acceptance \

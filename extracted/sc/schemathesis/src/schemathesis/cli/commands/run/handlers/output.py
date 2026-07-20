@@ -38,7 +38,7 @@ from schemathesis.core.result import Ok
 from schemathesis.core.statistic import ApiStatistic
 from schemathesis.core.timing import Instant
 from schemathesis.core.version import SCHEMATHESIS_VERSION
-from schemathesis.engine import Status, events
+from schemathesis.engine import Status, StopReason, events
 from schemathesis.engine.run import PhaseName, PhaseSkipReason
 from schemathesis.engine.run.probes import ProbeOutcome
 
@@ -528,7 +528,8 @@ class OutputHandler(BaseOutputHandler[BaseExecutionContext]):
     stateful_tests_manager: StatefulProgressManager | None = None
 
     statistic: ApiStatistic | None = None
-    skip_reasons: list[str] = field(default_factory=list)
+    # Keyed by operation label - a reason only applies to the operation it came from.
+    skip_reasons: dict[str, set[str]] = field(default_factory=dict)
     warning_collector: WarningCollector | None = None
     errors: set[events.NonFatalError] = field(default_factory=set)
     phases: dict[PhaseName, tuple[Status, PhaseSkipReason | None]] = field(
@@ -656,17 +657,13 @@ class OutputHandler(BaseOutputHandler[BaseExecutionContext]):
         self.unit_tests_manager.start()
 
     def _start_stateful_tests(self, event: events.PhaseStarted) -> None:
-        assert self.statistic is not None
         assert event.payload is not None
-        # Total number of transitions - schema-defined plus those inferred at engine start
-        links_selected = self.statistic.transitions.selected + event.payload.inferred_transitions
-        links_total = self.statistic.transitions.total + event.payload.inferred_transitions
         self.stateful_tests_manager = StatefulProgressManager(
             console=self.console,
             title="Stateful",
-            links_selected=links_selected,
+            links_selected=event.payload.transitions_selected,
             links_inferred=event.payload.inferred_transitions,
-            links_total=links_total,
+            links_total=event.payload.transitions_total,
         )
         self.stateful_tests_manager.start()
 
@@ -780,8 +777,8 @@ class OutputHandler(BaseOutputHandler[BaseExecutionContext]):
                 self.unit_tests_manager.finish_operation(event.label)
             self.unit_tests_manager.update_progress()
             self.unit_tests_manager.update_stats(event.status)
-            if event.status == Status.SKIP and event.skip_reason is not None:
-                self.skip_reasons.append(event.skip_reason)
+            if event.status == Status.SKIP and event.skip_reason is not None and event.label:
+                self.skip_reasons.setdefault(event.label, set()).add(event.skip_reason)
         elif (
             event.phase == PhaseName.STATEFUL_TESTING
             and not event.is_final
@@ -890,6 +887,26 @@ class OutputHandler(BaseOutputHandler[BaseExecutionContext]):
 
         self._print_warning_tips(tips)
 
+    def _display_grouped_detail_block(
+        self,
+        title: str,
+        warnings: dict[str, dict[str, set[str]]],
+        entity_name: str,
+        suffix_text: str,
+        tips: list[str],
+    ) -> None:
+        """Display warnings grouped by a shared cause, with per-operation details."""
+        total = len({label for operations in warnings.values() for label in operations})
+        self._print_warning_header(title, total, entity_name, suffix_text)
+
+        for group, operations in sorted(warnings.items()):
+            count = len(operations)
+            plural = "" if count == 1 else "s"
+            click.echo(_style(f"{group} ({count} {entity_name}{plural}):", fg="yellow"))
+            self._print_items({f"{label} ({', '.join(sorted(details))})" for label, details in operations.items()})
+
+        self._print_warning_tips(tips)
+
     def _display_detailed_warning_block(
         self,
         title: str,
@@ -947,7 +964,7 @@ class OutputHandler(BaseOutputHandler[BaseExecutionContext]):
             )
 
         if self.warnings.missing_deserializer:
-            self._display_detailed_warning_block(
+            self._display_grouped_detail_block(
                 title="Schema validation skipped",
                 warnings=self.warnings.missing_deserializer,
                 entity_name="operation",
@@ -1042,7 +1059,7 @@ class OutputHandler(BaseOutputHandler[BaseExecutionContext]):
 
         click.echo()
 
-    def display_api_operations(self, ctx: BaseExecutionContext) -> None:
+    def display_api_operations(self, ctx: BaseExecutionContext, stop_reason: StopReason) -> None:
         assert self.statistic is not None
         errored = len(
             {
@@ -1056,13 +1073,34 @@ class OutputHandler(BaseOutputHandler[BaseExecutionContext]):
         )
         # API operations that are skipped due to fail-fast are counted here as well
         skipped = self.statistic.operations.selected - len(ctx.statistic.tested_operations) - errored
+        # An operation tested in one phase may have been skipped in another; its reason does not explain
+        # the operations counted above, which were never tested at all.
+        explained = {
+            label: reasons
+            for label, reasons in self.skip_reasons.items()
+            if label not in ctx.statistic.tested_operations
+        }
+        reasons = {reason for values in explained.values() for reason in values}
+        # Cases ran, but no selected check applied to them. Operations tested elsewhere are not in the count above.
+        without_checks = ctx.statistic.operations_without_checks - ctx.statistic.tested_operations
+        if without_checks:
+            reasons.add("No checks ran")
+        if skipped > len(explained.keys() | without_checks):
+            if stop_reason.skip_explanation is not None:
+                reasons.add(stop_reason.skip_explanation)
+            elif any(
+                self.phases[phase][0] == Status.ERROR
+                for phase in (PhaseName.EXAMPLES, PhaseName.COVERAGE, PhaseName.FUZZING)
+            ):
+                reasons.add("Phase errored")
+        skip_reasons = sorted(reasons)
         display_api_operations(
             selected=self.statistic.operations.selected,
             total=self.statistic.operations.total,
             tested=len(ctx.statistic.tested_operations),
             errored=errored,
             skipped=skipped,
-            skip_reasons=self.skip_reasons,
+            skip_reasons=skip_reasons,
         )
 
     def display_phases(self) -> None:
@@ -1161,7 +1199,7 @@ class OutputHandler(BaseOutputHandler[BaseExecutionContext]):
         click.echo()
 
         if self.statistic:
-            self.display_api_operations(ctx)
+            self.display_api_operations(ctx, event.stop_reason)
 
         self.display_phases()
 
@@ -1205,7 +1243,9 @@ class OutputHandler(BaseOutputHandler[BaseExecutionContext]):
                 )
 
             if self.warnings.missing_deserializer:
-                count = len(self.warnings.missing_deserializer)
+                count = len(
+                    {label for operations in self.warnings.missing_deserializer.values() for label in operations}
+                )
                 suffix = "" if count == 1 else "s"
                 click.echo(
                     _style(
@@ -1255,6 +1295,18 @@ class OutputHandler(BaseOutputHandler[BaseExecutionContext]):
                 )
 
             click.echo()
+
+        if event.payload is not None:
+            if event.payload.reauth_count > 0:
+                suffix = "" if event.payload.reauth_count == 1 else "s"
+                ctx.add_summary_line(f"  Re-authenticated {event.payload.reauth_count} time{suffix}")
+            if event.payload.reauth_broke:
+                ctx.add_summary_line(
+                    _style(
+                        "  ⚠️ Authentication stopped working mid-run - credentials likely invalidated",
+                        fg="yellow",
+                    )
+                )
 
         if ctx.summary_lines:
             print_lines(ctx.summary_lines)

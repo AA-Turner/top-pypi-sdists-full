@@ -1,6 +1,6 @@
 //! Inner-Newton joint-Hessian and psi workspaces: the operator/gradient/
 //! log-likelihood caching workspace implementing `ExactNewtonJointHessian
-//! Workspace`, and the psi workspace implementing `MarginalSlopePsiFamily`.
+//! Workspace`, and the family-owned typed psi workspace.
 
 use super::*;
 
@@ -8,7 +8,7 @@ pub(crate) struct SurvivalMarginalSlopePsiWorkspace {
     pub(crate) family: SurvivalMarginalSlopeFamily,
     pub(crate) block_states: Vec<ParameterBlockState>,
     pub(crate) specs: Vec<ParameterBlockSpec>,
-    pub(crate) derivative_blocks: Vec<Vec<crate::custom_family::CustomFamilyBlockPsiDerivative>>,
+    pub(crate) hyper_layout: crate::custom_family::CustomFamilyHyperLayout,
     pub(crate) cache: Option<EvalCache>,
     /// Outer-only ψ-calculus options. The `outer_score_subsample` field is
     /// the row mask threaded through `sigma_exact_joint_psi_terms_with_options`
@@ -137,30 +137,6 @@ impl ExactNewtonJointHessianWorkspace for SurvivalMarginalSlopeExactNewtonJointH
             }
             .into());
         }
-        // ── Step-6 dispatcher: try GPU joint-Hessian × v first ───────────
-        //
-        // Routes through
-        // [`crate::survival::marginal_slope::gpu::try_survival_flex_hvp`] via the
-        // `gpu::decide` policy.  Returns `Ok(None)` until the joint-β
-        // device HVP assembly lands; on `Ok(Some(hv))` we write straight
-        // into the caller-owned `out` buffer and skip the prebuilt
-        // operator matvec.  The CPU `mul_vec_into` below remains the
-        // production fallback path and is byte-for-byte identical to the
-        // pre-Step-6 hot path.
-        if self.family.effective_flex_active(&self.block_states)?
-            && !self.family.flex_timewiggle_active()
-        {
-            let slices = block_slices(&self.family, &self.block_states);
-            if let Some(hv) =
-                self.family
-                    .try_survival_flex_joint_dispatch_hvp(&self.block_states, &slices, v)?
-            {
-                if hv.len() == out.len() {
-                    out.assign(&hv);
-                    return Ok(true);
-                }
-            }
-        }
         self.joint_hessian_operator
             .mul_vec_into(v.view(), out.view_mut());
         Ok(true)
@@ -278,9 +254,10 @@ impl SurvivalMarginalSlopePsiWorkspace {
         family: SurvivalMarginalSlopeFamily,
         block_states: Vec<ParameterBlockState>,
         specs: Vec<ParameterBlockSpec>,
-        derivative_blocks: Vec<Vec<crate::custom_family::CustomFamilyBlockPsiDerivative>>,
+        hyper_layout: crate::custom_family::CustomFamilyHyperLayout,
         options: BlockwiseFitOptions,
     ) -> Result<Self, String> {
+        family.family_hyper.validate_layout(&hyper_layout)?;
         let cache = if family.flex_active() {
             None
         } else {
@@ -290,49 +267,58 @@ impl SurvivalMarginalSlopePsiWorkspace {
             family,
             block_states,
             specs,
-            derivative_blocks,
+            hyper_layout,
             cache,
             options,
         })
     }
 }
 
-impl crate::marginal_slope_shared::MarginalSlopePsiFamily for SurvivalMarginalSlopePsiWorkspace {
-    fn is_sigma_aux(&self, psi_index: usize) -> bool {
-        self.family
-            .is_sigma_aux_index(&self.derivative_blocks, psi_index)
-    }
-
-    fn sigma_first_order_terms(&self) -> Result<Option<ExactNewtonJointPsiTerms>, String> {
-        self.family.sigma_exact_joint_psi_terms_with_options(
-            &self.block_states,
-            &self.specs,
-            &self.options,
-        )
-    }
-
-    fn psi_first_order_terms(
+impl ExactNewtonJointPsiWorkspace for SurvivalMarginalSlopePsiWorkspace {
+    fn first_order_terms(
         &self,
         psi_index: usize,
     ) -> Result<Option<ExactNewtonJointPsiTerms>, String> {
-        self.family.psi_terms_inner_with_options(
-            &self.block_states,
-            &self.derivative_blocks,
-            psi_index,
-            self.cache.as_ref(),
-            &self.options,
-        )
+        match self
+            .family
+            .family_hyper_role(&self.hyper_layout, psi_index)?
+        {
+            None => self.family.psi_terms_inner_with_options(
+                &self.block_states,
+                self.hyper_layout.design_derivative_blocks(),
+                psi_index,
+                self.cache.as_ref(),
+                &self.options,
+            ),
+            Some(SurvivalMarginalSlopeFamilyHyperAxis::LogSigma) => {
+                self.family.sigma_exact_joint_psi_terms_with_options(
+                    &self.block_states,
+                    &self.specs,
+                    &self.options,
+                )
+            }
+            Some(SurvivalMarginalSlopeFamilyHyperAxis::Baseline(axis)) => {
+                self.family.baseline_exact_joint_psi_terms_with_options(
+                    &self.block_states,
+                    axis,
+                    &self.options,
+                )
+            }
+        }
     }
 
-    fn psi_first_order_terms_all(&self) -> Result<Option<Vec<ExactNewtonJointPsiTerms>>, String> {
-        let total: usize = self.derivative_blocks.iter().map(Vec::len).sum();
+    fn first_order_terms_all(&self) -> Result<Option<Vec<ExactNewtonJointPsiTerms>>, String> {
+        let total = self.hyper_layout.len();
         if total == 0 {
             return Ok(Some(Vec::new()));
+        }
+        if self.hyper_layout.family_axis_count() != 0 {
+            return Ok(None);
         }
         let psi_indices: Vec<usize> = (0..total).collect();
         if let Some(terms) = self.family.psi_terms_inner_batched_with_options(
             &self.block_states,
-            &self.derivative_blocks,
+            self.hyper_layout.design_derivative_blocks(),
             &psi_indices,
             self.cache.as_ref(),
             &self.options,
@@ -347,7 +333,7 @@ impl crate::marginal_slope_shared::MarginalSlopePsiFamily for SurvivalMarginalSl
                 gam_problem::with_nested_parallel(|| {
                     self.family.psi_terms_inner_with_options(
                         &self.block_states,
-                        &self.derivative_blocks,
+                        self.hyper_layout.design_derivative_blocks(),
                         psi_index,
                         self.cache.as_ref(),
                         &self.options,
@@ -365,62 +351,102 @@ impl crate::marginal_slope_shared::MarginalSlopePsiFamily for SurvivalMarginalSl
         Ok(Some(terms))
     }
 
-    fn both_sigma_aux_second_order(&self, psi_i: usize, psi_j: usize) -> bool {
-        psi_i == psi_j
-    }
-
-    fn sigma_second_order_terms(
-        &self,
-    ) -> Result<Option<ExactNewtonJointPsiSecondOrderTerms>, String> {
-        self.family
-            .sigma_exact_joint_psisecond_order_terms_with_options(&self.block_states, &self.options)
-    }
-
-    fn mixed_sigma_aux_second_order(
-        &self,
-    ) -> Result<Option<ExactNewtonJointPsiSecondOrderTerms>, String> {
-        Ok(None)
-    }
-
-    fn psi_second_order_terms(
+    fn second_order_terms(
         &self,
         psi_i: usize,
         psi_j: usize,
     ) -> Result<Option<ExactNewtonJointPsiSecondOrderTerms>, String> {
-        self.family.psi_second_order_terms_inner_with_options(
-            &self.block_states,
-            &self.derivative_blocks,
-            psi_i,
-            psi_j,
-            self.cache.as_ref(),
-            &self.options,
-        )
-    }
-
-    fn sigma_hessian_directional_derivative(
-        &self,
-        d_beta_flat: &Array1<f64>,
-    ) -> Result<Option<Array2<f64>>, String> {
-        self.family
-            .sigma_exact_joint_psihessian_directional_derivative_with_options(
+        let axis_i = self.family.family_hyper_role(&self.hyper_layout, psi_i)?;
+        let axis_j = self.family.family_hyper_role(&self.hyper_layout, psi_j)?;
+        match (axis_i, axis_j) {
+            (None, None) => self.family.psi_second_order_terms_inner_with_options(
                 &self.block_states,
-                d_beta_flat,
+                self.hyper_layout.design_derivative_blocks(),
+                psi_i,
+                psi_j,
+                self.cache.as_ref(),
                 &self.options,
-            )
+            ),
+            (
+                Some(SurvivalMarginalSlopeFamilyHyperAxis::LogSigma),
+                Some(SurvivalMarginalSlopeFamilyHyperAxis::LogSigma),
+            ) => self
+                .family
+                .sigma_exact_joint_psisecond_order_terms_with_options(
+                    &self.block_states,
+                    &self.options,
+                ),
+            (
+                Some(SurvivalMarginalSlopeFamilyHyperAxis::Baseline(axis)),
+                Some(SurvivalMarginalSlopeFamilyHyperAxis::Baseline(other_axis)),
+            ) => self
+                .family
+                .baseline_exact_joint_psisecond_order_terms_with_options(
+                    &self.block_states,
+                    axis,
+                    other_axis,
+                    &self.options,
+                ),
+            (Some(SurvivalMarginalSlopeFamilyHyperAxis::Baseline(axis)), None) => self
+                .family
+                .baseline_design_exact_joint_psisecond_order_terms_with_options(
+                    &self.block_states,
+                    self.hyper_layout.design_derivative_blocks(),
+                    axis,
+                    psi_j,
+                    &self.options,
+                ),
+            (None, Some(SurvivalMarginalSlopeFamilyHyperAxis::Baseline(axis))) => self
+                .family
+                .baseline_design_exact_joint_psisecond_order_terms_with_options(
+                    &self.block_states,
+                    self.hyper_layout.design_derivative_blocks(),
+                    axis,
+                    psi_i,
+                    &self.options,
+                ),
+            _ => Err(format!(
+                "survival marginal-slope family-touching pair ({psi_i}, {psi_j}) has no installed exact second-order row calculus"
+            )),
+        }
     }
 
-    fn psi_hessian_directional_derivative(
+    fn hessian_directional_derivative(
         &self,
         psi_index: usize,
         d_beta_flat: &Array1<f64>,
-    ) -> Result<Option<Arc<dyn HyperOperator>>, String> {
-        self.family
-            .psi_hessian_directional_derivative_operator_with_options(
-                &self.block_states,
-                &self.derivative_blocks,
-                psi_index,
-                d_beta_flat,
-                &self.options,
-            )
+    ) -> Result<Option<gam_problem::DriftDerivResult>, String> {
+        match self
+            .family
+            .family_hyper_role(&self.hyper_layout, psi_index)?
+        {
+            None => self
+                .family
+                .psi_hessian_directional_derivative_operator_with_options(
+                    &self.block_states,
+                    self.hyper_layout.design_derivative_blocks(),
+                    psi_index,
+                    d_beta_flat,
+                    &self.options,
+                )
+                .map(|result| result.map(gam_problem::DriftDerivResult::Operator)),
+            Some(SurvivalMarginalSlopeFamilyHyperAxis::LogSigma) => self
+                .family
+                .sigma_exact_joint_psihessian_directional_derivative_with_options(
+                    &self.block_states,
+                    d_beta_flat,
+                    &self.options,
+                )
+                .map(|result| result.map(gam_problem::DriftDerivResult::Dense)),
+            Some(SurvivalMarginalSlopeFamilyHyperAxis::Baseline(axis)) => self
+                .family
+                .baseline_exact_joint_psihessian_directional_derivative_with_options(
+                    &self.block_states,
+                    axis,
+                    d_beta_flat,
+                    &self.options,
+                )
+                .map(|result| result.map(gam_problem::DriftDerivResult::Dense)),
+        }
     }
 }

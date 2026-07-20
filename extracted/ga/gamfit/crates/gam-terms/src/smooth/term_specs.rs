@@ -5,10 +5,7 @@ use coefficient_transforms::{
 
 pub use error::SmoothError;
 
-use input_standardization::{
-    apply_input_standardization, compensate_length_scale_for_standardization,
-    compensate_optional_length_scale_for_standardization, compute_spatial_input_scales,
-};
+use input_standardization::estimate_isotropic_scale;
 
 use shape_constraints::{
     bspline_first_derivative_control_spans, shape_lower_bounds_local, shape_order_and_sign,
@@ -296,6 +293,7 @@ pub enum BySmoothKind {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub enum SmoothBasisSpec {
     /// Row-gated wrapper used for mgcv-style ``by=`` smooths.
     ///
@@ -348,11 +346,9 @@ pub enum SmoothBasisSpec {
     ThinPlate {
         feature_cols: Vec<usize>,
         spec: ThinPlateBasisSpec,
-        /// Per-column standard deviations used to standardize input dimensions
-        /// before kernel evaluation when d > 1. `None` means no standardization
-        /// (either d == 1 or explicitly disabled).
-        #[serde(default)]
-        input_scales: Option<Vec<f64>>,
+        /// Uniform coordinate scale estimated on a fresh build and persisted
+        /// for exact frozen replay.
+        input_scale: Option<crate::IsotropicScale>,
     },
     Sphere {
         feature_cols: Vec<usize>,
@@ -370,8 +366,7 @@ pub enum SmoothBasisSpec {
     Matern {
         feature_cols: Vec<usize>,
         spec: MaternBasisSpec,
-        #[serde(default)]
-        input_scales: Option<Vec<f64>>,
+        input_scale: Option<crate::IsotropicScale>,
     },
     /// Measure-jet spline smooth: multiscale local-jet-residual energy of the
     /// empirical measure (centers as μ-quadrature, masses as μ-weights — no
@@ -381,14 +376,12 @@ pub enum SmoothBasisSpec {
     MeasureJet {
         feature_cols: Vec<usize>,
         spec: MeasureJetBasisSpec,
-        #[serde(default)]
-        input_scales: Option<Vec<f64>>,
+        input_scale: Option<crate::IsotropicScale>,
     },
     Duchon {
         feature_cols: Vec<usize>,
         spec: DuchonBasisSpec,
-        #[serde(default)]
-        input_scales: Option<Vec<f64>>,
+        input_scale: Option<crate::IsotropicScale>,
     },
     Pca {
         feature_cols: Vec<usize>,
@@ -798,9 +791,10 @@ pub struct SmoothTerm {
     pub name: String,
     pub coeff_range: Range<usize>,
     pub shape: ShapeConstraint,
-    pub penalties_local: Vec<Array2<f64>>,
-    pub nullspace_dims: Vec<usize>,
-    pub penaltyinfo_local: Vec<PenaltyInfo>,
+    /// Active local penalty identities. Numerical and semantic channels are
+    /// inseparable, including after a preceding candidate is dropped.
+    pub active_penalties: Vec<ActivePenalty>,
+    pub dropped_penalties: Vec<DroppedPenaltyInfo>,
     pub metadata: BasisMetadata,
     /// Optional term-local lower bounds for constrained coefficients.
     /// `-inf` means unconstrained.
@@ -814,7 +808,7 @@ pub struct SmoothTerm {
     /// Joint-null absorption rotation. `Some(Q)` records the orthonormal
     /// `(p_local × p_local)` matrix that was applied to this term's design
     /// and per-block penalties at construction time:
-    /// `term_design ← X_raw · Q`, `penalties_local[k] ← Qᵀ · S_raw · Q`.
+    /// `term_design ← X_raw · Q`, `active_penalties[k].matrix ← Qᵀ · S_raw · Q`.
     /// The smooth's coefficient vector therefore lives in the rotated
     /// (`γ`) coordinate system, with `β_raw = Q · γ` recovering the raw
     /// pre-rotation parameterization. `None` means either no joint null
@@ -906,11 +900,7 @@ impl SmoothTerm {
     /// almost the whole shrunk block at full rank, manufacturing overwhelming
     /// "significance" for a term the fit drove to ~0 EDF.
     pub fn wald_unpenalized_dim(&self) -> usize {
-        joint_unpenalized_dim(
-            self.coeff_range.len(),
-            &self.penalties_local,
-            &self.nullspace_dims,
-        )
+        joint_unpenalized_dim(self.coeff_range.len(), &self.active_penalties)
     }
 }
 
@@ -918,16 +908,12 @@ impl SmoothTerm {
 /// joint null space `∩_k null(S_k) = null(Σ_k S_k)` of a term's local penalty
 /// blocks, with a conservative fallback when a penalty is not materialized as a
 /// full `p_local × p_local` matrix (e.g. a Kronecker tensor factor).
-pub fn joint_unpenalized_dim(
-    p_local: usize,
-    penalties_local: &[Array2<f64>],
-    nullspace_dims: &[usize],
-) -> usize {
+pub fn joint_unpenalized_dim(p_local: usize, active_penalties: &[ActivePenalty]) -> usize {
     use gam_linalg::faer_ndarray::FaerEigh;
     if p_local == 0 {
         return 0;
     }
-    if penalties_local.is_empty() {
+    if active_penalties.is_empty() {
         // No penalty ⇒ a wholly unpenalized (fixed-effect) block.
         return p_local;
     }
@@ -937,13 +923,14 @@ pub fn joint_unpenalized_dim(
     // so the rank is computed in the right metric.
     let mut s_total = Array2::<f64>::zeros((p_local, p_local));
     let mut materialized = 0usize;
-    for s in penalties_local {
+    for penalty in active_penalties {
+        let s = &penalty.matrix;
         if s.nrows() == p_local && s.ncols() == p_local {
             s_total += s;
             materialized += 1;
         }
     }
-    if materialized == penalties_local.len() {
+    if materialized == active_penalties.len() {
         let symmetric = {
             let transpose = s_total.t().to_owned();
             (&s_total + &transpose) * 0.5
@@ -963,12 +950,12 @@ pub fn joint_unpenalized_dim(
     // (e.g. a Kronecker tensor factor): with ≥2 active penalties the joint
     // null space is almost always empty (the only over-rejecting direction);
     // with a single penalty it is exactly that penalty's own null space.
-    if penalties_local.len() >= 2 {
+    if active_penalties.len() >= 2 {
         0
     } else {
-        nullspace_dims
+        active_penalties
             .iter()
-            .copied()
+            .map(|penalty| penalty.nullity)
             .min()
             .unwrap_or(0)
             .min(p_local)
@@ -979,13 +966,13 @@ pub fn joint_unpenalized_dim(
 pub struct PenaltyBlockInfo {
     pub global_index: usize,
     pub termname: Option<String>,
-    pub penalty: PenaltyInfo,
+    pub penalty: ActivePenaltyInfo,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DroppedPenaltyBlockInfo {
     pub termname: Option<String>,
-    pub penalty: PenaltyInfo,
+    pub penalty: DroppedPenaltyInfo,
 }
 
 #[derive(Debug, Clone)]
@@ -1018,6 +1005,8 @@ impl SmoothDesign {
 #[derive(Debug, Clone)]
 pub struct RawSmoothDesign {
     pub term_designs: Vec<DesignMatrix>,
+    /// Sum of every fixed affine term contribution on the realized rows.
+    pub affine_offset: Array1<f64>,
     /// Per-term block-local penalties.  Each `col_range` is relative to the
     /// smooth block (i.e. indexing into the concatenation of `term_designs`).
     pub penalties: Vec<BlockwisePenalty>,
@@ -1035,21 +1024,6 @@ impl RawSmoothDesign {
     }
     pub fn nrows(&self) -> usize {
         self.term_designs.first().map_or(0, DesignMatrix::nrows)
-    }
-}
-
-impl From<RawSmoothDesign> for SmoothDesign {
-    fn from(value: RawSmoothDesign) -> Self {
-        Self {
-            term_designs: value.term_designs,
-            penalties: value.penalties,
-            nullspace_dims: value.nullspace_dims,
-            penaltyinfo: value.penaltyinfo,
-            dropped_penaltyinfo: value.dropped_penaltyinfo,
-            terms: value.terms,
-            coefficient_lower_bounds: value.coefficient_lower_bounds,
-            linear_constraints: value.linear_constraints,
-        }
     }
 }
 
@@ -1300,6 +1274,12 @@ pub fn validate_smooth_basis_frozen(
     label: &str,
     term_name: &str,
 ) -> Result<(), String> {
+    if let Err(error) = basis.validate_scale_configuration() {
+        return Err(SmoothError::invalid_config(format!(
+            "{label} term '{term_name}' has an invalid scale contract: {error}"
+        ))
+        .into());
+    }
     match basis {
         SmoothBasisSpec::ByVariable { inner, .. }
         | SmoothBasisSpec::FactorSumToZero { inner, .. } => {
@@ -1426,6 +1406,13 @@ impl TermCollectionSpec {
             }
         }
         for st in &self.smooth_terms {
+            if let Err(error) = st.basis.validate_scale_configuration() {
+                return Err(SmoothError::invalid_config(format!(
+                    "{label} term '{}' has an invalid scale contract: {error}",
+                    st.name
+                ))
+                .into());
+            }
             match &st.basis {
                 SmoothBasisSpec::ByVariable { inner, .. } => {
                     validate_smooth_basis_frozen(inner, label, &st.name)?;
@@ -1465,7 +1452,16 @@ impl TermCollectionSpec {
                         .into());
                     }
                 }
-                SmoothBasisSpec::ThinPlate { spec, .. } => {
+                SmoothBasisSpec::ThinPlate {
+                    spec, input_scale, ..
+                } => {
+                    if input_scale.is_none() {
+                        return Err(SmoothError::invalid_config(format!(
+                            "{label} term '{}' is not frozen: ThinPlate input_scale is missing",
+                            st.name
+                        ))
+                        .into());
+                    }
                     if !matches!(spec.center_strategy, CenterStrategy::UserProvided(_)) {
                         return Err(SmoothError::invalid_config(format!(
                             "{label} term '{}' is not frozen: ThinPlate centers must be UserProvided",
@@ -1517,7 +1513,16 @@ impl TermCollectionSpec {
                         .into());
                     }
                 }
-                SmoothBasisSpec::MeasureJet { spec, .. } => {
+                SmoothBasisSpec::MeasureJet {
+                    spec, input_scale, ..
+                } => {
+                    if input_scale.is_none() {
+                        return Err(SmoothError::invalid_config(format!(
+                            "{label} term '{}' is not frozen: MeasureJet input_scale is missing",
+                            st.name
+                        ))
+                        .into());
+                    }
                     let centers = match &spec.center_strategy {
                         CenterStrategy::UserProvided(centers) => centers,
                         _ => {
@@ -1662,16 +1667,45 @@ impl TermCollectionSpec {
                         }
                     }
                 }
-                SmoothBasisSpec::Matern { spec, .. } => {
+                SmoothBasisSpec::Matern {
+                    spec, input_scale, ..
+                } => {
+                    if input_scale.is_none() {
+                        return Err(SmoothError::invalid_config(format!(
+                            "{label} term '{}' is not frozen: Matern input_scale is missing",
+                            st.name
+                        ))
+                        .into());
+                    }
                     if !matches!(spec.center_strategy, CenterStrategy::UserProvided(_)) {
                         return Err(SmoothError::invalid_config(format!(
                             "{label} term '{}' is not frozen: Matern centers must be UserProvided",
                             st.name
                         ))
+                            .into());
+                    }
+                    if spec
+                        .length_scale
+                        .resolved()
+                        .is_none_or(|value| !value.is_finite() || value <= 0.0)
+                    {
+                        return Err(SmoothError::invalid_config(format!(
+                            "{label} term '{}' is not frozen: Matern length_scale must be resolved, finite, and positive",
+                            st.name
+                        ))
                         .into());
                     }
                 }
-                SmoothBasisSpec::Duchon { spec, .. } => {
+                SmoothBasisSpec::Duchon {
+                    spec, input_scale, ..
+                } => {
+                    if input_scale.is_none() {
+                        return Err(SmoothError::invalid_config(format!(
+                            "{label} term '{}' is not frozen: Duchon input_scale is missing",
+                            st.name
+                        ))
+                        .into());
+                    }
                     if !matches!(spec.center_strategy, CenterStrategy::UserProvided(_)) {
                         return Err(SmoothError::invalid_config(format!(
                             "{label} term '{}' is not frozen: Duchon centers must be UserProvided",
@@ -2259,12 +2293,34 @@ impl KroneckerPenaltySystem {
 
 #[cfg(test)]
 mod joint_unpenalized_dim_tests {
-    use super::joint_unpenalized_dim;
+    use super::{ActivePenalty, ActivePenaltyInfo, PenaltySource, joint_unpenalized_dim};
     use ndarray::{Array2, array};
+
+    fn active_penalty(
+        matrix: Array2<f64>,
+        effective_rank: usize,
+        nullity: usize,
+        original_index: usize,
+        source: PenaltySource,
+    ) -> ActivePenalty {
+        ActivePenalty {
+            matrix,
+            nullity,
+            null_eigenvectors: None,
+            op: None,
+            info: ActivePenaltyInfo {
+                source,
+                original_index,
+                effective_rank,
+                normalization_scale: 1.0,
+                kronecker_factors: None,
+            },
+        }
+    }
 
     #[test]
     fn no_penalty_is_fully_unpenalized() {
-        assert_eq!(joint_unpenalized_dim(4, &[], &[]), 4);
+        assert_eq!(joint_unpenalized_dim(4, &[]), 4);
     }
 
     #[test]
@@ -2272,7 +2328,8 @@ mod joint_unpenalized_dim_tests {
         // A 3×3 penalty that penalizes only the last coordinate ⇒ 2-dim null
         // space (the first two coordinates are unpenalized).
         let s = array![[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 5.0]];
-        assert_eq!(joint_unpenalized_dim(3, std::slice::from_ref(&s), &[2]), 2);
+        let penalties = [active_penalty(s, 1, 2, 0, PenaltySource::Primary)];
+        assert_eq!(joint_unpenalized_dim(3, &penalties), 2);
     }
 
     #[test]
@@ -2285,7 +2342,11 @@ mod joint_unpenalized_dim_tests {
         // someone, so the joint unpenalized dim is 0.
         let bending = array![[0.0, 0.0, 0.0], [0.0, 4.0, 0.0], [0.0, 0.0, 4.0]];
         let ridge = array![[2.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]];
-        assert_eq!(joint_unpenalized_dim(3, &[bending, ridge], &[1, 2]), 0);
+        let penalties = [
+            active_penalty(bending, 2, 1, 0, PenaltySource::Primary),
+            active_penalty(ridge, 1, 2, 1, PenaltySource::DoublePenaltyNullspace),
+        ];
+        assert_eq!(joint_unpenalized_dim(3, &penalties), 0);
     }
 
     #[test]
@@ -2295,7 +2356,11 @@ mod joint_unpenalized_dim_tests {
         // even though naively summing the per-penalty dims would give 4.
         let a = array![[0.0, 0.0, 0.0], [0.0, 3.0, 0.0], [0.0, 0.0, 0.0]];
         let b = array![[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 3.0]];
-        assert_eq!(joint_unpenalized_dim(3, &[a, b], &[2, 2]), 1);
+        let penalties = [
+            active_penalty(a, 1, 2, 0, PenaltySource::Primary),
+            active_penalty(b, 1, 2, 1, PenaltySource::OperatorStiffness),
+        ];
+        assert_eq!(joint_unpenalized_dim(3, &penalties), 1);
     }
 
     #[test]
@@ -2305,15 +2370,26 @@ mod joint_unpenalized_dim_tests {
         // dim is 0 (never over-rejecting).
         let full: Array2<f64> = array![[0.0, 0.0], [0.0, 1.0]];
         let factor: Array2<f64> = array![[1.0]]; // wrong shape for p_local=2
-        assert_eq!(
-            joint_unpenalized_dim(2, &[full, factor.clone()], &[1, 0]),
-            0
-        );
+        let mixed_penalties = [
+            active_penalty(full, 1, 1, 0, PenaltySource::Primary),
+            active_penalty(
+                factor.clone(),
+                2,
+                0,
+                1,
+                PenaltySource::TensorMarginal { dim: 0 },
+            ),
+        ];
+        assert_eq!(joint_unpenalized_dim(2, &mixed_penalties), 0);
         // With a single non-materialized penalty, fall back to its own null dim.
-        assert_eq!(
-            joint_unpenalized_dim(4, std::slice::from_ref(&factor), &[2]),
-            2
-        );
+        let factor_penalties = [active_penalty(
+            factor,
+            2,
+            2,
+            0,
+            PenaltySource::TensorMarginal { dim: 0 },
+        )];
+        assert_eq!(joint_unpenalized_dim(4, &factor_penalties), 2);
     }
 }
 
@@ -2357,6 +2433,13 @@ pub struct TermCollectionDesign {
     /// to the lazy block operator when sparse storage would just re-encode a
     /// dense matrix.
     pub design: DesignMatrix,
+    /// Known row-wise affine contribution to the linear predictor.
+    ///
+    /// The realized predictor is `affine_offset + design * beta`. This channel
+    /// is deliberately separate from `design`: folding it into an estimated
+    /// intercept would make inhomogeneous term constraints coefficient-
+    /// dependent and would corrupt all linear-operator/Hessian identities.
+    pub affine_offset: Array1<f64>,
     pub penalties: Vec<BlockwisePenalty>,
     pub nullspace_dims: Vec<usize>,
     pub penaltyinfo: Vec<PenaltyBlockInfo>,
@@ -2375,6 +2458,57 @@ pub struct TermCollectionDesign {
 }
 
 impl TermCollectionDesign {
+    /// Add this collection's fixed affine channel to a caller-owned likelihood
+    /// offset, validating the universal row/finite-value contract at the seam
+    /// where the two offset sources become one.
+    pub fn compose_offset(
+        &self,
+        base: ArrayView1<'_, f64>,
+        context: &str,
+    ) -> Result<Array1<f64>, BasisError> {
+        let n = self.design.nrows();
+        if self.affine_offset.len() != n || base.len() != n {
+            crate::bail_dim_basis!(
+                "{context}: design rows={n}, affine offset rows={}, base offset rows={}",
+                self.affine_offset.len(),
+                base.len()
+            );
+        }
+        if self.affine_offset.iter().any(|value| !value.is_finite())
+            || base.iter().any(|value| !value.is_finite())
+        {
+            crate::bail_invalid_basis!("{context}: offsets must be finite");
+        }
+        Ok(base.to_owned() + &self.affine_offset)
+    }
+
+    /// Evaluate `affine_offset + design * beta` with a checked coefficient
+    /// width. Prediction/reporting code should use this instead of applying the
+    /// linear operator alone whenever it has no separate user offset channel.
+    pub fn apply(&self, beta: ArrayView1<'_, f64>) -> Result<Array1<f64>, BasisError> {
+        if beta.len() != self.design.ncols() {
+            crate::bail_dim_basis!(
+                "term-collection predictor coefficient length {} does not match design width {}",
+                beta.len(),
+                self.design.ncols()
+            );
+        }
+        if beta.iter().any(|value| !value.is_finite()) {
+            crate::bail_invalid_basis!("term-collection predictor coefficients must be finite");
+        }
+        if self.affine_offset.len() != self.design.nrows() {
+            crate::bail_dim_basis!(
+                "term-collection affine offset has {} rows but design has {}",
+                self.affine_offset.len(),
+                self.design.nrows()
+            );
+        }
+        if self.affine_offset.iter().any(|value| !value.is_finite()) {
+            crate::bail_invalid_basis!("term-collection affine offset must be finite");
+        }
+        Ok(self.design.apply(&beta.to_owned()) + &self.affine_offset)
+    }
+
     /// Number of global penalty blocks that precede the smooth-term penalty
     /// blocks in the flat smoothing-parameter / EDF-trace layout.
     ///
@@ -2394,6 +2528,60 @@ impl TermCollectionDesign {
                 )
             })
             .count()
+    }
+
+    /// Global flat-penalty range owned by one realized smooth term.
+    ///
+    /// This is the only supported translation from a smooth-local penalty
+    /// index to the model-global smoothing-parameter layout. The prefix comes
+    /// from the metadata recorded alongside the matrices that were actually
+    /// emitted; it must not be reconstructed from term specs or coefficient
+    /// ranges, because unpenalized effects have columns but no penalty block.
+    pub fn smooth_term_penalty_range(
+        &self,
+        term_idx: usize,
+    ) -> Result<Option<Range<usize>>, String> {
+        let Some(term) = self.smooth.terms.get(term_idx) else {
+            return Ok(None);
+        };
+        if term.active_penalties.is_empty() {
+            return Ok(None);
+        }
+
+        let leading = self.leading_penalty_blocks_before_smooth();
+        let smooth_count = self
+            .smooth
+            .terms
+            .iter()
+            .map(|smooth| smooth.active_penalties.len())
+            .sum::<usize>();
+        let expected = leading
+            .checked_add(smooth_count)
+            .ok_or_else(|| "term-collection penalty count overflow".to_string())?;
+        if expected != self.penalties.len() || self.penaltyinfo.len() != self.penalties.len() {
+            return Err(format!(
+                "term-collection penalty layout is inconsistent: {leading} leading blocks + \
+                 {smooth_count} smooth blocks = {expected}, but there are {} penalties and {} \
+                 metadata records",
+                self.penalties.len(),
+                self.penaltyinfo.len()
+            ));
+        }
+
+        let local_offset = self
+            .smooth
+            .terms
+            .iter()
+            .take(term_idx)
+            .map(|smooth| smooth.active_penalties.len())
+            .sum::<usize>();
+        let start = leading
+            .checked_add(local_offset)
+            .ok_or_else(|| "smooth penalty offset overflow".to_string())?;
+        let end = start
+            .checked_add(term.active_penalties.len())
+            .ok_or_else(|| "smooth penalty range overflow".to_string())?;
+        Ok(Some(start..end))
     }
 
     /// Convert blockwise penalties to `PenaltyMatrix::Blockwise` without
@@ -2550,9 +2738,8 @@ pub struct SpatialLogKappaCoords {
 }
 
 /// Which end of the ψ bound the shared `aniso_bounds_from_data` helper is
-/// computing. The lower end uses `-max_length_scale.ln()` as the pure-Duchon
-/// fallback and the `.0` element of `spatial_term_psi_bounds`; the upper end
-/// uses `-min_length_scale.ln()` and `.1`. Everything else is identical.
+/// computing. The lower end consumes the `.0` element of
+/// `spatial_term_psi_bounds`; the upper end consumes `.1`.
 #[derive(Clone, Copy)]
 pub enum AnisoBoundEnd {
     Lower,
@@ -2575,7 +2762,7 @@ impl SpatialLogKappaCoords {
         }
     }
 
-    /// Isotropic initialization (backward-compatible path).
+    /// Isotropic initialization.
     pub fn from_length_scales(
         spec: &TermCollectionSpec,
         term_indices: &[usize],
@@ -2605,11 +2792,9 @@ impl SpatialLogKappaCoords {
 
     /// Anisotropic-aware initialization.
     ///
-    /// Initialization strategy (per math team recommendation): standardize the
-    /// knot cloud axiswise, then run the existing isotropic κ initializer in
-    /// the standardized space. This reuses the trusted isotropic initializer
-    /// and gives initial η_a = −ln(σ_a) + mean(ln(σ_a)), which satisfies
-    /// Ση_a = 0 by construction.
+    /// The input frame is uniformly standardized by `IsotropicScale`; it never
+    /// manufactures an axis preference. Genuine axis contrasts come only from
+    /// the term's explicit, centered `aniso_log_scales` state.
     ///
     /// For each term, checks whether it has `aniso_log_scales` set on its basis spec.
     /// - If isotropic (no aniso_log_scales, or 1-D): 1 entry = −ln(length_scale).
@@ -2618,8 +2803,6 @@ impl SpatialLogKappaCoords {
     ///   aniso_log_scales (which sum to zero). Multi-dimensional terms without
     ///   explicit anisotropy stay scalar here so the seed dimensionality matches
     ///   `spatial_dims_per_term`.
-    /// - If pure Duchon anisotropic: d - 1 free entries store the leading η_a
-    ///   values directly; the final axis is reconstructed to keep Ση_a = 0.
     pub fn from_length_scales_aniso(
         spec: &TermCollectionSpec,
         term_indices: &[usize],
@@ -2690,15 +2873,15 @@ impl SpatialLogKappaCoords {
         spec: &TermCollectionSpec,
         term_indices: &[usize],
         options: &SpatialLengthScaleOptimizationOptions,
-    ) -> Self {
+    ) -> Result<Self, BasisError> {
         let mut values = Array1::<f64>::zeros(term_indices.len());
         for (slot, &term_idx) in term_indices.iter().enumerate() {
-            values[slot] = spatial_term_psi_bounds(data, spec, term_idx, options).0;
+            values[slot] = spatial_term_psi_bounds(data, spec, term_idx, options)?.0;
         }
-        Self {
+        Ok(Self {
             values,
             dims_per_term: vec![1; term_indices.len()],
-        }
+        })
     }
 
     /// Isotropic upper bounds derived from per-term data geometry.
@@ -2707,15 +2890,15 @@ impl SpatialLogKappaCoords {
         spec: &TermCollectionSpec,
         term_indices: &[usize],
         options: &SpatialLengthScaleOptimizationOptions,
-    ) -> Self {
+    ) -> Result<Self, BasisError> {
         let mut values = Array1::<f64>::zeros(term_indices.len());
         for (slot, &term_idx) in term_indices.iter().enumerate() {
-            values[slot] = spatial_term_psi_bounds(data, spec, term_idx, options).1;
+            values[slot] = spatial_term_psi_bounds(data, spec, term_idx, options)?.1;
         }
-        Self {
+        Ok(Self {
             values,
             dims_per_term: vec![1; term_indices.len()],
-        }
+        })
     }
 
     /// Anisotropic-aware lower bounds derived from per-term data geometry.
@@ -2726,21 +2909,13 @@ impl SpatialLogKappaCoords {
     /// shrink anisotropy that is already consistent with the current
     /// `length_scale`.
     ///
-    /// Pure Duchon anisotropy is structurally different: its stored
-    /// coordinates are (d-1) free η_a values representing log axis-scale
-    /// ratios, NOT log-κ. For those terms the κ-range geometry bound is
-    /// over-restrictive (η_a = ±5 is normal, but that corresponds to 7+
-    /// orders of magnitude in κ-space and would be rejected by the data
-    /// window). Fall back to the options window `[-ln(max_ls), -ln(min_ls)]`
-    /// for those coordinates — that's the same bound the pre-data-geometry
-    /// code used, which is calibrated to allow legitimate anisotropy.
     pub fn lower_bounds_aniso_from_data(
         data: ArrayView2<'_, f64>,
         spec: &TermCollectionSpec,
         term_indices: &[usize],
         dims_per_term: &[usize],
         options: &SpatialLengthScaleOptimizationOptions,
-    ) -> Self {
+    ) -> Result<Self, BasisError> {
         Self::aniso_bounds_from_data(
             data,
             spec,
@@ -2760,7 +2935,7 @@ impl SpatialLogKappaCoords {
         term_indices: &[usize],
         dims_per_term: &[usize],
         options: &SpatialLengthScaleOptimizationOptions,
-    ) -> Self {
+    ) -> Result<Self, BasisError> {
         Self::aniso_bounds_from_data(
             data,
             spec,
@@ -2771,11 +2946,9 @@ impl SpatialLogKappaCoords {
         )
     }
 
-    /// Shared implementation for the lower/upper aniso bounds. The bound end
-    /// only changes which options scale (`max_length_scale` vs
-    /// `min_length_scale`) becomes the pure-Duchon fallback bound and which
-    /// element of the `(lo, hi)` data-geometry tuple is consumed; the
-    /// per-term cursor walk and aniso-offset handling are identical.
+    /// Shared implementation for the lower/upper anisotropic bounds. The bound
+    /// end selects one element of the typed `(lo, hi)` data-geometry result;
+    /// the per-term cursor walk and anisotropy-offset handling are identical.
     fn aniso_bounds_from_data(
         data: ArrayView2<'_, f64>,
         spec: &TermCollectionSpec,
@@ -2783,7 +2956,7 @@ impl SpatialLogKappaCoords {
         dims_per_term: &[usize],
         options: &SpatialLengthScaleOptimizationOptions,
         end: AnisoBoundEnd,
-    ) -> Self {
+    ) -> Result<Self, BasisError> {
         assert_eq!(term_indices.len(), dims_per_term.len());
         let total: usize = dims_per_term.iter().sum();
         let mut values = Array1::<f64>::zeros(total);
@@ -2816,7 +2989,7 @@ impl SpatialLogKappaCoords {
                 continue;
             }
             let psi_bound = {
-                let (lo, hi) = spatial_term_psi_bounds(data, spec, term_idx, options);
+                let (lo, hi) = spatial_term_psi_bounds(data, spec, term_idx, options)?;
                 match end {
                     AnisoBoundEnd::Lower => lo,
                     AnisoBoundEnd::Upper => hi,
@@ -2835,10 +3008,10 @@ impl SpatialLogKappaCoords {
             }
             cursor += d;
         }
-        Self {
+        Ok(Self {
             values,
             dims_per_term: dims_per_term.to_vec(),
-        }
+        })
     }
 
     /// Rewrite any ψ entries whose originating term lacks an explicit
@@ -2855,7 +3028,7 @@ impl SpatialLogKappaCoords {
         spec: &TermCollectionSpec,
         term_indices: &[usize],
         options: &SpatialLengthScaleOptimizationOptions,
-    ) -> Self {
+    ) -> Result<Self, BasisError> {
         assert_eq!(term_indices.len(), self.dims_per_term.len());
         let mut cursor = 0;
         for (slot, &term_idx) in term_indices.iter().enumerate() {
@@ -2873,7 +3046,7 @@ impl SpatialLogKappaCoords {
                 cursor += d;
                 continue;
             }
-            let Some(psi_bar_new) = spatial_term_psi_seed(data, spec, term_idx, options) else {
+            let Some(psi_bar_new) = spatial_term_psi_seed(data, spec, term_idx, options)? else {
                 cursor += d;
                 continue;
             };
@@ -2887,7 +3060,7 @@ impl SpatialLogKappaCoords {
             }
             cursor += d;
         }
-        self
+        Ok(self)
     }
 
     /// Project ψ values into `[lower, upper]` element-wise. Used after
@@ -3114,7 +3287,7 @@ pub fn set_spatial_length_scale(
             Ok(())
         }
         SmoothBasisSpec::Matern { spec, .. } => {
-            spec.length_scale = length_scale;
+            spec.length_scale.set_resolved(length_scale);
             Ok(())
         }
         SmoothBasisSpec::Duchon { spec, .. } => {
@@ -3133,7 +3306,7 @@ pub fn get_spatial_length_scale(spec: &TermCollectionSpec, term_idx: usize) -> O
         .get(term_idx)
         .and_then(|term| match &term.basis {
             SmoothBasisSpec::ThinPlate { spec, .. } => Some(spec.length_scale),
-            SmoothBasisSpec::Matern { spec, .. } => Some(spec.length_scale),
+            SmoothBasisSpec::Matern { spec, .. } => spec.length_scale.resolved(),
             SmoothBasisSpec::Duchon { spec, .. } => spec.length_scale,
             _ => None,
         })
@@ -3541,8 +3714,16 @@ pub fn set_single_term_constant_curvature_kappa(
 /// marginal-slope, where the joint-spatial outer solver otherwise spends
 /// ~80 iters stalled on the user's chosen ρ at high gradient).
 pub fn spatial_term_has_locked_kappa(spec: &TermCollectionSpec, term_idx: usize) -> bool {
-    get_spatial_length_scale(spec, term_idx).is_some()
-        && !spatial_term_uses_per_axis_psi(spec, term_idx)
+    let explicitly_fixed = spec
+        .smooth_terms
+        .get(term_idx)
+        .is_some_and(|term| match &term.basis {
+            SmoothBasisSpec::Matern { spec, .. } => spec.length_scale.is_fixed(),
+            SmoothBasisSpec::ThinPlate { .. } => true,
+            SmoothBasisSpec::Duchon { spec, .. } => spec.length_scale.is_some(),
+            _ => false,
+        });
+    explicitly_fixed && !spatial_term_uses_per_axis_psi(spec, term_idx)
 }
 
 pub fn all_spatial_terms_kappa_fixed(spec: &TermCollectionSpec) -> bool {
@@ -3596,59 +3777,62 @@ pub const KERNEL_RANGE_MIN_DIAMETER_FRACTION: f64 = 2.0;
 /// capped here to keep the basis geometry well-conditioned.
 pub const KERNEL_RANGE_MAX_SPACING_MULTIPLE: f64 = 1e2;
 
-fn spatial_term_stored_input_scales(term: &SmoothTermSpec) -> Option<Vec<f64>> {
+fn spatial_term_stored_input_scale(term: &SmoothTermSpec) -> Option<crate::IsotropicScale> {
     match &term.basis {
-        SmoothBasisSpec::ThinPlate { input_scales, .. }
-        | SmoothBasisSpec::Matern { input_scales, .. }
-        | SmoothBasisSpec::Duchon { input_scales, .. } => input_scales.clone(),
+        SmoothBasisSpec::ThinPlate { input_scale, .. }
+        | SmoothBasisSpec::Matern { input_scale, .. }
+        | SmoothBasisSpec::Duchon { input_scale, .. } => *input_scale,
         _ => None,
     }
 }
 
-fn spatial_term_realized_input_scales(
+fn spatial_term_realized_input_scale(
     data: ArrayView2<'_, f64>,
     term: &SmoothTermSpec,
-) -> Option<Vec<f64>> {
+) -> Result<crate::IsotropicScale, BasisError> {
     let (feature_cols, stored) = match &term.basis {
         SmoothBasisSpec::ThinPlate {
             feature_cols,
-            input_scales,
+            input_scale,
             ..
         }
         | SmoothBasisSpec::Matern {
             feature_cols,
-            input_scales,
+            input_scale,
             ..
         }
         | SmoothBasisSpec::Duchon {
             feature_cols,
-            input_scales,
+            input_scale,
             ..
-        } => (feature_cols, input_scales),
-        _ => return None,
+        } => (feature_cols, input_scale),
+        _ => {
+            return Err(BasisError::InvalidInput(format!(
+                "term '{}' does not have an isotropic Euclidean input frame",
+                term.name
+            )));
+        }
     };
-    if let Some(scales) = stored {
-        return Some(scales.clone());
+    if let Some(scale) = stored {
+        return Ok(*scale);
     }
-    let x = select_columns(data, feature_cols).ok()?;
-    compute_spatial_input_scales(x.view())
+    let x = select_columns(data, feature_cols)?;
+    estimate_isotropic_scale(x.view())
 }
 
 /// Returns ψ-space bounds (ψ_lo = ln(κ_lo), ψ_hi = ln(κ_hi)).
 ///
-/// When geometry is unavailable (e.g., fewer than 2 distinct points), falls
-/// back to the scalar `options.min_length_scale` / `options.max_length_scale`
-/// window so the outer optimizer never sees NaN bounds.
-///
 /// The returned window is intersected with the options window so user-set
-/// `min_length_scale` / `max_length_scale` remain hard limits.
+/// `min_length_scale` / `max_length_scale` remain hard limits. Degenerate
+/// geometry or an empty intersection is a typed error: changing to a generic
+/// options window would silently optimize in a different coordinate chart.
 pub fn spatial_term_psi_bounds(
     data: ArrayView2<'_, f64>,
     spec: &TermCollectionSpec,
     term_idx: usize,
     options: &SpatialLengthScaleOptimizationOptions,
-) -> (f64, f64) {
-    let fallback = (
+) -> Result<(f64, f64), BasisError> {
+    let options_window = (
         -options.max_length_scale.ln(),
         -options.min_length_scale.ln(),
     );
@@ -3657,11 +3841,14 @@ pub fn spatial_term_psi_bounds(
     // path's `constant_curvature_kappa_bounds` branch so the isotropic
     // (non-aniso) seed clamp projects κ into the right interval.
     if constant_curvature_term_spec(spec, term_idx).is_some() {
-        return constant_curvature_kappa_bounds(data, spec, term_idx);
+        return Ok(constant_curvature_kappa_bounds(data, spec, term_idx));
     }
-    let Some(term) = spec.smooth_terms.get(term_idx) else {
-        return fallback;
-    };
+    let term = spec.smooth_terms.get(term_idx).ok_or_else(|| {
+        BasisError::InvalidInput(format!(
+            "spatial term index {term_idx} is out of bounds for {} smooth terms",
+            spec.smooth_terms.len()
+        ))
+    })?;
     // Prefer resolved centers (post-fit) since they live in the same standardized
     // space the kernel actually sees. Centers are capped at `default_num_centers`
     // (<=2000), so exact pairwise bounds are cheap (<4M ops). If centers are
@@ -3675,39 +3862,40 @@ pub fn spatial_term_psi_bounds(
     // spec already carries calibrated η_a at setup time (e.g., warm-start
     // or refit paths); for fresh optimization η_a starts at 0 and y = x.
     let aniso = get_spatial_aniso_log_scales(spec, term_idx);
-    let (r_bounds, input_scales) = match spatial_term_center_strategy(term) {
+    let stored_input_scale = spatial_term_stored_input_scale(term);
+    let input_scale = spatial_term_realized_input_scale(data, term)?;
+    let r_bounds = match spatial_term_center_strategy(term) {
         Some(CenterStrategy::UserProvided(centers)) if centers.nrows() >= 2 => {
+            let mut centers_in_frame = centers.clone();
+            if stored_input_scale.is_none() {
+                input_scale.standardize(&mut centers_in_frame);
+            }
             let bounds = match aniso.as_deref() {
-                Some(eta) if eta.len() == centers.ncols() => {
-                    let y = points_in_aniso_y_space(centers.view(), eta);
+                Some(eta) if eta.len() == centers_in_frame.ncols() => {
+                    let y = points_in_aniso_y_space(centers_in_frame.view(), eta);
                     pairwise_distance_bounds(y.view())
                 }
-                _ => pairwise_distance_bounds(centers.view()),
+                _ => pairwise_distance_bounds(centers_in_frame.view()),
             };
-            // Frozen centers live in the standardized kernel frame. The
-            // persisted input scales are therefore part of the coordinate map
-            // back to the original-unit length-scale chart. An unresolved
-            // user-provided center set has no stored scales and is already in
-            // the spec's original-coordinate chart.
-            (bounds, spatial_term_stored_input_scales(term))
+            bounds
         }
         _ => {
-            let input_scales = spatial_term_realized_input_scales(data, term);
-            let bounds = standardized_spatial_term_data(data, term)
-                .ok()
-                .and_then(|x| match aniso.as_deref() {
-                    Some(eta) if eta.len() == x.ncols() => {
-                        let y = points_in_aniso_y_space(x.view(), eta);
-                        pairwise_distance_bounds_sampled(y.view())
-                    }
-                    _ => pairwise_distance_bounds_sampled(x.view()),
-                });
-            (bounds, input_scales)
+            let x = standardized_spatial_term_data(data, term)?;
+            match aniso.as_deref() {
+                Some(eta) if eta.len() == x.ncols() => {
+                    let y = points_in_aniso_y_space(x.view(), eta);
+                    pairwise_distance_bounds_sampled(y.view())
+                }
+                _ => pairwise_distance_bounds_sampled(x.view()),
+            }
         }
     };
-    let Some((r_min, r_max)) = r_bounds else {
-        return fallback;
-    };
+    let (r_min, r_max) = r_bounds.ok_or_else(|| {
+        BasisError::InvalidInput(format!(
+            "term '{}' has no positive finite pairwise-distance range",
+            term.name
+        ))
+    })?;
     // Length scales substantially larger than the data diameter make radial
     // TPS/Matern columns nearly collinear with their polynomial nullspace.
     // The nullspace already carries constant/linear low-frequency structure,
@@ -3724,15 +3912,10 @@ pub fn spatial_term_psi_bounds(
     // original-coordinate user options. Previously these standardized κ bounds
     // were written directly into the spec; the basis builder then divided ℓ by
     // σ_geom again, making the realized endpoint too long by 1/σ_geom.
-    let inverse_sigma_geom = input_scales
-        .as_deref()
-        .map(|scales| compensate_length_scale_for_standardization(1.0, scales))
-        .unwrap_or(1.0);
-    let psi_chart_offset = inverse_sigma_geom.ln();
-    let psi_lo_data =
-        (KERNEL_RANGE_MIN_DIAMETER_FRACTION / r_max).ln() + psi_chart_offset;
-    let psi_hi_data =
-        (KERNEL_RANGE_MAX_SPACING_MULTIPLE / r_min).ln() + psi_chart_offset;
+    let inverse_sigma = input_scale.reciprocal();
+    let psi_chart_offset = inverse_sigma.ln();
+    let psi_lo_data = (KERNEL_RANGE_MIN_DIAMETER_FRACTION / r_max).ln() + psi_chart_offset;
+    let psi_hi_data = (KERNEL_RANGE_MAX_SPACING_MULTIPLE / r_min).ln() + psi_chart_offset;
     // #1074: the Matérn-specific length-scale ceiling that used to live here was
     // deleted. It was masking, not fixing, the real defect: a hard upper bound on
     // the kernel range that pinned the κ-optimizer short rather than letting the
@@ -3742,14 +3925,15 @@ pub fn spatial_term_psi_bounds(
     // collapse corner is guarded by the EDF-collapse guard in
     // `spatial_optimization.rs`, which acts on the realized fit, not on a clamp.
     // Intersect with the options window so min/max_length_scale remain hard caps.
-    let psi_lo = psi_lo_data.max(fallback.0);
-    let psi_hi = psi_hi_data.min(fallback.1);
+    let psi_lo = psi_lo_data.max(options_window.0);
+    let psi_hi = psi_hi_data.min(options_window.1);
     if psi_lo >= psi_hi {
-        // Degenerate intersection — fall back to the options window to keep the
-        // outer optimizer from collapsing to a point.
-        return fallback;
+        return Err(BasisError::InvalidInput(format!(
+            "term '{}' has an empty spatial ψ window after intersecting data bounds [{psi_lo_data}, {psi_hi_data}] with configured bounds [{}, {}]",
+            term.name, options_window.0, options_window.1
+        )));
     }
-    (psi_lo, psi_hi)
+    Ok((psi_lo, psi_hi))
 }
 
 #[cfg(test)]
@@ -3775,9 +3959,9 @@ mod spatial_psi_bound_coordinate_tests {
             data[[row, 0]] = dilation * (cos_theta * x - sin_theta * y);
             data[[row, 1]] = dilation * (sin_theta * x + cos_theta * y);
         }
-        let input_scales = compute_spatial_input_scales(data.view()).expect("input scales");
+        let input_scale = estimate_isotropic_scale(data.view()).expect("isotropic input scale");
         let mut centers = data.clone();
-        apply_input_standardization(&mut centers, &input_scales);
+        input_scale.standardize(&mut centers);
         let spec = TermCollectionSpec {
             linear_terms: Vec::new(),
             random_effect_terms: Vec::new(),
@@ -3788,15 +3972,14 @@ mod spatial_psi_bound_coordinate_tests {
                     spec: MaternBasisSpec {
                         periodic: None,
                         center_strategy: CenterStrategy::UserProvided(centers),
-                        length_scale: 1.0,
+                        length_scale: crate::basis::MaternLengthScale::fixed(1.0),
                         nu: MaternNu::FiveHalves,
                         include_intercept: false,
                         double_penalty: true,
                         identifiability: MaternIdentifiability::CenterSumToZero,
                         aniso_log_scales: None,
-                        nullspace_shrinkage_survived: None,
                     },
-                    input_scales: Some(input_scales),
+                    input_scale: Some(input_scale),
                 },
                 shape: ShapeConstraint::None,
                 joint_null_rotation: None,
@@ -3808,6 +3991,7 @@ mod spatial_psi_bound_coordinate_tests {
             0,
             &SpatialLengthScaleOptimizationOptions::default(),
         )
+        .expect("finite spatial ψ bounds")
     }
 
     fn assert_close(left: f64, right: f64) {
@@ -3840,12 +4024,12 @@ pub fn spatial_term_psi_seed(
     spec: &TermCollectionSpec,
     term_idx: usize,
     options: &SpatialLengthScaleOptimizationOptions,
-) -> Option<f64> {
+) -> Result<Option<f64>, BasisError> {
     if get_spatial_length_scale(spec, term_idx).is_some() {
-        return None; // user/spec-provided length_scale wins
+        return Ok(None); // user/spec-provided length_scale wins
     }
-    let (psi_lo, psi_hi) = spatial_term_psi_bounds(data, spec, term_idx, options);
-    Some(0.5 * (psi_lo + psi_hi))
+    let (psi_lo, psi_hi) = spatial_term_psi_bounds(data, spec, term_idx, options)?;
+    Ok(Some(0.5 * (psi_lo + psi_hi)))
 }
 
 pub fn spatial_term_psi_to_length_scale_and_aniso(psi: &[f64]) -> (Option<f64>, Option<Vec<f64>>) {
@@ -4012,7 +4196,7 @@ pub fn log_spatial_aniso_scales(spec: &TermCollectionSpec) {
     for (term_idx, term) in spec.smooth_terms.iter().enumerate() {
         let (aniso, length_scale) = match &term.basis {
             SmoothBasisSpec::Matern { spec, .. } => {
-                (spec.aniso_log_scales.as_ref(), Some(spec.length_scale))
+                (spec.aniso_log_scales.as_ref(), spec.length_scale.resolved())
             }
             SmoothBasisSpec::Duchon { spec, .. } => {
                 (spec.aniso_log_scales.as_ref(), spec.length_scale)
@@ -4424,7 +4608,7 @@ pub struct JointSpatialCenterGroupKey {
     strategy_kind: CenterStrategyKind,
     strategy_aux: usize,
     requested_num_centers: usize,
-    input_scale_bits: Option<Vec<u64>>,
+    input_scale_bits: Option<u64>,
 }
 
 pub fn spatial_term_min_center_count(term: &SmoothTermSpec) -> usize {
@@ -4445,22 +4629,22 @@ pub fn spatial_term_min_center_count(term: &SmoothTermSpec) -> usize {
 }
 
 pub fn spatial_term_group_key(term: &SmoothTermSpec) -> Option<JointSpatialCenterGroupKey> {
-    let (feature_cols, strategy, input_scales) = match &term.basis {
+    let (feature_cols, strategy, input_scale) = match &term.basis {
         SmoothBasisSpec::ThinPlate {
             feature_cols,
             spec,
-            input_scales,
-        } => (feature_cols, &spec.center_strategy, input_scales.as_ref()),
+            input_scale,
+        } => (feature_cols, &spec.center_strategy, *input_scale),
         SmoothBasisSpec::Matern {
             feature_cols,
             spec,
-            input_scales,
-        } => (feature_cols, &spec.center_strategy, input_scales.as_ref()),
+            input_scale,
+        } => (feature_cols, &spec.center_strategy, *input_scale),
         SmoothBasisSpec::Duchon {
             feature_cols,
             spec,
-            input_scales,
-        } => (feature_cols, &spec.center_strategy, input_scales.as_ref()),
+            input_scale,
+        } => (feature_cols, &spec.center_strategy, *input_scale),
         _ => return None,
     };
     let strategy_kind = center_strategy_kind(strategy);
@@ -4479,8 +4663,7 @@ pub fn spatial_term_group_key(term: &SmoothTermSpec) -> Option<JointSpatialCente
         strategy_kind,
         strategy_aux,
         requested_num_centers: strategy.planned_num_centers(feature_cols.len()),
-        input_scale_bits: input_scales
-            .map(|values| values.iter().map(|value| value.to_bits()).collect()),
+        input_scale_bits: input_scale.map(crate::IsotropicScale::to_bits),
     })
 }
 
@@ -4521,32 +4704,30 @@ pub fn standardized_spatial_term_data(
     data: ArrayView2<'_, f64>,
     term: &SmoothTermSpec,
 ) -> Result<Array2<f64>, BasisError> {
-    let (feature_cols, input_scales) = match &term.basis {
+    let (feature_cols, input_scale) = match &term.basis {
         SmoothBasisSpec::ThinPlate {
             feature_cols,
-            input_scales,
+            input_scale,
             ..
         }
         | SmoothBasisSpec::Matern {
             feature_cols,
-            input_scales,
+            input_scale,
             ..
         }
         | SmoothBasisSpec::Duchon {
             feature_cols,
-            input_scales,
+            input_scale,
             ..
-        } => (feature_cols, input_scales.as_ref()),
+        } => (feature_cols, *input_scale),
         _ => {
             crate::bail_invalid_basis!("term '{}' is not a spatial smooth", term.name);
         }
     };
     let mut x = select_columns(data, feature_cols)?;
-    if let Some(scales) = input_scales {
-        apply_input_standardization(&mut x, scales);
-    } else if let Some(scales) = compute_spatial_input_scales(x.view()) {
-        apply_input_standardization(&mut x, &scales);
-    }
+    input_scale
+        .map_or_else(|| estimate_isotropic_scale(x.view()), Ok)?
+        .standardize(&mut x);
     Ok(x)
 }
 
@@ -4631,12 +4812,10 @@ pub fn plan_joint_spatial_centers_for_term_blocks(
         }
     }
 
-    // Sentinel auto-init: Matern and thin-plate builders write length_scale =
-    // 0.0 when the user didn't pass `length_scale=...`. Replace those with a
-    // data-driven initialization here so REML starts in a regime where it can
-    // escape; the hard-coded 1.0 default was a basin from which ν ≥ 5/2 Matern
-    // could not recover on high-frequency truths, silently collapsing the fit
-    // to a near-constant prediction.
+    // Resolve typed Matérn Auto scales and the legacy thin-plate numeric
+    // auto marker to a data-driven initialization here so REML starts in a
+    // regime where it can escape. Matérn retains Auto provenance after this
+    // numeric seed is installed, so it cannot later masquerade as user-fixed.
     for block in planned_blocks.iter_mut() {
         for term in block.iter_mut() {
             auto_init_length_scale_in_place(data, term);
@@ -4861,11 +5040,7 @@ pub fn matern_low_rank_center_resolution_length_scale(
     }
     let extent = feature_columns_rotation_invariant_range(data, feature_cols)?;
     let length_scale = extent / (num_centers as f64).sqrt();
-    Some(
-        length_scale
-            .max(AUTO_LENGTH_SCALE_FLOOR)
-            .min(extent),
-    )
+    Some(length_scale.max(AUTO_LENGTH_SCALE_FLOOR).min(extent))
 }
 
 /// Low-rank radial-basis length-scale seed tied to the requested center spacing.
@@ -4907,31 +5082,30 @@ fn center_strategy_requested_count(strategy: &CenterStrategy) -> Option<usize> {
     }
 }
 
-/// Walk a term and, if it is a Matern or thin-plate smooth whose length_scale
-/// was left at the auto sentinel (`0.0`), overwrite it with
-/// [`auto_initial_length_scale`].
+/// Walk a term and resolve an omitted Matérn length scale, or a thin-plate
+/// smooth still carrying its numeric auto marker, with
+/// [`auto_initial_length_scale`]. Matérn's typed Auto provenance survives.
 pub fn auto_init_length_scale_in_place(data: ArrayView2<'_, f64>, term: &mut SmoothTermSpec) {
     auto_init_length_scale_in_basis(data, &mut term.basis);
 }
 
-/// Replace the `0.0` auto-init length-scale sentinel with a data-derived value
-/// for any Matern / thin-plate kernel reachable from this basis — including the
+/// Resolve the typed Matérn Auto length scale (and thin-plate's numeric auto
+/// marker) with a data-derived value for any reachable kernel — including the
 /// inner kernel of a `by=`/factor-smooth wrapper.
 ///
 /// `by=<factor>` and the sum-to-zero factor smooth wrap a spatial kernel inside
 /// `SmoothBasisSpec::ByVariable` / `SmoothBasisSpec::FactorSumToZero` /
 /// `SmoothBasisSpec::BySmooth`, so the wrapper variant is what the planner sees.
-/// Without recursing into the wrapped basis the inner ThinPlate/Matern keeps the
-/// `0.0` sentinel (the post-`1605b3a6e` builder default), which makes the kernel
-/// distance divide by `length_scale² = 0`, producing a non-finite design at both
-/// fit and predict time. Recurse so the inner kernel is initialized identically
+/// Without recursing into the wrapped basis the inner Matérn remains unresolved
+/// (and ThinPlate keeps its numeric marker), so no valid kernel scale exists at
+/// fit or predict time. Recurse so the inner kernel is initialized identically
 /// to a top-level one.
 pub fn auto_init_length_scale_in_basis(data: ArrayView2<'_, f64>, basis: &mut SmoothBasisSpec) {
     match basis {
         SmoothBasisSpec::Matern {
             feature_cols, spec, ..
         } => {
-            if spec.length_scale == 0.0 {
+            if spec.length_scale.resolved().is_none() {
                 // Density-adaptive seed (#1731): when the requested center count
                 // is known, scale the auto length scale with the *center*
                 // spacing so a richer `k` stays numerically full-rank instead of
@@ -4940,10 +5114,11 @@ pub fn auto_init_length_scale_in_basis(data: ArrayView2<'_, f64>, basis: &mut Sm
                 // sqrt(n)` seed in 2-D, so small-`k` results are unchanged. The
                 // unconstrained / non-explicit `UniformGrid` strategy falls back
                 // to the plain seed.
-                spec.length_scale = match center_strategy_requested_count(&spec.center_strategy) {
+                let resolved = match center_strategy_requested_count(&spec.center_strategy) {
                     Some(k) => auto_initial_length_scale_for_centers(data, feature_cols, k),
                     None => auto_initial_length_scale(data, feature_cols),
                 };
+                spec.length_scale.resolve_auto_once(resolved);
             }
         }
         SmoothBasisSpec::ThinPlate {
@@ -5188,14 +5363,14 @@ pub fn freeze_raw_spatial_metadata(metadata: BasisMetadata, raw_cols: usize) -> 
             length_scale,
             periodic,
             identifiability_transform: None,
-            input_scales,
+            input_scale,
             radial_reparam,
         } => BasisMetadata::ThinPlate {
             centers,
             length_scale,
             periodic,
             identifiability_transform: Some(Array2::eye(raw_cols)),
-            input_scales,
+            input_scale,
             radial_reparam,
         },
         BasisMetadata::Duchon {
@@ -5205,7 +5380,7 @@ pub fn freeze_raw_spatial_metadata(metadata: BasisMetadata, raw_cols: usize) -> 
             power,
             nullspace_order,
             identifiability_transform: None,
-            input_scales,
+            input_scale,
             aniso_log_scales,
             operator_collocation_points,
             radial_reparam,
@@ -5216,7 +5391,7 @@ pub fn freeze_raw_spatial_metadata(metadata: BasisMetadata, raw_cols: usize) -> 
             power,
             nullspace_order,
             identifiability_transform: Some(Array2::eye(raw_cols)),
-            input_scales,
+            input_scale,
             aniso_log_scales,
             operator_collocation_points,
             radial_reparam,
@@ -5227,7 +5402,7 @@ pub fn freeze_raw_spatial_metadata(metadata: BasisMetadata, raw_cols: usize) -> 
 
 pub fn matern_operator_penalty_triplet_from_metadata(
     metadata: &BasisMetadata,
-) -> Result<(Vec<Array2<f64>>, Vec<usize>, Vec<PenaltyInfo>), BasisError> {
+) -> Result<crate::basis::FilteredPenalties, BasisError> {
     let BasisMetadata::Matern {
         centers,
         length_scale,
@@ -5236,7 +5411,7 @@ pub fn matern_operator_penalty_triplet_from_metadata(
         include_intercept,
         identifiability_transform,
         aniso_log_scales,
-        input_scales,
+        input_scale,
         ..
     } = metadata
     else {
@@ -5244,19 +5419,16 @@ pub fn matern_operator_penalty_triplet_from_metadata(
     };
     // The metadata records `length_scale` in *original* (un-standardized) data
     // coordinates, while `centers` live in the *standardized* coordinate frame
-    // (per-axis division by `input_scales`). The realized design built the
-    // kernel against those standardized centers using the σ_geom-compensated
-    // effective length scale `length_scale / σ_geom`. The collocation operators
+    // (uniform division by `input_scale`). The realized design built the
+    // kernel against those standardized centers using the compensated
+    // effective length scale `length_scale / input_scale`. The collocation operators
     // here are evaluated on the same standardized centers, so they must use the
     // SAME effective length scale — otherwise the penalty regularizes a
     // different RKHS range than the design lives in, leaving rough coefficient
     // directions effectively unpenalized. That mismatch is benign in 1-D
     // (no standardization) but produces a catastrophic out-of-sample blow-up in
-    // d ≥ 2 where σ_geom ≠ 1 (#706).
-    let penalty_length_scale = match input_scales.as_deref() {
-        Some(scales) => compensate_length_scale_for_standardization(*length_scale, scales),
-        None => *length_scale,
-    };
+    // every dimension where the input scale differs from one (#706).
+    let penalty_length_scale = input_scale.to_standardized_units(*length_scale);
     matern_operator_penalty_triplet_at_length_scale(
         centers.view(),
         periodic.as_deref(),
@@ -5270,7 +5442,7 @@ pub fn matern_operator_penalty_triplet_from_metadata(
 
 /// Build the canonical Matérn operator-penalty triplet (mass / tension /
 /// stiffness) at an explicit **effective** length scale — i.e. the
-/// σ_geom-compensated, standardized-frame scale the design's kernel was built
+/// isotropic-scale-compensated, standardized-frame scale the design's kernel was built
 /// against (NOT the original-coordinate `length_scale` stored in metadata).
 ///
 /// This is the SINGLE source of truth for the Matérn penalty topology. Two
@@ -5293,7 +5465,7 @@ pub fn matern_operator_penalty_triplet_at_length_scale(
     include_intercept: bool,
     aniso_log_scales: Option<&[f64]>,
     effective_length_scale: f64,
-) -> Result<(Vec<Array2<f64>>, Vec<usize>, Vec<PenaltyInfo>), BasisError> {
+) -> Result<crate::basis::FilteredPenalties, BasisError> {
     let penalty_centers = crate::basis::expand_periodic_centers(&centers.to_owned(), periodic)?;
     let ops = build_matern_collocation_operator_matrices(
         penalty_centers.view(),
@@ -5330,15 +5502,17 @@ pub fn matern_operator_penalty_triplet_at_length_scale(
         let sym = (&raw + &raw.t()) * 0.5;
         let (matrix, normalization_scale) = normalize_penalty_in_constrained_space(&sym);
         candidates.push(PenaltyCandidate {
-            matrix,
-            nullspace_dim_hint: 0,
+            matrix: ConstructiveQuadratic::try_from_dense_psd(
+                matrix,
+                "Matérn operator penalty",
+            )?,
             source,
             normalization_scale,
             kronecker_factors: None,
             op: None,
         });
     }
-    filter_active_penalty_candidates(candidates)
+    filter_penalty_candidates(candidates)
 }
 
 pub fn normalize_penalty_in_constrained_space(matrix: &Array2<f64>) -> (Array2<f64>, f64) {
@@ -5541,6 +5715,19 @@ pub fn build_tensor_bspline_basis(
             spec.marginalspecs.len()
         );
     }
+    if let Some((margin, _)) = spec
+        .marginalspecs
+        .iter()
+        .enumerate()
+        .find(|(_, marginal)| marginal.boundary_conditions.has_nonzero_anchor())
+    {
+        crate::bail_invalid_basis!(
+            "TensorBSpline margin {margin} has a non-zero endpoint anchor. An inhomogeneous \
+             marginal constraint cannot be represented by the tensor's homogeneous coefficient \
+             chart plus one scalar row offset; use a separate anchored 1-D smooth or an explicit \
+             model offset"
+        );
+    }
     if !spec.periods.is_empty() && spec.periods.len() != feature_cols.len() {
         crate::bail_dim_basis!(
             "TensorBSpline periods length {} does not match feature count {}",
@@ -5682,16 +5869,17 @@ pub fn build_tensor_bspline_basis(
         marginal_designs.push(dense_marginal);
         marginal_penalties.push(
             built
-                .penalties
+                .active_penalties
                 .first()
                 .ok_or_else(|| {
                     BasisError::InvalidInput(format!(
                         "internal TensorBSpline error at dim {dim}: missing marginal penalty"
                     ))
                 })?
+                .matrix
                 .clone(),
         );
-        built.nullspace_dims.first().ok_or_else(|| {
+        built.active_penalties.first().ok_or_else(|| {
             BasisError::InvalidInput(format!(
                 "internal TensorBSpline error at dim {dim}: missing marginal nullspace dim"
             ))
@@ -5798,8 +5986,10 @@ pub fn build_tensor_bspline_basis(
                     kronecker_marginal_penalties.push(normalized_marginal_penalties[dim].0.clone());
                 }
                 candidates.push(PenaltyCandidate {
-                    matrix: s_dim,
-                    nullspace_dim_hint: 0,
+                    matrix: ConstructiveQuadratic::try_from_dense_psd(
+                        s_dim,
+                        "tensor marginal penalty",
+                    )?,
                     source: PenaltySource::TensorMarginal { dim },
                     normalization_scale: normalized_marginal_penalties[dim].1,
                     kronecker_factors: Some(factors),
@@ -5814,8 +6004,10 @@ pub fn build_tensor_bspline_basis(
             {
                 let (matrix, normalization_scale) = normalize_penalty_in_constrained_space(&shrink);
                 candidates.push(PenaltyCandidate {
-                    matrix,
-                    nullspace_dim_hint: 0,
+                    matrix: ConstructiveQuadratic::try_from_dense_psd(
+                        matrix,
+                        "tensor global null-function ridge",
+                    )?,
                     source: PenaltySource::TensorGlobalRidge,
                     normalization_scale,
                     kronecker_factors: None,
@@ -5849,8 +6041,10 @@ pub fn build_tensor_bspline_basis(
                 }
                 let (matrix, normalization_scale) = normalize_penalty_in_constrained_space(&matrix);
                 candidates.push(PenaltyCandidate {
-                    matrix,
-                    nullspace_dim_hint: 0,
+                    matrix: ConstructiveQuadratic::try_from_dense_psd(
+                        matrix,
+                        "tensor separable penalty",
+                    )?,
                     source: PenaltySource::TensorSeparable { penalized_margins },
                     normalization_scale,
                     kronecker_factors: Some(factors),
@@ -5865,8 +6059,10 @@ pub fn build_tensor_bspline_basis(
             {
                 let (matrix, normalization_scale) = normalize_penalty_in_constrained_space(&matrix);
                 candidates.push(PenaltyCandidate {
-                    matrix,
-                    nullspace_dim_hint: 0,
+                    matrix: ConstructiveQuadratic::try_from_dense_psd(
+                        matrix,
+                        "separable tensor global null-function ridge",
+                    )?,
                     source: PenaltySource::TensorGlobalRidge,
                     normalization_scale,
                     kronecker_factors: None,
@@ -5948,7 +6144,9 @@ pub fn build_tensor_bspline_basis(
         candidates = candidates
             .into_iter()
             .map(|candidate| -> Result<PenaltyCandidate, BasisError> {
-                let matrix = gauge.restrict_penalty(&candidate.matrix);
+                let restricted = candidate
+                    .matrix
+                    .restricted(&gauge, "tensor identifiability restriction")?;
                 // Re-normalize in the *actual* coefficient chart used by the
                 // fit.  The tensor sum-to-zero transform is not norm-preserving
                 // for each overlapping marginal penalty, so carrying the raw
@@ -5956,9 +6154,12 @@ pub fn build_tensor_bspline_basis(
                 // relative amount of smoothing seen by the LAML/REML optimizer.
                 // Keep the physical scale in metadata and give the optimizer
                 // unit-scale constrained penalties for every tensor margin.
-                let (matrix, c_new) = normalize_penalty_in_constrained_space(&matrix);
+                let (_, c_new) = normalize_penalty_in_constrained_space(restricted.dense());
+                let matrix = restricted.scaled(
+                    1.0 / c_new,
+                    "normalized tensor penalty after identifiability",
+                )?;
                 Ok(PenaltyCandidate {
-                    nullspace_dim_hint: candidate.nullspace_dim_hint,
                     matrix,
                     source: candidate.source,
                     normalization_scale: candidate.normalization_scale * c_new,
@@ -5986,32 +6187,45 @@ pub fn build_tensor_bspline_basis(
                 })?
                 .matrix
                 .nrows();
-            let mut joint_primary = Array2::<f64>::zeros((width, width));
-            for candidate in &candidates {
-                if !matches!(candidate.source, PenaltySource::TensorGlobalRidge) {
-                    joint_primary += &candidate
-                        .matrix
-                        .mapv(|value| value * candidate.normalization_scale);
-                }
-            }
+            let physical_primary_terms = candidates
+                .iter()
+                .filter(|candidate| {
+                    !matches!(candidate.source, PenaltySource::TensorGlobalRidge)
+                })
+                .map(|candidate| {
+                    candidate.matrix.scaled(
+                        candidate.normalization_scale,
+                        "physical tensor primary penalty",
+                    )
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            let joint_primary = ConstructiveQuadratic::sum(
+                &physical_primary_terms,
+                "joint tensor primary penalty",
+            )?;
             for candidate in &mut candidates {
                 if !matches!(candidate.source, PenaltySource::TensorGlobalRidge) {
                     continue;
                 }
-                let physical_ridge = candidate
-                    .matrix
-                    .mapv(|value| value * candidate.normalization_scale);
+                let physical_ridge = candidate.matrix.scaled(
+                    candidate.normalization_scale,
+                    "physical tensor null ridge",
+                )?;
                 match crate::basis::rebuild_metric_consistent_ridge(
                     &joint_primary,
                     &physical_ridge,
                 )? {
                     Some(rebuilt) => {
-                        let (matrix, scale) = normalize_penalty_in_constrained_space(&rebuilt);
-                        candidate.matrix = matrix;
+                        let (_, scale) =
+                            normalize_penalty_in_constrained_space(rebuilt.dense());
+                        candidate.matrix = rebuilt.scaled(
+                            1.0 / scale,
+                            "normalized rebuilt tensor null ridge",
+                        )?;
                         candidate.normalization_scale = scale;
                     }
                     None => {
-                        candidate.matrix = Array2::<f64>::zeros((width, width));
+                        candidate.matrix = ConstructiveQuadratic::zero(width);
                         candidate.normalization_scale = 1.0;
                     }
                 }
@@ -6021,8 +6235,7 @@ pub fn build_tensor_bspline_basis(
         }
     }
 
-    let (penalties, nullspace_dims, penaltyinfo, null_eigenvectors, ops) =
-        filter_active_penalty_candidates_with_ops(candidates)?;
+    let filtered = filter_penalty_candidates(candidates)?;
     let identifiability_is_none =
         matches!(spec.identifiability, TensorBSplineIdentifiability::None);
     // All marginals expose a sparse representation iff each `marginal_sparse`
@@ -6060,11 +6273,9 @@ pub fn build_tensor_bspline_basis(
 
     Ok(BasisBuildResult {
         design,
-        penalties,
-        nullspace_dims,
-        penaltyinfo,
-        ops,
-        null_eigenvectors,
+        affine_offset: None,
+        active_penalties: filtered.active,
+        dropped_penalties: filtered.dropped,
         joint_null_rotation: None,
         metadata: BasisMetadata::TensorBSpline {
             feature_cols: feature_cols.to_vec(),
@@ -6107,7 +6318,9 @@ pub fn build_tensor_bspline_basis(
 #[cfg(test)]
 mod tensor_function_space_runtime_tests {
     use super::*;
-    use crate::basis::{BSplineBoundaryConditions, OneDimensionalBoundary};
+    use crate::basis::{
+        BSplineBoundaryConditions, BSplineEndpointBoundaryCondition, OneDimensionalBoundary,
+    };
     use ndarray::array;
 
     fn marginal() -> BSplineBasisSpec {
@@ -6146,9 +6359,12 @@ mod tensor_function_space_runtime_tests {
         };
         let built = build_tensor_bspline_basis(data.view(), &[0, 1], &spec)
             .expect("double-penalty tensor basis");
-        assert!(built.penaltyinfo.iter().any(|info| {
-            info.active && matches!(info.source, PenaltySource::TensorGlobalRidge)
-        }));
+        assert!(
+            built
+                .active_penalties
+                .iter()
+                .any(|penalty| { matches!(penalty.info.source, PenaltySource::TensorGlobalRidge) })
+        );
         assert!(
             built.kronecker_factored.is_none(),
             "the legacy factored runtime cannot represent a function-metric global ridge"
@@ -6162,6 +6378,29 @@ mod tensor_function_space_runtime_tests {
             "the exact marginal-only fast path must remain available"
         );
     }
+
+    #[test]
+    fn tensor_nonzero_anchor_is_rejected_before_its_affine_lift_can_be_dropped() {
+        let data = array![[0.0, 0.0], [0.25, 0.75], [0.75, 0.25], [1.0, 1.0]];
+        let mut anchored = marginal();
+        anchored.boundary_conditions.left =
+            BSplineEndpointBoundaryCondition::Anchored { value: 1.25 };
+        let spec = TensorBSplineSpec {
+            marginalspecs: vec![anchored, marginal()],
+            periods: Vec::new(),
+            double_penalty: false,
+            identifiability: TensorBSplineIdentifiability::None,
+            penalty_decomposition: TensorBSplinePenaltyDecomposition::MarginalKroneckerSum,
+        };
+
+        let error = build_tensor_bspline_basis(data.view(), &[0, 1], &spec)
+            .expect_err("a tensor margin cannot silently discard an inhomogeneous lift");
+        let message = error.to_string();
+        assert!(message.contains("TensorBSpline margin 0"));
+        assert!(message.contains("non-zero endpoint anchor"));
+        assert!(message.contains("explicit model offset"));
+    }
+
 }
 
 pub fn tensor_product_design_from_marginals(
@@ -6529,17 +6768,9 @@ impl SmoothDesign {
 pub struct LocalSmoothTermBuild {
     pub dim: usize,
     pub design: DesignMatrix,
-    pub penalties: Vec<Array2<f64>>,
-    pub ops: Vec<Option<std::sync::Arc<dyn crate::analytic_penalties::PenaltyOp>>>,
-    pub nullspaces: Vec<usize>,
-    /// Per-active-penalty null-space eigenvector matrices, parallel to
-    /// `penalties` / `ops` / `nullspaces`. `Some(U_null)` when
-    /// `nullspaces[k] > 0`, with `U_null` orthonormal columns spanning
-    /// `null(penalties[k])` in this smooth's local coordinate system; `None`
-    /// when the active block is full-rank. Stage 1 plumbing; Stage 2
-    /// consumes this to absorb the smooth's null space into the parametric
-    /// block at `TermCollectionDesign` construction.
-    pub null_eigenvectors: Vec<Option<Array2<f64>>>,
+    /// Fixed row-wise term contribution for an affine basis chart.
+    pub affine_offset: Option<Array1<f64>>,
+    pub active_penalties: Vec<ActivePenalty>,
     /// Joint-null absorption rotation for this smooth. `Some(rotation)`
     /// records `Q = [U_range | U_null]` spanning `null(Σ_k penalties[k])`,
     /// the joint null across all active penalty blocks on this smooth.
@@ -6547,8 +6778,7 @@ pub struct LocalSmoothTermBuild {
     /// there are no penalties. Stage-2 commit A: plumbing only — populated
     /// by commit B, applied by commit D.
     pub joint_null_rotation: Option<crate::basis::JointNullRotation>,
-    pub penaltyinfo: Vec<PenaltyInfo>,
-    pub pre_dropped_penaltyinfo: Vec<PenaltyInfo>,
+    pub dropped_penalties: Vec<DroppedPenaltyInfo>,
     pub metadata: BasisMetadata,
     pub linear_constraints: Option<LinearInequalityConstraints>,
     pub box_reparam: bool,
@@ -6823,97 +7053,61 @@ pub fn parse_f64_2d_npy_header(
     bytes: &[u8],
     path: &PathBuf,
 ) -> Result<(usize, usize, usize), BasisError> {
-    if bytes.len() < 10 || &bytes[0..6] != b"\x93NUMPY" {
-        crate::bail_invalid_basis!("lazy Pca scores '{}' is not a .npy file", path.display());
-    }
-    let major = bytes[6];
-    let header_len = match major {
-        1 => u16::from_le_bytes([bytes[8], bytes[9]]) as usize,
-        2 | 3 => {
-            if bytes.len() < 12 {
-                crate::bail_invalid_basis!(
-                    "lazy Pca scores '{}' has a truncated .npy header",
-                    path.display()
-                );
-            }
-            u32::from_le_bytes([bytes[8], bytes[9], bytes[10], bytes[11]]) as usize
-        }
-        other => {
-            crate::bail_invalid_basis!(
-                "lazy Pca scores '{}' uses unsupported .npy version {}",
-                path.display(),
-                other
-            );
-        }
-    };
-    let header_start = if major == 1 { 10 } else { 12 };
-    let data_offset = header_start + header_len;
-    if bytes.len() < data_offset {
-        crate::bail_invalid_basis!(
-            "lazy Pca scores '{}' has a truncated .npy header",
-            path.display()
-        );
-    }
-    let header = std::str::from_utf8(&bytes[header_start..data_offset]).map_err(|err| {
+    let mut reader = std::io::Cursor::new(bytes);
+    let header = npyz::NpyHeader::from_reader(&mut reader).map_err(|err| {
         BasisError::InvalidInput(format!(
-            "lazy Pca scores '{}' has a non-UTF8 .npy header: {err}",
+            "lazy Pca scores '{}' has an invalid .npy header: {err}",
             path.display()
         ))
     })?;
-    if !(header.contains("'descr': '<f8'")
-        || header.contains("\"descr\": \"<f8\"")
-        || header.contains("'descr': '|f8'")
-        || header.contains("\"descr\": \"|f8\""))
-    {
+    let is_little_endian_f64 = matches!(
+        header.dtype(),
+        npyz::DType::Plain(ref dtype)
+            if dtype.type_char() == npyz::TypeChar::Float
+                && dtype.size_field() == 8
+                && dtype.endianness() == npyz::Endianness::Little
+    );
+    if !is_little_endian_f64 {
         crate::bail_invalid_basis!(
-            "lazy Pca scores '{}' must be float64 little-endian .npy",
-            path.display()
+            "lazy Pca scores '{}' must be scalar little-endian float64 .npy, got {}",
+            path.display(),
+            header.dtype().descr()
         );
     }
-    if header.contains("True") {
+    if header.order() != npyz::Order::C {
         crate::bail_invalid_basis!(
             "lazy Pca scores '{}' must be C-contiguous, not Fortran-ordered",
             path.display()
         );
     }
-    let shape_pos = header.find("shape").ok_or_else(|| {
-        BasisError::InvalidInput(format!(
-            "lazy Pca scores '{}' .npy header is missing shape",
-            path.display()
-        ))
-    })?;
-    let open = header[shape_pos..].find('(').ok_or_else(|| {
-        BasisError::InvalidInput(format!(
-            "lazy Pca scores '{}' .npy header has malformed shape",
-            path.display()
-        ))
-    })? + shape_pos;
-    let close = header[open..].find(')').ok_or_else(|| {
-        BasisError::InvalidInput(format!(
-            "lazy Pca scores '{}' .npy header has malformed shape",
-            path.display()
-        ))
-    })? + open;
-    let dims = header[open + 1..close]
-        .split(',')
-        .map(str::trim)
-        .filter(|part| !part.is_empty())
-        .map(|part| part.parse::<usize>())
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|err| {
-            BasisError::InvalidInput(format!(
-                "lazy Pca scores '{}' .npy shape is not integral: {err}",
-                path.display()
-            ))
-        })?;
-    if dims.len() != 2 {
+    if header.shape().len() != 2 {
         crate::bail_invalid_basis!(
             "lazy Pca scores '{}' must have shape (N, K), got {:?}",
             path.display(),
-            dims
+            header.shape()
         );
     }
-    Ok((data_offset, dims[0], dims[1]))
+    let nrows = usize::try_from(header.shape()[0]).map_err(|_| {
+        BasisError::InvalidInput(format!(
+            "lazy Pca scores '{}' row count {} exceeds this platform's address space",
+            path.display(),
+            header.shape()[0]
+        ))
+    })?;
+    let ncols = usize::try_from(header.shape()[1]).map_err(|_| {
+        BasisError::InvalidInput(format!(
+            "lazy Pca scores '{}' column count {} exceeds this platform's address space",
+            path.display(),
+            header.shape()[1]
+        ))
+    })?;
+    let data_offset = usize::try_from(reader.position()).map_err(|_| {
+        BasisError::InvalidInput(format!(
+            "lazy Pca scores '{}' header offset exceeds this platform's address space",
+            path.display()
+        ))
+    })?;
+    Ok((data_offset, nrows, ncols))
 }
 
 pub fn pca_center_mean(x: ArrayView2<'_, f64>) -> Result<Array1<f64>, BasisError> {
@@ -7031,22 +7225,21 @@ pub fn build_pca_smooth_basis(
                 ))
             })?;
         let penalty = pca_function_mass_penalty(raw_score_gram, op.nrows, smooth_penalty)?;
-        let (penalties, nullspace_dims, penaltyinfo, null_eigenvectors, ops) =
-            filter_active_penalty_candidates_with_ops(vec![PenaltyCandidate {
-                matrix: penalty,
-                nullspace_dim_hint: 0,
-                source: PenaltySource::OperatorMass,
-                normalization_scale: 1.0,
-                kronecker_factors: None,
-                op: None,
-            }])?;
+        let filtered = filter_penalty_candidates(vec![PenaltyCandidate {
+            matrix: ConstructiveQuadratic::try_from_dense_psd(
+                penalty,
+                "lazy PCA function-mass penalty",
+            )?,
+            source: PenaltySource::OperatorMass,
+            normalization_scale: 1.0,
+            kronecker_factors: None,
+            op: None,
+        }])?;
         return Ok(BasisBuildResult {
             design: DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(Arc::new(op))),
-            penalties,
-            nullspace_dims,
-            penaltyinfo,
-            ops,
-            null_eigenvectors,
+            affine_offset: None,
+            active_penalties: filtered.active,
+            dropped_penalties: filtered.dropped,
             joint_null_rotation: None,
             metadata: BasisMetadata::Pca {
                 feature_cols: feature_cols.to_vec(),
@@ -7084,22 +7277,21 @@ pub fn build_pca_smooth_basis(
     let design = fast_ab(&x, basis_matrix);
     let raw_score_gram = gam_linalg::faer_ndarray::fast_ata(&design);
     let penalty = pca_function_mass_penalty(raw_score_gram, design.nrows(), smooth_penalty)?;
-    let (penalties, nullspace_dims, penaltyinfo, null_eigenvectors, ops) =
-        filter_active_penalty_candidates_with_ops(vec![PenaltyCandidate {
-            matrix: penalty,
-            nullspace_dim_hint: 0,
-            source: PenaltySource::OperatorMass,
-            normalization_scale: 1.0,
-            kronecker_factors: None,
-            op: None,
-        }])?;
+    let filtered = filter_penalty_candidates(vec![PenaltyCandidate {
+        matrix: ConstructiveQuadratic::try_from_dense_psd(
+            penalty,
+            "PCA function-mass penalty",
+        )?,
+        source: PenaltySource::OperatorMass,
+        normalization_scale: 1.0,
+        kronecker_factors: None,
+        op: None,
+    }])?;
     Ok(BasisBuildResult {
         design: DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(design)),
-        penalties,
-        nullspace_dims,
-        penaltyinfo,
-        ops,
-        null_eigenvectors,
+        affine_offset: None,
+        active_penalties: filtered.active,
+        dropped_penalties: filtered.dropped,
         joint_null_rotation: None,
         metadata: BasisMetadata::Pca {
             feature_cols: feature_cols.to_vec(),
@@ -7116,7 +7308,7 @@ pub fn build_pca_smooth_basis(
 
 #[cfg(test)]
 mod pca_function_mass_tests {
-    use super::{PenaltySource, build_pca_smooth_basis};
+    use super::{PenaltySource, build_pca_smooth_basis, parse_f64_2d_npy_header};
     use ndarray::{Array1, Array2, array};
     use std::io::Write;
     use std::path::PathBuf;
@@ -7163,6 +7355,45 @@ mod pca_function_mass_tests {
         path
     }
 
+    fn npy_v1_bytes(mut header: String) -> Vec<u8> {
+        while (10 + header.len() + 1) % 16 != 0 {
+            header.push(' ');
+        }
+        header.push('\n');
+        let header_len = u16::try_from(header.len()).expect("test header fits v1");
+        let mut bytes = b"\x93NUMPY".to_vec();
+        bytes.extend_from_slice(&[1, 0]);
+        bytes.extend_from_slice(&header_len.to_le_bytes());
+        bytes.extend_from_slice(header.as_bytes());
+        bytes
+    }
+
+    #[test]
+    fn npy_header_parser_uses_exact_ast_fields_2293() {
+        let path = PathBuf::from("scores.npy");
+        let bytes = npy_v1_bytes(
+            "{'shape':(3, 2), 'note':'True', 'descr':'<f8', 'fortran_order':False,}".to_string(),
+        );
+        let (offset, rows, cols) =
+            parse_f64_2d_npy_header(&bytes, &path).expect("valid reordered header");
+        assert_eq!((rows, cols), (3, 2));
+        assert_eq!(offset, bytes.len());
+
+        for header in [
+            "{'descr':'<f8','fortran_order':True,'shape':(3,2),}",
+            "{'descr':'>f8','fortran_order':False,'shape':(3,2),}",
+            "{'descr':'<f8','shape':(3,2),}",
+            "{'descr':'<f8','fortran_order':'False','shape':(3,2),}",
+            "{'descr':'<f8','fortran_order':False,'shape':(6,),}",
+        ] {
+            let invalid = npy_v1_bytes(header.to_string());
+            assert!(
+                parse_f64_2d_npy_header(&invalid, &path).is_err(),
+                "{header}"
+            );
+        }
+    }
+
     #[test]
     fn pca_penalty_quadratic_equals_empirical_fitted_function_norm() {
         let data = array![[1.0, 2.0], [-1.0, 0.5], [2.0, -0.5], [0.25, -1.5]];
@@ -7183,11 +7414,14 @@ mod pca_function_mass_tests {
         let design = built.design.to_dense();
         let fitted = design.dot(&coefficients);
         let expected = smooth_penalty * fitted.dot(&fitted) / fitted.len() as f64;
-        let actual = quadratic_form(&built.penalties[0], &coefficients);
+        let actual = quadratic_form(&built.active_penalties[0].matrix, &coefficients);
 
         assert_close(actual, expected);
-        assert_eq!(built.nullspace_dims, vec![0]);
-        assert_eq!(built.penaltyinfo[0].source, PenaltySource::OperatorMass);
+        assert_eq!(built.active_penalties[0].nullity, 0);
+        assert_eq!(
+            built.active_penalties[0].info.source,
+            PenaltySource::OperatorMass
+        );
     }
 
     #[test]
@@ -7230,8 +7464,11 @@ mod pca_function_mass_tests {
             assert_close(left, right);
         }
         assert_close(
-            quadratic_form(&base.penalties[0], &base_coefficients),
-            quadratic_form(&transformed.penalties[0], &transformed_coefficients),
+            quadratic_form(&base.active_penalties[0].matrix, &base_coefficients),
+            quadratic_form(
+                &transformed.active_penalties[0].matrix,
+                &transformed_coefficients,
+            ),
         );
     }
 
@@ -7290,7 +7527,11 @@ mod pca_function_mass_tests {
         .expect("lazy PCA basis");
         std::fs::remove_file(&path).expect("remove test .npy");
 
-        for (&left, &right) in dense.penalties[0].iter().zip(lazy.penalties[0].iter()) {
+        for (&left, &right) in dense.active_penalties[0]
+            .matrix
+            .iter()
+            .zip(lazy.active_penalties[0].matrix.iter())
+        {
             assert_close(left, right);
         }
         for (&left, &right) in dense
@@ -7368,6 +7609,16 @@ pub fn apply_by_variable_to_local_build(
         .map_err(BasisError::InvalidInput)?;
     for (mut row, &weight) in dense.rows_mut().into_iter().zip(weights.iter()) {
         row.mapv_inplace(|value| value * weight);
+    }
+    if let Some(offset) = built.affine_offset.as_mut() {
+        if offset.len() != weights.len() {
+            crate::bail_dim_basis!(
+                "by-variable smooth term '{term_name}' affine offset has {} rows but the by-variable has {}",
+                offset.len(),
+                weights.len()
+            );
+        }
+        *offset *= &weights;
     }
     built.design = DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(dense));
     built.kronecker_factored = None;
@@ -7480,46 +7731,50 @@ pub fn build_by_smooth_local(
             // per-level smoothness and degrades as data grows (under-recovery up
             // to ~16× at n=2000). Emit `n_levels * n_penalties` blocks instead.
             let inner_meta = inner.metadata.clone();
-            let n_penalties = inner.penalties.len();
+            let n_penalties = inner.active_penalties.len();
             let n_blocks = n_penalties.saturating_mul(n_levels);
-            let mut penalties = Vec::<Array2<f64>>::with_capacity(n_blocks);
-            let mut penaltyinfo = Vec::<PenaltyInfo>::with_capacity(n_blocks);
-            let mut nullspaces = Vec::<usize>::with_capacity(n_blocks);
-            for (pen_pos, s_inner) in inner.penalties.iter().enumerate() {
+            let mut candidates = Vec::<PenaltyCandidate>::with_capacity(n_blocks);
+            for base_penalty in &inner.active_penalties {
                 for lvl in 0..n_levels {
                     let off = lvl * p;
                     let mut s_big = Array2::<f64>::zeros((q, q));
                     s_big
                         .slice_mut(s![off..off + p, off..off + p])
-                        .assign(s_inner);
+                        .assign(&base_penalty.matrix);
                     let (s_big, scale) = normalize_penalty_in_constrained_space(&s_big);
-                    let mut info = inner.penaltyinfo[pen_pos].clone();
-                    // Distinct original_index per (penalty, level) so each λ is a
-                    // separate identifiable coordinate downstream.
-                    info.original_index = pen_pos * n_levels + lvl;
-                    info.normalization_scale *= scale;
-                    // Each block now spans exactly ONE level → per-level nullity,
-                    // not the tiled (× n_levels) hint of the shared construction.
-                    info.kronecker_factors = None;
-                    penalties.push(s_big);
-                    penaltyinfo.push(info);
-                    nullspaces.push(inner.nullspaces[pen_pos]);
+                    candidates.push(PenaltyCandidate {
+                        matrix: ConstructiveQuadratic::try_from_dense_psd(
+                            s_big,
+                            "factor-smooth replicated penalty",
+                        )?,
+                        source: base_penalty.info.source.clone(),
+                        normalization_scale: base_penalty.info.normalization_scale * scale,
+                        kronecker_factors: None,
+                        op: None,
+                    });
                 }
             }
 
-            let null_eigenvectors = vec![None; penalties.len()];
-            let ops = vec![None; penalties.len()];
+            // Re-analyze the completed q×q blocks in their actual coefficient
+            // space. Copying the p×p marginal nullity understated every block's
+            // null space by `(n_levels-1)·p`, while leaving its null basis and
+            // joint-null rotation absent. The canonical filter authors matrix,
+            // rank, nullity, null basis, and metadata together.
+            let filtered = crate::basis::filter_penalty_candidates(candidates)?;
+            let joint_null_rotation = crate::basis::compute_joint_null_rotation(&filtered.active)?;
+            let mut dropped_penalties = inner.dropped_penalties;
+            dropped_penalties.extend(filtered.dropped);
 
             Ok(LocalSmoothTermBuild {
                 dim: q,
                 design: DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(combined)),
-                penalties,
-                ops,
-                nullspaces,
-                null_eigenvectors,
-                joint_null_rotation: None,
-                penaltyinfo,
-                pre_dropped_penaltyinfo: inner.pre_dropped_penaltyinfo,
+                // Exactly one factor block is active on every row. Each block
+                // represents the same anchored marginal, so its fixed lift is
+                // the inner lift once, not once per level.
+                affine_offset: inner.affine_offset,
+                active_penalties: filtered.active,
+                joint_null_rotation,
+                dropped_penalties,
                 metadata: BasisMetadata::BySmooth {
                     inner: Box::new(inner_meta),
                     by_col: *feature_col,
@@ -7549,6 +7804,133 @@ pub fn ensure_by_variable_specs_match(
         _ => Err(BasisError::InvalidInput(format!(
             "by-variable smooth term '{term_name}' has inconsistent by-variable specifications"
         ))),
+    }
+}
+
+/// Choose a deterministic orthonormal basis for a subspace from its projector.
+///
+/// Eigenvectors belonging to a repeated eigenvalue are defined only up to an
+/// arbitrary orthogonal rotation.  That freedom is harmless when consumers use
+/// the whole projector `ZZ^T`, but it changes model semantics when each column
+/// receives its own smoothing parameter.  We remove the eigensolver gauge by
+/// repeatedly projecting coefficient coordinate axes into the subspace and
+/// selecting the largest residual (with stable lowest-index tie breaking).
+/// The result depends only on the subspace projector and the declared
+/// coefficient chart, never on the orientation returned by an eigensolver.
+fn canonical_nullspace_directions(z: &Array2<f64>) -> Result<Array2<f64>, BasisError> {
+    let (coefficient_dim, nullity) = z.dim();
+    if nullity == 0 {
+        return Ok(Array2::zeros((coefficient_dim, 0)));
+    }
+    if coefficient_dim < nullity || z.iter().any(|value| !value.is_finite()) {
+        crate::bail_invalid_basis!(
+            "null-space basis must be finite with rows >= columns, got {}x{}",
+            coefficient_dim,
+            nullity
+        );
+    }
+
+    let tolerance = 128.0 * f64::EPSILON * coefficient_dim.max(1) as f64;
+    let mut canonical = Array2::<f64>::zeros((coefficient_dim, nullity));
+    for accepted in 0..nullity {
+        let mut best_coordinate = usize::MAX;
+        let mut best_norm = 0.0_f64;
+        let mut best = Array1::<f64>::zeros(coefficient_dim);
+
+        for coordinate in 0..coefficient_dim {
+            // `P e_j = Z (Z^T e_j)` without materializing the full projector.
+            let mut candidate = Array1::<f64>::zeros(coefficient_dim);
+            for row in 0..coefficient_dim {
+                candidate[row] = (0..nullity)
+                    .map(|axis| z[[row, axis]] * z[[coordinate, axis]])
+                    .sum();
+            }
+            // Two-pass modified Gram--Schmidt keeps the selected directions
+            // orthogonal even when successive projected coordinates are close.
+            for _ in 0..2 {
+                for axis in 0..accepted {
+                    let direction = canonical.column(axis);
+                    let projection = direction.dot(&candidate);
+                    candidate.scaled_add(-projection, &direction);
+                }
+            }
+            let norm = candidate.dot(&candidate).sqrt();
+            let tie_band = tolerance * best_norm.max(1.0);
+            if best_coordinate == usize::MAX || norm > best_norm + tie_band {
+                best_coordinate = coordinate;
+                best_norm = norm;
+                best = candidate;
+            }
+        }
+
+        if best_coordinate == usize::MAX || best_norm <= tolerance {
+            crate::bail_invalid_basis!(
+                "null-space projector exposed only {} of {} independent directions",
+                accepted,
+                nullity
+            );
+        }
+        best.mapv_inplace(|value| value / best_norm);
+        // Fix the remaining sign gauge for reproducible metadata/debug output.
+        let sign_anchor = best
+            .iter()
+            .enumerate()
+            .max_by(|(left_index, left), (right_index, right)| {
+                left.abs()
+                    .partial_cmp(&right.abs())
+                    .unwrap_or(std::cmp::Ordering::Equal)
+                    .then_with(|| right_index.cmp(left_index))
+            })
+            .map(|(_, value)| *value)
+            .unwrap_or(1.0);
+        if sign_anchor < 0.0 {
+            best.mapv_inplace(|value| -value);
+        }
+        canonical.column_mut(accepted).assign(&best);
+    }
+    Ok(canonical)
+}
+
+#[cfg(test)]
+mod canonical_nullspace_direction_tests {
+    use super::*;
+    use ndarray::array;
+
+    #[test]
+    fn per_axis_null_penalties_are_invariant_to_eigensolver_gauge_2315() {
+        let inv_sqrt_two = 0.5_f64.sqrt();
+        let z = array![
+            [inv_sqrt_two, 0.0],
+            [inv_sqrt_two, 0.0],
+            [0.0, 1.0],
+            [0.0, 0.0]
+        ];
+        let rotation = array![[0.6, -0.8], [0.8, 0.6]];
+        let rotated = z.dot(&rotation);
+        let reference = canonical_nullspace_directions(&z).expect("canonical null basis");
+        let actual =
+            canonical_nullspace_directions(&rotated).expect("rotated canonical null basis");
+        for axis in 0..reference.ncols() {
+            let reference_penalty = reference
+                .column(axis)
+                .to_owned()
+                .insert_axis(Axis(1))
+                .dot(&reference.column(axis).insert_axis(Axis(0)));
+            let actual_penalty = actual
+                .column(axis)
+                .to_owned()
+                .insert_axis(Axis(1))
+                .dot(&actual.column(axis).insert_axis(Axis(0)));
+            let max_error = reference_penalty
+                .iter()
+                .zip(actual_penalty.iter())
+                .map(|(left, right)| (left - right).abs())
+                .fold(0.0_f64, f64::max);
+            assert!(
+                max_error <= 256.0 * f64::EPSILON,
+                "axis {axis} changed by {max_error:e}"
+            );
+        }
     }
 }
 
@@ -7757,12 +8139,27 @@ pub fn build_factor_smooth(
     let mut dense = Array2::<f64>::zeros((n, q));
     for i in 0..n {
         let bits = gam_data::canonical_level_bits(data[[i, group_col]]);
-        let level_idx = levels.iter().position(|b| *b == bits).ok_or_else(|| {
-            BasisError::InvalidInput(format!(
+        let Some(level_idx) = levels.iter().position(|b| *b == bits) else {
+            // Held-out-group contract (#2365): `bs="re"` is a genuine random
+            // effect, so in the frozen (predict/replay) context a row whose
+            // group is outside the training vocabulary carries NO fitted
+            // deviation — its row stays all-zero across every group block and
+            // the prediction is the population component, mirroring
+            // `build_random_effect_block`'s lenient `group_id = None` rows.
+            // `fs`/`sz` estimate a per-level deviation FUNCTION (an unseen
+            // level has no zero-deviation fallback that means "population"),
+            // and the fit path derives `levels` from this very data, so both
+            // stay strict.
+            if matches!(spec.flavour, FactorSmoothFlavour::Re)
+                && spec.group_frozen_levels.is_some()
+            {
+                continue;
+            }
+            return Err(BasisError::InvalidInput(format!(
                 "factor smooth term '{term_name}' saw an unseen grouping level at row {}",
                 i + 1
-            ))
-        })?;
+            )));
+        };
         let start = level_idx * p;
         dense
             .slice_mut(s![i, start..start + p])
@@ -7774,72 +8171,50 @@ pub fn build_factor_smooth(
     // λ per marginal penalty), the defining feature of a factor smooth. For
     // `Re` the marginal penalty is replaced by one ridge per parametric
     // coordinate so intercept and slope variances can be learned separately.
-    let marginal_penalties: Vec<Array2<f64>> = if matches!(spec.flavour, FactorSmoothFlavour::Re) {
-        (0..p)
-            .map(|j| {
-                let mut s = Array2::<f64>::zeros((p, p));
-                s[[j, j]] = 1.0;
-                s
-            })
-            .collect()
-    } else {
-        inner.penalties.clone()
-    };
-    let marginal_penaltyinfo: Vec<PenaltyInfo> = if matches!(spec.flavour, FactorSmoothFlavour::Re)
-    {
-        (0..p)
-            .map(|j| PenaltyInfo {
-                source: PenaltySource::Primary,
-                original_index: j,
-                active: true,
-                effective_rank: 1,
-                dropped_reason: None,
-                nullspace_dim_hint: p.saturating_sub(1),
-                normalization_scale: 1.0,
-                kronecker_factors: None,
-            })
-            .collect()
-    } else {
-        inner.penaltyinfo.clone()
-    };
-    if marginal_penalties.len() != marginal_penaltyinfo.len() {
-        crate::bail_invalid_basis!(
-            "internal factor-smooth penalty metadata mismatch for term '{}': penalties={}, infos={}",
-            term_name,
-            marginal_penalties.len(),
-            marginal_penaltyinfo.len()
-        );
-    }
+    let marginal_penalties: Vec<(Array2<f64>, PenaltySource, f64)> =
+        if matches!(spec.flavour, FactorSmoothFlavour::Re) {
+            (0..p)
+                .map(|j| {
+                    let mut matrix = Array2::<f64>::zeros((p, p));
+                    matrix[[j, j]] = 1.0;
+                    (matrix, PenaltySource::Primary, 1.0)
+                })
+                .collect()
+        } else {
+            inner
+                .active_penalties
+                .iter()
+                .map(|penalty| {
+                    (
+                        penalty.matrix.clone(),
+                        penalty.info.source.clone(),
+                        penalty.info.normalization_scale,
+                    )
+                })
+                .collect()
+        };
 
-    let mut penalties = Vec::<Array2<f64>>::with_capacity(marginal_penalties.len());
-    let mut penaltyinfo = Vec::<PenaltyInfo>::with_capacity(marginal_penalties.len());
-    for (penalty_pos, s_inner) in marginal_penalties.iter().enumerate() {
+    let mut candidates = Vec::<PenaltyCandidate>::with_capacity(marginal_penalties.len());
+    for (s_inner, source, base_scale) in marginal_penalties {
         let mut s_big = Array2::<f64>::zeros((q, q));
         for level in 0..n_levels {
             let start = level * p;
             s_big
                 .slice_mut(s![start..start + p, start..start + p])
-                .assign(s_inner);
+                .assign(&s_inner);
         }
         let (s_big, factor_smooth_scale) = normalize_penalty_in_constrained_space(&s_big);
-        let mut info = marginal_penaltyinfo[penalty_pos].clone();
-        info.original_index = penalty_pos;
-        info.normalization_scale *= factor_smooth_scale;
-        info.nullspace_dim_hint = info.nullspace_dim_hint.saturating_mul(n_levels);
-        info.kronecker_factors = None;
-        penalties.push(s_big);
-        penaltyinfo.push(info);
+        candidates.push(PenaltyCandidate {
+            matrix: ConstructiveQuadratic::try_from_dense_psd(
+                s_big,
+                "factor-smooth shared penalty",
+            )?,
+            source,
+            normalization_scale: base_scale * factor_smooth_scale,
+            kronecker_factors: None,
+            op: None,
+        });
     }
-
-    let mut nullspaces: Vec<usize> = if matches!(spec.flavour, FactorSmoothFlavour::Re) {
-        vec![q.saturating_sub(n_levels); p]
-    } else {
-        inner
-            .nullspaces
-            .iter()
-            .map(|ns| ns.saturating_mul(n_levels))
-            .collect()
-    };
 
     // `Fs` is the random-effect flavour of a smooth: the per-group curve is an
     // exchangeable Gaussian *function*, so EVERY coefficient — including the
@@ -7861,7 +8236,7 @@ pub fn build_factor_smooth(
     // single *combined* null penalty (one λ for intercept+slope together) cannot
     // express the typically very different intercept and slope variances, which
     // is the residual forecast gap. We mirror mgcv exactly: for each orthonormal
-    // null direction `z_k` of the marginal wiggliness penalty add
+    // canonical null direction `z_k` of the marginal wiggliness penalty, add
     // `I_L ⊗ (z_k z_kᵀ)` as its own penalty. The marginal's combined double
     // penalty was disabled above, so the null space is penalized once, per
     // dimension. With linear data REML drives the curvature λ up and degrades
@@ -7871,9 +8246,13 @@ pub fn build_factor_smooth(
     // per-dimension null penalties; `m=0` keeps the legacy combined double
     // penalty and adds nothing here.
     if use_per_dim_null
-        && let Some(Some(z)) = inner.null_eigenvectors.first()
+        && let Some(Some(z)) = inner
+            .active_penalties
+            .first()
+            .map(|penalty| &penalty.null_eigenvectors)
         && z.nrows() == p
     {
+        let z = canonical_nullspace_directions(z)?;
         for k in 0..z.ncols() {
             // Rank-1 marginal penalty `z_k z_kᵀ`, replicated block-diagonally
             // across levels into `I_L ⊗ (z_k z_kᵀ)`. Its own λ is one shared
@@ -7894,26 +8273,22 @@ pub fn build_factor_smooth(
                     .assign(&p_k);
             }
             let (s_null, null_scale) = normalize_penalty_in_constrained_space(&s_null);
-            let null_block = crate::basis::analyze_penalty_block_with_op(&s_null, None)?;
-            if null_block.rank > 0 {
-                let original_index = penalties.len();
-                penalties.push(null_block.sym_penalty);
-                nullspaces.push(null_block.nullity);
-                penaltyinfo.push(PenaltyInfo {
-                    source: PenaltySource::Primary,
-                    original_index,
-                    active: true,
-                    effective_rank: null_block.rank,
-                    dropped_reason: None,
-                    nullspace_dim_hint: null_block.nullity,
-                    normalization_scale: null_scale,
-                    kronecker_factors: None,
-                });
-            }
+            candidates.push(PenaltyCandidate {
+                matrix: ConstructiveQuadratic::try_from_dense_psd(
+                    s_null,
+                    "factor-smooth null-function penalty",
+                )?,
+                source: PenaltySource::Primary,
+                normalization_scale: null_scale,
+                kronecker_factors: None,
+                op: None,
+            });
         }
     }
-    let null_eigenvectors = crate::basis::recompute_null_eigenvectors(&penalties)?;
-    let joint_null_rotation = crate::basis::compute_joint_null_rotation(&penalties)?;
+    let filtered = crate::basis::filter_penalty_candidates(candidates)?;
+    let joint_null_rotation = crate::basis::compute_joint_null_rotation(&filtered.active)?;
+    let mut dropped_penalties = inner.dropped_penalties;
+    dropped_penalties.extend(filtered.dropped);
 
     // Metadata: carry the marginal knot geometry + frozen levels so prediction
     // reconstructs an identical replicated design.
@@ -7955,17 +8330,15 @@ pub fn build_factor_smooth(
         marginal_is_cr: false,
     };
 
-    let ops = vec![None; penalties.len()];
     Ok(LocalSmoothTermBuild {
         dim: q,
         design: DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(dense)),
-        penalties,
-        ops,
-        nullspaces,
-        null_eigenvectors,
+        // Exactly one group block is active on every row, so a common
+        // marginal anchor contributes its lift once for that row.
+        affine_offset: inner.affine_offset,
+        active_penalties: filtered.active,
         joint_null_rotation,
-        penaltyinfo,
-        pre_dropped_penaltyinfo: Vec::new(),
+        dropped_penalties,
         metadata,
         linear_constraints: None,
         box_reparam: false,
@@ -8025,6 +8398,7 @@ pub fn build_single_local_smooth_term(
     term: &SmoothTermSpec,
     workspace: &mut crate::basis::BasisWorkspace,
 ) -> Result<LocalSmoothTermBuild, BasisError> {
+    term.basis.validate_scale_configuration()?;
     if term.shape != ShapeConstraint::None && !shape_supports_basis(term) {
         crate::bail_invalid_basis!(
             "ShapeConstraint::{:?} is unsupported for term '{}'",
@@ -8101,10 +8475,19 @@ pub fn build_single_local_smooth_term(
                 joint_null_rotation: None,
             };
             let mut inner_built = build_single_local_smooth_term(data, &inner_term, workspace)?;
+            if inner_built.affine_offset.is_some() {
+                crate::bail_invalid_basis!(
+                    "sum-to-zero factor smooth term '{}' cannot contain a non-zero endpoint anchor: a shared fixed affine lift would violate the per-covariate zero-sum deviation identity",
+                    term.name
+                );
+            }
             // Capture the marginal penalty's null directions BEFORE the penalty
             // vector is rebuilt below; the sum-to-zero null-space ridge replicates
             // these `z_k` into the contrast space (mgcv `bs="fs"` double-penalty).
-            let inner_null_eigenvectors = inner_built.null_eigenvectors.clone();
+            let inner_null_eigenvectors = inner_built
+                .active_penalties
+                .first()
+                .and_then(|penalty| penalty.null_eigenvectors.clone());
             let base = inner_built
                 .design
                 .try_to_dense_by_chunks("sum-to-zero factor smooth")
@@ -8145,20 +8528,9 @@ pub fn build_single_local_smooth_term(
                     }
                 }
             }
-            let mut penalties = Vec::<Array2<f64>>::with_capacity(inner_built.penalties.len());
-            let active_penalty_indices = inner_built
-                .penaltyinfo
-                .iter()
-                .enumerate()
-                .filter_map(|(idx, info)| info.active.then_some(idx))
-                .collect::<Vec<_>>();
-            if active_penalty_indices.len() != inner_built.penalties.len() {
-                crate::bail_invalid_basis!(
-                    "internal sz penalty metadata mismatch: activeinfos={}, penalties={}",
-                    active_penalty_indices.len(),
-                    inner_built.penalties.len()
-                );
-            }
+            let mut candidates = Vec::<PenaltyCandidate>::with_capacity(
+                inner_built.active_penalties.len() * levels.len(),
+            );
             // Replicate each marginal penalty into the sum-to-zero contrast
             // space. With `L-1` free deviation blocks and the reference level
             // `d_L = -Σ_{k<L} d_k`, the marginal penalty summed over ALL `L`
@@ -8213,51 +8585,21 @@ pub fn build_single_local_smooth_term(
                     }
                     s_big
                 };
-            // One nullspace-dim entry per emitted penalty (must stay parallel to
-            // `penalties`). Each per-group wiggliness block carries the marginal's
-            // OWN nullity (a rank-`p` block touching a single level for the free
-            // blocks; the coupling block is rank-`p` over the diagonal sum), and
-            // the null ridges below record their own nullity.
-            let mut nullspaces = Vec::<usize>::with_capacity(penalties.capacity());
-            for (penalty_pos, s_inner) in inner_built.penalties.iter().enumerate() {
-                let info_idx = active_penalty_indices[penalty_pos];
-                let base_info = inner_built.penaltyinfo[info_idx].clone();
-                let marginal_nullity = inner_built
-                    .nullspaces
-                    .get(penalty_pos)
-                    .copied()
-                    .unwrap_or(0);
+            for base_penalty in &inner_built.active_penalties {
                 // Emit `L` independent per-level blocks for this marginal penalty.
                 for which_level in 0..=l_minus_one {
-                    let raw = stz_per_group_penalty(s_inner, which_level);
+                    let raw = stz_per_group_penalty(&base_penalty.matrix, which_level);
                     let (s_big, group_scale) = normalize_penalty_in_constrained_space(&raw);
-                    let block = crate::basis::analyze_penalty_block_with_op(&s_big, None)?;
-                    if block.rank == 0 {
-                        continue;
-                    }
-                    if which_level == 0 {
-                        // Reuse the marginal's own info slot for the first block so
-                        // the existing normalization bookkeeping stays attached.
-                        inner_built.penaltyinfo[info_idx].normalization_scale *= group_scale;
-                        inner_built.penaltyinfo[info_idx].original_index = penalties.len();
-                        inner_built.penaltyinfo[info_idx].effective_rank = block.rank;
-                        inner_built.penaltyinfo[info_idx].nullspace_dim_hint = block.nullity;
-                    } else {
-                        let mut info = base_info.clone();
-                        info.original_index = penalties.len();
-                        info.normalization_scale = base_info.normalization_scale * group_scale;
-                        info.effective_rank = block.rank;
-                        info.nullspace_dim_hint = block.nullity;
-                        info.kronecker_factors = None;
-                        inner_built.penaltyinfo.push(info);
-                    }
-                    penalties.push(block.sym_penalty);
-                    // The coupling block (which_level == l_minus_one) spans the
-                    // marginal range on the diagonal-sum direction; the free
-                    // blocks touch one level. Both leave the marginal null space
-                    // unpenalized, recorded here so the null ridges below complete
-                    // the double penalty.
-                    nullspaces.push(marginal_nullity);
+                    candidates.push(PenaltyCandidate {
+                        matrix: ConstructiveQuadratic::try_from_dense_psd(
+                            s_big,
+                            "grouped factor-smooth penalty",
+                        )?,
+                        source: base_penalty.info.source.clone(),
+                        normalization_scale: base_penalty.info.normalization_scale * group_scale,
+                        kronecker_factors: None,
+                        op: None,
+                    });
                 }
             }
 
@@ -8275,12 +8617,13 @@ pub fn build_single_local_smooth_term(
             // under its own shared variance; we mirror that here while keeping
             // the zero-sum reparameterization, so the constraint (and the
             // identifiability of `sz` vs `fs`) is preserved. For each orthonormal
-            // null direction `z_k` of the marginal penalty, add the rank-1
-            // marginal penalty `z_k z_kᵀ` mapped into the SAME `(I + 11ᵀ)`
+            // canonical null direction `z_k` of the marginal penalty, add the
+            // rank-1 marginal penalty `z_k z_kᵀ` mapped into the SAME `(I + 11ᵀ)`
             // sum-to-zero contrast space, each carrying its own `λ`.
-            if let Some(Some(z)) = inner_null_eigenvectors.first()
+            if let Some(z) = inner_null_eigenvectors.as_ref()
                 && z.nrows() == p
             {
+                let z = canonical_nullspace_directions(z)?;
                 for k in 0..z.ncols() {
                     let zk = z.column(k);
                     let mut p_k = Array2::<f64>::zeros((p, p));
@@ -8307,40 +8650,28 @@ pub fn build_single_local_smooth_term(
                     };
                     let (s_null, null_scale) =
                         normalize_penalty_in_constrained_space(&stz_pooled_null);
-                    let null_block = crate::basis::analyze_penalty_block_with_op(&s_null, None)?;
-                    if null_block.rank > 0 {
-                        let original_index = penalties.len();
-                        penalties.push(null_block.sym_penalty);
-                        nullspaces.push(null_block.nullity);
-                        inner_built.penaltyinfo.push(PenaltyInfo {
-                            source: PenaltySource::Primary,
-                            original_index,
-                            active: true,
-                            effective_rank: null_block.rank,
-                            dropped_reason: None,
-                            nullspace_dim_hint: null_block.nullity,
-                            normalization_scale: null_scale,
-                            kronecker_factors: None,
-                        });
-                    }
+                    candidates.push(PenaltyCandidate {
+                        matrix: ConstructiveQuadratic::try_from_dense_psd(
+                            s_null,
+                            "grouped factor-smooth null penalty",
+                        )?,
+                        source: PenaltySource::DoublePenaltyNullspace,
+                        normalization_scale: null_scale,
+                        kronecker_factors: None,
+                        op: None,
+                    });
                 }
             }
+            let filtered = crate::basis::filter_penalty_candidates(candidates)?;
+            let mut dropped_penalties = std::mem::take(&mut inner_built.dropped_penalties);
+            dropped_penalties.extend(filtered.dropped);
             inner_built.dim = p * l_minus_one;
             inner_built.design =
                 DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(dense));
-            inner_built.penalties = penalties;
-            inner_built.ops = vec![None; inner_built.penalties.len()];
-            inner_built.nullspaces = nullspaces;
-            // Invariant: `null_eigenvectors[k]` must mirror `penalties[k]`'s
-            // spectral null space. We just rebuilt `inner_built.penalties` from
-            // Kronecker-like `S_big` blocks, so the previously-plumbed
-            // `null_eigenvectors` (still parallel to the OLD per-level penalty)
-            // is stale. Recompute from the rebuilt penalties to restore the
-            // invariant; ditto for the joint-null absorption rotation.
-            inner_built.null_eigenvectors =
-                crate::basis::recompute_null_eigenvectors(&inner_built.penalties)?;
+            inner_built.active_penalties = filtered.active;
+            inner_built.dropped_penalties = dropped_penalties;
             inner_built.joint_null_rotation =
-                crate::basis::compute_joint_null_rotation(&inner_built.penalties)?;
+                crate::basis::compute_joint_null_rotation(&inner_built.active_penalties)?;
             inner_built.kronecker_factored = None;
             return Ok(inner_built);
         }
@@ -8367,7 +8698,7 @@ pub fn build_single_local_smooth_term(
         SmoothBasisSpec::ThinPlate {
             feature_cols,
             spec,
-            input_scales,
+            input_scale,
         } => {
             if term.shape != ShapeConstraint::None {
                 if feature_cols.len() != 1 {
@@ -8379,25 +8710,16 @@ pub fn build_single_local_smooth_term(
                     );
                 }
             }
-            let mut x = select_columns(data, feature_cols)?;
-            // Auto-standardize multivariate inputs: use stored scales (prediction)
-            // or compute fresh ones (training). Same standardization-vs-
-            // length-scale compensation as Matérn / hybrid Duchon: divide
-            // the user's L by σ_geom so kernel(‖x_std − c_std‖/L_eff)
-            // matches the original-coord kernel for uniform σ.
-            let (scales, length_scale_eff) = if let Some(s) = input_scales {
-                apply_input_standardization(&mut x, s);
-                (
-                    Some(s.clone()),
-                    compensate_length_scale_for_standardization(spec.length_scale, s),
-                )
-            } else if let Some(s) = compute_spatial_input_scales(x.view()) {
-                apply_input_standardization(&mut x, &s);
-                let l_eff = compensate_length_scale_for_standardization(spec.length_scale, &s);
-                (Some(s), l_eff)
-            } else {
-                (None, spec.length_scale)
-            };
+            let frame = term.basis.scale_contract().normalize_euclidean_frame(
+                select_columns(data, feature_cols)?,
+                *input_scale,
+                Some(spec.length_scale),
+            )?;
+            let x = frame.coordinates;
+            let realized_input_scale = frame.input_scale;
+            let length_scale_eff = frame
+                .length_scale
+                .expect("ThinPlate declares a required length-scale coordinate");
             let mut spec_local = spec.clone();
             spec_local.length_scale = length_scale_eff;
             if matches!(
@@ -8409,7 +8731,7 @@ pub fn build_single_local_smooth_term(
             let mut result = build_thin_plate_basis(x.view(), &spec_local).map_err(|err| {
                 rewrite_thin_plate_knots_error(err, &term.name, feature_cols.len(), spec)
             })?;
-            // Inject input scales into metadata; also restore the user's
+            // Inject the input scale into metadata; also restore the user's
             // original length_scale (not the σ_geom-compensated one) so a
             // metadata-driven rebuild that re-applies compensation does not
             // double-divide. The build may auto-promote to Duchon when
@@ -8418,15 +8740,15 @@ pub fn build_single_local_smooth_term(
             // round-trips through the same standardized data path.
             match &mut result.metadata {
                 BasisMetadata::ThinPlate {
-                    input_scales: ms,
+                    input_scale: metadata_scale,
                     length_scale,
                     ..
                 } => {
-                    *ms = scales;
+                    *metadata_scale = realized_input_scale;
                     *length_scale = spec.length_scale;
                 }
                 BasisMetadata::Duchon {
-                    input_scales: ms,
+                    input_scale: metadata_scale,
                     length_scale,
                     ..
                 } => {
@@ -8452,15 +8774,11 @@ pub fn build_single_local_smooth_term(
                     // we must store the UN-compensated value `promotion_length_scale
                     // · σ_geom`. `compensate(1.0, σ) = 1/σ_geom`, so divide the
                     // realized scale by it to multiply back through σ_geom. With no
-                    // standardization (`scales == None`) replay does not compensate,
-                    // so the realized value is kept verbatim.
-                    if let (Some(s), Some(realized)) = (scales.as_ref(), *length_scale) {
-                        let inv_sigma_geom = compensate_length_scale_for_standardization(1.0, s);
-                        if inv_sigma_geom.is_finite() && inv_sigma_geom > 0.0 {
-                            *length_scale = Some(realized / inv_sigma_geom);
-                        }
+                    // standardization. Restore original units before freezing.
+                    if let Some(realized) = *length_scale {
+                        *length_scale = Some(realized * realized_input_scale.get());
                     }
-                    *ms = scales;
+                    *metadata_scale = realized_input_scale;
                 }
                 _ => {}
             }
@@ -8497,7 +8815,7 @@ pub fn build_single_local_smooth_term(
         SmoothBasisSpec::MeasureJet {
             feature_cols,
             spec,
-            input_scales,
+            input_scale,
         } => {
             if term.shape != ShapeConstraint::None {
                 crate::bail_invalid_basis!(
@@ -8506,47 +8824,35 @@ pub fn build_single_local_smooth_term(
                     term.name
                 );
             }
-            let mut x = select_columns(data, feature_cols)?;
-            // Matern-style per-axis standardization; the realized σ vector is
-            // persisted into the metadata for predict-time replay.
-            //
-            // Length-scale round-trip contract (owning statement; the freeze
-            // and frozen-validation arms reference it): `input_scales: Some`
-            // marks the REPLAY path — the frozen length_scale is already the
-            // realized post-standardization value and passes through
-            // verbatim. Fresh path: an explicit user length_scale is in
-            // ORIGINAL coordinates and gets the σ_geom compensation; the 0.0
-            // auto sentinel passes through (auto-derivation runs inside the
-            // builder, post-standardization).
-            let (scales, length_scale_eff) = if let Some(s) = input_scales {
-                apply_input_standardization(&mut x, s);
-                (Some(s.clone()), spec.length_scale)
-            } else if let Some(s) = compute_spatial_input_scales(x.view()) {
-                apply_input_standardization(&mut x, &s);
-                let l_eff = if spec.length_scale > 0.0 {
-                    compensate_length_scale_for_standardization(spec.length_scale, &s)
-                } else {
-                    spec.length_scale
-                };
-                (Some(s), l_eff)
-            } else {
-                (None, spec.length_scale)
-            };
+            // The typed scale contract owns the intentionally asymmetric
+            // fresh/replay rule: fresh explicit ranges are in original units,
+            // while a frozen MeasureJet range is already in its realized frame.
+            let frame = term.basis.scale_contract().normalize_euclidean_frame(
+                select_columns(data, feature_cols)?,
+                *input_scale,
+                Some(spec.length_scale),
+            )?;
+            let x = frame.coordinates;
+            let realized_input_scale = frame.input_scale;
+            let length_scale_eff = frame
+                .length_scale
+                .expect("MeasureJet declares a required length-scale coordinate");
             let mut spec_local = spec.clone();
             spec_local.length_scale = length_scale_eff;
             let mut result = build_measure_jet_basis(x.view(), &spec_local)?;
             if let BasisMetadata::MeasureJet {
-                input_scales: ms, ..
+                input_scale: metadata_scale,
+                ..
             } = &mut result.metadata
             {
-                *ms = scales;
+                *metadata_scale = realized_input_scale;
             }
             result
         }
         SmoothBasisSpec::Matern {
             feature_cols,
             spec,
-            input_scales,
+            input_scale,
         } => {
             if term.shape != ShapeConstraint::None {
                 if feature_cols.len() != 1 {
@@ -8558,52 +8864,40 @@ pub fn build_single_local_smooth_term(
                     );
                 }
             }
-            let mut x = select_columns(data, feature_cols)?;
-            // Auto-standardization (per-axis division by σ_a) reinterprets
-            // the user's `length_scale` from original data coordinates
-            // into post-standardization coordinates: for uniform σ_a = σ,
-            // `kernel(‖x_std − c_std‖/L)` equals `kernel(‖x − c‖/(σ·L))`,
-            // so the effective kernel range shrinks by σ. To keep
-            // `length_scale` consistently expressed in *original* data
-            // coordinates regardless of axis variances, we standardize
-            // and divide L by σ_geom = (∏σ_a)^(1/d). For uniform σ this
-            // recovers the user's kernel exactly; for anisotropic data
-            // the resulting per-axis effective scales σ_a / σ_geom are
-            // the standard Mahalanobis preconditioning and preserve the
-            // geometric-mean kernel range. Storing the σ vector in
-            // metadata.input_scales makes the same transformation
-            // replayable at predict time.
-            let (scales, length_scale_eff) = if let Some(s) = input_scales {
-                apply_input_standardization(&mut x, s);
-                (
-                    Some(s.clone()),
-                    compensate_length_scale_for_standardization(spec.length_scale, s),
-                )
-            } else if let Some(s) = compute_spatial_input_scales(x.view()) {
-                apply_input_standardization(&mut x, &s);
-                let l_eff = compensate_length_scale_for_standardization(spec.length_scale, &s);
-                (Some(s), l_eff)
-            } else {
-                (None, spec.length_scale)
-            };
+            let original_length_scale = spec.length_scale.resolved().ok_or_else(|| {
+                BasisError::InvalidInput(format!(
+                    "term '{}' reached Matérn construction before its Auto length scale was resolved",
+                    term.name
+                ))
+            })?;
+            let frame = term.basis.scale_contract().normalize_euclidean_frame(
+                select_columns(data, feature_cols)?,
+                *input_scale,
+                Some(original_length_scale),
+            )?;
+            let x = frame.coordinates;
+            let realized_input_scale = frame.input_scale;
+            let length_scale_eff = frame
+                .length_scale
+                .expect("Matérn declares a required length-scale coordinate");
             let mut spec_local = spec.clone();
-            spec_local.length_scale = length_scale_eff;
+            spec_local.length_scale.set_resolved(length_scale_eff);
             let mut result = build_matern_basiswithworkspace(x.view(), &spec_local, workspace)?;
             if let BasisMetadata::Matern {
-                input_scales,
+                input_scale: metadata_scale,
                 length_scale,
                 ..
             } = &mut result.metadata
             {
-                *input_scales = scales;
-                *length_scale = spec.length_scale;
+                *metadata_scale = realized_input_scale;
+                *length_scale = original_length_scale;
             }
             result
         }
         SmoothBasisSpec::Duchon {
             feature_cols,
             spec,
-            input_scales,
+            input_scale,
         } => {
             if term.shape != ShapeConstraint::None {
                 if feature_cols.len() != 1 {
@@ -8615,31 +8909,14 @@ pub fn build_single_local_smooth_term(
                     );
                 }
             }
-            let mut x = select_columns(data, feature_cols)?;
-            // Hybrid Duchon (length_scale=Some) is governed by the same
-            // standardization-vs-length-scale equivalence as Matérn: the
-            // user's `length_scale` is interpreted in original data
-            // coordinates, but auto-standardization (per-axis division by
-            // σ_a) reinterprets it as σ_geom · L. Pre-multiply by 1/σ_geom
-            // so kernel(‖x_std − c_std‖/L_eff) reproduces the user's
-            // original-coord kernel exactly for uniform σ_a, and reduces
-            // to standard Mahalanobis preconditioning for anisotropic σ.
-            // Pure Duchon (length_scale=None) is scale-free and needs no
-            // compensation.
-            let (scales, length_scale_eff) = if let Some(s) = input_scales {
-                apply_input_standardization(&mut x, s);
-                (
-                    Some(s.clone()),
-                    compensate_optional_length_scale_for_standardization(spec.length_scale, s),
-                )
-            } else if let Some(s) = compute_spatial_input_scales(x.view()) {
-                apply_input_standardization(&mut x, &s);
-                let l_eff =
-                    compensate_optional_length_scale_for_standardization(spec.length_scale, &s);
-                (Some(s), l_eff)
-            } else {
-                (None, spec.length_scale)
-            };
+            let frame = term.basis.scale_contract().normalize_euclidean_frame(
+                select_columns(data, feature_cols)?,
+                *input_scale,
+                spec.length_scale,
+            )?;
+            let x = frame.coordinates;
+            let realized_input_scale = frame.input_scale;
+            let length_scale_eff = frame.length_scale;
             let mut spec_local = spec.clone();
             spec_local.length_scale = length_scale_eff;
             // The Duchon input axis is standardized in place above (`x → x/σ`,
@@ -8654,31 +8931,25 @@ pub fn build_single_local_smooth_term(
             // diverged across the wrap, f(0) ≠ f(2π)). Rescale by the same
             // 1/σ applied to the data so training and predict share one
             // periodic geometry.
-            if let (Some(s), crate::basis::OneDimensionalBoundary::Cyclic { start, end }) =
-                (scales.as_ref(), spec_local.boundary.clone())
-                && s.len() == 1
-                && s[0] > 0.0
+            if let crate::basis::OneDimensionalBoundary::Cyclic { start, end } =
+                spec_local.boundary.clone()
             {
                 spec_local.boundary = crate::basis::OneDimensionalBoundary::Cyclic {
-                    start: start / s[0],
-                    end: end / s[0],
+                    start: realized_input_scale.to_standardized_units(start),
+                    end: realized_input_scale.to_standardized_units(end),
                 };
             }
             // The SAME original-units-vs-standardized-frame reasoning applies
             // to `spec.periodic` (the per-axis period vector the position API
             // and mixed-periodicity tensor paths use): each declared period is
             // in original covariate units and must be divided by that axis's
-            // σ_a, or the wrap folds standardized coordinates against an
+            // uniform input scale, or the wrap folds standardized coordinates against an
             // original-unit period (the #1074 seam failure, previously fixed
             // only for the 1-D `boundary` spelling above).
-            if let (Some(s), Some(periods)) = (scales.as_ref(), spec_local.periodic.as_mut())
-                && s.len() == periods.len()
-            {
-                for (axis_period, &sigma) in periods.iter_mut().zip(s.iter()) {
-                    if sigma > 0.0
-                        && let Some(p) = axis_period.as_mut()
-                    {
-                        *p /= sigma;
+            if let Some(periods) = spec_local.periodic.as_mut() {
+                for axis_period in periods {
+                    if let Some(period) = axis_period.as_mut() {
+                        *period = realized_input_scale.to_standardized_units(*period);
                     }
                 }
             }
@@ -8690,19 +8961,19 @@ pub fn build_single_local_smooth_term(
             }
             let mut result = build_duchon_basiswithworkspace(x.view(), &spec_local, workspace)?;
             if let BasisMetadata::Duchon {
-                input_scales,
+                input_scale: metadata_scale,
                 length_scale,
                 periodic,
                 ..
             } = &mut result.metadata
             {
-                *input_scales = scales;
+                *metadata_scale = realized_input_scale;
                 *length_scale = spec.length_scale;
                 // Same convention as `length_scale`: metadata (and hence the
                 // frozen replay spec design_freezing copies it into) always
                 // stores the period in ORIGINAL covariate units, and the
                 // standardization rescale above recomputes the standardized
-                // period fresh from `input_scales` on EVERY build — fresh fit
+                // period fresh from `input_scale` on EVERY build — fresh fit
                 // and frozen replay alike — so the compensation stays
                 // idempotent with no fit-vs-replay branch. Leaving the
                 // builder-resolved (standardized-frame) period here would
@@ -8789,14 +9060,20 @@ pub fn build_single_local_smooth_term(
     // penalty, and the κ-optimizer re-key / ψ-derivative paths route through the
     // same triplet builder so the block count stays ψ-stable (#1270).
     if let SmoothBasisSpec::Matern { .. } = &term.basis {
-        let (penalties, nullspace_dims, penaltyinfo) =
-            matern_operator_penalty_triplet_from_metadata(&built.metadata)?;
-        built.penalties = penalties;
-        built.nullspace_dims = nullspace_dims;
-        built.penaltyinfo = penaltyinfo;
+        let filtered = matern_operator_penalty_triplet_from_metadata(&built.metadata)?;
+        built.active_penalties = filtered.active;
+        built.dropped_penalties = filtered.dropped;
     }
 
+    if built.affine_offset.is_some() && term.shape != ShapeConstraint::None {
+        crate::bail_invalid_basis!(
+            "non-zero endpoint anchors cannot be combined with ShapeConstraint::{:?} on term '{}': the coefficient cone constrains only the homogeneous spline and would not certify the final affine function",
+            term.shape,
+            term.name
+        );
+    }
     let p_local = built.design.ncols();
+    let affine_offset = built.affine_offset;
     let mut metadata = built.metadata.clone();
     // Extract factored Kronecker representation before consuming fields.
     // Invalidate it if shape transforms will be applied (they break structure).
@@ -8806,13 +9083,8 @@ pub fn build_single_local_smooth_term(
         None
     };
     let mut design_t = built.design;
-    let mut penalties_t: Vec<Array2<f64>> = built.penalties;
-    // Ops vector parallel to `penalties_t`. Survives unchanged through the
-    // identity path; nulled element-wise when `T^T S T` reparametrization
-    // is applied (operator no longer bit-equivalent to the transformed
-    // matrix); wrapped in `ScaledPenaltyOp` after Frobenius normalization.
-    let mut ops_t: Vec<Option<std::sync::Arc<dyn crate::analytic_penalties::PenaltyOp>>> =
-        built.ops;
+    let mut penalties_t = built.active_penalties;
+    let mut dropped_penalties_t = built.dropped_penalties;
     if matches!(
         spatial_identifiability_policy(term),
         Some(SpatialIdentifiability::OrthogonalToParametric)
@@ -8820,18 +9092,6 @@ pub fn build_single_local_smooth_term(
         metadata = freeze_raw_spatial_metadata(metadata, design_t.ncols());
     }
 
-    let active_penaltyinfo_t = built
-        .penaltyinfo
-        .iter()
-        .filter(|info| info.active)
-        .cloned()
-        .collect::<Vec<_>>();
-    let pre_dropped_penaltyinfo_t = built
-        .penaltyinfo
-        .iter()
-        .filter(|info| !info.active)
-        .cloned()
-        .collect::<Vec<_>>();
     let use_box_reparam =
         term.shape != ShapeConstraint::None && shape_uses_box_reparameterization(&term.basis);
     if let Some((order, sign)) = shape_order_and_sign(term.shape)
@@ -8895,82 +9155,64 @@ pub fn build_single_local_smooth_term(
         design_t = DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(Arc::new(
             coeff_op,
         )));
-        if penalties_t.len() != active_penaltyinfo_t.len() {
-            crate::bail_invalid_basis!(
-                "internal box-reparam penalty/info mismatch for term '{}': penalties={}, infos={}",
-                term.name,
-                penalties_t.len(),
-                active_penaltyinfo_t.len()
-            );
-        }
         // `β = Tγ` is an invertible change of coefficient chart. Every
         // physical quadratic functional, including the function-space
         // null-component penalty, therefore transforms by the same congruence
         // `S_γ = Tᵀ S_β T`. Rebuilding `ZZᵀ` in the γ Euclidean metric
         // would change the represented functional under this harmless chart
         // change and violate SPEC 5.
-        let mut rebuilt = Vec::with_capacity(penalties_t.len());
-        for s_local in &penalties_t {
-            let tt_s = fast_atb(&t, s_local);
-            rebuilt.push(fast_ab(&tt_s, &t));
+        for penalty in &mut penalties_t {
+            let tt_s = fast_atb(&t, &penalty.matrix);
+            penalty.matrix = fast_ab(&tt_s, &t);
+            penalty.op = None;
+            penalty.info.kronecker_factors = None;
         }
-        penalties_t = rebuilt;
-        // T^T S T (and the rebuilt γ-space ridge) invalidate op-form
-        // bit-equivalence; drop ops here.
-        ops_t = vec![None; penalties_t.len()];
-    }
-    if penalties_t.len() != active_penaltyinfo_t.len() {
-        crate::bail_invalid_basis!(
-            "internal penalty metadata mismatch for term '{}': active penalties={}, active infos={}",
-            term.name,
-            penalties_t.len(),
-            active_penaltyinfo_t.len()
-        );
-    }
-    if ops_t.len() != penalties_t.len() {
-        ops_t = vec![None; penalties_t.len()];
     }
     let penalty_candidates = penalties_t
         .into_iter()
-        .zip(active_penaltyinfo_t.into_iter())
-        .zip(ops_t.into_iter())
-        .map(
-            |((matrix, info), op_in)| -> Result<PenaltyCandidate, BasisError> {
-                let (matrix, c_new) = normalize_penalty_in_constrained_space(&matrix);
-                let normalization_scale = info.normalization_scale * c_new;
-                let op_scale = 1.0 / c_new;
-                let kronecker_scale = 1.0 / c_new;
-                // Frobenius rescale: wrap inner op in `ScaledPenaltyOp(1/c_new)`
-                // so `op.as_dense() == matrix` post-normalization.
-                let scaled_op = if op_scale > 0.0 && op_scale.is_finite() {
-                    op_in.map(|op| {
-                        std::sync::Arc::new(crate::analytic_penalties::ScaledPenaltyOp::new(
-                            op, op_scale,
-                        ))
-                            as std::sync::Arc<dyn crate::analytic_penalties::PenaltyOp>
-                    })
-                } else {
-                    None
-                };
-                let kronecker_factors = info.kronecker_factors.map(|mut factors| {
-                    if let Some(first) = factors.first_mut() {
-                        first.mapv_inplace(|v| v * kronecker_scale);
-                    }
-                    factors
-                });
-                Ok(PenaltyCandidate {
-                    nullspace_dim_hint: info.nullspace_dim_hint,
-                    matrix,
-                    source: info.source,
-                    normalization_scale,
-                    kronecker_factors,
-                    op: scaled_op,
+        .map(|penalty| -> Result<PenaltyCandidate, BasisError> {
+            let ActivePenalty {
+                matrix,
+                op: op_in,
+                info,
+                ..
+            } = penalty;
+            let (matrix, c_new) = normalize_penalty_in_constrained_space(&matrix);
+            let normalization_scale = info.normalization_scale * c_new;
+            let op_scale = 1.0 / c_new;
+            let kronecker_scale = 1.0 / c_new;
+            // Frobenius rescale: wrap inner op in `ScaledPenaltyOp(1/c_new)`
+            // so `op.as_dense() == matrix` post-normalization.
+            let scaled_op = if op_scale > 0.0 && op_scale.is_finite() {
+                op_in.map(|op| {
+                    std::sync::Arc::new(crate::analytic_penalties::ScaledPenaltyOp::new(
+                        op, op_scale,
+                    ))
+                        as std::sync::Arc<dyn crate::analytic_penalties::PenaltyOp>
                 })
-            },
-        )
+            } else {
+                None
+            };
+            let kronecker_factors = info.kronecker_factors.map(|mut factors| {
+                if let Some(first) = factors.first_mut() {
+                    first.mapv_inplace(|v| v * kronecker_scale);
+                }
+                factors
+            });
+            Ok(PenaltyCandidate {
+                matrix: ConstructiveQuadratic::try_from_dense_psd(
+                    matrix,
+                    "shape-constrained transformed penalty",
+                )?,
+                source: info.source,
+                normalization_scale,
+                kronecker_factors,
+                op: scaled_op,
+            })
+        })
         .collect::<Result<Vec<_>, _>>()?;
-    let (penalties_t, nullspaces_t, penaltyinfo_t, null_eigenvectors_t, ops_t) =
-        crate::basis::filter_active_penalty_candidates_with_ops(penalty_candidates)?;
+    let filtered = crate::basis::filter_penalty_candidates(penalty_candidates)?;
+    dropped_penalties_t.extend(filtered.dropped);
     // Joint-null absorption rotation. Fresh fit specs compute Q from the final
     // per-smooth penalty set (after all in-smooth reparameterizations have
     // already been applied). Frozen specs already carry the complete realized
@@ -8993,19 +9235,16 @@ pub fn build_single_local_smooth_term(
         Some(persisted) => Some(persisted),
         None if smooth_has_frozen_identifiability(term) => None,
         None if kron_factored.is_some() => None,
-        None => crate::basis::compute_joint_null_rotation(&penalties_t)?,
+        None => crate::basis::compute_joint_null_rotation(&filtered.active)?,
     };
 
     Ok(LocalSmoothTermBuild {
         dim: p_local,
         design: design_t,
-        penalties: penalties_t,
-        ops: ops_t,
-        nullspaces: nullspaces_t,
-        null_eigenvectors: null_eigenvectors_t,
+        affine_offset,
+        active_penalties: filtered.active,
         joint_null_rotation,
-        penaltyinfo: penaltyinfo_t,
-        pre_dropped_penaltyinfo: pre_dropped_penaltyinfo_t,
+        dropped_penalties: dropped_penalties_t,
         metadata,
         linear_constraints: None,
         box_reparam: use_box_reparam,
@@ -9062,6 +9301,7 @@ pub fn build_smooth_design_withworkspace_unvalidated(
     let total_p: usize = local_builds.iter().map(|built| built.dim).sum();
 
     let mut local_designs: Vec<DesignMatrix> = Vec::with_capacity(local_builds.len());
+    let mut affine_offset = Array1::<f64>::zeros(data.nrows());
     let mut terms_out = Vec::<SmoothTerm>::with_capacity(terms.len());
     let mut penalties_global = Vec::<BlockwisePenalty>::new();
     let mut nullspace_dims_global = Vec::<usize>::new();
@@ -9088,8 +9328,8 @@ pub fn build_smooth_design_withworkspace_unvalidated(
 
         // Stage-2 joint-null absorption rotation. Fired *before* the
         // penalty / design / global aggregation loops below so that every
-        // subsequent reference to `built.penalties`, `built.design`, and
-        // `built.ops` sees the post-rotation values.
+        // subsequent reference to `built.active_penalties` and `built.design`
+        // sees the post-rotation values.
         //
         // The math: when the smooth's joint penalty `Σ_k S_k` has a
         // non-trivial null space, eigh selects `Q = [U_range | U_null]`
@@ -9126,15 +9366,16 @@ pub fn build_smooth_design_withworkspace_unvalidated(
                 let q = &rot.rotation;
                 built.design =
                     apply_smooth_transform_to_design(built.design.clone(), q, &term.name)?;
-                built.penalties = built
-                    .penalties
-                    .into_iter()
-                    .map(|s_local| {
-                        let qt_s = gam_linalg::faer_ndarray::fast_atb(q, &s_local);
-                        gam_linalg::faer_ndarray::fast_ab(&qt_s, q)
-                    })
-                    .collect();
-                built.ops = vec![None; built.penalties.len()];
+                for penalty in &mut built.active_penalties {
+                    let qt_s = gam_linalg::faer_ndarray::fast_atb(q, &penalty.matrix);
+                    penalty.matrix = gam_linalg::faer_ndarray::fast_ab(&qt_s, q);
+                    penalty.null_eigenvectors = penalty
+                        .null_eigenvectors
+                        .as_ref()
+                        .map(|basis| gam_linalg::faer_ndarray::fast_atb(q, basis));
+                    penalty.op = None;
+                    penalty.info.kronecker_factors = None;
+                }
                 built.kronecker_factored = None;
                 Some(rot)
             }
@@ -9142,47 +9383,20 @@ pub fn build_smooth_design_withworkspace_unvalidated(
             (None, _, _) => None,
         };
 
-        let activeinfos = built
-            .penaltyinfo
-            .iter()
-            .filter(|info| info.active)
-            .collect::<Vec<_>>();
-        if activeinfos.len() != built.penalties.len() {
-            crate::bail_invalid_basis!(
-                "internal penalty info mismatch for term '{}': activeinfos={}, penalties={}",
-                term.name,
-                activeinfos.len(),
-                built.penalties.len()
-            );
-        }
-        for (((s_local, &ns), info), op_local) in built
-            .penalties
-            .iter()
-            .zip(built.nullspaces.iter())
-            .zip(activeinfos.into_iter())
-            .zip(built.ops.iter())
-        {
+        for active_penalty in &built.active_penalties {
             let global_index = penalties_global.len();
             penalties_global.push(
-                BlockwisePenalty::new(col_start..col_end, s_local.clone())
-                    .with_op(op_local.clone()),
+                BlockwisePenalty::new(col_start..col_end, active_penalty.matrix.clone())
+                    .with_op(active_penalty.op.clone()),
             );
-            nullspace_dims_global.push(ns);
-            let mut penalty = info.clone();
-            penalty.nullspace_dim_hint = ns;
+            nullspace_dims_global.push(active_penalty.nullity);
             penaltyinfo_global.push(PenaltyBlockInfo {
                 global_index,
                 termname: Some(term.name.clone()),
-                penalty,
+                penalty: active_penalty.info.clone(),
             });
         }
-        for info in built.penaltyinfo.iter().filter(|info| !info.active) {
-            dropped_penaltyinfo_global.push(DroppedPenaltyBlockInfo {
-                termname: Some(term.name.clone()),
-                penalty: info.clone(),
-            });
-        }
-        for info in &built.pre_dropped_penaltyinfo {
+        for info in &built.dropped_penalties {
             dropped_penaltyinfo_global.push(DroppedPenaltyBlockInfo {
                 termname: Some(term.name.clone()),
                 penalty: info.clone(),
@@ -9202,6 +9416,18 @@ pub fn build_smooth_design_withworkspace_unvalidated(
             any_bounds = true;
         }
 
+        if let Some(term_offset) = built.affine_offset.as_ref() {
+            if term_offset.len() != data.nrows() {
+                crate::bail_dim_basis!(
+                    "smooth term '{}' affine offset has {} rows but the realized data has {}",
+                    term.name,
+                    term_offset.len(),
+                    data.nrows()
+                );
+            }
+            affine_offset += term_offset;
+        }
+
         // Move the per-term design out of `built` rather than cloning it.
         local_designs.push(built.design);
 
@@ -9209,9 +9435,8 @@ pub fn build_smooth_design_withworkspace_unvalidated(
             name: term.name.clone(),
             coeff_range: col_start..col_end,
             shape: term.shape,
-            penalties_local: built.penalties,
-            nullspace_dims: built.nullspaces,
-            penaltyinfo_local: built.penaltyinfo,
+            active_penalties: built.active_penalties,
+            dropped_penalties: built.dropped_penalties,
             metadata: built.metadata,
             lower_bounds_local: lb_local,
             linear_constraints_local: built.linear_constraints,
@@ -9236,6 +9461,7 @@ pub fn build_smooth_design_withworkspace_unvalidated(
 
     Ok(RawSmoothDesign {
         term_designs: local_designs,
+        affine_offset,
         penalties: penalties_global,
         nullspace_dims: nullspace_dims_global,
         penaltyinfo: penaltyinfo_global,
@@ -9259,4 +9485,99 @@ pub fn build_smooth_design_withworkspace_unvalidated(
             })
         },
     })
+}
+
+#[cfg(test)]
+mod factor_smooth_heldout_group_tests {
+    use super::*;
+    use crate::basis::BasisWorkspace;
+    use ndarray::{Array1, array};
+
+    fn pinned_marginal() -> BSplineBasisSpec {
+        BSplineBasisSpec {
+            degree: 3,
+            penalty_order: 2,
+            knotspec: BSplineKnotSpec::Provided(Array1::from(vec![
+                0.0, 0.0, 0.0, 0.0, 0.25, 0.6, 1.0, 1.0, 1.0, 1.0,
+            ])),
+            double_penalty: false,
+            identifiability: BSplineIdentifiability::None,
+            boundary: crate::basis::OneDimensionalBoundary::Open,
+            boundary_conditions: crate::basis::BSplineBoundaryConditions::default(),
+        }
+    }
+
+    fn factor_smooth_term(flavour: FactorSmoothFlavour, frozen: Option<Vec<u64>>) -> SmoothTermSpec {
+        SmoothTermSpec {
+            name: "fs_heldout".to_string(),
+            basis: SmoothBasisSpec::FactorSmooth {
+                spec: FactorSmoothSpec {
+                    continuous_cols: vec![0],
+                    group_col: 1,
+                    marginal: pinned_marginal(),
+                    flavour,
+                    group_frozen_levels: frozen,
+                    frozen_global_orthogonality: None,
+                },
+            },
+            shape: ShapeConstraint::None,
+            joint_null_rotation: None,
+        }
+    }
+
+    const FROZEN_01: [f64; 2] = [0.0, 1.0];
+
+    fn frozen_bits() -> Vec<u64> {
+        FROZEN_01.iter().map(|v| v.to_bits()).collect()
+    }
+
+    /// #2365: in the frozen (predict/replay) context, a `bs="re"` row whose
+    /// group is outside the training vocabulary must build with an all-zero
+    /// row — zero fitted deviation, population prediction — instead of
+    /// erroring before the random-effect operator can apply its held-out-group
+    /// contract.
+    #[test]
+    fn re_heldout_group_row_is_zero_deviation() {
+        let data = array![[0.1, 0.0], [0.5, 1.0], [0.9, 7.0]];
+        let term = factor_smooth_term(FactorSmoothFlavour::Re, Some(frozen_bits()));
+        let mut workspace = BasisWorkspace::default();
+        let build = build_single_local_smooth_term(data.view(), &term, &mut workspace)
+            .expect("a held-out group must not fail the bs=\"re\" design build");
+        let dense = build
+            .design
+            .try_to_dense_by_chunks("heldout test")
+            .expect("dense");
+        assert!(
+            dense.row(2).iter().all(|&v| v == 0.0),
+            "unseen-group row must carry zero deviation across every group block, got {:?}",
+            dense.row(2)
+        );
+        assert!(
+            dense.row(0).iter().any(|&v| v != 0.0) && dense.row(1).iter().any(|&v| v != 0.0),
+            "in-vocabulary rows must still populate their group blocks"
+        );
+    }
+
+    /// The `fs` flavour estimates a per-level deviation FUNCTION — an unseen
+    /// level has no zero-deviation population fallback — so the frozen-context
+    /// build must stay strict (#2102/#2137 must not regress through #2365).
+    #[test]
+    fn fs_heldout_group_stays_strict() {
+        let data = array![[0.1, 0.0], [0.5, 1.0], [0.9, 7.0]];
+        let term = factor_smooth_term(
+            FactorSmoothFlavour::Fs {
+                m_null_penalty_orders: vec![1],
+            },
+            Some(frozen_bits()),
+        );
+        let mut workspace = BasisWorkspace::default();
+        let err = match build_single_local_smooth_term(data.view(), &term, &mut workspace) {
+            Ok(_) => panic!("fs must reject an unseen grouping level"),
+            Err(err) => err,
+        };
+        assert!(
+            err.to_string().contains("unseen grouping level"),
+            "fs unseen-level refusal must name the defect, got: {err}"
+        );
+    }
 }

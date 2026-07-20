@@ -17,6 +17,12 @@ import mindroom.background_tasks as background_tasks_module
 from mindroom.agent_storage import create_session_storage, get_agent_session
 from mindroom.background_tasks import wait_for_background_tasks
 from mindroom.config.models import CompactionOverrideConfig
+from mindroom.constants import (
+    AI_RUN_METADATA_KEY,
+    MATRIX_SOURCE_EVENT_PROMPTS_METADATA_KEY,
+    MINDROOM_COMPACTION_METADATA_KEY,
+    MINDROOM_MATRIX_HISTORY_METADATA_KEY,
+)
 from mindroom.history.compaction import (
     _build_summary_input,
     _compaction_replay_messages,
@@ -498,7 +504,7 @@ def test_build_summary_input_normal_run_omits_empty_filtered_metadata() -> None:
     assert "<run_metadata>" not in summary_input
 
 
-def test_build_summary_input_normal_run_omits_only_bulky_metadata() -> None:
+def test_build_summary_input_normal_run_omits_non_summary_metadata() -> None:
     run = _completed_run(
         "run-normal-metadata",
         messages=[
@@ -524,6 +530,10 @@ def test_build_summary_input_normal_run_omits_only_bulky_metadata() -> None:
         ],
     )
     metadata = {
+        AI_RUN_METADATA_KEY: {"compaction": {"decision": "required"}},
+        MINDROOM_COMPACTION_METADATA_KEY: {"states": {"agent:test": {"compacted_run_ids": ["old-run"]}}},
+        MINDROOM_MATRIX_HISTORY_METADATA_KEY: {"states": {"agent:test": {"seen_event_ids": ["$old"]}}},
+        MATRIX_SOURCE_EVENT_PROMPTS_METADATA_KEY: {"$request": "Look up the deployment outcome."},
         "matrix_event_id": "$request",
         "started_at": "2026-07-17T20:00:00Z",
         "durable_outcome": {"state": "delivered"},
@@ -543,6 +553,10 @@ def test_build_summary_input_normal_run_omits_only_bulky_metadata() -> None:
     assert run.metadata == metadata
     assert "tools_schema" not in summary_input
     assert "model_params" not in summary_input
+    assert AI_RUN_METADATA_KEY not in summary_input
+    assert MINDROOM_COMPACTION_METADATA_KEY not in summary_input
+    assert MINDROOM_MATRIX_HISTORY_METADATA_KEY not in summary_input
+    assert MATRIX_SOURCE_EVENT_PROMPTS_METADATA_KEY in summary_input
     assert "$request" in summary_input
     assert "2026-07-17T20:00:00Z" in summary_input
     assert "durable_outcome" in summary_input
@@ -554,18 +568,34 @@ def test_build_summary_input_normal_run_omits_only_bulky_metadata() -> None:
     assert "https://example.test/deployment.png" in summary_input
 
 
-def test_build_summary_input_skips_when_previous_summary_cannot_be_preserved() -> None:
+def test_build_summary_input_preserves_complete_near_cap_summary_without_claiming_progress() -> None:
     run = _completed_run("run-1")
+    previous_summary = ("word " * 975) + "TAIL-FACT-MUST-SURVIVE"
 
     summary_input, included_runs = _build_summary_input(
-        previous_summary="existing durable summary " * 50,
+        previous_summary=previous_summary,
         compacted_runs=[run],
-        max_input_tokens=50,
+        max_input_tokens=1_001,
         history_settings=_ALL_HISTORY_SETTINGS,
     )
 
     assert included_runs == []
     assert "<previous_summary>" in summary_input
+    assert previous_summary in summary_input
+    assert "TAIL-FACT-MUST-SURVIVE" in summary_input
+    assert "<new_conversation>" not in summary_input
+
+
+def test_build_summary_input_returns_no_progress_when_run_envelope_cannot_fit() -> None:
+    summary_input, included_runs = _build_summary_input(
+        previous_summary=None,
+        compacted_runs=[_completed_run("run-1")],
+        max_input_tokens=1,
+        history_settings=_ALL_HISTORY_SETTINGS,
+    )
+
+    assert summary_input == ""
+    assert included_runs == []
 
 
 def test_build_summary_input_preserves_previous_summary_text() -> None:

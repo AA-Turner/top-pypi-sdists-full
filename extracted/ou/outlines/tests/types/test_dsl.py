@@ -542,7 +542,7 @@ def test_dsl_python_types_to_terms():
     int_instance = 1
     assert python_types_to_terms(int_instance) == Regex(r"1")
     float_instance = 1.0
-    assert python_types_to_terms(float_instance) == Regex(r"1.0")
+    assert python_types_to_terms(float_instance) == Regex(r"1\.0")
 
     @dataclass
     class DataClass:
@@ -667,6 +667,28 @@ def test_dsl_literal_bool():
     assert result_both == Alternatives([Regex("True"), Regex("False")])
 
 
+def test_dsl_numeric_literal_escapes_regex_metacharacters():
+    # A float's ``.`` must match literally, not act as a regex wildcard.
+    term = python_types_to_terms(1.5)
+    assert to_regex(term) == r"(1\.5)"
+    assert term.matches("1.5") is True
+    assert term.matches("1x5") is False
+
+    # Same guarantee through the common ``Literal`` path...
+    literal_term = python_types_to_terms(Literal[1.5])
+    assert literal_term.matches("1x5") is False
+
+    # ...and for float-valued Enums.
+    class Ratio(float, Enum):
+        HALF = 1.5
+
+    enum_term = python_types_to_terms(Ratio)
+    assert enum_term.matches("1x5") is False
+
+    # Parity with string literals, which were already escaped.
+    assert python_types_to_terms("1.5").matches("1x5") is False
+
+
 def test_dsl_handle_union():
     # test simple Union
     simple_union = Union[int, str]
@@ -701,6 +723,22 @@ def test_dsl_handle_union():
     assert len(result.terms[1].terms) == 2
     assert result.terms[1].terms[0] == String("a")
     assert result.terms[1].terms[1] == String("b")
+
+
+def test_dsl_handle_union_multiple_members_with_none():
+    # Regression: only the 2-arg Optional[T] case handled None; a union with >=2
+    # non-None members plus None fell into the general branch and crashed with
+    # "Type NoneType is currently not supported".
+    result = _handle_union(get_args(Union[int, str, None]), recursion_depth=0)
+    assert isinstance(result, Alternatives)
+    assert types.integer in result.terms
+    assert types.string in result.terms
+    assert Regex("None") in result.terms
+
+    # Optional[Union[...]] (same args after flattening) must also not crash.
+    nested = _handle_union(get_args(PyOptional[Union[int, str]]), recursion_depth=0)
+    assert isinstance(nested, Alternatives)
+    assert Regex("None") in nested.terms
 
 
 def test_dsl_handle_list():

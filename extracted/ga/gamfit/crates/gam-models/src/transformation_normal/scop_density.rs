@@ -1,5 +1,14 @@
 use super::*;
 
+/// Boundary-roundoff floor (in ULP of the endpoint magnitude) for the
+/// certified-support gate in [`transformation_normal_pit_score`]. An honest
+/// training-boundary row reconstructs `lower`/`upper` through a `p_resp`-term
+/// basis-weighted α sum, accumulating `~p_resp·ε·scale` cancellation; this
+/// budget sits comfortably above realistic `p_resp` (≈ tens of shape columns)
+/// so genuine roundoff is snapped to the endpoint while any larger excursion
+/// is refused as out-of-certified-domain extrapolation.
+const PIT_CERTIFIED_DOMAIN_ROUNDOFF_ULPS: f64 = 256.0;
+
 pub fn transformation_normal_pit_score(
     h: f64,
     lower: f64,
@@ -25,26 +34,44 @@ pub fn transformation_normal_pit_score(
         ) }.into());
     }
 
-    // Extrapolation outside `[lower, upper]` is *not* a malformed input —
-    // a test sample whose response sits at-or-beyond the training response
-    // support will produce a finite `h` slightly below `lower` (or slightly
-    // above `upper`) by exactly the amount the kernel reconstructs the
-    // boundary. The PIT mapping is still well-defined: `u → 0` when
-    // `h ≤ lower`, `u → 1` when `h ≥ upper`, and the `clip_eps` clamp on
-    // the standard-normal quantile call at the end of this function turns
-    // both into the extreme-quantile finite values that downstream
-    // calibration code expects. Refusing here was surfacing routine
-    // boundary roundoff at large-scale shape (`p_resp` coefficients × O(1)
-    // basis evaluations introduce ~`p_resp·ε·scale` noise — 64·ε·scale
-    // is below that floor) as a hard prediction failure.
+    // Certified-domain gate (direct-α cutover, gam#2306). Positivity /
+    // monotonicity of the transform is certified only on the fitted rows —
+    // the factored Khatri-Rao cone guarantees `h(y_i, x_i) ∈ [lower_i,
+    // upper_i]` there — plus whatever domain certificate the persisted model
+    // carries. A prediction whose transformed value `h` sits meaningfully
+    // outside `[lower, upper]` is therefore an extrapolation past the
+    // certified support (a test response beyond the training range, or a
+    // covariate `x` where `α_k(x)` left the positivity cone). Fabricating an
+    // extreme-tail quantile by clamping would ship a silent, uncertified
+    // answer, so refuse it (typed) and name the offending value + domain.
     //
-    // A debug-level log preserves visibility for genuinely far-out
-    // inputs without aborting the prediction. Non-finite `h` is already
-    // rejected above at the `is_finite()` guard.
-    if h < lower || h > upper {
-        log::debug!(
-            "transformation-normal PIT extrapolation: h={h:.6e}, lower={lower:.6e}, upper={upper:.6e} — clamping to support and continuing"
-        );
+    // The only tolerated excursion is boundary roundoff: an honest
+    // training-boundary row reconstructs `lower`/`upper` through a
+    // `p_resp`-term basis-weighted α sum, accumulating ~`p_resp·ε·scale`
+    // cancellation. Snap that noise to the exact endpoint (it drives the
+    // legitimate `u → {0, 1}` saturation the fit-time score paths consume),
+    // and reject anything past the floor. Non-finite `h` is already rejected
+    // above at the `is_finite()` guard.
+    let support = upper - lower;
+    let domain_scale = support.max(lower.abs()).max(upper.abs());
+    let domain_tol = PIT_CERTIFIED_DOMAIN_ROUNDOFF_ULPS * f64::EPSILON * domain_scale;
+    if h < lower - domain_tol {
+        return Err(TransformationNormalError::OutsideCertifiedDomain { reason: format!(
+            "transformation-normal PIT: transformed response h={h:.6e} lies below the certified \
+             support lower endpoint {lower:.6e} by {:.6e} (> boundary-roundoff floor \
+             {domain_tol:.3e}); positivity is certified only on the training support \
+             [{lower:.6e}, {upper:.6e}], so this response/covariate is outside the fitted domain",
+            lower - h
+        ) }.into());
+    }
+    if h > upper + domain_tol {
+        return Err(TransformationNormalError::OutsideCertifiedDomain { reason: format!(
+            "transformation-normal PIT: transformed response h={h:.6e} lies above the certified \
+             support upper endpoint {upper:.6e} by {:.6e} (> boundary-roundoff floor \
+             {domain_tol:.3e}); positivity is certified only on the training support \
+             [{lower:.6e}, {upper:.6e}], so this response/covariate is outside the fitted domain",
+            h - upper
+        ) }.into());
     }
     let h_inside = h.clamp(lower, upper);
     let u = if h_inside <= lower {
@@ -68,34 +95,33 @@ pub fn transformation_normal_pit_score(
 
 /// Accumulates the second-order monotone-transform quantities
 /// `(h_i, h_j, h_ij, hp_i, hp_j, hp_ij)` for one row from the response value /
-/// derivative bases and the per-response-knot gamma directional derivatives.
+/// derivative bases and the per-response-knot ψ-directional derivatives of the
+/// factored coordinates `α_k(x; ψ)`. With the direct-α chart (gam#2306) the
+/// transform is LINEAR in the coordinates, so each accumulation is a plain
+/// basis-weighted sum; the ψψ second derivative flows entirely through
+/// `alpha_ij` (the covariate design is still nonlinear in ψ).
 /// Shared verbatim across the SCOP Hessian/HVP/bilinear row loops.
 pub(crate) fn scop_second_order_h(
     rv: ArrayView1<'_, f64>,
     rd: ArrayView1<'_, f64>,
     p_resp: usize,
-    gamma: &[f64],
-    gamma_i: &[f64],
-    gamma_j: &[f64],
-    gamma_ij: &[f64],
+    alpha_i: &[f64],
+    alpha_j: &[f64],
+    alpha_ij: &[f64],
 ) -> [f64; 6] {
-    let mut h_i = rv[0] * gamma_i[0];
-    let mut h_j = rv[0] * gamma_j[0];
-    let mut h_ij = rv[0] * gamma_ij[0];
-    let mut hp_i = rd[0] * gamma_i[0];
-    let mut hp_j = rd[0] * gamma_j[0];
-    let mut hp_ij = rd[0] * gamma_ij[0];
-    for k in 1..p_resp {
-        let g = gamma[k];
-        let gi = gamma_i[k];
-        let gj = gamma_j[k];
-        let gij = gamma_ij[k];
-        h_i += 2.0 * rv[k] * g * gi;
-        h_j += 2.0 * rv[k] * g * gj;
-        h_ij += 2.0 * rv[k] * (gj * gi + g * gij);
-        hp_i += 2.0 * rd[k] * g * gi;
-        hp_j += 2.0 * rd[k] * g * gj;
-        hp_ij += 2.0 * rd[k] * (gj * gi + g * gij);
+    let mut h_i = 0.0;
+    let mut h_j = 0.0;
+    let mut h_ij = 0.0;
+    let mut hp_i = 0.0;
+    let mut hp_j = 0.0;
+    let mut hp_ij = 0.0;
+    for k in 0..p_resp {
+        h_i += rv[k] * alpha_i[k];
+        h_j += rv[k] * alpha_j[k];
+        h_ij += rv[k] * alpha_ij[k];
+        hp_i += rd[k] * alpha_i[k];
+        hp_j += rd[k] * alpha_j[k];
+        hp_ij += rd[k] * alpha_ij[k];
     }
     [h_i, h_j, h_ij, hp_i, hp_j, hp_ij]
 }
@@ -106,23 +132,19 @@ pub(crate) fn scop_second_order_h(
 pub(crate) fn scop_second_order_endpoints(
     endpoint_basis: [&[f64]; 2],
     p_resp: usize,
-    gamma: &[f64],
-    gamma_i: &[f64],
-    gamma_j: &[f64],
-    gamma_ij: &[f64],
+    alpha_i: &[f64],
+    alpha_j: &[f64],
+    alpha_ij: &[f64],
 ) -> ([f64; 2], [f64; 2], [f64; 2]) {
     let mut endpoint_i = [0.0; 2];
     let mut endpoint_j = [0.0; 2];
     let mut endpoint_ij = [0.0; 2];
     for e in 0..2 {
         let basis = endpoint_basis[e];
-        endpoint_i[e] = basis[0] * gamma_i[0];
-        endpoint_j[e] = basis[0] * gamma_j[0];
-        endpoint_ij[e] = basis[0] * gamma_ij[0];
-        for k in 1..p_resp {
-            endpoint_i[e] += 2.0 * basis[k] * gamma[k] * gamma_i[k];
-            endpoint_j[e] += 2.0 * basis[k] * gamma[k] * gamma_j[k];
-            endpoint_ij[e] += 2.0 * basis[k] * (gamma_j[k] * gamma_i[k] + gamma[k] * gamma_ij[k]);
+        for k in 0..p_resp {
+            endpoint_i[e] += basis[k] * alpha_i[k];
+            endpoint_j[e] += basis[k] * alpha_j[k];
+            endpoint_ij[e] += basis[k] * alpha_ij[k];
         }
     }
     (endpoint_i, endpoint_j, endpoint_ij)
@@ -130,28 +152,27 @@ pub(crate) fn scop_second_order_endpoints(
 
 /// Accumulates the psi-direction transform quantities `(h_psi, hp_psi,
 /// endpoint_psi)` for one row from the response bases and the per-knot psi
-/// directional derivatives. Shared verbatim across the SCOP psi setup loops.
+/// directional derivatives of α. Shared verbatim across the SCOP psi setup
+/// loops.
 pub(crate) fn scop_psi_marginal(
     rv: ArrayView1<'_, f64>,
     rd: ArrayView1<'_, f64>,
     p_resp: usize,
     endpoint_basis: [&[f64]; 2],
-    gamma: &[f64],
-    gamma_psi: &[f64],
+    alpha_psi: &[f64],
 ) -> (f64, f64, [f64; 2]) {
-    let mut h_psi = rv[0] * gamma_psi[0];
-    let mut hp_psi = rd[0] * gamma_psi[0];
-    for k in 1..p_resp {
-        h_psi += 2.0 * rv[k] * gamma[k] * gamma_psi[k];
-        hp_psi += 2.0 * rd[k] * gamma[k] * gamma_psi[k];
+    let mut h_psi = 0.0;
+    let mut hp_psi = 0.0;
+    for k in 0..p_resp {
+        h_psi += rv[k] * alpha_psi[k];
+        hp_psi += rd[k] * alpha_psi[k];
     }
 
     let mut endpoint_psi = [0.0; 2];
     for e in 0..2 {
         let basis = endpoint_basis[e];
-        endpoint_psi[e] = basis[0] * gamma_psi[0];
-        for k in 1..p_resp {
-            endpoint_psi[e] += 2.0 * basis[k] * gamma[k] * gamma_psi[k];
+        for k in 0..p_resp {
+            endpoint_psi[e] += basis[k] * alpha_psi[k];
         }
     }
     (h_psi, hp_psi, endpoint_psi)
@@ -205,28 +226,50 @@ mod tests {
     }
 
     #[test]
-    fn pit_at_or_below_lower_clamps_to_low_quantile() {
-        // h <= lower -> u = 0 -> clamped to clip_eps -> Phi^{-1}(clip_eps).
+    fn pit_at_lower_endpoint_saturates_but_below_domain_refuses() {
+        // In-domain path unchanged: h exactly at (or within the roundoff floor
+        // of) `lower` saturates u -> 0 -> clip_eps -> Phi^{-1}(clip_eps). This
+        // is the legitimate boundary saturation the fit-time score paths
+        // consume, so it must keep working.
         let clip = 1e-6;
         let expected = standard_normal_quantile(clip).unwrap();
         let at = transformation_normal_pit_score(-1.0, -1.0, 1.0, clip).unwrap();
-        let below = transformation_normal_pit_score(-1.5, -1.0, 1.0, clip).unwrap();
         assert!((at - expected).abs() < 1e-12);
-        assert!((below - expected).abs() < 1e-12);
-        // Low quantile is a large negative number.
         assert!(expected < -3.0);
+        // A tiny sub-floor roundoff excursion still snaps to the endpoint.
+        let roundoff = -1.0 - 8.0 * f64::EPSILON;
+        let at_roundoff = transformation_normal_pit_score(roundoff, -1.0, 1.0, clip).unwrap();
+        assert!((at_roundoff - expected).abs() < 1e-12);
+
+        // Direct-α cutover (gam#2306): a genuine out-of-certified-domain probe
+        // below `lower` is a typed refusal naming the value and the domain, not
+        // a clamped tail quantile.
+        let err = transformation_normal_pit_score(-1.5, -1.0, 1.0, clip)
+            .expect_err("h far below lower must refuse, not clamp");
+        assert!(err.contains("certified"), "message names the domain: {err}");
+        assert!(err.contains("-1.500000e0"), "message names h: {err}");
+        assert!(err.contains("outside the fitted domain"), "message: {err}");
     }
 
     #[test]
-    fn pit_at_or_above_upper_clamps_to_high_quantile() {
-        // h >= upper -> u = 1 -> clamped to 1 - clip_eps -> Phi^{-1}(1 - clip_eps).
+    fn pit_at_upper_endpoint_saturates_but_above_domain_refuses() {
+        // In-domain path unchanged: h at (or within the roundoff floor of)
+        // `upper` saturates u -> 1 -> 1 - clip_eps -> Phi^{-1}(1 - clip_eps).
         let clip = 1e-6;
         let expected = standard_normal_quantile(1.0 - clip).unwrap();
         let at = transformation_normal_pit_score(1.0, -1.0, 1.0, clip).unwrap();
-        let above = transformation_normal_pit_score(2.0, -1.0, 1.0, clip).unwrap();
         assert!((at - expected).abs() < 1e-12);
-        assert!((above - expected).abs() < 1e-12);
         assert!(expected > 3.0);
+        let roundoff = 1.0 + 8.0 * f64::EPSILON;
+        let at_roundoff = transformation_normal_pit_score(roundoff, -1.0, 1.0, clip).unwrap();
+        assert!((at_roundoff - expected).abs() < 1e-12);
+
+        // A genuine out-of-certified-domain probe above `upper` refuses.
+        let err = transformation_normal_pit_score(2.0, -1.0, 1.0, clip)
+            .expect_err("h far above upper must refuse, not clamp");
+        assert!(err.contains("certified"), "message names the domain: {err}");
+        assert!(err.contains("2.000000e0"), "message names h: {err}");
+        assert!(err.contains("outside the fitted domain"), "message: {err}");
     }
 
     #[test]
@@ -242,17 +285,15 @@ mod tests {
     // ---- scop_second_order_h: pure accumulator closed forms ----
 
     #[test]
-    fn scop_second_order_h_p_resp_one_is_location_only() {
-        // With p_resp = 1 the shape loop never runs: every output is the location
-        // (column 0) basis value times the matching gamma directional derivative.
+    fn scop_second_order_h_is_linear_in_the_directional_coordinates() {
+        // Direct-α chart: every output is a plain basis-weighted sum of the
+        // matching α directional-derivative slots — no coordinate factor.
         let rv = array![3.0];
         let rd = array![5.0];
-        let gamma = [0.0];
-        let gi = [2.0];
-        let gj = [7.0];
-        let gij = [11.0];
-        let out = scop_second_order_h(rv.view(), rd.view(), 1, &gamma, &gi, &gj, &gij);
-        // [h_i, h_j, h_ij, hp_i, hp_j, hp_ij]
+        let ai = [2.0];
+        let aj = [7.0];
+        let aij = [11.0];
+        let out = scop_second_order_h(rv.view(), rd.view(), 1, &ai, &aj, &aij);
         assert_eq!(
             out,
             [
@@ -268,49 +309,42 @@ mod tests {
 
     #[test]
     fn scop_second_order_h_p_resp_two_matches_hand_formula() {
-        // p_resp = 2: one shape column (k = 1) contributes the squared-coefficient
-        // chain terms. Hand-derive each accumulator from the source.
         let rv = array![1.0, 4.0];
         let rd = array![1.0, 6.0];
-        let gamma = [0.0, 2.0];
-        let gi = [1.0, 3.0];
-        let gj = [1.0, 5.0];
-        let gij = [1.0, 7.0];
-        let out = scop_second_order_h(rv.view(), rd.view(), 2, &gamma, &gi, &gj, &gij);
-        // h_i = rv0*gi0 + 2*rv1*g1*gi1 = 1 + 2*4*2*3 = 49
-        let h_i = 1.0 + 2.0 * 4.0 * 2.0 * 3.0;
-        // h_j = rv0*gj0 + 2*rv1*g1*gj1 = 1 + 2*4*2*5 = 81
-        let h_j = 1.0 + 2.0 * 4.0 * 2.0 * 5.0;
-        // h_ij = rv0*gij0 + 2*rv1*(gj1*gi1 + g1*gij1) = 1 + 2*4*(5*3 + 2*7) = 1 + 8*29 = 233
-        let h_ij = 1.0 + 2.0 * 4.0 * (5.0 * 3.0 + 2.0 * 7.0);
-        // hp_i = rd0*gi0 + 2*rd1*g1*gi1 = 1 + 2*6*2*3 = 73
-        let hp_i = 1.0 + 2.0 * 6.0 * 2.0 * 3.0;
-        let hp_j = 1.0 + 2.0 * 6.0 * 2.0 * 5.0;
-        let hp_ij = 1.0 + 2.0 * 6.0 * (5.0 * 3.0 + 2.0 * 7.0);
-        assert_eq!(out, [h_i, h_j, h_ij, hp_i, hp_j, hp_ij]);
+        let ai = [1.0, 3.0];
+        let aj = [1.0, 5.0];
+        let aij = [1.0, 7.0];
+        let out = scop_second_order_h(rv.view(), rd.view(), 2, &ai, &aj, &aij);
+        // h_i = rv0*ai0 + rv1*ai1 = 1 + 12 = 13; hp_i = 1 + 18 = 19; etc.
+        assert_eq!(
+            out,
+            [
+                1.0 + 4.0 * 3.0,
+                1.0 + 4.0 * 5.0,
+                1.0 + 4.0 * 7.0,
+                1.0 + 6.0 * 3.0,
+                1.0 + 6.0 * 5.0,
+                1.0 + 6.0 * 7.0
+            ]
+        );
     }
 
     // ---- scop_second_order_endpoints ----
 
     #[test]
     fn scop_second_order_endpoints_matches_hand_formula() {
-        // Two endpoints (lower/upper bases). p_resp = 2 so one shape term per endpoint.
         let lower = [1.0, 2.0];
         let upper = [3.0, 4.0];
-        let gamma = [0.0, 5.0];
-        let gi = [1.0, 6.0];
-        let gj = [1.0, 7.0];
-        let gij = [1.0, 8.0];
-        let (ei, ej, eij) =
-            scop_second_order_endpoints([&lower, &upper], 2, &gamma, &gi, &gj, &gij);
-        // endpoint_i[e] = basis0*gi0 + 2*basis1*g1*gi1
-        assert_eq!(ei[0], 1.0 * 1.0 + 2.0 * 2.0 * 5.0 * 6.0); // lower: 1 + 120 = 121
-        assert_eq!(ei[1], 3.0 * 1.0 + 2.0 * 4.0 * 5.0 * 6.0); // upper: 3 + 240 = 243
-        assert_eq!(ej[0], 1.0 * 1.0 + 2.0 * 2.0 * 5.0 * 7.0); // 1 + 140 = 141
-        assert_eq!(ej[1], 3.0 * 1.0 + 2.0 * 4.0 * 5.0 * 7.0); // 3 + 280 = 283
-        // endpoint_ij[e] = basis0*gij0 + 2*basis1*(gj1*gi1 + g1*gij1)
-        assert_eq!(eij[0], 1.0 * 1.0 + 2.0 * 2.0 * (7.0 * 6.0 + 5.0 * 8.0)); // 1 + 4*82 = 329
-        assert_eq!(eij[1], 3.0 * 1.0 + 2.0 * 4.0 * (7.0 * 6.0 + 5.0 * 8.0)); // 3 + 8*82 = 659
+        let ai = [1.0, 6.0];
+        let aj = [1.0, 7.0];
+        let aij = [1.0, 8.0];
+        let (ei, ej, eij) = scop_second_order_endpoints([&lower, &upper], 2, &ai, &aj, &aij);
+        assert_eq!(ei[0], 1.0 + 2.0 * 6.0);
+        assert_eq!(ei[1], 3.0 + 4.0 * 6.0);
+        assert_eq!(ej[0], 1.0 + 2.0 * 7.0);
+        assert_eq!(ej[1], 3.0 + 4.0 * 7.0);
+        assert_eq!(eij[0], 1.0 + 2.0 * 8.0);
+        assert_eq!(eij[1], 3.0 + 4.0 * 8.0);
     }
 
     // ---- scop_psi_marginal ----
@@ -321,26 +355,12 @@ mod tests {
         let rd = array![1.0, 6.0];
         let lower = [1.0, 2.0];
         let upper = [3.0, 4.0];
-        let gamma = [0.0, 5.0];
-        let gamma_psi = [9.0, 10.0];
-        let (h_psi, hp_psi, endpoint_psi) = scop_psi_marginal(
-            rv.view(),
-            rd.view(),
-            2,
-            [&lower, &upper],
-            &gamma,
-            &gamma_psi,
-        );
-        // h_psi = rv0*gpsi0 + 2*rv1*g1*gpsi1 = 9 + 2*4*5*10 = 409
-        assert_eq!(h_psi, 9.0 + 2.0 * 4.0 * 5.0 * 10.0);
-        // hp_psi = rd0*gpsi0 + 2*rd1*g1*gpsi1 = 9 + 2*6*5*10 = 609
-        assert_eq!(hp_psi, 9.0 + 2.0 * 6.0 * 5.0 * 10.0);
-        // endpoint_psi[e] = basis0*gpsi0 + 2*basis1*g1*gpsi1
-        assert_eq!(endpoint_psi[0], 1.0 * 9.0 + 2.0 * 2.0 * 5.0 * 10.0); // 9 + 200 = 209
-        assert_eq!(endpoint_psi[1], 3.0 * 9.0 + 2.0 * 4.0 * 5.0 * 10.0); // 27 + 400 = 427
+        let alpha_psi = [9.0, 10.0];
+        let (h_psi, hp_psi, endpoint_psi) =
+            scop_psi_marginal(rv.view(), rd.view(), 2, [&lower, &upper], &alpha_psi);
+        assert_eq!(h_psi, 9.0 + 4.0 * 10.0);
+        assert_eq!(hp_psi, 9.0 + 6.0 * 10.0);
+        assert_eq!(endpoint_psi[0], 1.0 * 9.0 + 2.0 * 10.0);
+        assert_eq!(endpoint_psi[1], 3.0 * 9.0 + 4.0 * 10.0);
     }
 }
-
-// ---------------------------------------------------------------------------
-// Construction
-// ---------------------------------------------------------------------------

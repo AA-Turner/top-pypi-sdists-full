@@ -4,6 +4,11 @@
 //! active-set KKT machinery, and the soft-acceptance progress test.
 
 use super::*;
+// `Unbind::unbound()` maps a faer bound sparse column index back to `usize`
+// for `x_dense` indexing. Imported directly at the call site rather than via
+// the pirls prelude re-export (which the deny-warnings build flagged as an
+// unused re-export even though the trait method is used here, #2306/build).
+use faer::Unbind;
 
 pub(crate) const DENSE_OUTER_MAX_P: usize = 1024;
 
@@ -416,17 +421,38 @@ pub(super) fn build_firth_design_factor_dense(
     )
 }
 
-/// Compute the three PIRLS Firth diagnostics from a cached β-independent design
-/// factor at the current `η` (#1575). Bit-identical to building the full
-/// operator via `compute_jeffreys_pirls_diagnostics` and reading its accessors,
-/// but skips the per-iteration Gram/eigendecomposition and the unused `B`/`P·B`
-/// Hadamard blocks.
-pub(super) fn jeffreys_pirls_diagnostics_from_factor(
+/// Compute the Firth working-response diagnostics and the exact Jeffreys
+/// coefficient Hessian from one cached β-independent design factor.
+///
+/// The inner objective is `data + penalty - Φ`, so its Newton curvature is
+/// `H₀ - HΦ`, not the Fisher-scoring surrogate `H₀`.  Building the full
+/// β-dependent operator here shares the reduced Fisher inverse, leverage, and
+/// Hadamard-Gram contraction between the score shift and `HΦ`; the expensive
+/// design Gram/eigenspace remains cached in `factor` (#1575).
+pub(super) fn jeffreys_pirls_diagnostics_and_hessian_from_factor(
     factor: &FirthDesignFactor,
     link: &InverseLink,
     eta: ArrayView1<f64>,
-) -> Result<(Array1<f64>, f64, Array1<f64>), EstimationError> {
-    FirthDenseOperator::pirls_diagnostics_from_factor(factor, link, &eta.to_owned())
+) -> Result<(Array1<f64>, f64, Array1<f64>, Array2<f64>), EstimationError> {
+    let op = FirthDenseOperator::build_from_design_factor(factor, link, &eta.to_owned())?;
+    let hat_diag = &op.w * &op.h_diag;
+    let mut score_shift = Array1::<f64>::zeros(op.w.len());
+    for i in 0..op.w.len() {
+        if op.w[i] > 0.0 {
+            score_shift[i] = 0.5 * (op.w1[i] / op.w[i]) * op.h_diag[i];
+        }
+    }
+    let diag_term = gam_linalg::faer_ndarray::fast_xt_diag_x(
+        &op.x_dense,
+        &(&op.w2 * &op.h_diag),
+    );
+    let bpb = gam_linalg::faer_ndarray::fast_atb(&op.b_base, &op.p_b_base);
+    let mut hphi = 0.5 * (diag_term - bpb);
+    gam_linalg::matrix::symmetrize_in_place(&mut hphi);
+    if !hphi.iter().all(|value| value.is_finite()) {
+        crate::bail_invalid_estim!("Firth/Jeffreys coefficient Hessian is non-finite");
+    }
+    Ok((hat_diag, op.jeffreys_logdet(), score_shift, hphi))
 }
 
 pub(crate) fn ensure_positive_definitewithridge(
@@ -438,6 +464,16 @@ pub(crate) fn ensure_positive_definitewithridge(
     } else {
         0.0
     };
+
+    // A non-finite assembly is a different defect class from indefiniteness
+    // (and eigh of a NaN-carrying triangle can report arbitrary "positive"
+    // spectra); name it precisely instead of letting it masquerade as a
+    // not-positive-definite refusal (#2316 triage).
+    if !hess.iter().all(|value| value.is_finite()) {
+        crate::bail_invalid_estim!(
+            "{label}: assembled Hessian contains non-finite entries; refusing to factor"
+        );
+    }
 
     if hess.cholesky(Side::Lower).is_ok() {
         return Ok(0.0);
@@ -490,7 +526,9 @@ pub(super) fn solve_newton_direction_dense(
         *direction_out = Array1::zeros(gradient.len());
     }
 
-    if gam_gpu::cuda_selected() {
+    if gam_gpu::cuda_selected()
+        .map_err(|error| EstimationError::InvalidInput(error.to_string()))?
+    {
         let rhs = Array2::from_shape_vec((p, 1), gradient.to_vec()).map_err(|e| {
             EstimationError::InvalidInput(format!("CUDA PIRLS RHS layout failed: {e}"))
         })?;
@@ -556,6 +594,300 @@ pub(super) fn solve_newton_direction_dense(
             context: "PIRLS dense newton solve exhausted",
         },
     ))
+}
+
+/// Solve `min_direction ||A direction + residual||` without assembling either
+/// `A' A` or the cancellation-prone normal-equation right-hand side
+/// `A' residual`. Householder QR sees condition `kappa(A)`, whereas forming
+/// the normal equations squares it and can erase stationarity digits when
+/// large score and penalty components cancel. When supplied, `firth_hessian`
+/// converts the Fisher direction to the exact objective direction through the
+/// same QR factor without reconstructing `A' A` or the cancelled score.
+pub(super) fn solve_newton_direction_from_root_with_firth_hessian(
+    root: &Array2<f64>,
+    root_residual: &Array1<f64>,
+    firth_hessian: Option<&Array2<f64>>,
+    direction_out: &mut Array1<f64>,
+) -> Result<f64, EstimationError> {
+    let p = root.ncols();
+    if root.nrows() < p || root_residual.len() != root.nrows() {
+        crate::bail_invalid_estim!(
+            "PIRLS square-root solve dimension mismatch: root={}x{}, residual={}",
+            root.nrows(),
+            p,
+            root_residual.len()
+        );
+    }
+    let (q, r) = root
+        .qr()
+        .map_err(EstimationError::LinearSystemSolveFailed)?;
+    if r.nrows() != p || r.ncols() != p {
+        crate::bail_invalid_estim!(
+            "PIRLS square-root QR produced non-square R={}x{} for p={p}",
+            r.nrows(),
+            r.ncols()
+        );
+    }
+
+    // R direction = -Q' residual. Applying Q before triangular substitution
+    // preserves the small projected residual directly; forming A' residual
+    // first would subtract the large score and penalty gradients in the least
+    // accurate coordinate frame.
+    let projected_residual = q.t().dot(root_residual);
+    if direction_out.len() != p {
+        *direction_out = Array1::zeros(p);
+    }
+    for reverse in 0..p {
+        let i = p - 1 - reverse;
+        let mut value = -projected_residual[i];
+        for k in (i + 1)..p {
+            value -= r[[i, k]] * direction_out[k];
+        }
+        let diagonal = r[[i, i]];
+        if !(diagonal.is_finite() && diagonal != 0.0) {
+            return Err(EstimationError::ModelIsIllConditioned {
+                condition_number: f64::INFINITY,
+            });
+        }
+        direction_out[i] = value / diagonal;
+    }
+
+    // Least-squares stationarity certificate evaluated through A itself.
+    // `A' (A d + q)` must vanish; its denominator uses the unprojected residual
+    // scale, so the test remains meaningful without constructing a rounded
+    // Gram or treating a cancelled coefficient-space gradient as input data.
+    let mut least_squares_residual = root.dot(direction_out);
+    least_squares_residual += root_residual;
+    let normal_residual = root.t().dot(&least_squares_residual);
+    let residual_inf = inf_norm(normal_residual.iter().copied());
+    let root_inf = root
+        .rows()
+        .into_iter()
+        .map(|row| row.iter().map(|value| value.abs()).sum::<f64>())
+        .fold(0.0_f64, f64::max);
+    let root_transpose_inf = root
+        .columns()
+        .into_iter()
+        .map(|column| column.iter().map(|value| value.abs()).sum::<f64>())
+        .fold(0.0_f64, f64::max);
+    let direction_inf = inf_norm(direction_out.iter().copied());
+    let root_residual_inf = inf_norm(root_residual.iter().copied());
+    let scale = root_transpose_inf * (root_inf * direction_inf + root_residual_inf);
+    let backward_error = if scale > 0.0 {
+        residual_inf / scale
+    } else {
+        residual_inf
+    };
+    let tolerance = 256.0 * f64::EPSILON * root.nrows().max(p) as f64;
+    if !backward_error.is_finite() || backward_error > tolerance {
+        crate::bail_invalid_estim!(
+            "PIRLS square-root Newton direction failed its backward-error certificate: \
+             error {backward_error:.3e} exceeds {tolerance:.3e}"
+        );
+    }
+    if !array_is_finite(direction_out) {
+        crate::bail_invalid_estim!("PIRLS square-root Newton direction is non-finite");
+    }
+    if let Some(hphi) = firth_hessian {
+        let fisher_direction = direction_out.clone();
+        let lower = r.t().to_owned();
+        correct_fisher_direction_for_firth_hessian_from_root_factor(
+            &lower,
+            hphi,
+            &fisher_direction,
+            direction_out,
+        )?;
+    }
+    log::info!(
+        "[STAGE] PIRLS dense newton solve backend=CPU p={} rows={} route=\"Householder QR of PSD root\" backward_error={:.3e} damped_decrement_sq={:.3e}",
+        p,
+        root.nrows(),
+        backward_error,
+        projected_residual.dot(&projected_residual),
+    );
+    Ok(projected_residual.dot(&projected_residual))
+}
+
+/// Convert the cancellation-safe Fisher/penalty direction into the exact
+/// Firth-Newton direction without ever reconstructing the cancelled score.
+///
+/// Let `H₀ = L Lᵀ` be the damped Fisher-plus-penalty system and let `d₀` solve
+/// `H₀ d₀ = -g`, obtained from the augmented QR root.  The exact Firth
+/// curvature is `H = H₀ - HΦ`.  Under the Cholesky congruence,
+///
+/// `C = I - L⁻¹ HΦ L⁻ᵀ`, `C y = Lᵀ d₀`, `d = L⁻ᵀ y`.
+///
+/// Thus the small cancelled vector `g` is never formed or recovered through
+/// `H₀ d₀`; all operations act on the accurately resolved direction `d₀`.
+/// Failure of the strict congruence Cholesky means the requested damping does
+/// not make the exact objective curvature positive definite, and the LM
+/// controller must increase damping rather than silently solve another system.
+fn correct_fisher_direction_for_firth_hessian_from_root_factor(
+    fisher_root_lower: &Array2<f64>,
+    firth_hessian: &Array2<f64>,
+    fisher_direction: &Array1<f64>,
+    direction_out: &mut Array1<f64>,
+) -> Result<(), EstimationError> {
+    let p = fisher_root_lower.nrows();
+    if fisher_root_lower.ncols() != p
+        || firth_hessian.dim() != (p, p)
+        || fisher_direction.len() != p
+    {
+        crate::bail_invalid_estim!(
+            "Firth congruence solve dimension mismatch: root={}x{}, Hphi={}x{}, direction={}",
+            fisher_root_lower.nrows(),
+            fisher_root_lower.ncols(),
+            firth_hessian.nrows(),
+            firth_hessian.ncols(),
+            fisher_direction.len()
+        );
+    }
+
+    // Left- and right-whiten HΦ.  The right solve is evaluated by transposing:
+    // (Y L⁻ᵀ)ᵀ = L⁻¹ Yᵀ.
+    let left_whitened = gam_linalg::triangular::forward_substitution_lower_matrix(
+        fisher_root_lower,
+        firth_hessian,
+    );
+    let whitened_transpose = gam_linalg::triangular::forward_substitution_lower_matrix(
+        fisher_root_lower,
+        &left_whitened.t().to_owned(),
+    );
+    let mut congruence = Array2::<f64>::eye(p) - whitened_transpose.t().to_owned();
+    gam_linalg::matrix::symmetrize_in_place(&mut congruence);
+    let congruence_factor = congruence
+        .cholesky(Side::Lower)
+        .map_err(EstimationError::LinearSystemSolveFailed)?;
+
+    let transformed_rhs = fisher_root_lower.t().dot(fisher_direction);
+    let transformed_direction = congruence_factor.solvevec(&transformed_rhs);
+    let direction = gam_linalg::triangular::back_substitution_lower_transpose(
+        fisher_root_lower,
+        &transformed_direction,
+    );
+
+    let residual = &congruence.dot(&transformed_direction) - &transformed_rhs;
+    let residual_inf = inf_norm(residual.iter().copied());
+    let congruence_inf = congruence
+        .rows()
+        .into_iter()
+        .map(|row| row.iter().map(|value| value.abs()).sum::<f64>())
+        .fold(0.0_f64, f64::max);
+    let transformed_direction_inf = inf_norm(transformed_direction.iter().copied());
+    let transformed_rhs_inf = inf_norm(transformed_rhs.iter().copied());
+    let scale = congruence_inf * transformed_direction_inf + transformed_rhs_inf;
+    let backward_error = if scale > 0.0 {
+        residual_inf / scale
+    } else {
+        residual_inf
+    };
+    let tolerance = 256.0 * f64::EPSILON * p.max(1) as f64;
+    if !backward_error.is_finite() || backward_error > tolerance {
+        crate::bail_invalid_estim!(
+            "Firth congruence Newton direction failed its backward-error certificate: error {backward_error:.3e} exceeds {tolerance:.3e}"
+        );
+    }
+    if !array_is_finite(&direction) {
+        crate::bail_invalid_estim!("Firth congruence Newton direction is non-finite");
+    }
+    if direction_out.len() != p {
+        *direction_out = Array1::zeros(p);
+    }
+    direction_out.assign(&direction);
+    Ok(())
+}
+
+#[cfg(test)]
+mod square_root_solve_tests {
+    use super::*;
+    use ndarray::array;
+
+    fn solve_newton_direction_from_root(
+        root: &Array2<f64>,
+        root_residual: &Array1<f64>,
+        direction_out: &mut Array1<f64>,
+    ) -> Result<f64, EstimationError> {
+        solve_newton_direction_from_root_with_firth_hessian(
+            root,
+            root_residual,
+            None,
+            direction_out,
+        )
+    }
+
+    #[test]
+    fn qr_root_solve_preserves_a_weak_rotated_direction() {
+        // The first two rows have squared-energy ratio 1e10.  Forming A'A
+        // subtracts nearly equal O(1e10) entries to recover the weak [1,-1]
+        // direction; QR acts on A and keeps that direction directly.
+        let root = array![[1.0e5, 1.0e5], [1.0, -1.0], [1.0e-3, 0.0], [0.0, 1.0e-3]];
+        let expected = array![1.0, -1.0];
+        let residual = -root.dot(&expected);
+        let mut actual = Array1::<f64>::zeros(2);
+
+        let decrement = solve_newton_direction_from_root(&root, &residual, &mut actual)
+            .expect("square-root solve");
+
+        assert!((actual[0] - expected[0]).abs() < 1.0e-9);
+        assert!((actual[1] - expected[1]).abs() < 1.0e-9);
+        assert!(decrement.is_finite() && decrement > 0.0);
+    }
+
+    #[test]
+    fn qr_root_solve_does_not_form_a_cancelling_normal_rhs() {
+        let root = array![[1.0e8, 1.0e8], [1.0, -1.0], [0.0, 1.0]];
+        let expected = array![0.25, -0.25];
+        // This component is exactly orthogonal to both columns of `root` but
+        // is much larger than the projected residual in the weak direction.
+        let orthogonal_residual = array![1.0e-8, -1.0, -2.0];
+        let residual = -root.dot(&expected) + &orthogonal_residual;
+        let mut actual = Array1::<f64>::zeros(2);
+
+        solve_newton_direction_from_root(&root, &residual, &mut actual)
+            .expect("least-squares root solve");
+
+        assert!((actual[0] - expected[0]).abs() < 1.0e-8);
+        assert!((actual[1] - expected[1]).abs() < 1.0e-8);
+
+        // Certification is state-local: at the stationary state the same
+        // large root-space residual is orthogonal to the model range, so its
+        // bare Newton decrement is machine zero without taking another step
+        // and recomputing a cancellation-prone coefficient gradient.
+        let mut stationary_direction = Array1::<f64>::zeros(2);
+        let stationary_decrement = solve_newton_direction_from_root(
+            &root,
+            &orthogonal_residual,
+            &mut stationary_direction,
+        )
+        .expect("stationary least-squares root certificate");
+        assert!(stationary_direction.dot(&stationary_direction) <= 1.0e-28);
+        assert!(stationary_decrement <= 1.0e-28);
+    }
+
+    #[test]
+    fn firth_congruence_preserves_the_root_direction_without_reforming_the_score() {
+        let root = array![[1.0e3, 1.0e3], [1.0, -1.0], [0.0, 1.0]];
+        let fisher_hessian = root.t().dot(&root);
+        let exact_root_direction = array![0.25, -0.25];
+        let root_residual = -root.dot(&exact_root_direction);
+        let firth_hessian = array![[0.20, 0.03], [0.03, 0.15]];
+        let mut corrected = Array1::<f64>::zeros(2);
+
+        solve_newton_direction_from_root_with_firth_hessian(
+            &root,
+            &root_residual,
+            Some(&firth_hessian),
+            &mut corrected,
+        )
+        .expect("exact Firth congruence solve");
+
+        // Check the congruent equation.  `H0 * d0` is used only in this test
+        // oracle; production never reforms this cancellation-prone RHS.
+        let true_hessian = &fisher_hessian - &firth_hessian;
+        let residual = true_hessian.dot(&corrected) - fisher_hessian.dot(&exact_root_direction);
+        assert!(inf_norm(residual.iter().copied()) < 1.0e-8);
+        assert!(array_is_finite(&corrected));
+    }
 }
 
 /// Solve the Newton direction implicitly via PCG against an operator-form
@@ -1269,45 +1601,11 @@ pub(super) fn select_active_set_release(
     hd: &Array1<f64>,
     active_idx: &[usize],
     use_blands: bool,
-    // gam#979: the STEP Hessian was negative-curvature-reflected (γ ↦ |γ|) so the
-    // indefinite survival-NLL QP stays bounded. When set, judge dual feasibility on
-    // the FIRST-ORDER (projected-gradient) reduced multiplier `λ_i = g_i` alone,
-    // dropping the second-order term `(H·d)_i`. Rationale (hand-derived):
-    //
-    //   The active-set release multiplier is `λ_i = g_i + (H d)_i`. Off the bound,
-    //   the freed-block Newton step solves `H_FF d_F = −g_F`. Reflection maps a
-    //   near-flat negative-curvature mode `−γ` (γ ≈ 0⁺) to `+γ ≈ 0⁺`, so along that
-    //   mode `d ≈ g/γ` is a FAR-FIELD step of fictitious length — its magnitude is
-    //   an artifact of the reflection, not of the true model. The second-order
-    //   correction `(H_true d)_i` evaluated at that far-field `d` is then a large,
-    //   sign-arbitrary quantity that overwhelms the genuine first-order signal
-    //   `g_i` and flips `λ_i` negative, releasing a bound that is first-order
-    //   optimal (`g_i ≥ 0`). The freed I-spline coefficient overshoots (β∞ ≈ 26),
-    //   the outer trust region rejects the step, and the next outer cycle re-adds
-    //   the bound — the active-set zigzag that grinds the n=3000 marginal-slope fit.
-    //
-    //   With an INDEFINITE true reduced Hessian the QP `min gᵀd + ½dᵀH_true d` s.t.
-    //   bounds is unbounded below along feasible negative-curvature directions, so a
-    //   finite constrained minimizer — and hence a well-defined second-order
-    //   multiplier — does NOT exist for the original problem; the reflected QP's
-    //   multiplier is that of a DIFFERENT (surrogate) problem. The one reflection-
-    //   INVARIANT optimality certificate that survives is the first-order KKT dual
-    //   feasibility `g_A ≥ 0` (g = −rhs_step is reflection-independent). At a true
-    //   constrained optimum `d → 0` so `g_i` and `g_i + (H d)_i` coincide exactly —
-    //   this is not a relaxation there, it IS the certificate. Away from it, testing
-    //   on `g_i` is conservative (may hold a bound one extra cycle) and CANNOT be
-    //   corrupted by far-field second-order noise, so the active set stabilizes.
-    //   `false` ⇒ exact `λ_i = g_i + (H d)_i` (byte-identical to prior behavior for
-    //   every caller whose step Hessian is not reflected).
-    reflected_step_curvature: bool,
 ) -> Option<usize> {
-    // Second-order correction `(H d)_i`, suppressed on the reflected path (see the
-    // parameter note): there the far-field `d` makes it non-model-trustworthy.
-    let second_order = |i: usize| -> f64 { if reflected_step_curvature { 0.0 } else { hd[i] } };
     if use_blands {
         for &i in active_idx {
-            let lambda_i = gradient[i] + second_order(i);
-            let scale = gradient[i].abs().max(second_order(i).abs()).max(1.0);
+            let lambda_i = gradient[i] + hd[i];
+            let scale = gradient[i].abs().max(hd[i].abs()).max(1.0);
             let tol = 64.0 * f64::EPSILON * scale;
             if lambda_i < -tol {
                 return Some(i);
@@ -1318,7 +1616,7 @@ pub(super) fn select_active_set_release(
         let mut worst = 0.0_f64;
         let mut idx = None;
         for &i in active_idx {
-            let lambda_i = gradient[i] + second_order(i);
+            let lambda_i = gradient[i] + hd[i];
             // Scale-aware deadband (identical to Bland's branch above). A
             // multiplier that is negative only at round-off level is KKT-feasible
             // and MUST NOT trigger a release: releasing an essentially-tight bound
@@ -1327,7 +1625,7 @@ pub(super) fn select_active_set_release(
             // the classic active-set zigzag (gam#979). A genuinely-negative
             // multiplier (below `-tol`) still releases, so this is a strict
             // no-op at any true constrained optimum where multipliers are >= 0.
-            let tol = 64.0 * f64::EPSILON * gradient[i].abs().max(second_order(i).abs()).max(1.0);
+            let tol = 64.0 * f64::EPSILON * gradient[i].abs().max(hd[i].abs()).max(1.0);
             if lambda_i < -tol && lambda_i < worst {
                 worst = lambda_i;
                 idx = Some(i);
@@ -1344,20 +1642,6 @@ pub fn solve_newton_directionwith_lower_bounds(
     lower_bounds: &Array1<f64>,
     direction_out: &mut Array1<f64>,
     active_hint: Option<&mut Vec<usize>>,
-    // Reflection flag + true curvature for the KKT release test (gam#979).
-    // Callers that pre-condition `hessian` for the STEP — e.g. the survival
-    // joint-Newton reflects negative-curvature modes to `|γ|` so the indefinite
-    // NLL model stays bounded — pass the ORIGINAL (pre-reflection) Hessian here.
-    // Its presence tells the active-set loop the step Hessian was reflected, so
-    // the freed step `d` is far-field and the second-order release multiplier
-    // `(H·d)_i` is untrustworthy; dual feasibility is then judged on the
-    // reflection-invariant first-order multiplier `λ_i = g_i` (the matrix itself
-    // is used only for the diagnostic log — see `select_active_set_release`).
-    // Without it a bound aligned with a reflected mode is released spuriously and
-    // re-added next outer cycle: the active-set zigzag. `None` ⇒ exact
-    // `λ_i = g_i + (H·d)_i` with `hessian` for both step and multiplier
-    // (byte-identical to the historical behavior for every unreflected caller).
-    kkt_hessian: Option<&Array2<f64>>,
 ) -> Result<(), EstimationError> {
     // Bound-constrained Newton step on the local quadratic model:
     //
@@ -1449,17 +1733,6 @@ pub fn solve_newton_directionwith_lower_bounds(
     // block and length-p prefix on every active-set pivot.
     let mut h_ff_buf = Array2::<f64>::zeros((p, p));
     let mut g_f_buf = Array1::<f64>::zeros(p);
-    // Curvature used for the KKT dual-feasibility (release) test. Defaults to
-    // the step Hessian; a caller that pre-conditioned `hessian` supplies the
-    // true curvature via `kkt_hessian` (gam#979 — see the signature note).
-    let kkt_h = kkt_hessian.unwrap_or(hessian);
-    // When the caller pre-conditioned `hessian` (reflected negative curvature to
-    // bound the step), the freed-block step `d` is far-field along the reflected
-    // modes, so the second-order release term `(H·d)_i` is not model-trustworthy;
-    // judge dual feasibility on the reflection-invariant first-order multiplier
-    // `g_i` instead (gam#979 — see `select_active_set_release`). Off for every
-    // caller that does not reflect (`kkt_hessian == None`) ⇒ byte-identical.
-    let reflected_step_curvature = kkt_hessian.is_some();
     for it in 0..max_iters {
         let use_blands = it >= blands_threshold;
         let free_idx: Vec<usize> = (0..p).filter(|&i| !active[i]).collect();
@@ -1472,24 +1745,8 @@ pub fn solve_newton_directionwith_lower_bounds(
             }
         }
         if free_idx.is_empty() {
-            let hd = fast_av(kkt_h, direction_out);
-            if let Some(idx) = select_active_set_release(
-                gradient,
-                &hd,
-                &active_idx,
-                use_blands,
-                reflected_step_curvature,
-            ) {
-                if kkt_hessian.is_some() {
-                    let hd_ref = fast_av(hessian, direction_out);
-                    log::warn!(
-                        "[gam#979 simple-release/allactive] it={it} idx={idx} beta={:.4e} lower={:.4e} lambda_true={:.4e} lambda_refl={:.4e}",
-                        beta[idx],
-                        lower_bounds[idx],
-                        gradient[idx] + hd[idx],
-                        gradient[idx] + hd_ref[idx],
-                    );
-                }
+            let hd = fast_av(hessian, direction_out);
+            if let Some(idx) = select_active_set_release(gradient, &hd, &active_idx, use_blands) {
                 active[idx] = false;
                 continue;
             }
@@ -1548,32 +1805,11 @@ pub fn solve_newton_directionwith_lower_bounds(
             continue;
         }
 
-        // Dual feasibility on active constraints. On the unreflected path the
-        // multiplier is the exact `λ_i = g_i + (H d)_i` (H = the step Hessian).
-        // On the reflected survival path (`reflected_step_curvature`) the freed
-        // step `d` is far-field, so `select_active_set_release` drops the
-        // second-order term and tests the reflection-invariant first-order
-        // multiplier `λ_i = g_i` instead (gam#979 — see that fn's note). `hd`
-        // (true curvature `kkt_h`) is still formed here for the diagnostic log.
-        let hd = fast_av(kkt_h, direction_out);
-        if let Some(idx) = select_active_set_release(
-            gradient,
-            &hd,
-            &active_idx,
-            use_blands,
-            reflected_step_curvature,
-        ) {
-            if kkt_hessian.is_some() {
-                let hd_ref = fast_av(hessian, direction_out);
-                log::warn!(
-                    "[gam#979 simple-release] it={it} idx={idx} beta={:.4e} lower={:.4e} lambda_true={:.4e} lambda_refl={:.4e} n_free={n_free} n_active={}",
-                    beta[idx],
-                    lower_bounds[idx],
-                    gradient[idx] + hd[idx],
-                    gradient[idx] + hd_ref[idx],
-                    active_idx.len(),
-                );
-            }
+        // Dual feasibility belongs to the same quadratic model as the free
+        // solve. Using a different Hessian (or dropping `H d`) makes release and
+        // entry mutually inconsistent and can cycle forever (gam#979).
+        let hd = fast_av(hessian, direction_out);
+        if let Some(idx) = select_active_set_release(gradient, &hd, &active_idx, use_blands) {
             active[idx] = false;
             continue;
         }
@@ -1585,32 +1821,9 @@ pub fn solve_newton_directionwith_lower_bounds(
         return Ok(());
     }
 
-    // Active-set loop did not converge — fall back to a projected gradient
-    // step.  This is always feasible and gives a descent direction, letting the
-    // outer LM loop decide whether to accept or increase damping.
-    let gnorm = gradient.dot(gradient).sqrt();
-    if gnorm > 0.0 {
-        let diag_scale = (0..p)
-            .map(|i| hessian[[i, i]].abs())
-            .fold(0.0_f64, f64::max)
-            .max(1.0);
-        let step_scale = 1.0 / diag_scale;
-        for i in 0..p {
-            let di = -gradient[i] * step_scale;
-            let lb = lower_bounds[i];
-            if lb.is_finite() && beta[i] + di < lb {
-                direction_out[i] = lb - beta[i];
-            } else {
-                direction_out[i] = di;
-            }
-        }
-    } else {
-        direction_out.fill(0.0);
-    }
-    if let Some(hint) = active_hint {
-        hint.clear();
-    }
-    Ok(())
+    Err(EstimationError::InvalidInput(format!(
+        "lower-bound active-set QP did not reach a consistent primal/dual KKT set in {max_iters} pivots"
+    )))
 }
 
 /// Reduce a constraint matrix to full row rank using column-pivoted QR on A^T.

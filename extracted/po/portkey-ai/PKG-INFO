@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: portkey-ai
-Version: 2.3.2
+Version: 2.3.3
 Summary: Python client library for the Portkey API
 Home-page: https://github.com/Portkey-AI/portkey-python-sdk
 Author: Portkey.ai

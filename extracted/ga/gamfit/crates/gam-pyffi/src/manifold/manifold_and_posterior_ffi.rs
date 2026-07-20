@@ -733,7 +733,7 @@ fn difference_smooth_json_impl(model_bytes: &[u8], request_json: &str) -> Result
     let fit = fit_result_from_saved_model_for_prediction(&model)?;
     let selected_covariance = gam::inference::effects::select_covariance(
         &fit,
-        gam::inference::effects::CovarianceSelection::default(),
+        gam::inference::effects::CovarianceSource::SmoothingCorrected,
     )
     .map_err(|error| error.to_string())?;
     let payload = model.payload();
@@ -760,7 +760,7 @@ fn difference_smooth_json_impl(model_bytes: &[u8], request_json: &str) -> Result
         request,
         |headers, rows| {
             let dataset = dataset_with_model_schema(&model, headers, rows)?;
-            design_matrix_dense(&model, dataset)
+            standard_mean_design_dense(&model, dataset)
         },
     )?;
     serde_json::to_string(&rows)
@@ -1310,10 +1310,10 @@ fn summary_smooth_terms(
     // truncation keeps a wiggle mode where β̂≈0 and reports the term
     // non-significant even though its linear effect is real (#2142). The
     // conditional covariance is the correct hypothesis-test object; `Vc` is for
-    // prediction/credible bands.
-    let cov_forwald = fit
-        .beta_covariance()
-        .or_else(|| fit.beta_covariance_corrected());
+    // prediction/credible bands — and it is NEVER a substitute here: silently
+    // swapping it in changes the Wald p-values (#2296). When the conditional
+    // matrix is absent the smooth test is simply not reported.
+    let cov_forwald = fit.beta_covariance();
     // Wood (2013) design-whitening metric for the Wald smooth test (#2142).
     // Prefer the fit's exact weighted Gram `X'WX` when the inference block
     // survived; on the persisted summary path (inference dropped) reconstruct
@@ -1330,15 +1330,15 @@ fn summary_smooth_terms(
         family.response,
         ResponseFamily::Gaussian | ResponseFamily::Gamma
     );
-    // n (for the F-distribution denominator) comes from the saved working-set
-    // geometry when present; the Wald χ² (Known-scale) branch never reads it.
-    let n_obs = fit
-        .geometry
-        .as_ref()
-        .map(|geom| geom.working_response.len() as f64);
-    let residual_df = n_obs
-        .map(|n| (n - fit.edf_total().unwrap_or(fit.beta.len() as f64)).max(1.0))
-        .unwrap_or(f64::NAN);
+    // Sample size belongs to the rebuilt training design, not optional IRLS
+    // row evidence. Exact-Newton and multi-parameter fits retain coefficient
+    // geometry without a single working vector and still have a valid Wald/F
+    // denominator.
+    let n_obs = Some(design.design.nrows() as f64);
+    let residual_df = n_obs.zip(fit.edf_total()).and_then(|(n, edf)| {
+        let value = n - edf;
+        (edf.is_finite() && value.is_finite() && value > 0.0).then_some(value)
+    });
     let scale = if scale_is_estimated {
         SmoothTestScale::Estimated
     } else {
@@ -1412,7 +1412,7 @@ fn summary_smooth_terms(
         .ncols()
         .saturating_sub(design.smooth.total_smooth_cols());
     for term in &design.smooth.terms {
-        let k = term.penalties_local.len();
+        let k = term.active_penalties.len();
         // Per-term EDF as the influence-matrix trace over the term's coefficient
         // block, NOT the legacy `Σ_kk edf_by_block` per-penalty sum. For a tensor
         // product `te`/`ti` (and anisotropic / adaptive smooths) several penalty
@@ -1614,6 +1614,7 @@ fn scan_summary_payload(model: &FittedModel, scan: &ScanIntrospection) -> Summar
         covariance_kind: None,
         covariance_n: None,
         covariance_flat: None,
+        coefficient_se_source: None,
         // Scan-routed (O(n) 1D spline) models carry no `curv(...)` curvature
         // smooths, so there are no curvature estimands to report.
         curvature_estimands: Vec::new(),
@@ -1629,16 +1630,19 @@ fn summary_json_impl(model_bytes: &[u8]) -> Result<String, String> {
     }
     let fit = fit_result_from_saved_model_for_prediction(&model)?;
     let smooth_terms = summary_smooth_terms(&model, &fit);
-    let standard_errors = fit
-        .beta_standard_errors_corrected()
-        .or_else(|| fit.beta_standard_errors());
-    let covariance = fit
-        .beta_covariance_corrected()
-        .map(|cov| ("corrected".to_string(), cov))
-        .or_else(|| {
-            fit.beta_covariance()
-                .map(|cov| ("conditional".to_string(), cov))
-        });
+    // Definition-consistent coefficient uncertainty (#2296): the SE column,
+    // the exported covariance matrix, and their labels all come from ONE
+    // covariance definition. Independently selected `corrected.or(conditional)`
+    // fields could pair corrected SEs with a conditional matrix (or vice
+    // versa) on fits that persist only one half of a definition.
+    let display_uncertainty = fit.display_coefficient_uncertainty();
+    let standard_errors = display_uncertainty
+        .as_ref()
+        .map(|view| view.standard_errors);
+    let covariance = display_uncertainty.as_ref().and_then(|view| {
+        view.covariance
+            .map(|cov| (view.definition.as_str().to_string(), cov))
+    });
     let coefficients = fit
         .beta
         .iter()
@@ -1664,12 +1668,10 @@ fn summary_json_impl(model_bytes: &[u8]) -> Result<String, String> {
         deployment_extensions: model.payload().deployment_extensions.clone(),
         deviance: fit.deviance,
         log_likelihood: Some(fit.log_likelihood),
-        // Observation count from the IRLS working set (same source the Wald χ²
-        // n-dependence reads). Lets `compare_models` reject cross-`n` comparisons.
-        n_obs: fit
-            .geometry
-            .as_ref()
-            .map(|geom| geom.working_response.len()),
+        // Report an observation count only when the fitted result retained the
+        // exact working response. A summary must not manufacture N from an
+        // unrelated representative design.
+        n_obs: fit.working_response().map(|response| response.len()),
         reml_score,
         raw_reml_score,
         null_space_logdet: fit.artifacts.null_space_logdet,
@@ -1683,6 +1685,8 @@ fn summary_json_impl(model_bytes: &[u8]) -> Result<String, String> {
         covariance_kind: covariance.as_ref().map(|(kind, _)| kind.clone()),
         covariance_n: covariance.as_ref().map(|(_, cov)| cov.nrows()),
         covariance_flat: covariance.map(|(_, cov)| cov.iter().copied().collect()),
+        coefficient_se_source: display_uncertainty
+            .map(|view| view.definition.as_str().to_string()),
     };
     serde_json::to_string(&payload).map_err(|err| format!("failed to serialize summary: {err}"))
 }
@@ -2008,9 +2012,11 @@ fn report_html_impl(model_bytes: &[u8]) -> Result<String, String> {
         return scan_report_html(&model, &scan);
     }
     let fit = fit_result_from_saved_model_for_prediction(&model)?;
+    // Definition-consistent SE column (#2296): corrected-preferred, never an
+    // unlabeled mix of covariance definitions.
     let standard_errors = fit
-        .beta_standard_errors_corrected()
-        .or_else(|| fit.beta_standard_errors());
+        .display_coefficient_uncertainty()
+        .map(|view| view.standard_errors);
     let coefficients = fit
         .beta
         .iter()
@@ -4512,6 +4518,9 @@ fn gaussian_jackknife_plus_stats_for_standard_fit(
     if fit_config.offset_column.is_some() {
         return None;
     }
+    if design.affine_offset.iter().any(|value| *value != 0.0) {
+        return None;
+    }
     // A wiggle-augmented link breaks the Gaussian-identity closed form.
     if fit_config.flexible_link {
         return None;
@@ -4554,6 +4563,7 @@ fn build_standard_payload(
     >,
     wiggle_knots: Option<Vec<f64>>,
     wiggle_degree: Option<usize>,
+    wiggle_penalty_metadata: Option<gam::families::wiggle::WigglePenaltyMetadata>,
     wiggle_saved_warp_beta: Option<Vec<f64>>,
     wiggle_saved_index_shift: Option<Vec<f64>>,
 ) -> Result<FittedModelPayload, String> {
@@ -4571,21 +4581,35 @@ fn build_standard_payload(
         };
     let family_link = family.link_function();
     let family_inverse_link = family.link.clone();
-    let family_name = family.name().to_string();
+    let estimator = gam::families::fit_orchestration::expectile_tau_for_config(fit_config)
+        .map_err(|error| format!("failed to persist estimator metadata: {error}"))?
+        .map_or(FittedEstimator::Likelihood, |tau| {
+            FittedEstimator::Expectile { tau }
+        });
+    let family_name = match estimator {
+        FittedEstimator::Likelihood => family.name().to_string(),
+        FittedEstimator::Expectile { tau } => format!("expectile({tau})"),
+    };
     // #942 MAGIC: precompute the exact Gaussian-identity jackknife+ substrate
     // (distribution-free, finite-sample ≥level coverage with no held-out fold)
     // while the training design + response are still in hand. `None` for any
     // ineligible model; predict falls back to the model-based band.
-    let jackknife_plus_stats = gaussian_jackknife_plus_stats_for_standard_fit(
-        &formula, dataset, fit_config, &family, &saved_fit, design,
-    );
+    let jackknife_plus_stats = match estimator {
+        FittedEstimator::Likelihood => gaussian_jackknife_plus_stats_for_standard_fit(
+            &formula, dataset, fit_config, &family, &saved_fit, design,
+        ),
+        FittedEstimator::Expectile { .. } => None,
+    };
     // #1098 MAGIC: precompute the EXACT Gaussian-identity full-conformal
     // substrate (distribution-free finite-sample set, no held-out fold) under
     // the same eligibility as jackknife+. Computed here while `formula`/`family`/
     // `saved_fit` are still owned — the payload constructor moves them below.
-    let full_conformal_substrate = exact_full_conformal_substrate_for_standard_fit(
-        &formula, dataset, fit_config, &family, &saved_fit, design,
-    );
+    let full_conformal_substrate = match estimator {
+        FittedEstimator::Likelihood => exact_full_conformal_substrate_for_standard_fit(
+            &formula, dataset, fit_config, &family, &saved_fit, design,
+        ),
+        FittedEstimator::Expectile { .. } => None,
+    };
     let mut payload = FittedModelPayload::new(
         MODEL_PAYLOAD_VERSION,
         formula,
@@ -4599,17 +4623,19 @@ fn build_standard_payload(
         },
         family_name,
     );
+    payload.estimator = estimator;
     payload.unified = Some(saved_fit.clone());
     payload.fit_result = Some(saved_fit);
     payload.data_schema = Some(dataset.schema.clone());
     payload.link = Some(family_inverse_link);
     payload.linkwiggle_knots = wiggle_knots;
     payload.linkwiggle_degree = wiggle_degree;
-    // #1596: the standard link-wiggle warp is fit in a reduced, identifiable
-    // coordinate `γ` (`β_w = Z·γ`); the saved fit_result block carries `γ`, so
-    // persist the full-width standard-basis lift `β_w` here for the predict
-    // runtime, which reconstructs the warp as `B(η_new)·β_w`. `None` (the
-    // dynamic-basis / non-de-aliased path) leaves predict reading the block.
+    payload.linkwiggle_penalty_metadata = wiggle_penalty_metadata;
+    // The frozen standard link-wiggle fit residualizes its design in
+    // observation space without changing the coefficient chart. Persist the
+    // exact LinkWiggle block copy used by replay; saved-model validation
+    // requires it to agree bit-for-bit with the joint fit so point prediction
+    // and covariance cannot drift into different frames.
     payload.beta_link_wiggle = wiggle_saved_warp_beta;
     // #2141: persist the frozen-index shift so predict evaluates the warp basis
     // at the frozen index `η̂` the fit pinned `B(η̂)` at, not at the de-aliased
@@ -4654,6 +4680,9 @@ fn exact_full_conformal_substrate_for_standard_fit(
         return None;
     }
     if fit_config.offset_column.is_some() {
+        return None;
+    }
+    if design.affine_offset.iter().any(|value| *value != 0.0) {
         return None;
     }
     if fit_config.flexible_link {
@@ -4793,8 +4822,10 @@ fn build_survival_marginal_slope_ffi_payload(
 ) -> Result<FittedModelPayload, String> {
     use gam::families::survival::construction::{
         build_survival_time_basis, parse_survival_baseline_config, parse_survival_likelihood_mode,
-        parse_survival_time_basis_config, resolve_survival_time_anchor_value,
+        parse_survival_time_basis_config, resolve_survival_marginal_slope_time_anchor_value,
+        survival_marginal_slope_offset_baseline_config,
     };
+    use ndarray::s;
 
     let frozen_marginal = freeze_term_collection_from_design(
         &ms_result.marginalspec_resolved,
@@ -4859,7 +4890,7 @@ fn build_survival_marginal_slope_ffi_payload(
         fit_config.baseline_rate,
         fit_config.baseline_makeham,
     )?;
-    let likelihood_mode = parse_survival_likelihood_mode(&fit_config.survival_likelihood)?;
+    let likelihood_mode = parse_survival_likelihood_mode(fit_config.resolved_survival_likelihood())?;
     let time_cfg = if parsed.timewiggle.is_some() {
         gam::families::survival::construction::SurvivalTimeBasisConfig::None
     } else {
@@ -4870,7 +4901,8 @@ fn build_survival_marginal_slope_ffi_payload(
             fit_config.time_smooth_lambda,
         )?
     };
-    let time_anchor = resolve_survival_time_anchor_value(&age_entry, None)?;
+    let time_anchor =
+        resolve_survival_marginal_slope_time_anchor_value(&age_entry, &age_exit, None)?;
     let time_build = build_survival_time_basis(
         &age_entry,
         &age_exit,
@@ -4880,6 +4912,50 @@ fn build_survival_marginal_slope_ffi_payload(
             fit_config.time_smooth_lambda,
         )),
     )?;
+    let timewiggle = match (
+        ms_result.time_wiggle_knots.as_ref(),
+        ms_result.time_wiggle_degree,
+        ms_result.time_wiggle_ncols,
+    ) {
+        (None, None, 0) => None,
+        (Some(knots), Some(degree), ncols) if ncols > 0 => {
+            let beta_time = &ms_result
+                .fit
+                .blocks
+                .first()
+                .ok_or_else(|| {
+                    "survival marginal-slope FFI fit is missing its time block".to_string()
+                })?
+                .beta;
+            let p_base = time_build.x_exit_time.ncols();
+            if beta_time.len() != p_base + ncols {
+                return Err(format!(
+                    "survival marginal-slope FFI timewiggle width mismatch: time beta={}, base={p_base}, wiggle={ncols}",
+                    beta_time.len(),
+                ));
+            }
+            Some(SurvivalTimewiggle {
+                degree,
+                knots: knots.to_vec(),
+                penalty_orders: parsed
+                    .timewiggle
+                    .as_ref()
+                    .map(|config| config.penalty_orders.clone()),
+                double_penalty: parsed
+                    .timewiggle
+                    .as_ref()
+                    .map(|config| config.double_penalty),
+                beta: SurvivalTimewiggleBeta::Single(beta_time.slice(s![p_base..]).to_vec()),
+            })
+        }
+        _ => {
+            return Err(
+                "survival marginal-slope FFI fit has incomplete timewiggle authority".to_string(),
+            );
+        }
+    };
+    let saved_offset_baseline =
+        survival_marginal_slope_offset_baseline_config(&age_exit, &baseline_cfg);
 
     // Thin adapter over the shared core assembler. The FFI's source-specific
     // work is re-deriving the survival response columns, baseline config, and
@@ -4890,13 +4966,13 @@ fn build_survival_marginal_slope_ffi_payload(
         SurvivalMarginalSlopeInputs {
             formula,
             data_schema: dataset.schema.clone(),
-            fit_result: ms_result.fit,
+            fit_result: ms_result.fit.clone(),
             frailty,
             survival_entry: entryname,
             survival_exit: exitname,
             survival_event: eventname,
             survivalspec: "net".to_string(),
-            baseline_cfg,
+            baseline_cfg: saved_offset_baseline,
             time_basis: SavedSurvivalTimeBasis::from_build(&time_build, time_anchor),
             ridge_lambda: fit_config.ridge_lambda,
             survival_likelihood_label: survival_likelihood_modename(likelihood_mode).to_string(),
@@ -4909,9 +4985,12 @@ fn build_survival_marginal_slope_ffi_payload(
                 sd: ms_result.z_normalization.sd,
             },
             baseline_logslope: ms_result.baseline_slope,
+            timewiggle,
             score_warp_runtime: ms_result.score_warp_runtime.as_ref(),
             link_dev_runtime: ms_result.link_dev_runtime.as_ref(),
             influence_absorber_width: ms_result.influence_absorber_width,
+            influence_absorber_design: ms_result.influence_absorber_design.as_ref(),
+            score_covariance: &ms_result.score_covariance,
         },
         SavedModelSourceMetadata {
             training_headers: dataset.headers.clone(),
@@ -5240,15 +5319,12 @@ fn build_survival_location_scale_ffi_payload(
     formula: String,
     dataset: &EncodedDataset,
     fit_config: &FitConfig,
-    weights: &Array1<f64>,
     ls_result: gam::families::fit_orchestration::SurvivalLocationScaleFitResult,
 ) -> Result<FittedModelPayload, String> {
     use gam::families::survival::construction::{
         build_survival_time_basis, parse_survival_baseline_config, parse_survival_likelihood_mode,
         parse_survival_time_basis_config, resolve_survival_time_anchor_value,
     };
-    use ndarray::{Array2, s};
-
     // Re-derive survival metadata from the formula and FitConfig so we can
     // reproduce the saved model layout that the CLI persists.
     let parsed = gam::inference::formula_dsl::parse_formula(&formula)
@@ -5293,7 +5369,7 @@ fn build_survival_location_scale_ffi_payload(
         fit_config.baseline_rate,
         fit_config.baseline_makeham,
     )?;
-    let likelihood_mode = parse_survival_likelihood_mode(&fit_config.survival_likelihood)?;
+    let likelihood_mode = parse_survival_likelihood_mode(fit_config.resolved_survival_likelihood())?;
     let time_cfg = if parsed.timewiggle.is_some() {
         gam::families::survival::construction::SurvivalTimeBasisConfig::None
     } else {
@@ -5342,39 +5418,6 @@ fn build_survival_location_scale_ffi_payload(
     fit_result.artifacts.survival_link_wiggle_knots = ls_result.wiggle_knots.clone();
     fit_result.artifacts.survival_link_wiggle_degree = ls_result.wiggle_degree;
 
-    // Reconstruct survival_noise_projection / center / scale by replaying the
-    // CLI's build_scale_deviation_transform on the time + threshold + log_sigma
-    // designs. Required for predict_survival_location_scale to recover the
-    // saved scale-deviation transform.
-    let dense_threshold = ls_result
-        .fit
-        .threshold_design
-        .design
-        .try_to_dense_by_chunks("survival location-scale threshold design")?;
-    let dense_log_sigma = ls_result
-        .fit
-        .log_sigma_design
-        .design
-        .try_to_dense_by_chunks("survival location-scale log_sigma design")?;
-    let dense_time_exit = time_build
-        .x_exit_time
-        .try_to_dense_by_chunks("survival location-scale time-exit design")?;
-    let mut survival_primary_design =
-        Array2::<f64>::zeros((n, dense_time_exit.ncols() + dense_threshold.ncols()));
-    survival_primary_design
-        .slice_mut(s![.., 0..dense_time_exit.ncols()])
-        .assign(&dense_time_exit);
-    survival_primary_design
-        .slice_mut(s![.., dense_time_exit.ncols()..])
-        .assign(&dense_threshold);
-    let survival_noise_transform = build_scale_deviation_transform(
-        &survival_primary_design,
-        &dense_log_sigma,
-        weights,
-        infer_non_intercept_start(&dense_log_sigma, weights),
-    )
-    .map_err(|err| format!("failed to encode survival noise transform: {err}"))?;
-
     let resolved_thresholdspec = freeze_term_collection_from_design(
         &ls_result.fit.resolved_thresholdspec,
         &ls_result.fit.threshold_design,
@@ -5387,9 +5430,9 @@ fn build_survival_location_scale_ffi_payload(
     .map_err(|err| err.to_string())?;
 
     // Thin adapter over the shared core assembler. The FFI's source-specific
-    // work above re-derives the survival metadata, compacts the fit result with
-    // the fitted link state, and re-encodes the noise scale-deviation transform;
-    // the canonical payload is assembled by the same path the CLI uses.
+    // work above re-derives the survival metadata and compacts the fit result
+    // with the fitted link state; the canonical payload is assembled by the
+    // same path the CLI uses.
     Ok(assemble_survival_location_scale_payload(
         SurvivalLocationScaleInputs {
             formula,
@@ -5413,11 +5456,13 @@ fn build_survival_location_scale_ffi_payload(
             time_basis: SavedSurvivalTimeBasis::from_build(&time_build, time_anchor),
             ridge_lambda: fit_config.ridge_lambda,
             survival_likelihood_label: survival_likelihood_modename(likelihood_mode).to_string(),
+            time_parameterization: ls_result.fit.time_parameterization,
+            threshold_time_basis: ls_result.fit.threshold_time_basis.clone(),
+            log_sigma_time_basis: ls_result.fit.log_sigma_time_basis.clone(),
             formula_noise: None,
             survival_beta_time: ls_result.fit.fit.beta_time().to_vec(),
             survival_beta_threshold: ls_result.fit.fit.beta_threshold().to_vec(),
             survival_beta_log_sigma: ls_result.fit.fit.beta_log_sigma().to_vec(),
-            noise_transform: &survival_noise_transform,
             resolved_thresholdspec,
             resolved_log_sigmaspec,
         },
@@ -5552,12 +5597,13 @@ fn build_latent_window_ffi_payload(
         let frailty = match (&request_frailty, learned_latent_sd) {
             (
                 gam::families::survival::lognormal_kernel::FrailtySpec::HazardMultiplier {
-                    sigma_fixed: None,
+                    scale:
+                        gam::families::survival::lognormal_kernel::FrailtyScale::Learned { .. },
                     loading,
                 },
                 Some(sigma),
             ) => gam::families::survival::lognormal_kernel::FrailtySpec::HazardMultiplier {
-                sigma_fixed: Some(sigma),
+                scale: gam::families::survival::lognormal_kernel::FrailtyScale::Fixed { sigma },
                 loading: *loading,
             },
             _ => request_frailty.clone(),
@@ -5620,7 +5666,7 @@ fn predict_table_survival(
         .is_some_and(|cause_count| cause_count > 1)
     {
         let result = predict_competing_risks_survival_result(model, dataset, options)?;
-        return serialize_competing_risks_prediction_payload(result);
+        return serialize_competing_risks_prediction_payload(result, options.interval);
     }
     let result = predict_survival_result(model, dataset, options)?;
     serialize_survival_prediction_payload(model, result)
@@ -5632,7 +5678,8 @@ fn predict_competing_risks_survival_result(
     options: &PyPredictOptions,
 ) -> Result<gam::families::survival::predict::CompetingRisksPredictResult, String> {
     use gam::families::survival::predict::{
-        SurvivalPredictEstimand, SurvivalPredictRequest, predict_competing_risks_survival,
+        SurvivalPredictEstimand, SurvivalPredictRequest, SurvivalPredictionCovarianceMode,
+        predict_competing_risks_survival,
     };
 
     let col_map = dataset.column_map();
@@ -5642,6 +5689,22 @@ fn predict_competing_risks_survival_result(
         resolve_offset_column(dataset, &col_map, payload.offset_column.as_deref())?;
     let noise_offset = ndarray::Array1::<f64>::zeros(dataset.values.nrows());
     let time_grid_slice: Option<&[f64]> = options.time_grid.as_deref();
+    let covariance_mode = if options.interval.is_some() {
+        match parse_covariance_mode(options.covariance_mode.as_deref())?
+            .unwrap_or(gam_predict::InferenceCovarianceMode::SmoothingCorrected)
+        {
+            gam_predict::InferenceCovarianceMode::Conditional => {
+                SurvivalPredictionCovarianceMode::Conditional
+            }
+            gam_predict::InferenceCovarianceMode::SmoothingCorrected => {
+                SurvivalPredictionCovarianceMode::SmoothingCorrected
+            }
+        }
+    } else {
+        // Posterior-mean points always integrate the conditional posterior;
+        // covariance_mode controls uncertainty only.
+        SurvivalPredictionCovarianceMode::Conditional
+    };
     let request = SurvivalPredictRequest {
         model,
         data: dataset.values.view(),
@@ -5656,7 +5719,7 @@ fn predict_competing_risks_survival_result(
         with_uncertainty: options.interval.is_some(),
         estimand: SurvivalPredictEstimand::PosteriorMean,
     };
-    Ok(predict_competing_risks_survival(request)?)
+    Ok(predict_competing_risks_survival(request, covariance_mode)?)
 }
 
 fn predict_survival_result(
@@ -5665,7 +5728,8 @@ fn predict_survival_result(
     options: &PyPredictOptions,
 ) -> Result<gam::families::survival::predict::SurvivalPredictResult, String> {
     use gam::families::survival::predict::{
-        SurvivalPredictEstimand, SurvivalPredictRequest, predict_survival,
+        SurvivalPredictEstimand, SurvivalPredictRequest, SurvivalPredictionCovarianceMode,
+        predict_survival,
     };
 
     let col_map = dataset.column_map();
@@ -5698,7 +5762,27 @@ fn predict_survival_result(
         with_uncertainty: options.interval.is_some(),
         estimand: SurvivalPredictEstimand::PosteriorMean,
     };
-    Ok(predict_survival(request)?)
+    // #2296: the user's covariance_mode governs single-cause survival
+    // uncertainty exactly as it does the competing-risks path. The default
+    // (None -> smoothing-corrected) is a REQUIRED request: when the saved fit
+    // carries no corrected covariance the engine refuses instead of silently
+    // narrowing the bands to conditional Vb. Posterior-mean points without an
+    // interval integrate the conditional posterior, as in the CR wrapper.
+    let covariance_mode = if options.interval.is_some() {
+        match parse_covariance_mode(options.covariance_mode.as_deref())?
+            .unwrap_or(gam_predict::InferenceCovarianceMode::SmoothingCorrected)
+        {
+            gam_predict::InferenceCovarianceMode::Conditional => {
+                SurvivalPredictionCovarianceMode::Conditional
+            }
+            gam_predict::InferenceCovarianceMode::SmoothingCorrected => {
+                SurvivalPredictionCovarianceMode::SmoothingCorrected
+            }
+        }
+    } else {
+        SurvivalPredictionCovarianceMode::Conditional
+    };
+    Ok(predict_survival(request, covariance_mode)?)
 }
 
 fn serialize_survival_prediction_payload(
@@ -5799,14 +5883,258 @@ fn serialize_survival_prediction_payload(
         columns,
         survival_se: survival_se_rows,
         eta_se: eta_se_vec,
+        // Result-owned provenance (#2296): serialized from what the engine
+        // actually used, never echoed from the request.
+        covariance_source: result
+            .covariance_source
+            .map(|source| source.as_str().to_string()),
     };
     serde_json::to_string(&survival_payload)
         .map_err(|err| format!("failed to serialize survival prediction payload: {err}"))
 }
 
+fn competing_risks_surface_bounds(
+    point: &[Array2<f64>],
+    standard_error: &[Array2<f64>],
+    z: f64,
+    lower_limit: f64,
+    upper_limit: f64,
+    label: &str,
+) -> Result<(Vec<Array2<f64>>, Vec<Array2<f64>>), String> {
+    if point.len() != standard_error.len() {
+        return Err(format!(
+            "competing-risks {label} interval cause count mismatch: point={}, standard_error={}",
+            point.len(),
+            standard_error.len(),
+        ));
+    }
+    let mut lower = Vec::with_capacity(point.len());
+    let mut upper = Vec::with_capacity(point.len());
+    for (cause, (point_surface, se_surface)) in point.iter().zip(standard_error).enumerate() {
+        if point_surface.dim() != se_surface.dim() {
+            return Err(format!(
+                "competing-risks {label} interval shape mismatch for cause {}: point={:?}, standard_error={:?}",
+                cause + 1,
+                point_surface.dim(),
+                se_surface.dim(),
+            ));
+        }
+        let mut lower_surface = Array2::<f64>::zeros(point_surface.raw_dim());
+        let mut upper_surface = Array2::<f64>::zeros(point_surface.raw_dim());
+        for ((row, column), &point_value) in point_surface.indexed_iter() {
+            let se = se_surface[[row, column]];
+            if !(point_value.is_finite() && se.is_finite() && se >= 0.0) {
+                return Err(format!(
+                    "competing-risks {label} interval requires finite point and non-negative finite SE for cause {}, row {row}, time column {column}; got point={point_value}, se={se}",
+                    cause + 1,
+                ));
+            }
+            lower_surface[[row, column]] = (point_value - z * se).max(lower_limit);
+            upper_surface[[row, column]] = (point_value + z * se).min(upper_limit);
+        }
+        lower.push(lower_surface);
+        upper.push(upper_surface);
+    }
+    Ok((lower, upper))
+}
+
+fn competing_risks_matrix_bounds(
+    point: &Array2<f64>,
+    standard_error: &Array2<f64>,
+    z: f64,
+    lower_limit: f64,
+    upper_limit: f64,
+    label: &str,
+) -> Result<(Array2<f64>, Array2<f64>), String> {
+    let (mut lower, mut upper) = competing_risks_surface_bounds(
+        std::slice::from_ref(point),
+        std::slice::from_ref(standard_error),
+        z,
+        lower_limit,
+        upper_limit,
+        label,
+    )?;
+    Ok((lower.remove(0), upper.remove(0)))
+}
+
+fn competing_risks_vector_bounds(
+    point: &[Array1<f64>],
+    standard_error: &[Array1<f64>],
+    z: f64,
+    label: &str,
+) -> Result<(Vec<Array1<f64>>, Vec<Array1<f64>>), String> {
+    if point.len() != standard_error.len() {
+        return Err(format!(
+            "competing-risks {label} interval cause count mismatch: point={}, standard_error={}",
+            point.len(),
+            standard_error.len(),
+        ));
+    }
+    let mut lower = Vec::with_capacity(point.len());
+    let mut upper = Vec::with_capacity(point.len());
+    for (cause, (point_vector, se_vector)) in point.iter().zip(standard_error).enumerate() {
+        if point_vector.len() != se_vector.len() {
+            return Err(format!(
+                "competing-risks {label} interval length mismatch for cause {}: point={}, standard_error={}",
+                cause + 1,
+                point_vector.len(),
+                se_vector.len(),
+            ));
+        }
+        let mut lower_vector = Array1::<f64>::zeros(point_vector.len());
+        let mut upper_vector = Array1::<f64>::zeros(point_vector.len());
+        for row in 0..point_vector.len() {
+            let point_value = point_vector[row];
+            let se = se_vector[row];
+            if !(point_value.is_finite() && se.is_finite() && se >= 0.0) {
+                return Err(format!(
+                    "competing-risks {label} interval requires finite point and non-negative finite SE for cause {}, row {row}; got point={point_value}, se={se}",
+                    cause + 1,
+                ));
+            }
+            lower_vector[row] = point_value - z * se;
+            upper_vector[row] = point_value + z * se;
+        }
+        lower.push(lower_vector);
+        upper.push(upper_vector);
+    }
+    Ok((lower, upper))
+}
+
+fn vectors_to_nested(vectors: &[Array1<f64>]) -> Vec<Vec<f64>> {
+    vectors.iter().map(|vector| vector.to_vec()).collect()
+}
+
 fn serialize_competing_risks_prediction_payload(
     result: gam::families::survival::predict::CompetingRisksPredictResult,
+    interval_level: Option<f64>,
 ) -> Result<String, String> {
+    let covariance_source = match (interval_level, result.covariance_source) {
+        (Some(_), Some(source)) => Some(source.as_str()),
+        (Some(_), None) => {
+            return Err(
+                "competing-risks interval is missing resolved covariance provenance".to_string(),
+            );
+        }
+        (None, Some(source)) => {
+            return Err(format!(
+                "competing-risks prediction resolved {} covariance without an interval request",
+                source.as_str()
+            ));
+        }
+        (None, None) => None,
+    };
+    let (
+        hazard_lower,
+        hazard_upper,
+        survival_lower,
+        survival_upper,
+        cumulative_hazard_lower,
+        cumulative_hazard_upper,
+        cif_lower,
+        cif_upper,
+        overall_survival_lower,
+        overall_survival_upper,
+        eta_lower,
+        eta_upper,
+    ) = if let Some(level) = interval_level {
+        let z = gam::inference::probability::standard_normal_quantile(0.5 + 0.5 * level)
+            .map_err(|error| {
+                format!(
+                    "competing-risks prediction interval cannot construct the normal quantile for level {level}: {error}"
+                )
+            })?;
+        if !z.is_finite() || z <= 0.0 {
+            return Err(format!(
+                "competing-risks prediction interval produced invalid normal quantile for level {level}: {z}"
+            ));
+        }
+        let hazard_se = result.hazard_se.as_ref().ok_or_else(|| {
+            "competing-risks interval requested but posterior hazard SE is missing".to_string()
+        })?;
+        let survival_se = result.survival_se.as_ref().ok_or_else(|| {
+            "competing-risks interval requested but posterior survival SE is missing".to_string()
+        })?;
+        let cumulative_hazard_se = result.cumulative_hazard_se.as_ref().ok_or_else(|| {
+            "competing-risks interval requested but posterior cumulative-hazard SE is missing"
+                .to_string()
+        })?;
+        let cif_se = result.cif_se.as_ref().ok_or_else(|| {
+            "competing-risks interval requested but posterior CIF SE is missing".to_string()
+        })?;
+        let overall_survival_se = result.overall_survival_se.as_ref().ok_or_else(|| {
+            "competing-risks interval requested but posterior overall-survival SE is missing"
+                .to_string()
+        })?;
+        let eta_se = result.eta_se.as_ref().ok_or_else(|| {
+            "competing-risks interval requested but posterior eta SE is missing".to_string()
+        })?;
+        let (hazard_lower, hazard_upper) = competing_risks_surface_bounds(
+            &result.hazard,
+            hazard_se,
+            z,
+            0.0,
+            f64::INFINITY,
+            "hazard",
+        )?;
+        let (survival_lower, survival_upper) =
+            competing_risks_surface_bounds(&result.survival, survival_se, z, 0.0, 1.0, "survival")?;
+        let (cumulative_hazard_lower, cumulative_hazard_upper) = competing_risks_surface_bounds(
+            &result.cumulative_hazard,
+            cumulative_hazard_se,
+            z,
+            0.0,
+            f64::INFINITY,
+            "cumulative hazard",
+        )?;
+        let (cif_lower, cif_upper) = competing_risks_surface_bounds(
+            &result.cif,
+            cif_se,
+            z,
+            0.0,
+            1.0,
+            "cumulative incidence",
+        )?;
+        let (overall_survival_lower, overall_survival_upper) = competing_risks_matrix_bounds(
+            &result.overall_survival,
+            overall_survival_se,
+            z,
+            0.0,
+            1.0,
+            "overall survival",
+        )?;
+        let (eta_lower, eta_upper) =
+            competing_risks_vector_bounds(&result.linear_predictor, eta_se, z, "eta")?;
+        (
+            Some(hazard_lower),
+            Some(hazard_upper),
+            Some(survival_lower),
+            Some(survival_upper),
+            Some(cumulative_hazard_lower),
+            Some(cumulative_hazard_upper),
+            Some(cif_lower),
+            Some(cif_upper),
+            Some(overall_survival_lower),
+            Some(overall_survival_upper),
+            Some(eta_lower),
+            Some(eta_upper),
+        )
+    } else {
+        if result.hazard_se.is_some()
+            || result.survival_se.is_some()
+            || result.cumulative_hazard_se.is_some()
+            || result.cif_se.is_some()
+            || result.overall_survival_se.is_some()
+            || result.eta_se.is_some()
+        {
+            return Err(
+                "competing-risks posterior SEs were produced without an interval level".to_string(),
+            );
+        }
+        (
+            None, None, None, None, None, None, None, None, None, None, None, None,
+        )
+    };
     let mut columns = BTreeMap::<String, Vec<f64>>::new();
     for (endpoint_idx, name) in result.endpoint_names.iter().enumerate() {
         let suffix = name.replace('-', "_");
@@ -5821,6 +6149,52 @@ fn serialize_competing_risks_prediction_payload(
                 .map(|i| result.cif[endpoint_idx][[i, t_last]])
                 .collect(),
         );
+        if let (
+            Some(eta_se),
+            Some(eta_lower),
+            Some(eta_upper),
+            Some(cif_se),
+            Some(cif_lower),
+            Some(cif_upper),
+        ) = (
+            result.eta_se.as_ref(),
+            eta_lower.as_ref(),
+            eta_upper.as_ref(),
+            result.cif_se.as_ref(),
+            cif_lower.as_ref(),
+            cif_upper.as_ref(),
+        ) {
+            columns.insert(
+                format!("eta_{suffix}_std_error"),
+                eta_se[endpoint_idx].to_vec(),
+            );
+            columns.insert(
+                format!("eta_{suffix}_lower"),
+                eta_lower[endpoint_idx].to_vec(),
+            );
+            columns.insert(
+                format!("eta_{suffix}_upper"),
+                eta_upper[endpoint_idx].to_vec(),
+            );
+            columns.insert(
+                format!("failure_prob_{suffix}_std_error"),
+                (0..cif_se[endpoint_idx].nrows())
+                    .map(|i| cif_se[endpoint_idx][[i, t_last]])
+                    .collect(),
+            );
+            columns.insert(
+                format!("failure_prob_{suffix}_lower"),
+                (0..cif_lower[endpoint_idx].nrows())
+                    .map(|i| cif_lower[endpoint_idx][[i, t_last]])
+                    .collect(),
+            );
+            columns.insert(
+                format!("failure_prob_{suffix}_upper"),
+                (0..cif_upper[endpoint_idx].nrows())
+                    .map(|i| cif_upper[endpoint_idx][[i, t_last]])
+                    .collect(),
+            );
+        }
     }
     let t_last = result.overall_survival.ncols().saturating_sub(1);
     columns.insert(
@@ -5829,6 +6203,24 @@ fn serialize_competing_risks_prediction_payload(
             .map(|i| result.overall_survival[[i, t_last]])
             .collect(),
     );
+    if let (Some(se), Some(lower), Some(upper)) = (
+        result.overall_survival_se.as_ref(),
+        overall_survival_lower.as_ref(),
+        overall_survival_upper.as_ref(),
+    ) {
+        columns.insert(
+            "overall_survival_std_error".to_string(),
+            (0..se.nrows()).map(|i| se[[i, t_last]]).collect(),
+        );
+        columns.insert(
+            "overall_survival_lower".to_string(),
+            (0..lower.nrows()).map(|i| lower[[i, t_last]]).collect(),
+        );
+        columns.insert(
+            "overall_survival_upper".to_string(),
+            (0..upper.nrows()).map(|i| upper[[i, t_last]]).collect(),
+        );
+    }
     let likelihood_mode_str = match result.likelihood_mode {
         gam::families::survival::construction::SurvivalLikelihoodMode::MarginalSlope => {
             "marginal-slope"
@@ -5849,18 +6241,48 @@ fn serialize_competing_risks_prediction_payload(
         "class": "competing_risks_prediction",
         "model_class": "competing risks survival",
         "likelihood_mode": likelihood_mode_str,
+        "covariance_source": covariance_source,
         "endpoint_names": result.endpoint_names,
         "times": result.times,
+        "interval_level": interval_level,
         "hazard": matrices_to_nested(&result.hazard),
+        "hazard_se": result.hazard_se.as_ref().map(|value| matrices_to_nested(value)),
+        "hazard_lower": hazard_lower.as_ref().map(|value| matrices_to_nested(value)),
+        "hazard_upper": hazard_upper.as_ref().map(|value| matrices_to_nested(value)),
         "survival": matrices_to_nested(&result.survival),
+        "survival_se": result.survival_se.as_ref().map(|value| matrices_to_nested(value)),
+        "survival_lower": survival_lower.as_ref().map(|value| matrices_to_nested(value)),
+        "survival_upper": survival_upper.as_ref().map(|value| matrices_to_nested(value)),
         "cumulative_hazard": matrices_to_nested(&result.cumulative_hazard),
+        "cumulative_hazard_se": result
+            .cumulative_hazard_se
+            .as_ref()
+            .map(|value| matrices_to_nested(value)),
+        "cumulative_hazard_lower": cumulative_hazard_lower
+            .as_ref()
+            .map(|value| matrices_to_nested(value)),
+        "cumulative_hazard_upper": cumulative_hazard_upper
+            .as_ref()
+            .map(|value| matrices_to_nested(value)),
         "cif": matrices_to_nested(&result.cif),
+        "cif_se": result.cif_se.as_ref().map(|value| matrices_to_nested(value)),
+        "cif_lower": cif_lower.as_ref().map(|value| matrices_to_nested(value)),
+        "cif_upper": cif_upper.as_ref().map(|value| matrices_to_nested(value)),
         "overall_survival": matrix_to_nested(&result.overall_survival),
+        "overall_survival_se": result
+            .overall_survival_se
+            .as_ref()
+            .map(matrix_to_nested),
+        "overall_survival_lower": overall_survival_lower.as_ref().map(matrix_to_nested),
+        "overall_survival_upper": overall_survival_upper.as_ref().map(matrix_to_nested),
         "linear_predictor": result
             .linear_predictor
             .iter()
             .map(|eta| eta.to_vec())
             .collect::<Vec<_>>(),
+        "eta_se": result.eta_se.as_ref().map(|value| vectors_to_nested(value)),
+        "eta_lower": eta_lower.as_ref().map(|value| vectors_to_nested(value)),
+        "eta_upper": eta_upper.as_ref().map(|value| vectors_to_nested(value)),
         "columns": columns,
     });
     serde_json::to_string(&payload)
@@ -6091,9 +6513,12 @@ fn manifold_sae_resident_fisher_metric(
     let p_out = payload.fitted.first().map_or(0, Vec::len);
     match &payload.fisher_factors {
         None => {
-            if payload.fisher_provenance.is_some() || payload.fisher_mass_residual.is_some() {
+            if payload.fisher_provenance.is_some()
+                || payload.fisher_factor_kind.is_some()
+                || payload.fisher_mass_residual.is_some()
+            {
                 return Err(py_value_error(
-                    "ManifoldSAE: Fisher provenance and residual mass require retained fisher_factors"
+                    "ManifoldSAE: Fisher provenance, factor status, and residual mass require retained fisher_factors"
                         .to_string(),
                 ));
             }
@@ -6116,6 +6541,12 @@ fn manifold_sae_resident_fisher_metric(
                         .to_string(),
                 )
             })?;
+            let factor_kind = payload.fisher_factor_kind.as_deref().ok_or_else(|| {
+                py_value_error(
+                    "ManifoldSAE: fisher_factor_kind is required when fisher_factors are present"
+                        .to_string(),
+                )
+            })?;
             let factors = manifold_sae_owned3(factors)?;
             let mass = payload
                 .fisher_mass_residual
@@ -6126,6 +6557,7 @@ fn manifold_sae_resident_fisher_metric(
                 n_rows,
                 p_out,
                 Some(provenance),
+                Some(factor_kind),
                 mass.as_ref().map(|values| values.view()),
             )
             .map_err(py_value_error)?;
@@ -6217,13 +6649,14 @@ fn manifold_sae_hybrid_linear_images(
 #[pyclass(module = "gamfit._rust", name = "AtomCore")]
 pub(crate) struct AtomCore {
     inner: crate::manifold::manifold_sae_payload::AtomPayload,
+    basis: String,
 }
 
 #[pymethods]
 impl AtomCore {
     #[getter]
     fn basis(&self) -> String {
-        self.inner.basis.clone()
+        self.basis.clone()
     }
     #[getter]
     fn decoder_coefficients<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyArray2<f64>>> {
@@ -6320,6 +6753,27 @@ impl ManifoldSaeCore {
         })
     }
 
+    fn basis_kind_names(&self) -> Vec<String> {
+        self.inner
+            .geometry_plans
+            .iter()
+            .map(|plan| sae_atom_basis_kind_name(plan.kind()))
+            .collect()
+    }
+
+    fn atom_topology_names(&self) -> PyResult<Vec<String>> {
+        gam::terms::sae::atom_schema::topologies_for_bases(&self.basis_kind_names())
+            .map_err(py_value_error)
+    }
+
+    fn atom_topology_name(&self) -> PyResult<String> {
+        gam::terms::sae::atom_schema::topology_for_bases(&self.basis_kind_names())
+            .map_err(py_value_error)?
+            .ok_or_else(|| {
+                py_value_error("ManifoldSAE geometry_plans must be non-empty".to_string())
+            })
+    }
+
     fn description_length_report(
         &self,
         l_param_bits: Option<f64>,
@@ -6391,47 +6845,33 @@ impl ManifoldSaeCore {
             .iter()
             .map(|b| manifold_sae_owned2(b))
             .collect::<PyResult<_>>()?;
-        let duchon_owned: Vec<Option<Array2<f64>>> = inner
-            .duchon_centers
-            .iter()
-            .map(|c| c.as_ref().map(|m| manifold_sae_owned2(m)).transpose())
-            .collect::<PyResult<_>>()?;
-        let atom_dim: Vec<usize> = inner.atom_dims.iter().map(|&d| d.max(0) as usize).collect();
-        let basis_sizes: Vec<usize> = inner
-            .basis_sizes
-            .iter()
-            .map(|&s| s.max(0) as usize)
-            .collect();
-        // Exact mirror of the Python OOS n_harmonics gate. Every harmonic
-        // topology must carry its persisted order; the typed entry never
-        // guesses it from a decoder width.
-        let n_harm: Vec<Option<usize>> = inner
-            .basis_kinds
-            .iter()
-            .zip(&inner.n_harmonics)
-            .map(|(kind, &h)| {
-                if matches!(kind.as_str(), "periodic" | "torus" | "cylinder" | "mobius") {
-                    Some(h.max(0) as usize)
-                } else {
-                    None
-                }
-            })
-            .collect();
         let hybrid = manifold_sae_hybrid_linear_images(&inner.hybrid_split)?;
+        let max_iter = usize::try_from(inner.max_iter).map_err(|_| {
+            py_value_error(format!(
+                "ManifoldSAE: saved max_iter must be positive; got {}",
+                inner.max_iter
+            ))
+        })?;
+        let top_k = inner
+            .top_k
+            .map(|support| {
+                usize::try_from(support).map_err(|_| {
+                    py_value_error(format!(
+                        "ManifoldSAE: saved top_k must be positive; got {support}"
+                    ))
+                })
+            })
+            .transpose()?;
         let decoder_views: Vec<ndarray::ArrayView2<'_, f64>> =
             decoder_owned.iter().map(|a| a.view()).collect();
         let request = sae_oos_request_from_arrays(
             x_new.as_array(),
-            inner.basis_kinds.clone(),
-            atom_dim,
+            &inner.geometry_plans,
             &decoder_views,
-            &duchon_owned,
-            n_harm,
-            basis_sizes,
             inner.alpha,
             inner.tau,
             inner.assignment.clone(),
-            inner.max_iter.max(0) as usize,
+            max_iter,
             inner.learning_rate,
             // Coordinate ridge: Python `_oos_payload` omits it, so the
             // `sae_manifold_predict_oos` pyfunction supplies this `1e-6` default.
@@ -6439,7 +6879,7 @@ impl ManifoldSaeCore {
             None,
             None,
             inner.threshold_gate_threshold,
-            inner.top_k.map(|t| t.max(0) as usize),
+            top_k,
             hybrid,
             inner.selected_log_lambda_sparse,
             inner.selected_log_lambda_smooth.clone(),
@@ -6488,7 +6928,7 @@ impl ManifoldSaeCore {
         Self::from_json(py, &payload_json)
     }
 
-    /// Re-serialize the complete v3 artifact as a Python dict.
+    /// Re-serialize the complete v6 artifact as a Python dict.
     fn to_dict(&self, py: Python<'_>) -> PyResult<PyObject> {
         let json_str = self.inner.to_json().map_err(py_value_error)?;
         let value: serde_json::Value =
@@ -6507,18 +6947,18 @@ impl ManifoldSaeCore {
             .map_err(|error| py_value_error(format!("ManifoldSAE.save: {error}")))
     }
 
-    fn __repr__(&self) -> String {
+    fn __repr__(&self) -> PyResult<String> {
         let n_rows = self.inner.fitted.len();
         let p_out = self.inner.fitted.first().map_or(0, Vec::len);
-        format!(
+        Ok(format!(
             "ManifoldSAE(K={}, n={}, p={}, topology={:?}, assignment={:?}, r2={:.3})",
             self.inner.atoms.len(),
             n_rows,
             p_out,
-            self.inner.atom_topology,
+            self.atom_topology_name()?,
             self.inner.assignment,
             self.inner.reconstruction_r2,
-        )
+        ))
     }
 
     /// Fit-level code length from the native manifold-SAE description-length
@@ -6548,12 +6988,18 @@ impl ManifoldSaeCore {
         let (avg_active_atoms, mean_assignment_mass) =
             manifold_assignment_summary_from_array(assignments.view(), 1.0e-8)
                 .map_err(py_value_error)?;
-        let common_dim = self.inner.atom_dims.first().copied().filter(|first| {
-            self.inner
-                .atom_dims
-                .iter()
-                .all(|dimension| dimension == first)
-        });
+        let atom_dims = self
+            .inner
+            .geometry_plans
+            .iter()
+            .map(SaeAtomGeometryPlan::latent_dim)
+            .collect::<Vec<_>>();
+        let common_dim = atom_dims
+            .first()
+            .copied()
+            .filter(|first| atom_dims.iter().all(|dimension| dimension == first));
+        let atom_topologies = self.atom_topology_names()?;
+        let atom_topology = self.atom_topology_name()?;
 
         let active_dims = self
             .inner
@@ -6579,9 +7025,9 @@ impl ManifoldSaeCore {
         out.set_item("description_length", description_py)?;
         out.set_item("K", self.inner.atoms.len())?;
         out.set_item("d_atom", common_dim)?;
-        out.set_item("atom_dims", self.inner.atom_dims.clone())?;
-        out.set_item("atom_topology", self.inner.atom_topology.clone())?;
-        out.set_item("atom_topologies", self.inner.atom_topologies.clone())?;
+        out.set_item("atom_dims", atom_dims)?;
+        out.set_item("atom_topology", atom_topology)?;
+        out.set_item("atom_topologies", atom_topologies)?;
         out.set_item("assignment", self.inner.assignment.clone())?;
         out.set_item("alpha", self.inner.alpha)?;
         out.set_item("learnable_alpha", self.inner.learnable_alpha)?;
@@ -6614,12 +7060,6 @@ impl ManifoldSaeCore {
     /// pyfunction uses, so the output is bitwise-identical to the dataclass path.
     fn reconstruct_training<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyArray2<f64>>> {
         let inner = &self.inner;
-        let basis_kinds: Vec<SaeAtomBasisKind> = inner
-            .basis_kinds
-            .iter()
-            .map(|name| sae_atom_basis_kind_from_str(name))
-            .collect();
-        let atom_dims: Vec<usize> = inner.atom_dims.iter().map(|&d| d.max(0) as usize).collect();
         let decoder_owned: Vec<Array2<f64>> = inner
             .decoder_blocks
             .iter()
@@ -6643,8 +7083,7 @@ impl ManifoldSaeCore {
         let coord_views: Vec<ndarray::ArrayView2<'_, f64>> =
             coord_owned.iter().map(|a| a.view()).collect();
         let out = gam::terms::sae::manifold::reconstruct_persisted_atom_set(
-            &basis_kinds,
-            &atom_dims,
+            &inner.geometry_plans,
             &decoder_views,
             &coord_views,
             assignments.view(),
@@ -6670,12 +7109,6 @@ impl ManifoldSaeCore {
         codes: PyReadonlyArray2<'py, f64>,
     ) -> PyResult<Bound<'py, PyArray2<f64>>> {
         let inner = &self.inner;
-        let basis_kinds: Vec<SaeAtomBasisKind> = inner
-            .basis_kinds
-            .iter()
-            .map(|name| sae_atom_basis_kind_from_str(name))
-            .collect();
-        let atom_dims: Vec<usize> = inner.atom_dims.iter().map(|&d| d.max(0) as usize).collect();
         let decoder_owned: Vec<Array2<f64>> = inner
             .decoder_blocks
             .iter()
@@ -6696,8 +7129,7 @@ impl ManifoldSaeCore {
         let coord_views: Vec<ndarray::ArrayView2<'_, f64>> =
             coord_owned.iter().map(|a| a.view()).collect();
         let out = gam::terms::sae::manifold::reconstruct_persisted_atom_set(
-            &basis_kinds,
-            &atom_dims,
+            &inner.geometry_plans,
             &decoder_views,
             &coord_views,
             codes.as_array(),
@@ -6734,8 +7166,6 @@ impl ManifoldSaeCore {
         };
         let mut dictionary = Array2::<f64>::zeros((k_atoms, p_out));
         for k in 0..k_atoms {
-            let kind = sae_atom_basis_kind_from_str(&inner.basis_kinds[k]);
-            let atom_dim = inner.atom_dims[k].max(0) as usize;
             let decoder = manifold_sae_owned2(&inner.decoder_blocks[k])?;
             let coords = manifold_sae_owned2(&inner.coords[k])?;
             let n_rows = coords.nrows();
@@ -6748,8 +7178,7 @@ impl ManifoldSaeCore {
             let decoder_view = decoder.view();
             let coords_view = coords.view();
             let decoded = gam::terms::sae::manifold::reconstruct_persisted_atom_set(
-                std::slice::from_ref(&kind),
-                std::slice::from_ref(&atom_dim),
+                std::slice::from_ref(&inner.geometry_plans[k]),
                 std::slice::from_ref(&decoder_view),
                 std::slice::from_ref(&coords_view),
                 assignments.view(),
@@ -6771,8 +7200,8 @@ impl ManifoldSaeCore {
     /// `steer_delta_from_arrays` rebuild the `sae_steer_delta` pyfunction uses, so
     /// the Fisher shard is NOT re-marshalled across the FFI boundary per call
     /// (acceptance bullet 2) and the returned plan is bitwise-identical to the
-    /// dataclass path. Mirrors the Python steer's exact `n_harmonics` gate
-    /// (`periodic`/`torus` only) so the rebuilt basis matches the trained design.
+    /// dataclass path. The persisted geometry plans rebuild the exact fitted
+    /// evaluator and reference metric for every atom.
     #[pyo3(signature = (atom_k, metric_row, amplitude, t_from, t_to))]
     fn steer<'py>(
         &self,
@@ -6794,33 +7223,7 @@ impl ManifoldSaeCore {
             .iter()
             .map(|c| manifold_sae_owned2(c))
             .collect::<PyResult<_>>()?;
-        let duchon_owned: Vec<Option<Array2<f64>>> = inner
-            .duchon_centers
-            .iter()
-            .map(|c| c.as_ref().map(|m| manifold_sae_owned2(m)).transpose())
-            .collect::<PyResult<_>>()?;
         let logits_owned = manifold_sae_owned2(&inner.low_level_logits)?;
-        let atom_dim: Vec<usize> = inner.atom_dims.iter().map(|&d| d.max(0) as usize).collect();
-        let basis_sizes: Vec<usize> = inner
-            .basis_sizes
-            .iter()
-            .map(|&s| s.max(0) as usize)
-            .collect();
-        // Exact mirror of the Python steer's per-kind n_harmonics gate:
-        // `int(h) if bk in {"periodic", "torus"} else None` (case-sensitive) — a
-        // looser (e.g. lowercased) predicate would diverge the rebuilt basis.
-        let n_harm: Vec<Option<usize>> = inner
-            .basis_kinds
-            .iter()
-            .zip(&inner.n_harmonics)
-            .map(|(kind, &h)| {
-                if kind == "periodic" || kind == "torus" {
-                    Some(h.max(0) as usize)
-                } else {
-                    None
-                }
-            })
-            .collect();
         let decoder_views: Vec<ndarray::ArrayView2<'_, f64>> =
             decoder_owned.iter().map(|a| a.view()).collect();
         let coord_views: Vec<ndarray::ArrayView2<'_, f64>> =
@@ -6841,12 +7244,8 @@ impl ManifoldSaeCore {
             amplitude,
             t_from.as_array(),
             t_to.as_array(),
-            &inner.basis_kinds,
-            &atom_dim,
+            &inner.geometry_plans,
             &decoder_views,
-            &duchon_owned,
-            &n_harm,
-            &basis_sizes,
             &coord_views,
             logits_owned.view(),
             inner.assignment.as_str(),
@@ -6864,10 +7263,15 @@ impl ManifoldSaeCore {
     /// for a meaningless raw amplitude. The required `request` mapping contains
     /// `atom_k`, `metric_row`, `target_nats`, `t_from`, `t_to`, `tol_rel`,
     /// `max_iter`, and `readout_tol_rel`. Returns the
-    /// closed-form seed `a0 = sqrt(2 q*/(dgᵀ M dg))` plus, when a `probe`
-    /// (a Python callable `a → measured KL in nats`, a patched forward) is
-    /// supplied, the closed-loop-corrected amplitude, the measured KL, and the
-    /// dual radii (`chart_radius` as shipped + `readout_kl_radius`). Reuses the
+    /// closed-form seed `a0 = sqrt(2 q*/(dgᵀ M dg))` plus, when a plan-aware
+    /// `probe` is supplied, the closed-loop-corrected amplitude and one atomic
+    /// observation mapping with `effective_delta`, `exact_directional_nats`,
+    /// `measured_nats`, and required optional
+    /// `certified_attainable_upper_nats`. The latter is `None` unless the callback
+    /// can prove a global upper bound for every non-negative amplitude on this
+    /// exact chord; pointwise plateaus are not certificates. The callback receives
+    /// the complete public steer-plan mapping, not a scalar amplitude, so it cannot
+    /// silently execute a different activation move. Reuses the
     /// SAME frozen-dictionary rebuild as `steer`.
     #[pyo3(signature = (request, probe = None))]
     fn steer_to_target<'py>(
@@ -6897,30 +7301,7 @@ impl ManifoldSaeCore {
             .iter()
             .map(|c| manifold_sae_owned2(c))
             .collect::<PyResult<_>>()?;
-        let duchon_owned: Vec<Option<Array2<f64>>> = inner
-            .duchon_centers
-            .iter()
-            .map(|c| c.as_ref().map(|m| manifold_sae_owned2(m)).transpose())
-            .collect::<PyResult<_>>()?;
         let logits_owned = manifold_sae_owned2(&inner.low_level_logits)?;
-        let atom_dim: Vec<usize> = inner.atom_dims.iter().map(|&d| d.max(0) as usize).collect();
-        let basis_sizes: Vec<usize> = inner
-            .basis_sizes
-            .iter()
-            .map(|&s| s.max(0) as usize)
-            .collect();
-        let n_harm: Vec<Option<usize>> = inner
-            .basis_kinds
-            .iter()
-            .zip(&inner.n_harmonics)
-            .map(|(kind, &h)| {
-                if kind == "periodic" || kind == "torus" {
-                    Some(h.max(0) as usize)
-                } else {
-                    None
-                }
-            })
-            .collect();
         let decoder_views: Vec<ndarray::ArrayView2<'_, f64>> =
             decoder_owned.iter().map(|a| a.view()).collect();
         let coord_views: Vec<ndarray::ArrayView2<'_, f64>> =
@@ -6936,22 +7317,76 @@ impl ManifoldSaeCore {
             })
             .transpose()?;
 
-        // Wrap the optional Python patched-forward into a Rust FnMut(a) -> KL.
-        let mut probe_boxed: Option<Box<dyn FnMut(f64) -> Result<f64, String>>> =
-            probe.map(|obj| {
-                let boxed: Box<dyn FnMut(f64) -> Result<f64, String>> =
-                    Box::new(move |a: f64| -> Result<f64, String> {
-                        Python::attach(|py| {
-                            let res = obj
-                                .call1(py, (a,))
-                                .map_err(|e| format!("steer_to_target probe raised: {e}"))?;
-                            res.extract::<f64>(py).map_err(|e| {
-                                format!("steer_to_target probe must return a float: {e}")
-                            })
+        // The external model adapter receives the exact public plan and returns
+        // the three inseparable quantities the Rust dose contract validates.
+        let mut probe_boxed: Option<
+            Box<gam::inference::steering::AppliedDoseProbe<'_>>,
+        > = probe.map(|obj| {
+            let boxed: Box<gam::inference::steering::AppliedDoseProbe<'_>> =
+                Box::new(move |plan: &gam::inference::steering::SteerPlan| {
+                    Python::attach(|py| {
+                        let plan_dict = steer_plan_to_pydict(py, plan.clone()).map_err(|error| {
+                            format!("steer_to_target could not serialize probe plan: {error}")
+                        })?;
+                        let result = obj
+                            .call1(py, (plan_dict,))
+                            .map_err(|error| format!("steer_to_target probe raised: {error}"))?;
+                        let result = result.bind(py).cast::<PyDict>().map_err(|error| {
+                            format!(
+                                "steer_to_target probe must return a mapping with effective_delta, \
+                                 exact_directional_nats, measured_nats, and \
+                                 certified_attainable_upper_nats: {error}"
+                            )
+                        })?;
+                        let required = |key: &str| {
+                            result
+                                .get_item(key)
+                                .map_err(|error| error.to_string())?
+                                .ok_or_else(|| {
+                                    format!("steer_to_target probe result is missing {key:?}")
+                                })
+                        };
+                        let effective_delta = required("effective_delta")?
+                            .extract::<Vec<f64>>()
+                            .map_err(|error| {
+                                format!(
+                                    "steer_to_target probe effective_delta must be a float list: {error}"
+                                )
+                            })?;
+                        let exact_directional_nats = required("exact_directional_nats")?
+                            .extract::<f64>()
+                            .map_err(|error| {
+                                format!(
+                                    "steer_to_target probe exact_directional_nats must be a float: {error}"
+                                )
+                            })?;
+                        let measured_nats = required("measured_nats")?
+                            .extract::<f64>()
+                            .map_err(|error| {
+                                format!(
+                                    "steer_to_target probe measured_nats must be a float: {error}"
+                                )
+                            })?;
+                        let certified_attainable_upper_nats =
+                            required("certified_attainable_upper_nats")?
+                                .extract::<Option<f64>>()
+                                .map_err(|error| {
+                                    format!(
+                                        "steer_to_target probe \
+                                         certified_attainable_upper_nats must be a float or \
+                                         None: {error}"
+                                    )
+                                })?;
+                        Ok(gam::inference::steering::AppliedDoseObservation {
+                            effective_delta: Array1::from(effective_delta),
+                            exact_directional_nats,
+                            measured_nats,
+                            certified_attainable_upper_nats,
                         })
-                    });
-                boxed
-            });
+                    })
+                });
+            boxed
+        });
         let probe_ref = probe_boxed.as_deref_mut();
 
         let plan = steer_to_target_from_arrays(
@@ -6962,12 +7397,8 @@ impl ManifoldSaeCore {
                 config,
                 t_from: t_from.view(),
                 t_to: t_to.view(),
-                atom_basis: &inner.basis_kinds,
-                atom_dim: &atom_dim,
+                geometry_plans: &inner.geometry_plans,
                 decoder_blocks: &decoder_views,
-                duchon_centers: &duchon_owned,
-                n_harmonics_list: &n_harm,
-                basis_size_list: &basis_sizes,
                 coords: &coord_views,
                 logits: logits_owned.view(),
                 assignment_kind: inner.assignment.as_str(),
@@ -7120,6 +7551,13 @@ impl ManifoldSaeCore {
         manifold_sae_vec1(py, &self.inner.training_mean)
     }
     #[getter]
+    fn tier0_scale<'py>(&self, py: Python<'py>) -> Option<Bound<'py, PyArray1<f64>>> {
+        self.inner
+            .tier0_scale
+            .as_ref()
+            .map(|scale| manifold_sae_vec1(py, scale))
+    }
+    #[getter]
     fn coords<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyList>> {
         manifold_sae_list2(py, &self.inner.coords)
     }
@@ -7145,26 +7583,22 @@ impl ManifoldSaeCore {
     #[getter]
     fn atoms<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyList>> {
         let list = PyList::empty(py);
-        for atom in &self.inner.atoms {
+        for (atom, plan) in self.inner.atoms.iter().zip(&self.inner.geometry_plans) {
             list.append(Py::new(
                 py,
                 AtomCore {
                     inner: atom.clone(),
+                    basis: sae_atom_basis_kind_name(plan.kind()),
                 },
             )?)?;
         }
         Ok(list)
     }
     #[getter]
-    fn duchon_centers<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyList>> {
-        let list = PyList::empty(py);
-        for center in &self.inner.duchon_centers {
-            match center {
-                None => list.append(py.None())?,
-                Some(m) => list.append(manifold_sae_vec2(py, m)?)?,
-            }
-        }
-        Ok(list)
+    fn geometry_plans(&self, py: Python<'_>) -> PyResult<PyObject> {
+        let value = serde_json::to_value(&self.inner.geometry_plans)
+            .map_err(|error| py_value_error(error.to_string()))?;
+        json_value_to_py(py, value)
     }
     #[getter]
     fn fisher_factors<'py>(&self, py: Python<'py>) -> PyResult<Option<Bound<'py, PyArray3<f64>>>> {
@@ -7176,11 +7610,12 @@ impl ManifoldSaeCore {
     /// Atomically validate, pack, and install an output-Fisher shard.  No field
     /// becomes visible until the complete `RowMetric` has been constructed, so
     /// a failed attach leaves the prior model state untouched.
-    #[pyo3(signature = (factors, provenance, mass_residual=None))]
+    #[pyo3(signature = (factors, provenance, factor_kind, mass_residual=None))]
     fn attach_fisher<'py>(
         &mut self,
         factors: PyReadonlyArray3<'py, f64>,
         provenance: String,
+        factor_kind: String,
         mass_residual: Option<PyReadonlyArray1<'py, f64>>,
     ) -> PyResult<()> {
         let n_rows = self.inner.fitted.len();
@@ -7190,6 +7625,7 @@ impl ManifoldSaeCore {
             n_rows,
             p_out,
             Some(&provenance),
+            Some(&factor_kind),
             mass_residual.as_ref().map(|values| values.as_array()),
         )
         .map_err(py_value_error)?;
@@ -7206,6 +7642,7 @@ impl ManifoldSaeCore {
         self.inner.fisher_factors = Some(factors_nested);
         self.inner.fisher_mass_residual = mass_nested;
         self.inner.fisher_provenance = Some(provenance);
+        self.inner.fisher_factor_kind = Some(factor_kind);
         self.inner.metric_provenance = metric_label;
         self.fisher_metric = Some(metric);
         self.fisher_metric_build_count += 1;
@@ -7218,6 +7655,7 @@ impl ManifoldSaeCore {
         self.inner.fisher_factors = None;
         self.inner.fisher_mass_residual = None;
         self.inner.fisher_provenance = None;
+        self.inner.fisher_factor_kind = None;
         self.inner.metric_provenance = "Euclidean".to_string();
         self.fisher_metric = None;
     }
@@ -7279,8 +7717,8 @@ impl ManifoldSaeCore {
         self.inner.schema.clone()
     }
     #[getter]
-    fn atom_topology(&self) -> String {
-        self.inner.atom_topology.clone()
+    fn atom_topology(&self) -> PyResult<String> {
+        self.atom_topology_name()
     }
     #[getter]
     fn assignment(&self) -> String {
@@ -7297,6 +7735,10 @@ impl ManifoldSaeCore {
     #[getter]
     fn fisher_provenance(&self) -> Option<String> {
         self.inner.fisher_provenance.clone()
+    }
+    #[getter]
+    fn fisher_factor_kind(&self) -> Option<String> {
+        self.inner.fisher_factor_kind.clone()
     }
     #[getter]
     fn structure_certificate_json(&self) -> Option<String> {
@@ -7375,34 +7817,35 @@ impl ManifoldSaeCore {
         self.inner.atoms.len()
     }
 
-    // --- string / int list getters ---------------------------------------
+    // --- geometry-derived list getters -----------------------------------
     #[getter]
-    fn atom_topologies(&self) -> Vec<String> {
-        self.inner.atom_topologies.clone()
+    fn atom_topologies(&self) -> PyResult<Vec<String>> {
+        self.atom_topology_names()
     }
     #[getter]
     fn primitive_names(&self) -> Vec<String> {
         self.inner.primitive_names.clone()
     }
     #[getter]
-    fn basis_specs(&self) -> Vec<String> {
-        self.inner.basis_specs.clone()
-    }
-    #[getter]
     fn basis_kinds(&self) -> Vec<String> {
-        self.inner.basis_kinds.clone()
+        self.basis_kind_names()
     }
     #[getter]
-    fn atom_dims(&self) -> Vec<i64> {
-        self.inner.atom_dims.clone()
+    fn atom_dims(&self) -> Vec<usize> {
+        self.inner
+            .geometry_plans
+            .iter()
+            .map(SaeAtomGeometryPlan::latent_dim)
+            .collect()
     }
     #[getter]
-    fn basis_sizes(&self) -> Vec<i64> {
-        self.inner.basis_sizes.clone()
-    }
-    #[getter]
-    fn n_harmonics(&self) -> Vec<i64> {
-        self.inner.n_harmonics.clone()
+    fn basis_sizes(&self) -> PyResult<Vec<usize>> {
+        self.inner
+            .geometry_plans
+            .iter()
+            .map(SaeAtomGeometryPlan::basis_size)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(py_value_error)
     }
 
     // --- diagnostic / certificate report-block getters -------------------

@@ -106,6 +106,9 @@ class CliSnapshotConfig:
             with keep_cwd():
                 data = data.replace(str(self.testdir.tmpdir) + os.path.sep, "/tmp/")
                 data = data.replace(str(Path(self.testdir.tmpdir).parent) + os.path.sep, "/tmp/")
+            # Whatever remains is a sibling per-test directory (e.g. the `tmp_path` fixture). Its numeric
+            # suffix depends on allocation order within the session, so strip it instead of recording it.
+            data = re.sub(r"/tmp/[A-Za-z0-9_.\-]+\d+" + re.escape(os.path.sep), "/tmp/", data)
             if os.path.sep != "/":
                 data = re.sub(r"/tmp/\S+", lambda match: match.group(0).replace(os.path.sep, "/"), data)
         if "Configuration:" in data:
@@ -204,6 +207,8 @@ class CliSnapshotConfig:
         if self.replace_seed:
             data = re.sub(r"--seed=\d+", "--seed=42", data)
             data = re.sub(r"Seed: \d+", "Seed: 42", data)
+        # Reauth count varies with how many generated cases hit the stale token.
+        data = re.sub(r"Re-authenticated \d+ times?", "Re-authenticated N times", data)
         # Hint: "additional properties not defined in the schema (...)" lists the
         # generated property names verbatim — those names are random Hypothesis output
         # and shift across runs. Collapse the count + names to a placeholder.

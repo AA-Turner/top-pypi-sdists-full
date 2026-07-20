@@ -339,6 +339,56 @@ impl IsometryPenalty {
             .clone()
     }
 
+    /// Read the Jacobian cache under the *dimensional identity*
+    /// `(latent_dim, p_out)` of the atom currently being evaluated.
+    ///
+    /// The cache is interior-mutable and refreshed **per atom** (see
+    /// [`Self::refresh_caches`] and
+    /// `sae::manifold::refresh_isometry_caches_from_atom`). In a heterogeneous
+    /// SAE whose atoms have *mixed* latent dimensions (e.g. the standard zoo
+    /// `dims = [1,1,2,2,2,2,2,1]`) the slot can transiently hold a Jacobian
+    /// built for a **different** atom's `latent_dim` — its column count is
+    /// `p_out · d'` for that atom's `d'`, not this atom's `d`. Reshaping such a
+    /// cache at the wrong `d` would silently corrupt every downstream `J`
+    /// contraction (`projected_jacobian_row` / `weighted_jacobian_row`) or trip
+    /// the [`Self::pullback_metric`] shape invariant (`assert_eq!(jac.ncols(),
+    /// p·d)`) with a hard panic (issue #2294).
+    ///
+    /// The cache's built-for `latent_dim` is recoverable from its own shape:
+    /// with `p_out` fixed on the penalty, `ncols() == p_out · d_cache`. We
+    /// Per-atom SAE evaluation clones the registry descriptor, retargets it,
+    /// and refreshes that clone before any read, so a mismatched live cache is
+    /// an ownership/refresh invariant violation, not missing optional data.
+    /// Silently converting it to `None` would disable the isometry penalty and
+    /// change the fitted objective. Keep the mismatch hard: every caller sees
+    /// either no cache at all or a cache with the exact requested identity.
+    fn dimensioned_jacobian_cache(
+        &self,
+        method: &str,
+        latent_dim: usize,
+    ) -> Option<Arc<Array2<f64>>> {
+        let Some(jac) = self.jacobian_cache() else {
+            self.missing_cache_default(method, "jacobian_cache is None");
+            return None;
+        };
+        let expected = self
+            .p_out
+            .checked_mul(latent_dim)
+            .expect("IsometryPenalty Jacobian dimensional identity overflow");
+        assert_eq!(
+            jac.ncols(),
+            expected,
+            "IsometryPenalty::{method} stale cross-atom Jacobian cache: cache has {} columns, \
+             but this per-atom evaluation requires p_out {} × latent_dim {} = {}; the owner \
+             must clone, retarget, and refresh the penalty before evaluation",
+            jac.ncols(),
+            self.p_out,
+            latent_dim,
+            expected,
+        );
+        Some(jac)
+    }
+
     /// Read-side accessor for the per-row Jacobian second derivative.
     /// Mirrors [`Self::jacobian_cache`].
     #[must_use]
@@ -538,10 +588,7 @@ impl IsometryPenalty {
     /// is consumed. Every value/grad/hvp path funnels through here, so the
     /// `(J^T U)(U^T J)` ordering invariant cannot be violated by accident.
     fn projected_jacobian_row(&self, n: usize, d: usize) -> Option<Array2<f64>> {
-        let Some(jac) = self.jacobian_cache() else {
-            self.missing_cache_default("projected_jacobian_row", "jacobian_cache is None");
-            return None;
-        };
+        let jac = self.dimensioned_jacobian_cache("projected_jacobian_row", d)?;
         let jac_row = jac.row(n);
         let jac_slice = jac_row
             .as_slice()
@@ -571,10 +618,7 @@ impl IsometryPenalty {
 
     /// Form `W_n J_n` without materializing `W_n`.
     fn weighted_jacobian_row(&self, n: usize, d: usize) -> Option<Array2<f64>> {
-        let Some(jac) = self.jacobian_cache() else {
-            self.missing_cache_default("weighted_jacobian_row", "jacobian_cache is None");
-            return None;
-        };
+        let jac = self.dimensioned_jacobian_cache("weighted_jacobian_row", d)?;
         let p = self.p_out;
         match &self.weight {
             WeightField::Identity => {
@@ -886,13 +930,12 @@ impl IsometryPenalty {
     /// `U_n` and `J_n`) plus `O(r · d²)` for `M_n^T M_n`. The `p × p` weight
     /// `W_n` is never materialized.
     pub fn pullback_metric(&self, latent_dim: usize) -> Option<Array2<f64>> {
-        let Some(jac) = self.jacobian_cache() else {
-            self.missing_cache_default("pullback_metric", "jacobian_cache is None");
-            return None;
-        };
+        let jac = self.dimensioned_jacobian_cache("pullback_metric", latent_dim)?;
         let n_obs = jac.nrows();
-        let p = self.p_out;
-        assert_eq!(jac.ncols(), p * latent_dim);
+        // `dimensioned_jacobian_cache` enforces the load-bearing `(n, p·d)`
+        // shape contract before the reshape loop below. A stale cross-atom
+        // cache is a hard owner/refresh invariant failure; it is never converted
+        // into a zero isometry contribution (#2294).
         let mut g_all = Array2::<f64>::zeros((n_obs, latent_dim * latent_dim));
         for n in 0..n_obs {
             // M_n = U_n^T J_n  (or J_n itself when W = I).

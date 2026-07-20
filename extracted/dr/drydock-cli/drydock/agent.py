@@ -5,6 +5,7 @@ DryDock v3 — clean, provider-agnostic, no model-specific hacks.
 from __future__ import annotations
 
 import os
+import time as _time
 from dataclasses import dataclass, field
 from typing import Generator
 
@@ -47,7 +48,7 @@ from drydock.compaction import (
     maybe_compact, emergency_compact, is_context_length_error, is_image_load_error,
     extract_server_n_ctx,
 )
-from drydock.loop_detect import LoopTracker
+from drydock.loop_detect import LoopTracker, degenerate_argument
 from drydock.task_state import TaskState
 from drydock.verification import (
     looks_like_verification,
@@ -213,6 +214,13 @@ def run(
     verif_fail_counts: dict[str, int] = {}  # failure-summary -> times seen (Epic J3)
     verification_text = ""    # concatenated verification commands+results (coverage)
     coverage_nudges = 0       # bounded "your checks never touched X" nudges
+    # Time-aware effort governor (bench taxonomy: think-bound runs burn a 30-min
+    # window on 3-9 turns of reasoning). Once ANY turn's LLM call overruns the
+    # soft cap, every later turn in this request runs decisive: low effort, the
+    # forcing suffix, and a tight token cap. Sticky per request — persistent
+    # slowness doesn't flip-flop; a new user message resets it.
+    time_pressed = False
+    turn_soft_cap = float(config.get("turn_seconds_soft_cap", 240) or 0)
     recovery = RecoveryController(
         suppression_iterations=config.get("recovery_suppression_iterations",
                                           SUPPRESSION_ITERATIONS),
@@ -252,6 +260,15 @@ def run(
         retries = 0
         stall_retries = 0
         decisive = False  # over-think interrupt: force a short, single-action turn
+        if time_pressed:
+            # A prior turn overran the soft cap — stay decisive for the request.
+            decisive = True
+            turn_config = dict(turn_config)
+            turn_config["reasoning_effort"] = "low"
+            cur = int(turn_config.get("max_tokens", 8192) or 8192)
+            turn_config["max_tokens"] = min(cur, _DECISIVE_MAX_TOKENS)
+            state.current_effort = "low"
+        _turn_t0 = _time.monotonic()
         while retries < 2:
             try:
                 available = schemas()
@@ -266,6 +283,7 @@ def run(
                     phase=str(state.task.phase),
                     task_text=state.task.objective,
                     max_tools=turn_config.get("max_tools", DEFAULT_MAX_TOOLS),
+                    pin_tools=turn_config.get("pin_tools") or [],
                 )
                 for event in stream(
                     model=turn_config["model"],
@@ -280,6 +298,19 @@ def run(
                         yield event
                     elif isinstance(event, AssistantTurn):
                         assistant_turn = event
+                # Time-aware effort governor: this turn's wall time decides how
+                # hard the NEXT turns may think. Trigger once per request.
+                if (turn_soft_cap > 0 and not time_pressed
+                        and _time.monotonic() - _turn_t0 > turn_soft_cap):
+                    time_pressed = True
+                    _emit(state, "effort_governor", engaged=True,
+                          turn_seconds=round(_time.monotonic() - _turn_t0, 1),
+                          cap=turn_soft_cap)
+                    yield TextChunk(
+                        f"\n[turn took {int(_time.monotonic() - _turn_t0)}s — "
+                        "switching to decisive, low-effort steps for the rest of "
+                        "this task to protect the time budget.]\n"
+                    )
                 break  # success
             except StallRetry as _sr:
                 # Stalled/over-thought past stall_retry_secs (wall-time), OR collapsed
@@ -632,9 +663,27 @@ def run(
             # (its result changes → different pair each time).
             _same_outcome = loop_tracker.outcome_count(tc["name"], tc["input"], _raw_result)
 
+            # Escalating-argument loop (full166 bench, build-pmars): a repeated
+            # unit amplifying INSIDE the argument (mv x_temp -> x_temp_temp ->
+            # ...) makes every call unique and every mv "productive", blinding
+            # repeat/cycle/streak detection. The degenerate argument itself is
+            # the tell — flag it, warn the model, and score it as a repeated
+            # outcome so the stall streak escalates normally.
+            _degen_src = ""
+            if isinstance(tc.get("input"), dict):
+                _degen_src = str(tc["input"].get("command") or tc["input"].get("file_path") or "")
+            _degen = degenerate_argument(_degen_src)
+            if _degen:
+                result = (
+                    f"[NOTE: this argument contains '{_degen}' repeated many times "
+                    f"— you are compounding the same rename/step instead of making "
+                    f"progress. STOP amplifying it; go back to the original name/"
+                    f"path and take a different approach.]\n" + result
+                )
+
             # Verification evidence: if this Bash call was a test/check/exec, parse
             # its result so the completion gate knows whether it PASSED, not just ran.
-            _repeated_outcome = False
+            _repeated_outcome = bool(_degen)
             if tc["name"] == "Bash":
                 _vcmd = (tc.get("input") or {}).get("command", "")
                 if looks_like_verification(_vcmd):
@@ -674,7 +723,10 @@ def run(
                 # information" means the same call returned the SAME result again
                 # — a poll whose output changes each time is novel information and
                 # must not accrue stall (found suppressing legit polling).
-                changed_state=bool(tool_result and tool_result.changed_state),
+                # A degenerate-argument call gets NO state-change credit — the
+                # compounding rename "changes" the repo every time while going
+                # nowhere; crediting it would reset the stall streak forever.
+                changed_state=bool(tool_result and tool_result.changed_state) and not _degen,
                 repeat_count=_same_outcome,
                 failing_tests_before=_failing_before if _failing_after is not None else None,
                 failing_tests_after=_failing_after,

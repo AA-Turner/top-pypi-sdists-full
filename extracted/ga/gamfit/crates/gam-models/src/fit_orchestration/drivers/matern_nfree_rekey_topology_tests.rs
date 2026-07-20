@@ -78,7 +78,7 @@ mod matern_nfree_rekey_topology_tests {
                     spec: MaternBasisSpec {
                         periodic: None,
                         center_strategy: CenterStrategy::EqualMass { num_centers: 24 },
-                        length_scale,
+                        length_scale: gam_terms::basis::MaternLengthScale::fixed(length_scale),
                         nu: MaternNu::FiveHalves,
                         include_intercept: false,
                         // The user default for `matern(x1, x2)` — and the exact
@@ -86,9 +86,8 @@ mod matern_nfree_rekey_topology_tests {
                         double_penalty: true,
                         identifiability: MaternIdentifiability::CenterSumToZero,
                         aniso_log_scales: None,
-                        nullspace_shrinkage_survived: None,
                     },
-                    input_scales: None,
+                    input_scale: None,
                 },
                 shape: ShapeConstraint::None,
                 joint_null_rotation: None,
@@ -232,9 +231,18 @@ mod matern_nfree_rekey_topology_tests {
             let trial_design = build_term_collection_design(data.view(), &trial_spec)
                 .expect("slow-path trial design");
             let truth_metadata = &trial_design.smooth.terms[0].metadata;
-            let (truth_locals, truth_nulldims, _info) =
-                matern_operator_penalty_triplet_from_metadata(truth_metadata)
-                    .expect("slow-path operator triplet");
+            let truth_penalties = matern_operator_penalty_triplet_from_metadata(truth_metadata)
+                .expect("slow-path operator triplet");
+            let truth_locals: Vec<Array2<f64>> = truth_penalties
+                .active
+                .iter()
+                .map(|penalty| penalty.matrix.clone())
+                .collect();
+            let truth_nulldims: Vec<usize> = truth_penalties
+                .active
+                .iter()
+                .map(|penalty| penalty.nullity)
+                .collect();
 
             // Fast path: the n-free re-key at the same ψ.
             let (rekey, rekey_nulldims) = realizer
@@ -393,9 +401,18 @@ mod matern_nfree_rekey_topology_tests {
         let trial_design = build_term_collection_design(data.view(), &trial_spec)
             .expect("slow-path trial design");
         let truth_metadata = &trial_design.smooth.terms[0].metadata;
-        let (truth_locals, truth_nulldims, _info) =
-            matern_operator_penalty_triplet_from_metadata(truth_metadata)
-                .expect("slow-path operator triplet");
+        let truth_penalties = matern_operator_penalty_triplet_from_metadata(truth_metadata)
+            .expect("slow-path operator triplet");
+        let truth_locals: Vec<Array2<f64>> = truth_penalties
+            .active
+            .iter()
+            .map(|penalty| penalty.matrix.clone())
+            .collect();
+        let truth_nulldims: Vec<usize> = truth_penalties
+            .active
+            .iter()
+            .map(|penalty| penalty.nullity)
+            .collect();
 
         let psi_trial = -trial_length_scale.ln();
         let (rekey, rekey_nulldims) = realizer

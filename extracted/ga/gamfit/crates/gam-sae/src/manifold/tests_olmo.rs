@@ -642,7 +642,7 @@ pub(crate) fn fast_encode_matches_per_row_warm_start() {
     let amps = ndarray::Array1::<f64>::ones(n);
 
     // Reference: per-row nearest_chart routing + the distilled affine predictor.
-    let mut ref_coords = ndarray::Array2::<f64>::zeros((n, atom.latent_dim));
+    let mut ref_coords = ndarray::Array2::<f64>::zeros((n, atom.latent_dim()));
     let mut ref_valid = vec![false; n];
     for row in 0..n {
         if let Some((cidx, _)) =
@@ -670,7 +670,7 @@ pub(crate) fn fast_encode_matches_per_row_warm_start() {
             "valid-mask mismatch at row {row} (routing/predictor disagreement)"
         );
         if ref_valid[row] {
-            for c in 0..atom.latent_dim {
+            for c in 0..atom.latent_dim() {
                 max_diff = max_diff.max((fast_coords[[row, c]] - ref_coords[[row, c]]).abs());
             }
         }
@@ -1335,12 +1335,9 @@ fn production_circle_coords_at_seed(
     })
     .expect("minimal seed");
     let SaeMinimalSeedReport {
-        atom_basis,
-        effective_atom_dim,
-        atom_centers,
+        geometry_plans,
         basis_values,
         basis_jacobian,
-        basis_sizes,
         decoder_coefficients,
         smooth_penalties,
         initial_logits,
@@ -1350,12 +1347,9 @@ fn production_circle_coords_at_seed(
     let registry = AnalyticPenaltyRegistry::new();
     let seed = build_sae_fit_seed(SaeFitSeedRequest {
         target: target.view(),
-        atom_basis: &atom_basis,
-        atom_dim: &effective_atom_dim,
-        atom_centers: &atom_centers,
+        geometry_plans: &geometry_plans,
         basis_values: basis_values.view(),
         basis_jacobian: basis_jacobian.view(),
-        basis_sizes: &basis_sizes,
         decoder_coefficients: decoder_coefficients.view(),
         smooth_penalties: smooth_penalties.view(),
         initial_logits: initial_logits.view(),
@@ -1407,10 +1401,12 @@ fn production_circle_coords_at_seed(
         // Unbundled direct path: seed -> single certified fit on the iid
         // likelihood (no structured-residual re-whitening), the deterministic
         // "exactly one fit" contract.
-        structured_residual_passes: Some(0),
+        structured_residual_passes: 0,
         cancel: None,
     })
-    .expect("production circle fit");
+    .expect("production circle fit")
+    .manifold_or_error()
+    .expect("planted circle must retain a manifold atom");
     let coords = report.term.assignment.coords[0].as_matrix();
     ndarray::Array1::from_iter((0..coords.nrows()).map(|i| coords[[i, 0]]))
 }

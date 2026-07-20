@@ -78,7 +78,7 @@ mod spatial_length_scale_monotone_tests {
         assert!(optimized_score <= baseline_score + 1e-10);
 
         let ls = match &optimized.resolvedspec.smooth_terms[0].basis {
-            SmoothBasisSpec::Matern { spec, .. } => spec.length_scale,
+            SmoothBasisSpec::Matern { spec, .. } => spec.length_scale.resolved().unwrap(),
             _ => panic!("expected Matérn term"),
         };
         assert!(ls.is_finite() && (1e-3..=1e3).contains(&ls));
@@ -125,15 +125,14 @@ mod spatial_length_scale_monotone_tests {
                     spec: MaternBasisSpec {
                         periodic: None,
                         center_strategy: CenterStrategy::FarthestPoint { num_centers },
-                        length_scale: short_seed,
+                        length_scale: gam_terms::basis::MaternLengthScale::fixed(short_seed),
                         nu: MaternNu::FiveHalves,
                         include_intercept: false,
                         double_penalty: true,
                         identifiability: MaternIdentifiability::CenterSumToZero,
                         aniso_log_scales: None,
-                        nullspace_shrinkage_survived: None,
                     },
-                    input_scales: None,
+                    input_scale: None,
                 },
                 shape: ShapeConstraint::None,
                 joint_null_rotation: None,
@@ -165,7 +164,8 @@ mod spatial_length_scale_monotone_tests {
         )
         .expect("center-resolution endpoint");
         let (psi_long_bound, psi_short_bound) =
-            spatial_term_psi_bounds(data.view(), &resolved, 0, &kappa_options);
+            spatial_term_psi_bounds(data.view(), &resolved, 0, &kappa_options)
+                .expect("finite isotropic-scale bounds");
         let psi_long = (-companion_length_scale.ln()).clamp(psi_long_bound, psi_short_bound);
         let long_endpoint = (-psi_long).exp();
         let (selected_spec, _) = select_isotropic_matern_range_basin(
@@ -231,15 +231,14 @@ mod spatial_length_scale_monotone_tests {
                     spec: MaternBasisSpec {
                         periodic: None,
                         center_strategy: CenterStrategy::FarthestPoint { num_centers: 12 },
-                        length_scale: 20.0,
+                        length_scale: gam_terms::basis::MaternLengthScale::fixed(20.0),
                         nu: MaternNu::FiveHalves,
                         include_intercept: false,
                         double_penalty: true,
                         identifiability: MaternIdentifiability::CenterSumToZero,
                         aniso_log_scales: None,
-                        nullspace_shrinkage_survived: None,
                     },
-                    input_scales: None,
+                    input_scale: None,
                 },
                 shape: ShapeConstraint::None,
                 joint_null_rotation: None,
@@ -286,15 +285,14 @@ mod spatial_length_scale_monotone_tests {
                     spec: MaternBasisSpec {
                         periodic: None,
                         center_strategy: CenterStrategy::FarthestPoint { num_centers: 12 },
-                        length_scale: 12.0,
+                        length_scale: gam_terms::basis::MaternLengthScale::fixed(12.0),
                         nu: MaternNu::FiveHalves,
                         include_intercept: false,
                         double_penalty: true,
                         identifiability: MaternIdentifiability::CenterSumToZero,
                         aniso_log_scales: None,
-                        nullspace_shrinkage_survived: None,
                     },
-                    input_scales: None,
+                    input_scale: None,
                 },
                 shape: ShapeConstraint::None,
                 joint_null_rotation: None,

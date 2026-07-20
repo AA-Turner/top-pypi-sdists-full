@@ -70,18 +70,16 @@ pub fn pirls_loop_curvature_for(family: PirlsLoopFamilyKind) -> PirlsLoopCurvatu
     }
 }
 
-/// Detect whether the CUDA runtime is initialised on this host. The probe
-/// underneath returns `None` on every non-Linux target, so the function works
-/// unconditionally.
-pub fn gpu_runtime_available() -> bool {
-    gam_gpu::device_runtime::GpuRuntime::is_available()
-}
-
 /// Strict admission shape for the Stage 3.3 PIRLS loop, computed from the
 /// `(response, link)` spec and the active design shape `(n, p)`. Returns
 /// `None` when the family / link is not in the JIT-cached set so the caller
 /// skips both the GPU dispatch and the runtime probe.
-pub fn admission_for(spec: &LikelihoodSpec, n: usize, p: usize) -> Option<PirlsLoopAdmission> {
+pub fn admission_for(
+    spec: &LikelihoodSpec,
+    n: usize,
+    p: usize,
+    gpu_available: bool,
+) -> Option<PirlsLoopAdmission> {
     let family = pirls_loop_family_for(spec)?;
     let curvature = pirls_loop_curvature_for(family);
     Some(PirlsLoopAdmission {
@@ -89,7 +87,7 @@ pub fn admission_for(spec: &LikelihoodSpec, n: usize, p: usize) -> Option<PirlsL
         p,
         family: Some(family),
         curvature,
-        gpu_available: gpu_runtime_available(),
+        gpu_available,
     })
 }
 
@@ -104,11 +102,11 @@ mod linux_impl {
     use crate::pirls::{
         ExportedLaplaceCurvature, FirthDiagnostics, HessianCurvatureKind, PirlsCoordinateFrame,
         PirlsResult, PirlsStatus, WorkingModelPirlsResult, WorkingState,
-        calculate_loglikelihood_omitting_constants_from_eta,
         compute_observed_hessian_curvature_arrays, computeworkingweight_derivatives_from_eta,
+        pirls_data_log_kernel_from_eta,
     };
-    use gam_gpu::cuda_selected;
     use gam_gpu::device_runtime::GpuRuntime;
+    use gam_gpu::gpu_error::GpuError;
     use gam_gpu::policy::{PirlsLoopAdmission, PirlsLoopCurvatureKind, PirlsLoopFamilyKind};
     use gam_linalg::matrix::DesignMatrix;
     use gam_linalg::matrix::SymmetricMatrix;
@@ -219,17 +217,14 @@ mod linux_impl {
         likelihood: &gam_problem::GlmLikelihoodSpec,
         n: usize,
         p: usize,
-    ) -> bool {
-        if !cuda_selected() {
-            return false;
-        }
-        let Some(admission) = admission_for(&likelihood.spec, n, p) else {
-            return false;
+    ) -> Result<bool, GpuError> {
+        let Some(admission) = admission_for(&likelihood.spec, n, p, true) else {
+            return Ok(false);
         };
-        let Some(runtime) = GpuRuntime::global() else {
-            return false;
+        let Some(runtime) = GpuRuntime::resolve(gam_gpu::global_policy())? else {
+            return Ok(false);
         };
-        runtime.policy().should_use_gpu_pirls_loop(admission)
+        Ok(runtime.policy().should_use_gpu_pirls_loop(admission))
     }
 
     /// Attempt to run the Stage 3.3 device-resident PIRLS loop for the
@@ -238,11 +233,6 @@ mod linux_impl {
     pub fn try_gpu_pirls_loop_dispatch(
         input: GpuPirlsDispatchInput<'_>,
     ) -> Option<Result<(PirlsResult, WorkingModelPirlsResult), EstimationError>> {
-        // Honor the documented GPU policy: never route to the GPU loop when
-        // the caller has explicitly selected CPU execution.
-        if !cuda_selected() {
-            return None;
-        }
         // Gaussian-identity fits have an exact GPU PLS path (issue #272) and
         // must NOT be routed through the row-kernel PIRLS loop on device.
         // The exact path (try_gpu_gaussian_pls_dispatch) fires before this
@@ -256,8 +246,16 @@ mod linux_impl {
         let n = input.x_original.nrows();
         let p = input.x_original.ncols();
         // Engine-level admission: shape + family + curvature + runtime probe.
-        let admission = admission_for(&input.likelihood.spec, n, p)?;
-        let runtime = GpuRuntime::global()?;
+        let admission = admission_for(&input.likelihood.spec, n, p, true)?;
+        let runtime = match GpuRuntime::resolve(gam_gpu::global_policy()) {
+            Ok(Some(runtime)) => runtime,
+            Ok(None) => return None,
+            Err(error) => {
+                return Some(Err(EstimationError::InvalidInput(format!(
+                    "PIRLS GPU runtime resolution failed: {error}"
+                ))));
+            }
+        };
         if !runtime.policy().should_use_gpu_pirls_loop(admission) {
             return None;
         }
@@ -586,12 +584,13 @@ mod linux_impl {
             eta: LinearPredictor::new(final_eta.clone()),
             gradient: gradient_total.clone(),
             hessian: penalized_hessian_sym.clone(),
-            log_likelihood: calculate_loglikelihood_omitting_constants_from_eta(
+            log_likelihood: pirls_data_log_kernel_from_eta(
                 input.y,
                 &final_eta,
                 input.likelihood,
                 input.inverse_link,
                 input.priorweights,
+                deviance,
             )?,
             deviance,
             penalty_term,
@@ -742,14 +741,16 @@ mod linux_impl {
     /// Cheap admission gate for the GPU Gaussian-identity exact PLS path.
     /// Returns `true` iff cuda_selected(), runtime available, and the likelihood
     /// is Gaussian-identity.
-    pub fn try_gpu_gaussian_pls_admit(likelihood: &gam_problem::GlmLikelihoodSpec) -> bool {
-        if !gam_gpu::cuda_selected() {
-            return false;
+    pub fn try_gpu_gaussian_pls_admit(
+        likelihood: &gam_problem::GlmLikelihoodSpec,
+    ) -> Result<bool, GpuError> {
+        if !likelihood.spec.is_gaussian_identity() {
+            return Ok(false);
         }
-        if gam_gpu::device_runtime::GpuRuntime::global().is_none() {
-            return false;
-        }
-        likelihood.spec.is_gaussian_identity()
+        Ok(
+            gam_gpu::device_runtime::GpuRuntime::resolve(gam_gpu::global_policy())?
+                .is_some(),
+        )
     }
 
     /// Attempt to run the exact GPU PLS for Gaussian-identity.
@@ -761,8 +762,14 @@ mod linux_impl {
     pub fn try_gpu_gaussian_pls_dispatch(
         input: GpuGaussianPlsInput<'_>,
     ) -> Option<Result<(PirlsResult, WorkingModelPirlsResult), String>> {
-        if !try_gpu_gaussian_pls_admit(input.likelihood) {
-            return None;
+        match try_gpu_gaussian_pls_admit(input.likelihood) {
+            Ok(true) => {}
+            Ok(false) => return None,
+            Err(error) => {
+                return Some(Err(format!(
+                    "Gaussian PLS admission runtime resolution failed: {error}"
+                )));
+            }
         }
         Some(run_gpu_gaussian_pls(input))
     }
@@ -771,9 +778,7 @@ mod linux_impl {
         input: GpuGaussianPlsInput<'_>,
     ) -> Result<(PirlsResult, WorkingModelPirlsResult), String> {
         use crate::pirls::{
-            array1_l2_norm, calculate_deviance_from_eta,
-            calculate_loglikelihood_omitting_constants_from_eta,
-            computeworkingweight_derivatives_from_eta,
+            array1_l2_norm, calculate_deviance_from_eta, computeworkingweight_derivatives_from_eta,
         };
         use gam_linalg::matrix::LinearOperator;
         use gam_linalg::utils::inf_norm;
@@ -873,14 +878,15 @@ mod linux_impl {
             input.priorweights,
         )
         .map_err(|error| format!("GPU Gaussian deviance evaluation failed: {error}"))?;
-        let log_likelihood = calculate_loglikelihood_omitting_constants_from_eta(
+        let log_likelihood = pirls_data_log_kernel_from_eta(
             input.y,
             &eta,
             input.likelihood,
             input.inverse_link,
             input.priorweights,
+            deviance,
         )
-        .map_err(|error| format!("GPU Gaussian log-likelihood evaluation failed: {error}"))?;
+        .map_err(|error| format!("GPU Gaussian P-IRLS data-kernel evaluation failed: {error}"))?;
 
         // Stabilised Hessian = penalized_hessian + ridge_used·I.
         let mut stab = penalized_hessian.clone();
@@ -1120,6 +1126,6 @@ mod tests {
             ResponseFamily::Binomial,
             InverseLink::Mixture(mixture_state),
         );
-        assert!(admission_for(&spec, 80_000, 44).is_none());
+        assert!(admission_for(&spec, 80_000, 44, true).is_none());
     }
 }

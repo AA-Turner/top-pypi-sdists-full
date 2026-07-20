@@ -21,9 +21,11 @@ from mindroom.history.compaction import (
 from mindroom.history.policy import (
     classify_compaction_decision,
     context_budget_after_reserve,
+    describe_compaction_unavailability,
     resolve_history_execution_plan,
 )
 from mindroom.history.runtime import (
+    _compaction_fallback_is_distinct,
     _plan_replay_that_fits,
     apply_replay_plan,
 )
@@ -32,6 +34,7 @@ from mindroom.history.storage import (
     write_scope_state,
 )
 from mindroom.history.types import (
+    COMPACTION_SUMMARY_RETRY_FLOOR_TOKENS,
     HistoryPolicy,
     HistoryScope,
     HistoryScopeState,
@@ -109,6 +112,68 @@ async def test_prepare_history_for_run_authored_compaction_still_plans_safe_repl
     assert prepared.replay_plan.add_history_to_context is True
     assert prepared.replay_plan.num_history_runs == 1
     assert prepared.replay_plan.num_history_messages is None
+
+
+@pytest.mark.asyncio
+async def test_small_replay_window_cannot_select_required_compaction_without_progress(tmp_path: Path) -> None:
+    config, runtime_paths = _make_config(
+        tmp_path,
+        compaction=CompactionOverrideConfig(enabled=True, replay_window_tokens=1),
+        context_window=1_000_000,
+    )
+    storage = create_session_storage("test_agent", config, runtime_paths, execution_identity=None)
+    session = _session(
+        "session-1",
+        runs=[
+            _completed_run("run-1"),
+            _completed_run("run-2"),
+        ],
+    )
+    storage.upsert_session(session)
+
+    execution_plan = resolve_history_execution_plan(
+        config=config,
+        compaction_config=config.resolve_entity("test_agent").compaction_config,
+        has_authored_compaction_config=config.resolve_entity("test_agent").has_authored_compaction_config,
+        active_model_name="default",
+        active_context_window=1_000_000,
+        static_prompt_tokens=10,
+    )
+
+    assert execution_plan.summary_input_budget_tokens == 1
+    assert execution_plan.destructive_compaction_available is False
+    assert execution_plan.unavailable_reason == "summary_input_budget_without_retry_headroom"
+    assert describe_compaction_unavailability(execution_plan) == (
+        "the summary input budget must exceed 2,000 tokens to provide meaningful headroom for a smaller retry"
+    )
+
+    with patch("mindroom.history.runtime._run_scope_compaction_with_lifecycle", new=AsyncMock()) as compact_mock:
+        prepared_attempts = [
+            await prepare_history_for_run_for_test(
+                agent=_agent(db=storage),
+                agent_name="test_agent",
+                full_prompt="Current prompt",
+                session_id="session-1",
+                runtime_paths=runtime_paths,
+                config=config,
+                execution_identity=None,
+                storage=storage,
+                session=session,
+            )
+            for _attempt in range(2)
+        ]
+
+    assert [
+        (prepared.compaction_decision.mode, prepared.compaction_decision.reason) for prepared in prepared_attempts
+    ] == [
+        ("none", "compaction_unavailable"),
+        ("none", "compaction_unavailable"),
+    ]
+    compact_mock.assert_not_awaited()
+    persisted = get_agent_session(storage, "session-1")
+    assert persisted is not None
+    assert persisted.summary is None
+    assert [run.run_id for run in persisted.runs] == ["run-1", "run-2"]
 
 
 @pytest.mark.asyncio
@@ -408,7 +473,7 @@ def test_validate_compaction_model_references_rejects_explicit_model_without_con
 
     with pytest.raises(
         ValueError,
-        match=r"Explicit compaction\.model requires a model with context_window: agents\.test_agent\.compaction\.model -> summary-model",
+        match=r"Explicit compaction model references require a model with context_window: agents\.test_agent\.compaction\.model -> summary-model",
     ):
         bind_runtime_paths(
             Config(
@@ -443,7 +508,7 @@ def test_validate_compaction_model_references_rejects_disabled_explicit_model_wi
 
     with pytest.raises(
         ValueError,
-        match=r"Explicit compaction\.model requires a model with context_window",
+        match=r"Explicit compaction model references require a model with context_window",
     ):
         bind_runtime_paths(
             Config(
@@ -535,6 +600,189 @@ def test_resolved_compaction_config_inherits_disabled_defaults_for_pure_model_cl
 
     assert compaction_config.enabled is False
     assert compaction_config.model is None
+
+
+def test_validate_compaction_fallback_model_rejects_unknown_model(tmp_path: Path) -> None:
+    runtime_paths = _runtime_paths(tmp_path)
+
+    with pytest.raises(
+        ValueError,
+        match=r"Compaction model references unknown models: agents\.test_agent\.compaction\.fallback_model -> missing-model",
+    ):
+        bind_runtime_paths(
+            Config(
+                agents={
+                    "test_agent": AgentConfig(
+                        display_name="Test Agent",
+                        compaction=CompactionOverrideConfig(fallback_model="missing-model"),
+                    ),
+                },
+                defaults=DefaultsConfig(tools=[]),
+                models={
+                    "default": ModelConfig(provider="openai", id="test-model", context_window=48_000),
+                },
+            ),
+            runtime_paths,
+        )
+
+
+def test_validate_compaction_fallback_model_rejects_missing_context_window(tmp_path: Path) -> None:
+    runtime_paths = _runtime_paths(tmp_path)
+
+    with pytest.raises(
+        ValueError,
+        match=r"context_window: defaults\.compaction\.fallback_model -> fallback-model",
+    ):
+        bind_runtime_paths(
+            Config(
+                defaults=DefaultsConfig(
+                    tools=[],
+                    compaction=CompactionConfig(fallback_model="fallback-model"),
+                ),
+                models={
+                    "default": ModelConfig(provider="openai", id="test-model", context_window=48_000),
+                    "fallback-model": ModelConfig(provider="openai", id="fallback-model-id", context_window=None),
+                },
+            ),
+            runtime_paths,
+        )
+
+
+def _fallback_inheritance_config(tmp_path: Path, *, override: CompactionOverrideConfig) -> Config:
+    return bind_runtime_paths(
+        Config(
+            agents={
+                "test_agent": AgentConfig(display_name="Test Agent", compaction=override),
+            },
+            defaults=DefaultsConfig(
+                tools=[],
+                compaction=CompactionConfig(
+                    enabled=False,
+                    model="summary-model",
+                    fallback_model="fallback-model",
+                ),
+            ),
+            models={
+                "default": ModelConfig(provider="openai", id="test-model", context_window=48_000),
+                "summary-model": ModelConfig(provider="openai", id="summary-model-id", context_window=32_000),
+                "fallback-model": ModelConfig(provider="openai", id="fallback-model-id", context_window=32_000),
+            },
+        ),
+        _runtime_paths(tmp_path),
+    )
+
+
+def test_resolved_compaction_config_inherits_fallback_model_from_defaults(tmp_path: Path) -> None:
+    config = _fallback_inheritance_config(tmp_path, override=CompactionOverrideConfig(enabled=True))
+
+    compaction_config = config.resolve_entity("test_agent").compaction_config
+
+    assert compaction_config.enabled is True
+    assert compaction_config.model == "summary-model"
+    assert compaction_config.fallback_model == "fallback-model"
+
+
+def test_resolved_compaction_config_inherits_disabled_defaults_for_pure_model_field_clears(tmp_path: Path) -> None:
+    """Clearing only inherited model fields must not statically enable compaction."""
+    for override in (
+        CompactionOverrideConfig(fallback_model=None),
+        CompactionOverrideConfig(model=None, fallback_model=None),
+    ):
+        config = _fallback_inheritance_config(tmp_path, override=override)
+
+        compaction_config = config.resolve_entity("test_agent").compaction_config
+
+        assert compaction_config.enabled is False
+        assert compaction_config.fallback_model is None
+
+
+def test_resolve_history_execution_plan_carries_fallback_model_name(tmp_path: Path) -> None:
+    config = _fallback_inheritance_config(tmp_path, override=CompactionOverrideConfig(enabled=True))
+
+    execution_plan = resolve_history_execution_plan(
+        config=config,
+        compaction_config=config.resolve_entity("test_agent").compaction_config,
+        has_authored_compaction_config=True,
+        active_model_name="default",
+        active_context_window=48_000,
+        static_prompt_tokens=1_000,
+    )
+
+    assert execution_plan.compaction_model_name == "summary-model"
+    assert execution_plan.compaction_fallback_model_name == "fallback-model"
+
+
+def test_compaction_fallback_is_distinct_guards_same_alias_and_same_target(tmp_path: Path) -> None:
+    """A fallback naming the primary alias or the same canonical (provider, id) target is never loaded."""
+    config = bind_runtime_paths(
+        Config(
+            defaults=DefaultsConfig(tools=[]),
+            models={
+                "default": ModelConfig(provider="openai", id="test-model", context_window=48_000),
+                "summary-model": ModelConfig(provider="openai", id="summary-model-id", context_window=32_000),
+                "summary-model-alias": ModelConfig(provider="openai", id="summary-model-id", context_window=32_000),
+                "fallback-model": ModelConfig(provider="anthropic", id="summary-model-id", context_window=32_000),
+                "vertex-summary": ModelConfig(
+                    provider="vertexai_claude",
+                    id="claude-sonnet-5",
+                    context_window=32_000,
+                ),
+                # Same serving model as vertex-summary; the provider spelling
+                # differs only by hyphenation and case, which model loading
+                # canonicalizes away.
+                "vertex-summary-spelling-variant": ModelConfig(
+                    provider="Vertexai-Claude",
+                    id="claude-sonnet-5",
+                    context_window=32_000,
+                ),
+            },
+        ),
+        _runtime_paths(tmp_path),
+    )
+
+    with patch("mindroom.history.runtime.logger.warning") as warning_mock:
+        assert (
+            _compaction_fallback_is_distinct(
+                config,
+                primary_model_name="summary-model",
+                fallback_model_name="summary-model",
+            )
+            is False
+        )
+        assert (
+            _compaction_fallback_is_distinct(
+                config,
+                primary_model_name="summary-model",
+                fallback_model_name="summary-model-alias",
+            )
+            is False
+        )
+        assert (
+            _compaction_fallback_is_distinct(
+                config,
+                primary_model_name="vertex-summary",
+                fallback_model_name="vertex-summary-spelling-variant",
+            )
+            is False
+        )
+        assert (
+            _compaction_fallback_is_distinct(
+                config,
+                primary_model_name="summary-model",
+                fallback_model_name="fallback-model",
+            )
+            is True
+        )
+
+    assert warning_mock.call_count == 3
+    assert all(
+        call.args[0] == "Compaction fallback resolves to the primary serving model; continuing without a fallback"
+        for call in warning_mock.call_args_list
+    )
+    assert warning_mock.call_args_list[0].kwargs == {
+        "compaction_model": "summary-model",
+        "fallback_model": "summary-model",
+    }
 
 
 def test_resolve_history_execution_plan_uses_compaction_model_window_only_for_summary_budget(
@@ -683,6 +931,38 @@ def test_resolve_history_execution_plan_marks_non_positive_summary_budget_unavai
 
 
 @pytest.mark.parametrize(
+    ("replay_window_tokens", "expected_available"),
+    [
+        (2 * COMPACTION_SUMMARY_RETRY_FLOOR_TOKENS, False),
+        (2 * COMPACTION_SUMMARY_RETRY_FLOOR_TOKENS + 1, True),
+    ],
+)
+def test_resolve_history_execution_plan_enforces_minimum_summary_input_budget(
+    tmp_path: Path,
+    replay_window_tokens: int,
+    expected_available: bool,
+) -> None:
+    config, _runtime_paths_value = _make_config(
+        tmp_path,
+        compaction=CompactionOverrideConfig(enabled=True, replay_window_tokens=replay_window_tokens),
+        context_window=1_000_000,
+    )
+
+    execution_plan = resolve_history_execution_plan(
+        config=config,
+        compaction_config=config.resolve_entity("test_agent").compaction_config,
+        has_authored_compaction_config=config.resolve_entity("test_agent").has_authored_compaction_config,
+        active_model_name="default",
+        active_context_window=1_000_000,
+        static_prompt_tokens=10,
+    )
+
+    assert execution_plan.summary_input_budget_tokens == replay_window_tokens
+    assert execution_plan.destructive_compaction_available is expected_available
+    assert (execution_plan.unavailable_reason is None) is expected_available
+
+
+@pytest.mark.parametrize(
     ("context_window_tokens", "reserve_tokens", "spent_tokens", "expected"),
     [
         (1_000, 100, 25, 875),
@@ -727,16 +1007,17 @@ def test_resolve_history_execution_plan_keeps_replay_headroom_when_compaction_di
 
 
 @pytest.mark.parametrize(
-    ("active_context_window", "expected_replay_window"),
+    ("active_context_window", "expected_replay_window", "expected_summary_input_budget"),
     [
-        (1_000_000, 200_000),
-        (100_000, 100_000),
+        (1_000_000, 200_000, 200_000),
+        (100_000, 100_000, 71_616),
     ],
 )
 def test_resolve_history_execution_plan_caps_replay_without_changing_model_window(
     tmp_path: Path,
     active_context_window: int,
     expected_replay_window: int,
+    expected_summary_input_budget: int,
 ) -> None:
     config, _runtime_paths_value = _make_config(
         tmp_path,
@@ -755,6 +1036,7 @@ def test_resolve_history_execution_plan_caps_replay_without_changing_model_windo
 
     assert execution_plan.compaction_context_window == active_context_window
     assert execution_plan.replay_window_tokens == expected_replay_window
+    assert execution_plan.summary_input_budget_tokens == expected_summary_input_budget
     assert execution_plan.trigger_threshold_tokens == int(expected_replay_window * 0.8)
     hard_replay_budget = execution_plan.hard_replay_budget_tokens
     assert hard_replay_budget is not None

@@ -691,8 +691,6 @@ fn decode_invariant_test_parts() -> UnifiedFitResultParts {
                 },
             ),
             penalized_hessian: array![[2.0, 0.1], [0.1, 3.0]].into(),
-            working_weights: array![1.0, 0.5, 0.75],
-            working_response: array![0.1, 0.2, 0.3],
             reparam_qs: Some(array![[1.0, 0.0], [0.0, 1.0]]),
             dispersion: Dispersion::UNIT,
             beta_covariance: Some(array![[1.0, 0.1], [0.1, 2.0]].into()),
@@ -707,9 +705,12 @@ fn decode_invariant_test_parts() -> UnifiedFitResultParts {
         }),
         fitted_link: FittedLinkState::Standard(None),
         geometry: Some(FitGeometry {
+            coefficient_gauge: gam_problem::Gauge::identity(&[2]),
             penalized_hessian: array![[2.0, 0.1], [0.1, 3.0]].into(),
-            working_weights: array![1.0, 0.5, 0.75],
-            working_response: array![0.1, 0.2, 0.3],
+            working: Some(crate::model_types::WorkingGeometry {
+                weights: array![1.0, 0.5, 0.75],
+                response: array![0.1, 0.2, 0.3],
+            }),
         }),
         block_states: Vec::new(),
         pirls_status: crate::pirls::PirlsStatus::Converged,
@@ -734,6 +735,40 @@ fn decode_invariant_test_parts() -> UnifiedFitResultParts {
 fn decode_invariant_test_fit() -> UnifiedFitResult {
     UnifiedFitResult::try_from_parts(decode_invariant_test_parts())
         .unwrap_or_else(|e| panic!("{} failed: {:?}", "construct decode invariant test fit", e))
+}
+
+#[test]
+fn unified_fit_accepts_inference_hessian_in_rectangular_active_geometry_frame() {
+    let mut parts = decode_invariant_test_parts();
+    let active_hessian = array![[2.5]];
+    let geometry = parts.geometry.as_mut().expect("fixture geometry");
+    geometry.coefficient_gauge = gam_problem::Gauge::from_t(
+        Array2::from_shape_vec((2, 1), vec![1.0, -1.0]).unwrap(),
+        &[2],
+        &[1],
+    );
+    geometry.penalized_hessian = active_hessian.clone().into();
+    parts
+        .inference
+        .as_mut()
+        .expect("fixture inference")
+        .penalized_hessian = active_hessian.clone().into();
+
+    let fit = UnifiedFitResult::try_from_parts(parts)
+        .expect("a saved two-coordinate beta may carry one-coordinate active geometry");
+    assert_eq!(fit.beta.len(), 2);
+    assert_eq!(
+        fit.geometry
+            .as_ref()
+            .expect("saved geometry")
+            .coefficient_gauge
+            .reduced_total(),
+        1
+    );
+    assert_eq!(
+        fit.penalized_hessian().expect("active Hessian").dim(),
+        (1, 1)
+    );
 }
 
 #[test]
@@ -865,6 +900,19 @@ fn resolve_external_family_accepts_supported_nonlogit_firth_request() {
     )
     .expect("CLogLog has a Fisher-weight jet");
     assert!(firth);
+}
+
+#[test]
+fn fit_geometry_wire_schema_requires_explicit_coefficient_gauge() {
+    let fit = decode_invariant_test_fit();
+    let mut payload = serde_json::to_value(&fit).expect("serialize fit");
+    payload["geometry"]
+        .as_object_mut()
+        .expect("serialized geometry object")
+        .remove("coefficient_gauge");
+    let error = serde_json::from_value::<UnifiedFitResult>(payload)
+        .expect_err("an old geometry payload must not guess an identity gauge");
+    assert!(error.to_string().contains("missing field `coefficient_gauge`"));
 }
 
 #[test]
@@ -1100,7 +1148,8 @@ fn sas_beta_raw_epsilon_sensitivity_matchesfd_at_seed19() {
             )
             .expect("finite SAS eta");
             let mu = jets.jet.mu;
-            let aux = link_binomial_aux(y[i], w[i].max(0.0), mu);
+            let aux = link_binomial_aux(i, eta[i], y[i], w[i].max(0.0), mu)
+                .expect("finite binomial row geometry");
             let d1 = jets.jet.d1;
             let dmu = jets.djet_depsilon.mu;
             let dd1 = jets.djet_depsilon.d1;
@@ -1126,7 +1175,8 @@ fn sas_beta_raw_epsilon_sensitivity_matchesfd_at_seed19() {
                 .expect("finite SAS eta");
                 let mu = jets.jet.mu;
                 let d1 = jets.jet.d1;
-                let aux = link_binomial_aux(y[i], w[i].max(0.0), mu);
+                let aux = link_binomial_aux(i, eta[i], y[i], w[i].max(0.0), mu)
+                    .expect("finite binomial row geometry");
                 aux.a1 * d1
             })
             .collect();
@@ -1160,7 +1210,8 @@ fn sas_beta_raw_epsilon_sensitivity_matchesfd_at_seed19() {
             let mu = jets.jet.mu;
             let d1 = jets.jet.d1;
             let d2 = jets.jet.d2;
-            let aux = link_binomial_aux(y[i], w[i].max(0.0), mu);
+            let aux = link_binomial_aux(i, eta[i], y[i], w[i].max(0.0), mu)
+                .expect("finite binomial row geometry");
             -(aux.a2 * d1 * d1 + aux.a1 * d2)
         })
         .collect();
@@ -1366,7 +1417,8 @@ fn sas_true_score_beta_jacobian_matchesfd_at_seed19() {
             .expect("finite SAS eta");
             let mu = jets.jet.mu;
             let d1 = jets.jet.d1;
-            let aux = link_binomial_aux(y[i], w[i].max(0.0), mu);
+            let aux = link_binomial_aux(i, eta[i], y[i], w[i].max(0.0), mu)
+                .expect("finite binomial row geometry");
             u[i] = aux.a1 * d1;
         }
         let mut g = -x_dense.t().dot(&u);
@@ -1391,7 +1443,8 @@ fn sas_true_score_beta_jacobian_matchesfd_at_seed19() {
         let mu = jets.jet.mu;
         let d1 = jets.jet.d1;
         let d2 = jets.jet.d2;
-        let aux = link_binomial_aux(y[i], w[i].max(0.0), mu);
+        let aux = link_binomial_aux(i, eta0[i], y[i], w[i].max(0.0), mu)
+            .expect("finite binomial row geometry");
         neg_du_deta[i] = -(aux.a2 * d1 * d1 + aux.a1 * d2);
     }
     let weighted_x = &x_dense * &neg_du_deta.insert_axis(Axis(1));
@@ -1542,7 +1595,8 @@ fn sas_pirlshessian_matches_true_score_jacobian_at_seed19() {
         let mu = jets.jet.mu;
         let d1 = jets.jet.d1;
         let d2 = jets.jet.d2;
-        let aux = link_binomial_aux(y[i], w[i].max(0.0), mu);
+        let aux = link_binomial_aux(i, eta0[i], y[i], w[i].max(0.0), mu)
+            .expect("finite binomial row geometry");
         neg_du_deta[i] = -(aux.a2 * d1 * d1 + aux.a1 * d2);
     }
     let weighted_x = &x_dense * &neg_du_deta.insert_axis(Axis(1));
@@ -1570,6 +1624,7 @@ fn sas_pirlshessian_matches_true_score_jacobian_at_seed19() {
 fn link_binomial_aux_stay_finite_for_saturated_sas_probabilities() {
     let saturated_cases = [
         (
+            -30.0,
             0.0,
             sas_inverse_link_jetwith_param_partials(-30.0, 0.0, 12.0)
                 .expect("finite SAS eta")
@@ -1577,6 +1632,7 @@ fn link_binomial_aux_stay_finite_for_saturated_sas_probabilities() {
                 .mu,
         ),
         (
+            30.0,
             1.0,
             sas_inverse_link_jetwith_param_partials(30.0, 0.0, 12.0)
                 .expect("finite SAS eta")
@@ -1584,8 +1640,9 @@ fn link_binomial_aux_stay_finite_for_saturated_sas_probabilities() {
                 .mu,
         ),
     ];
-    for (yi, mu) in saturated_cases {
-        let aux = link_binomial_aux(yi, 1.0, mu);
+    for (row, (eta, yi, mu)) in saturated_cases.into_iter().enumerate() {
+        let aux = link_binomial_aux(row, eta, yi, 1.0, mu)
+            .expect("saturated SAS row remains representable");
         assert!(aux.a1.is_finite(), "a1 must be finite for yi={yi} mu={mu}");
         assert!(aux.a2.is_finite(), "a2 must be finite for yi={yi} mu={mu}");
         assert!(

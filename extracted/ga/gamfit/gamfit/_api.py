@@ -864,8 +864,9 @@ def fit(
     survival_likelihood:
         Survival likelihood formulation. One of ``"transformation"``,
         ``"weibull"``, ``"location-scale"``, ``"marginal-slope"``,
-        ``"latent"``, or ``"latent-binary"``. Corresponds to
-        ``--survival-likelihood``.
+        ``"latent"``, or ``"latent-binary"``. When omitted, every frontend
+        resolves the same canonical default, ``"transformation"``.
+        Corresponds to ``--survival-likelihood``.
     baseline_target:
         Parametric baseline target for survival models. One of ``"linear"``,
         ``"weibull"``, ``"gompertz"``, ``"gompertz-makeham"``. Corresponds to
@@ -1346,7 +1347,7 @@ def fit_array(
 def load(path: str | Path) -> Any:
     """Load a fitted model previously written with :func:`gamfit.save`.
 
-    Auto-detects format: JSON files containing a ``gamfit.ManifoldSAE/v3``
+    Auto-detects format: JSON files containing a ``gamfit.ManifoldSAE/v6``
     schema header are returned as :class:`gamfit.ManifoldSAE`; everything
     else is treated as a binary :class:`Model` archive and dispatched to
     :func:`loads`.

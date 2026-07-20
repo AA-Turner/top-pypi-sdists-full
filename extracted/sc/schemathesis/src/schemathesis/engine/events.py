@@ -55,6 +55,9 @@ class PhaseEvent(EngineEvent):
 @dataclass(slots=True)
 class StatefulPhasePayload:
     inferred_transitions: int
+    # Transition counts measured after inference, over the same edge population the state machine traverses
+    transitions_total: int
+    transitions_selected: int
 
 
 @dataclass
@@ -339,6 +342,10 @@ class RunSummary:
     """End-of-run summary carried on `EngineFinished.payload`."""
 
     cache: CacheRunMetrics = field(default_factory=CacheRunMetrics)
+    # Number of successful reactive-auth-refresh recoveries this run.
+    reauth_count: int = 0
+    # Whether the reauth circuit breaker tripped this run.
+    reauth_broke: bool = False
 
 
 @dataclass

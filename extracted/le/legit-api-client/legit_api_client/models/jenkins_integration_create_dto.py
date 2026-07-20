@@ -30,13 +30,14 @@ class JenkinsIntegrationCreateDto(BaseModel):
     """ # noqa: E501
     name: Optional[StrictStr] = None
     url: Optional[StrictStr] = None
+    browse_url: Optional[StrictStr] = Field(default=None, alias="browseUrl")
     username: Optional[StrictStr] = None
     token: Optional[StrictStr] = None
     broker_id: Optional[StrictStr] = Field(default=None, alias="brokerId")
     integration_type: Optional[IntegrationType] = Field(default=None, alias="integrationType")
     workspace_id: Optional[StrictStr] = Field(default=None, alias="workspaceId")
     ignore_warnings: Optional[StrictBool] = Field(default=False, alias="ignoreWarnings")
-    __properties: ClassVar[List[str]] = ["name", "url", "username", "token", "brokerId", "integrationType", "workspaceId", "ignoreWarnings"]
+    __properties: ClassVar[List[str]] = ["name", "url", "browseUrl", "username", "token", "brokerId", "integrationType", "workspaceId", "ignoreWarnings"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -87,6 +88,11 @@ class JenkinsIntegrationCreateDto(BaseModel):
         if self.url is None and "url" in self.model_fields_set:
             _dict['url'] = None
 
+        # set to None if browse_url (nullable) is None
+        # and model_fields_set contains the field
+        if self.browse_url is None and "browse_url" in self.model_fields_set:
+            _dict['browseUrl'] = None
+
         # set to None if username (nullable) is None
         # and model_fields_set contains the field
         if self.username is None and "username" in self.model_fields_set:
@@ -126,6 +132,7 @@ class JenkinsIntegrationCreateDto(BaseModel):
         _obj = cls.model_validate({
             "name": obj.get("name"),
             "url": obj.get("url"),
+            "browseUrl": obj.get("browseUrl"),
             "username": obj.get("username"),
             "token": obj.get("token"),
             "brokerId": obj.get("brokerId"),

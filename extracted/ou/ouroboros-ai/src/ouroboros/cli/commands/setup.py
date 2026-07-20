@@ -264,6 +264,15 @@ def _detect_runtimes() -> dict[str, str | None]:
         grok_path = None
     runtimes["grok"] = grok_path or shutil.which("grok")
 
+    # Zcode: app-bundle/config path first, then a PATH wrapper/binary.
+    try:
+        from ouroboros.config import get_zcode_cli_path
+
+        zcode_path = get_zcode_cli_path()
+    except Exception:
+        zcode_path = None
+    runtimes["zcode"] = zcode_path or shutil.which("zcode")
+
     return runtimes
 
 
@@ -2131,14 +2140,14 @@ def _setup_gemini(gemini_path: str) -> None:
 
 
 def _setup_runtime_only_backend(backend: str, cli_path: str, cli_config_key: str) -> None:
-    """Configure a runtime-only backend (Antigravity / Grok).
+    """Configure runtime setup for Antigravity, Grok, or Zcode.
 
-    These backends drive the agentic orchestrator runtime but have no
-    LLM-completion adapter (``supports_llm=False``), so this intentionally sets
-    ONLY ``orchestrator.runtime_backend`` + the CLI path and leaves
-    ``llm.backend`` untouched (it is a completion-only contract that rejects
-    these backends). No setup-owned instruction artifact is installed yet — a
-    documented gap in ``docs/runtime-guides/skill-capability-guides.md``.
+    This setup path intentionally sets only ``orchestrator.runtime_backend`` and
+    the CLI path. Antigravity and Grok are runtime-only; Zcode also supports
+    explicit LLM-completion selection, but setup does not silently move
+    ``llm.backend`` because that changes authoring/evaluation traffic.
+    No setup-owned instruction artifact is installed yet — a documented gap in
+    ``docs/runtime-guides/skill-capability-guides.md``.
     """
     from ouroboros.config.loader import create_default_config, ensure_config_dir
 
@@ -2179,6 +2188,11 @@ def _setup_antigravity(antigravity_path: str) -> None:
 def _setup_grok(grok_path: str) -> None:
     """Configure Ouroboros for the Grok Build CLI (``grok``) runtime."""
     _setup_runtime_only_backend("grok", grok_path, "grok_cli_path")
+
+
+def _setup_zcode(zcode_path: str) -> None:
+    """Configure Ouroboros for the Zcode CLI runtime."""
+    _setup_runtime_only_backend("zcode", zcode_path, "zcode_cli_path")
 
 
 def _setup_pi(pi_path: str) -> None:
@@ -3002,7 +3016,7 @@ def setup(
         typer.Option(
             "--runtime",
             "-r",
-            help="Runtime backend to configure (claude, codex, opencode, hermes, gemini, goose, kiro, copilot, pi, gjc).",
+            help="Runtime backend to configure (claude, codex, opencode, hermes, gemini, goose, kiro, copilot, pi, gjc, antigravity, grok, zcode).",
         ),
     ] = None,
     non_interactive: Annotated[
@@ -3029,7 +3043,7 @@ def setup(
 ) -> None:
     """Set up Ouroboros for your environment.
 
-    Detects available runtimes (Claude Code, Codex, OpenCode, Hermes, Gemini, Kiro, Copilot, Goose, Pi, GJC)
+    Detects available runtimes (Claude Code, Codex, OpenCode, Hermes, Gemini, Kiro, Copilot, Goose, Pi, GJC, Antigravity, Grok, Zcode)
     and configures Ouroboros to use the selected backend.
 
     [dim]Examples:[/dim]
@@ -3043,6 +3057,7 @@ def setup(
     [dim]    ouroboros setup --runtime pi         # use Pi CLI[/dim]
     [dim]    ouroboros setup --runtime goose      # use Goose[/dim]
     [dim]    ouroboros setup --runtime gjc        # use GJC[/dim]
+    [dim]    ouroboros setup --runtime zcode      # use Zcode[/dim]
     [dim]    ouroboros setup scan               # scan brownfield repos[/dim]
     [dim]    ouroboros setup list               # list brownfield repos[/dim]
     [dim]    ouroboros setup default            # toggle default repos[/dim]
@@ -3259,6 +3274,16 @@ def setup(
             )
             raise typer.Exit(1)
         _setup_grok(grok_path)
+    elif selected in ("zcode", "zcode_cli"):
+        zcode_path = available.get("zcode")
+        if not zcode_path:
+            print_error(
+                "Zcode CLI not found.\n"
+                "Install ZCode, set OUROBOROS_ZCODE_CLI_PATH, configure "
+                "orchestrator.zcode_cli_path, or put a zcode executable on PATH."
+            )
+            raise typer.Exit(1)
+        _setup_zcode(zcode_path)
     else:
         print_error(f"Unsupported runtime: {selected}")
         raise typer.Exit(1)
@@ -3267,6 +3292,108 @@ def setup(
     console.print("\n[dim]Next steps:[/dim]")
     console.print('  ouroboros init start "your idea here"')
     console.print("  ouroboros run workflow seed.yaml\n")
+
+
+# ── Artifact refresh subcommand ──────────────────────────────────
+
+
+def _opencode_bridge_dest() -> Path:
+    plugin_dir = opencode_config_dir()
+    for part in _BRIDGE_PLUGIN_SUBDIR:
+        plugin_dir = plugin_dir / part
+    return plugin_dir / _BRIDGE_PLUGIN_FILENAME
+
+
+@app.command("refresh")
+def refresh_artifacts() -> None:
+    """Refresh installed Ouroboros artifacts for every detected runtime.
+
+    Rewrites rules, skills, bridges, and instruction guides that a previous
+    setup already installed — without changing MCP registrations, the runtime
+    selection, or ~/.ouroboros/config.yaml. Codex follows ``ouroboros codex
+    refresh`` semantics and refreshes whenever Codex is present; every other
+    artifact refreshes only when it already exists, so a deliberately removed
+    integration (e.g. OpenCode subprocess mode) is never resurrected.
+    """
+    from ouroboros.hermes.artifacts import HERMES_SKILL_CATEGORY, HERMES_SKILL_NAME
+    from ouroboros.runtime_instruction_artifacts import (
+        copilot_instruction_path,
+        gemini_instruction_path,
+        gjc_agent_dir,
+        gjc_instruction_path,
+        has_managed_section,
+        kiro_instruction_path,
+        opencode_instruction_path,
+    )
+
+    refreshed: list[str] = []
+
+    codex_dir = Path.home() / ".codex"
+    if codex_dir.exists() or shutil.which("codex"):
+        from ouroboros.codex import install_codex_artifacts
+
+        try:
+            result = install_codex_artifacts(codex_dir=codex_dir, prune=False)
+        except OSError as exc:
+            # One runtime failing must not leave the remaining ones stale.
+            print_warning(f"Could not refresh Codex artifacts: {exc}")
+        else:
+            print_success(f"Installed Codex rules → {result.rules_path}")
+            print_success(
+                f"Installed {len(result.skill_paths)} Codex skills → {codex_dir / 'skills'}"
+            )
+            refreshed.append("codex")
+
+    hermes_skill_dir = Path.home() / ".hermes" / "skills" / HERMES_SKILL_CATEGORY
+    if (hermes_skill_dir / HERMES_SKILL_NAME).exists():
+        try:
+            _install_hermes_artifacts()
+        except OSError as exc:
+            print_warning(f"Could not refresh Hermes artifacts: {exc}")
+        else:
+            refreshed.append("hermes")
+
+    opencode_dir = opencode_config_dir()
+    opencode_touched = False
+    if _opencode_bridge_dest().exists():
+        opencode_touched = _install_opencode_bridge_plugin()
+    if has_managed_section(opencode_instruction_path(opencode_dir)):
+        _install_runtime_instruction_artifact("opencode", config_dir=opencode_dir)
+        opencode_touched = True
+    if opencode_touched:
+        refreshed.append("opencode")
+
+    if has_managed_section(gemini_instruction_path()):
+        _install_runtime_instruction_artifact("gemini")
+        refreshed.append("gemini")
+
+    if kiro_instruction_path().exists():
+        _install_runtime_instruction_artifact("kiro")
+        refreshed.append("kiro")
+
+    if copilot_instruction_path().exists():
+        _install_runtime_instruction_artifact("copilot")
+        refreshed.append("copilot")
+
+    pi_bridge = Path.home() / ".pi" / "agent" / "extensions" / _PI_OOO_BRIDGE_FILENAME
+    if pi_bridge.exists():
+        if _install_pi_ooo_bridge():
+            refreshed.append("pi")
+
+    gjc_touched = False
+    gjc_bridge = gjc_agent_dir() / "extensions" / _GJC_OOO_BRIDGE_SUBDIR / _GJC_OOO_BRIDGE_FILENAME
+    if gjc_bridge.exists():
+        gjc_touched = _install_gjc_ooo_bridge()
+    if gjc_instruction_path().exists():
+        _install_runtime_instruction_artifact("gjc")
+        gjc_touched = True
+    if gjc_touched:
+        refreshed.append("gjc")
+
+    if refreshed:
+        print_success(f"Refreshed runtime artifacts: {', '.join(refreshed)}")
+    else:
+        print_info("No installed runtime artifacts found to refresh.")
 
 
 # ── Brownfield subcommands ───────────────────────────────────────

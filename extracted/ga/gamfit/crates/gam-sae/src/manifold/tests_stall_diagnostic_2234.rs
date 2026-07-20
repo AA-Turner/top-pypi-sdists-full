@@ -72,17 +72,20 @@ fn logdet_audit_point(
     registry: Option<&AnalyticPenaltyRegistry>,
     inner_max_iter: usize,
 ) -> Result<LogdetAuditPoint, String> {
-    let (criterion_value, loss, cache) = term.penalized_quasi_laplace_criterion_with_cache(
-        target,
-        rho,
-        registry,
-        inner_max_iter,
-        0.05,
-        1.0e-6,
-        1.0e-6,
-    )?;
+    let (criterion_value, loss, cache) = term
+        .penalized_quasi_laplace_criterion_with_cache(
+            target,
+            rho,
+            registry,
+            inner_max_iter,
+            0.05,
+            1.0e-6,
+            1.0e-6,
+        )
+        .map_err(|error| error.to_string())?;
     let raw_smoothness_sum: f64 = term
         .decoder_smoothness_value_per_atom(&rho.lambda_smooth_vec().unwrap())
+        .expect("smoothness evaluation must preserve CUDA failures")
         .iter()
         .sum();
     let smooth_renorm = if raw_smoothness_sum.abs() > 0.0 {
@@ -100,7 +103,8 @@ fn logdet_audit_point(
     let log_det_tt = super::construction::coordinate_block_log_det(&cache)?;
     let quasi_laplace_complexity = super::construction::rank_adjusted_quasi_laplace_complexity(
         log_det, log_det_tt, &d_eff, &n_eff,
-    )?;
+    )
+    .map_err(|error| error.to_string())?;
     let occam = term.reml_occam_term(rho)?;
     let extra_penalty_energy = term
         .reml_extra_penalty_value_total(registry)
@@ -221,9 +225,11 @@ fn frozen_raw_logdet(
     rho: &SaeManifoldRho,
     registry: Option<&AnalyticPenaltyRegistry>,
 ) -> Result<f64, String> {
-    let criterion_result = term.penalized_quasi_laplace_criterion_with_cache(
-        target, rho, registry, 0, 0.05, 1.0e-6, 1.0e-6,
-    )?;
+    let criterion_result = term
+        .penalized_quasi_laplace_criterion_with_cache(
+            target, rho, registry, 0, 0.05, 1.0e-6, 1.0e-6,
+        )
+        .map_err(|error| error.to_string())?;
     arrow_log_det_from_cache(&criterion_result.2)
         .ok_or_else(|| "frozen_raw_logdet: authoritative log determinant unavailable".to_string())
 }
@@ -268,12 +274,9 @@ fn zz_planted_circle_plain_engine_stall_diagnostic_2234() {
     let registry = AnalyticPenaltyRegistry::new();
     let seed = build_sae_fit_seed(SaeFitSeedRequest {
         target: z.view(),
-        atom_basis: &minimal.atom_basis,
-        atom_dim: &minimal.effective_atom_dim,
-        atom_centers: &minimal.atom_centers,
+        geometry_plans: &minimal.geometry_plans,
         basis_values: minimal.basis_values.view(),
         basis_jacobian: minimal.basis_jacobian.view(),
-        basis_sizes: &minimal.basis_sizes,
         decoder_coefficients: minimal.decoder_coefficients.view(),
         smooth_penalties: minimal.smooth_penalties.view(),
         initial_logits: minimal.initial_logits.view(),

@@ -4,6 +4,7 @@
 //! constraints, and post-update feasibility).
 
 use super::*;
+use gam_problem::ConstraintSet;
 
 impl CustomFamily for SurvivalMarginalSlopeFamily {
     fn outer_derivative_pilot_schedule(
@@ -162,6 +163,69 @@ impl CustomFamily for SurvivalMarginalSlopeFamily {
 
     fn evaluate(&self, block_states: &[ParameterBlockState]) -> Result<FamilyEvaluation, String> {
         self.evaluate_blockwise_exact_newton(block_states)
+    }
+
+    fn current_identifiability_family_scalars(
+        &self,
+        block_states: &[ParameterBlockState],
+    ) -> Result<Option<Arc<dyn std::any::Any + Send + Sync>>, String> {
+        if block_states.len() < 3 {
+            return Err(format!(
+                "survival marginal-slope identifiability state requires time, marginal, and logslope blocks; got {}",
+                block_states.len(),
+            ));
+        }
+        let slopes = self
+            .logslope_layout
+            .physical_values(self.score_dim(), block_states[2].beta.view())?;
+        let mut q0 = Vec::with_capacity(self.n);
+        let mut q1 = Vec::with_capacity(self.n);
+        let mut qd1 = Vec::with_capacity(self.n);
+        let timewiggle_primary_rows = if self.flex_timewiggle_active() {
+            let p_time = block_states[0].beta.len();
+            let p_marginal = block_states[1].beta.len();
+            let mut time_rows = Array2::<f64>::zeros((3 * self.n, p_time));
+            let mut marginal_rows = Array2::<f64>::zeros((3 * self.n, p_marginal));
+            for row in 0..self.n {
+                let values = self.row_dynamic_q_gradient(row, block_states)?;
+                q0.push(values.q0);
+                q1.push(values.q1);
+                qd1.push(values.qd1);
+                for column in 0..p_time {
+                    time_rows[[row, column]] = values.dq0_time[column];
+                    time_rows[[self.n + row, column]] = values.dq1_time[column];
+                    time_rows[[2 * self.n + row, column]] = values.dqd1_time[column];
+                }
+                for column in 0..p_marginal {
+                    marginal_rows[[row, column]] = values.dq0_marginal[column];
+                    marginal_rows[[self.n + row, column]] = values.dq1_marginal[column];
+                    marginal_rows[[2 * self.n + row, column]] = values.dqd1_marginal[column];
+                }
+            }
+            Some((time_rows, marginal_rows))
+        } else {
+            for row in 0..self.n {
+                let values = self.row_dynamic_q_values(row, block_states)?;
+                q0.push(values.q0);
+                q1.push(values.q1);
+                qd1.push(values.qd1);
+            }
+            None
+        };
+        let scalars = SurvivalMarginalSlopeFamilyScalars::new(
+            q0,
+            q1,
+            qd1,
+            slopes,
+            timewiggle_primary_rows,
+            self.probit_frailty_scale(),
+            &self.score_covariance,
+        )?;
+        Ok(Some(Arc::new(scalars)))
+    }
+
+    fn identifiability_probit_frailty_scale(&self) -> f64 {
+        self.probit_frailty_scale()
     }
 
     fn log_likelihood_only(&self, block_states: &[ParameterBlockState]) -> Result<f64, String> {
@@ -617,81 +681,130 @@ impl CustomFamily for SurvivalMarginalSlopeFamily {
         &self,
         block_states: &[ParameterBlockState],
         specs: &[ParameterBlockSpec],
-        derivative_blocks: &[Vec<crate::custom_family::CustomFamilyBlockPsiDerivative>],
+        hyper_layout: &crate::custom_family::CustomFamilyHyperLayout,
         psi_index: usize,
     ) -> Result<Option<ExactNewtonJointPsiTerms>, String> {
-        if self.is_sigma_aux_index(derivative_blocks, psi_index) {
-            return self.sigma_exact_joint_psi_terms(block_states, specs);
+        match self.family_hyper_role(hyper_layout, psi_index)? {
+            None => self.psi_terms(
+                block_states,
+                hyper_layout.design_derivative_blocks(),
+                psi_index,
+            ),
+            Some(SurvivalMarginalSlopeFamilyHyperAxis::LogSigma) => {
+                self.sigma_exact_joint_psi_terms(block_states, specs)
+            }
+            Some(SurvivalMarginalSlopeFamilyHyperAxis::Baseline(axis)) => self
+                .baseline_exact_joint_psi_terms_with_options(
+                    block_states,
+                    axis,
+                    &BlockwiseFitOptions::default(),
+                ),
         }
-        self.psi_terms(block_states, derivative_blocks, psi_index)
     }
 
     fn exact_newton_joint_psisecond_order_terms(
         &self,
         block_states: &[ParameterBlockState],
         _: &[ParameterBlockSpec],
-        derivative_blocks: &[Vec<crate::custom_family::CustomFamilyBlockPsiDerivative>],
+        hyper_layout: &crate::custom_family::CustomFamilyHyperLayout,
         psi_i: usize,
         psi_j: usize,
     ) -> Result<Option<ExactNewtonJointPsiSecondOrderTerms>, String> {
-        if self.is_sigma_aux_index(derivative_blocks, psi_i)
-            || self.is_sigma_aux_index(derivative_blocks, psi_j)
-        {
-            if psi_i == psi_j {
-                return self.sigma_exact_joint_psisecond_order_terms(block_states);
-            }
-            return Ok(None);
+        let axis_i = self.family_hyper_role(hyper_layout, psi_i)?;
+        let axis_j = self.family_hyper_role(hyper_layout, psi_j)?;
+        match (axis_i, axis_j) {
+            (None, None) => self.psi_second_order_terms(
+                block_states,
+                hyper_layout.design_derivative_blocks(),
+                psi_i,
+                psi_j,
+            ),
+            (
+                Some(SurvivalMarginalSlopeFamilyHyperAxis::LogSigma),
+                Some(SurvivalMarginalSlopeFamilyHyperAxis::LogSigma),
+            ) => self.sigma_exact_joint_psisecond_order_terms(block_states),
+            (
+                Some(SurvivalMarginalSlopeFamilyHyperAxis::Baseline(axis)),
+                Some(SurvivalMarginalSlopeFamilyHyperAxis::Baseline(other_axis)),
+            ) => self.baseline_exact_joint_psisecond_order_terms_with_options(
+                block_states,
+                axis,
+                other_axis,
+                &BlockwiseFitOptions::default(),
+            ),
+            (Some(SurvivalMarginalSlopeFamilyHyperAxis::Baseline(axis)), None) => self
+                .baseline_design_exact_joint_psisecond_order_terms_with_options(
+                    block_states,
+                    hyper_layout.design_derivative_blocks(),
+                    axis,
+                    psi_j,
+                    &BlockwiseFitOptions::default(),
+                ),
+            (None, Some(SurvivalMarginalSlopeFamilyHyperAxis::Baseline(axis))) => self
+                .baseline_design_exact_joint_psisecond_order_terms_with_options(
+                    block_states,
+                    hyper_layout.design_derivative_blocks(),
+                    axis,
+                    psi_i,
+                    &BlockwiseFitOptions::default(),
+                ),
+            _ => Err(format!(
+                "survival marginal-slope family-touching pair ({psi_i}, {psi_j}) has no installed exact second-order row calculus"
+            )),
         }
-        self.psi_second_order_terms(block_states, derivative_blocks, psi_i, psi_j)
     }
 
     fn exact_newton_joint_psihessian_directional_derivative(
         &self,
         block_states: &[ParameterBlockState],
         _: &[ParameterBlockSpec],
-        derivative_blocks: &[Vec<crate::custom_family::CustomFamilyBlockPsiDerivative>],
+        hyper_layout: &crate::custom_family::CustomFamilyHyperLayout,
         psi_index: usize,
         d_beta_flat: &Array1<f64>,
     ) -> Result<Option<Array2<f64>>, String> {
-        if self.is_sigma_aux_index(derivative_blocks, psi_index) {
-            return self
-                .sigma_exact_joint_psihessian_directional_derivative(block_states, d_beta_flat);
+        match self.family_hyper_role(hyper_layout, psi_index)? {
+            None => self.psi_hessian_directional_derivative(
+                block_states,
+                hyper_layout.design_derivative_blocks(),
+                psi_index,
+                d_beta_flat,
+            ),
+            Some(SurvivalMarginalSlopeFamilyHyperAxis::LogSigma) => {
+                self.sigma_exact_joint_psihessian_directional_derivative(block_states, d_beta_flat)
+            }
+            Some(SurvivalMarginalSlopeFamilyHyperAxis::Baseline(axis)) => self
+                .baseline_exact_joint_psihessian_directional_derivative_with_options(
+                    block_states,
+                    axis,
+                    d_beta_flat,
+                    &BlockwiseFitOptions::default(),
+                ),
         }
-        self.psi_hessian_directional_derivative(
-            block_states,
-            derivative_blocks,
-            psi_index,
-            d_beta_flat,
-        )
     }
 
     fn exact_newton_joint_psi_workspace(
         &self,
         block_states: &[ParameterBlockState],
         specs: &[ParameterBlockSpec],
-        derivative_blocks: &[Vec<crate::custom_family::CustomFamilyBlockPsiDerivative>],
+        hyper_layout: &crate::custom_family::CustomFamilyHyperLayout,
     ) -> Result<Option<Arc<dyn ExactNewtonJointPsiWorkspace>>, String> {
         if self.per_z_logslope_active() {
             return Ok(None);
         }
-        Ok(Some(Arc::new(
-            crate::marginal_slope_shared::MarginalSlopeExactNewtonPsiWorkspace::new(
-                SurvivalMarginalSlopePsiWorkspace::new(
-                    self.clone(),
-                    block_states.to_vec(),
-                    specs.to_vec(),
-                    derivative_blocks.to_vec(),
-                    BlockwiseFitOptions::default(),
-                )?,
-            ),
-        )))
+        Ok(Some(Arc::new(SurvivalMarginalSlopePsiWorkspace::new(
+            self.clone(),
+            block_states.to_vec(),
+            specs.to_vec(),
+            hyper_layout.clone(),
+            BlockwiseFitOptions::default(),
+        )?)))
     }
 
     fn exact_newton_joint_psi_workspace_with_options(
         &self,
         block_states: &[ParameterBlockState],
         specs: &[ParameterBlockSpec],
-        derivative_blocks: &[Vec<crate::custom_family::CustomFamilyBlockPsiDerivative>],
+        hyper_layout: &crate::custom_family::CustomFamilyHyperLayout,
         options: &BlockwiseFitOptions,
     ) -> Result<Option<Arc<dyn ExactNewtonJointPsiWorkspace>>, String> {
         let owned;
@@ -703,17 +816,13 @@ impl CustomFamily for SurvivalMarginalSlopeFamily {
             }
             None => options,
         };
-        Ok(Some(Arc::new(
-            crate::marginal_slope_shared::MarginalSlopeExactNewtonPsiWorkspace::new(
-                SurvivalMarginalSlopePsiWorkspace::new(
-                    self.clone(),
-                    block_states.to_vec(),
-                    specs.to_vec(),
-                    derivative_blocks.to_vec(),
-                    options.clone(),
-                )?,
-            ),
-        )))
+        Ok(Some(Arc::new(SurvivalMarginalSlopePsiWorkspace::new(
+            self.clone(),
+            block_states.to_vec(),
+            specs.to_vec(),
+            hyper_layout.clone(),
+            options.clone(),
+        )?)))
     }
 
     fn block_linear_constraints(
@@ -721,24 +830,28 @@ impl CustomFamily for SurvivalMarginalSlopeFamily {
         _: &[ParameterBlockState],
         block_idx: usize,
         block_spec: &ParameterBlockSpec,
-    ) -> Result<Option<LinearInequalityConstraints>, String> {
+    ) -> Result<Option<ConstraintSet>, String> {
         assert!(!block_spec.name.is_empty());
         if block_idx == 0 {
-            return self.effective_time_linear_constraints();
+            return Ok(self
+                .effective_time_linear_constraints()?
+                .map(ConstraintSet::Dense));
         }
         if self.score_warp.is_some() && block_idx == 3 {
-            return self
+            return Ok(self
                 .score_warp
                 .as_ref()
                 .map(|runtime| self.score_warp_linear_constraints(runtime))
-                .transpose();
+                .transpose()?
+                .map(ConstraintSet::Dense));
         }
         let link_block_idx = if self.score_warp.is_some() { 4 } else { 3 };
         if self.link_dev.is_some() && block_idx == link_block_idx {
             return Ok(self
                 .link_dev
                 .as_ref()
-                .map(DeviationRuntime::structural_monotonicity_constraints));
+                .map(DeviationRuntime::structural_monotonicity_constraints)
+                .map(ConstraintSet::Dense));
         }
         Ok(None)
     }

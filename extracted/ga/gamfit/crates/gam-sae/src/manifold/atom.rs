@@ -40,12 +40,24 @@ const POINCARE_REFERENCE_CURVATURE: f64 = -1.0;
 /// This enum records the user-facing topology choice so downstream diagnostics
 /// and Python wrappers can round-trip whether the atom was a Duchon patch,
 /// periodic curve, sphere, or a caller-supplied precomputed basis.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum SaeAtomBasisKind {
     Duchon,
     Periodic,
     Sphere,
     Torus,
+    /// Real projective plane `RP² = S²/{u ~ -u}` on the round unit cover.
+    /// The analytic basis is the even-degree spherical-harmonic restriction
+    /// owned by [`crate::basis::QuotientSpectralEvaluator`]. Coordinates stay
+    /// on the existing `(latitude, longitude)` sphere cover; antipodal rows are
+    /// an exact discrete gauge because every emitted basis column is even.
+    ProjectivePlane,
+    /// Flat Klein bottle `T²/{(theta, phi) ~ (theta + 1/2, -phi)}`.
+    /// The analytic basis is the diagonal-character restriction of the real
+    /// tensor Fourier cover. Coordinates remain two unit-period circle phases;
+    /// the deck twin is an exact discrete gauge of every decoder function.
+    KleinBottle,
     /// Cylinder `S¹ × ℝ` (`d = 2`): a periodic circle axis tensored with a flat
     /// (Duchon-polynomial) line axis, via [`CylinderHarmonicEvaluator`]. Axis 0
     /// is the circle (fraction-of-period convention, wrapped modulo `1.0`),
@@ -166,7 +178,7 @@ impl SaeAtomBasisKind {
             // artefact-free spherical geometry.
             // Treating it as `LatentManifold::Sphere { dim: 2 }` would
             // require ambient unit-vectors of length 2 (impossible for S^2).
-            Self::Sphere => LatentManifold::Product(vec![
+            Self::Sphere | Self::ProjectivePlane => LatentManifold::Product(vec![
                 LatentManifold::Interval {
                     lo: -std::f64::consts::FRAC_PI_2,
                     hi: std::f64::consts::FRAC_PI_2,
@@ -179,7 +191,7 @@ impl SaeAtomBasisKind {
             // fraction-of-period convention with `PeriodicHarmonicEvaluator`
             // (basis is `cos(2π·h·t)`, `sin(2π·h·t)` on each axis). Each
             // per-axis latent wraps modulo `1.0`.
-            Self::Torus => {
+            Self::Torus | Self::KleinBottle => {
                 if latent_dim == 1 {
                     LatentManifold::Circle { period: 1.0 }
                 } else {
@@ -290,14 +302,40 @@ impl ArdAxisPrior {
             },
             Some(p) => {
                 let kappa = std::f64::consts::TAU / p;
-                let (sin, cos) = (kappa * t).sin_cos();
-                let one_minus_cos = 1.0 - cos;
+                let phase = kappa * t;
+                let (sin, cos) = phase.sin_cos();
+                // `1 - cos(phase)` rounds to zero for nonzero
+                // |phase| < sqrt(EPSILON). The half-angle identity preserves
+                // the quadratic energy all the way to the subnormal range.
+                let sin_half = (0.5 * phase).sin();
+                let one_minus_cos = 2.0 * sin_half * sin_half;
                 Self {
                     value: (alpha / (kappa * kappa)) * one_minus_cos,
                     grad: (alpha / kappa) * sin,
                     hess: alpha * cos,
                     sq_equiv: (2.0 / (kappa * kappa)) * one_minus_cos,
                 }
+            }
+        }
+    }
+
+    /// Stable signed energy change `V(to) - V(from)`.
+    ///
+    /// Line searches need the change itself, which can be many orders of
+    /// magnitude smaller than either endpoint energy near a stationary point.
+    /// Subtracting two calls to [`Self::eval`] would erase that signal. These
+    /// difference identities evaluate the increment directly for both supported
+    /// geometries and remain valid across a periodic branch cut.
+    pub(crate) fn value_delta(alpha: f64, from: f64, to: f64, period: Option<f64>) -> f64 {
+        let delta = to - from;
+        match period {
+            None => alpha * delta * (from + 0.5 * delta),
+            Some(p) => {
+                let kappa = std::f64::consts::TAU / p;
+                let midpoint = from + 0.5 * delta;
+                let midpoint_phase = kappa * midpoint;
+                let half_delta_phase = 0.5 * kappa * delta;
+                (2.0 * alpha / (kappa * kappa)) * midpoint_phase.sin() * half_delta_phase.sin()
             }
         }
     }
@@ -330,8 +368,8 @@ impl ArdAxisPrior {
 #[derive(Debug, Clone)]
 pub struct SaeManifoldAtom {
     pub name: String,
-    pub basis_kind: SaeAtomBasisKind,
-    pub latent_dim: usize,
+    basis_kind: SaeAtomBasisKind,
+    latent_dim: usize,
     pub basis_values: Array2<f64>,
     pub basis_jacobian: Array3<f64>,
     pub decoder_coefficients: Array2<f64>,
@@ -347,9 +385,13 @@ pub struct SaeManifoldAtom {
     /// the declared final-function seminorm, with exact gradient
     /// `lambda * S_ref * B` and Hessian `lambda * (S_ref tensor I)`. It is not
     /// the moving intrinsic bending energy of the current decoder.
-    pub smooth_penalty: Array2<f64>,
+    smooth_penalty: Array2<f64>,
     /// Which explicit declaration produced [`Self::smooth_penalty`].
-    pub reference_roughness_kind: SaeReferenceRoughnessKind,
+    reference_roughness_kind: SaeReferenceRoughnessKind,
+    /// Persisted analytic geometry authority for atoms built by the native
+    /// lifecycle. Hand-assembled/precomputed atoms may omit it, but an atom
+    /// without this plan cannot be serialized for analytic rebuild or OOS.
+    geometry_plan: Option<SaeAtomGeometryPlan>,
     pub basis_evaluator: Option<Arc<dyn SaeBasisEvaluator>>,
     /// Same evaluator upcast to `dyn SaeBasisSecondJet` when the
     /// implementation provides a closed-form Hessian. `None` for
@@ -437,6 +479,59 @@ pub struct SaeManifoldAtom {
 }
 
 impl SaeManifoldAtom {
+    pub fn basis_kind(&self) -> &SaeAtomBasisKind {
+        &self.basis_kind
+    }
+
+    pub fn latent_dim(&self) -> usize {
+        self.latent_dim
+    }
+
+    pub fn smooth_penalty(&self) -> &Array2<f64> {
+        &self.smooth_penalty
+    }
+
+    pub fn reference_roughness_kind(&self) -> SaeReferenceRoughnessKind {
+        self.reference_roughness_kind
+    }
+
+    pub fn geometry_plan(&self) -> Option<&SaeAtomGeometryPlan> {
+        self.geometry_plan.as_ref()
+    }
+
+    /// Install the congruence-transformed representation of the already
+    /// declared reference-function Gram after an exact basis change. This is
+    /// the only mutation seam for the Gram outside this type; it validates the
+    /// new matrix before making the atomic replacement and never changes the
+    /// reference metric provenance or geometry plan.
+    pub(crate) fn install_transported_smooth_penalty(
+        &mut self,
+        penalty: Array2<f64>,
+    ) -> Result<(), String> {
+        self.smooth_penalty =
+            Self::validate_reference_function_gram(penalty, self.basis_size(), false)?;
+        Ok(())
+    }
+
+    /// Restore an exact Gram captured from this same atom by the line-search
+    /// snapshot. The shape check prevents a stale snapshot from crossing a
+    /// structural basis change; no eigendecomposition is repeated on this hot
+    /// rollback path because the snapshot was copied from validated state.
+    pub(crate) fn restore_smooth_penalty_snapshot(
+        &mut self,
+        penalty: &Array2<f64>,
+    ) -> Result<(), String> {
+        if penalty.dim() != self.smooth_penalty.dim() {
+            return Err(format!(
+                "SaeManifoldAtom::restore_smooth_penalty_snapshot: snapshot shape {:?} != live shape {:?}",
+                penalty.dim(),
+                self.smooth_penalty.dim()
+            ));
+        }
+        self.smooth_penalty.assign(penalty);
+        Ok(())
+    }
+
     #[must_use = "build error must be handled"]
     pub fn new(
         name: impl Into<String>,
@@ -483,6 +578,7 @@ impl SaeManifoldAtom {
             smooth_penalty,
             reference_roughness_kind,
             basis_jacobian,
+            geometry_plan: None,
             basis_evaluator: None,
             basis_second_jet: None,
             decoder_frame: None,
@@ -644,6 +740,62 @@ impl SaeManifoldAtom {
         self.basis_evaluator = Some(evaluator);
         self.basis_second_jet = None;
         self
+    }
+
+    /// Attach the exact geometry plan used to build this atom. The plan's kind,
+    /// latent dimension, derived full width, and reference-function Gram must
+    /// agree. Attachment is one-shot: replacing a plan could otherwise change
+    /// the declared metric independently of the frozen Gram. There is no width
+    /// or harmonic-order inference from the realized arrays.
+    pub fn with_geometry_plan(mut self, plan: SaeAtomGeometryPlan) -> Result<Self, String> {
+        if self.geometry_plan.is_some() {
+            return Err(
+                "SaeManifoldAtom::with_geometry_plan: geometry plan is already installed; replacement is forbidden"
+                    .to_string(),
+            );
+        }
+        if plan.kind() != &self.basis_kind || plan.latent_dim() != self.latent_dim {
+            return Err(format!(
+                "SaeManifoldAtom::with_geometry_plan: plan ({:?}, dim={}) disagrees with atom ({:?}, dim={})",
+                plan.kind(),
+                plan.latent_dim(),
+                self.basis_kind,
+                self.latent_dim
+            ));
+        }
+        let planned_width = plan.basis_size()?;
+        if planned_width != self.full_basis_size() {
+            return Err(format!(
+                "SaeManifoldAtom::with_geometry_plan: plan width {planned_width} disagrees with atom full width {}",
+                self.full_basis_size()
+            ));
+        }
+        let planned_penalty = plan.build_reference_penalty()?;
+        if planned_penalty.dim() != self.smooth_penalty.dim() {
+            return Err(format!(
+                "SaeManifoldAtom::with_geometry_plan: plan reference Gram shape {:?} disagrees with atom Gram shape {:?}",
+                planned_penalty.dim(),
+                self.smooth_penalty.dim()
+            ));
+        }
+        let scale = planned_penalty
+            .iter()
+            .chain(self.smooth_penalty.iter())
+            .fold(1.0_f64, |current, value| current.max(value.abs()));
+        let tolerance = f64::EPSILON.sqrt() * scale * planned_width.max(1) as f64;
+        let max_difference = planned_penalty
+            .iter()
+            .zip(self.smooth_penalty.iter())
+            .map(|(planned, installed)| (planned - installed).abs())
+            .fold(0.0_f64, f64::max);
+        if max_difference > tolerance {
+            return Err(format!(
+                "SaeManifoldAtom::with_geometry_plan: installed reference Gram differs from plan by {max_difference}, tolerance {tolerance}"
+            ));
+        }
+        self.reference_roughness_kind = plan.reference_roughness_kind();
+        self.geometry_plan = Some(plan);
+        Ok(self)
     }
 
     /// Install an evaluator that additionally exposes a closed-form

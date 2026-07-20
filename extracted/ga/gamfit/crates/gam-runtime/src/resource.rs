@@ -1,3 +1,9 @@
+use crate::cgroup_memory::detect_cgroup_memory;
+pub use crate::cgroup_memory::{
+    CgroupMemoryAvailability, CgroupMemoryLimit, CgroupMemoryObservation,
+    CgroupMemoryProbeFailure, CgroupMemoryProbeFailureKind,
+};
+
 /// The library-default streamed row-chunk target (8 MiB), shared as a `const`
 /// so compile-time consumers (e.g. device tile geometry) stay in lockstep with
 /// [`ResourcePolicy::default_library`] without a runtime policy query.
@@ -33,29 +39,141 @@ pub const OWNED_DATA_CACHE_MAX_ENTRIES: usize = 2;
 const GOVERNOR_BUDGET_NUMERATOR: u128 = 3;
 const GOVERNOR_BUDGET_DENOMINATOR: u128 = 4;
 
-/// Convert detected host/cgroup availability to the one process budget.
-///
-/// A reported zero is a real exhausted-memory signal and deliberately yields
-/// a zero budget.  In particular, it must never be replaced by a guessed
-/// positive allowance: doing so is exactly how a process in an exhausted
-/// cgroup gets killed by the kernel.
-fn governor_budget_from_available(host_available: u64, cgroup_available: Option<u64>) -> usize {
-    let available = cgroup_available
-        .map(|cgroup| host_available.min(cgroup))
-        .unwrap_or(host_available);
-    let scaled = u128::from(available) * GOVERNOR_BUDGET_NUMERATOR / GOVERNOR_BUDGET_DENOMINATOR;
-    usize::try_from(scaled).unwrap_or(usize::MAX)
+/// Which observation is the binding ceiling on memory available to this
+/// process.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MemoryAvailabilitySource {
+    Host,
+    Cgroup,
+    HostAndCgroup,
+    CgroupProbeFailure,
 }
 
-fn detect_governor_budget_bytes() -> usize {
-    let mut sys = sysinfo::System::new();
-    sys.refresh_memory();
-    // Containers: the cgroup allowance is the real ceiling regardless of what
-    // the host machine has available. `Some(0)` is intentionally preserved.
-    governor_budget_from_available(
-        sys.available_memory(),
-        sys.cgroup_limits().map(|limits| limits.free_memory),
-    )
+impl std::fmt::Display for MemoryAvailabilitySource {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Host => formatter.write_str("host"),
+            Self::Cgroup => formatter.write_str("cgroup"),
+            Self::HostAndCgroup => formatter.write_str("host and cgroup equally"),
+            Self::CgroupProbeFailure => formatter.write_str("cgroup probe failure"),
+        }
+    }
+}
+
+/// Provenance-preserving memory availability for the current process.
+///
+/// A finite cgroup-v1 or cgroup-v2 ceiling admits exactly `min(host available,
+/// reclaim-aware cgroup available)`. A v2 literal `memory.max = max` remains
+/// typed as unbounded and therefore defers to the host; v1's numeric unlimited
+/// sentinel participates exactly and likewise loses to a tighter host value.
+/// If an active controller cannot be parsed exactly, admission fails closed
+/// with zero bytes while retaining the typed probe failure; it never silently
+/// inherits host capacity.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MemoryAvailability {
+    host_available_bytes: u64,
+    cgroup: CgroupMemoryObservation,
+    available_bytes: u64,
+    limiting_source: MemoryAvailabilitySource,
+}
+
+impl MemoryAvailability {
+    fn from_observation(
+        host_available_bytes: u64,
+        cgroup: CgroupMemoryObservation,
+    ) -> Self {
+        use std::cmp::Ordering;
+
+        let (available_bytes, limiting_source) = match &cgroup {
+            CgroupMemoryObservation::NotPresent
+            | CgroupMemoryObservation::V2Unbounded { .. } => {
+                (host_available_bytes, MemoryAvailabilitySource::Host)
+            }
+            CgroupMemoryObservation::V2Limited(observation)
+            | CgroupMemoryObservation::V1Limited(observation) => {
+                match observation.available_bytes().cmp(&host_available_bytes) {
+                    Ordering::Less => (
+                        observation.available_bytes(),
+                        MemoryAvailabilitySource::Cgroup,
+                    ),
+                    Ordering::Equal => (
+                        host_available_bytes,
+                        MemoryAvailabilitySource::HostAndCgroup,
+                    ),
+                    Ordering::Greater => {
+                        (host_available_bytes, MemoryAvailabilitySource::Host)
+                    }
+                }
+            }
+            CgroupMemoryObservation::ProbeFailed(_) => {
+                (0, MemoryAvailabilitySource::CgroupProbeFailure)
+            }
+        };
+        Self {
+            host_available_bytes,
+            cgroup,
+            available_bytes,
+            limiting_source,
+        }
+    }
+
+    pub const fn host_available_bytes(&self) -> u64 {
+        self.host_available_bytes
+    }
+
+    pub const fn cgroup(&self) -> &CgroupMemoryObservation {
+        &self.cgroup
+    }
+
+    pub const fn available_bytes(&self) -> u64 {
+        self.available_bytes
+    }
+
+    pub fn available_bytes_usize(&self) -> usize {
+        usize::try_from(self.available_bytes).unwrap_or(usize::MAX)
+    }
+
+    pub const fn limiting_source(&self) -> MemoryAvailabilitySource {
+        self.limiting_source
+    }
+}
+
+impl std::fmt::Display for MemoryAvailability {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.cgroup {
+            CgroupMemoryObservation::ProbeFailed(failure) => write!(
+                formatter,
+                "0 bytes admitted because the active cgroup probe failed closed (host_available={}, failure={})",
+                self.host_available_bytes, failure,
+            ),
+            observation => write!(
+                formatter,
+                "{} bytes limited by {} (host_available={}, {})",
+                self.available_bytes, self.limiting_source, self.host_available_bytes, observation,
+            ),
+        }
+    }
+}
+
+/// Refresh and return the OS and cgroup observations that govern process
+/// memory admission. This is the single system-memory authority shared by the
+/// global governor and specialized runtime planners.
+pub fn detect_memory_availability() -> MemoryAvailability {
+    static SYSTEM: OnceLock<Mutex<sysinfo::System>> = OnceLock::new();
+    let system = SYSTEM.get_or_init(|| Mutex::new(sysinfo::System::new()));
+    let mut system = system.lock().expect("sysinfo system mutex poisoned");
+    system.refresh_memory();
+    let cgroup = detect_cgroup_memory();
+    MemoryAvailability::from_observation(system.available_memory(), cgroup)
+}
+
+/// Convert one provenance-preserving availability observation to the process
+/// budget. Zero is an authoritative exhausted-memory signal and deliberately
+/// yields a zero budget.
+fn governor_budget_from_availability(availability: &MemoryAvailability) -> usize {
+    let scaled = u128::from(availability.available_bytes()) * GOVERNOR_BUDGET_NUMERATOR
+        / GOVERNOR_BUDGET_DENOMINATOR;
+    usize::try_from(scaled).unwrap_or(usize::MAX)
 }
 
 /// Typed refusal from [`MemoryGovernor::try_reserve`].
@@ -68,13 +186,14 @@ fn detect_governor_budget_bytes() -> usize {
 #[derive(Debug, Clone, thiserror::Error, PartialEq, Eq)]
 pub enum MemoryReservationError {
     #[error(
-        "{context}: cannot reserve {requested_bytes} bytes; {reserved_bytes} of {budget_bytes} bytes already reserved process-wide"
+        "{context}: cannot reserve {requested_bytes} bytes; {reserved_bytes} of {budget_bytes} bytes already reserved process-wide; detected availability: {availability}"
     )]
     BudgetExceeded {
         context: Box<str>,
         requested_bytes: usize,
         reserved_bytes: usize,
         budget_bytes: usize,
+        availability: MemoryAvailability,
     },
 
     #[error(
@@ -91,6 +210,7 @@ pub enum MemoryReservationError {
 #[derive(Debug)]
 struct GovernorLedger {
     budget_bytes: usize,
+    availability: MemoryAvailability,
     reserved_bytes: std::sync::atomic::AtomicUsize,
 }
 
@@ -119,17 +239,18 @@ impl MemoryGovernor {
     /// The process-wide governor. Budget detection runs once, on first use.
     pub fn global() -> &'static MemoryGovernor {
         static GLOBAL: OnceLock<MemoryGovernor> = OnceLock::new();
-        GLOBAL.get_or_init(|| MemoryGovernor::with_budget(detect_governor_budget_bytes()))
+        GLOBAL.get_or_init(|| {
+            let availability = detect_memory_availability();
+            MemoryGovernor::with_detected_availability(availability)
+        })
     }
 
-    /// Construct a ledger with an explicit budget. Private: production code
-    /// cannot create independent budgets — every production reservation shares
-    /// [`global`](Self::global), which calls this exactly once with the
-    /// detected budget. Unit tests use it for isolated ledgers.
-    fn with_budget(budget_bytes: usize) -> Self {
+    fn with_detected_availability(availability: MemoryAvailability) -> Self {
+        let budget_bytes = governor_budget_from_availability(&availability);
         Self {
             ledger: Arc::new(GovernorLedger {
                 budget_bytes,
+                availability,
                 reserved_bytes: std::sync::atomic::AtomicUsize::new(0),
             }),
         }
@@ -137,6 +258,10 @@ impl MemoryGovernor {
 
     pub fn budget_bytes(&self) -> usize {
         self.ledger.budget_bytes
+    }
+
+    pub fn availability(&self) -> MemoryAvailability {
+        self.ledger.availability.clone()
     }
 
     pub fn reserved_bytes(&self) -> usize {
@@ -180,6 +305,7 @@ impl MemoryGovernor {
                         requested_bytes: bytes,
                         reserved_bytes: current,
                         budget_bytes: self.ledger.budget_bytes,
+                        availability: self.ledger.availability.clone(),
                     });
                 }
             };
@@ -537,6 +663,7 @@ pub struct ByteLruCache<K: Eq + Hash + Clone, V> {
     /// Per-shard entry budget, if any (`0` disables caching, as before).
     shard_entries: Option<usize>,
     max_bytes: usize,
+    governor: MemoryGovernor,
 }
 
 struct ByteLruInner<K, V> {
@@ -575,6 +702,20 @@ impl<K: Eq + Hash + Clone, V: Clone + ResidentBytes> ByteLruCache<K, V> {
     }
 
     fn build(max_bytes: usize, max_entries: Option<usize>, shard_count: usize) -> Self {
+        Self::build_with_governor(
+            max_bytes,
+            max_entries,
+            shard_count,
+            MemoryGovernor::global().clone(),
+        )
+    }
+
+    fn build_with_governor(
+        max_bytes: usize,
+        max_entries: Option<usize>,
+        shard_count: usize,
+        governor: MemoryGovernor,
+    ) -> Self {
         let shard_count = shard_count.max(1);
         // Split the global budgets across shards, rounding up so the aggregate
         // capacity never falls below the requested budget. With a single shard
@@ -603,6 +744,7 @@ impl<K: Eq + Hash + Clone, V: Clone + ResidentBytes> ByteLruCache<K, V> {
             shard_bytes,
             shard_entries,
             max_bytes,
+            governor,
         }
     }
 
@@ -671,11 +813,13 @@ impl<K: Eq + Hash + Clone, V: Clone + ResidentBytes> ByteLruCache<K, V> {
             }
         }
 
-        let reservation =
-            match MemoryGovernor::global().try_reserve(charge, "ByteLruCache resident entry") {
-                Ok(reservation) => reservation,
-                Err(_) => return,
-            };
+        let reservation = match self
+            .governor
+            .try_reserve(charge, "ByteLruCache resident entry")
+        {
+            Ok(reservation) => reservation,
+            Err(_) => return,
+        };
         g.map.insert(key.clone(), (value, charge, reservation));
         g.order.push_back(key);
         g.resident_bytes = g.resident_bytes.saturating_add(charge);
@@ -835,6 +979,15 @@ impl<T: std::fmt::Debug> std::fmt::Debug for RayonSafeOnce<T> {
 mod byte_lru_tests {
     use super::*;
 
+    fn cache_test_governor(budget_bytes: usize) -> MemoryGovernor {
+        let available_bytes = (budget_bytes as u128 * GOVERNOR_BUDGET_DENOMINATOR)
+            .div_ceil(GOVERNOR_BUDGET_NUMERATOR);
+        MemoryGovernor::with_detected_availability(MemoryAvailability::from_observation(
+            u64::try_from(available_bytes).expect("test cache budget must fit in u64"),
+            CgroupMemoryObservation::NotPresent,
+        ))
+    }
+
     /// Fixed-charge value so byte-budget arithmetic in the tests is exact.
     #[derive(Clone, PartialEq, Debug)]
     struct Payload(u64);
@@ -847,7 +1000,8 @@ mod byte_lru_tests {
     #[test]
     fn single_shard_round_trips_and_evicts_by_bytes() {
         // 3 entries' worth of budget; a single shard preserves strict global LRU.
-        let cache: ByteLruCache<u64, Payload> = ByteLruCache::new(24);
+        let cache: ByteLruCache<u64, Payload> =
+            ByteLruCache::build_with_governor(24, None, 1, cache_test_governor(24));
         for k in 0..3 {
             cache.insert(k, Payload(k));
         }
@@ -881,7 +1035,12 @@ mod byte_lru_tests {
         // budget (shard_bytes * shard_count, rounded up).
         let shard_count = 8usize;
         let max_bytes = 8 * 64; // 64 entries' worth, 8 per shard on average.
-        let cache: ByteLruCache<u64, Payload> = ByteLruCache::new_sharded(max_bytes, shard_count);
+        let cache: ByteLruCache<u64, Payload> = ByteLruCache::build_with_governor(
+            max_bytes,
+            None,
+            shard_count,
+            cache_test_governor(max_bytes),
+        );
         for k in 0..64u64 {
             cache.insert(k, Payload(k));
         }
@@ -900,6 +1059,18 @@ mod byte_lru_tests {
 #[cfg(test)]
 mod resource_policy_tests {
     use super::*;
+
+    fn test_governor(budget_bytes: usize) -> MemoryGovernor {
+        let available_bytes = (budget_bytes as u128 * GOVERNOR_BUDGET_DENOMINATOR)
+            .div_ceil(GOVERNOR_BUDGET_NUMERATOR);
+        let availability = MemoryAvailability::from_observation(
+            u64::try_from(available_bytes).expect("test budget has a representable observation"),
+            CgroupMemoryObservation::NotPresent,
+        );
+        let governor = MemoryGovernor::with_detected_availability(availability);
+        assert_eq!(governor.budget_bytes(), budget_bytes);
+        governor
+    }
 
     // ── rows_for_target_bytes ─────────────────────────────────────────────────
 
@@ -1031,7 +1202,7 @@ mod resource_policy_tests {
 
     #[test]
     fn reservations_account_and_release_on_drop() {
-        let governor = MemoryGovernor::with_budget(1_000);
+        let governor = test_governor(1_000);
         assert_eq!(governor.remaining_bytes(), 1_000);
         let first = governor.try_reserve(600, "test-first").expect("fits");
         assert_eq!(governor.reserved_bytes(), 600);
@@ -1047,7 +1218,8 @@ mod resource_policy_tests {
         // Two allocations that each fit alone must not be jointly grantable —
         // this is exactly the independent-budgets failure the ledger exists
         // to prevent.
-        let governor = MemoryGovernor::with_budget(1_000);
+        let governor = test_governor(1_000);
+        let availability = governor.availability();
         let held = governor.try_reserve(600, "test-held").expect("fits alone");
         let refusal = governor
             .try_reserve(600, "test-joint")
@@ -1059,6 +1231,7 @@ mod resource_policy_tests {
                 requested_bytes: 600,
                 reserved_bytes: 600,
                 budget_bytes: 1_000,
+                availability,
             }
         );
         // After releasing the holder, the same request succeeds: refusal is a
@@ -1072,7 +1245,7 @@ mod resource_policy_tests {
 
     #[test]
     fn dense_reservation_uses_checked_footprint() {
-        let governor = MemoryGovernor::with_budget(1 << 20);
+        let governor = test_governor(1 << 20);
         let ok = governor
             .try_reserve_dense_f64(1024, 64, "test-dense")
             .expect("512 KiB fits in 1 MiB");
@@ -1083,16 +1256,15 @@ mod resource_policy_tests {
         governor
             .try_reserve_dense_f64(usize::MAX, 2, "test-overflow")
             .expect_err("overflowing footprint cannot be reserved");
-        let unlimited = MemoryGovernor::with_budget(usize::MAX);
         assert!(matches!(
-            unlimited.try_reserve_dense_f64(usize::MAX, 2, "test-overflow"),
+            governor.try_reserve_dense_f64(usize::MAX, 2, "test-overflow"),
             Err(MemoryReservationError::SizeOverflow { .. })
         ));
     }
 
     #[test]
     fn concurrent_reservations_never_oversubscribe() {
-        let governor = std::sync::Arc::new(MemoryGovernor::with_budget(1_000));
+        let governor = std::sync::Arc::new(test_governor(1_000));
         let granted = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let barrier = std::sync::Arc::new(std::sync::Barrier::new(9));
         std::thread::scope(|scope| {
@@ -1140,7 +1312,7 @@ mod resource_policy_tests {
 
     #[test]
     fn governed_value_holds_and_releases_its_charge() {
-        let governor = MemoryGovernor::with_budget(64);
+        let governor = test_governor(64);
         let governed = governor
             .try_reserve(32, "governed-value")
             .expect("reservation fits")
@@ -1153,10 +1325,201 @@ mod resource_policy_tests {
     }
 
     #[test]
-    fn budget_derivation_honors_zero_and_cgroup_limits() {
-        assert_eq!(governor_budget_from_available(1_000, None), 750);
-        assert_eq!(governor_budget_from_available(1_000, Some(400)), 300);
-        assert_eq!(governor_budget_from_available(1_000, Some(0)), 0);
-        assert_eq!(governor_budget_from_available(0, None), 0);
+    fn memory_availability_distinguishes_host_cgroup_and_exhaustion() {
+        let host_only = MemoryAvailability::from_observation(
+            1_000,
+            CgroupMemoryObservation::NotPresent,
+        );
+        assert_eq!(host_only.available_bytes(), 1_000);
+        assert_eq!(host_only.limiting_source(), MemoryAvailabilitySource::Host);
+        assert_eq!(governor_budget_from_availability(&host_only), 750);
+
+        let exhausted_host =
+            MemoryAvailability::from_observation(0, CgroupMemoryObservation::NotPresent);
+        assert_eq!(exhausted_host.available_bytes(), 0);
+        assert_eq!(governor_budget_from_availability(&exhausted_host), 0);
+
+        let finite_cgroup = MemoryAvailability::from_observation(
+            1_000,
+            CgroupMemoryObservation::V2Limited(CgroupMemoryAvailability::fixture(
+                "/fixture/leaf",
+                600,
+                200,
+                0,
+                1,
+            )),
+        );
+        assert_eq!(finite_cgroup.available_bytes(), 400);
+        assert_eq!(
+            finite_cgroup.limiting_source(),
+            MemoryAvailabilitySource::Cgroup
+        );
+        assert_eq!(governor_budget_from_availability(&finite_cgroup), 300);
+
+        let exhausted_cgroup = MemoryAvailability::from_observation(
+            1_000,
+            CgroupMemoryObservation::V2Limited(CgroupMemoryAvailability::fixture(
+                "/fixture/leaf",
+                600,
+                600,
+                0,
+                1,
+            )),
+        );
+        assert_eq!(exhausted_cgroup.available_bytes(), 0);
+        assert_eq!(
+            exhausted_cgroup.limiting_source(),
+            MemoryAvailabilitySource::Cgroup
+        );
+        assert_eq!(governor_budget_from_availability(&exhausted_cgroup), 0);
+
+        // A finite cgroup with more headroom than the host remains visible as
+        // provenance, but the host is the binding observation.
+        let host_is_tighter = MemoryAvailability::from_observation(
+            1_000,
+            CgroupMemoryObservation::V2Limited(CgroupMemoryAvailability::fixture(
+                "/fixture/leaf",
+                8_000,
+                2_000,
+                0,
+                1,
+            )),
+        );
+        assert_eq!(host_is_tighter.available_bytes(), 1_000);
+        assert_eq!(
+            host_is_tighter.limiting_source(),
+            MemoryAvailabilitySource::Host
+        );
+
+        let equal_cgroup_ceiling = MemoryAvailability::from_observation(
+            1_000,
+            CgroupMemoryObservation::V2Limited(CgroupMemoryAvailability::fixture(
+                "/fixture/leaf",
+                1_200,
+                200,
+                0,
+                1,
+            )),
+        );
+        assert_eq!(equal_cgroup_ceiling.available_bytes(), 1_000);
+        assert_eq!(
+            equal_cgroup_ceiling.limiting_source(),
+            MemoryAvailabilitySource::HostAndCgroup
+        );
+
+        let both_exhausted = MemoryAvailability::from_observation(
+            0,
+            CgroupMemoryObservation::V2Limited(CgroupMemoryAvailability::fixture(
+                "/fixture/leaf",
+                600,
+                600,
+                0,
+                1,
+            )),
+        );
+        assert_eq!(
+            both_exhausted.limiting_source(),
+            MemoryAvailabilitySource::HostAndCgroup
+        );
+
+        // A numeric cgroup-v2 `memory.max = 0` is distinct from the literal
+        // `max` token and remains an authoritative hard-zero ceiling.
+        let zero_ceiling = MemoryAvailability::from_observation(
+            8_000,
+            CgroupMemoryObservation::V2Limited(CgroupMemoryAvailability::fixture(
+                "/fixture/leaf",
+                0,
+                0,
+                0,
+                1,
+            )),
+        );
+        assert_eq!(zero_ceiling.available_bytes(), 0);
+        assert_eq!(
+            zero_ceiling.limiting_source(),
+            MemoryAvailabilitySource::Cgroup
+        );
+        assert_eq!(governor_budget_from_availability(&zero_ceiling), 0);
+    }
+
+    #[test]
+    fn literal_unlimited_cgroup_defers_to_host_available_memory_2317() {
+        let unlimited = MemoryAvailability::from_observation(
+            2_430_926_848,
+            CgroupMemoryObservation::V2Unbounded {
+                cgroup_path: "/fixture/leaf".into(),
+                inspected_levels: 3,
+            },
+        );
+        assert_eq!(unlimited.available_bytes(), 2_430_926_848);
+        assert_eq!(unlimited.limiting_source(), MemoryAvailabilitySource::Host);
+        assert_eq!(
+            governor_budget_from_availability(&unlimited),
+            1_823_195_136
+        );
+        assert!(format!("{unlimited}").contains("unbounded cgroup-v2"));
+    }
+
+    #[test]
+    fn finite_cgroup_v1_headroom_participates_in_the_same_exact_minimum() {
+        let availability = MemoryAvailability::from_observation(
+            8_000,
+            CgroupMemoryObservation::V1Limited(CgroupMemoryAvailability::fixture(
+                "/sys/fs/cgroup/memory/slurm/job",
+                4_000,
+                1_500,
+                500,
+                4,
+            )),
+        );
+        assert_eq!(availability.available_bytes(), 3_000);
+        assert_eq!(
+            availability.limiting_source(),
+            MemoryAvailabilitySource::Cgroup
+        );
+        assert_eq!(governor_budget_from_availability(&availability), 2_250);
+        let evidence = format!("{availability}");
+        assert!(evidence.contains("cgroup-v1"));
+        assert!(evidence.contains("available=3000"));
+    }
+
+    #[test]
+    fn malformed_active_cgroup_fails_closed_with_typed_evidence() {
+        let availability = MemoryAvailability::from_observation(
+            8_000,
+            CgroupMemoryObservation::ProbeFailed(CgroupMemoryProbeFailure::fixture(
+                CgroupMemoryProbeFailureKind::InvalidCounter,
+                "/fixture/leaf/memory.current",
+                "expected an unsigned byte count",
+            )),
+        );
+        assert_eq!(availability.available_bytes(), 0);
+        assert_eq!(
+            availability.limiting_source(),
+            MemoryAvailabilitySource::CgroupProbeFailure
+        );
+        assert_eq!(governor_budget_from_availability(&availability), 0);
+        let evidence = format!("{availability}");
+        assert!(evidence.contains("failed closed"));
+        assert!(evidence.contains("invalid-counter"));
+    }
+
+    #[test]
+    fn compressed_macos_observation_keeps_xnu_available_memory_positive() {
+        // #2316's healthy 8 GiB macOS host had more compressed than
+        // free+inactive pages. sysinfo 0.33 subtracted compressor pages and
+        // saturated to zero; 0.38 follows XNU and reports
+        // (active + inactive + free) * page_size.
+        let xnu_available = (75_514_u64 + 69_056 + 3_802) * 16_384;
+        assert_eq!(xnu_available, 2_430_926_848);
+        let availability = MemoryAvailability::from_observation(
+            xnu_available,
+            CgroupMemoryObservation::NotPresent,
+        );
+        assert_eq!(availability.available_bytes(), xnu_available);
+        assert_eq!(
+            governor_budget_from_availability(&availability),
+            1_823_195_136
+        );
     }
 }

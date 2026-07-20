@@ -9,7 +9,7 @@
 // `gam_solve::*`, basis/term machinery as `gam_terms::*`).
 use gam_terms::basis::{
     BasisError, BasisMetadata, BasisPsiDerivativeResult, BasisPsiSecondDerivativeResult,
-    BasisWorkspace, CenterStrategy, MaternIdentifiability, PenaltyInfo, PenaltySource,
+    BasisWorkspace, CenterStrategy, MaternIdentifiability, PenaltySource,
     build_constant_curvature_basis_kappa_derivatives,
     build_matern_basis_log_kappa_aniso_derivatives, build_matern_basis_log_kappa_derivatives,
     build_matern_collocation_operator_matrices, build_measure_jet_basis_psi_derivatives,
@@ -19,10 +19,11 @@ use gam_terms::basis::{
 
 use gam_custom_family::{
     BlockEffectiveJacobian, BlockGeometryDirectionalDerivative, BlockWorkingSet,
-    BlockwiseFitOptions, CustomFamily, CustomFamilyBlockPsiDerivative, CustomFamilyWarmStart,
-    ExactNewtonOuterObjective, FamilyEvaluation, FamilyLinearizationState, ParameterBlockSpec,
-    ParameterBlockState, PenaltyMatrix, evaluate_custom_family_joint_hyper,
-    evaluate_custom_family_joint_hyper_efs, fit_custom_family,
+    BlockwiseFitOptions, CustomFamily, CustomFamilyBlockPsiDerivative, CustomFamilyOwnedMode,
+    CustomFamilyWarmStart, ExactNewtonOuterObjective, FamilyEvaluation, FamilyLinearizationState,
+    ParameterBlockSpec, ParameterBlockState, PenaltyMatrix,
+    evaluate_custom_family_joint_hyper_efs_owned, evaluate_custom_family_joint_hyper_owned,
+    fit_custom_family, fit_custom_family_fixed_log_lambdas_from_owned_mode,
 };
 
 use gam_solve::estimate::{
@@ -49,16 +50,11 @@ use gam_linalg::faer_ndarray::{fast_ab, fast_atb, fast_atv};
 
 use gam_linalg::matrix::{DesignBlock, DesignMatrix, RandomEffectOperator, SymmetricMatrix};
 
-use gam_problem::{ExactNewtonJointPsiTerms, LinearInequalityConstraints};
+use gam_problem::{ConstraintSet, ExactNewtonJointPsiTerms, LinearInequalityConstraints};
 
 use gam_spec::{
     InverseLink, LatentCLogLogState, LikelihoodSpec, MixtureLinkState, ResponseFamily,
     SasLinkState, StandardLink,
-};
-
-use gam_terms::smooth::input_standardization::{
-    apply_input_standardization, compensate_length_scale_for_standardization,
-    compensate_optional_length_scale_for_standardization,
 };
 
 use gam_terms::smooth::penalty_priors::{

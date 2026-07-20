@@ -1,20 +1,28 @@
 # -*- coding: utf-8 -*-
 import sys
 from contextlib import suppress
+
+import faust
 from sphinx_celery import conf
 
 extensions = []  # set by build_config
 sys.path.append('.')
 
+# Derive the documented version (major.minor) from the installed package, which
+# setuptools_scm resolves from the git tag.  Keeping this dynamic means the
+# published docs always report the real version instead of a hardcoded string
+# that silently goes stale between releases.
+_docs_version = '.'.join(faust.__version__.lstrip('v').split('.')[:2])
+
 globals().update(conf.build_config(
     'faust', __file__,
     project='Faust',
-    version_dev='1.1',
-    version_stable='1.0',
+    version_dev=_docs_version,
+    version_stable=_docs_version,
     canonical_url='https://faust-streaming.github.io/faust',
     webdomain='',
     github_project='faust-streaming/faust',
-    copyright='2017-2020, 2021-2022 Community',
+    copyright='2017-2020, 2021-2026 Community',
     html_logo='images/logo.png',
     html_favicon='images/favicon.ico',
     html_prepend_sidebars=[],
@@ -29,7 +37,7 @@ globals().update(conf.build_config(
     extra_intersphinx_mapping={
         'aiohttp': ('https://aiohttp.readthedocs.io/en/stable/', None),
         'aiokafka': ('https://aiokafka.readthedocs.io/en/stable/', None),
-        'aredis': ('https://aredis.readthedocs.io/en/latest/', None),
+        'redis': ('https://redis.readthedocs.io/en/stable/examples/asyncio_examples.html', None),
         'click': ('https://click.palletsprojects.com/en/7.x/', None),
         'kafka-python': (
             'https://kafka-python.readthedocs.io/en/master/', None),
@@ -54,6 +62,7 @@ globals().update(conf.build_config(
         'faust.cli',
         'faust.models',
         'faust.serializers',
+        'faust.transport.drivers.confluent',
         'faust.types',
         'faust.types._env',
         'faust.utils',

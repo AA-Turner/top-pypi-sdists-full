@@ -172,7 +172,7 @@ pub(crate) fn marginal_slope_hints(config: &FitConfig) -> gam_runtime::resource:
 /// only when both are present and disagree is rejected as a contradiction; when
 /// neither pins `τ`, the median expectile `τ = 0.5` (the ordinary mean fit) is
 /// the default.
-fn expectile_tau_for_config(config: &FitConfig) -> Result<Option<f64>, WorkflowError> {
+pub fn expectile_tau_for_config(config: &FitConfig) -> Result<Option<f64>, WorkflowError> {
     let Some(raw) = config.family.as_deref() else {
         return Ok(None);
     };
@@ -660,8 +660,6 @@ fn constant_gaussian_standard_fit(
         smoothing_correction: None,
         smoothing_correction_method: None,
         penalized_hessian: penalized_hessian_precision.clone(),
-        working_weights: weights.clone(),
-        working_response: working_response.clone(),
         reparam_qs: None,
         // Exact fit ⇒ residual variance is exactly zero.
         dispersion: gam_solve::estimate::Dispersion::ZERO_ESTIMATE,
@@ -678,9 +676,12 @@ fn constant_gaussian_standard_fit(
         bias_correction_jacobian: None,
     };
     let geometry = Some(gam_solve::estimate::FitGeometry {
+        coefficient_gauge: gam_problem::gauge::Gauge::identity(&[beta.len()]),
         penalized_hessian: penalized_hessian_precision,
-        working_weights: weights,
-        working_response,
+        working: Some(gam_solve::estimate::WorkingGeometry {
+            weights,
+            response: working_response,
+        }),
     });
     let fit = gam_solve::estimate::UnifiedFitResult::try_from_parts(
         gam_solve::estimate::UnifiedFitResultParts {
@@ -741,6 +742,7 @@ fn constant_gaussian_standard_fit(
         saved_link_state: gam_solve::estimate::FittedLinkState::Standard(None),
         wiggle_knots: None,
         wiggle_degree: None,
+        wiggle_penalty_metadata: None,
         wiggle_saved_warp_beta: None,
         wiggle_saved_index_shift: None,
     })
@@ -748,6 +750,15 @@ fn constant_gaussian_standard_fit(
 
 fn gaussian_response_is_constant(request: &StandardFitRequest<'_>) -> bool {
     if !request.family.is_gaussian_identity() || request.y.is_empty() {
+        return false;
+    }
+    // An inhomogeneous anchor adds a data-dependent affine channel only when
+    // the term collection is realized. The shortcut predicate intentionally
+    // does not build that design, so it cannot prove `y - user_offset -
+    // anchor_offset` is constant. Keep such models on the ordinary exact fit
+    // path; treating the user offset alone as complete would mint a false
+    // zero-residual fit.
+    if gam_terms::smooth::term_collection_has_nonzero_anchor(&request.spec) {
         return false;
     }
     // The intercept-only shortcut is exact — residual ≡ 0 — precisely when the
@@ -995,14 +1006,22 @@ fn adaptive_spatial_candidates(
         .design
         .ncols()
         .saturating_sub(result.design.smooth.total_smooth_cols());
-    let mut penalty_cursor = result.design.leading_penalty_blocks_before_smooth();
     let mut candidates = Vec::new();
     for term_index in 0..term_count {
         let realized = &result.design.smooth.terms[term_index];
-        let penalty_count = realized.penalties_local.len();
         if result.adaptive_spatial_terms[term_index]
             && let Some(current_centers) = result.adaptive_spatial_center_counts[term_index]
         {
+            let penalty_range = result
+                .design
+                .smooth_term_penalty_range(term_index)
+                .map_err(|reason| WorkflowError::IntegrationFailed { reason })?
+                .ok_or_else(|| WorkflowError::IntegrationFailed {
+                    reason: format!(
+                        "adaptive spatial term '{}' emitted no penalty block",
+                        result.resolvedspec.smooth_terms[term_index].name,
+                    ),
+                })?;
             let spatial_dimension = result.resolvedspec.smooth_terms[term_index]
                 .basis
                 .structural_feature_cols()
@@ -1024,9 +1043,10 @@ fn adaptive_spatial_candidates(
                 .max(current_centers);
             let global_range = (smooth_offset + realized.coeff_range.start)
                 ..(smooth_offset + realized.coeff_range.end);
-            let edf = result
-                .fit
-                .per_term_edf(global_range, penalty_cursor, penalty_count);
+            let edf =
+                result
+                    .fit
+                    .per_term_edf(global_range, penalty_range.start, penalty_range.len());
             let nullspace_dim = realized.wald_unpenalized_dim();
             match adaptive_center_decision(
                 current_centers,
@@ -1058,7 +1078,6 @@ fn adaptive_spatial_candidates(
                 }
             }
         }
-        penalty_cursor = penalty_cursor.saturating_add(penalty_count);
     }
     Ok(AdaptiveSpatialCandidates {
         term_count,
@@ -1249,8 +1268,6 @@ fn fit_expectile_laws(
     config: &FitConfig,
     tau: f64,
 ) -> Result<StandardFitResult, WorkflowError> {
-    use gam_linalg::matrix::LinearOperator;
-
     if config.frailty.is_active() {
         return Err(WorkflowError::InvalidConfig {
             reason: "expectile regression does not support frailty; use a survival/frailty-aware family instead"
@@ -1369,7 +1386,12 @@ fn fit_expectile_laws(
         // offset folded by the design path). The design columns match the
         // combined coefficient vector exactly (the same contract `predict`
         // and the safety tests rely on).
-        let mu = result.design.design.apply(&result.fit.beta);
+        let mu = result
+            .design
+            .apply(result.fit.beta.view())
+            .map_err(|error| WorkflowError::IntegrationFailed {
+                reason: format!("expectile LAWS could not evaluate fitted design: {error}"),
+            })?;
         if mu.len() != n {
             return Err(WorkflowError::IntegrationFailed {
                 reason: format!(
@@ -1378,6 +1400,10 @@ fn fit_expectile_laws(
                 ),
             });
         }
+        // `design.apply` already folds the design's fixed affine channel
+        // (non-zero endpoint anchor, #2297) into `X·β`, so only the user offset
+        // is added; adding `affine_offset` again would double-count the pin and
+        // bias every expectile working weight for an anchored smooth.
         let mut mu_off = mu;
         mu_off += offset.as_ref();
 
@@ -1617,20 +1643,24 @@ pub fn spline_scan_fast_path(request: &StandardFitRequest<'_>) -> Option<SplineS
     Some(SplineScanInputs { x, y, w, order })
 }
 
-/// Formula-level entry for the exact O(n) cubic-smoothing-spline fast path.
+/// Formula-level direct entry for the exact O(n) smoothing-spline scan.
 ///
 /// Materializes the formula exactly like [`fit_from_formula`], then runs the
 /// [`spline_scan_fast_path`] detection on the resulting standard request.
-/// When detection fires the fit is routed through
+/// This public entry point is for library callers that specifically need the
+/// specialized [`gam_solve::spline_scan::SplineScanFit`] rather than the
+/// [`FitResult::SplineScan`] sum-type returned by the canonical workflow. When
+/// detection fires the fit is routed through
 /// [`gam_solve::spline_scan::fit_spline_scan`] — the exact diffuse
 /// REML Kalman/RTS scan — and the full in-memory posterior
 /// ([`gam_solve::spline_scan::SplineScanFit`]: knots, smoothed
 /// states, pointwise variances, lag-one gains, σ², log λ, exact EDF, and an
 /// exact `predict`) is returned. `Ok(None)` means the model is not the
-/// scan-eligible shape and the caller should use the dense
-/// [`fit_from_formula`] path; this keeps every persistence-bearing consumer
-/// (model save, CLI, FFI) transparently on the dense fit, whose saved payload
-/// the scan does not yet have a schema for.
+/// scan-eligible shape; the direct caller then chooses another estimator.
+/// Persistence-bearing workflows do not call this probe: [`fit_from_formula`]
+/// returns [`FitResult::SplineScan`], and the shared
+/// [`crate::inference::model_payload_builders::assemble_spline_scan_payload`]
+/// authority writes the exact scan state for both CLI and FFI consumers.
 pub fn fit_spline_scan_from_formula(
     formula: &str,
     data: &Dataset,
@@ -1920,10 +1950,34 @@ fn family_requests_transformation_normal(family: Option<&str>) -> bool {
         == Some("transformation-normal")
 }
 
+/// Build the design/request geometry for a formula against a dataset. This is the
+/// FIT path: for survival location-scale / latent modes it resolves the baseline
+/// θ via a real inner fit. Use [`materialize_structural`] for formula validation,
+/// which must not fit.
 pub fn materialize<'a>(
     formula: &str,
     data: &'a Dataset,
     config: &FitConfig,
+) -> Result<MaterializedModel<'a>, WorkflowError> {
+    materialize_impl(formula, data, config, false)
+}
+
+/// Structural-only materialization for `validate_formula`: builds the same
+/// request geometry/metadata but skips every inner fit (notably the survival
+/// baseline-θ resolution), honoring validation's "without fitting" contract.
+pub fn materialize_structural<'a>(
+    formula: &str,
+    data: &'a Dataset,
+    config: &FitConfig,
+) -> Result<MaterializedModel<'a>, WorkflowError> {
+    materialize_impl(formula, data, config, true)
+}
+
+fn materialize_impl<'a>(
+    formula: &str,
+    data: &'a Dataset,
+    config: &FitConfig,
+    structural_only: bool,
 ) -> Result<MaterializedModel<'a>, WorkflowError> {
     let config = config
         .clone()
@@ -1975,6 +2029,7 @@ pub fn materialize<'a>(
             &left_col,
             &event_col,
             Some(&right_col),
+            structural_only,
         )
     } else if let Some((entry_col, exit_col, event_col)) = parse_surv_response(&parsed.response)? {
         if effective_config.transformation_normal {
@@ -1996,6 +2051,7 @@ pub fn materialize<'a>(
             &exit_col,
             &event_col,
             None,
+            structural_only,
         )
     } else {
         // Non-survival response: `timewiggle(...)` and `survmodel(...)` are

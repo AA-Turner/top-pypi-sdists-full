@@ -2,8 +2,8 @@
 //!
 //! The production cache builder requests exactly the order-2 channels
 //! `(value, gradient[4], Hessian[4][4])`. Large admitted batches execute the
-//! order-2 CUDA lowering of
-//! [`crate::survival::marginal_slope::row_kernel::rigid_row_nll`]; smaller or
+//! order-2 CUDA lowering of the canonical five-feature row program followed by
+//! its mechanical four-primary pullback; smaller or
 //! unavailable-device batches use the ordinary per-row cache path. Contracted
 //! third/fourth derivatives have separate live CPU consumers whose directions
 //! vary by row and are intentionally not part of this batch API.
@@ -12,6 +12,13 @@
 //! disables FMA contraction for close agreement with separately rounded host
 //! arithmetic. Direct device tests cover both ordinary and probability-tail
 //! rows against the CPU row program.
+
+#[cfg(target_os = "linux")]
+use crate::survival::marginal_slope::RIGID_FEATURE_PROGRAM_CUDA_VGH;
+#[cfg(target_os = "linux")]
+use cudarc::nvrtc::Ptx;
+#[cfg(target_os = "linux")]
+use gam_gpu::gpu_error::GpuError;
 
 /// Flattened row-major value, gradient, and Hessian channels for `K = 4`.
 #[cfg(target_os = "linux")]
@@ -37,10 +44,19 @@ pub(crate) struct SurvivalRowInputs {
 const DEVICE_ROW_THRESHOLD: usize = 100_000;
 
 /// Whether this batch is admitted to the production CUDA V/G/H path.
+///
+/// Admission is a capability decision made before execution, not an
+/// operating-system guess. A large CPU-only Linux fit therefore stays on the
+/// ordinary row-kernel schedule; once a real device is admitted, subsequent
+/// compile/launch failures remain errors and are never hidden by a retry.
 #[inline]
-#[must_use]
-pub(crate) const fn survival_rigid_row_vgh_device_selected(n_rows: usize) -> bool {
-    cfg!(target_os = "linux") && n_rows >= DEVICE_ROW_THRESHOLD
+pub(crate) fn survival_rigid_row_vgh_device_selected(n_rows: usize) -> Result<bool, String> {
+    if n_rows < DEVICE_ROW_THRESHOLD {
+        return Ok(false);
+    }
+    gam_gpu::device_runtime::GpuRuntime::resolve(gam_gpu::global_policy())
+        .map(|runtime| runtime.is_some())
+        .map_err(String::from)
 }
 
 /// Execute an already-admitted production V/G/H batch on CUDA.
@@ -50,21 +66,124 @@ pub(crate) fn survival_rigid_row_vgh(
     rows: &[SurvivalRowInputs],
     probit_scale: f64,
 ) -> Result<SurvivalRowVghChannels, String> {
-    assert!(
-        survival_rigid_row_vgh_device_selected(rows.len()),
-        "survival VGH CUDA execution requires an admitted batch",
-    );
+    gam_gpu::device_runtime::GpuRuntime::require()
+        .map_err(|error| format!("survival VGH CUDA execution requires a device: {error}"))?;
     device::survival_rigid_row_vgh_device(rows, probit_scale)
         .map_err(|error| format!("survival VGH device execution failed: {error}"))
 }
 
-/// Order-2 CUDA lowering for the four rigid survival primaries.
+/// CUDA substrate for the four rigid survival primaries. The stable primitive
+/// leaves and launch plumbing live here; the algebraic row schedule and its
+/// nonzero value/gradient/packed-Hessian expressions are generated from the
+/// canonical Rust declaration.
 #[cfg(target_os = "linux")]
-const SURVIVAL_ROWJET_SOURCE: &str = include_str!("survival_rowjet_kernel.cu");
+const SURVIVAL_ROWJET_TEMPLATE: &str = include_str!("survival_rowjet_kernel.cu");
+
+#[cfg(target_os = "linux")]
+const ROW_PROGRAM_MARKER: &str = "// __GAM_ROW_PROGRAM_CUDA_VGH__";
+
+/// Mechanical `(q0,q1,qd1,g) -> (q0,q1,qd1,L,V)` order-two pullback for the
+/// generated CUDA feature evaluator. This contains only the feature map and
+/// chain rule; the likelihood expression exists solely in the row program.
+#[cfg(target_os = "linux")]
+const RIGID_FEATURE_PROGRAM_PULLBACK4_CUDA: &str = r#"
+__device__ __forceinline__ void rigid_feature_program_pullback4(
+        double q0,
+        double q1,
+        double qd1,
+        double g,
+        const RowIn& in,
+        double* row_value,
+        double* row_gradient,
+        double* row_hessian) {
+    const double observed_g = in.probit_scale * g;
+    const double linear = observed_g * in.z_sum;
+    const double variance = (g * g) * in.covariance_ones;
+    double feature_gradient[5];
+    double feature_hessian[25];
+    rigid_feature_program(
+        q0,
+        q1,
+        qd1,
+        linear,
+        variance,
+        in,
+        row_value,
+        feature_gradient,
+        feature_hessian);
+
+    const double d_linear = in.probit_scale * in.z_sum;
+    const double d_variance = 2.0 * g * in.covariance_ones;
+    const double d2_variance = 2.0 * in.covariance_ones;
+    row_gradient[0] = feature_gradient[0];
+    row_gradient[1] = feature_gradient[1];
+    row_gradient[2] = feature_gradient[2];
+    row_gradient[3] = feature_gradient[3] * d_linear
+        + feature_gradient[4] * d_variance;
+
+    row_hessian[0] = feature_hessian[0];
+    row_hessian[1] = feature_hessian[1];
+    row_hessian[4] = feature_hessian[5];
+    row_hessian[2] = feature_hessian[2];
+    row_hessian[8] = feature_hessian[10];
+    row_hessian[5] = feature_hessian[6];
+    row_hessian[6] = feature_hessian[7];
+    row_hessian[9] = feature_hessian[11];
+    row_hessian[10] = feature_hessian[12];
+
+    const double h0g = feature_hessian[3] * d_linear
+        + feature_hessian[4] * d_variance;
+    const double h1g = feature_hessian[8] * d_linear
+        + feature_hessian[9] * d_variance;
+    const double h2g = feature_hessian[13] * d_linear
+        + feature_hessian[14] * d_variance;
+    row_hessian[3] = h0g;
+    row_hessian[12] = h0g;
+    row_hessian[7] = h1g;
+    row_hessian[13] = h1g;
+    row_hessian[11] = h2g;
+    row_hessian[14] = h2g;
+    row_hessian[15] = feature_hessian[18] * d_linear * d_linear
+        + 2.0 * feature_hessian[19] * d_linear * d_variance
+        + feature_hessian[24] * d_variance * d_variance
+        + feature_gradient[4] * d2_variance;
+}
+"#;
+
+#[cfg(target_os = "linux")]
+fn survival_rowjet_source() -> &'static str {
+    static SOURCE: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    SOURCE.get_or_init(|| {
+        let (preamble, kernel) = SURVIVAL_ROWJET_TEMPLATE
+            .split_once(ROW_PROGRAM_MARKER)
+            .expect("survival rowjet CUDA template must contain the row-program marker");
+        assert!(
+            !kernel.contains(ROW_PROGRAM_MARKER),
+            "survival rowjet CUDA template must contain exactly one row-program marker",
+        );
+        let mut source = String::with_capacity(
+            preamble.len()
+                + RIGID_FEATURE_PROGRAM_CUDA_VGH.len()
+                + RIGID_FEATURE_PROGRAM_PULLBACK4_CUDA.len()
+                + kernel.len(),
+        );
+        source.push_str(preamble);
+        source.push_str(RIGID_FEATURE_PROGRAM_CUDA_VGH);
+        source.push_str(RIGID_FEATURE_PROGRAM_PULLBACK4_CUDA);
+        source.push_str(kernel);
+        source
+    })
+}
+
+/// Compile the exact CUDA source used by the production survival V/G/H module.
+#[cfg(target_os = "linux")]
+pub fn compile_survival_rowjet_ptx() -> Result<Ptx, GpuError> {
+    gam_gpu::device_cache::compile_ptx_arch(survival_rowjet_source())
+}
 
 #[cfg(target_os = "linux")]
 mod device {
-    use super::{SURVIVAL_ROWJET_SOURCE, SurvivalRowInputs, SurvivalRowVghChannels};
+    use super::{SurvivalRowInputs, SurvivalRowVghChannels, compile_survival_rowjet_ptx};
     use gam_gpu::gpu_error::{GpuError, GpuResultExt};
     use std::sync::{Arc, Mutex, OnceLock};
 
@@ -99,7 +218,7 @@ mod device {
         }
         // The shared compiler pins the real device architecture and disables
         // FMA contraction for close parity with separately rounded host ops.
-        let ptx = gam_gpu::device_cache::compile_ptx_arch(SURVIVAL_ROWJET_SOURCE)
+        let ptx = compile_survival_rowjet_ptx()
             .gpu_ctx_with(|error| format!("survival_rowjet NVRTC compile: {error}"))?;
         let module = backend
             .ctx
@@ -228,6 +347,18 @@ mod device {
 mod tests {
     use super::*;
     use crate::survival::marginal_slope::row_kernel::RigidRowInputs;
+    use gam_math::nested_dual::JetField;
+
+    fn cuda_runtime_for_test(test_name: &str) -> Option<&'static gam_gpu::device_runtime::GpuRuntime> {
+        match gam_gpu::device_runtime::GpuRuntime::resolve(gam_gpu::GpuPolicy::Auto) {
+            Ok(Some(runtime)) => Some(runtime),
+            Ok(None) => {
+                eprintln!("[{test_name}] no CUDA device — skipping");
+                None
+            }
+            Err(error) => panic!("[{test_name}] CUDA probe failed: {error}"),
+        }
+    }
 
     #[inline]
     fn rigid_cpu_row_inputs(
@@ -253,10 +384,7 @@ mod tests {
         rows: &[SurvivalRowInputs],
         probit_scale: f64,
     ) -> SurvivalRowVghChannels {
-        use crate::survival::marginal_slope::row_kernel::{
-            RIGID_LINEAR_MASK, SparseOrder2, rigid_row_nll,
-        };
-        use gam_math::jet_scalar::JetScalar;
+        use crate::survival::marginal_slope::row_kernel::rigid_row_order2;
 
         let n = rows.len();
         let mut value = vec![0.0_f64; n];
@@ -265,12 +393,9 @@ mod tests {
         for (row, input) in rows.iter().enumerate() {
             let in_row = rigid_cpu_row_inputs(row, input, probit_scale);
             let p = input.primaries;
-            let vars: [SparseOrder2<RIGID_LINEAR_MASK>; 4] =
-                std::array::from_fn(|axis| SparseOrder2::variable(p[axis], axis));
-            if let Ok(out) = rigid_row_nll(&vars, &in_row) {
-                value[row] = out.value();
-                grad[row * 4..row * 4 + 4].copy_from_slice(&out.g());
-                let row_hessian = out.h();
+            if let Ok((row_value, row_gradient, row_hessian)) = rigid_row_order2(&p, &in_row) {
+                value[row] = row_value;
+                grad[row * 4..row * 4 + 4].copy_from_slice(&row_gradient);
                 for a in 0..4 {
                     hess[row * 16 + a * 4..row * 16 + a * 4 + 4].copy_from_slice(&row_hessian[a]);
                 }
@@ -362,48 +487,52 @@ mod tests {
     #[cfg(target_os = "linux")]
     fn assert_channel_parity(name: &str, cpu: &[f64], device: &[f64]) {
         assert_eq!(cpu.len(), device.len(), "{name} channel length");
-        let scale = cpu
-            .iter()
-            .fold(0.0_f64, |current, value| current.max(value.abs()));
-        let tolerance = PARITY_ABS_TOLERANCE + PARITY_REL_TOLERANCE * scale;
-        let (worst_index, worst) = cpu
-            .iter()
-            .zip(device)
-            .enumerate()
-            .map(|(index, (left, right))| (index, (left - right).abs()))
-            .max_by(|left, right| left.1.total_cmp(&right.1))
-            .unwrap_or((0, 0.0));
-        assert!(
-            worst <= tolerance,
-            "survival VGH {name} device drift {worst:.3e} at {worst_index} exceeds \
-             {tolerance:.3e} (scale {scale:.3e})",
-        );
+        for (index, (&left, &right)) in cpu.iter().zip(device).enumerate() {
+            let same_nonfinite = left == right && left.is_infinite();
+            let scale = left.abs().max(right.abs());
+            let tolerance = PARITY_ABS_TOLERANCE + PARITY_REL_TOLERANCE * scale;
+            assert!(
+                same_nonfinite
+                    || (left.is_finite() && right.is_finite() && (left - right).abs() <= tolerance),
+                "survival VGH {name}[{index}] device drift: cpu={left:+.16e}, \
+                 device={right:+.16e}, tolerance={tolerance:.3e}",
+            );
+        }
     }
 
     #[cfg(target_os = "linux")]
     #[test]
     fn admitted_dispatch_and_device_path_match_cpu_vgh() {
         let rows = fixture(DEVICE_ROW_THRESHOLD + 1024);
+        if cuda_runtime_for_test("admitted_dispatch_and_device_path_match_cpu_vgh").is_none() {
+            assert!(
+                !survival_rigid_row_vgh_device_selected(rows.len())
+                    .expect("configured GPU resolution must remain lossless"),
+                "CPU-only Linux must not admit the CUDA row path",
+            );
+            return;
+        }
+        assert!(
+            survival_rigid_row_vgh_device_selected(rows.len())
+                .expect("configured GPU resolution must remain lossless")
+        );
         let cpu = survival_rigid_row_vgh_cpu(&rows, 0.7);
         let dispatched = survival_rigid_row_vgh(&rows, 0.7).expect("admitted CUDA VGH batch");
         assert_channel_parity("dispatched value", &cpu.value, &dispatched.value);
         assert_channel_parity("dispatched gradient", &cpu.grad, &dispatched.grad);
         assert_channel_parity("dispatched Hessian", &cpu.hess, &dispatched.hess);
 
-        if gam_gpu::device_runtime::GpuRuntime::global().is_some() {
-            let device = survival_rigid_row_vgh_device_only(&rows, 0.7)
-                .expect("CUDA runtime present but survival VGH device path failed");
-            assert_channel_parity("device value", &cpu.value, &device.value);
-            assert_channel_parity("device gradient", &cpu.grad, &device.grad);
-            assert_channel_parity("device Hessian", &cpu.hess, &device.hess);
-        }
+        let device = survival_rigid_row_vgh_device_only(&rows, 0.7)
+            .expect("CUDA runtime present but survival VGH device path failed");
+        assert_channel_parity("device value", &cpu.value, &device.value);
+        assert_channel_parity("device gradient", &cpu.grad, &device.grad);
+        assert_channel_parity("device Hessian", &cpu.hess, &device.hess);
     }
 
     #[cfg(target_os = "linux")]
     #[test]
     fn device_only_vgh_matches_cpu_in_edge_regimes() {
-        if gam_gpu::device_runtime::GpuRuntime::global().is_none() {
-            eprintln!("CUDA runtime unavailable; skipping direct survival VGH device parity");
+        if cuda_runtime_for_test("device_only_vgh_matches_cpu_in_edge_regimes").is_none() {
             return;
         }
         let rows = edge_fixture();
@@ -425,18 +554,23 @@ mod tests {
     fn measure_device_vgh_end_to_end_932() {
         use std::time::{Duration, Instant};
 
-        if gam_gpu::device_runtime::GpuRuntime::global().is_none() {
-            eprintln!("CUDA runtime unavailable; skipping survival VGH throughput measurement");
+        if cuda_runtime_for_test("measure_device_vgh_end_to_end_932").is_none() {
             return;
         }
         const ROWS: usize = 1_000_000;
-        let rows = fixture(ROWS);
+        let rows = fixture(ROWS)
+            .into_iter()
+            .map(|mut row| {
+                row.cov_ones = 1.0;
+                row
+            })
+            .collect::<Vec<_>>();
         let warm =
             survival_rigid_row_vgh_device_only(&rows, 0.7).expect("warm survival VGH device call");
 
-        let cpu_start = Instant::now();
-        let cpu = survival_rigid_row_vgh_cpu(&rows, 0.7);
-        let cpu_elapsed = cpu_start.elapsed();
+        let canonical_start = Instant::now();
+        let canonical = survival_rigid_row_vgh_cpu(&rows, 0.7);
+        let canonical_elapsed = canonical_start.elapsed();
 
         let mut best_elapsed = Duration::MAX;
         let mut best_device = warm;
@@ -452,37 +586,59 @@ mod tests {
             }
         }
 
-        assert_channel_parity("measured value", &cpu.value, &best_device.value);
-        assert_channel_parity("measured gradient", &cpu.grad, &best_device.grad);
-        assert_channel_parity("measured Hessian", &cpu.hess, &best_device.hess);
-        let cpu_ns = cpu_elapsed.as_secs_f64() * 1e9 / ROWS as f64;
+        assert_channel_parity("measured value", &canonical.value, &best_device.value);
+        assert_channel_parity("measured gradient", &canonical.grad, &best_device.grad);
+        assert_channel_parity("measured Hessian", &canonical.hess, &best_device.hess);
+        let canonical_ns = canonical_elapsed.as_secs_f64() * 1e9 / ROWS as f64;
         let device_ns = best_elapsed.as_secs_f64() * 1e9 / ROWS as f64;
         eprintln!(
-            "SURVIVAL-VGH-CUDA-932 rows={ROWS} cpu={cpu_ns:.2} ns/row device-e2e={device_ns:.2} ns/row speedup={:.2}x",
-            cpu_ns / device_ns,
+            "SURVIVAL-VGH-CUDA-932 rows={ROWS} canonical-cpu={canonical_ns:.2} ns/row device-e2e={device_ns:.2} ns/row device/canonical={:.3}x",
+            device_ns / canonical_ns,
         );
-        assert!(cpu_ns.is_finite() && device_ns.is_finite() && device_ns > 0.0);
+        assert!(
+            canonical_ns.is_finite()
+                && device_ns.is_finite()
+                && canonical_ns > 0.0
+                && device_ns > 0.0
+        );
     }
 
     #[cfg(target_os = "linux")]
     #[test]
     fn cuda_source_exports_only_the_production_vgh_kernel() {
-        assert!(SURVIVAL_ROWJET_SOURCE.contains("survival_rowjet_vgh"));
+        let source = survival_rowjet_source();
         assert_eq!(
-            SURVIVAL_ROWJET_SOURCE
-                .matches("extern \"C\" __global__")
-                .count(),
-            1,
+            SURVIVAL_ROWJET_TEMPLATE.matches(ROW_PROGRAM_MARKER).count(),
+            1
         );
+        assert!(!SURVIVAL_ROWJET_TEMPLATE.contains("struct J2"));
+        assert!(RIGID_FEATURE_PROGRAM_CUDA_VGH.contains("void rigid_feature_program"));
+        assert!(
+            RIGID_FEATURE_PROGRAM_PULLBACK4_CUDA.contains("void rigid_feature_program_pullback4")
+        );
+        assert!(RIGID_FEATURE_PROGRAM_PULLBACK4_CUDA.contains("rigid_feature_program("));
+        assert!(!RIGID_FEATURE_PROGRAM_PULLBACK4_CUDA.contains("neglog_phi"));
+        assert!(!RIGID_FEATURE_PROGRAM_PULLBACK4_CUDA.contains("log_normal_pdf"));
+        assert!(!RIGID_FEATURE_PROGRAM_PULLBACK4_CUDA.contains("d_sqrt"));
+        assert!(!RIGID_FEATURE_PROGRAM_CUDA_VGH.contains("j2_"));
+        assert!(!RIGID_FEATURE_PROGRAM_CUDA_VGH.contains("* 0.0"));
+        assert!(!RIGID_FEATURE_PROGRAM_CUDA_VGH.contains("0.0 *"));
+        assert!(source.contains("survival_rowjet_vgh"));
+        assert_eq!(source.matches("void rigid_feature_program(").count(), 1);
+        assert!(!source.contains(concat!("rigid_row_", "program")));
+        assert_eq!(source.matches("extern \"C\" __global__").count(), 1,);
         for removed in [
             "survival_rowjet_no_t4",
             "struct JS1",
             "struct JS2",
+            "struct J2",
+            "j2_",
+            "nll_j2",
             "nll_js1",
             "nll_js2",
         ] {
             assert!(
-                !SURVIVAL_ROWJET_SOURCE.contains(removed),
+                !source.contains(removed),
                 "dead CUDA surface reintroduced: {removed}",
             );
         }

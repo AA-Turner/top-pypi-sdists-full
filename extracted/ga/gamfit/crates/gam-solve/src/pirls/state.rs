@@ -87,6 +87,9 @@ pub struct WorkingState {
     pub eta: LinearPredictor,
     pub gradient: Array1<f64>,
     pub hessian: gam_linalg::matrix::SymmetricMatrix,
+    /// Inner data log-kernel. A profiled Gaussian stores exactly `-D/2` for
+    /// conventional deviance `D`; likelihoods with a resolved physical scale
+    /// store the strict eta-space log-likelihood omitting response constants.
     pub log_likelihood: f64,
     pub deviance: f64,
     pub penalty_term: f64,
@@ -239,9 +242,9 @@ pub struct WorkingModelPirlsResult {
     /// predicted reduction and the inner Newton may benefit from
     /// shorter steps.
     pub final_accept_rho: Option<f64>,
-    /// Minimum penalized deviance (`state.deviance + state.penalty_term`)
+    /// Minimum penalized objective (`½(state.deviance + state.penalty_term)`)
     /// observed across all iterations whose state was computed during the
-    /// inner P-IRLS loop. Penalized deviance is monotonically decreasing
+    /// inner P-IRLS loop. The penalized objective is monotonically decreasing
     /// along any descent path the inner solver takes, so this minimum is a
     /// principled seed-screening proxy that remains meaningful even when the
     /// solver hit its iteration cap before reaching the mode. `f64::INFINITY`
@@ -436,11 +439,11 @@ pub struct PirlsResult {
     /// records (see `WorkingState::gradient`, assembled as `Xᵀ(η−z)·w + Sβ`,
     /// which equals `Sβ − ∇ℓ` because `Xᵀ(η−z)·w = −∇ℓ`). Storing the vector —
     /// not just its norm — lets the outer REML/LAML evaluator engage the
-    /// inner-KKT envelope correction `Ṽ = V − ½·rᵀH⁻¹r` on the flexible-link
-    /// (SAS/mixture) path, where the outer optimizer accepts β̂ at a first-order
-    /// inner cap (`outer_inner_cap`) short of exact stationarity. The correction
-    /// and its θ-gradient vanish as `r → 0`, so a fully-converged fit is
-    /// unchanged. See [`crate::model_types::ProjectedKktResidual`].
+    /// inner-KKT envelope correction `Ṽ = V − ½·rᵀH⁻¹r` on design-moving
+    /// flexible-link and ψ/anisotropy paths, where the outer optimizer may
+    /// accept β̂ at a first-order inner cap short of exact stationarity. The
+    /// correction and its θ-gradient vanish as `r → 0`, so a fully-converged
+    /// fit is unchanged. See [`crate::model_types::ProjectedKktResidual`].
     pub penalized_gradient_transformed: Array1<f64>,
     pub last_deviance_change: f64,
     pub last_step_halving: usize,
@@ -476,9 +479,9 @@ pub struct PirlsResult {
     /// cold artifacts (for example `x_transformed`) rehydrated before exact
     /// bundle construction.
     pub cache_compacted: bool,
-    /// Minimum penalized deviance observed across the inner P-IRLS loop.
+    /// Minimum penalized objective observed across the inner P-IRLS loop.
     /// Mirrors `WorkingModelPirlsResult::min_penalized_deviance`. Used as the
-    /// seed-screening ranking proxy: penalized deviance descends monotonically
+    /// seed-screening ranking proxy: the penalized objective descends monotonically
     /// along any inner descent path, so the per-seed minimum tells the outer
     /// cascade "how good a fit this rho's neighbourhood can support" even
     /// when the inner solver was capped before reaching the mode.

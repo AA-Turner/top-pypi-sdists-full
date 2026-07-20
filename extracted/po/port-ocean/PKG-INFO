@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: port-ocean
-Version: 0.45.3
+Version: 0.45.4
 Summary: Port Ocean is a CLI tool for managing your Port projects.
 Home-page: https://app.getport.io
 Keywords: ocean,port-ocean,port
@@ -27,7 +27,7 @@ Requires-Dist: aiostream (>=0.5.2,<0.7.0)
 Requires-Dist: click (>=8.1.3,<9.0.0) ; extra == "cli"
 Requires-Dist: confluent-kafka (>=2.10.1,<3.0.0)
 Requires-Dist: cookiecutter (>=2.1.1,<3.0.0) ; extra == "cli"
-Requires-Dist: cryptography (>=46.0.7,<47.0.0)
+Requires-Dist: cryptography (>=49.0.0,<50.0.0)
 Requires-Dist: fastapi (>=0.133.0,<0.134.0)
 Requires-Dist: filelock (>=3.20.1,<4.0.0)
 Requires-Dist: httpx (>=0.28.1,<0.29.0)
@@ -44,7 +44,7 @@ Requires-Dist: psutil (>=7.2.1,<8.0.0)
 Requires-Dist: pydantic[dotenv] (>=2.13.4,<3.0.0)
 Requires-Dist: pydispatcher (>=2.0.7,<3.0.0)
 Requires-Dist: pyhumps (>=3.8.0,<4.0.0)
-Requires-Dist: pyjwt (>=2.12.0,<3.0.0)
+Requires-Dist: pyjwt (>=2.13.0,<3.0.0)
 Requires-Dist: pytest-cov (>=6,<8)
 Requires-Dist: python-dateutil (>=2.9.0.post0,<3.0.0)
 Requires-Dist: python-dotenv (>=1.2.2,<2.0.0)

@@ -314,21 +314,104 @@ impl GaussianLocationScaleWiggleFamily {
 /// `_from_designs` assemblies. Holds exactly the quantities both consumers
 /// read downstream of the (identical) coefficient computation.
 pub(crate) struct GlsWiggleSecondDirCoeffs {
+    pub(crate) objective_uv: Array1<f64>,
+    pub(crate) coeff_mm_base: Array1<f64>,
+    pub(crate) coeff_mm_u: Array1<f64>,
+    pub(crate) coeff_mm_v: Array1<f64>,
     pub(crate) coeff_mm_uv: Array1<f64>,
+    pub(crate) coeff_ml_base: Array1<f64>,
+    pub(crate) coeff_ml_u: Array1<f64>,
+    pub(crate) coeff_ml_v: Array1<f64>,
     pub(crate) coeff_ml_uv: Array1<f64>,
+    pub(crate) coeff_ll_base: Array1<f64>,
+    pub(crate) coeff_ll_u: Array1<f64>,
+    pub(crate) coeff_ll_v: Array1<f64>,
     pub(crate) coeff_ll_uv: Array1<f64>,
+    pub(crate) mean_wiggle_base: Array1<f64>,
     pub(crate) a_u: Array1<f64>,
     pub(crate) a_v: Array1<f64>,
     pub(crate) a_uv: Array1<f64>,
     pub(crate) c_u: Array1<f64>,
     pub(crate) c_v: Array1<f64>,
     pub(crate) c_uv: Array1<f64>,
+    pub(crate) gradient_ls_base: Array1<f64>,
+    pub(crate) gradient_ls_u: Array1<f64>,
+    pub(crate) gradient_ls_v: Array1<f64>,
+    pub(crate) gradient_ls_uv: Array1<f64>,
     pub(crate) l_u: Array1<f64>,
     pub(crate) l_v: Array1<f64>,
     pub(crate) l_uv: Array1<f64>,
-    pub(crate) dw_u: Array1<f64>,
-    pub(crate) dw_v: Array1<f64>,
-    pub(crate) dw_uv: Array1<f64>,
+    pub(crate) hessian_mm_base: Array1<f64>,
+    pub(crate) gradient_mu_base: Array1<f64>,
+    pub(crate) hessian_ml_base: Array1<f64>,
+    pub(crate) hessian_mm_u: Array1<f64>,
+    pub(crate) hessian_mm_v: Array1<f64>,
+    pub(crate) hessian_mm_uv: Array1<f64>,
+}
+
+pub(crate) struct GlsWiggleFirstDirCoeffs {
+    pub(crate) coeff_mm_base: Array1<f64>,
+    pub(crate) coeff_ml_base: Array1<f64>,
+    pub(crate) coeff_ll_base: Array1<f64>,
+    pub(crate) coeff_mm_u: Array1<f64>,
+    pub(crate) coeff_ml_u: Array1<f64>,
+    pub(crate) coeff_ll_u: Array1<f64>,
+    pub(crate) mean_wiggle_u: Array1<f64>,
+    pub(crate) gradient_mu_u: Array1<f64>,
+    pub(crate) scale_wiggle_u: Array1<f64>,
+    pub(crate) mean_wiggle_base: Array1<f64>,
+    pub(crate) gradient_mu_base: Array1<f64>,
+    pub(crate) gradient_ls_base: Array1<f64>,
+    pub(crate) gradient_ls_u: Array1<f64>,
+    pub(crate) scale_wiggle_base: Array1<f64>,
+    pub(crate) hessian_mm_base: Array1<f64>,
+    pub(crate) hessian_mm_u: Array1<f64>,
+}
+
+pub(crate) fn gls_wiggle_first_directional_coeffs(
+    rows: &GaussianJointRowScalars,
+    geom: &GaussianLocationScaleWiggleGeometry,
+    q_u: &Array1<f64>,
+    zeta_u: &Array1<f64>,
+    s1_u: &Array1<f64>,
+    g2_u: &Array1<f64>,
+) -> GlsWiggleFirstDirCoeffs {
+    let tower = gaussian_row_first_tower(rows, q_u, zeta_u);
+    let base = &tower.base;
+    let first = &tower.first;
+    let d = &geom.dq_dq0;
+    let coeff_mm_base =
+        &base.hessian_mm * &d.mapv(|value| value * value) + &base.gradient_mu * &geom.d2q_dq02;
+    let coeff_ml_base = &base.hessian_ml * d;
+    let coeff_ll_base = base.hessian_ll.clone();
+    let coeff_mm_u = &first.hessian_mm * &d.mapv(|value| value * value)
+        + &(2.0 * &base.hessian_mm * d * s1_u)
+        + &(&first.gradient_mu * &geom.d2q_dq02)
+        + &(&base.gradient_mu * g2_u);
+    let coeff_ml_u = &first.hessian_ml * d + &base.hessian_ml * s1_u;
+    let coeff_ll_u = first.hessian_ll.clone();
+    let mean_wiggle_u = &first.hessian_mm * d + &base.hessian_mm * s1_u;
+    let gradient_mu_u = first.gradient_mu.clone();
+    let scale_wiggle_u = first.hessian_ml.clone();
+    let mean_wiggle_base = &base.hessian_mm * d;
+    GlsWiggleFirstDirCoeffs {
+        coeff_mm_base,
+        coeff_ml_base,
+        coeff_ll_base,
+        coeff_mm_u,
+        coeff_ml_u,
+        coeff_ll_u,
+        mean_wiggle_u,
+        gradient_mu_u,
+        scale_wiggle_u,
+        mean_wiggle_base,
+        gradient_mu_base: base.gradient_mu.clone(),
+        gradient_ls_base: base.gradient_ls.clone(),
+        gradient_ls_u: first.gradient_ls.clone(),
+        scale_wiggle_base: base.hessian_ml.clone(),
+        hessian_mm_base: base.hessian_mm.clone(),
+        hessian_mm_u: first.hessian_mm.clone(),
+    }
 }
 
 /// The two probe directions resolved to row space for the GLS Wiggle joint
@@ -337,6 +420,7 @@ pub(crate) struct GlsWiggleSecondDirCoeffs {
 pub(crate) struct GlsWiggleDirPieces<'a> {
     pub(crate) zeta_u: &'a Array1<f64>,
     pub(crate) zeta_v: &'a Array1<f64>,
+    pub(crate) zeta_uv: &'a Array1<f64>,
     pub(crate) q_u: &'a Array1<f64>,
     pub(crate) q_v: &'a Array1<f64>,
     pub(crate) q_uv: &'a Array1<f64>,
@@ -358,6 +442,7 @@ pub(crate) fn gls_wiggle_second_directional_coeffs(
     let GlsWiggleDirPieces {
         zeta_u,
         zeta_v,
+        zeta_uv,
         q_u,
         q_v,
         q_uv,
@@ -368,91 +453,96 @@ pub(crate) fn gls_wiggle_second_directional_coeffs(
         g2_v,
         g2_uv,
     } = *dir;
-    let szeta_u = &rows.kappa * zeta_u;
-    let szeta_v = &rows.kappa * zeta_v;
-    let zeta_u_zeta_v = zeta_u * zeta_v;
-    let dw_u = -2.0 * &rows.w * &szeta_u;
-    let dw_v = -2.0 * &rows.w * &szeta_v;
-    let dw_uv =
-        4.0 * &rows.w * &(&szeta_u * &szeta_v) - 2.0 * &rows.w * &rows.kappa_prime * &zeta_u_zeta_v;
-    let dm_u = -(&rows.w * q_u) - &(2.0 * &rows.m * &szeta_u);
-    let dm_v = -(&rows.w * q_v) - &(2.0 * &rows.m * &szeta_v);
-    let dm_uv = &(2.0 * &rows.w * &(q_u * &szeta_v + q_v * &szeta_u)) - &(&rows.w * q_uv)
-        + &(4.0 * &rows.m * &(&szeta_u * &szeta_v))
-        - 2.0 * &rows.m * &rows.kappa_prime * &zeta_u_zeta_v;
-    let coeff_mm_uv = &(&dw_uv * &geom.dq_dq0.mapv(|v| v * v))
-        + &(2.0 * &dw_u * &geom.dq_dq0 * s1_v)
-        + &(2.0 * &dw_v * &geom.dq_dq0 * s1_u)
-        + &(2.0 * &rows.w * s1_u * s1_v)
-        + &(2.0 * &rows.w * &geom.dq_dq0 * s1_uv)
-        - &(&dm_uv * &geom.d2q_dq02)
-        - &(&dm_u * g2_v)
-        - &(&dm_v * g2_u)
-        - &(&rows.m * g2_uv);
-    // OBSERVED joint Hessian second directional derivatives (#1561). Second δn
-    // along (u, v); η_ls is linear in β so there is no zeta_uv leg.
-    let dn_u = &(-(2.0 * &rows.m * q_u)) - &(2.0 * &rows.n * &szeta_u);
-    let dn_v = &(-(2.0 * &rows.m * q_v)) - &(2.0 * &rows.n * &szeta_v);
-    let dn_uv = &(&(&(2.0 * &rows.w * &(q_u * q_v)) - &(2.0 * &rows.m * q_uv))
-        + &(4.0 * &rows.m * &(&(q_u * &szeta_v) + &(q_v * &szeta_u))))
-        + &(&(4.0 * &rows.n * &(&szeta_u * &szeta_v))
-            - &(2.0 * &rows.n * &rows.kappa_prime * &zeta_u_zeta_v));
-    // κ''' = κ''(1−2κ) − 2(κ')² (logb); a_coef = 2κ²−κ'.
-    let ktp = &(&rows.kappa_dprime * &(1.0 - 2.0 * &rows.kappa))
-        - &(2.0 * &rows.kappa_prime * &rows.kappa_prime);
-    let a_coef = 2.0 * &rows.kappa * &rows.kappa - &rows.kappa_prime;
-    let amn = &rows.obs_weight - &rows.n;
-    // D²(2κm·dq_dq0)[u,v]: differentiate κ (zeta), m (dm), dq_dq0=D (s1).
+    let tower = gaussian_row_second_tower(rows, q_u, zeta_u, q_v, zeta_v, q_uv, zeta_uv);
+    let base = &tower.base;
+    let first_u = &tower.first_a;
+    let first_v = &tower.first_b;
+    let second_uv = &tower.second;
     let d = &geom.dq_dq0;
-    let ml_term_kpp = &rows.kappa_dprime * &zeta_u_zeta_v * &rows.m * d;
-    let ml_term_kp_d = &rows.kappa_prime * d * &(&(zeta_v * &dm_u) + &(zeta_u * &dm_v));
-    let ml_term_kp_m = &rows.kappa_prime * &rows.m * &(&(zeta_v * s1_u) + &(zeta_u * s1_v));
-    let ml_term_k_d = &rows.kappa * d * &dm_uv;
-    let ml_term_k_s = &rows.kappa * &(&(&dm_v * s1_u) + &(&dm_u * s1_v));
-    let ml_term_k_m = &rows.kappa * &rows.m * s1_uv;
-    let coeff_ml_uv = 2.0
-        * &(&(&(&(&(&ml_term_kpp + &ml_term_kp_d) + &ml_term_kp_m) + &ml_term_k_d) + &ml_term_k_s)
-            + &ml_term_k_m);
-    // D²(κ'(a−n)+2κ²n)[u,v] via dn: κ'''(a−n)ζ_uζ_v + 4(κ'²+κκ'')nζ_uζ_v
-    // + (4κκ'−κ'')(ζ_v·dn_u + ζ_u·dn_v) + (2κ²−κ')·dn_uv.
-    let four_kkp_minus_kdp = 4.0 * &rows.kappa * &rows.kappa_prime - &rows.kappa_dprime;
-    let coeff_ll_uv = &(&(&(&ktp * &amn * &zeta_u_zeta_v)
-        + &(4.0
-            * &(&(&rows.kappa_prime * &rows.kappa_prime) + &(&rows.kappa * &rows.kappa_dprime))
-            * &rows.n
-            * &zeta_u_zeta_v))
-        + &(&four_kkp_minus_kdp * &(&(zeta_v * &dn_u) + &(zeta_u * &dn_v))))
-        + &(&a_coef * &dn_uv);
-
-    let a_u = &dw_u * &geom.dq_dq0 + &rows.w * s1_u;
-    let a_v = &dw_v * &geom.dq_dq0 + &rows.w * s1_v;
-    let a_uv = &dw_uv * &geom.dq_dq0 + &dw_u * s1_v + &dw_v * s1_u + &rows.w * s1_uv;
-    let c_u = -&dm_u;
-    let c_v = -&dm_v;
-    let c_uv = -&dm_uv;
-    // OBSERVED ls↔wiggle cross 2κm: l_u/l_v = D(2κm), l_uv = D²(2κm).
-    let l_u = &(2.0 * &rows.kappa_prime * zeta_u * &rows.m) + &(2.0 * &rows.kappa * &dm_u);
-    let l_v = &(2.0 * &rows.kappa_prime * zeta_v * &rows.m) + &(2.0 * &rows.kappa * &dm_v);
-    let l_uv = &(&(2.0 * &rows.kappa_dprime * &zeta_u_zeta_v * &rows.m)
-        + &(2.0 * &rows.kappa_prime * &(&(zeta_v * &dm_u) + &(zeta_u * &dm_v))))
-        + &(2.0 * &rows.kappa * &dm_uv);
+    let d2 = &geom.d2q_dq02;
+    let d_squared = d.mapv(|value| value * value);
+    let objective_uv = &base.hessian_mm * &(q_u * q_v)
+        + &base.hessian_ml * &(q_u * zeta_v + q_v * zeta_u)
+        + &base.hessian_ll * &(zeta_u * zeta_v)
+        + &base.gradient_mu * q_uv
+        + &base.gradient_ls * zeta_uv;
+    let coeff_mm_base = &base.hessian_mm * &d_squared + &base.gradient_mu * d2;
+    let coeff_mm_u = &first_u.hessian_mm * &d_squared
+        + &(2.0 * &base.hessian_mm * d * s1_u)
+        + &(&first_u.gradient_mu * d2)
+        + &(&base.gradient_mu * g2_u);
+    let coeff_mm_v = &first_v.hessian_mm * &d_squared
+        + &(2.0 * &base.hessian_mm * d * s1_v)
+        + &(&first_v.gradient_mu * d2)
+        + &(&base.gradient_mu * g2_v);
+    let coeff_mm_uv = &(&second_uv.hessian_mm * &d_squared)
+        + &(2.0 * &first_u.hessian_mm * d * s1_v)
+        + &(2.0 * &first_v.hessian_mm * d * s1_u)
+        + &(2.0 * &base.hessian_mm * s1_u * s1_v)
+        + &(2.0 * &base.hessian_mm * d * s1_uv)
+        + &(&second_uv.gradient_mu * d2)
+        + &(&first_u.gradient_mu * g2_v)
+        + &(&first_v.gradient_mu * g2_u)
+        + &(&base.gradient_mu * g2_uv);
+    let coeff_ml_base = &base.hessian_ml * d;
+    let coeff_ml_u = &first_u.hessian_ml * d + &base.hessian_ml * s1_u;
+    let coeff_ml_v = &first_v.hessian_ml * d + &base.hessian_ml * s1_v;
+    let coeff_ml_uv = &(&second_uv.hessian_ml * d)
+        + &(&first_u.hessian_ml * s1_v)
+        + &(&first_v.hessian_ml * s1_u)
+        + &(&base.hessian_ml * s1_uv);
+    let coeff_ll_base = base.hessian_ll.clone();
+    let coeff_ll_u = first_u.hessian_ll.clone();
+    let coeff_ll_v = first_v.hessian_ll.clone();
+    let coeff_ll_uv = second_uv.hessian_ll.clone();
+    let mean_wiggle_base = &base.hessian_mm * d;
+    let a_u = &first_u.hessian_mm * d + &base.hessian_mm * s1_u;
+    let a_v = &first_v.hessian_mm * d + &base.hessian_mm * s1_v;
+    let a_uv = &second_uv.hessian_mm * d
+        + &first_u.hessian_mm * s1_v
+        + &first_v.hessian_mm * s1_u
+        + &base.hessian_mm * s1_uv;
+    let c_u = first_u.gradient_mu.clone();
+    let c_v = first_v.gradient_mu.clone();
+    let c_uv = second_uv.gradient_mu.clone();
+    let l_u = first_u.hessian_ml.clone();
+    let l_v = first_v.hessian_ml.clone();
+    let l_uv = second_uv.hessian_ml.clone();
 
     GlsWiggleSecondDirCoeffs {
+        objective_uv,
+        coeff_mm_base,
+        coeff_mm_u,
+        coeff_mm_v,
         coeff_mm_uv,
+        coeff_ml_base,
+        coeff_ml_u,
+        coeff_ml_v,
         coeff_ml_uv,
+        coeff_ll_base,
+        coeff_ll_u,
+        coeff_ll_v,
         coeff_ll_uv,
+        mean_wiggle_base,
         a_u,
         a_v,
         a_uv,
         c_u,
         c_v,
         c_uv,
+        gradient_ls_base: base.gradient_ls.clone(),
+        gradient_ls_u: first_u.gradient_ls.clone(),
+        gradient_ls_v: first_v.gradient_ls.clone(),
+        gradient_ls_uv: second_uv.gradient_ls.clone(),
         l_u,
         l_v,
         l_uv,
-        dw_u,
-        dw_v,
-        dw_uv,
+        hessian_mm_base: base.hessian_mm.clone(),
+        gradient_mu_base: base.gradient_mu.clone(),
+        hessian_ml_base: base.hessian_ml.clone(),
+        hessian_mm_u: first_u.hessian_mm.clone(),
+        hessian_mm_v: first_v.hessian_mm.clone(),
+        hessian_mm_uv: second_uv.hessian_mm.clone(),
     }
 }
 
@@ -600,30 +690,15 @@ impl GaussianLocationScaleWiggleFamily {
             ) }.into());
         }
         let rows = self.get_or_compute_row_scalars(&q, eta_ls)?;
-        let coeff_mm = &rows.w * &geom.dq_dq0.mapv(|v| v * v) - &rows.m * &geom.d2q_dq02;
-        // OBSERVED joint LAML Hessian (Wood–Pya–Säfken 2016; #1561 cutover from
-        // the block-Fisher #566/#684 object). The LAML criterion `−½log|H+S|`
-        // and its ρ-gradient require the OBSERVED curvature at β̂; the earlier
-        // Fisher object (cross ≡ 0, σσ = 2κ²a) overstated σ-block information on
-        // the near-flat scale surface and over-smoothed log σ. μ AND the wiggle
-        // both enter the mean q = q0 + B(q0)·βw (see `let q = q0 + etaw`), so the
-        // whole mean side carries the observed cross-curvature 2κm against log σ.
-        // The single-source (mm, ml=2κm, ll=κ'(a−n)+2κ²n) is
-        // `gaussian_locscale_observed_joint_row_coeffs`; here it is warped by the
-        // wiggle mean-geometry: the μ-side Jacobian is ∂q/∂β_μ = dq_dq0·X_μ (cf.
-        // coeff_mm's dq_dq0² and coeff_mw_b's dq_dq0), so H_{μ,ls} = 2κm·dq_dq0,
-        // while the wiggle-side Jacobian is ∂q/∂β_w = B (no warp), so
-        // H_{w,ls} = 2κm (coeff_lw_b). At a flat/true-null σ surface n→a, m→0,
-        // so observed → Fisher and the null behavior is unchanged.
-        let (_, ml_base, ll) = gaussian_locscale_observed_joint_row_coeffs(&rows);
-        let coeff_ml = &ml_base * &geom.dq_dq0;
-        let coeff_ll = ll;
-        let coeff_mw_b = &rows.w * &geom.dq_dq0;
-        let coeff_mw_d = -&rows.m;
-        // OBSERVED ls↔wiggle cross H_{w,ls} = 2κm (wiggle is mean-side; ∂q/∂β_w
-        // = B, no dq_dq0 warp, unlike coeff_ml). Same single-source 2κm.
-        let coeff_lw_b = ml_base;
-        let coeff_ww = rows.w.clone();
+        let generated = gaussian_row_channels(&rows);
+        let coeff_mm = &generated.hessian_mm * &geom.dq_dq0.mapv(|value| value * value)
+            + &generated.gradient_mu * &geom.d2q_dq02;
+        let coeff_ml = &generated.hessian_ml * &geom.dq_dq0;
+        let coeff_ll = generated.hessian_ll;
+        let coeff_mw_b = &generated.hessian_mm * &geom.dq_dq0;
+        let coeff_mw_d = generated.gradient_mu;
+        let coeff_lw_b = generated.hessian_ml;
+        let coeff_ww = generated.hessian_mm;
         Ok(GaussianLocationScaleWiggleHessianRowPieces {
             coeff_mm,
             coeff_ml,
@@ -682,8 +757,6 @@ impl GaussianLocationScaleWiggleFamily {
         let rows = self.get_or_compute_row_scalars(&q, eta_ls)?;
         let xi = fast_av(xmu, &umu);
         let zeta = fast_av(x_ls, &u_ls);
-        // logb κ-scaled η_ls direction; κ' = dκ/dη_ls = κ(1−κ).
-        let szeta = &rows.kappa * &zeta;
         let phi = fast_av(&geom.basis, &uw);
         let mut q_u = &geom.dq_dq0 * &xi;
         q_u += &phi;
@@ -693,46 +766,32 @@ impl GaussianLocationScaleWiggleFamily {
         g2_u += &fast_av(&geom.basis_d2, &uw);
         let basis_u = scale_matrix_rows(&geom.basis_d1, &xi)?;
         let basis1_u = scale_matrix_rows(&geom.basis_d2, &xi)?;
-        let dw_u = -2.0 * &rows.w * &szeta;
-        let dm_u = -(&rows.w * &q_u) - &(2.0 * &rows.m * &szeta);
-
-        let coeff_mm_u = &(&dw_u * &geom.dq_dq0.mapv(|v| v * v))
-            + &(2.0 * &rows.w * &geom.dq_dq0 * &s1_u)
-            - &(&dm_u * &geom.d2q_dq02)
-            - &(&rows.m * &g2_u);
-        // OBSERVED joint Hessian directional derivatives (#1561). The μ↔ls cross
-        // is H_{μ,ls} = 2κm·dq_dq0, so its β-directional derivative differentiates
-        // κ (via zeta), m (via dm_u), and dq_dq0 (via s1_u). H_{ls,ls} =
-        // κ'(a−n)+2κ²n → d/dβ = κ''ζ(a−n) + 4κκ'ζn + (2κ²−κ')·dn (dn = δn along u).
-        // The dense sibling `gaussian_joint_psi_firstweights` d_u/c_u channels
-        // carry the same closed forms.
-        let a_coef = 2.0 * &rows.kappa * &rows.kappa - &rows.kappa_prime;
-        let dn_u = -(2.0 * &rows.m * &q_u) - &(2.0 * &rows.n * &szeta);
-        let coeff_ml_u = &(2.0 * &rows.kappa_prime * &zeta * &rows.m * &geom.dq_dq0)
-            + &(2.0 * &rows.kappa * &dm_u * &geom.dq_dq0)
-            + &(2.0 * &rows.kappa * &rows.m * &s1_u);
-        let coeff_ll_u = &(&rows.kappa_dprime * &zeta * &(&rows.obs_weight - &rows.n))
-            + &(4.0 * &rows.kappa * &rows.kappa_prime * &zeta * &rows.n)
-            + &(&a_coef * &dn_u);
-        let a_u = &dw_u * &geom.dq_dq0 + &rows.w * &s1_u;
-        let c_u = -&dm_u;
-        // OBSERVED ls↔wiggle cross 2κm: value derivative l_u along u, plus the
-        // basis drift (B = B(q0) moves with the μ direction xi, δB = diag(xi)·B'
-        // = basis_u) carrying the un-differentiated coeff_lw_b = 2κm.
-        let l_u = &(2.0 * &rows.kappa_prime * &zeta * &rows.m) + &(2.0 * &rows.kappa * &dm_u);
-        let coeff_lw_b = 2.0 * &rows.kappa * &rows.m;
+        let GlsWiggleFirstDirCoeffs {
+            coeff_mm_u,
+            coeff_ml_u,
+            coeff_ll_u,
+            mean_wiggle_u,
+            gradient_mu_u,
+            scale_wiggle_u,
+            mean_wiggle_base,
+            gradient_mu_base,
+            scale_wiggle_base,
+            hessian_mm_base,
+            hessian_mm_u,
+            ..
+        } = gls_wiggle_first_directional_coeffs(&rows, &geom, &q_u, &zeta, &s1_u, &g2_u);
 
         let h_mm = xt_diag_x_dense(xmu, &coeff_mm_u)?;
         let h_ml = xt_diag_y_dense(xmu, &coeff_ml_u, x_ls)?;
         let h_ll = xt_diag_x_dense(x_ls, &coeff_ll_u)?;
-        let h_mw = xt_diag_y_dense(xmu, &a_u, &geom.basis)?
-            + &xt_diag_y_dense(xmu, &(&rows.w * &geom.dq_dq0), &basis_u)?
-            + &xt_diag_y_dense(xmu, &c_u, &geom.basis_d1)?
-            + &xt_diag_y_dense(xmu, &(-&rows.m), &basis1_u)?;
-        let h_lw = xt_diag_y_dense(x_ls, &l_u, &geom.basis)?
-            + &xt_diag_y_dense(x_ls, &coeff_lw_b, &basis_u)?;
-        let a_ww = xt_diag_y_dense(&basis_u, &rows.w, &geom.basis)?;
-        let h_ww = &a_ww + &a_ww.t() + &xt_diag_x_dense(&geom.basis, &dw_u)?;
+        let h_mw = xt_diag_y_dense(xmu, &mean_wiggle_u, &geom.basis)?
+            + &xt_diag_y_dense(xmu, &mean_wiggle_base, &basis_u)?
+            + &xt_diag_y_dense(xmu, &gradient_mu_u, &geom.basis_d1)?
+            + &xt_diag_y_dense(xmu, &gradient_mu_base, &basis1_u)?;
+        let h_lw = xt_diag_y_dense(x_ls, &scale_wiggle_u, &geom.basis)?
+            + &xt_diag_y_dense(x_ls, &scale_wiggle_base, &basis_u)?;
+        let a_ww = xt_diag_y_dense(&basis_u, &hessian_mm_base, &geom.basis)?;
+        let h_ww = &a_ww + &a_ww.t() + &xt_diag_x_dense(&geom.basis, &hessian_mm_u)?;
         Ok(Some(gaussian_pack_wiggle_joint_symmetrichessian(
             &h_mm, &h_ml, &h_mw, &h_ll, &h_lw, &h_ww,
         )))
@@ -774,7 +833,6 @@ impl GaussianLocationScaleWiggleFamily {
         let rows = self.get_or_compute_row_scalars(&q, eta_ls)?;
         let xi = fast_av(xmu_arc.as_ref(), &umu);
         let zeta = fast_av(x_ls_arc.as_ref(), &u_ls);
-        let szeta = &rows.kappa * &zeta;
         let phi = fast_av(&geom.basis, &uw);
         let mut q_u = &geom.dq_dq0 * &xi;
         q_u += &phi;
@@ -782,45 +840,35 @@ impl GaussianLocationScaleWiggleFamily {
         s1_u += &fast_av(&geom.basis_d1, &uw);
         let mut g2_u = &geom.d3q_dq03 * &xi;
         g2_u += &fast_av(&geom.basis_d2, &uw);
-        let dw_u = -2.0 * &rows.w * &szeta;
-        let dm_u = -(&rows.w * &q_u) - &(2.0 * &rows.m * &szeta);
-
-        let coeff_mm_u = &(&dw_u * &geom.dq_dq0.mapv(|v| v * v))
-            + &(2.0 * &rows.w * &geom.dq_dq0 * &s1_u)
-            - &(&dm_u * &geom.d2q_dq02)
-            - &(&rows.m * &g2_u);
-        // OBSERVED μ↔ls cross 2κm·dq_dq0; its directional derivative differentiates
-        // κ (zeta), m (dm_u), and dq_dq0 (s1_u). (#1561)
-        let coeff_ml_u = &(2.0 * &rows.kappa_prime * &zeta * &rows.m * &geom.dq_dq0)
-            + &(2.0 * &rows.kappa * &dm_u * &geom.dq_dq0)
-            + &(2.0 * &rows.kappa * &rows.m * &s1_u);
-        // OBSERVED (ls,ls) κ'(a−n)+2κ²n directional derivative: κ''ζ(a−n) +
-        // 4κκ'ζn + (2κ²−κ')·dn, dn = δn along u (#1561).
-        let a_coef = 2.0 * &rows.kappa * &rows.kappa - &rows.kappa_prime;
-        let dn_u = -(2.0 * &rows.m * &q_u) - &(2.0 * &rows.n * &szeta);
-        let coeff_ll_u = &(&rows.kappa_dprime * &zeta * &(&rows.obs_weight - &rows.n))
-            + &(4.0 * &rows.kappa * &rows.kappa_prime * &zeta * &rows.n)
-            + &(&a_coef * &dn_u);
-        let a_u = &dw_u * &geom.dq_dq0 + &rows.w * &s1_u;
-        let c_u = -&dm_u;
-        // OBSERVED ls↔wiggle cross 2κm: B-channel derivative l_u, and the
-        // basis-drift B'-channel carries the un-differentiated 2κm.
-        let l_u = &(2.0 * &rows.kappa_prime * &zeta * &rows.m) + &(2.0 * &rows.kappa * &dm_u);
+        let GlsWiggleFirstDirCoeffs {
+            coeff_mm_u,
+            coeff_ml_u,
+            coeff_ll_u,
+            mean_wiggle_u,
+            gradient_mu_u,
+            scale_wiggle_u,
+            mean_wiggle_base,
+            gradient_mu_base,
+            scale_wiggle_base,
+            hessian_mm_base,
+            hessian_mm_u,
+            ..
+        } = gls_wiggle_first_directional_coeffs(&rows, &geom, &q_u, &zeta, &s1_u, &g2_u);
 
         // Pair-coefficient bundles. For (0=X_mu, 3=B'): combine
         // `xt_diag_y_dense(xmu, &(w·dq_dq0), &basis_u=diag(xi)·B')`
         // (giving coeff `w·dq_dq0·xi`) with `xt_diag_y_dense(xmu, &c_u, &B')`
         // (coeff `c_u`).
-        let coeff_m_b1 = &(&rows.w * &geom.dq_dq0 * &xi) + &c_u;
+        let coeff_m_b1 = &(&mean_wiggle_base * &xi) + &gradient_mu_u;
         // (0=X_mu, 4=B''): from `xt_diag_y_dense(xmu, &(-m), &basis1_u=diag(xi)·B'')`.
-        let coeff_m_b2 = -(&rows.m * &xi);
+        let coeff_m_b2 = &gradient_mu_base * &xi;
         // (1=X_ls, 3=B'): observed ls↔wiggle basis drift — coeff_lw_b·δB with
         // δB = diag(xi)·B', giving coeff 2κm·xi.
-        let coeff_ls_b1 = 2.0 * &rows.kappa * &rows.m * &xi;
+        let coeff_ls_b1 = &scale_wiggle_base * &xi;
         // (2=B, 3=B'): a_ww + a_ww^T where a_ww = (diag(xi)·B')^T diag(w) B
         // = B'^T diag(w·xi) B. The symmetric pair contribution in
         // `RowCoeffOperator` reproduces a_ww + a_ww^T with c = w·xi.
-        let coeff_b_b1 = &rows.w * &xi;
+        let coeff_b_b1 = &hessian_mm_base * &xi;
 
         let basis: Arc<Array2<f64>> = Arc::new(geom.basis.clone());
         let basis_d1: Arc<Array2<f64>> = Arc::new(geom.basis_d1.clone());
@@ -844,17 +892,17 @@ impl GaussianLocationScaleWiggleFamily {
                 // (X_ls, X_ls) ← `xt_diag_x_dense(x_ls, &coeff_ll_u)`
                 (1, 1, coeff_ll_u),
                 // (X_mu, B) ← `xt_diag_y_dense(xmu, &a_u, &geom.basis)`
-                (0, 2, a_u),
+                (0, 2, mean_wiggle_u),
                 // (X_mu, B') ← `xt_diag_y_dense(xmu, w·dq_dq0, basis_u=diag(ξ)·B') + xt_diag_y_dense(xmu, c_u, B')`
                 (0, 3, coeff_m_b1),
                 // (X_mu, B'') ← `xt_diag_y_dense(xmu, -m, basis1_u=diag(ξ)·B'')`
                 (0, 4, coeff_m_b2),
                 // (X_ls, B) ← `xt_diag_y_dense(x_ls, &l_u, &geom.basis)`
-                (1, 2, l_u),
+                (1, 2, scale_wiggle_u),
                 // (X_ls, B') ← observed ls↔wiggle basis drift 2κm·xi (coeff_lw_b·δB)
                 (1, 3, coeff_ls_b1),
                 // (B, B) ← `xt_diag_x_dense(&geom.basis, &dw_u)`
-                (2, 2, dw_u),
+                (2, 2, hessian_mm_u),
                 // (B, B') ← a_ww + a_ww^T = B^T diag(w·ξ) B' + B'^T diag(w·ξ) B
                 (2, 3, coeff_b_b1),
             ],
@@ -929,6 +977,7 @@ impl GaussianLocationScaleWiggleFamily {
         let q_uv = &(&geom.d2q_dq02 * &(&xi_u * &xi_v)) + &(&b1u * &xi_v) + &(&b1v * &xi_u);
         let s1_uv = &(&geom.d3q_dq03 * &(&xi_u * &xi_v)) + &(&b2u * &xi_v) + &(&b2v * &xi_u);
         let g2_uv = &(&geom.d4q_dq04 * &(&xi_u * &xi_v)) + &(&b3u * &xi_v) + &(&b3v * &xi_u);
+        let zeta_uv = Array1::zeros(zeta_u.len());
 
         let GlsWiggleSecondDirCoeffs {
             coeff_mm_uv,
@@ -943,15 +992,20 @@ impl GaussianLocationScaleWiggleFamily {
             l_u,
             l_v,
             l_uv,
-            dw_u,
-            dw_v,
-            dw_uv,
+            hessian_mm_base,
+            gradient_mu_base,
+            hessian_ml_base,
+            hessian_mm_u,
+            hessian_mm_v,
+            hessian_mm_uv,
+            ..
         } = gls_wiggle_second_directional_coeffs(
             &rows,
             &geom,
             &GlsWiggleDirPieces {
                 zeta_u: &zeta_u,
                 zeta_v: &zeta_v,
+                zeta_uv: &zeta_uv,
                 q_u: &q_u,
                 q_v: &q_v,
                 q_uv: &q_uv,
@@ -967,20 +1021,21 @@ impl GaussianLocationScaleWiggleFamily {
         // Pair-coefficient bundles. Cross-block (mu, B'/B'') absorb basis_u/v/uv row scaling.
         let xi_u_xi_v = &xi_u * &xi_v;
         let coeff_m_b1 = &(&a_u * &xi_v) + &(&a_v * &xi_u) + &c_uv;
-        let coeff_m_b2 = &(&rows.w * &geom.dq_dq0 * &xi_u_xi_v) + &(&c_u * &xi_v) + &(&c_v * &xi_u);
-        let coeff_m_b3 = -(&rows.m * &xi_u_xi_v);
+        let coeff_m_b2 =
+            &(&hessian_mm_base * &geom.dq_dq0 * &xi_u_xi_v) + &(&c_u * &xi_v) + &(&c_v * &xi_u);
+        let coeff_m_b3 = &gradient_mu_base * &xi_u_xi_v;
         // OBSERVED ls↔wiggle cross 2κm (#1561). B' channel = single-drift cross
         // l_u·ξ_v + l_v·ξ_u (basis_{u,v} = diag(ξ)·B'); B'' channel = value coeff
         // 2κm on the second basis drift basis_uv = diag(ξ_uξ_v)·B''.
         let coeff_ls_b1 = &(&l_u * &xi_v) + &(&l_v * &xi_u);
-        let coeff_ls_b2 = 2.0 * &rows.kappa * &rows.m * &xi_u_xi_v;
+        let coeff_ls_b2 = &hessian_ml_base * &xi_u_xi_v;
         // Wiggle-wiggle from a_ab + a_ab^T + a_ij + a_ij^T + a_iwj + a_iwj^T + a_jwi + a_jwi^T:
         //   a_ab = B''^T diag(w·ξ_uξ_v) B    → pair (B, B'', w·ξ_uξ_v)
         //   a_ij = B'^T diag(w·ξ_uξ_v) B'   → pair (B', B', 2·w·ξ_uξ_v)  (a_ij + a_ij^T)
         //   a_iwj+a_jwi = B'^T diag(dw_v·ξ_u + dw_u·ξ_v) B → pair (B, B', sum)
-        let coeff_b_b1 = &(&dw_u * &xi_v) + &(&dw_v * &xi_u);
-        let coeff_b_b2 = &rows.w * &xi_u_xi_v;
-        let coeff_b1_b1 = 2.0 * &(&rows.w * &xi_u_xi_v);
+        let coeff_b_b1 = &(&hessian_mm_u * &xi_v) + &(&hessian_mm_v * &xi_u);
+        let coeff_b_b2 = &hessian_mm_base * &xi_u_xi_v;
+        let coeff_b1_b1 = 2.0 * &(&hessian_mm_base * &xi_u_xi_v);
 
         let basis: Arc<Array2<f64>> = Arc::new(geom.basis.clone());
         let basis_d1: Arc<Array2<f64>> = Arc::new(geom.basis_d1.clone());
@@ -1028,7 +1083,7 @@ impl GaussianLocationScaleWiggleFamily {
                 // (X_ls, B'') ← observed ls↔wiggle basis 2nd drift 2κm·ξ_uξ_v
                 (1, 4, coeff_ls_b2),
                 // (B, B) ← `xt_diag_x_dense(&geom.basis, &dw_uv)`
-                (2, 2, dw_uv),
+                (2, 2, hessian_mm_uv),
                 // (B, B') ← combined `a_iwj + a_iwj^T + a_jwi + a_jwi^T` =
                 // B^T diag(dw_u·ξ_v + dw_v·ξ_u) B' + B'^T diag(...) B
                 (2, 3, coeff_b_b1),
@@ -1109,6 +1164,7 @@ impl GaussianLocationScaleWiggleFamily {
         let q_uv = &(&geom.d2q_dq02 * &(&xi_u * &xi_v)) + &(&b1u * &xi_v) + &(&b1v * &xi_u);
         let s1_uv = &(&geom.d3q_dq03 * &(&xi_u * &xi_v)) + &(&b2u * &xi_v) + &(&b2v * &xi_u);
         let g2_uv = &(&geom.d4q_dq04 * &(&xi_u * &xi_v)) + &(&b3u * &xi_v) + &(&b3v * &xi_u);
+        let zeta_uv = Array1::zeros(zeta_u.len());
 
         let basis_u = scale_matrix_rows(&geom.basis_d1, &xi_u)?;
         let basis_v = scale_matrix_rows(&geom.basis_d1, &xi_v)?;
@@ -1133,15 +1189,20 @@ impl GaussianLocationScaleWiggleFamily {
             l_u,
             l_v,
             l_uv,
-            dw_u,
-            dw_v,
-            dw_uv,
+            hessian_mm_base,
+            gradient_mu_base,
+            hessian_ml_base,
+            hessian_mm_u,
+            hessian_mm_v,
+            hessian_mm_uv,
+            ..
         } = gls_wiggle_second_directional_coeffs(
             &rows,
             &geom,
             &GlsWiggleDirPieces {
                 zeta_u: &zeta_u,
                 zeta_v: &zeta_v,
+                zeta_uv: &zeta_uv,
                 q_u: &q_u,
                 q_v: &q_v,
                 q_uv: &q_uv,
@@ -1160,23 +1221,19 @@ impl GaussianLocationScaleWiggleFamily {
         let h_mw = xt_diag_y_dense(xmu, &a_uv, &geom.basis)?
             + &xt_diag_y_dense(xmu, &a_u, &basis_v)?
             + &xt_diag_y_dense(xmu, &a_v, &basis_u)?
-            + &xt_diag_y_dense(xmu, &(&rows.w * &geom.dq_dq0), &basis_uv)?
+            + &xt_diag_y_dense(xmu, &(&hessian_mm_base * &geom.dq_dq0), &basis_uv)?
             + &xt_diag_y_dense(xmu, &c_uv, &geom.basis_d1)?
             + &xt_diag_y_dense(xmu, &c_u, &basis1_v)?
             + &xt_diag_y_dense(xmu, &c_v, &basis1_u)?
-            + &xt_diag_y_dense(xmu, &(-&rows.m), &basis1_uv)?;
-        // OBSERVED ls↔wiggle cross 2κm (#1561): D²[X_ls^T diag(2κm) B] over the
-        // coeff (l_uv), the single-drift cross terms (l_u·δ_v B + l_v·δ_u B), and
-        // the value coeff on the second basis drift δ²B = basis_uv.
-        let coeff_lw_b = 2.0 * &rows.kappa * &rows.m;
+            + &xt_diag_y_dense(xmu, &gradient_mu_base, &basis1_uv)?;
         let h_lw = xt_diag_y_dense(x_ls, &l_uv, &geom.basis)?
             + &xt_diag_y_dense(x_ls, &l_u, &basis_v)?
             + &xt_diag_y_dense(x_ls, &l_v, &basis_u)?
-            + &xt_diag_y_dense(x_ls, &coeff_lw_b, &basis_uv)?;
-        let a_ab = xt_diag_y_dense(&basis_uv, &rows.w, &geom.basis)?;
-        let a_ij = xt_diag_y_dense(&basis_u, &rows.w, &basis_v)?;
-        let a_iwj = xt_diag_y_dense(&basis_u, &dw_v, &geom.basis)?;
-        let a_jwi = xt_diag_y_dense(&basis_v, &dw_u, &geom.basis)?;
+            + &xt_diag_y_dense(x_ls, &hessian_ml_base, &basis_uv)?;
+        let a_ab = xt_diag_y_dense(&basis_uv, &hessian_mm_base, &geom.basis)?;
+        let a_ij = xt_diag_y_dense(&basis_u, &hessian_mm_base, &basis_v)?;
+        let a_iwj = xt_diag_y_dense(&basis_u, &hessian_mm_v, &geom.basis)?;
+        let a_jwi = xt_diag_y_dense(&basis_v, &hessian_mm_u, &geom.basis)?;
         let h_ww = &a_ab
             + &a_ab.t()
             + &a_ij
@@ -1185,7 +1242,7 @@ impl GaussianLocationScaleWiggleFamily {
             + a_iwj.t()
             + &a_jwi
             + a_jwi.t()
-            + &xt_diag_x_dense(&geom.basis, &dw_uv)?;
+            + &xt_diag_x_dense(&geom.basis, &hessian_mm_uv)?;
         Ok(Some(gaussian_pack_wiggle_joint_symmetrichessian(
             &h_mm, &h_ml, &h_mw, &h_ll, &h_lw, &h_ww,
         )))
@@ -1225,57 +1282,37 @@ impl GaussianLocationScaleWiggleFamily {
         let g2_a = &geom.d3q_dq03 * &dir_a.z_primary_psi;
         let basis_a = scale_matrix_rows(&geom.basis_d1, &dir_a.z_primary_psi)?;
         let basis1_a = scale_matrix_rows(&geom.basis_d2, &dir_a.z_primary_psi)?;
-        // logb κ-chain on η_ls; e_a = ∂η_ls/∂ψ_a row-direction.
         let e_a = &dir_a.z_ls_psi;
-        let amn = &rows.obs_weight - &rows.n;
-        let dw_a = -2.0 * &rows.w * &rows.kappa * e_a;
-        let dm_a = -(&rows.w * &q_a) - &(2.0 * &rows.m * &rows.kappa * e_a);
-        let dn_a = -(2.0 * &rows.m * &q_a) - &(2.0 * &rows.n * &rows.kappa * e_a);
-        let s_mu = -&rows.m * &geom.dq_dq0;
-        let s_mu_a = -(&dm_a * &geom.dq_dq0) - &(&rows.m * &s1_a);
-        let s_ls = &rows.kappa * &amn;
-        let s_ls_a = &rows.kappa_prime * &(e_a * &amn) - &rows.kappa * &dn_a;
-        let s_w = -&rows.m;
-        let s_w_a = -&dm_a;
+        // The generated Gaussian row tower owns every likelihood derivative.
+        // This function only pulls those neutral `(q, eta_ls)` channels back
+        // through the nonlinear wiggle geometry and the design maps.
+        let GlsWiggleFirstDirCoeffs {
+            coeff_mm_base: coeff_mm,
+            coeff_ml_base: coeff_ml,
+            coeff_ll_base: coeff_ll,
+            coeff_mm_u: coeff_mm_a,
+            coeff_ml_u: coeff_ml_a,
+            coeff_ll_u: coeff_ll_a,
+            mean_wiggle_u: a_a,
+            gradient_mu_u: c_a,
+            scale_wiggle_u: l_a,
+            mean_wiggle_base: a,
+            gradient_mu_base: c,
+            gradient_ls_base: s_ls,
+            gradient_ls_u: s_ls_a,
+            scale_wiggle_base: l,
+            hessian_mm_base,
+            hessian_mm_u,
+        } = gls_wiggle_first_directional_coeffs(&rows, &geom, &q_a, e_a, &s1_a, &g2_a);
+        let s_mu = &c * &geom.dq_dq0;
+        let s_mu_a = &c_a * &geom.dq_dq0 + &c * &s1_a;
 
-        let objective_psi = (-&rows.m * &q_a + &s_ls * e_a).sum();
+        let objective_psi = (&c * &q_a + &s_ls * e_a).sum();
         let score_psi = gaussian_pack_wiggle_joint_score(
             &(xmu_map.transpose_mul(s_mu.view()) + fast_atv(xmu, &s_mu_a)),
             &(x_ls_map.transpose_mul(s_ls.view()) + fast_atv(x_ls, &s_ls_a)),
-            &(fast_atv(&basis_a, &s_w) + fast_atv(&geom.basis, &s_w_a)),
+            &(fast_atv(&basis_a, &c) + fast_atv(&geom.basis, &c_a)),
         );
-
-        // OBSERVED joint Hessian blocks under logb (#1561; Wood–Pya–Säfken 2016).
-        // μ AND the wiggle both enter the mean q = q0 + B(q0)·βw, so the whole
-        // mean side carries the observed cross-curvature 2κm against log σ. The
-        // μ-side Jacobian carries dq_dq0 (cf. s_mu = −m·dq_dq0), so the μ↔ls cross
-        // is coeff_ml = 2κm·dq_dq0; the wiggle-side Jacobian is B, so the ls↔wiggle
-        // cross is l = 2κm. coeff_ll = κ'(a−n)+2κ²n (Fisher 2κ²a overstated the
-        // σ-block information on the near-flat scale surface and over-smoothed
-        // log σ). Their ψ-derivatives differentiate κ (via e_a), m (via dm_a),
-        // dq_dq0 (via s1_a), and n (via dn_a). The SCORE (s_mu/s_ls/s_w) is the
-        // exact gradient, unchanged. At a flat/true-null σ surface n→a, m→0 so
-        // observed → Fisher and the null behavior is unchanged.
-        let coeff_mm = &rows.w * &geom.dq_dq0.mapv(|v| v * v) - &rows.m * &geom.d2q_dq02;
-        let coeff_mm_a = &(&dw_a * &geom.dq_dq0.mapv(|v| v * v))
-            + &(2.0 * &rows.w * &geom.dq_dq0 * &s1_a)
-            - &(&dm_a * &geom.d2q_dq02)
-            - &(&rows.m * &g2_a);
-        let a_coef = 2.0 * &rows.kappa * &rows.kappa - &rows.kappa_prime;
-        let coeff_ml = 2.0 * &rows.kappa * &rows.m * &geom.dq_dq0;
-        let coeff_ml_a = &(2.0 * &rows.kappa_prime * e_a * &rows.m * &geom.dq_dq0)
-            + &(&(2.0 * &rows.kappa * &dm_a * &geom.dq_dq0)
-                + &(2.0 * &rows.kappa * &rows.m * &s1_a));
-        let coeff_ll = &rows.kappa_prime * &amn + 2.0 * &rows.kappa * &rows.kappa * &rows.n;
-        let coeff_ll_a = &(&(&rows.kappa_dprime * e_a * &amn)
-            + &(4.0 * &rows.kappa * &rows.kappa_prime * e_a * &rows.n))
-            + &(&a_coef * &dn_a);
-        let a = &rows.w * &geom.dq_dq0;
-        let a_a = &dw_a * &geom.dq_dq0 + &rows.w * &s1_a;
-        let c = -&rows.m;
-        let c_a = -&dm_a;
-        let l = 2.0 * &rows.kappa * &rows.m;
-        let l_a = &(2.0 * &rows.kappa_prime * e_a * &rows.m) + &(2.0 * &rows.kappa * &dm_a);
         let h_mm_a1 = weighted_crossprod_psi_maps(
             xmu_map,
             coeff_mm.view(),
@@ -1316,8 +1353,8 @@ impl GaussianLocationScaleWiggleFamily {
             CustomFamilyPsiLinearMapRef::Dense(&geom.basis),
         )? + &xt_diag_y_dense(x_ls, &l_a, &geom.basis)?
             + &xt_diag_y_dense(x_ls, &l, &basis_a)?;
-        let h_ww_a1 = xt_diag_y_dense(&basis_a, &rows.w, &geom.basis)?;
-        let h_ww = &h_ww_a1 + &h_ww_a1.t() + &xt_diag_x_dense(&geom.basis, &dw_a)?;
+        let h_ww_a1 = xt_diag_y_dense(&basis_a, &hessian_mm_base, &geom.basis)?;
+        let h_ww = &h_ww_a1 + &h_ww_a1.t() + &xt_diag_x_dense(&geom.basis, &hessian_mm_u)?;
 
         Ok(Some(gam_problem::ExactNewtonJointPsiTerms {
             objective_psi,
@@ -1441,62 +1478,67 @@ impl GaussianLocationScaleWiggleFamily {
                 &(&dir_a.z_primary_psi * &dir_b.z_primary_psi),
             )?;
 
-        // logb κ-chain on η_ls; κ' = κ(1−κ), κ'' = κ(1−κ)(1−2κ),
-        // κ''' = κ''(1−2κ) − 2(κ')².
         let e_a = &dir_a.z_ls_psi;
         let e_b = &dir_b.z_ls_psi;
         let e_ab = &second_drifts.z_ls_ab;
-        let amn = &rows.obs_weight - &rows.n;
-        // 4κ² − 2κ' (∂²w/∂η² style coefficient when both directions hit η_ls).
-        let four_k2_minus_2kpi = 4.0 * &rows.kappa * &rows.kappa - 2.0 * &rows.kappa_prime;
+        let GlsWiggleSecondDirCoeffs {
+            objective_uv,
+            coeff_mm_base: coeff_mm,
+            coeff_mm_u: coeff_mm_a,
+            coeff_mm_v: coeff_mm_b,
+            coeff_mm_uv: coeff_mm_ab,
+            coeff_ml_base: coeff_ml,
+            coeff_ml_u: coeff_ml_a,
+            coeff_ml_v: coeff_ml_b,
+            coeff_ml_uv: coeff_ml_ab,
+            coeff_ll_base: coeff_ll,
+            coeff_ll_u: coeff_ll_a,
+            coeff_ll_v: coeff_ll_b,
+            coeff_ll_uv: coeff_ll_ab,
+            mean_wiggle_base: a,
+            a_u: a_a,
+            a_v: a_b,
+            a_uv: a_ab,
+            gradient_mu_base: c,
+            c_u: c_a,
+            c_v: c_b,
+            c_uv: c_ab,
+            gradient_ls_base: s_ls,
+            gradient_ls_u: s_ls_a,
+            gradient_ls_v: s_ls_b,
+            gradient_ls_uv: s_ls_ab,
+            hessian_ml_base: l,
+            l_u: l_a,
+            l_v: l_b,
+            l_uv: l_ab,
+            hessian_mm_base,
+            hessian_mm_u: hessian_mm_a,
+            hessian_mm_v: hessian_mm_b,
+            hessian_mm_uv: hessian_mm_ab,
+        } = gls_wiggle_second_directional_coeffs(
+            &rows,
+            &geom,
+            &GlsWiggleDirPieces {
+                zeta_u: e_a,
+                zeta_v: e_b,
+                zeta_uv: e_ab,
+                q_u: &q_a,
+                q_v: &q_b,
+                q_uv: &q_ab,
+                s1_u: &s1_a,
+                s1_v: &s1_b,
+                s1_uv: &s1_ab,
+                g2_u: &g2_a,
+                g2_v: &g2_b,
+                g2_uv: &g2_ab,
+            },
+        );
+        let s_mu = &c * &geom.dq_dq0;
+        let s_mu_a = &c_a * &geom.dq_dq0 + &c * &s1_a;
+        let s_mu_b = &c_b * &geom.dq_dq0 + &c * &s1_b;
+        let s_mu_ab = &c_ab * &geom.dq_dq0 + &c_a * &s1_b + &c_b * &s1_a + &c * &s1_ab;
 
-        // Row drifts under logb. The η_ls direction picks up a κ on each step,
-        // and η_ls·η_ls picks up (4κ²−2κ') from differentiating κ on the
-        // second leg. The η_ab (z_ls_ab) leg uses just one κ from the chain.
-        let dw_a = -2.0 * &rows.w * &rows.kappa * e_a;
-        let dw_b = -2.0 * &rows.w * &rows.kappa * e_b;
-        let dw_ab =
-            &four_k2_minus_2kpi * &rows.w * &(e_a * e_b) - &(2.0 * &rows.w * &rows.kappa * e_ab);
-        let dm_a = -(&rows.w * &q_a) - &(2.0 * &rows.m * &rows.kappa * e_a);
-        let dm_b = -(&rows.w * &q_b) - &(2.0 * &rows.m * &rows.kappa * e_b);
-        let dm_ab = &(2.0 * &rows.w * &rows.kappa * &(&q_a * e_b + &q_b * e_a))
-            - &(&rows.w * &q_ab)
-            + &(&four_k2_minus_2kpi * &rows.m * &(e_a * e_b))
-            - &(2.0 * &rows.m * &rows.kappa * e_ab);
-        let dn_a = -(2.0 * &rows.m * &q_a) - &(2.0 * &rows.n * &rows.kappa * e_a);
-        let dn_b = -(2.0 * &rows.m * &q_b) - &(2.0 * &rows.n * &rows.kappa * e_b);
-        let dn_ab = &(2.0 * &rows.w * &(&q_a * &q_b))
-            + &(4.0 * &rows.m * &rows.kappa * &(&q_a * e_b + &q_b * e_a))
-            - &(2.0 * &rows.m * &q_ab)
-            + &(&four_k2_minus_2kpi * &rows.n * &(e_a * e_b))
-            - &(2.0 * &rows.n * &rows.kappa * e_ab);
-
-        let s_mu = -&rows.m * &geom.dq_dq0;
-        let s_mu_a = -(&dm_a * &geom.dq_dq0) - &(&rows.m * &s1_a);
-        let s_mu_b = -(&dm_b * &geom.dq_dq0) - &(&rows.m * &s1_b);
-        let s_mu_ab =
-            -(&dm_ab * &geom.dq_dq0) - &(&dm_a * &s1_b) - &(&dm_b * &s1_a) - &(&rows.m * &s1_ab);
-        // score_ls = κ(a−n); ψ derivatives carry κ' / κ'' from chain on κ.
-        let s_ls = &rows.kappa * &amn;
-        let s_ls_a = &rows.kappa_prime * &(e_a * &amn) - &rows.kappa * &dn_a;
-        let s_ls_b = &rows.kappa_prime * &(e_b * &amn) - &rows.kappa * &dn_b;
-        // s_ls_ab = κ''·e_a·e_b·(a−n) + κ'·e_ab·(a−n)
-        //         − κ'·(e_a·n_b + e_b·n_a) − κ·n_ab
-        let s_ls_ab = &rows.kappa_dprime * &(e_a * e_b) * &amn + &rows.kappa_prime * e_ab * &amn
-            - &rows.kappa_prime * &(e_a * &dn_b + e_b * &dn_a)
-            - &rows.kappa * &dn_ab;
-        let s_w = -&rows.m;
-        let s_w_a = -&dm_a;
-        let s_w_b = -&dm_b;
-        let s_w_ab = -&dm_ab;
-
-        let objective_psi_psi = (&rows.w * &(&q_a * &q_b)
-            + &(2.0 * &rows.m * &rows.kappa * &(&q_a * e_b + &q_b * e_a))
-            + &((2.0 * &rows.kappa * &rows.kappa * &rows.n + &rows.kappa_prime * &amn)
-                * &(e_a * e_b))
-            - &(&rows.m * &q_ab)
-            + &(&rows.kappa * &amn * e_ab))
-            .sum();
+        let objective_psi_psi = objective_uv.sum();
 
         let score_psi_psi = gaussian_pack_wiggle_joint_score(
             &(xmu_ab_map.transpose_mul(s_mu.view())
@@ -1507,95 +1549,11 @@ impl GaussianLocationScaleWiggleFamily {
                 + x_ls_a_map.transpose_mul(s_ls_b.view())
                 + x_ls_b_map.transpose_mul(s_ls_a.view())
                 + fast_atv(x_ls, &s_ls_ab)),
-            &(fast_atv(&basis_ab, &s_w)
-                + fast_atv(&basis_a, &s_w_b)
-                + fast_atv(&basis_b, &s_w_a)
-                + fast_atv(&geom.basis, &s_w_ab)),
+            &(fast_atv(&basis_ab, &c)
+                + fast_atv(&basis_a, &c_b)
+                + fast_atv(&basis_b, &c_a)
+                + fast_atv(&geom.basis, &c_ab)),
         );
-
-        // OBSERVED joint Hessian blocks under logb (#1561; Wood–Pya–Säfken 2016).
-        // μ AND the wiggle enter the mean q = q0 + B·βw, so the whole mean side
-        // carries the observed cross-curvature 2κm against log σ: the μ-side
-        // Jacobian carries dq_dq0 (cf. s_mu = −m·dq_dq0) → coeff_ml = 2κm·dq_dq0,
-        // the wiggle-side Jacobian is B → l = 2κm. coeff_ll = κ'(a−n)+2κ²n
-        // (Fisher 2κ²a over-smoothed log σ). Their 1st/2nd ψ-derivatives
-        // differentiate κ (e_a/e_b/e_ab), m (dm_*), dq_dq0 (s1_*), and n (dn_*);
-        // κ''' = κ''(1−2κ)−2κ'². The SCORE channels stay the exact gradient.
-        let d = &geom.dq_dq0;
-        let a_coef = 2.0 * &rows.kappa * &rows.kappa - &rows.kappa_prime;
-        let ktp = &(&rows.kappa_dprime * &(1.0 - 2.0 * &rows.kappa))
-            - &(2.0 * &rows.kappa_prime * &rows.kappa_prime);
-        let four_kkp_minus_kdp = 4.0 * &rows.kappa * &rows.kappa_prime - &rows.kappa_dprime;
-        let coeff_mm = &rows.w * &geom.dq_dq0.mapv(|v| v * v) - &rows.m * &geom.d2q_dq02;
-        let coeff_ml = 2.0 * &rows.kappa * &rows.m * d;
-        let coeff_ll = &rows.kappa_prime * &amn + 2.0 * &rows.kappa * &rows.kappa * &rows.n;
-        // coeff_mm_a/b/ab: structurally κ-free; correctness now follows from
-        // dw_a/_b/_ab and dm_a/_b/_ab carrying the κ chain on η_ls (above).
-        let coeff_mm_a = &(&dw_a * &geom.dq_dq0.mapv(|v| v * v))
-            + &(2.0 * &rows.w * &geom.dq_dq0 * &s1_a)
-            - &(&dm_a * &geom.d2q_dq02)
-            - &(&rows.m * &g2_a);
-        let coeff_mm_b = &(&dw_b * &geom.dq_dq0.mapv(|v| v * v))
-            + &(2.0 * &rows.w * &geom.dq_dq0 * &s1_b)
-            - &(&dm_b * &geom.d2q_dq02)
-            - &(&rows.m * &g2_b);
-        let coeff_mm_ab = &(&dw_ab * &geom.dq_dq0.mapv(|v| v * v))
-            + &(2.0 * &dw_a * &geom.dq_dq0 * &s1_b)
-            + &(2.0 * &dw_b * &geom.dq_dq0 * &s1_a)
-            + &(2.0 * &rows.w * &s1_a * &s1_b)
-            + &(2.0 * &rows.w * &geom.dq_dq0 * &s1_ab)
-            - &(&dm_ab * &geom.d2q_dq02)
-            - &(&dm_a * &g2_b)
-            - &(&dm_b * &g2_a)
-            - &(&rows.m * &g2_ab);
-        // coeff_ml = 2κm·dq_dq0 ψ-derivatives (D²(2κmD)).
-        let coeff_ml_a = &(2.0 * &rows.kappa_prime * e_a * &rows.m * d)
-            + &(&(2.0 * &rows.kappa * &dm_a * d) + &(2.0 * &rows.kappa * &rows.m * &s1_a));
-        let coeff_ml_b = &(2.0 * &rows.kappa_prime * e_b * &rows.m * d)
-            + &(&(2.0 * &rows.kappa * &dm_b * d) + &(2.0 * &rows.kappa * &rows.m * &s1_b));
-        let coeff_ml_ab = 2.0
-            * &(&(&(&(&(&(&rows.kappa_dprime * &(e_a * e_b) * &rows.m * d)
-                + &(&rows.kappa_prime * e_ab * &rows.m * d))
-                + &(&rows.kappa_prime * d * &(&(e_a * &dm_b) + &(e_b * &dm_a))))
-                + &(&rows.kappa_prime * &rows.m * &(&(e_a * &s1_b) + &(e_b * &s1_a))))
-                + &(&rows.kappa * d * &dm_ab))
-                + &(&rows.kappa * &(&(&dm_a * &s1_b) + &(&dm_b * &s1_a))))
-            + &(2.0 * &rows.kappa * &rows.m * &s1_ab);
-        // coeff_ll = κ'(a−n)+2κ²n ψ-derivatives (via dn_*).
-        let coeff_ll_a = &(&(&rows.kappa_dprime * e_a * &amn)
-            + &(4.0 * &rows.kappa * &rows.kappa_prime * e_a * &rows.n))
-            + &(&a_coef * &dn_a);
-        let coeff_ll_b = &(&(&rows.kappa_dprime * e_b * &amn)
-            + &(4.0 * &rows.kappa * &rows.kappa_prime * e_b * &rows.n))
-            + &(&a_coef * &dn_b);
-        // κ'''(a−n)e_ae_b + 4(κ'²+κκ'')n·e_ae_b + (4κκ'−κ'')(e_a dn_b + e_b dn_a)
-        // + (2κ²−κ')dn_ab + (κ''(a−n)+4κκ'n)e_ab.
-        let coeff_ll_ab = &(&(&(&(&ktp * &amn * &(e_a * e_b))
-            + &(4.0
-                * &(&(&rows.kappa_prime * &rows.kappa_prime)
-                    + &(&rows.kappa * &rows.kappa_dprime))
-                * &rows.n
-                * &(e_a * e_b)))
-            + &(&four_kkp_minus_kdp * &(&(e_a * &dn_b) + &(e_b * &dn_a))))
-            + &(&a_coef * &dn_ab))
-            + &(&(&(&rows.kappa_dprime * &amn)
-                + &(4.0 * &rows.kappa * &rows.kappa_prime * &rows.n))
-                * e_ab);
-        let a = &rows.w * &geom.dq_dq0;
-        let a_a = &dw_a * &geom.dq_dq0 + &rows.w * &s1_a;
-        let a_b = &dw_b * &geom.dq_dq0 + &rows.w * &s1_b;
-        let a_ab = &dw_ab * &geom.dq_dq0 + &dw_a * &s1_b + &dw_b * &s1_a + &rows.w * &s1_ab;
-        let c = -&rows.m;
-        let c_a = -&dm_a;
-        let c_b = -&dm_b;
-        let c_ab = -&dm_ab;
-        // l = 2κm (ls↔wiggle) ψ-derivatives (D²(2κm)).
-        let l = 2.0 * &rows.kappa * &rows.m;
-        let l_a = &(2.0 * &rows.kappa_prime * e_a * &rows.m) + &(2.0 * &rows.kappa * &dm_a);
-        let l_b = &(2.0 * &rows.kappa_prime * e_b * &rows.m) + &(2.0 * &rows.kappa * &dm_b);
-        let l_ab = &(&(2.0 * &rows.kappa_dprime * &(e_a * e_b) * &rows.m)
-            + &(2.0 * &rows.kappa_prime * &(&(e_a * &dm_b) + &(e_b * &dm_a))))
-            + &(2.0 * &rows.kappa * &dm_ab);
 
         let hmm_ab = weighted_crossprod_psi_maps(
             xmu_ab_map,
@@ -1758,10 +1716,10 @@ impl GaussianLocationScaleWiggleFamily {
             )?
             + &xt_diag_y_dense(x_ls, &l_b, &basis_a)?
             + &xt_diag_y_dense(x_ls, &l, &basis_ab)?;
-        let hww_ab = xt_diag_y_dense(&basis_ab, &rows.w, &geom.basis)?;
-        let hww_ij = xt_diag_y_dense(&basis_a, &rows.w, &basis_b)?;
-        let hww_iwj = xt_diag_y_dense(&basis_a, &dw_b, &geom.basis)?;
-        let hww_jwi = xt_diag_y_dense(&basis_b, &dw_a, &geom.basis)?;
+        let hww_ab = xt_diag_y_dense(&basis_ab, &hessian_mm_base, &geom.basis)?;
+        let hww_ij = xt_diag_y_dense(&basis_a, &hessian_mm_base, &basis_b)?;
+        let hww_iwj = xt_diag_y_dense(&basis_a, &hessian_mm_b, &geom.basis)?;
+        let hww_jwi = xt_diag_y_dense(&basis_b, &hessian_mm_a, &geom.basis)?;
         let h_ww = &hww_ab
             + &hww_ab.t()
             + &hww_ij
@@ -1770,7 +1728,7 @@ impl GaussianLocationScaleWiggleFamily {
             + hww_iwj.t()
             + &hww_jwi
             + hww_jwi.t()
-            + &xt_diag_x_dense(&geom.basis, &dw_ab)?;
+            + &xt_diag_x_dense(&geom.basis, &hessian_mm_ab)?;
 
         Ok(gam_problem::ExactNewtonJointPsiSecondOrderTerms {
             objective_psi_psi,
@@ -1867,98 +1825,48 @@ impl GaussianLocationScaleWiggleFamily {
         let basis1_a_u = scale_matrix_rows(&geom.basis_d3, &(&xi * &dir_a.z_primary_psi))?
             + &scale_matrix_rows(&geom.basis_d2, &zmu_a_u)?;
 
-        // logb κ-chain on η_ls; e_a = ψ_a's η_ls direction, ζ = β-direction.
-        // η_au = zls_a_u is the second mixed derivative (β·ψ).
         let e_a = &dir_a.z_ls_psi;
-        let four_k2_minus_2kpi = 4.0 * &rows.kappa * &rows.kappa - 2.0 * &rows.kappa_prime;
-        let dw_u = -2.0 * &rows.w * &rows.kappa * &zeta;
-        let dm_u = -(&rows.w * &q_u) - &(2.0 * &rows.m * &rows.kappa * &zeta);
-        let dw_a = -2.0 * &rows.w * &rows.kappa * e_a;
-        let dm_a = -(&rows.w * &q_a) - &(2.0 * &rows.m * &rows.kappa * e_a);
-        let dw_a_u = &four_k2_minus_2kpi * &rows.w * &(e_a * &zeta)
-            - &(2.0 * &rows.w * &rows.kappa * &zls_a_u);
-        let dm_a_u = &(2.0 * &rows.w * &rows.kappa * &(&q_a * &zeta + &q_u * e_a))
-            - &(&rows.w * &q_a_u)
-            + &(&four_k2_minus_2kpi * &rows.m * &(e_a * &zeta))
-            - &(2.0 * &rows.m * &rows.kappa * &zls_a_u);
-
-        let coeff_mm_u = &(&dw_u * &geom.dq_dq0.mapv(|v| v * v))
-            + &(2.0 * &rows.w * &geom.dq_dq0 * &s1_u)
-            - &(&dm_u * &geom.d2q_dq02)
-            - &(&rows.m * &g2_u);
-        // OBSERVED joint Hessian blocks (#1561). coeff_ml = 2κm·dq_dq0, l = 2κm,
-        // coeff_ll = κ'(a−n)+2κ²n. This path is the β-directional derivative
-        // (along u) of H, further differentiated by ψ (direction a). δn is
-        // needed along u, a, and mixed a_u; κ''' = κ''(1−2κ)−2κ'².
-        let d = &geom.dq_dq0;
-        let amn = &rows.obs_weight - &rows.n;
-        let a_coef = 2.0 * &rows.kappa * &rows.kappa - &rows.kappa_prime;
-        let ktp = &(&rows.kappa_dprime * &(1.0 - 2.0 * &rows.kappa))
-            - &(2.0 * &rows.kappa_prime * &rows.kappa_prime);
-        let four_kkp_minus_kdp = 4.0 * &rows.kappa * &rows.kappa_prime - &rows.kappa_dprime;
-        let dn_u = -(2.0 * &rows.m * &q_u) - &(2.0 * &rows.n * &rows.kappa * &zeta);
-        let dn_a = -(2.0 * &rows.m * &q_a) - &(2.0 * &rows.n * &rows.kappa * e_a);
-        let dn_a_u = &(&(&(2.0 * &rows.w * &(&q_a * &q_u))
-            + &(4.0 * &rows.m * &rows.kappa * &(&(&q_a * &zeta) + &(&q_u * e_a))))
-            - &(2.0 * &rows.m * &q_a_u))
-            + &(&(&four_k2_minus_2kpi * &rows.n * &(e_a * &zeta))
-                - &(2.0 * &rows.n * &rows.kappa * &zls_a_u));
-        // coeff_ml_u = D_u(2κm·dq_dq0): differentiate κ (ζ), m (dm_u), dq_dq0 (s1_u).
-        let coeff_ml_u = &(2.0 * &rows.kappa_prime * &zeta * &rows.m * d)
-            + &(&(2.0 * &rows.kappa * &dm_u * d) + &(2.0 * &rows.kappa * &rows.m * &s1_u));
-        // coeff_ll_u = D_u(κ'(a−n)+2κ²n) = κ''ζ(a−n)+4κκ'ζn+(2κ²−κ')dn_u.
-        let coeff_ll_u = &(&(&rows.kappa_dprime * &zeta * &amn)
-            + &(4.0 * &rows.kappa * &rows.kappa_prime * &zeta * &rows.n))
-            + &(&a_coef * &dn_u);
-        let coeff_mm_a_u = &(&dw_a_u * &geom.dq_dq0.mapv(|v| v * v))
-            + &(2.0 * &dw_a * &geom.dq_dq0 * &s1_u)
-            + &(2.0 * &dw_u * &geom.dq_dq0 * &s1_a)
-            + &(2.0 * &rows.w * &s1_u * &s1_a)
-            + &(2.0 * &rows.w * &geom.dq_dq0 * &s1_a_u)
-            - &(&dm_a_u * &geom.d2q_dq02)
-            - &(&dm_a * &g2_u)
-            - &(&dm_u * &g2_a)
-            - &(&rows.m * &g2_a_u);
-        // coeff_ml_a_u = D_a D_u(2κm·dq_dq0): mixed second, with the zls_a_u leg
-        // for the ψ×β η_ls second drift.
-        let coeff_ml_a_u = 2.0
-            * &(&(&(&(&(&(&rows.kappa_dprime * &(e_a * &zeta) * &rows.m * d)
-                + &(&rows.kappa_prime * &zls_a_u * &rows.m * d))
-                + &(&rows.kappa_prime * d * &(&(e_a * &dm_u) + &(&zeta * &dm_a))))
-                + &(&rows.kappa_prime * &rows.m * &(&(e_a * &s1_u) + &(&zeta * &s1_a))))
-                + &(&rows.kappa * d * &dm_a_u))
-                + &(&rows.kappa * &(&(&dm_a * &s1_u) + &(&dm_u * &s1_a))))
-            + &(2.0 * &rows.kappa * &rows.m * &s1_a_u);
-        // coeff_ll_a_u = D_a D_u(κ'(a−n)+2κ²n): κ'''(a−n)e_aζ + 4(κ'²+κκ'')n·e_aζ
-        // + (4κκ'−κ'')(e_a dn_u + ζ dn_a) + (2κ²−κ')dn_a_u + (κ''(a−n)+4κκ'n)zls_a_u.
-        let coeff_ll_a_u = &(&(&(&(&ktp * &amn * &(e_a * &zeta))
-            + &(4.0
-                * &(&(&rows.kappa_prime * &rows.kappa_prime)
-                    + &(&rows.kappa * &rows.kappa_dprime))
-                * &rows.n
-                * &(e_a * &zeta)))
-            + &(&four_kkp_minus_kdp * &(&(e_a * &dn_u) + &(&zeta * &dn_a))))
-            + &(&a_coef * &dn_a_u))
-            + &(&(&(&rows.kappa_dprime * &amn)
-                + &(4.0 * &rows.kappa * &rows.kappa_prime * &rows.n))
-                * &zls_a_u);
-
-        let a = &rows.w * &geom.dq_dq0;
-        let a_u = &dw_u * &geom.dq_dq0 + &rows.w * &s1_u;
-        let a_a = &dw_a * &geom.dq_dq0 + &rows.w * &s1_a;
-        let a_a_u = &dw_a_u * &geom.dq_dq0 + &dw_a * &s1_u + &dw_u * &s1_a + &rows.w * &s1_a_u;
-        let c = -&rows.m;
-        let c_u = -&dm_u;
-        let c_a = -&dm_a;
-        let c_a_u = -&dm_a_u;
-        // OBSERVED ls↔wiggle cross l = 2κm (#1561): β-drift l_u, ψ l_a, mixed l_a_u.
-        let l = 2.0 * &rows.kappa * &rows.m;
-        let l_u = &(2.0 * &rows.kappa_prime * &zeta * &rows.m) + &(2.0 * &rows.kappa * &dm_u);
-        let l_a = &(2.0 * &rows.kappa_prime * e_a * &rows.m) + &(2.0 * &rows.kappa * &dm_a);
-        let l_a_u = &(&(2.0 * &rows.kappa_dprime * &(e_a * &zeta) * &rows.m)
-            + &(&(2.0 * &rows.kappa_prime * &zls_a_u * &rows.m)
-                + &(2.0 * &rows.kappa_prime * &(&(e_a * &dm_u) + &(&zeta * &dm_a)))))
-            + &(2.0 * &rows.kappa * &dm_a_u);
+        let GlsWiggleSecondDirCoeffs {
+            coeff_mm_u,
+            coeff_mm_uv: coeff_mm_a_u,
+            coeff_ml_u,
+            coeff_ml_uv: coeff_ml_a_u,
+            coeff_ll_u,
+            coeff_ll_uv: coeff_ll_a_u,
+            mean_wiggle_base: a,
+            a_u,
+            a_v: a_a,
+            a_uv: a_a_u,
+            gradient_mu_base: c,
+            c_u,
+            c_v: c_a,
+            c_uv: c_a_u,
+            hessian_ml_base: l,
+            l_u,
+            l_v: l_a,
+            l_uv: l_a_u,
+            hessian_mm_base,
+            hessian_mm_u,
+            hessian_mm_uv: hessian_mm_a_u,
+            ..
+        } = gls_wiggle_second_directional_coeffs(
+            &rows,
+            &geom,
+            &GlsWiggleDirPieces {
+                zeta_u: &zeta,
+                zeta_v: e_a,
+                zeta_uv: &zls_a_u,
+                q_u: &q_u,
+                q_v: &q_a,
+                q_uv: &q_a_u,
+                s1_u: &s1_u,
+                s1_v: &s1_a,
+                s1_uv: &s1_a_u,
+                g2_u: &g2_u,
+                g2_v: &g2_a,
+                g2_uv: &g2_a_u,
+            },
+        );
 
         let hmm_a1 = weighted_crossprod_psi_maps(
             xmu_map,
@@ -2019,16 +1927,16 @@ impl GaussianLocationScaleWiggleFamily {
             + &xt_diag_y_dense(x_ls, &l_a, &basis_u)?
             + &xt_diag_y_dense(x_ls, &l_u, &basis_a)?
             + &xt_diag_y_dense(x_ls, &l, &basis_a_u)?;
-        let hww_a_u = xt_diag_y_dense(&basis_a_u, &rows.w, &geom.basis)?;
-        let hww_aw = xt_diag_y_dense(&basis_a, &dw_u, &geom.basis)?;
-        let hww_au = xt_diag_y_dense(&basis_a, &rows.w, &basis_u)?;
+        let hww_a_u = xt_diag_y_dense(&basis_a_u, &hessian_mm_base, &geom.basis)?;
+        let hww_aw = xt_diag_y_dense(&basis_a, &hessian_mm_u, &geom.basis)?;
+        let hww_au = xt_diag_y_dense(&basis_a, &hessian_mm_base, &basis_u)?;
         let h_ww = &hww_a_u
             + &hww_a_u.t()
             + &hww_aw
             + hww_aw.t()
             + &hww_au
             + hww_au.t()
-            + &xt_diag_x_dense(&geom.basis, &dw_a_u)?;
+            + &xt_diag_x_dense(&geom.basis, &hessian_mm_a_u)?;
 
         Ok(gaussian_pack_wiggle_joint_symmetrichessian(
             &h_mm, &h_ml, &h_mw, &h_ll, &h_lw, &h_ww,
@@ -2143,7 +2051,7 @@ impl CustomFamily for GaussianLocationScaleWiggleFamily {
         _: &[ParameterBlockState],
         block_idx: usize,
         spec: &ParameterBlockSpec,
-    ) -> Result<Option<LinearInequalityConstraints>, String> {
+    ) -> Result<Option<ConstraintSet>, String> {
         if block_idx != Self::BLOCK_WIGGLE {
             return Ok(None);
         }
@@ -2281,15 +2189,8 @@ impl CustomFamily for GaussianLocationScaleWiggleFamily {
         let mut ll = 0.0;
         for i in 0..self.y.len() {
             let q = eta_mu[i] + etaw[i];
-            ll += gaussian_diagonal_row_kernel(
-                i,
-                self.y[i],
-                q,
-                eta_ls[i],
-                self.weights[i],
-                ln2pi,
-            )?
-            .log_likelihood;
+            ll += gaussian_diagonal_row_kernel(i, self.y[i], q, eta_ls[i], self.weights[i], ln2pi)?
+                .log_likelihood;
             if !ll.is_finite() {
                 return Err(GamlssError::RowGeometryUnrepresentable {
                     row: i,
@@ -2341,15 +2242,9 @@ impl CustomFamily for GaussianLocationScaleWiggleFamily {
         for sampled in subsample.rows.iter() {
             let i = sampled.index;
             let q = eta_mu[i] + etaw[i];
-            let row_ll = gaussian_diagonal_row_kernel(
-                i,
-                self.y[i],
-                q,
-                eta_ls[i],
-                self.weights[i],
-                ln2pi,
-            )?
-            .log_likelihood;
+            let row_ll =
+                gaussian_diagonal_row_kernel(i, self.y[i], q, eta_ls[i], self.weights[i], ln2pi)?
+                    .log_likelihood;
             let contribution = scaled_signed_product3(sampled.weight, row_ll, 1.0);
             ll += contribution;
             if !contribution.is_finite() || !ll.is_finite() {
@@ -2357,7 +2252,11 @@ impl CustomFamily for GaussianLocationScaleWiggleFamily {
                     row: i,
                     quantity: "Gaussian wiggle subsampled log likelihood",
                     eta: eta_ls[i],
-                    value: if contribution.is_finite() { ll } else { contribution },
+                    value: if contribution.is_finite() {
+                        ll
+                    } else {
+                        contribution
+                    },
                 }
                 .into());
             }
@@ -2501,13 +2400,17 @@ impl CustomFamily for GaussianLocationScaleWiggleFamily {
         &self,
         block_states: &[ParameterBlockState],
         specs: &[ParameterBlockSpec],
-        derivative_blocks: &[Vec<crate::custom_family::CustomFamilyBlockPsiDerivative>],
+        hyper_layout: &crate::custom_family::CustomFamilyHyperLayout,
         psi_index: usize,
     ) -> Result<Option<gam_problem::ExactNewtonJointPsiTerms>, String> {
+        if hyper_layout.family_axis_count() != 0 {
+            return Err("GaussianLocationScaleWiggleFamily does not declare family-owned hyper axes"
+                .to_string());
+        }
         self.exact_newton_joint_psi_terms_for_specs(
             block_states,
             specs,
-            derivative_blocks,
+            hyper_layout.design_derivative_blocks(),
             psi_index,
         )
     }
@@ -2516,14 +2419,18 @@ impl CustomFamily for GaussianLocationScaleWiggleFamily {
         &self,
         block_states: &[ParameterBlockState],
         specs: &[ParameterBlockSpec],
-        derivative_blocks: &[Vec<crate::custom_family::CustomFamilyBlockPsiDerivative>],
+        hyper_layout: &crate::custom_family::CustomFamilyHyperLayout,
         psi_i: usize,
         psi_j: usize,
     ) -> Result<Option<gam_problem::ExactNewtonJointPsiSecondOrderTerms>, String> {
+        if hyper_layout.family_axis_count() != 0 {
+            return Err("GaussianLocationScaleWiggleFamily does not declare family-owned hyper axes"
+                .to_string());
+        }
         self.exact_newton_joint_psisecond_order_terms_for_specs(
             block_states,
             specs,
-            derivative_blocks,
+            hyper_layout.design_derivative_blocks(),
             psi_i,
             psi_j,
         )
@@ -2533,14 +2440,18 @@ impl CustomFamily for GaussianLocationScaleWiggleFamily {
         &self,
         block_states: &[ParameterBlockState],
         specs: &[ParameterBlockSpec],
-        derivative_blocks: &[Vec<crate::custom_family::CustomFamilyBlockPsiDerivative>],
+        hyper_layout: &crate::custom_family::CustomFamilyHyperLayout,
         psi_index: usize,
         d_beta_flat: &Array1<f64>,
     ) -> Result<Option<Array2<f64>>, String> {
+        if hyper_layout.family_axis_count() != 0 {
+            return Err("GaussianLocationScaleWiggleFamily does not declare family-owned hyper axes"
+                .to_string());
+        }
         self.exact_newton_joint_psihessian_directional_derivative_for_specs(
             block_states,
             specs,
-            derivative_blocks,
+            hyper_layout.design_derivative_blocks(),
             psi_index,
             d_beta_flat,
         )
@@ -2550,8 +2461,12 @@ impl CustomFamily for GaussianLocationScaleWiggleFamily {
         &self,
         block_states: &[ParameterBlockState],
         specs: &[ParameterBlockSpec],
-        derivative_blocks: &[Vec<crate::custom_family::CustomFamilyBlockPsiDerivative>],
+        hyper_layout: &crate::custom_family::CustomFamilyHyperLayout,
     ) -> Result<Option<Arc<dyn ExactNewtonJointPsiWorkspace>>, String> {
+        if hyper_layout.family_axis_count() != 0 {
+            return Err("GaussianLocationScaleWiggleFamily does not declare family-owned hyper axes"
+                .to_string());
+        }
         if !self.exact_joint_supported() {
             return Ok(None);
         }
@@ -2560,7 +2475,7 @@ impl CustomFamily for GaussianLocationScaleWiggleFamily {
                 self.clone(),
                 block_states.to_vec(),
                 specs,
-                derivative_blocks.to_vec(),
+                hyper_layout.design_derivative_blocks().to_vec(),
             )?,
         )))
     }
@@ -2585,9 +2500,13 @@ impl CustomFamily for GaussianLocationScaleWiggleFamily {
         &self,
         block_states: &[ParameterBlockState],
         specs: &[ParameterBlockSpec],
-        derivative_blocks: &[Vec<crate::custom_family::CustomFamilyBlockPsiDerivative>],
+        hyper_layout: &crate::custom_family::CustomFamilyHyperLayout,
         options: &BlockwiseFitOptions,
     ) -> Result<Option<Arc<dyn ExactNewtonJointPsiWorkspace>>, String> {
+        if hyper_layout.family_axis_count() != 0 {
+            return Err("GaussianLocationScaleWiggleFamily does not declare family-owned hyper axes"
+                .to_string());
+        }
         if !self.exact_joint_supported() {
             return Ok(None);
         }
@@ -2596,7 +2515,7 @@ impl CustomFamily for GaussianLocationScaleWiggleFamily {
                 self.clone(),
                 block_states.to_vec(),
                 specs,
-                derivative_blocks.to_vec(),
+                hyper_layout.design_derivative_blocks().to_vec(),
                 options.outer_score_subsample.clone(),
             )?,
         )))

@@ -1278,7 +1278,7 @@ class PostgresNode(object):
                     if nAttempt == __class__._C_MAX_START_ATEMPTS:
                         self._raise_cannot_start_node(e, "Cannot start node after multiple attempts.")
 
-                    is_it_port_conflict = PostgresNodeUtils.delect_port_conflict(log_reader)
+                    is_it_port_conflict = PostgresNodeUtils.detect_port_conflict(log_reader)
 
                     if not is_it_port_conflict:
                         LOCAL__raise_cannot_start_node__std(e)
@@ -2430,9 +2430,14 @@ class PostgresNodeLogReader:
         position: int
         tail: bytes
 
-        def __init__(self, position: int):
+        def __init__(self, position: int, tail: bytes = b''):
+            assert type(position) is int
+            assert type(tail) is bytes
+            assert position >= 0
+
             self.position = position
-            self.tail = b''
+            self.tail = tail
+            return
 
     # --------------------------------------------------------------------
     class LogDataBlock:
@@ -2487,7 +2492,7 @@ class PostgresNodeLogReader:
         if from_beginnig:
             self._logs = dict()
         else:
-            self._logs = self._collect_logs()
+            self._logs = self._collect_logs(find_line_start=True)
 
         assert type(self._logs) is dict
         return
@@ -2496,13 +2501,13 @@ class PostgresNodeLogReader:
         assert self._node is not None
         assert isinstance(self._node, PostgresNode)
 
-        cur_logs: typing.Dict[str, __class__.LogInfo] = self._collect_logs()
+        cur_logs = self._collect_logs(find_line_start=False)
         assert cur_logs is not None
         assert type(cur_logs) is dict
 
         assert type(self._logs) is dict
 
-        result = list()
+        result: typing.List[__class__.LogDataBlock] = []
 
         for file_name, cur_log_info in cur_logs.items():
             assert type(file_name) is str
@@ -2570,7 +2575,8 @@ class PostgresNodeLogReader:
 
         return result
 
-    def _collect_logs(self) -> typing.Dict[str, LogInfo]:
+    def _collect_logs(self, find_line_start: bool) -> typing.Dict[str, LogInfo]:
+        assert type(find_line_start) is bool
         assert self._node is not None
         assert isinstance(self._node, PostgresNode)
 
@@ -2587,18 +2593,52 @@ class PostgresNodeLogReader:
             if not self._node.os_ops.path_exists(f):
                 continue
 
-            file_size = self._node.os_ops.get_file_size(f)
-            assert type(file_size) is int
-            assert file_size >= 0
-
-            result[f] = __class__.LogInfo(file_size)
+            result[f] = self._create_log_info(
+                self._node.os_ops,
+                f,
+                find_line_start,
+            )
+            continue
 
         return result
+
+    @staticmethod
+    def _create_log_info(
+        os_ops: OsOperations,
+        filename: str,
+        find_line_start: bool,
+    ) -> LogInfo:
+        assert type(filename) is str
+        assert type(find_line_start) is bool
+        assert len(filename) > 0
+        assert os_ops is not None
+        assert isinstance(os_ops, OsOperations)
+
+        file_size = os_ops.get_file_size(filename)
+        assert type(file_size) is int
+        assert file_size >= 0
+
+        if not find_line_start:
+            return __class__.LogInfo(
+                position=file_size,
+                tail=b'',
+            )
+
+        tail = internal_utils.read_line_to_pos__bin(
+            os_ops,
+            filename,
+            file_size,
+        )
+
+        return __class__.LogInfo(
+            position=file_size,
+            tail=tail,
+        )
 
 
 class PostgresNodeUtils:
     @staticmethod
-    def delect_port_conflict(log_reader: PostgresNodeLogReader) -> bool:
+    def detect_port_conflict(log_reader: PostgresNodeLogReader) -> bool:
         assert type(log_reader) is PostgresNodeLogReader
 
         blocks = log_reader.read()

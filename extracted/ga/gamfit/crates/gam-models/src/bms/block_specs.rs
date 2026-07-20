@@ -767,6 +767,10 @@ fn reparameterize_logslope_design_reduced(
     // The penalties + nullspace_dims above are what the joint REML consumes.
     Ok(TermCollectionDesign {
         design: new_design,
+        // Reparameterization changes only the coefficient chart G -> G T.
+        // The known affine row function is coefficient-independent and must
+        // therefore pass through unchanged.
+        affine_offset: logslope_design.affine_offset.clone(),
         penalties: new_penalties,
         nullspace_dims: new_nullspace_dims,
         penaltyinfo: Vec::new(),
@@ -1288,7 +1292,8 @@ mod runaway_tests {
             Some(2.5),
             &[0.4],
             &SpatialLengthScaleOptimizationOptions::default(),
-        );
+        )
+        .expect("empty spatial geometry is valid");
 
         assert_eq!(
             setup.rho_dim(),
@@ -1372,8 +1377,10 @@ mod runaway_tests {
         intercept_range: std::ops::Range<usize>,
         linear_ranges: Vec<(String, std::ops::Range<usize>)>,
     ) -> TermCollectionDesign {
+        let nrows = x.nrows();
         TermCollectionDesign {
             design: DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(x)),
+            affine_offset: Array1::zeros(nrows),
             penalties: Vec::new(),
             nullspace_dims: Vec::new(),
             penaltyinfo: Vec::new(),
@@ -1791,11 +1798,34 @@ pub(crate) fn push_deviation_aux_blockspecs(
     score_warp_beta_hint: Option<Array1<f64>>,
     link_dev_beta_hint: Option<Array1<f64>>,
 ) -> Result<(), String> {
+    fn take_rho_slice(
+        rho: &Array1<f64>,
+        cursor: &mut usize,
+        count: usize,
+        block_name: &str,
+    ) -> Result<Array1<f64>, String> {
+        let start = *cursor;
+        let end = start.checked_add(count).ok_or_else(|| {
+            format!("{block_name} penalty-rho range overflow: start={start}, count={count}")
+        })?;
+        if end > rho.len() {
+            return Err(format!(
+                "{block_name} penalty-rho range {start}..{end} exceeds rho length {}",
+                rho.len()
+            ));
+        }
+        let slice = rho.slice(s![start..end]).to_owned();
+        *cursor = end;
+        Ok(slice)
+    }
+
     if let Some(prepared) = score_warp_prepared {
-        let rho_h = rho
-            .slice(s![*cursor..*cursor + prepared.block.penalties.len()])
-            .to_owned();
-        *cursor += prepared.block.penalties.len();
+        let rho_h = take_rho_slice(
+            rho,
+            cursor,
+            prepared.block.penalties.len(),
+            "score_warp_dev",
+        )?;
         blocks.push(build_deviation_aux_blockspec(
             "score_warp_dev",
             prepared,
@@ -1804,9 +1834,7 @@ pub(crate) fn push_deviation_aux_blockspecs(
         )?);
     }
     if let Some(prepared) = link_dev_prepared {
-        let rho_w = rho
-            .slice(s![*cursor..*cursor + prepared.block.penalties.len()])
-            .to_owned();
+        let rho_w = take_rho_slice(rho, cursor, prepared.block.penalties.len(), "link_dev")?;
         blocks.push(build_deviation_aux_blockspec(
             "link_dev",
             prepared,
@@ -1815,6 +1843,76 @@ pub(crate) fn push_deviation_aux_blockspecs(
         )?);
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod deviation_penalty_layout_tests {
+    use super::*;
+
+    fn prepared_with_penalty_orders(orders: Vec<usize>) -> DeviationPrepared {
+        let seed = Array1::linspace(-1.0, 1.0, 48);
+        let config = DeviationBlockConfig {
+            degree: 3,
+            num_internal_knots: 6,
+            penalty_order: *orders.first().expect("test requires a penalty order"),
+            penalty_orders: orders,
+            double_penalty: false,
+            monotonicity_eps: 0.0,
+        };
+        build_score_warp_deviation_block_from_seed(&seed, &config)
+            .expect("test deviation block must build")
+    }
+
+    #[test]
+    fn composed_score_link_influence_rho_layout_advances_by_emitted_counts_2315() {
+        // Deliberately use unequal component counts and disjoint sentinels. A
+        // length-only assertion cannot detect the old bug: link_dev received the
+        // right-looking slice, but failing to advance the cursor made the following
+        // influence absorber silently reuse link_dev's first rho coordinate.
+        let score_warp = prepared_with_penalty_orders(vec![1, 2]);
+        let link_dev = prepared_with_penalty_orders(vec![1, 2, 3]);
+        assert_eq!(score_warp.block.penalties.len(), 2);
+        assert_eq!(link_dev.block.penalties.len(), 3);
+
+        // Coordinate zero stands for an already-consumed core penalty. The final
+        // coordinate is the influence absorber's trailing ridge.
+        let rho = Array1::from_vec(vec![-101.0, 11.0, 12.0, 21.0, 22.0, 23.0, 31.0]);
+        let mut cursor = 1usize;
+        let mut blocks = Vec::new();
+        push_deviation_aux_blockspecs(
+            &mut blocks,
+            &rho,
+            &mut cursor,
+            Some(&score_warp),
+            Some(&link_dev),
+            None,
+            None,
+        )
+        .expect("composed deviation layout must be realized");
+
+        assert_eq!(blocks.len(), 2);
+        assert_eq!(blocks[0].name, "score_warp_dev");
+        assert_eq!(
+            blocks[0].initial_log_lambdas.as_slice(),
+            Some(&[11.0, 12.0][..])
+        );
+        assert_eq!(blocks[1].name, "link_dev");
+        assert_eq!(
+            blocks[1].initial_log_lambdas.as_slice(),
+            Some(&[21.0, 22.0, 23.0][..])
+        );
+        assert_eq!(
+            cursor, 6,
+            "the next consumer must start after every emitted deviation penalty"
+        );
+
+        let influence_rho = rho.slice(s![cursor..cursor + 1]).to_owned();
+        assert_eq!(influence_rho.as_slice(), Some(&[31.0][..]));
+        assert_ne!(
+            influence_rho[0], blocks[1].initial_log_lambdas[0],
+            "the influence absorber must not reuse link_dev's first rho coordinate"
+        );
+    }
 }
 
 fn inner_fit(
@@ -1830,6 +1928,26 @@ fn inner_fit(
     options.use_outer_hessian = false;
     options.outer_tol = options.outer_tol.max(2.0e-5);
     fit_custom_family(family, blocks, &options).map_err(|e| e.to_string())
+}
+
+fn inner_fit_from_certified_outer(
+    family: &BernoulliMarginalSlopeFamily,
+    blocks: &[ParameterBlockSpec],
+    options: &BlockwiseFitOptions,
+    mode: crate::custom_family::CustomFamilyOwnedMode,
+    theta: &Array1<f64>,
+    outer: &gam_solve::rho_optimizer::CertifiedOuterResult,
+) -> Result<UnifiedFitResult, String> {
+    let mut options = crate::outer_subsample::exact_outer_options_for_row_set(
+        options,
+        &crate::row_kernel::RowSet::All,
+    );
+    options.use_outer_hessian = false;
+    options.outer_tol = options.outer_tol.max(2.0e-5);
+    fit_custom_family_fixed_log_lambdas_from_owned_mode(
+        family, blocks, &options, mode, theta, outer,
+    )
+    .map_err(|error| error.to_string())
 }
 
 pub fn fit_bernoulli_marginal_slope_terms(
@@ -1895,14 +2013,16 @@ pub fn fit_bernoulli_marginal_slope_terms(
             &marginal_terms,
             effective_kappa_options.pilot_subsample_threshold,
             &effective_kappa_options,
-        );
+        )
+        .map_err(|error| error.to_string())?;
         let logslope_updates = apply_spatial_anisotropy_pilot_initializer(
             data_view,
             &mut spec.logslopespec,
             &logslope_terms,
             effective_kappa_options.pilot_subsample_threshold,
             &effective_kappa_options,
-        );
+        )
+        .map_err(|error| error.to_string())?;
         effective_kappa_options.enabled = false;
         log::info!(
             "[BMS spatial] n={} flex=true pilot_geometry_updates={} iterative_spatial_outer=false reason=large-flex-spatial-pilot",
@@ -1919,13 +2039,17 @@ pub fn fit_bernoulli_marginal_slope_terms(
     spec.z = z_standardized;
     let sigma_learnable = matches!(
         &spec.frailty,
-        FrailtySpec::GaussianShift { sigma_fixed: None }
+        FrailtySpec::GaussianShift {
+            scale: FrailtyScale::Learned { .. }
+        }
     );
     let initial_sigma = match &spec.frailty {
         FrailtySpec::GaussianShift {
-            sigma_fixed: Some(s),
-        } => Some(*s),
-        FrailtySpec::GaussianShift { sigma_fixed: None } => Some(0.5),
+            scale: FrailtyScale::Fixed { sigma },
+        } => Some(*sigma),
+        FrailtySpec::GaussianShift {
+            scale: FrailtyScale::Learned { initial_sigma },
+        } => Some(*initial_sigma),
         FrailtySpec::None => None,
         FrailtySpec::HazardMultiplier { .. } => {
             return Err(
@@ -1949,10 +2073,8 @@ pub fn fit_bernoulli_marginal_slope_terms(
     // logslopespec_boot])` inside `optimize_spatial_length_scale_exact_joint`)
     // and every subsequent kappa-driven rebuild feed the basis builder the
     // captured `FrozenTransform` identifiability. Applying that captured
-    // transform to the same kernel can land the structural null-space block on
-    // the other side of `build_nullspace_shrinkage_penalty`'s spectral
-    // tolerance, so the raw and frozen builds disagree on whether the trend
-    // ridge survives as an active penalty candidate. Without this rebuild,
+    // transform changes the exact coefficient chart of the penalty blocks.
+    // Without this rebuild,
     // `marginal_penalty_count` / `logslope_design.penalties.len()` are taken
     // from the raw build but every subsequent evaluator measures the frozen
     // build, and `evaluate_custom_family_joint_hyper` refuses with a
@@ -1965,6 +2087,12 @@ pub fn fit_bernoulli_marginal_slope_terms(
     .map_err(|e| format!("failed to rebuild frozen probe BMS joint designs: {e}"))?;
     let marginal_design = joint_designs.remove(0);
     let logslope_design = joint_designs.remove(0);
+    spec.marginal_offset = marginal_design
+        .compose_offset(spec.marginal_offset.view(), "BMS marginal block")
+        .map_err(|error| error.to_string())?;
+    spec.logslope_offset = logslope_design
+        .compose_offset(spec.logslope_offset.view(), "BMS logslope block")
+        .map_err(|error| error.to_string())?;
     // #905: the conditional `E[z|C]`/`Var(z|C)` Rao gate conditions on the
     // marginal-index span a(C) (= the marginal design columns), which is
     // exactly where the `b(C)·m(C)` leakage lives. It is engaged only on the
@@ -2364,7 +2492,8 @@ pub fn fit_bernoulli_marginal_slope_terms(
         absorber_rho0,
         &extra_rho0,
         &effective_kappa_options,
-    );
+    )
+    .map_err(|error| error.to_string())?;
     let setup = if sigma_learnable {
         setup.with_auxiliary(
             Array1::from_vec(vec![initial_sigma.expect("learnable sigma seed").ln()]),
@@ -2540,10 +2669,10 @@ pub fn fit_bernoulli_marginal_slope_terms(
             initial_sigma
         }
     };
-    let derivative_block_cache = RefCell::new(
+    let hyper_layout_cache = RefCell::new(
         None::<(
             Array1<f64>,
-            Arc<Vec<Vec<crate::custom_family::CustomFamilyBlockPsiDerivative>>>,
+            crate::custom_family::SharedCustomFamilyHyperLayout,
         )>,
     );
     let theta_matches = |left: &Array1<f64>, right: &Array1<f64>| -> bool {
@@ -2551,19 +2680,16 @@ pub fn fit_bernoulli_marginal_slope_terms(
             && left
                 .iter()
                 .zip(right.iter())
-                .all(|(lhs, rhs)| (*lhs - *rhs).abs() <= 1e-12 * (1.0 + lhs.abs().max(rhs.abs())))
+                .all(|(lhs, rhs)| lhs.to_bits() == rhs.to_bits())
     };
-    let get_derivative_blocks = |theta: &Array1<f64>,
-                                 specs: &[TermCollectionSpec],
-                                 designs: &[TermCollectionDesign]|
-     -> Result<
-        Arc<Vec<Vec<crate::custom_family::CustomFamilyBlockPsiDerivative>>>,
-        String,
-    > {
-        if let Some((cached_theta, cached_blocks)) = derivative_block_cache.borrow().as_ref()
+    let get_hyper_layout = |theta: &Array1<f64>,
+                            specs: &[TermCollectionSpec],
+                            designs: &[TermCollectionDesign]|
+     -> Result<crate::custom_family::SharedCustomFamilyHyperLayout, String> {
+        if let Some((cached_theta, cached_layout)) = hyper_layout_cache.borrow().as_ref()
             && theta_matches(cached_theta, theta)
         {
-            return Ok(Arc::clone(cached_blocks));
+            return Ok(Arc::clone(cached_layout));
         }
 
         let built = |specs: &[TermCollectionSpec],
@@ -2584,13 +2710,23 @@ pub fn fit_bernoulli_marginal_slope_terms(
                 Vec::new()
             };
             let logslope_psi_derivs = if logslope_has_spatial {
-                build_block_spatial_psi_derivatives(data_view, &specs[1], &designs[1])?.ok_or_else(
-                    || {
-                        "bernoulli marginal-slope: logslope block has spatial terms \
-                         but spatial psi derivatives are unavailable"
-                            .to_string()
-                    },
-                )?
+                let built = if let Some(reparam) = logslope_reduced_reparam.as_ref() {
+                    let transform =
+                        CoefficientSpatialPsiBlockTransform::new(&reparam.transform)?;
+                    build_block_spatial_psi_derivatives_with_transform(
+                        data_view,
+                        &specs[1],
+                        &designs[1],
+                        &transform,
+                    )?
+                } else {
+                    build_block_spatial_psi_derivatives(data_view, &specs[1], &designs[1])?
+                };
+                built.ok_or_else(|| {
+                    "bernoulli marginal-slope: logslope block has spatial terms \
+                     but spatial psi derivatives are unavailable"
+                        .to_string()
+                })?
             } else {
                 Vec::new()
             };
@@ -2601,25 +2737,17 @@ pub fn fit_bernoulli_marginal_slope_terms(
             if link_dev_runtime.is_some() {
                 derivative_blocks.push(Vec::new());
             }
-            if sigma_learnable {
-                derivative_blocks
-                    .last_mut()
-                    .expect("bernoulli derivative block list is non-empty")
-                    .push(crate::custom_family::CustomFamilyBlockPsiDerivative::new(
-                        None,
-                        Array2::zeros((0, 0)),
-                        Array2::zeros((0, 0)),
-                        None,
-                        None,
-                        None,
-                        None,
-                    ));
-            }
             Ok(derivative_blocks)
         }(specs, designs)?;
-        let built = Arc::new(built);
-        derivative_block_cache.replace(Some((theta.clone(), Arc::clone(&built))));
-        Ok(built)
+        let family_axes = if sigma_learnable { vec![0] } else { Vec::new() };
+        let hyper_values = theta.slice(s![setup.rho_dim()..]).to_owned();
+        let layout = Arc::new(crate::custom_family::CustomFamilyHyperLayout::new(
+            built,
+            family_axes,
+            hyper_values,
+        )?);
+        hyper_layout_cache.replace(Some((theta.clone(), Arc::clone(&layout))));
+        Ok(layout)
     };
 
     // Bernoulli marginal-slope is a multi-block family with β-dependent
@@ -2643,7 +2771,7 @@ pub fn fit_bernoulli_marginal_slope_terms(
         true,
         None,
         outer_policy,
-        |theta, specs: &[TermCollectionSpec], designs: &[TermCollectionDesign]| {
+        |theta, specs: &[TermCollectionSpec], designs: &[TermCollectionDesign], provenance| {
             if let Some(err) = runaway_error.borrow().as_ref().cloned() {
                 return Err(err);
             }
@@ -2657,7 +2785,16 @@ pub fn fit_bernoulli_marginal_slope_terms(
             let sigma = sigma_from_theta(theta);
             final_sigma_cell.set(sigma);
             let family = make_family(&designs[0], &designs[1], sigma);
-            let fit = inner_fit(&family, &blocks, options)?;
+            let fit = match provenance {
+                SpatialFitProvenance::NoOuterOptimization => {
+                    inner_fit(&family, &blocks, options)?
+                }
+                SpatialFitProvenance::Certified { outer, mode } => {
+                    inner_fit_from_certified_outer(
+                        &family, &blocks, options, mode, theta, outer,
+                    )?
+                }
+            };
             if let Some(block) = fit.block_states.first()
                 && let Some(err) = bernoulli_marginal_slope_runaway_error_from_beta(
                     block.beta.view(),
@@ -2739,7 +2876,7 @@ pub fn fit_bernoulli_marginal_slope_terms(
             let sigma = sigma_from_theta(theta);
             final_sigma_cell.set(sigma);
             let family = make_family(&designs[0], &designs[1], sigma);
-            let derivative_blocks = get_derivative_blocks(theta, specs, designs)?;
+            let hyper_layout = get_hyper_layout(theta, specs, designs)?;
             // Downgrade to ValueAndGradient when the caller asks for a
             // Hessian we can't provide; preserve ValueOnly probes for
             // line-search cost-only evaluation.
@@ -2749,52 +2886,55 @@ pub fn fit_bernoulli_marginal_slope_terms(
                 }
                 other => other,
             };
-            let mut eval_options =
+            let tolerance_options =
                 joint_hyper_options_for_outer_tolerance(options, exact_spatial_outer_tol);
-            if let crate::row_kernel::RowSet::Subsample { rows, n_full } = row_set {
-                let subsample = crate::outer_subsample::OuterScoreSubsample::from_weighted_rows(
-                    rows.as_ref().clone(),
-                    *n_full,
-                    0,
-                );
-                eval_options.outer_score_subsample = Some(Arc::new(subsample));
-                eval_options.auto_outer_subsample = false;
-            }
-            let eval = evaluate_custom_family_joint_hyper_shared(
+            let eval_options = crate::outer_subsample::exact_outer_options_for_row_set(
+                &tolerance_options,
+                row_set,
+            );
+            let owned = evaluate_custom_family_joint_hyper_owned_shared(
                 &family,
                 &blocks,
                 &eval_options,
                 &rho,
-                derivative_blocks,
+                hyper_layout,
                 exact_warm_start.borrow().as_ref(),
                 effective_mode,
             )?;
             if let Some(err) = bernoulli_marginal_slope_runaway_error(
-                &eval.warm_start,
+                &owned.result.warm_start,
                 &designs[0],
                 &specs[0],
-                eval.inner_converged,
+                owned.result.inner_converged,
                 "exact outer evaluation",
             ) {
                 runaway_error.replace(Some(err.clone()));
                 return Err(err);
             }
-            exact_warm_start.replace(Some(eval.warm_start.clone()));
-            if !eval.inner_converged {
+            exact_warm_start.replace(Some(owned.result.warm_start.clone()));
+            if !owned.result.inner_converged {
                 return Err(
                     "exact bernoulli marginal-slope inner solve did not converge".to_string(),
                 );
             }
             if matches!(eval_mode, EvalMode::ValueGradientHessian)
                 && analytic_joint_hessian_available
-                && !eval.outer_hessian.is_analytic()
+                && !owned.result.outer_hessian.is_analytic()
             {
                 return Err("exact bernoulli marginal-slope joint [rho, psi] objective did not return an outer Hessian"
                             .to_string());
             }
-            Ok((eval.objective, eval.gradient, eval.outer_hessian))
+            Ok(ExactJointEvaluation {
+                objective: owned.result.objective,
+                gradient: owned.result.gradient,
+                hessian: owned.result.outer_hessian,
+                mode: owned.mode,
+            })
         },
-        |theta, specs: &[TermCollectionSpec], designs: &[TermCollectionDesign]| {
+        |theta,
+         specs: &[TermCollectionSpec],
+         designs: &[TermCollectionDesign],
+         row_set: &crate::row_kernel::RowSet| {
             if let Some(err) = runaway_error.borrow().as_ref().cloned() {
                 return Err(err);
             }
@@ -2816,63 +2956,48 @@ pub fn fit_bernoulli_marginal_slope_terms(
             let sigma = sigma_from_theta(theta);
             final_sigma_cell.set(sigma);
             let family = make_family(&designs[0], &designs[1], sigma);
-            let derivative_blocks = get_derivative_blocks(theta, specs, designs)?;
-            let eval = evaluate_custom_family_joint_hyper_efs_shared(
+            let hyper_layout = get_hyper_layout(theta, specs, designs)?;
+            let tolerance_options =
+                joint_hyper_options_for_outer_tolerance(options, exact_spatial_outer_tol);
+            let eval_options = crate::outer_subsample::exact_outer_options_for_row_set(
+                &tolerance_options,
+                row_set,
+            );
+            let owned = evaluate_custom_family_joint_hyper_efs_owned_shared(
                 &family,
                 &blocks,
-                &joint_hyper_options_for_outer_tolerance(options, exact_spatial_outer_tol),
+                &eval_options,
                 &rho,
-                derivative_blocks,
+                hyper_layout,
                 exact_warm_start.borrow().as_ref(),
             )?;
             if let Some(err) = bernoulli_marginal_slope_runaway_error(
-                &eval.warm_start,
+                &owned.result.warm_start,
                 &designs[0],
                 &specs[0],
-                eval.inner_converged,
+                owned.result.inner_converged,
                 "EFS outer evaluation",
             ) {
                 runaway_error.replace(Some(err.clone()));
                 return Err(err);
             }
-            exact_warm_start.replace(Some(eval.warm_start.clone()));
-            if !eval.inner_converged {
+            exact_warm_start.replace(Some(owned.result.warm_start.clone()));
+            if !owned.result.inner_converged {
                 return Err(
                     "exact bernoulli marginal-slope EFS inner solve did not converge".to_string(),
                 );
             }
-            Ok(eval.efs_eval)
+            Ok(ExactJointEfsEvaluation {
+                evaluation: owned.result.efs_eval,
+                mode: owned.mode,
+            })
         },
         crate::marginal_slope_shared::make_beta_seed_validator(&pending_beta_seed),
     )?;
 
     let mut resolved_specs = solved.resolved_specs;
     let mut designs = solved.designs;
-    // Reduced-basis round-trip (robust cure). When the logslope design was
-    // orthogonalised to a reduced basis `G·T`, the fitted logslope coefficient
-    // `β'` lives in the reduced coordinates (width `r`). The returned
-    // `logslope_design` / `logslopespec_resolved` are the ORIGINAL full-width
-    // basis (prediction rebuilds full `G` from the resolved spec), so map the
-    // reported logslope coefficients back to the original basis `β_logslope =
-    // T·β'` (predictor-identical: `G·(T·β') = (G·T)·β'`). The marginal block,
-    // aux blocks, and the internal reduced-width flat β/geometry are untouched;
-    // only the per-block reported logslope coefficients (blocks[1] and
-    // block_states[1]) — which prediction/reporting consume against the full
-    // design — are lifted to full width.
     let mut solved_fit = solved.fit;
-    if let Some(reparam) = logslope_reduced_reparam.as_ref() {
-        let r = reparam.reduced_cols();
-        if let Some(block) = solved_fit.blocks.get_mut(1)
-            && block.beta.len() == r
-        {
-            block.beta = reparam.recover_original_logslope_beta(&block.beta)?;
-        }
-        if let Some(state) = solved_fit.block_states.get_mut(1)
-            && state.beta.len() == r
-        {
-            state.beta = reparam.recover_original_logslope_beta(&state.beta)?;
-        }
-    }
     // #905 GENERATED-REGRESSOR (Murphy–Topel) SEAM. When the conditional
     // location-scale gate fired, the slope fit above treated the calibrated
     // score `ζ = (z − m̂(C))/√v̂(C)` as KNOWN, so `solved_fit.beta_covariance()`
@@ -2887,9 +3012,9 @@ pub fn fit_bernoulli_marginal_slope_terms(
     // is consumable wherever the slope information `G` (the per-row
     // `∂score_β/∂ζ_i` of the marginal/logslope blocks) is available.
     //
-    // ASSEMBLY READY, ONE ENGINE QUANTITY OUTSTANDING. The full correction is
-    // assembled by `LatentZConditionalCalibration::generated_regressor_correction`
-    // (mod.rs): given the per-row reduced-frame slope-score sensitivity to the
+    // The full correction is assembled by
+    // `LatentZConditionalCalibration::generated_regressor_correction` (mod.rs):
+    // given the per-row reduced-frame slope-score sensitivity to the
     // calibrated score `s_i = ∂score_β,i/∂ζ_i` (an `n × p_β` matrix), it
     //   1. builds `J_zeta` row-by-row via `zeta_theta1_jacobian_row` (exact-zero
     //      on floored rows, so `G`'s support is the gate-fired rows),
@@ -2898,55 +3023,41 @@ pub fn fit_bernoulli_marginal_slope_terms(
     //      covariance IS `H_β⁻¹`, so `H_β⁻¹ G = Vb·G`), and
     //   4. returns `(Vb·G)·V₁·(Vb·G)ᵀ` (PSD ⇒ corrected slope SE strictly ≥
     //      naive whenever the gate fires).
-    // So `V₁`, `∂ζ/∂θ₁`, the `Vb` frame, and the whole congruence are all
-    // available HERE — the only quantity the seam still lacks is `s_i`.
+    // `V₁`, `∂ζ/∂θ₁`, the `Vb` frame, and the whole congruence therefore meet
+    // here with the exact row-kernel `s_i` channel.
     //
     // `s_i = ∂²ℓ_i/∂β∂ζ_i = J_iᵀ·(∂²ℓ_i/∂η_i∂ζ_i)` is the mixed `(β, ζ)` second
     // derivative of the row kernel contracted through the slope Jacobian `J_i`.
-    // When the calibrated residual ζ passes the standard-normal adequacy gate,
-    // `build_latent_measure_with_geometry` pairs `ConditionalLocationScale`
-    // with `LatentMeasureKind::StandardNormal` and the per-row kernel is the
-    // closed-form `rigid_standard_normal` tower
-    // `η = q·c(g) + g·(s·ζ)`. The mixed 2-vector `∂²ℓ_i/∂(q,g)∂ζ_i` is read off the
-    // SAME `Tower4` the value/grad/Hessian path uses (#932 row-jet machinery) by
-    // seeding `ζ` as a third jet axis
-    // (`rigid_standard_normal_mixed_z_sensitivity`); contracting it through the
-    // marginal+logslope design rows (the `J_iᵀ` the row kernel exposes via
-    // `jacobian_transpose_action`) yields `s_i` in the SAME reduced frame as
-    // `covariance_conditional` (`rigid_standard_normal_score_zeta_sensitivity`).
+    // For the rigid StandardNormal kernel the mixed 2-vector is read from the
+    // same row tower by seeding ζ as a third axis. For score_warp/link_dev flex
+    // kernels, the span-local cubic row calculus differentiates its observed-z
+    // coefficient jets and scatters every active primary into the same reduced
+    // full-beta frame as `covariance_conditional` (#2303).
     let (latent_z_rank_int_calibration, latent_z_conditional_calibration) =
         match latent_z_calibration {
             LatentMeasureCalibration::None => (None, None),
             LatentMeasureCalibration::RankInverseNormal(cal) => (Some(cal), None),
             LatentMeasureCalibration::ConditionalLocationScale(cal) => (None, Some(cal)),
         };
-    // #905/#1028: apply the Murphy–Topel generated-regressor correction now that
-    // `s_i` is available. `covariance_conditional` (Vb) and `covariance_corrected`
-    // (Vp) are in the reduced logslope frame (`p_m + r`), exactly the frame
-    // `s_i`'s reduced-logslope contraction lives in, so add the PSD term
-    // `(Vb·G)·V₁·(Vb·G)ᵀ` to each. Applied only for the canonical (non-flex)
-    // standard-normal kernel: the rigid tower carries no score_warp/link_dev
-    // z-dependence, so when aux deviation blocks widen β beyond `p_m + r` the
-    // correction's deviation columns are not yet derived and the term is skipped
-    // (the conditional gate's intended kernel has no such blocks). Likewise
-    // skipped when the calibrated residual failed the standard-normal adequacy
-    // gate and the fit ran under the empirical latent measure: the `s_i`
-    // sensitivity below is read off the rigid standard-normal tower, which is
-    // not the kernel that produced `Vb` in that case.
+    // #905/#1028/#2303: apply the Murphy–Topel correction while every block is
+    // still in the exact reduced covariance frame. The rigid kernel uses its
+    // three-axis tower; flex fits use the observed-z derivative channel from
+    // the same span-local cubic row calculus that produced their score and
+    // Hessian, including every score_warp/link_dev coefficient. No active block
+    // may be padded with zero sensitivity or skipped.
     if let Some(cal) = latent_z_conditional_calibration.as_ref()
-        && matches!(latent_measure, LatentMeasureKind::StandardNormal)
         && let Some(vb) = solved_fit.covariance_conditional.clone()
     {
+        if !matches!(latent_measure, LatentMeasureKind::StandardNormal) {
+            return Err(
+                "BMS Murphy-Topel generated-regressor covariance is unavailable for a conditional latent-z calibration whose second-stage latent measure is not StandardNormal"
+                    .to_string(),
+            );
+        }
         let p_beta = vb.nrows();
-        let marginal_dense = marginal_design
+        let calibration_marginal_dense = marginal_design
             .design
             .try_to_dense_arc("bms generated-regressor marginal design")?;
-        let logslope_reduced = reduce_logslope_design(&logslope_design)?;
-        let logslope_reduced_dense = logslope_reduced
-            .design
-            .try_to_dense_arc("bms generated-regressor reduced logslope design")?;
-        let p_m = marginal_dense.ncols();
-        let r = logslope_reduced_dense.ncols();
         if p_beta != vb.ncols() {
             return Err(format!(
                 "bms generated-regressor: covariance_conditional must be square, got {}×{}",
@@ -2954,14 +3065,37 @@ pub fn fit_bernoulli_marginal_slope_terms(
                 vb.ncols()
             ));
         }
-        // Skip when aux deviation (score_warp / link_dev) blocks are present:
-        // β is wider than the marginal+reduced-logslope frame the rigid kernel's
-        // z-channel covers. Equality ⇒ the canonical non-flex gate kernel.
-        if p_beta == p_m + r {
+        let correction_family =
+            make_family(&marginal_design, &logslope_design, final_sigma_cell.get());
+        let flex_active = score_warp_runtime.is_some() || link_dev_runtime.is_some();
+        let s = if flex_active {
+            correction_family.flex_score_zeta_sensitivity(
+                &solved_fit.block_states,
+                options,
+                p_beta,
+            )?
+        } else {
+            // Use the FAMILY designs here, not the raw reporting designs: they
+            // are exactly the widened-marginal/reduced-logslope coefficient
+            // frame carried by Vb (including an active influence absorber).
+            let score_marginal_dense = correction_family
+                .marginal_design
+                .try_to_dense_arc("bms generated-regressor fitted marginal design")?;
+            let score_logslope_dense = correction_family
+                .logslope_design
+                .try_to_dense_arc("bms generated-regressor fitted logslope design")?;
+            let p_score = score_marginal_dense.ncols() + score_logslope_dense.ncols();
+            if p_beta != p_score {
+                return Err(format!(
+                    "bms generated-regressor rigid covariance/frame mismatch: covariance width {p_beta} != marginal({}) + logslope({})",
+                    score_marginal_dense.ncols(),
+                    score_logslope_dense.ncols()
+                ));
+            }
             let marginal_eta = &solved_fit.block_states[0].eta;
             let slope_eta = &solved_fit.block_states[1].eta;
             let probit_scale = probit_frailty_scale(final_sigma_cell.get());
-            let s = rigid_standard_normal_score_zeta_sensitivity(
+            rigid_standard_normal_score_zeta_sensitivity(
                 &spec.base_link,
                 marginal_eta,
                 slope_eta,
@@ -2969,43 +3103,49 @@ pub fn fit_bernoulli_marginal_slope_terms(
                 y.as_ref(),
                 weights.as_ref(),
                 probit_scale,
-                marginal_dense.view(),
-                logslope_reduced_dense.view(),
+                score_marginal_dense.view(),
+                score_logslope_dense.view(),
                 p_beta,
-            )?;
-            // `generated_regressor_correction` re-derives `∂ζ_i/∂θ₁` via
-            // `zeta_theta1_jacobian_row(z_i, a_row)`, which expects the RAW
-            // normalized latent score `z_i` (it recomputes `ζ_i = (z_i − m)/√v`
-            // internally), and conditions on the marginal-index span
-            // `a(C_i)` = the RAW marginal design rows (the basis the gate was fit
-            // on). Feed `spec.z` (the standardized raw score, NOT the calibrated
-            // ζ the kernel consumed) and the raw marginal dense design.
-            let correction = cal.generated_regressor_correction(
-                s.view(),
-                spec.z.view(),
-                marginal_dense.view(),
-                vb.view(),
-            )?;
-            if let Some(cov) = solved_fit.covariance_conditional.as_mut() {
-                *cov = &*cov + &correction;
-            }
-            if let Some(cov) = solved_fit.covariance_corrected.as_mut() {
-                *cov = &*cov + &correction;
-            }
-            log::info!(
-                "[BMS latent-z] Murphy–Topel generated-regressor SE correction applied: \
-                 p_beta={p_beta} theta1_dim={} max_diag_inflation={:.3e}",
-                cal.theta1_dim(),
-                (0..p_beta)
-                    .map(|i| correction[[i, i]])
-                    .fold(0.0_f64, f64::max),
-            );
-        } else {
-            log::info!(
-                "[BMS latent-z] Murphy–Topel generated-regressor SE correction skipped: \
-                 aux deviation blocks present (p_beta={p_beta} > marginal({p_m})+logslope({r})); \
-                 rigid-kernel z-channel does not yet cover score_warp/link_dev deviations"
-            );
+            )?
+        };
+        // The first-stage Jacobian expects the RAW normalized score and the
+        // raw calibration design, whereas `s` above is evaluated at the
+        // calibrated score consumed by the second-stage kernel.
+        let correction = cal.generated_regressor_correction(
+            s.view(),
+            spec.z.view(),
+            calibration_marginal_dense.view(),
+            vb.view(),
+        )?;
+        if let Some(cov) = solved_fit.covariance_conditional.as_mut() {
+            *cov = &*cov + &correction;
+        }
+        if let Some(cov) = solved_fit.covariance_corrected.as_mut() {
+            *cov = &*cov + &correction;
+        }
+        log::info!(
+            "[BMS latent-z] Murphy–Topel generated-regressor SE correction applied: \
+             p_beta={p_beta} flex_active={flex_active} theta1_dim={} max_diag_inflation={:.3e}",
+            cal.theta1_dim(),
+            (0..p_beta)
+                .map(|i| correction[[i, i]])
+                .fold(0.0_f64, f64::max),
+        );
+    }
+    // Only after covariance correction is complete may the reported logslope
+    // coefficients be lifted from fitted G*T coordinates into the original
+    // full-width G frame used by prediction and reporting.
+    if let Some(reparam) = logslope_reduced_reparam.as_ref() {
+        let r = reparam.reduced_cols();
+        if let Some(block) = solved_fit.blocks.get_mut(1)
+            && block.beta.len() == r
+        {
+            block.beta = reparam.recover_original_logslope_beta(&block.beta)?;
+        }
+        if let Some(state) = solved_fit.block_states.get_mut(1)
+            && state.beta.len() == r
+        {
+            state.beta = reparam.recover_original_logslope_beta(&state.beta)?;
         }
     }
     // #461: PREDICT SEAM — when the Stage-1 influence absorber is active

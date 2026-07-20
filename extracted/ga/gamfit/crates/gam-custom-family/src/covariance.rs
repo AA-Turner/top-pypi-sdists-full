@@ -405,19 +405,23 @@ pub(crate) fn synchronized_states_from_flat_beta<
 /// component before taking the inf-norm. Axis-aligned lower bounds are just a
 /// special case; coupled derivative-guard rows must use the same KKT geometry.
 ///
-/// `known_active_rows`, when provided, seeds the working set with the QP
-/// solver's authoritative active rows. Trust-region damping and finite
+/// `known_active_rows`, when provided, is the QP solver's authoritative active
+/// face. Trust-region damping and finite
 /// precision can leave the committed β with row slacks slightly above the slack
 /// tolerance even though the QP identified the row as binding; slack-based
 /// detection alone then misses the row and leaves its Lagrange-multiplier mass
-/// in the projected residual. Seeding from the QP's active set is exact; the
-/// non-negative-multiplier iteration below then removes any seeded row whose
-/// least-squares multiplier turns out to be strictly negative, so the union
-/// of (QP active) ∪ (slack-detected) never declares false convergence.
+/// in the projected residual. Conversely, unioning the authoritative face with
+/// every slack-tight row destroys the factored-cone contract: one zero CTN
+/// coefficient row makes all `n` observation rows tight although the QP needs
+/// only a small working face, so the residual checker materializes thousands of
+/// redundant rows and sends them through an `O(m²)` NNLS iteration bound. Slack
+/// discovery is therefore used only when the caller has no QP face provenance.
+/// The non-negative-multiplier projection still rejects every supplied row with
+/// the wrong multiplier sign.
 pub(crate) fn projected_stationarity_inf_norm(
     residual: &Array1<f64>,
     beta: &Array1<f64>,
-    constraints: Option<&LinearInequalityConstraints>,
+    constraints: Option<&ConstraintSet>,
     known_active_rows: Option<&[usize]>,
 ) -> f64 {
     assert_eq!(residual.len(), beta.len());
@@ -437,7 +441,7 @@ pub(crate) fn projected_stationarity_inf_norm(
 pub(crate) fn projected_linear_constraint_stationarity_inf_norm(
     residual: &Array1<f64>,
     beta: &Array1<f64>,
-    constraints: &LinearInequalityConstraints,
+    constraints: &ConstraintSet,
     known_active_rows: Option<&[usize]>,
 ) -> Option<f64> {
     let projected = projected_linear_constraint_stationarity_vector(
@@ -457,21 +461,22 @@ pub(crate) fn projected_linear_constraint_stationarity_inf_norm(
 
 pub(crate) fn linear_constraint_primal_violation(
     beta: &Array1<f64>,
-    constraints: &LinearInequalityConstraints,
+    constraints: &ConstraintSet,
 ) -> Option<f64> {
-    if constraints.a.ncols() != beta.len() || constraints.a.nrows() != constraints.b.len() {
+    if constraints.ncols() != beta.len() {
         return None;
     }
+    let values = constraints.values(beta.view()).ok()?;
     let mut primal_violation = 0.0_f64;
-    for row in 0..constraints.a.nrows() {
-        if constraints.b[row] == f64::NEG_INFINITY {
+    for row in 0..constraints.nrows() {
+        let bound = constraints.bound(row).ok()?;
+        if bound == f64::NEG_INFINITY {
             continue;
         }
-        if !constraints.b[row].is_finite() {
+        if !bound.is_finite() {
             return None;
         }
-        let value = constraints.a.row(row).dot(beta);
-        let slack = value - constraints.b[row];
+        let slack = values[row] - bound;
         if !slack.is_finite() {
             return None;
         }
@@ -483,95 +488,95 @@ pub(crate) fn linear_constraint_primal_violation(
 pub fn projected_linear_constraint_stationarity_vector(
     residual: &Array1<f64>,
     beta: &Array1<f64>,
-    constraints: &LinearInequalityConstraints,
+    constraints: &ConstraintSet,
     known_active_rows: Option<&[usize]>,
 ) -> Option<Array1<f64>> {
     let p = beta.len();
-    if residual.len() != p
-        || constraints.a.ncols() != p
-        || constraints.a.nrows() != constraints.b.len()
-    {
+    if residual.len() != p || constraints.ncols() != p {
         return None;
     }
-    let n_rows = constraints.a.nrows();
-    // Union the slack-detected active rows with the optional QP-supplied
-    // hint. Using a boolean membership table preserves a canonical row order
-    // (matching the constraint matrix) so the rank-reduction below is
-    // deterministic across calls.
-    let mut in_active = vec![false; n_rows];
     if let Some(hint) = known_active_rows {
-        for &row in hint {
-            if row < n_rows && constraints.b[row].is_finite() {
+        // The QP face is the sparse seed, not necessarily the complete normal
+        // cone: an omitted factored row may be tight and cut off the negative
+        // projected residual at zero step. Use the same separation oracle as
+        // the operator QP cycle escape so step, convergence certificate,
+        // covariance, and return all certify against one cone geometry.
+        return gam_solve::active_set::project_stationarity_residual_on_constraint_set(
+            residual,
+            beta,
+            constraints,
+            hint,
+        )
+        .map(|(projected, _active)| projected);
+    }
+    let n_rows = constraints.nrows();
+    let values = constraints.values(beta.view()).ok()?;
+    // With no QP provenance, discover candidates from slack. Using a boolean
+    // membership table preserves canonical row order.
+    let mut in_active = vec![false; n_rows];
+    for row in 0..n_rows {
+            let bound = constraints.bound(row).ok()?;
+            if bound == f64::NEG_INFINITY {
+                continue;
+            }
+            if !bound.is_finite() {
+                return None;
+            }
+            let value = values[row];
+            let slack = value - bound;
+            if !slack.is_finite() {
+                return None;
+            }
+            // Active-row inclusion band for the stationarity-residual cone projection.
+            // A constraint binding at the constrained optimum carries a Lagrange
+            // multiplier whose mass IS the stationarity residual (`r = A_activeᵀ λ`,
+            // λ >= 0); to project it out, every genuinely tight row must be a candidate.
+            // The constrained QP only reports rows it drove tight during a
+            // non-degenerate step, so monotone derivative-guard rows tight at the
+            // optimum but never explicitly stepped sit just above the old `1e-6·scale`
+            // band, get excluded, and leave the multiplier unresolved — tripping the
+            // `active_set_incomplete` refusal on an exactly constrained-stationary
+            // iterate (gam#797 survival time block). Widen the band so every near-tight
+            // row is a CANDIDATE; over-inclusion is safe because the downstream NNLS
+            // (`project_stationarity_residual_on_constraint_cone`) assigns λ = 0 to any
+            // candidate carrying no multiplier mass, so a non-binding row cannot
+            // spuriously shrink the residual.
+            let scale = value.abs().max(bound.abs()).max(1.0);
+            let beta_inf = beta
+                .iter()
+                .map(|v| v.abs())
+                .fold(0.0_f64, f64::max)
+                .max(1.0);
+            // ℓ¹ row norm bounded below by the Euclidean norm the carrier exposes;
+            // for the factored cone the Euclidean norm is exact and the ℓ¹ norm is
+            // within √p of it, so the slack band keeps its magnitude semantics.
+            let row_norm1 = constraints.row_norm(row).ok()?.max(1.0);
+            // A row that is mathematically binding can appear a small positive
+            // distance inside the feasible cone after repeated dense/spectral
+            // Newton projections on a flat baseline-hazard valley: the objective is
+            // insensitive along that direction, so round-off in the derivative-basis
+            // coordinates dominates the true slack.  The active-set QP reports only
+            // rows it explicitly pivoted on, so the KKT residual projection must also
+            // recover these numerically-pinned rows from primal slack.  Use a
+            // coefficient-space slack band, scaled by the row norm and coefficient
+            // magnitude, not just by `Aβ` (which is exactly zero for monotone
+            // derivative constraints with `b=0`).  Over-inclusion is safe because the
+            // downstream nonnegative cone projection assigns λ=0 to rows that do not
+            // carry multiplier mass; under-inclusion leaves a genuine multiplier in
+            // the residual and falsely reports `active_set_incomplete` (#1793/#1040).
+            let coordinate_slack_tol = 5e-3 * row_norm1 * beta_inf + 1e-8;
+            let active_tol = (1e-3 * scale + 1e-8).max(coordinate_slack_tol);
+            if slack <= active_tol {
                 in_active[row] = true;
             }
-        }
-    }
-    for row in 0..n_rows {
-        if constraints.b[row] == f64::NEG_INFINITY {
-            continue;
-        }
-        if !constraints.b[row].is_finite() {
-            return None;
-        }
-        let a_row = constraints.a.row(row);
-        let value = a_row.dot(beta);
-        let slack = value - constraints.b[row];
-        if !slack.is_finite() {
-            return None;
-        }
-        if in_active[row] {
-            continue;
-        }
-        // Active-row inclusion band for the stationarity-residual cone projection.
-        // A constraint binding at the constrained optimum carries a Lagrange
-        // multiplier whose mass IS the stationarity residual (`r = A_activeᵀ λ`,
-        // λ >= 0); to project it out, every genuinely tight row must be a candidate.
-        // The constrained QP only reports rows it drove tight during a
-        // non-degenerate step, so monotone derivative-guard rows tight at the
-        // optimum but never explicitly stepped sit just above the old `1e-6·scale`
-        // band, get excluded, and leave the multiplier unresolved — tripping the
-        // `active_set_incomplete` refusal on an exactly constrained-stationary
-        // iterate (gam#797 survival time block). Widen the band so every near-tight
-        // row is a CANDIDATE; over-inclusion is safe because the downstream NNLS
-        // (`project_stationarity_residual_on_constraint_cone`) assigns λ = 0 to any
-        // candidate carrying no multiplier mass, so a non-binding row cannot
-        // spuriously shrink the residual.
-        let scale = value.abs().max(constraints.b[row].abs()).max(1.0);
-        let beta_inf = beta
-            .iter()
-            .map(|v| v.abs())
-            .fold(0.0_f64, f64::max)
-            .max(1.0);
-        let row_norm1 = a_row.iter().map(|v| v.abs()).sum::<f64>().max(1.0);
-        // A row that is mathematically binding can appear a small positive
-        // distance inside the feasible cone after repeated dense/spectral
-        // Newton projections on a flat baseline-hazard valley: the objective is
-        // insensitive along that direction, so round-off in the derivative-basis
-        // coordinates dominates the true slack.  The active-set QP reports only
-        // rows it explicitly pivoted on, so the KKT residual projection must also
-        // recover these numerically-pinned rows from primal slack.  Use a
-        // coefficient-space slack band, scaled by the row norm and coefficient
-        // magnitude, not just by `Aβ` (which is exactly zero for monotone
-        // derivative constraints with `b=0`).  Over-inclusion is safe because the
-        // downstream nonnegative cone projection assigns λ=0 to rows that do not
-        // carry multiplier mass; under-inclusion leaves a genuine multiplier in
-        // the residual and falsely reports `active_set_incomplete` (#1793/#1040).
-        let coordinate_slack_tol = 5e-3 * row_norm1 * beta_inf + 1e-8;
-        let active_tol = (1e-3 * scale + 1e-8).max(coordinate_slack_tol);
-        if slack <= active_tol {
-            in_active[row] = true;
-        }
     }
     let active_rows: Vec<usize> = (0..n_rows).filter(|&row| in_active[row]).collect();
     if active_rows.is_empty() {
         return Some(residual.clone());
     }
 
-    let mut a_active = Array2::<f64>::zeros((active_rows.len(), p));
-    for (pos, &row) in active_rows.iter().enumerate() {
-        a_active.row_mut(pos).assign(&constraints.a.row(row));
-    }
-    project_stationarity_residual_on_constraint_cone(residual, &a_active)
+    let gathered = constraints.gather_rows(&active_rows).ok()?;
+    project_stationarity_residual_on_constraint_cone(residual, &gathered.a)
         .map(|(projected, _)| projected)
 }
 
@@ -761,7 +766,7 @@ pub(crate) fn exact_newton_joint_stationarity_inf_norm_from_gradient(
     s_lambdas: &[Array2<f64>],
     ridge: f64,
     ridge_policy: RidgePolicy,
-    block_constraints: &[Option<LinearInequalityConstraints>],
+    block_constraints: &[Option<ConstraintSet>],
     block_active_sets: Option<&[Option<Vec<usize>>]>,
     // gam#979: per-coordinate simple lower bounds (`f64::NEG_INFINITY` where
     // unbounded, length = total joint p), from `extract_simple_lower_bounds` on
@@ -952,7 +957,7 @@ pub(crate) fn exact_newton_joint_projected_stationarity_vector_from_gradient(
     s_lambdas: &[Array2<f64>],
     ridge: f64,
     ridge_policy: RidgePolicy,
-    block_constraints: &[Option<LinearInequalityConstraints>],
+    block_constraints: &[Option<ConstraintSet>],
     block_active_sets: Option<&[Option<Vec<usize>>]>,
     // gam#1587/#561: `Σ_t λ_t (M⊗S_t) · β` — the full-width joint penalty's
     // contribution to the penalized stationarity condition, in stacked
@@ -1131,7 +1136,7 @@ pub(crate) fn exact_newton_joint_projected_kkt_residual_for_ift_from_gradient(
     s_lambdas: &[Array2<f64>],
     ridge: f64,
     ridge_policy: RidgePolicy,
-    block_constraints: &[Option<LinearInequalityConstraints>],
+    block_constraints: &[Option<ConstraintSet>],
     block_active_sets: Option<&[Option<Vec<usize>>]>,
     joint_penalty_score: Option<&Array1<f64>>,
 ) -> Result<Option<ProjectedKktResidual>, String> {
@@ -1177,34 +1182,48 @@ pub(crate) fn exact_newton_joint_projected_kkt_residual_for_ift_from_gradient(
     }
 }
 
-pub(crate) fn compute_joint_covariance<F: CustomFamily + Clone + Send + Sync + 'static>(
-    family: &F,
+/// Add the exact per-block and joint penalties to an owned returned-beta
+/// likelihood Hessian. This coefficient-space precision is shared by
+/// covariance, EDF, and `FitGeometry`; optional row evidence remains a
+/// separate field and is never inferred from this matrix.
+pub(crate) fn penalized_hessian_from_owned_mode(
     specs: &[ParameterBlockSpec],
-    states: &[ParameterBlockState],
     per_block_log_lambdas: &[Array1<f64>],
     options: &BlockwiseFitOptions,
+    unpenalized_hessian: &Array2<f64>,
 ) -> Result<Array2<f64>, String> {
     let ranges = block_param_ranges(specs);
     let total = ranges.last().map(|(_, e)| *e).unwrap_or(0);
-    let Some(mut h) = exact_newton_joint_hessian_symmetrized(
-        family,
-        states,
-        specs,
-        total,
-        "joint exact-newton Hessian shape mismatch in covariance",
-    )?
-    else {
-        return Err(
-            "joint covariance requires an exact analytic Hessian; objective perturbation is forbidden"
-                .to_string(),
-        );
-    };
+    if unpenalized_hessian.dim() != (total, total)
+        || unpenalized_hessian.iter().any(|value| !value.is_finite())
+    {
+        return Err(format!(
+            "owned returned-beta Hessian must be finite with shape {total}x{total}, got {}x{}",
+            unpenalized_hessian.nrows(),
+            unpenalized_hessian.ncols(),
+        ));
+    }
+    if per_block_log_lambdas.len() != specs.len() {
+        return Err(format!(
+            "owned returned-beta penalty layout has {} blocks, expected {}",
+            per_block_log_lambdas.len(),
+            specs.len(),
+        ));
+    }
+    let mut h = unpenalized_hessian.clone();
     for (b, spec) in specs.iter().enumerate() {
         let (start, end) = ranges[b];
         let lambdas = exact_lambdas_from_log_strengths(
             &per_block_log_lambdas[b],
-            &format!("joint covariance block {b} log strength"),
+            &format!("owned returned-beta block {b} log strength"),
         )?;
+        if lambdas.len() != spec.penalties.len() {
+            return Err(format!(
+                "owned returned-beta block {b} has {} smoothing strengths, expected {}",
+                lambdas.len(),
+                spec.penalties.len(),
+            ));
+        }
         let mut s_lambda = Array2::<f64>::zeros((end - start, end - start));
         for (k, s) in spec.penalties.iter().enumerate() {
             s.add_scaled_to(lambdas[k], &mut s_lambda);
@@ -1212,22 +1231,205 @@ pub(crate) fn compute_joint_covariance<F: CustomFamily + Clone + Send + Sync + '
         h.slice_mut(ndarray::s![start..end, start..end])
             .scaled_add(1.0, &s_lambda);
     }
-    // gam#1587/#561: families whose smoothing is carried by a full-width JOINT
-    // penalty (the multinomial centered `Σ_t λ_t (M ⊗ S_t)` metric) leave their
-    // per-block penalty lists empty — every block above contributes nothing — so
-    // the exported posterior precision MUST also add the joint contribution
-    // `Σ_t exp(ρ_t) S_t` at the SAME selected `ρ_t` the inner solve used. Without
-    // this the reported covariance is the UNPENALIZED `H_lik⁻¹` (standard errors
-    // silently too wide) and the EDF trace `tr(H⁻¹ S_λ)` reads zero (no smoothing
-    // spent), even though `fit_custom_family` threads the joint bundle through
-    // `options` for exactly this reason. A no-op for every per-block-only family
-    // (`joint_penalties` is `None`).
     if let Some(bundle) = options.joint_penalties.as_deref()
         && !bundle.is_empty()
     {
         bundle.add_to_matrix(&mut h);
     }
     symmetrize_dense_in_place(&mut h);
+    Ok(h)
+}
+
+/// Materialize the unpenalized coefficient Hessian owned by a certified
+/// terminal mode without re-evaluating the likelihood.
+///
+/// A coupled likelihood has exactly one admissible authority: its retained
+/// joint workspace.  For a likelihood that explicitly declares its blocks
+/// uncoupled, the terminal per-block working sets are an equally exact
+/// authority and assemble a block-diagonal joint Hessian.  Keeping those two
+/// cases explicit prevents final result assembly from either calling a
+/// stateful family a second time or silently dropping cross-block curvature.
+pub(crate) fn materialize_owned_terminal_unpenalized_hessian<
+    F: CustomFamily + Clone + Send + Sync + 'static,
+>(
+    family: &F,
+    specs: &[ParameterBlockSpec],
+    states: &[ParameterBlockState],
+    workspace: Option<&Arc<dyn ExactNewtonJointHessianWorkspace>>,
+    working_sets: Option<&[BlockWorkingSet]>,
+    context: &str,
+) -> Result<Array2<f64>, String> {
+    let ranges = block_param_ranges(specs);
+    let total = ranges.last().map(|(_, end)| *end).unwrap_or(0);
+    if let Some(workspace) = workspace {
+        let source = exact_newton_joint_hessian_source_from_workspace(
+            workspace,
+            total,
+            MaterializationIntent::LogdetFactorization,
+            context,
+        )?
+        .ok_or_else(|| {
+            format!(
+                "{context}: the certified terminal workspace did not expose its exact returned-beta Hessian"
+            )
+        })?;
+        return materialize_joint_hessian_source(&source, total, context);
+    }
+
+    if states.len() != specs.len() {
+        return Err(format!(
+            "{context}: the certified terminal mode retained {} block states for {} parameter blocks",
+            states.len(),
+            specs.len(),
+        ));
+    }
+    // The coupled-Jeffreys recompute is attempted BEFORE requiring per-block
+    // working sets, because it derives the joint Hessian from the frozen block
+    // STATES alone and never consumes a working set (#2373). A coupled family
+    // that exposes an analytic joint gradient runs the joint-Newton accept path
+    // with `eval == None`, so its converged inner result retains NEITHER a joint
+    // workspace NOR terminal working sets — and the location-scale survival AFT
+    // family is exactly that shape. Gating this recompute behind the working-set
+    // unwrap (as before) made every such fit fail with "retained neither a joint
+    // Hessian workspace nor per-block working sets", even though the recompute
+    // it needs consumes only states. Working sets remain required for the
+    // uncoupled block-diagonal assembly below.
+    if specs.len() > 1 && !family.likelihood_blocks_uncoupled() {
+        // A coupled likelihood's joint Hessian carries cross-block curvature that
+        // the block-diagonal per-block working sets omit, so those working sets
+        // are not an admissible source here. Exact-Newton families whose mode
+        // curvature certificate ran retain a joint workspace (handled above), but
+        // that certificate is deliberately skipped for Jeffreys-armed families
+        // (their definiteness is certified on the joint Jeffreys subspace
+        // instead), so a Jeffreys-armed coupled family — every dispersion /
+        // location-scale GLM (gamma, NB, beta, tweedie) and the location-scale
+        // survival AFT path — reaches this branch. Recompute the exact joint
+        // likelihood Hessian at the FROZEN converged mode: a deterministic
+        // re-evaluation at fixed beta that cannot move the mode or perturb a
+        // stateful augmentation, and the exact same source
+        // `compute_joint_covariance_required` consumes. This restores terminal
+        // curvature ownership for coupled Jeffreys families that #979
+        // `da5fd654b` + #2298 `ab6752762` together left unable to assemble a
+        // terminal Hessian.
+        if let Some(hessian) =
+            exact_newton_joint_hessian_symmetrized(family, states, specs, total, context)?
+        {
+            return Ok(hessian);
+        }
+        return Err(format!(
+            "{context}: a coupled {}-block likelihood cannot derive its joint Hessian from block working sets, and the family exposes no exact joint Hessian to recompute at the certified mode",
+            specs.len(),
+        ));
+    }
+
+    let working_sets = working_sets.ok_or_else(|| {
+        format!(
+            "{context}: the certified terminal mode retained neither a joint Hessian workspace nor per-block working sets"
+        )
+    })?;
+    if working_sets.len() != specs.len() {
+        return Err(format!(
+            "{context}: the certified terminal mode retained {} working sets for {} parameter blocks",
+            working_sets.len(),
+            specs.len(),
+        ));
+    }
+
+    let mut hessian = Array2::<f64>::zeros((total, total));
+    for (block_idx, ((spec, state), work)) in specs
+        .iter()
+        .zip(states.iter())
+        .zip(working_sets.iter())
+        .enumerate()
+    {
+        let (start, end) = ranges[block_idx];
+        let width = end - start;
+        if state.beta.len() != width {
+            return Err(format!(
+                "{context}: block {block_idx} terminal beta has length {}, expected {width}",
+                state.beta.len(),
+            ));
+        }
+        let block_hessian = match work {
+            BlockWorkingSet::Diagonal {
+                working_response,
+                working_weights,
+            } => {
+                let expected_rows = spec.solver_design().nrows();
+                if working_response.len() != expected_rows
+                    || working_weights.len() != expected_rows
+                    || state.eta.len() != expected_rows
+                {
+                    return Err(format!(
+                        "{context}: block {block_idx} diagonal terminal evidence has response/weight/eta lengths {}/{}/{}, expected {expected_rows}",
+                        working_response.len(),
+                        working_weights.len(),
+                        state.eta.len(),
+                    ));
+                }
+                with_block_geometry(family, states, spec, block_idx, |design, _| {
+                    let weights = certify_finite_working_weights(working_weights)?;
+                    let (xtwx, _) = weighted_normal_equations(design, weights, None)?;
+                    Ok(xtwx)
+                })?
+            }
+            BlockWorkingSet::ExactNewton { hessian, .. } => {
+                if hessian.nrows() != width || hessian.ncols() != width {
+                    return Err(format!(
+                        "{context}: block {block_idx} exact terminal Hessian has shape {}x{}, expected {width}x{width}",
+                        hessian.nrows(),
+                        hessian.ncols(),
+                    ));
+                }
+                hessian.to_dense()
+            }
+        };
+        if block_hessian.iter().any(|value| !value.is_finite()) {
+            return Err(format!(
+                "{context}: block {block_idx} terminal Hessian contains non-finite values"
+            ));
+        }
+        hessian
+            .slice_mut(ndarray::s![start..end, start..end])
+            .assign(&block_hessian);
+    }
+    symmetrize_dense_in_place(&mut hessian);
+    Ok(hessian)
+}
+
+pub(crate) fn compute_joint_covariance<F: CustomFamily + Clone + Send + Sync + 'static>(
+    family: &F,
+    specs: &[ParameterBlockSpec],
+    states: &[ParameterBlockState],
+    per_block_log_lambdas: &[Array1<f64>],
+    options: &BlockwiseFitOptions,
+    preferred_unpenalized_hessian: Option<&Array2<f64>>,
+) -> Result<Array2<f64>, String> {
+    let total = specs.iter().map(|spec| spec.design.ncols()).sum();
+    let unpenalized_hessian = if let Some(hessian) = preferred_unpenalized_hessian {
+        hessian.clone()
+    } else {
+        let Some(hessian) = exact_newton_joint_hessian_symmetrized(
+            family,
+            states,
+            specs,
+            total,
+            "joint exact-newton Hessian shape mismatch in covariance",
+        )?
+        else {
+            return Err(
+                "joint covariance requires an exact analytic Hessian; objective perturbation is forbidden"
+                    .to_string(),
+            );
+        };
+        hessian
+    };
+    let h = penalized_hessian_from_owned_mode(
+        specs,
+        per_block_log_lambdas,
+        options,
+        &unpenalized_hessian,
+    )?;
     // #748 + audit-41: a Laplace posterior covariance exists only when the
     // posterior precision `H + S_λ` is strictly positive definite AT THE
     // CONVERGED OPTIMUM. Indefinite means the mode is not a maximum;
@@ -1292,177 +1494,144 @@ pub(crate) fn compute_joint_covariance_required<F: CustomFamily + Clone + Send +
     states: &[ParameterBlockState],
     per_block_log_lambdas: &[Array1<f64>],
     options: &BlockwiseFitOptions,
+    preferred_unpenalized_hessian: Option<&Array2<f64>>,
 ) -> Result<Option<Array2<f64>>, CustomFamilyError> {
     if !options.compute_covariance {
         return Ok(None);
     }
-    compute_joint_covariance(family, specs, states, per_block_log_lambdas, options)
-        .map(Some)
-        .map_err(|e| CustomFamilyError::InvalidInput {
+    match compute_joint_covariance(
+        family,
+        specs,
+        states,
+        per_block_log_lambdas,
+        options,
+        preferred_unpenalized_hessian,
+    ) {
+        Ok(covariance) => Ok(Some(covariance)),
+        // A converged fit with a PSD penalized Hessian is a VALID fit even when
+        // the covariance cannot be factorized; escalating that into a whole-fit
+        // failure would discard usable coefficients and point predictions. When
+        // the consumer opted into best-effort covariance, downgrade to a typed
+        // absence (covariance `None`, reason logged) so the fit is still minted
+        // and inference simply reports itself unavailable (#2299).
+        Err(e) if options.covariance_best_effort => {
+            log::warn!(
+                "[custom-family covariance] joint covariance unavailable for a converged fit; minting the fit without it: {e}"
+            );
+            Ok(None)
+        }
+        Err(e) => Err(CustomFamilyError::InvalidInput {
             context: "compute_joint_covariance_required",
             reason: format!("joint covariance computation failed: {e}"),
-        })
+        }),
+    }
 }
 
-/// Compute joint working-set geometry at convergence for ALO diagnostics.
+/// Compute terminal coefficient geometry, with optional single-diagonal row
+/// evidence for consumers such as ALO.
 pub(crate) fn compute_joint_geometry<F: CustomFamily + Clone + Send + Sync + 'static>(
     family: &F,
     specs: &[ParameterBlockSpec],
     states: &[ParameterBlockState],
     per_block_log_lambdas: &[Array1<f64>],
     options: &BlockwiseFitOptions,
-) -> Result<Option<FitGeometry>, String> {
+    preferred_unpenalized_hessian: Option<&Array2<f64>>,
+    preferred_working_sets: Option<&[BlockWorkingSet]>,
+) -> Result<FitGeometry, String> {
     if specs.len() != per_block_log_lambdas.len() {
-        return Ok(None);
+        return Err(format!(
+            "terminal geometry has {} parameter blocks but {} per-block smoothing vectors",
+            specs.len(),
+            per_block_log_lambdas.len(),
+        ));
     }
-    if specs.len() == 1 {
-        let eval = family.evaluate(states).ok();
-        let Some(eval) = eval else {
-            return Ok(None);
-        };
-        let spec = &specs[0];
-        let lambdas = exact_lambdas_from_log_strengths(
-            &per_block_log_lambdas[0],
-            "single-block geometry log strength",
-        )?;
-        // The penalized joint Hessian `H_pen = H_lik + Σ_k λ_k S_k` is the exact
-        // mgcv quantity the trace edf `p − Σ_k λ_k·tr(H_pen⁻¹ S_k)` consumes. Two
-        // single-block working-set shapes reach here:
-        //
-        // * `Diagonal` — IRLS/GLM families expose only the diagonal working
-        //   weights, so the likelihood curvature is reconstructed as the
-        //   Gauss–Newton gram `XᵀWX`.
-        // * `ExactNewton` — coefficient-space exact-curvature families (CTN
-        //   transformation-normal, …) already carry the dense negative
-        //   log-likelihood Hessian `−∇²log L = H_lik` directly. Materialize it
-        //   and add the penalties, so these families report inference / total
-        //   edf instead of dropping geometry (and therefore inference) for the
-        //   whole fit (#720).
-        let (mut h, working_weights, working_response) =
-            match eval.blockworking_sets.as_slice() {
-                [
-                    BlockWorkingSet::Diagonal {
-                        working_response,
-                        working_weights,
-                    },
-                ] => {
-                    let h = spec.design.xt_diag_x_signed_op(
-                        FiniteSignedWeightsView::try_from_array(working_weights)?,
-                    )?;
-                    (h, working_weights.clone(), working_response.clone())
-                }
-                [BlockWorkingSet::ExactNewton { hessian, .. }] => {
-                    let h = hessian.to_dense();
-                    if h.nrows() != spec.design.ncols() || h.ncols() != spec.design.ncols() {
-                        return Ok(None);
-                    }
-                    // The exact-Newton block carries no IRLS pseudo-data; the
-                    // trace edf reads only the penalized Hessian, and the
-                    // downstream IRLS covariance path is unused for these
-                    // families (they report dispersion = 1). Match the joint
-                    // multi-block branch's zero-length convention.
-                    let working_len = states.first().map(|state| state.eta.len()).unwrap_or(0);
-                    (h, Array1::zeros(working_len), Array1::zeros(working_len))
-                }
-                _ => return Ok(None),
-            };
-        for (k, s) in spec.penalties.iter().enumerate() {
-            let s_dense = s.as_dense_cow();
-            h.scaled_add(lambdas[k], &*s_dense);
-        }
-        // gam#1587/#561: add the full-width JOINT penalty (the multinomial
-        // centered `Σ_t λ_t (M ⊗ S_t)`) at the selected `ρ_t` so the exported
-        // geometry's penalized Hessian matches the inner-converged operator and
-        // the trace EDF `tr(H⁻¹ S_λ)` is non-zero. No-op for per-block-only
-        // families. (Single-block joint penalties are unusual but handled for
-        // symmetry with the multi-block branch.)
-        if let Some(bundle) = options.joint_penalties.as_deref()
-            && !bundle.is_empty()
-            && h.nrows() == bundle.specs()[0].dim()
-        {
-            bundle.add_to_matrix(&mut h);
-        }
-        // Exact-Newton families may return a Hessian assembled from directional
-        // callbacks whose off-diagonal entries differ by floating-point order
-        // or, for pseudo-Laplace tests, by a deliberately non-symmetric input
-        // that is accepted only after symmetrization. Export the same symmetric
-        // penalized Hessian used by the determinant/covariance path instead of
-        // letting result assembly reject an otherwise valid fit geometry.
-        symmetrize_dense_in_place(&mut h);
-        return Ok(Some(FitGeometry {
-            penalized_hessian: h.into(),
-            working_weights,
-            working_response,
-        }));
+    if let Some(working_sets) = preferred_working_sets
+        && working_sets.len() != specs.len()
+    {
+        return Err(format!(
+            "terminal geometry has {} parameter blocks but {} owned working sets",
+            specs.len(),
+            working_sets.len(),
+        ));
     }
 
-    let requires_explicit_joint_hessian = specs.iter().enumerate().any(|(idx, spec)| {
-        custom_family_block_role(&spec.name, idx, specs.len()) == gam_problem::BlockRole::LinkWiggle
-    });
-    let total_p: usize = specs.iter().map(|spec| spec.design.ncols()).sum();
-    let Some(mut h) = exact_newton_joint_hessian_symmetrized(
-        family,
-        states,
-        specs,
-        total_p,
-        "compute_joint_geometry",
-    )?
-    else {
-        if requires_explicit_joint_hessian {
-            return Err(
-                "link-wiggle fits require an exact explicit joint Hessian for posterior sampling"
-                    .to_string(),
-            );
-        }
-        return Ok(None);
+    let total = specs.iter().map(|spec| spec.design.ncols()).sum::<usize>();
+    let unpenalized_hessian = if let Some(hessian) = preferred_unpenalized_hessian {
+        hessian.clone()
+    } else {
+        exact_newton_joint_hessian_symmetrized(
+            family,
+            states,
+            specs,
+            total,
+            "terminal coefficient geometry Hessian shape mismatch",
+        )?
+        .ok_or_else(|| {
+            "terminal coefficient geometry requires an exact analytic Hessian; objective perturbation and placeholder geometry are forbidden"
+                .to_string()
+        })?
     };
-    let ranges = block_param_ranges(specs);
-    for (block_idx, spec) in specs.iter().enumerate() {
-        let Some(block_log_lambdas) = per_block_log_lambdas.get(block_idx) else {
-            return Ok(None);
+    let penalized_hessian = penalized_hessian_from_owned_mode(
+        specs,
+        per_block_log_lambdas,
+        options,
+        &unpenalized_hessian,
+    )?;
+
+    // A single diagonal working set is the only live row-wise contract. A
+    // multi-block fit has several distinct row measures, and Exact-Newton
+    // curvature lives in coefficient space; both therefore retain `None`
+    // rather than fabricated empty/zero vectors or an unused stacked variant.
+    let working = if specs.len() == 1 {
+        let evaluated;
+        let working_sets = match preferred_working_sets {
+            Some(working_sets) => working_sets,
+            None => {
+                evaluated = family.evaluate(states)?;
+                evaluated.blockworking_sets.as_slice()
+            }
         };
-        let lambdas = exact_lambdas_from_log_strengths(
-            block_log_lambdas,
-            &format!("joint geometry block {block_idx} log strength"),
-        )?;
-        if lambdas.len() != spec.penalties.len() {
-            return Ok(None);
-        }
-        let (start, end) = ranges[block_idx];
-        let block_dim = end - start;
-        for (penalty_idx, penalty) in spec.penalties.iter().enumerate() {
-            let scale = lambdas[penalty_idx];
-            if scale == 0.0 {
-                continue;
+        match working_sets {
+            [BlockWorkingSet::Diagonal {
+                working_response,
+                working_weights,
+            }] => {
+                let expected_rows = specs[0].design.nrows();
+                if working_weights.len() != expected_rows
+                    || working_response.len() != expected_rows
+                {
+                    return Err(format!(
+                        "single-diagonal terminal working geometry has weights/response lengths {}/{}, expected {expected_rows}",
+                        working_weights.len(),
+                        working_response.len(),
+                    ));
+                }
+                Some(WorkingGeometry {
+                    weights: working_weights.clone(),
+                    response: working_response.clone(),
+                })
             }
-            let dense = penalty.as_dense_cow();
-            if dense.nrows() == block_dim && dense.ncols() == block_dim {
-                h.slice_mut(ndarray::s![start..end, start..end])
-                    .scaled_add(scale, &*dense);
-            } else if dense.nrows() == total_p && dense.ncols() == total_p {
-                h.scaled_add(scale, &*dense);
-            } else {
-                return Ok(None);
+            [BlockWorkingSet::ExactNewton { .. }] => None,
+            _ => {
+                return Err(format!(
+                    "single-block terminal geometry requires exactly one owned working set, got {}",
+                    working_sets.len(),
+                ));
             }
         }
-    }
-    // gam#1587/#561: add the full-width JOINT penalty `Σ_t exp(ρ_t) S_t` at the
-    // selected `ρ_t`. The multinomial centered metric carries ALL of a fit's
-    // smoothing here (its per-block penalty lists are empty), so without this the
-    // exported geometry is the unpenalized likelihood Hessian and the trace EDF
-    // reads as the full coefficient count (no smoothing spent). No-op for the
-    // per-block-only families (`joint_penalties` is `None`).
-    if let Some(bundle) = options.joint_penalties.as_deref()
-        && !bundle.is_empty()
-    {
-        bundle.add_to_matrix(&mut h);
-    }
-    let working_len = states.first().map(|state| state.eta.len()).unwrap_or(0);
-    Ok(Some(FitGeometry {
-        penalized_hessian: h.into(),
-        working_weights: Array1::zeros(working_len),
-        working_response: Array1::zeros(working_len),
-    }))
+    } else {
+        None
+    };
+
+    let block_widths = specs
+        .iter()
+        .map(|spec| spec.design.ncols())
+        .collect::<Vec<_>>();
+    Ok(FitGeometry {
+        coefficient_gauge: gam_problem::gauge::Gauge::identity(&block_widths),
+        penalized_hessian: penalized_hessian.into(),
+        working,
+    })
 }
 
 pub(crate) fn joint_penalty_subspace_trace_parts(
@@ -1609,4 +1778,345 @@ pub(crate) fn joint_penalty_subspace_trace_parts(
             h_proj_inverse,
         }),
     ))
+}
+
+/// First-order ρ-uncertainty inflation of the joint coefficient covariance for
+/// custom-family fits (#2346): the correction term `C = A · V_ρ · Aᵀ` with
+/// `A = V_cond · U` and `U[:, o] = (∂S_λ/∂ρ_o) · β̂` — each outer smoothing
+/// coordinate's penalty derivative applied to the fitted coefficients. By
+/// first-order IFT `J_o = ∂β̂/∂ρ_o = −V_cond · U[:, o]`, so
+/// `Σ_{o,t} J_o · V_ρ[o,t] · J_tᵀ = C` and `V_c = V_cond + C` is the Vc-style
+/// corrected covariance the standard lane ships, with the same typed
+/// `FirstOrderIdentifiedSubspace` provenance.
+///
+/// Rail-aware (#2337 Thm 2.3): outer coordinates in `excluded_outer` (box
+/// rails and typed AsymptoteRail coordinates) have no finite ρ-variance and
+/// are excluded from the inflation. The interior sub-Hessian must be strictly
+/// PD; a non-PD interior returns `Ok(None)` — a typed absence, not an error,
+/// because the deep-smoothing regime legitimately reaches it. Returns the
+/// correction together with the identified interior rank.
+pub(crate) fn joint_smoothing_correction(
+    v_cond: &Array2<f64>,
+    specs: &[ParameterBlockSpec],
+    layout: &crate::penalty_labels::PenaltyLabelLayout,
+    rho_outer: &Array1<f64>,
+    block_states: &[ParameterBlockState],
+    outer_hessian: &Array2<f64>,
+    excluded_outer: &[usize],
+) -> Result<Option<(Array2<f64>, usize)>, String> {
+    let p_total: usize = specs.iter().map(|spec| spec.design.ncols()).sum();
+    let k_outer = rho_outer.len();
+    if v_cond.dim() != (p_total, p_total) {
+        return Err(format!(
+            "joint smoothing correction: V_cond shape {:?} ≠ ({p_total}, {p_total})",
+            v_cond.dim()
+        ));
+    }
+    if outer_hessian.dim() != (k_outer, k_outer) {
+        return Err(format!(
+            "joint smoothing correction: outer Hessian shape {:?} ≠ ({k_outer}, {k_outer})",
+            outer_hessian.dim()
+        ));
+    }
+    if block_states.len() != specs.len() {
+        return Err(format!(
+            "joint smoothing correction: {} block states vs {} specs",
+            block_states.len(),
+            specs.len()
+        ));
+    }
+
+    // β̂ stacked in block order — the reduced coefficient frame V_cond lives in.
+    let mut beta_flat = Array1::<f64>::zeros(p_total);
+    let mut offsets = Vec::with_capacity(specs.len() + 1);
+    let mut at = 0usize;
+    for (spec, state) in specs.iter().zip(block_states) {
+        let width = spec.design.ncols();
+        if state.beta.len() != width {
+            return Err(format!(
+                "joint smoothing correction: block '{}' beta length {} ≠ design width {width}",
+                spec.name,
+                state.beta.len()
+            ));
+        }
+        offsets.push(at);
+        beta_flat
+            .slice_mut(ndarray::s![at..at + width])
+            .assign(&state.beta);
+        at += width;
+    }
+    offsets.push(at);
+
+    // U[:, o] = Σ_{slots tied to outer o} λ_slot · S_slot · β̂. Per-block
+    // penalties act on their block slice; joint specs act on the full stacked
+    // space. Fixed (untied) physical slots carry no ρ coordinate — no
+    // ρ-uncertainty flows through them.
+    let mut u_mat = Array2::<f64>::zeros((p_total, k_outer));
+    let mut physical = 0usize;
+    for (block_idx, spec) in specs.iter().enumerate() {
+        let base = offsets[block_idx];
+        let width = spec.design.ncols();
+        for penalty in &spec.penalties {
+            let outer = layout.physical_to_outer.get(physical).copied().flatten();
+            physical += 1;
+            let Some(outer) = outer else {
+                continue;
+            };
+            let lambda = rho_outer[outer].exp();
+            if lambda == 0.0 {
+                continue;
+            }
+            let s_dense = penalty.to_dense();
+            if s_dense.dim() != (width, width) {
+                return Err(format!(
+                    "joint smoothing correction: block '{}' penalty shape {:?} ≠ ({width}, {width})",
+                    spec.name,
+                    s_dense.dim()
+                ));
+            }
+            let s_beta = s_dense.dot(&beta_flat.slice(ndarray::s![base..base + width]));
+            for i in 0..width {
+                u_mat[[base + i, outer]] += lambda * s_beta[i];
+            }
+        }
+    }
+    for (joint_idx, spec) in layout.joint_specs.iter().enumerate() {
+        let outer = layout.joint_to_outer[joint_idx];
+        let lambda = rho_outer[outer].exp();
+        if lambda == 0.0 {
+            continue;
+        }
+        if spec.matrix.dim() != (p_total, p_total) {
+            return Err(format!(
+                "joint smoothing correction: joint penalty '{}' shape {:?} ≠ ({p_total}, {p_total})",
+                spec.label.as_deref().unwrap_or("<unlabeled>"),
+                spec.matrix.dim()
+            ));
+        }
+        let m_beta = spec.matrix.dot(&beta_flat);
+        for i in 0..p_total {
+            u_mat[[i, outer]] += lambda * m_beta[i];
+        }
+    }
+
+    // Interior V_ρ: strict SPD inverse of the non-excluded outer sub-block.
+    let included: Vec<usize> = (0..k_outer)
+        .filter(|o| !excluded_outer.contains(o))
+        .collect();
+    if included.is_empty() {
+        return Ok(None);
+    }
+    let ki = included.len();
+    let mut h_sub = Array2::<f64>::zeros((ki, ki));
+    for (i, &oi) in included.iter().enumerate() {
+        for (j, &oj) in included.iter().enumerate() {
+            h_sub[[i, j]] = outer_hessian[[oi, oj]];
+        }
+    }
+    let (evals, evecs) = FaerEigh::eigh(&h_sub, Side::Lower).map_err(|e| {
+        format!("joint smoothing correction: outer Hessian eigendecomposition failed: {e}")
+    })?;
+    let max_abs = evals.iter().fold(0.0_f64, |acc, &ev| acc.max(ev.abs()));
+    let tol = (100.0 * f64::EPSILON * (ki as f64) * max_abs).max(100.0 * f64::EPSILON);
+    if evals.iter().any(|&ev| ev <= tol) {
+        return Ok(None);
+    }
+    let mut v_rho = Array2::<f64>::zeros((ki, ki));
+    for (idx, &ev) in evals.iter().enumerate() {
+        let inv = 1.0 / ev;
+        for i in 0..ki {
+            let vi = evecs[[i, idx]];
+            for j in 0..ki {
+                v_rho[[i, j]] += inv * vi * evecs[[j, idx]];
+            }
+        }
+    }
+
+    // C = (V·U_inc) · V_ρ · (V·U_inc)ᵀ — symmetric PSD by construction.
+    let mut u_inc = Array2::<f64>::zeros((p_total, ki));
+    for (col, &o) in included.iter().enumerate() {
+        u_inc.column_mut(col).assign(&u_mat.column(o));
+    }
+    let a_mat = v_cond.dot(&u_inc);
+    let mut correction = a_mat.dot(&v_rho).dot(&a_mat.t());
+    symmetrize_dense_in_place(&mut correction);
+    Ok(Some((correction, ki)))
+}
+
+#[cfg(test)]
+mod best_effort_covariance_tests {
+    //! Pins the #2299 `covariance_best_effort` downgrade at its production seam.
+    //! A converged fit whose joint posterior precision `M = H + S_λ` is singular
+    //! cannot produce a Laplace covariance; `compute_joint_covariance_required`
+    //! must return that as a typed absence (`Ok(None)`) when the consumer opted
+    //! into best-effort, and as an error otherwise. This is exercised with a
+    //! genuinely singular `M` (not a marginal knife-edge) so the assertion is
+    //! deterministic and load-independent -- the marginal fit that reaches this
+    //! path from Python is nondeterministic (rayon-fold-order-sensitive at the
+    //! tolerance) and is guarded upstream by the gauge + REML anyway (#2299).
+    use super::*;
+    use ndarray::array;
+
+    #[derive(Clone)]
+    struct TrivialFamily;
+
+    impl CustomFamily for TrivialFamily {
+        fn evaluate(&self, _: &[ParameterBlockState]) -> Result<FamilyEvaluation, String> {
+            Ok(FamilyEvaluation {
+                log_likelihood: 0.0,
+                blockworking_sets: vec![],
+            })
+        }
+    }
+
+    /// One 3-coefficient block whose unpenalized Hessian and penalty share the
+    /// null direction `e3`, so `M = H + S_λ` (at λ = e^0 = 1) is
+    /// `[[5, 0.2, 0], [0.2, 11, 0], [0, 0, 0]]` -- singular along `e3`, i.e. the
+    /// posterior is improper and no finite covariance exists.
+    fn singular_joint_fixture() -> (
+        Vec<ParameterBlockSpec>,
+        Vec<ParameterBlockState>,
+        Vec<Array1<f64>>,
+        Array2<f64>,
+    ) {
+        let s = array![[1.0, 0.0, 0.0], [0.0, 2.0, 0.0], [0.0, 0.0, 0.0]];
+        let unpenalized = array![[4.0, 0.2, 0.0], [0.2, 9.0, 0.0], [0.0, 0.0, 0.0]];
+        let beta = array![1.0, -1.0, 3.0];
+        let spec = ParameterBlockSpec {
+            name: "degenerate".to_string(),
+            design: DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(
+                Array2::zeros((1, 3)),
+            )),
+            offset: Array1::zeros(1),
+            penalties: vec![PenaltyMatrix::Dense(s)],
+            nullspace_dims: vec![1],
+            initial_log_lambdas: array![0.0],
+            initial_beta: Some(beta.clone()),
+            gauge_priority: 100,
+            jacobian_callback: None,
+            stacked_design: None,
+            stacked_offset: None,
+        };
+        let state = ParameterBlockState {
+            beta,
+            eta: Array1::zeros(1),
+        };
+        (vec![spec], vec![state], vec![array![0.0]], unpenalized)
+    }
+
+    #[test]
+    fn best_effort_downgrades_singular_covariance_to_typed_absence() {
+        let (specs, states, per_block, unpenalized) = singular_joint_fixture();
+        let options = BlockwiseFitOptions {
+            compute_covariance: true,
+            covariance_best_effort: true,
+            ..BlockwiseFitOptions::default()
+        };
+        let result = compute_joint_covariance_required(
+            &TrivialFamily,
+            &specs,
+            &states,
+            &per_block,
+            &options,
+            Some(&unpenalized),
+        );
+        assert!(
+            matches!(result, Ok(None)),
+            "best-effort must downgrade an unfactorizable covariance to Ok(None); got {result:?}"
+        );
+    }
+
+    #[test]
+    fn covariance_required_without_best_effort_errors_on_singular() {
+        let (specs, states, per_block, unpenalized) = singular_joint_fixture();
+        let options = BlockwiseFitOptions {
+            compute_covariance: true,
+            covariance_best_effort: false,
+            ..BlockwiseFitOptions::default()
+        };
+        let result = compute_joint_covariance_required(
+            &TrivialFamily,
+            &specs,
+            &states,
+            &per_block,
+            &options,
+            Some(&unpenalized),
+        );
+        assert!(
+            result.is_err(),
+            "without best-effort a singular joint covariance must surface as an error; got {result:?}"
+        );
+    }
+
+    /// A comfortably positive-definite joint precision must yield a finite
+    /// covariance (the ordinary success path), so the singular-case tests above
+    /// are pinning the degenerate branch and not a blanket refusal.
+    #[test]
+    fn well_conditioned_covariance_is_computed() {
+        // M = H + S_lambda = diag(5, 11, 4): strictly PD, invertible.
+        let s = array![[1.0, 0.0, 0.0], [0.0, 2.0, 0.0], [0.0, 0.0, 1.0]];
+        let unpenalized = array![[4.0, 0.0, 0.0], [0.0, 9.0, 0.0], [0.0, 0.0, 3.0]];
+        let beta = array![0.5, -0.5, 0.25];
+        let spec = ParameterBlockSpec {
+            name: "identified".to_string(),
+            design: DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(
+                Array2::zeros((1, 3)),
+            )),
+            offset: Array1::zeros(1),
+            penalties: vec![PenaltyMatrix::Dense(s)],
+            nullspace_dims: vec![0],
+            initial_log_lambdas: array![0.0],
+            initial_beta: Some(beta.clone()),
+            gauge_priority: 100,
+            jacobian_callback: None,
+            stacked_design: None,
+            stacked_offset: None,
+        };
+        let states = vec![ParameterBlockState {
+            beta,
+            eta: Array1::zeros(1),
+        }];
+        let options = BlockwiseFitOptions {
+            compute_covariance: true,
+            covariance_best_effort: true,
+            ..BlockwiseFitOptions::default()
+        };
+        let result = compute_joint_covariance_required(
+            &TrivialFamily,
+            &vec![spec],
+            &states,
+            &vec![array![0.0]],
+            &options,
+            Some(&unpenalized),
+        );
+        match result {
+            Ok(Some(cov)) => {
+                assert_eq!(cov.dim(), (3, 3));
+                assert!(cov.iter().all(|v| v.is_finite()));
+                // Σ = M⁻¹ = diag(1/5, 1/11, 1/4).
+                assert!((cov[[0, 0]] - 0.2).abs() < 1e-9);
+                assert!((cov[[2, 2]] - 0.25).abs() < 1e-9);
+            }
+            other => panic!("a PD joint precision must yield a finite covariance; got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn covariance_disabled_returns_none_before_any_factorization() {
+        let (specs, states, per_block, unpenalized) = singular_joint_fixture();
+        let options = BlockwiseFitOptions {
+            compute_covariance: false,
+            covariance_best_effort: true,
+            ..BlockwiseFitOptions::default()
+        };
+        let result = compute_joint_covariance_required(
+            &TrivialFamily,
+            &specs,
+            &states,
+            &per_block,
+            &options,
+            Some(&unpenalized),
+        );
+        assert!(matches!(result, Ok(None)));
+    }
 }

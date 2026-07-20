@@ -652,9 +652,9 @@ impl<const K: usize> jet_algebra::JetAlgebra<5> for Tower4<K> {
 /// or `t4`), so dropping the third/fourth tensors cannot perturb the value,
 /// gradient, or Hessian.
 ///
-/// It exists purely for performance: an inner Newton step (and the
-/// value-only ρ-homotopy pre-warm) needs at most curvature, never the
-/// outer-κ/ψ third/fourth derivatives. Evaluating a row likelihood over
+/// It exists purely for performance: an inner Newton step and a value-only
+/// outer-objective probe need at most curvature, never the outer-κ/ψ
+/// third/fourth derivatives. Evaluating a row likelihood over
 /// `Tower2` skips the `K⁴` fourth-tensor product/composition arithmetic that
 /// dominates the cold marginal-slope fit, while returning the exact same
 /// `(v, g, h)`.
@@ -1766,70 +1766,6 @@ pub fn cell_moving_boundary_flux_tower_theta_integrand<const K1: usize, const K:
 
 // ── The program seam ─────────────────────────────────────────────────
 
-/// A family's row negative log-likelihood written ONCE over tower scalars.
-///
-/// This is the single source of truth #932 asks for: the value channel of
-/// the returned tower must BE the production row NLL (same branches, same
-/// guards, same numerics), and every derivative channel is then exact by
-/// construction. The linear Jacobian wiring (coefficients ↔ primaries) is
-/// NOT part of this trait — it is family data, not calculus, and stays on
-/// the `RowKernel` implementor.
-pub trait RowNllProgram<const K: usize>: Send + Sync {
-    /// Number of observations the program covers.
-    fn n_rows(&self) -> usize;
-
-    /// Current primary-scalar values for `row` (where to seed the tower).
-    fn primaries(&self, row: usize) -> Result<[f64; K], String>;
-
-    /// The row NLL evaluated on tower scalars. `p[a]` arrives pre-seeded as
-    /// variable `a` at the current primary value; implementations combine
-    /// them with `Tower4` arithmetic and per-row data (response, censoring
-    /// indicators, offsets) entering as constants.
-    fn row_nll(&self, row: usize, p: &[Tower4<K>; K]) -> Result<Tower4<K>, String>;
-}
-
-/// Evaluate a program's full tower at the current primaries for one row.
-///
-/// One call yields every `RowKernel` calculus channel; callers that need
-/// several contractions of the same row should hold the returned tower and
-/// contract repeatedly rather than re-evaluating.
-pub fn evaluate_program<const K: usize, P: RowNllProgram<K> + ?Sized>(
-    prog: &P,
-    row: usize,
-) -> Result<Tower4<K>, String> {
-    let p = prog.primaries(row)?;
-    let vars: [Tower4<K>; K] = std::array::from_fn(|a| Tower4::variable(p[a], a));
-    prog.row_nll(row, &vars)
-}
-
-/// Mechanically derived `row_kernel` channel: `(nll, ∇, H)`.
-pub fn derived_row_kernel<const K: usize, P: RowNllProgram<K> + ?Sized>(
-    prog: &P,
-    row: usize,
-) -> Result<(f64, [f64; K], [[f64; K]; K]), String> {
-    let t = evaluate_program(prog, row)?;
-    Ok((t.v, t.g, t.h))
-}
-
-/// Mechanically derived `row_third_contracted` channel.
-pub fn derived_third_contracted<const K: usize, P: RowNllProgram<K> + ?Sized>(
-    prog: &P,
-    row: usize,
-    dir: &[f64; K],
-) -> Result<[[f64; K]; K], String> {
-    Ok(evaluate_program(prog, row)?.third_contracted(dir))
-}
-
-/// Mechanically derived `row_fourth_contracted` channel.
-pub fn derived_fourth_contracted<const K: usize, P: RowNllProgram<K> + ?Sized>(
-    prog: &P,
-    row: usize,
-    dir_u: &[f64; K],
-    dir_v: &[f64; K],
-) -> Result<[[f64; K]; K], String> {
-    Ok(evaluate_program(prog, row)?.fourth_contracted(dir_u, dir_v))
-}
-
 // ── The canonical single-source seam (#932 consolidation) ────────────
 //
 // `RowProgram<K>` is the ONE row-program interface #932 converges every family
@@ -1865,6 +1801,76 @@ pub trait RowProgram<const K: usize>: Send + Sync {
     -> Result<S, String>;
 }
 
+/// Maximum size of one canonical dense-jet storage object kept on the call
+/// stack. Small fixed-width programs stay allocation-free; wider derivative
+/// representations use exact-length heap storage instead of making the thread
+/// stack scale as `K * size_of::<S>()`. A full dense result larger than this
+/// boundary is rejected in favor of the bounded directional APIs.
+///
+/// This is a storage-policy boundary, not a calculus fallback: both branches
+/// invoke the same [`RowProgram::eval`] expression with the same scalar type.
+const PROGRAM_DENSE_JET_STACK_BUDGET_BYTES: usize = 64 * 1024;
+
+#[inline]
+fn program_primary_jets_fit_stack<S, const K: usize>() -> bool {
+    std::mem::size_of::<S>()
+        .checked_mul(K)
+        .is_some_and(|bytes| bytes <= PROGRAM_DENSE_JET_STACK_BUDGET_BYTES)
+}
+
+fn evaluate_program_with_stack_primaries<const K: usize, P, S>(
+    prog: &P,
+    row: usize,
+    mut seed: impl FnMut(usize) -> S,
+) -> Result<S, String>
+where
+    P: RowProgram<K> + ?Sized,
+    S: crate::jet_scalar::JetScalar<K>,
+{
+    let vars: [S; K] = std::array::from_fn(&mut seed);
+    prog.eval(row, &vars)
+}
+
+#[inline(never)]
+fn evaluate_program_with_heap_primaries<const K: usize, P, S>(
+    prog: &P,
+    row: usize,
+    seed: impl FnMut(usize) -> S,
+) -> Result<S, String>
+where
+    P: RowProgram<K> + ?Sized,
+    S: crate::jet_scalar::JetScalar<K>,
+{
+    // The exact-size range builds precisely K initialized Copy scalars in
+    // heap-backed storage. Converting the boxed slice to a boxed array changes
+    // only its type; it never materializes `[S; K]` on the stack.
+    let vars: Box<[S]> = (0..K).map(seed).collect();
+    let vars: Box<[S; K]> = vars.try_into().map_err(|vars: Box<[S]>| {
+        format!(
+            "canonical row program seeded {} primary jets; expected exactly {K}",
+            vars.len()
+        )
+    })?;
+    prog.eval(row, &vars)
+}
+
+#[inline]
+fn evaluate_program_with_seeded_primaries<const K: usize, P, S>(
+    prog: &P,
+    row: usize,
+    seed: impl FnMut(usize) -> S,
+) -> Result<S, String>
+where
+    P: RowProgram<K> + ?Sized,
+    S: crate::jet_scalar::JetScalar<K>,
+{
+    if program_primary_jets_fit_stack::<S, K>() {
+        evaluate_program_with_stack_primaries(prog, row, seed)
+    } else {
+        evaluate_program_with_heap_primaries(prog, row, seed)
+    }
+}
+
 /// Derive the `row_kernel` channel `(nll, ∇, H)` from a [`RowProgram`] at the
 /// value/gradient/Hessian scalar [`crate::jet_scalar::Order2`], WITHOUT
 /// materialising any third / fourth tensor.
@@ -1873,11 +1879,10 @@ pub fn program_row_kernel<const K: usize, P: RowProgram<K> + ?Sized>(
     row: usize,
 ) -> Result<(f64, [f64; K], [[f64; K]; K]), String> {
     let base = prog.primaries(row)?;
-    let vars: [crate::jet_scalar::Order2<K>; K] = std::array::from_fn(|a| {
+    let s = evaluate_program_with_seeded_primaries(prog, row, |a| {
         <crate::jet_scalar::Order2<K> as crate::jet_scalar::JetScalar<K>>::variable(base[a], a)
-    });
-    let s = prog.eval(row, &vars)?;
-    Ok((crate::jet_scalar::JetScalar::value(&s), s.g(), s.h()))
+    })?;
+    Ok(s.into_channels())
 }
 
 /// Derive the `row_third_contracted(dir)` channel `Σ_c ℓ_{abc} dir_c` from a
@@ -1889,9 +1894,9 @@ pub fn program_third_contracted<const K: usize, P: RowProgram<K> + ?Sized>(
     dir: &[f64; K],
 ) -> Result<[[f64; K]; K], String> {
     let base = prog.primaries(row)?;
-    let vars: [crate::jet_scalar::OneSeed<K>; K] =
-        std::array::from_fn(|a| crate::jet_scalar::OneSeed::seed_direction(base[a], a, dir[a]));
-    let s = prog.eval(row, &vars)?;
+    let s = evaluate_program_with_seeded_primaries(prog, row, |a| {
+        crate::jet_scalar::OneSeed::seed_direction(base[a], a, dir[a])
+    })?;
     Ok(s.contracted_third())
 }
 
@@ -1905,21 +1910,35 @@ pub fn program_fourth_contracted<const K: usize, P: RowProgram<K> + ?Sized>(
     dir_v: &[f64; K],
 ) -> Result<[[f64; K]; K], String> {
     let base = prog.primaries(row)?;
-    let vars: [crate::jet_scalar::TwoSeed<K>; K] =
-        std::array::from_fn(|a| crate::jet_scalar::TwoSeed::seed(base[a], a, dir_u[a], dir_v[a]));
-    let s = prog.eval(row, &vars)?;
+    let s = evaluate_program_with_seeded_primaries(prog, row, |a| {
+        crate::jet_scalar::TwoSeed::seed(base[a], a, dir_u[a], dir_v[a])
+    })?;
     Ok(s.contracted_fourth())
 }
 
 /// Derive every channel `(v, g, h, t3, t4)` in one pass from a [`RowProgram`] at
 /// the full dense [`Tower4`] scalar.
+///
+/// The result is boxed so the return slot itself remains bounded independently
+/// of `K`. Dense towers above the canonical storage budget are rejected before
+/// the program is touched; consumers at those widths must request only the
+/// channels they need through [`program_row_kernel`],
+/// [`program_third_contracted`], and [`program_fourth_contracted`].
 pub fn program_full_tower<const K: usize, P: RowProgram<K> + ?Sized>(
     prog: &P,
     row: usize,
-) -> Result<Tower4<K>, String> {
+) -> Result<Box<Tower4<K>>, String> {
+    let tower_bytes = std::mem::size_of::<Tower4<K>>();
+    if tower_bytes > PROGRAM_DENSE_JET_STACK_BUDGET_BYTES {
+        return Err(format!(
+            "canonical dense Tower4<{K}> requires {tower_bytes} bytes, exceeding the {}-byte \
+             storage budget; use the bounded row-kernel and directional channel APIs",
+            PROGRAM_DENSE_JET_STACK_BUDGET_BYTES
+        ));
+    }
     let base = prog.primaries(row)?;
-    let vars: [Tower4<K>; K] = std::array::from_fn(|a| Tower4::variable(base[a], a));
-    prog.eval(row, &vars)
+    evaluate_program_with_seeded_primaries(prog, row, |a| Tower4::variable(base[a], a))
+        .map(Box::new)
 }
 
 // ── The oracle ───────────────────────────────────────────────────────
@@ -2157,6 +2176,103 @@ mod tests {
         }
     }
 
+    struct OversizedDenseProgram;
+
+    impl RowProgram<10> for OversizedDenseProgram {
+        fn n_rows(&self) -> usize {
+            1
+        }
+
+        fn primaries(&self, row: usize) -> Result<[f64; 10], String> {
+            Err(format!(
+                "dense-tower storage check reached program primaries at row {row}"
+            ))
+        }
+
+        fn eval<S: crate::jet_scalar::JetScalar<10>>(
+            &self,
+            row: usize,
+            primaries: &[S; 10],
+        ) -> Result<S, String> {
+            Err(format!(
+                "dense-tower storage check reached program evaluation at row {row} with {} primaries",
+                primaries.len()
+            ))
+        }
+    }
+
+    struct LargestBudgetedDenseProgram;
+
+    impl RowProgram<9> for LargestBudgetedDenseProgram {
+        fn n_rows(&self) -> usize {
+            1
+        }
+
+        fn primaries(&self, row: usize) -> Result<[f64; 9], String> {
+            if row == 0 {
+                Ok([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0])
+            } else {
+                Err(format!("largest budgeted dense program has no row {row}"))
+            }
+        }
+
+        fn eval<S: crate::jet_scalar::JetScalar<9>>(
+            &self,
+            row: usize,
+            primaries: &[S; 9],
+        ) -> Result<S, String> {
+            if row != 0 {
+                return Err(format!("largest budgeted dense program has no row {row}"));
+            }
+            let linear =
+                S::linear_combination(primaries, &[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]);
+            let quartic = primaries[0]
+                .mul(&primaries[1])
+                .mul(&primaries[2])
+                .mul(&primaries[3]);
+            Ok(linear.add(&quartic))
+        }
+    }
+
+    #[test]
+    fn full_tower_accepts_largest_width_inside_storage_budget_932() {
+        assert_eq!(std::mem::size_of::<Tower4<9>>(), 59_048);
+        assert!(
+            !program_primary_jets_fit_stack::<Tower4<9>, 9>(),
+            "nine full-width primary towers must use exact-length heap storage"
+        );
+
+        let tower = program_full_tower(&LargestBudgetedDenseProgram, 0)
+            .expect("Tower4<9> must remain inside the canonical dense storage budget");
+        assert_eq!(tower.v, 309.0);
+        assert_eq!(tower.g, [25.0, 14.0, 11.0, 10.0, 5.0, 6.0, 7.0, 8.0, 9.0]);
+        // `t4` stores derivatives, not Taylor coefficients: the distinct-axis
+        // derivative of p0*p1*p2*p3 is 1, with no 4! normalization.
+        assert_eq!(tower.t4[0][1][2][3], 1.0);
+    }
+
+    #[test]
+    fn full_tower_refuses_oversized_result_before_touching_program() {
+        let tower_bytes = std::mem::size_of::<Tower4<10>>();
+        assert!(tower_bytes > PROGRAM_DENSE_JET_STACK_BUDGET_BYTES);
+        assert!(
+            std::mem::size_of::<Result<Box<Tower4<32>>, String>>()
+                <= 4 * std::mem::size_of::<usize>(),
+            "boxed full-tower API must keep its return slot independent of dense tower width"
+        );
+
+        let error = program_full_tower(&OversizedDenseProgram, 0)
+            .expect_err("Tower4<10> must exceed the canonical dense storage budget");
+        assert_eq!(
+            error,
+            format!(
+                "canonical dense Tower4<10> requires {tower_bytes} bytes, exceeding the {}-byte \
+                 storage budget; use the bounded row-kernel and directional channel APIs",
+                PROGRAM_DENSE_JET_STACK_BUDGET_BYTES
+            )
+        );
+    }
+
     fn assert_close(label: &str, got: f64, want: f64, rel_tol: f64) {
         let diff = (got - want).abs();
         assert!(
@@ -2278,14 +2394,7 @@ mod tests {
             p: &[S; 2],
         ) -> Result<S, String> {
             let r = S::constant(self.y[row]).sub(&p[0]);
-            Ok(p[1].add(
-                &p[1]
-                    .scale(-2.0)
-                    .exp()
-                    .mul(&r)
-                    .mul(&r)
-                    .scale(0.5),
-            ))
+            Ok(p[1].add(&p[1].scale(-2.0).exp().mul(&r).mul(&r).scale(0.5)))
         }
     }
 
@@ -2411,16 +2520,11 @@ mod tests {
                 .get(row)
                 .ok_or_else(|| format!("gnarly: tau row {row} out of range"))?;
             let a = p[0].mul(&p[1]).exp();
-            let b = p[2]
-                .mul(&p[2])
-                .add(&S::constant(1.0))
-                .sqrt();
+            let b = p[2].mul(&p[2]).add(&S::constant(1.0)).sqrt();
             let c = a.add(&b).add(&S::constant(tau)).ln();
             let d = p[1].scale(0.5).add(&S::constant(2.0)).powf(1.7);
             let delta = p[0].sub(&p[2]);
-            Ok(c
-                .mul(&d.recip())
-                .add(&delta.mul(&delta).scale(0.25)))
+            Ok(c.mul(&d.recip()).add(&delta.mul(&delta).scale(0.25)))
         }
     }
 
@@ -2454,7 +2558,7 @@ mod tests {
                 self.base.eval(self.row, vars)
             }
         }
-        program_full_tower(&At { base: prog, row, p }, 0).expect("gnarly tower")
+        *program_full_tower(&At { base: prog, row, p }, 0).expect("gnarly tower")
     }
 
     #[test]

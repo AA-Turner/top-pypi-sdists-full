@@ -45,6 +45,7 @@ pub(crate) fn cached_inner_mode_from_result(result: &BlockwiseInnerResult) -> Ca
         joint_workspace: result.joint_workspace.clone(),
         kkt_residual: result.kkt_residual.clone(),
         active_constraints: result.active_constraints.clone(),
+        terminal_working_sets: result.terminal_working_sets.clone(),
     }
 }
 
@@ -102,11 +103,15 @@ pub(crate) fn inner_penalized_objective(
     context: &str,
 ) -> Result<f64, String> {
     let reml_term = if include_logdet_h {
-        0.5 * inner.block_logdet_h
+        0.5 * inner.block_logdet_h.ok_or_else(|| {
+            format!("{context}: certified Hessian logdet is unavailable")
+        })?
     } else {
         0.0
     } - if include_logdet_s {
-        0.5 * inner.block_logdet_s
+        0.5 * inner.block_logdet_s.ok_or_else(|| {
+            format!("{context}: certified penalty logdet is unavailable")
+        })?
     } else {
         0.0
     };
@@ -122,13 +127,19 @@ pub(crate) fn nonconverged_outer_efs_result(
     inner: &BlockwiseInnerResult,
     rho: &Array1<f64>,
     theta_dim: usize,
-    include_logdet_h: bool,
-    include_logdet_s: bool,
     context: &str,
 ) -> Result<(gam_problem::EfsEval, ConstrainedWarmStart, bool), String> {
     Ok((
         gam_problem::EfsEval {
-            cost: inner_penalized_objective(inner, include_logdet_h, include_logdet_s, context)?,
+            // A non-converged coefficient iterate is not a Laplace mode, so no
+            // determinant exists. This finite scalar is diagnostic only; the
+            // returned `false` makes the outer optimizer reject the sample.
+            cost: checked_penalizedobjective(
+                inner.log_likelihood,
+                inner.penalty_value,
+                0.0,
+                context,
+            )?,
             steps: vec![0.0; theta_dim],
             beta: None,
             psi_gradient: None,
@@ -197,6 +208,14 @@ pub struct BlockwiseFitResultParts {
     /// its converged smoothing — the per-block `lambdas` are empty for it. `None`
     /// for every per-block-only family.
     pub joint_log_lambdas: Option<Array1<f64>>,
+    /// First-order ρ-uncertainty smoothing correction `C` (raw/lifted frame)
+    /// with its typed provenance (#2346): `V_c = V_cond + C` is published as
+    /// `beta_covariance_corrected`; `None` = typed absence (no outer ρ
+    /// curvature retained, or the interior V_ρ is not honestly finite).
+    pub smoothing_corrected: Option<(
+        Array2<f64>,
+        gam_solve::model_types::SmoothingCorrectionMethod,
+    )>,
 }
 
 pub(crate) fn validate_parameter_block_state_finiteness(
@@ -262,14 +281,18 @@ pub(crate) fn validate_lambda_pair_consistency(
 ///
 /// `edf_penalty` is returned aligned 1:1 with the flattened `lambdas`
 /// (one entry per penalty across all blocks), matching the
-/// `FitInference::edf_by_block` ↔ `lambdas` length invariant. The per-block
-/// aggregate edf (for `FittedBlock::edf`) is the sum of that block's penalty
-/// edfs, with an unpenalized block contributing its full column count.
+/// `FitInference::edf_by_block` ↔ `lambdas` length invariant. Per-penalty EDFs
+/// are not additive when penalty ranges overlap: each starts from its own
+/// `rank(S_k)`. The per-parameter-block aggregate is therefore computed
+/// independently as `p_block - Σ_k λ_k tr(H⁻¹S_k)`; an unpenalized block
+/// contributes its full column count.
 pub(crate) fn custom_family_blockwise_edf(
     penalized_hessian: &Array2<f64>,
     specs: &[ParameterBlockSpec],
     lambdas: &ndarray::ArrayView1<'_, f64>,
 ) -> Result<(f64, Vec<f64>, Vec<f64>, Vec<f64>), String> {
+    use gam_solve::estimate::reml::reml_outer_engine::penalty_matrix_root;
+
     let p = penalized_hessian.nrows();
     let total_cols: usize = specs.iter().map(|s| s.design.ncols()).sum();
     if penalized_hessian.ncols() != p || total_cols != p {
@@ -319,6 +342,20 @@ pub(crate) fn custom_family_blockwise_edf(
             // penalty is used as-is (mirrors `survival_transformation_edf`'s
             // explicit block placement).
             let s_local = penalty.to_dense();
+            // Use the same realized penalty root as the REML assembly. Its row
+            // count is the exact rank of the penalty coordinate that contributes
+            // `rank(S_k)·rho_k` to the criterion. Reconstructing rank from the
+            // containing block width overstates every component of a
+            // multi-penalty block; consulting `nullspace_dims` here is also
+            // incorrect after canonical pullback, which intentionally clears
+            // stale pre-transform nullities.
+            let penalty_rank = penalty_matrix_root(&s_local)
+                .map_err(|error| {
+                    format!(
+                        "custom-family edf: penalty {global_k} rank factorization failed: {error}"
+                    )
+                })?
+                .nrows();
             let mut s_full = Array2::<f64>::zeros((p, p));
             if s_local.nrows() == p && s_local.ncols() == p {
                 s_full.assign(&s_local);
@@ -343,11 +380,8 @@ pub(crate) fn custom_family_blockwise_edf(
             let lam_trace = if lambda > 0.0 { lambda * trace } else { 0.0 };
             total_trace += lam_trace;
             penalty_trace[global_k] = lam_trace;
-            // Per-penalty edf is bounded by the columns this penalty acts on,
-            // i.e. its block's column count (a `Blockwise` penalty reports the
-            // full joint width from `dim()`, so cap at `block_cols`, not `dim()`).
-            let penalty_cols = block_cols as f64;
-            let edf_k = (penalty_cols - lam_trace).clamp(0.0, penalty_cols);
+            let penalty_rank = penalty_rank as f64;
+            let edf_k = (penalty_rank - lam_trace).clamp(0.0, penalty_rank);
             edf_by_penalty[global_k] = edf_k;
             // The block's edf is the column count minus the total trace this
             // block's penalties spend (so multiple penalties on one block
@@ -439,6 +473,7 @@ mod assembly_convergence_tests {
             geometry: None,
             precomputed_edf: None,
             joint_log_lambdas: None,
+            smoothing_corrected: None,
         }
     }
 
@@ -511,6 +546,7 @@ pub fn blockwise_fit_from_parts(
         geometry,
         precomputed_edf,
         joint_log_lambdas,
+        smoothing_corrected,
     } = parts;
 
     // SPEC 20: a fit object only ever comes from a converged optimization.
@@ -610,36 +646,61 @@ pub fn blockwise_fit_from_parts(
         }
     }
 
-    if let Some(geom) = geometry.as_ref() {
-        geom.validate_numeric_finiteness()
-            .map_err(|e| e.to_string())?;
-        let (rows, cols) = geom.penalized_hessian.dim();
-        if rows != total_p || cols != total_p {
+    let geom = geometry.as_ref().ok_or_else(|| CustomFamilyError::InvalidInput {
+        context: "blockwise_fit_from_parts",
+        reason: "a converged custom-family fit must retain coefficient gauge and penalized Hessian geometry"
+            .to_string(),
+    })?;
+    {
+        geom.validate_numeric_finiteness().map_err(|e| e.to_string())?;
+        let mut raw_block_starts = Vec::with_capacity(block_states.len() + 1);
+        raw_block_starts.push(0usize);
+        for state in &block_states {
+            raw_block_starts.push(
+                raw_block_starts
+                    .last()
+                    .copied()
+                    .expect("raw block starts contain the initial zero")
+                    .checked_add(state.beta.len())
+                    .ok_or_else(|| CustomFamilyError::DimensionMismatch {
+                        reason: "blockwise_fit raw coefficient partition overflows usize"
+                            .to_string(),
+                    })?,
+            );
+        }
+        if geom.coefficient_gauge.block_starts_raw != raw_block_starts {
             return Err(CustomFamilyError::DimensionMismatch {
                 reason: format!(
-                    "blockwise_fit.geometry.penalized_hessian must be {}x{}, got {}x{}",
-                    total_p, total_p, rows, cols
+                    "blockwise_fit.geometry raw gauge partition {:?} does not match fitted block partition {:?}",
+                    geom.coefficient_gauge.block_starts_raw, raw_block_starts
                 ),
             }
             .into());
         }
-        let geom_len = geom.working_weights.len();
-        if geom_len != geom.working_response.len() {
-            return Err(CustomFamilyError::DimensionMismatch { reason: format!(
-                "blockwise_fit.geometry working vector length mismatch: weights={}, response={}",
-                geom.working_weights.len(),
-                geom.working_response.len(),
-            ) }.into());
+        let active_dimension = geom.coefficient_gauge.reduced_total();
+        let (rows, cols) = geom.penalized_hessian.dim();
+        if rows != active_dimension || cols != active_dimension {
+            return Err(CustomFamilyError::DimensionMismatch {
+                reason: format!(
+                    "blockwise_fit.geometry active penalized_hessian must be {active_dimension}x{active_dimension}, got {rows}x{cols}"
+                ),
+            }
+            .into());
         }
-        if geom_len != n && (n == 0 || geom_len % n != 0) {
-            return Err(CustomFamilyError::DimensionMismatch { reason: format!(
-                "blockwise_fit.geometry.working_weights length mismatch: got {geom_len}, expected {n} or a stacked multiple of {n}",
-            ) }.into());
+        if !geom.coefficient_gauge.is_identity() && precomputed_edf.is_none() {
+            return Err(CustomFamilyError::InvalidInput {
+                context: "blockwise_fit_from_parts",
+                reason: "non-identity active geometry requires its reduced-coordinate EDF; raw penalties cannot be paired with an active-coordinate Hessian"
+                    .to_string(),
+            }
+            .into());
         }
-        if geom.working_response.len() != n && (n == 0 || geom.working_response.len() % n != 0) {
+        if let Some(working) = geom.working.as_ref()
+            && working.weights.len() != n
+        {
             return Err(CustomFamilyError::DimensionMismatch { reason: format!(
-                "blockwise_fit.geometry.working_response length mismatch: got {}, expected {n} or a stacked multiple of {n}",
-                geom.working_response.len(),
+                "blockwise_fit.geometry single-diagonal working row count mismatch: got {}, expected {n}",
+                working.weights.len(),
             ) }.into());
         }
     }
@@ -654,17 +715,14 @@ pub fn blockwise_fit_from_parts(
             expected_rho
         ) }.into());
     }
-    // Effective degrees of freedom and the inference block. When the
-    // converged geometry carries the joint penalized Hessian we compute the
+    // Effective degrees of freedom and the inference block. The converged
+    // coefficient geometry always carries the joint penalized Hessian; compute the
     // mgcv trace edf `p − Σ_k λ_k·tr(H⁻¹ S_k)` here so every custom-family fit
     // (CTN transformation-normal, Dirichlet, …) reports `edf_total` /
     // per-block `edf` like the standard GAM path, instead of leaving inference
-    // unpopulated. A factorization failure is non-fatal: the fit still returns
-    // with `edf=0`/`inference=None` rather than aborting, but in practice the
-    // ridge-retry inside `custom_family_blockwise_edf` recovers any boundary
-    // indefiniteness.
-    let (edf_total_opt, edf_by_penalty, block_edf, penalty_trace): (
-        Option<f64>,
+    // unpopulated. Optional row evidence is not part of this calculation.
+    let (edf_total, edf_by_penalty, block_edf, penalty_trace): (
+        f64,
         Vec<f64>,
         Vec<f64>,
         Vec<f64>,
@@ -674,32 +732,23 @@ pub fn blockwise_fit_from_parts(
         // reported on the raw fit — exact because the trace edf is
         // reparameterization-invariant).
         Some((edf_total, edf_by_penalty, block_edf, penalty_trace)) => {
-            (Some(edf_total), edf_by_penalty, block_edf, penalty_trace)
+            (edf_total, edf_by_penalty, block_edf, penalty_trace)
         }
-        // Fallback: compute from whatever geometry we were handed. Used
-        // only when the caller did not precompute (no reduced geometry);
-        // the ridge-retry factorization makes this robust to a marginally
-        // indefinite Hessian.
-        None => match geometry.as_ref() {
-            Some(geom) => {
-                match custom_family_blockwise_edf(
+        // Compute from coefficient precision when the caller did not already
+        // supply the basis-invariant reduced-space traces.
+        None => {
+            let (edf_total, edf_by_penalty, block_edf, penalty_trace) =
+                custom_family_blockwise_edf(
                     geom.penalized_hessian.as_array(),
                     specs,
                     &lambdas.view(),
-                ) {
-                    Ok((edf_total, edf_by_penalty, block_edf, penalty_trace)) => {
-                        (Some(edf_total), edf_by_penalty, block_edf, penalty_trace)
-                    }
-                    Err(err) => {
-                        log::warn!(
-                            "[custom-family inference] effective degrees of freedom unavailable: {err}"
-                        );
-                        (None, Vec::new(), vec![0.0; block_states.len()], Vec::new())
-                    }
-                }
-            }
-            None => (None, Vec::new(), vec![0.0; block_states.len()], Vec::new()),
-        },
+                )
+                .map_err(|reason| CustomFamilyError::Optimization {
+                    context: "blockwise_fit_from_parts coefficient-geometry EDF",
+                    reason: format!("{reason}; refusing to assemble a fit without EDF/inference"),
+                })?;
+            (edf_total, edf_by_penalty, block_edf, penalty_trace)
+        }
     };
 
     let mut lambda_offset = 0usize;
@@ -728,30 +777,44 @@ pub fn blockwise_fit_from_parts(
     // Hessian is reported unscaled (dispersion = 1) — the EDF trace is
     // dispersion-free, and downstream covariance scaling pairs `H` with the
     // family's own dispersion where needed.
-    let inference = match (edf_total_opt, geometry.as_ref()) {
-        (Some(edf_total), Some(geom)) => Some(gam_solve::model_types::FitInference {
-            edf_by_block: edf_by_penalty,
-            penalty_block_trace: penalty_trace,
-            edf_total,
-            smoothing_correction: None,
-            smoothing_correction_method: None,
-            penalized_hessian: geom.penalized_hessian.clone(),
-            working_weights: geom.working_weights.clone(),
-            working_response: geom.working_response.clone(),
-            reparam_qs: None,
-            dispersion: gam_solve::model_types::Dispersion::UNIT,
-            beta_covariance: None,
-            beta_standard_errors: None,
-            beta_covariance_corrected: None,
-            beta_standard_errors_corrected: None,
-            beta_covariance_frequentist: None,
-            coefficient_influence: None,
-            weighted_gram: None,
-            bias_correction_beta: None,
-            bias_correction_jacobian: None,
-        }),
-        _ => None,
-    };
+    // #2346: publish the first-order corrected covariance when the outer ρ
+    // curvature supplied one — `V_c = V_cond + C`, with the correction matrix
+    // and its typed method provenance carried exactly like the standard lane.
+    let (smoothing_correction, smoothing_correction_method, corrected_cov, corrected_se) =
+        match (&smoothing_corrected, &covariance_conditional) {
+            (Some((correction, method)), Some(v_cond))
+                if correction.dim() == v_cond.dim() =>
+            {
+                let corrected = v_cond + correction;
+                let se = corrected.diag().mapv(|v| v.max(0.0).sqrt());
+                (
+                    Some(correction.clone()),
+                    Some(method.clone()),
+                    Some(corrected),
+                    Some(se),
+                )
+            }
+            _ => (None, None, None, None),
+        };
+    let inference = Some(gam_solve::model_types::FitInference {
+        edf_by_block: edf_by_penalty,
+        penalty_block_trace: penalty_trace,
+        edf_total,
+        smoothing_correction,
+        smoothing_correction_method,
+        penalized_hessian: geom.penalized_hessian.clone(),
+        reparam_qs: None,
+        dispersion: gam_solve::model_types::Dispersion::UNIT,
+        beta_covariance: None,
+        beta_standard_errors: None,
+        beta_covariance_corrected: corrected_cov.clone(),
+        beta_standard_errors_corrected: corrected_se,
+        beta_covariance_frequentist: None,
+        coefficient_influence: None,
+        weighted_gram: None,
+        bias_correction_beta: None,
+        bias_correction_jacobian: None,
+    });
 
     gam_solve::model_types::UnifiedFitResult::try_from_parts(UnifiedFitResultParts {
         blocks,
@@ -771,7 +834,10 @@ pub fn blockwise_fit_from_parts(
         outer_gradient_norm,
         standard_deviation: 1.0,
         covariance_conditional,
-        covariance_corrected: None,
+        // The result validation requires the inference-level corrected matrix to
+        // be mirrored at the top level (bitwise-equal), exactly as the standard
+        // lane publishes it.
+        covariance_corrected: corrected_cov,
         inference,
         fitted_link: FittedLinkState::Standard(None),
         geometry,
@@ -875,20 +941,60 @@ impl CustomFamilyWarmStart {
 pub(crate) struct CustomOuterState {
     pub(crate) warm_cache: Option<ConstrainedWarmStart>,
     pub(crate) reset_warm_cache: Option<ConstrainedWarmStart>,
+    /// Exact derivative-bearing coefficient mode installed by the most recent
+    /// analytic outer evaluation.
+    ///
+    /// This is deliberately an ownership slot rather than a warm-start cache:
+    /// `CustomFamilyOwnedMode` is non-`Clone`, so fit assembly can consume the
+    /// one inner result that produced the certified objective and derivatives
+    /// without re-entering the (potentially nonconvex) coefficient solver.
+    pub(crate) terminal_mode: Option<CustomFamilyTerminalMode>,
     pub(crate) last_error: Option<String>,
     pub(crate) initial_gradient_norm: Option<f64>,
     pub(crate) outer_derivative_pilot: Option<OuterDerivativePilotSchedule>,
+    /// #2349 — one-shot "re-evaluate COLD" pulse shared with the outer
+    /// cost-stall guard (via `OuterProblem::with_stuck_stall_cold_reeval_signal`).
+    /// The guard raises it when it grants a STUCK-stall escape; the outer-eval
+    /// closures observe it, drop the warm cache for that evaluation, and latch
+    /// [`Self::force_cold_latched`] so the remainder of the outer run stays on
+    /// the trajectory-independent COLD surface.
+    pub(crate) force_cold_signal: Arc<AtomicBool>,
+    /// Latched once the cold-reeval pulse has fired: every subsequent outer
+    /// evaluation re-solves the inner problem cold, so the profiled objective
+    /// ARC sees is a consistent function of ρ (no warm-start hysteresis) and the
+    /// optimizer can descend past the near-separating stall. Survives
+    /// [`Self::reset`] on purpose — the terminal certificate must be measured on
+    /// the same cold surface the descent used (see `reset`).
+    pub(crate) force_cold_latched: bool,
 }
 
 impl CustomOuterState {
-    pub(crate) fn new(warm_start: Option<ConstrainedWarmStart>) -> Self {
+    pub(crate) fn new_with_cold_signal(
+        warm_start: Option<ConstrainedWarmStart>,
+        force_cold_signal: Arc<AtomicBool>,
+    ) -> Self {
         Self {
             warm_cache: warm_start.clone(),
             reset_warm_cache: warm_start,
+            terminal_mode: None,
             last_error: None,
             initial_gradient_norm: None,
             outer_derivative_pilot: None,
+            force_cold_signal,
+            force_cold_latched: false,
         }
+    }
+
+    /// Observe the shared cold-reeval pulse (consuming it) and the sticky
+    /// latch: returns `true` when this and every following outer evaluation
+    /// must re-solve the inner problem COLD (#2349). The pulse is raised by the
+    /// outer cost-stall guard on a STUCK-stall escape; once seen it latches for
+    /// the remainder of the run so ARC descends a consistent surface.
+    pub(crate) fn take_force_cold(&mut self) -> bool {
+        if self.force_cold_signal.swap(false, Ordering::Relaxed) {
+            self.force_cold_latched = true;
+        }
+        self.force_cold_latched
     }
 
     pub(crate) fn with_outer_derivative_pilot(
@@ -909,6 +1015,7 @@ impl CustomOuterState {
             // stage's warm baseline. `run_outer_uncertified` resets before its
             // seed loop, so promote the live cache into the reset slot first.
             self.reset_warm_cache = self.warm_cache.clone();
+            self.terminal_mode = None;
             self.initial_gradient_norm = None;
             self.last_error = None;
         }
@@ -917,6 +1024,41 @@ impl CustomOuterState {
 
     pub(crate) fn reset(&mut self) {
         self.warm_cache = self.reset_warm_cache.clone();
+        self.terminal_mode = None;
+        // #2349: the cold-reeval latch deliberately SURVIVES reset. `reset` runs
+        // between screened seeds/retries AND immediately before terminal
+        // certification (run.rs finalize/certify); clearing it there would
+        // re-evaluate `result.rho` WARM — reintroducing the very warm-start
+        // hysteresis whose descent found that point on the COLD surface, and the
+        // certificate would disagree with the trajectory that produced it. Once
+        // any evaluation has revealed the near-separating stall, the whole fit
+        // (all remaining seeds and the terminal certificate) stays on the
+        // consistent cold surface.
+    }
+
+    /// Begin one derivative-bearing outer evaluation transaction.
+    ///
+    /// Clearing happens before any fallible work. Only
+    /// [`Self::install_terminal_mode`] commits a replacement, so every error or
+    /// infeasible return leaves the state empty rather than exposing an older
+    /// coefficient basin as terminal evidence.
+    pub(crate) fn begin_terminal_evaluation(&mut self) {
+        self.terminal_mode = None;
+    }
+
+    pub(crate) fn install_terminal_mode(
+        &mut self,
+        theta: &Array1<f64>,
+        objective: f64,
+        gradient: &Array1<f64>,
+        mode: CustomFamilyOwnedMode,
+    ) {
+        self.terminal_mode = Some(CustomFamilyTerminalMode {
+            theta: theta.clone(),
+            objective,
+            gradient: gradient.clone(),
+            mode,
+        });
     }
 
     pub(crate) fn seed_cached_beta(
@@ -948,10 +1090,24 @@ impl CustomOuterState {
     }
 }
 
+/// Sealed terminal payload owned by the custom-family outer objective.
+///
+/// `theta`, `objective`, and `gradient` are retained bit-for-bit beside the
+/// coefficient mode so the optimizer's certified result can be bound to the
+/// exact evaluator state before fit assembly consumes it.
+pub(crate) struct CustomFamilyTerminalMode {
+    pub(crate) theta: Array1<f64>,
+    pub(crate) objective: f64,
+    pub(crate) gradient: Array1<f64>,
+    pub(crate) mode: CustomFamilyOwnedMode,
+}
+
 pub struct CustomFamilyJointHyperResult {
     pub objective: f64,
     pub gradient: Array1<f64>,
     pub outer_hessian: gam_problem::HessianValue,
+    /// Exact non-rho coordinates used to realize this evaluation.
+    pub hyper_values: Array1<f64>,
     pub warm_start: CustomFamilyWarmStart,
     /// `false` when the inner blockwise/Newton solve hit its divergence
     /// early-exit or its max-cycle cap. Envelope-theorem outer gradients
@@ -963,12 +1119,41 @@ pub struct CustomFamilyJointHyperResult {
     pub inner_converged: bool,
 }
 
+/// Opaque ownership token for the exact coefficient mode that produced one
+/// profiled outer-objective value.
+///
+/// A warm start is only a seed and cannot prove mode identity for a nonconvex
+/// coefficient problem.  This carrier instead owns the complete converged
+/// inner result, the exact profiled-objective bits, and the smoothing prefix
+/// used to produce them.  Spatial optimization retains this token alongside
+/// its terminal evaluation and fit assembly consumes it without another inner
+/// solve.
+pub struct CustomFamilyOwnedMode {
+    pub(crate) objective: f64,
+    pub(crate) rho: Array1<f64>,
+    pub(crate) hyper_values: Array1<f64>,
+    pub(crate) inner: BlockwiseInnerResult,
+}
+
+/// Analytic joint-hyper result together with its exact owned coefficient mode.
+pub struct CustomFamilyJointHyperOwnedResult {
+    pub result: CustomFamilyJointHyperResult,
+    pub mode: CustomFamilyOwnedMode,
+}
+
 pub struct CustomFamilyJointHyperEfsResult {
     pub efs_eval: gam_problem::EfsEval,
     pub warm_start: CustomFamilyWarmStart,
+    pub hyper_values: Array1<f64>,
     /// See [`CustomFamilyJointHyperResult::inner_converged`]. EFS gradients
     /// also assume a stationary inner solve.
     pub inner_converged: bool,
+}
+
+/// EFS joint-hyper result together with its exact owned coefficient mode.
+pub struct CustomFamilyJointHyperEfsOwnedResult {
+    pub result: CustomFamilyJointHyperEfsResult,
+    pub mode: CustomFamilyOwnedMode,
 }
 
 pub(crate) struct OuterObjectiveEvalResult {
@@ -977,22 +1162,63 @@ pub(crate) struct OuterObjectiveEvalResult {
     pub(crate) outer_hessian: gam_problem::HessianValue,
     pub(crate) warm_start: ConstrainedWarmStart,
     pub(crate) inner_converged: bool,
+    pub(crate) hyper_values: Array1<f64>,
+    /// The exact coefficient mode used to assemble this objective payload.
+    ///
+    /// Keeping the owned result here lets an atomic multi-start evaluation
+    /// reuse the already-certified mode for derivative assembly. A warm start
+    /// is only a seed/cache carrier and must never stand in for this identity:
+    /// re-entering the inner solver can select a different nonconvex basin.
+    pub(crate) inner: BlockwiseInnerResult,
 }
 
-pub(crate) fn outer_eval_result_to_joint_hyper_result(
+pub(crate) fn outer_eval_result_into_joint_hyper_owned_result(
     result: OuterObjectiveEvalResult,
-) -> CustomFamilyJointHyperResult {
-    CustomFamilyJointHyperResult {
-        objective: result.objective,
-        gradient: result.gradient,
-        outer_hessian: result.outer_hessian,
-        warm_start: CustomFamilyWarmStart {
-            inner: result.warm_start,
+) -> CustomFamilyJointHyperOwnedResult {
+    let OuterObjectiveEvalResult {
+        objective,
+        gradient,
+        outer_hessian,
+        warm_start,
+        inner_converged,
+        hyper_values,
+        inner,
+    } = result;
+    let rho = warm_start.rho.clone();
+    CustomFamilyJointHyperOwnedResult {
+        result: CustomFamilyJointHyperResult {
+            objective,
+            gradient,
+            outer_hessian,
+            hyper_values: hyper_values.clone(),
+            warm_start: CustomFamilyWarmStart { inner: warm_start },
+            inner_converged,
         },
-        inner_converged: result.inner_converged,
+        mode: CustomFamilyOwnedMode {
+            objective,
+            rho,
+            hyper_values,
+            inner,
+        },
     }
 }
 
 pub(crate) struct OwnedDenseHessianOperator {
     pub(crate) matrix: Array2<f64>,
+}
+
+#[cfg(test)]
+mod test_support {
+    use std::sync::Arc;
+    use std::sync::atomic::AtomicBool;
+
+    use super::{ConstrainedWarmStart, CustomOuterState};
+
+    impl CustomOuterState {
+        /// Test-only constructor: a fresh private cold-reeval signal (#2349),
+        /// for tests that never exercise the stuck-stall pulse.
+        pub(crate) fn new(warm_start: Option<ConstrainedWarmStart>) -> Self {
+            Self::new_with_cold_signal(warm_start, Arc::new(AtomicBool::new(false)))
+        }
+    }
 }

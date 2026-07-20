@@ -292,11 +292,17 @@ def convert_log_event(event: Event) -> "ProgressEvent | None":
         process_wait_seconds=_optional_nonnegative_int(
             event_data.get("process_wait_seconds")
         ),
+        process_yield_reason=_optional_text_or_none(
+            event_data.get("process_yield_reason")
+        ),
         process_has_observed_output=_optional_bool(
             event_data.get("process_has_observed_output")
         ),
         process_seconds_since_last_output=_optional_float(
             event_data.get("process_seconds_since_last_output")
+        ),
+        process_total_output_bytes=_optional_nonnegative_int(
+            event_data.get("process_total_output_bytes")
         ),
         streaming_tokens=_streaming_tokens(action, event_data),
         progress=progress,

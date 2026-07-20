@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyod
-Version: 3.6.1
+Version: 3.6.2
 Summary: A Python library for anomaly detection across tabular, time series, graph, text, image, and audio data. 61 detectors, benchmark-backed ADEngine orchestration, and an agentic workflow for AI agents.
 Author-email: Yue Zhao <yzhao062@gmail.com>
 License-Expression: BSD-2-Clause

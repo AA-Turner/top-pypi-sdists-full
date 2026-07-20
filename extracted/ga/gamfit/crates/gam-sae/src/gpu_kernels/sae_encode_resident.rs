@@ -59,6 +59,7 @@ use ndarray::ArrayView1;
 
 use crate::encode::{AtlasConfig, AtomEncodeAtlas, KANTOROVICH_THRESHOLD, euclidean_patch_degree};
 use crate::manifold::SaeManifoldAtom;
+use gam_gpu::gpu_error::GpuError;
 use gam_gpu::policy::{EncodeDecisionBlocked, EncodeDeploymentDecision};
 
 /// One `EuclideanPatch` atom's frozen encode data, flattened for a device
@@ -115,7 +116,7 @@ impl EncodeAtomDevice {
         atom_atlas: &AtomEncodeAtlas,
         config: &AtlasConfig,
     ) -> Result<Self, String> {
-        let d = atom.latent_dim;
+        let d = atom.latent_dim();
         let p = atom.output_dim();
         // FULL inner-basis width + full-width decoder pre-image `B = Q B̃`, never
         // the stored (possibly #1117 rank-reduced) width/decoder. The device
@@ -1235,25 +1236,34 @@ pub const DEVICE_ROW_THRESHOLD: usize = 4_096;
 /// returned [`EncodePath`] reports which path ran honestly (`device_encode_engaged`).
 /// Both paths run the SAME numeric core (Jacobi eigensolve, monomial jets), so
 /// when the device runs its result matches the CPU oracle to eigen round-off.
-#[must_use]
 pub fn sae_certified_encode_batch(
     dev: &EncodeAtomDevice,
     targets: &[Vec<f64>],
     amplitudes: &[f64],
-) -> (Vec<DeviceEncodeRow>, EncodePath) {
-    #[cfg(target_os = "linux")]
-    {
-        if targets.len() >= DEVICE_ROW_THRESHOLD {
-            if let Ok(out) = device::sae_certified_encode_device(dev, targets, amplitudes) {
-                return (out, EncodePath::Device);
+) -> Result<(Vec<DeviceEncodeRow>, EncodePath), GpuError> {
+    let policy = gam_gpu::global_policy();
+    if policy == gam_gpu::GpuPolicy::Required || targets.len() >= DEVICE_ROW_THRESHOLD {
+        let runtime = match policy {
+            gam_gpu::GpuPolicy::Required => Some(gam_gpu::GpuRuntime::require()?),
+            _ => gam_gpu::GpuRuntime::resolve(policy)?,
+        };
+        if runtime.is_some() {
+            #[cfg(target_os = "linux")]
+            {
+                let out = device::sae_certified_encode_device(dev, targets, amplitudes)?;
+                return Ok((out, EncodePath::Device));
             }
-            // Fall through to CPU on any device error (accelerator, not oracle).
+
+            #[cfg(not(target_os = "linux"))]
+            return Err(gam_gpu::gpu_err!(
+                "sae certified encode admitted CUDA on an unsupported platform"
+            ));
         }
     }
-    (
+    Ok((
         emulate_certified_encode_batch(dev, targets, amplitudes),
         EncodePath::Cpu,
-    )
+    ))
 }
 
 /// Measured throughput of the device-resident **exact per-row certified encode**
@@ -1314,18 +1324,17 @@ impl DeviceEncodeThroughput {
 ///   (`path == Cpu`); the rate is real but it is NOT a device measurement, so the
 ///   decision is `Undetermined` — the surrogate stays neither justified nor
 ///   refuted. This is the honest "needs GPU hardware" outcome.
-#[must_use]
 pub fn measure_device_encode_throughput(
     dev: &EncodeAtomDevice,
     targets: &[Vec<f64>],
     amplitudes: &[f64],
-) -> DeviceEncodeThroughput {
+) -> Result<DeviceEncodeThroughput, GpuError> {
     let n = targets.len();
     // Warm run (device module load / PTX cache / first-touch allocations) is not
     // timed, mirroring the resident-solve and full-path benchmarks.
-    drop(sae_certified_encode_batch(dev, targets, amplitudes));
+    drop(sae_certified_encode_batch(dev, targets, amplitudes)?);
     let start = Instant::now();
-    let (_out, path) = sae_certified_encode_batch(dev, targets, amplitudes);
+    let (_out, path) = sae_certified_encode_batch(dev, targets, amplitudes)?;
     let elapsed = start.elapsed();
     let encode_secs = elapsed.as_secs_f64();
     let rows_per_sec = if n > 0 && encode_secs > 0.0 {
@@ -1345,9 +1354,8 @@ pub fn measure_device_encode_throughput(
     //
     // In either case the anti-green-wash contract is the same: an emulator rate
     // can never declare the surrogate unneeded or justified.
-    let device_available = gam_gpu::device_runtime::GpuRuntime::global()
-        .map(|rt| rt.device_count() > 0)
-        .unwrap_or(false);
+    let device_available = gam_gpu::device_runtime::GpuRuntime::resolve(gam_gpu::global_policy())?
+        .is_some_and(|runtime| runtime.device_count() > 0);
     let decision = if engaged {
         EncodeDeploymentDecision::from_device_measurement(true, rows_per_sec)
     } else if device_available && n >= DEVICE_ROW_THRESHOLD {
@@ -1355,13 +1363,13 @@ pub fn measure_device_encode_throughput(
     } else {
         EncodeDeploymentDecision::blocked(EncodeDecisionBlocked::NoDevice)
     };
-    DeviceEncodeThroughput {
+    Ok(DeviceEncodeThroughput {
         n_rows: n,
         encode_secs,
         rows_per_sec,
         path,
         decision,
-    }
+    })
 }
 
 #[cfg(target_os = "linux")]
@@ -1757,7 +1765,11 @@ mod tests {
             );
             // The single-chart CPU router agrees with the top-1 selection.
             if let Some((idx, _)) = crate::encode::nearest_chart(atom_atlas, xv.view(), *amp) {
-                assert_eq!(Some(&idx), cpu.first(), "nearest_chart != topk[0] at amp {amp}");
+                assert_eq!(
+                    Some(&idx),
+                    cpu.first(),
+                    "nearest_chart != topk[0] at amp {amp}"
+                );
             }
             compared += 1;
         }
@@ -1830,7 +1842,8 @@ mod tests {
             })
             .collect();
         let amps: Vec<f64> = (0..n).map(|_| 1.0).collect();
-        let (batch, path) = sae_certified_encode_batch(&dev, &rows, &amps);
+        let (batch, path) = sae_certified_encode_batch(&dev, &rows, &amps)
+            .expect("small CPU batch must not erase CUDA admission faults");
         assert_eq!(path, EncodePath::Cpu, "small batch stays on CPU");
         // Batch == per-row emulate, and per-row == production certified flag.
         for (k, r) in batch.iter().enumerate() {
@@ -1895,7 +1908,8 @@ mod tests {
         }
 
         // The benchmark: time the exact encode and derive the surrogate decision.
-        let tput = measure_device_encode_throughput(&dev, &rows, &amps);
+        let tput = measure_device_encode_throughput(&dev, &rows, &amps)
+            .expect("exact-encode benchmark must preserve CUDA failures");
         eprintln!(
             "[device-encode #988] n={} rows/sec={:.1} path={:?} decision={:?}",
             tput.n_rows, tput.rows_per_sec, tput.path, tput.decision
@@ -1916,7 +1930,8 @@ mod tests {
         // The benchmark must be non-vacuous: on a well-conditioned dictionary the
         // planted on-manifold rows certify through the exact encode (proving the
         // routing + basin Newton + certificate really ran, not a trivial pass).
-        let (batch, _) = sae_certified_encode_batch(&dev, &rows, &amps);
+        let (batch, _) = sae_certified_encode_batch(&dev, &rows, &amps)
+            .expect("exact encode must preserve CUDA failures");
         let certified = batch.iter().filter(|r| r.cert.certified()).count();
         assert!(
             certified > 0,
@@ -1958,9 +1973,9 @@ mod tests {
                 "a CPU-emulator exact encode must leave the surrogate decision Undetermined, got {:?}",
                 tput.decision
             );
-            if gam_gpu::device_runtime::GpuRuntime::global()
-                .map(|rt| rt.device_count() > 0)
-                .unwrap_or(false)
+            if gam_gpu::device_runtime::GpuRuntime::resolve(gam_gpu::GpuPolicy::Auto)
+                .unwrap_or_else(|error| panic!("exact-encode CUDA admission failed: {error}"))
+                .is_some_and(|runtime| runtime.device_count() > 0)
             {
                 assert_eq!(
                     tput.decision,
@@ -2046,26 +2061,30 @@ mod tests {
             .collect();
         let amps = vec![1.0; n];
         let cpu = emulate_certified_encode_batch(&dev, &rows, &amps);
-        if gam_gpu::device_runtime::GpuRuntime::global().is_some() {
-            let devout = device::sae_certified_encode_device(&dev, &rows, &amps)
-                .expect("admitted GPU runtime must run the sae_encode kernel");
-            let mut max_coord = 0.0_f64;
-            for (a, b) in cpu.iter().zip(devout.iter()) {
-                assert_eq!(
-                    a.cert.certified(),
-                    b.cert.certified(),
-                    "device certified flag"
-                );
-                if a.cert.certified() {
-                    for axis in 0..dev.d {
-                        max_coord = max_coord.max((a.coord[axis] - b.coord[axis]).abs());
+        match gam_gpu::device_runtime::GpuRuntime::resolve(gam_gpu::GpuPolicy::Auto) {
+            Ok(None) => return,
+            Err(error) => panic!("sae_encode CUDA admission failed: {error}"),
+            Ok(Some(_)) => {
+                let devout = device::sae_certified_encode_device(&dev, &rows, &amps)
+                    .expect("admitted GPU runtime must run the sae_encode kernel");
+                let mut max_coord = 0.0_f64;
+                for (a, b) in cpu.iter().zip(devout.iter()) {
+                    assert_eq!(
+                        a.cert.certified(),
+                        b.cert.certified(),
+                        "device certified flag"
+                    );
+                    if a.cert.certified() {
+                        for axis in 0..dev.d {
+                            max_coord = max_coord.max((a.coord[axis] - b.coord[axis]).abs());
+                        }
                     }
                 }
+                assert!(
+                    max_coord <= 1e-9,
+                    "device vs emulator coord diff {max_coord:.3e} > 1e-9"
+                );
             }
-            assert!(
-                max_coord <= 1e-9,
-                "device vs emulator coord diff {max_coord:.3e} > 1e-9"
-            );
         }
     }
 }

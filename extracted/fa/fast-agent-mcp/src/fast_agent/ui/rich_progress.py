@@ -5,7 +5,7 @@ import os
 import time
 from contextlib import contextmanager
 from pathlib import Path
-from threading import RLock
+from threading import RLock, Timer
 from typing import Any
 
 from rich.console import Console
@@ -20,7 +20,11 @@ from fast_agent.tools.tool_sources import ACP_TERMINAL_TOOL_SOURCE
 from fast_agent.ui.agent_identity import is_default_agent_name
 from fast_agent.ui.console import console as default_console
 from fast_agent.ui.console import ensure_blocking_console
-from fast_agent.ui.process_poll_display import format_process_output_activity
+from fast_agent.ui.process_poll_display import (
+    format_process_output_activity,
+    format_process_output_size,
+    format_process_poll_countdown_track,
+)
 from fast_agent.ui.tool_call_ids import format_tool_call_id
 from fast_agent.utils.time import format_process_elapsed
 from fast_agent.utils.tool_names import (
@@ -114,10 +118,25 @@ class SpinnerDescriptionColumn(ProgressColumn):
         if task.finished:
             spinner_text = self.finished_text
         else:
-            rendered = self.spinner.render(task.get_time())
-            spinner_text = rendered if isinstance(rendered, Text) else Text(str(rendered))
+            spinner_text = self._render_activity_glyph(task)
 
+        # Glyph trails the padded label (historical layout). Narrow terminals may
+        # clip it; countdown still reads from colour/shape when visible.
         return Text.assemble(description_text, spinner_text)
+
+    def _render_activity_glyph(self, task: "Task") -> Text:
+        """Pulse spinner, or a depleting braille track while a process poll waits."""
+        if bool(task.fields.get("is_process_poll")):
+            wait_seconds = task.fields.get("process_wait_seconds")
+            countdown = format_process_poll_countdown_track(
+                wait_seconds=wait_seconds if type(wait_seconds) is int else None,
+                elapsed_seconds=task.elapsed or 0.0,
+            )
+            if countdown is not None:
+                return Text(countdown, style="magenta")
+
+        rendered = self.spinner.render(task.get_time())
+        return rendered if isinstance(rendered, Text) else Text(str(rendered))
 
 
 class DynamicDetailsColumn(ProgressColumn):
@@ -135,36 +154,61 @@ class DynamicDetailsColumn(ProgressColumn):
     def render(self, task: "Task") -> Text:
         details = str(task.fields.get("details") or "").strip()
         is_process_poll = bool(task.fields.get("is_process_poll"))
-        parts = [details]
+        parts: list[str | Text] = []
+        if details:
+            parts.append(details)
+        local_tick = self._local_tick_seconds(task)
         elapsed_base = task.fields.get("process_elapsed_seconds")
         if isinstance(elapsed_base, (int, float)) and not isinstance(elapsed_base, bool):
-            elapsed = float(elapsed_base) + (task.elapsed or 0.0)
-            elapsed_text = format_process_elapsed(elapsed)
-            parts.append(f"{elapsed_text} elapsed" if is_process_poll else elapsed_text)
-        wait_seconds = task.fields.get("process_wait_seconds")
-        if is_process_poll and type(wait_seconds) is int and wait_seconds > 0:
-            parts.append(f"wait ≤{wait_seconds}s")
+            parts.append(format_process_elapsed(float(elapsed_base) + local_tick))
         if is_process_poll:
             output_age = task.fields.get("process_seconds_since_last_output")
             if isinstance(output_age, (int, float)) and not isinstance(output_age, bool):
-                output_age = float(output_age) + (task.elapsed or 0.0)
+                output_age = float(output_age) + local_tick
             else:
                 output_age = None
             output_activity = format_process_output_activity(
                 has_observed_output=task.fields.get("process_has_observed_output"),
                 seconds_since_last_output=output_age,
             )
-            if output_activity:
-                parts.append(output_activity)
+            if output_activity is not None:
+                if output_activity.style:
+                    parts.append(Text(output_activity.text, style=output_activity.style))
+                else:
+                    parts.append(output_activity.text)
+            output_size = format_process_output_size(
+                task.fields.get("process_total_output_bytes")
+            )
+            if output_size:
+                parts.append(output_size)
         command = task.fields.get("process_command")
         if isinstance(command, str) and command:
             parts.append(command)
-        # Poll rows carry the correlation id as a structured field so it can render
-        # last; other tool rows keep it embedded in the details text.
-        correlation_marker = task.fields.get("process_correlation_marker")
-        if is_process_poll and isinstance(correlation_marker, str) and correlation_marker:
-            parts.append(f"id: {correlation_marker}")
-        return Text(" · ".join(part for part in parts if part), style=self.style)
+        return self._join_detail_parts(parts)
+
+    @staticmethod
+    def _local_tick_seconds(task: "Task") -> float:
+        """Seconds since the latest process field snapshot was applied."""
+        task_elapsed = task.elapsed or 0.0
+        snapshot = task.fields.get("process_snapshot_task_elapsed")
+        if isinstance(snapshot, (int, float)) and not isinstance(snapshot, bool):
+            return max(task_elapsed - float(snapshot), 0.0)
+        return task_elapsed
+
+    def _join_detail_parts(self, parts: list[str | Text]) -> Text:
+        line = Text(style=self.style)
+        first = True
+        for part in parts:
+            if not part:
+                continue
+            if not first:
+                line.append(" · ", style=self.style)
+            first = False
+            if isinstance(part, Text):
+                line.append_text(part)
+            else:
+                line.append(part, style=self.style)
+        return line
 
 
 class RichProgressDisplay:
@@ -547,15 +591,17 @@ class RichProgressDisplay:
             if event.action == ProgressAction.TOOL_PROGRESS
             else self._action_label(event)
         )
+        if self._is_process_poll_event(event):
+            return f"[{action_style}]▎[dim]{icon}[/dim] {label} "
         formatted_text = f"▎[dim]{icon}[/dim] {label}".ljust(17 + 11)
         return f"[{action_style}]{formatted_text}"
 
     @staticmethod
     def _is_process_poll_event(event: ProgressEvent) -> bool:
-        return event.action == ProgressAction.CALLING_TOOL and matches_tool_name(
-            event.tool_name,
-            POLL_PROCESS_TOOL_NAME,
-        )
+        return matches_tool_name(event.tool_name, POLL_PROCESS_TOOL_NAME) and event.action in {
+            ProgressAction.CALLING_TOOL,
+            ProgressAction.TOOL_PROGRESS,
+        }
 
     @classmethod
     def _action_label(cls, event: ProgressEvent) -> str:
@@ -581,9 +627,9 @@ class RichProgressDisplay:
         if not is_correlated_tool_event:
             return details_value
         if self._is_process_poll_event(event):
-            # Poll rows always render their correlation id, passed to the details
-            # column as a structured task field rather than embedded here.
-            return details_value.strip()
+            if self.is_default_agent_name(event.agent_name):
+                return ""
+            return (event.process_id or details_value).strip()
 
         active_correlated = self._count_correlated_tool_rows(event.agent_name or "default")
         return self._format_correlated_details(
@@ -602,7 +648,7 @@ class RichProgressDisplay:
         is_process_poll = self._is_process_poll_event(event)
         target = event.target or task_name
         if is_process_poll and self.is_default_agent_name(event.agent_name):
-            target = ""
+            target = event.process_id or ""
         update_kwargs: dict[str, Any] = {
             "description": self._description_for_event(event),
             "target": target,
@@ -613,10 +659,6 @@ class RichProgressDisplay:
             "task_name": task_name,
             "is_process_poll": is_process_poll,
         }
-        if is_process_poll and event.correlation_id:
-            update_kwargs["process_correlation_marker"] = self._short_correlation_id(
-                event.correlation_id
-            )
         if event.process_elapsed_seconds is not None:
             update_kwargs["process_elapsed_seconds"] = event.process_elapsed_seconds
         if event.process_command is not None:
@@ -630,6 +672,10 @@ class RichProgressDisplay:
         if event.process_seconds_since_last_output is not None:
             update_kwargs["process_seconds_since_last_output"] = (
                 event.process_seconds_since_last_output
+            )
+        if event.process_total_output_bytes is not None:
+            update_kwargs["process_total_output_bytes"] = (
+                event.process_total_output_bytes
             )
         if event.action == ProgressAction.TOOL_PROGRESS and event.progress is not None:
             self._add_tool_progress_update_kwargs(event, update_kwargs)
@@ -673,8 +719,48 @@ class RichProgressDisplay:
             self._mark_fatal_error_task(event, task_name=task_name, task_id=task_id)
         elif should_drop_tool_task:
             self._drop_task(task_name, task_id)
-        elif event.action != ProgressAction.TOOL_PROGRESS:
+        elif event.action != ProgressAction.TOOL_PROGRESS and not self._is_process_poll_event(
+            event
+        ):
+            # Process polls keep a stable start_time so the braille countdown
+            # track can drain across refresh updates.
             self._progress.reset(task_id)
+
+    def _finish_process_poll_task(
+        self,
+        task_name: str,
+        task_id: TaskID,
+        task: Task,
+    ) -> None:
+        """Show an empty countdown track briefly, then remove the poll row."""
+        wait_seconds = task.fields.get("process_wait_seconds")
+        if type(wait_seconds) is not int or wait_seconds <= 0:
+            wait_seconds = 1
+        # Freeze elapsed past the wait budget so the glyph stays blank.
+        now = time.time()
+        if task.start_time is not None:
+            task.start_time = now - float(wait_seconds) - 0.05
+        task.stop_time = now
+        self._progress.update(
+            task_id,
+            is_process_poll=True,
+            process_wait_seconds=wait_seconds,
+            process_snapshot_task_elapsed=float(wait_seconds),
+            description=task.description,
+        )
+        # Force one Live refresh so the empty track paints before teardown.
+        if self._live_started() and not self._paused:
+            self._progress.refresh()
+
+        def _drop_later() -> None:
+            with self._lock:
+                if self._taskmap.get(task_name) != task_id:
+                    return
+                self._drop_task(task_name, task_id)
+
+        timer = Timer(0.7, _drop_later)
+        timer.daemon = True
+        timer.start()
 
     def _mark_finished_task(
         self,
@@ -759,6 +845,19 @@ class RichProgressDisplay:
             is_correlated_tool_event=is_correlated_tool_event,
         )
 
+        existing = next((item for item in self._progress.tasks if item.id == task_id), None)
+        finishing_process_poll = (
+            should_drop_tool_task
+            and existing is not None
+            and bool(existing.fields.get("is_process_poll"))
+            and event.process_yield_reason == "deadline"
+        )
+        if finishing_process_poll:
+            # Hold the monitoring row with an empty countdown; skip overwriting
+            # the description with a terminal "Processing" label.
+            self._finish_process_poll_task(task_name, task_id, existing)
+            return
+
         self._progress.update(
             task_id,
             **self._update_kwargs_for_event(
@@ -767,6 +866,18 @@ class RichProgressDisplay:
                 is_correlated_tool_event=is_correlated_tool_event,
             ),
         )
+        if self._is_process_poll_event(event):
+            # Anchor field baselines to the current task clock so local ticks
+            # between refresh events do not double-count process age.
+            task = next(
+                (item for item in self._progress.tasks if item.id == task_id),
+                None,
+            )
+            if task is not None:
+                self._progress.update(
+                    task_id,
+                    process_snapshot_task_elapsed=task.elapsed or 0.0,
+                )
         self._apply_post_update_lifecycle(
             event,
             task_name=task_name,

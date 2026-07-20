@@ -17,6 +17,15 @@ pub enum GpuError {
     /// `libcuda.dylib`) or one of its sibling stubs (cuSOLVER, cuSPARSE)
     /// could not be loaded from any of the searched candidates.
     DriverLibraryUnavailable { reason: String },
+    /// A CUDA driver candidate exists or resolves through the platform loader,
+    /// but `dlopen`/`LoadLibrary` rejected it (invalid ABI, corrupt object,
+    /// missing transitive dependency, or loader-initializer failure). This is
+    /// a broken installation, never ordinary hardware absence.
+    DriverLibraryLoadFailed { reason: String },
+    /// The CUDA driver is present, but a mandatory runtime dependency such as
+    /// cuBLAS, cuSOLVER, or cuSPARSE is missing. This is an installation fault,
+    /// not the ordinary "this host has no CUDA device" absence state.
+    RuntimeDependencyUnavailable { reason: String },
     /// A required CUDA / cuBLAS / cuSOLVER / cuSPARSE symbol was missing
     /// from a loaded library (i.e. `libloading::Library::get` returned an
     /// error for a name we need).
@@ -38,16 +47,23 @@ pub enum GpuError {
     /// device refused". Carries a short reason for diagnostics, e.g. the kernel
     /// name. (Any GPU acceleration roadmap belongs in an issue, not here.)
     NoDeviceKernel { reason: String },
+    /// `GpuPolicy::Required` was requested on a host with a genuine, typed CUDA
+    /// absence (unsupported platform, no driver, or no device). Probe faults
+    /// retain their original variant and never pass through this wrapper.
+    RequiredDeviceUnavailable { reason: String },
 }
 
 impl std::fmt::Display for GpuError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::DriverLibraryUnavailable { reason }
+            | Self::DriverLibraryLoadFailed { reason }
+            | Self::RuntimeDependencyUnavailable { reason }
             | Self::DriverSymbolMissing { reason }
             | Self::DriverCallFailed { reason }
             | Self::CalibrationFailed { reason }
-            | Self::NoDeviceKernel { reason } => f.write_str(reason),
+            | Self::NoDeviceKernel { reason }
+            | Self::RequiredDeviceUnavailable { reason } => f.write_str(reason),
         }
     }
 }

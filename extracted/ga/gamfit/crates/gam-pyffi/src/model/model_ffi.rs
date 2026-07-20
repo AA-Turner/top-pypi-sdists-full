@@ -88,10 +88,9 @@ struct PyPredictOptions {
     interval: Option<f64>,
     time_grid: Option<Vec<f64>>,
     /// Posterior covariance source for eta/mean intervals. One of
-    /// `"conditional"` (H⁻¹ only), `"smoothing"` (first-order smoothing
-    /// correction `H⁻¹ + J Var(ρ̂) Jᵀ` when available, else falls back to
-    /// conditional), or `"required"` (the smoothing correction, erroring if it
-    /// is unavailable). `None` keeps the engine default (`"smoothing"`). This
+    /// `"conditional"` (H⁻¹ only) or `"smoothing"` (first-order smoothing
+    /// correction `H⁻¹ + J Var(ρ̂) Jᵀ`, erroring if it is unavailable).
+    /// `None` keeps the engine default (`"smoothing"`). This
     /// is the Python/CLI parity surface for `--covariance-mode`; it is read on
     /// the delta-method (effectively-linear + interval) predict branch where
     /// `PredictUncertaintyOptions` governs the covariance, mirroring the CLI's
@@ -117,7 +116,7 @@ struct PyPredictOptions {
 }
 
 /// Parse the public `covariance_mode` string into the engine enum. `None`
-/// keeps the engine default (smoothing-preferred); unknown strings are a hard
+/// keeps the engine default (required smoothing-corrected); unknown strings are a hard
 /// error so a typo never silently degrades to the default covariance.
 fn parse_covariance_mode(
     raw: Option<&str>,
@@ -128,13 +127,10 @@ fn parse_covariance_mode(
     match text.trim().to_ascii_lowercase().as_str() {
         "conditional" => Ok(Some(gam_predict::InferenceCovarianceMode::Conditional)),
         "smoothing" => Ok(Some(
-            gam_predict::InferenceCovarianceMode::ConditionalPlusSmoothingPreferred,
-        )),
-        "required" => Ok(Some(
-            gam_predict::InferenceCovarianceMode::ConditionalPlusSmoothingRequired,
+            gam_predict::InferenceCovarianceMode::SmoothingCorrected,
         )),
         other => Err(format!(
-            "covariance_mode must be one of \"conditional\", \"smoothing\", or \"required\"; \
+            "covariance_mode must be one of \"conditional\" or \"smoothing\"; \
              got \"{other}\""
         )),
     }
@@ -279,6 +275,12 @@ struct SummaryPayload {
     covariance_kind: Option<String>,
     covariance_n: Option<usize>,
     covariance_flat: Option<Vec<f64>>,
+    /// Exact covariance definition behind the coefficient `std_error` column
+    /// (#2296): `"conditional"` or `"smoothing-corrected"`, recorded from the
+    /// definition-consistent pair the summary actually consumed. `None` when
+    /// the fit carries no coefficient standard errors.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    coefficient_se_source: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -316,6 +318,16 @@ struct PredictionPayload {
     /// predictions or model classes that do not carry the field yet.
     #[serde(skip_serializing_if = "Option::is_none")]
     interval_method: Option<String>,
+    /// Exact covariance definition used for model-based interval uncertainty.
+    /// Omitted for point-only and conformal predictions.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    covariance_source: Option<String>,
+    /// Exact covariance definition used to integrate a posterior-mean POINT
+    /// prediction (#2296) — conditional by definition on curved links, and a
+    /// separate fact from the band's `covariance_source`. Omitted when the
+    /// point is a plug-in that consulted no coefficient covariance.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    point_covariance_source: Option<String>,
 }
 
 /// Typed wire payload for NUTS posterior draws.
@@ -403,6 +415,12 @@ struct SurvivalPredictionPayload {
         with = "crate::finite_safe_json::opt_vec"
     )]
     eta_se: Option<Vec<f64>>,
+    /// Exact coefficient-covariance definition behind `survival_se`/`eta_se`
+    /// (`"conditional"` or `"smoothing-corrected"`), owned by the engine
+    /// result — never an echo of the request (#2296). `None` when no
+    /// uncertainty was computed.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    covariance_source: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -425,6 +443,8 @@ struct SurvivalPredictionJsonPayload {
     survival_se: Option<Vec<Vec<f64>>>,
     #[serde(default, with = "crate::finite_safe_json::opt_vec")]
     eta_se: Option<Vec<f64>>,
+    #[serde(default)]
+    covariance_source: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -1255,6 +1275,10 @@ fn survival_prediction_payload_from_json(py: Python<'_>, raw: &str) -> PyResult<
     set_survival_prediction_array1(py, &out, "linear_predictor", linear_predictor.clone())?;
     set_survival_prediction_matrix(py, &out, "survival_se", payload.survival_se)?;
     set_survival_prediction_array1(py, &out, "eta_se", payload.eta_se.unwrap_or_default())?;
+    match payload.covariance_source {
+        Some(source) => out.set_item("covariance_source", source)?,
+        None => out.set_item("covariance_source", py.None())?,
+    }
 
     let columns = payload.columns.unwrap_or_default();
     let parameter_names = columns.keys().cloned().collect::<Vec<_>>();
@@ -1302,6 +1326,20 @@ fn competing_risks_prediction_payload_from_json(py: Python<'_>, raw: &str) -> Py
             .and_then(serde_json::Value::as_str)
             .unwrap_or(""),
     )?;
+    match object
+        .get("covariance_source")
+        .and_then(serde_json::Value::as_str)
+    {
+        Some(source) => out.set_item("covariance_source", source)?,
+        None => out.set_item("covariance_source", py.None())?,
+    }
+    match object
+        .get("interval_level")
+        .and_then(serde_json::Value::as_f64)
+    {
+        Some(level) => out.set_item("interval_level", level)?,
+        None => out.set_item("interval_level", py.None())?,
+    }
     out.set_item(
         "endpoint_names",
         competing_risks_string_list(object.get("endpoint_names"), "endpoint_names")?,
@@ -1312,19 +1350,64 @@ fn competing_risks_prediction_payload_from_json(py: Python<'_>, raw: &str) -> Py
             .into_pyarray(py),
     )?;
     set_optional_competing_risks_matrix(py, &out, "hazard", object.get("hazard"))?;
+    set_optional_competing_risks_matrix(py, &out, "hazard_se", object.get("hazard_se"))?;
+    set_optional_competing_risks_matrix(py, &out, "hazard_lower", object.get("hazard_lower"))?;
+    set_optional_competing_risks_matrix(py, &out, "hazard_upper", object.get("hazard_upper"))?;
     set_optional_competing_risks_matrix(py, &out, "survival", object.get("survival"))?;
+    set_optional_competing_risks_matrix(py, &out, "survival_se", object.get("survival_se"))?;
+    set_optional_competing_risks_matrix(py, &out, "survival_lower", object.get("survival_lower"))?;
+    set_optional_competing_risks_matrix(py, &out, "survival_upper", object.get("survival_upper"))?;
     set_optional_competing_risks_matrix(
         py,
         &out,
         "cumulative_hazard",
         object.get("cumulative_hazard"),
     )?;
+    set_optional_competing_risks_matrix(
+        py,
+        &out,
+        "cumulative_hazard_se",
+        object.get("cumulative_hazard_se"),
+    )?;
+    set_optional_competing_risks_matrix(
+        py,
+        &out,
+        "cumulative_hazard_lower",
+        object.get("cumulative_hazard_lower"),
+    )?;
+    set_optional_competing_risks_matrix(
+        py,
+        &out,
+        "cumulative_hazard_upper",
+        object.get("cumulative_hazard_upper"),
+    )?;
     set_optional_competing_risks_matrix(py, &out, "cif", object.get("cif"))?;
+    set_optional_competing_risks_matrix(py, &out, "cif_se", object.get("cif_se"))?;
+    set_optional_competing_risks_matrix(py, &out, "cif_lower", object.get("cif_lower"))?;
+    set_optional_competing_risks_matrix(py, &out, "cif_upper", object.get("cif_upper"))?;
     set_optional_competing_risks_matrix(
         py,
         &out,
         "overall_survival",
         object.get("overall_survival"),
+    )?;
+    set_optional_competing_risks_matrix(
+        py,
+        &out,
+        "overall_survival_se",
+        object.get("overall_survival_se"),
+    )?;
+    set_optional_competing_risks_matrix(
+        py,
+        &out,
+        "overall_survival_lower",
+        object.get("overall_survival_lower"),
+    )?;
+    set_optional_competing_risks_matrix(
+        py,
+        &out,
+        "overall_survival_upper",
+        object.get("overall_survival_upper"),
     )?;
     set_optional_competing_risks_vector(
         py,
@@ -1332,6 +1415,9 @@ fn competing_risks_prediction_payload_from_json(py: Python<'_>, raw: &str) -> Py
         "linear_predictor",
         object.get("linear_predictor"),
     )?;
+    set_optional_competing_risks_vector(py, &out, "eta_se", object.get("eta_se"))?;
+    set_optional_competing_risks_vector(py, &out, "eta_lower", object.get("eta_lower"))?;
+    set_optional_competing_risks_vector(py, &out, "eta_upper", object.get("eta_upper"))?;
 
     let columns = PyDict::new(py);
     for (name, values) in competing_risks_columns(object.get("columns"))? {
@@ -2268,32 +2354,61 @@ fn sample_table(
 // PyPairedCifOptions) were never defined in the main crate; the orphaned
 // implementations and their helpers were deleted below.
 
+fn dense_affine_design_to_python(
+    py: Python<'_>,
+    affine: DenseAffineDesign,
+) -> PyResult<Py<PyDict>> {
+    let out = PyDict::new(py);
+    out.set_item("offset", affine.offset.into_pyarray(py))?;
+    out.set_item("matrix", affine.matrix.into_pyarray(py))?;
+    out.set_item("coefficients", affine.coefficients.into_pyarray(py))?;
+    out.set_item("coefficient_frame", affine.coefficient_frame)?;
+    out.set_item("coefficient_start", affine.coefficient_start)?;
+    out.set_item("coefficient_stop", affine.coefficient_stop)?;
+    match affine.covariance_conditional {
+        Some(covariance) => out.set_item("covariance_conditional", covariance.into_pyarray(py))?,
+        None => out.set_item("covariance_conditional", py.None())?,
+    }
+    match affine.covariance_smoothing_corrected {
+        Some(covariance) => out.set_item(
+            "covariance_smoothing_corrected",
+            covariance.into_pyarray(py),
+        )?,
+        None => out.set_item("covariance_smoothing_corrected", py.None())?,
+    }
+    match affine.covariance_frequentist {
+        Some(covariance) => out.set_item("covariance_frequentist", covariance.into_pyarray(py))?,
+        None => out.set_item("covariance_frequentist", py.None())?,
+    }
+    Ok(out.unbind())
+}
+
 #[pyfunction]
-fn design_matrix_table_dense(
+fn affine_design_table(
     py: Python<'_>,
     model_bytes: Vec<u8>,
     headers: Vec<String>,
     rows: PyRef<'_, PyEncodedTable>,
-) -> PyResult<Py<PyArray2<f64>>> {
+) -> PyResult<Py<PyDict>> {
     rows.require_headers(&headers).map_err(py_value_error)?;
     let dataset = rows.dataset.clone();
-    let out = detach_py_result(py, "design_matrix_table_dense", move || {
-        design_matrix_encoded_table_impl(&model_bytes, dataset)
+    let affine = detach_py_result(py, "affine_design_table", move || {
+        affine_design_encoded_table_impl(&model_bytes, dataset)
     })?;
-    Ok(out.into_pyarray(py).unbind())
+    dense_affine_design_to_python(py, affine)
 }
 
 #[pyfunction]
-fn design_matrix_array<'py>(
+fn affine_design_array<'py>(
     py: Python<'py>,
     model_bytes: Vec<u8>,
     x: PyReadonlyArray2<'py, f64>,
-) -> PyResult<Py<PyArray2<f64>>> {
+) -> PyResult<Py<PyDict>> {
     let x_values = x.as_array().to_owned();
-    let out = detach_py_result(py, "design_matrix_array", move || {
-        design_matrix_array_impl(&model_bytes, x_values.view())
+    let affine = detach_py_result(py, "affine_design_array", move || {
+        affine_design_array_impl(&model_bytes, x_values.view())
     })?;
-    Ok(out.into_pyarray(py).unbind())
+    dense_affine_design_to_python(py, affine)
 }
 
 #[pyfunction(signature = (t, knots, degree = 3, periodic = false))]
@@ -2510,14 +2625,20 @@ fn duchon_basis_with_jet<'py>(
     // which uses the same `Z` and `α` as the helper above, so `S` is the
     // penalty of exactly the `Φ` returned here.
     let built = build_duchon_basis(pts, &spec).map_err(basis_error_to_pyerr)?;
-    let primary_idx = built
-        .penaltyinfo
+    let penalty = built
+        .active_penalties
         .iter()
-        .position(|info| matches!(info.source, gam::terms::basis::PenaltySource::Primary))
+        .find(|penalty| {
+            matches!(
+                penalty.info.source,
+                gam::terms::basis::PenaltySource::Primary
+            )
+        })
         .ok_or_else(|| {
             py_value_error("duchon_basis_with_jet: primary penalty was not built".to_string())
-        })?;
-    let penalty = built.penalties[primary_idx].clone();
+        })?
+        .matrix
+        .clone();
 
     if phi.ncols() != jet.shape()[1] {
         return Err(py_value_error(format!(
@@ -2696,14 +2817,13 @@ fn matern_basis<'py>(
         .map(|slice| slice.to_vec());
     let spec = MaternBasisSpec {
         center_strategy: CenterStrategy::UserProvided(ctrs.to_owned()),
-        length_scale,
+        length_scale: MaternLengthScale::fixed(length_scale),
         nu: nu_parsed,
         include_intercept: false,
         double_penalty: false,
         identifiability: MaternIdentifiability::None,
         aniso_log_scales: aniso_vec,
         periodic: None,
-        nullspace_shrinkage_survived: None,
     };
     // Honor an explicit all-zero `aniso_log_scales` literally as the isotropic
     // metric — this is a caller's explicit request, NOT the κ-optimizer's
@@ -3236,16 +3356,22 @@ fn duchon_function_norm_penalty<'py>(
         .map_err(basis_error_to_pyerr)?;
         // Mixed-periodicity builder emits a single Primary candidate (the
         // function-norm Gram).
-        let idx = built
-            .penaltyinfo
+        let penalty = built
+            .active_penalties
             .iter()
-            .position(|info| matches!(info.source, gam::terms::basis::PenaltySource::Primary))
+            .find(|penalty| {
+                matches!(
+                    penalty.info.source,
+                    gam::terms::basis::PenaltySource::Primary
+                )
+            })
             .ok_or_else(|| {
                 py_value_error(
                     "mixed-periodicity Duchon function-norm penalty was not built".to_string(),
                 )
-            })?;
-        let penalty = built.penalties[idx].clone();
+            })?
+            .matrix
+            .clone();
         return Ok(penalty.into_pyarray(py).unbind());
     }
     let spec = DuchonBasisSpec {
@@ -3266,16 +3392,22 @@ fn duchon_function_norm_penalty<'py>(
     // penalty on the scale-free polyharmonic basis) plus a null-space shrinkage
     // ridge; it no longer ships the mass/tension/stiffness operator triplet.
     // The function norm is the Primary block.
-    let primary_idx = built
-        .penaltyinfo
+    let penalty = built
+        .active_penalties
         .iter()
-        .position(|info| matches!(info.source, gam::terms::basis::PenaltySource::Primary))
+        .find(|penalty| {
+            matches!(
+                penalty.info.source,
+                gam::terms::basis::PenaltySource::Primary
+            )
+        })
         .ok_or_else(|| {
             py_value_error(
                 "Duchon function-norm penalty (Primary native-norm Gram) was not built".to_string(),
             )
-        })?;
-    let penalty = built.penalties[primary_idx].clone();
+        })?
+        .matrix
+        .clone();
     Ok(penalty.into_pyarray(py).unbind())
 }
 
@@ -3346,14 +3478,20 @@ fn sphere_basis<'py>(
         identifiability: SphericalSplineIdentifiability::CenterSumToZero,
     };
     let built = build_spherical_spline_basis(pts, &spec).map_err(basis_error_to_pyerr)?;
-    let primary_idx = built
-        .penaltyinfo
+    let penalty = built
+        .active_penalties
         .iter()
-        .position(|info| matches!(info.source, gam::terms::basis::PenaltySource::Primary))
+        .find(|penalty| {
+            matches!(
+                penalty.info.source,
+                gam::terms::basis::PenaltySource::Primary
+            )
+        })
         .ok_or_else(|| {
             py_value_error("sphere_basis: primary penalty was not built; check spec".to_string())
-        })?;
-    let penalty = built.penalties[primary_idx].clone();
+        })?
+        .matrix
+        .clone();
     let design = built.design.to_dense();
     Ok((
         design.into_pyarray(py).unbind(),
@@ -3449,16 +3587,22 @@ fn sphere_basis_with_centers<'py>(
         identifiability: SphericalSplineIdentifiability::CenterSumToZero,
     };
     let built = build_spherical_spline_basis(pts, &spec).map_err(basis_error_to_pyerr)?;
-    let primary_idx = built
-        .penaltyinfo
+    let penalty = built
+        .active_penalties
         .iter()
-        .position(|info| matches!(info.source, gam::terms::basis::PenaltySource::Primary))
+        .find(|penalty| {
+            matches!(
+                penalty.info.source,
+                gam::terms::basis::PenaltySource::Primary
+            )
+        })
         .ok_or_else(|| {
             py_value_error(
                 "sphere_basis_with_centers: primary penalty was not built; check spec".to_string(),
             )
-        })?;
-    let penalty = built.penalties[primary_idx].clone();
+        })?
+        .matrix
+        .clone();
     let design = built.design.to_dense();
     Ok((
         design.into_pyarray(py).unbind(),
@@ -7027,14 +7171,13 @@ fn build_latent_forward_design(
             let t_mat = t_matrix_from_flat(t_flat, n_obs, latent_dim)?;
             let spec = MaternBasisSpec {
                 center_strategy: CenterStrategy::UserProvided(centers.to_owned()),
-                length_scale: 1.0,
+                length_scale: MaternLengthScale::fixed(1.0),
                 nu: MaternNu::ThreeHalves,
                 include_intercept: false,
                 double_penalty: false,
                 identifiability: MaternIdentifiability::None,
                 aniso_log_scales: None,
                 periodic: None,
-                nullspace_shrinkage_survived: None,
             };
             let built = build_matern_basis(t_mat.view(), &spec)
                 .map_err(|err| format!("failed to evaluate Matérn latent basis: {err}"))?;
@@ -7164,9 +7307,54 @@ impl SigmaEffMode {
 }
 
 #[cfg(test)]
-mod survival_payload_nonfinite_tests {
-    use super::{SurvivalPredictionJsonPayload, SurvivalPredictionPayload};
+mod prediction_payload_tests {
+    use super::{
+        PredictionPayload, SurvivalPredictionJsonPayload, SurvivalPredictionPayload,
+        parse_covariance_mode,
+    };
+    use gam_predict::{InferenceCovarianceMode, PredictUncertaintyOptions};
     use std::collections::BTreeMap;
+
+    #[test]
+    fn public_covariance_modes_are_exact_and_default_to_required_smoothing() {
+        assert_eq!(
+            PredictUncertaintyOptions::default().covariance_mode,
+            InferenceCovarianceMode::SmoothingCorrected
+        );
+        assert_eq!(parse_covariance_mode(None).expect("default mode"), None);
+        assert_eq!(
+            parse_covariance_mode(Some("conditional")).expect("conditional mode"),
+            Some(InferenceCovarianceMode::Conditional)
+        );
+        assert_eq!(
+            parse_covariance_mode(Some("smoothing")).expect("smoothing mode"),
+            Some(InferenceCovarianceMode::SmoothingCorrected)
+        );
+        assert!(
+            parse_covariance_mode(Some("required")).is_err(),
+            "the removed compatibility spelling must not remain as a dead mode"
+        );
+    }
+
+    #[test]
+    fn model_based_prediction_payload_exposes_exact_covariance_source() {
+        let payload = PredictionPayload {
+            columns: BTreeMap::from([("mean".to_string(), vec![1.0])]),
+            model_class: "standard".to_string(),
+            family: "identity".to_string(),
+            interval_method: None,
+            covariance_source: Some("smoothing-corrected".to_string()),
+            point_covariance_source: Some("conditional".to_string()),
+        };
+
+        let value = serde_json::to_value(payload).expect("serialize prediction payload");
+        assert_eq!(
+            value
+                .get("covariance_source")
+                .and_then(|item| item.as_str()),
+            Some("smoothing-corrected")
+        );
+    }
 
     /// #1564 (bug 1): the REAL survival prediction payload structs must round-trip
     /// the non-finite values a saturated Royston-Parmar tail legitimately carries.
@@ -7197,6 +7385,7 @@ mod survival_payload_nonfinite_tests {
             // rather than crash the parse.
             survival_se: Some(vec![vec![0.01, f64::NAN], vec![0.02, f64::NAN]]),
             eta_se: Some(vec![0.1, f64::INFINITY]),
+            covariance_source: Some("smoothing-corrected".to_string()),
         };
 
         let json = serde_json::to_string(&payload).expect("serialize must succeed");

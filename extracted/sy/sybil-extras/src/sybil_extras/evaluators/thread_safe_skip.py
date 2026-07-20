@@ -15,6 +15,7 @@ the result cached so concurrent evaluators all see the same decision.
 """
 
 import threading
+import weakref
 from dataclasses import dataclass
 from unittest import SkipTest
 
@@ -79,13 +80,15 @@ class ThreadSafeSkipper(Skipper):
             directive: The directive name (e.g. ``"skip"``).
         """
         super().__init__(directive=directive)
-        self._plans: dict[Document, _DocumentPlan] = {}
+        self._plans: weakref.WeakKeyDictionary[Document, _DocumentPlan] = (
+            weakref.WeakKeyDictionary()
+        )
         self._lock = threading.RLock()
 
     def _plan_for(self, document: Document) -> _DocumentPlan:
         """Return the plan for ``document``, building it under lock."""
         with self._lock:
-            plan = self._plans.get(document)
+            plan = self._plans.get(key=document)
             if plan is None:
                 plan = self._build_plan(document=document)
                 self._plans[document] = plan
@@ -235,11 +238,8 @@ class ThreadSafeSkipper(Skipper):
         if decision.kind == "raise":
             # Build a fresh ``SkipTest`` per raise so concurrent threads
             # do not race on a shared ``__traceback__`` attribute. The
-            # ``type: ignore`` is needed until typeshed PR
-            # https://github.com/python/typeshed/pull/15703 reaches the
-            # bundled stubs and the project's strict-kwargs mypy plugin
-            # therefore stops rejecting the positional call.
-            raise SkipTest(str(object=decision.skip_reason))  # type: ignore[misc]
+            # skip reason is normalized through ``str``.
+            raise SkipTest(str(object=decision.skip_reason))
 
     def __call__(self, example: Example) -> None:
         """Evaluate ``example`` against this skipper."""

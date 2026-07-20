@@ -74,6 +74,7 @@ class AgentRuntimeBackend(str, Enum):  # noqa: UP042
     GJC = "gjc"
     ANTIGRAVITY = "antigravity"
     GROK = "grok"
+    ZCODE = "zcode"
 
 
 class LLMBackend(str, Enum):  # noqa: UP042
@@ -88,6 +89,7 @@ class LLMBackend(str, Enum):  # noqa: UP042
     GOOSE = "goose"
     KIRO = "kiro"
     PI = "pi"
+    ZCODE = "zcode"
 
 
 class _DefaultStartGroup(typer.core.TyperGroup):
@@ -298,6 +300,15 @@ async def _run_interview_loop(
             print_error(f"Failed to generate question: {question_result.error.message}")
             should_retry = Confirm.ask("Retry?", default=True)
             if not should_retry:
+                state.status = InterviewStatus.ABORTED
+                state.mark_updated()
+                save_result = await engine.save_state(state)
+                if save_result.is_err:
+                    print_error(
+                        "Failed to persist aborted interview state; do not resume this session: "
+                        f"{save_result.error.message}"
+                    )
+                    raise typer.Exit(code=1)
                 break
             continue
 
@@ -364,6 +375,18 @@ async def _run_interview_loop(
     return state
 
 
+def _raise_for_aborted_interview(state: InterviewState) -> None:
+    """Stop the CLI before an aborted interview can be resumed or finalized."""
+    if state.status != InterviewStatus.ABORTED:
+        return
+    print_error(
+        "Interview stopped before completion after question generation failed. "
+        f"Session {state.interview_id} is terminal with status 'aborted'; start a new "
+        "interview instead of resuming this session."
+    )
+    raise typer.Exit(code=1)
+
+
 async def _run_interview(
     initial_context: str,
     resume_id: str | None = None,
@@ -412,6 +435,8 @@ async def _run_interview(
             raise typer.Exit(code=1)
         state = state_result.value
 
+    _raise_for_aborted_interview(state)
+
     console.print()
     console.print(f"[bold cyan]Interview Session: {state.interview_id}[/]")
     console.print("[muted]No round limit - you decide when to stop[/]")
@@ -432,6 +457,10 @@ async def _run_interview(
 
         # Outer loop for retry on high ambiguity
         while True:
+            if state.status == InterviewStatus.ABORTED:
+                console.print()
+                _raise_for_aborted_interview(state)
+
             # Interview complete
             console.print()
             print_success("Interview completed!")
@@ -834,7 +863,8 @@ def start(
             "--runtime",
             help=(
                 "Agent runtime backend for the workflow execution step after seed generation "
-                "(claude, codex, opencode, hermes, gemini, copilot, goose, kiro, or pi)."
+                "(claude, codex, opencode, hermes, gemini, copilot, goose, kiro, "
+                "pi, gjc, antigravity, grok, or zcode)."
             ),
             case_sensitive=False,
         ),
@@ -845,7 +875,8 @@ def start(
             "--llm-backend",
             help=(
                 "LLM backend for interview, ambiguity scoring, and seed generation "
-                "(claude_code, litellm, codex, copilot, opencode, gemini, goose, kiro, or pi)."
+                "(claude_code, litellm, codex, copilot, opencode, gemini, goose, "
+                "kiro, pi, or zcode)."
             ),
             case_sensitive=False,
         ),
@@ -973,6 +1004,8 @@ def start(
                 llm_backend.value if llm_backend else None,
             )
         )
+    except typer.Exit:
+        raise
     except KeyboardInterrupt:
         console.print()
         print_info("Interview interrupted. Progress has been saved.")

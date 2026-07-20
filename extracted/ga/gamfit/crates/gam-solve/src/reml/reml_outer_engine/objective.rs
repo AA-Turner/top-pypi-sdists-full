@@ -831,8 +831,15 @@ pub fn reml_laml_evaluate(
                 HUTCHINSON_ADAPTIVE_REL_TOL,
                 HUTCHINSON_ADAPTIVE_TAU_REL,
             ) {
-                Ok(evidence) => Some(evidence.traces.to_vec()),
-                Err(_) => None,
+                // Honest-evidence policy (#2313 hardware gate finding): the
+                // adaptive estimator reports `converged` and its standard
+                // errors precisely so consumers can act — and a p=2000, d=8
+                // workload measured on a real A10 hits the 128-probe cap
+                // with the SE criterion unmet. A non-converged trace is a
+                // silently high-variance outer gradient; route it to the
+                // CPU stochastic fallback below instead of consuming it.
+                Ok(evidence) if evidence.converged => Some(evidence.traces.to_vec()),
+                Ok(_) | Err(_) => None,
             }
         } else {
             None
@@ -920,6 +927,160 @@ pub fn reml_laml_evaluate(
         } else {
             None
         };
+
+    // Cancellation-free fused logdet gradient for singleton penalty blocks (a2).
+    //
+    // On the exact-dense-spectral path the ρ_k-gradient of `½·log|H|` subtracts
+    // the det derivative `first[k] = ∂_{ρ_k} log|S(λ)|₊` from `½·tr(G_ε(H)·Ḣ_k)`.
+    // When coordinate k is the SOLE penalty of its span, `first[k]` is the exact
+    // integer `rank(S_k)`, and at the over-smoothing rail (H ≈ λ_k S_k) the trace
+    // `tr(G_ε(H)·λ_k S_k) → rank(S_k)`, so `trace − first` catastrophically
+    // cancels — the surviving O(1/λ_k) gradient is then decided by the last bits
+    // of a rank-sized sum and drifts with the host's summation order. For those
+    // coordinates we fuse the subtraction eigenpair-by-eigenpair so the result is
+    // host-arithmetic-independent (see
+    // `DenseSpectralOperator::fused_logdet_gradient_minus_rank_full_block`).
+    //
+    // Three fused forms cover the exact-dense path (#2331), all cancellation-free
+    // reassociations of `tr(G_ε λ_k S_k) − det1[k]`:
+    //   • INTEGER det derivative (proportional singleton `log|λ_k S_k|₊ =
+    //     rank·ρ_k + const`): fuse `−rank` against the block-coordinate identity
+    //     (`fused_logdet_gradient_minus_rank_full_block`, square full rank) or the
+    //     range projector `P_{S_k}` (`..._minus_rank_deficient_block`, rank-def).
+    //   • FRACTIONAL det derivative (`det1[k] = λ_k·tr(S_λ⁺ S_k)`, the joint
+    //     normalizer `log|Σ_l λ_l S_l|₊` — overlapping / coalesced / full-span
+    //     stabilization ridge): fuse the per-direction weights `w_jk = λ_k·u_jᵀ
+    //     S_λ⁺ S_k u_j` from the joint whitening `W_S`
+    //     (`fused_logdet_gradient_weighted_block`), trusted only when `Σ_j w_jk`
+    //     reproduces the cost's `det1[k]`.
+    // A masked numerical null space (`active_rank() < dim()`, i.e. `HardPseudo`
+    // masking `σ_j ≤ ε`) needs no special handling here (#2354): the trace side
+    // reads `g_factor`, which is zeroed on the masked eigenpairs, so
+    // `Σ_j scale·s_term_j` is exactly the active-subspace trace the naive path
+    // also forms (`trace_logdet_block_local` reads the same `g_factor`); the
+    // `−det1[k]` distribution sums its per-eigenpair share over the COMPLETE
+    // (UNMASKED) eigenbasis, so the completeness identity `Σ_j share_j = det1[k]`
+    // (`Σ_j Σ_{i∈blk} u_j[i]² = width = rank` full-block; `Σ_j ‖Qᵀ u_j^blk‖² =
+    // rank` deficient; `Σ_j w_jk = λ_k·tr(S_λ⁺ S_k)` weighted) still holds — rows
+    // of the full orthogonal `U` are unit-norm regardless of the mask. Hence the
+    // fused value equals `trace_active − det1[k]` exactly and cancellation-free:
+    // the active pairs `scale·s_term_j − share_j` stay O(1/λ_k) as in the
+    // full-rank rail derivation, and each masked pair contributes only the
+    // non-negative lump `0 − share_j` (no large-minus-large).
+    // The stochastic-SLQ branch stays on the naive pairing at this seam and is
+    // instead fused inside its Hutchinson estimator via a common-random-numbers
+    // control variate (#2354, `stochastic_trace_control_variates`).
+    let fused_logdet_minus_rank: Vec<Option<f64>> = if incl_logdet_h
+        && incl_logdet_s
+        && stochastic_trace_values.is_none()
+        && projected_trace_values.is_none()
+    {
+        match hop.as_exact_dense_spectral() {
+            Some(ds) => {
+                // Joint penalty whitening `W_S` (`W_S W_Sᵀ = S_λ⁺`,
+                // `S_λ = Σ_l λ_l S_l`) reconstructed from the penalty coordinates
+                // — needed ONLY when some coordinate carries a FRACTIONAL det
+                // derivative `det1[k] = λ_k·tr(S_λ⁺ S_k)` (the joint-normalizer
+                // case: overlapping / coalesced / full-span-ridge penalties). The
+                // integer-rank singletons keep the cheaper block-indicator /
+                // range-projector fusions and never pay this extra
+                // eigendecomposition. `from_assembled` matches the tolerance of the
+                // penalty-logdet cost path (both eigendecompose the same `S_λ`), so
+                // the reconstructed weight sum reproduces `det1[k]` — the runtime
+                // gate below trusts the fused value only when it does.
+                let any_fractional = (0..k).any(|idx| {
+                    !upper_active_rho[idx] && {
+                        let rank = solution.penalty_coords[idx].rank();
+                        (solution.penalty_logdet.first[idx] - rank as f64).abs()
+                            > 1e-9 * (1.0 + rank as f64)
+                    }
+                });
+                let joint_whitening: Option<Array2<f64>> = if any_fractional {
+                    let p = ds.dim();
+                    let mut s_lambda = Array2::<f64>::zeros((p, p));
+                    for l in 0..k {
+                        let (block, start, end) =
+                            solution.penalty_coords[l].scaled_block_local(curvature_lambdas[l]);
+                        let mut sub = s_lambda.slice_mut(ndarray::s![start..end, start..end]);
+                        sub += &block;
+                    }
+                    super::super::penalty_logdet::PenaltyPseudologdet::from_assembled(
+                        s_lambda, None,
+                    )
+                    .ok()
+                    .map(|pld| pld.w_factor)
+                } else {
+                    None
+                };
+                (0..k)
+                    .map(|idx| {
+                        if upper_active_rho[idx] {
+                            return None;
+                        }
+                        let coord = &solution.penalty_coords[idx];
+                        let rank = coord.rank();
+                        let (s_block, start, end) = coord.scaled_block_local(1.0);
+                        let det1_k = solution.penalty_logdet.first[idx];
+                        // The family curvature correction C[v_k] has no paired det
+                        // term; add its logdet trace back so the fused value equals
+                        // `tr(G_ε·(λ_k S_k + C)) − det1[k]`.
+                        let correction_trace = rho_corrections[idx]
+                            .as_ref()
+                            .map(|c| c.trace_logdet(hop))
+                            .unwrap_or(0.0);
+                        // Integer det derivative ⇒ PROPORTIONAL SINGLETON block
+                        // (`log|λ_k S_k|₊ = rank·ρ_k + const`), det term is exactly
+                        // `−rank`: fuse against the block-coordinate identity
+                        // (square full rank) or the range projector `P_{S_k}`
+                        // (rank-deficient). Both are value-identical to
+                        // `trace − first[idx]` and cancellation-free at the rail.
+                        let det_is_integer_rank =
+                            (det1_k - rank as f64).abs() <= 1e-9 * (1.0 + rank as f64);
+                        if det_is_integer_rank {
+                            let is_square_full_rank = end - start == rank;
+                            let fused = if is_square_full_rank {
+                                ds.fused_logdet_gradient_minus_rank_full_block(
+                                    &s_block,
+                                    start,
+                                    end,
+                                    curvature_lambdas[idx],
+                                )
+                            } else {
+                                ds.fused_logdet_gradient_minus_rank_deficient_block(
+                                    &s_block,
+                                    start,
+                                    end,
+                                    curvature_lambdas[idx],
+                                )
+                            };
+                            return Some(fused + correction_trace);
+                        }
+                        // FRACTIONAL det derivative (joint normalizer,
+                        // `log|Σ_l λ_l S_l|₊`): weighted fusion over the joint range
+                        // chart. Trusted only when its own weight sum reproduces the
+                        // cost's `det1[k]` — the runtime self-consistency gate that
+                        // keeps this off any lane whose `det1` is not this exact
+                        // joint quantity (e.g. a not-yet-cutover per-block seam).
+                        let ws = joint_whitening.as_ref()?;
+                        let (fused, weight_sum) = ds.fused_logdet_gradient_weighted_block(
+                            &s_block,
+                            start,
+                            end,
+                            curvature_lambdas[idx],
+                            ws,
+                        );
+                        if (weight_sum - det1_k).abs() > 1e-7 * (1.0 + det1_k.abs()) {
+                            return None;
+                        }
+                        Some(fused + correction_trace)
+                    })
+                    .collect()
+            }
+            None => vec![None; k],
+        }
+    } else {
+        vec![None; k]
+    };
 
     // ── Gradient: one shared formula for ALL coordinate types ──
     //
@@ -1011,51 +1172,61 @@ pub fn reml_laml_evaluate(
             // `hessian_logdet_correction ≠ 0` (they treat sub-threshold
             // eigendirections differently), so the pairing with the cost
             // identity is what keeps analytic and FD gradients on one surface.
-            let trace_logdet_i = if !incl_logdet_h {
-                0.0
-            } else if let Some(ref stoch_traces) = stochastic_trace_values {
-                stoch_traces[idx]
-            } else if let Some(ref projected_traces) = projected_trace_values {
-                projected_traces[idx]
-            } else if let Some(ref exact_traces) = exact_dense_trace_values {
-                exact_traces[idx]
-            } else if let Some(kernel) = solution.penalty_subspace_trace.as_ref() {
-                let drift = penalty_total_drift_result(
-                    coord,
-                    curvature_lambdas[idx],
-                    rho_corrections[idx].as_ref(),
-                );
-                match drift {
-                    DriftDerivResult::Dense(matrix) => kernel.trace_projected_logdet(&matrix),
-                    DriftDerivResult::Operator(op) => kernel.trace_operator(op.as_ref()),
-                }
-            } else if let Some(correction_trace) = rho_operator_correction_traces
-                .as_ref()
-                .and_then(|traces| traces[idx])
-            {
-                let penalty_trace = if coord.is_block_local() {
+            // Fused (a2) path: `fused` already equals `tr(G_ε·Ḣ_k) − rank`, so
+            // the `−rank` det term is folded in and `ld_s_i` must be passed as
+            // 0 to `outer_gradient_entry` (subtracting it again would
+            // double-count). Every non-fused coordinate keeps the exact
+            // `trace_logdet_i` / `first[idx]` det pairing unchanged.
+            let (trace_logdet_i, ld_s_i) = if let Some(fused) = fused_logdet_minus_rank[idx] {
+                (fused, 0.0)
+            } else {
+                let trace = if !incl_logdet_h {
+                    0.0
+                } else if let Some(ref stoch_traces) = stochastic_trace_values {
+                    stoch_traces[idx]
+                } else if let Some(ref projected_traces) = projected_trace_values {
+                    projected_traces[idx]
+                } else if let Some(ref exact_traces) = exact_dense_trace_values {
+                    exact_traces[idx]
+                } else if let Some(kernel) = solution.penalty_subspace_trace.as_ref() {
+                    let drift = penalty_total_drift_result(
+                        coord,
+                        curvature_lambdas[idx],
+                        rho_corrections[idx].as_ref(),
+                    );
+                    match drift {
+                        DriftDerivResult::Dense(matrix) => kernel.trace_projected_logdet(&matrix),
+                        DriftDerivResult::Operator(op) => kernel.trace_operator(op.as_ref()),
+                    }
+                } else if let Some(correction_trace) = rho_operator_correction_traces
+                    .as_ref()
+                    .and_then(|traces| traces[idx])
+                {
+                    let penalty_trace = if coord.is_block_local() {
+                        let (block, start, end) = coord.scaled_block_local(1.0);
+                        hop.trace_logdet_block_local(&block, curvature_lambdas[idx], start, end)
+                    } else {
+                        penalty_total_drift_result(coord, curvature_lambdas[idx], None)
+                            .trace_logdet(hop)
+                    };
+                    penalty_trace + correction_trace
+                } else if coord.is_block_local() && rho_corrections[idx].is_none() {
                     let (block, start, end) = coord.scaled_block_local(1.0);
                     hop.trace_logdet_block_local(&block, curvature_lambdas[idx], start, end)
                 } else {
-                    penalty_total_drift_result(coord, curvature_lambdas[idx], None)
-                        .trace_logdet(hop)
+                    penalty_total_drift_result(
+                        coord,
+                        curvature_lambdas[idx],
+                        rho_corrections[idx].as_ref(),
+                    )
+                    .trace_logdet(hop)
                 };
-                penalty_trace + correction_trace
-            } else if coord.is_block_local() && rho_corrections[idx].is_none() {
-                let (block, start, end) = coord.scaled_block_local(1.0);
-                hop.trace_logdet_block_local(&block, curvature_lambdas[idx], start, end)
-            } else {
-                penalty_total_drift_result(
-                    coord,
-                    curvature_lambdas[idx],
-                    rho_corrections[idx].as_ref(),
-                )
-                .trace_logdet(hop)
+                (trace, solution.penalty_logdet.first[idx])
             };
             let value = outer_gradient_entry(
                 a_i,
                 trace_logdet_i,
-                solution.penalty_logdet.first[idx],
+                ld_s_i,
                 &solution.dispersion,
                 dp_cgrad,
                 profiled_scale,
@@ -1068,8 +1239,8 @@ pub fn reml_laml_evaluate(
             // recover it without 91-line-per-iter stderr noise on default
             // runs.
             log::trace!(
-                "[RHO-GRAD] idx={} value={:+.6e} a_i={:+.6e} trace_logdet={:+.6e} ld_s_first={:+.6e} incl_h={} incl_s={}",
-                idx, value, a_i, trace_logdet_i, solution.penalty_logdet.first[idx], incl_logdet_h, incl_logdet_s
+                "[RHO-GRAD] idx={} value={:+.6e} a_i={:+.6e} trace_logdet={:+.6e} ld_s={:+.6e} fused={} incl_h={} incl_s={}",
+                idx, value, a_i, trace_logdet_i, ld_s_i, fused_logdet_minus_rank[idx].is_some(), incl_logdet_h, incl_logdet_s
             );
             (idx, value)
         })

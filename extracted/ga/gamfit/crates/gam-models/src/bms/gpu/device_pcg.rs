@@ -145,8 +145,8 @@ mod pcg_device {
             static BACKEND: OnceLock<Result<PcgBackend, String>> = OnceLock::new();
             BACKEND
                 .get_or_init(|| {
-                    let runtime = gam_gpu::device_runtime::GpuRuntime::global()
-                        .ok_or_else(|| "pcg backend: no CUDA runtime available".to_string())?;
+                    let runtime = gam_gpu::device_runtime::GpuRuntime::require()
+                        .map_err(String::from)?;
                     let ctx = gam_gpu::device_runtime::cuda_context_for(
                         runtime.selected_device().ordinal,
                     )
@@ -726,10 +726,6 @@ mod pcg_device_parity_tests {
 
     #[test]
     fn pcg_device_matches_dense_oracle_at_n64_r20_p44() {
-        let Some(_runtime) = gam_gpu::device_runtime::GpuRuntime::global() else {
-            eprintln!("[pcg_device parity] no CUDA runtime — skipping");
-            return;
-        };
         let n = 64_usize;
         let p_m = 14_usize;
         let p_g = 12_usize;
@@ -779,15 +775,29 @@ mod pcg_device_parity_tests {
         let mut marginal = vec![0.0_f64; n * p_m];
         for row in 0..n {
             for j in 0..p_m {
-                let seed = (row as f64) * 0.073 + (j as f64) * 0.211 + 0.4;
-                marginal[row * p_m + j] = seed.sin() * 0.8 - (seed * 0.7).cos() * 0.3;
+                // Orthonormal DCT-II columns make the aggregate pullback
+                // full-rank by construction. The former phase-shifted
+                // sinusoids were nearly collinear, so row-wise SPD did not
+                // imply a numerically SPD joint fixture.
+                let scale = if j == 0 {
+                    (n as f64).sqrt().recip()
+                } else {
+                    (2.0 / n as f64).sqrt()
+                };
+                marginal[row * p_m + j] =
+                    scale * (std::f64::consts::PI * (row as f64 + 0.5) * j as f64 / n as f64).cos();
             }
         }
         let mut logslope = vec![0.0_f64; n * p_g];
         for row in 0..n {
             for j in 0..p_g {
-                let seed = (row as f64) * 0.091 + (j as f64) * 0.179 - 0.2;
-                logslope[row * p_g + j] = seed.cos() * 0.7 + (seed * 0.3).sin() * 0.25;
+                let scale = if j == 0 {
+                    (n as f64).sqrt().recip()
+                } else {
+                    (2.0 / n as f64).sqrt()
+                };
+                logslope[row * p_g + j] =
+                    scale * (std::f64::consts::PI * (row as f64 + 0.5) * j as f64 / n as f64).cos();
             }
         }
 
@@ -803,13 +813,22 @@ mod pcg_device_parity_tests {
             cpu_dense_joint_hessian(&row_hessians, &marginal, &logslope, &block, &primary, n);
         let x_oracle = cpu_pcg_oracle(&h_dense, &b, 1e-12);
 
+        // Keep the SPD fixture certificate CPU-reachable. CUDA availability
+        // controls only the device-parity half of this test.
+        let runtime = match gam_gpu::device_runtime::GpuRuntime::resolve(gam_gpu::GpuPolicy::Auto) {
+            Ok(Some(runtime)) => runtime,
+            Ok(None) => {
+                eprintln!("[pcg_device parity] host SPD oracle passed; no CUDA device");
+                return;
+            }
+            Err(error) => panic!("[pcg_device parity] CUDA probe failed: {error}"),
+        };
+
         // Grab the same CUDA context + default stream that the bms_flex_row
         // kernels will use when `run_pcg_against_row_hessian_device` probes
         // its own backend. Going through the public runtime APIs keeps the
         // test independent of any private kernel-backend symbols.
-        let runtime = gam_gpu::device_runtime::GpuRuntime::global()
-            .expect("runtime must exist when probe succeeded above");
-        // Past the GpuRuntime::global() Some-gate above: a context-creation or
+        // Past the lossless Auto-resolution gate above: a context-creation or
         // HtoD-upload failure here is a real device fault on a CUDA host, not a
         // no-CUDA skip — fail loud (device-PCG skip-pass class, eee12f6b2). The old
         // arms returned, so a context/upload fault on a GPU host passed silently.
@@ -826,6 +845,12 @@ mod pcg_device_parity_tests {
             .clone_htod(&logslope)
             .expect("[pcg_device parity] upload logslope must succeed on a CUDA host");
         let storage = DeviceResidentRowHess {
+            neglog: stream
+                .alloc_zeros::<f64>(n)
+                .expect("[pcg_device parity] alloc neglog"),
+            grad: stream
+                .alloc_zeros::<f64>(n * r)
+                .expect("[pcg_device parity] alloc grad"),
             hess: d_h,
             marginal_design: d_m,
             logslope_design: d_g,
@@ -834,7 +859,8 @@ mod pcg_device_parity_tests {
             block,
             primary,
 
-            bytes: ((n * r * r + n * p_m + n * p_g) * std::mem::size_of::<f64>()) as u64,
+            bytes: ((n + n * r + n * r * r + n * p_m + n * p_g)
+                * std::mem::size_of::<f64>()) as u64,
         };
 
         let out = run_pcg_against_row_hessian_device(DeviceResidentPcgInput {

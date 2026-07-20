@@ -14,6 +14,7 @@ import pytest
 
 from ouroboros.core.seed import (
     AcceptanceCriterionSpec,
+    InvestmentSpec,
     OntologySchema,
     Seed,
     SeedMetadata,
@@ -28,6 +29,7 @@ from ouroboros.orchestrator.adapter import (
     RuntimeHandle,
 )
 from ouroboros.orchestrator.coordinator import CoordinatorReview, FileConflict
+from ouroboros.orchestrator.decomposition_policy import DecompositionDisposition
 from ouroboros.orchestrator.dependency_analyzer import ACNode, DependencyGraph
 from ouroboros.orchestrator.evidence.claims import _runtime_messages_support_file_claim
 from ouroboros.orchestrator.evidence_schema import EvidenceRecord, ValidationResult
@@ -164,7 +166,7 @@ class TestDispatchRateGate:
         assert slept == [60.0]  # second dispatch waited a full window
 
 
-def _make_seed(*acceptance_criteria: str) -> Seed:
+def _make_seed(*acceptance_criteria: str | AcceptanceCriterionSpec) -> Seed:
     """Build a minimal seed for parallel executor tests."""
     return Seed(
         goal="Implement staged AC execution",
@@ -1182,11 +1184,13 @@ class _FinalMessageRuntime:
         native_session_id: str,
         support_messages: tuple[AgentMessage, ...] = (),
         cwd: str = "/tmp/project",
+        success: bool = True,
     ) -> None:
         self._final_message = final_message
         self._native_session_id = native_session_id
         self._support_messages = support_messages
         self._cwd = cwd
+        self._success = success
         self.last_prompt: str | None = None
         self.last_system_prompt: str | None = None
 
@@ -1234,7 +1238,7 @@ class _FinalMessageRuntime:
         yield AgentMessage(
             type="result",
             content=self._final_message,
-            data={"subtype": "success"},
+            data={"subtype": "success" if self._success else "error"},
             resume_handle=RuntimeHandle(
                 backend=resume_handle.backend if resume_handle is not None else "opencode",
                 kind=resume_handle.kind if resume_handle is not None else "implementation_session",
@@ -2003,38 +2007,32 @@ def test_correlated_tool_result_name_requires_one_exact_call_id_match() -> None:
     )
 
 
-def test_effective_schema_drops_tests_passed_for_contract_ac() -> None:
-    """A declared verify_command drops tests_passed from the required evidence set."""
+def test_effective_schema_delegates_contract_command_evidence() -> None:
+    """An active contract gate replaces transcript command and test evidence."""
     profile = load_profile("code")
-    assert "tests_passed" in profile.evidence_schema.required
 
-    legacy = _effective_evidence_schema_for_ac(profile, "Implement the module.")
-    assert "tests_passed" in legacy.required
-
-    contract = _effective_evidence_schema_for_ac(
+    schema = _effective_evidence_schema_for_ac(
         profile,
         "Implement the module.",
         has_success_contract=True,
         verify_gate_active=True,
     )
-    assert "tests_passed" not in contract.required
-    # Without declared expected_artifacts, there is no filesystem oracle for
-    # files_touched, so it stays transcript-gated.
-    assert "files_touched" in contract.required
-    assert "commands_run" in contract.required
 
-    artifact_contract = _effective_evidence_schema_for_ac(
+    assert schema.required == ("files_touched",)
+
+    artifact_schema = _effective_evidence_schema_for_ac(
         profile,
         "Implement the module.",
         has_success_contract=True,
         has_expected_artifacts=True,
         verify_gate_active=True,
     )
-    assert artifact_contract.required == ("commands_run",)
+
+    assert artifact_schema.required == ()
 
 
-def test_legacy_ac_keeps_files_touched_required_even_with_expected_artifacts_flag() -> None:
-    """Expected artifacts only delegate files_touched when a verify command is present."""
+def test_legacy_ac_keeps_transcript_backed_evidence() -> None:
+    """Legacy ACs retain every transcript-backed required evidence field."""
     profile = load_profile("code")
 
     schema = _effective_evidence_schema_for_ac(
@@ -2044,18 +2042,11 @@ def test_legacy_ac_keeps_files_touched_required_even_with_expected_artifacts_fla
         has_expected_artifacts=True,
     )
 
-    assert "files_touched" in schema.required
-    assert "tests_passed" in schema.required
+    assert schema.required == ("files_touched", "commands_run", "tests_passed")
 
 
-def test_contract_ac_retains_evidence_when_verify_gate_inactive() -> None:
-    """With the verify gate disabled there is no oracle to delegate to.
-
-    ``_apply_verify_gate`` returns early when ``run_verify_commands`` is False, so
-    dropping ``tests_passed`` / ``files_touched`` would leave a contract AC with an
-    unbacked, self-reported artifact and no check. The fail-safe default retains
-    the transcript-backed evidence.
-    """
+def test_contract_ac_retains_transcript_backed_evidence_when_verify_gate_inactive() -> None:
+    """A disabled contract gate cannot replace transcript-backed evidence."""
     profile = load_profile("code")
 
     schema = _effective_evidence_schema_for_ac(
@@ -2066,13 +2057,11 @@ def test_contract_ac_retains_evidence_when_verify_gate_inactive() -> None:
         verify_gate_active=False,
     )
 
-    assert "files_touched" in schema.required
-    assert "tests_passed" in schema.required
-    assert "commands_run" in schema.required
+    assert schema.required == ("files_touched", "commands_run", "tests_passed")
 
 
-def test_contract_ac_drops_delegated_fields_only_when_verify_gate_active() -> None:
-    """The delegation drop fires only once the verify gate is confirmed active."""
+def test_contract_ac_with_artifacts_delegates_all_evidence_when_verify_gate_active() -> None:
+    """An active contract gate replaces all evidence when it checks artifacts too."""
     profile = load_profile("code")
 
     schema = _effective_evidence_schema_for_ac(
@@ -2083,16 +2072,14 @@ def test_contract_ac_drops_delegated_fields_only_when_verify_gate_active() -> No
         verify_gate_active=True,
     )
 
-    assert schema.required == ("commands_run",)
+    assert schema.required == ()
 
 
-def test_contract_ac_verifier_delegates_tests_passed() -> None:
-    """Contract AC: the transcript verifier does not gate tests_passed at all.
+def test_contract_ac_verifier_delegates_command_evidence() -> None:
+    """Contract ACs do not transcript-gate commands_run or tests_passed.
 
-    Only files_touched + commands_run are checked; the tests_passed check is
-    delegated to the orchestrator verify-gate. Evidence with no tests_passed field
-    still passes the transcript verifier, so worker sample-input variance in the
-    verification command is irrelevant here.
+    Only files_touched is checked without expected artifacts; command execution and
+    test success are delegated to the orchestrator verify gate.
     """
     executor = _file_scope_executor("/private/tmp/ooo-repro-blos")
     verdict = executor._verify_atomic_evidence_against_runtime_messages(
@@ -2110,8 +2097,8 @@ def test_contract_ac_verifier_delegates_tests_passed() -> None:
     assert verdict.passed is True, verdict.reasons
 
 
-def test_contract_ac_with_expected_artifacts_verifier_delegates_files_touched() -> None:
-    """Contract AC artifacts are verified by the filesystem gate, not transcript claims."""
+def test_contract_ac_with_expected_artifacts_verifier_delegates_all_evidence() -> None:
+    """Contract AC artifacts and command execution are verified by the gate."""
     executor = _file_scope_executor("/private/tmp/ooo-repro-blos")
     verdict = executor._verify_atomic_evidence_against_runtime_messages(
         messages=_greeting_repro_messages("/private/tmp/ooo-repro-blos/hello.py"),
@@ -4798,13 +4785,12 @@ class TestParallelACExecutor:
         assert evidence_event.data["verifier_ran"] is False
 
     @pytest.mark.asyncio
-    async def test_contract_ac_with_artifacts_accepts_unbacked_files_touched_claim(
+    async def test_contract_ac_with_artifacts_ignores_transcript_claims(
         self,
         tmp_path,
     ) -> None:
-        """A contract AC delegates artifact proof to the verify gate filesystem oracle."""
+        """The verify gate owns artifact and command proof for contract ACs."""
         command = "python -c \"print('OK')\""
-        command_json = command.replace("\\", "\\\\").replace('"', '\\"')
         (tmp_path / "hello.py").write_text(
             "def greet(name):\n    return f'Hello, {name}'\n",
             encoding="utf-8",
@@ -4815,7 +4801,7 @@ class TestParallelACExecutor:
             "```json\n"
             "{"
             '"files_touched":["not-backed-by-transcript.py"],'
-            f'"commands_run":["{command_json}"]'
+            '"commands_run":0'
             "}\n"
             "```",
             native_session_id="codex-session-contract-artifact-delegation",
@@ -4859,19 +4845,22 @@ class TestParallelACExecutor:
         assert result.success is True
         assert result.error is None
         assert result.typed_evidence is not None
-        assert result.typed_evidence.data == {"commands_run": [command]}
+        assert result.typed_evidence.data == {}
         assert runtime.last_prompt is not None
-        assert "directly (commands_run)" in runtime.last_prompt
+        assert "directly (commands_run)" not in runtime.last_prompt
         assert "ensure they exist in the workspace" in runtime.last_prompt
         evidence_event = next(
             event
             for event in appended_events
             if event.type == "execution.ac.typed_evidence.observed"
         )
-        assert evidence_event.data["required_fields"] == ["commands_run"]
+        assert evidence_event.data["required_fields"] == []
         assert evidence_event.data["typed_evidence_valid"] is True
         assert evidence_event.data["verifier_passed"] is True
-        assert evidence_event.data["ignored_out_of_scope_evidence_fields"] == ["files_touched"]
+        assert evidence_event.data["ignored_out_of_scope_evidence_fields"] == [
+            "files_touched",
+            "commands_run",
+        ]
 
     @pytest.mark.asyncio
     async def test_contract_ac_missing_artifact_rejected_when_verify_gate_disabled(
@@ -4881,10 +4870,10 @@ class TestParallelACExecutor:
         """Reproduced blocker: with the verify gate off, delegation must not fire.
 
         ``run_verify_commands=False`` makes ``_apply_verify_gate`` return early, so
-        the filesystem oracle never checks ``expected_artifacts``. If the schema
-        still dropped ``files_touched``/``tests_passed``, a contract AC could
-        complete with only ``commands_run`` evidence and no artifact on disk. The
-        verify-gate-active guard keeps those fields required (transcript-backed),
+        neither the filesystem oracle nor command exit status verifies the contract.
+        If the schema still dropped ``commands_run``/``tests_passed``/``files_touched``,
+        a contract AC could complete without transcript-backed evidence or an
+        artifact on disk. The verify-gate-active guard keeps those fields required,
         so the worker's self-reported evidence fails and the AC is not accepted.
         """
         command = "python -c \"print('OK')\""
@@ -4939,8 +4928,9 @@ class TestParallelACExecutor:
             for event in appended_events
             if event.type == "execution.ac.typed_evidence.observed"
         )
-        # files_touched/tests_passed remain required because the gate is off.
+        # files_touched, commands_run, and tests_passed remain required because the gate is off.
         assert "files_touched" in evidence_event.data["required_fields"]
+        assert "commands_run" in evidence_event.data["required_fields"]
         assert "tests_passed" in evidence_event.data["required_fields"]
         assert evidence_event.data["typed_evidence_valid"] is False
 
@@ -7517,6 +7507,315 @@ class TestParallelACExecutor:
         ]
 
     @pytest.mark.asyncio
+    async def test_fat_harness_accepts_artifact_success_contract_with_incomplete_typed_evidence(
+        self, tmp_path: Any
+    ) -> None:
+        """Artifact ACs may be proven by expected_artifacts + verify_command."""
+        (tmp_path / "output.txt").write_text("OZO_RUN_SMOKE_OK\n", encoding="utf-8")
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                'Done.\n```json\n{"files_touched":["output.txt"]}\n```',
+                native_session_id="opencode-session-artifact-contract",
+                cwd=str(tmp_path),
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("artifact"),
+            fat_harness_mode=True,
+        )
+
+        with patch("ouroboros.orchestrator.parallel_executor.log") as log_mock:
+            result = await executor._execute_atomic_ac(
+                ac_index=0,
+                ac_content="Create output.txt with the smoke marker.",
+                session_id="orch_123",
+                tools=["Read"],
+                tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+                system_prompt="system",
+                seed_goal="Ship the artifact",
+                depth=0,
+                start_time=datetime.now(UTC),
+                ac_spec=AcceptanceCriterionSpec(
+                    description="Create output.txt with the smoke marker.",
+                    expected_artifacts=("output.txt",),
+                    verify_command="test -f output.txt",
+                ),
+            )
+
+        assert result.success is True
+        assert result.error is None
+        assert result.typed_evidence is not None
+        assert result.typed_evidence_validation is not None
+        assert result.typed_evidence_validation.ok is True
+        assert result.typed_evidence_validation.missing_fields == ()
+        assert result.atomic_verifier_verdict is not None
+        assert result.atomic_verifier_verdict.passed is True
+        assert not any(
+            call.args and call.args[0] == "parallel_executor.ac.verifier_rejected"
+            for call in log_mock.warning.call_args_list
+        )
+
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["typed_evidence_present"] is True
+        assert evidence_event.data["typed_evidence_valid"] is True
+        assert evidence_event.data["enforcement_error"] is None
+        assert evidence_event.data["has_success_contract"] is True
+        assert evidence_event.data["has_expected_artifacts"] is True
+        assert evidence_event.data["verify_gate_active"] is True
+        assert evidence_event.data["verifier_ran"] is True
+        assert evidence_event.data["verifier_passed"] is True
+
+    @pytest.mark.asyncio
+    async def test_fat_harness_accepts_artifact_contract_without_typed_evidence(
+        self, tmp_path: Any
+    ) -> None:
+        """A passing artifact gate may replace every profile evidence field."""
+        (tmp_path / "output.txt").write_text("OZO_RUN_SMOKE_OK\n", encoding="utf-8")
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                "[TASK_COMPLETE] artifact created without a JSON evidence block",
+                native_session_id="opencode-session-artifact-no-evidence",
+                cwd=str(tmp_path),
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("artifact"),
+            fat_harness_mode=True,
+            task_cwd=str(tmp_path),
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Create output.txt with the smoke marker.",
+            session_id="orch_123",
+            tools=["Read"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship the artifact",
+            depth=0,
+            start_time=datetime.now(UTC),
+            ac_spec=AcceptanceCriterionSpec(
+                description="Create output.txt with the smoke marker.",
+                expected_artifacts=("output.txt",),
+                verify_command="test -f output.txt",
+            ),
+        )
+
+        assert result.success is True
+        assert result.error is None
+        assert result.typed_evidence is None
+        assert result.atomic_verifier_verdict is None
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["required_fields"] == []
+        assert evidence_event.data["typed_evidence_present"] is False
+        assert evidence_event.data["enforcement_error"] is None
+
+    @pytest.mark.asyncio
+    async def test_verify_only_code_contract_still_requires_files_touched_evidence(
+        self, tmp_path: Any
+    ) -> None:
+        """A command gate cannot replace code-profile filesystem evidence."""
+        (tmp_path / "hello.py").write_text("VALUE = 1\n", encoding="utf-8")
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                "[TASK_COMPLETE] command passed without a JSON evidence block",
+                native_session_id="opencode-session-code-verify-only-no-evidence",
+                cwd=str(tmp_path),
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+            task_cwd=str(tmp_path),
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Implement hello.py.",
+            session_id="orch_123",
+            tools=["Read"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship the code",
+            depth=0,
+            start_time=datetime.now(UTC),
+            ac_spec=AcceptanceCriterionSpec(
+                description="Implement hello.py.",
+                verify_command="test -f hello.py",
+            ),
+        )
+
+        assert result.success is False
+        assert result.error is not None
+        assert "Evidence is not valid JSON" in result.error
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["required_fields"] == ["files_touched"]
+        assert evidence_event.data["typed_evidence_present"] is False
+        assert evidence_event.data["enforcement_error"] is not None
+
+    @pytest.mark.asyncio
+    async def test_contract_verify_gate_is_single_shot_across_atomic_and_final_gate(
+        self, tmp_path: Any
+    ) -> None:
+        """A cached atomic verify outcome prevents duplicate shell side effects."""
+        (tmp_path / "output.txt").write_text("OZO_RUN_SMOKE_OK\n", encoding="utf-8")
+        counter = tmp_path / "verify-count.txt"
+        command = (
+            "python3 -c \"from pathlib import Path; p=Path('verify-count.txt'); "
+            "n=int(p.read_text()) if p.exists() else 0; p.write_text(str(n+1)); "
+            'raise SystemExit(0 if n == 0 else 7)"'
+        )
+        seed = Seed.from_dict(
+            {
+                "goal": "Create output.txt",
+                "task_type": "artifact",
+                "acceptance_criteria": [
+                    {
+                        "description": "Create output.txt with the smoke marker.",
+                        "expected_artifacts": ["output.txt"],
+                        "verify_command": command,
+                    }
+                ],
+                "ontology_schema": {
+                    "name": "SmokeArtifact",
+                    "description": "Smoke artifact contract.",
+                    "fields": [],
+                },
+                "metadata": {
+                    "ambiguity_score": 0.0,
+                    "generation_mode": "test",
+                },
+            }
+        )
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                'Done.\n```json\n{"files_touched":["output.txt"]}\n```',
+                native_session_id="opencode-session-single-shot-contract",
+                cwd=str(tmp_path),
+            ),
+            event_store=AsyncMock(),
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("artifact"),
+            fat_harness_mode=True,
+            task_cwd=str(tmp_path),
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Create output.txt with the smoke marker.",
+            session_id="orch_123",
+            tools=["Read"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship the artifact",
+            depth=0,
+            start_time=datetime.now(UTC),
+            ac_spec=seed.acceptance_criteria[0],
+        )
+        assert result.success is True
+        assert result.verify_gate_outcome is not None
+        assert counter.read_text(encoding="utf-8") == "1"
+
+        finalized = await executor._apply_verify_gate(
+            seed=seed,
+            ac_index=0,
+            result=result,
+            session_id="orch_123",
+            execution_id="exec_123",
+        )
+
+        assert finalized.success is True
+        assert counter.read_text(encoding="utf-8") == "1"
+
+    @pytest.mark.asyncio
+    async def test_verify_gate_recovers_failed_artifact_result_when_contract_passes(
+        self, tmp_path: Any
+    ) -> None:
+        """Artifact contracts can recover runtime false-negatives."""
+        (tmp_path / "output.txt").write_text("OZO_RUN_SMOKE_OK\n", encoding="utf-8")
+        seed = Seed.from_dict(
+            {
+                "goal": "Create output.txt",
+                "task_type": "artifact",
+                "acceptance_criteria": [
+                    {
+                        "description": "Create output.txt with the smoke marker.",
+                        "expected_artifacts": ["output.txt"],
+                        "verify_command": "test -f output.txt",
+                    }
+                ],
+                "ontology_schema": {
+                    "name": "SmokeArtifact",
+                    "description": "Smoke artifact contract.",
+                    "fields": [],
+                },
+                "metadata": {
+                    "ambiguity_score": 0.0,
+                    "generation_mode": "test",
+                },
+            }
+        )
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                "memory pressure timeout after artifact write",
+                native_session_id="codex-session-artifact-false-negative",
+                cwd=str(tmp_path),
+                success=False,
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("artifact"),
+            fat_harness_mode=True,
+            task_cwd=str(tmp_path),
+        )
+        failed = ACExecutionResult(
+            ac_index=0,
+            ac_content="Create output.txt with the smoke marker.",
+            success=False,
+            error="memory pressure timeout after artifact write",
+            final_message="memory pressure timeout after artifact write",
+            outcome=ACExecutionOutcome.FAILED,
+        )
+
+        recovered = await executor._apply_verify_gate(
+            seed=seed,
+            ac_index=0,
+            result=failed,
+            session_id="orch_123",
+            execution_id="exec_123",
+        )
+
+        assert recovered.success is True
+        assert recovered.error is None
+        assert recovered.outcome == ACExecutionOutcome.SUCCEEDED
+        recovery_event = next(
+            event for event in appended_events if event.type == "execution.verify.recovered"
+        )
+        assert recovery_event.data["prior_error"] == "memory pressure timeout after artifact write"
+        assert recovery_event.data["expected_artifacts"] == ["output.txt"]
+
+    @pytest.mark.asyncio
     async def test_fat_harness_mode_surfaces_operational_verifier_error(self) -> None:
         """Operational verifier failures remain typed verifier rejections."""
 
@@ -8064,7 +8363,9 @@ class TestParallelACExecutor:
                 system_prompt="system",
             )
 
-        assert result is None
+        assert result.disposition is DecompositionDisposition.UNKNOWN
+        assert result.reasons == ("decomposition_timeout",)
+        assert result.trustworthy is False
         assert runtime.cancelled is True
 
     @pytest.mark.asyncio
@@ -8649,7 +8950,17 @@ class TestParallelACExecutor:
         """
         from ouroboros.orchestrator import cross_harness_redispatch as chr
 
-        seed = _make_seed("AC 0 flow")
+        investment = InvestmentSpec(
+            difficulty="high",
+            stakes="high",
+            provenance="declared",
+            confidence="high",
+        )
+        ac_spec = AcceptanceCriterionSpec(
+            description="AC 0 flow",
+            investment=investment,
+        )
+        seed = _make_seed(ac_spec)
         executor = ParallelACExecutor(
             adapter=MagicMock(),
             event_store=AsyncMock(),
@@ -8671,7 +8982,7 @@ class TestParallelACExecutor:
             return [
                 ACExecutionResult(
                     ac_index=idx,
-                    ac_content=seed.acceptance_criteria[idx],
+                    ac_content="AC 0 flow",
                     success=False,
                     error="fabricated claim",
                     outcome=ACExecutionOutcome.FAILED,
@@ -8683,9 +8994,11 @@ class TestParallelACExecutor:
         executor._execute_ac_batch = fake_batch  # type: ignore[method-assign]
 
         alt_backends: list[str] = []
+        alternate_rerun_kwargs: list[dict[str, Any]] = []
 
         async def fake_run_single(backend: str, **kwargs: Any) -> ACExecutionResult:
             alt_backends.append(backend)
+            alternate_rerun_kwargs.append(kwargs["rerun_kwargs"])
             return ACExecutionResult(
                 ac_index=0,
                 ac_content="AC 0 flow",
@@ -8712,6 +9025,10 @@ class TestParallelACExecutor:
         # Early-stop fired after retry 1 (initial FAB + retry-1 FAB), before the
         # counter cap — yet the alternate harness was still consulted exactly once.
         assert alt_backends == ["codex"]
+        assert alternate_rerun_kwargs[0]["ac_spec"] == seed.acceptance_criteria[0]
+        assert alternate_rerun_kwargs[0]["ac_spec"].semantic_ac_key is not None
+        assert alternate_rerun_kwargs[0]["investment_spec"] is investment
+        assert alternate_rerun_kwargs[0]["decomposition_trustworthy"] is False
         # The failed alternate is surfaced as the authoritative result.
         assert isinstance(results[0], ACExecutionResult)
         assert results[0].success is False
@@ -11234,7 +11551,12 @@ async def test_try_decompose_ac_replaces_goose_chunks_with_final_result() -> Non
         system_prompt="system",
     )
 
-    assert result == ["Sub-AC 1: inspect", "Sub-AC 2: test"]
+    assert result.disposition is DecompositionDisposition.SPLIT
+    assert [child.description for child in result.children] == [
+        "Sub-AC 1: inspect",
+        "Sub-AC 2: test",
+    ]
+    assert result.trustworthy is False
 
 
 @pytest.mark.asyncio
@@ -11276,11 +11598,13 @@ async def test_try_decompose_ac_accumulates_goose_stream_chunks() -> None:
         system_prompt="system",
     )
 
-    assert result == [
+    assert result.disposition is DecompositionDisposition.SPLIT
+    assert [child.description for child in result.children] == [
         "Sub-AC 1: inspect the implementation",
         "Sub-AC 2: write a focused regression test",
         "Sub-AC 3: document the result",
     ]
+    assert result.trustworthy is False
 
 
 @pytest.mark.asyncio
@@ -11326,7 +11650,12 @@ async def test_try_decompose_ac_announces_same_empty_tools_allowlist_it_dispatch
         system_prompt="system",
     )
 
-    assert result == ["Sub-AC 1: inspect", "Sub-AC 2: test"]
+    assert result.disposition is DecompositionDisposition.SPLIT
+    assert [child.description for child in result.children] == [
+        "Sub-AC 1: inspect",
+        "Sub-AC 2: test",
+    ]
+    assert result.trustworthy is False
     assert runtime.dispatched_tools == []
     console.print.assert_called_once()
     notice = console.print.call_args.args[0]

@@ -144,7 +144,7 @@ pub struct InnerSolution<'dp> {
     ///
     /// This is the per-observation Gaussian normalization constant that the
     /// `log_likelihood` (computed by
-    /// [`crate::pirls::calculate_loglikelihood_omitting_constants_from_eta`]) deliberately drops. The
+    /// [`crate::pirls::pirls_data_log_kernel_from_eta`]) deliberately drops. The
     /// full weighted-Gaussian negative log-likelihood normalization is
     ///   ½·Σᵢ log(2π·φ/wᵢ) = (n/2)·log(2πφ) − ½·Σᵢ log(wᵢ),
     /// because `Var(yᵢ) = φ/wᵢ` under inverse-variance prior weights.
@@ -188,7 +188,7 @@ pub struct InnerSolution<'dp> {
 
     /// Callback to compute second-order fixed-β objects for a pair (i, j)
     /// of external coordinates (or external × ρ cross pairs).
-    /// Arguments: (ext_index_i, ext_index_j) → HyperCoordPair.
+    /// Arguments: (ext_index_i, ext_index_j) → Result<HyperCoordPair, String>.
     /// When None, the outer Hessian is not computed for extended coordinates.
     ///
     /// `Arc`-backed ([`HyperCoordPairFn`]) so a derived solution — notably the
@@ -196,7 +196,8 @@ pub struct InnerSolution<'dp> {
     /// can clone the same callback through to `ValueGradientHessian` assembly.
     pub ext_coord_pair_fn: Option<HyperCoordPairFn>,
 
-    /// Callback for ρ × ext cross pairs: (rho_index, ext_index) → HyperCoordPair.
+    /// Callback for ρ × ext cross pairs:
+    /// (rho_index, ext_index) → Result<HyperCoordPair, String>.
     pub rho_ext_pair_fn: Option<HyperCoordPairFn>,
 
     /// M_i[u] = D_β B_i[u] callback for extended coordinates.
@@ -377,7 +378,7 @@ impl<'dp> InnerSolutionBuilder<'dp> {
 
     pub fn ext_coord_pair_fn(
         mut self,
-        f: Box<dyn Fn(usize, usize) -> HyperCoordPair + Send + Sync>,
+        f: Box<dyn Fn(usize, usize) -> HyperCoordPairResult + Send + Sync>,
     ) -> Self {
         // `Arc::from(Box<dyn …>)` is a zero-cost re-tag of the existing
         // allocation; storing it as `Arc` lets the projected solution clone
@@ -388,7 +389,7 @@ impl<'dp> InnerSolutionBuilder<'dp> {
 
     pub fn rho_ext_pair_fn(
         mut self,
-        f: Box<dyn Fn(usize, usize) -> HyperCoordPair + Send + Sync>,
+        f: Box<dyn Fn(usize, usize) -> HyperCoordPairResult + Send + Sync>,
     ) -> Self {
         self.rho_ext_pair_fn = Some(HyperCoordPairFn::from(f));
         self

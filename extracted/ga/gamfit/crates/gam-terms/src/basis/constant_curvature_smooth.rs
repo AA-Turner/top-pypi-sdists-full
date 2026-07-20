@@ -66,9 +66,9 @@ use serde::{Deserialize, Serialize};
 use gam_geometry::constant_curvature::{ConstantCurvature, distance_kappa_jet};
 
 use super::{
-    BasisBuildResult, BasisError, BasisMetadata, BasisPsiDerivativeBundle,
-    BasisPsiDerivativeResult, BasisPsiSecondDerivativeResult, CenterStrategy, PenaltyCandidate,
-    PenaltyInfo, PenaltySource, filter_active_penalty_candidates_with_ops, normalize_penalty,
+    ActivePenalty, BasisBuildResult, BasisError, BasisMetadata, BasisPsiDerivativeBundle,
+    BasisPsiDerivativeResult, BasisPsiSecondDerivativeResult, CenterStrategy, ConstructiveQuadratic,
+    PenaltyCandidate, PenaltySource, filter_penalty_candidates, normalize_penalty,
     select_centers_by_strategy, weighted_coefficient_sum_to_zero_transform,
 };
 
@@ -708,7 +708,14 @@ pub fn build_constant_curvature_basis(
         }
     };
     let gauge = gam_problem::Gauge::from_block_transforms(&[z.clone()]);
-    let penalty = gauge.restrict_penalty(&raw_penalty);
+    let raw_penalty = ConstructiveQuadratic::try_from_dense_psd(
+        (&raw_penalty + &raw_penalty.t()) * 0.5,
+        "constant-curvature raw RKHS penalty",
+    )?;
+    let penalty = raw_penalty.restricted(
+        &gauge,
+        "constant-curvature identifiability restriction",
+    )?;
     let raw_design = constant_curvature_kernel_matrix(data, centers.view(), spec.kappa, ell_eff)?;
     let design = gam_linalg::matrix::DesignMatrix::Dense(
         gam_linalg::matrix::DenseDesignMatrix::from(gauge.restrict_design(&raw_design)),
@@ -732,49 +739,40 @@ pub fn build_constant_curvature_basis(
     // raising recovery toward the unconstrained RKHS ceiling. The penalty stays
     // exactly proportional to zᵀKz, so the constrained-kernel-Gram contract is
     // unchanged.
-    let penalty_sym = (&penalty + &penalty.t()) * 0.5;
     let mut candidates = vec![PenaltyCandidate {
-        matrix: penalty_sym,
-        nullspace_dim_hint: 0,
+        matrix: penalty,
         source: PenaltySource::Primary,
         normalization_scale: 1.0,
         kronecker_factors: None,
         op: None,
     }];
     if spec.double_penalty {
-        // #1531: identity ridge is CORRECT here, NOT the nullspace-shrinkage ridge
-        // the sibling bases (sphere_basis / matern_kernel / duchon_thinplate) use.
-        // The Marra & Wood double penalty shrinks the NULL SPACE of the primary
-        // penalty so REML can drive an unsupported term to EDF→0. But the primary
-        // here is the RKHS kernel Gram zᵀKz, which is strictly PD / full-rank on
-        // distinct centers (see the `double_penalty: false` default note above): it
-        // has NO null space. `build_nullspace_shrinkage_penalty(&primary)` returns
-        // `Ok(None)` for a full-rank input, so matching the sibling pattern would
-        // make an explicit `double_penalty = true` a silent no-op. The full identity
-        // is the only second shrinkage coordinate that is actually selectable on a
-        // null-space-free primary, so it is what an explicit double penalty must use.
+        // #1531: the primary here is the RKHS kernel Gram zᵀKz, which is
+        // strictly PD / full-rank on distinct centers. It has no unpenalized
+        // function subspace, so an explicit second shrinkage coordinate must
+        // target the whole coefficient chart. The full identity is therefore
+        // intentional for this basis rather than a null-space penalty.
         // The regression test `constant_curvature_gram_is_full_rank_so_identity_is_the_only_double_penalty`
-        // locks the full-rank fact that justifies this; if a future basis change
-        // gives the Gram a genuine null space, that test fails and this branch must
-        // be revisited (switch to `build_nullspace_shrinkage_penalty`).
+        // locks the full-rank fact that justifies this branch.
         let ridge = Array2::<f64>::eye(design.ncols());
         let (ridge_norm, c_ridge) = normalize_penalty(&ridge);
         candidates.push(PenaltyCandidate {
-            matrix: ridge_norm,
-            nullspace_dim_hint: 0,
+            matrix: ConstructiveQuadratic::try_from_dense_psd(
+                ridge_norm,
+                "constant-curvature whole-function ridge",
+            )?,
             source: PenaltySource::DoublePenaltyNullspace,
             normalization_scale: c_ridge,
             kronecker_factors: None,
             op: None,
         });
     }
-    let (penalties, nullspace_dims, penaltyinfo, null_eigenvectors, ops) =
-        filter_active_penalty_candidates_with_ops(candidates)?;
+    let filtered = filter_penalty_candidates(candidates)?;
     Ok(BasisBuildResult {
         design,
-        penalties,
-        nullspace_dims,
-        penaltyinfo,
+        affine_offset: None,
+        active_penalties: filtered.active,
+        dropped_penalties: filtered.dropped,
         metadata: BasisMetadata::ConstantCurvature {
             centers,
             kappa: spec.kappa,
@@ -782,8 +780,6 @@ pub fn build_constant_curvature_basis(
             constraint_transform: Some(z),
         },
         kronecker_factored: None,
-        ops,
-        null_eigenvectors,
         joint_null_rotation: None,
     })
 }
@@ -1132,13 +1128,12 @@ pub(crate) fn symmetrize(m: &Array2<f64>) -> Array2<f64> {
 /// zero. Any other source would mean the basis grew a penalty whose κ-movement
 /// is unaccounted for, so we refuse loudly rather than silently drop a term.
 pub(crate) fn active_constant_curvature_penalty_derivatives(
-    penaltyinfo: &[PenaltyInfo],
+    penalties: &[ActivePenalty],
     primary_derivative: &Array2<f64>,
 ) -> Result<Vec<Array2<f64>>, BasisError> {
-    penaltyinfo
+    penalties
         .iter()
-        .filter(|info| info.active)
-        .map(|info| match &info.source {
+        .map(|penalty| match &penalty.info.source {
             PenaltySource::Primary => Ok(primary_derivative.clone()),
             PenaltySource::DoublePenaltyNullspace => {
                 Ok(Array2::<f64>::zeros(primary_derivative.raw_dim()))
@@ -1274,9 +1269,9 @@ pub fn build_constant_curvature_basis_kappa_derivatives(
     // κ-independent). Rebuild the realized basis once to read `penaltyinfo`.
     let base = build_constant_curvature_basis(data, spec)?;
     let penalties_derivative =
-        active_constant_curvature_penalty_derivatives(&base.penaltyinfo, &s_first)?;
+        active_constant_curvature_penalty_derivatives(&base.active_penalties, &s_first)?;
     let penaltiessecond_derivative =
-        active_constant_curvature_penalty_derivatives(&base.penaltyinfo, &s_second)?;
+        active_constant_curvature_penalty_derivatives(&base.active_penalties, &s_second)?;
 
     Ok(BasisPsiDerivativeBundle {
         first: BasisPsiDerivativeResult {
@@ -1857,12 +1852,8 @@ mod tests {
     /// #1531 regression: the constant-curvature RKHS primary penalty (the
     /// gauge-restricted kernel Gram `zᵀKz`) is strictly PD / full-rank, so it has
     /// NO null space. This is the fact that makes the `double_penalty` identity
-    /// ridge at the top of `build_constant_curvature_basis` correct rather than a
-    /// "ridge in the wrong chart": the sibling-basis nullspace-shrinkage path
-    /// (`build_nullspace_shrinkage_penalty`) returns `None` on a full-rank primary,
-    /// which would turn an explicit `double_penalty = true` into a silent no-op.
-    /// If a future basis change gives the primary a genuine null space, this test
-    /// fails and the identity-vs-nullspace decision at line ~724 must be revisited.
+    /// ridge at the top of `build_constant_curvature_basis` a deliberate
+    /// whole-chart shrinkage coordinate rather than a null-space penalty.
     #[test]
     fn constant_curvature_gram_is_full_rank_so_identity_is_the_only_double_penalty() {
         // Centers inside every κ chart, several curvatures spanning sign.
@@ -1899,18 +1890,6 @@ mod tests {
                 max > 0.0 && min > max * 1e-9,
                 "constant-curvature Gram must be full-rank PD at κ={kappa}: \
                  min eig {min:e}, max eig {max:e}"
-            );
-
-            // (b) Consequently the sibling nullspace-shrinkage builder yields
-            // nothing: matching that pattern would make `double_penalty` a no-op,
-            // confirming the identity ridge is the only selectable double penalty.
-            let null_shrink =
-                crate::basis::bspline_build::build_nullspace_shrinkage_penalty(&raw).unwrap();
-            assert!(
-                null_shrink.is_none(),
-                "build_nullspace_shrinkage_penalty must return None on the full-rank \
-                 constant-curvature primary at κ={kappa} (else the double penalty would be \
-                 a silent no-op and identity would be wrong)"
             );
         }
     }

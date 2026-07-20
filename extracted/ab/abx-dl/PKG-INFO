@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: abx-dl
-Version: 1.11.238
+Version: 1.11.246
 Summary: All-in-one CLI tool to download and extract content from URLs
 Keywords: scraping,crawling,downloading,internet archiving,web archiving,digipres,warc,preservation,backups,archiving,web,bookmarks,puppeteer,browser,download
 Author: Nick Sweeting, ArchiveBox
@@ -76,8 +76,28 @@ test -s wget/example.com/index.html
 ```
 -->
 
-```console
-docker run -it -v "$PWD:/out" archivebox/abxdl 'https://example.com'
+<!--pytest.mark.docker_required-->
+```bash
+set -Eeuo pipefail
+output_dir="$(mktemp -d)"
+image="${ABXDL_IMAGE:-archivebox/abx-dl:latest}"
+trap 'rm -rf "$output_dir"' EXIT
+docker run --rm \
+  --env OUTPUT_UID="$(id -u)" \
+  --env OUTPUT_GID="$(id -g)" \
+  --volume "$output_dir:/out" \
+  --entrypoint bash \
+  "$image" \
+  -c 'set -Eeuo pipefail
+cleanup() { chown -R "$OUTPUT_UID:$OUTPUT_GID" /out; }
+trap cleanup EXIT
+/venv/bin/abx-dl "$@"' \
+  -- --no-install --max-urls=1 --plugins=title,wget 'https://example.com'
+test -s "$output_dir/index.jsonl"
+test -s "$output_dir/title/title.txt"
+test -s "$output_dir/wget/example.com/index.html"
+grep -q 'Example Domain' "$output_dir/title/title.txt"
+grep -q 'Example Domain' "$output_dir/wget/example.com/index.html"
 ```
 ---
 

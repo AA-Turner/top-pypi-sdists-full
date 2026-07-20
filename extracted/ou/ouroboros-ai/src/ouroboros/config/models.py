@@ -22,6 +22,7 @@ Classes:
 """
 
 from pathlib import Path
+import re
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
@@ -33,6 +34,8 @@ from ouroboros.config._model_defaults import (
     DEFAULT_SONNET_MODEL,
 )
 from ouroboros.orchestrator_stage import VALID_STAGE_KEYS
+
+_SAFE_PROJECT_GUIDANCE_ID_RE = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,62}[A-Za-z0-9])?$")
 
 
 class ModelConfig(BaseModel, frozen=True):
@@ -137,6 +140,7 @@ class LLMConfig(BaseModel, frozen=True):
         "pi",
         "ourocode",
         "gjc",
+        "zcode",
     ] = "claude_code"
     permission_mode: Literal["default", "acceptEdits", "bypassPermissions"] = "default"
     opencode_permission_mode: Literal["default", "acceptEdits", "bypassPermissions"] = "acceptEdits"
@@ -217,8 +221,14 @@ class ExecutionConfig(BaseModel, frozen=True):
         n_version_tournament: Whether an AC that has already exhausted its
             alt-harness redispatch may fan out to multiple runtimes in parallel,
             first-passing-verification wins (PR-X N-version tournament, opt-in).
+        decomposition_mode: Controls where AC decomposition is allowed:
+            ``preflight`` uses the configured preflight decomposition path,
+            ``bounce_only`` only decomposes after an atomic AC bounces, and
+            ``off`` disables decomposition.
         context_pack: Whether to append a deterministic repo context pack
             (stack, verify commands, layout) to run worker system prompts.
+        project_guidance: Allowlist of project guidance ids to resolve from
+            fixed project-local paths under ``.ouroboros/guidance/<id>/GUIDANCE.md``.
     """
 
     max_iterations_per_ac: int = Field(default=10, ge=1)
@@ -230,7 +240,30 @@ class ExecutionConfig(BaseModel, frozen=True):
     ac_retry_attempts: int = Field(default=2, ge=0)
     cross_harness_redispatch: bool = True
     n_version_tournament: bool = False
+    decomposition_mode: Literal["preflight", "bounce_only", "off"] = "preflight"
     context_pack: bool = True
+    project_guidance: tuple[str, ...] = ()
+
+    @field_validator("project_guidance")
+    @classmethod
+    def _validate_project_guidance(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        """Reject path-like or duplicate project guidance ids at config load."""
+        seen: set[str] = set()
+        validated: list[str] = []
+        for raw_id in value:
+            guidance_id = raw_id.strip()
+            if not _SAFE_PROJECT_GUIDANCE_ID_RE.fullmatch(guidance_id):
+                raise ValueError(
+                    "execution.project_guidance entries must be safe ids containing only "
+                    "letters, numbers, '.', '_', or '-' and must not be path segments"
+                )
+            if guidance_id in {".", ".."}:
+                raise ValueError("execution.project_guidance entries must not be '.' or '..'")
+            if guidance_id in seen:
+                raise ValueError(f"duplicate execution.project_guidance id: {guidance_id!r}")
+            seen.add(guidance_id)
+            validated.append(guidance_id)
+        return tuple(validated)
 
 
 class ResilienceConfig(BaseModel, frozen=True):
@@ -403,6 +436,8 @@ VALID_RUNTIME_BACKENDS = frozenset(
         "grok",
         "grok_cli",
         "grok_build",
+        "zcode",
+        "zcode_cli",
     }
 )
 
@@ -526,6 +561,14 @@ class OrchestratorConfig(BaseModel, frozen=True):
             - Absolute path: /path/to/grok
             - ~ expansion: ~/.local/bin/grok
             - None: Resolve from PATH at runtime (or OUROBOROS_GROK_CLI_PATH)
+        zcode_cli_path: Path to the Zcode CLI entry script (``zcode.cjs``).
+            Official app-bundle scripts launch through ZCode's bundled
+            Electron/Node runtime; standalone scripts use the system Node.
+            Directly executable wrappers are also accepted. Supports:
+            - Absolute path: /Applications/ZCode.app/Contents/Resources/glm/zcode.cjs
+            - ~ expansion supported
+            - None: Resolve from config/env or fall back to the macOS app-bundle
+              default (or OUROBOROS_ZCODE_CLI_PATH)
         default_max_turns: Default max turns for agent execution
         max_parallel_workers: Default maximum concurrent AC workers
         usage_limit_pause_hours: Default pause window for provider usage/quota limits
@@ -539,6 +582,12 @@ class OrchestratorConfig(BaseModel, frozen=True):
             - ``remove``: remove clean worktrees; delete the branch only when
               Git accepts a safe merged-branch deletion
         worktree_lock_stale_after_minutes: Staleness threshold for task lock recovery
+        pm_snapshot_worktrees: Whether PM brownfield exploration reads from
+            persistent detached worktrees pinned to the remote default branch
+            (``origin/HEAD``) instead of the developer's live checkout. The
+            worktree is created once per repo and refreshed (fetch + hard
+            reset) on each PM interview start
+        pm_snapshot_root: Root directory for PM snapshot worktrees
     """
 
     runtime_backend: Literal[
@@ -554,6 +603,7 @@ class OrchestratorConfig(BaseModel, frozen=True):
         "gjc",
         "antigravity",
         "grok",
+        "zcode",
     ] = "claude"
     runtime_profile: RuntimeProfileConfig | None = None
 
@@ -570,9 +620,10 @@ class OrchestratorConfig(BaseModel, frozen=True):
         "bypassPermissions"
     )
     # Effort-first investment dial (RFC #1405): base reasoning-effort level for
-    # full-strength AC execution. Decomposed children run one notch lower. The
-    # level is ENFORCED on runtimes with a native per-call knob (Claude Agent SDK,
-    # Codex) and advised elsewhere. ``None`` leaves effort routing dormant.
+    # AC execution. Optional investment metadata may impose a floor or authorize
+    # one lower notch; decomposition alone never lowers effort. The level is
+    # ENFORCED on runtimes with a native per-call knob (Claude Agent SDK, Codex)
+    # and advised elsewhere. ``None`` leaves effort routing dormant.
     # Restricted to the vocabulary every native runtime accepts: Codex-only
     # ``minimal`` and Claude-only ``max`` are excluded so a single global value is
     # never forwarded as an invalid level to whichever runtime executes the AC.
@@ -595,6 +646,7 @@ class OrchestratorConfig(BaseModel, frozen=True):
     antigravity_cli_path: str | None = None
     grok_cli_path: str | None = None
     ourocode_cli_path: str | None = None
+    zcode_cli_path: str | None = None
     default_max_turns: int = Field(default=10, ge=1)
     max_parallel_workers: int = Field(default=3, ge=1)
     usage_limit_pause_hours: float = Field(default=5.0, gt=0.0)
@@ -602,6 +654,8 @@ class OrchestratorConfig(BaseModel, frozen=True):
     worktree_root: str = "~/.ouroboros/worktrees"
     worktree_cleanup: Literal["keep", "remove", "prune-merged"] = "keep"
     worktree_lock_stale_after_minutes: int = Field(default=60, ge=1)
+    pm_snapshot_worktrees: bool = True
+    pm_snapshot_root: str = "~/.ouroboros/pm-snapshots"
 
     @field_validator(
         "cli_path",
@@ -617,6 +671,7 @@ class OrchestratorConfig(BaseModel, frozen=True):
         "antigravity_cli_path",
         "grok_cli_path",
         "ourocode_cli_path",
+        "zcode_cli_path",
     )
     @classmethod
     def expand_cli_path(cls, v: str | None) -> str | None:

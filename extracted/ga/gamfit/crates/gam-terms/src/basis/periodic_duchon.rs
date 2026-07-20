@@ -894,6 +894,10 @@ pub(crate) fn build_periodic_duchon_basis_1d(
     penalty
         .slice_mut(s![0..kernel_cols, 0..kernel_cols])
         .assign(&omega);
+    let raw_primary = ConstructiveQuadratic::try_from_dense_psd(
+        penalty,
+        "periodic Duchon raw primary penalty",
+    )?;
     let base_design = DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(basis));
     let identifiability_transform = spatial_identifiability_transform_from_design_matrix(
         data,
@@ -903,25 +907,25 @@ pub(crate) fn build_periodic_duchon_basis_1d(
     )?;
     let (design, primary) = if let Some(transform) = identifiability_transform.as_ref() {
         let design = wrap_dense_design_with_transform(base_design, transform, "periodic Duchon")?;
-        let transformed = fast_ab(&fast_atb(transform, &penalty), transform);
+        let gauge = gam_problem::Gauge::from_block_transforms(&[transform.clone()]);
+        let transformed = raw_primary.restricted(
+            &gauge,
+            "periodic Duchon identified primary penalty",
+        )?;
         (design, transformed)
     } else {
-        (base_design, penalty)
+        (base_design, raw_primary)
     };
-    let candidates = vec![normalize_penalty_candidate(
+    let candidates = vec![normalize_constructive_penalty_candidate(
         primary,
-        1,
         PenaltySource::Primary,
-    )];
-    let (penalties, nullspace_dims, penaltyinfo, null_eigenvectors, ops) =
-        filter_active_penalty_candidates_with_ops(candidates)?;
+    )?];
+    let filtered = filter_penalty_candidates(candidates)?;
     Ok(BasisBuildResult {
         design,
-        penalties,
-        nullspace_dims,
-        penaltyinfo,
-        ops,
-        null_eigenvectors,
+        affine_offset: None,
+        active_penalties: filtered.active,
+        dropped_penalties: filtered.dropped,
         joint_null_rotation: None,
         metadata: BasisMetadata::Duchon {
             centers,
@@ -930,7 +934,7 @@ pub(crate) fn build_periodic_duchon_basis_1d(
             power: spec.power,
             nullspace_order: effective_nullspace_order,
             identifiability_transform,
-            input_scales: None,
+            input_scale: crate::IsotropicScale::ONE,
             aniso_log_scales: None,
             operator_collocation_points: None,
             radial_reparam: None,
@@ -1116,6 +1120,10 @@ pub(crate) fn build_duchon_basis_mixed_periodicity(
     penalty
         .slice_mut(s![0..kernel_cols, 0..kernel_cols])
         .assign(&omega);
+    let raw_primary = ConstructiveQuadratic::try_from_dense_psd(
+        penalty,
+        "mixed-periodicity Duchon raw primary penalty",
+    )?;
 
     let base_design = DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(basis));
     let identifiability_transform = spatial_identifiability_transform_from_design_matrix(
@@ -1127,25 +1135,25 @@ pub(crate) fn build_duchon_basis_mixed_periodicity(
     let (design, primary) = if let Some(transform) = identifiability_transform.as_ref() {
         let design =
             wrap_dense_design_with_transform(base_design, transform, "mixed-periodicity Duchon")?;
-        let transformed = fast_ab(&fast_atb(transform, &penalty), transform);
+        let gauge = gam_problem::Gauge::from_block_transforms(&[transform.clone()]);
+        let transformed = raw_primary.restricted(
+            &gauge,
+            "mixed-periodicity Duchon identified primary penalty",
+        )?;
         (design, transformed)
     } else {
-        (base_design, penalty)
+        (base_design, raw_primary)
     };
-    let candidates = vec![normalize_penalty_candidate(
+    let candidates = vec![normalize_constructive_penalty_candidate(
         primary,
-        1,
         PenaltySource::Primary,
-    )];
-    let (penalties, nullspace_dims, penaltyinfo, null_eigenvectors, ops) =
-        filter_active_penalty_candidates_with_ops(candidates)?;
+    )?];
+    let filtered = filter_penalty_candidates(candidates)?;
     Ok(BasisBuildResult {
         design,
-        penalties,
-        nullspace_dims,
-        penaltyinfo,
-        ops,
-        null_eigenvectors,
+        affine_offset: None,
+        active_penalties: filtered.active,
+        dropped_penalties: filtered.dropped,
         joint_null_rotation: None,
         metadata: BasisMetadata::Duchon {
             centers: centers_owned,
@@ -1165,7 +1173,7 @@ pub(crate) fn build_duchon_basis_mixed_periodicity(
             // SAME order-`m` additive kernel (gam#1423).
             nullspace_order: spec.nullspace_order,
             identifiability_transform,
-            input_scales: None,
+            input_scale: crate::IsotropicScale::ONE,
             aniso_log_scales: None,
             operator_collocation_points: None,
             radial_reparam: None,
@@ -1285,14 +1293,33 @@ pub(crate) fn duchon_constrained_bending_penalty(
     aniso_log_scales: Option<&[f64]>,
     kernel_transform: &Array2<f64>,
 ) -> Result<Array2<f64>, BasisError> {
+    let (center_kernel, kernel_amp) = duchon_center_kernel_value_matrix(
+        centers,
+        length_scale,
+        power,
+        nullspace_order,
+        aniso_log_scales,
+    )?;
+    duchon_constrained_bending_penalty_from_kernel(&center_kernel, kernel_amp, kernel_transform)
+}
+
+/// Exact center-pair kernel values and the chart amplification applied by the
+/// Duchon design. Keeping this assembly in one place guarantees that native
+/// roughness and function-metric penalties see precisely the same center chart.
+fn duchon_center_kernel_value_matrix(
+    centers: ArrayView2<'_, f64>,
+    length_scale: Option<f64>,
+    power: f64,
+    nullspace_order: DuchonNullspaceOrder,
+    aniso_log_scales: Option<&[f64]>,
+) -> Result<(Array2<f64>, f64), BasisError> {
     let dim = centers.ncols();
     if dim == 0 {
         crate::bail_invalid_basis!(
-            "duchon_constrained_bending_penalty: centers must have at least one column"
+            "Duchon center kernel requires centers with at least one column"
         );
     }
     let k = centers.nrows();
-    let z = kernel_transform;
     let p_order = duchon_p_from_nullspace_order(nullspace_order);
     let s_int = duchon_power_to_usize(power);
     let pure = length_scale.is_none();
@@ -1340,9 +1367,17 @@ pub(crate) fn duchon_constrained_bending_penalty(
         }
     })?;
 
+    Ok((center_kernel, kernel_amp))
+}
+
+fn duchon_constrained_bending_penalty_from_kernel(
+    center_kernel: &Array2<f64>,
+    kernel_amp: f64,
+    kernel_transform: &Array2<f64>,
+) -> Result<Array2<f64>, BasisError> {
     let amp2 = kernel_amp * kernel_amp;
-    let zt_k = fast_atb(z, &center_kernel);
-    let omega = fast_ab(&zt_k, z).mapv(|v| v * amp2);
+    let zt_k = fast_atb(kernel_transform, center_kernel);
+    let omega = fast_ab(&zt_k, kernel_transform).mapv(|value| value * amp2);
 
     // gam#1424 — the hybrid (Duchon–Matérn) kernel's exact spectral density
     // `ρ^{-2p}(κ²+ρ²)^{-s}` is nonnegative, so the constrained bending Gram
@@ -1413,7 +1448,6 @@ pub(crate) fn duchon_native_penalty_candidates(
     aniso_log_scales: Option<&[f64]>,
     kernel_transform: &Array2<f64>,
     outer_identifiability: Option<&Array2<f64>>,
-    poly_cols: usize,
 ) -> Result<Vec<PenaltyCandidate>, BasisError> {
     let dim = centers.ncols();
     if dim == 0 {
@@ -1427,14 +1461,24 @@ pub(crate) fn duchon_native_penalty_candidates(
     // ω = α² · Zᵀ K_CC Z, embedded in the kernel block of the
     // (n_kernel + poly) pre-identifiability frame (polynomial columns carry no
     // native roughness), then mapped through the outer identifiability `T`.
-    let omega = duchon_constrained_bending_penalty(
+    let (center_kernel, kernel_amp) = duchon_center_kernel_value_matrix(
         centers,
         length_scale,
         power,
         nullspace_order,
         aniso_log_scales,
-        z,
     )?;
+    let omega = duchon_constrained_bending_penalty_from_kernel(&center_kernel, kernel_amp, z)?;
+    let center_mean: Vec<f64> = (0..dim)
+        .map(|axis| centers.column(axis).sum() / centers.nrows().max(1) as f64)
+        .collect();
+    let mut centered = centers.to_owned();
+    for axis in 0..dim {
+        let mean = center_mean[axis];
+        centered.column_mut(axis).mapv_inplace(|value| value - mean);
+    }
+    let center_poly = polynomial_block_from_order(centered.view(), nullspace_order);
+    let poly_cols = center_poly.ncols();
     let n_pre = n_kernel + poly_cols;
     // Range-floor the ill-conditioned curvature spectrum so its numerical null
     // space is exactly the polynomial null space (#1815): without this, the
@@ -1480,27 +1524,64 @@ pub(crate) fn duchon_native_penalty_candidates(
     let primary = symmetrize(&project_penalty_matrix(&primary_pre, outer_identifiability));
 
     let shrink = if poly_cols > 1 {
-        let mut shrink_pre = Array2::<f64>::zeros((n_pre, n_pre));
-        for col in (n_kernel + 1)..n_pre {
-            shrink_pre[[col, col]] = 1.0;
-        }
-        let shrink = symmetrize(&project_penalty_matrix(&shrink_pre, outer_identifiability));
-        Some(shrink)
+        // Evaluate the active coefficient chart on its frozen center support.
+        // This compact Gram is the function metric for the represented Duchon
+        // space; it is independent of training-row multiplicities and remains
+        // available on every n-free κ re-key.
+        let center_kernel_design = fast_ab(&center_kernel, z).mapv(|value| value * kernel_amp);
+        let mut center_design = Array2::<f64>::zeros((centers.nrows(), n_pre));
+        center_design
+            .slice_mut(s![.., 0..n_kernel])
+            .assign(&center_kernel_design);
+        center_design
+            .slice_mut(s![.., n_kernel..])
+            .assign(&center_poly);
+
+        let (center_design, trend_frame) = if let Some(transform) = outer_identifiability {
+            if transform.nrows() != n_pre {
+                crate::bail_dim_basis!(
+                    "Duchon identifiability transform has {} rows, expected {}",
+                    transform.nrows(),
+                    n_pre
+                );
+            }
+            // The outer chart removes the global intercept. Its surviving
+            // polynomial-function subspace is therefore exactly the preimage
+            // of zero kernel coordinates under the fixed transform.
+            let kernel_coordinate_map = transform.slice(s![0..n_kernel, ..]).to_owned();
+            let (frame, _) = rrqr_nullspace_basis(
+                &kernel_coordinate_map.t().to_owned(),
+                default_rrqr_rank_alpha(),
+            )
+            .map_err(BasisError::LinalgError)?;
+            (fast_ab(&center_design, transform), frame)
+        } else {
+            // Without an outer intercept constraint, leave the explicit
+            // constant free and target only nonconstant polynomial trends.
+            let mut frame = Array2::<f64>::zeros((n_pre, poly_cols - 1));
+            for column in 1..poly_cols {
+                frame[[n_kernel + column, column - 1]] = 1.0;
+            }
+            (center_design, frame)
+        };
+        let function_gram = symmetrize_penalty(&fast_ata(&center_design));
+        Some(function_space_subspace_shrinkage(
+            &trend_frame,
+            &function_gram,
+        )?)
     } else {
         None
     };
     let mut out = Vec::new();
     out.push(normalize_penalty_candidate(
         primary,
-        0,
         PenaltySource::Primary,
-    ));
+    )?);
     if let Some(shrink) = shrink {
         out.push(normalize_penalty_candidate(
             shrink,
-            0,
             PenaltySource::DoublePenaltyNullspace,
-        ));
+        )?);
     }
     Ok(out)
 }
@@ -1644,7 +1725,7 @@ pub(crate) fn duchon_operator_penalty_candidates(
             kernel_nullspace,
             poly_cols,
             identifiability_transform,
-        )
+        )?
     } else {
         operator_penalty_candidates_closed_form_pure(
             centers,
@@ -1658,7 +1739,7 @@ pub(crate) fn duchon_operator_penalty_candidates(
             kernel_nullspace,
             poly_cols,
             identifiability_transform,
-        )
+        )?
     };
     if split_tension {
         // `D1` rows are indexed `collocation_i · dim + axis`, so axis `a` owns
@@ -1669,9 +1750,8 @@ pub(crate) fn duchon_operator_penalty_candidates(
             let d1_axis = ops.d1.slice(s![axis..; dim, ..]).to_owned();
             candidates.push(normalize_penalty_candidate(
                 symmetrize(&fast_ata(&d1_axis)),
-                0,
                 PenaltySource::OperatorRelevance { axis },
-            ));
+            )?);
         }
     }
     Ok(candidates)
@@ -1729,12 +1809,12 @@ mod mixed_periodicity_psd_tests {
             None,
         )
         .expect("cylinder mixed-periodicity basis must build");
-        let idx = built
-            .penaltyinfo
+        let penalty = built
+            .active_penalties
             .iter()
-            .position(|info| matches!(info.source, PenaltySource::Primary))
+            .find(|penalty| matches!(penalty.info.source, PenaltySource::Primary))
             .expect("cylinder build must emit a Primary penalty");
-        (built.penalties[idx].clone(), centers.nrows())
+        (penalty.matrix.clone(), centers.nrows())
     }
 
     #[test]
@@ -1757,17 +1837,9 @@ mod mixed_periodicity_psd_tests {
         let z = kernel_constraint_nullspace(centers.view(), order, &mut workspace.cache)
             .expect("kernel constraint nullspace must build");
         let n_kernel = z.ncols();
-        let candidates = duchon_native_penalty_candidates(
-            centers.view(),
-            None,
-            0.0,
-            order,
-            None,
-            &z,
-            None,
-            poly_cols,
-        )
-        .expect("native Duchon penalties must build");
+        let candidates =
+            duchon_native_penalty_candidates(centers.view(), None, 0.0, order, None, &z, None)
+                .expect("native Duchon penalties must build");
         let primary = candidates
             .iter()
             .find(|candidate| matches!(candidate.source, PenaltySource::Primary))
@@ -1778,6 +1850,73 @@ mod mixed_periodicity_psd_tests {
                 "affine trend column {col} must carry the native ridge floor"
             );
         }
+    }
+
+    #[test]
+    fn native_trend_ridge_acts_as_center_function_metric_on_structural_trends() {
+        let centers = array![
+            [0.0, 0.0],
+            [1.0, 0.0],
+            [0.0, 1.0],
+            [1.0, 1.0],
+            [0.5, 0.2],
+            [0.2, 0.7],
+        ];
+        let order = DuchonNullspaceOrder::Linear;
+        let mut workspace = BasisWorkspace::default();
+        let z = kernel_constraint_nullspace(centers.view(), order, &mut workspace.cache)
+            .expect("kernel constraint nullspace");
+        let n_kernel = z.ncols();
+        let candidates =
+            duchon_native_penalty_candidates(centers.view(), None, 0.0, order, None, &z, None)
+                .expect("native Duchon penalties");
+        let ridge = candidates
+            .iter()
+            .find(|candidate| matches!(candidate.source, PenaltySource::DoublePenaltyNullspace))
+            .expect("affine Duchon basis must emit a trend ridge");
+        let ridge = ridge.matrix.dense() * ridge.normalization_scale;
+
+        let (center_kernel, amplification) =
+            duchon_center_kernel_value_matrix(centers.view(), None, 0.0, order, None)
+                .expect("center kernel");
+        let center_kernel_design = fast_ab(&center_kernel, &z).mapv(|value| value * amplification);
+        let center_mean: Vec<f64> = (0..centers.ncols())
+            .map(|axis| centers.column(axis).sum() / centers.nrows() as f64)
+            .collect();
+        let mut centered = centers.clone();
+        for axis in 0..centers.ncols() {
+            let mean = center_mean[axis];
+            centered.column_mut(axis).mapv_inplace(|value| value - mean);
+        }
+        let poly = polynomial_block_from_order(centered.view(), order);
+        let mut center_design = Array2::<f64>::zeros((centers.nrows(), n_kernel + poly.ncols()));
+        center_design
+            .slice_mut(s![.., 0..n_kernel])
+            .assign(&center_kernel_design);
+        center_design.slice_mut(s![.., n_kernel..]).assign(&poly);
+        let gram = symmetrize_penalty(&fast_ata(&center_design));
+        let mut trend_frame = Array2::<f64>::zeros((center_design.ncols(), poly.ncols() - 1));
+        for column in 1..poly.ncols() {
+            trend_frame[[n_kernel + column, column - 1]] = 1.0;
+        }
+
+        // A function-metric projector equals G on every vector in its target
+        // subspace. A Euclidean coefficient selector fails this identity as
+        // soon as the center chart is non-orthonormal, making this assertion a
+        // discriminating guard against regressing to coefficient shrinkage.
+        let error = (&ridge.dot(&trend_frame) - &gram.dot(&trend_frame))
+            .iter()
+            .map(|value| value.abs())
+            .fold(0.0_f64, f64::max);
+        let scale = gram
+            .dot(&trend_frame)
+            .iter()
+            .map(|value| value.abs())
+            .fold(1.0_f64, f64::max);
+        assert!(
+            error <= 2.0e-11 * scale,
+            "Duchon trend ridge must equal the center function metric on structural trends; error={error:.3e}, scale={scale:.3e}"
+        );
     }
 
     #[test]
@@ -1831,12 +1970,12 @@ mod mixed_periodicity_psd_tests {
             None,
         )
         .expect("torus mixed-periodicity basis must build");
-        let idx = built
-            .penaltyinfo
+        let penalty = built
+            .active_penalties
             .iter()
-            .position(|info| matches!(info.source, PenaltySource::Primary))
+            .find(|penalty| matches!(penalty.info.source, PenaltySource::Primary))
             .expect("torus build must emit a Primary penalty");
-        let sym = symmetrize(&built.penalties[idx]);
+        let sym = symmetrize(&penalty.matrix);
         let (evals, _) = FaerEigh::eigh(&sym, Side::Lower).expect("eigh");
         let lambda_min = evals.iter().copied().fold(f64::INFINITY, f64::min);
         assert!(

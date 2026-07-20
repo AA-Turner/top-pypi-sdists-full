@@ -62,10 +62,14 @@ pub struct TransformationNormalFamily {
     pub(crate) offset: Arc<Array1<f64>>,
     // --- Tensor penalties ---
     pub(crate) tensor_penalties: Vec<PenaltyMatrix>,
+    /// Assembled order/counts of `tensor_penalties`
+    /// (`[covariate.., response.., double?]`). The response and double penalties
+    /// carry the κ-moving `G_x` factor; the psi-derivative channel uses this to
+    /// address them by index.
+    pub(crate) tensor_penalty_layout: CtnTensorPenaltyLayout,
 
     // --- Initial values ---
     pub(crate) initial_beta: Array1<f64>,
-    pub(crate) initial_log_lambdas: Array1<f64>,
 
     // --- Config ---
     pub(crate) block_name: String,
@@ -107,7 +111,8 @@ pub struct TransformationNormalFamily {
 #[derive(Clone)]
 pub(crate) struct TransformationNormalRowQuantityCache {
     pub(crate) beta: Arc<Array1<f64>>,
-    pub(crate) gamma: Arc<Array2<f64>>,
+    /// Per-row factored coordinates `α_k(x_i) = ψ_iᵀ A_{k,:}` (`n × p_resp`).
+    pub(crate) alpha: Arc<Array2<f64>>,
     pub(crate) h: Arc<Array1<f64>>,
     pub(crate) h_prime: Arc<Array1<f64>>,
     pub(crate) h_lower: Arc<Array1<f64>>,
@@ -376,20 +381,19 @@ impl TransformationNormalFamily {
         )?;
 
         // ----- 4. Tensor penalties (Kronecker-separable) -----
-        let tensor_penalties = build_tensor_penalties_kronecker(
+        let covariate_dense = covariate_design
+            .try_row_chunk(0..n)
+            .map_err(|e| format!("SCOP covariate dense materialization failed: {e}"))?;
+        let (tensor_penalties, tensor_penalty_layout) = build_tensor_penalties_kronecker(
             &resp_penalties,
             covariate_penalties,
+            resp_val.view(),
+            covariate_dense.view(),
+            weights.view(),
             p_resp,
             p_cov,
             config,
         )?;
-        let policy = ResourcePolicy::default_library();
-        let x_val_weighted_gram = x_val_kron.weighted_gram(weights, &policy)?;
-
-        // ----- 5. CTN-specific smoothing seed from likelihood/penalty scales -----
-        let initial_log_lambdas =
-            ctn_penalty_scale_log_lambdas(&tensor_penalties, &x_val_weighted_gram);
-
         // Compute response median for anchoring
         let mut sorted_resp = response.to_vec();
         sorted_resp.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
@@ -412,8 +416,8 @@ impl TransformationNormalFamily {
             weights: Arc::new(weights.clone()),
             offset: Arc::new(offset.clone()),
             tensor_penalties,
+            tensor_penalty_layout,
             initial_beta,
-            initial_log_lambdas,
             block_name: "transformation".to_string(),
             response_knots: resp_knots,
             response_transform: resp_transform,
@@ -432,7 +436,7 @@ impl TransformationNormalFamily {
     ///
     /// For the outer loop where the response basis is precomputed once and reused
     /// across κ iterations.
-    pub fn from_prebuilt_response_basis(
+    pub(crate) fn from_prebuilt_response_basis(
         response: &Array1<f64>,
         response_val_basis: Array2<f64>,
         response_deriv_basis: Array2<f64>,
@@ -571,19 +575,19 @@ impl TransformationNormalFamily {
         )?;
 
         // Tensor penalties (Kronecker-separable).
-        let tensor_penalties = build_tensor_penalties_kronecker(
+        let covariate_dense = covariate_design
+            .try_row_chunk(0..n)
+            .map_err(|e| format!("SCOP covariate dense materialization failed: {e}"))?;
+        let (tensor_penalties, tensor_penalty_layout) = build_tensor_penalties_kronecker(
             &response_penalties,
             covariate_penalties,
+            response_val_basis.view(),
+            covariate_dense.view(),
+            weights.view(),
             p_resp,
             p_cov,
             config,
         )?;
-        let policy = ResourcePolicy::default_library();
-        let x_val_weighted_gram = x_val_kron.weighted_gram(weights, &policy)?;
-
-        let initial_log_lambdas =
-            ctn_penalty_scale_log_lambdas(&tensor_penalties, &x_val_weighted_gram);
-
         // Compute response median.
         let mut sorted_resp = response.to_vec();
         sorted_resp.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
@@ -606,8 +610,8 @@ impl TransformationNormalFamily {
             weights: Arc::new(weights.clone()),
             offset: Arc::new(offset.clone()),
             tensor_penalties,
+            tensor_penalty_layout,
             initial_beta,
-            initial_log_lambdas,
             block_name: "transformation".to_string(),
             response_knots: response_knots.clone(),
             response_transform: response_transform.clone(),
@@ -636,22 +640,52 @@ impl TransformationNormalFamily {
         self.response_median
     }
 
-    /// Return the `ParameterBlockSpec` for this family (single block).
-    pub fn block_spec(&self) -> ParameterBlockSpec {
+    /// Derive the one cold-start smoothing vector from the likelihood/penalty
+    /// scale ratio without materializing the rowwise-Kronecker Gram.
+    pub(crate) fn penalty_scale_log_lambdas(&self) -> Result<Array1<f64>, String> {
+        let policy = ResourcePolicy::default_library();
+        let likelihood_diagonal_mean = self
+            .x_val_kron
+            .weighted_gram_diagonal_mean(self.weights.as_ref(), &policy)?;
+        Ok(ctn_penalty_scale_log_lambdas(
+            &self.tensor_penalties,
+            likelihood_diagonal_mean,
+        ))
+    }
+
+    /// Return the single coefficient block under one explicit smoothing state.
+    /// Family geometry owns penalties and coefficients; rho belongs to the
+    /// optimizer/block state and has exactly one caller-supplied authority.
+    pub(crate) fn block_spec(
+        &self,
+        initial_log_lambdas: &Array1<f64>,
+    ) -> Result<ParameterBlockSpec, String> {
+        if initial_log_lambdas.len() != self.tensor_penalties.len() {
+            return Err(TransformationNormalError::InvalidInput {
+                reason: format!(
+                    "transformation smoothing vector has length {}, expected {}",
+                    initial_log_lambdas.len(),
+                    self.tensor_penalties.len(),
+                ),
+            }
+            .into());
+        }
+        gam_problem::validate_log_strengths(initial_log_lambdas.iter().copied())
+            .map_err(|error| format!("invalid transformation smoothing strength: {error}"))?;
         let offset = self.offset.as_ref() + self.response_floor_offset.as_ref();
-        ParameterBlockSpec {
+        Ok(ParameterBlockSpec {
             name: self.block_name.clone(),
             design: DesignMatrix::Dense(DenseDesignMatrix::from(Arc::new(self.x_val_kron.clone()))),
             offset,
             penalties: self.tensor_penalties.clone(),
             nullspace_dims: vec![],
-            initial_log_lambdas: self.initial_log_lambdas.clone(),
+            initial_log_lambdas: initial_log_lambdas.clone(),
             initial_beta: Some(self.initial_beta.clone()),
             gauge_priority: 100,
             jacobian_callback: None,
             stacked_design: None,
             stacked_offset: None,
-        }
+        })
     }
 
     /// Total number of coefficients.
@@ -813,8 +847,8 @@ impl TransformationNormalFamily {
             weights: Arc::clone(&self.weights),
             offset: Arc::clone(&self.offset),
             tensor_penalties: self.tensor_penalties.clone(),
+            tensor_penalty_layout: self.tensor_penalty_layout,
             initial_beta: self.initial_beta.clone(),
-            initial_log_lambdas: self.initial_log_lambdas.clone(),
             block_name: self.block_name.clone(),
             response_knots: self.response_knots.clone(),
             response_transform: self.response_transform.clone(),
@@ -891,17 +925,21 @@ impl TransformationNormalFamily {
             .map_err(|e| format!("SCOP endpoint beta reshape failed: {e}"))?;
         let cov = self.covariate_dense_arc()?;
 
-        // SCOP-CTN: h(y, x) = b(x) + Σ_k γ_k(x)² · I_k(y), with
-        // γ_k(x) = ψ(x)ᵀ Γ_{k,:} and h'(y, x) = Σ_k γ_k(x)² · M_k(y).
-        // Response column 0 is the unconstrained affine/location component
-        // b(x); all remaining response columns are squared shape components.
+        // Direct-α CTN (gam#2306): h(y, x) = α_0(x) + Σ_k α_k(x) · I_k(y),
+        // with α_k(x) = ψ(x)ᵀ A_{k,:} and h'(y, x) = Σ_k α_k(x) · M_k(y).
+        // Response column 0 is the unconstrained affine/location component;
+        // the remaining response columns are the shape coordinates, kept
+        // non-negative at every observation by the factored monotonicity cone
+        // (`block_linear_constraints`), NOT by a squared latent chart. h is
+        // exactly linear in the coefficients, so the function-space penalties
+        // are quadratic in the FINAL function and the likelihood curvature
+        // carries no chart second-derivative terms.
         //
         // The observed value, derivative value, and finite-support endpoints
-        // all depend on the same covariate-side γ_k(x_i).  Compute γ once and
-        // fan it out exactly; the previous path projected β through the same
-        // covariate design three times per row-quantity build.
-        let gamma = fast_abt(cov.as_ref(), &beta_mat);
-        let n = gamma.nrows();
+        // all depend on the same covariate-side α_k(x_i).  Compute α once and
+        // fan it out exactly.
+        let alpha = fast_abt(cov.as_ref(), &beta_mat);
+        let n = alpha.nrows();
         let mut h = Array1::<f64>::zeros(n);
         let mut h_prime = Array1::<f64>::zeros(n);
         let mut h_lower = Array1::<f64>::zeros(n);
@@ -915,23 +953,23 @@ impl TransformationNormalFamily {
             .and(&mut h_lower)
             .and(&mut h_upper)
             .par_for_each(|i, h_i, hp_i, lower_i, upper_i| {
-                let gamma_row = gamma.row(i);
+                let alpha_row = alpha.row(i);
                 let val_row = self.response_val_basis.row(i);
                 let deriv_row = self.response_deriv_basis.row(i);
-                let g0 = gamma_row[0];
+                let a0 = alpha_row[0];
                 let offset_i = self.offset[i];
-                let mut h_acc = val_row[0] * g0 + offset_i + self.response_floor_offset[i];
-                let mut hp_acc = deriv_row[0] * g0 + TRANSFORMATION_MONOTONICITY_EPS;
+                let mut h_acc = val_row[0] * a0 + offset_i + self.response_floor_offset[i];
+                let mut hp_acc = deriv_row[0] * a0 + TRANSFORMATION_MONOTONICITY_EPS;
                 let mut lower_acc =
-                    self.response_lower_basis[0] * g0 + offset_i + self.response_lower_floor_offset;
+                    self.response_lower_basis[0] * a0 + offset_i + self.response_lower_floor_offset;
                 let mut upper_acc =
-                    self.response_upper_basis[0] * g0 + offset_i + self.response_upper_floor_offset;
+                    self.response_upper_basis[0] * a0 + offset_i + self.response_upper_floor_offset;
                 for k in 1..p_resp {
-                    let g_sq = gamma_row[k] * gamma_row[k];
-                    h_acc += val_row[k] * g_sq;
-                    hp_acc += deriv_row[k] * g_sq;
-                    lower_acc += self.response_lower_basis[k] * g_sq;
-                    upper_acc += self.response_upper_basis[k] * g_sq;
+                    let a_k = alpha_row[k];
+                    h_acc += val_row[k] * a_k;
+                    hp_acc += deriv_row[k] * a_k;
+                    lower_acc += self.response_lower_basis[k] * a_k;
+                    upper_acc += self.response_upper_basis[k] * a_k;
                 }
                 *h_i = h_acc;
                 *hp_i = hp_acc;
@@ -1003,7 +1041,7 @@ impl TransformationNormalFamily {
         )?;
         let row_quantities = TransformationNormalRowQuantityCache {
             beta: Arc::new(beta.clone()),
-            gamma: Arc::new(gamma),
+            alpha: Arc::new(alpha),
             h: Arc::new(h),
             h_prime: Arc::new(h_prime),
             h_lower: Arc::new(h_lower),

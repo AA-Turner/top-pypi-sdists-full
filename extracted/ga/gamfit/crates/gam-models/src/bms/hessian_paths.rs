@@ -232,7 +232,7 @@ impl BernoulliBlockHessianAccumulator {
         // matrix as borrowed views. `try_row_chunk` would instead `.to_owned()`
         // a fresh `(rows × p)` `Array2` every chunk every cycle — the dominant
         // `OwnedRepr<f64>` alloc/`drop_in_place` churn the cold marginal-slope
-        // fit pays in its repeated inner Newton / ρ-homotopy pre-warm passes.
+        // fit pays across its repeated inner-Newton and outer-evaluation passes.
         // `fast_xt_diag_*` is generic over `Data<Elem = f64>`, so an
         // `ArrayView2` slice feeds the identical BLAS-3 kernels with identical
         // arithmetic — exact, just without the copy.
@@ -242,7 +242,7 @@ impl BernoulliBlockHessianAccumulator {
         ) {
             let x = x_full.slice(s![rows.clone(), ..]);
             let g = g_full.slice(s![rows, ..]);
-            self.add_weighted_design_grams_from_chunks(&x, &g, w_mm, w_mg, w_gg);
+            self.add_weighted_design_grams_from_chunks(&x, &g, w_mm, w_mg, w_gg)?;
             return Ok(());
         }
         let x = family
@@ -253,7 +253,7 @@ impl BernoulliBlockHessianAccumulator {
             .logslope_design
             .try_row_chunk(rows)
             .map_err(|e| format!("bernoulli logslope_design try_row_chunk: {e}"))?;
-        self.add_weighted_design_grams_from_chunks(&x, &g, w_mm, w_mg, w_gg);
+        self.add_weighted_design_grams_from_chunks(&x, &g, w_mm, w_mg, w_gg)?;
         Ok(())
     }
 
@@ -267,28 +267,29 @@ impl BernoulliBlockHessianAccumulator {
         w_mm: &Array1<f64>,
         w_mg: &Array1<f64>,
         w_gg: &Array1<f64>,
-    ) {
+    ) -> Result<(), String> {
         // Biobank-scale lever: the marginal (`h_mm`) and logslope (`h_gg`)
         // weighted Gram blocks are the dominant `Xᵀ diag(w) X` reductions over
         // n ≈ 356k rows. Route each to the CUDA f64 GEMM when a device is
-        // present and the chunk clears the device flop floor; the CPU
-        // chunked-BLAS3 path is the f64 fallback (no device, below threshold,
-        // transient decline). Bit-faithful within the manifold-path GPU/CPU
-        // f64 parity.
-        match w_mm.as_slice().and_then(|w| try_gpu_xt_diag_x(x, w)) {
+        // present and the chunk clears the device flop floor. CPU execution is
+        // chosen only before CUDA admission (no runtime or below threshold);
+        // after admission, a missing device result is an error. Both algorithms
+        // use the same fp64 reduction over the same rows.
+        match try_gpu_xt_diag_x(x, w_mm.view())? {
             Some(gpu_mm) => self.h_mm += &gpu_mm,
             None => self.h_mm += &gam_linalg::faer_ndarray::fast_xt_diag_x(x, w_mm),
         }
         if w_mg.iter().any(|value| *value != 0.0) {
-            match w_mg.as_slice().and_then(|w| try_gpu_xt_diag_y(x, w, g)) {
+            match try_gpu_xt_diag_y(x, w_mg.view(), g)? {
                 Some(gpu_mg) => self.h_mg += &gpu_mg,
                 None => self.h_mg += &gam_linalg::faer_ndarray::fast_xt_diag_y(x, w_mg, g),
             }
         }
-        match w_gg.as_slice().and_then(|w| try_gpu_xt_diag_x(g, w)) {
+        match try_gpu_xt_diag_x(g, w_gg.view())? {
             Some(gpu_gg) => self.h_gg += &gpu_gg,
             None => self.h_gg += &gam_linalg::faer_ndarray::fast_xt_diag_x(g, w_gg),
         }
+        Ok(())
     }
 
     /// Batch the exact h/w pullback terms for one row chunk.
@@ -843,6 +844,11 @@ pub(super) struct BernoulliMarginalSlopeFlexRowScratch {
     pub(super) rho: Array1<f64>,
     pub(super) tau: Array1<f64>,
     pub(super) grad: Array1<f64>,
+    /// Per-primary derivative of the row LOG-LIKELIHOOD score with respect to
+    /// the observed generated regressor z. This is the exact Murphy–Topel
+    /// channel `d(score_primary)/dz`, populated by the same flex row calculus
+    /// that fills `grad`.
+    pub(super) score_zeta: Array1<f64>,
     pub(super) hess: Array2<f64>,
     // Per-row [f64; 4] coefficient buffers used by the flex analytic path. Owned
     // by the scratch so the hot path never allocates a fresh `Vec` per row.
@@ -874,6 +880,7 @@ impl BernoulliMarginalSlopeFlexRowScratch {
             rho: Array1::zeros(primary_dim),
             tau: Array1::zeros(primary_dim),
             grad: Array1::zeros(primary_dim),
+            score_zeta: Array1::zeros(primary_dim),
             hess: Array2::zeros((primary_dim, primary_dim)),
             coeff_u: vec![[0.0; 4]; primary_dim],
             coeff_au: vec![[0.0; 4]; primary_dim],
@@ -892,6 +899,7 @@ impl BernoulliMarginalSlopeFlexRowScratch {
         self.rho.fill(0.0);
         self.tau.fill(0.0);
         self.grad.fill(0.0);
+        self.score_zeta.fill(0.0);
         if need_hessian {
             self.m_au.fill(0.0);
             self.m_uv.fill(0.0);
@@ -1067,94 +1075,153 @@ pub(super) fn add_weighted_chunk_gradient<S: ndarray::Data<Elem = f64>>(
     *target += &gam_linalg::faer_ndarray::fast_atv(chunk, &weights_view);
 }
 
+/// Convert an admitted CUDA Gram result into the BMS fail-closed contract.
+///
+/// The caller invokes this only after a runtime and its size policy have
+/// selected CUDA. The current `gam-gpu` BLAS API erases backend errors into
+/// `Option::None`; at this boundary that value means the selected algorithm
+/// failed, never that a different CPU algorithm may be substituted.
+// Its production callers compile under `cfg(target_os = "linux")` (the CUDA
+// path); off-Linux the lib target has no caller and `-D dead-code` rejects it,
+// the break that has been failing the macOS and Windows wheel jobs. Gate to the
+// platforms that own the callers rather than suppressing the lint; the fixtures
+// that exercise it are gated to Linux alongside it.
+#[cfg(target_os = "linux")]
+pub(super) fn require_selected_cuda_gram_result<T>(
+    operation: &str,
+    rows: usize,
+    lhs_cols: usize,
+    rhs_cols: usize,
+    result: Option<T>,
+) -> Result<T, String> {
+    result.ok_or_else(|| {
+        format!(
+            "BMS selected CUDA {operation} execution failed after policy admission \
+             (rows={rows}, lhs_cols={lhs_cols}, rhs_cols={rhs_cols}): \
+             gam-gpu BLAS returned no result"
+        )
+    })
+}
+
 /// GPU-routed `Xᵀ diag(w) X` for one materialized row chunk.
 ///
 /// This is the biobank-scale lever: the BMS rigid fit's dominant work is the
 /// repeated chunked `Xᵀ diag(w) X` Gram over `n ≈ 356k` rows. When a CUDA
-/// device is present (runtime auto-probe — the same `GpuRuntime::global()`
-/// gate the manifold / arrow-Schur dense paths use, NO flag, NO env var) and
+/// device is enabled and present under the process-wide GPU policy, and
 /// the per-chunk reduction work clears the device flop floor
 /// (`xtwx_target_is_gpu`, keyed on `(rows, cols)`), the symmetric crossprod is
 /// dispatched to cuBLAS f64 GEMM via [`gam_gpu::blas::xt_diag_x_cuda`].
-/// Returns `Some(gram)` on a device hit and `None` on any decline (no CUDA,
-/// below threshold, transient device-unavailable) so the caller transparently
-/// uses the CPU chunked-BLAS3 path. The device result is bit-faithful within
-/// the documented GPU/CPU f64 parity already accepted for the manifold dense
-/// Gram — both are an fp64 `Xᵀ diag(w) X` reduction over the identical rows.
+/// Returns `Ok(None)` only when CPU was chosen before CUDA admission (no CUDA
+/// runtime or below threshold), `Ok(Some(gram))` on success, and `Err` when an
+/// admitted device execution returns no result.
 #[cfg(target_os = "linux")]
 fn try_gpu_xt_diag_x<S: ndarray::Data<Elem = f64>>(
     chunk: &ndarray::ArrayBase<S, ndarray::Ix2>,
-    weights: &[f64],
-) -> Option<Array2<f64>> {
-    let runtime = gam_gpu::device_runtime::GpuRuntime::global()?;
+    weights: ArrayView1<'_, f64>,
+) -> Result<Option<Array2<f64>>, String> {
     let (rows, cols) = chunk.dim();
+    if rows != weights.len() {
+        return Err(format!(
+            "BMS Xᵀ diag(w) X dimension mismatch: rows={rows}, weights={}",
+            weights.len()
+        ));
+    }
+    let Some(runtime) =
+        gam_gpu::device_runtime::GpuRuntime::resolve(gam_gpu::global_policy())
+            .map_err(String::from)?
+    else {
+        return Ok(None);
+    };
     // The chunk is a materialized dense row block here (the caller already
     // resolved the design to dense views / owned chunks before calling), so
     // `materialized = true`.
     if !runtime.policy().xtwx_target_is_gpu(rows, cols, true) {
-        return None;
+        return Ok(None);
     }
-    let weights_view = ndarray::ArrayView1::from(weights);
-    gam_gpu::blas::xt_diag_x_cuda(runtime, chunk.view(), weights_view)
+    require_selected_cuda_gram_result(
+        "Xᵀ diag(w) X",
+        rows,
+        cols,
+        cols,
+        gam_gpu::blas::xt_diag_x_cuda(runtime, chunk.view(), weights),
+    )
+    .map(Some)
 }
 
 /// Off-Linux: no CUDA runtime exists, so the device crossprod is never
-/// attempted and the caller stays on the CPU chunked-BLAS3 Gram. The shapes
-/// are validated for parity with the Linux gate so a mis-sized chunk is
-/// rejected identically on both platforms.
+/// admitted. The shapes are validated for parity with the Linux gate so a
+/// mis-sized chunk is rejected identically on both platforms.
 #[cfg(not(target_os = "linux"))]
 fn try_gpu_xt_diag_x<S: ndarray::Data<Elem = f64>>(
     chunk: &ndarray::ArrayBase<S, ndarray::Ix2>,
-    weights: &[f64],
-) -> Option<Array2<f64>> {
-    // `global()` is `None` off-Linux, so this returns before touching the
-    // chunk; the shape read keeps the params live and mirrors the Linux gate
-    // (a mis-sized chunk is rejected identically on both platforms).
-    gam_gpu::device_runtime::GpuRuntime::global()?;
-    let (rows, cols) = chunk.dim();
-    if rows == 0 || cols == 0 || rows != weights.len() {
-        return None;
+    weights: ArrayView1<'_, f64>,
+) -> Result<Option<Array2<f64>>, String> {
+    let rows = chunk.nrows();
+    if rows != weights.len() {
+        return Err(format!(
+            "BMS Xᵀ diag(w) X dimension mismatch: rows={rows}, weights={}",
+            weights.len()
+        ));
     }
-    None
+    Ok(None)
 }
 
 /// GPU-routed `Xᵀ diag(w) Y` cross-Gram for one materialized row chunk.
 ///
 /// Companion to [`try_gpu_xt_diag_x`] for the marginal↔logslope cross block
 /// (`h_mg`). Gates on `xtwy_target_is_gpu` (keyed on `(rows, p_x, q)`) and
-/// dispatches to [`gam_gpu::blas::xt_diag_y_cuda`]; `None` falls back to the
-/// CPU `fast_xt_diag_y`.
+/// dispatches to [`gam_gpu::blas::xt_diag_y_cuda`]. CPU is chosen only before
+/// admission; an admitted CUDA execution that returns no result is an error.
 #[cfg(target_os = "linux")]
 fn try_gpu_xt_diag_y<SX: ndarray::Data<Elem = f64>, SY: ndarray::Data<Elem = f64>>(
     x: &ndarray::ArrayBase<SX, ndarray::Ix2>,
-    weights: &[f64],
+    weights: ArrayView1<'_, f64>,
     y: &ndarray::ArrayBase<SY, ndarray::Ix2>,
-) -> Option<Array2<f64>> {
-    let runtime = gam_gpu::device_runtime::GpuRuntime::global()?;
+) -> Result<Option<Array2<f64>>, String> {
     let (rows, p_x) = x.dim();
     let (rows_y, q) = y.dim();
     if rows != rows_y || rows != weights.len() {
-        return None;
+        return Err(format!(
+            "BMS Xᵀ diag(w) Y dimension mismatch: x_rows={rows}, y_rows={rows_y}, \
+             weights={}",
+            weights.len()
+        ));
     }
+    let Some(runtime) =
+        gam_gpu::device_runtime::GpuRuntime::resolve(gam_gpu::global_policy())
+            .map_err(String::from)?
+    else {
+        return Ok(None);
+    };
     if !runtime.policy().xtwy_target_is_gpu(rows, p_x, q, true) {
-        return None;
+        return Ok(None);
     }
-    let weights_view = ndarray::ArrayView1::from(weights);
-    gam_gpu::blas::xt_diag_y_cuda(runtime, x.view(), weights_view, y.view())
+    require_selected_cuda_gram_result(
+        "Xᵀ diag(w) Y",
+        rows,
+        p_x,
+        q,
+        gam_gpu::blas::xt_diag_y_cuda(runtime, x.view(), weights, y.view()),
+    )
+    .map(Some)
 }
 
-/// Off-Linux companion to [`try_gpu_xt_diag_y`]: no CUDA runtime, CPU fallback.
+/// Off-Linux companion to [`try_gpu_xt_diag_y`]: CUDA is never admitted.
 #[cfg(not(target_os = "linux"))]
 fn try_gpu_xt_diag_y<SX: ndarray::Data<Elem = f64>, SY: ndarray::Data<Elem = f64>>(
     x: &ndarray::ArrayBase<SX, ndarray::Ix2>,
-    weights: &[f64],
+    weights: ArrayView1<'_, f64>,
     y: &ndarray::ArrayBase<SY, ndarray::Ix2>,
-) -> Option<Array2<f64>> {
-    gam_gpu::device_runtime::GpuRuntime::global()?;
+) -> Result<Option<Array2<f64>>, String> {
     if x.nrows() != y.nrows() || x.nrows() != weights.len() {
-        return None;
+        return Err(format!(
+            "BMS Xᵀ diag(w) Y dimension mismatch: x_rows={}, y_rows={}, weights={}",
+            x.nrows(),
+            y.nrows(),
+            weights.len()
+        ));
     }
-    None
+    Ok(None)
 }
 
 pub(super) fn new_cell_moment_lru_cache(
@@ -1186,18 +1253,19 @@ pub(super) fn add_weighted_chunk_gram<S: ndarray::Data<Elem = f64>>(
     chunk: &ndarray::ArrayBase<S, ndarray::Ix2>,
     weights: &[f64],
     target: &mut Array2<f64>,
-) {
+) -> Result<(), String> {
     // Biobank-scale lever: route the chunked `Xᵀ diag(w) X` Gram to the CUDA
     // f64 GEMM when a device is present and the chunk clears the device flop
-    // floor; otherwise the CPU chunked-BLAS3 kernel below. Bit-faithful within
-    // the manifold-path GPU/CPU f64 parity (same fp64 reduction over the same
-    // rows).
-    if let Some(gpu_gram) = try_gpu_xt_diag_x(chunk, weights) {
-        *target += &gpu_gram;
-        return;
+    // floor. CPU execution occurs only when policy declines CUDA before launch;
+    // a selected device operation must return its Gram or surface an error.
+    match try_gpu_xt_diag_x(chunk, ndarray::ArrayView1::from(weights))? {
+        Some(gpu_gram) => *target += &gpu_gram,
+        None => {
+            let weights_view = ndarray::ArrayView1::from(weights);
+            *target += &gam_linalg::faer_ndarray::fast_xt_diag_x(chunk, &weights_view);
+        }
     }
-    let weights_view = ndarray::ArrayView1::from(weights);
-    *target += &gam_linalg::faer_ndarray::fast_xt_diag_x(chunk, &weights_view);
+    Ok(())
 }
 
 // Chunk-size and budget constants for row-primary Hessian caches live in
@@ -1215,3 +1283,80 @@ pub(super) fn add_weighted_chunk_gram<S: ndarray::Data<Elem = f64>>(
 //     capped at a fraction of available RAM at construction time —
 //     independent of the per-cache cap so that two co-resident workspaces
 //     cannot together consume the whole budget.
+
+// The whole module exercises the Linux-only selected-CUDA fail-closed helper,
+// so it is gated with it; stacked attributes read as AND.
+#[cfg(test)]
+#[cfg(target_os = "linux")]
+mod selected_cuda_gram_tests {
+    use super::*;
+
+    fn assert_call_sites_propagate_result(source: &str, call: &str, expected: usize) {
+        let sites = source.match_indices(call).collect::<Vec<_>>();
+        assert_eq!(
+            sites.len(),
+            expected,
+            "unexpected number of `{call}` call sites"
+        );
+        for (offset, _) in sites {
+            let statement = source[offset..]
+                .split_once(';')
+                .map(|(statement, _)| statement)
+                .expect("Gram call statement must end with a semicolon");
+            assert!(
+                statement.trim_end().ends_with('?'),
+                "Gram call does not propagate its Result: {statement}"
+            );
+        }
+    }
+
+    #[test]
+    fn admitted_cuda_gram_without_a_result_is_fail_closed_932() {
+        let error =
+            require_selected_cuda_gram_result::<Array2<f64>>("sentinel Gram", 17, 5, 3, None)
+                .expect_err("an admitted CUDA Gram may not select a CPU algorithm after failure");
+
+        assert!(error.contains("BMS selected CUDA sentinel Gram execution failed"));
+        assert!(error.contains("rows=17, lhs_cols=5, rhs_cols=3"));
+        assert!(error.contains("gam-gpu BLAS returned no result"));
+    }
+
+    #[test]
+    fn every_bms_gram_caller_propagates_selected_cuda_errors_932() {
+        let hessian_source = include_str!("hessian_paths.rs");
+        let row_kernel_source = include_str!("row_kernel.rs");
+        let axis_source = include_str!("axis_direction_search.rs");
+
+        assert!(!hessian_source.contains(concat!("and_then(|w| ", "try_gpu_xt_diag")));
+        assert!(!hessian_source.contains(concat!("if let Some(gpu_gram) = ", "try_gpu_xt_diag_x")));
+        let rigid_start = row_kernel_source
+            .find("fn rigid_joint_hessian_on_gpu(")
+            .expect("rigid joint-Hessian CUDA boundary must exist");
+        let rigid_end = row_kernel_source[rigid_start..]
+            .find("\n}\n\nimpl BernoulliRigidRowKernel")
+            .map(|offset| rigid_start + offset)
+            .expect("rigid joint-Hessian CUDA boundary must be structurally bounded");
+        let rigid_source = &row_kernel_source[rigid_start..rigid_end];
+        let policy_gate = rigid_source
+            .find("route_through_gpu(operation).is_none()")
+            .expect("rigid joint Hessian must distinguish pre-execution policy decline");
+        let fail_closed = rigid_source
+            .find("require_selected_cuda_gram_result(")
+            .expect("rigid joint Hessian must reject a missing selected CUDA result");
+        assert!(policy_gate < fail_closed);
+        assert!(rigid_source.contains("return Ok(None);"));
+        assert!(rigid_source.contains("try_fast_joint_hessian_2x2("));
+
+        assert_call_sites_propagate_result(
+            row_kernel_source,
+            "add_weighted_design_grams_from_chunks(",
+            4,
+        );
+        assert_call_sites_propagate_result(
+            axis_source,
+            "add_weighted_design_grams_from_chunks(",
+            2,
+        );
+        assert_call_sites_propagate_result(axis_source, "add_weighted_chunk_gram(", 6);
+    }
+}

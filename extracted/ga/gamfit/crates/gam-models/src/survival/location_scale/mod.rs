@@ -35,13 +35,15 @@ use crate::custom_family::{
     BlockEffectiveJacobian, BlockWorkingSet, BlockwiseFitOptions, CustomFamily,
     CustomFamilyBlockPsiDerivative, CustomFamilyJointDesignChannel,
     CustomFamilyJointDesignPairContribution, CustomFamilyJointPsiOperator,
-    CustomFamilyPsiDesignAction, CustomFamilyPsiLinearMapRef, CustomFamilyWarmStart,
+    CustomFamilyHyperLayout, CustomFamilyPsiDesignAction, CustomFamilyPsiLinearMapRef,
+    CustomFamilyWarmStart,
     ExactNewtonJointGradientEvaluation, ExactNewtonJointHessianWorkspace,
     ExactNewtonOuterCurvature, FamilyChannelHessian, FamilyEvaluation, ParameterBlockSpec,
     ParameterBlockState, PenaltyMatrix, PsiDesignMap, build_rowwise_kronecker_psi_operator,
-    evaluate_custom_family_joint_hyper, evaluate_custom_family_joint_hyper_efs,
-    first_psi_linear_map, fit_custom_family, resolve_custom_family_x_psi_map, shared_dense_arc,
-    weighted_crossprod_psi_maps,
+    evaluate_custom_family_joint_hyper_efs_owned, evaluate_custom_family_joint_hyper_owned,
+    first_psi_linear_map, fit_custom_family,
+    fit_custom_family_fixed_log_lambdas_from_owned_mode, resolve_custom_family_x_psi_map,
+    shared_dense_arc, weighted_crossprod_psi_maps,
 };
 
 use gam_problem::{
@@ -65,9 +67,7 @@ use crate::sigma_link::exp_sigma_inverse_from_eta_scalar;
 
 use crate::survival::{OffsetChannelCurvatures, OffsetChannelResiduals};
 
-use crate::survival::predict::{
-    LocationScaleEtaComponents, location_scale_eta_components, location_scale_time_warp_components,
-};
+use crate::survival::predict::{LocationScaleEtaComponents, location_scale_eta_components};
 
 use crate::survival::time_constraints::{
     FeasibilityTolerance, GuardConstraintFailure, GuardConstraintPolicy, GuardPolicy,
@@ -93,10 +93,10 @@ use gam_solve::mixture_link::{
 
 use gam_solve::pirls::LinearInequalityConstraints;
 
-
 use crate::fit_orchestration::drivers::{
-    ExactJointHyperSetup, freeze_term_collection_from_design,
-    optimize_spatial_length_scale_exact_joint, spatial_length_scale_term_indices,
+    ExactJointEfsEvaluation, ExactJointEvaluation, ExactJointHyperSetup, SpatialFitProvenance,
+    freeze_term_collection_from_design, optimize_spatial_length_scale_exact_joint,
+    spatial_length_scale_term_indices,
 };
 use gam_terms::smooth::{
     SpatialLengthScaleOptimizationOptions, TermCollectionDesign, TermCollectionSpec,
@@ -140,6 +140,7 @@ mod family;
 mod family_solver;
 mod fit;
 mod moments;
+pub mod paired_stacks;
 mod predict;
 mod prepare;
 mod residual_dist;
@@ -156,7 +157,7 @@ mod tests;
 // library re-export) resolve unchanged. Only `pub` / `pub(crate)` items are
 // re-exported; private helpers stay encapsulated in their concern module.
 pub(crate) use constants::*;
-pub(crate) use covariate_blocks::*;
+pub use covariate_blocks::*;
 pub(crate) use dense_linalg::*;
 pub use error::*;
 pub(crate) use family::*;
@@ -165,10 +166,10 @@ pub(crate) use moments::*;
 pub use predict::*;
 pub(crate) use prepare::*;
 pub use residual_dist::*;
-pub(crate) use row_kernel::*;
+pub use row_kernel::*;
 pub use spec::*;
 pub use time_block::*;
-pub(crate) use wiggle_geometry::*;
+pub use wiggle_geometry::*;
 // `family_solver` carries the public effective-jacobian entry point
 // (`survival_location_scale_block_effective_jacobian`,
 // `SurvivalLocationScaleChannelHessian`) consumed via the

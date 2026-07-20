@@ -123,14 +123,6 @@ impl LocalSpanCubic {
 }
 
 pub const ANCHORED_DEVIATION_KERNEL: &str = "DenestedCubicTransport";
-/// Default normalized non-affine branch tolerance used by [`branch_cell`].
-///
-/// Keep this cutoff explicit and hill-climbable: the large-scale cycle-0
-/// sweep evaluated `{1e-12, 1e-10, 1e-8, 1e-6, 1e-4, 1e-3}` against the
-/// legacy transport path.  The more aggressive candidates require an
-/// end-to-end beta acceptance run before promotion; the default therefore
-/// remains the legacy `1e-10` value to preserve bit-for-bit model behavior.
-pub const NORMALIZED_CELL_BRANCH_TOL: f64 = 1e-10;
 
 const INV_TWO_PI: f64 = 1.0 / std::f64::consts::TAU;
 
@@ -923,28 +915,6 @@ pub enum ExactCellBranch {
     Sextic,
 }
 
-/// Auto-tune the per-cell affine/non-affine branch tolerance from the cell's
-/// own coefficient magnitudes.
-///
-/// The legacy `branch_cell` compared the normalized cubic coefficients
-/// `(k2, k3)` against a single global constant.  That constant is calibrated
-/// for cells whose anchor coefficients `(c0, c1)` are O(1).  When the anchor
-/// dominates — e.g. a tail cell with `|c0|, |c1| >> 1` — a relative criterion
-/// against the anchor magnitude is more numerically meaningful than the bare
-/// global threshold, because the affine contribution to `eta` already absorbs
-/// any difference at the chosen scale.
-///
-/// The returned tolerance is always at least [`NORMALIZED_CELL_BRANCH_TOL`],
-/// so cells with O(1) anchors recover bit-identical classification with the
-/// legacy code path.  This preserves numerical equivalence for the
-/// established `cubic_cell_kernel` tests, including the
-/// `tuned_branch_tolerance_matches_legacy_non_affine_transport_grid` grid.
-#[inline]
-fn effective_branch_tol(cell: DenestedCubicCell) -> f64 {
-    let anchor_scale = cell.c0.abs().max(cell.c1.abs()).max(1.0);
-    NORMALIZED_CELL_BRANCH_TOL * anchor_scale
-}
-
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct DenestedCubicCell {
     pub left: f64,
@@ -1279,7 +1249,7 @@ fn tail_cell_cache_key(
     cell: DenestedCubicCell,
     max_degree: usize,
 ) -> Option<TailCellMomentCacheKey> {
-    if cell.c2.abs() > NORMALIZED_CELL_BRANCH_TOL || cell.c3.abs() > NORMALIZED_CELL_BRANCH_TOL {
+    if cell.c2 != 0.0 || cell.c3 != 0.0 {
         return None;
     }
     match (!cell.left.is_finite(), !cell.right.is_finite()) {
@@ -1843,27 +1813,15 @@ pub fn reduce_sextic_moments(
         ))
         .into());
     }
-    if let Some(lower_branch) = degenerate_sextic_branch(cell, lead)? {
-        if lower_branch == ExactCellBranch::Quartic {
-            return evaluate_non_affine_cell_state(
-                DenestedCubicCell { c3: 0.0, ..cell },
-                ExactCellBranch::Quartic,
-                max_degree,
-            )
+    let recurrence_scale = d[..5]
+        .iter()
+        .fold(1.0_f64, |scale, coefficient| scale.max(coefficient.abs()));
+    if lead.abs() <= f64::EPSILON * recurrence_scale {
+        // Dividing the recurrence by an unresolved leading coefficient is
+        // ill-conditioned. Preserve the exact cubic and use the canonical
+        // fixed-rule transport; lowering its degree would change the model.
+        return evaluate_non_affine_cell_state(cell, ExactCellBranch::Sextic, max_degree)
             .map(|state| state.moments.into_vec());
-        }
-        return evaluate_affine_cell_state(
-            DenestedCubicCell {
-                left: cell.left,
-                right: cell.right,
-                c0: cell.c0,
-                c1: cell.c1,
-                c2: 0.0,
-                c3: 0.0,
-            },
-            max_degree,
-        )
-        .map(|state| state.moments.into_vec());
     }
     let mut moments = vec![0.0; max_degree + 1];
     for (idx, value) in base_m0_m4.into_iter().enumerate() {
@@ -2962,9 +2920,7 @@ where
     let left_score_span = score_span_at(left_probe)?;
     let left_link_span = link_span_at(a + b * left_probe)?;
     let left_coeffs = denested_cell_coefficients(left_score_span, left_link_span, a, b);
-    if left_coeffs[2].abs() > NORMALIZED_CELL_BRANCH_TOL
-        || left_coeffs[3].abs() > NORMALIZED_CELL_BRANCH_TOL
-    {
+    if left_coeffs[2] != 0.0 || left_coeffs[3] != 0.0 {
         return Err(CubicCellKernelError::invalid_cell_shape(format!(
             "left tail cell must be affine (deviations constant outside support), \
              got c2={:.3e}, c3={:.3e}",
@@ -3020,9 +2976,7 @@ where
     let right_score_span = score_span_at(right_probe)?;
     let right_link_span = link_span_at(a + b * right_probe)?;
     let right_coeffs = denested_cell_coefficients(right_score_span, right_link_span, a, b);
-    if right_coeffs[2].abs() > NORMALIZED_CELL_BRANCH_TOL
-        || right_coeffs[3].abs() > NORMALIZED_CELL_BRANCH_TOL
-    {
+    if right_coeffs[2] != 0.0 || right_coeffs[3] != 0.0 {
         return Err(CubicCellKernelError::invalid_cell_shape(format!(
             "right tail cell must be affine (deviations constant outside support), \
              got c2={:.3e}, c3={:.3e}",
@@ -3049,40 +3003,10 @@ where
 }
 
 #[inline]
-pub fn normalized_non_affine_coefficients(
-    left: f64,
-    right: f64,
-    c0: f64,
-    c1: f64,
-    c2: f64,
-    c3: f64,
-) -> Result<(f64, f64), String> {
-    let width = right - left;
-    if !width.is_finite() || width <= 0.0 {
-        return Err(CubicCellKernelError::invalid_cell_shape(format!(
-            "normalized cubic coefficients require a positive finite cell width, got left={left}, right={right}"
-        ))
-        .into());
-    }
-    let anchor_scale = c0.abs() + c1.abs();
-    if !anchor_scale.is_finite() {
-        return Err(CubicCellKernelError::invalid_cell_shape(format!(
-            "normalized cubic coefficients require finite affine coefficients, got c0={c0}, c1={c1}"
-        ))
-        .into());
-    }
-    let mid = 0.5 * (left + right);
-    let half = 0.5 * width;
-    let k2 = half * half * (c2 + 3.0 * c3 * mid);
-    let k3 = c3 * half * half * half;
-    Ok((k2, k3))
-}
-
-#[inline]
 pub fn branch_cell(cell: DenestedCubicCell) -> Result<ExactCellBranch, String> {
-    let tol = effective_branch_tol(cell);
+    validate_cell_inputs(cell)?;
     if !cell.left.is_finite() || !cell.right.is_finite() {
-        if cell.c2.abs() <= tol && cell.c3.abs() <= tol {
+        if cell.c2 == 0.0 && cell.c3 == 0.0 {
             return Ok(ExactCellBranch::Affine);
         }
         return Err(CubicCellKernelError::invalid_cell_shape(format!(
@@ -3091,36 +3015,21 @@ pub fn branch_cell(cell: DenestedCubicCell) -> Result<ExactCellBranch, String> {
         ))
         .into());
     }
-    let (k2, k3) = normalized_non_affine_coefficients(
-        cell.left, cell.right, cell.c0, cell.c1, cell.c2, cell.c3,
-    )?;
-    if k2.abs() <= tol && k3.abs() <= tol {
+    if cell.right <= cell.left {
+        return Err(CubicCellKernelError::invalid_cell_shape(format!(
+            "finite cell must have left < right, got [{}, {}]",
+            cell.left, cell.right
+        ))
+        .into());
+    }
+    // These are exact polynomial classes, not approximation bands. Numerical
+    // conditioning is handled inside the evaluator without erasing terms.
+    if cell.c2 == 0.0 && cell.c3 == 0.0 {
         Ok(ExactCellBranch::Affine)
-    } else if k3.abs() <= tol {
+    } else if cell.c3 == 0.0 {
         Ok(ExactCellBranch::Quartic)
     } else {
         Ok(ExactCellBranch::Sextic)
-    }
-}
-
-#[inline]
-fn degenerate_sextic_branch(
-    cell: DenestedCubicCell,
-    lead: f64,
-) -> Result<Option<ExactCellBranch>, String> {
-    // The sextic recurrence divides by `lead = 3*c3^2`. When that division is
-    // unstable, lower the polynomial degree without discarding a material
-    // quadratic coefficient.
-    let (normalized_k2, normalized_k3) = normalized_non_affine_coefficients(
-        cell.left, cell.right, cell.c0, cell.c1, cell.c2, cell.c3,
-    )?;
-    if normalized_k3.abs() > NORMALIZED_CELL_BRANCH_TOL && lead.abs() > 1e-18 {
-        return Ok(None);
-    }
-    if normalized_k2.abs() > NORMALIZED_CELL_BRANCH_TOL {
-        Ok(Some(ExactCellBranch::Quartic))
-    } else {
-        Ok(Some(ExactCellBranch::Affine))
     }
 }
 
@@ -3493,7 +3402,12 @@ fn affine_anchor_moment_vector_into(
     }
 }
 
-fn affine_value_from_moment_primitive(alpha: f64, beta: f64, left: f64, right: f64) -> f64 {
+fn affine_value_from_moment_primitive(
+    alpha: f64,
+    beta: f64,
+    left: f64,
+    right: f64,
+) -> Result<f64, String> {
     // Exact formula via bivariate normal CDF.
     //
     // V(α,β,l,r) = ∫_l^r Φ(α+βz)φ(z)dz
@@ -3508,7 +3422,49 @@ fn affine_value_from_moment_primitive(alpha: f64, beta: f64, left: f64, right: f
     let s = (1.0 + beta * beta).sqrt();
     let h = alpha / s;
     let rho = -beta / s;
-    bivariate_normal_cdf_interval(h, left, right, rho).unwrap_or(0.0)
+    bivariate_normal_cdf_interval(h, left, right, rho)
+}
+
+fn validate_cell_inputs(cell: DenestedCubicCell) -> Result<(), String> {
+    for (name, value) in [
+        ("c0", cell.c0),
+        ("c1", cell.c1),
+        ("c2", cell.c2),
+        ("c3", cell.c3),
+    ] {
+        if !value.is_finite() {
+            return Err(CubicCellKernelError::invalid_cell_shape(format!(
+                "cell coefficient {name} must be finite, got {value}"
+            ))
+            .into());
+        }
+    }
+    if cell.left.is_nan() || cell.right.is_nan() || cell.left >= cell.right {
+        return Err(CubicCellKernelError::invalid_cell_shape(format!(
+            "cell bounds must satisfy left < right without NaN, got [{}, {}]",
+            cell.left, cell.right
+        ))
+        .into());
+    }
+    Ok(())
+}
+
+fn validate_affine_cell_inputs(cell: DenestedCubicCell, max_degree: usize) -> Result<(), String> {
+    validate_cell_inputs(cell)?;
+    if cell.c2 != 0.0 || cell.c3 != 0.0 {
+        return Err(CubicCellKernelError::invalid_cell_shape(format!(
+            "affine cell requires c2=c3=0 exactly, got c2={:.6e}, c3={:.6e}",
+            cell.c2, cell.c3
+        ))
+        .into());
+    }
+    if max_degree > MAX_AFFINE_ANCHOR_DEGREE {
+        return Err(CubicCellKernelError::invalid_cell_shape(format!(
+            "affine cell moment degree {max_degree} exceeds supported maximum {MAX_AFFINE_ANCHOR_DEGREE}"
+        ))
+        .into());
+    }
+    Ok(())
 }
 
 /// Evaluate an affine cell (c2=c3=0) with a value/moment-consistent primitive.
@@ -3521,9 +3477,10 @@ pub fn evaluate_affine_cell_state(
     cell: DenestedCubicCell,
     max_degree: usize,
 ) -> Result<CellMomentState, String> {
+    validate_affine_cell_inputs(cell, max_degree)?;
     let alpha = cell.c0;
     let beta = cell.c1;
-    let value = affine_value_from_moment_primitive(alpha, beta, cell.left, cell.right);
+    let value = affine_value_from_moment_primitive(alpha, beta, cell.left, cell.right)?;
     let moments = affine_anchor_moment_vector(alpha, beta, cell.left, cell.right, max_degree);
     Ok(CellMomentState {
         branch: ExactCellBranch::Affine,
@@ -3536,6 +3493,7 @@ fn evaluate_affine_cell_derivative_state(
     cell: DenestedCubicCell,
     max_degree: usize,
 ) -> Result<CellDerivativeMomentState, String> {
+    validate_affine_cell_inputs(cell, max_degree)?;
     let alpha = cell.c0;
     let beta = cell.c1;
     let moments = affine_anchor_moment_vector(alpha, beta, cell.left, cell.right, max_degree);
@@ -3977,14 +3935,14 @@ fn evaluate_cell_state_dispatched<S>(
     affine: fn(DenestedCubicCell, usize) -> Result<S, String>,
     non_affine: fn(DenestedCubicCell, ExactCellBranch, usize) -> Result<S, String>,
 ) -> Result<S, String> {
+    validate_cell_inputs(cell)?;
     let left_inf = !cell.left.is_finite();
     let right_inf = !cell.right.is_finite();
     if left_inf || right_inf {
         // Semi-infinite tail cells must be affine: the deviation saturates
         // to a constant outside support, so c2=c3=0.  Both the BVN CDF
         // and the truncated-Gaussian moment vector handle infinite bounds.
-        if cell.c2.abs() > NORMALIZED_CELL_BRANCH_TOL || cell.c3.abs() > NORMALIZED_CELL_BRANCH_TOL
-        {
+        if cell.c2 != 0.0 || cell.c3 != 0.0 {
             return Err(CubicCellKernelError::invalid_cell_shape(format!(
                 "semi-infinite cell [{}, {}] must be affine (c2=c3=0), got c2={:.3e}, c3={:.3e}",
                 cell.left, cell.right, cell.c2, cell.c3
@@ -4003,36 +3961,6 @@ fn evaluate_cell_state_dispatched<S>(
     let branch = branch_cell(cell)?;
     if branch == ExactCellBranch::Affine {
         return affine(cell, max_degree);
-    }
-    if branch == ExactCellBranch::Sextic {
-        let lead = sextic_qprime_coefficients(cell.c0, cell.c1, cell.c2, cell.c3)[5];
-        if !lead.is_finite() {
-            return Err(CubicCellKernelError::invalid_cell_shape(format!(
-                "sextic cell evaluation encountered non-finite leading coefficient: {lead:.3e}"
-            ))
-            .into());
-        }
-        if let Some(lower_branch) = degenerate_sextic_branch(cell, lead)? {
-            return match lower_branch {
-                ExactCellBranch::Quartic => non_affine(
-                    DenestedCubicCell { c3: 0.0, ..cell },
-                    ExactCellBranch::Quartic,
-                    max_degree,
-                ),
-                ExactCellBranch::Affine => affine(
-                    DenestedCubicCell {
-                        c2: 0.0,
-                        c3: 0.0,
-                        ..cell
-                    },
-                    max_degree,
-                ),
-                ExactCellBranch::Sextic => Err(CubicCellKernelError::invalid_cell_shape(
-                    "internal: degenerate_sextic_branch returned Sextic as a lowered branch",
-                )
-                .into()),
-            };
-        }
     }
     non_affine(cell, branch, max_degree)
 }
@@ -4673,6 +4601,137 @@ mod tests {
         }
     }
 
+    /// #2293 regression at the exact failure boundary: the affine primitive
+    /// must propagate a BVN-domain error instead of substituting the plausible
+    /// probability `0.0`. This calls the private primitive directly so the
+    /// public cell validator below cannot intercept the malformed state first;
+    /// restoring `unwrap_or(0.0)` would make these cases return `Ok(0.0)` and
+    /// fail this test.
+    #[test]
+    fn affine_value_primitive_propagates_bvn_errors_2293() {
+        for (case, result) in [
+            (
+                "non-finite standardized threshold",
+                affine_value_from_moment_primitive(f64::NAN, -0.35, -0.9, 0.8),
+            ),
+            (
+                "non-finite integration bound",
+                affine_value_from_moment_primitive(0.15, -0.35, f64::NAN, 0.8),
+            ),
+        ] {
+            let error = result.expect_err(case);
+            assert!(!error.is_empty(), "{case} must retain its BVN diagnostic");
+        }
+    }
+
+    /// Public evaluators must reject malformed cells at their validation
+    /// boundary. This is intentionally separate from
+    /// `affine_value_primitive_propagates_bvn_errors_2293`, which bypasses that
+    /// boundary to pin the internal `Result` propagation itself.
+    #[test]
+    fn affine_cell_errors_are_never_substituted_with_probability_zero_2293() {
+        let base = DenestedCubicCell {
+            left: -0.9,
+            right: 0.8,
+            c0: 0.15,
+            c1: -0.35,
+            c2: 0.0,
+            c3: 0.0,
+        };
+        for (field, invalid) in [
+            ("c0", f64::NAN),
+            ("c0", f64::INFINITY),
+            ("c1", f64::NEG_INFINITY),
+            ("c2", f64::NAN),
+            ("c3", f64::INFINITY),
+        ] {
+            let cell = match field {
+                "c0" => DenestedCubicCell {
+                    c0: invalid,
+                    ..base
+                },
+                "c1" => DenestedCubicCell {
+                    c1: invalid,
+                    ..base
+                },
+                "c2" => DenestedCubicCell {
+                    c2: invalid,
+                    ..base
+                },
+                "c3" => DenestedCubicCell {
+                    c3: invalid,
+                    ..base
+                },
+                _ => unreachable!(),
+            };
+            assert!(evaluate_affine_cell_state(cell, 3).is_err());
+            assert!(evaluate_cell_moments_uncached(cell, 3).is_err());
+        }
+        for cell in [
+            DenestedCubicCell {
+                left: f64::NAN,
+                ..base
+            },
+            DenestedCubicCell {
+                right: f64::NAN,
+                ..base
+            },
+            DenestedCubicCell {
+                left: 1.0,
+                right: 0.0,
+                ..base
+            },
+        ] {
+            assert!(evaluate_affine_cell_state(cell, 3).is_err());
+            assert!(evaluate_cell_moments_uncached(cell, 3).is_err());
+        }
+    }
+
+    #[test]
+    fn semi_infinite_cells_require_structurally_affine_coefficients_2293() {
+        let tiny_curvature = 5.0e-11;
+        for cell in [
+            DenestedCubicCell {
+                left: f64::NEG_INFINITY,
+                right: 0.5,
+                c0: 0.2,
+                c1: -0.1,
+                c2: tiny_curvature,
+                c3: 0.0,
+            },
+            DenestedCubicCell {
+                left: -0.5,
+                right: f64::INFINITY,
+                c0: 0.2,
+                c1: -0.1,
+                c2: 0.0,
+                c3: -tiny_curvature,
+            },
+        ] {
+            assert!(branch_cell(cell).is_err());
+            assert!(evaluate_cell_moments_uncached(cell, 3).is_err());
+            assert!(tail_cell_cache_key(cell, 3).is_none());
+        }
+    }
+
+    #[test]
+    fn large_affine_anchor_cannot_hide_finite_cell_curvature_2321() {
+        let cell = DenestedCubicCell {
+            left: -1.0,
+            right: 1.0,
+            c0: 1.0e8,
+            c1: -2.0e7,
+            c2: -7.895_512e-3,
+            c3: -2.973_499e-3,
+        };
+
+        assert_eq!(branch_cell(cell).unwrap(), ExactCellBranch::Sextic);
+        assert_ne!(
+            evaluate_cell_moments_uncached(cell, 9).unwrap().branch,
+            ExactCellBranch::Affine
+        );
+    }
+
     #[test]
     fn affine_cell_value_matches_zero_moment_derivative() {
         let cell = DenestedCubicCell {
@@ -4965,23 +5024,23 @@ mod tests {
     }
 
     #[test]
-    fn branch_selection_uses_normalized_non_affine_coefficients() {
+    fn branch_selection_uses_exact_polynomial_degree() {
         let affine = DenestedCubicCell {
             left: -1.0,
             right: 1.0,
             c0: 0.1,
             c1: -0.4,
-            c2: 1e-13,
-            c3: -1e-13,
+            c2: 0.0,
+            c3: 0.0,
         };
         let quartic = DenestedCubicCell {
             c2: 2e-4,
-            c3: 1e-13,
+            c3: 0.0,
             ..affine
         };
         let sextic = DenestedCubicCell {
             c2: 2e-4,
-            c3: 5e-3,
+            c3: -1e-13,
             ..affine
         };
         assert_eq!(branch_cell(affine).unwrap(), ExactCellBranch::Affine);
@@ -5083,7 +5142,7 @@ mod tests {
     }
 
     #[test]
-    fn degenerate_sextic_branch_preserves_quadratic_coefficient() {
+    fn ill_conditioned_sextic_recurrence_preserves_the_exact_cubic() {
         let cell = DenestedCubicCell {
             left: -1.0,
             right: 1.0,
@@ -5095,8 +5154,9 @@ mod tests {
         assert_eq!(branch_cell(cell).unwrap(), ExactCellBranch::Sextic);
 
         let state = evaluate_cell_moments(cell, 9).expect("degenerate sextic cell");
-        let quartic_cell = DenestedCubicCell { c3: 0.0, ..cell };
-        let quartic = evaluate_cell_moments(quartic_cell, 9).expect("quartic cell");
+        let reduced = reduce_sextic_moments(cell, [0.0; 5], 9)
+            .expect("ill-conditioned recurrence must use exact transport");
+        assert_eq!(reduced.as_slice(), state.moments.as_slice());
         let affine = evaluate_affine_cell_state(
             DenestedCubicCell {
                 c2: 0.0,
@@ -5107,15 +5167,7 @@ mod tests {
         )
         .expect("affine cell");
 
-        assert_eq!(state.branch, ExactCellBranch::Quartic);
-        for k in 0..=9 {
-            assert!(
-                (state.moments[k] - quartic.moments[k]).abs() < 1e-12,
-                "lowered moment M{k} should match the quartic cell: {} vs {}",
-                state.moments[k],
-                quartic.moments[k]
-            );
-        }
+        assert_eq!(state.branch, ExactCellBranch::Sextic);
         assert!(
             (state.moments[0] - affine.moments[0]).abs() > 1e-4,
             "degenerate sextic handling must not drop the nonzero c2 term"

@@ -5,10 +5,12 @@ import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+from schemathesis.auths import ReauthState
 from schemathesis.checks import RunChecks
 from schemathesis.config import ProjectConfig
 from schemathesis.core import NOT_SET, NotSet
 from schemathesis.core.error_feedback import ErrorFeedbackStore
+from schemathesis.core.statistic import StatefulInference
 from schemathesis.engine._lazy import LazyInit
 from schemathesis.engine.control import ExecutionControl
 from schemathesis.engine.health import HealthState
@@ -63,6 +65,7 @@ class EngineContext:
         "_checks_lock",
         "_constants_extraction",
         "_constants_extraction_lock",
+        "reauth",
     )
 
     def __init__(
@@ -99,6 +102,7 @@ class EngineContext:
         self._checks_lock = threading.Lock()
         self._constants_extraction = LazyInit.UNSET
         self._constants_extraction_lock = threading.Lock()
+        self.reauth = ReauthState(retry_on_statuses=schema.reauth_retry_statuses)
 
     def _repr_pretty_(self, *args: Any, **kwargs: Any) -> None: ...
 
@@ -132,8 +136,8 @@ class EngineContext:
         if self.observations is not None:
             self.observations.extract_observations_from(recorder)
 
-    def apply_stateful_inference(self) -> int:
-        """Discover spec-specific stateful transitions; return the number available."""
+    def apply_stateful_inference(self) -> StatefulInference:
+        """Discover spec-specific stateful transitions; return the counts available."""
         return self.schema.apply_stateful_inference(self)
 
     def extract_constants(self) -> ConstantsPool:

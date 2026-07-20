@@ -286,9 +286,12 @@ where
         .map(|inf| inf.edf_total)
         .unwrap_or(0.0);
     let geometry = result.inference.as_ref().map(|inf| FitGeometry {
+        coefficient_gauge: gam_problem::Gauge::identity(&[result.beta.len()]),
         penalized_hessian: inf.penalized_hessian.clone(),
-        working_weights: inf.working_weights.clone(),
-        working_response: inf.working_response.clone(),
+        working: result.artifacts.pirls.as_ref().map(|pirls| WorkingGeometry {
+            weights: pirls.solveweights.to_owned(),
+            response: pirls.solveworking_response.to_owned(),
+        }),
     });
     let covariance_conditional = result
         .inference

@@ -393,13 +393,18 @@ fn format_g(x: f64) -> String {
 /// coordinate spectrum, and the joint firing-weighted reverse-water-filling)
 /// lives in `eq4_description_length`; this only marshals the arrays and drives
 /// the Python `atom_contribution` callback that materialises each atom's firing
-/// rows. Returns the same dict shape the NumPy scorer returned (`support_bits`,
-/// `achieved_block_l0`, `bits_at_r2_{g}` / `code_bits_at_r2_{g}` /
+/// rows. `dictionary_params` is the STORAGE-CODE decoder scalar count and
+/// `amortization_horizon` is the DECLARED dictionary-code `N` (the message /
+/// deployment / training horizon), passed separately from the `test_x` row count
+/// so the dictionary term is invariant to the estimation subsample (#2283).
+/// Returns the same dict shape the NumPy scorer returned (`support_bits`,
+/// `achieved_block_l0`, `dictionary_bits`, `estimation_rows`,
+/// `amortization_horizon`, `bits_at_r2_{g}` / `code_bits_at_r2_{g}` /
 /// `resid_bits_at_r2_{g}` per target, and `native_bits_per_token` when given).
 #[pyfunction]
 #[pyo3(signature = (
-    test_x, recon, gate, code_dims, dictionary_params, atom_contribution,
-    r2_targets = None, native_bits_per_token = None,
+    test_x, recon, gate, code_dims, dictionary_params, amortization_horizon,
+    atom_contribution, r2_targets = None, native_bits_per_token = None,
 ))]
 fn sae_eq4_description_length<'py>(
     py: Python<'py>,
@@ -408,6 +413,7 @@ fn sae_eq4_description_length<'py>(
     gate: PyReadonlyArray2<'py, f64>,
     code_dims: PyReadonlyArray1<'py, i64>,
     dictionary_params: i64,
+    amortization_horizon: i64,
     atom_contribution: Bound<'py, PyAny>,
     r2_targets: Option<Vec<f64>>,
     native_bits_per_token: Option<f64>,
@@ -450,6 +456,7 @@ fn sae_eq4_description_length<'py>(
         gate,
         &code_dims,
         dictionary_params,
+        amortization_horizon,
         &targets,
         native_bits_per_token,
         fetch,
@@ -464,6 +471,9 @@ fn sae_eq4_description_length<'py>(
     let out = PyDict::new(py);
     out.set_item("support_bits", dl.support_bits)?;
     out.set_item("achieved_block_l0", dl.achieved_block_l0)?;
+    out.set_item("dictionary_bits", dl.dictionary_bits)?;
+    out.set_item("estimation_rows", dl.estimation_rows)?;
+    out.set_item("amortization_horizon", dl.amortization_horizon)?;
     for row in &dl.per_target {
         let suffix = format_g(row.target);
         out.set_item(format!("bits_at_r2_{suffix}"), row.bits)?;
@@ -1095,20 +1105,7 @@ fn response_geometry_fit_curvature<'py>(
     values: PyReadonlyArray2<'py, f64>,
     geometry: String,
     level: f64,
-) -> PyResult<(
-    f64,
-    f64,
-    f64,
-    bool,
-    bool,
-    String,
-    f64,
-    f64,
-    bool,
-    f64,
-    f64,
-    Py<PyArray1<f64>>,
-)> {
+) -> PyResult<Py<PyDict>> {
     let arr = values.as_array().to_owned();
     let fit = detach_py_result(py, "response_geometry_fit_curvature", move || {
         let manifold =
@@ -1140,20 +1137,30 @@ fn response_geometry_fit_curvature<'py>(
         gam::geometry::CurvatureVerdict::Flat => "flat",
     }
     .to_string();
-    Ok((
-        fit.kappa_hat,
-        fit.profile_ci.ci_lo,
-        fit.profile_ci.ci_hi,
-        fit.profile_ci.lo_at_bound,
-        fit.profile_ci.hi_at_bound,
-        verdict,
-        fit.flatness.lr_stat,
-        fit.flatness.p_value,
+    // Named payload: PyO3 tuples cap at 12 elements, and a positional tuple
+    // is an arity trap every added field re-arms. Keys mirror the Rust field
+    // names one-to-one.
+    let out = PyDict::new(py);
+    out.set_item("kappa_hat", fit.kappa_hat)?;
+    out.set_item("ci_lo", fit.profile_ci.ci_lo)?;
+    out.set_item("ci_hi", fit.profile_ci.ci_hi)?;
+    out.set_item("ci_lo_at_bound", fit.profile_ci.lo_at_bound)?;
+    out.set_item("ci_hi_at_bound", fit.profile_ci.hi_at_bound)?;
+    out.set_item("verdict", verdict)?;
+    out.set_item("flatness_lr", fit.flatness.lr_stat)?;
+    out.set_item("flatness_pvalue", fit.flatness.p_value)?;
+    out.set_item(
+        "railed_at_resolution_limit",
         fit.railed_at_resolution_limit,
-        fit.kappa_r2,
-        fit.characteristic_radius,
-        fit.base.into_pyarray(py).unbind(),
-    ))
+    )?;
+    out.set_item(
+        "railed_at_hyperbolic_resolution_limit",
+        fit.railed_at_hyperbolic_resolution_limit,
+    )?;
+    out.set_item("kappa_r2", fit.kappa_r2)?;
+    out.set_item("characteristic_radius", fit.characteristic_radius)?;
+    out.set_item("base_point", fit.base.into_pyarray(py).unbind())?;
+    Ok(out.unbind())
 }
 
 /// Replicate latent-angle agreement modulo exactly the circle's `O(2)` gauge
@@ -4723,6 +4730,7 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(predict_table_full_conformal, module)?)?;
     // #1057: posterior-predictive replicate sampling from the fitted model.
     module.add_function(wrap_pyfunction!(generative_replicates, module)?)?;
+    module.add_function(wrap_pyfunction!(generative_replicate_chunk, module)?)?;
     module.add_function(wrap_pyfunction!(predict_array, module)?)?;
     module.add_function(wrap_pyfunction!(competing_risks_cif, module)?)?;
     module.add_function(wrap_pyfunction!(
@@ -4739,8 +4747,8 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
         module
     )?)?;
     module.add_function(wrap_pyfunction!(sample_table, module)?)?;
-    module.add_function(wrap_pyfunction!(design_matrix_table_dense, module)?)?;
-    module.add_function(wrap_pyfunction!(design_matrix_array, module)?)?;
+    module.add_function(wrap_pyfunction!(affine_design_table, module)?)?;
+    module.add_function(wrap_pyfunction!(affine_design_array, module)?)?;
     module.add_function(wrap_pyfunction!(
         build_difference_smooth_request_json,
         module
@@ -4945,6 +4953,7 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(sae_manifold_description_length, module)?)?;
     module.add_function(wrap_pyfunction!(sae_eq4_description_length, module)?)?;
     module.add_function(wrap_pyfunction!(sae_manifold_fit_model, module)?)?;
+    module.add_class::<Tier0SaeCore>()?;
     module.add_function(wrap_pyfunction!(sae_crosscoder_fit, module)?)?;
     module.add_class::<ManifoldCrosscoderCore>()?;
     module.add_function(wrap_pyfunction!(sae_behavior_fit, module)?)?;
@@ -5094,7 +5103,6 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(sparse_dictionary_transform_ffi, module)?)?;
     module.add_function(wrap_pyfunction!(sparse_dictionary_reconstruct_ffi, module)?)?;
     module.add_function(wrap_pyfunction!(sae_manifold_reconstruct_ffi, module)?)?;
-    module.add_function(wrap_pyfunction!(sae_manifold_steer_rows, module)?)?;
     module.add_function(wrap_pyfunction!(block_sparse_dictionary_fit, module)?)?;
     module.add_function(wrap_pyfunction!(
         fixed_budget_block_sparse_dictionary_fit,
@@ -5826,8 +5834,7 @@ fn sparse_dictionary_reconstruct_ffi<'py>(
 }
 
 #[pyfunction(signature = (
-    atom_basis,
-    atom_dim,
+    geometry_plans,
     decoder_blocks,
     coords,
     assignments,
@@ -5835,17 +5842,13 @@ fn sparse_dictionary_reconstruct_ffi<'py>(
 ))]
 fn sae_manifold_reconstruct_ffi<'py>(
     py: Python<'py>,
-    atom_basis: Vec<String>,
-    atom_dim: Vec<usize>,
+    geometry_plans: &Bound<'py, PyAny>,
     decoder_blocks: Vec<PyReadonlyArray2<'py, f64>>,
     coords: Vec<PyReadonlyArray2<'py, f64>>,
     assignments: PyReadonlyArray2<'py, f64>,
     p_out: usize,
 ) -> PyResult<Py<PyArray2<f64>>> {
-    let basis_kinds = atom_basis
-        .iter()
-        .map(|name| sae_atom_basis_kind_from_str(name))
-        .collect::<Vec<_>>();
+    let geometry_plans = sae_geometry_plans_from_py("sae_manifold_reconstruct", geometry_plans)?;
     let decoder_values = decoder_blocks
         .iter()
         .map(|block| block.as_array().to_owned())
@@ -5865,80 +5868,11 @@ fn sae_manifold_reconstruct_ffi<'py>(
             .map(|coord| coord.view())
             .collect::<Vec<_>>();
         gam::terms::sae::manifold::reconstruct_persisted_atom_set(
-            &basis_kinds,
-            &atom_dim,
+            &geometry_plans,
             &decoder_views,
             &coord_views,
             assignment_values.view(),
             p_out,
-        )
-    })?;
-    Ok(out.into_pyarray(py).unbind())
-}
-
-/// gam#2234 — on-manifold causal STEER of a persisted atom set: returns the
-/// ambient steering DELTA `a·(Φ(t⊕δ)−Φ(t))·B_k` for the single atom `steer_atom`
-/// on every row (shape `(n_rows, p_out)`), which the Python side adds to the
-/// residual-stream activation. `delta` is the intrinsic chart-coordinate step
-/// (radians / fraction-of-period per the atom's manifold); the group action
-/// `⊕` is the atom's own manifold retraction (Circle phase add, Euclidean
-/// translate, product blockwise). Thin marshalling around the single-sourced
-/// [`gam::terms::sae::manifold::steer_persisted_atom_set`], the stateless
-/// counterpart of `SaeManifoldTerm::steer_rows`, mirroring
-/// [`sae_manifold_reconstruct_ffi`].
-#[pyfunction(signature = (
-    atom_basis,
-    atom_dim,
-    decoder_blocks,
-    coords,
-    assignments,
-    p_out,
-    steer_atom,
-    delta,
-))]
-fn sae_manifold_steer_rows<'py>(
-    py: Python<'py>,
-    atom_basis: Vec<String>,
-    atom_dim: Vec<usize>,
-    decoder_blocks: Vec<PyReadonlyArray2<'py, f64>>,
-    coords: Vec<PyReadonlyArray2<'py, f64>>,
-    assignments: PyReadonlyArray2<'py, f64>,
-    p_out: usize,
-    steer_atom: usize,
-    delta: PyReadonlyArray1<'py, f64>,
-) -> PyResult<Py<PyArray2<f64>>> {
-    let basis_kinds = atom_basis
-        .iter()
-        .map(|name| sae_atom_basis_kind_from_str(name))
-        .collect::<Vec<_>>();
-    let decoder_values = decoder_blocks
-        .iter()
-        .map(|block| block.as_array().to_owned())
-        .collect::<Vec<_>>();
-    let coord_values = coords
-        .iter()
-        .map(|coord| coord.as_array().to_owned())
-        .collect::<Vec<_>>();
-    let assignment_values = assignments.as_array().to_owned();
-    let delta_values = delta.as_array().to_owned();
-    let out = detach_py_result(py, "sae_manifold_steer_rows", move || {
-        let decoder_views = decoder_values
-            .iter()
-            .map(|block| block.view())
-            .collect::<Vec<_>>();
-        let coord_views = coord_values
-            .iter()
-            .map(|coord| coord.view())
-            .collect::<Vec<_>>();
-        gam::terms::sae::manifold::steer_persisted_atom_set(
-            &basis_kinds,
-            &atom_dim,
-            &decoder_views,
-            &coord_views,
-            assignment_values.view(),
-            p_out,
-            steer_atom,
-            delta_values.view(),
         )
     })?;
     Ok(out.into_pyarray(py).unbind())
@@ -6911,6 +6845,7 @@ fn fit_dataset_impl(
             expectile_result.adaptive_diagnostics,
             expectile_result.wiggle_knots.map(|knots| knots.to_vec()),
             expectile_result.wiggle_degree,
+            expectile_result.wiggle_penalty_metadata,
             expectile_result.wiggle_saved_warp_beta,
             // Expectile LAWS is Gaussian-identity; it never engages the binomial
             // frozen-basis de-aliasing, so there is no frozen-index shift (#2141).
@@ -6981,6 +6916,7 @@ fn fit_dataset_impl(
                         standard_result.adaptive_diagnostics,
                         standard_result.wiggle_knots.map(|knots| knots.to_vec()),
                         standard_result.wiggle_degree,
+                        standard_result.wiggle_penalty_metadata,
                         standard_result.wiggle_saved_warp_beta,
                         standard_result.wiggle_saved_index_shift,
                     )?
@@ -7019,6 +6955,7 @@ fn fit_dataset_impl(
                             dataset.headers.clone(),
                             dataset.feature_ranges(),
                         );
+                    scan_payload.weight_column = fit_config.weight_column.clone();
                     scan_payload.group_metadata = fit_config.group_metadata.clone();
                     scan_payload.training_table_kind = fit_config.training_table_kind.clone();
                     scan_payload.inference_notes = inference_notes;
@@ -7204,7 +7141,6 @@ fn fit_dataset_impl(
             )?
         }
         FitRequest::SurvivalLocationScale(ls_request) => {
-            let weights = ls_request.spec.weights.clone();
             let fit_result = fit_model(FitRequest::SurvivalLocationScale(ls_request))?;
             let ls_result = match fit_result {
                 FitResult::SurvivalLocationScale(result) => result,
@@ -7215,13 +7151,7 @@ fn fit_dataset_impl(
                     });
                 }
             };
-            build_survival_location_scale_ffi_payload(
-                formula,
-                &dataset,
-                &fit_config,
-                &weights,
-                ls_result,
-            )?
+            build_survival_location_scale_ffi_payload(formula, &dataset, &fit_config, ls_result)?
         }
         FitRequest::SurvivalTransformation(rp_request) => {
             let fit_result = fit_model(FitRequest::SurvivalTransformation(rp_request))?;
@@ -7828,7 +7758,12 @@ fn validate_formula_dataset_json_impl(
         });
         fit_config.z_column = Some(VALIDATION_PLACEHOLDER_Z.to_string());
     }
-    let materialized = materialize(&formula, &dataset, &fit_config)?;
+    // Structural-only: validate must NOT fit. The survival baseline-θ resolution
+    // (a real BFGS-over-`fit_model` inner fit for location-scale / latent modes)
+    // is skipped, so a non-converging baseline fit can no longer surface as a
+    // validation error. Metadata (family / model_class / support / schema) is
+    // unchanged by the baseline-θ optimization, so the payload is identical.
+    let materialized = materialize_structural(&formula, &dataset, &fit_config)?;
     let (family_name, model_class, supported_by_python) = request_metadata(&materialized.request);
     let response_column = response_column_name(&formula);
     let payload = ValidationPayload {
@@ -7998,7 +7933,7 @@ fn predict_array_impl(
         return Err("predict_array does not support survival prediction payloads".to_string());
     }
     let options = parse_predict_options(options_json)?;
-    let columns = predict_columns(&model, dataset, &options)?;
+    let (columns, _provenance) = predict_columns(&model, dataset, &options)?;
     // Parity with `predict()` (#1537): with no interval requested, return the
     // single response-scale `mean` column as an `(n, 1)` array — the Python
     // wrapper ravels it to the documented 1-D response-scale prediction vector.
@@ -8026,7 +7961,7 @@ fn predict_dataset_impl(
     if matches!(model_class, PredictModelClass::Survival) {
         return predict_table_survival(model, &dataset, &options);
     }
-    let columns = predict_columns(model, dataset, &options)?;
+    let (columns, provenance) = predict_columns(model, dataset, &options)?;
     serde_json::to_string(&PredictionPayload {
         columns,
         model_class: prediction_model_class_label(model),
@@ -8035,20 +7970,65 @@ fn predict_dataset_impl(
         // predictive band (or no interval at all); the jackknife+ provenance
         // tag is only attached by the dedicated full-conformal predict entry.
         interval_method: None,
+        // Result-owned provenance (#2296): both fields come from what the
+        // evaluator reports it consumed, never from the request string. The
+        // curved-link posterior-mean point is conditional by definition even
+        // when the band is smoothing-corrected, so the two are separate tags.
+        covariance_source: provenance
+            .uncertainty
+            .map(|source| source.as_str().to_string()),
+        point_covariance_source: provenance.point.map(|source| source.as_str().to_string()),
     })
     .map_err(|err| format!("failed to serialize prediction payload: {err}"))
+}
+
+/// Result-owned covariance provenance for a `predict_columns` call (#2296):
+/// what the evaluator actually consumed for the point estimate and for the
+/// attached SE/band. Presenters serialize these values; the request string is
+/// never evidence.
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct PredictColumnsCovarianceProvenance {
+    pub(crate) point: Option<gam_predict::InferenceCovarianceMode>,
+    pub(crate) uncertainty: Option<gam_predict::InferenceCovarianceMode>,
 }
 
 fn predict_columns(
     model: &FittedModel,
     dataset: EncodedDataset,
     options: &PyPredictOptions,
-) -> Result<BTreeMap<String, Vec<f64>>, String> {
+) -> Result<
+    (
+        BTreeMap<String, Vec<f64>>,
+        PredictColumnsCovarianceProvenance,
+    ),
+    String,
+> {
     let col_map = dataset.column_map();
     // Spline-scan saved model (#1030/#1034): replay the exact Gaussian bridge
     // per row (identity link, η == mean). No design reconstruction, no
     // predictor. SE/intervals come from the exact posterior variance.
     if let Some((feature_column, fit)) = model.saved_spline_scan().map_err(String::from)? {
+        // #2296: the scan bridge's exact posterior variance is conditional on
+        // the profiled smoothing parameter — the COMPLETE uncertainty story
+        // for this model class (lambda is profiled; no corrected object
+        // exists to misrepresent). An EXPLICIT smoothing-corrected request
+        // therefore refuses rather than silently delivering conditional
+        // bands under a corrected policy, while the DEFAULT (no mode named)
+        // resolves to the class's best-available definition and is labeled
+        // `conditional` in the result-owned provenance below — never an ad
+        // hoc scan label, never an unlabeled substitution.
+        if options.interval.is_some()
+            && parse_covariance_mode(options.covariance_mode.as_deref())?
+                == Some(gam_predict::InferenceCovarianceMode::SmoothingCorrected)
+        {
+            return Err(
+                "exact spline-scan uncertainty carries only the conditional-on-\u{3bb}\u{302} \
+                 posterior variance; a smoothing-corrected (Vp) band is not persisted for \
+                 scan fits (#2296). Pass covariance_mode=\"conditional\" (or omit the mode) to accept \
+                 labeled conditional intervals."
+                    .to_string(),
+            );
+        }
         let col = *col_map.get(feature_column).ok_or_else(|| {
             format!("prediction data is missing the model's feature column '{feature_column}'")
         })?;
@@ -8092,7 +8072,15 @@ fn predict_columns(
             columns.insert("mean_lower".to_string(), lower);
             columns.insert("mean_upper".to_string(), upper);
         }
-        return Ok(columns);
+        return Ok((
+            columns,
+            PredictColumnsCovarianceProvenance {
+                point: None,
+                uncertainty: options
+                    .interval
+                    .map(|_| gam_predict::InferenceCovarianceMode::Conditional),
+            },
+        ));
     }
     let offset = resolve_offset_column(&dataset, &col_map, model.offset_column.as_deref())?;
     let offset_noise =
@@ -8160,6 +8148,7 @@ fn predict_columns(
     // boundary to linear_predictor / std_error, and effective_variance is
     // dropped (== std_error ** 2). The internal Rust fields keep their
     // theoretic names because they describe the math object.
+    let mut provenance = PredictColumnsCovarianceProvenance::default();
     match (options.interval, uses_posterior_mean) {
         (Some(confidence_level), true) => {
             // Curved inverse link + interval: the canonical posterior-mean path
@@ -8173,7 +8162,7 @@ fn predict_columns(
             // (#812). The posterior-mean *point* stays conditional regardless of
             // mode (issue #398); only the reported uncertainty responds.
             let covariance_mode = parse_covariance_mode(options.covariance_mode.as_deref())?
-                .unwrap_or(gam_predict::InferenceCovarianceMode::ConditionalPlusSmoothingPreferred);
+                .unwrap_or(gam_predict::InferenceCovarianceMode::SmoothingCorrected);
             let posterior_options = gam_predict::PosteriorMeanOptions {
                 confidence_level: Some(confidence_level),
                 covariance_mode,
@@ -8184,6 +8173,10 @@ fn predict_columns(
                 .map_err(|err| {
                     format!("posterior-mean prediction with uncertainty failed: {err}")
                 })?;
+            provenance = PredictColumnsCovarianceProvenance {
+                point: Some(prediction.point_covariance_source),
+                uncertainty: prediction.uncertainty_covariance_source,
+            };
             let (mean_lower, mean_upper) = prediction
                 .mean_lower
                 .zip(prediction.mean_upper)
@@ -8228,12 +8221,12 @@ fn predict_columns(
             // link-wiggle path that never bias-corrects; bias-aware coverage is
             // already supplied by the smoothing-corrected covariance.
             //
-            // CLI<->Python parity: `covariance_mode` (default smoothing-preferred,
+            // CLI<->Python parity: `covariance_mode` (default smoothing-corrected,
             // matching the prior hardcode) and `observation_interval` are now
             // user-selectable, mirroring `gam predict --covariance-mode` and the
             // engine's `includeobservation_interval` switch.
             let covariance_mode = parse_covariance_mode(options.covariance_mode.as_deref())?
-                .unwrap_or(gam_predict::InferenceCovarianceMode::ConditionalPlusSmoothingPreferred);
+                .unwrap_or(gam_predict::InferenceCovarianceMode::SmoothingCorrected);
             let includeobservation_interval = options.observation_interval.unwrap_or(false);
             let uncertainty_options = gam_predict::PredictUncertaintyOptions {
                 confidence_level,
@@ -8250,6 +8243,12 @@ fn predict_columns(
             let prediction = predictor
                 .predict_full_uncertainty(&predict_input, &fit, &uncertainty_options)
                 .map_err(|err| format!("prediction with uncertainty failed: {err}"))?;
+            provenance = PredictColumnsCovarianceProvenance {
+                // The linear-link plug-in point consults no coefficient
+                // covariance; only the band does.
+                point: None,
+                uncertainty: Some(prediction.covariance_source),
+            };
             columns.insert("linear_predictor".to_string(), prediction.eta.to_vec());
             columns.insert("mean".to_string(), prediction.mean.to_vec());
             // Response-scale SE beside the response-scale mean/band (#1536):
@@ -8279,6 +8278,10 @@ fn predict_columns(
                     &gam_predict::PosteriorMeanOptions::point_only(),
                 )
                 .map_err(|err| format!("posterior-mean prediction failed: {err}"))?;
+            provenance = PredictColumnsCovarianceProvenance {
+                point: Some(prediction.point_covariance_source),
+                uncertainty: None,
+            };
             columns.insert("linear_predictor".to_string(), prediction.eta.to_vec());
             columns.insert("mean".to_string(), prediction.mean.to_vec());
         }
@@ -8308,7 +8311,7 @@ fn predict_columns(
         columns.insert("noise_scale".to_string(), noise_scale.to_vec());
     }
 
-    Ok(columns)
+    Ok((columns, provenance))
 }
 
 /// Build the held-out calibration fold needed by the conformal calibrator: a
@@ -8408,7 +8411,7 @@ fn predict_columns_conformal(
     let family = model_likelihood_spec(model);
 
     let covariance_mode = parse_covariance_mode(options.covariance_mode.as_deref())?
-        .unwrap_or(gam_predict::InferenceCovarianceMode::ConditionalPlusSmoothingPreferred);
+        .unwrap_or(gam_predict::InferenceCovarianceMode::SmoothingCorrected);
     let uncertainty_options = gam_predict::PredictUncertaintyOptions {
         confidence_level: level,
         covariance_mode,
@@ -8494,6 +8497,8 @@ fn predict_encoded_table_conformal_impl(
         interval_method: Some(
             "split-conformal (distribution-free, finite-sample marginal coverage)".to_string(),
         ),
+        covariance_source: None,
+        point_covariance_source: None,
     })
     .map_err(|err| format!("failed to serialize conformal prediction payload: {err}"))
 }
@@ -8612,6 +8617,8 @@ fn predict_encoded_table_jackknife_plus_impl(
             conformal_level * 100.0,
             (2.0 * conformal_level - 1.0).max(0.0) * 100.0
         )),
+        covariance_source: None,
+        point_covariance_source: None,
     })
     .map_err(|err| format!("failed to serialize jackknife+ prediction payload: {err}"))
 }
@@ -8741,6 +8748,8 @@ fn predict_encoded_table_full_conformal_impl(
              frozen_rho_certified=1, under the global-ρ grid-Lipschitz assumption)",
             conformal_level * 100.0
         )),
+        covariance_source: None,
+        point_covariance_source: None,
     })
     .map_err(|err| format!("failed to serialize full-conformal prediction payload: {err}"))
 }
@@ -8809,15 +8818,12 @@ fn predict_table_jackknife_plus(
 ///   1. Run the plug-in predictor to get `mean` (response scale).
 ///   2. Derive the `NoiseModel` from the saved `LikelihoodSpec` + fitted
 ///      dispersion (`standard_deviation` / `likelihood_scale`).
-///   3. Call `sampleobservation_replicates` with a seeded `StdRng`.
+///   3. Draw the seekable, independently seeded global replicate range.
 ///
 /// Returns a row-major flat `Vec<f64>` of shape `(n_draws, n_rows)` plus the
 /// two dimensions, so the Python side can reshape into a numpy array without
-/// a copy. Survives any family supported by `NoiseModel::from_likelihood`
-/// (Gaussian, Poisson, Bernoulli, Gamma, Beta, NegBin, Tweedie). Survival /
-/// transformation-normal / scan-routed models are rejected early with a clear
-/// error — they are not Gauss GLMs and `generativespec_from_predict` does not
-/// cover them.
+/// a copy. Family/model-class capability dispatch lives in `gam-predict`; this
+/// FFI boundary never keeps its own allowlist or substitutes a different fit.
 #[pyfunction]
 fn generative_replicates(
     py: Python<'_>,
@@ -8830,7 +8836,7 @@ fn generative_replicates(
     rows.require_headers(&headers).map_err(py_value_error)?;
     let dataset = rows.dataset.clone();
     let result =
-        py.detach(|| generative_replicates_encoded_impl(&model_bytes, dataset, n_draws, seed));
+        py.detach(|| generative_replicates_encoded_impl(&model_bytes, dataset, 0, n_draws, seed));
     match result {
         Ok((flat, n_rows)) => {
             let arr = ndarray::Array2::<f64>::from_shape_vec((n_draws, n_rows), flat)
@@ -8841,113 +8847,73 @@ fn generative_replicates(
     }
 }
 
+/// Seekable bounded-memory chunk of the saved-model replicate stream.
+///
+/// Each global draw index owns an independent deterministic RNG stream, so
+/// adjacent calls concatenate bit-for-bit to `generative_replicates` and the
+/// caller may change chunk size without changing any draw.
+#[pyfunction]
+fn generative_replicate_chunk(
+    py: Python<'_>,
+    model_bytes: Vec<u8>,
+    headers: Vec<String>,
+    rows: PyRef<'_, PyEncodedTable>,
+    draw_start: usize,
+    n_draws: usize,
+    seed: u64,
+) -> PyResult<PyObject> {
+    rows.require_headers(&headers).map_err(py_value_error)?;
+    let dataset = rows.dataset.clone();
+    let result = py.detach(|| {
+        generative_replicates_encoded_impl(&model_bytes, dataset, draw_start, n_draws, seed)
+    });
+    match result {
+        Ok((flat, n_rows)) => {
+            let array = ndarray::Array2::<f64>::from_shape_vec((n_draws, n_rows), flat).map_err(
+                |error| py_value_error(format!("generative_replicate_chunk reshape: {error}")),
+            )?;
+            Ok(array.into_pyarray(py).into_any().unbind())
+        }
+        Err(error) => Err(py_value_error(error)),
+    }
+}
+
 fn generative_replicates_encoded_impl(
     model_bytes: &[u8],
     source: EncodedDataset,
+    draw_start: usize,
     n_draws: usize,
     seed: u64,
 ) -> Result<(Vec<f64>, usize), String> {
-    use gam::inference::generative::{generativespec_from_predict, sampleobservation_replicates};
-    use rand::SeedableRng;
+    use gam::inference::generative::sampleobservation_seeded_replicates;
     let model = load_model_impl(model_bytes)?;
-    // Only standard GAM models have a dense predictor + UnifiedFitResult.
-    if !matches!(model.predict_model_class(), PredictModelClass::Standard) {
-        return Err(format!(
-            "sample_replicates supports only standard GAM models; got '{}'. \
-             Use the appropriate posterior sampling method for this model class.",
-            prediction_model_class_label(&model)
-        ));
-    }
-    // Scan-routed models: no dense predictor, no family-based noise model.
-    if scan_introspection(&model).map_err(String::from)?.is_some() {
-        return Err(
-            "sample_replicates is not yet supported for exact O(n) scan models; \
-             refit with double_penalty=true to obtain the standard B-spline model."
-                .to_string(),
-        );
-    }
-    let family = model_likelihood_spec(&model);
-    // Reject families generativespec_from_predict cannot handle (custom /
-    // survival-parametric / latent-cloglog). They require a different noise
-    // model path not yet covered by the built-in generative engine.
-    match &family.response {
-        gam::types::ResponseFamily::Gaussian
-        | gam::types::ResponseFamily::Binomial
-        | gam::types::ResponseFamily::Poisson
-        | gam::types::ResponseFamily::NegativeBinomial { .. }
-        | gam::types::ResponseFamily::Beta { .. }
-        | gam::types::ResponseFamily::Gamma
-        | gam::types::ResponseFamily::Tweedie { .. } => {}
-        other => {
-            return Err(format!(
-                "sample_replicates does not yet support the '{}' family; \
-                 supported families: gaussian, binomial, poisson, negbin, \
-                 beta, gamma, tweedie",
-                format!("{other:?}")
-            ));
-        }
-    }
     let dataset = dataset_with_model_schema_from_encoded(&model, &source)?;
     let col_map = dataset.column_map();
     let offset = resolve_offset_column(&dataset, &col_map, model.offset_column.as_deref())?;
     let offset_noise =
         resolve_offset_column(&dataset, &col_map, model.noise_offset_column.as_deref())?;
-    // Resolve the analytic prior-weights column exactly as the mean/noise offsets
-    // are resolved above. A weighted Gaussian fit has `Var(y_i) = sigma^2 / w_i`,
-    // so replicate observation noise must be heteroskedastic in `w_i`; dropping
-    // the weights here drew every row from the pooled scalar `N(mu_i, sigma_hat^2)`
-    // (#2025). `resolve_weight_column` returns unit weights when the model carried
-    // no weight column, leaving unweighted fits unchanged.
-    //
-    // If the model was fitted with weights but the caller's replicate frame does
-    // not carry that column, fall back to unit weights rather than erroring: the
-    // #2025 heteroskedastic contract (Var(y_i)=sigma_hat^2/w_i) degrades to the
-    // pooled scalar `N(mu_i, sigma_hat^2)` when per-row weights are unavailable,
-    // which is the correct default in the absence of the column.
-    let weight_column = model
-        .weight_column
-        .as_deref()
-        .filter(|name| col_map.contains_key(*name));
-    let prior_weights = resolve_weight_column(&dataset, &col_map, weight_column)?;
-    let predict_input = build_predict_input_for_model(
+    // `None` means the SAVED fit is genuinely unweighted. A saved weight-column
+    // name must resolve in the requested rows; changing it to unit weights would
+    // change the fitted Gaussian observation law `sigma^2 / w_i`.
+    let prior_weights = match model.weight_column.as_deref() {
+        Some(column) => Some(resolve_weight_column(&dataset, &col_map, Some(column))?),
+        None => None,
+    };
+    let spec = gam_predict::generative_spec_for_saved_model(
         &model,
-        dataset.values.view(),
-        &col_map,
-        model.training_headers.as_ref(),
-        &offset,
-        &offset_noise,
-        false,
-    )?;
-    let predictor = model
-        .predictor()
-        .ok_or_else(|| "saved model could not construct a predictor".to_string())?;
-    let fit = fit_result_from_saved_model_for_prediction(&model)?;
-    let prediction = predictor
-        .predict_plugin_response(&predict_input)
-        .map_err(|e| format!("generative_replicates: prediction failed: {e}"))?;
-    let n_rows = prediction.mean.len();
-    // Extract the fitted dispersion through the SINGLE canonical picker that the
-    // CLI `gam generate` path also uses. This crate previously carried its own
-    // inline copy of the mapping, and its NB arm returned the *seed* theta
-    // (`Some(*theta)`) instead of `likelihood_scale.negbin_theta()` — so
-    // `Model.sample_replicates` drew Negative-Binomial counts at theta = 1
-    // regardless of the fitted overdispersion (the live remnant of #1124 in the
-    // Python path). Routing through `gam::inference::generative::family_noise_parameter`
-    // keeps the supported families and the interpretation of every dispersion
-    // parameter identical across the CLI and Python front-ends — the whole point
-    // of unifying the picker — so this class of bug cannot diverge again.
-    let gaussian_scale = gam::inference::generative::family_noise_parameter(
-        fit.likelihood_scale,
-        fit.standard_deviation,
-        &family,
+        gam_predict::SavedGenerativeInput {
+            data: dataset.values.view(),
+            col_map: &col_map,
+            training_headers: model.training_headers.as_ref(),
+            offset: &offset,
+            offset_noise: &offset_noise,
+            noise_offset_supplied: model.noise_offset_column.is_some(),
+            prior_weights: prior_weights.as_ref(),
+        },
     )
-    .map_err(|err| format!("generative_replicates: unresolved fitted scale: {err}"))?;
-    // Build the generative specification (mean + noise model).
-    let spec =
-        generativespec_from_predict(prediction, family, gaussian_scale, Some(&prior_weights))
-            .map_err(|e| format!("generative_replicates: spec error: {e}"))?;
-    let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
-    let draws = sampleobservation_replicates(&spec, n_draws, &mut rng)
+    .map_err(|error| format!("generative_replicates: {error}"))?;
+    let n_rows = spec.nobs();
+    let draws = sampleobservation_seeded_replicates(&spec, draw_start, n_draws, seed)
         .map_err(|e| format!("generative_replicates: sampling failed: {e}"))?;
     Ok((draws.into_raw_vec_and_offset().0, n_rows))
 }
@@ -9015,22 +8981,87 @@ fn resolve_nuts_config(model: &FittedModel, options: PySampleOptions) -> NutsCon
     }
 }
 
-fn design_matrix_encoded_table_impl(
-    model_bytes: &[u8],
-    source: EncodedDataset,
-) -> Result<Array2<f64>, String> {
-    let model = load_model_impl(model_bytes)?;
-    let dataset = dataset_with_model_schema_from_encoded(&model, &source)?;
-    design_matrix_dense(&model, dataset)
+struct DenseAffineDesign {
+    offset: Array1<f64>,
+    matrix: Array2<f64>,
+    coefficients: Array1<f64>,
+    coefficient_frame: &'static str,
+    coefficient_start: usize,
+    coefficient_stop: usize,
+    covariance_conditional: Option<Array2<f64>>,
+    covariance_smoothing_corrected: Option<Array2<f64>>,
+    covariance_frequentist: Option<Array2<f64>>,
 }
 
-fn design_matrix_array_impl(
+fn affine_design_for_dataset(
+    model: &FittedModel,
+    dataset: EncodedDataset,
+) -> Result<DenseAffineDesign, String> {
+    // A scan-routed model intentionally owns no finite B-spline coefficient
+    // frame.  Its exact state-space predictor therefore has no affine design to
+    // expose; keep the refusal structural and actionable (#1046).
+    if let Some(scan) = scan_introspection(model)? {
+        return Err(format!(
+            "{} is fit by the exact O(n) state-space spline scan, which does not \
+             have a finite coefficient-frame design; design_matrix() is unavailable \
+             for this fitted model.",
+            scan_smooth_label(&scan)
+        ));
+    }
+    if model.predict_model_class() != PredictModelClass::Standard {
+        return Err(format!(
+            "design_matrix supports standard GAM models; got '{}'. For other \
+             classes use Model.predict, whose saved predictor can contain \
+             multiple coupled parameter surfaces.",
+            prediction_model_class_label(model)
+        ));
+    }
+
+    let col_map = dataset.column_map();
+    let offset = resolve_offset_column(&dataset, &col_map, model.offset_column.as_deref())?;
+    let offset_noise = Array1::zeros(dataset.values.nrows());
+    let input = build_predict_input_for_model(
+        model,
+        dataset.values.view(),
+        &col_map,
+        model.training_headers.as_ref(),
+        &offset,
+        &offset_noise,
+        false,
+    )?;
+    let affine = gam_predict::fitted_standard_affine_design(model, &input)?;
+    let matrix = affine
+        .matrix
+        .try_to_dense_by_chunks("public affine prediction design")?;
+    Ok(DenseAffineDesign {
+        offset: affine.offset,
+        matrix,
+        coefficients: affine.coefficients,
+        coefficient_frame: affine.coefficient_frame.name(),
+        coefficient_start: affine.coefficient_range.start,
+        coefficient_stop: affine.coefficient_range.end,
+        covariance_conditional: affine.covariances.conditional,
+        covariance_smoothing_corrected: affine.covariances.smoothing_corrected,
+        covariance_frequentist: affine.covariances.frequentist,
+    })
+}
+
+fn affine_design_encoded_table_impl(
+    model_bytes: &[u8],
+    source: EncodedDataset,
+) -> Result<DenseAffineDesign, String> {
+    let model = load_model_impl(model_bytes)?;
+    let dataset = dataset_with_model_schema_from_encoded(&model, &source)?;
+    affine_design_for_dataset(&model, dataset)
+}
+
+fn affine_design_array_impl(
     model_bytes: &[u8],
     x: ArrayView2<'_, f64>,
-) -> Result<Array2<f64>, String> {
+) -> Result<DenseAffineDesign, String> {
     let model = load_model_impl(model_bytes)?;
     let dataset = dataset_from_x_array_with_model_schema(&model, x)?;
-    design_matrix_dense(&model, dataset)
+    affine_design_for_dataset(&model, dataset)
 }
 
 /// Population variance (divide by `n`, matching numpy `np.var`'s default).
@@ -9069,19 +9100,17 @@ fn model_partial_dependence_encoded_impl(
     model_bytes: &[u8],
     term: &str,
     source: EncodedDataset,
-) -> Result<(Vec<f64>, Vec<f64>), String> {
-    let x = design_matrix_encoded_table_impl(model_bytes, source)?;
+) -> Result<(Vec<f64>, Vec<f64>, String), String> {
     let model = load_model_impl(model_bytes)?;
+    let dataset = dataset_with_model_schema_from_encoded(&model, &source)?;
+    let x = standard_mean_design_dense(&model, dataset)?;
     let fit = fit_result_from_saved_model_for_prediction(&model)?;
     let beta = &fit.beta;
-    let cov = fit
-        .beta_covariance_corrected()
-        .or_else(|| fit.beta_covariance())
-        .ok_or_else(|| {
-            "model does not contain coefficient covariance; refit with \
-             covariance-saving inference enabled"
-                .to_string()
-        })?;
+    let cov = fit.beta_covariance_corrected().ok_or_else(|| {
+        "partial_dependence requires smoothing-corrected covariance; refit before requesting \
+         partial-dependence standard errors"
+            .to_string()
+    })?;
     let blocks = term_blocks_for_model_impl(model_bytes)?;
     let (start, end) = blocks
         .iter()
@@ -9110,7 +9139,7 @@ fn model_partial_dependence_encoded_impl(
         }
         se[i] = var.max(0.0).sqrt();
     }
-    Ok((predicted, se))
+    Ok((predicted, se, "smoothing-corrected".to_string()))
 }
 
 /// Per-term variance share: `cov(X_t β_t, X β) / var(X β)` for each
@@ -9131,8 +9160,9 @@ fn model_variance_share_encoded_impl(
     source: EncodedDataset,
     term: Option<String>,
 ) -> Result<Vec<(String, f64)>, String> {
-    let x = design_matrix_encoded_table_impl(model_bytes, source)?;
     let model = load_model_impl(model_bytes)?;
+    let dataset = dataset_with_model_schema_from_encoded(&model, &source)?;
+    let x = standard_mean_design_dense(&model, dataset)?;
     let fit = fit_result_from_saved_model_for_prediction(&model)?;
     let beta = &fit.beta;
     let blocks = term_blocks_for_model_impl(model_bytes)?;
@@ -9184,15 +9214,17 @@ fn model_partial_dependence(
     term: String,
     headers: Vec<String>,
     rows: PyRef<'_, PyEncodedTable>,
-) -> PyResult<(Py<PyArray1<f64>>, Py<PyArray1<f64>>)> {
+) -> PyResult<(Py<PyArray1<f64>>, Py<PyArray1<f64>>, String)> {
     rows.require_headers(&headers).map_err(py_value_error)?;
     let dataset = rows.dataset.clone();
-    let (predicted, se) = detach_py_result(py, "model_partial_dependence", move || {
-        model_partial_dependence_encoded_impl(&model_bytes, &term, dataset)
-    })?;
+    let (predicted, se, covariance_source) =
+        detach_py_result(py, "model_partial_dependence", move || {
+            model_partial_dependence_encoded_impl(&model_bytes, &term, dataset)
+        })?;
     Ok((
         predicted.into_pyarray(py).unbind(),
         se.into_pyarray(py).unbind(),
+        covariance_source,
     ))
 }
 
@@ -9211,7 +9243,13 @@ fn model_variance_share(
     })
 }
 
-fn design_matrix_dense(
+/// Internal full mean-block design used by term diagnostics.
+///
+/// This is deliberately distinct from the public affine predictor design.  A
+/// link-wiggle's final fitted predictor uses the mean block as its row offset
+/// and a LinkWiggle-frame matrix, so returning this internal matrix from the
+/// public API was the architectural root cause of #2299.
+fn standard_mean_design_dense(
     model: &FittedModel,
     dataset: EncodedDataset,
 ) -> Result<Array2<f64>, String> {
@@ -9222,9 +9260,8 @@ fn design_matrix_dense(
     if let Some(scan) = scan_introspection(model)? {
         return Err(format!(
             "{} is fit by the exact O(n) state-space spline scan, which does not \
-             build a dense design matrix; design_matrix() is unavailable for it. \
-             Refit with double_penalty=true if you need the explicit B-spline \
-             model matrix.",
+             build a finite coefficient-frame design; term-design diagnostics \
+             are unavailable for this fitted model.",
             scan_smooth_label(&scan)
         ));
     }
@@ -9236,11 +9273,11 @@ fn design_matrix_dense(
             prediction_model_class_label(model)
         ));
     }
-    if model.has_link_wiggle() {
+    if model.saved_link_wiggle()?.is_some() {
         return Err(
-            "design_matrix does not yet support link-wiggle models because the \
-             linear predictor is q0 + B(q0)·theta, not a single X·beta product. \
-             Use Model.predict for these models."
+            "term-design diagnostics do not define an additive mean-block \
+             decomposition for link-wiggle models; use design_matrix() for the \
+             exact fitted affine predictor or Model.predict for response-scale output."
                 .to_string(),
         );
     }
@@ -9254,6 +9291,13 @@ fn design_matrix_dense(
     )?;
     let design = gam::terms::smooth::build_term_collection_design(dataset.values.view(), &spec)
         .map_err(|err| format!("failed to build design matrix: {err}"))?;
+    if design.affine_offset.iter().any(|value| *value != 0.0) {
+        return Err(
+            "design_matrix cannot represent a model with non-zero smooth anchors as a single \
+             coefficient matrix; use Model.predict for the complete affine predictor"
+                .to_string(),
+        );
+    }
     let dense = design
         .design
         .try_to_dense_by_chunks("design_matrix prediction design")?;

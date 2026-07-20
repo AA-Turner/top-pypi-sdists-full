@@ -39,14 +39,13 @@ pub(crate) use crate::custom_family_persistent_warm_start::{
     capture_fit_artifact, consume_fit_artifact, load_persistent_custom_family_warm_start,
     store_persistent_custom_family_warm_start, update_custom_outer_inner_cap_from_warm_start,
 };
-pub(crate) use gam_solve::active_set::{
-    project_stationarity_residual_on_constraint_cone, solve_quadratic_with_linear_constraints,
-};
+pub(crate) use gam_solve::active_set::project_stationarity_residual_on_constraint_cone;
 pub(crate) use gam_solve::estimate::reml::penalty_logdet::PenaltyPseudologdet;
 pub(crate) use gam_solve::estimate::reml::reml_outer_engine::{
-    BlockCoupledOperator, CompositeHyperOperator, DenseSpectralOperator, DispersionHandling,
-    ExactJeffreysTerm, HessianDerivativeProvider, HessianFactorization, MatrixFreeSpdOperator,
-    OuterHessianDerivativeKernel, PenaltySubspaceTrace, StochasticTraceState,
+    ActiveConstraintTangentGeometry, BlockCoupledOperator, CompositeHyperOperator,
+    DenseSpectralOperator, DispersionHandling, ExactJeffreysTerm, HessianDerivativeProvider,
+    HessianFactorization, MatrixFreeSpdOperator, OuterHessianDerivativeKernel,
+    PenaltySubspaceTrace, StochasticTraceState, active_constraint_tangent_geometry,
     compute_block_penalty_logdet_derivs_with_prior_factors, compute_efs_update,
     compute_hybrid_efs_update, exact_pseudo_logdet, hessian_factorization_geometric_scale,
     positive_eigenvalue_threshold, spectral_epsilon, spectral_regularize,
@@ -56,7 +55,7 @@ pub(crate) use gam_solve::estimate::reml::reml_outer_engine::{
 // crate-root `model_types` module; `EstimationError` already descended to
 // `gam-problem` and arrives via the `gam_problem::*` glob below.
 pub(crate) use gam_solve::model_types::{
-    ActiveLinearConstraintBlock, FitGeometry, ProjectedKktResidual,
+    ActiveLinearConstraintBlock, FitGeometry, ProjectedKktResidual, WorkingGeometry,
 };
 pub(crate) use gam_solve::pirls::solve_newton_directionwith_lower_bounds;
 
@@ -70,7 +69,7 @@ pub(crate) use ndarray::{Array1, Array2, ArrayView1, ArrayViewMut1, s};
 pub(crate) use std::any::Any;
 pub(crate) use std::cell::RefCell;
 pub(crate) use std::collections::BTreeMap;
-pub(crate) use std::sync::atomic::{AtomicUsize, Ordering};
+pub(crate) use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 pub(crate) use std::sync::{Arc, Mutex, OnceLock};
 
 // --- descended carriers + the `CustomFamily` trait + fit options + ψ design --
@@ -97,9 +96,10 @@ pub use gam_model_api::families::custom_family::{
 };
 pub use gam_problem::{
     AdditiveBlockJacobian, BlockEffectiveJacobian, BlockGeometryDirectionalDerivative,
-    BlockWorkingSet, CustomFamilyBlockPsiDerivative, CustomFamilyPsiDerivativeOperator,
-    ExactNewtonOuterObjective, FamilyLinearizationState, ParameterBlockSpec, ParameterBlockState,
-    PenaltyMatrix,
+    BlockWorkingSet, CustomFamilyBlockPsiDerivative, CustomFamilyHyperAxis,
+    CustomFamilyHyperLayout, CustomFamilyPsiDerivativeOperator, ExactNewtonOuterObjective,
+    FamilyLinearizationState, ParameterBlockSpec, ParameterBlockState, PenaltyMatrix,
+    SharedCustomFamilyHyperLayout,
 };
 
 // `whitened_spectrum` is a submodule hosted inside `joint_newton`; re-export it

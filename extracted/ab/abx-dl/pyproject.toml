@@ -1,6 +1,6 @@
 [project]
 name = "abx-dl"
-version = "1.11.238"
+version = "1.11.246"
 requires-python = ">=3.12"
 description = "All-in-one CLI tool to download and extract content from URLs"
 authors = [
@@ -157,6 +157,9 @@ testpaths = [
 ]
 addopts = [
     "--codeblocks",
+]
+markers = [
+    "docker_required: documentation commands that require the current abx-dl Docker image",
 ]
 timeout = 600
 timeout_method = "thread"

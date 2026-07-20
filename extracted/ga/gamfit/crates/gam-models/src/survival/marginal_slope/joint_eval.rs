@@ -1,5 +1,5 @@
-//! The exact-Newton joint evaluation methods on the family: GPU flex
-//! dispatch, dense/gradient dynamic-q evaluation, time-wiggle and
+//! The exact-Newton joint evaluation methods on the family: dense/gradient
+//! dynamic-q evaluation, time-wiggle and
 //! flex-no-wiggle directional derivatives, and the blockwise exact-Newton
 //! dispatchers (rigid / per-z / flexible / time-wiggle / mixed / dense /
 //! sparse).
@@ -7,263 +7,6 @@
 use super::*;
 
 impl SurvivalMarginalSlopeFamily {
-    /// Unified dense joint Hessian assembly for flex and timewiggle paths.
-    /// Both paths use q-geometry Jacobians via accumulate_dynamic_q_joint_row.
-    /// The rigid path (no flex, no timewiggle) uses the RowKernel fast path.
-    /// Owned scratch buffers backing a [`SurvivalFlexGpuRowInputs`]
-    /// descriptor for one fit-evaluation call.
-    ///
-    /// Held by-value across the GPU `try_*` entry so the borrowed slices
-    /// in `as_inputs` live as long as the dispatcher invocation.
-    pub(crate) fn build_survival_flex_gpu_row_batch(
-        &self,
-        block_states: &[ParameterBlockState],
-        slices: &BlockSlices,
-    ) -> Result<Option<SurvivalFlexGpuRowBatch>, String> {
-        // Only the scalar-score path is currently representable in
-        // `SurvivalFlexGpuRowInputs::score_dim == 1`.  Vector-score
-        // and any per-row composition outside the canonical 3-block
-        // (time, marginal, logslope) layout must take the CPU path.
-        if self.score_dim() != 1 {
-            return Ok(None);
-        }
-        // The absorbed Stage-1 influence channel (#461) adds a per-row index
-        // offset `o_infl = Z̃_infl[row,:]·γ` to η₁ that the GPU flex kernel does
-        // not yet carry (the on-device kernel emits a fixed 4-primary jet). Until
-        // the survival flex GPU kernel grows the `o_infl` primary coordinate,
-        // force CPU for absorber-active fits so the device path can never silently
-        // drop the channel; the CPU path is the source of truth.
-        if self.influence_absorber.is_some() {
-            return Ok(None);
-        }
-        let n = self.n;
-        let g_eta: &Array1<f64> = &block_states[2].eta;
-        if g_eta.len() != n {
-            return Ok(None);
-        }
-        let mut q0 = vec![0.0_f64; n];
-        let mut q1 = vec![0.0_f64; n];
-        let mut qd1 = vec![0.0_f64; n];
-        let mut z = vec![0.0_f64; n];
-        let mut g = vec![0.0_f64; n];
-        // Per-row q-values reuse the canonical `row_dynamic_q_values`
-        // helper so the GPU descriptor sees exactly the same q-geometry
-        // the CPU per-row primary path consumes (timewiggle-aware when
-        // active).
-        for row in 0..n {
-            let qv = self.row_dynamic_q_values(row, block_states)?;
-            q0[row] = qv.q0;
-            q1[row] = qv.q1;
-            qd1[row] = qv.qd1;
-            z[row] = self.z[[row, 0]];
-            g[row] = g_eta[row];
-        }
-        let p = slices.total;
-        // Materialize the joint-β vector in joint-block order.  Length
-        // must equal `p = slices.total` to satisfy the GPU descriptor's
-        // shape contract; mismatches force CPU fallback.
-        let mut beta = vec![0.0_f64; p];
-        // Returns `false` when the block β width does not match its joint
-        // slice. That invariant (`block_states[i].beta.len() ==
-        // design_i.ncols() == slice.len()`) holds for every well-formed inner
-        // state; if it is ever violated the CPU per-row path hard-errors (e.g.
-        // the `beta.len() != design_derivative_exit.ncols()` check). Silently
-        // leaving the block as zeros would feed the GPU kernel a corrupted β
-        // with no error and no fallback, so a mismatch forces CPU instead.
-        let copy_block =
-            |dst: &mut [f64], range: &std::ops::Range<usize>, src: &Array1<f64>| -> bool {
-                if src.len() != range.len() {
-                    return false;
-                }
-                if let Some(slice) = src.as_slice() {
-                    dst[range.clone()].copy_from_slice(slice);
-                } else {
-                    // Non-contiguous Array1 — copy element-wise so the GPU
-                    // descriptor still sees the canonical joint-block β.
-                    for (offset, value) in src.iter().enumerate() {
-                        dst[range.start + offset] = *value;
-                    }
-                }
-                true
-            };
-        let mut block_widths_match = copy_block(&mut beta, &slices.time, &block_states[0].beta)
-            && copy_block(&mut beta, &slices.marginal, &block_states[1].beta)
-            && copy_block(&mut beta, &slices.logslope, &block_states[2].beta);
-        if let Some(range) = slices.score_warp.as_ref() {
-            block_widths_match =
-                block_widths_match && copy_block(&mut beta, range, &block_states[3].beta);
-        }
-        if let Some(range) = slices.link_dev.as_ref() {
-            let block_index = 3 + usize::from(self.score_warp.is_some());
-            block_widths_match =
-                block_widths_match && copy_block(&mut beta, range, &block_states[block_index].beta);
-        }
-        if !block_widths_match {
-            return Ok(None);
-        }
-        Ok(Some(SurvivalFlexGpuRowBatch {
-            n,
-            p,
-            q0,
-            q1,
-            qd1,
-            z,
-            g,
-            beta,
-            weights: self.weights.to_vec(),
-            event: self.event.to_vec(),
-        }))
-    }
-
-    /// Step-6 dispatcher for the joint-β gradient.  Builds the
-    /// `SurvivalFlexGpuRowInputs` descriptor, runs the GPU policy
-    /// `decide`, and routes through
-    /// [`crate::survival::marginal_slope::gpu::try_survival_flex_gradient`].
-    ///
-    /// Returns:
-    ///
-    /// * `Ok(None)` when the GPU path is gated off (policy, shape,
-    ///   backend-not-compiled, or runtime declined) — callers fall back
-    ///   to the existing CPU per-row sweep.
-    /// * `Ok(Some((nll, grad)))` when the GPU produced a usable answer.
-    /// * `Err(_)` only when `gpu=required` was requested but the kernel is
-    ///   not supported, mirroring the convention in `gpu::decide`.
-    pub(crate) fn try_survival_flex_joint_dispatch_gradient(
-        &self,
-        block_states: &[ParameterBlockState],
-        slices: &BlockSlices,
-    ) -> Result<Option<(f64, Array1<f64>)>, String> {
-        let decision =
-            crate::survival::marginal_slope::gpu::row_primary_hessian_decision(self.n, N_PRIMARY);
-        decision.clone().log();
-        if !decision.use_gpu {
-            decision.require_supported()?;
-            return Ok(None);
-        }
-        let batch = match self.build_survival_flex_gpu_row_batch(block_states, slices)? {
-            Some(b) => b,
-            None => {
-                decision.require_supported()?;
-                return Ok(None);
-            }
-        };
-        let inputs = batch.as_inputs(self);
-        match crate::survival::marginal_slope::gpu::try_survival_flex_gradient(inputs, None, None)
-            .map_err(|e| e.to_string())?
-        {
-            Some((nll, grad)) => {
-                if grad.len() != slices.total {
-                    return Err(format!(
-                        "survival-flex GPU gradient returned len={} but joint p={}",
-                        grad.len(),
-                        slices.total
-                    ));
-                }
-                Ok(Some((nll, grad)))
-            }
-            None => {
-                decision.require_supported()?;
-                Ok(None)
-            }
-        }
-    }
-
-    /// Step-6 dispatcher for the joint Hessian × vector product.  See
-    /// [`Self::try_survival_flex_joint_dispatch_gradient`] for the
-    /// `decide`/fallback semantics.
-    pub(crate) fn try_survival_flex_joint_dispatch_hvp(
-        &self,
-        block_states: &[ParameterBlockState],
-        slices: &BlockSlices,
-        v: &Array1<f64>,
-    ) -> Result<Option<Array1<f64>>, String> {
-        let decision =
-            crate::survival::marginal_slope::gpu::row_primary_hessian_decision(self.n, N_PRIMARY);
-        decision.clone().log();
-        if !decision.use_gpu {
-            decision.require_supported()?;
-            return Ok(None);
-        }
-        if v.len() != slices.total {
-            return Ok(None);
-        }
-        let batch = match self.build_survival_flex_gpu_row_batch(block_states, slices)? {
-            Some(b) => b,
-            None => {
-                decision.require_supported()?;
-                return Ok(None);
-            }
-        };
-        let inputs = batch.as_inputs(self);
-        let v_slice = v
-            .as_slice()
-            .ok_or_else(|| "survival-flex GPU HVP requires contiguous v".to_string())?;
-        match crate::survival::marginal_slope::gpu::try_survival_flex_hvp(inputs, v_slice, None)
-            .map_err(|e| e.to_string())?
-        {
-            Some(hv) => {
-                if hv.len() != slices.total {
-                    return Err(format!(
-                        "survival-flex GPU HVP returned len={} but joint p={}",
-                        hv.len(),
-                        slices.total
-                    ));
-                }
-                Ok(Some(hv))
-            }
-            None => {
-                decision.require_supported()?;
-                Ok(None)
-            }
-        }
-    }
-
-    /// Step-6 dispatcher for the dense joint Hessian.  Returns
-    /// `Ok(Some(H))` on a successful device assembly, `Ok(None)` for the
-    /// CPU fallback, and `Err(_)` only for `gpu=required` shape mismatches.
-    pub(crate) fn try_survival_flex_joint_dispatch_dense_hessian(
-        &self,
-        block_states: &[ParameterBlockState],
-        slices: &BlockSlices,
-    ) -> Result<Option<Array2<f64>>, String> {
-        let decision =
-            crate::survival::marginal_slope::gpu::row_primary_hessian_decision(self.n, N_PRIMARY);
-        decision.clone().log();
-        if !decision.use_gpu {
-            decision.require_supported()?;
-            return Ok(None);
-        }
-        let batch = match self.build_survival_flex_gpu_row_batch(block_states, slices)? {
-            Some(b) => b,
-            None => {
-                decision.require_supported()?;
-                return Ok(None);
-            }
-        };
-        let inputs = batch.as_inputs(self);
-        match crate::survival::marginal_slope::gpu::try_survival_flex_dense_hessian(
-            inputs, None, None,
-        )
-        .map_err(|e| e.to_string())?
-        {
-            Some(h) => {
-                let p = slices.total;
-                if h.shape() != [p, p] {
-                    return Err(format!(
-                        "survival-flex GPU dense H returned shape {:?} but joint p={}",
-                        h.shape(),
-                        p
-                    ));
-                }
-                Ok(Some(h))
-            }
-            None => {
-                decision.require_supported()?;
-                Ok(None)
-            }
-        }
-    }
-
     pub(crate) fn evaluate_exact_newton_joint_dynamic_q_dense(
         &self,
         block_states: &[ParameterBlockState],
@@ -273,46 +16,6 @@ impl SurvivalMarginalSlopeFamily {
             self.validate_exact_monotonicity(block_states)?;
         }
         let slices = block_slices(self, block_states);
-        // ── Step-6 dispatcher: try GPU dense H + gradient first ──────────
-        //
-        // The two `try_survival_flex_joint_dispatch_*` entries route the
-        // joint-β work through
-        // [`crate::survival::marginal_slope::gpu::try_survival_flex_dense_hessian`]
-        // and [`crate::survival::marginal_slope::gpu::try_survival_flex_gradient`]
-        // respectively, with the standard `gpu::decide` policy.
-        //
-        // State of the seam (#1133): the host-side Step-5 primary G/H
-        // assembly (`try_device_step5_primary_assembly`) and the Step-6
-        // joint-β pullback (`pullback_step6_joint_beta`) are both LANDED as
-        // pure host algebra and CPU-verified — Step 5 is already the hot
-        // per-row path in `compute_row_flex_primary_gradient_hessian_from_parts`
-        // (the CPU sweep below routes every row through it). What remains is
-        // ONLY the device substrate: an NVRTC/CUDA kernel that produces the
-        // per-row jets + folds the Step-6 contraction on-device. Until that
-        // kernel exists these batch entry points are called with `step6 =
-        // None` and return `Ok(None)`, so the CPU per-row sweep below is the
-        // production path. Threading assembled Step-5/Step-6 rows through the
-        // batch entry points here would only duplicate the already-complete
-        // per-block pullback in `accumulate_dynamic_q_joint_row` on the host,
-        // so it is deliberately deferred to the device-kernel work.
-        if flex_active && !self.flex_timewiggle_active() {
-            if let Some(h) =
-                self.try_survival_flex_joint_dispatch_dense_hessian(block_states, &slices)?
-            {
-                let (nll, grad) =
-                    match self.try_survival_flex_joint_dispatch_gradient(block_states, &slices)? {
-                        Some(pair) => pair,
-                        None => {
-                            return Err(
-                                "survival-flex GPU dense H succeeded but gradient declined; \
-                             prep dispatchers must compose consistently"
-                                    .to_string(),
-                            );
-                        }
-                    };
-                return Ok((nll, grad, h));
-            }
-        }
         let primary = flex_primary_slices(self);
         let p_total = slices.total;
         let identity_blocks = if flex_active {
@@ -391,7 +94,7 @@ impl SurvivalMarginalSlopeFamily {
             Ok((
                 row_kernel_log_likelihood(&cache, &rows),
                 -row_kernel_gradient(&kern, &cache, &rows),
-                row_kernel_hessian_dense(&kern, &cache, &rows),
+                row_kernel_hessian_dense(&kern, &cache, &rows)?,
             ))
         }
     }
@@ -402,23 +105,6 @@ impl SurvivalMarginalSlopeFamily {
     ) -> Result<(f64, Array1<f64>), String> {
         let flex_active = self.effective_flex_active(block_states)?;
         let slices = block_slices(self, block_states);
-        // ── Step-6 dispatcher: try GPU joint-β gradient first ────────────
-        //
-        // Routes through
-        // [`crate::survival::marginal_slope::gpu::try_survival_flex_gradient`] via
-        // the `gpu::decide` policy.  Returns `Ok(None)` until the device
-        // CUDA kernel lands: the host-side Step-5 assembly + Step-6 joint-β
-        // pullback are already LANDED + CPU-verified (Step 5 is the hot
-        // per-row path), so only the on-device jet/contraction substrate is
-        // outstanding (#1133). Until then the CPU per-row sweep below is the
-        // production path and this dispatch is a no-op fast-fail.
-        if flex_active && !self.flex_timewiggle_active() {
-            if let Some(pair) =
-                self.try_survival_flex_joint_dispatch_gradient(block_states, &slices)?
-            {
-                return Ok(pair);
-            }
-        }
         let primary = flex_primary_slices(self);
         let identity_blocks = if flex_active {
             flex_identity_block_pairs(&primary, &slices)
@@ -602,7 +288,8 @@ impl SurvivalMarginalSlopeFamily {
             }
         }
         let gc = self
-            .logslope_design
+            .logslope_layout
+            .coefficient_design()
             .try_row_chunk(row..row + 1)
             .map_err(|e| format!("logslope_design try_row_chunk: {e}"))?;
         let gr = gc.row(0);
@@ -752,7 +439,9 @@ impl SurvivalMarginalSlopeFamily {
                         q_geom.dq0_time.dot(&d_time) + q_geom.dq0_marginal.dot(&d_marginal),
                         q_geom.dq1_time.dot(&d_time) + q_geom.dq1_marginal.dot(&d_marginal),
                         q_geom.dqd1_time.dot(&d_time) + q_geom.dqd1_marginal.dot(&d_marginal),
-                        self.logslope_design.dot_row_view(row, d_logslope),
+                        self.logslope_layout
+                            .coefficient_design()
+                            .dot_row_view(row, d_logslope),
                     ]);
                     let t_ud = self.row_primary_third_contracted(row, block_states, u_d.view())?;
                     let h_ud = h_pi.dot(&u_d);
@@ -944,13 +633,17 @@ impl SurvivalMarginalSlopeFamily {
                         q_geom.dq0_time.dot(&du_t) + q_geom.dq0_marginal.dot(&du_m),
                         q_geom.dq1_time.dot(&du_t) + q_geom.dq1_marginal.dot(&du_m),
                         q_geom.dqd1_time.dot(&du_t) + q_geom.dqd1_marginal.dot(&du_m),
-                        self.logslope_design.dot_row_view(row, du_g),
+                        self.logslope_layout
+                            .coefficient_design()
+                            .dot_row_view(row, du_g),
                     ]);
                     let ue = Array1::from_vec(vec![
                         q_geom.dq0_time.dot(&dv_t) + q_geom.dq0_marginal.dot(&dv_m),
                         q_geom.dq1_time.dot(&dv_t) + q_geom.dq1_marginal.dot(&dv_m),
                         q_geom.dqd1_time.dot(&dv_t) + q_geom.dqd1_marginal.dot(&dv_m),
-                        self.logslope_design.dot_row_view(row, dv_g),
+                        self.logslope_layout
+                            .coefficient_design()
+                            .dot_row_view(row, dv_g),
                     ]);
 
                     let t_d = self.row_primary_third_contracted(row, block_states, ud.view())?;
@@ -1069,7 +762,8 @@ impl SurvivalMarginalSlopeFamily {
                         &q_geom.dqd1_marginal,
                     ];
                     let gc = self
-                        .logslope_design
+                        .logslope_layout
+                        .coefficient_design()
                         .try_row_chunk(row..row + 1)
                         .map_err(|e| format!("logslope_design try_row_chunk: {e}"))?;
                     let gr = gc.row(0);
@@ -1724,7 +1418,8 @@ impl SurvivalMarginalSlopeFamily {
             .as_sparse()
             .and_then(|s| s.to_csr_arc());
         let logslope_csr = self
-            .logslope_design
+            .logslope_layout
+            .coefficient_design()
             .as_sparse()
             .and_then(|s| s.to_csr_arc());
 
@@ -1765,8 +1460,8 @@ impl SurvivalMarginalSlopeFamily {
         let p_t = slices.time.len();
         let p_m = slices.marginal.len();
         let p_g = slices.logslope.len();
+        let k = self.score_dim();
         let beta_time = &block_states[0].beta;
-        let beta_logslope = &block_states[2].beta;
         let probit_scale = self.probit_frailty_scale();
         type PerZBlockAcc = (
             f64,
@@ -1793,84 +1488,94 @@ impl SurvivalMarginalSlopeFamily {
                 self.n,
                 |range| -> Result<_, String> {
                     let mut acc = make_per_z_acc();
+                    let mut row_jet_arena = RigidVectorRowWorkspace::new(&self.score_covariance)?;
+                    let mut logslope_workspace = self.logslope_row_workspace()?;
                     for row in range {
-                    let q0 = self.design_entry.dot_row(row, beta_time)
-                        + self.offset_entry[row]
-                        + block_states[1].eta[row];
-                    let q1 = self.design_exit.dot_row(row, beta_time)
-                        + self.offset_exit[row]
-                        + block_states[1].eta[row];
-                    let qd1 = self.design_derivative_exit.dot_row(row, beta_time)
-                        + self.derivative_offset_exit[row];
-                    let slopes = self.logslope_surface_values_for_row(row, beta_logslope)?;
-                    let z = self.z.row(row).to_vec();
-                    let (nll, f_pi, f_pipi) = row_primary_closed_form_vector(
-                        q0,
-                        q1,
-                        qd1,
-                        &slopes,
-                        &z,
-                        &self.score_covariance,
-                        self.weights[row],
-                        self.event[row],
-                        self.derivative_guard,
-                        probit_scale,
-                    )?;
-                    acc.0 -= nll;
-                    self.design_entry
-                        .axpy_row_into(row, -f_pi[0], &mut acc.1.view_mut())?;
-                    self.design_exit
-                        .axpy_row_into(row, -f_pi[1], &mut acc.1.view_mut())?;
-                    self.design_derivative_exit.axpy_row_into(
-                        row,
-                        -f_pi[2],
-                        &mut acc.1.view_mut(),
-                    )?;
-                    self.marginal_design.axpy_row_into(
-                        row,
-                        -(f_pi[0] + f_pi[1]),
-                        &mut acc.2.view_mut(),
-                    )?;
-                    let g_row = self.logslope_surface_row(row)?;
-                    for (coord, range) in self.logslope_surface_ranges.iter().enumerate() {
-                        let alpha = -f_pi[3 + coord];
-                        for col in range.clone() {
-                            acc.3[col] += alpha * g_row[col];
-                        }
-                    }
-                    let time_designs = [
-                        &self.design_entry,
-                        &self.design_exit,
-                        &self.design_derivative_exit,
-                    ];
-                    for a in 0..3 {
-                        for b in 0..3 {
-                            time_designs[a].row_outer_into(
-                                row,
-                                time_designs[b],
-                                f_pipi[[a, b]],
-                                &mut acc.4,
-                            )?;
-                        }
-                    }
-                    let alpha_mm =
-                        f_pipi[[0, 0]] + f_pipi[[0, 1]] + f_pipi[[1, 0]] + f_pipi[[1, 1]];
-                    self.marginal_design
-                        .syr_row_into(row, alpha_mm, &mut acc.5)?;
-                    for (a, range_a) in self.logslope_surface_ranges.iter().enumerate() {
-                        for (b, range_b) in self.logslope_surface_ranges.iter().enumerate() {
-                            let alpha = f_pipi[[3 + a, 3 + b]];
-                            if alpha == 0.0 {
-                                continue;
+                        let q0 = self.design_entry.dot_row(row, beta_time)
+                            + self.offset_entry[row]
+                            + block_states[1].eta[row];
+                        let q1 = self.design_exit.dot_row(row, beta_time)
+                            + self.offset_exit[row]
+                            + block_states[1].eta[row];
+                        let qd1 = self.design_derivative_exit.dot_row(row, beta_time)
+                            + self.derivative_offset_exit[row];
+                        self.fill_logslope_values_for_row(
+                            row,
+                            block_states,
+                            &mut logslope_workspace,
+                        )?;
+                        let z_row = self.z.row(row);
+                        let z = z_row.as_slice().ok_or_else(|| {
+                            "per-score blockwise score row must be contiguous".to_string()
+                        })?;
+                        let nll = row_primary_closed_form_vector_into(
+                            q0,
+                            q1,
+                            qd1,
+                            logslope_workspace.values(),
+                            z,
+                            self.weights[row],
+                            self.event[row],
+                            self.derivative_guard,
+                            probit_scale,
+                            &mut row_jet_arena,
+                        )?;
+                        let (f_pi, f_pipi) = row_jet_arena.derivatives();
+                        acc.0 -= nll;
+                        self.design_entry
+                            .axpy_row_into(row, -f_pi[0], &mut acc.1.view_mut())?;
+                        self.design_exit
+                            .axpy_row_into(row, -f_pi[1], &mut acc.1.view_mut())?;
+                        self.design_derivative_exit.axpy_row_into(
+                            row,
+                            -f_pi[2],
+                            &mut acc.1.view_mut(),
+                        )?;
+                        self.marginal_design.axpy_row_into(
+                            row,
+                            -(f_pi[0] + f_pi[1]),
+                            &mut acc.2.view_mut(),
+                        )?;
+                        let channel_rows = logslope_workspace.channel_rows();
+                        for coord in 0..k {
+                            let alpha = -f_pi[3 + coord];
+                            for col in 0..p_g {
+                                acc.3[col] += alpha * channel_rows[[coord, col]];
                             }
-                            for ca in range_a.clone() {
-                                let va = g_row[ca] * alpha;
-                                for cb in range_b.clone() {
-                                    acc.6[[ca, cb]] += va * g_row[cb];
+                        }
+                        let time_designs = [
+                            &self.design_entry,
+                            &self.design_exit,
+                            &self.design_derivative_exit,
+                        ];
+                        for a in 0..3 {
+                            for b in 0..3 {
+                                time_designs[a].row_outer_into(
+                                    row,
+                                    time_designs[b],
+                                    f_pipi[[a, b]],
+                                    &mut acc.4,
+                                )?;
+                            }
+                        }
+                        let alpha_mm =
+                            f_pipi[[0, 0]] + f_pipi[[0, 1]] + f_pipi[[1, 0]] + f_pipi[[1, 1]];
+                        self.marginal_design
+                            .syr_row_into(row, alpha_mm, &mut acc.5)?;
+                        for a in 0..k {
+                            for b in 0..k {
+                                let alpha = f_pipi[[3 + a, 3 + b]];
+                                if alpha == 0.0 {
+                                    continue;
+                                }
+                                for ca in 0..p_g {
+                                    let va = channel_rows[[a, ca]] * alpha;
+                                    for cb in 0..p_g {
+                                        acc.6[[ca, cb]] += va * channel_rows[[b, cb]];
+                                    }
                                 }
                             }
                         }
-                    }
                     }
                     Ok(acc)
                 },
@@ -1914,7 +1619,6 @@ impl SurvivalMarginalSlopeFamily {
         let k = self.score_dim();
         let dim = 3 + k;
         let beta_time = &block_states[0].beta;
-        let beta_logslope = &block_states[2].beta;
         let probit_scale = self.probit_frailty_scale();
         type PerZJointAcc = (f64, Array1<f64>, Array2<f64>);
         let make_per_z_joint_acc = || -> PerZJointAcc {
@@ -1929,87 +1633,105 @@ impl SurvivalMarginalSlopeFamily {
                 self.n,
                 |range| -> Result<_, String> {
                     let mut acc = make_per_z_joint_acc();
-                    for row in range {
-                    let q0 = self.design_entry.dot_row(row, beta_time)
-                        + self.offset_entry[row]
-                        + block_states[1].eta[row];
-                    let q1 = self.design_exit.dot_row(row, beta_time)
-                        + self.offset_exit[row]
-                        + block_states[1].eta[row];
-                    let qd1 = self.design_derivative_exit.dot_row(row, beta_time)
-                        + self.derivative_offset_exit[row];
-                    let slopes = self.logslope_surface_values_for_row(row, beta_logslope)?;
-                    let z = self.z.row(row).to_vec();
-                    let (nll, f_pi, f_pipi) = row_primary_closed_form_vector(
-                        q0,
-                        q1,
-                        qd1,
-                        &slopes,
-                        &z,
-                        &self.score_covariance,
-                        self.weights[row],
-                        self.event[row],
-                        self.derivative_guard,
-                        probit_scale,
-                    )?;
-                    acc.0 -= nll;
+                    let mut row_jet_arena = RigidVectorRowWorkspace::new(&self.score_covariance)?;
+                    let mut logslope_workspace = self.logslope_row_workspace()?;
                     let mut j = Array2::<f64>::zeros((dim, total));
-                    let entry = self.design_entry.try_row_chunk(row..row + 1).map_err(|e| {
-                        format!("evaluate_exact_newton_joint_dense_per_z entry row: {e}")
-                    })?;
-                    let exit = self.design_exit.try_row_chunk(row..row + 1).map_err(|e| {
-                        format!("evaluate_exact_newton_joint_dense_per_z exit row: {e}")
-                    })?;
-                    let deriv = self
-                        .design_derivative_exit
-                        .try_row_chunk(row..row + 1)
-                        .map_err(|e| {
-                            format!("evaluate_exact_newton_joint_dense_per_z derivative row: {e}")
+                    for row in range {
+                        let q0 = self.design_entry.dot_row(row, beta_time)
+                            + self.offset_entry[row]
+                            + block_states[1].eta[row];
+                        let q1 = self.design_exit.dot_row(row, beta_time)
+                            + self.offset_exit[row]
+                            + block_states[1].eta[row];
+                        let qd1 = self.design_derivative_exit.dot_row(row, beta_time)
+                            + self.derivative_offset_exit[row];
+                        self.fill_logslope_values_for_row(
+                            row,
+                            block_states,
+                            &mut logslope_workspace,
+                        )?;
+                        let z_row = self.z.row(row);
+                        let z = z_row.as_slice().ok_or_else(|| {
+                            "per-score dense-joint score row must be contiguous".to_string()
                         })?;
-                    let marginal =
+                        let nll = row_primary_closed_form_vector_into(
+                            q0,
+                            q1,
+                            qd1,
+                            logslope_workspace.values(),
+                            z,
+                            self.weights[row],
+                            self.event[row],
+                            self.derivative_guard,
+                            probit_scale,
+                            &mut row_jet_arena,
+                        )?;
+                        let (f_pi, f_pipi) = row_jet_arena.derivatives();
+                        acc.0 -= nll;
+                        self.design_entry
+                            .row_chunk_into(
+                                row..row + 1,
+                                j.slice_mut(s![0..1, slices.time.clone()]),
+                            )
+                            .map_err(|e| {
+                                format!("evaluate_exact_newton_joint_dense_per_z entry row: {e}")
+                            })?;
+                        self.design_exit
+                            .row_chunk_into(
+                                row..row + 1,
+                                j.slice_mut(s![1..2, slices.time.clone()]),
+                            )
+                            .map_err(|e| {
+                                format!("evaluate_exact_newton_joint_dense_per_z exit row: {e}")
+                            })?;
+                        self.design_derivative_exit
+                            .row_chunk_into(
+                                row..row + 1,
+                                j.slice_mut(s![2..3, slices.time.clone()]),
+                            )
+                            .map_err(|e| {
+                                format!(
+                                    "evaluate_exact_newton_joint_dense_per_z derivative row: {e}"
+                                )
+                            })?;
                         self.marginal_design
-                            .try_row_chunk(row..row + 1)
+                            .row_chunk_into(
+                                row..row + 1,
+                                j.slice_mut(s![0..1, slices.marginal.clone()]),
+                            )
                             .map_err(|e| {
                                 format!("evaluate_exact_newton_joint_dense_per_z marginal row: {e}")
                             })?;
-                    j.slice_mut(s![0, slices.time.clone()])
-                        .assign(&entry.row(0));
-                    j.slice_mut(s![1, slices.time.clone()]).assign(&exit.row(0));
-                    j.slice_mut(s![2, slices.time.clone()])
-                        .assign(&deriv.row(0));
-                    j.slice_mut(s![0, slices.marginal.clone()])
-                        .assign(&marginal.row(0));
-                    j.slice_mut(s![1, slices.marginal.clone()])
-                        .assign(&marginal.row(0));
-                    let g_row = self.logslope_surface_row(row)?;
-                    for (coord, range) in self.logslope_surface_ranges.iter().enumerate() {
-                        let global_range = (slices.logslope.start + range.start)
-                            ..(slices.logslope.start + range.end);
-                        j.slice_mut(s![3 + coord, global_range])
-                            .assign(&g_row.slice(s![range.clone()]));
-                    }
-                    for a in 0..dim {
-                        for col in 0..total {
-                            acc.1[col] -= f_pi[a] * j[[a, col]];
+                        for col in slices.marginal.clone() {
+                            j[[1, col]] = j[[0, col]];
                         }
-                    }
-                    for a in 0..dim {
-                        for b in 0..dim {
-                            let alpha = f_pipi[[a, b]];
-                            if alpha == 0.0 {
-                                continue;
+                        let channel_rows = logslope_workspace.channel_rows();
+                        for coord in 0..k {
+                            j.slice_mut(s![3 + coord, slices.logslope.clone()])
+                                .assign(&channel_rows.row(coord));
+                        }
+                        for a in 0..dim {
+                            for col in 0..total {
+                                acc.1[col] -= f_pi[a] * j[[a, col]];
                             }
-                            for ca in 0..total {
-                                let va = j[[a, ca]] * alpha;
-                                if va == 0.0 {
+                        }
+                        for a in 0..dim {
+                            for b in 0..dim {
+                                let alpha = f_pipi[[a, b]];
+                                if alpha == 0.0 {
                                     continue;
                                 }
-                                for cb in 0..total {
-                                    acc.2[[ca, cb]] += va * j[[b, cb]];
+                                for ca in 0..total {
+                                    let va = j[[a, ca]] * alpha;
+                                    if va == 0.0 {
+                                        continue;
+                                    }
+                                    for cb in 0..total {
+                                        acc.2[[ca, cb]] += va * j[[b, cb]];
+                                    }
                                 }
                             }
                         }
-                    }
                     }
                     Ok(acc)
                 },
@@ -2246,7 +1968,7 @@ impl SurvivalMarginalSlopeFamily {
                             }
                         }
                         None => {
-                            self.logslope_design
+                            self.logslope_layout.coefficient_design()
                                 .axpy_row_into(row, -f_pi[3], &mut acc.3.view_mut())
                                 .expect(
                                     "survival logslope block axpy should match block dimensions",
@@ -2343,7 +2065,7 @@ impl SurvivalMarginalSlopeFamily {
                     let alpha_g = f_pipi[[3, 3]];
                     match &mut acc.6 {
                         BlockwiseHessianAccumulator::Dense(hess_logslope) => {
-                            self.logslope_design
+                            self.logslope_layout.coefficient_design()
                                 .syr_row_into(row, alpha_g, &mut *hess_logslope)
                                 .expect(
                                     "survival logslope block syr should match block dimensions",
@@ -2759,23 +2481,4 @@ pub(crate) fn time_wiggle_basis_ncols(knots: &Array1<f64>, degree: usize) -> Res
     let probe = 0.5 * (knots[0] + knots[knots.len() - 1]);
     let h0 = Array1::from_vec(vec![probe]);
     Ok(monotone_wiggle_basis_with_derivative_order(h0.view(), knots, degree, 0)?.ncols())
-}
-
-pub(crate) fn smgs_deleted_required_channel_reason(
-    p_time: usize,
-    p_marginal: usize,
-    p_logslope: usize,
-    w_time: usize,
-    w_marginal: usize,
-    w_logslope: usize,
-) -> Option<&'static str> {
-    if p_time > 0 && w_time == 0 {
-        Some("time")
-    } else if p_marginal > 0 && w_marginal == 0 {
-        Some("marginal")
-    } else if p_logslope > 0 && w_logslope == 0 {
-        Some("logslope")
-    } else {
-        None
-    }
 }

@@ -1058,15 +1058,15 @@ pub(crate) fn build_outer_hessian_operator(
     if let Some(rho_ext_fn) = solution.rho_ext_pair_fn.as_ref() {
         use rayon::iter::{IntoParallelIterator, ParallelIterator};
         let pair_count = k * ext_dim;
-        let entries: Vec<(usize, usize, HyperCoordPair)> = (0..pair_count)
+        let entries: Result<Vec<(usize, usize, HyperCoordPair)>, String> = (0..pair_count)
             .into_par_iter()
             .map(|pair_idx| {
                 let rho_idx = pair_idx / ext_dim;
                 let ext_idx = pair_idx % ext_dim;
-                let pair = rho_ext_fn(rho_idx, ext_idx);
-                (rho_idx, ext_idx, pair)
+                rho_ext_fn(rho_idx, ext_idx).map(|pair| (rho_idx, ext_idx, pair))
             })
             .collect();
+        let entries = entries?;
         // Batch all second-drift traces so `--scale-dimensions` pays one
         // shared Hutchinson solve stream for the whole rho-ext block instead
         // of one estimator per pair.  Projected subspace traces skip the
@@ -1106,14 +1106,14 @@ pub(crate) fn build_outer_hessian_operator(
     ) {
         use rayon::iter::{IntoParallelIterator, ParallelIterator};
         let pair_count = ext_dim * (ext_dim + 1) / 2;
-        let entries: Vec<(usize, usize, HyperCoordPair)> = (0..pair_count)
+        let entries: Result<Vec<(usize, usize, HyperCoordPair)>, String> = (0..pair_count)
             .into_par_iter()
             .map(|pair_idx| {
                 let (ii, jj) = upper_triangle_pair_from_index(pair_idx, ext_dim);
-                let pair = ext_pair_fn(ii, jj);
-                (ii, jj, pair)
+                ext_pair_fn(ii, jj).map(|pair| (ii, jj, pair))
             })
             .collect();
+        let entries = entries?;
         let pair_refs: Vec<&HyperCoordPair> = entries.iter().map(|(_, _, pair)| pair).collect();
         let bases = compute_base_h2_traces(
             hop.as_ref(),
@@ -1139,30 +1139,34 @@ pub(crate) fn build_outer_hessian_operator(
     {
         use rayon::iter::{IntoParallelIterator, ParallelIterator};
         let pair_count = total * (total + 1) / 2;
-        let pair_drifts: Vec<((usize, usize), Vec<DriftDerivResult>)> = (0..pair_count)
-            .into_par_iter()
-            .map(|pair_idx| {
-                let (ii, jj) = upper_triangle_pair_from_index(pair_idx, total);
-                let beta_i = coords[ii].v.mapv(|value| -value);
-                let beta_j = coords[jj].v.mapv(|value| -value);
-                let mut drifts = Vec::new();
-                if let Some(drift_fn) = solution.fixed_drift_deriv.as_ref() {
-                    if coords[ii].b_depends_on_beta
-                        && let Some(ext_i) = coords[ii].ext_index
-                        && let Some(result) = drift_fn(ext_i, &beta_j)
-                    {
-                        drifts.push(result);
+        let pair_drifts: Result<Vec<((usize, usize), Vec<DriftDerivResult>)>, String> =
+            (0..pair_count)
+                .into_par_iter()
+                .map(|pair_idx| -> Result<_, String> {
+                    let (ii, jj) = upper_triangle_pair_from_index(pair_idx, total);
+                    let beta_i = coords[ii].v.mapv(|value| -value);
+                    let beta_j = coords[jj].v.mapv(|value| -value);
+                    let mut drifts = Vec::new();
+                    if let Some(drift_fn) = solution.fixed_drift_deriv.as_ref() {
+                        if coords[ii].b_depends_on_beta
+                            && let Some(ext_i) = coords[ii].ext_index
+                        {
+                            if let Some(result) = drift_fn(ext_i, &beta_j)? {
+                                drifts.push(result);
+                            }
+                        }
+                        if coords[jj].b_depends_on_beta
+                            && let Some(ext_j) = coords[jj].ext_index
+                        {
+                            if let Some(result) = drift_fn(ext_j, &beta_i)? {
+                                drifts.push(result);
+                            }
+                        }
                     }
-                    if coords[jj].b_depends_on_beta
-                        && let Some(ext_j) = coords[jj].ext_index
-                        && let Some(result) = drift_fn(ext_j, &beta_i)
-                    {
-                        drifts.push(result);
-                    }
-                }
-                ((ii, jj), drifts)
-            })
-            .collect();
+                    Ok(((ii, jj), drifts))
+                })
+                .collect();
+        let pair_drifts = pair_drifts?;
 
         let mut term_pairs = Vec::new();
         let mut term_drifts = Vec::new();

@@ -28,14 +28,13 @@ fn try_build_spatial_term_log_kappa_derivative(
         SmoothBasisSpec::ThinPlate {
             feature_cols,
             spec,
-            input_scales,
+            input_scale,
         } => {
             let mut x = select_columns(data, feature_cols).map_err(EstimationError::from)?;
             let mut spec_local = spec.clone();
-            if let Some(s) = input_scales {
-                apply_input_standardization(&mut x, s);
-                spec_local.length_scale =
-                    compensate_length_scale_for_standardization(spec.length_scale, s);
+            if let Some(scale) = input_scale {
+                scale.standardize(&mut x);
+                spec_local.length_scale = scale.to_standardized_units(spec.length_scale);
             }
             build_thin_plate_basis_log_kappa_derivatives(x.view(), &spec_local)
                 .map_err(EstimationError::from)?
@@ -63,14 +62,21 @@ fn try_build_spatial_term_log_kappa_derivative(
         SmoothBasisSpec::Matern {
             feature_cols,
             spec,
-            input_scales,
+            input_scale,
         } => {
             let mut x = select_columns(data, feature_cols).map_err(EstimationError::from)?;
             let mut spec_local = spec.clone();
-            if let Some(s) = input_scales {
-                apply_input_standardization(&mut x, s);
-                spec_local.length_scale =
-                    compensate_length_scale_for_standardization(spec.length_scale, s);
+            if let Some(scale) = input_scale {
+                scale.standardize(&mut x);
+                let length_scale = spec.length_scale.resolved().ok_or_else(|| {
+                    EstimationError::InvalidInput(
+                        "Matérn Auto length_scale reached derivative construction unresolved"
+                            .to_string(),
+                    )
+                })?;
+                spec_local
+                    .length_scale
+                    .set_resolved(scale.to_standardized_units(length_scale));
             }
             // The realized Matérn DESIGN penalty is ALWAYS the operator-collocation
             // {mass, tension, stiffness} triplet — the term-collection assembler
@@ -93,14 +99,15 @@ fn try_build_spatial_term_log_kappa_derivative(
         SmoothBasisSpec::Duchon {
             feature_cols,
             spec,
-            input_scales,
+            input_scale,
         } => {
             let mut x = select_columns(data, feature_cols).map_err(EstimationError::from)?;
             let mut spec_local = spec.clone();
-            if let Some(s) = input_scales {
-                apply_input_standardization(&mut x, s);
-                spec_local.length_scale =
-                    compensate_optional_length_scale_for_standardization(spec.length_scale, s);
+            if let Some(scale) = input_scale {
+                scale.standardize(&mut x);
+                spec_local.length_scale = spec
+                    .length_scale
+                    .map(|length| scale.to_standardized_units(length));
             }
             let BasisMetadata::Duchon {
                 centers,
@@ -2246,17 +2253,17 @@ fn constant_curvature_kappa_fair_profile_value_gradient(
     let derivatives =
         gam_terms::basis::build_constant_curvature_basis_kappa_derivatives(data, &profile_spec)
             .map_err(EstimationError::from)?;
-    if basis.penalties.len() != 1 || derivatives.first.penalties_derivative.len() != 1 {
+    if basis.active_penalties.len() != 1 || derivatives.first.penalties_derivative.len() != 1 {
         crate::bail_invalid_estim!(
             "constant-curvature fair profile expected one primary penalty; value blocks={}, derivative blocks={}",
-            basis.penalties.len(),
+            basis.active_penalties.len(),
             derivatives.first.penalties_derivative.len(),
         );
     }
 
     let smooth_design = basis.design.to_dense();
     let smooth_design_kappa = &derivatives.first.design_derivative;
-    let smooth_penalty = &basis.penalties[0];
+    let smooth_penalty = &basis.active_penalties[0].matrix;
     let smooth_penalty_kappa = &derivatives.first.penalties_derivative[0];
     let n = smooth_design.nrows();
     let p = smooth_design.ncols();
@@ -2408,7 +2415,6 @@ fn constant_curvature_kappa_fair_optimum(
         .with_prefer_gradient_only(true)
         .with_disable_fixed_point(true)
         .with_fallback_policy(gam_solve::rho_optimizer::FallbackPolicy::Disabled)
-        .with_continuation_prewarm(false)
         .with_psi_dim(1)
         .with_tolerance(options.tol.max(f64::EPSILON.sqrt()))
         .with_max_iter(options.max_iter.max(1))
@@ -2543,8 +2549,9 @@ fn try_exact_joint_spatial_length_scale_optimization(
     };
     // If the user/spec did not set a length_scale, re-seed ψ at the midpoint
     // of the data-derived window instead of the arbitrary options fallback.
-    let mut log_kappa0 =
-        log_kappa0.reseed_from_data(data, resolvedspec, spatial_terms, kappa_options);
+    let mut log_kappa0 = log_kappa0
+        .reseed_from_data(data, resolvedspec, spatial_terms, kappa_options)
+        .map_err(EstimationError::BasisError)?;
     // Constant curvature is selected once, continuously, before the baseline
     // fit. The full joint solve therefore profiles only nuisance ρ (and any
     // non-curvature spatial coordinates) at that certified κ. User-pinned and
@@ -2576,7 +2583,8 @@ fn try_exact_joint_spatial_length_scale_optimization(
             spatial_terms,
             kappa_options,
         )
-    };
+    }
+    .map_err(EstimationError::BasisError)?;
     let log_kappa_upper = if use_aniso {
         SpatialLogKappaCoords::upper_bounds_aniso_from_data(
             data,
@@ -2592,7 +2600,8 @@ fn try_exact_joint_spatial_length_scale_optimization(
             spatial_terms,
             kappa_options,
         )
-    };
+    }
+    .map_err(EstimationError::BasisError)?;
     let mut log_kappa_lower = log_kappa_lower;
     let mut log_kappa_upper = log_kappa_upper;
     for &(slot, kappa) in &cc_profiled_values {
@@ -3561,6 +3570,10 @@ fn run_exact_joint_spatial_optimization(
     kappa_options: &SpatialLengthScaleOptimizationOptions,
 ) -> Result<(Array1<f64>, f64, SpatialLengthScaleOptimizationTiming), EstimationError> {
     let label = kind.label();
+    let effective_offset = baseline_design
+        .compose_offset(offset, "spatial joint fit")
+        .map_err(EstimationError::BasisError)?;
+    let offset = effective_offset.view();
     // Use bounds and design metadata for validation.
     assert!(
         lower.len() == theta0.len() && upper.len() == theta0.len(),
@@ -4276,7 +4289,7 @@ fn set_single_term_spatial_length_scale(
             Ok(())
         }
         SmoothBasisSpec::Matern { spec, .. } => {
-            spec.length_scale = length_scale;
+            spec.length_scale.set_resolved(length_scale);
             Ok(())
         }
         SmoothBasisSpec::Duchon { spec, .. } => {
@@ -4361,13 +4374,8 @@ struct SingleSmoothTermRealization {
 }
 
 impl SingleSmoothTermRealization {
-    fn active_penaltyinfo(&self) -> Vec<PenaltyInfo> {
-        self.term
-            .penaltyinfo_local
-            .iter()
-            .filter(|info| info.active)
-            .cloned()
-            .collect()
+    fn active_penalty_count(&self) -> usize {
+        self.term.active_penalties.len()
     }
 }
 
@@ -4422,29 +4430,14 @@ fn wrap_local_build_as_realization(
         None
     };
 
-    let active_count = local.penaltyinfo.iter().filter(|info| info.active).count();
-    if active_count != local.penalties.len() {
-        return Err(format!(
-            "internal penalty info mismatch for term '{}': active_infos={}, penalties={}",
-            termspec.name,
-            active_count,
-            local.penalties.len()
-        ));
-    }
-
-    let mut dropped_penaltyinfo = Vec::<DroppedPenaltyBlockInfo>::new();
-    for info in local.penaltyinfo.iter().filter(|info| !info.active) {
-        dropped_penaltyinfo.push(DroppedPenaltyBlockInfo {
+    let dropped_penaltyinfo = local
+        .dropped_penalties
+        .iter()
+        .map(|info| DroppedPenaltyBlockInfo {
             termname: Some(termspec.name.clone()),
             penalty: info.clone(),
-        });
-    }
-    for info in &local.pre_dropped_penaltyinfo {
-        dropped_penaltyinfo.push(DroppedPenaltyBlockInfo {
-            termname: Some(termspec.name.clone()),
-            penalty: info.clone(),
-        });
-    }
+        })
+        .collect();
 
     // Stage-2 joint-null absorption rotation, same logic as the main
     // aggregation loop in `build_smooth_design_withworkspace_unvalidated`:
@@ -4465,15 +4458,16 @@ fn wrap_local_build_as_realization(
                         )
                     },
                 )?;
-            local.penalties = local
-                .penalties
-                .into_iter()
-                .map(|s_local| {
-                    let qt_s = gam_linalg::faer_ndarray::fast_atb(q, &s_local);
-                    gam_linalg::faer_ndarray::fast_ab(&qt_s, q)
-                })
-                .collect();
-            local.ops = vec![None; local.penalties.len()];
+            for penalty in &mut local.active_penalties {
+                let qt_s = gam_linalg::faer_ndarray::fast_atb(q, &penalty.matrix);
+                penalty.matrix = gam_linalg::faer_ndarray::fast_ab(&qt_s, q);
+                penalty.null_eigenvectors = penalty
+                    .null_eigenvectors
+                    .as_ref()
+                    .map(|basis| gam_linalg::faer_ndarray::fast_atb(q, basis));
+                penalty.op = None;
+                penalty.info.kronecker_factors = None;
+            }
             local.kronecker_factored = None;
             Some(rot)
         }
@@ -4485,9 +4479,8 @@ fn wrap_local_build_as_realization(
         name: termspec.name.clone(),
         coeff_range: 0..p_local,
         shape: termspec.shape,
-        penalties_local: local.penalties.clone(),
-        nullspace_dims: local.nullspaces.clone(),
-        penaltyinfo_local: local.penaltyinfo.clone(),
+        active_penalties: local.active_penalties.clone(),
+        dropped_penalties: local.dropped_penalties.clone(),
         metadata: local.metadata.clone(),
         lower_bounds_local: lb_local,
         linear_constraints_local: local.linear_constraints.clone(),
@@ -4506,12 +4499,12 @@ fn wrap_local_build_as_realization(
 }
 
 /// Extract the κ-invariant pieces of a freshly-built spatial basis — center
-/// cloud (in standardized coords) and `input_scales` — and bake them into a
+/// cloud (in standardized coords) and `input_scale` — and bake them into a
 /// `SmoothTermSpec` whose `center_strategy` becomes `UserProvided` and whose
-/// `input_scales` is `Some`. Subsequent rebuilds driven from this cached spec
+/// `input_scale` is `Some`. Subsequent rebuilds driven from this cached spec
 /// will short-circuit `select_centers_by_strategy` (KMeans / FarthestPoint /
-/// EqualMass cluster searches over n×d data) and `compute_spatial_input_scales`
-/// (per-axis variance over n rows), leaving only the κ-dependent kernel
+/// EqualMass cluster searches over n×d data) and isotropic scale estimation,
+/// leaving only the κ-dependent kernel
 /// values and basis assembly. Returns `None` for non-spatial families or when
 /// the metadata does not yet expose the required pieces (for instance when a
 /// ThinPlate request was auto-promoted to Duchon during the build).
@@ -4524,86 +4517,56 @@ fn freeze_geometry_from_metadata(
         (
             SmoothBasisSpec::Matern {
                 spec,
-                input_scales: spec_scales,
+                input_scale: spec_scale,
                 ..
             },
             BasisMetadata::Matern {
                 centers,
-                input_scales: meta_scales,
+                input_scale: metadata_scale,
                 identifiability_transform,
-                nullspace_shrinkage_survived,
                 ..
             },
         ) => {
             spec.center_strategy = CenterStrategy::UserProvided(centers.clone());
-            if spec_scales.is_none()
-                && let Some(s) = meta_scales.clone()
-            {
-                *spec_scales = Some(s);
-            }
-            // Pin BOTH the cold-build identifiability transform `Z` AND the
-            // double-penalty nullspace-shrinkage decision into a
-            // `FrozenTransform` (gam#787/#860, #1122). Without this, the
-            // κ-optimizer's per-trial value rebuild re-runs the κ-DEPENDENT
-            // spectral test (`build_nullspace_shrinkage_penalty`), whose
-            // tolerance scales with `λ_max(A(κ))`: as κ moves, near-null
-            // eigenvalues of the projected kernel Gram `A` cross the threshold,
-            // so the `DoublePenaltyNullspace` block `P/√r` (and its null
-            // dimension `r`) JUMP discontinuously between line-search trials.
-            // The analytic ψ-gradient — assembled in a fixed frozen eigenbasis
-            // — cannot follow those discrete jumps, so the joint REML objective
-            // V(κ) is piecewise-discontinuous while the gradient is smooth: an
-            // objective↔gradient desync that stalls the isotropic-κ optimizer
-            // with a large residual gradient at the iteration cap. Freezing the
-            // decision (and the transform that `A` is built from) makes the
-            // per-trial value rebuild and the analytic gradient share one fixed
-            // `Z` and one fixed `r`, restoring a smooth, differentiable V(κ).
+            *spec_scale = Some(*metadata_scale);
+            // Freeze the cold-build coefficient chart. Double-penalty topology
+            // is structural (the explicit intercept only), so no numerical
+            // nullspace decision needs to be carried across κ trials.
             if let Some(transform) = identifiability_transform.clone() {
-                spec.identifiability = MaternIdentifiability::FrozenTransform {
-                    transform,
-                    nullspace_shrinkage_survived: Some(*nullspace_shrinkage_survived),
-                };
+                spec.identifiability = MaternIdentifiability::FrozenTransform { transform };
             }
             Some(frozen)
         }
         (
             SmoothBasisSpec::Duchon {
                 spec,
-                input_scales: spec_scales,
+                input_scale: spec_scale,
                 ..
             },
             BasisMetadata::Duchon {
                 centers,
-                input_scales: meta_scales,
+                input_scale: metadata_scale,
                 ..
             },
         ) => {
             spec.center_strategy = CenterStrategy::UserProvided(centers.clone());
-            if spec_scales.is_none()
-                && let Some(s) = meta_scales.clone()
-            {
-                *spec_scales = Some(s);
-            }
+            *spec_scale = Some(*metadata_scale);
             Some(frozen)
         }
         (
             SmoothBasisSpec::ThinPlate {
                 spec,
-                input_scales: spec_scales,
+                input_scale: spec_scale,
                 ..
             },
             BasisMetadata::ThinPlate {
                 centers,
-                input_scales: meta_scales,
+                input_scale: metadata_scale,
                 ..
             },
         ) => {
             spec.center_strategy = CenterStrategy::UserProvided(centers.clone());
-            if spec_scales.is_none()
-                && let Some(s) = meta_scales.clone()
-            {
-                *spec_scales = Some(s);
-            }
+            *spec_scale = Some(*metadata_scale);
             Some(frozen)
         }
         // Family mismatch (e.g. ThinPlate auto-promotion to Duchon) leaves the
@@ -4852,13 +4815,13 @@ struct FrozenTermCollectionIncrementalRealizer<'d> {
     ///
     /// On the first κ-driven rebuild of term `i`, this slot is populated with a
     /// `SmoothTermSpec` whose κ-invariant geometry — center cloud (as
-    /// `CenterStrategy::UserProvided`) and `input_scales` — has been frozen
+    /// `CenterStrategy::UserProvided`) and `input_scale` — has been frozen
     /// out of the realized basis metadata. Subsequent
     /// `apply_log_kappa_to_term` calls reuse this spec, mutating only the
     /// κ / aniso fields. This short-circuits `select_centers_by_strategy`
     /// (KMeans / FarthestPoint / EqualMass cluster searches over the n×d data
-    /// matrix) and `compute_spatial_input_scales` (per-axis variance pass
-    /// over n rows) on every BFGS κ-eval, leaving the kernel-value pass and
+    /// matrix) and isotropic scale estimation over n rows on every BFGS
+    /// κ-eval, leaving the kernel-value pass and
     /// basis assembly as the only work.
     spatial_realization_geometry: Vec<Option<SmoothTermSpec>>,
     /// Monotonic counter incremented every time `apply_log_kappa` actually
@@ -4876,6 +4839,61 @@ impl<'d> std::fmt::Debug for FrozenTermCollectionIncrementalRealizer<'d> {
             .field("fixed_blocks", &self.fixed_blocks.len())
             .finish_non_exhaustive()
     }
+}
+
+/// Translate the authoritative emitted global penalty layout into the two
+/// coordinate systems the incremental realizer updates.
+///
+/// The model-global ranges come directly from `TermCollectionDesign`; the
+/// smooth-local ranges are their exact translation past the recorded leading
+/// penalty prefix. Keeping this outside the constructor makes the layout
+/// invariant independently testable without constructing any κ-specific
+/// spatial caches.
+fn emitted_smooth_penalty_ranges(
+    design: &TermCollectionDesign,
+) -> Result<(Vec<Range<usize>>, Vec<Range<usize>>), String> {
+    let leading = design.leading_penalty_blocks_before_smooth();
+    let mut smooth_penalty_ranges = Vec::with_capacity(design.smooth.terms.len());
+    let mut full_penalty_ranges = Vec::with_capacity(design.smooth.terms.len());
+    let mut smooth_cursor = 0usize;
+    for term_idx in 0..design.smooth.terms.len() {
+        let full_range = design.smooth_term_penalty_range(term_idx)?;
+        match full_range {
+            Some(full_range) => {
+                let local_start = full_range.start.checked_sub(leading).ok_or_else(|| {
+                    "incremental realizer smooth penalty range precedes the emitted smooth prefix"
+                        .to_string()
+                })?;
+                let local_end = full_range.end.checked_sub(leading).ok_or_else(|| {
+                    "incremental realizer smooth penalty range precedes the emitted smooth prefix"
+                        .to_string()
+                })?;
+                if local_start != smooth_cursor {
+                    return Err(format!(
+                        "incremental realizer non-contiguous emitted smooth layout at term {term_idx}: expected local start {smooth_cursor}, got {local_start}"
+                    ));
+                }
+                smooth_cursor = local_end;
+                smooth_penalty_ranges.push(local_start..local_end);
+                full_penalty_ranges.push(full_range);
+            }
+            None => {
+                smooth_penalty_ranges.push(smooth_cursor..smooth_cursor);
+                let global_cursor = leading.checked_add(smooth_cursor).ok_or_else(|| {
+                    "incremental realizer empty smooth penalty range overflow".to_string()
+                })?;
+                full_penalty_ranges.push(global_cursor..global_cursor);
+            }
+        }
+    }
+    if smooth_cursor != design.smooth.penalties.len() {
+        return Err(format!(
+            "incremental realizer smooth penalty mismatch: ranged={}, actual={}",
+            smooth_cursor,
+            design.smooth.penalties.len()
+        ));
+    }
+    Ok((smooth_penalty_ranges, full_penalty_ranges))
 }
 
 impl<'d> FrozenTermCollectionIncrementalRealizer<'d> {
@@ -4903,33 +4921,11 @@ impl<'d> FrozenTermCollectionIncrementalRealizer<'d> {
             .into());
         }
 
-        let mut smooth_cursor = 0usize;
-        let mut smooth_penalty_ranges = Vec::with_capacity(design.smooth.terms.len());
-        for term in &design.smooth.terms {
-            let next = smooth_cursor + term.penalties_local.len();
-            smooth_penalty_ranges.push(smooth_cursor..next);
-            smooth_cursor = next;
-        }
-        if smooth_cursor != design.smooth.penalties.len() {
-            return Err(SmoothError::dimension_mismatch(format!(
-                "incremental realizer smooth penalty mismatch: ranged={}, actual={}",
-                smooth_cursor,
-                design.smooth.penalties.len()
-            ))
-            .into());
-        }
-
-        let fixed_penalty_offset = design
-            .penalties
-            .len()
-            .checked_sub(design.smooth.penalties.len())
-            .ok_or_else(|| {
-                "incremental realizer encountered invalid penalty bookkeeping".to_string()
-            })?;
-        let full_penalty_ranges = smooth_penalty_ranges
-            .iter()
-            .map(|range| (fixed_penalty_offset + range.start)..(fixed_penalty_offset + range.end))
-            .collect::<Vec<_>>();
+        // Cache the exact ranges reported by the emitted global layout. Do not
+        // reconstruct a second global offset from term specs or coefficient
+        // blocks: unpenalized fixed/random effects own columns but emit no
+        // penalty, and multi-penalty smooths own more than one coordinate.
+        let (smooth_penalty_ranges, full_penalty_ranges) = emitted_smooth_penalty_ranges(&design)?;
         let fixed_blocks = build_term_collection_fixed_blocks(data, &spec)
             .map_err(|e| format!("failed to cache fixed term-collection blocks: {e}"))?;
 
@@ -4954,14 +4950,14 @@ impl<'d> FrozenTermCollectionIncrementalRealizer<'d> {
                 ))
                 .into());
             }
-            if realization.active_penaltyinfo().len()
-                != design.smooth.terms[term_idx].penalties_local.len()
+            if realization.active_penalty_count()
+                != design.smooth.terms[term_idx].active_penalties.len()
             {
                 return Err(SmoothError::dimension_mismatch(format!(
                     "cached realization penalty mismatch for term '{}': cached_penalties={}, design_penalties={}",
                     termspec.name,
-                    realization.active_penaltyinfo().len(),
-                    design.smooth.terms[term_idx].penalties_local.len()
+                    realization.active_penalty_count(),
+                    design.smooth.terms[term_idx].active_penalties.len()
                 ))
                 .into());
             }
@@ -5118,7 +5114,7 @@ impl<'d> FrozenTermCollectionIncrementalRealizer<'d> {
                 power,
                 nullspace_order,
                 aniso_log_scales,
-                input_scales,
+                input_scale,
                 radial_reparam,
                 ..
             } => {
@@ -5128,16 +5124,12 @@ impl<'d> FrozenTermCollectionIncrementalRealizer<'d> {
                 };
                 // Slow-path Duchon realization stores centers/collocation points
                 // in standardized coordinates and compensates the user-facing
-                // length_scale by σ_geom before building penalties. The n-free
+                // length_scale by the scalar input frame before building penalties. The n-free
                 // re-key must use the same effective length scale, or the fast
                 // path pairs G(ψ_new) with an S(ψ_new) from a different
                 // coordinate scale.
-                let effective_ls = match input_scales.as_deref() {
-                    Some(scales) => {
-                        compensate_optional_length_scale_for_standardization(ls_opt, scales)
-                    }
-                    None => ls_opt,
-                };
+                let effective_ls =
+                    ls_opt.map(|length| input_scale.to_standardized_units(length));
                 gam_terms::basis::duchon_penalties_at_length_scale(
                     centers.view(),
                     identifiability_transform.as_ref(),
@@ -5159,22 +5151,19 @@ impl<'d> FrozenTermCollectionIncrementalRealizer<'d> {
                 include_intercept,
                 identifiability_transform,
                 aniso_log_scales,
-                input_scales,
+                input_scale,
                 ..
             } => {
                 // `spatial_term_psi_to_length_scale_and_aniso` decodes ψ to a
                 // length scale in ORIGINAL data coordinates — exactly what the
                 // slow-path rebuild writes into `spec.length_scale` before
                 // `matern_operator_penalty_triplet_from_metadata` compensates it
-                // by σ_geom. Compensate identically here so the n-free re-key
+                // by the scalar input frame. Compensate identically here so the n-free re-key
                 // reproduces the slow-path penalty surface byte-for-byte (#706).
                 let ls = ls_opt.ok_or_else(|| {
                     "Matérn n-free penalty re-key requires a finite length-scale".to_string()
                 })?;
-                let effective_ls = match input_scales.as_deref() {
-                    Some(scales) => compensate_length_scale_for_standardization(ls, scales),
-                    None => ls,
-                };
+                let effective_ls = input_scale.to_standardized_units(ls);
                 let aniso_for_penalty = aniso_from_psi.as_deref().or(aniso_log_scales.as_deref());
                 // Route through the SAME canonical operator-triplet builder the
                 // realized design uses (`matern_operator_penalty_triplet_from_
@@ -5186,18 +5175,27 @@ impl<'d> FrozenTermCollectionIncrementalRealizer<'d> {
                 // produce a 1-block surface against a 3-block frozen design — the
                 // topology desync #1270 hard-errored on. Sharing the builder
                 // makes the block count ψ-stable by construction.
-                let (penalties, nullspace_dims, _info) =
-                    matern_operator_penalty_triplet_at_length_scale(
-                        centers.view(),
-                        periodic.as_deref(),
-                        identifiability_transform.as_ref(),
-                        *nu,
-                        *include_intercept,
-                        aniso_for_penalty,
-                        effective_ls,
-                    )
-                    .map_err(|e| e.to_string())?;
-                (penalties, nullspace_dims)
+                let filtered = matern_operator_penalty_triplet_at_length_scale(
+                    centers.view(),
+                    periodic.as_deref(),
+                    identifiability_transform.as_ref(),
+                    *nu,
+                    *include_intercept,
+                    aniso_for_penalty,
+                    effective_ls,
+                )
+                .map_err(|e| e.to_string())?;
+                let locals = filtered
+                    .active
+                    .iter()
+                    .map(|penalty| penalty.matrix.clone())
+                    .collect();
+                let nullspace_dims = filtered
+                    .active
+                    .iter()
+                    .map(|penalty| penalty.nullity)
+                    .collect();
+                (locals, nullspace_dims)
             }
             BasisMetadata::ThinPlate {
                 centers,
@@ -5297,7 +5295,7 @@ impl<'d> FrozenTermCollectionIncrementalRealizer<'d> {
                 power,
                 nullspace_order,
                 aniso_log_scales,
-                input_scales,
+                input_scale,
                 radial_reparam,
                 ..
             } => {
@@ -5310,12 +5308,8 @@ impl<'d> FrozenTermCollectionIncrementalRealizer<'d> {
                         );
                     }
                 };
-                let effective_ls = match input_scales.as_deref() {
-                    Some(scales) => {
-                        compensate_optional_length_scale_for_standardization(ls_opt, scales)
-                    }
-                    None => ls_opt,
-                };
+                let effective_ls =
+                    ls_opt.map(|length| input_scale.to_standardized_units(length));
                 spec.length_scale = effective_ls;
                 spec.power = *power;
                 spec.nullspace_order = *nullspace_order;
@@ -5360,16 +5354,13 @@ impl<'d> FrozenTermCollectionIncrementalRealizer<'d> {
                 include_intercept,
                 identifiability_transform,
                 aniso_log_scales,
-                input_scales,
+                input_scale,
                 ..
             } => {
                 let ls = ls_opt.ok_or_else(|| {
                     "Matérn n-free penalty derivative requires a finite length-scale".to_string()
                 })?;
-                let effective_ls = match input_scales.as_deref() {
-                    Some(scales) => compensate_length_scale_for_standardization(ls, scales),
-                    None => ls,
-                };
+                let effective_ls = input_scale.to_standardized_units(ls);
                 let penalty_centers = gam_terms::basis::expand_periodic_centers(
                     &centers.to_owned(),
                     periodic.as_deref(),
@@ -5411,7 +5402,7 @@ impl<'d> FrozenTermCollectionIncrementalRealizer<'d> {
                 if spec.radial_reparam.is_none() {
                     spec.radial_reparam = radial_reparam.clone();
                 }
-                let (primary, _primary_second) =
+                let (primary, _primary_second, nullspace, _nullspace_second) =
                     gam_terms::basis::build_thin_plate_penalty_psi_derivativeswithworkspace(
                         centers.view(),
                         &spec,
@@ -5420,7 +5411,7 @@ impl<'d> FrozenTermCollectionIncrementalRealizer<'d> {
                     )
                     .map_err(|e| e.to_string())?;
                 if self.design.penalties.len() > 1 {
-                    vec![primary.clone(), Array2::<f64>::zeros(primary.raw_dim())]
+                    vec![primary, nullspace]
                 } else {
                     vec![primary]
                 }
@@ -5526,12 +5517,12 @@ impl<'d> FrozenTermCollectionIncrementalRealizer<'d> {
 
         // Pick the spec to drive the rebuild. If the per-term geometry cache
         // is populated, it carries already-resolved centers
-        // (`CenterStrategy::UserProvided`) and frozen `input_scales`; reusing
+        // (`CenterStrategy::UserProvided`) and frozen `input_scale`; reusing
         // it short-circuits `select_centers_by_strategy` (KMeans /
         // FarthestPoint / EqualMass cluster searches) and
-        // `compute_spatial_input_scales` (per-axis variance over n rows) in
+        // isotropic scale estimation over n rows in
         // the family builders. Centers in the cached spec live in
-        // standardized coordinates (matching the cached `input_scales`), so
+        // standardized coordinates (matching the cached `input_scale`), so
         // the same standardization + kernel path runs without recomputation
         // of the geometry.
         let geometry_slot = self
@@ -5639,9 +5630,8 @@ impl<'d> FrozenTermCollectionIncrementalRealizer<'d> {
         } = realization;
         let SmoothTerm {
             name,
-            penalties_local,
-            nullspace_dims,
-            penaltyinfo_local,
+            active_penalties,
+            dropped_penalties,
             metadata,
             lower_bounds_local,
             linear_constraints_local,
@@ -5675,11 +5665,6 @@ impl<'d> FrozenTermCollectionIncrementalRealizer<'d> {
             .into());
         }
 
-        let active_penaltyinfo = penaltyinfo_local
-            .iter()
-            .filter(|info| info.active)
-            .cloned()
-            .collect::<Vec<_>>();
         let smooth_penalty_range = self
             .smooth_penalty_ranges
             .get(term_idx)
@@ -5694,16 +5679,11 @@ impl<'d> FrozenTermCollectionIncrementalRealizer<'d> {
                 format!("incremental realizer missing full penalty range for term {term_idx}")
             })?
             .clone();
-        if active_penaltyinfo.len() != smooth_penalty_range.len()
-            || penalties_local.len() != smooth_penalty_range.len()
-            || nullspace_dims.len() != smooth_penalty_range.len()
-        {
+        if active_penalties.len() != smooth_penalty_range.len() {
             return Err(SmoothError::dimension_mismatch(format!(
-                "incremental realizer topology changed for term '{}': penalties={}, infos={}, nullspaces={}, cached_penalties={}",
+                "incremental realizer topology changed for term '{}': active_penalties={}, cached_penalties={}",
                 name,
-                penalties_local.len(),
-                active_penaltyinfo.len(),
-                nullspace_dims.len(),
+                active_penalties.len(),
                 smooth_penalty_range.len()
             ))
             .into());
@@ -5711,11 +5691,10 @@ impl<'d> FrozenTermCollectionIncrementalRealizer<'d> {
 
         self.design.smooth.term_designs[term_idx] = design_local;
 
-        for (offset, penalty_local) in penalties_local.iter().enumerate() {
+        for (offset, active_penalty) in active_penalties.iter().enumerate() {
             let smooth_penalty_idx = smooth_penalty_range.start + offset;
             let full_penalty_idx = full_penalty_range.start + offset;
-            let nullspace_dim = nullspace_dims[offset];
-            let penalty_info = active_penaltyinfo[offset].clone();
+            let penalty_local = &active_penalty.matrix;
 
             if penalty_local.nrows() != coeff_range.len()
                 || penalty_local.ncols() != coeff_range.len()
@@ -5746,6 +5725,7 @@ impl<'d> FrozenTermCollectionIncrementalRealizer<'d> {
             // With per-term block-local penalties, col_range already targets
             // this specific term, so .local is p_k × p_k.
             smooth_penalty.local.assign(penalty_local);
+            smooth_penalty.op = active_penalty.op.clone();
 
             let full_bp = self
                 .design
@@ -5760,25 +5740,26 @@ impl<'d> FrozenTermCollectionIncrementalRealizer<'d> {
             // With per-term block-local penalties, col_range already targets
             // this specific term, so .local is p_k × p_k.
             full_bp.local.assign(penalty_local);
+            full_bp.op = active_penalty.op.clone();
 
-            self.design.smooth.nullspace_dims[smooth_penalty_idx] = nullspace_dim;
-            self.design.nullspace_dims[full_penalty_idx] = nullspace_dim;
+            self.design.smooth.nullspace_dims[smooth_penalty_idx] = active_penalty.nullity;
+            self.design.nullspace_dims[full_penalty_idx] = active_penalty.nullity;
 
             self.design.smooth.penaltyinfo[smooth_penalty_idx].global_index = smooth_penalty_idx;
             self.design.smooth.penaltyinfo[smooth_penalty_idx].termname = Some(name.clone());
-            self.design.smooth.penaltyinfo[smooth_penalty_idx].penalty = penalty_info.clone();
+            self.design.smooth.penaltyinfo[smooth_penalty_idx].penalty =
+                active_penalty.info.clone();
 
             self.design.penaltyinfo[full_penalty_idx].global_index = full_penalty_idx;
             self.design.penaltyinfo[full_penalty_idx].termname = Some(name.clone());
-            self.design.penaltyinfo[full_penalty_idx].penalty = penalty_info;
+            self.design.penaltyinfo[full_penalty_idx].penalty = active_penalty.info.clone();
         }
 
         let target_term = self.design.smooth.terms.get_mut(term_idx).ok_or_else(|| {
             format!("incremental realizer smooth term {term_idx} disappeared during replacement")
         })?;
-        target_term.penalties_local = penalties_local;
-        target_term.nullspace_dims = nullspace_dims;
-        target_term.penaltyinfo_local = penaltyinfo_local;
+        target_term.active_penalties = active_penalties;
+        target_term.dropped_penalties = dropped_penalties;
         target_term.metadata = metadata;
         target_term.lower_bounds_local = lower_bounds_local;
         target_term.linear_constraints_local = linear_constraints_local;
@@ -5813,7 +5794,7 @@ fn build_term_collection_fixed_blocks(
     spec: &TermCollectionSpec,
 ) -> Result<Vec<DesignBlock>, BasisError> {
     let mut blocks = Vec::<DesignBlock>::new();
-    if !term_collection_has_one_sided_anchored_bspline(spec) {
+    if !term_collection_has_anchored_bspline(spec) {
         blocks.push(DesignBlock::Intercept(data.nrows()));
     }
 
@@ -5850,7 +5831,37 @@ pub struct SpatialLengthScaleOptimizationResult<FitOut> {
     pub resolved_specs: Vec<TermCollectionSpec>,
     pub designs: Vec<TermCollectionDesign>,
     pub fit: FitOut,
+    pub certified_outer: Option<gam_solve::rho_optimizer::CertifiedOuterResult>,
     pub timing: Option<SpatialLengthScaleOptimizationTiming>,
+}
+
+/// One exact outer-objective evaluation together with the owned coefficient
+/// mode that produced it.
+///
+/// `mode` is deliberately generic and move-only.  The spatial driver never
+/// interprets or clones it; it retains the carrier that belongs to the latest
+/// successful evaluation and transfers that exact ownership into final fit
+/// assembly after the outer certificate has been issued.
+pub struct ExactJointEvaluation<M> {
+    pub objective: f64,
+    pub gradient: Array1<f64>,
+    pub hessian: gam_problem::HessianValue,
+    pub mode: M,
+}
+
+/// One exact fixed-point evaluation and the owned coefficient mode that
+/// produced its value and update equations.
+pub struct ExactJointEfsEvaluation<M> {
+    pub evaluation: gam_problem::EfsEval,
+    pub mode: M,
+}
+
+pub enum SpatialFitProvenance<'a, M> {
+    NoOuterOptimization,
+    Certified {
+        outer: &'a gam_solve::rho_optimizer::CertifiedOuterResult,
+        mode: M,
+    },
 }
 
 /// Exact-joint hyper-parameter setup for N-block spatial length-scale optimization.
@@ -6092,7 +6103,7 @@ impl<'d> ExactJointDesignCache<'d> {
     impl_exact_joint_theta_memo!();
 
     /// Cache a cost-only result. Called after `ensure_theta(theta)` for
-    /// line-search probes and value-only seed prewarming. We
+    /// literal-seed and line-search cost probes. We
     /// intentionally do not populate `last_eval` because no gradient was
     /// computed; the next outer evaluation at this θ will recompute
     /// (V, ∇V) via `evaluate_with_order` if the optimizer asks for it.
@@ -6104,6 +6115,13 @@ impl<'d> ExactJointDesignCache<'d> {
         {
             self.last_cost = Some(cost);
         }
+    }
+
+    /// Revoke objective values when the row measure changes while retaining
+    /// the realized design at the current theta.
+    fn invalidate_objective_memo(&mut self) {
+        self.last_cost = None;
+        self.last_eval = None;
     }
 
     fn specs(&self) -> Vec<&TermCollectionSpec> {
@@ -6465,7 +6483,7 @@ pub(crate) fn exact_joint_multistart_outer_problem(
     Ok(problem)
 }
 
-pub fn optimize_spatial_length_scale_exact_joint<FitOut, FitFn, ExactFn, ExactEfsFn, SeedFn>(
+pub fn optimize_spatial_length_scale_exact_joint<FitOut, Mode, FitFn, ExactFn, ExactEfsFn, SeedFn>(
     data: ArrayView2<'_, f64>,
     block_specs: &[TermCollectionSpec],
     block_term_indices: &[Vec<usize>],
@@ -6483,11 +6501,11 @@ pub fn optimize_spatial_length_scale_exact_joint<FitOut, FitFn, ExactFn, ExactEf
     mut seed_inner_beta_fn: SeedFn,
 ) -> Result<SpatialLengthScaleOptimizationResult<FitOut>, String>
 where
-    FitOut: Clone,
     FitFn: FnMut(
         &Array1<f64>,
         &[TermCollectionSpec],
         &[TermCollectionDesign],
+        SpatialFitProvenance<'_, Mode>,
     ) -> Result<FitOut, String>,
     ExactFn: FnMut(
         &Array1<f64>,
@@ -6495,12 +6513,13 @@ where
         &[TermCollectionDesign],
         gam_solve::estimate::reml::reml_outer_engine::EvalMode,
         &gam_problem::outer_subsample::RowSet,
-    ) -> Result<(f64, Array1<f64>, gam_problem::HessianValue), String>,
+    ) -> Result<ExactJointEvaluation<Mode>, String>,
     ExactEfsFn: FnMut(
         &Array1<f64>,
         &[TermCollectionSpec],
         &[TermCollectionDesign],
-    ) -> Result<gam_problem::EfsEval, String>,
+        &gam_problem::outer_subsample::RowSet,
+    ) -> Result<ExactJointEfsEvaluation<Mode>, String>,
     SeedFn: FnMut(&Array1<f64>) -> Result<gam_solve::rho_optimizer::SeedOutcome, EstimationError>,
 {
     let n_blocks = block_specs.len();
@@ -6542,11 +6561,17 @@ where
         // Build temporary owned slices for the closure call.
         let spec_refs: Vec<TermCollectionSpec> = resolved_specs.clone();
         let design_refs: Vec<TermCollectionDesign> = designs.clone();
-        let fit = fit_fn(&theta0, &spec_refs, &design_refs)?;
+        let fit = fit_fn(
+            &theta0,
+            &spec_refs,
+            &design_refs,
+            SpatialFitProvenance::NoOuterOptimization,
+        )?;
         return Ok(SpatialLengthScaleOptimizationResult {
             resolved_specs,
             designs,
             fit,
+            certified_outer: None,
             timing: None,
         });
     }
@@ -6610,12 +6635,45 @@ where
         .map(|((spec, design), terms)| (spec.clone(), design.clone(), terms.clone()))
         .collect();
 
-    struct NBlockExactJointState<'d> {
+    struct NBlockExactJointState<'d, M> {
         cache: ExactJointDesignCache<'d>,
+        row_set: gam_problem::outer_subsample::RowSet,
+        staged_pilot_active: bool,
+        terminal_mode: Option<(Array1<f64>, f64, M)>,
+    }
+
+    impl<M> NBlockExactJointState<'_, M> {
+        fn ensure_theta(&mut self, theta: &Array1<f64>) -> Result<(), String> {
+            let theta_changed = !self
+                .cache
+                .current_theta
+                .as_ref()
+                .is_some_and(|current| theta_values_match(current, theta));
+            if theta_changed {
+                self.terminal_mode = None;
+            }
+            self.cache.ensure_theta(theta)
+        }
+
+        fn install_terminal_mode(&mut self, theta: &Array1<f64>, objective: f64, mode: M) {
+            self.terminal_mode = Some((theta.clone(), objective, mode));
+        }
+
+        fn terminal_mode_matches(&self, theta: &Array1<f64>, objective: f64) -> bool {
+            self.terminal_mode
+                .as_ref()
+                .is_some_and(|(mode_theta, mode_objective, _)| {
+                    theta_values_match(mode_theta, theta)
+                        && mode_objective.to_bits() == objective.to_bits()
+                })
+        }
     }
 
     let mut state = NBlockExactJointState {
         cache: ExactJointDesignCache::new(data, cache_blocks, rho_dim, all_dims.clone())?,
+        row_set: gam_problem::outer_subsample::RowSet::All,
+        staged_pilot_active: false,
+        terminal_mode: None,
     };
 
     // ── P7: staged-κ schedule ────────────────────────────────────────────
@@ -6626,16 +6684,19 @@ where
     // Monte-Carlo error of a `K = 5_000`-row pilot is ≪ the κ posterior
     // width, so estimating θ on a stratified `K`-row pilot returns
     // statistically the *same* estimate as the full-data fit at a
-    // fraction of the wall-clock cost. We then do one Gauss-Newton-style
-    // polish at `K_polish` to absorb residual Monte-Carlo error before
-    // the final coefficient fit at the polished θ on the full data.
+    // fraction of the wall-clock cost. The shared outer runner then continues
+    // from that checkpoint on the exact full-data measure and issues its
+    // mandatory analytic certificate only after the transition.
     //
     // This is **not a heuristic shortcut**. It is the textbook
     // pilot-then-refine schedule for stationary-process likelihoods,
     // chosen here because the per-eval cost of the κ gradient grows
     // linearly in `n` and the pilot subsample reduces that cost by a
-    // factor of `n / K`. The final coefficient fit at θ̂_polished on the
-    // full data preserves estimation accuracy for β.
+    // factor of `n / K`. The exact full-data refinement starts literally at
+    // the pilot checkpoint and retains the learned trust radius and Hessian;
+    // it costs one terminal
+    // full-data evaluation when the pilot point already certifies and keeps
+    // optimizing when it does not.
     //
     // At `n < STAGED_KAPPA_TRIGGER_N` the schedule collapses to one
     // full-data stage — identical to the pre-P7 behaviour.
@@ -6643,17 +6704,14 @@ where
     // `outer_derivative_policy.should_use_staged_kappa(n_total)`; this fn
     // only carries the constants it consumes directly.
     const KAPPA_PILOT_K: usize = 5_000;
-    const KAPPA_POLISH_K: usize = 25_000;
-    const KAPPA_POLISH_TRIGGER_N: usize = 100_000;
 
     let n_total = data.nrows();
     let use_staged_kappa = outer_derivative_policy.should_use_staged_kappa(n_total);
     if use_staged_kappa {
         log::info!(
-            "[KAPPA-STAGED] auto-engaging pilot+polish schedule: n={} pilot_k={} polish_k={}",
+            "[KAPPA-STAGED] auto-engaging pilot+exact schedule: n={} pilot_k={}",
             n_total,
             KAPPA_PILOT_K,
-            KAPPA_POLISH_K,
         );
     }
 
@@ -6705,16 +6763,14 @@ where
         OuterScoreSubsample::from_uniform_inclusion_mask(mask, n_total, seed)
     }
 
-    let current_row_set: std::cell::RefCell<gam_problem::outer_subsample::RowSet> =
-        if use_staged_kappa {
-            let pilot = build_uniform_pilot_subsample(n_total, KAPPA_PILOT_K, n_total as u64);
-            std::cell::RefCell::new(gam_problem::outer_subsample::RowSet::Subsample {
-                rows: std::sync::Arc::clone(&pilot.rows),
-                n_full: n_total,
-            })
-        } else {
-            std::cell::RefCell::new(gam_problem::outer_subsample::RowSet::All)
+    if use_staged_kappa {
+        let pilot = build_uniform_pilot_subsample(n_total, KAPPA_PILOT_K, n_total as u64);
+        state.row_set = gam_problem::outer_subsample::RowSet::Subsample {
+            rows: std::sync::Arc::clone(&pilot.rows),
+            n_full: n_total,
         };
+        state.staged_pilot_active = true;
+    }
 
     let exact_fn_cell = std::cell::RefCell::new(&mut exact_fn);
     let exact_efs_fn_cell = std::cell::RefCell::new(&mut exact_efs_fn);
@@ -6815,11 +6871,13 @@ where
     }
 
     let result = {
-        let eval_outer = |ctx: &mut &mut NBlockExactJointState<'_>,
+        let eval_outer = |ctx: &mut &mut NBlockExactJointState<'_, Mode>,
                           theta: &Array1<f64>,
                           order: OuterEvalOrder|
          -> Result<OuterEval, EstimationError> {
-            if let Some((cost, grad, hess)) = ctx.cache.memoized_eval(theta) {
+            if let Some((cost, grad, hess)) = ctx.cache.memoized_eval(theta)
+                && ctx.terminal_mode_matches(theta, cost)
+            {
                 let cached_satisfies_order = match order {
                     OuterEvalOrder::Value => true,
                     OuterEvalOrder::ValueAndGradient => grad.len() == theta.len(),
@@ -6854,12 +6912,11 @@ where
                     });
                 }
             }
-            if let Err(err) = ctx.cache.ensure_theta(theta) {
-                log::warn!(
-                    "[OUTER] n-block exact-joint spatial: ensure_theta failed during gradient evaluation: {err}"
-                );
-                return Ok(OuterEval::infeasible(theta.len()));
-            }
+            ctx.ensure_theta(theta).map_err(|err| {
+                EstimationError::InvalidInput(format!(
+                    "n-block exact-joint spatial design realization failed: {err}"
+                ))
+            })?;
             let design_revision = Some(ctx.cache.design_revision());
             let specs = collect_specs(&ctx.cache);
             let designs = collect_designs(&ctx.cache);
@@ -6882,10 +6939,8 @@ where
                 gam_solve::estimate::reml::reml_outer_engine::EvalMode::ValueAndGradient
             };
             let t0 = std::time::Instant::now();
-            let result = {
-                let row_set_borrow = current_row_set.borrow();
-                (*exact_fn_cell.borrow_mut())(theta, &specs, &designs, eval_mode, &row_set_borrow)
-            };
+            let result =
+                (*exact_fn_cell.borrow_mut())(theta, &specs, &designs, eval_mode, &ctx.row_set);
             let elapsed_s = t0.elapsed().as_secs_f64();
             kphase_eval_calls.set(kphase_eval_calls.get() + 1);
             kphase_eval_total_s.set(kphase_eval_total_s.get() + elapsed_s);
@@ -6900,7 +6955,13 @@ where
                 elapsed_s,
             );
             match result {
-                Ok((cost, grad, hess)) => {
+                Ok(ExactJointEvaluation {
+                    objective: cost,
+                    gradient: grad,
+                    hessian: hess,
+                    mode,
+                }) => {
+                    ctx.install_terminal_mode(theta, cost, mode);
                     if value_only {
                         ctx.cache.store_cost_only(theta, cost);
                     } else {
@@ -6931,27 +6992,25 @@ where
                         inner_beta_hint: None,
                     })
                 }
-                Err(err) => {
-                    log::warn!(
-                        "[OUTER] n-block exact-joint spatial: exact evaluation failed: {err}"
-                    );
-                    Ok(OuterEval::infeasible(theta.len()))
-                }
+                Err(err) => Err(EstimationError::RemlOptimizationFailed(format!(
+                    "n-block exact-joint spatial evaluation failed: {err}"
+                ))),
             }
         };
 
         let obj = problem.build_objective_with_eval_order(
             &mut state,
-            |ctx: &mut &mut NBlockExactJointState<'_>, theta: &Array1<f64>| {
-                if let Some(cost) = ctx.cache.memoized_cost(theta) {
+            |ctx: &mut &mut NBlockExactJointState<'_, Mode>, theta: &Array1<f64>| {
+                if let Some(cost) = ctx.cache.memoized_cost(theta)
+                    && ctx.terminal_mode_matches(theta, cost)
+                {
                     return Ok(cost);
                 }
-                if let Err(err) = ctx.cache.ensure_theta(theta) {
-                    log::warn!(
-                        "[OUTER] n-block exact-joint spatial: ensure_theta failed during cost evaluation: {err}"
-                    );
-                    return Ok(f64::INFINITY);
-                }
+                ctx.ensure_theta(theta).map_err(|err| {
+                    EstimationError::InvalidInput(format!(
+                        "n-block exact-joint spatial design realization failed: {err}"
+                    ))
+                })?;
                 let design_revision = Some(ctx.cache.design_revision());
                 let specs = collect_specs(&ctx.cache);
                 let designs = collect_designs(&ctx.cache);
@@ -6962,16 +7021,13 @@ where
                 // n=320 000, n_grid=293, p_resp=32, p_cov=23) is now paid only
                 // when the outer evaluator actually requests it.
                 let t0 = std::time::Instant::now();
-                let result = {
-                    let row_set_borrow = current_row_set.borrow();
-                    (*exact_fn_cell.borrow_mut())(
-                        theta,
-                        &specs,
-                        &designs,
-                        gam_solve::estimate::reml::reml_outer_engine::EvalMode::ValueOnly,
-                        &row_set_borrow,
-                    )
-                };
+                let result = (*exact_fn_cell.borrow_mut())(
+                    theta,
+                    &specs,
+                    &designs,
+                    gam_solve::estimate::reml::reml_outer_engine::EvalMode::ValueOnly,
+                    &ctx.row_set,
+                );
                 let elapsed_s = t0.elapsed().as_secs_f64();
                 kphase_cost_calls.set(kphase_cost_calls.get() + 1);
                 kphase_cost_total_s.set(kphase_cost_total_s.get() + elapsed_s);
@@ -6985,7 +7041,12 @@ where
                     elapsed_s,
                 );
                 match result {
-                    Ok((cost, _grad, _hess)) => {
+                    Ok(ExactJointEvaluation {
+                        objective: cost,
+                        mode,
+                        ..
+                    }) => {
+                        ctx.install_terminal_mode(theta, cost, mode);
                         // Don't `store_eval`: that path is only valid when the
                         // closure produced a real gradient. The next outer-eval
                         // call will recompute (V, ∇V) at this θ if needed; the
@@ -6994,15 +7055,12 @@ where
                         ctx.cache.store_cost_only(theta, cost);
                         Ok(cost)
                     }
-                    Err(err) => {
-                        log::warn!(
-                            "[OUTER] n-block exact-joint spatial: exact cost evaluation failed: {err}"
-                        );
-                        Ok(f64::INFINITY)
-                    }
+                    Err(err) => Err(EstimationError::RemlOptimizationFailed(format!(
+                        "n-block exact-joint spatial cost evaluation failed: {err}"
+                    ))),
                 }
             },
-            |ctx: &mut &mut NBlockExactJointState<'_>, theta: &Array1<f64>| {
+            |ctx: &mut &mut NBlockExactJointState<'_, Mode>, theta: &Array1<f64>| {
                 eval_outer(
                     ctx,
                     theta,
@@ -7013,13 +7071,13 @@ where
                     },
                 )
             },
-            |ctx: &mut &mut NBlockExactJointState<'_>,
+            |ctx: &mut &mut NBlockExactJointState<'_, Mode>,
              theta: &Array1<f64>,
              order: OuterEvalOrder| { eval_outer(ctx, theta, order) },
-            None::<fn(&mut &mut NBlockExactJointState<'_>)>,
+            None::<fn(&mut &mut NBlockExactJointState<'_, Mode>)>,
             Some(
-                |ctx: &mut &mut NBlockExactJointState<'_>, theta: &Array1<f64>| {
-                    ctx.cache
+                |ctx: &mut &mut NBlockExactJointState<'_, Mode>, theta: &Array1<f64>| {
+                    ctx
                         .ensure_theta(theta)
                         .map_err(EstimationError::InvalidInput)?;
                     let design_revision = Some(ctx.cache.design_revision());
@@ -7030,6 +7088,7 @@ where
                         theta,
                         &specs,
                         &designs,
+                        &ctx.row_set,
                     );
                     let elapsed_s = t0.elapsed().as_secs_f64();
                     kphase_efs_calls.set(kphase_efs_calls.get() + 1);
@@ -7043,19 +7102,44 @@ where
                         log_kappa_norm,
                         elapsed_s,
                     );
-                    let eval = eval_result.map_err(EstimationError::RemlOptimizationFailed)?;
-                    Ok(eval)
+                    let ExactJointEfsEvaluation { evaluation, mode } =
+                        eval_result.map_err(EstimationError::RemlOptimizationFailed)?;
+                    // An EFS solve can select a different coefficient mode at
+                    // the same theta.  Revoke any derivative memo assembled
+                    // from the previous mode before installing this carrier;
+                    // a later analytic certification must then re-evaluate and
+                    // replace both the derivative payload and the owned mode
+                    // atomically.
+                    ctx.cache.invalidate_objective_memo();
+                    ctx.cache.store_cost_only(theta, evaluation.cost);
+                    ctx.install_terminal_mode(theta, evaluation.cost, mode);
+                    Ok(evaluation)
                 },
             ),
         );
-        let mut obj = obj.with_seed_inner_state(
-            move |_ctx: &mut &mut NBlockExactJointState<'_>, beta: &Array1<f64>| {
-                (seed_inner_beta_fn)(beta)
-            },
-        );
+        let mut obj = obj
+            .with_seed_inner_state(
+                move |_ctx: &mut &mut NBlockExactJointState<'_, Mode>, beta: &Array1<f64>| {
+                    (seed_inner_beta_fn)(beta)
+                },
+            )
+            .with_exact_polish(|ctx: &mut &mut NBlockExactJointState<'_, Mode>| {
+                if !ctx.staged_pilot_active {
+                    return false;
+                }
+                // Objective memoization is theta-only, so a pilot value at the
+                // warm checkpoint must not alias the exact full-data value.
+                // Keep the realized design and warm coefficient state: only the
+                // score measure changes here.
+                ctx.cache.invalidate_objective_memo();
+                ctx.terminal_mode = None;
+                ctx.row_set = gam_problem::outer_subsample::RowSet::All;
+                ctx.staged_pilot_active = false;
+                true
+            });
 
         problem
-            .run(&mut obj, "n-block exact-joint spatial")
+            .run_certified(&mut obj, "n-block exact-joint spatial")
             .map_err(|error| error.to_string())?
     }; // obj dropped here, releasing mutable borrow on state
 
@@ -7099,83 +7183,49 @@ where
         optim_total_s: kphase_total_s,
     };
 
-    if !result.converged {
-        return Err(format!(
-            "n-block exact-joint spatial κ optimization did not converge after {} iterations (final_objective={:.6e}, final_grad_norm={})",
-            result.iterations,
-            result.final_value,
-            result.final_grad_norm_report(),
-        ));
+    if !matches!(state.row_set, gam_problem::outer_subsample::RowSet::All) {
+        return Err(
+            "n-block exact-joint spatial optimization returned before its exact full-data transition"
+                .to_string(),
+        );
     }
-    let theta_star = result.rho;
+    let certified_outer = result;
+    let theta_star = certified_outer.rho().clone();
 
     // ── P7 stage rotation ────────────────────────────────────────────────
-    //
-    // The optimization above ran against `current_row_set` — the pilot
-    // subsample under `use_staged_kappa`, otherwise the full data. We
-    // now:
-    //
-    // 1. If `n_total ≥ KAPPA_POLISH_TRIGGER_N`, rotate to a larger
-    //    polish subsample and request a single value+gradient evaluation
-    //    at `theta_star` so the family caches its polished score. This
-    //    is the Gauss-Newton-style polish in the schedule — one step
-    //    rather than a full re-run because the pilot has already
-    //    consumed most of the curvature information.
-    //
-    // 2. Always rotate back to `RowSet::All` before the final
-    //    coefficient fit `fit_fn(theta_star)`. The final β estimate at
-    //    θ̂ uses the full data so no estimation accuracy is lost.
-    if use_staged_kappa && n_total >= KAPPA_POLISH_TRIGGER_N {
-        let polish = build_uniform_pilot_subsample(
-            n_total,
-            KAPPA_POLISH_K,
-            (n_total as u64).wrapping_add(0xA5A5A5A5),
-        );
-        *current_row_set.borrow_mut() = gam_problem::outer_subsample::RowSet::Subsample {
-            rows: std::sync::Arc::clone(&polish.rows),
-            n_full: n_total,
-        };
-        log::info!(
-            "[KAPPA-STAGED] rotating to polish subsample: k={} at theta_star",
-            polish.rows.len(),
-        );
-        // One V+G evaluation at theta_star on the polish subsample. The
-        // returned objective pieces must be usable; the family-side cache
-        // update inside `exact_fn` is consumed by the final fit.
-        state.cache.ensure_theta(&theta_star)?;
-        let (polish_cost, polish_grad, _) = {
-            let specs = collect_specs(&state.cache);
-            let designs = collect_designs(&state.cache);
-            let row_set_borrow = current_row_set.borrow();
-            exact_fn(
-                &theta_star,
-                &specs,
-                &designs,
-                gam_solve::estimate::reml::reml_outer_engine::EvalMode::ValueAndGradient,
-                &row_set_borrow,
-            )?
-        };
-        if !polish_cost.is_finite() || polish_grad.iter().any(|value| !value.is_finite()) {
-            return Err(
-                "polish subsample exact-joint evaluation produced non-finite objective pieces"
-                    .to_string(),
-            );
-        }
-    }
-    *current_row_set.borrow_mut() = gam_problem::outer_subsample::RowSet::All;
-    if use_staged_kappa {
-        log::info!(
-            "[KAPPA-STAGED] rotating to full data for final coefficient fit (n={})",
-            n_total,
+    // The returned theta and certificate now belong to the exact full-data
+    // refinement. No separate probe may mutate that certified identity before
+    // the final coefficient fit.
+    state.ensure_theta(&theta_star)?;
+    let (mode_theta, mode_objective, mode) = state.terminal_mode.take().ok_or_else(|| {
+        "n-block exact-joint spatial optimization produced a certificate without retaining the owned terminal coefficient mode"
+            .to_string()
+    })?;
+    if !theta_values_match(&mode_theta, &theta_star) {
+        return Err(
+            "n-block exact-joint spatial terminal coefficient mode does not bitwise match the certified hyperparameter vector"
+                .to_string(),
         );
     }
-
-    state.cache.ensure_theta(&theta_star)?;
+    if mode_objective.to_bits() != certified_outer.final_value().to_bits() {
+        return Err(format!(
+            "n-block exact-joint spatial terminal coefficient mode objective does not bitwise match the certified objective: mode={mode_objective:.17e}, certified={:.17e}",
+            certified_outer.final_value(),
+        ));
+    }
 
     let resolved_specs: Vec<TermCollectionSpec> = collect_specs(&state.cache);
     let designs: Vec<TermCollectionDesign> = collect_designs(&state.cache);
 
-    let fit = fit_fn(&theta_star, &resolved_specs, &designs)?;
+    let fit = fit_fn(
+        &theta_star,
+        &resolved_specs,
+        &designs,
+        SpatialFitProvenance::Certified {
+            outer: &certified_outer,
+            mode,
+        },
+    )?;
 
     for spec in &resolved_specs {
         log_spatial_aniso_scales(spec);
@@ -7185,6 +7235,7 @@ where
         resolved_specs,
         designs,
         fit,
+        certified_outer: Some(certified_outer),
         timing: Some(timing),
     })
 }
@@ -7443,6 +7494,10 @@ fn try_exact_joint_latent_coord_optimization(
         }
     }
 
+    let effective_offset = best
+        .design
+        .compose_offset(offset, "latent-coordinate joint fit")
+        .map_err(EstimationError::BasisError)?;
     let mut ctx = LatentJointContext {
         rho_dim,
         cache: SingleBlockLatentCoordDesignCache::new(
@@ -7457,7 +7512,7 @@ fn try_exact_joint_latent_coord_optimization(
             y,
             weights,
             &best.design.design,
-            offset,
+            effective_offset.view(),
             &best.design.penalties,
             &external_opts_for_design(&family, &best.design, options),
             "latent-coordinate-joint",
@@ -7719,7 +7774,8 @@ fn select_isotropic_matern_range_basin(
             ))
         })?;
         let (psi_long_bound, psi_short_bound) =
-            spatial_term_psi_bounds(data, &resolvedspec, term_idx, kappa_options);
+            spatial_term_psi_bounds(data, &resolvedspec, term_idx, kappa_options)
+                .map_err(EstimationError::BasisError)?;
         let psi_long = (-companion_length_scale.ln()).clamp(psi_long_bound, psi_short_bound);
         let long_length_scale = (-psi_long).exp();
         if !(long_length_scale.is_finite() && long_length_scale > 0.0) {
@@ -7735,8 +7791,9 @@ fn select_isotropic_matern_range_basin(
 
         let mut endpoint_spec = resolvedspec.clone();
         set_spatial_length_scale(&mut endpoint_spec, term_idx, long_length_scale)?;
-        // Profile rho at the competing geometry by continuation from the
-        // already certified incumbent rho. This is still a full standard REML
+        // Profile rho at the competing geometry by starting the ordinary outer
+        // optimizer literally at the already certified incumbent rho. This is
+        // still a full standard REML
         // solve (including its ordinary seed certification), but it avoids
         // throwing away the exact smoothing optimum immediately before a
         // deliberately coarser center-resolution geometry move. The incumbent
@@ -7865,7 +7922,7 @@ pub fn fit_term_collectionwith_spatial_length_scale_optimization(
             &spatial_terms,
             pilot_threshold,
             kappa_options,
-        );
+        )?;
     }
 
     // #1376: the geometry-only anisotropy seed (`initial_aniso_contrasts`, from
@@ -8538,15 +8595,15 @@ pub fn smooth_term_lr_inference_forspec(
         .coefficient_covariance_scale(family_disp)
         .map_err(|error| EstimationError::InvalidInput(error.to_string()))?;
 
-    // The penalty-block cursor walks the same block order the summary table
-    // uses: any leading linear/random-effect penalty blocks first (skipped
-    // here), then smooth terms.
-    let mut penalty_cursor = full.design.leading_penalty_blocks_before_smooth();
     let mut out = Vec::<SmoothTermLrInference>::new();
     for (term_idx, design_term) in full.design.smooth.terms.iter().enumerate() {
-        let k = design_term.penalties_local.len();
-        let block_start = penalty_cursor;
-        penalty_cursor += k;
+        let penalty_range = full
+            .design
+            .smooth_term_penalty_range(term_idx)
+            .map_err(EstimationError::InvalidInput)?;
+        let (block_start, k) = penalty_range
+            .map(|range| (range.start, range.len()))
+            .unwrap_or((0, 0));
         // Shape-constrained smooths get no central-χ² LR (cone-projected
         // boundary test); the summary table skips them too.
         if design_term.shape != ShapeConstraint::None {
@@ -8652,11 +8709,17 @@ pub fn smooth_term_lr_inference_forspec(
         let (statistic_lr, eta_null) = match null_fit {
             Ok(null) if null.fit.log_likelihood.is_finite() => {
                 let w = (2.0 * (ll_full - null.fit.log_likelihood)).max(0.0);
-                // η at the null fit: X_null β_null + offset (per-row linear
-                // predictor; design-layout independent — Lawley reads it on the
-                // full design rows).
+                // η at the null fit: X_null β_null + affine_offset + offset
+                // (per-row linear predictor; design-layout independent — Lawley
+                // reads it on the full design rows). `compose_offset` folds the
+                // design's fixed affine channel (non-zero endpoint anchor,
+                // #2297) into the user offset.
+                let null_offset = null
+                    .design
+                    .compose_offset(offset, "smooth likelihood-ratio null model")
+                    .map_err(|error| EstimationError::InvalidInput(error.to_string()))?;
                 let mut eta = null.design.design.dot(&null.fit.beta);
-                eta += &offset;
+                eta += &null_offset;
                 (w, Some(eta))
             }
             _ => (f64::NAN, None),

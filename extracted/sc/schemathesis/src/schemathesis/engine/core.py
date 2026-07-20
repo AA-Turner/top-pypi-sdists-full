@@ -177,6 +177,8 @@ class ExecutionPlan:
             cache=events.CacheRunMetrics(
                 observations_total=store.distinct_observations() if store is not None else 0,
             ),
+            reauth_count=ctx.reauth.reauth_count,
+            reauth_broke=ctx.reauth.broke,
         )
         # Skip after_run on a partial run (interrupt/abort); the fuzz path runs them on stop.
         failures = run_after_run_checks(ctx) if ctx.stop_reason == StopReason.COMPLETED else []
@@ -192,11 +194,15 @@ class ExecutionPlan:
             phase.skip_reason = PhaseSkipReason.FAILURE_LIMIT_REACHED
         # Phase can be enabled if certain conditions are met
         if phase.name == PhaseName.STATEFUL_TESTING:
-            inferred = engine.apply_stateful_inference()
+            inference = engine.apply_stateful_inference()
             # Enable stateful testing if we successfully inferred any transitions
-            if inferred:
+            if inference.inferred:
                 phase.enable()
-            return StatefulPhasePayload(inferred_transitions=inferred)
+            return StatefulPhasePayload(
+                inferred_transitions=inference.inferred,
+                transitions_total=inference.total,
+                transitions_selected=inference.selected,
+            )
         return None
 
 

@@ -14,7 +14,8 @@ use crate::basis::{
     BSplineIdentifiability, BSplineKnotSpec, CenterCountRequest, CenterStrategy,
     ConstantCurvatureBasisSpec, ConstantCurvatureIdentifiability, DuchonBasisSpec,
     DuchonNullspaceOrder, DuchonOperatorPenaltySpec, MaternBasisSpec, MaternIdentifiability,
-    MaternNu, MeasureJetBasisSpec, MeasureJetIdentifiability, OneDimensionalBoundary,
+    MaternLengthScale, MaternNu, MeasureJetBasisSpec, MeasureJetIdentifiability,
+    OneDimensionalBoundary,
     SpatialIdentifiability, SphereMethod, SphereWahbaKernel, SphericalSplineBasisSpec,
     SphericalSplineIdentifiability, ThinPlateBasisSpec, auto_spatial_center_strategy,
     default_num_centers, default_spatial_center_strategy, default_spherical_harmonic_degree,
@@ -1764,11 +1765,7 @@ pub fn build_smooth_basis(
         for r in 0..n_rows {
             let key: Vec<u64> = views
                 .iter()
-                .map(|v| {
-                    let x = v[r];
-                    let norm = if x == 0.0 { 0.0 } else { x };
-                    norm.to_bits()
-                })
+                .map(|v| gam_data::canonical_level_bits(v[r]))
                 .collect();
             distinct_points.insert(key);
             if distinct_points.len() > 1 {
@@ -2316,14 +2313,16 @@ pub fn build_smooth_basis(
                 } else {
                     parse_bspline_boundary_conditions(options).map_err(|e| e.to_string())?
                 };
-            // A one-sided anchor is already the model's level-setting gauge:
-            // term-design construction suppresses the global intercept so the
-            // fitted function itself, rather than only a centered deviation,
-            // obeys the endpoint pin. Applying the ordinary sum-to-zero chart
-            // as well would force the entire anchored function to have sample
-            // mean zero. In #1867 that made a positive anchored bump
-            // mathematically unrecoverable before REML was even evaluated.
-            let identifiability = if boundary_conditions.has_one_sided_anchor() {
+            // An anchored endpoint (one *or* both sides) is already the model's
+            // level-setting gauge: term-design construction suppresses the
+            // global intercept so the fitted function itself, rather than only a
+            // centered deviation, obeys the endpoint pin. Applying the ordinary
+            // sum-to-zero chart as well would force the entire anchored function
+            // to have sample mean zero. In #1867 that made a positive one-sided
+            // anchored bump mathematically unrecoverable before REML was even
+            // evaluated; for a two-sided anchor it additionally strips the
+            // interior level the two pins bracket (#2297).
+            let identifiability = if boundary_conditions.has_anchor() {
                 BSplineIdentifiability::None
             } else {
                 BSplineIdentifiability::default()
@@ -2504,7 +2503,7 @@ pub fn build_smooth_basis(
                         .map_err(|e| e.to_string())?,
                     radial_reparam: None,
                 },
-                input_scales: None,
+                input_scale: None,
             })
         }
         "sphere" | "s2" | "sos" => {
@@ -2820,7 +2819,7 @@ pub fn build_smooth_basis(
                     identifiability: MeasureJetIdentifiability::CenterSumToZero,
                     frozen_quadrature: None,
                 },
-                input_scales: None,
+                input_scale: None,
             })
         }
         "matern" => {
@@ -2920,24 +2919,24 @@ pub fn build_smooth_basis(
                 spec: MaternBasisSpec {
                     center_strategy,
                     periodic: parse_periodic_axes_option(options, cols.len())?,
-                    // Sentinel: leave at 0.0 when the user didn't pass an
-                    // explicit length_scale so the planner's
-                    // `auto_init_length_scale_in_place` can replace it with the
-                    // SAME data-derived wiggly-side initialization the thin-plate
-                    // path uses (`max_range / sqrt(n)`), then let the κ-optimizer
-                    // refine from there.
+                    // Preserve whether the user supplied `length_scale` as typed
+                    // provenance. The planner resolves `Auto` to the same
+                    // data-derived wiggly-side initialization the thin-plate path
+                    // uses (`max_range / sqrt(n)`), then lets the κ-optimizer refine
+                    // it without ever turning it into a user-fixed scale.
                     //
                     // gam#1629: the previous `default_matern_length_scale` seeded
                     // the FULL data diameter — the maximally over-smoothed corner.
-                    // Because that value is non-zero, the `0.0`-gated auto-init was
-                    // a no-op for Matérn, so the κ-optimizer started in the flat
+                    // Because that value looked explicit, the old auto-init was a
+                    // no-op for Matérn, so the κ-optimizer started in the flat
                     // over-smoothed basin and parked there, leaving high-frequency
                     // 2-D surfaces unresolved (truth-RMSE ~6× worse than
                     // thin-plate/tensor on identical data, and insensitive to `k`).
-                    // Routing Matérn through the same `0.0` sentinel as thin-plate
-                    // (see the ThinPlate branch above) starts REML in the resolving
-                    // regime it can actually escape from.
-                    length_scale: option_f64(options, "length_scale").unwrap_or(0.0),
+                    // Typed Auto starts REML in the resolving regime it can escape
+                    // from and cannot be confused with explicit zero.
+                    length_scale: option_f64(options, "length_scale")
+                        .map(MaternLengthScale::fixed)
+                        .unwrap_or_else(MaternLengthScale::auto),
                     nu,
                     include_intercept: option_bool(options, "include_intercept").unwrap_or(false),
                     double_penalty: smooth_double_penalty,
@@ -2948,9 +2947,8 @@ pub fn build_smooth_basis(
                     // the double-penalty nullspace shrinkage survives; the freeze
                     // step then pins that decision into the FrozenTransform so the
                     // κ-optimizer's rebuilds keep the count invariant (gam#787/#860).
-                    nullspace_shrinkage_survived: None,
                 },
-                input_scales: None,
+                input_scale: None,
             })
         }
         "duchon" | "ds" => {
@@ -3190,7 +3188,7 @@ pub fn build_smooth_basis(
                     boundary,
                     radial_reparam: None,
                 },
-                input_scales: None,
+                input_scale: None,
             })
         }
         "tensor" | "te" | "ti" | "t2" => {
@@ -3724,7 +3722,7 @@ fn promote_thin_plate_for_scale_dimensions(basis: &mut SmoothBasisSpec) {
     let SmoothBasisSpec::ThinPlate {
         feature_cols,
         spec,
-        input_scales,
+        input_scale,
     } = &*basis
     else {
         return;
@@ -3764,13 +3762,13 @@ fn promote_thin_plate_for_scale_dimensions(basis: &mut SmoothBasisSpec) {
         radial_reparam: None,
     };
     let feature_cols = feature_cols.clone();
-    let input_scales = input_scales.clone();
+    let input_scale = *input_scale;
     // All borrows of `*basis` (the `&*basis` destructure above) end with the
     // clones on the two preceding lines, so the reassignment is sound.
     *basis = SmoothBasisSpec::Duchon {
         feature_cols,
         spec: duchon_spec,
-        input_scales,
+        input_scale,
     };
 }
 
@@ -3842,8 +3840,7 @@ pub fn unique_count_column(col: ArrayView1<'_, f64>) -> usize {
     use std::collections::HashSet;
     let mut set = HashSet::<u64>::with_capacity(col.len());
     for &v in col {
-        let norm = if v == 0.0 { 0.0 } else { v };
-        set.insert(norm.to_bits());
+        set.insert(gam_data::canonical_level_bits(v));
     }
     set.len().max(1)
 }
@@ -3924,12 +3921,10 @@ fn min_per_group_unique_count(
     use std::collections::{HashMap, HashSet};
     let mut per_group: HashMap<u64, HashSet<u64>> = HashMap::new();
     for (xi, gi) in feature_col.iter().zip(group_col.iter()) {
-        let xnorm = if *xi == 0.0 { 0.0 } else { *xi };
-        let gnorm = if *gi == 0.0 { 0.0 } else { *gi };
         per_group
-            .entry(gnorm.to_bits())
+            .entry(gam_data::canonical_level_bits(*gi))
             .or_default()
-            .insert(xnorm.to_bits());
+            .insert(gam_data::canonical_level_bits(*xi));
     }
     per_group
         .values()
@@ -4175,28 +4170,7 @@ fn parse_bspline_boundary_conditions(
         boundary_anchor_value(options, "right", fallback_anchor),
     );
 
-    // Non-zero anchors require an affine offset term that the current basis
-    // builder does not synthesize (see `build_bspline_basis_1d` in
-    // src/terms/basis.rs). Surface the rejection at parse time with the side
-    // and value in the diagnostic, instead of letting the value-only error
-    // emerge deep inside the basis builder where the user has no context
-    // about which anchor key (`anchor`, `left_anchor`, `right_anchor`, …)
-    // routed into which endpoint.
-    reject_nonzero_anchor("left", boundary_conditions.left)?;
-    reject_nonzero_anchor("right", boundary_conditions.right)?;
-
     Ok(boundary_conditions)
-}
-
-fn reject_nonzero_anchor(side: &str, cond: BSplineEndpointBoundaryCondition) -> Result<(), String> {
-    if let BSplineEndpointBoundaryCondition::Anchored { value } = cond {
-        if value.abs() > 1e-12 {
-            return Err(format!(
-                "non-zero {side} anchor {value} requires an affine offset term that is not yet supported; only anchored value 0 is accepted at parse time"
-            ));
-        }
-    }
-    Ok(())
 }
 
 /// Resolve the requested internal-knot count and effective spline degree for
@@ -4827,11 +4801,42 @@ fn parse_spatial_identifiability(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::basis::OperatorPenaltySpec;
+    use crate::basis::{OperatorPenaltySpec, PenaltySource};
     use crate::inference::formula_dsl::parse_formula;
     use gam_data::{DataSchema, SchemaColumn};
     use ndarray::{Array1, Array2};
     use std::collections::BTreeMap;
+
+    /// #2293 regression: distinct-value counting for factor levels must route
+    /// through `gam_data::canonical_level_bits`, so `+0.0` / `-0.0` collapse to
+    /// one level and every NaN payload collapses to one level. The previous
+    /// ad-hoc `if x == 0.0 { 0.0 } else { x }.to_bits()` idiom collapsed signed
+    /// zero but left distinct NaN bit patterns as separate levels, over-counting
+    /// the cardinality that caps a factor/cr marginal's basis.
+    #[test]
+    fn unique_count_column_uses_canonical_level_bits() {
+        // +0.0 and -0.0 are one level; two NaN payloads are one level.
+        let signed_zero = Array1::from(vec![0.0, -0.0, 0.0]);
+        assert_eq!(
+            unique_count_column(signed_zero.view()),
+            1,
+            "+0.0 and -0.0 must collapse to a single level"
+        );
+
+        let nan_a = f64::from_bits(0x7ff8_0000_0000_0001);
+        let nan_b = f64::from_bits(0xfff8_0000_0000_dead);
+        assert!(nan_a.is_nan() && nan_b.is_nan() && nan_a.to_bits() != nan_b.to_bits());
+        let nans = Array1::from(vec![nan_a, nan_b]);
+        assert_eq!(
+            unique_count_column(nans.view()),
+            1,
+            "distinct NaN payloads must collapse to a single level"
+        );
+
+        // Ordinary finite values stay distinct.
+        let finite = Array1::from(vec![1.0, 2.0, 2.0, 3.0]);
+        assert_eq!(unique_count_column(finite.view()), 3);
+    }
 
     /// #1867 regression: on sparse 1-D data the generic conditioning cap in
     /// [`default_num_centers`] (`n / COND_N_DIVISOR`) starves a radial
@@ -5141,15 +5146,11 @@ mod tests {
     }
 
     /// gam#1629: a default 2-D `matern(x1, x2)` (no explicit `length_scale`)
-    /// must leave the length-scale at the `0.0` auto sentinel — NOT the full
-    /// data diameter — so the planner's `auto_init_length_scale_in_place` seeds
-    /// it on the wiggly/resolving side (`max_range / sqrt(n)`), the same regime
-    /// thin-plate uses. The previous `default_matern_length_scale` returned the
-    /// full diameter, which is non-zero, so the `0.0`-gated auto-init was a
-    /// no-op and the κ-optimizer started in the over-smoothed corner and parked
-    /// there (truth-RMSE ~6× worse than thin-plate/tensor on identical
-    /// high-frequency 2-D surfaces, insensitive to `k`). This pins the corrected
-    /// seed geometry without a fit/optimizer in the loop.
+    /// must retain typed Auto ownership — NOT a baked-in data diameter — so the
+    /// planner's `auto_init_length_scale_in_place` seeds it on the
+    /// wiggly/resolving side (`max_range / sqrt(n)`), the same regime thin-plate
+    /// uses. This pins the corrected seed geometry without a fit/optimizer in
+    /// the loop.
     #[test]
     fn default_matern_2d_seeds_resolving_length_scale_not_overscaled_diameter() {
         // A fine multi-frequency 2-D grid (the #1629 reproduction shape): the
@@ -5183,33 +5184,56 @@ mod tests {
         )
         .expect("build default 2-D matern smooth");
 
-        // (1) The builder must emit the auto sentinel, not a baked-in diameter.
+        // (1) The builder must emit typed unresolved Auto provenance, not a
+        // baked-in diameter or a magic numeric sentinel.
         let (feature_cols, seeded_length_scale) = match &basis {
             SmoothBasisSpec::Matern {
                 feature_cols, spec, ..
             } => (feature_cols.clone(), spec.length_scale),
             other => panic!("expected Matern basis, got {other:?}"),
         };
-        assert_eq!(
-            seeded_length_scale, 0.0,
-            "default matern() must leave length_scale at the 0.0 auto sentinel \
-             (got {seeded_length_scale}); a non-zero diameter default re-enters the \
-             over-smoothed basin and disables the planner's wiggly-side auto-init",
-        );
+        assert_eq!(seeded_length_scale, MaternLengthScale::auto());
 
         // (2) After the shared auto-init runs, the realized length-scale must
-        // land in the resolving regime: `max_range / sqrt(n)`, far below the
-        // data diameter. This is the seed the κ-optimizer starts REML from.
+        // land in the resolving regime, far below the data diameter. This is
+        // the seed the κ-optimizer starts REML from. Since #1731 the Matérn
+        // seed is density-adaptive (`auto_initial_length_scale_for_centers`
+        // with the requested center count) and since #2252 it uses the
+        // rotation-invariant covariance extent `sqrt(12·λ_max)` instead of the
+        // rotation-variant per-axis span, so the fitted basin is identical in
+        // every rotated frame. Pin bit-equality against that production seed.
         crate::smooth::auto_init_length_scale_in_basis(ds.values.view(), &mut basis);
-        let realized = match &basis {
-            SmoothBasisSpec::Matern { spec, .. } => spec.length_scale,
+        let (realized, requested_centers) = match &basis {
+            SmoothBasisSpec::Matern { spec, .. } => (
+                spec.length_scale
+                    .resolved()
+                    .expect("auto-init must resolve Matérn length scale"),
+                match &spec.center_strategy {
+                    CenterStrategy::FarthestPoint { num_centers }
+                    | CenterStrategy::EqualMass { num_centers }
+                    | CenterStrategy::EqualMassCovarRepresentative { num_centers }
+                    | CenterStrategy::KMeans { num_centers, .. } => *num_centers,
+                    CenterStrategy::Auto(inner) => match inner.as_ref() {
+                        CenterStrategy::FarthestPoint { num_centers }
+                        | CenterStrategy::EqualMass { num_centers }
+                        | CenterStrategy::EqualMassCovarRepresentative { num_centers }
+                        | CenterStrategy::KMeans { num_centers, .. } => *num_centers,
+                        other => panic!("unexpected inner center strategy: {other:?}"),
+                    },
+                    other => panic!("unexpected center strategy: {other:?}"),
+                },
+            ),
             other => panic!("expected Matern basis after auto-init, got {other:?}"),
         };
-        let expected = crate::smooth::auto_initial_length_scale(ds.values.view(), &feature_cols);
+        let expected = crate::smooth::auto_initial_length_scale_for_centers(
+            ds.values.view(),
+            &feature_cols,
+            requested_centers,
+        );
         assert!(
             (realized - expected).abs() <= 1e-12,
-            "auto-init must seed the wiggly-side length scale max_range/sqrt(n) \
-             (expected {expected}, got {realized})",
+            "auto-init must seed the density-adaptive rotation-invariant \
+             wiggly-side length scale (expected {expected}, got {realized})",
         );
 
         // Sanity: the resolving seed is well below the per-axis range (≈1.0).
@@ -5221,6 +5245,105 @@ mod tests {
             "matern seed length_scale {realized} must be in the resolving regime, \
              not the over-smoothed diameter corner (n={n}, max_range≈{max_range})",
         );
+    }
+
+    /// gam#979: the BMS entry point asks `all_spatial_terms_kappa_fixed` before
+    /// any design build. Omitted Matérn scales must therefore be distinguishable
+    /// from explicit scales both before and after Auto seed resolution.
+    #[test]
+    fn matern_length_scale_provenance_drives_prebuild_kappa_locking() {
+        let ds = continuous_dataset(
+            &["y", "x1", "x2"],
+            vec![
+                vec![0.0, -1.0, -0.5],
+                vec![1.0, -0.2, 0.7],
+                vec![0.0, 0.6, -0.8],
+                vec![1.0, 1.1, 0.4],
+            ],
+        );
+        let build = |length_scale: Option<&str>| {
+            let mut options = BTreeMap::new();
+            options.insert("bs".to_string(), "gp".to_string());
+            if let Some(value) = length_scale {
+                options.insert("length_scale".to_string(), value.to_string());
+            }
+            let mut notes = Vec::new();
+            build_smooth_basis(
+                SmoothKind::S,
+                &["x1".to_string(), "x2".to_string()],
+                &[1, 2],
+                &options,
+                &ds,
+                &mut notes,
+                &ResourcePolicy::default_library(),
+                1,
+            )
+            .expect("build Matérn provenance fixture")
+        };
+        let collection = |basis| TermCollectionSpec {
+            linear_terms: Vec::new(),
+            random_effect_terms: Vec::new(),
+            smooth_terms: vec![SmoothTermSpec {
+                name: "spatial".to_string(),
+                basis,
+                shape: ShapeConstraint::None,
+                joint_null_rotation: None,
+            }],
+        };
+
+        let mut auto = collection(build(None));
+        assert!(matches!(
+            &auto.smooth_terms[0].basis,
+            SmoothBasisSpec::Matern {
+                spec: MaternBasisSpec {
+                    length_scale: MaternLengthScale::Auto { resolved: None },
+                    ..
+                },
+                ..
+            }
+        ));
+        assert!(
+            !crate::smooth::all_spatial_terms_kappa_fixed(&auto),
+            "BMS pre-design query must enroll omitted Matérn κ"
+        );
+        crate::smooth::auto_init_length_scale_in_place(
+            ds.values.view(),
+            &mut auto.smooth_terms[0],
+        );
+        assert!(matches!(
+            &auto.smooth_terms[0].basis,
+            SmoothBasisSpec::Matern {
+                spec: MaternBasisSpec {
+                    length_scale: MaternLengthScale::Auto {
+                        resolved: Some(value)
+                    },
+                    ..
+                },
+                ..
+            } if value.is_finite() && *value > 0.0
+        ));
+        assert!(
+            !crate::smooth::all_spatial_terms_kappa_fixed(&auto),
+            "resolved Auto Matérn κ must remain optimizer-owned"
+        );
+
+        for explicit in ["0.75", "0.0"] {
+            let fixed = collection(build(Some(explicit)));
+            assert!(matches!(
+                &fixed.smooth_terms[0].basis,
+                SmoothBasisSpec::Matern {
+                    spec: MaternBasisSpec {
+                        length_scale: MaternLengthScale::Fixed(value),
+                        ..
+                    },
+                    ..
+                } if *value == explicit.parse::<f64>().unwrap()
+            ));
+            assert!(
+                crate::smooth::all_spatial_terms_kappa_fixed(&fixed),
+                "explicit Matérn length_scale={explicit} must lock κ before design build"
+            );
+        }
     }
 
     /// gam#1778: `matern(..., periodic=true)` and `thinplate(..., periodic=true)`
@@ -6569,23 +6692,23 @@ mod tests {
         // per-group split adds exactly (L-1)·nw = (L-1) extra penalties on top of
         // fs's count.
         let nw = 1usize; // one marginal wiggliness penalty for the B-spline marginal
-        let expected_sz = fs_built.penalties.len() + (n_levels - 1) * nw;
+        let expected_sz = fs_built.active_penalties.len() + (n_levels - 1) * nw;
         assert_eq!(
-            sz_built.penalties.len(),
+            sz_built.active_penalties.len(),
             expected_sz,
             "sz must split its wiggliness penalty per level (#1074): expected \
              fs_count {} + (L-1)·nw {} = {}, but sz had {}",
-            fs_built.penalties.len(),
+            fs_built.active_penalties.len(),
             (n_levels - 1) * nw,
             expected_sz,
-            sz_built.penalties.len(),
+            sz_built.active_penalties.len(),
         );
         assert!(
-            sz_built.penalties.len() > fs_built.penalties.len(),
+            sz_built.active_penalties.len() > fs_built.active_penalties.len(),
             "sz must carry strictly more penalties than fs after the per-group \
              split (sz={}, fs={})",
-            sz_built.penalties.len(),
-            fs_built.penalties.len(),
+            sz_built.active_penalties.len(),
+            fs_built.active_penalties.len(),
         );
 
         // The null-space ridges must still be present (the #1605 property that
@@ -6595,11 +6718,11 @@ mod tests {
         // {const, linear} null space).
         let n_wiggliness = n_levels * nw; // L per-group blocks
         assert!(
-            sz_built.penalties.len() > n_wiggliness,
+            sz_built.active_penalties.len() > n_wiggliness,
             "sz deviation block carries no null-space ridge (penalties={}, \
              wiggliness blocks={}); the null space is unpenalized and REML \
              over-smooths the deviations",
-            sz_built.penalties.len(),
+            sz_built.active_penalties.len(),
             n_wiggliness,
         );
 
@@ -6615,11 +6738,52 @@ mod tests {
             fs_built.dim,
         );
 
-        // Every penalty/metadata vector must stay parallel (length invariant the
-        // downstream REML assembly relies on).
-        assert_eq!(sz_built.penalties.len(), sz_built.nullspaces.len());
-        assert_eq!(sz_built.penalties.len(), sz_built.penaltyinfo.len());
-        assert_eq!(sz_built.penalties.len(), sz_built.null_eigenvectors.len());
+        for penalty in &sz_built.active_penalties {
+            assert_eq!(
+                penalty
+                    .null_eigenvectors
+                    .as_ref()
+                    .map_or(0, |basis| basis.ncols()),
+                penalty.nullity
+            );
+        }
+    }
+
+    #[test]
+    fn sz_penalty_metadata_is_emitted_in_matrix_order_2289() {
+        let ds = continuous_x_factor_dataset(180, 4);
+        let mut workspace = crate::basis::BasisWorkspace::new();
+        let spec = factor_smooth_spec_for("y ~ s(x, g, bs=sz, k=8, double_penalty=true)", &ds);
+        let built = crate::smooth::build_factor_smooth(
+            ds.values.view(),
+            &spec,
+            "sz_metadata_order",
+            &mut workspace,
+        )
+        .expect("build multi-penalty sz smooth");
+        let n_levels = spec.group_frozen_levels.as_ref().map(Vec::len).unwrap_or(4);
+
+        assert!(built.active_penalties.len() >= 2 * n_levels);
+        for (idx, penalty) in built.active_penalties.iter().enumerate() {
+            let analysis =
+                crate::basis::analyze_penalty_block(&penalty.matrix).expect("PSD penalty");
+            assert_eq!(penalty.info.original_index, idx);
+            assert_eq!(penalty.info.effective_rank, analysis.rank, "penalty {idx}");
+            assert_eq!(penalty.nullity, analysis.nullity, "penalty {idx}");
+        }
+        assert!(
+            built.active_penalties[..n_levels]
+                .iter()
+                .all(|penalty| matches!(penalty.info.source, PenaltySource::Primary))
+        );
+        assert!(
+            built.active_penalties[n_levels..2 * n_levels]
+                .iter()
+                .all(|penalty| matches!(
+                    penalty.info.source,
+                    PenaltySource::DoublePenaltyNullspace
+                ))
+        );
     }
 
     /// #1457: `y ~ s(x, by=g) + g` with a BARE categorical `g` must NOT lower to
@@ -6723,6 +6887,70 @@ mod tests {
             by_plus_bare, by_only,
             "the bare `+ g` collision must add zero extra `g` blocks (#1457)"
         );
+    }
+
+    #[test]
+    fn factor_by_penalties_carry_full_expanded_null_geometry_2293() {
+        let ds = factor_dataset_l3();
+        let col_map = ds.column_map();
+        // Leave the marginal null space unshrunk so every level-specific term
+        // must carry a non-trivial joint-null chart. The production default is
+        // double-penalized, whose primary and null-space ridge have a full-rank
+        // joint sum and therefore correctly produce no joint-null rotation.
+        let parsed =
+            parse_formula("y ~ s(x, by=g, k=8, double_penalty=false)").expect("parse by smooth");
+        let mut notes = Vec::new();
+        let terms = build_termspec(
+            &parsed.terms,
+            &ds,
+            &col_map,
+            &mut notes,
+            &ResourcePolicy::default_library(),
+        )
+        .expect("build by smooth spec");
+        assert_eq!(terms.smooth_terms.len(), 3, "one smooth per factor level");
+
+        // Formula construction represents an unordered factor-by smooth as one
+        // explicit level-gated term per factor level. Validate the complete
+        // realized expansion, rather than inspecting only its first level or
+        // assuming the legacy monolithic BySmooth::Factor representation.
+        for term in &terms.smooth_terms {
+            assert!(matches!(
+                &term.basis,
+                SmoothBasisSpec::ByVariable {
+                    by: ByVariableSpec::Level { .. },
+                    ..
+                }
+            ));
+            let mut workspace = crate::basis::BasisWorkspace::new();
+            let built = crate::smooth::build_single_local_smooth_term(
+                ds.values.view(),
+                term,
+                &mut workspace,
+            )
+            .expect("build level-gated factor-by smooth");
+
+            for (idx, penalty) in built.active_penalties.iter().enumerate() {
+                let analysis =
+                    crate::basis::analyze_penalty_block(&penalty.matrix).expect("PSD block");
+                assert_eq!(analysis.rank + penalty.nullity, built.dim, "penalty {idx}");
+                assert_eq!(analysis.nullity, penalty.nullity, "penalty {idx}");
+                assert_eq!(penalty.info.effective_rank, analysis.rank);
+                let basis = penalty
+                    .null_eigenvectors
+                    .as_ref()
+                    .expect("nontrivial factor-level null basis");
+                assert_eq!(basis.nrows(), built.dim);
+                assert_eq!(basis.ncols(), penalty.nullity);
+            }
+            let joint = built
+                .joint_null_rotation
+                .as_ref()
+                .expect("factor-level joint null geometry");
+            assert!(joint.joint_nullity > 0);
+            assert_eq!(joint.rotation.nrows(), built.dim);
+            assert_eq!(joint.rotation.ncols(), built.dim);
+        }
     }
 
     #[test]
@@ -7200,36 +7428,39 @@ mod tests {
 
     #[test]
     fn parse_bspline_boundary_conditions_and_side_selector() {
-        // Non-zero anchors are rejected at parse time; the diagnostic must
-        // name the side and value, which doubles as a check that the
-        // `side=left` filter routes the global `anchor=` value to the
-        // left endpoint (not the right).
+        // The `side=left` filter routes the global `anchor=` value to the left
+        // endpoint (not the right), preserving the non-zero value for the
+        // affine boundary lift.
         let mut opts = BTreeMap::new();
         opts.insert("boundary_conditions".to_string(), "anchored".to_string());
         opts.insert("side".to_string(), "left".to_string());
         opts.insert("anchor".to_string(), "2.5".to_string());
-        let err = parse_bspline_boundary_conditions(&opts)
-            .expect_err("non-zero left anchor must be rejected")
-            .to_string();
-        assert!(
-            err.contains("left") && err.contains("2.5"),
-            "rejection should name the affected side and value: {err}"
-        );
+        let parsed = parse_bspline_boundary_conditions(&opts).expect("left anchor parses");
+        assert!(matches!(
+            parsed.left,
+            BSplineEndpointBoundaryCondition::Anchored { value } if value == 2.5
+        ));
+        assert!(matches!(
+            parsed.right,
+            BSplineEndpointBoundaryCondition::Free
+        ));
 
         // Side-specific aliases (`start_bc`/`end_bc`) plus the side-specific
         // anchor key (`right_anchor`) must funnel the value onto the right
-        // endpoint — verified through the rejection diagnostic.
+        // endpoint.
         let mut opts = BTreeMap::new();
         opts.insert("start_bc".to_string(), "clamped".to_string());
         opts.insert("end_bc".to_string(), "zero".to_string());
         opts.insert("right_anchor".to_string(), "-1.0".to_string());
-        let err = parse_bspline_boundary_conditions(&opts)
-            .expect_err("non-zero right anchor must be rejected")
-            .to_string();
-        assert!(
-            err.contains("right") && err.contains("-1"),
-            "rejection should name the affected side and value: {err}"
-        );
+        let parsed = parse_bspline_boundary_conditions(&opts).expect("right anchor parses");
+        assert!(matches!(
+            parsed.left,
+            BSplineEndpointBoundaryCondition::Clamped
+        ));
+        assert!(matches!(
+            parsed.right,
+            BSplineEndpointBoundaryCondition::Anchored { value } if value == -1.0
+        ));
 
         // With anchors at zero the basis builder accepts the configuration,
         // so the same alias plumbing yields a clean `Anchored { value: 0.0 }`
@@ -7280,8 +7511,22 @@ mod tests {
         };
         assert!(matches!(spec.identifiability, BSplineIdentifiability::None));
 
+        // #2297: a two-sided anchor pins BOTH endpoint levels, which strips the
+        // interior level as well — the smooth owns no free level at all, so
+        // identifiability drops to `None` (drop-intercept/skip-centering), the
+        // same ownership rule as the one-sided case above. The former
+        // `WeightedSumToZero` expectation predates #2297 (2e90c51b7) and would
+        // double-constrain the anchored level.
         let two_sided = build("y ~ s(x, bc_left=anchored, bc_right=anchored, k=10)");
         let SmoothBasisSpec::BSpline1D { spec, .. } = &two_sided.smooth_terms[0].basis else {
+            panic!("expected one-dimensional B-spline");
+        };
+        assert!(matches!(spec.identifiability, BSplineIdentifiability::None));
+
+        // Control: an un-anchored smooth keeps the default weighted sum-to-zero
+        // constraint — #2297's anchor rule must not leak into plain smooths.
+        let plain = build("y ~ s(x, k=10)");
+        let SmoothBasisSpec::BSpline1D { spec, .. } = &plain.smooth_terms[0].basis else {
             panic!("expected one-dimensional B-spline");
         };
         assert!(matches!(

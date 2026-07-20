@@ -69,7 +69,7 @@ use ndarray::{Array1, Array2, ArrayView1};
 
 use crate::encode::EncodeAtlas;
 use crate::manifold::{SaeManifoldAtom, SaeManifoldTerm};
-use gam_problem::{MetricProvenance, RowMetric};
+use gam_problem::{FisherFactorKind, MetricProvenance, RowMetric};
 
 /// Number of sub-steps the latent path `[t_from, t_to]` is integrated over for
 /// the dosimetry path integral. The decoder curve is smooth, so a modest
@@ -87,22 +87,22 @@ const VALIDITY_DIVERGENCE_FRACTION: f64 = 0.1;
 pub enum FisherDoseKind {
     /// Euclidean/no-behavior metric: no nats dose exists.
     Unavailable,
-    /// A behavioral factor metric exists, but no omitted-mass audit was supplied.
-    UnauditedFactorMetric,
-    /// The harvest reports zero omitted Fisher trace.
-    FullMass,
-    /// A non-negative Fisher tail was omitted; the local quadratic is a lower
-    /// bound on the full-Fisher local KL.
-    TruncatedLowerBound,
+    /// The supplied factor exactly represents the complete local Fisher.
+    ExactFull,
+    /// The producer certified the retained PSD operator as a lower bound.
+    CertifiedPsdLowerBound,
+    /// The factor is randomized, stochastic, truncated, or otherwise lacks an
+    /// operator-order certificate.
+    UncertifiedApproximation,
 }
 
 impl FisherDoseKind {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Unavailable => "unavailable",
-            Self::UnauditedFactorMetric => "unaudited_factor_metric",
-            Self::FullMass => "full_mass",
-            Self::TruncatedLowerBound => "truncated_lower_bound",
+            Self::ExactFull => "exact_full",
+            Self::CertifiedPsdLowerBound => "certified_psd_lower_bound",
+            Self::UncertifiedApproximation => "uncertified_approximation",
         }
     }
 }
@@ -131,9 +131,7 @@ pub struct SteerPlan {
     /// `None` when the metric carries no behavioral information (Euclidean
     /// provenance) — the dose is *not available*, not zero.
     pub predicted_nats: Option<f64>,
-    /// Whether `predicted_nats` is full-mass, unaudited, or a low-rank lower
-    /// bound. This prevents consumers from treating every factor rank as an
-    /// equally calibrated full-Fisher dose.
+    /// Mathematical status of the factor used for `predicted_nats`.
     pub predicted_nats_kind: FisherDoseKind,
     /// Captured trace `tr(U_n U_n^T)` at `metric_row`, when behavior is present.
     pub fisher_mass_captured: Option<f64>,
@@ -407,7 +405,7 @@ pub fn steer_delta(
         ));
     }
     let atom = &model.atoms[atom_k];
-    let d = atom.latent_dim;
+    let d = atom.latent_dim();
     let p = atom.output_dim();
     if t_from.len() != d || t_to.len() != d {
         return Err(format!(
@@ -462,10 +460,19 @@ pub fn steer_delta(
     let predicted_nats_kind = if !behavior_available {
         FisherDoseKind::Unavailable
     } else {
-        match fisher_mass_residual {
-            None => FisherDoseKind::UnauditedFactorMetric,
-            Some(0.0) => FisherDoseKind::FullMass,
-            Some(_) => FisherDoseKind::TruncatedLowerBound,
+        match metric.fisher_factor_kind() {
+            Some(FisherFactorKind::ExactFull) => FisherDoseKind::ExactFull,
+            Some(FisherFactorKind::CertifiedPsdLowerBound) => {
+                FisherDoseKind::CertifiedPsdLowerBound
+            }
+            Some(FisherFactorKind::UncertifiedApproximation) => {
+                FisherDoseKind::UncertifiedApproximation
+            }
+            None => {
+                return Err(format!(
+                    "steer_delta: behavioral metric provenance {provenance:?} has no explicit Fisher factor status"
+                ));
+            }
         }
     };
 
@@ -554,7 +561,7 @@ pub fn predicted_response(
         ));
     }
     let atom = &model.atoms[atom_k];
-    let d = atom.latent_dim;
+    let d = atom.latent_dim();
     let p = atom.output_dim();
     if t_at.len() != d {
         return Err(format!(
@@ -578,21 +585,44 @@ pub fn predicted_response(
     Ok(project_onto_tangent_span(&tangents, delta))
 }
 
-/// A patched-forward KL probe the target-dose loop plugs into: given an applied
-/// amplitude `a`, return the measured `KL(p_base ‖ p_patched)` in nats for the
-/// chord `a·(g(t_to) − g(t_from))`. The GPU re-measurement supplies a real
-/// model-in-the-loop forward here; the closed-form seed needs none.
-pub type PatchedForwardKl<'a> = dyn FnMut(f64) -> Result<f64, String> + 'a;
+/// One model-in-the-loop observation of the exact [`SteerPlan`] supplied to an
+/// [`AppliedDoseProbe`]. The effective delta is the vector the downstream model
+/// actually received after its device/dtype conversion; it may differ from the
+/// f64 requested delta through quantization. `exact_directional_nats` is the
+/// full local-Fisher quadratic of that effective delta. `measured_nats` is the
+/// patched-forward `KL(p_base ‖ p_patched)` for the same effective delta.
+///
+/// Keeping all three values atomic prevents a caller from pricing one vector
+/// and measuring another, and keeps the resident [`RowMetric`] dose an explicit
+/// diagnostic rather than silently promoting an approximate operator (#2249).
+/// `certified_attainable_upper_nats`, when present, is a global upper bound on
+/// measured KL over every finite non-negative amplitude on this exact atom
+/// chord and downstream execution context. A point observation or an apparent
+/// plateau is not such a certificate.
+#[derive(Clone, Debug, PartialEq)]
+pub struct AppliedDoseObservation {
+    pub effective_delta: Array1<f64>,
+    pub exact_directional_nats: f64,
+    pub measured_nats: f64,
+    pub certified_attainable_upper_nats: Option<f64>,
+}
+
+/// Plan-aware external-model dose probe. The callback must execute the supplied
+/// plan; a scalar-amplitude callback cannot prove which activation delta it
+/// actually applied and is deliberately not part of the contract.
+pub type AppliedDoseProbe<'a> =
+    dyn FnMut(&SteerPlan) -> Result<AppliedDoseObservation, String> + 'a;
 
 /// Tuning for the closed-loop correction in [`steer_to_target_nats`].
 #[derive(Clone, Copy, Debug)]
 pub struct TargetDoseConfig {
     /// Relative tolerance on measured KL vs the target that stops the loop.
     pub tol_rel: f64,
-    /// Hard cap on secant iterations (each is one patched-forward probe).
+    /// Hard cap on patched-forward probes, including bracket construction.
     pub max_iter: usize,
     /// A probed amplitude counts as inside the readout-KL radius while its
-    /// measured KL matches the local quadratic within this relative tolerance.
+    /// measured KL matches the probe's exact directional local-Fisher dose
+    /// within this relative tolerance.
     pub readout_tol_rel: f64,
 }
 
@@ -627,63 +657,212 @@ pub struct TargetDoseRequest<'a> {
     pub config: TargetDoseConfig,
 }
 
-/// The amplitude that realizes a target output-KL dose on one atom's chord, plus
-/// the explicit dual-radius contract (gh#2249/#2263).
+/// A target output-KL dose on one atom's chord, returned atomically with the
+/// exact activation-space move the caller must apply (gh#2249/#2263).
 #[derive(Clone, Debug)]
 pub struct TargetDosePlan {
-    /// Which atom was steered (index into [`SaeManifoldTerm::atoms`]).
-    pub atom: usize,
-    /// The atom's name.
-    pub atom_name: String,
     /// The requested dose in nats of KL.
     pub target_nats: f64,
     /// Closed-form first-order amplitude `a0 = sqrt(2 q* / (dgᵀ M dg))`, exact in
     /// the quadratic/in-radius regime.
     pub seed_amplitude: f64,
-    /// Final amplitude: `seed_amplitude` when no probe was supplied, else the
-    /// closed-loop-corrected amplitude.
-    pub amplitude: f64,
-    /// Quadratic dose `½ a² dgᵀ M dg` at [`Self::amplitude`] (equals
-    /// [`Self::target_nats`] at the seed by construction).
-    pub predicted_nats: f64,
-    /// Full-mass / unaudited / low-rank-lower-bound status of the quadratic dose.
-    pub predicted_nats_kind: FisherDoseKind,
-    /// Probe-measured patched-forward KL at [`Self::amplitude`], when a callback
-    /// was supplied; `None` for the pure closed-form seed.
-    pub measured_nats: Option<f64>,
+    /// Exact applied move at the solved amplitude, including `delta`, predicted
+    /// dose, metric provenance, chart radius, and off-manifold audit.
+    pub steer: SteerPlan,
+    /// Exact directional local-Fisher dose, effective applied delta, and measured
+    /// patched-forward KL at [`SteerPlan::amplitude`]. `None` for the pure
+    /// closed-form seed. This never changes the resident metric or its status.
+    pub applied_probe: Option<AppliedDoseObservation>,
     /// Number of patched-forward probes consumed (0 without a callback).
     pub iterations: usize,
-    /// Whether the measured KL reached the target within `tol_rel`. Always
-    /// `false` without a callback: the closed form is *unvalidated* by
-    /// construction — it prices the second-order dose, not the true KL.
-    pub converged: bool,
-    /// **CHART radius** (as shipped by [`SteerPlan::validity_radius`]): the latent
-    /// step at which the decoder chord leaves its tangent linearization under the
-    /// fixed base-row metric. Amplitude-invariant. `None` under a no-behavior
-    /// metric. This certifies chart linearization ONLY — not that the quadratic
-    /// dose tracks the true output KL (that is the readout radius below).
-    pub chart_radius: Option<f64>,
     /// **READOUT-KL radius**: the largest probed amplitude whose measured KL still
-    /// matched the local quadratic within `readout_tol_rel` — beyond it the true
-    /// softmax KL saturates and the quadratic ceases to be calibrated. `None` when
-    /// no callback was supplied (it cannot be established without the model) or
-    /// when even the smallest probed amplitude was already out of tolerance.
+    /// matched its exact directional local-Fisher dose within `readout_tol_rel`
+    /// before the first probed failure. A later accidental match cannot extend
+    /// the radius past a failed point. `None` without a callback or when the
+    /// first probe failed.
     pub readout_kl_radius: Option<f64>,
-    /// Provenance of the metric the dose is read through.
-    pub metric_provenance: MetricProvenance,
+    /// Tightest global attainable-dose upper bound certified by any applied
+    /// probe in this solve. `None` means no global envelope was certified.
+    pub certified_attainable_upper_nats: Option<f64>,
 }
 
-/// One patched-forward probe with a finiteness/non-negativity guard on the
-/// returned KL. A free fn (not a closure) so the `&mut PatchedForwardKl<'_>`
-/// reborrow across the correction loop is unambiguous.
-fn probe_kl(probe: &mut PatchedForwardKl<'_>, a: f64) -> Result<f64, String> {
-    let kl = probe(a)?;
-    if !(kl.is_finite() && kl >= 0.0) {
-        return Err(format!(
-            "steer_to_target_nats: probe returned a non-finite/negative KL {kl} at amplitude {a}"
+/// A measured target-dose solve either returns a certified plan or one of these
+/// explicit failure states. No unconverged iterate is representable as success.
+#[derive(Clone, Debug, PartialEq)]
+pub enum TargetDoseError {
+    InvalidRequest(String),
+    Steering(String),
+    Probe(String),
+    FactorNeedsAppliedDoseProbe {
+        kind: FisherDoseKind,
+    },
+    UnreachableTarget {
+        target_nats: f64,
+        certified_attainable_upper_nats: f64,
+    },
+    UnbracketedTarget {
+        target_nats: f64,
+        max_probed_amplitude: f64,
+        max_measured_nats: f64,
+        probes: usize,
+    },
+    BracketResolutionExhausted {
+        target_nats: f64,
+        lower_amplitude: f64,
+        lower_nats: f64,
+        upper_amplitude: f64,
+        upper_nats: f64,
+        probes: usize,
+    },
+}
+
+impl std::fmt::Display for TargetDoseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::InvalidRequest(message) | Self::Steering(message) | Self::Probe(message) => {
+                f.write_str(message)
+            }
+            Self::FactorNeedsAppliedDoseProbe { kind } => write!(
+                f,
+                "steer_to_target_nats: factor kind {} cannot solve a full-KL target without an applied-dose probe",
+                kind.as_str()
+            ),
+            Self::UnreachableTarget {
+                target_nats,
+                certified_attainable_upper_nats,
+            } => write!(
+                f,
+                "steer_to_target_nats: target {target_nats} nats is outside the certified \
+                 attainable envelope, whose global upper bound is \
+                 {certified_attainable_upper_nats} nats"
+            ),
+            Self::UnbracketedTarget {
+                target_nats,
+                max_probed_amplitude,
+                max_measured_nats,
+                probes,
+            } => write!(
+                f,
+                "steer_to_target_nats: could not bracket target {target_nats} nats after \
+                 {probes} probes through amplitude {max_probed_amplitude}; the largest \
+                 observed dose was {max_measured_nats} nats and no global attainable \
+                 envelope certified the target unreachable"
+            ),
+            Self::BracketResolutionExhausted {
+                target_nats,
+                lower_amplitude,
+                lower_nats,
+                upper_amplitude,
+                upper_nats,
+                probes,
+            } => write!(
+                f,
+                "steer_to_target_nats: exhausted {probes} probes before resolving target \
+                 {target_nats} nats inside measured bracket \
+                 ({lower_amplitude}, {lower_nats})..({upper_amplitude}, {upper_nats})"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for TargetDoseError {}
+
+/// Execute and validate one model-in-the-loop observation. Validation lives in
+/// the Rust authority so every binding fails closed on malformed model data.
+fn probe_applied_dose(
+    probe: &mut AppliedDoseProbe<'_>,
+    plan: &SteerPlan,
+) -> Result<AppliedDoseObservation, TargetDoseError> {
+    let observation = probe(plan).map_err(TargetDoseError::Probe)?;
+    if observation.effective_delta.len() != plan.delta.len() {
+        return Err(TargetDoseError::Probe(format!(
+            "steer_to_target_nats: probe effective_delta length {} does not match plan delta length {}",
+            observation.effective_delta.len(),
+            plan.delta.len()
+        )));
+    }
+    if !observation
+        .effective_delta
+        .iter()
+        .all(|value| value.is_finite())
+    {
+        return Err(TargetDoseError::Probe(
+            "steer_to_target_nats: probe effective_delta must be finite".to_string(),
         ));
     }
-    Ok(kl)
+    if !(observation.exact_directional_nats.is_finite()
+        && observation.exact_directional_nats >= 0.0)
+    {
+        return Err(TargetDoseError::Probe(format!(
+            "steer_to_target_nats: probe exact_directional_nats must be finite and non-negative; got {}",
+            observation.exact_directional_nats
+        )));
+    }
+    if !(observation.measured_nats.is_finite() && observation.measured_nats >= 0.0) {
+        return Err(TargetDoseError::Probe(format!(
+            "steer_to_target_nats: probe measured_nats must be finite and non-negative; got {}",
+            observation.measured_nats
+        )));
+    }
+    if let Some(upper) = observation.certified_attainable_upper_nats {
+        if !(upper.is_finite() && upper >= 0.0) {
+            return Err(TargetDoseError::Probe(format!(
+                "steer_to_target_nats: probe certified_attainable_upper_nats must be finite \
+                 and non-negative when present; got {upper}"
+            )));
+        }
+        if observation.measured_nats > upper {
+            return Err(TargetDoseError::Probe(format!(
+                "steer_to_target_nats: measured dose {} exceeds the probe's certified \
+                 global attainable upper bound {upper}",
+                observation.measured_nats
+            )));
+        }
+    }
+    Ok(observation)
+}
+
+/// Merge one probe's optional global certificate into the solve-wide envelope.
+/// Every certificate must bound every observation in the same solve, not only
+/// the point at which it was returned.
+fn merge_attainable_envelope(
+    observation: &AppliedDoseObservation,
+    max_measured_nats: f64,
+    envelope: &mut Option<f64>,
+) -> Result<(), TargetDoseError> {
+    if let Some(upper) = observation.certified_attainable_upper_nats {
+        *envelope = Some(envelope.map_or(upper, |current| current.min(upper)));
+    }
+    if let Some(upper) = *envelope
+        && max_measured_nats > upper
+    {
+        return Err(TargetDoseError::Probe(format!(
+            "steer_to_target_nats: observed dose {max_measured_nats} exceeds an earlier \
+             certified global attainable upper bound {upper}"
+        )));
+    }
+    Ok(())
+}
+
+fn record_readout_probe(
+    amplitude: f64,
+    measured: f64,
+    predicted: f64,
+    tolerance: f64,
+    first_failure: &mut Option<f64>,
+    radius: &mut Option<f64>,
+) {
+    let agrees = predicted > 0.0 && (measured - predicted).abs() / predicted <= tolerance;
+    if agrees {
+        if (*first_failure).is_none_or(|failed| amplitude < failed) {
+            *radius = Some((*radius).map_or(amplitude, |current| current.max(amplitude)));
+        }
+    } else {
+        *first_failure = Some((*first_failure).map_or(amplitude, |failed| failed.min(amplitude)));
+        if (*radius).is_some_and(|current| current >= amplitude) {
+            *radius = None;
+        }
+    }
 }
 
 /// Solve for the amplitude that lands a target output-KL dose `target_nats` (in
@@ -695,16 +874,20 @@ fn probe_kl(probe: &mut PatchedForwardKl<'_>, a: f64) -> Result<f64, String> {
 /// correctly scaled only because the chord and the metric now share the raw
 /// activation frame (gh#2249, `ace3b9af3`; a Tier-0 σ-mis-scale on `dg` would
 /// have poisoned `a0`). Past the readout-KL radius the true KL saturates, so an
-/// optional `probe` (a patched forward) drives a secant correction onto the
-/// measured curve and opportunistically records the readout-KL radius. With
+/// optional `probe` (a patched forward) expands amplitudes in increasing order
+/// until two exact observations form a sign-change bracket, then solves that
+/// bracket with a safeguarded secant while recording the contiguous readout-KL
+/// radius. A local decrease is only another point observation: expansion keeps
+/// going. `UnreachableTarget` is possible only when a probe supplies a certified
+/// global attainable-dose upper bound below the requested tolerance band. With
 /// `probe = None` the result is the unvalidated closed-form seed: pure math and
 /// plumbing, no model in the loop.
 pub fn steer_to_target_nats(
     model: &SaeManifoldTerm,
     metric: &RowMetric,
     request: TargetDoseRequest<'_>,
-    probe: Option<&mut PatchedForwardKl<'_>>,
-) -> Result<TargetDosePlan, String> {
+    probe: Option<&mut AppliedDoseProbe<'_>>,
+) -> Result<TargetDosePlan, TargetDoseError> {
     let TargetDoseRequest {
         atom_k,
         metric_row,
@@ -714,120 +897,242 @@ pub fn steer_to_target_nats(
         config,
     } = request;
     if !(target_nats.is_finite() && target_nats > 0.0) {
-        return Err(format!(
+        return Err(TargetDoseError::InvalidRequest(format!(
             "steer_to_target_nats: target_nats must be finite and positive, got {target_nats}"
-        ));
+        )));
     }
-    if !(config.tol_rel > 0.0) || config.max_iter == 0 || !(config.readout_tol_rel > 0.0) {
-        return Err(format!(
-            "steer_to_target_nats: config must have tol_rel>0, max_iter>0, readout_tol_rel>0; \
+    if !(config.tol_rel.is_finite() && (0.0..1.0).contains(&config.tol_rel))
+        || config.max_iter == 0
+        || !(config.readout_tol_rel.is_finite() && (0.0..1.0).contains(&config.readout_tol_rel))
+    {
+        return Err(TargetDoseError::InvalidRequest(format!(
+            "steer_to_target_nats: config must have finite 0<=tol_rel<1, max_iter>0, \
+             finite 0<=readout_tol_rel<1; \
              got {config:?}"
-        ));
+        )));
     }
     // Unit-amplitude reference: predicted_nats(a) = a²·unit_nats, and the chart
     // radius / provenance / dose kind are all amplitude-invariant.
-    let unit = steer_delta(model, metric, atom_k, metric_row, 1.0, t_from, t_to)?;
+    let unit = steer_delta(model, metric, atom_k, metric_row, 1.0, t_from, t_to)
+        .map_err(TargetDoseError::Steering)?;
     let unit_nats = unit.predicted_nats.ok_or_else(|| {
-        format!(
+        TargetDoseError::InvalidRequest(format!(
             "steer_to_target_nats: atom {atom_k} has no behavioral (nats) metric \
              (provenance {:?}); a target-nats dose is undefined",
             unit.metric_provenance
-        )
+        ))
     })?;
-    if !(unit_nats > 0.0) {
-        return Err(format!(
-            "steer_to_target_nats: unit-amplitude dose is {unit_nats} (the chord carries no \
-             Fisher mass in metric row {metric_row}); cannot solve for a target amplitude"
-        ));
+    if !(unit_nats.is_finite() && unit_nats > 0.0) {
+        return Err(TargetDoseError::InvalidRequest(format!(
+            "steer_to_target_nats: unit-amplitude dose must be finite and positive; got \
+             {unit_nats} in metric row {metric_row}"
+        )));
+    }
+    if probe.is_none() && unit.predicted_nats_kind != FisherDoseKind::ExactFull {
+        return Err(TargetDoseError::FactorNeedsAppliedDoseProbe {
+            kind: unit.predicted_nats_kind,
+        });
     }
     // Closed-form first-order seed: a0²·unit_nats = q*.
     let seed_amplitude = (target_nats / unit_nats).sqrt();
-    let quad = |a: f64| a * a * unit_nats;
-
-    let mut plan = TargetDosePlan {
-        atom: atom_k,
-        atom_name: unit.atom_name.clone(),
-        target_nats,
-        seed_amplitude,
-        amplitude: seed_amplitude,
-        predicted_nats: quad(seed_amplitude),
-        predicted_nats_kind: unit.predicted_nats_kind,
-        measured_nats: None,
-        iterations: 0,
-        converged: false,
-        chart_radius: unit.validity_radius,
-        readout_kl_radius: None,
-        metric_provenance: unit.metric_provenance,
+    if !(seed_amplitude.is_finite() && seed_amplitude > 0.0) {
+        return Err(TargetDoseError::InvalidRequest(format!(
+            "steer_to_target_nats: target {target_nats} nats and unit dose {unit_nats} \
+             imply an unrepresentable amplitude {seed_amplitude}"
+        )));
+    }
+    let plan_at = |amplitude: f64| {
+        steer_delta(model, metric, atom_k, metric_row, amplitude, t_from, t_to)
+            .map_err(TargetDoseError::Steering)
+    };
+    let finish = |steer: SteerPlan,
+                  applied_probe: Option<AppliedDoseObservation>,
+                  iterations: usize,
+                  readout_kl_radius: Option<f64>,
+                  certified_attainable_upper_nats: Option<f64>|
+     -> Result<TargetDosePlan, TargetDoseError> {
+        Ok(TargetDosePlan {
+            target_nats,
+            seed_amplitude,
+            steer,
+            applied_probe,
+            iterations,
+            readout_kl_radius,
+            certified_attainable_upper_nats,
+        })
     };
 
     let probe = match probe {
         Some(probe) => probe,
         // No model in the loop: return the unvalidated closed-form seed.
-        None => return Ok(plan),
+        None => return finish(plan_at(seed_amplitude)?, None, 0, None, None),
     };
 
-    // Closed-loop secant correction on f(a) = KL(a) − q*, seeded by the closed
-    // form and a quadratic-informed second point. KL(a) is monotone increasing in
-    // a over the in-regime, so this converges in ~1 step in-radius and only does
-    // real work where saturation bends the curve. A probed amplitude whose
-    // measured KL still matches the local quadratic marks the readout-KL radius.
-    let mut a_prev = seed_amplitude;
-    let mut kl_prev = probe_kl(probe, a_prev)?;
-    plan.iterations += 1;
-    plan.amplitude = a_prev;
-    plan.measured_nats = Some(kl_prev);
-    plan.predicted_nats = quad(a_prev);
+    // Track a contiguous probed prefix of quadratic agreement. Once an amplitude
+    // fails the contract, no later probe at or beyond it can enlarge the radius.
+    let mut first_readout_failure: Option<f64> = None;
+    let mut readout_kl_radius: Option<f64> = None;
+
+    // Establish a genuine sign-change bracket [lo, hi], starting from the exact
+    // point KL(0)=0 and expanding the closed-form seed in amplitude order. No
+    // finite set of non-increasing observations proves a global plateau; only a
+    // callback-supplied global envelope can certify that the target is outside
+    // the attainable range.
+    let mut probes = 0usize;
+    let mut lo_a = 0.0_f64;
+    let mut lo_kl = 0.0_f64;
+    let mut hi_a = seed_amplitude;
+    let hi_plan = plan_at(hi_a)?;
+    let hi_probe = probe_applied_dose(probe, &hi_plan)?;
+    let mut hi_kl = hi_probe.measured_nats;
+    probes += 1;
+    let mut max_probed_amplitude = hi_a;
+    let mut max_measured_nats = hi_kl;
+    let mut certified_attainable_upper_nats = None;
+    merge_attainable_envelope(
+        &hi_probe,
+        max_measured_nats,
+        &mut certified_attainable_upper_nats,
+    )?;
+    record_readout_probe(
+        hi_a,
+        hi_kl,
+        hi_probe.exact_directional_nats,
+        config.readout_tol_rel,
+        &mut first_readout_failure,
+        &mut readout_kl_radius,
+    );
+    if (hi_kl - target_nats).abs() / target_nats <= config.tol_rel {
+        return finish(
+            hi_plan,
+            Some(hi_probe),
+            probes,
+            readout_kl_radius,
+            certified_attainable_upper_nats,
+        );
+    }
+    let accepted_lower_nats = target_nats * (1.0 - config.tol_rel);
+    if let Some(upper) = certified_attainable_upper_nats
+        && upper < accepted_lower_nats
     {
-        let q = quad(a_prev);
-        if q > 0.0 && (kl_prev - q).abs() / q <= config.readout_tol_rel {
-            plan.readout_kl_radius = Some(plan.readout_kl_radius.map_or(a_prev, |r| r.max(a_prev)));
+        return Err(TargetDoseError::UnreachableTarget {
+            target_nats,
+            certified_attainable_upper_nats: upper,
+        });
+    }
+    while hi_kl < target_nats {
+        if probes >= config.max_iter {
+            return Err(TargetDoseError::UnbracketedTarget {
+                target_nats,
+                max_probed_amplitude,
+                max_measured_nats,
+                probes,
+            });
         }
-    }
-    if (kl_prev - target_nats).abs() / target_nats <= config.tol_rel {
-        plan.converged = true;
-        return Ok(plan);
-    }
-    // Quadratic-informed second point: if KL ≈ c·a², a·sqrt(q*/kl) lands near q*.
-    let mut a_curr =
-        (a_prev * (target_nats / kl_prev.max(f64::MIN_POSITIVE)).sqrt()).max(f64::MIN_POSITIVE);
-    while plan.iterations < config.max_iter {
-        let kl_curr = probe_kl(probe, a_curr)?;
-        plan.iterations += 1;
-        plan.amplitude = a_curr;
-        plan.measured_nats = Some(kl_curr);
-        plan.predicted_nats = quad(a_curr);
+        let next_a = hi_a * 2.0;
+        if !(next_a.is_finite() && next_a > hi_a) {
+            return Err(TargetDoseError::UnbracketedTarget {
+                target_nats,
+                max_probed_amplitude,
+                max_measured_nats,
+                probes,
+            });
+        }
+        let next_plan = plan_at(next_a)?;
+        let next_probe = probe_applied_dose(probe, &next_plan)?;
+        let next_kl = next_probe.measured_nats;
+        probes += 1;
+        max_probed_amplitude = next_a;
+        max_measured_nats = max_measured_nats.max(next_kl);
+        merge_attainable_envelope(
+            &next_probe,
+            max_measured_nats,
+            &mut certified_attainable_upper_nats,
+        )?;
+        record_readout_probe(
+            next_a,
+            next_kl,
+            next_probe.exact_directional_nats,
+            config.readout_tol_rel,
+            &mut first_readout_failure,
+            &mut readout_kl_radius,
+        );
+        if (next_kl - target_nats).abs() / target_nats <= config.tol_rel {
+            return finish(
+                next_plan,
+                Some(next_probe),
+                probes,
+                readout_kl_radius,
+                certified_attainable_upper_nats,
+            );
+        }
+        if let Some(upper) = certified_attainable_upper_nats
+            && upper < accepted_lower_nats
         {
-            let q = quad(a_curr);
-            if q > 0.0 && (kl_curr - q).abs() / q <= config.readout_tol_rel {
-                plan.readout_kl_radius =
-                    Some(plan.readout_kl_radius.map_or(a_curr, |r| r.max(a_curr)));
-            }
+            return Err(TargetDoseError::UnreachableTarget {
+                target_nats,
+                certified_attainable_upper_nats: upper,
+            });
         }
-        if (kl_curr - target_nats).abs() / target_nats <= config.tol_rel {
-            plan.converged = true;
-            break;
-        }
-        // Secant update on f(a) = KL(a) − q*, with a quadratic-rescale fallback
-        // whenever the secant denominator degenerates or leaves the positive axis.
-        let f_prev = kl_prev - target_nats;
-        let f_curr = kl_curr - target_nats;
-        let denom = f_curr - f_prev;
-        let rescale = a_curr * (target_nats / kl_curr.max(f64::MIN_POSITIVE)).sqrt();
-        let a_next = if denom.abs() > 0.0 {
-            let step = a_curr - f_curr * (a_curr - a_prev) / denom;
-            if step.is_finite() && step > 0.0 {
-                step
-            } else {
-                rescale
-            }
-        } else {
-            rescale
-        };
-        a_prev = a_curr;
-        kl_prev = kl_curr;
-        a_curr = a_next.max(f64::MIN_POSITIVE);
+        lo_a = hi_a;
+        lo_kl = hi_kl;
+        hi_a = next_a;
+        hi_kl = next_kl;
     }
-    Ok(plan)
+
+    // Safeguarded secant inside the measured bracket. If roundoff puts the
+    // secant outside the open bracket, bisection preserves monotone contraction.
+    while probes < config.max_iter {
+        let denominator = hi_kl - lo_kl;
+        let secant = hi_a - (hi_kl - target_nats) * (hi_a - lo_a) / denominator;
+        let candidate = if secant.is_finite() && secant > lo_a && secant < hi_a {
+            secant
+        } else {
+            0.5 * (lo_a + hi_a)
+        };
+        let candidate_plan = plan_at(candidate)?;
+        let candidate_probe = probe_applied_dose(probe, &candidate_plan)?;
+        let measured = candidate_probe.measured_nats;
+        probes += 1;
+        max_measured_nats = max_measured_nats.max(measured);
+        merge_attainable_envelope(
+            &candidate_probe,
+            max_measured_nats,
+            &mut certified_attainable_upper_nats,
+        )?;
+        record_readout_probe(
+            candidate,
+            measured,
+            candidate_probe.exact_directional_nats,
+            config.readout_tol_rel,
+            &mut first_readout_failure,
+            &mut readout_kl_radius,
+        );
+        if (measured - target_nats).abs() / target_nats <= config.tol_rel {
+            return finish(
+                candidate_plan,
+                Some(candidate_probe),
+                probes,
+                readout_kl_radius,
+                certified_attainable_upper_nats,
+            );
+        }
+        if measured < target_nats {
+            lo_a = candidate;
+            lo_kl = measured;
+        } else {
+            hi_a = candidate;
+            hi_kl = measured;
+        }
+    }
+    Err(TargetDoseError::BracketResolutionExhausted {
+        target_nats,
+        lower_amplitude: lo_a,
+        lower_nats: lo_kl,
+        upper_amplitude: hi_a,
+        upper_nats: hi_kl,
+        probes,
+    })
 }
 
 /// Does this provenance carry behavioral (output-Fisher) information? Euclidean
@@ -889,7 +1194,7 @@ fn decode_tangents_at(
         "steer_delta::decode_tangents_at: atom has no installed basis evaluator".to_string()
     })?;
     let p = atom.output_dim();
-    let d = atom.latent_dim;
+    let d = atom.latent_dim();
     let coords = Array2::from_shape_vec((1, d), t.to_vec())
         .map_err(|e| format!("steer_delta::decode_tangents_at: coord shape: {e}"))?;
     let jet = if atom.homotopy_eta == 1.0 {
@@ -1236,7 +1541,7 @@ pub fn collateral_curve(
             "collateral_curve: atom index {atom_k} out of range (term has {k} atoms)"
         ));
     }
-    let d_k = model.atoms[atom_k].latent_dim;
+    let d_k = model.atoms[atom_k].latent_dim();
     if axis >= d_k {
         return Err(format!(
             "collateral_curve: axis {axis} out of range for atom {atom_k} latent_dim {d_k}"

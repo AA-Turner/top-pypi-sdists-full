@@ -121,10 +121,9 @@ use gam_linalg::faer_ndarray::{FaerEigh, default_rrqr_rank_alpha, rrqr_nullspace
 
 use super::{
     AnisoBasisPsiDerivatives, AnisoPenaltyCrossProvider, BasisBuildResult, BasisError,
-    BasisMetadata, CenterStrategy, PenaltyCandidate, PenaltySource,
-    filter_active_penalty_candidates_with_ops, normalize_penalty,
-    normalize_penalty_cross_psi_derivative, normalize_penaltywith_psi_derivatives,
-    select_centers_by_strategy, trace_of_product,
+    BasisMetadata, CenterStrategy, ConstructiveQuadratic, PenaltyCandidate, PenaltySource,
+    filter_penalty_candidates, normalize_penalty, normalize_penalty_cross_psi_derivative,
+    normalize_penaltywith_psi_derivatives, select_centers_by_strategy, trace_of_product,
 };
 
 /// Truncation radius of the Gaussian profile in units of the scale ε: weights
@@ -1805,8 +1804,10 @@ pub fn build_measure_jet_basis(
             penalty_normalization_scales.push(c_l);
             raw_penalty_normalization_scales.push(c_l / scale_weight);
             candidates.push(PenaltyCandidate {
-                matrix: s_norm,
-                nullspace_dim_hint: 0,
+                matrix: ConstructiveQuadratic::try_from_dense_psd(
+                    s_norm,
+                    "measure-jet scale penalty",
+                )?,
                 source: PenaltySource::Other(format!("measure_jet_scale_{level}")),
                 normalization_scale: c_l,
                 kronecker_factors: None,
@@ -1830,8 +1831,10 @@ pub fn build_measure_jet_basis(
         let (penalty_norm, c_primary) = normalize_penalty(&penalty);
         fused_penalty_normalization_scale = Some(c_primary);
         candidates.push(PenaltyCandidate {
-            matrix: penalty_norm,
-            nullspace_dim_hint: 0,
+            matrix: ConstructiveQuadratic::try_from_dense_psd(
+                penalty_norm,
+                "measure-jet primary penalty",
+            )?,
             source: PenaltySource::Primary,
             normalization_scale: c_primary,
             kronecker_factors: None,
@@ -1847,27 +1850,28 @@ pub fn build_measure_jet_basis(
         let null_penalty = affine_function_nullspace_penalty(&kz, centers.view(), masses.view())?;
         let (null_penalty_norm, c_null) = normalize_penalty(&null_penalty);
         candidates.push(PenaltyCandidate {
-            matrix: null_penalty_norm,
-            nullspace_dim_hint: 0,
+            matrix: ConstructiveQuadratic::try_from_dense_psd(
+                null_penalty_norm,
+                "measure-jet null-function penalty",
+            )?,
             source: PenaltySource::DoublePenaltyNullspace,
             normalization_scale: c_null,
             kronecker_factors: None,
             op: None,
         });
     }
-    let (penalties, nullspace_dims, penaltyinfo, null_eigenvectors, ops) =
-        filter_active_penalty_candidates_with_ops(candidates)?;
+    let filtered = filter_penalty_candidates(candidates)?;
     // #2225: compute the errors-in-variables input-noise scale while `centers`
     // is still owned; it is moved into the metadata `centers` field below.
     let sigma_coord = measure_jet_input_noise_scale(data, centers.view())?;
     Ok(BasisBuildResult {
         design,
-        penalties,
-        nullspace_dims,
-        penaltyinfo,
+        affine_offset: None,
+        active_penalties: filtered.active,
+        dropped_penalties: filtered.dropped,
         metadata: BasisMetadata::MeasureJet {
             centers,
-            input_scales: None,
+            input_scale: crate::IsotropicScale::ONE,
             length_scale,
             eps_band,
             // The SPEC's order field, sentinel included: 0.0 marks per-level
@@ -1888,8 +1892,6 @@ pub fn build_measure_jet_basis(
             sigma_coord,
         },
         kronecker_factored: None,
-        ops,
-        null_eigenvectors,
         joint_null_rotation: None,
     })
 }
@@ -1914,7 +1916,7 @@ pub fn build_measure_jet_basis(
 /// and zero `(α, ln τ)` jets. The per-candidate layout follows the builder's
 /// ORIGINAL order (scale candidates or Primary, then null component); consumers
 /// align to the FITTED penalty list via
-/// `PenaltyInfo.original_index` when the active-candidate filter dropped
+/// `ActivePenaltyInfo.original_index` when the candidate filter dropped
 /// any.
 pub fn build_measure_jet_basis_psi_derivatives(
     data: ArrayView2<'_, f64>,
@@ -2020,7 +2022,7 @@ pub fn build_measure_jet_basis_psi_derivatives(
     // Coordinate order is `[lnℓ?, α, lnτ]` in multiscale mode and `[lnℓ?]`
     // in single-scale mode. Candidate order exactly mirrors the value builder:
     // scale candidates or Primary first, then the optional null-component
-    // candidate. Active filtering aligns through `PenaltyInfo::original_index`.
+    // candidate. Active filtering aligns through `ActivePenaltyInfo::original_index`.
     let mut raw: Vec<RawPenaltyJets> = if geom.per_level {
         let l_count = band.eps.len();
         // Six forms per scale: value, ∂α, ∂α², and zero τ slots — same
@@ -2616,16 +2618,16 @@ mod tests {
         let built_single =
             build_measure_jet_basis(data.view(), &single).expect("single-scale build");
         assert_eq!(
-            built_single.penalties.len(),
+            built_single.active_penalties.len(),
             2,
             "single-scale double-penalty mode emits Primary + affine/null component"
         );
         assert!(matches!(
-            built_single.penaltyinfo[0].source,
+            built_single.active_penalties[0].info.source,
             PenaltySource::Primary
         ));
         assert!(matches!(
-            built_single.penaltyinfo[1].source,
+            built_single.active_penalties[1].info.source,
             PenaltySource::DoublePenaltyNullspace
         ));
         // The explicit opt-in flips to multiscale at the SAME center count: the
@@ -2642,10 +2644,10 @@ mod tests {
         );
         let built_multi = build_measure_jet_basis(data.view(), &multi).expect("multiscale build");
         assert!(
-            built_multi.penalties.len() > built_single.penalties.len(),
+            built_multi.active_penalties.len() > built_single.active_penalties.len(),
             "multiscale mode emits the per-scale spectral split plus null selection, got {} (vs single-scale {})",
-            built_multi.penalties.len(),
-            built_single.penalties.len()
+            built_multi.active_penalties.len(),
+            built_single.active_penalties.len()
         );
     }
 
@@ -2671,12 +2673,12 @@ mod tests {
         };
         let built = build_measure_jet_basis(data.view(), &spec).expect("fused build");
         assert_eq!(
-            built.penalties.len(),
+            built.active_penalties.len(),
             1,
             "single-scale mode without null recovery emits exactly one Primary"
         );
         assert!(matches!(
-            built.penaltyinfo[0].source,
+            built.active_penalties[0].info.source,
             PenaltySource::Primary
         ));
         let BasisMetadata::MeasureJet { order_s, .. } = &built.metadata else {
@@ -2803,21 +2805,25 @@ mod tests {
             },
         )
         .expect("double-penalty build");
-        assert_eq!(without.penalties.len(), 1);
-        assert_eq!(with.penalties.len(), 2);
+        assert_eq!(without.active_penalties.len(), 1);
+        assert_eq!(with.active_penalties.len(), 2);
         assert!(matches!(
-            without.penaltyinfo[0].source,
+            without.active_penalties[0].info.source,
             PenaltySource::Primary
         ));
-        assert!(matches!(with.penaltyinfo[0].source, PenaltySource::Primary));
         assert!(matches!(
-            with.penaltyinfo[1].source,
+            with.active_penalties[0].info.source,
+            PenaltySource::Primary
+        ));
+        assert!(matches!(
+            with.active_penalties[1].info.source,
             PenaltySource::DoublePenaltyNullspace
         ));
         assert!(
-            without.penalties[0]
+            without.active_penalties[0]
+                .matrix
                 .iter()
-                .zip(with.penalties[0].iter())
+                .zip(with.active_penalties[0].matrix.iter())
                 .all(|(a, b)| (a - b).abs() <= 1e-13),
             "turning on null recovery must not modify Primary"
         );
@@ -2946,7 +2952,10 @@ mod tests {
             };
             build_measure_jet_basis(data.view(), &trial)
                 .expect("trial build")
-                .penalties
+                .active_penalties
+                .into_iter()
+                .map(|penalty| penalty.matrix)
+                .collect::<Vec<_>>()
         };
         // Second-difference-optimal step (see the jets FD test): the 4-point
         // cross stencil shares the ~ε·scale/h² roundoff floor.
@@ -3048,17 +3057,17 @@ mod tests {
         let minus = build_at(ell0 * (-h).exp());
         let at = build_at(ell0);
         assert_eq!(
-            plus.penalties.len(),
+            plus.active_penalties.len(),
             2,
             "fixture must keep both candidates active"
         );
         assert_eq!(
-            minus.penalties.len(),
+            minus.active_penalties.len(),
             2,
             "fixture must keep both candidates active"
         );
         assert_eq!(
-            at.penalties.len(),
+            at.active_penalties.len(),
             2,
             "fixture must keep both candidates active"
         );
@@ -3084,11 +3093,12 @@ mod tests {
         }
 
         for candidate in 0..2 {
-            let fd_penalty_first =
-                (&plus.penalties[candidate] - &minus.penalties[candidate]) / (2.0 * h);
-            let fd_penalty_second = (&plus.penalties[candidate]
-                - &(&at.penalties[candidate] * 2.0)
-                + &minus.penalties[candidate])
+            let fd_penalty_first = (&plus.active_penalties[candidate].matrix
+                - &minus.active_penalties[candidate].matrix)
+                / (2.0 * h);
+            let fd_penalty_second = (&plus.active_penalties[candidate].matrix
+                - &(&at.active_penalties[candidate].matrix * 2.0)
+                + &minus.active_penalties[candidate].matrix)
                 / (h * h);
             let first_scale = fd_penalty_first
                 .iter()
@@ -3215,7 +3225,7 @@ mod tests {
         // Per-level mode: one candidate per band scale plus the function-space
         // null component, and the count must survive replay bit-for-bit.
         assert_eq!(
-            first.penalties.len(),
+            first.active_penalties.len(),
             eps_band.len() + 1,
             "per-level mode must emit one candidate per scale + null component"
         );
@@ -3226,9 +3236,13 @@ mod tests {
         for (a, b) in x1.iter().zip(x2.iter()) {
             assert!((a - b).abs() <= 1e-12, "design replay drift: {a} vs {b}");
         }
-        assert_eq!(first.penalties.len(), second.penalties.len());
-        for (p1, p2) in first.penalties.iter().zip(second.penalties.iter()) {
-            for (a, b) in p1.iter().zip(p2.iter()) {
+        assert_eq!(first.active_penalties.len(), second.active_penalties.len());
+        for (p1, p2) in first
+            .active_penalties
+            .iter()
+            .zip(second.active_penalties.iter())
+        {
+            for (a, b) in p1.matrix.iter().zip(p2.matrix.iter()) {
                 assert!((a - b).abs() <= 1e-12, "penalty replay drift: {a} vs {b}");
             }
         }

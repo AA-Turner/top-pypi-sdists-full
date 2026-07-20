@@ -4,6 +4,579 @@
 // resolve through the parent namespace.
 use super::*;
 
+/// Canonical runtime-width scalar program for one binomial location-scale
+/// wiggle row.  The model expression is
+///
+/// `q0 = -eta_t * exp(-eta_ls); q = q0 + sum_j beta_w[j] * B_j(q0)`
+///
+/// followed by the scalar binomial negative log likelihood.  Basis functions
+/// enter as certified derivative-stack atoms; all product and composition
+/// combinatorics are owned by the jet algebra.  Production Hessian lowerings
+/// use the same expression with a small set of typed probe axes, keeping their
+/// cost linear in the runtime wiggle width instead of materializing a dense
+/// runtime-width fourth-order tensor.
+pub(crate) struct BinomialLocationScaleWiggleRowProgram<'a> {
+    family: &'a BinomialLocationScaleWiggleFamily,
+    eta_t: &'a Array1<f64>,
+    eta_ls: &'a Array1<f64>,
+    etaw: &'a Array1<f64>,
+    pub(super) beta_w: &'a Array1<f64>,
+    core: BinomialLocationScaleCore,
+    /// `basis_derivatives[d][[row, j]] = d^d B_j(q0[row]) / dq0^d`.
+    pub(super) basis_derivatives: Vec<Array2<f64>>,
+}
+
+#[derive(Clone, Copy)]
+pub(super) enum BinomialWiggleRowOuter {
+    Observed,
+    ExpectedInformation,
+}
+
+/// Evaluate the one canonical predictor expression over an arbitrary scalar
+/// algebra.  Operation closures let both const-width `JetScalar` and
+/// runtime-width `RuntimeJetScalar` instantiate this exact body.
+#[inline]
+fn binomial_location_scale_wiggle_predictor_expression<S: Clone>(
+    primaries: &[S],
+    warp_stack: Option<[f64; 5]>,
+    term_count: usize,
+    term: impl Fn(usize) -> (usize, [f64; 5]),
+    value: impl Fn(&S) -> f64,
+    add: impl Fn(&S, &S) -> S,
+    mul: impl Fn(&S, &S) -> S,
+    neg: impl Fn(&S) -> S,
+    compose: impl Fn(&S, [f64; 5]) -> S,
+) -> S {
+    let neg_eta_ls = neg(&primaries[1]);
+    let exp_neg_eta_ls = value(&neg_eta_ls).exp();
+    let inv_sigma = compose(
+        &neg_eta_ls,
+        [
+            exp_neg_eta_ls,
+            exp_neg_eta_ls,
+            exp_neg_eta_ls,
+            exp_neg_eta_ls,
+            exp_neg_eta_ls,
+        ],
+    );
+    let q0 = mul(&neg(&primaries[0]), &inv_sigma);
+    let mut q = q0.clone();
+    if let Some(stack) = warp_stack {
+        q = add(&q, &compose(&q0, stack));
+    }
+    for slot in 0..term_count {
+        let (axis, stack) = term(slot);
+        q = add(&q, &mul(&primaries[axis], &compose(&q0, stack)));
+    }
+    q
+}
+
+impl<'a> BinomialLocationScaleWiggleRowProgram<'a> {
+    pub(super) fn new(
+        family: &'a BinomialLocationScaleWiggleFamily,
+        block_states: &'a [ParameterBlockState],
+        derivative_order: usize,
+    ) -> Result<Self, String> {
+        assert!(derivative_order <= 4);
+        let (_, eta_t, eta_ls, etaw) = family.validated_block_etas(block_states)?;
+        let beta_w = &block_states[BinomialLocationScaleWiggleFamily::BLOCK_WIGGLE].beta;
+        let core = binomial_location_scale_core(
+            &family.y,
+            &family.weights,
+            eta_t,
+            eta_ls,
+            Some(etaw),
+            &family.link_kind,
+        )?;
+        let mut basis_derivatives = Vec::with_capacity(derivative_order + 1);
+        for order in 0..=derivative_order {
+            let basis = monotone_wiggle_basis_with_derivative_order(
+                core.q0.view(),
+                &family.wiggle_knots,
+                family.wiggle_degree,
+                order,
+            )?;
+            if basis.ncols() != beta_w.len() {
+                return Err(GamlssError::DimensionMismatch {
+                    reason: format!(
+                        "binomial wiggle row program derivative-{order} basis width {} != beta width {}",
+                        basis.ncols(),
+                        beta_w.len()
+                    ),
+                }
+                .into());
+            }
+            basis_derivatives.push(basis);
+        }
+        Ok(Self {
+            family,
+            eta_t,
+            eta_ls,
+            etaw,
+            beta_w,
+            core,
+            basis_derivatives,
+        })
+    }
+
+    #[inline]
+    fn linear_basis_stack(
+        &self,
+        row: usize,
+        coefficients: ArrayView1<'_, f64>,
+        authoritative_value: Option<f64>,
+    ) -> [f64; 5] {
+        assert_eq!(coefficients.len(), self.beta_w.len());
+        let mut stack = [0.0; 5];
+        for (order, basis) in self.basis_derivatives.iter().enumerate() {
+            stack[order] = basis.row(row).dot(&coefficients);
+        }
+        if let Some(value) = authoritative_value {
+            stack[0] = value;
+        }
+        stack
+    }
+
+    #[inline]
+    fn objective_stack(&self, row: usize, derivative_order: usize) -> Result<[f64; 5], String> {
+        let q = self.core.q0[row] + self.etaw[row];
+        let (m1, m2, m3) = binomial_neglog_q_derivatives_dispatch(
+            self.family.y[row],
+            self.family.weights[row],
+            q,
+            self.core.mu[row],
+            self.core.dmu_dq[row],
+            self.core.d2mu_dq2[row],
+            self.core.d3mu_dq3[row],
+            &self.family.link_kind,
+        );
+        let m4 = if derivative_order >= 4 {
+            binomial_neglog_q_fourth_derivative_dispatch(
+                self.family.y[row],
+                self.family.weights[row],
+                q,
+                self.core.mu[row],
+                self.core.dmu_dq[row],
+                self.core.d2mu_dq2[row],
+                self.core.d3mu_dq3[row],
+                &self.family.link_kind,
+            )?
+        } else {
+            0.0
+        };
+        Ok([0.0, m1, m2, m3, m4])
+    }
+
+    #[inline]
+    fn outer_stack(
+        &self,
+        row: usize,
+        derivative_order: usize,
+        outer: BinomialWiggleRowOuter,
+    ) -> Result<[f64; 5], String> {
+        match outer {
+            BinomialWiggleRowOuter::Observed => self.objective_stack(row, derivative_order),
+            BinomialWiggleRowOuter::ExpectedInformation => {
+                let (information, first, second) = binomial_expected_q_information_derivatives(
+                    self.family.weights[row],
+                    self.core.mu[row],
+                    self.core.dmu_dq[row],
+                    self.core.d2mu_dq2[row],
+                    self.core.d3mu_dq3[row],
+                );
+                Ok([0.0, 0.0, information, first, second])
+            }
+        }
+    }
+
+    #[inline]
+    fn eval_fixed<const K: usize, S: gam_math::jet_scalar::JetScalar<K>>(
+        &self,
+        row: usize,
+        primaries: &[S; K],
+        warp_stack: [f64; 5],
+        terms: &[(usize, [f64; 5])],
+        derivative_order: usize,
+        outer: BinomialWiggleRowOuter,
+    ) -> Result<S, String> {
+        use gam_math::nested_dual::JetField;
+        let q = binomial_location_scale_wiggle_predictor_expression(
+            primaries,
+            Some(warp_stack),
+            terms.len(),
+            |slot| terms[slot],
+            JetField::value,
+            JetField::add,
+            JetField::mul,
+            JetField::neg,
+            JetField::compose_unary,
+        );
+        Ok(q.compose_unary(self.outer_stack(row, derivative_order, outer)?))
+    }
+
+    fn order2_rows(
+        &self,
+        outer: BinomialWiggleRowOuter,
+    ) -> Result<BinomialWiggleOrder2Rows, String> {
+        use gam_math::jet_scalar::{JetScalar, Order2};
+
+        let n = self.family.y.len();
+        let mut rows = BinomialWiggleOrder2Rows::zeros(
+            n,
+            self.basis_derivatives[0].clone(),
+            self.basis_derivatives[1].clone(),
+        );
+        let probe_terms = [
+            (2, [1.0, 0.0, 0.0, 0.0, 0.0]),
+            (3, [0.0, 1.0, 0.0, 0.0, 0.0]),
+        ];
+        for row in 0..n {
+            let values = [self.eta_t[row], self.eta_ls[row], 0.0, 0.0];
+            let primaries: [Order2<4>; 4] =
+                std::array::from_fn(|axis| Order2::variable(values[axis], axis));
+            let warp = self.linear_basis_stack(row, self.beta_w.view(), Some(self.etaw[row]));
+            let h = self
+                .eval_fixed(row, &primaries, warp, &probe_terms, 2, outer)?
+                .into_channels()
+                .2;
+            rows.coeff_tt[row] = h[0][0];
+            rows.coeff_tl[row] = h[0][1];
+            rows.coeff_ll[row] = h[1][1];
+            rows.coeff_tw_b[row] = h[0][2];
+            rows.coeff_tw_d[row] = h[0][3];
+            rows.coeff_lw_b[row] = h[1][2];
+            rows.coeff_lw_d[row] = h[1][3];
+            rows.coeff_ww[row] = h[2][2];
+        }
+        Ok(rows)
+    }
+
+    pub(super) fn first_directional_rows(
+        &self,
+        d_eta_t: &Array1<f64>,
+        d_eta_ls: &Array1<f64>,
+        u_w: ArrayView1<'_, f64>,
+        outer: BinomialWiggleRowOuter,
+    ) -> Result<BinomialWiggleFirstDirectionalRows, String> {
+        use gam_math::jet_scalar::OneSeed;
+
+        let n = self.family.y.len();
+        assert_eq!(d_eta_t.len(), n);
+        assert_eq!(d_eta_ls.len(), n);
+        let mut rows = BinomialWiggleFirstDirectionalRows::zeros(n);
+        let probe_terms = [
+            (3, [1.0, 0.0, 0.0, 0.0, 0.0]),
+            (4, [0.0, 1.0, 0.0, 0.0, 0.0]),
+            (5, [0.0, 0.0, 1.0, 0.0, 0.0]),
+        ];
+        for row in 0..n {
+            let values = [self.eta_t[row], self.eta_ls[row], 0.0, 0.0, 0.0, 0.0];
+            let direction = [d_eta_t[row], d_eta_ls[row], 1.0, 0.0, 0.0, 0.0];
+            let primaries: [OneSeed<6>; 6] = std::array::from_fn(|axis| {
+                OneSeed::seed_direction(values[axis], axis, direction[axis])
+            });
+            let warp = self.linear_basis_stack(row, self.beta_w.view(), Some(self.etaw[row]));
+            let direction_stack = self.linear_basis_stack(row, u_w, None);
+            let mut terms = [(0, [0.0; 5]); 4];
+            terms[0] = (2, direction_stack);
+            terms[1..].copy_from_slice(&probe_terms);
+            let h = self
+                .eval_fixed(row, &primaries, warp, &terms, 3, outer)?
+                .contracted_third();
+            rows.coeff_tt[row] = h[0][0];
+            rows.coeff_tl[row] = h[0][1];
+            rows.coeff_ll[row] = h[1][1];
+            rows.coeff_tw_b[row] = h[0][3];
+            rows.coeff_tw_d[row] = h[0][4];
+            rows.coeff_tw_dd[row] = h[0][5];
+            rows.coeff_lw_b[row] = h[1][3];
+            rows.coeff_lw_d[row] = h[1][4];
+            rows.coeff_lw_dd[row] = h[1][5];
+            rows.coeff_ww_bb[row] = h[3][3];
+            rows.coeff_ww_bd[row] = h[3][4];
+        }
+        Ok(rows)
+    }
+
+    pub(super) fn second_directional_rows(
+        &self,
+        d_eta_t_u: &Array1<f64>,
+        d_eta_ls_u: &Array1<f64>,
+        u_w: ArrayView1<'_, f64>,
+        d_eta_t_v: &Array1<f64>,
+        d_eta_ls_v: &Array1<f64>,
+        v_w: ArrayView1<'_, f64>,
+        outer: BinomialWiggleRowOuter,
+    ) -> Result<BinomialWiggleSecondDirectionalRows, String> {
+        use gam_math::jet_scalar::TwoSeed;
+
+        let n = self.family.y.len();
+        assert_eq!(d_eta_t_u.len(), n);
+        assert_eq!(d_eta_ls_u.len(), n);
+        assert_eq!(d_eta_t_v.len(), n);
+        assert_eq!(d_eta_ls_v.len(), n);
+        let mut rows = BinomialWiggleSecondDirectionalRows::zeros(n);
+        let probe_terms = [
+            (4, [1.0, 0.0, 0.0, 0.0, 0.0]),
+            (5, [0.0, 1.0, 0.0, 0.0, 0.0]),
+            (6, [0.0, 0.0, 1.0, 0.0, 0.0]),
+            (7, [0.0, 0.0, 0.0, 1.0, 0.0]),
+        ];
+        for row in 0..n {
+            let values = [
+                self.eta_t[row],
+                self.eta_ls[row],
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+            ];
+            let direction_u = [
+                d_eta_t_u[row],
+                d_eta_ls_u[row],
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+            ];
+            let direction_v = [
+                d_eta_t_v[row],
+                d_eta_ls_v[row],
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+            ];
+            let primaries: [TwoSeed<8>; 8] = std::array::from_fn(|axis| {
+                TwoSeed::seed(values[axis], axis, direction_u[axis], direction_v[axis])
+            });
+            let warp = self.linear_basis_stack(row, self.beta_w.view(), Some(self.etaw[row]));
+            let mut terms = [(0, [0.0; 5]); 6];
+            terms[0] = (2, self.linear_basis_stack(row, u_w, None));
+            terms[1] = (3, self.linear_basis_stack(row, v_w, None));
+            terms[2..].copy_from_slice(&probe_terms);
+            let h = self
+                .eval_fixed(row, &primaries, warp, &terms, 4, outer)?
+                .contracted_fourth();
+            rows.coeff_tt[row] = h[0][0];
+            rows.coeff_tl[row] = h[0][1];
+            rows.coeff_ll[row] = h[1][1];
+            rows.coeff_tw_b[row] = h[0][4];
+            rows.coeff_tw_d[row] = h[0][5];
+            rows.coeff_tw_dd[row] = h[0][6];
+            rows.coeff_tw_d3[row] = h[0][7];
+            rows.coeff_lw_b[row] = h[1][4];
+            rows.coeff_lw_d[row] = h[1][5];
+            rows.coeff_lw_dd[row] = h[1][6];
+            rows.coeff_lw_d3[row] = h[1][7];
+            rows.coeff_ww_bb[row] = h[4][4];
+            rows.coeff_ww_bd[row] = h[4][5];
+            rows.coeff_ww_bdd[row] = h[4][6];
+            rows.coeff_ww_dd[row] = h[5][5];
+        }
+        Ok(rows)
+    }
+
+    /// Exact directional derivative `D_u M` of the EXPECTED Fisher information
+    /// for the 3-block binomial location-scale wiggle family.
+    ///
+    /// The expected information is the bilinear form
+    ///
+    ///   M_ab = sum_i f_i (∇q_i)_a (∇q_i)_b,     f_i = expected q-information,
+    ///
+    /// which — unlike the observed Hessian — has NO `∂²q` curvature term. It is
+    /// therefore not the second derivative of any scalar, so its directional
+    /// derivative cannot be taken as the next symmetric channel of a jet
+    /// composition `φ∘q` with `φ''=f`, `φ'=0`: that identity injects a spurious
+    /// `f·q_ab·(∇q·u)` term (the `φ'` slot is zero only at the base point, not
+    /// off it), producing an O(1) analytic-vs-FD gap (gam#2353). Instead we
+    /// differentiate the bilinear form directly,
+    ///
+    ///   D_u M_ab = f1 (∇q·u) g_a g_b + f (g_a^u g_b + g_a g_b^u),
+    ///
+    /// with `g = ∇q` and `g^u = D_u ∇q`. This is the wiggle generalization of
+    /// the non-wiggle explicit formula (`expected_joint_information_directional_
+    /// from_designs`): `q_t,q_ls` carry the full warp gradient `m·q0_t, m·q0_ls`
+    /// and the wiggle block enters through `∂q/∂β_w[j] = B_j(q0)` with
+    /// `D_u B_j = B'_j(q0)·(∇q0·u)`.
+    pub(super) fn expected_first_directional_rows(
+        &self,
+        d_eta_t: &Array1<f64>,
+        d_eta_ls: &Array1<f64>,
+        u_w: ArrayView1<'_, f64>,
+    ) -> Result<BinomialWiggleFirstDirectionalRows, String> {
+        let n = self.family.y.len();
+        assert_eq!(d_eta_t.len(), n);
+        assert_eq!(d_eta_ls.len(), n);
+        let mut rows = BinomialWiggleFirstDirectionalRows::zeros(n);
+        for row in 0..n {
+            let (f, f1, _) = binomial_expected_q_information_derivatives(
+                self.family.weights[row],
+                self.core.mu[row],
+                self.core.dmu_dq[row],
+                self.core.d2mu_dq2[row],
+                self.core.d3mu_dq3[row],
+            );
+            // Row carries no expected information (weight 0 / saturated tail):
+            // every coefficient below is a multiple of f or f1, so leave the
+            // zero-initialized entries.
+            if f == 0.0 && f1 == 0.0 {
+                continue;
+            }
+            let q0g = nonwiggle_q_derivs(self.eta_t[row], self.core.sigma[row]);
+            let ud = nonwiggle_q_directional(q0g, d_eta_t[row], d_eta_ls[row]);
+            let warp = self.linear_basis_stack(row, self.beta_w.view(), Some(self.etaw[row]));
+            let m = 1.0 + warp[1];
+            let g2 = warp[2];
+            let dir = self.linear_basis_stack(row, u_w, None);
+            let s0_u = dir[0];
+            let s1_u = dir[1];
+            // Full warp gradient of q and its directional derivative along u.
+            let q_t = m * q0g.q_t;
+            let q_ls = m * q0g.q_ls;
+            let delta_q0 = ud.delta_q;
+            let delta_q = q_t * d_eta_t[row] + q_ls * d_eta_ls[row] + s0_u;
+            let delta_m = g2 * delta_q0 + s1_u;
+            let delta_q_t = delta_m * q0g.q_t + m * ud.delta_q_t;
+            let delta_q_ls = delta_m * q0g.q_ls + m * ud.delta_q_ls;
+            rows.coeff_tt[row] = f1 * delta_q * q_t * q_t + 2.0 * f * q_t * delta_q_t;
+            rows.coeff_tl[row] =
+                f1 * delta_q * q_t * q_ls + f * (delta_q_t * q_ls + q_t * delta_q_ls);
+            rows.coeff_ll[row] = f1 * delta_q * q_ls * q_ls + 2.0 * f * q_ls * delta_q_ls;
+            rows.coeff_tw_b[row] = f1 * delta_q * q_t + f * delta_q_t;
+            rows.coeff_tw_d[row] = f * q_t * delta_q0;
+            // coeff_tw_dd stays 0: the expected-info derivative has no B'' channel.
+            rows.coeff_lw_b[row] = f1 * delta_q * q_ls + f * delta_q_ls;
+            rows.coeff_lw_d[row] = f * q_ls * delta_q0;
+            rows.coeff_ww_bb[row] = f1 * delta_q;
+            rows.coeff_ww_bd[row] = f * delta_q0;
+        }
+        Ok(rows)
+    }
+
+    /// Exact second directional derivative `D_v D_u M` of the expected Fisher
+    /// information (companion to [`Self::expected_first_directional_rows`]).
+    ///
+    /// Differentiating `D_u M_ab = f1 (∇q·u) g_a g_b + f(g_a^u g_b + g_a g_b^u)`
+    /// once more along `v` gives
+    ///
+    ///   D_v D_u M_ab = f_uv g_a g_b
+    ///                + f_u (g_a^v g_b + g_a g_b^v) + f_v (g_a^u g_b + g_a g_b^u)
+    ///                + f (g_a^{uv} g_b + g_a^u g_b^v + g_a^v g_b^u + g_a g_b^{uv}),
+    ///
+    /// with `f_u = f1 (∇q·u)`, `f_uv = f2 (∇q·u)(∇q·v) + f1 D_v D_u q`, and the
+    /// gradient/curvature directional derivatives assembled from the q0 warp
+    /// geometry (`nonwiggle_q_derivs`/`nonwiggle_q_directional`) and the wiggle
+    /// basis derivative stack. As in the first-order case the `∂²q` symmetric
+    /// term never appears (gam#2353).
+    pub(super) fn expected_second_directional_rows(
+        &self,
+        d_eta_t_u: &Array1<f64>,
+        d_eta_ls_u: &Array1<f64>,
+        u_w: ArrayView1<'_, f64>,
+        d_eta_t_v: &Array1<f64>,
+        d_eta_ls_v: &Array1<f64>,
+        v_w: ArrayView1<'_, f64>,
+    ) -> Result<BinomialWiggleSecondDirectionalRows, String> {
+        let n = self.family.y.len();
+        assert_eq!(d_eta_t_u.len(), n);
+        assert_eq!(d_eta_ls_u.len(), n);
+        assert_eq!(d_eta_t_v.len(), n);
+        assert_eq!(d_eta_ls_v.len(), n);
+        let mut rows = BinomialWiggleSecondDirectionalRows::zeros(n);
+        for row in 0..n {
+            let (f, f1, f2) = binomial_expected_q_information_derivatives(
+                self.family.weights[row],
+                self.core.mu[row],
+                self.core.dmu_dq[row],
+                self.core.d2mu_dq2[row],
+                self.core.d3mu_dq3[row],
+            );
+            if f == 0.0 && f1 == 0.0 && f2 == 0.0 {
+                continue;
+            }
+            let q0g = nonwiggle_q_derivs(self.eta_t[row], self.core.sigma[row]);
+            let ud = nonwiggle_q_directional(q0g, d_eta_t_u[row], d_eta_ls_u[row]);
+            let vd = nonwiggle_q_directional(q0g, d_eta_t_v[row], d_eta_ls_v[row]);
+            let warp = self.linear_basis_stack(row, self.beta_w.view(), Some(self.etaw[row]));
+            let m = 1.0 + warp[1];
+            let g2 = warp[2];
+            let g3 = warp[3];
+            let du = self.linear_basis_stack(row, u_w, None);
+            let dv = self.linear_basis_stack(row, v_w, None);
+            let q_t = m * q0g.q_t;
+            let q_ls = m * q0g.q_ls;
+            let dq0u = ud.delta_q;
+            let dq0v = vd.delta_q;
+            // Second directional derivative of q0: D_v D_u q0 = (D_v q0_t) u_et
+            // + (D_v q0_ls) u_el.
+            let dq0uv = vd.delta_q_t * d_eta_t_u[row] + vd.delta_q_ls * d_eta_ls_u[row];
+            let dm_u = g2 * dq0u + du[1];
+            let dm_v = g2 * dq0v + dv[1];
+            let dqu = q_t * d_eta_t_u[row] + q_ls * d_eta_ls_u[row] + du[0];
+            let dqv = q_t * d_eta_t_v[row] + q_ls * d_eta_ls_v[row] + dv[0];
+            // D_v D_u q through the warp: D_v(dm_u)·q0-part is folded via dm_v
+            // acting on the u-direction q0 gradient.
+            let dquv = dm_v * (q0g.q_t * d_eta_t_u[row] + q0g.q_ls * d_eta_ls_u[row])
+                + m * dq0uv
+                + du[1] * dq0v;
+            // Gradient directional derivatives g^u, g^v (t and ls components).
+            let gu_t = dm_u * q0g.q_t + m * ud.delta_q_t;
+            let gu_ls = dm_u * q0g.q_ls + m * ud.delta_q_ls;
+            let gv_t = dm_v * q0g.q_t + m * vd.delta_q_t;
+            let gv_ls = dm_v * q0g.q_ls + m * vd.delta_q_ls;
+            // Second directional derivative of the warp slope m and of the q0
+            // gradient (third-order q0 geometry).
+            let dmu_v = g3 * dq0u * dq0v + g2 * dq0uv + du[2] * dq0v + dv[2] * dq0u;
+            let dtu_v = q0g.q_tl_ls * d_eta_ls_u[row] * d_eta_ls_v[row];
+            let dlsu_v = q0g.q_tl_ls
+                * (d_eta_t_u[row] * d_eta_ls_v[row] + d_eta_ls_u[row] * d_eta_t_v[row])
+                + q0g.q_ll_ls * d_eta_ls_u[row] * d_eta_ls_v[row];
+            let guv_t = dmu_v * q0g.q_t + dm_u * vd.delta_q_t + dm_v * ud.delta_q_t + m * dtu_v;
+            let guv_ls =
+                dmu_v * q0g.q_ls + dm_u * vd.delta_q_ls + dm_v * ud.delta_q_ls + m * dlsu_v;
+            let fu = f1 * dqu;
+            let fv = f1 * dqv;
+            let fuv = f2 * dqu * dqv + f1 * dquv;
+            rows.coeff_tt[row] = fuv * q_t * q_t
+                + 2.0 * fu * gv_t * q_t
+                + 2.0 * fv * gu_t * q_t
+                + f * (2.0 * guv_t * q_t + 2.0 * gu_t * gv_t);
+            rows.coeff_tl[row] = fuv * q_t * q_ls
+                + fu * (gv_t * q_ls + q_t * gv_ls)
+                + fv * (gu_t * q_ls + q_t * gu_ls)
+                + f * (guv_t * q_ls + gu_t * gv_ls + gv_t * gu_ls + q_t * guv_ls);
+            rows.coeff_ll[row] = fuv * q_ls * q_ls
+                + 2.0 * fu * gv_ls * q_ls
+                + 2.0 * fv * gu_ls * q_ls
+                + f * (2.0 * guv_ls * q_ls + 2.0 * gu_ls * gv_ls);
+            rows.coeff_tw_b[row] = fuv * q_t + fu * gv_t + fv * gu_t + f * guv_t;
+            rows.coeff_tw_d[row] = fu * q_t * dq0v
+                + fv * q_t * dq0u
+                + f * (gu_t * dq0v + gv_t * dq0u + q_t * dq0uv);
+            rows.coeff_tw_dd[row] = f * q_t * dq0u * dq0v;
+            // coeff_tw_d3 stays 0.
+            rows.coeff_lw_b[row] = fuv * q_ls + fu * gv_ls + fv * gu_ls + f * guv_ls;
+            rows.coeff_lw_d[row] = fu * q_ls * dq0v
+                + fv * q_ls * dq0u
+                + f * (gu_ls * dq0v + gv_ls * dq0u + q_ls * dq0uv);
+            rows.coeff_lw_dd[row] = f * q_ls * dq0u * dq0v;
+            // coeff_lw_d3 stays 0.
+            rows.coeff_ww_bb[row] = fuv;
+            rows.coeff_ww_bd[row] = fu * dq0v + fv * dq0u + f * dq0uv;
+            rows.coeff_ww_bdd[row] = f * dq0u * dq0v;
+            rows.coeff_ww_dd[row] = 2.0 * f * dq0u * dq0v;
+        }
+        Ok(rows)
+    }
+}
+
 #[derive(Clone)]
 pub struct BinomialLocationScaleWiggleFamily {
     pub y: Array1<f64>,
@@ -2211,128 +2784,14 @@ impl BinomialLocationScaleWiggleFamily {
         Ok((block, knots))
     }
 
-    /// Compute the rowwise pieces (diagonal weights + B/B' basis arrays) used
-    /// to assemble the joint Hessian for the 3-block wiggle family. Both the
-    /// dense Hessian path and the matrix-free workspace consume these pieces
-    /// without recomputing the per-row scalar derivatives.
-    pub(crate) fn wiggle_hessian_row_pieces(
+    /// Lower the canonical runtime-width row program to the eight structured
+    /// order-two coefficient channels consumed by dense and matrix-free paths.
+    pub(crate) fn wiggle_order2_rows(
         &self,
         block_states: &[ParameterBlockState],
-    ) -> Result<BinomialLocationScaleWiggleHessianRowPieces, String> {
-        let (n, eta_t, eta_ls, etaw) = self.validated_block_etas(block_states)?;
-
-        let betaw0 = block_states[Self::BLOCK_WIGGLE].beta.clone();
-        let core0 = binomial_location_scale_core(
-            &self.y,
-            &self.weights,
-            eta_t,
-            eta_ls,
-            Some(etaw),
-            &self.link_kind,
-        )?;
-        let b0 = self.wiggle_design(core0.q0.view())?;
-        let d0 =
-            self.wiggle_basiswith_options(core0.q0.view(), BasisOptions::first_derivative())?;
-        let dd0 =
-            self.wiggle_basiswith_options(core0.q0.view(), BasisOptions::second_derivative())?;
-        if b0.ncols() != betaw0.len() || d0.ncols() != betaw0.len() || dd0.ncols() != betaw0.len() {
-            return Err(GamlssError::DimensionMismatch {
-                reason: format!(
-                    "wiggle basis/beta mismatch in exact joint Hessian: B={} B'={} B''={} betaw={}",
-                    b0.ncols(),
-                    d0.ncols(),
-                    dd0.ncols(),
-                    betaw0.len()
-                ),
-            }
-            .into());
-        }
-        let m = d0.dot(&betaw0) + 1.0;
-        let g2 = dd0.dot(&betaw0);
-        let (sigma, ..) = exp_sigma_derivs_up_to_third(eta_ls.view());
-        let mut coeff_tt = Array1::<f64>::zeros(n);
-        let mut coeff_tl = Array1::<f64>::zeros(n);
-        let mut coeff_ll = Array1::<f64>::zeros(n);
-        let mut coeff_tw_b = Array1::<f64>::zeros(n);
-        let mut coeff_tw_d = Array1::<f64>::zeros(n);
-        let mut coeff_lw_b = Array1::<f64>::zeros(n);
-        let mut coeff_lw_d = Array1::<f64>::zeros(n);
-        let mut coeffww = Array1::<f64>::zeros(n);
-        for i in 0..n {
-            let q_i = core0.q0[i] + etaw[i];
-            let (m1, m2, _) = binomial_neglog_q_derivatives_dispatch(
-                self.y[i],
-                self.weights[i],
-                q_i,
-                core0.mu[i],
-                core0.dmu_dq[i],
-                core0.d2mu_dq2[i],
-                core0.d3mu_dq3[i],
-                &self.link_kind,
-            );
-            let q0 = nonwiggle_q_derivs(eta_t[i], sigma[i]);
-
-            let q_t = m[i] * q0.q_t;
-            let q_ls = m[i] * q0.q_ls;
-            let q_tt = g2[i] * q0.q_t * q0.q_t;
-            let q_tl = g2[i] * q0.q_t * q0.q_ls + m[i] * q0.q_tl;
-            let q_ll = g2[i] * q0.q_ls * q0.q_ls + m[i] * q0.q_ll;
-
-            coeff_tt[i] = hessian_coeff_fromobjective_q_terms(m1, m2, q_t, q_t, q_tt);
-            coeff_tl[i] = hessian_coeff_fromobjective_q_terms(m1, m2, q_t, q_ls, q_tl);
-            coeff_ll[i] = hessian_coeff_fromobjective_q_terms(m1, m2, q_ls, q_ls, q_ll);
-            coeff_tw_b[i] = m2 * q_t;
-            coeff_tw_d[i] = m1 * q0.q_t;
-            coeff_lw_b[i] = m2 * q_ls;
-            coeff_lw_d[i] = m1 * q0.q_ls;
-            coeffww[i] = m2;
-        }
-        Ok(BinomialLocationScaleWiggleHessianRowPieces {
-            coeff_tt,
-            coeff_tl,
-            coeff_ll,
-            coeff_tw_b,
-            coeff_tw_d,
-            coeff_lw_b,
-            coeff_lw_d,
-            coeffww,
-            b0,
-            d0,
-        })
-    }
-
-    pub(crate) fn expected_wiggle_geometry_inputs<'a>(
-        &'a self,
-        block_states: &'a [ParameterBlockState],
-        specs: Option<&'a [ParameterBlockSpec]>,
-    ) -> Result<Option<ExpectedWiggleGeometryInputs<'a>>, String> {
-        validate_block_count::<GamlssError>(
-            "BinomialLocationScaleWiggleFamily",
-            3,
-            block_states.len(),
-        )?;
-        let Some((x_t, x_ls)) = self.exact_joint_dense_block_designs(specs)? else {
-            return Ok(None);
-        };
-        let n = self.y.len();
-        let eta_t = &block_states[Self::BLOCK_T].eta;
-        let eta_ls = &block_states[Self::BLOCK_LOG_SIGMA].eta;
-        let etaw = &block_states[Self::BLOCK_WIGGLE].eta;
-        if eta_t.len() != n || eta_ls.len() != n || etaw.len() != n || self.weights.len() != n {
-            return Err(GamlssError::DimensionMismatch {
-                reason:
-                    "BinomialLocationScaleWiggleFamily expected-information input size mismatch"
-                        .to_string(),
-            }
-            .into());
-        }
-        Ok(Some(ExpectedWiggleGeometryInputs {
-            x_t,
-            x_ls,
-            eta_t,
-            eta_ls,
-            etaw,
-        }))
+    ) -> Result<BinomialWiggleOrder2Rows, String> {
+        BinomialLocationScaleWiggleRowProgram::new(self, block_states, 2)?
+            .order2_rows(BinomialWiggleRowOuter::Observed)
     }
 
     pub(crate) fn expected_wiggle_information_with_specs(
@@ -2340,60 +2799,12 @@ impl BinomialLocationScaleWiggleFamily {
         block_states: &[ParameterBlockState],
         specs: &[ParameterBlockSpec],
     ) -> Result<Option<Array2<f64>>, String> {
-        let Some(inputs) = self.expected_wiggle_geometry_inputs(block_states, Some(specs))? else {
+        let Some((x_t, x_ls)) = self.exact_joint_dense_block_designs(Some(specs))? else {
             return Ok(None);
         };
-        let ExpectedWiggleGeometryInputs {
-            x_t,
-            x_ls,
-            eta_t,
-            eta_ls,
-            etaw,
-        } = inputs;
-        let betaw = &block_states[Self::BLOCK_WIGGLE].beta;
-        let core = binomial_location_scale_core(
-            &self.y,
-            &self.weights,
-            eta_t,
-            eta_ls,
-            Some(etaw),
-            &self.link_kind,
-        )?;
-        let b0 = self.wiggle_design(core.q0.view())?;
-        let d0 = self.wiggle_basiswith_options(core.q0.view(), BasisOptions::first_derivative())?;
-        let m = d0.dot(betaw) + 1.0;
-        let pt = x_t.ncols();
-        let pls = x_ls.ncols();
-        let pw = b0.ncols();
-        let total = pt + pls + pw;
-        let mut out = Array2::<f64>::zeros((total, total));
-        let mut b = Array1::<f64>::zeros(total);
-        for i in 0..self.y.len() {
-            let q = core.q0[i] + etaw[i];
-            let jet = inverse_link_jet_for_inverse_link(&self.link_kind, q).map_err(|e| {
-                format!("BinomialLocationScaleWiggle expected information link jet failed: {e}")
-            })?;
-            let (f, _, _) = binomial_expected_q_information_derivatives(
-                self.weights[i],
-                jet.mu,
-                jet.d1,
-                jet.d2,
-                jet.d3,
-            );
-            if f == 0.0 {
-                continue;
-            }
-            let q0 = nonwiggle_q_derivs(eta_t[i], core.sigma[i]);
-            b.fill(0.0);
-            b.slice_mut(s![0..pt])
-                .scaled_add(m[i] * q0.q_t, &x_t.row(i));
-            b.slice_mut(s![pt..pt + pls])
-                .scaled_add(m[i] * q0.q_ls, &x_ls.row(i));
-            b.slice_mut(s![pt + pls..]).assign(&b0.row(i));
-            scaled_outer_add(out.view_mut(), f, b.view(), b.view());
-        }
-        mirror_upper_to_lower(&mut out);
-        Ok(Some(out))
+        let program = BinomialLocationScaleWiggleRowProgram::new(self, block_states, 2)?;
+        let rows = program.order2_rows(BinomialWiggleRowOuter::ExpectedInformation)?;
+        Ok(Some(rows.assemble_dense(x_t.as_ref(), x_ls.as_ref())?))
     }
 
     pub(crate) fn expected_wiggle_information_directional_with_specs(
@@ -2402,84 +2813,20 @@ impl BinomialLocationScaleWiggleFamily {
         specs: &[ParameterBlockSpec],
         d_beta_flat: &Array1<f64>,
     ) -> Result<Option<Array2<f64>>, String> {
-        let Some(inputs) = self.expected_wiggle_geometry_inputs(block_states, Some(specs))? else {
+        let Some((x_t, x_ls)) = self.exact_joint_dense_block_designs(Some(specs))? else {
             return Ok(None);
         };
-        let ExpectedWiggleGeometryInputs {
-            x_t,
-            x_ls,
-            eta_t,
-            eta_ls,
-            etaw,
-        } = inputs;
-        let betaw = &block_states[Self::BLOCK_WIGGLE].beta;
-        let core = binomial_location_scale_core(
-            &self.y,
-            &self.weights,
-            eta_t,
-            eta_ls,
-            Some(etaw),
-            &self.link_kind,
-        )?;
-        let b0 = self.wiggle_design(core.q0.view())?;
-        let d0 = self.wiggle_basiswith_options(core.q0.view(), BasisOptions::first_derivative())?;
-        let dd0 =
-            self.wiggle_basiswith_options(core.q0.view(), BasisOptions::second_derivative())?;
-        let pt = x_t.ncols();
-        let pls = x_ls.ncols();
-        let pw = b0.ncols();
-        let layout = GamlssBetaLayout::withwiggle(pt, pls, pw);
-        let (u_t, u_ls, uw) = layout.split_three(d_beta_flat, "expected wiggle d_beta")?;
+        let program = BinomialLocationScaleWiggleRowProgram::new(self, block_states, 3)?;
+        let layout = GamlssBetaLayout::withwiggle(x_t.ncols(), x_ls.ncols(), program.beta_w.len());
+        let (u_t, u_ls, u_w) = layout.split_three(d_beta_flat, "expected wiggle d_beta")?;
         let d_eta_t = fast_av(&x_t, &u_t);
         let d_eta_ls = fast_av(&x_ls, &u_ls);
-        let m = d0.dot(betaw) + 1.0;
-        let g2 = dd0.dot(betaw);
-        let total = layout.total();
-        let mut out = Array2::<f64>::zeros((total, total));
-        let mut b = Array1::<f64>::zeros(total);
-        let mut bu = Array1::<f64>::zeros(total);
-        for i in 0..self.y.len() {
-            let q = core.q0[i] + etaw[i];
-            let jet = inverse_link_jet_for_inverse_link(&self.link_kind, q).map_err(|e| {
-                format!("BinomialLocationScaleWiggle expected dI link jet failed: {e}")
-            })?;
-            let (f, f1, _) = binomial_expected_q_information_derivatives(
-                self.weights[i],
-                jet.mu,
-                jet.d1,
-                jet.d2,
-                jet.d3,
-            );
-            if f == 0.0 && f1 == 0.0 {
-                continue;
-            }
-            let q0 = nonwiggle_q_derivs(eta_t[i], core.sigma[i]);
-            let dq0_u = q0.q_t * d_eta_t[i] + q0.q_ls * d_eta_ls[i];
-            let dq0_t_u = q0.q_tl * d_eta_ls[i];
-            let dq0_ls_u = q0.q_tl * d_eta_t[i] + q0.q_ll * d_eta_ls[i];
-            let bu_w = b0.row(i).dot(&uw);
-            let b1u = d0.row(i).dot(&uw);
-            let dm_u = g2[i] * dq0_u + b1u;
-            let alpha_u = m[i] * dq0_u + bu_w;
-            let q_t = m[i] * q0.q_t;
-            let q_ls = m[i] * q0.q_ls;
-            let dq_t_u = dm_u * q0.q_t + m[i] * dq0_t_u;
-            let dq_ls_u = dm_u * q0.q_ls + m[i] * dq0_ls_u;
-            b.fill(0.0);
-            bu.fill(0.0);
-            b.slice_mut(s![0..pt]).scaled_add(q_t, &x_t.row(i));
-            b.slice_mut(s![pt..pt + pls]).scaled_add(q_ls, &x_ls.row(i));
-            b.slice_mut(s![pt + pls..]).assign(&b0.row(i));
-            bu.slice_mut(s![0..pt]).scaled_add(dq_t_u, &x_t.row(i));
-            bu.slice_mut(s![pt..pt + pls])
-                .scaled_add(dq_ls_u, &x_ls.row(i));
-            bu.slice_mut(s![pt + pls..]).scaled_add(dq0_u, &d0.row(i));
-            scaled_outer_add(out.view_mut(), f1 * alpha_u, b.view(), b.view());
-            scaled_outer_add(out.view_mut(), f, bu.view(), b.view());
-            scaled_outer_add(out.view_mut(), f, b.view(), bu.view());
-        }
-        mirror_upper_to_lower(&mut out);
-        Ok(Some(out))
+        let rows = program.expected_first_directional_rows(&d_eta_t, &d_eta_ls, u_w.view())?;
+        Ok(Some(rows.assemble_dense(
+            x_t.as_ref(),
+            x_ls.as_ref(),
+            &program.basis_derivatives,
+        )?))
     }
 
     pub(crate) fn expected_wiggle_information_second_directional_with_specs(
@@ -2487,144 +2834,32 @@ impl BinomialLocationScaleWiggleFamily {
         block_states: &[ParameterBlockState],
         specs: &[ParameterBlockSpec],
         d_beta_u_flat: &Array1<f64>,
-        d_betav_flat: &Array1<f64>,
+        d_beta_v_flat: &Array1<f64>,
     ) -> Result<Option<Array2<f64>>, String> {
-        let Some(inputs) = self.expected_wiggle_geometry_inputs(block_states, Some(specs))? else {
+        let Some((x_t, x_ls)) = self.exact_joint_dense_block_designs(Some(specs))? else {
             return Ok(None);
         };
-        let ExpectedWiggleGeometryInputs {
-            x_t,
-            x_ls,
-            eta_t,
-            eta_ls,
-            etaw,
-        } = inputs;
-        let betaw = &block_states[Self::BLOCK_WIGGLE].beta;
-        let core = binomial_location_scale_core(
-            &self.y,
-            &self.weights,
-            eta_t,
-            eta_ls,
-            Some(etaw),
-            &self.link_kind,
-        )?;
-        let b0 = self.wiggle_design(core.q0.view())?;
-        let d0 = self.wiggle_basiswith_options(core.q0.view(), BasisOptions::first_derivative())?;
-        let dd0 =
-            self.wiggle_basiswith_options(core.q0.view(), BasisOptions::second_derivative())?;
-        let d3q = self.wiggle_d3q_dq03(core.q0.view(), betaw.view())?;
-        let pt = x_t.ncols();
-        let pls = x_ls.ncols();
-        let pw = b0.ncols();
-        let layout = GamlssBetaLayout::withwiggle(pt, pls, pw);
-        let (u_t, u_ls, uw) = layout.split_three(d_beta_u_flat, "expected wiggle d_beta_u")?;
-        let (v_t, v_ls, vw) = layout.split_three(d_betav_flat, "expected wiggle d_beta_v")?;
+        let program = BinomialLocationScaleWiggleRowProgram::new(self, block_states, 4)?;
+        let layout = GamlssBetaLayout::withwiggle(x_t.ncols(), x_ls.ncols(), program.beta_w.len());
+        let (u_t, u_ls, u_w) = layout.split_three(d_beta_u_flat, "expected wiggle d_beta_u")?;
+        let (v_t, v_ls, v_w) = layout.split_three(d_beta_v_flat, "expected wiggle d_beta_v")?;
         let d_eta_t_u = fast_av(&x_t, &u_t);
         let d_eta_ls_u = fast_av(&x_ls, &u_ls);
         let d_eta_t_v = fast_av(&x_t, &v_t);
         let d_eta_ls_v = fast_av(&x_ls, &v_ls);
-        let m = d0.dot(betaw) + 1.0;
-        let g2 = dd0.dot(betaw);
-        let total = layout.total();
-        let mut out = Array2::<f64>::zeros((total, total));
-        let mut b = Array1::<f64>::zeros(total);
-        let mut bu = Array1::<f64>::zeros(total);
-        let mut bv = Array1::<f64>::zeros(total);
-        let mut buv = Array1::<f64>::zeros(total);
-        for i in 0..self.y.len() {
-            let q = core.q0[i] + etaw[i];
-            let jet = inverse_link_jet_for_inverse_link(&self.link_kind, q).map_err(|e| {
-                format!("BinomialLocationScaleWiggle expected d2I link jet failed: {e}")
-            })?;
-            let (f, f1, f2) = binomial_expected_q_information_derivatives(
-                self.weights[i],
-                jet.mu,
-                jet.d1,
-                jet.d2,
-                jet.d3,
-            );
-            if f == 0.0 && f1 == 0.0 && f2 == 0.0 {
-                continue;
-            }
-            let q0 = nonwiggle_q_derivs(eta_t[i], core.sigma[i]);
-            let dq0_u = q0.q_t * d_eta_t_u[i] + q0.q_ls * d_eta_ls_u[i];
-            let dq0_v = q0.q_t * d_eta_t_v[i] + q0.q_ls * d_eta_ls_v[i];
-            let d2q0_uv = q0.q_tl * (d_eta_t_u[i] * d_eta_ls_v[i] + d_eta_t_v[i] * d_eta_ls_u[i])
-                + q0.q_ll * d_eta_ls_u[i] * d_eta_ls_v[i];
-            let dq0_t_u = q0.q_tl * d_eta_ls_u[i];
-            let dq0_t_v = q0.q_tl * d_eta_ls_v[i];
-            let dq0_ls_u = q0.q_tl * d_eta_t_u[i] + q0.q_ll * d_eta_ls_u[i];
-            let dq0_ls_v = q0.q_tl * d_eta_t_v[i] + q0.q_ll * d_eta_ls_v[i];
-            let d2q0_t_uv = q0.q_tl_ls * d_eta_ls_u[i] * d_eta_ls_v[i];
-            let d2q0_ls_uv = q0.q_tl_ls
-                * (d_eta_ls_u[i] * d_eta_t_v[i] + d_eta_ls_v[i] * d_eta_t_u[i])
-                + q0.q_ll_ls * d_eta_ls_u[i] * d_eta_ls_v[i];
-
-            let br = b0.row(i);
-            let dr = d0.row(i);
-            let ddr = dd0.row(i);
-            let b_u = br.dot(&uw);
-            let b_v = br.dot(&vw);
-            let b1_u = dr.dot(&uw);
-            let b1_v = dr.dot(&vw);
-            let b2_u = ddr.dot(&uw);
-            let b2_v = ddr.dot(&vw);
-            let dm_u = g2[i] * dq0_u + b1_u;
-            let dm_v = g2[i] * dq0_v + b1_v;
-            let d2m_uv = d3q[i] * dq0_u * dq0_v + g2[i] * d2q0_uv + b2_v * dq0_u + b2_u * dq0_v;
-            let alpha_u = m[i] * dq0_u + b_u;
-            let alpha_v = m[i] * dq0_v + b_v;
-            let alpha_uv = m[i] * d2q0_uv + g2[i] * dq0_u * dq0_v + b1_u * dq0_v + b1_v * dq0_u;
-
-            let q_t = m[i] * q0.q_t;
-            let q_ls = m[i] * q0.q_ls;
-            let dq_t_u = dm_u * q0.q_t + m[i] * dq0_t_u;
-            let dq_t_v = dm_v * q0.q_t + m[i] * dq0_t_v;
-            let dq_ls_u = dm_u * q0.q_ls + m[i] * dq0_ls_u;
-            let dq_ls_v = dm_v * q0.q_ls + m[i] * dq0_ls_v;
-            let d2q_t_uv = d2m_uv * q0.q_t + dm_u * dq0_t_v + dm_v * dq0_t_u + m[i] * d2q0_t_uv;
-            let d2q_ls_uv =
-                d2m_uv * q0.q_ls + dm_u * dq0_ls_v + dm_v * dq0_ls_u + m[i] * d2q0_ls_uv;
-
-            b.fill(0.0);
-            bu.fill(0.0);
-            bv.fill(0.0);
-            buv.fill(0.0);
-            b.slice_mut(s![0..pt]).scaled_add(q_t, &x_t.row(i));
-            b.slice_mut(s![pt..pt + pls]).scaled_add(q_ls, &x_ls.row(i));
-            b.slice_mut(s![pt + pls..]).assign(&br);
-            bu.slice_mut(s![0..pt]).scaled_add(dq_t_u, &x_t.row(i));
-            bu.slice_mut(s![pt..pt + pls])
-                .scaled_add(dq_ls_u, &x_ls.row(i));
-            bu.slice_mut(s![pt + pls..]).scaled_add(dq0_u, &dr);
-            bv.slice_mut(s![0..pt]).scaled_add(dq_t_v, &x_t.row(i));
-            bv.slice_mut(s![pt..pt + pls])
-                .scaled_add(dq_ls_v, &x_ls.row(i));
-            bv.slice_mut(s![pt + pls..]).scaled_add(dq0_v, &dr);
-            buv.slice_mut(s![0..pt]).scaled_add(d2q_t_uv, &x_t.row(i));
-            buv.slice_mut(s![pt..pt + pls])
-                .scaled_add(d2q_ls_uv, &x_ls.row(i));
-            buv.slice_mut(s![pt + pls..])
-                .scaled_add(dq0_u * dq0_v, &ddr);
-            buv.slice_mut(s![pt + pls..]).scaled_add(d2q0_uv, &dr);
-
-            scaled_outer_add(
-                out.view_mut(),
-                f2 * alpha_u * alpha_v + f1 * alpha_uv,
-                b.view(),
-                b.view(),
-            );
-            scaled_outer_add(out.view_mut(), f1 * alpha_u, bv.view(), b.view());
-            scaled_outer_add(out.view_mut(), f1 * alpha_u, b.view(), bv.view());
-            scaled_outer_add(out.view_mut(), f1 * alpha_v, bu.view(), b.view());
-            scaled_outer_add(out.view_mut(), f1 * alpha_v, b.view(), bu.view());
-            scaled_outer_add(out.view_mut(), f, buv.view(), b.view());
-            scaled_outer_add(out.view_mut(), f, b.view(), buv.view());
-            scaled_outer_add(out.view_mut(), f, bu.view(), bv.view());
-            scaled_outer_add(out.view_mut(), f, bv.view(), bu.view());
-        }
-        mirror_upper_to_lower(&mut out);
-        Ok(Some(out))
+        let rows = program.expected_second_directional_rows(
+            &d_eta_t_u,
+            &d_eta_ls_u,
+            u_w.view(),
+            &d_eta_t_v,
+            &d_eta_ls_v,
+            v_w.view(),
+        )?;
+        Ok(Some(rows.assemble_dense(
+            x_t.as_ref(),
+            x_ls.as_ref(),
+            &program.basis_derivatives,
+        )?))
     }
 }
 
@@ -2641,7 +2876,7 @@ impl BinomialLocationScaleWiggleFamily {
 ///   r_d = D_tw_d u_t + D_lw_d u_ls,
 ///
 /// and combines `out_w = B^T r_b + (B')^T r_d` to form `H v` directly.
-pub(crate) struct BinomialLocationScaleWiggleHessianRowPieces {
+pub(crate) struct BinomialWiggleOrder2Rows {
     pub(crate) coeff_tt: Array1<f64>,
     pub(crate) coeff_tl: Array1<f64>,
     pub(crate) coeff_ll: Array1<f64>,
@@ -2649,20 +2884,27 @@ pub(crate) struct BinomialLocationScaleWiggleHessianRowPieces {
     pub(crate) coeff_tw_d: Array1<f64>,
     pub(crate) coeff_lw_b: Array1<f64>,
     pub(crate) coeff_lw_d: Array1<f64>,
-    pub(crate) coeffww: Array1<f64>,
+    pub(crate) coeff_ww: Array1<f64>,
     pub(crate) b0: Array2<f64>,
     pub(crate) d0: Array2<f64>,
 }
 
-pub(crate) struct ExpectedWiggleGeometryInputs<'a> {
-    pub(crate) x_t: Cow<'a, Array2<f64>>,
-    pub(crate) x_ls: Cow<'a, Array2<f64>>,
-    pub(crate) eta_t: &'a Array1<f64>,
-    pub(crate) eta_ls: &'a Array1<f64>,
-    pub(crate) etaw: &'a Array1<f64>,
-}
+impl BinomialWiggleOrder2Rows {
+    fn zeros(n: usize, b0: Array2<f64>, d0: Array2<f64>) -> Self {
+        Self {
+            coeff_tt: Array1::zeros(n),
+            coeff_tl: Array1::zeros(n),
+            coeff_ll: Array1::zeros(n),
+            coeff_tw_b: Array1::zeros(n),
+            coeff_tw_d: Array1::zeros(n),
+            coeff_lw_b: Array1::zeros(n),
+            coeff_lw_d: Array1::zeros(n),
+            coeff_ww: Array1::zeros(n),
+            b0,
+            d0,
+        }
+    }
 
-impl BinomialLocationScaleWiggleHessianRowPieces {
     pub(crate) fn assemble_dense(
         &self,
         x_t: &Array2<f64>,
@@ -2679,7 +2921,7 @@ impl BinomialLocationScaleWiggleHessianRowPieces {
             + &xt_diag_y_dense(x_t, &self.coeff_tw_d, &self.d0)?;
         let h_lw = xt_diag_y_dense(x_ls, &self.coeff_lw_b, &self.b0)?
             + &xt_diag_y_dense(x_ls, &self.coeff_lw_d, &self.d0)?;
-        let hww = xt_diag_x_dense(&self.b0, &self.coeffww)?;
+        let hww = xt_diag_x_dense(&self.b0, &self.coeff_ww)?;
 
         let mut h = Array2::<f64>::zeros((total, total));
         h.slice_mut(s![0..pt, 0..pt]).assign(&h_tt);
@@ -2703,15 +2945,13 @@ impl BinomialLocationScaleWiggleHessianRowPieces {
     ) -> Result<(Array2<f64>, Array2<f64>, Array2<f64>), String> {
         let h_tt = xt_diag_x_dense(x_t, &self.coeff_tt)?;
         let h_ll = xt_diag_x_dense(x_ls, &self.coeff_ll)?;
-        let h_ww = xt_diag_x_dense(&self.b0, &self.coeffww)?;
+        let h_ww = xt_diag_x_dense(&self.b0, &self.coeff_ww)?;
         Ok((h_tt, h_ll, h_ww))
     }
 }
 
-/// Per-row coefficient arrays for the BLS Wiggle joint first-directional
-/// Hessian derivative `D_β H_L[u]`, shared by the dense `_directional_derivative`
-/// assembly and the matrix-free `bls_wiggle_directional_operator`.
-pub(crate) struct BinomialWiggleDhRowCoeffs {
+/// Typed-probe lowering of `D H[u]` from the canonical wiggle row program.
+pub(crate) struct BinomialWiggleFirstDirectionalRows {
     pub(crate) coeff_tt: Array1<f64>,
     pub(crate) coeff_tl: Array1<f64>,
     pub(crate) coeff_ll: Array1<f64>,
@@ -2721,141 +2961,141 @@ pub(crate) struct BinomialWiggleDhRowCoeffs {
     pub(crate) coeff_lw_b: Array1<f64>,
     pub(crate) coeff_lw_d: Array1<f64>,
     pub(crate) coeff_lw_dd: Array1<f64>,
-    pub(crate) coeffww_bb: Array1<f64>,
-    pub(crate) coeffww_db: Array1<f64>,
+    pub(crate) coeff_ww_bb: Array1<f64>,
+    pub(crate) coeff_ww_bd: Array1<f64>,
 }
 
-/// All references needed to evaluate [`BinomialWiggleDhRowCoeffs`].
-pub(crate) struct BinomialWiggleDhRowInputs<'a> {
-    pub(crate) core0: &'a BinomialLocationScaleCore,
-    pub(crate) eta_t: &'a Array1<f64>,
-    pub(crate) etaw: &'a Array1<f64>,
-    pub(crate) sigma: &'a Array1<f64>,
-    pub(crate) m: &'a Array1<f64>,
-    pub(crate) g2: &'a Array1<f64>,
-    pub(crate) g3: &'a Array1<f64>,
-    pub(crate) b0: &'a Array2<f64>,
-    pub(crate) d0: &'a Array2<f64>,
-    pub(crate) dd0: &'a Array2<f64>,
-    pub(crate) uw: &'a Array1<f64>,
-    pub(crate) d_eta_t: &'a Array1<f64>,
-    pub(crate) d_eta_ls: &'a Array1<f64>,
-}
-
-impl BinomialLocationScaleWiggleFamily {
-    /// Per-row coefficient loop for the joint first-directional Hessian
-    /// derivative. The dense and operator paths build the identical 11
-    /// coefficient arrays from the same canonical directional-q formulas.
-    pub(crate) fn binomial_wiggle_dh_row_coeffs(
-        &self,
-        n: usize,
-        inputs: &BinomialWiggleDhRowInputs<'_>,
-    ) -> BinomialWiggleDhRowCoeffs {
-        let BinomialWiggleDhRowInputs {
-            core0,
-            eta_t,
-            etaw,
-            sigma,
-            m,
-            g2,
-            g3,
-            b0,
-            d0,
-            dd0,
-            uw,
-            d_eta_t,
-            d_eta_ls,
-        } = *inputs;
-
-        let mut coeff_tt = Array1::<f64>::zeros(n);
-        let mut coeff_tl = Array1::<f64>::zeros(n);
-        let mut coeff_ll = Array1::<f64>::zeros(n);
-        let mut coeff_tw_b = Array1::<f64>::zeros(n);
-        let mut coeff_tw_d = Array1::<f64>::zeros(n);
-        let mut coeff_tw_dd = Array1::<f64>::zeros(n);
-        let mut coeff_lw_b = Array1::<f64>::zeros(n);
-        let mut coeff_lw_d = Array1::<f64>::zeros(n);
-        let mut coeff_lw_dd = Array1::<f64>::zeros(n);
-        let mut coeffww_bb = Array1::<f64>::zeros(n);
-        let mut coeffww_db = Array1::<f64>::zeros(n);
-        for i in 0..n {
-            let q_i = core0.q0[i] + etaw[i];
-            let (m1, m2, m3) = binomial_neglog_q_derivatives_dispatch(
-                self.y[i],
-                self.weights[i],
-                q_i,
-                core0.mu[i],
-                core0.dmu_dq[i],
-                core0.d2mu_dq2[i],
-                core0.d3mu_dq3[i],
-                &self.link_kind,
-            );
-            let q0 = nonwiggle_q_derivs(eta_t[i], sigma[i]);
-            let dq0 = nonwiggle_q_directional(q0, d_eta_t[i], d_eta_ls[i]);
-
-            let br = b0.row(i);
-            let dr = d0.row(i);
-            let ddr = dd0.row(i);
-            let duw_i = dr.dot(uw);
-            let dduw_i = ddr.dot(uw);
-
-            let delta_m = g2[i] * dq0.delta_q + duw_i;
-            let delta_g2 = g3[i] * dq0.delta_q + dduw_i;
-
-            let q_t = m[i] * q0.q_t;
-            let q_ls = m[i] * q0.q_ls;
-            let q_tt = g2[i] * q0.q_t * q0.q_t;
-            let q_tl = g2[i] * q0.q_t * q0.q_ls + m[i] * q0.q_tl;
-            let q_ll = g2[i] * q0.q_ls * q0.q_ls + m[i] * q0.q_ll;
-
-            let delta_q_t = delta_m * q0.q_t + m[i] * dq0.delta_q_t;
-            let delta_q_ls = delta_m * q0.q_ls + m[i] * dq0.delta_q_ls;
-            let delta_q_tt = delta_g2 * q0.q_t * q0.q_t + g2[i] * 2.0 * q0.q_t * dq0.delta_q_t;
-            let delta_q_tl = delta_g2 * q0.q_t * q0.q_ls
-                + g2[i] * (dq0.delta_q_t * q0.q_ls + q0.q_t * dq0.delta_q_ls)
-                + delta_m * q0.q_tl
-                + m[i] * dq0.delta_q_tl;
-            let delta_q_ll = delta_g2 * q0.q_ls * q0.q_ls
-                + g2[i] * 2.0 * q0.q_ls * dq0.delta_q_ls
-                + delta_m * q0.q_ll
-                + m[i] * dq0.delta_q_ll;
-
-            let delta_q = m[i] * dq0.delta_q + br.dot(uw);
-
-            coeff_tt[i] = directionalhessian_coeff_fromobjective_q_terms(
-                m1, m2, m3, delta_q, q_t, q_t, q_tt, delta_q_t, delta_q_t, delta_q_tt,
-            );
-            coeff_tl[i] = directionalhessian_coeff_fromobjective_q_terms(
-                m1, m2, m3, delta_q, q_t, q_ls, q_tl, delta_q_t, delta_q_ls, delta_q_tl,
-            );
-            coeff_ll[i] = directionalhessian_coeff_fromobjective_q_terms(
-                m1, m2, m3, delta_q, q_ls, q_ls, q_ll, delta_q_ls, delta_q_ls, delta_q_ll,
-            );
-            coeff_tw_b[i] = m3 * delta_q * q_t + m2 * delta_q_t;
-            coeff_tw_d[i] = m2 * (q_t * dq0.delta_q + delta_q * q0.q_t) + m1 * dq0.delta_q_t;
-            coeff_tw_dd[i] = m1 * dq0.delta_q * q0.q_t;
-            coeff_lw_b[i] = m3 * delta_q * q_ls + m2 * delta_q_ls;
-            coeff_lw_d[i] = m2 * (q_ls * dq0.delta_q + delta_q * q0.q_ls) + m1 * dq0.delta_q_ls;
-            coeff_lw_dd[i] = m1 * dq0.delta_q * q0.q_ls;
-            coeffww_bb[i] = m3 * delta_q;
-            coeffww_db[i] = m2 * dq0.delta_q;
-        }
-
-        BinomialWiggleDhRowCoeffs {
-            coeff_tt,
-            coeff_tl,
-            coeff_ll,
-            coeff_tw_b,
-            coeff_tw_d,
-            coeff_tw_dd,
-            coeff_lw_b,
-            coeff_lw_d,
-            coeff_lw_dd,
-            coeffww_bb,
-            coeffww_db,
+impl BinomialWiggleFirstDirectionalRows {
+    fn zeros(n: usize) -> Self {
+        Self {
+            coeff_tt: Array1::zeros(n),
+            coeff_tl: Array1::zeros(n),
+            coeff_ll: Array1::zeros(n),
+            coeff_tw_b: Array1::zeros(n),
+            coeff_tw_d: Array1::zeros(n),
+            coeff_tw_dd: Array1::zeros(n),
+            coeff_lw_b: Array1::zeros(n),
+            coeff_lw_d: Array1::zeros(n),
+            coeff_lw_dd: Array1::zeros(n),
+            coeff_ww_bb: Array1::zeros(n),
+            coeff_ww_bd: Array1::zeros(n),
         }
     }
 
+    pub(super) fn assemble_dense(
+        &self,
+        x_t: &Array2<f64>,
+        x_ls: &Array2<f64>,
+        basis: &[Array2<f64>],
+    ) -> Result<Array2<f64>, String> {
+        let pt = x_t.ncols();
+        let pls = x_ls.ncols();
+        let pw = basis[0].ncols();
+        let total = pt + pls + pw;
+        let mut out = Array2::zeros((total, total));
+        out.slice_mut(s![0..pt, 0..pt])
+            .assign(&xt_diag_x_dense(x_t, &self.coeff_tt)?);
+        out.slice_mut(s![0..pt, pt..pt + pls])
+            .assign(&xt_diag_y_dense(x_t, &self.coeff_tl, x_ls)?);
+        out.slice_mut(s![pt..pt + pls, pt..pt + pls])
+            .assign(&xt_diag_x_dense(x_ls, &self.coeff_ll)?);
+        let h_tw = xt_diag_y_dense(x_t, &self.coeff_tw_b, &basis[0])?
+            + xt_diag_y_dense(x_t, &self.coeff_tw_d, &basis[1])?
+            + xt_diag_y_dense(x_t, &self.coeff_tw_dd, &basis[2])?;
+        let h_lw = xt_diag_y_dense(x_ls, &self.coeff_lw_b, &basis[0])?
+            + xt_diag_y_dense(x_ls, &self.coeff_lw_d, &basis[1])?
+            + xt_diag_y_dense(x_ls, &self.coeff_lw_dd, &basis[2])?;
+        let h_ww = xt_diag_x_dense(&basis[0], &self.coeff_ww_bb)?
+            + xt_diag_y_dense(&basis[0], &self.coeff_ww_bd, &basis[1])?
+            + xt_diag_y_dense(&basis[1], &self.coeff_ww_bd, &basis[0])?;
+        out.slice_mut(s![0..pt, pt + pls..]).assign(&h_tw);
+        out.slice_mut(s![pt..pt + pls, pt + pls..]).assign(&h_lw);
+        out.slice_mut(s![pt + pls.., pt + pls..]).assign(&h_ww);
+        mirror_upper_to_lower(&mut out);
+        Ok(out)
+    }
+}
+
+/// Typed-probe lowering of `D² H[u,v]` from the canonical wiggle row program.
+pub(crate) struct BinomialWiggleSecondDirectionalRows {
+    pub(crate) coeff_tt: Array1<f64>,
+    pub(crate) coeff_tl: Array1<f64>,
+    pub(crate) coeff_ll: Array1<f64>,
+    pub(crate) coeff_tw_b: Array1<f64>,
+    pub(crate) coeff_tw_d: Array1<f64>,
+    pub(crate) coeff_tw_dd: Array1<f64>,
+    pub(crate) coeff_tw_d3: Array1<f64>,
+    pub(crate) coeff_lw_b: Array1<f64>,
+    pub(crate) coeff_lw_d: Array1<f64>,
+    pub(crate) coeff_lw_dd: Array1<f64>,
+    pub(crate) coeff_lw_d3: Array1<f64>,
+    pub(crate) coeff_ww_bb: Array1<f64>,
+    pub(crate) coeff_ww_bd: Array1<f64>,
+    pub(crate) coeff_ww_bdd: Array1<f64>,
+    pub(crate) coeff_ww_dd: Array1<f64>,
+}
+
+impl BinomialWiggleSecondDirectionalRows {
+    fn zeros(n: usize) -> Self {
+        Self {
+            coeff_tt: Array1::zeros(n),
+            coeff_tl: Array1::zeros(n),
+            coeff_ll: Array1::zeros(n),
+            coeff_tw_b: Array1::zeros(n),
+            coeff_tw_d: Array1::zeros(n),
+            coeff_tw_dd: Array1::zeros(n),
+            coeff_tw_d3: Array1::zeros(n),
+            coeff_lw_b: Array1::zeros(n),
+            coeff_lw_d: Array1::zeros(n),
+            coeff_lw_dd: Array1::zeros(n),
+            coeff_lw_d3: Array1::zeros(n),
+            coeff_ww_bb: Array1::zeros(n),
+            coeff_ww_bd: Array1::zeros(n),
+            coeff_ww_bdd: Array1::zeros(n),
+            coeff_ww_dd: Array1::zeros(n),
+        }
+    }
+
+    pub(super) fn assemble_dense(
+        &self,
+        x_t: &Array2<f64>,
+        x_ls: &Array2<f64>,
+        basis: &[Array2<f64>],
+    ) -> Result<Array2<f64>, String> {
+        let pt = x_t.ncols();
+        let pls = x_ls.ncols();
+        let pw = basis[0].ncols();
+        let total = pt + pls + pw;
+        let mut out = Array2::zeros((total, total));
+        out.slice_mut(s![0..pt, 0..pt])
+            .assign(&xt_diag_x_dense(x_t, &self.coeff_tt)?);
+        out.slice_mut(s![0..pt, pt..pt + pls])
+            .assign(&xt_diag_y_dense(x_t, &self.coeff_tl, x_ls)?);
+        out.slice_mut(s![pt..pt + pls, pt..pt + pls])
+            .assign(&xt_diag_x_dense(x_ls, &self.coeff_ll)?);
+        let h_tw = xt_diag_y_dense(x_t, &self.coeff_tw_b, &basis[0])?
+            + xt_diag_y_dense(x_t, &self.coeff_tw_d, &basis[1])?
+            + xt_diag_y_dense(x_t, &self.coeff_tw_dd, &basis[2])?
+            + xt_diag_y_dense(x_t, &self.coeff_tw_d3, &basis[3])?;
+        let h_lw = xt_diag_y_dense(x_ls, &self.coeff_lw_b, &basis[0])?
+            + xt_diag_y_dense(x_ls, &self.coeff_lw_d, &basis[1])?
+            + xt_diag_y_dense(x_ls, &self.coeff_lw_dd, &basis[2])?
+            + xt_diag_y_dense(x_ls, &self.coeff_lw_d3, &basis[3])?;
+        let h_ww = xt_diag_x_dense(&basis[0], &self.coeff_ww_bb)?
+            + xt_diag_y_dense(&basis[0], &self.coeff_ww_bd, &basis[1])?
+            + xt_diag_y_dense(&basis[1], &self.coeff_ww_bd, &basis[0])?
+            + xt_diag_y_dense(&basis[0], &self.coeff_ww_bdd, &basis[2])?
+            + xt_diag_y_dense(&basis[2], &self.coeff_ww_bdd, &basis[0])?
+            + xt_diag_x_dense(&basis[1], &self.coeff_ww_dd)?;
+        out.slice_mut(s![0..pt, pt + pls..]).assign(&h_tw);
+        out.slice_mut(s![pt..pt + pls, pt + pls..]).assign(&h_lw);
+        out.slice_mut(s![pt + pls.., pt + pls..]).assign(&h_ww);
+        mirror_upper_to_lower(&mut out);
+        Ok(out)
+    }
+}
+
+impl BinomialLocationScaleWiggleFamily {
     /// Build the [`BlockEffectiveJacobian`] for block `block_idx`.
     ///
     /// The two-output map is (η_threshold, η_log_sigma).
@@ -2891,20 +3131,10 @@ impl BinomialLocationScaleWiggleFamily {
         x_ls_arc: Arc<Array2<f64>>,
         d_beta_flat: &Array1<f64>,
     ) -> Result<Option<Arc<dyn gam_problem::HyperOperator>>, String> {
-        let (n, eta_t, eta_ls, etaw) = self.validated_block_etas(block_states)?;
         let pt = x_t_arc.ncols();
         let pls = x_ls_arc.ncols();
-        let betaw0 = block_states[Self::BLOCK_WIGGLE].beta.clone();
-        let core0 = binomial_location_scale_core(
-            &self.y,
-            &self.weights,
-            eta_t,
-            eta_ls,
-            Some(etaw),
-            &self.link_kind,
-        )?;
-        let b0 = self.wiggle_design(core0.q0.view())?;
-        let pw = b0.ncols();
+        let program = BinomialLocationScaleWiggleRowProgram::new(self, block_states, 3)?;
+        let pw = program.beta_w.len();
         let beta_layout = GamlssBetaLayout::withwiggle(pt, pls, pw);
         let total = beta_layout.total();
         if d_beta_flat.len() != total {
@@ -2921,29 +3151,7 @@ impl BinomialLocationScaleWiggleFamily {
             beta_layout.split_three(d_beta_flat, "wiggle joint dH operator d_beta")?;
         let d_eta_t = fast_av(x_t_arc.as_ref(), &u_t);
         let d_eta_ls = fast_av(x_ls_arc.as_ref(), &u_ls);
-
-        let d0 =
-            self.wiggle_basiswith_options(core0.q0.view(), BasisOptions::first_derivative())?;
-        let dd0 =
-            self.wiggle_basiswith_options(core0.q0.view(), BasisOptions::second_derivative())?;
-        let d3q = self.wiggle_d3q_dq03(core0.q0.view(), betaw0.view())?;
-        if d0.ncols() != betaw0.len() || dd0.ncols() != betaw0.len() {
-            return Err(GamlssError::DimensionMismatch {
-                reason: format!(
-                    "wiggle derivative/beta mismatch in dH operator: B'={} B''={} betaw={}",
-                    d0.ncols(),
-                    dd0.ncols(),
-                    betaw0.len()
-                ),
-            }
-            .into());
-        }
-        let m = d0.dot(&betaw0) + 1.0;
-        let g2 = dd0.dot(&betaw0);
-        let g3 = d3q;
-        let (sigma, ..) = exp_sigma_derivs_up_to_third(eta_ls.view());
-
-        let BinomialWiggleDhRowCoeffs {
+        let BinomialWiggleFirstDirectionalRows {
             coeff_tt,
             coeff_tl,
             coeff_ll,
@@ -2953,30 +3161,18 @@ impl BinomialLocationScaleWiggleFamily {
             coeff_lw_b,
             coeff_lw_d,
             coeff_lw_dd,
-            coeffww_bb,
-            coeffww_db,
-        } = self.binomial_wiggle_dh_row_coeffs(
-            n,
-            &BinomialWiggleDhRowInputs {
-                core0: &core0,
-                eta_t,
-                etaw,
-                sigma: &sigma,
-                m: &m,
-                g2: &g2,
-                g3: &g3,
-                b0: &b0,
-                d0: &d0,
-                dd0: &dd0,
-                uw: &uw,
-                d_eta_t: &d_eta_t,
-                d_eta_ls: &d_eta_ls,
-            },
-        );
+            coeff_ww_bb,
+            coeff_ww_bd,
+        } = program.first_directional_rows(
+            &d_eta_t,
+            &d_eta_ls,
+            uw.view(),
+            BinomialWiggleRowOuter::Observed,
+        )?;
 
-        let basis: Arc<Array2<f64>> = Arc::new(b0);
-        let basis_d1: Arc<Array2<f64>> = Arc::new(d0);
-        let basis_d2: Arc<Array2<f64>> = Arc::new(dd0);
+        let basis: Arc<Array2<f64>> = Arc::new(program.basis_derivatives[0].clone());
+        let basis_d1: Arc<Array2<f64>> = Arc::new(program.basis_derivatives[1].clone());
+        let basis_d2: Arc<Array2<f64>> = Arc::new(program.basis_derivatives[2].clone());
 
         Ok(Some(Arc::new(RowCoeffOperator::from_directions(
             vec![pt, pls, pw],
@@ -3004,33 +3200,19 @@ impl BinomialLocationScaleWiggleFamily {
                 (1, 2, coeff_lw_b),
                 (1, 3, coeff_lw_d),
                 (1, 4, coeff_lw_dd),
-                // (B, B) ← `xt_diag_x_dense(&b0, &coeffww_bb)`
-                (2, 2, coeffww_bb),
-                // (B, B') ← `xt_diag_y_dense(&d0, &coeffww_db, &b0) +
-                // xt_diag_y_dense(&b0, &coeffww_db, &d0)` =
+                // (B, B) and (B, B') are probe Hessian channels.
+                (2, 2, coeff_ww_bb),
+                // `d0^T diag(c) b0 + b0^T diag(c) d0` =
                 // d0^T diag(c) b0 + b0^T diag(c) d0 (symmetric pair)
-                (2, 3, coeffww_db),
+                (2, 3, coeff_ww_bd),
             ],
-            n,
+            self.y.len(),
         ))))
     }
 
-    /// Build a matrix-free `RowCoeffOperator` for the BLS Wiggle joint
-    /// second directional derivative `D²_β H_L[u, v]`. Channels: X_t,
-    /// X_ls, B, B', B'', B'''.
-    ///
-    /// The dense path computes a per-row scalar `coeff_*(i, j[, k])` via
-    /// `second_directionalhessian_coeff_fromobjective_q_terms` and outer-
-    /// products it into the (t,t) / (t,ls) / (ls,ls) / (t,w) / (ls,w) /
-    /// (w,w) blocks. Each `coeff_tw(i, j)` is *linear* in the basis
-    /// derivatives at column j (`br[j], dr[j], ddr[j], d3r[j]` — they
-    /// only ever appear once in the q-Hessian directional polynomial),
-    /// so each per-(i,j) contribution decomposes into 4 channel-pair
-    /// row coefficients (X_t, B/B'/B''/B'''). The wiggle-wiggle term
-    /// `coeff_ww(i, j, k)` is *bilinear* in (br[j], dr[j], ddr[j]) ⊗
-    /// (br[k], dr[k], ddr[k]), giving 4 symmetric pair coefficients on
-    /// (B, B), (B, B'), (B, B''), (B', B'). No (B'', B'') term — the
-    /// formula is at most degree 2 in any single basis derivative.
+    /// Build the matrix-free `D²H[u,v]` operator from the K=8 typed-probe
+    /// instantiation of the canonical row expression. Probe Hessian entries
+    /// lower directly onto the B/B'/B''/B''' channel plan.
     pub(crate) fn bls_wiggle_second_directional_operator(
         &self,
         block_states: &[ParameterBlockState],
@@ -3039,340 +3221,47 @@ impl BinomialLocationScaleWiggleFamily {
         d_beta_u: &Array1<f64>,
         d_beta_v: &Array1<f64>,
     ) -> Result<Option<Arc<dyn gam_problem::HyperOperator>>, String> {
-        let (n, eta_t, eta_ls, etaw) = self.validated_block_etas(block_states)?;
         let pt = x_t_arc.ncols();
         let pls = x_ls_arc.ncols();
-        let betaw0 = block_states[Self::BLOCK_WIGGLE].beta.clone();
-        let core0 = binomial_location_scale_core(
-            &self.y,
-            &self.weights,
-            eta_t,
-            eta_ls,
-            Some(etaw),
-            &self.link_kind,
-        )?;
-        let b0 = self.wiggle_design(core0.q0.view())?;
-        let d0 =
-            self.wiggle_basiswith_options(core0.q0.view(), BasisOptions::first_derivative())?;
-        let dd0 =
-            self.wiggle_basiswith_options(core0.q0.view(), BasisOptions::second_derivative())?;
-        let d3_basis = self.wiggle_d3basis_constrained(core0.q0.view())?;
-        let d3q = self.wiggle_d3q_dq03(core0.q0.view(), betaw0.view())?;
-        let d4q = self.wiggle_d4q_dq04(core0.q0.view(), betaw0.view())?;
-        let pw = b0.ncols();
-        let beta_layout = GamlssBetaLayout::withwiggle(pt, pls, pw);
-        let total = beta_layout.total();
-        if d_beta_u.len() != total || d_beta_v.len() != total {
-            return Err(GamlssError::InvalidInput {
-                reason: format!(
-                    "BLS wiggle d2H operator: d_beta_{{u,v}} length {}/{} != {}",
-                    d_beta_u.len(),
-                    d_beta_v.len(),
-                    total
-                ),
-            }
-            .into());
-        }
-        if d0.ncols() != betaw0.len()
-            || dd0.ncols() != betaw0.len()
-            || d3_basis.ncols() != betaw0.len()
-        {
-            return Err(GamlssError::DimensionMismatch { reason: format!(
-                "wiggle derivative/beta mismatch in d2H operator: B'={} B''={} B'''={} betaw={}",
-                d0.ncols(),
-                dd0.ncols(),
-                d3_basis.ncols(),
-                betaw0.len()
-            ) }.into());
-        }
-
-        let (u_t, u_ls, uw) = beta_layout.split_three(d_beta_u, "wiggle d2H op u")?;
-        let (v_t, v_ls, vw) = beta_layout.split_three(d_beta_v, "wiggle d2H op v")?;
+        let program = BinomialLocationScaleWiggleRowProgram::new(self, block_states, 4)?;
+        let pw = program.beta_w.len();
+        let layout = GamlssBetaLayout::withwiggle(pt, pls, pw);
+        let (u_t, u_ls, u_w) = layout.split_three(d_beta_u, "wiggle d2H operator u")?;
+        let (v_t, v_ls, v_w) = layout.split_three(d_beta_v, "wiggle d2H operator v")?;
         let d_eta_t_u = fast_av(x_t_arc.as_ref(), &u_t);
         let d_eta_ls_u = fast_av(x_ls_arc.as_ref(), &u_ls);
         let d_eta_t_v = fast_av(x_t_arc.as_ref(), &v_t);
         let d_eta_ls_v = fast_av(x_ls_arc.as_ref(), &v_ls);
+        let BinomialWiggleSecondDirectionalRows {
+            coeff_tt,
+            coeff_tl,
+            coeff_ll,
+            coeff_tw_b,
+            coeff_tw_d,
+            coeff_tw_dd,
+            coeff_tw_d3,
+            coeff_lw_b,
+            coeff_lw_d,
+            coeff_lw_dd,
+            coeff_lw_d3,
+            coeff_ww_bb,
+            coeff_ww_bd,
+            coeff_ww_bdd,
+            coeff_ww_dd,
+        } = program.second_directional_rows(
+            &d_eta_t_u,
+            &d_eta_ls_u,
+            u_w.view(),
+            &d_eta_t_v,
+            &d_eta_ls_v,
+            v_w.view(),
+            BinomialWiggleRowOuter::Observed,
+        )?;
 
-        let m = d0.dot(&betaw0) + 1.0;
-        let g2 = dd0.dot(&betaw0);
-        let g3 = d3q;
-        let g4 = d4q;
-        let (sigma, ds, d2s, d3s, d4s) = exp_sigma_derivs_up_to_fourth_array(eta_ls.view());
-
-        // Per-row scalar pair coefficients.
-        let mut coeff_tt = Array1::<f64>::zeros(n);
-        let mut coeff_tl = Array1::<f64>::zeros(n);
-        let mut coeff_ll = Array1::<f64>::zeros(n);
-        // Per-row coefficients for the t↔wiggle decomposition into
-        // (X_t, B), (X_t, B'), (X_t, B''), (X_t, B''') pair entries.
-        let mut alpha_tw_b = Array1::<f64>::zeros(n);
-        let mut alpha_tw_d = Array1::<f64>::zeros(n);
-        let mut alpha_tw_dd = Array1::<f64>::zeros(n);
-        let mut alpha_tw_d3 = Array1::<f64>::zeros(n);
-        let mut alpha_lw_b = Array1::<f64>::zeros(n);
-        let mut alpha_lw_d = Array1::<f64>::zeros(n);
-        let mut alpha_lw_dd = Array1::<f64>::zeros(n);
-        let mut alpha_lw_d3 = Array1::<f64>::zeros(n);
-        // Wiggle-wiggle bilinear pair entries on (B,B), (B,B'), (B,B''), (B',B').
-        let mut c_ww_bb = Array1::<f64>::zeros(n);
-        let mut c_ww_bd = Array1::<f64>::zeros(n);
-        let mut c_ww_bdd = Array1::<f64>::zeros(n);
-        let mut c_ww_dd_pair = Array1::<f64>::zeros(n);
-
-        for i in 0..n {
-            let q_i = core0.q0[i] + etaw[i];
-            let (m1, m2, m3) = binomial_neglog_q_derivatives_dispatch(
-                self.y[i],
-                self.weights[i],
-                q_i,
-                core0.mu[i],
-                core0.dmu_dq[i],
-                core0.d2mu_dq2[i],
-                core0.d3mu_dq3[i],
-                &self.link_kind,
-            );
-            let m4 = binomial_neglog_q_fourth_derivative_dispatch(
-                self.y[i],
-                self.weights[i],
-                q_i,
-                core0.mu[i],
-                core0.dmu_dq[i],
-                core0.d2mu_dq2[i],
-                core0.d3mu_dq3[i],
-                &self.link_kind,
-            )?;
-
-            let q0_d = nonwiggle_q_derivs(eta_t[i], sigma[i]);
-            let s_safe = sigma[i];
-            let s2 = s_safe * s_safe;
-            let s3 = s2 * s_safe;
-            let s4 = s3 * s_safe;
-            let s5 = s4 * s_safe;
-            let q0_tl_ls_ls =
-                d3s[i] / s2 - 6.0 * ds[i] * d2s[i] / s3 + 6.0 * ds[i] * ds[i] * ds[i] / s4;
-            let q0_tl_ls_ls_ls =
-                d4s[i] / s2 - 8.0 * ds[i] * d3s[i] / s3 - 6.0 * d2s[i] * d2s[i] / s3
-                    + 36.0 * ds[i] * ds[i] * d2s[i] / s4
-                    - 24.0 * ds[i] * ds[i] * ds[i] * ds[i] / s5;
-            let q0_ll_ls_ls = eta_t[i] * q0_tl_ls_ls_ls;
-
-            let u_t_i = d_eta_t_u[i];
-            let u_ls_i = d_eta_ls_u[i];
-            let v_t_i = d_eta_t_v[i];
-            let v_ls_i = d_eta_ls_v[i];
-
-            let dq0_u = q0_d.q_t * u_t_i + q0_d.q_ls * u_ls_i;
-            let dq0v = q0_d.q_t * v_t_i + q0_d.q_ls * v_ls_i;
-            let d2q0_uv =
-                q0_d.q_tl * (u_t_i * v_ls_i + v_t_i * u_ls_i) + q0_d.q_ll * u_ls_i * v_ls_i;
-
-            let dq0_t_u = q0_d.q_tl * u_ls_i;
-            let dq0_tv = q0_d.q_tl * v_ls_i;
-            let dq0_ls_u = q0_d.q_tl * u_t_i + q0_d.q_ll * u_ls_i;
-            let dq0_lsv = q0_d.q_tl * v_t_i + q0_d.q_ll * v_ls_i;
-            let dq0_tl_u = q0_d.q_tl_ls * u_ls_i;
-            let dq0_tlv = q0_d.q_tl_ls * v_ls_i;
-            let dq0_ll_u = q0_d.q_tl_ls * u_t_i + q0_d.q_ll_ls * u_ls_i;
-            let dq0_llv = q0_d.q_tl_ls * v_t_i + q0_d.q_ll_ls * v_ls_i;
-
-            let d2q0_t_uv = q0_d.q_tl_ls * u_ls_i * v_ls_i;
-            let d2q0_ls_uv =
-                q0_d.q_tl_ls * (u_ls_i * v_t_i + v_ls_i * u_t_i) + q0_d.q_ll_ls * u_ls_i * v_ls_i;
-            let d2q0_tl_uv = q0_tl_ls_ls * u_ls_i * v_ls_i;
-            let d2q0_ll_uv =
-                q0_tl_ls_ls * (u_t_i * v_ls_i + v_t_i * u_ls_i) + q0_ll_ls_ls * u_ls_i * v_ls_i;
-
-            let br = b0.row(i);
-            let dr = d0.row(i);
-            let ddr = dd0.row(i);
-            let d3r = d3_basis.row(i);
-            let b_u = br.dot(&uw);
-            let bv = br.dot(&vw);
-            let b1_u = dr.dot(&uw);
-            let b1v = dr.dot(&vw);
-            let b2_u = ddr.dot(&uw);
-            let b2v = ddr.dot(&vw);
-            let b3_u = d3r.dot(&uw);
-            let b3v = d3r.dot(&vw);
-
-            let dm_u = b1_u + g2[i] * dq0_u;
-            let dmv = b1v + g2[i] * dq0v;
-            let d2m_uv = g3[i] * dq0_u * dq0v + g2[i] * d2q0_uv + b2v * dq0_u + b2_u * dq0v;
-            let dg2_u = b2_u + g3[i] * dq0_u;
-            let dg2v = b2v + g3[i] * dq0v;
-            let d2g2_uv = g4[i] * dq0_u * dq0v + g3[i] * d2q0_uv + b3v * dq0_u + b3_u * dq0v;
-
-            let dq_u = m[i] * dq0_u + b_u;
-            let dqv = m[i] * dq0v + bv;
-            let d2q_uv = m[i] * d2q0_uv + g2[i] * dq0_u * dq0v + b1_u * dq0v + b1v * dq0_u;
-
-            let q_t = m[i] * q0_d.q_t;
-            let q_ls = m[i] * q0_d.q_ls;
-            let q_tt = g2[i] * q0_d.q_t * q0_d.q_t;
-            let q_tl = g2[i] * q0_d.q_t * q0_d.q_ls + m[i] * q0_d.q_tl;
-            let q_ll = g2[i] * q0_d.q_ls * q0_d.q_ls + m[i] * q0_d.q_ll;
-
-            let dq_t_u = dm_u * q0_d.q_t + m[i] * dq0_t_u;
-            let dq_tv = dmv * q0_d.q_t + m[i] * dq0_tv;
-            let dq_ls_u = dm_u * q0_d.q_ls + m[i] * dq0_ls_u;
-            let dq_lsv = dmv * q0_d.q_ls + m[i] * dq0_lsv;
-
-            let d2q_t_uv = d2m_uv * q0_d.q_t + dm_u * dq0_tv + dmv * dq0_t_u + m[i] * d2q0_t_uv;
-            let d2q_ls_uv =
-                d2m_uv * q0_d.q_ls + dm_u * dq0_lsv + dmv * dq0_ls_u + m[i] * d2q0_ls_uv;
-
-            let dq_tt_u = dg2_u * q0_d.q_t * q0_d.q_t + g2[i] * (2.0 * q0_d.q_t * dq0_t_u);
-            let dq_ttv = dg2v * q0_d.q_t * q0_d.q_t + g2[i] * (2.0 * q0_d.q_t * dq0_tv);
-            let d2q_tt_uv = d2g2_uv * q0_d.q_t * q0_d.q_t
-                + dg2_u * (2.0 * q0_d.q_t * dq0_tv)
-                + dg2v * (2.0 * q0_d.q_t * dq0_t_u)
-                + g2[i] * (2.0 * dq0_t_u * dq0_tv + 2.0 * q0_d.q_t * d2q0_t_uv);
-
-            let dq_tl_u = dg2_u * q0_d.q_t * q0_d.q_ls
-                + g2[i] * (dq0_t_u * q0_d.q_ls + q0_d.q_t * dq0_ls_u)
-                + dm_u * q0_d.q_tl
-                + m[i] * dq0_tl_u;
-            let dq_tlv = dg2v * q0_d.q_t * q0_d.q_ls
-                + g2[i] * (dq0_tv * q0_d.q_ls + q0_d.q_t * dq0_lsv)
-                + dmv * q0_d.q_tl
-                + m[i] * dq0_tlv;
-            let d2q_tl_uv = d2g2_uv * q0_d.q_t * q0_d.q_ls
-                + dg2_u * (dq0_tv * q0_d.q_ls + q0_d.q_t * dq0_lsv)
-                + dg2v * (dq0_t_u * q0_d.q_ls + q0_d.q_t * dq0_ls_u)
-                + g2[i]
-                    * (d2q0_t_uv * q0_d.q_ls
-                        + dq0_t_u * dq0_lsv
-                        + dq0_tv * dq0_ls_u
-                        + q0_d.q_t * d2q0_ls_uv)
-                + d2m_uv * q0_d.q_tl
-                + dm_u * dq0_tlv
-                + dmv * dq0_tl_u
-                + m[i] * d2q0_tl_uv;
-
-            let dq_ll_u = dg2_u * q0_d.q_ls * q0_d.q_ls
-                + g2[i] * (2.0 * q0_d.q_ls * dq0_ls_u)
-                + dm_u * q0_d.q_ll
-                + m[i] * dq0_ll_u;
-            let dq_llv = dg2v * q0_d.q_ls * q0_d.q_ls
-                + g2[i] * (2.0 * q0_d.q_ls * dq0_lsv)
-                + dmv * q0_d.q_ll
-                + m[i] * dq0_llv;
-            let d2q_ll_uv = d2g2_uv * q0_d.q_ls * q0_d.q_ls
-                + dg2_u * (2.0 * q0_d.q_ls * dq0_lsv)
-                + dg2v * (2.0 * q0_d.q_ls * dq0_ls_u)
-                + g2[i] * (2.0 * dq0_ls_u * dq0_lsv + 2.0 * q0_d.q_ls * d2q0_ls_uv)
-                + d2m_uv * q0_d.q_ll
-                + dm_u * dq0_llv
-                + dmv * dq0_ll_u
-                + m[i] * d2q0_ll_uv;
-
-            // Scalar pair coefficients on (X_t, X_t), (X_t, X_ls), (X_ls, X_ls).
-            coeff_tt[i] = second_directionalhessian_coeff_fromobjective_q_terms(
-                m1, m2, m3, m4, dq_u, dqv, d2q_uv, q_t, q_t, q_tt, dq_t_u, dq_tv, dq_t_u, dq_tv,
-                d2q_t_uv, d2q_t_uv, dq_tt_u, dq_ttv, d2q_tt_uv,
-            );
-            coeff_tl[i] = second_directionalhessian_coeff_fromobjective_q_terms(
-                m1, m2, m3, m4, dq_u, dqv, d2q_uv, q_t, q_ls, q_tl, dq_t_u, dq_tv, dq_ls_u, dq_lsv,
-                d2q_t_uv, d2q_ls_uv, dq_tl_u, dq_tlv, d2q_tl_uv,
-            );
-            coeff_ll[i] = second_directionalhessian_coeff_fromobjective_q_terms(
-                m1, m2, m3, m4, dq_u, dqv, d2q_uv, q_ls, q_ls, q_ll, dq_ls_u, dq_lsv, dq_ls_u,
-                dq_lsv, d2q_ls_uv, d2q_ls_uv, dq_ll_u, dq_llv, d2q_ll_uv,
-            );
-
-            // Cross block (X_a, B/B'/B''/B''') with X_a ∈ {X_t, X_ls}. Each
-            // `coeff_xw(i, j)` is linear in (br[j], dr[j], ddr[j], d3r[j])
-            // because each q-Hessian variable carrying `j` (q_xw, dq_xw_u,
-            // dq_xwv, d2q_xw_uv, qw, dqw_u, dqwv, d2qw_uv) is linear in those
-            // four. We expand `second_directionalhessian_coeff_fromobjective_q_terms`
-            // by collecting like basis-derivative powers; the coefficients are
-            // the four α_xw_{b,d,dd,d3} arrays.
-            //
-            // qw=br, dqw_u=dr·dq0u, dqwv=dr·dq0v, d2qw_uv=ddr·dq0u·dq0v + dr·d2q0_uv
-            // q_xw=dr·q0_x, dq_xw_u=ddr·dq0u·q0_x + dr·dq0_x_u, dq_xwv=ddr·dq0v·q0_x + dr·dq0_xv
-            // d2q_xw_uv=d3r·dq0u·dq0v·q0_x + ddr·(d2q0_uv·q0_x + dq0u·dq0_xv + dq0v·dq0_x_u) + dr·d2q0_x_uv
-            //
-            // d_qaqb_u = dq_x_u·qw + q_x·dqw_u  →  dq_x_u·br + q_x·dr·dq0u
-            // d_qaqbv  = dq_xv·qw + q_x·dqwv    →  dq_xv·br + q_x·dr·dq0v
-            // d2_qaqb_uv = d2q_x_uv·br + dq_x_u·dr·dq0v + dq_xv·dr·dq0u + q_x·d2qw_uv
-            //
-            // The full formula (expanded for "tw"; "lw" identical with x→ls):
-            //
-            //   m4·dq_u·dqv·q_x·br
-            // + m3·(d2q_uv·q_x·br + dq_u·(dq_xv·br + q_x·dr·dq0v) + dqv·(dq_x_u·br + q_x·dr·dq0u) + dq_u·dqv·dr·q0_x)
-            // + m2·(d2q_x_uv·br + dq_x_u·dr·dq0v + dq_xv·dr·dq0u + q_x·(ddr·dq0u·dq0v + dr·d2q0_uv)
-            //       + d2q_uv·dr·q0_x + dq_u·(ddr·dq0v·q0_x + dr·dq0_xv) + dqv·(ddr·dq0u·q0_x + dr·dq0_x_u))
-            // + m1·(d3r·dq0u·dq0v·q0_x + ddr·(d2q0_uv·q0_x + dq0u·dq0_xv + dq0v·dq0_x_u) + dr·d2q0_x_uv)
-            //
-            // Collecting like basis-derivative terms produces the closed-form
-            // expressions below.
-
-            // X_t ↔ wiggle channels.
-            alpha_tw_b[i] = m4 * dq_u * dqv * q_t
-                + m3 * (d2q_uv * q_t + dq_u * dq_tv + dqv * dq_t_u)
-                + m2 * d2q_t_uv;
-            alpha_tw_d[i] = m3 * (dq_u * q_t * dq0v + dqv * q_t * dq0_u + dq_u * dqv * q0_d.q_t)
-                + m2 * (dq_t_u * dq0v
-                    + dq_tv * dq0_u
-                    + q_t * d2q0_uv
-                    + d2q_uv * q0_d.q_t
-                    + dq_u * dq0_tv
-                    + dqv * dq0_t_u)
-                + m1 * d2q0_t_uv;
-            alpha_tw_dd[i] = m2
-                * (q_t * dq0_u * dq0v + dq_u * dq0v * q0_d.q_t + dqv * dq0_u * q0_d.q_t)
-                + m1 * (d2q0_uv * q0_d.q_t + dq0_u * dq0_tv + dq0v * dq0_t_u);
-            alpha_tw_d3[i] = m1 * dq0_u * dq0v * q0_d.q_t;
-
-            // X_ls ↔ wiggle channels (same formulas, swap t→ls).
-            alpha_lw_b[i] = m4 * dq_u * dqv * q_ls
-                + m3 * (d2q_uv * q_ls + dq_u * dq_lsv + dqv * dq_ls_u)
-                + m2 * d2q_ls_uv;
-            alpha_lw_d[i] = m3 * (dq_u * q_ls * dq0v + dqv * q_ls * dq0_u + dq_u * dqv * q0_d.q_ls)
-                + m2 * (dq_ls_u * dq0v
-                    + dq_lsv * dq0_u
-                    + q_ls * d2q0_uv
-                    + d2q_uv * q0_d.q_ls
-                    + dq_u * dq0_lsv
-                    + dqv * dq0_ls_u)
-                + m1 * d2q0_ls_uv;
-            alpha_lw_dd[i] = m2
-                * (q_ls * dq0_u * dq0v + dq_u * dq0v * q0_d.q_ls + dqv * dq0_u * q0_d.q_ls)
-                + m1 * (d2q0_uv * q0_d.q_ls + dq0_u * dq0_lsv + dq0v * dq0_ls_u);
-            alpha_lw_d3[i] = m1 * dq0_u * dq0v * q0_d.q_ls;
-
-            // Wiggle ↔ wiggle (bilinear in (br, dr, ddr) ⊗ (br, dr, ddr); no d3r).
-            //
-            // qa=brj, qb=brk, qab=0, dqa_u=drj·dq0u, dqav=drj·dq0v,
-            // dqb_u=drk·dq0u, dqbv=drk·dq0v, d2qa_uv=ddrj·dq0u·dq0v+drj·d2q0_uv,
-            // d2qb_uv=ddrk·dq0u·dq0v+drk·d2q0_uv, dqab_u=0, dqabv=0, d2qab_uv=0.
-            //
-            //   m4·dq_u·dqv·brj·brk
-            // + m3·(d2q_uv·brj·brk + dq_u·(drj·dq0v·brk + brj·drk·dq0v)
-            //                       + dqv·(drj·dq0u·brk + brj·drk·dq0u))
-            // + m2·d2_qaqb_uv
-            // where d2_qaqb_uv = (ddrj·dq0u·dq0v+drj·d2q0_uv)·brk
-            //                  + drj·dq0u·drk·dq0v + drj·dq0v·drk·dq0u
-            //                  + brj·(ddrk·dq0u·dq0v+drk·d2q0_uv).
-            //
-            // Pair (B, B): m4·dq_u·dqv + m3·d2q_uv  → coefficient of br[j]·br[k].
-            // Pair (B, B'): m3·(dq_u·dq0v + dqv·dq0u) + m2·d2q0_uv → br·dr + dr·br.
-            // Pair (B, B''): m2·dq0u·dq0v → br·ddr + ddr·br.
-            // Pair (B', B'): 2·m2·dq0u·dq0v → dr·dr (the diagonal pair only
-            //   accumulates once in `RowCoeffOperator`, so we double-count
-            //   here to match the symmetric `dr[j]·dq0u·dr[k]·dq0v +
-            //   dr[j]·dq0v·dr[k]·dq0u` cross product).
-            c_ww_bb[i] = m4 * dq_u * dqv + m3 * d2q_uv;
-            c_ww_bd[i] = m3 * (dq_u * dq0v + dqv * dq0_u) + m2 * d2q0_uv;
-            c_ww_bdd[i] = m2 * dq0_u * dq0v;
-            c_ww_dd_pair[i] = 2.0 * m2 * dq0_u * dq0v;
-        }
-
-        let basis: Arc<Array2<f64>> = Arc::new(b0);
-        let basis_d1: Arc<Array2<f64>> = Arc::new(d0);
-        let basis_d2: Arc<Array2<f64>> = Arc::new(dd0);
-        let basis_d3: Arc<Array2<f64>> = Arc::new(d3_basis);
-
+        let basis: Arc<Array2<f64>> = Arc::new(program.basis_derivatives[0].clone());
+        let basis_d1: Arc<Array2<f64>> = Arc::new(program.basis_derivatives[1].clone());
+        let basis_d2: Arc<Array2<f64>> = Arc::new(program.basis_derivatives[2].clone());
+        let basis_d3: Arc<Array2<f64>> = Arc::new(program.basis_derivatives[3].clone());
         Ok(Some(Arc::new(RowCoeffOperator::from_directions(
             vec![pt, pls, pw],
             vec![
@@ -3384,39 +3273,23 @@ impl BinomialLocationScaleWiggleFamily {
                 (2, basis_d3),
             ],
             vec![
-                // (X_t, X_t)   ← `d2_h[a, b] += coeff_tt · xtr[a] · xtr[b]`
                 (0, 0, coeff_tt),
-                // (X_t, X_ls)  ← `d2_h[a, pt+b] += coeff_tl · xtr[a] · xlsr[b]`
                 (0, 1, coeff_tl),
-                // (X_ls, X_ls) ← `d2_h[pt+a, pt+b] += coeff_ll · xlsr[a] · xlsr[b]`
                 (1, 1, coeff_ll),
-                // (X_t, B/B'/B''/B''') ← per-row α_tw_{b,d,dd,d3} decomposition of
-                // `d2_h[a, pt+pls+j] += coeff_tw(i,j) · xtr[a]` (coeff_tw is
-                // linear in br[j], dr[j], ddr[j], d3r[j])
-                (0, 2, alpha_tw_b),
-                (0, 3, alpha_tw_d),
-                (0, 4, alpha_tw_dd),
-                (0, 5, alpha_tw_d3),
-                // (X_ls, B/B'/B''/B''') ← analogous α_lw_{b,d,dd,d3} decomposition
-                // of `d2_h[pt+a, pt+pls+j] += coeff_lw(i,j) · xlsr[a]`
-                (1, 2, alpha_lw_b),
-                (1, 3, alpha_lw_d),
-                (1, 4, alpha_lw_dd),
-                (1, 5, alpha_lw_d3),
-                // (B, B/B'/B'') ← bilinear decomposition of
-                // `d2_h[pt+pls+j, pt+pls+k] += coeff_ww(i,j,k)` in
-                // (br, dr, ddr) ⊗ (br, dr, ddr); no d3r entry — coeff_ww is
-                // at most degree 2 in any single basis derivative.
-                (2, 2, c_ww_bb),
-                (2, 3, c_ww_bd),
-                (2, 4, c_ww_bdd),
-                // (B', B') diagonal — coefficient absorbs a factor of 2 to
-                // match the symmetric `dr[j]·dq0u·dr[k]·dq0v + dr[j]·dq0v·
-                // dr[k]·dq0u` cross product (the diagonal pair only
-                // accumulates once in `RowCoeffOperator::mul_vec`).
-                (3, 3, c_ww_dd_pair),
+                (0, 2, coeff_tw_b),
+                (0, 3, coeff_tw_d),
+                (0, 4, coeff_tw_dd),
+                (0, 5, coeff_tw_d3),
+                (1, 2, coeff_lw_b),
+                (1, 3, coeff_lw_d),
+                (1, 4, coeff_lw_dd),
+                (1, 5, coeff_lw_d3),
+                (2, 2, coeff_ww_bb),
+                (2, 3, coeff_ww_bd),
+                (2, 4, coeff_ww_bdd),
+                (3, 3, coeff_ww_dd),
             ],
-            n,
+            self.y.len(),
         ))))
     }
 }

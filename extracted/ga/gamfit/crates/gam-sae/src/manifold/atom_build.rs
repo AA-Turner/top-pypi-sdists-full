@@ -6,58 +6,7 @@
 //! fit. Python bindings only marshal arrays and call these entries.
 
 use super::*;
-use gam_terms::basis::{DuchonNullspaceOrder, duchon_nullspace_dimension, monomial_exponents};
-
-fn duchon_nullspace_from_m(m: usize) -> DuchonNullspaceOrder {
-    match m {
-        1 => DuchonNullspaceOrder::Zero,
-        2 => DuchonNullspaceOrder::Linear,
-        other => DuchonNullspaceOrder::Degree(other - 1),
-    }
-}
-
-fn build_wrapped_periodic_harmonic_basis_with_jet(
-    t: ArrayView1<'_, f64>,
-    n_harmonics: usize,
-    label: &str,
-) -> Result<(Array2<f64>, Array3<f64>, Array2<f64>), String> {
-    if t.iter().any(|value| !value.is_finite()) {
-        return Err(format!("{label} requires finite t values"));
-    }
-
-    let n_rows = t.len();
-    let n_cols = 1 + 2 * n_harmonics;
-    let mut phi = Array2::<f64>::zeros((n_rows, n_cols));
-    let mut jet = Array3::<f64>::zeros((n_rows, n_cols, 1));
-    let mut penalty = Array2::<f64>::zeros((n_cols, n_cols));
-
-    phi.column_mut(0).fill(1.0);
-    penalty[[0, 0]] = 1.0e-8;
-
-    for h in 1..=n_harmonics {
-        let h_f = h as f64;
-        let frequency = std::f64::consts::TAU * h_f;
-        let sin_col = 1 + 2 * (h - 1);
-        let cos_col = sin_col + 1;
-        let harmonic_penalty = h_f * h_f * h_f * h_f;
-
-        penalty[[sin_col, sin_col]] = harmonic_penalty;
-        penalty[[cos_col, cos_col]] = harmonic_penalty;
-
-        for row in 0..n_rows {
-            let angle = frequency * t[row].rem_euclid(1.0);
-            let sin_value = angle.sin();
-            let cos_value = angle.cos();
-
-            phi[[row, sin_col]] = sin_value;
-            phi[[row, cos_col]] = cos_value;
-            jet[[row, sin_col, 0]] = frequency * cos_value;
-            jet[[row, cos_col, 0]] = -frequency * sin_value;
-        }
-    }
-
-    Ok((phi, jet, penalty))
-}
+use gam_terms::basis::duchon_nullspace_dimension;
 
 /// Per-atom basis spec used by [`sae_build_padded_basis_stacks`] to assemble the
 /// padded `(K, N, M_max)` design plus jacobian, smoothness penalty stack, and
@@ -66,204 +15,25 @@ fn build_wrapped_periodic_harmonic_basis_with_jet(
 /// samples Duchon centers deterministically from the PCA seed.
 #[derive(Debug, Clone)]
 pub struct SaeAtomBuildPlan {
-    pub kind: SaeAtomBasisKind,
-    pub latent_dim: usize,
-    pub n_harmonics: usize,
-    pub duchon_centers: Option<Array2<f64>>,
-    pub basis_size: usize,
+    pub geometry: SaeAtomGeometryPlan,
 }
 
-fn sae_atom_basis_size(plan: &SaeAtomBuildPlan) -> usize {
-    plan.basis_size
-}
-
-/// Build (phi, jet, penalty) for a periodic 1-D atom — same math as
-/// `periodic_basis_with_jet`, but plain Rust so the helper can be reused by
-/// [`sae_build_padded_basis_stacks`] without Python in the loop.
-fn sae_build_periodic_atom(
-    t: ArrayView1<'_, f64>,
-    n_harmonics: usize,
-) -> Result<(Array2<f64>, Array3<f64>, Array2<f64>), String> {
-    let (phi, jet, penalty) =
-        build_wrapped_periodic_harmonic_basis_with_jet(t, n_harmonics, "sae_build_periodic_atom")?;
-    let expected_cols = sae_periodic_basis_size(n_harmonics)?;
-    if phi.ncols() != expected_cols {
-        return Err(format!(
-            "sae_build_periodic_atom: basis width {} disagrees with declared width {expected_cols}",
-            phi.ncols()
-        ));
+impl SaeAtomBuildPlan {
+    pub fn kind(&self) -> &SaeAtomBasisKind {
+        self.geometry.kind()
     }
-    Ok((phi, jet, penalty))
-}
 
-/// Build (phi, jet, penalty) for a sphere atom via the (lat, lon) chart
-/// evaluator. The penalty is identity on the six non-constant basis
-/// functions (the constant column gets a 1e-8 floor so the (M,M) block stays
-/// strictly positive on the constant subspace).
-fn sae_build_sphere_atom(
-    coords: ArrayView2<'_, f64>,
-) -> Result<(Array2<f64>, Array3<f64>, Array2<f64>), String> {
-    let (phi, jet) = SphereChartEvaluator.evaluate(coords)?;
-    let m = phi.ncols();
-    let mut penalty = Array2::<f64>::zeros((m, m));
-    penalty[[0, 0]] = 1.0e-8;
-    for i in 1..m {
-        penalty[[i, i]] = 1.0;
+    pub fn latent_dim(&self) -> usize {
+        self.geometry.latent_dim()
     }
-    Ok((phi, jet, penalty))
-}
 
-/// Build (phi, jet, penalty) for a torus atom via the tensor-product
-/// periodic harmonic evaluator. Penalty diagonal encodes the squared
-/// Laplace–Beltrami eigenvalue
-/// `((2π)^2 · Σ_a h_a^2)^2` so the smoothness term penalises high-frequency
-/// modes — same shape as the 1-D periodic harmonic penalty
-/// (`(2π·h)^4` reduces to `h^4` up to a constant), generalised to T^d.
-fn sae_build_torus_atom(
-    coords: ArrayView2<'_, f64>,
-    latent_dim: usize,
-    num_harmonics: usize,
-) -> Result<(Array2<f64>, Array3<f64>, Array2<f64>), String> {
-    let evaluator = TorusHarmonicEvaluator::new(latent_dim, num_harmonics)?;
-    let (phi, jet) = evaluator.evaluate(coords)?;
-    let axis_m = evaluator.axis_basis_size();
-    let m = phi.ncols();
-    let mut penalty = Array2::<f64>::zeros((m, m));
-    // Decode axis index `idx_axis ∈ {0..axis_m}` → harmonic number `h`:
-    // 0 → 0 (constant), 1 → 1 (sin), 2 → 1 (cos), 3 → 2, 4 → 2, …
-    let axis_harmonic = |idx_axis: usize| -> usize {
-        if idx_axis == 0 {
-            0
-        } else {
-            idx_axis.div_ceil(2)
-        }
-    };
-    let mut idx = vec![0usize; latent_dim];
-    for flat in 0..m {
-        let mut h_sum_sq: usize = 0;
-        for axis in 0..latent_dim {
-            let h = axis_harmonic(idx[axis]);
-            h_sum_sq += h * h;
-        }
-        let lambda = if h_sum_sq == 0 {
-            1.0e-8
-        } else {
-            (h_sum_sq as f64).powi(2)
-        };
-        penalty[[flat, flat]] = lambda;
-        for axis in (0..latent_dim).rev() {
-            idx[axis] += 1;
-            if idx[axis] < axis_m {
-                break;
-            }
-            idx[axis] = 0;
-        }
+    pub fn basis_size(&self) -> Result<usize, String> {
+        self.geometry.basis_size()
     }
-    Ok((phi, jet, penalty))
-}
 
-/// Build (phi, jet, penalty) for a Duchon atom. Mirrors the pure-Rust path
-/// inside `duchon_basis_with_jet` but accepts in-Rust types and returns
-/// owned `(Array2, Array3, Array2)`.
-fn sae_build_duchon_atom(
-    pts: ArrayView2<'_, f64>,
-    centers: ArrayView2<'_, f64>,
-) -> Result<(Array2<f64>, Array3<f64>, Array2<f64>), String> {
-    // The smoothness penalty is the native reproducing-norm Gram
-    // `ω = α²·Zᵀ K_CC Z`, built directly on the SAME `[ (Φ_radial·α)·Z | P ]`
-    // columns the `DuchonCoordinateEvaluator` produces (issue #247: the seed
-    // must match the refresh evaluator bit-for-bit) and — critically — at the
-    // SAME width `m` as `phi`. It is NOT sourced from `build_duchon_basis`: that
-    // design path runs the TPRS generalized-eigen reparameterization / near-null
-    // mode dropping (#1347), which on coincident/duplicate seed centers (the
-    // over-complete large-K regime) emits a penalty NARROWER than `m`, desyncing
-    // it from the evaluator's fixed-`m` basis — the #1026 32K Duchon shape bug.
-    // `duchon_sae_atom_penalty` keeps all `m` columns; degenerate directions get
-    // ~zero penalty (handled by the inner solve's per-row Tikhonov ridge), the
-    // matrix itself is the declared Duchon reference-function seminorm used by
-    // the atom; no decoder-dependent metric reweighting is applied.
-    let dim = centers.ncols();
-    let m: usize = sae_duchon_atom_m(dim);
-    let penalty = gam_terms::basis::duchon_sae_atom_penalty(centers, duchon_nullspace_from_m(m))
-        .map_err(|err| err.to_string())?;
-    let evaluator = DuchonCoordinateEvaluator::new(centers.to_owned(), m)?;
-    let (phi, jet) = if pts.nrows() == 0 {
-        let probe = Array2::<f64>::zeros((1, pts.ncols()));
-        let (probe_phi, _probe_jet) = evaluator.evaluate(probe.view())?;
-        let cols = probe_phi.ncols();
-        (
-            Array2::<f64>::zeros((0, cols)),
-            Array3::<f64>::zeros((0, cols, dim)),
-        )
-    } else {
-        evaluator.evaluate(pts)?
-    };
-    if phi.ncols() != jet.shape()[1] {
-        return Err(format!(
-            "sae_build_duchon_atom: phi/jet column mismatch {} vs {}",
-            phi.ncols(),
-            jet.shape()[1]
-        ));
+    pub fn duchon_centers(&self) -> Option<&Array2<f64>> {
+        self.geometry.duchon_centers()
     }
-    Ok((phi, jet, penalty))
-}
-
-/// Build (phi, jet, penalty) for a Euclidean tangent-patch atom.
-///
-/// A Euclidean atom is a *flat* (zero-curvature) polynomial expansion in the
-/// atom's latent coordinates — distinct from the thin-plate Duchon kernel.
-/// The basis is the set of monomials of total degree ≤ `EUCLIDEAN_PATCH_MAX_DEGREE`,
-/// the jet is the first derivative of those monomials, and the penalty is an
-/// identity ridge over the non-constant monomials (the constant term is left
-/// unpenalized to preserve the affine-equivariance of the patch).
-///
-/// `centers` is accepted for API symmetry with the Duchon path; its row count
-/// determines the random-state matching seam (issue #246), but it is not
-/// otherwise used: a polynomial atom has no center-based locality.
-fn sae_build_euclidean_atom_with_degree(
-    pts: ArrayView2<'_, f64>,
-    centers: ArrayView2<'_, f64>,
-    max_degree: usize,
-) -> Result<(Array2<f64>, Array3<f64>, Array2<f64>), String> {
-    let dim = centers.ncols();
-    let exponents = monomial_exponents(dim, max_degree);
-    let n_basis = exponents.len();
-    // The design `Phi` and its jet come from the same evaluator the inner
-    // Newton loop refreshes against, so the seed atom and every refresh share
-    // one monomial layout.
-    let evaluator = EuclideanPatchEvaluator::new(dim, max_degree)?;
-    let (phi, jet) = if pts.nrows() == 0 {
-        (
-            Array2::<f64>::zeros((0, n_basis)),
-            Array3::<f64>::zeros((0, n_basis, dim)),
-        )
-    } else {
-        evaluator.evaluate(pts)?
-    };
-    if jet.shape()[1] != n_basis {
-        return Err(format!(
-            "sae_build_euclidean_atom: monomial/jet column mismatch {} vs {}",
-            n_basis,
-            jet.shape()[1]
-        ));
-    }
-    // Identity ridge with the constant term (alpha == zeros) unpenalized so the
-    // patch can absorb a global offset without paying a penalty.
-    let mut penalty = Array2::<f64>::zeros((n_basis, n_basis));
-    for (col, alpha) in exponents.iter().enumerate() {
-        let is_constant = alpha.iter().all(|&e| e == 0);
-        if !is_constant {
-            penalty[[col, col]] = 1.0;
-        }
-    }
-    Ok((phi, jet, penalty))
-}
-
-fn sae_build_euclidean_atom(
-    pts: ArrayView2<'_, f64>,
-    centers: ArrayView2<'_, f64>,
-) -> Result<(Array2<f64>, Array3<f64>, Array2<f64>), String> {
-    sae_build_euclidean_atom_with_degree(pts, centers, SAE_EUCLIDEAN_PATCH_MAX_DEGREE)
 }
 
 /// Deterministically pick Duchon centers from the PCA-seeded coordinates.
@@ -323,235 +93,43 @@ pub fn sae_build_padded_basis_stacks(
         ));
     }
     for (atom_idx, plan) in plans.iter().enumerate() {
-        if plan.latent_dim == 0 {
-            return Err(format!(
-                "sae_build_padded_basis_stacks: atom {atom_idx} latent_dim must be positive"
-            ));
-        }
-        if plan.latent_dim > seed_shape[2] {
+        if plan.latent_dim() > seed_shape[2] {
             return Err(format!(
                 "sae_build_padded_basis_stacks: atom {atom_idx} latent_dim {} exceeds seed_coords D_max={}",
-                plan.latent_dim, seed_shape[2]
+                plan.latent_dim(),
+                seed_shape[2]
             ));
         }
     }
-    let basis_sizes: Vec<usize> = plans.iter().map(sae_atom_basis_size).collect();
+    let basis_sizes: Vec<usize> = plans
+        .iter()
+        .map(SaeAtomBuildPlan::basis_size)
+        .collect::<Result<_, _>>()?;
     let m_max = basis_sizes.iter().copied().max().unwrap_or(1).max(1);
-    let d_max = plans.iter().map(|p| p.latent_dim).max().unwrap_or(1).max(1);
+    let d_max = plans
+        .iter()
+        .map(SaeAtomBuildPlan::latent_dim)
+        .max()
+        .unwrap_or(1)
+        .max(1);
     let mut phi_stack = Array3::<f64>::zeros((k_atoms, n_obs, m_max));
     let mut jet_stack = Array4::<f64>::zeros((k_atoms, n_obs, m_max, d_max));
     let mut penalty_stack = Array3::<f64>::zeros((k_atoms, m_max, m_max));
     let mut coord_blocks: Vec<Array2<f64>> = Vec::with_capacity(k_atoms);
     for (atom_idx, plan) in plans.iter().enumerate() {
-        let d = plan.latent_dim;
+        let d = plan.latent_dim();
         let coords = seed_coords.slice(s![atom_idx, 0..n_obs, 0..d]).to_owned();
-        match &plan.kind {
-            SaeAtomBasisKind::Periodic => {
-                let t = if d >= 1 {
-                    coords.column(0).to_owned()
-                } else {
-                    Array1::<f64>::zeros(n_obs)
-                };
-                let (phi, jet, penalty) = sae_build_periodic_atom(t.view(), plan.n_harmonics)?;
-                let m = phi.ncols();
-                if phi.nrows() != n_obs || m != basis_sizes[atom_idx] {
-                    return Err(format!(
-                        "sae_build_padded_basis_stacks: atom {atom_idx} periodic basis shape {:?} disagrees with N={n_obs}, declared M={}",
-                        phi.dim(),
-                        basis_sizes[atom_idx]
-                    ));
-                }
-                if jet.shape() != &[n_obs, m, 1] {
-                    return Err(format!(
-                        "sae_build_padded_basis_stacks: atom {atom_idx} periodic jet shape {:?} disagrees with expected ({n_obs}, {m}, 1)",
-                        jet.shape()
-                    ));
-                }
-                if penalty.dim() != (m, m) {
-                    return Err(format!(
-                        "sae_build_padded_basis_stacks: atom {atom_idx} periodic penalty shape {:?} disagrees with M={m}",
-                        penalty.dim()
-                    ));
-                }
-                phi_stack
-                    .slice_mut(s![atom_idx, 0..n_obs, 0..m])
-                    .assign(&phi);
-                let jet_d = jet.shape()[2].min(d_max);
-                jet_stack
-                    .slice_mut(s![atom_idx, 0..n_obs, 0..m, 0..jet_d])
-                    .assign(&jet.slice(s![.., .., 0..jet_d]));
-                penalty_stack
-                    .slice_mut(s![atom_idx, 0..m, 0..m])
-                    .assign(&penalty);
-            }
-            SaeAtomBasisKind::Sphere => {
-                if d != 2 {
-                    return Err(format!(
-                        "sae_build_padded_basis_stacks: atom {atom_idx} Sphere requires latent_dim == 2, got {d}"
-                    ));
-                }
-                let (phi, jet, penalty) = sae_build_sphere_atom(coords.view())?;
-                let m = phi.ncols();
-                if m != basis_sizes[atom_idx] {
-                    return Err(format!(
-                        "sae_build_padded_basis_stacks: atom {atom_idx} Sphere basis size {m} disagrees with declared M={}",
-                        basis_sizes[atom_idx]
-                    ));
-                }
-                phi_stack
-                    .slice_mut(s![atom_idx, 0..n_obs, 0..m])
-                    .assign(&phi);
-                let jet_d = jet.shape()[2].min(d_max);
-                jet_stack
-                    .slice_mut(s![atom_idx, 0..n_obs, 0..m, 0..jet_d])
-                    .assign(&jet.slice(s![.., .., 0..jet_d]));
-                penalty_stack
-                    .slice_mut(s![atom_idx, 0..m, 0..m])
-                    .assign(&penalty);
-            }
-            SaeAtomBasisKind::Torus => {
-                let h = plan.n_harmonics.max(1);
-                let (phi, jet, penalty) = sae_build_torus_atom(coords.view(), d, h)?;
-                let m = phi.ncols();
-                if m != basis_sizes[atom_idx] {
-                    return Err(format!(
-                        "sae_build_padded_basis_stacks: atom {atom_idx} Torus basis size {m} disagrees with declared M={}",
-                        basis_sizes[atom_idx]
-                    ));
-                }
-                phi_stack
-                    .slice_mut(s![atom_idx, 0..n_obs, 0..m])
-                    .assign(&phi);
-                let jet_d = jet.shape()[2].min(d_max);
-                jet_stack
-                    .slice_mut(s![atom_idx, 0..n_obs, 0..m, 0..jet_d])
-                    .assign(&jet.slice(s![.., .., 0..jet_d]));
-                penalty_stack
-                    .slice_mut(s![atom_idx, 0..m, 0..m])
-                    .assign(&penalty);
-            }
-            SaeAtomBasisKind::Linear
-            | SaeAtomBasisKind::Duchon
-            | SaeAtomBasisKind::EuclideanPatch
-            | SaeAtomBasisKind::Poincare => {
-                let centers = plan
-                    .duchon_centers
-                    .as_ref()
-                    .ok_or_else(|| {
-                        format!(
-                            "sae_build_padded_basis_stacks: atom {atom_idx} non-periodic atom requires centers"
-                        )
-                    })?;
-                if centers.ncols() != d {
-                    return Err(format!(
-                        "sae_build_padded_basis_stacks: atom {atom_idx} centers have dim {} but plan latent_dim is {d}",
-                        centers.ncols()
-                    ));
-                }
-                let (phi, jet, penalty) = match plan.kind {
-                    // #1221 — the linear atom and the euclidean (quadratic) patch
-                    // share the monomial evaluator; the polynomial DEGREE is
-                    // recovered from the plan's basis width (`d + 1` ⇒ degree 1
-                    // linear, the full monomial count ⇒ degree 2 quadratic), so a
-                    // genuinely-linear atom builds `{1, t}` and a euclidean atom
-                    // builds `{1, t, t²}`.
-                    SaeAtomBasisKind::Linear
-                    | SaeAtomBasisKind::EuclideanPatch
-                    | SaeAtomBasisKind::Poincare => {
-                        let degree = sae_euclidean_degree_for_basis_size(d, basis_sizes[atom_idx])?;
-                        sae_build_euclidean_atom_with_degree(coords.view(), centers.view(), degree)?
-                    }
-                    _ => sae_build_duchon_atom(coords.view(), centers.view())?,
-                };
-                let m = phi.ncols();
-                if phi.nrows() != n_obs || m != basis_sizes[atom_idx] {
-                    return Err(format!(
-                        "sae_build_padded_basis_stacks: atom {atom_idx} Duchon basis shape {:?} disagrees with N={n_obs}, declared M={}",
-                        phi.dim(),
-                        basis_sizes[atom_idx]
-                    ));
-                }
-                if jet.shape() != &[n_obs, m, d] {
-                    return Err(format!(
-                        "sae_build_padded_basis_stacks: atom {atom_idx} Duchon jet shape {:?} disagrees with expected ({n_obs}, {m}, {d})",
-                        jet.shape()
-                    ));
-                }
-                if penalty.dim() != (m, m) {
-                    return Err(format!(
-                        "sae_build_padded_basis_stacks: atom {atom_idx} Duchon penalty shape {:?} disagrees with M={m}",
-                        penalty.dim()
-                    ));
-                }
-                phi_stack
-                    .slice_mut(s![atom_idx, 0..n_obs, 0..m])
-                    .assign(&phi);
-                let jet_d = jet.shape()[2].min(d_max);
-                jet_stack
-                    .slice_mut(s![atom_idx, 0..n_obs, 0..m, 0..jet_d])
-                    .assign(&jet.slice(s![.., .., 0..jet_d]));
-                penalty_stack
-                    .slice_mut(s![atom_idx, 0..m, 0..m])
-                    .assign(&penalty);
-            }
-            SaeAtomBasisKind::Mobius => {
-                // Möbius band (#2240): the deck-invariant double-cover basis is
-                // fully analytic, so the stack is built straight off the
-                // evaluator (design + jet) with its closed-form roughness Gram.
-                let evaluator = MobiusHarmonicEvaluator::new(
-                    SAE_MOBIUS_CIRCLE_HARMONICS,
-                    SAE_MOBIUS_WIDTH_DEGREE,
-                )?;
-                let (phi, jet) = evaluator.evaluate(coords.view())?;
-                let penalty = evaluator.roughness_gram();
-                let m = phi.ncols();
-                if m != basis_sizes[atom_idx] {
-                    return Err(format!(
-                        "sae_build_padded_basis_stacks: atom {atom_idx} Mobius basis size {m} disagrees with declared M={}",
-                        basis_sizes[atom_idx]
-                    ));
-                }
-                phi_stack
-                    .slice_mut(s![atom_idx, 0..n_obs, 0..m])
-                    .assign(&phi);
-                let jet_d = jet.shape()[2].min(d_max);
-                jet_stack
-                    .slice_mut(s![atom_idx, 0..n_obs, 0..m, 0..jet_d])
-                    .assign(&jet.slice(s![.., .., 0..jet_d]));
-                penalty_stack
-                    .slice_mut(s![atom_idx, 0..m, 0..m])
-                    .assign(&penalty);
-            }
-            SaeAtomBasisKind::Cylinder => {
-                // Cylinder is a birth-discovered topology, never built through the
-                // seed-plan stack path (`sae_build_atom_plans` rejects it above), so
-                // it cannot reach here from a `SaeAtomBuildPlan`. Surfaced loudly if
-                // it ever does, rather than mis-built.
-                return Err(format!(
-                    "sae_build_padded_basis_stacks: atom {atom_idx} 'cylinder' is a birth-discovered \
-                     topology, not a seed-plan stack kind; it has no padded seed basis to build"
-                ));
-            }
-            SaeAtomBasisKind::FiniteSet => {
-                // The finite-set candidate is inert scaffolding not enrolled in the
-                // topology race by default, and its latent is categorical (a
-                // discrete anchor index) rather than a continuous seed coordinate,
-                // so there is no padded seed basis to lay down here. Rejected above
-                // in `sae_build_atom_plans`, so it cannot reach this stack builder;
-                // surfaced loudly if it ever does, rather than mis-built.
-                return Err(format!(
-                    "sae_build_padded_basis_stacks: atom {atom_idx} 'finite_set' is a discrete-anchor \
-                     (categorical) candidate, not a continuous seed-plan stack kind; it has no padded \
-                     seed basis to build"
-                ));
-            }
-            SaeAtomBasisKind::Precomputed(name) => {
-                return Err(format!(
-                    "sae_build_padded_basis_stacks: unsupported atom {atom_idx} basis {:?}; precomputed atoms require caller-supplied padded basis arrays",
-                    name
-                ));
-            }
-        }
+        let bundle = plan.geometry.evaluate_bundle(coords.view())?;
+        let m = basis_sizes[atom_idx];
+        phi_stack
+            .slice_mut(s![atom_idx, 0..n_obs, 0..m])
+            .assign(&bundle.basis_values);
+        jet_stack
+            .slice_mut(s![atom_idx, 0..n_obs, 0..m, 0..d])
+            .assign(&bundle.basis_jacobian);
+        penalty_stack
+            .slice_mut(s![atom_idx, 0..m, 0..m])
+            .assign(&bundle.reference_penalty);
         coord_blocks.push(coords);
     }
     Ok((
@@ -633,13 +211,13 @@ pub fn sae_build_atom_plans(
                 // optimizer-visible latent dimension to 1 and route the user's
                 // `d_atom` into the harmonic count.
                 let n_harmonics = d.max(1);
-                let basis_size = sae_periodic_basis_size(n_harmonics)?;
                 plans.push(SaeAtomBuildPlan {
-                    kind: SaeAtomBasisKind::Periodic,
-                    latent_dim: 1,
-                    n_harmonics,
-                    duchon_centers: None,
-                    basis_size,
+                    geometry: SaeAtomGeometryPlan::new(
+                        SaeAtomBasisKind::Periodic,
+                        1,
+                        SaeBasisResolution::PeriodicHarmonics { order: n_harmonics },
+                        SaeReferenceMetricPlan::UnitCircle,
+                    )?,
                 });
             }
             SaeAtomBasisKind::Sphere => {
@@ -653,44 +231,74 @@ pub fn sae_build_atom_plans(
                     ));
                 }
                 plans.push(SaeAtomBuildPlan {
-                    kind: SaeAtomBasisKind::Sphere,
-                    latent_dim: 2,
-                    n_harmonics: 0,
-                    duchon_centers: None,
-                    basis_size: SAE_SPHERE_BASIS_SIZE,
+                    geometry: SaeAtomGeometryPlan::new(
+                        SaeAtomBasisKind::Sphere,
+                        2,
+                        SaeBasisResolution::SphereChart,
+                        SaeReferenceMetricPlan::SphereChart,
+                    )?,
                 });
             }
             SaeAtomBasisKind::Torus => {
-                // Torus of dim `d` uses a tensor-product periodic harmonic
-                // basis of size `(2H+1)^d`. The user's `atom_dim` selects
-                // the latent dimension; the per-axis order `H` defaults to
+                // This typed metric family is the closed two-dimensional
+                // torus. A 1-D torus duplicates the circle kind, while a
+                // higher-dimensional product cannot be described by the one
+                // persisted rectangular aspect scalar, so both are rejected.
+                if d != 2 {
+                    return Err(format!(
+                        "sae_build_atom_plans: atom {atom_idx} basis 'torus' requires atom_dim == 2, got {d}"
+                    ));
+                }
+                // The tensor-product harmonic basis has size `(2H+1)^2`.
+                // The per-axis order `H` defaults to
                 // `SAE_DEFAULT_TORUS_HARMONICS` but a #2243 auto-discovery
                 // winner carries its evidence-selected order in the resolution
                 // override (which the selector already bounds by the same dense
-                // guard checked below). The design grows exponentially in `d`,
-                // so reject runaway combinations.
+                // guard checked below).
                 let h = resolution_overrides[atom_idx]
                     .map(|selected| selected.max(1))
                     .unwrap_or(SAE_DEFAULT_TORUS_HARMONICS);
-                let evaluator = TorusHarmonicEvaluator::new(d, h)?;
-                let basis_size = evaluator.basis_size();
+                let geometry = SaeAtomGeometryPlan::new(
+                    SaeAtomBasisKind::Torus,
+                    d,
+                    SaeBasisResolution::TorusHarmonics { per_axis_order: h },
+                    SaeReferenceMetricPlan::FlatRectangularTorus { tau: 0.0 },
+                )?;
+                let basis_size = geometry.basis_size()?;
                 if basis_size > SAE_MAX_PERIODIC_HARMONICS * 4 {
                     return Err(format!(
                         "sae_build_atom_plans: atom {atom_idx} torus basis size {basis_size} = (2*{h}+1)^{d} exceeds the dense limit; reduce atom_dim or harmonics"
                     ));
                 }
+                plans.push(SaeAtomBuildPlan { geometry });
+            }
+            SaeAtomBasisKind::ProjectivePlane => {
+                if d != 2 {
+                    return Err(format!(
+                        "sae_build_atom_plans: atom {atom_idx} basis 'projective_plane' requires atom_dim == 2, got {d}"
+                    ));
+                }
+                let quotient_order = resolution_overrides[atom_idx]
+                    .map(|order| order.max(1))
+                    .unwrap_or(1);
                 plans.push(SaeAtomBuildPlan {
-                    kind: SaeAtomBasisKind::Torus,
-                    latent_dim: d,
-                    n_harmonics: h,
-                    duchon_centers: None,
-                    basis_size,
+                    geometry: SaeAtomGeometryPlan::projective_plane(quotient_order)?,
                 });
             }
-            SaeAtomBasisKind::Linear
-            | SaeAtomBasisKind::Duchon
-            | SaeAtomBasisKind::EuclideanPatch
-            | SaeAtomBasisKind::Poincare => {
+            SaeAtomBasisKind::KleinBottle => {
+                if d != 2 {
+                    return Err(format!(
+                        "sae_build_atom_plans: atom {atom_idx} basis 'klein_bottle' requires atom_dim == 2, got {d}"
+                    ));
+                }
+                let per_axis_order = resolution_overrides[atom_idx]
+                    .map(|order| order.max(2))
+                    .unwrap_or(2);
+                plans.push(SaeAtomBuildPlan {
+                    geometry: SaeAtomGeometryPlan::klein_bottle(per_axis_order)?,
+                });
+            }
+            SaeAtomBasisKind::Duchon => {
                 // A Duchon atom's curvature penalty degrades (and ultimately
                 // fails its D2 collocation) when the center count does not
                 // exceed the polynomial nullspace dimension of its resolved
@@ -723,29 +331,47 @@ pub fn sae_build_atom_plans(
                         centers[[out_row, col]] = seed_coords[[atom_idx, src_row, col]];
                     }
                 }
-                // Probe one build to learn the final basis size. The linear atom
-                // builds the degree-1 monomial patch `{1, t}` (width `d + 1`); the
-                // euclidean (quadratic) patch builds the degree-2 monomial patch
-                // (#1221); everything else (Duchon) uses the thin-plate kernel.
-                let probe_pts = Array2::<f64>::zeros((1, d));
-                let (phi, _jet, _penalty) = match kind {
-                    SaeAtomBasisKind::Linear => {
-                        sae_build_euclidean_atom_with_degree(probe_pts.view(), centers.view(), 1)?
-                    }
-                    SaeAtomBasisKind::EuclideanPatch | SaeAtomBasisKind::Poincare => {
-                        sae_build_euclidean_atom(probe_pts.view(), centers.view())?
-                    }
-                    _ => sae_build_duchon_atom(probe_pts.view(), centers.view())?,
-                };
-                let basis_size = phi.ncols();
                 plans.push(SaeAtomBuildPlan {
-                    kind,
-                    latent_dim: d,
-                    n_harmonics: 0,
-                    duchon_centers: Some(centers),
-                    basis_size,
+                    geometry: SaeAtomGeometryPlan::new(
+                        SaeAtomBasisKind::Duchon,
+                        d,
+                        SaeBasisResolution::DuchonCoordinates { centers },
+                        SaeReferenceMetricPlan::EuclideanDuchon,
+                    )?,
                 });
             }
+            SaeAtomBasisKind::Linear => plans.push(SaeAtomBuildPlan {
+                geometry: SaeAtomGeometryPlan::new(
+                    SaeAtomBasisKind::Linear,
+                    d,
+                    SaeBasisResolution::Polynomial { degree: 1 },
+                    SaeReferenceMetricPlan::EuclideanPolynomial,
+                )?,
+            }),
+            SaeAtomBasisKind::EuclideanPatch => plans.push(SaeAtomBuildPlan {
+                geometry: SaeAtomGeometryPlan::new(
+                    SaeAtomBasisKind::EuclideanPatch,
+                    d,
+                    SaeBasisResolution::Polynomial {
+                        degree: SAE_EUCLIDEAN_PATCH_MAX_DEGREE,
+                    },
+                    SaeReferenceMetricPlan::EuclideanPolynomial,
+                )?,
+            }),
+            SaeAtomBasisKind::Poincare => plans.push(SaeAtomBuildPlan {
+                geometry: SaeAtomGeometryPlan::new(
+                    SaeAtomBasisKind::Poincare,
+                    d,
+                    SaeBasisResolution::Polynomial {
+                        degree: SAE_EUCLIDEAN_PATCH_MAX_DEGREE,
+                    },
+                    SaeReferenceMetricPlan::UnitPoincareBall {
+                        reference_coords: seed_coords
+                            .slice(s![atom_idx, 0..n_obs, 0..d])
+                            .to_owned(),
+                    },
+                )?,
+            }),
             SaeAtomBasisKind::Mobius => {
                 // Möbius band (#2240) is a first-class SEEDABLE kind: the
                 // deck-invariant double-cover layout is fixed by the production
@@ -755,16 +381,16 @@ pub fn sae_build_atom_plans(
                         "sae_build_atom_plans: atom {atom_idx} basis 'mobius' requires atom_dim == 2, got {d}"
                     ));
                 }
-                let evaluator = MobiusHarmonicEvaluator::new(
-                    SAE_MOBIUS_CIRCLE_HARMONICS,
-                    SAE_MOBIUS_WIDTH_DEGREE,
-                )?;
                 plans.push(SaeAtomBuildPlan {
-                    kind: SaeAtomBasisKind::Mobius,
-                    latent_dim: 2,
-                    n_harmonics: SAE_MOBIUS_CIRCLE_HARMONICS,
-                    duchon_centers: None,
-                    basis_size: evaluator.basis_size(),
+                    geometry: SaeAtomGeometryPlan::new(
+                        SaeAtomBasisKind::Mobius,
+                        2,
+                        SaeBasisResolution::MobiusHarmonics {
+                            circle_order: SAE_MOBIUS_CIRCLE_HARMONICS,
+                            width_degree: SAE_MOBIUS_WIDTH_DEGREE,
+                        },
+                        SaeReferenceMetricPlan::MobiusQuotient,
+                    )?,
                 });
             }
             SaeAtomBasisKind::Cylinder => {
@@ -812,90 +438,58 @@ pub fn sae_build_atom_plans(
     Ok(plans)
 }
 
-/// Persistable basis metadata derived from one converged fitted atom.
-#[derive(Clone, Debug)]
+/// Persistable analytic geometry derived from one converged fitted atom.
+///
+/// The tagged plan is stored intact. There are deliberately no parallel
+/// harmonic-order, basis-width, or center fields that could disagree with it.
+#[derive(Clone, Debug, PartialEq)]
 pub struct SaeFittedAtomPlan {
-    pub kind: SaeAtomBasisKind,
-    pub latent_dim: usize,
-    pub n_harmonics: usize,
-    pub basis_size: usize,
-    pub duchon_centers: Option<Array2<f64>>,
+    geometry: SaeAtomGeometryPlan,
+}
+
+impl SaeFittedAtomPlan {
+    pub fn geometry(&self) -> &SaeAtomGeometryPlan {
+        &self.geometry
+    }
+
+    pub fn into_geometry(self) -> SaeAtomGeometryPlan {
+        self.geometry
+    }
 }
 
 /// Derive the complete OOS rebuild metadata from the converged dictionary.
 ///
-/// This is model logic, so it lives beside native atom construction rather
-/// than in a language binding. Invalid harmonic widths and missing Duchon
-/// centers are errors; no metadata is guessed at the FFI boundary.
-pub fn sae_fitted_atom_plans(
-    term: &SaeManifoldTerm,
-    seed_duchon_centers: &[Option<Array2<f64>>],
-    random_state: u64,
-) -> Result<Vec<SaeFittedAtomPlan>, String> {
+/// A converged analytic atom must still carry the exact constructor-validated
+/// plan that built it. Missing plan data is an error: width/order/center
+/// inference from realized arrays would recreate the schema split this type
+/// exists to eliminate.
+pub fn sae_fitted_atom_plans(term: &SaeManifoldTerm) -> Result<Vec<SaeFittedAtomPlan>, String> {
     let mut plans = Vec::with_capacity(term.k_atoms());
     for (atom_idx, atom) in term.atoms.iter().enumerate() {
-        let kind = atom.basis_kind.clone();
-        let latent_dim = atom.latent_dim;
-        let basis_size = atom.full_basis_size();
-        let n_harmonics = match &kind {
-            SaeAtomBasisKind::Periodic => {
-                if basis_size < 3 || basis_size % 2 == 0 {
-                    return Err(format!(
-                        "sae_fitted_atom_plans: periodic atom {atom_idx} has invalid odd basis width {basis_size}"
-                    ));
-                }
-                (basis_size - 1) / 2
-            }
-            SaeAtomBasisKind::Torus => {
-                let axis_size = sae_torus_axis_basis_size(basis_size, latent_dim)?;
-                (axis_size - 1) / 2
-            }
-            SaeAtomBasisKind::Cylinder => sae_cylinder_harmonics_degree(basis_size)?.0,
-            SaeAtomBasisKind::Mobius => SAE_MOBIUS_CIRCLE_HARMONICS,
-            _ => 0,
-        };
-        let duchon_centers = match &kind {
-            SaeAtomBasisKind::Duchon => Some(
-                seed_duchon_centers
-                    .get(atom_idx)
-                    .and_then(Option::as_ref)
-                    .ok_or_else(|| {
-                        format!("sae_fitted_atom_plans: Duchon atom {atom_idx} has no seed centers")
-                    })?
-                    .clone(),
-            ),
-            SaeAtomBasisKind::Linear
-            | SaeAtomBasisKind::EuclideanPatch
-            | SaeAtomBasisKind::Poincare => {
-                let coords = term.assignment.coords[atom_idx].as_matrix();
-                if coords.nrows() == 0 || coords.ncols() < latent_dim {
-                    return Err(format!(
-                        "sae_fitted_atom_plans: atom {atom_idx} has coordinate shape {:?}, expected non-empty rows and at least {latent_dim} columns",
-                        coords.dim()
-                    ));
-                }
-                let center_count = coords.nrows().min((latent_dim + 2).max(8));
-                let indices = sae_pick_duchon_center_indices(
-                    coords.nrows(),
-                    center_count,
-                    random_state.wrapping_add(atom_idx as u64),
-                );
-                let mut centers = Array2::<f64>::zeros((indices.len(), latent_dim));
-                for (out_row, src_row) in indices.into_iter().enumerate() {
-                    for col in 0..latent_dim {
-                        centers[[out_row, col]] = coords[[src_row, col]];
-                    }
-                }
-                Some(centers)
-            }
-            _ => None,
-        };
+        let geometry = atom.geometry_plan().ok_or_else(|| {
+            format!(
+                "sae_fitted_atom_plans: analytic atom {atom_idx} ({:?}) has no persisted geometry plan",
+                atom.basis_kind()
+            )
+        })?;
+        if geometry.kind() != atom.basis_kind() || geometry.latent_dim() != atom.latent_dim() {
+            return Err(format!(
+                "sae_fitted_atom_plans: atom {atom_idx} plan ({:?}, dim={}) disagrees with atom ({:?}, dim={})",
+                geometry.kind(),
+                geometry.latent_dim(),
+                atom.basis_kind(),
+                atom.latent_dim()
+            ));
+        }
+        let planned_width = geometry.basis_size()?;
+        if planned_width != atom.full_basis_size() {
+            return Err(format!(
+                "sae_fitted_atom_plans: atom {atom_idx} plan width {planned_width} disagrees with full atom width {}",
+                atom.full_basis_size()
+            ));
+        }
         plans.push(SaeFittedAtomPlan {
-            kind,
-            latent_dim,
-            n_harmonics,
-            basis_size,
-            duchon_centers,
+            geometry: geometry.clone(),
         });
     }
     Ok(plans)
@@ -936,10 +530,13 @@ mod tests {
         .expect("periodic plan");
 
         assert_eq!(plans.len(), 1);
-        assert!(matches!(plans[0].kind, SaeAtomBasisKind::Periodic));
-        assert_eq!(plans[0].latent_dim, 1);
-        assert_eq!(plans[0].n_harmonics, 2);
-        assert_eq!(plans[0].basis_size, 5);
+        assert_eq!(plans[0].kind(), &SaeAtomBasisKind::Periodic);
+        assert_eq!(plans[0].latent_dim(), 1);
+        assert_eq!(plans[0].basis_size().unwrap(), 5);
+        assert_eq!(
+            plans[0].geometry.resolution(),
+            &SaeBasisResolution::PeriodicHarmonics { order: 2 }
+        );
 
         let (phi, jet, penalty, basis_sizes, coords) =
             sae_build_padded_basis_stacks(&plans, seed_coords.view(), 4)
@@ -950,8 +547,67 @@ mod tests {
         assert_eq!(basis_sizes, vec![5]);
         assert_eq!(coords[0].dim(), (4, 1));
         assert!(phi.slice(s![0, .., 0]).iter().all(|&value| value == 1.0));
-        assert_eq!(penalty[[0, 0, 0]], 1.0e-8);
-        assert_eq!(penalty[[0, 3, 3]], 16.0);
-        assert_eq!(penalty[[0, 4, 4]], 16.0);
+        assert_eq!(penalty[[0, 0, 0]], 0.0);
+        assert_eq!(penalty[[0, 3, 3]], 8.0);
+        assert_eq!(penalty[[0, 4, 4]], 8.0);
+    }
+
+    #[test]
+    fn quotient_plans_drive_padded_stack_width_penalty_and_deck_twins() {
+        let z = Array2::<f64>::zeros((2, 1));
+        let mut seed_coords = Array3::<f64>::zeros((2, 2, 2));
+        let latitude = 0.29;
+        let longitude = -0.41;
+        seed_coords[[0, 0, 0]] = latitude;
+        seed_coords[[0, 0, 1]] = longitude;
+        seed_coords[[0, 1, 0]] = -latitude;
+        seed_coords[[0, 1, 1]] = longitude + std::f64::consts::PI;
+        let theta = 0.17;
+        let phi = 0.23;
+        seed_coords[[1, 0, 0]] = theta;
+        seed_coords[[1, 0, 1]] = phi;
+        seed_coords[[1, 1, 0]] = theta + 0.5;
+        seed_coords[[1, 1, 1]] = -phi;
+
+        let plans = sae_build_atom_plans(
+            z.view(),
+            &["projective_plane".to_string(), "klein_bottle".to_string()],
+            &[2, 2],
+            seed_coords.view(),
+            19,
+            &[Some(2), Some(2)],
+        )
+        .unwrap();
+        let (phi_stack, jet_stack, penalty_stack, basis_sizes, _) =
+            sae_build_padded_basis_stacks(&plans, seed_coords.view(), 2).unwrap();
+
+        assert_eq!(
+            plans[0].geometry,
+            SaeAtomGeometryPlan::projective_plane(2).unwrap()
+        );
+        assert_eq!(
+            plans[1].geometry,
+            SaeAtomGeometryPlan::klein_bottle(2).unwrap()
+        );
+        for atom in 0..2 {
+            let width = plans[atom].basis_size().unwrap();
+            assert_eq!(basis_sizes[atom], width);
+            assert_eq!(penalty_stack[[atom, 0, 0]], 0.0);
+            assert!((1..width).any(|column| penalty_stack[[atom, column, column]] > 0.0));
+            for column in 0..width {
+                assert!(
+                    (phi_stack[[atom, 0, column]] - phi_stack[[atom, 1, column]]).abs() <= 1.0e-12
+                );
+                let axis_signs = if atom == 0 { [-1.0, 1.0] } else { [1.0, -1.0] };
+                for axis in 0..2 {
+                    assert!(
+                        (jet_stack[[atom, 1, column, axis]]
+                            - axis_signs[axis] * jet_stack[[atom, 0, column, axis]])
+                        .abs()
+                            <= 1.0e-11
+                    );
+                }
+            }
+        }
     }
 }

@@ -412,3 +412,284 @@ mod tests {
         assert!((q[2] - 3.0).abs() < 1e-12);
     }
 }
+
+#[cfg(test)]
+mod parallel_transport_tests {
+    use super::*;
+    use crate::manifold::quad_form;
+    use crate::manifolds::euclidean::EuclideanManifold;
+    use crate::manifolds::sphere::SphereManifold;
+    use ndarray::array;
+
+    /// A product with one curved factor (`S^2`, ambient 3) and one flat
+    /// factor (`R^2`), so `parallel_transport`'s per-component splitting and
+    /// re-stitching (see [`ProductManifold::parallel_transport`]) is
+    /// exercised against a genuinely non-trivial transport, not the
+    /// componentwise-identity case a two-Euclidean-factor fixture would
+    /// give. The fixture points mirror `sphere.rs`'s own
+    /// `parallel_transport_tests::fixture` for the curved half.
+    fn fixture() -> (ProductManifold, Array1<f64>, Array1<f64>) {
+        let product = ProductManifold::new(vec![
+            Box::new(SphereManifold::new(2)),
+            Box::new(EuclideanManifold::new(2)),
+        ]);
+        let sphere_p = array![1.0_f64, 0.0, 0.0];
+        let raw = array![1.0_f64, 1.0, 1.0];
+        let sphere_q = &raw / (raw.dot(&raw)).sqrt();
+        let p = concat_1d(&[sphere_p.view(), array![0.5_f64, -1.0].view()]);
+        let q = concat_1d(&[sphere_q.view(), array![2.0_f64, 0.5].view()]);
+        (product, p, q)
+    }
+
+    fn concat_1d(parts: &[ArrayView1<'_, f64>]) -> Array1<f64> {
+        let total: usize = parts.iter().map(|p| p.len()).sum();
+        let mut out = Array1::<f64>::zeros(total);
+        let mut off = 0usize;
+        for part in parts {
+            for &x in part.iter() {
+                out[off] = x;
+                off += 1;
+            }
+        }
+        out
+    }
+
+    fn path2(a: &Array1<f64>, b: &Array1<f64>) -> Array2<f64> {
+        let mut out = Array2::<f64>::zeros((2, a.len()));
+        out.row_mut(0).assign(a);
+        out.row_mut(1).assign(b);
+        out
+    }
+
+    /// Parallel transport on a product manifold is the block-diagonal
+    /// concatenation of each factor's own transport, so it must still be a
+    /// linear isometry of the *product* metric — `⟨Γ(U),Γ(V)⟩_Q = ⟨U,V⟩_P` —
+    /// even though the two blocks have unrelated (curved vs. flat)
+    /// geometries. `quad_form` against `metric_tensor` (block identity here,
+    /// since both factors carry the embedded/ambient metric) is the
+    /// manifold-agnostic inner product, so this genuinely checks the
+    /// splitting/re-stitching in `ProductManifold::parallel_transport`
+    /// rather than re-deriving each factor's own formula.
+    #[test]
+    fn parallel_transport_preserves_product_inner_product() {
+        let (product, p, q) = fixture();
+        let path = path2(&p, &q);
+        // Tangent at p: sphere block orthogonal to (1,0,0) (zero first
+        // coordinate), Euclidean block unconstrained.
+        let u = array![0.0_f64, 1.0, 0.4, 3.0, -2.0];
+        let v = array![0.0_f64, -0.3, 1.2, -1.0, 0.5];
+
+        let tu = product
+            .parallel_transport(path.view(), u.view())
+            .expect("Γ(U)");
+        let tv = product
+            .parallel_transport(path.view(), v.view())
+            .expect("Γ(V)");
+
+        let g_p = product.metric_tensor(p.view()).expect("G(P)");
+        let g_q = product.metric_tensor(q.view()).expect("G(Q)");
+        let before = quad_form(g_p.view(), u.view(), v.view());
+        let after = quad_form(g_q.view(), tu.view(), tv.view());
+        assert!(
+            (before - after).abs() <= 1e-10 * before.abs().max(1.0),
+            "product parallel transport is not an isometry: ⟨U,V⟩_P={before:.12e}, ⟨ΓU,ΓV⟩_Q={after:.12e}"
+        );
+    }
+
+    /// Same geodesic-velocity sign identity checked per-factor elsewhere
+    /// (`sphere.rs`, `spd.rs`): `Γ_{P→Q}(log_P Q) = −log_Q P`, now across the
+    /// whole product vector at once — a bug that swapped or misaligned a
+    /// component's offset while splitting `point_along`/`vec` would show up
+    /// here even if each factor's own transport were correct in isolation.
+    #[test]
+    fn parallel_transport_matches_geodesic_velocity_identity() {
+        let (product, p, q) = fixture();
+        let forward = path2(&p, &q);
+        let v_p_to_q = product.log_map(p.view(), q.view()).expect("log_P(Q)");
+        let v_q_to_p = product.log_map(q.view(), p.view()).expect("log_Q(P)");
+
+        let transported = product
+            .parallel_transport(forward.view(), v_p_to_q.view())
+            .expect("Γ(log_P Q)");
+        for (i, (&t, &v)) in transported.iter().zip(v_q_to_p.iter()).enumerate() {
+            assert!(
+                (t + v).abs() <= 1e-9 * v.abs().max(1.0),
+                "component {i}: Γ(log_P Q)={t:.12e}, −log_Q P={:.12e}",
+                -v
+            );
+        }
+    }
+
+    /// Transporting forward `P→Q` then back `Q→P` must recover the original
+    /// tangent exactly, block by block.
+    #[test]
+    fn parallel_transport_round_trip_is_identity() {
+        let (product, p, q) = fixture();
+        let forward = path2(&p, &q);
+        let backward = path2(&q, &p);
+        let u = array![0.0_f64, 0.6, -0.2, 1.5, -0.7];
+
+        let out = product
+            .parallel_transport(forward.view(), u.view())
+            .expect("Γ_{P→Q}(U)");
+        let back = product
+            .parallel_transport(backward.view(), out.view())
+            .expect("Γ_{Q→P}(Γ_{P→Q}(U))");
+
+        for (i, (&b, &orig)) in back.iter().zip(u.iter()).enumerate() {
+            assert!(
+                (b - orig).abs() <= 1e-9 * orig.abs().max(1.0),
+                "component {i}: round-trip {b:.12e} vs original {orig:.12e}"
+            );
+        }
+    }
+}
+
+#[cfg(test)]
+mod curvature_tests {
+    use super::*;
+    use crate::manifold::RiemannianManifold;
+    use crate::manifolds::constant_curvature::ConstantCurvature;
+    use crate::manifolds::euclidean::EuclideanManifold;
+    use crate::manifolds::sphere::SphereManifold;
+    use ndarray::array;
+
+    /// `S²` (ambient 3, `K=1`) times `R²` (ambient 2, `K=0`): the only
+    /// existing `product.rs` tests use all-Euclidean factors, where every
+    /// Christoffel symbol and sectional curvature is trivially zero and the
+    /// block-diagonal assembly in `christoffel_symbols`/`sectional_curvature`
+    /// is exercised only in its degenerate flat case. A genuinely curved
+    /// factor is needed to test the interesting part of `sectional_curvature`:
+    /// the numerator is a block-diagonal sum of per-factor curvature terms,
+    /// but the denominator is the *product* metric's Gram determinant, which
+    /// does NOT decompose into a sum of per-factor Gram determinants once `U`
+    /// and `V` have nonzero components in more than one factor (cross terms
+    /// `Σ_{r≠s} a_r b_s` survive in `(Σa_r)(Σb_r)` but not in `Σ(a_r b_r)`).
+    /// Getting this wrong (e.g. summing per-factor ratios instead of
+    /// per-factor numerators over a jointly-computed denominator) would be an
+    /// easy, silent mistake that an all-Euclidean fixture can never catch.
+    fn sphere_times_plane() -> ProductManifold {
+        ProductManifold::new(vec![
+            Box::new(SphereManifold::new(2)),
+            Box::new(EuclideanManifold::new(2)),
+        ])
+    }
+
+    /// A tangent plane with nonzero, non-collinear components in BOTH
+    /// factors: `K_sphere=1` on an orthonormal sphere pair contributes
+    /// numerator `1·(1·1−0²)=1`; `K_euclid=0` contributes nothing to the
+    /// numerator regardless of its own (nonzero, cross-coupled) Gram term.
+    /// The denominator is the full product-metric Gram determinant
+    /// `(Σ|²)(Σ|²)−(Σ⟨,⟩)²`, hand-computed here from plain dot products
+    /// (independently of `ProductManifold`/`SphereManifold` internals) as
+    /// `66·11−1²=65`, giving the oracle value `K = 1/65`.
+    #[test]
+    fn sectional_curvature_mixes_factor_numerators_over_joint_denominator() {
+        let m = sphere_times_plane();
+        let point = array![1.0_f64, 0.0, 0.0, 0.3, -0.4];
+        let u = array![0.0_f64, 1.0, 0.0, 2.0, 1.0];
+        let v = array![0.0_f64, 0.0, 1.0, -1.0, 3.0];
+
+        let k = m
+            .sectional_curvature(point.view(), (u.view(), v.view()))
+            .expect("mixed-factor sectional curvature");
+
+        let expected = 1.0 / 65.0;
+        assert!(
+            (k - expected).abs() <= 1e-10 * expected.abs().max(1.0),
+            "K={k:.12e}, expected 1/65={expected:.12e}"
+        );
+    }
+
+    /// A plane spanned by one vector purely in the sphere factor and one
+    /// purely in the Euclidean factor is a "mixed" plane between two
+    /// irreducible factors of a Riemannian product — a standard fact is that
+    /// its sectional curvature is always exactly zero, independent of either
+    /// factor's own curvature. Both per-factor Gram terms are individually
+    /// degenerate here (`U` has zero Euclidean part, `V` has zero sphere
+    /// part), exercising the `gram_r > GEOMETRY_EPS` skip branch that keeps a
+    /// degenerate single-factor plane from aborting the whole product via
+    /// that factor's own `sectional_curvature` (which SPD, e.g., would
+    /// refuse to evaluate on a degenerate plane).
+    #[test]
+    fn sectional_curvature_is_zero_on_a_cross_factor_plane() {
+        let m = sphere_times_plane();
+        let point = array![1.0_f64, 0.0, 0.0, 0.3, -0.4];
+        let u = array![0.0_f64, 1.0, 0.0, 0.0, 0.0]; // pure sphere tangent
+        let v = array![0.0_f64, 0.0, 0.0, 1.0, 0.0]; // pure Euclidean tangent
+
+        let k = m
+            .sectional_curvature(point.view(), (u.view(), v.view()))
+            .expect("cross-factor sectional curvature");
+        assert!(
+            k.abs() <= 1e-12,
+            "expected 0 on a cross-factor plane, got κ={k:.3e}"
+        );
+    }
+
+    /// `christoffel_symbols` on a product must place each factor's own
+    /// symbols in its own diagonal block and leave every cross-factor block
+    /// exactly zero (the product connection has no cross-factor coupling).
+    /// `SphereManifold` doesn't override `christoffel_symbols` (it refuses
+    /// via the trait default, since the embedded chart has no closed form),
+    /// so this factor is `ConstantCurvature` — hyperbolic (`κ=−0.5`), whose
+    /// own (independently-tested, see `constant_curvature.rs`'s
+    /// `christoffel_matches_fd_of_metric`) symbols are genuinely nonzero at a
+    /// generic point, unlike the all-Euclidean fixtures elsewhere in this
+    /// file where every block being zero can't distinguish "correctly
+    /// assembled" from "not assembled at all".
+    #[test]
+    fn christoffel_symbols_is_block_diagonal_with_curved_factor() {
+        let curved = ConstantCurvature::new(2, -0.5);
+        let m = ProductManifold::new(vec![
+            Box::new(ConstantCurvature::new(2, -0.5)),
+            Box::new(EuclideanManifold::new(2)),
+        ]);
+        let point = array![0.1_f64, -0.2, 0.3, -0.4];
+        let curved_point = array![0.1_f64, -0.2];
+
+        let full = m.christoffel_symbols(point.view()).expect("Γ (product)");
+        let curved_gamma = curved
+            .christoffel_symbols(curved_point.view())
+            .expect("Γ (constant curvature)");
+
+        assert_eq!(full.len(), m.ambient_dim());
+        // Sanity: the reference factor's own symbols are genuinely nonzero
+        // here, or this test would not distinguish a correct assembly from a
+        // silently-flat one.
+        assert!(
+            curved_gamma
+                .iter()
+                .any(|g| g.iter().any(|&v| v.abs() > 1e-6)),
+            "fixture must have nonzero Christoffel symbols to be a meaningful check"
+        );
+        for k in 0..2 {
+            for i in 0..2 {
+                for j in 0..2 {
+                    assert!(
+                        (full[k][[i, j]] - curved_gamma[k][[i, j]]).abs() <= 1e-14,
+                        "curved block [{k}][{i},{j}]: product={} factor={}",
+                        full[k][[i, j]],
+                        curved_gamma[k][[i, j]]
+                    );
+                }
+            }
+        }
+        // Any index touching the Euclidean block (flat factor, zero
+        // Christoffels) or crossing between factors must be exactly zero.
+        for k in 0..full.len() {
+            for i in 0..full.len() {
+                for j in 0..full.len() {
+                    if k < 2 && i < 2 && j < 2 {
+                        continue; // curved block, checked above
+                    }
+                    assert_eq!(
+                        full[k][[i, j]],
+                        0.0,
+                        "expected zero outside curved block at [{k}][{i},{j}]"
+                    );
+                }
+            }
+        }
+    }
+}

@@ -134,89 +134,6 @@ pub(crate) struct DenestedCellPrimaryFixedPartials {
     pub(crate) coeff_bbbu: Vec<[f64; 4]>,
 }
 
-impl DenestedCellPrimaryFixedPartials {
-    /// Reconstruct the struct from the device-flat layout emitted by
-    /// `crate::survival::marginal_slope::gpu_prep::DENESTED_CELL_PRIMARY_FIXED_PARTIALS_KERNEL_SRC`.
-    ///
-    /// Layout (per cell):
-    ///
-    /// ```text
-    ///   dc_da[4], dc_daa[4], dc_daaa[4]                       // 12 doubles
-    ///   coeff_u[r][4]                                          // 4r
-    ///   coeff_au[r][4], coeff_bu[r][4]                         // 8r
-    ///   coeff_aau[r][4], coeff_abu[r][4], coeff_bbu[r][4]      // 12r
-    ///   coeff_aaau[r][4], coeff_aabu[r][4], coeff_abbu[r][4], coeff_bbbu[r][4]
-    ///                                                          // 16r
-    /// ```
-    ///
-    /// Total length: `12 + 40 * r`.
-    pub(crate) fn from_flat_slice(flat: &[f64], r: usize) -> Result<Self, String> {
-        let expected = 12 + 40 * r;
-        if flat.len() != expected {
-            return Err(format!(
-                "DenestedCellPrimaryFixedPartials::from_flat_slice: expected {expected} doubles \
-                 (12 + 40·r with r={r}), got {}",
-                flat.len()
-            ));
-        }
-        let read4 =
-            |off: usize| -> [f64; 4] { [flat[off], flat[off + 1], flat[off + 2], flat[off + 3]] };
-        let dc_da = read4(0);
-        let dc_daa = read4(4);
-        let dc_daaa = read4(8);
-        let mut cursor = 12;
-        let read_run = |start: usize| -> Vec<[f64; 4]> {
-            let mut out = Vec::with_capacity(r);
-            for slot in 0..r {
-                let off = start + slot * 4;
-                out.push([flat[off], flat[off + 1], flat[off + 2], flat[off + 3]]);
-            }
-            out
-        };
-        let coeff_u = read_run(cursor);
-        cursor += 4 * r;
-        let coeff_au = read_run(cursor);
-        cursor += 4 * r;
-        let coeff_bu = read_run(cursor);
-        cursor += 4 * r;
-        let coeff_aau = read_run(cursor);
-        cursor += 4 * r;
-        let coeff_abu = read_run(cursor);
-        cursor += 4 * r;
-        let coeff_bbu = read_run(cursor);
-        cursor += 4 * r;
-        let coeff_aaau = read_run(cursor);
-        cursor += 4 * r;
-        let coeff_aabu = read_run(cursor);
-        cursor += 4 * r;
-        let coeff_abbu = read_run(cursor);
-        cursor += 4 * r;
-        let coeff_bbbu = read_run(cursor);
-        cursor += 4 * r;
-        assert_eq!(cursor, expected);
-        Ok(Self {
-            dc_da,
-            dc_daa,
-            dc_daaa,
-            coeff_u,
-            coeff_au,
-            coeff_bu,
-            coeff_aau,
-            coeff_abu,
-            coeff_bbu,
-            coeff_aaau,
-            coeff_aabu,
-            coeff_abbu,
-            coeff_bbbu,
-        })
-    }
-}
-
-// #932-2 cutover: `COEFF_SUPPORT_GHW`/`COEFF_SUPPORT_GW` moved to the test-masked
-// `flex_oracle_structs_tests` module — they parametrize only the now test-only hand
-// directional/bidirectional oracle (the production jet path's `observed_fixed_for`
-// gates the h/w channels by `family.score_warp`/`link_dev` directly).
-
 /// Pre-computed partition cell data for a single timepoint evaluation.
 /// Built once per (a, b, β_h, β_w) and reused across the three passes
 /// (F, D, D_uv) that previously each rebuilt partition cells independently.
@@ -245,8 +162,10 @@ pub(crate) struct FlexThirdRowBase {
     pub(crate) beta_w: Option<Array1<f64>>,
     pub(crate) entry_cached: CachedPartitionCells,
     pub(crate) exit_cached: CachedPartitionCells,
-    pub(crate) entry_base: crate::survival::marginal_slope::gpu::SurvivalFlexBlock10TimepointBase,
-    pub(crate) exit_base: crate::survival::marginal_slope::gpu::SurvivalFlexBlock10TimepointBase,
+    pub(crate) entry_base:
+        crate::survival::marginal_slope::timepoint_exact::flex_jet::FlexTimepointBasePack,
+    pub(crate) exit_base:
+        crate::survival::marginal_slope::timepoint_exact::flex_jet::FlexTimepointBasePack,
 }
 
 pub(crate) struct CachedCellEntry {
@@ -275,13 +194,6 @@ pub(crate) struct SurvivalFlexTimepointFirstOrderExact {
     pub(crate) chi_u: Array1<f64>,
     pub(crate) d_u: Array1<f64>,
 }
-
-// #932-2 cutover: `SurvivalFlexTimepoint{Directional,BiDirectional}Exact` are the
-// return shapes of the now test-only hand directional/bidirectional oracle
-// producers; they moved to the test-masked `flex_oracle_structs_tests` module
-// (consumed only by the `*_oracle_tests` hand oracle + the `tests.rs` FD witnesses),
-// since the production contracted path reads the Block-10 packs straight from the
-// `Jet3`/`Jet4` builders.
 
 #[derive(Clone)]
 pub(crate) struct SurvivalTimeWiggleGeometry {
@@ -445,18 +357,6 @@ pub(crate) struct TimewiggleMarginalPsiRowLift {
     pub(crate) psi_row: Array1<f64>,
 }
 
-/// Returns a reference to the static zero direction in primary space
-/// (an `Array1::zeros(N_PRIMARY)`). Used by sigma-jet contractions to
-/// avoid the per-call `Array1::zeros(primary_dim)` allocation storm in
-/// `row_sigma_primary_terms`, which previously allocated 2-4 fresh zero
-/// slots per kernel invocation and ~30 zero slots per row.
-#[inline]
-pub(crate) fn zero_primary_direction_ref() -> &'static Array1<f64> {
-    use std::sync::OnceLock;
-    static ZERO: OnceLock<Array1<f64>> = OnceLock::new();
-    ZERO.get_or_init(|| Array1::<f64>::zeros(N_PRIMARY))
-}
-
 pub(crate) fn spatial_block_primary_loading(block_idx: usize) -> Result<Array1<f64>, String> {
     match block_idx {
         1 => Ok(Array1::from_vec(vec![1.0, 1.0, 0.0, 0.0])),
@@ -469,13 +369,6 @@ pub(crate) fn spatial_block_primary_loading(block_idx: usize) -> Result<Array1<f
         .into()),
     }
 }
-
-// #932-2 cutover: `scalar_composite_bilinear` / `coeff4_fixed_bilinear` /
-// `coeff4_composite_bilinear` moved to the test-masked `flex_oracle_structs_tests`
-// module — these `MultiDirJet`-bilinear coefficient assemblers feed only the now
-// test-only hand bidirectional oracle (the production jet path builds the
-// second-directional coefficient channels through `flex_jet::cell_coeff_jets` over
-// the `Jet4` algebra).
 
 /// Derive a primary-space direction from a precomputed psi design row and beta,
 /// avoiding a redundant psi design row build inside `row_primary_psi_direction`.

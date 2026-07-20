@@ -17,14 +17,15 @@
 mod adaptive_bounded_duchon_tests {
     use super::test_support::SingleBlockExactJointDesignCacheTestExt;
     use super::*;
+    use gam_custom_family::evaluate_custom_family_joint_hyper;
     // Basis spec types this fixture builds adaptive/bounded designs from.
     // `CenterStrategy` and `MaternIdentifiability` already arrive via `super::*`
     // (the drivers' explicit `gam_terms::basis` import), so re-listing them would
     // collide (E0252); every other name is pulled in explicitly here.
     use gam_terms::basis::{
-        BSplineBasisSpec, BSplineIdentifiability, BSplineKnotSpec, DuchonBasisSpec,
-        DuchonNullspaceOrder, DuchonOperatorPenaltySpec, MaternBasisSpec, MaternNu,
-        OneDimensionalBoundary, SpatialIdentifiability,
+        BSplineBasisSpec, BSplineBoundaryConditions, BSplineIdentifiability, BSplineKnotSpec,
+        DuchonBasisSpec, DuchonNullspaceOrder, DuchonOperatorPenaltySpec, MaternBasisSpec,
+        MaternNu, OneDimensionalBoundary, SpatialIdentifiability,
     };
     // The `AdaptiveRegularizationOptions` knob the bounded/adaptive fits set lives
     // in gam-solve's model_types; `super::*` does not re-export it into this scope.
@@ -40,6 +41,143 @@ mod adaptive_bounded_duchon_tests {
         two_block_exact_joint_hyper_setup,
     };
     use ndarray::array;
+
+    #[test]
+    fn spatial_penalty_ranges_follow_realized_global_layout_2287() {
+        let data = array![
+            [1.0, -0.8, 0.0, 0.0, 0.00, 0.57],
+            [2.0, -0.4, 1.0, 1.0, 0.14, 0.00],
+            [3.0, -0.1, 0.0, 2.0, 0.29, 0.86],
+            [4.0, 0.2, 1.0, 3.0, 0.43, 0.29],
+            [5.0, 0.5, 0.0, 0.0, 0.57, 1.00],
+            [6.0, 0.7, 1.0, 1.0, 0.71, 0.43],
+            [7.0, 0.9, 0.0, 2.0, 0.86, 0.14],
+            [8.0, 1.1, 1.0, 3.0, 1.00, 0.71],
+        ];
+        let smooth = |name: &str, feature_col: usize| SmoothTermSpec {
+            name: name.to_string(),
+            basis: SmoothBasisSpec::BSpline1D {
+                feature_col,
+                spec: BSplineBasisSpec {
+                    degree: 3,
+                    penalty_order: 2,
+                    knotspec: BSplineKnotSpec::Generate {
+                        data_range: (0.0, 1.0),
+                        num_internal_knots: 4,
+                    },
+                    double_penalty: true,
+                    identifiability: BSplineIdentifiability::None,
+                    boundary_conditions: BSplineBoundaryConditions::default(),
+                    boundary: OneDimensionalBoundary::Open,
+                },
+            },
+            shape: ShapeConstraint::None,
+            joint_null_rotation: None,
+        };
+        let spec = TermCollectionSpec {
+            // Two linear columns but only the first emits a function-space
+            // ridge: coefficient width is deliberately not penalty count.
+            linear_terms: vec![
+                LinearTermSpec {
+                    name: "penalized_linear".to_string(),
+                    feature_col: 0,
+                    feature_cols: vec![0],
+                    categorical_levels: vec![],
+                    double_penalty: true,
+                    coefficient_geometry: LinearCoefficientGeometry::Unconstrained,
+                    coefficient_min: None,
+                    coefficient_max: None,
+                },
+                LinearTermSpec {
+                    name: "unpenalized_linear".to_string(),
+                    feature_col: 1,
+                    feature_cols: vec![1],
+                    categorical_levels: vec![],
+                    double_penalty: false,
+                    coefficient_geometry: LinearCoefficientGeometry::Unconstrained,
+                    coefficient_min: None,
+                    coefficient_max: None,
+                },
+            ],
+            // Likewise, both random effects own non-empty coefficient ranges
+            // but only the first emits a ridge.
+            random_effect_terms: vec![
+                RandomEffectTermSpec {
+                    name: "penalized_group".to_string(),
+                    feature_col: 2,
+                    drop_first_level: false,
+                    penalized: true,
+                    frozen_levels: Some(vec![0, 1]),
+                    lenient_unseen: true,
+                },
+                RandomEffectTermSpec {
+                    name: "unpenalized_group".to_string(),
+                    feature_col: 3,
+                    drop_first_level: false,
+                    penalized: false,
+                    frozen_levels: Some(vec![0, 1, 2, 3]),
+                    lenient_unseen: true,
+                },
+            ],
+            // Distinct feature ownership is essential here. Two copies of the
+            // same smooth are deliberately collapsed by global hierarchical
+            // identifiability, in which case the second term correctly owns no
+            // realized penalty block and cannot test a two-term layout.
+            // Each surviving smooth emits BOTH its primary roughness and its
+            // function-space null ridge, so every repeated axis has width two.
+            smooth_terms: vec![smooth("first_smooth", 4), smooth("second_smooth", 5)],
+        };
+        let design = build_term_collection_design(data.view(), &spec).expect("mixed design");
+
+        assert_eq!(design.leading_penalty_blocks_before_smooth(), 2);
+        assert_eq!(design.penalties.len(), 6);
+        assert_eq!(design.penaltyinfo.len(), design.penalties.len());
+        assert_eq!(design.penaltyinfo[0].termname.as_deref(), Some("penalized_linear"));
+        assert!(matches!(
+            &design.penaltyinfo[0].penalty.source,
+            PenaltySource::Other(source) if source == "LinearTermRidge"
+        ));
+        assert_eq!(design.penaltyinfo[1].termname.as_deref(), Some("penalized_group"));
+        assert!(matches!(
+            &design.penaltyinfo[1].penalty.source,
+            PenaltySource::Other(source) if source == "RandomEffectRidge(penalized_group)"
+        ));
+        let first = design
+            .smooth_term_penalty_range(0)
+            .expect("consistent layout")
+            .expect("penalized first smooth");
+        let second = design
+            .smooth_term_penalty_range(1)
+            .expect("consistent layout")
+            .expect("penalized second smooth");
+        assert_eq!(first, 2..4);
+        assert_eq!(second, 4..6);
+        assert_eq!(second.start, first.end);
+        for (range, name) in [(first.clone(), "first_smooth"), (second.clone(), "second_smooth")]
+        {
+            let infos = &design.penaltyinfo[range.clone()];
+            assert_eq!(infos.len(), 2);
+            assert!(infos.iter().all(|info| info.termname.as_deref() == Some(name)));
+            assert!(infos.iter().any(|info| {
+                matches!(info.penalty.source, PenaltySource::Primary)
+            }));
+            assert!(infos.iter().any(|info| {
+                matches!(info.penalty.source, PenaltySource::DoublePenaltyNullspace)
+            }));
+            for (global_index, info) in range.zip(infos.iter()) {
+                assert_eq!(info.global_index, global_index);
+                assert!(info.penalty.effective_rank > 0);
+            }
+        }
+
+        // Independent consumer cross-check: the incremental κ realizer's
+        // production range resolver translates the actual emitter layout into
+        // smooth-local coordinates without constructing a second spec cursor.
+        let (smooth_ranges, full_ranges) = emitted_smooth_penalty_ranges(&design)
+            .expect("incremental realizer accepts composed emitted layout");
+        assert_eq!(smooth_ranges, vec![0..2, 2..4]);
+        assert_eq!(full_ranges, vec![first, second]);
+    }
 
     #[test]
     fn pure_duchon_aniso_penalties_stay_symmetric_through_freeze_and_cache() {
@@ -126,7 +264,7 @@ mod adaptive_bounded_duchon_tests {
                         operator_penalties: DuchonOperatorPenaltySpec::default(),
                         boundary: OneDimensionalBoundary::Open,
                     },
-                    input_scales: None,
+                    input_scale: None,
                 },
                 shape: ShapeConstraint::None,
                 joint_null_rotation: None,
@@ -277,7 +415,7 @@ mod adaptive_bounded_duchon_tests {
                     operator_penalties: DuchonOperatorPenaltySpec::default(),
                     boundary: OneDimensionalBoundary::Open,
                 },
-                input_scales: None,
+                input_scale: None,
             },
             shape: ShapeConstraint::None,
             joint_null_rotation: None,
@@ -348,7 +486,7 @@ mod adaptive_bounded_duchon_tests {
                     operator_penalties: DuchonOperatorPenaltySpec::default(),
                     boundary: OneDimensionalBoundary::Open,
                 },
-                input_scales: None,
+                input_scale: None,
             },
             shape: ShapeConstraint::None,
             joint_null_rotation: None,
@@ -819,6 +957,46 @@ mod adaptive_bounded_duchon_tests {
     }
 
     #[test]
+    fn spatial_adaptive_fixed_quadratic_hessian_rejects_material_asymmetry() {
+        let error = ValidatedFixedQuadraticHessian::try_from_dense(
+            array![[0.0, 0.1], [3.0, 0.0]],
+            2,
+        )
+        .expect_err("a materially asymmetric quadratic Hessian must be rejected");
+        assert!(
+            error.contains("not symmetric"),
+            "rejection must identify the violated symmetry invariant: {error}"
+        );
+    }
+
+    #[test]
+    fn spatial_adaptive_fixed_quadratic_hessian_rejects_indefinite_quadratic() {
+        let error = ValidatedFixedQuadraticHessian::try_from_dense(
+            array![[1.0, 2.0], [2.0, 1.0]],
+            2,
+        )
+        .expect_err("an indefinite quadratic Hessian must be rejected");
+        assert!(
+            error.contains("positive semidefinite"),
+            "rejection must identify the violated convexity invariant: {error}"
+        );
+    }
+
+    #[test]
+    fn spatial_adaptive_fixed_quadratic_hessian_preserves_exact_quadratic() {
+        let dense = array![[2.0, 0.25], [0.25, 1.0]];
+        let validated = ValidatedFixedQuadraticHessian::try_from_dense(dense.clone(), 2)
+            .expect("finite symmetric PSD quadratic Hessian");
+        assert_eq!(validated.as_dense(), &dense);
+
+        let (value, gradient) = validated
+            .quadratic_terms(&array![1.0, -2.0])
+            .expect("matching coefficient dimension");
+        assert_eq!(gradient, array![1.5, -1.75]);
+        assert_eq!(value, 2.5);
+    }
+
+    #[test]
     fn exact_bounded_edf_matches_trace_formula_for_simple_penalty() {
         let penalties = vec![PenaltySpec::Dense(Array2::eye(1))];
         let lambdas = array![0.25];
@@ -939,86 +1117,6 @@ mod adaptive_bounded_duchon_tests {
         assert!(eps_0 >= 1e-8);
         assert!(eps_g >= 1e-8);
         assert!(eps_c >= 1e-8);
-    }
-
-    #[test]
-    fn adaptive_exact_psigradient_symmetrizes_nearly_symmetrichessian() {
-        let family = SpatialAdaptiveExactFamily {
-            family: LikelihoodSpec::gaussian_identity(),
-            latent_cloglog_state: None,
-            mixture_link_state: None,
-            sas_link_state: None,
-            y: Arc::new(array![0.0, 0.0]),
-            weights: Arc::new(array![1.0, 1.0]),
-            design: Arc::new(array![[1.0, 0.0], [0.0, 1.0]]),
-            offset: Arc::new(array![0.0, 0.0]),
-            linear_constraints: None,
-            runtime_caches: Arc::new(vec![SpatialOperatorRuntimeCache {
-                termname: "toy".to_string(),
-                feature_cols: vec![0],
-                coeff_global_range: 0..2,
-                mass_penalty_global_idx: 0,
-                tension_penalty_global_idx: 1,
-                stiffness_penalty_global_idx: 2,
-                d0: array![[1.0, 0.0], [0.0, 1.0]],
-                d1: array![[1.0, 0.0], [0.0, 1.0]],
-                d2: array![[1.0, 0.0], [0.0, 1.0]],
-                collocation_points: array![[0.0], [1.0]],
-                dimension: 1,
-            }]),
-            adaptive_params: vec![SpatialAdaptiveTermHyperParams {
-                lambda: [1.0, 1.0, 1.0],
-                epsilon: [1.0, 1.0, 1.0],
-            }],
-            fixed_quadratichessian: Arc::new(array![[0.0, 0.1], [3.0, 0.0]]),
-            hyperspecs: Arc::new(build_spatial_adaptive_hyperspecs(1)),
-            exact_eval_cache: Arc::new(Mutex::new(None)),
-        };
-        let spec = ParameterBlockSpec {
-            name: "toy".to_string(),
-            design: DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(array![
-                [1.0, 0.0],
-                [0.0, 1.0]
-            ])),
-            offset: array![0.0, 0.0],
-            penalties: vec![],
-            nullspace_dims: vec![],
-            initial_log_lambdas: Array1::zeros(0),
-            initial_beta: Some(array![0.0, 0.0]),
-            gauge_priority: 100,
-            jacobian_callback: None,
-            stacked_design: None,
-            stacked_offset: None,
-        };
-        let deriv = CustomFamilyBlockPsiDerivative {
-            penalty_index: None,
-            x_psi: Array2::zeros((2, 2)),
-            s_psi: Array2::zeros((2, 2)),
-            s_psi_components: None,
-            s_psi_penalty_components: None,
-            x_psi_psi: None,
-            s_psi_psi: None,
-            s_psi_psi_components: None,
-            s_psi_psi_penalty_components: None,
-            implicit_operator: None,
-            implicit_axis: 0,
-            implicit_group_id: None,
-        };
-        let state = vec![ParameterBlockState {
-            beta: array![0.0, 0.0],
-            eta: array![0.0, 0.0],
-        }];
-
-        let gradient = family
-            .exact_newton_joint_psi_terms(&state, std::slice::from_ref(&spec), &[vec![deriv]], 0)
-            .expect("adaptive joint psi terms should tolerate nearly symmetric Hessian")
-            .expect("adaptive joint psi terms should be present")
-            .objective_psi;
-
-        assert!(
-            gradient.is_finite(),
-            "expected finite adaptive joint psi objective term after symmetrization, got {gradient}"
-        );
     }
 
     #[test]
@@ -1405,15 +1503,14 @@ mod adaptive_bounded_duchon_tests {
                     spec: MaternBasisSpec {
                         periodic: None,
                         center_strategy: CenterStrategy::FarthestPoint { num_centers: 10 },
-                        length_scale: 0.7,
+                        length_scale: gam_terms::basis::MaternLengthScale::fixed(0.7),
                         nu: MaternNu::FiveHalves,
                         include_intercept: false,
                         double_penalty: true,
                         identifiability: MaternIdentifiability::CenterSumToZero,
                         aniso_log_scales: None,
-                        nullspace_shrinkage_survived: None,
                     },
-                    input_scales: None,
+                    input_scale: None,
                 },
                 shape: ShapeConstraint::None,
                 joint_null_rotation: None,
@@ -1454,6 +1551,13 @@ mod adaptive_bounded_duchon_tests {
         assert_eq!(diag.maps.len(), 1);
         assert!(fit.fit.beta.iter().all(|v| v.is_finite()));
         assert!(fit.fit.reml_score.is_finite());
+        let outer_certificate = fit
+            .fit
+            .convergence_evidence()
+            .outer_certificate()
+            .expect("an optimized adaptive fit must retain optimizer-owned outer evidence");
+        assert!(outer_certificate.certifies());
+        assert_eq!(fit.fit.outer_iterations, diag.epsilon_outer_iterations);
     }
 
     #[test]
@@ -1500,7 +1604,7 @@ mod adaptive_bounded_duchon_tests {
                         periodic: None,
                         boundary: OneDimensionalBoundary::Open,
                     },
-                    input_scales: None,
+                    input_scale: None,
                 },
                 shape: ShapeConstraint::None,
                 joint_null_rotation: None,
@@ -1576,15 +1680,14 @@ mod adaptive_bounded_duchon_tests {
                     spec: MaternBasisSpec {
                         periodic: None,
                         center_strategy: CenterStrategy::FarthestPoint { num_centers: 10 },
-                        length_scale: 0.7,
+                        length_scale: gam_terms::basis::MaternLengthScale::fixed(0.7),
                         nu: MaternNu::FiveHalves,
                         include_intercept: false,
                         double_penalty: true,
                         identifiability: MaternIdentifiability::CenterSumToZero,
                         aniso_log_scales: None,
-                        nullspace_shrinkage_survived: None,
                     },
-                    input_scales: None,
+                    input_scale: None,
                 },
                 shape: ShapeConstraint::None,
                 joint_null_rotation: None,
@@ -1694,10 +1797,10 @@ mod adaptive_bounded_duchon_tests {
             linear_constraints: baseline.design.linear_constraints.clone(),
             runtime_caches: Arc::new(runtime_caches.to_vec()),
             adaptive_params: Vec::new(),
-            fixed_quadratichessian: Arc::new(Array2::<f64>::zeros((
+            fixed_quadratic_hessian: ValidatedFixedQuadraticHessian::zero(
                 baseline.design.design.ncols(),
-                baseline.design.design.ncols(),
-            ))),
+            )
+            .expect("zero fixed quadratic Hessian"),
             hyperspecs: Arc::new(hyperspecs),
             exact_eval_cache: Arc::new(Mutex::new(None)),
         };
@@ -1772,7 +1875,7 @@ mod adaptive_bounded_duchon_tests {
                         operator_penalties: DuchonOperatorPenaltySpec::all_active(),
                         boundary: OneDimensionalBoundary::Open,
                     },
-                    input_scales: None,
+                    input_scale: None,
                 },
                 shape: ShapeConstraint::None,
                 joint_null_rotation: None,
@@ -1815,17 +1918,28 @@ mod adaptive_bounded_duchon_tests {
                     lambda: [1e-12, log_lambda_g.exp(), 1e-12],
                     epsilon: [eps_0, eps_g, eps_c],
                 }],
-                Arc::new(Array2::<f64>::zeros((
-                    baseline.design.design.ncols(),
-                    baseline.design.design.ncols(),
-                ))),
+                ValidatedFixedQuadraticHessian::zero(baseline.design.design.ncols())
+                    .expect("zero fixed quadratic Hessian"),
             );
+            let hyper_layout = gam_problem::CustomFamilyHyperLayout::new(
+                derivative_blocks.clone(),
+                Vec::new(),
+                array![
+                    (1e-12_f64).ln(),
+                    log_lambda_g,
+                    (1e-12_f64).ln(),
+                    eps_0.ln(),
+                    eps_g.ln(),
+                    eps_c.ln(),
+                ],
+            )
+            .expect("six-axis adaptive profile layout");
             evaluate_custom_family_joint_hyper(
                 &family,
                 std::slice::from_ref(&blockspec),
                 &outer_opts,
                 &Array1::zeros(0),
-                &derivative_blocks,
+                &hyper_layout,
                 None,
                 gam_solve::estimate::reml::reml_outer_engine::EvalMode::ValueAndGradient,
             )
@@ -1888,7 +2002,7 @@ mod adaptive_bounded_duchon_tests {
                         operator_penalties: DuchonOperatorPenaltySpec::default(),
                         boundary: OneDimensionalBoundary::Open,
                     },
-                    input_scales: None,
+                    input_scale: None,
                 },
                 shape: ShapeConstraint::None,
                 joint_null_rotation: None,
@@ -2043,15 +2157,14 @@ mod adaptive_bounded_duchon_tests {
                     spec: MaternBasisSpec {
                         periodic: None,
                         center_strategy: CenterStrategy::FarthestPoint { num_centers: 7 },
-                        length_scale: 0.8,
+                        length_scale: gam_terms::basis::MaternLengthScale::fixed(0.8),
                         nu: MaternNu::FiveHalves,
                         include_intercept: false,
                         double_penalty: true,
                         identifiability: MaternIdentifiability::CenterSumToZero,
                         aniso_log_scales: None,
-                        nullspace_shrinkage_survived: None,
                     },
-                    input_scales: None,
+                    input_scale: None,
                 },
                 shape: ShapeConstraint::None,
                 joint_null_rotation: None,
@@ -2140,7 +2253,7 @@ mod adaptive_bounded_duchon_tests {
                         operator_penalties: DuchonOperatorPenaltySpec::all_active(),
                         boundary: OneDimensionalBoundary::Open,
                     },
-                    input_scales: None,
+                    input_scale: None,
                 },
                 shape: ShapeConstraint::None,
                 joint_null_rotation: None,

@@ -313,7 +313,7 @@ fn focusing_must_not_change_the_observed_window_dpi() {
 }
 
 #[test]
-fn control_border_tracks_all_target_edges() {
+fn control_corners_mark_the_scoped_target_without_covering_its_edges() {
     let rect = windows::Win32::Foundation::RECT {
         left: -100,
         top: 20,
@@ -321,24 +321,45 @@ fn control_border_tracks_all_target_edges() {
         bottom: 620,
     };
 
-    let geometries = border_geometries(&rect, 96);
-    assert_eq!(geometries.len(), 20);
+    let geometries = corner_geometries(&rect, 96);
+    assert_eq!(geometries.len(), 24);
     assert_eq!(
-        &geometries[..4],
+        &geometries[..8],
         &[
-            ((-100, 20, 1000, 48), 34, true),
-            ((-100, 572, 1000, 48), 34, true),
-            ((-100, 20, 48, 600), 34, true),
-            ((852, 20, 48, 600), 34, true),
+            ((-100, 20, 232, 42), 48, true),
+            ((-100, 20, 42, 232), 48, true),
+            ((668, 20, 232, 42), 48, true),
+            ((858, 20, 42, 232), 48, true),
+            ((-100, 578, 232, 42), 48, true),
+            ((-100, 388, 42, 232), 48, true),
+            ((668, 578, 232, 42), 48, true),
+            ((858, 388, 42, 232), 48, true),
+        ]
+    );
+    assert_eq!(
+        &geometries[8..16],
+        &[
+            ((-100, 20, 208, 28), 92, true),
+            ((-100, 20, 28, 208), 92, true),
+            ((692, 20, 208, 28), 92, true),
+            ((872, 20, 28, 208), 92, true),
+            ((-100, 592, 208, 28), 92, true),
+            ((-100, 412, 28, 208), 92, true),
+            ((692, 592, 208, 28), 92, true),
+            ((872, 412, 28, 208), 92, true),
         ]
     );
     assert_eq!(
         &geometries[16..],
         &[
-            ((-100, 20, 1000, 7), CONTROL_BORDER_ALPHA, false),
-            ((-100, 613, 1000, 7), CONTROL_BORDER_ALPHA, false),
-            ((-100, 20, 7, 600), CONTROL_BORDER_ALPHA, false),
-            ((893, 20, 7, 600), CONTROL_BORDER_ALPHA, false),
+            ((-100, 20, 180, 12), CONTROL_BORDER_ALPHA, false),
+            ((-100, 20, 12, 180), CONTROL_BORDER_ALPHA, false),
+            ((720, 20, 180, 12), CONTROL_BORDER_ALPHA, false),
+            ((888, 20, 12, 180), CONTROL_BORDER_ALPHA, false),
+            ((-100, 608, 180, 12), CONTROL_BORDER_ALPHA, false),
+            ((-100, 440, 12, 180), CONTROL_BORDER_ALPHA, false),
+            ((720, 608, 180, 12), CONTROL_BORDER_ALPHA, false),
+            ((888, 440, 12, 180), CONTROL_BORDER_ALPHA, false),
         ]
     );
 }
@@ -348,12 +369,18 @@ fn overlay_pixels_scale_at_common_monitor_dpis() {
     assert_eq!(scaled_pixels(36, 96), 36);
     assert_eq!(scaled_pixels(36, 144), 54);
     assert_eq!(scaled_pixels(36, 192), 72);
-    assert_eq!(scaled_pixels(BORDER_THICKNESS, 96), 48);
-    assert_eq!(scaled_pixels(BORDER_THICKNESS, 144), 72);
-    assert_eq!(scaled_pixels(BORDER_THICKNESS, 192), 96);
-    assert_eq!(scaled_pixels(POINTER_EFFECT_SIZE, 96), 120);
-    assert_eq!(scaled_pixels(POINTER_EFFECT_SIZE, 144), 180);
-    assert_eq!(scaled_pixels(POINTER_EFFECT_SIZE, 192), 240);
+    assert_eq!(scaled_pixels(CORNER_GLOW_THICKNESS, 96), 42);
+    assert_eq!(scaled_pixels(CORNER_GLOW_THICKNESS, 144), 63);
+    assert_eq!(scaled_pixels(CORNER_GLOW_THICKNESS, 192), 84);
+    assert_eq!(scaled_pixels(CORNER_MID_THICKNESS, 96), 28);
+    assert_eq!(scaled_pixels(CORNER_MID_THICKNESS, 144), 42);
+    assert_eq!(scaled_pixels(CORNER_MID_THICKNESS, 192), 56);
+    assert_eq!(scaled_pixels(POINTER_EFFECT_SIZE, 96), 72);
+    assert_eq!(scaled_pixels(POINTER_EFFECT_SIZE, 144), 108);
+    assert_eq!(scaled_pixels(POINTER_EFFECT_SIZE, 192), 144);
+    assert_eq!(scaled_pixels(POINTER_RING_SIZE, 96), 52);
+    assert_eq!(scaled_pixels(POINTER_RING_SIZE, 144), 78);
+    assert_eq!(scaled_pixels(POINTER_RING_SIZE, 192), 104);
 }
 
 #[test]
@@ -370,7 +397,7 @@ fn control_overlay_breathes_smoothly_without_exceeding_base_alpha() {
         CONTROL_PULSE_PERIOD_MS / 2,
     );
 
-    assert_eq!(minimum, 62);
+    assert_eq!(minimum, 204);
     assert!(minimum < quarter && quarter < maximum);
     assert_eq!(maximum, CONTROL_BORDER_ALPHA);
     assert_eq!(
@@ -388,25 +415,33 @@ fn control_overlay_visual_contract_is_prominent_blue() {
     let red = CONTROL_ACCENT_COLOR.0 & 0xff;
     let green = (CONTROL_ACCENT_COLOR.0 >> 8) & 0xff;
     let blue = (CONTROL_ACCENT_COLOR.0 >> 16) & 0xff;
-    let focus_red = CONTROL_FOCUS_COLOR.0 & 0xff;
-    let focus_green = (CONTROL_FOCUS_COLOR.0 >> 8) & 0xff;
-    let focus_blue = (CONTROL_FOCUS_COLOR.0 >> 16) & 0xff;
+    let glow_red = CONTROL_GLOW_COLOR.0 & 0xff;
+    let glow_green = (CONTROL_GLOW_COLOR.0 >> 8) & 0xff;
+    let glow_blue = (CONTROL_GLOW_COLOR.0 >> 16) & 0xff;
+    let cursor_red = CONTROL_CURSOR_COLOR.0 & 0xff;
+    let cursor_green = (CONTROL_CURSOR_COLOR.0 >> 8) & 0xff;
+    let cursor_blue = (CONTROL_CURSOR_COLOR.0 >> 16) & 0xff;
 
     const {
-        assert!(BORDER_THICKNESS >= 40);
-        assert!(POINTER_EFFECT_SIZE >= 96);
-        assert!(CONTROL_BANNER_ALPHA > CONTROL_OVERLAY_ALPHA);
-        assert!(CONTROL_BORDER_ALPHA < CONTROL_CURSOR_ALPHA);
-        assert!(CONTROL_BANNER_FONT_SIZE >= 20);
+        assert!(CORNER_ACCENT_THICKNESS >= 10);
+        assert!(CORNER_ACCENT_LENGTH >= 180);
+        assert!(POINTER_EFFECT_SIZE >= 64 && POINTER_EFFECT_SIZE <= 96);
+        assert!(POINTER_RING_SIZE >= 40 && POINTER_RING_SIZE <= 64);
+        assert!(CONTROL_CAPSULE_ALPHA > CONTROL_OVERLAY_ALPHA);
+        assert!(CONTROL_BORDER_ALPHA >= CONTROL_CURSOR_ALPHA);
+        assert!(CONTROL_BORDER_ALPHA >= 224);
+        assert!(CONTROL_BORDER_PULSE_FLOOR_PERCENT >= 85);
+        assert!(CONTROL_CAPSULE_PULSE_FLOOR_PERCENT >= 92);
+        assert!(CONTROL_CAPSULE_FONT_SIZE >= 14 && CONTROL_CAPSULE_FONT_SIZE <= 18);
     }
     assert!((110..=220).contains(&CONTROL_OVERLAY_ALPHA));
     assert!(blue > green && green > red);
-    assert!(focus_blue > focus_green && focus_green > focus_red);
-    assert!(focus_blue < blue / 3);
+    assert!(glow_blue > glow_green && glow_green > glow_red);
+    assert!(cursor_red > cursor_green && cursor_green > cursor_blue);
 }
 
 #[test]
-fn banner_stays_on_a_negative_origin_monitor() {
+fn capsule_stays_top_center_on_a_negative_origin_monitor() {
     let target = windows::Win32::Foundation::RECT {
         left: -1900,
         top: 20,
@@ -421,13 +456,21 @@ fn banner_stays_on_a_negative_origin_monitor() {
     };
 
     assert_eq!(
-        banner_geometry(&target, &display, 96),
-        (-1900, 38, 1000, 62)
+        capsule_geometry(&target, &display, 96),
+        (-1640, 38, 480, 44)
+    );
+    assert_eq!(
+        capsule_glow_geometries((-1640, 38, 480, 44)),
+        [
+            ((-1652, 26, 504, 68), 44),
+            ((-1648, 30, 496, 60), 78),
+            ((-1644, 34, 488, 52), 118),
+        ]
     );
 }
 
 #[test]
-fn banner_clamps_partial_offscreen_targets_to_monitor_work_area() {
+fn capsule_clamps_partial_offscreen_targets_to_monitor_work_area() {
     let target = windows::Win32::Foundation::RECT {
         left: -2100,
         top: -100,
@@ -441,11 +484,14 @@ fn banner_clamps_partial_offscreen_targets_to_monitor_work_area() {
         bottom: 1040,
     };
 
-    assert_eq!(banner_geometry(&target, &display, 144), (-1920, 0, 780, 93));
+    assert_eq!(
+        capsule_geometry(&target, &display, 144),
+        (-1920, 0, 720, 66)
+    );
 }
 
 #[test]
-fn banner_clamps_cross_gap_targets_to_the_selected_real_monitor() {
+fn capsule_clamps_cross_gap_targets_to_the_selected_real_monitor() {
     let target = windows::Win32::Foundation::RECT {
         left: 1800,
         top: 150,
@@ -460,8 +506,8 @@ fn banner_clamps_cross_gap_targets_to_the_selected_real_monitor() {
     };
 
     assert_eq!(
-        banner_geometry(&target, &display, 96),
-        (2560, 200, 1040, 62)
+        capsule_geometry(&target, &display, 96),
+        (2560, 200, 480, 44)
     );
 }
 
@@ -575,15 +621,46 @@ fn pointer_effect_is_a_visible_click_through_overlay() {
 }
 
 #[test]
+fn persistent_pointer_ring_keeps_the_system_cursor_visible() {
+    use windows::Win32::Graphics::Gdi::{CreateRectRgn, GetWindowRgn, PtInRegion};
+
+    let _dpi_awareness = ThreadDpiAwareness::enter().unwrap();
+    let geometry = pointer_ring_geometry(200, 240);
+    let hwnd = create_cursor_ring_overlay(geometry, CONTROL_CURSOR_ALPHA).unwrap();
+    let region = unsafe { CreateRectRgn(0, 0, geometry.2, geometry.3) };
+
+    assert_ne!(unsafe { GetWindowRgn(hwnd, region) }, RGN_ERROR);
+    let center = geometry.2 / 2;
+    assert!(!unsafe { PtInRegion(region, center, center) }.as_bool());
+    assert!(unsafe { PtInRegion(region, center, (geometry.2 / 24).max(1)) }.as_bool());
+
+    let _ = unsafe { DeleteObject(HGDIOBJ(region.0)) };
+    unsafe { DestroyWindow(hwnd) }.unwrap();
+}
+
+#[test]
 fn persistent_overlay_layers_stay_hidden_until_their_geometry_is_ready() {
     use windows::Win32::UI::WindowsAndMessaging::IsWindowVisible;
 
     let _dpi_awareness = ThreadDpiAwareness::enter().unwrap();
-    let hwnd = create_color_overlay("", (80, 90, 160, 24), 42, false, true).unwrap();
+    let hwnd = create_color_overlay("", (80, 90, 160, 24), 42, false, OverlayTone::Glow).unwrap();
     assert!(!unsafe { IsWindowVisible(hwnd) }.as_bool());
 
     set_overlay_visible(hwnd, true).unwrap();
     assert!(unsafe { IsWindowVisible(hwnd) }.as_bool());
+    unsafe { DestroyWindow(hwnd) }.unwrap();
+}
+
+#[test]
+fn overlay_classes_are_revalidated_for_each_window_creation() {
+    register_color_overlay_classes().unwrap();
+    let instance = unsafe { GetModuleHandleW(None) }.unwrap();
+    let mut class = WNDCLASSW::default();
+
+    unsafe { GetClassInfoW(Some(instance.into()), CONTROL_OVERLAY_CLASS, &raw mut class) }.unwrap();
+
+    let hwnd = create_color_overlay("", (80, 90, 160, 24), 42, false, OverlayTone::Accent).unwrap();
+    assert!(unsafe { IsWindow(Some(hwnd)) }.as_bool());
     unsafe { DestroyWindow(hwnd) }.unwrap();
 }
 
@@ -818,12 +895,12 @@ fn hidden_and_reused_windows_fail_closed() {
         prepare_point_target(200, 240, effect.hwnd, process_id.saturating_add(1)).unwrap_err();
     assert_eq!(occluded.code, ComputerUseErrorCode::InvalidTarget);
 
-    let same_process_wrong_window =
-        prepare_point_target(200, 240, other_window.hwnd, process_id).unwrap_err();
-    assert_eq!(
-        same_process_wrong_window.code,
-        ComputerUseErrorCode::InvalidTarget
-    );
+    assert!(!point_belongs_to_target(
+        process_id,
+        effect.hwnd,
+        process_id,
+        other_window.hwnd,
+    ));
 
     let _ = unsafe { ShowWindow(effect.hwnd, SW_HIDE) };
     let hidden = available_target_rect(effect.hwnd).unwrap_err();
@@ -853,16 +930,30 @@ fn protected_system_ui_is_not_eligible_for_transient_occlusion_recovery() {
 }
 
 #[test]
-fn focus_recovery_policy_allows_only_ordinary_cross_process_blockers() {
-    assert!(focus_recovery_allowed(100, 200, "ChatGPT.exe", "Chrome_WidgetWin_1",).unwrap());
+fn focus_recovery_policy_attempts_all_cross_process_blockers() {
+    assert!(focus_recovery_allowed(100, 200).unwrap());
 
-    let same_process =
-        focus_recovery_allowed(100, 100, "Nuke15.2.exe", "Qt5152QWindowIcon").unwrap_err();
+    let same_process = focus_recovery_allowed(100, 100).unwrap_err();
     assert_eq!(same_process.code, ComputerUseErrorCode::FocusLost);
+}
 
-    let protected =
-        focus_recovery_allowed(100, 200, "PickerHost.exe", "Shell_SystemDialog").unwrap_err();
+#[test]
+fn point_recovery_failure_preserves_protected_ui_boundary() {
+    let protected = point_recovery_failure(
+        "PickerHost.exe",
+        "Shell_SystemDim",
+        "PickerHost / Shell_SystemDim",
+    );
     assert_eq!(protected.code, ComputerUseErrorCode::InvalidTarget);
+    assert!(protected.message.contains("protected system UI"));
+
+    let ordinary = point_recovery_failure(
+        "ChatGPT.exe",
+        "Chrome_WidgetWin_1",
+        "ChatGPT / Chrome_WidgetWin_1",
+    );
+    assert_eq!(ordinary.code, ComputerUseErrorCode::InvalidTarget);
+    assert!(ordinary.message.contains("occluded by"));
 }
 
 #[test]
@@ -883,6 +974,52 @@ fn minimized_window_is_identity_checked_then_restored_for_input() {
 
     restore_target_for_input(effect.hwnd, process_id).unwrap();
     assert!(!unsafe { IsIconic(effect.hwnd) }.as_bool());
+}
+
+#[test]
+fn exact_window_state_can_restore_and_show_without_a_screenshot() {
+    use windows::Win32::System::Threading::GetCurrentProcessId;
+    use windows::Win32::UI::WindowsAndMessaging::{SW_HIDE, SW_MINIMIZE};
+
+    let _dpi_awareness = ThreadDpiAwareness::enter().unwrap();
+    let effect = PointerEffect::new(240, 280, "●").unwrap();
+    let process_id = unsafe { GetCurrentProcessId() };
+    let window_handle = effect.hwnd.0 as usize as u64;
+
+    let _ = unsafe { ShowWindow(effect.hwnd, SW_MINIMIZE) };
+    let minimized = scoped_window_state(window_handle, process_id).unwrap();
+    assert!(minimized.exists);
+    assert!(minimized.minimized);
+
+    let wrong_process = transition_scoped_window(
+        window_handle,
+        process_id.saturating_add(1),
+        ScopedWindowOperation::Restore,
+    )
+    .unwrap_err();
+    assert_eq!(wrong_process.code, ComputerUseErrorCode::InvalidTarget);
+    assert!(unsafe { IsIconic(effect.hwnd) }.as_bool());
+
+    if !desktop_interactive() {
+        return;
+    }
+
+    let restored =
+        transition_scoped_window(window_handle, process_id, ScopedWindowOperation::Restore)
+            .unwrap();
+    assert!(!restored.minimized);
+
+    let _ = unsafe { ShowWindow(effect.hwnd, SW_HIDE) };
+    let hidden = scoped_window_state(window_handle, process_id).unwrap();
+    assert!(!hidden.visible);
+    let activate_hidden =
+        transition_scoped_window(window_handle, process_id, ScopedWindowOperation::Activate)
+            .unwrap_err();
+    assert_eq!(activate_hidden.code, ComputerUseErrorCode::InvalidAction);
+
+    let shown =
+        transition_scoped_window(window_handle, process_id, ScopedWindowOperation::Show).unwrap();
+    assert!(shown.visible);
 }
 
 #[test]

@@ -3264,6 +3264,97 @@ def _cmd_license(args) -> None:
             print(f"  Trust key:   sha256:{fp[:16]}…  (clawmetry license fingerprint)")
 
 
+def _entitlement_why_payload(kind: str, key: str) -> dict:
+    """Resolve the lock-reason payload for a single feature/runtime id.
+
+    Same shape the ``/api/entitlement/lock-reason`` HTTP endpoint emits so
+    ``clawmetry <features|runtimes> --why <id> --json`` and the dashboard
+    cannot drift on the upgrade affordance. Never raises: any resolver
+    failure returns the OSS-free "not locked, unknown" fallback so a wrapper
+    script always sees a parseable response — matches the never-crash
+    contract documented on :func:`get_entitlement`.
+    """
+    key = (key or "").strip().lower()
+    try:
+        from clawmetry import entitlements as _ent
+
+        ent = _ent.get_entitlement()
+        cur_tier = ent.tier
+        cur_rank = _ent.tier_rank(cur_tier)
+        if kind == "runtime":
+            allowed = ent.allows_runtime(key)
+            required = _ent.min_tier_for_runtime(key)
+            reason = ent.lock_reason(key, kind="runtime")
+        else:  # feature
+            allowed = ent.allows_feature(key)
+            required = _ent.min_tier_for_feature(key)
+            reason = ent.lock_reason(key, kind="feature")
+        req_rank = _ent.tier_rank(required) if required else -1
+        required_label = _ent.tier_label(required) if required else None
+        return {
+            "key": key,
+            "kind": kind,
+            "reason": reason,
+            "locked": reason is not None,
+            "allowed": bool(allowed),
+            "required_tier": required,
+            "required_tier_label": required_label,
+            "required_tier_rank": req_rank,
+            "current_tier": cur_tier,
+            "current_tier_rank": cur_rank,
+            "upgrade_required": bool(required) and req_rank > cur_rank,
+        }
+    except Exception as exc:
+        print(f"⚠️  entitlement resolution failed: {exc}", file=sys.stderr)
+        return {
+            "key": key,
+            "kind": kind,
+            "reason": None,
+            "locked": False,
+            "allowed": True,
+            "required_tier": None,
+            "required_tier_label": None,
+            "required_tier_rank": -1,
+            "current_tier": "oss",
+            "current_tier_rank": 0,
+            "upgrade_required": False,
+        }
+
+
+def _print_why_block(payload: dict) -> None:
+    """Human-readable render of :func:`_entitlement_why_payload`.
+
+    Mirrors the ``clawmetry tier`` / ``clawmetry features`` output style
+    (aligned two-column block, single upgrade CTA when a paid tier unlocks
+    the item) so shell operators recognise the layout across subcommands.
+    """
+    key = payload.get("key") or "(unknown)"
+    kind = payload.get("kind") or "?"
+    locked = bool(payload.get("locked"))
+    print(f'ClawMetry: why is "{key}" locked?')
+    print("─" * 40)
+    print(f"  Kind:            {kind}")
+    print(f"  Current tier:    {payload.get('current_tier', 'oss')}")
+    print(f"  Locked:          {'yes' if locked else 'no'}")
+    reason = payload.get("reason")
+    if reason:
+        print(f"  Reason:          {reason}")
+    req = payload.get("required_tier")
+    req_label = payload.get("required_tier_label")
+    if req:
+        rank = payload.get("required_tier_rank", -1)
+        rank_hint = f" (rank {rank})" if isinstance(rank, int) and rank >= 0 else ""
+        print(f"  Required tier:   {req_label or req}{rank_hint}")
+    if payload.get("upgrade_required"):
+        print("  Upgrade:         clawmetry license activate <KEY>")
+    elif not locked and not payload.get("reason"):
+        # Free/allowed or unknown id: don't dangle an upgrade CTA. Give the
+        # operator a one-line hint of which case they hit so a `--why` on a
+        # typo doesn't silently look like a "no lock" all-clear.
+        if not req:
+            print("  Note:            not a paid capability on this install")
+
+
 def _cmd_tier(args) -> None:
     """clawmetry tier — print the resolved open-core entitlement.
 
@@ -3361,6 +3452,15 @@ def _cmd_runtimes(args) -> None:
 
     from clawmetry import entitlements as _ent
 
+    why = (getattr(args, "why", None) or "").strip().lower()
+    if why:
+        payload = _entitlement_why_payload("runtime", why)
+        if getattr(args, "as_json", False):
+            print(_json.dumps(payload, indent=2, sort_keys=True))
+        else:
+            _print_why_block(payload)
+        return
+
     try:
         ent = _ent.get_entitlement()
         tier = ent.tier
@@ -3444,6 +3544,15 @@ def _cmd_features(args) -> None:
 
     from clawmetry import entitlements as _ent
 
+    why = (getattr(args, "why", None) or "").strip().lower()
+    if why:
+        payload = _entitlement_why_payload("feature", why)
+        if getattr(args, "as_json", False):
+            print(_json.dumps(payload, indent=2, sort_keys=True))
+        else:
+            _print_why_block(payload)
+        return
+
     try:
         ent = _ent.get_entitlement()
         tier = ent.tier
@@ -3508,6 +3617,90 @@ def _cmd_features(args) -> None:
     if any_locked:
         print()
         print("  Upgrade: clawmetry license activate <KEY>")
+
+
+def _cmd_channels(args) -> None:
+    """clawmetry channels — list every chat-channel adapter and the tier cap.
+
+    Sibling of :func:`_cmd_runtimes` / :func:`_cmd_features` for the third
+    entitlement axis. Every chat channel is FREE at every tier -- the
+    ``channels`` capacity axis governs how many concurrent channels each
+    plan admits, not which adapters unlock -- so every row surfaces as
+    available. The tier-scoped concurrent-channel cap is what upgrades
+    unlock, and it prints in the header block. Reads
+    :func:`clawmetry.entitlements.channel_catalog` -- the same source the
+    dashboard's channel-picker consumes -- so the CLI and the UI cannot
+    drift on the adapter list.
+
+    Never raises. A poisoned catalog read surfaces the error inline (a
+    warning row in the human table, or an ``error`` key on the JSON payload
+    with ``channels=[]``) so a wrapper script always sees a parseable
+    response. Matches the never-crash contract documented on
+    :func:`get_entitlement`.
+
+    Output:
+      default -- header block (tier / enforcement / channel cap) + table
+                 (id, label, status) of every adapter
+      --json  -- ``{tier, grace, enforced, channel_limit, channels: [...],
+                 error?: str}``
+    """
+    import json as _json
+
+    from clawmetry import entitlements as _ent
+
+    try:
+        ent = _ent.get_entitlement()
+        tier = ent.tier
+        grace = bool(ent.grace)
+        enforced = _ent.is_enforced()
+        channel_limit = ent.channel_limit()
+    except Exception as exc:
+        # Mirror _cmd_runtimes / _cmd_features never-crash fallback: a
+        # broken install still gets a parseable shape, with the failure
+        # surfaced to stderr so it isn't silently lost in a pipeline.
+        print(f"⚠️  entitlement resolution failed: {exc}", file=sys.stderr)
+        tier, grace, enforced, channel_limit = "oss", True, False, None
+
+    rows: list[dict] = []
+    catalog_error: str | None = None
+    try:
+        rows = list(_ent.channel_catalog())
+    except Exception as exc:
+        catalog_error = str(exc)
+
+    if getattr(args, "as_json", False):
+        payload: dict = {
+            "tier": tier,
+            "grace": grace,
+            "enforced": enforced,
+            "channel_limit": channel_limit,
+            "channels": rows,
+        }
+        if catalog_error:
+            payload["error"] = catalog_error
+        print(_json.dumps(payload, indent=2, sort_keys=True))
+        return
+
+    mode_line = "off (grace)" if not enforced else "on"
+    cap_line = "unlimited" if channel_limit in (None, 0) else str(channel_limit)
+    print("ClawMetry Channels\n" + "─" * 40)
+    print(f"  Tier:        {tier}")
+    print(f"  Enforcement: {mode_line}")
+    print(f"  Channel cap: {cap_line}  (concurrent adapters)")
+    if catalog_error:
+        print(f"  ⚠️  catalog error: {catalog_error}")
+        return
+
+    print()
+    print(f"  {'ID':<16} {'Label':<20} Status")
+    print("  " + "─" * 50)
+    for row in rows:
+        cid = str(row.get("id", ""))
+        label = str(row.get("label", cid))
+        # Every channel adapter is free at every tier; the cap is separate.
+        # Surface the row identically to a free/available runtime row.
+        status = "✅ available"
+        print(f"  {cid:<16} {label:<20} {status}")
 
 
 def _cmd_verify_integrity(args) -> None:
@@ -3984,6 +4177,15 @@ def main() -> None:
         dest="as_json",
         help="Emit {tier, grace, enforced, runtimes:[...]} JSON (jq-friendly)",
     )
+    p_runtimes.add_argument(
+        "--why",
+        metavar="ID",
+        default=None,
+        help=(
+            "Print the lock-reason payload for a single runtime id "
+            "(same shape as GET /api/entitlement/lock-reason?runtime=<id>)"
+        ),
+    )
 
     # features — list every observable feature and which are unlocked.
     # CLI sibling of `clawmetry runtimes` and of the dashboard's GET
@@ -3998,6 +4200,33 @@ def main() -> None:
         action="store_true",
         dest="as_json",
         help="Emit {tier, grace, enforced, features:[...]} JSON (jq-friendly)",
+    )
+    p_features.add_argument(
+        "--why",
+        metavar="ID",
+        default=None,
+        help=(
+            "Print the lock-reason payload for a single feature id "
+            "(same shape as GET /api/entitlement/lock-reason?feature=<id>)"
+        ),
+    )
+
+    # channels — list every chat-channel adapter and the tier-scoped cap.
+    # CLI sibling of `clawmetry runtimes` / `clawmetry features` for the
+    # third entitlement axis. Every adapter is FREE at every tier; the
+    # concurrent-channel cap is what the header block advertises.
+    p_channels = sub.add_parser(
+        "channels",
+        help="List every chat-channel adapter and the concurrent-channel cap",
+    )
+    p_channels.add_argument(
+        "--json",
+        action="store_true",
+        dest="as_json",
+        help=(
+            "Emit {tier, grace, enforced, channel_limit, channels:[...]} "
+            "JSON (jq-friendly)"
+        ),
     )
 
     # verify-integrity — walk hash chain and report validity (Issue #2200)
@@ -4032,6 +4261,7 @@ def main() -> None:
         "tier",
         "runtimes",
         "features",
+        "channels",
         "verify-integrity",
         "nemoclaw-daemons",
     )
@@ -4075,6 +4305,8 @@ def main() -> None:
             _cmd_runtimes(args)
         elif args.cmd == "features":
             _cmd_features(args)
+        elif args.cmd == "channels":
+            _cmd_channels(args)
         elif args.cmd == "verify-integrity":
             _cmd_verify_integrity(args)
         elif args.cmd == "nemoclaw-daemons":

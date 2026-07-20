@@ -34,6 +34,10 @@ use super::tests_startup_validation_1782::{Topo, objective_and_seed};
 use super::{SaeManifoldRho, SaeManifoldTerm};
 use crate::assignment::{AssignmentMode, SaeAssignment};
 use gam_linalg::faer_ndarray::FaerSvd;
+// `eval_efs` is a method of the `OuterObjective` trait (impl for
+// SaeManifoldOuterObjective); the trait must be in scope to call it on the
+// production objective, the same import the sibling #1782 seed-eval test uses.
+use gam_solve::rho_optimizer::OuterObjective;
 use ndarray::{Array2, ArrayView2};
 
 /// splitmix64 mixer — deterministic, reproducible across threads / devices; no
@@ -277,5 +281,116 @@ fn zz_collapse_2132_heldout_ev_nondecreasing_and_beats_pca() {
         "#2132: K={} curved held-out EV {ev_2c:.4} is below the rank-{} PCA ceiling {pca_2c:.4}",
         2 * C,
         2 * C
+    );
+}
+
+/// #2132/#2228 — CHEAP fixed-ρ discriminator for the inner quotient stall.
+///
+/// The full EV-vs-K close driver runs THREE outer ρ searches (K=C, C+2, 2C), each
+/// a 12-iteration BFGS over repeated inner solves — hours of walltime, and the
+/// 13281964 trace showed it never even reached the sweep: it refused at the FIRST
+/// fit's SEED evaluation with the SAE inner quotient stall (‖g‖=0.174 ≫ tol 3.6e-4,
+/// ½λ²/scale=3.1e-6, terminal-polish bail → "refusing to rank an off-optimum Laplace
+/// criterion"). This probe reproduces exactly that seed-evaluation refusal for a
+/// FRACTION of the cost: a SINGLE `eval_efs(seed)` inner solve per small matched-K
+/// (K=C) circle mixture — no outer loop at all. Seconds, not hours.
+///
+/// Run with `RUST_LOG=debug --nocapture` to surface the terminal-polish arbiter
+/// lines ("terminal Newton bail: all backtracks rejected" vs "terminal Newton step
+/// committed" vs "quotient solver refused"/"GMRES bail") that discriminate the root:
+/// merit-rejects-valid-indefinite-Newton-step (the raw-‖g‖-only polish merit) vs an
+/// objective↔gradient/pencil desync vs a preconditioner defect.
+///
+/// Acceptance: every seed evaluation must TERMINATE with a finite criterion — a
+/// converged inner solve or a best-incumbent, never the off-optimum refusal that
+/// blocks the whole #2132/#2228 SAE acceptance lane.
+#[test]
+fn manifold_circle_mixture_seed_eval_terminates_2132() {
+    // The engine's `log::debug!` arbiter lines in `terminal_exact_newton_polish`
+    // (bail / step-committed / quotient-solver-refused) are SILENTLY DROPPED by the
+    // test harness unless a logger is installed — so a bare `--nocapture` run would
+    // show the refusal but not WHY. Forward every record to stderr so the discriminator
+    // lines surface without needing RUST_LOG (max level is set to Debug directly).
+    struct ForwardingTestLogger;
+    impl log::Log for ForwardingTestLogger {
+        fn enabled(&self, _: &log::Metadata<'_>) -> bool {
+            true
+        }
+        fn log(&self, record: &log::Record<'_>) {
+            eprintln!("[{}] {}", record.level(), record.args());
+        }
+        fn flush(&self) {}
+    }
+    static FORWARDING_TEST_LOGGER: ForwardingTestLogger = ForwardingTestLogger;
+    // Ignore the error when another test already installed a global logger.
+    if log::set_logger(&FORWARDING_TEST_LOGGER).is_ok() {
+        log::set_max_level(log::LevelFilter::Debug);
+    }
+
+    // (C, P, K, tag): matched-K planted circle mixtures FIRST (fast, known — K=C,
+    // P=2C+2 keeps the C planes disjoint), then the #2267 OVER-COMPLETE lane last:
+    // K=8 atoms on a C-circle mixture at P=32 (the curved-K=8 dense-softmax arm that
+    // HANGS >40min on 508×32 in the #2267 timing runs, per implPERF). Matched arms
+    // run first so their results are captured before any over-complete hang; the
+    // START line before each eval names the culprit config if the job is
+    // walltime-killed (a HANG here = the single inner solve itself has an unbounded
+    // loop, distinct from an outer-search churn).
+    const CONFIGS: [(usize, usize, usize, &str); 5] = [
+        (2, 6, 2, "matched"),
+        (3, 8, 3, "matched"),
+        (4, 10, 4, "matched"),
+        (2, 32, 8, "overcomplete_2267"),
+        (4, 32, 8, "overcomplete_2267"),
+    ];
+    const N: usize = 508;
+    const SIGMA: f64 = 0.05;
+
+    let mut refusals: Vec<String> = Vec::new();
+    for (c, p, k, tag) in CONFIGS {
+        let train = planted_circle_mixture(N, p, c, SIGMA, 0xA11CE ^ c as u64);
+        // Both routings the close driver / repros exercise: soft (softmax logits are
+        // free Newton params — the #2267 default) AND hard TopK (support-sparse — no
+        // logit is a Newton param, membership is the compact active-set whose
+        // oscillation is the exchange-churn signature shared with the CTN joint lane).
+        // top_k=1 mirrors the driver. Covering both means whichever mechanism the
+        // driver hit — the indefinite-Hessian geometry stall OR top-k support
+        // ping-pong — reproduces here, and the forwarded arbiter lines discriminate.
+        for mode_idx in 0..2 {
+            let (mode_label, mode) = match mode_idx {
+                0 => ("softmax", AssignmentMode::softmax(1.0)),
+                _ => ("topk1", AssignmentMode::top_k_support(1)),
+            };
+            eprintln!("[#2132 seed-eval] START C={c} K={k} P={p} routing={mode_label} tag={tag}");
+            let (mut objective, seed) = objective_and_seed(train.view(), k, Topo::Circle, mode);
+            match objective.eval_efs(&seed) {
+                Ok(eval) => {
+                    let steps_finite = eval.steps.iter().all(|v| v.is_finite());
+                    eprintln!(
+                        "[#2132 seed-eval] C={c} K={k} P={p} routing={mode_label} tag={tag}: \
+                         cost={:.6e} n_steps={} steps_finite={steps_finite} cost_finite={}",
+                        eval.cost,
+                        eval.steps.len(),
+                        eval.cost.is_finite()
+                    );
+                    if !eval.cost.is_finite() {
+                        refusals.push(format!(
+                            "C={c}/K={k}/{mode_label}: non-finite seed cost {:.6e}",
+                            eval.cost
+                        ));
+                    }
+                }
+                Err(err) => {
+                    eprintln!(
+                        "[#2132 seed-eval] C={c} K={k} P={p} routing={mode_label} tag={tag}: REFUSED — {err}"
+                    );
+                    refusals.push(format!("C={c}/K={k}/{mode_label}: {err}"));
+                }
+            }
+        }
+    }
+    assert!(
+        refusals.is_empty(),
+        "#2132/#2228: inner seed evaluation refused / went non-finite on a clean planted \
+         circle mixture (the seed-evaluation stall the close driver never gets past): {refusals:?}"
     );
 }

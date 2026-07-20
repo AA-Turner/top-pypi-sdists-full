@@ -371,10 +371,38 @@ pub(crate) fn priority_tiered_rank_from_gram(
             rank_tol: 0.0,
         };
     }
-    // Working Schur-complement copy of the Gram and its diagonal residuals.
-    let mut g = gram.clone();
+    // WEIGHT-INVARIANT RANK. Identifiability (column rank) is invariant to a
+    // positive per-column scaling — a diagonal congruence `D^{-1/2} G D^{-1/2}`
+    // preserves rank and inertia exactly — so rank the DIAGONALLY-EQUILIBRATED
+    // Gram, not the raw one. Without this the pivot tolerance below is relative
+    // to the LARGEST column norm (`leading_diag`), so a single stiff direction
+    // inflates `tol` until genuinely independent, well-conditioned columns fall
+    // beneath it and are mislabeled rank-deficient. Concretely, the
+    // marginal-slope effective Jacobian carries the per-row chain weight
+    // `c_i = sqrt(1 + (s·g_i)²)`, which made one direction σ₁ ≈ 8.7e7 while the
+    // other eleven were σ ∈ [37, 4.8e-2] (absolutely well-conditioned): the raw
+    // relative cutoff dropped all eleven and reported range_rank 1/12, refusing a
+    // fully identified time surface. Equilibrating to unit diagonals makes the
+    // cutoff see the true column CORRELATION structure — collinear columns still
+    // collapse (correlation → 1, residual → 0), only benign scale differences are
+    // neutralized. Zero-diagonal columns stay zero (dropped) via the unit
+    // fallback.
+    let scale: Vec<f64> = (0..p)
+        .map(|j| {
+            let dj = gram[[j, j]].max(0.0);
+            if dj > 0.0 { dj.sqrt() } else { 1.0 }
+        })
+        .collect();
+    let mut g = Array2::<f64>::zeros((p, p));
+    for i in 0..p {
+        for j in 0..p {
+            g[[i, j]] = gram[[i, j]] / (scale[i] * scale[j]);
+        }
+    }
+    // Working Schur-complement Gram (equilibrated) and its diagonal residuals.
     let mut d: Vec<f64> = (0..p).map(|j| g[[j, j]].max(0.0)).collect();
-    // Leading pivot magnitude = largest initial column norm = max √diagonal.
+    // Leading pivot magnitude of the equilibrated Gram (≈ 1 for any column with a
+    // non-zero norm), so the tolerance is now scale-free.
     let leading_diag = d.iter().cloned().fold(0.0_f64, f64::max).sqrt();
     let tol = rank_alpha * f64::EPSILON * (m_rows.max(p).max(1) as f64) * leading_diag.max(1.0);
     let tol_sq = tol * tol;
@@ -861,11 +889,17 @@ fn audit_identifiability_impl(
         // (design-null but regularized) directions count as identified. RRQR is
         // rank-revealing (the prior plain-QR diagonal was not), so the reported
         // range_rank is now an honest numerical rank.
+        let singular_spectrum = if block_ranks[idx] < p_block {
+            block_effective_singular_spectrum(&dense_blocks[idx])
+        } else {
+            String::new()
+        };
         blocks.push(BlockIdentity {
             block_name: spec.name.clone(),
             original_dim: p_block,
             effective_dim: p_block,
             design_range_rank: block_ranks[idx],
+            singular_spectrum,
         });
         let next_offset = col_offsets[col_offsets.len() - 1] + p_block;
         col_offsets.push(next_offset);
@@ -1771,8 +1805,12 @@ fn audit_identifiability_impl(
                             "; block '{}' is INTRA-BLOCK rank-deficient \
                              (range_rank {}/{}) — NOT resolvable by cross-block \
                              gauge_priority; the redundant column must be removed \
-                             or centered within the block",
-                            first_drop.block, b.design_range_rank, b.original_dim
+                             or centered within the block; ranked-Gram singular \
+                             values=[{}]",
+                            first_drop.block,
+                            b.design_range_rank,
+                            b.original_dim,
+                            b.singular_spectrum
                         )
                     })
                     .unwrap_or_default();
@@ -2132,6 +2170,19 @@ pub fn audit_identifiability_channel_aware(
     for (idx, spec) in specs.iter().enumerate() {
         let p_block = spec.design.ncols();
         let kept = compiled_map.compiled_block_ranges[idx].len();
+        // Diagnostic spectrum for a rank-deficient block: √eig of its diagonal
+        // structural sub-Gram — the exact matrix whose pivoted-Cholesky rank
+        // produced `kept`. Only computed on deficiency.
+        let singular_spectrum = if kept < p_block {
+            let off = col_offsets[idx];
+            let sub = geometry
+                .gram_struct
+                .slice(ndarray::s![off..off + p_block, off..off + p_block])
+                .to_owned();
+            gram_singular_spectrum(&sub)
+        } else {
+            String::new()
+        };
         blocks.push(BlockIdentity {
             block_name: spec.name.clone(),
             original_dim: p_block,
@@ -2140,6 +2191,7 @@ pub fn audit_identifiability_channel_aware(
             // per-block penalty-aware rank; rely on `effective_dim`
             // < `original_dim` as the structural-rank signal.
             design_range_rank: kept,
+            singular_spectrum,
         });
     }
     let p_total = *col_offsets.last().expect("col_offsets non-empty");
@@ -2487,8 +2539,12 @@ pub fn audit_identifiability_channel_aware(
                             "; block '{}' is INTRA-BLOCK rank-deficient \
                              (range_rank {}/{}) — NOT resolvable by cross-block \
                              gauge_priority; the redundant column must be removed \
-                             or centered within the block",
-                            first_drop.block, b.design_range_rank, b.original_dim
+                             or centered within the block; ranked-Gram singular \
+                             values=[{}]",
+                            first_drop.block,
+                            b.design_range_rank,
+                            b.original_dim,
+                            b.singular_spectrum
                         )
                     })
                     .unwrap_or_default();
@@ -2750,7 +2806,29 @@ fn channel_aware_penalty_aware_joint_rank(
         }
     }
 
-    rank_of_gram(&aug_gram, n_design_rows + n_penalty_rows)
+    // Equilibrate the penalty-augmented Gram before the numerical rank count.
+    //
+    // WHY rank is preserved EXACTLY: `equilibrate_gram` forms `Ĝ = D^{-1/2} G
+    // D^{-1/2}` with `D = diag(G)` (positive diagonal; a zero-diagonal column is
+    // already a genuine null direction and stays null). This is a congruence by
+    // the invertible diagonal `D^{-1/2}`, and congruence preserves inertia
+    // (Sylvester), so `rank(Ĝ) = rank(G)` and the null space — the genuinely
+    // unidentified directions `ker(J_eff) ∩ ker(S)` we DO refuse on — is untouched.
+    //
+    // WHY the COUNTING is scale-robust after it: `count_rank`'s tolerance is
+    // `τ = α·ε·max(n,p)·σ_max`, relative to the LARGEST singular value. On the raw
+    // `G` a stiff direction (the marginal-slope chain weight `c_i`, whose spectrum
+    // reached ~8.66e7 here) sets `σ_max` huge, so a small-but-nonzero penalty-
+    // covered σ on a weakly-distinguished direction (the pilot-effective shared-
+    // affine modes, where the `c−f` weighting is weak) falls below `τ` and is
+    // stranded — an anisotropy artifact, not non-identification. On `Ĝ` the
+    // diagonal is unit, `σ_max = O(1)`, and each σ is judged against its own scale,
+    // so the identified small direction is counted. Identical fix to
+    // keep_positive_eigenspace (b58bd1909), one layer down at the penalty-coverage
+    // check; reuses `gam_linalg::decision::equilibrate_gram`, whose own test
+    // certifies exactly this strand-vs-equilibrate case (#2337 §3.2).
+    let (equilibrated, _) = gam_linalg::decision::equilibrate_gram(&aug_gram);
+    rank_of_gram(&equilibrated, n_design_rows + n_penalty_rows)
 }
 
 /// Pairwise overlap scan on the channel-weighted joint design
@@ -2859,6 +2937,10 @@ pub struct AuditDriftSummary {
     pub pilot_rank: usize,
     /// Current-β effective rank.
     pub current_rank: usize,
+    /// Whether the pilot audit carried an unresolved fatal alias.
+    pub pilot_fatal: bool,
+    /// Whether the converged-state audit carries an unresolved fatal alias.
+    pub current_fatal: bool,
     /// `‖β_current − β_pilot‖₂ / (‖β_pilot‖₂ + ε)` — relative norm change.
     pub beta_relative_change: f64,
     /// Columns dropped in the current audit that were NOT dropped in the pilot.
@@ -2867,8 +2949,8 @@ pub struct AuditDriftSummary {
     pub recovered: Vec<String>,
 }
 
-/// Run the channel-aware audit at `beta_current` using `channel_hessian_at`
-/// to refresh W, and compare the result to the pilot audit.
+/// Run the structural audit at `beta_current`, refreshing each effective
+/// Jacobian from the current family state, and compare it to the pilot audit.
 ///
 /// # Drift threshold (T34)
 ///
@@ -2907,7 +2989,8 @@ pub fn maybe_log_audit_drift(
     family_scalars: Option<&std::sync::Arc<dyn std::any::Any + Send + Sync>>,
     outer_iter: usize,
     every_n_iters: usize,
-) -> Option<AuditDriftSummary> {
+    probit_frailty_scale: f64,
+) -> Result<Option<AuditDriftSummary>, EstimationError> {
     // Drift threshold: re-audit when:
     //   (a) relative β movement > 0.5 (substantial step from pilot), OR
     //   (b) every `every_n_iters` outer iterations (amortised cost check).
@@ -2940,7 +3023,7 @@ pub fn maybe_log_audit_drift(
     let periodic_check = (outer_iter % period) == 0;
 
     if !large_beta_movement && !periodic_check {
-        return None;
+        return Ok(None);
     }
 
     // Run the flat audit at the current β.  For channel-aware families the
@@ -2957,34 +3040,27 @@ pub fn maybe_log_audit_drift(
     // curvature-weighted.  That is the correct identifiability check: structural
     // rank is what tells you whether the model is locally identified at β.
     let p_total: usize = specs.iter().map(|s| s.design.ncols()).sum();
-    let beta_for_state: Vec<f64> = if beta_current.len() == p_total {
-        beta_current.to_vec()
-    } else {
-        // Length mismatch: the caller's β does not match the assembled design
-        // width, so the audit cannot be evaluated at the real β. Fall back to
-        // the origin (β = 0) but record it — the structural rank read at β = 0
-        // can differ from the rank at the true β, so a drift verdict resting on
-        // this fallback is only a coarse structural check.
-        log::debug!(
-            "[identifiability-drift] beta_current len {} != design width {}; \
-             auditing structural rank at the beta=0 fallback",
+    if beta_pilot.len() != p_total || beta_current.len() != p_total {
+        return Err(EstimationError::LayoutError(format!(
+            "identifiability drift requires pilot/current beta width {p_total}, got pilot={} current={}",
+            beta_pilot.len(),
             beta_current.len(),
-            p_total,
-        );
-        vec![0.0; p_total]
-    };
+        )));
+    }
+    if !(probit_frailty_scale.is_finite() && probit_frailty_scale > 0.0) {
+        return Err(EstimationError::LayoutError(format!(
+            "identifiability drift requires a positive finite probit/frailty scale, got {probit_frailty_scale}"
+        )));
+    }
     let state = gam_problem::FamilyLinearizationState {
-        beta: &beta_for_state,
+        beta: beta_current,
         family_scalars: family_scalars.cloned(),
         channel_hessian: None,
-        probit_frailty_scale: 1.0,
+        probit_frailty_scale,
     };
 
     // Re-run the flat audit at beta_current.
-    let current_audit = match audit_identifiability_with_state(specs, &state) {
-        Ok(a) => a,
-        Err(_) => return None,
-    };
+    let current_audit = audit_identifiability_with_state(specs, &state)?;
 
     let pilot_rank: usize = pilot_audit.blocks.iter().map(|b| b.effective_dim).sum();
     let current_rank: usize = current_audit.blocks.iter().map(|b| b.effective_dim).sum();
@@ -3015,8 +3091,10 @@ pub fn maybe_log_audit_drift(
         .map(|d| format!("{}[{}]", d.block, d.column))
         .collect();
 
-    let verdict_changed =
-        pilot_rank != current_rank || !newly_dropped.is_empty() || !recovered.is_empty();
+    let verdict_changed = pilot_rank != current_rank
+        || pilot_audit.fatal != current_audit.fatal
+        || !newly_dropped.is_empty()
+        || !recovered.is_empty();
 
     if verdict_changed {
         // Structured INFO log so log-grep can find all drift events.
@@ -3034,11 +3112,13 @@ pub fn maybe_log_audit_drift(
             recovered.join(", ")
         };
         log::info!(
-            "[AUDIT-DRIFT] pilot_rank={} current_rank={} \
+            "[AUDIT-DRIFT] pilot_rank={} current_rank={} pilot_fatal={} current_fatal={} \
              beta_relative_change={:.4} outer_iter={} \
              newly_dropped=[{}] recovered=[{}]",
             pilot_rank,
             current_rank,
+            pilot_audit.fatal,
+            current_audit.fatal,
             beta_relative_change,
             outer_iter,
             if newly_str.is_empty() {
@@ -3050,13 +3130,15 @@ pub fn maybe_log_audit_drift(
         );
     }
 
-    Some(AuditDriftSummary {
+    Ok(Some(AuditDriftSummary {
         pilot_rank,
         current_rank,
+        pilot_fatal: pilot_audit.fatal,
+        current_fatal: current_audit.fatal,
         beta_relative_change,
         newly_dropped,
         recovered,
-    })
+    }))
 }
 
 /// Run [`audit_identifiability`] with an explicit [`FamilyLinearizationState`]
@@ -3141,6 +3223,30 @@ pub(crate) fn block_structural_penalty_dense(spec: &ParameterBlockSpec) -> Optio
 /// rather than a plain (non-pivoted) QR whose R diagonal can scatter a near-zero
 /// pivot early and under/over-count the rank of a deficient matrix. Tolerance
 /// matches the joint RRQR.
+/// Comma-joined descending singular values (`√eig`) of a symmetric Gram — the
+/// diagnostic spectrum surfaced in the intra-block-deficiency refusal. A single
+/// dominant value with the rest orders of magnitude below the pivot tolerance is
+/// a numerical rank collapse (e.g. an extreme per-row channel weight); a
+/// genuinely low-rank design shows several near-zero values.
+fn gram_singular_spectrum(gram: &Array2<f64>) -> String {
+    match gram.eigh(Side::Lower) {
+        Ok((evals, _)) => {
+            let mut sv: Vec<f64> = evals.iter().map(|&l| l.max(0.0).sqrt()).collect();
+            sv.sort_by(|a, c| c.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal));
+            sv.iter()
+                .map(|s| format!("{s:.3e}"))
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+        Err(_) => "eig-failed".to_string(),
+    }
+}
+
+/// Singular spectrum of a block's effective (dense) Jacobian, via its Gram.
+fn block_effective_singular_spectrum(dense: &Array2<f64>) -> String {
+    gram_singular_spectrum(&dense.t().dot(dense))
+}
+
 fn block_penalty_aware_rank(
     block: &Array2<f64>,
     structural_penalty: Option<&Array2<f64>>,
@@ -3923,7 +4029,7 @@ mod tests {
         }
         gam_linalg::faer_ndarray::rrqr_with_permutation(m, default_rrqr_rank_alpha())
             .map(|r| r.rank)
-            .unwrap_or_else(|_| m.ncols())
+            .unwrap_or_else(|error| panic!("RRQR rank oracle failed: {error}"))
     }
 
     /// Regression for gam#1590: competing-risks (cause-specific, k=2) survival

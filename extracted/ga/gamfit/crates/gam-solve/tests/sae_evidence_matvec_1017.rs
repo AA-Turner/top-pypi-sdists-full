@@ -208,8 +208,15 @@ fn cpu_oracle(
     x: &Array1<f64>,
 ) -> Vec<f64> {
     let mut out = vec![0.0_f64; data.beta_dim];
-    sae_framed_schur_matvec_cpu(sys, data, ridge_t, ridge_beta, x.as_slice().unwrap(), &mut out)
-        .expect("cpu oracle matvec");
+    sae_framed_schur_matvec_cpu(
+        sys,
+        data,
+        ridge_t,
+        ridge_beta,
+        x.as_slice().unwrap(),
+        &mut out,
+    )
+    .expect("cpu oracle matvec");
     out
 }
 
@@ -229,13 +236,13 @@ fn evidence_matvec_deterministic_and_matches_cpu() {
         probes.push(e);
     }
     for (pi, x) in probes.iter().enumerate() {
-        let dev1 = match framed_reduced_schur_det_once_on_device(&sys, &data, ridge_t, ridge_beta, x)
-        {
-            Ok(out) => out,
-            // For this well-formed fixture the probe declines only when CUDA is
-            // absent — a clean off-device skip.
-            Err(_) => return,
-        };
+        let dev1 =
+            match framed_reduced_schur_det_once_on_device(&sys, &data, ridge_t, ridge_beta, x) {
+                Ok(out) => out,
+                // For this well-formed fixture the probe declines only when CUDA is
+                // absent — a clean off-device skip.
+                Err(_) => return,
+            };
         let dev2 = framed_reduced_schur_det_once_on_device(&sys, &data, ridge_t, ridge_beta, x)
             .expect("second deterministic matvec");
         for a in 0..border_dim {
@@ -273,14 +280,15 @@ fn evidence_matvec_utilization_loop() {
     let n = 4000usize;
     let n_atoms = 64usize;
     let p = 8usize;
-    let (sys, data, ridge_t, ridge_beta) = build_framed_fixture(n, n_atoms, p, 0x1017_0000_beef_0007);
+    let (sys, data, ridge_t, ridge_beta) =
+        build_framed_fixture(n, n_atoms, p, 0x1017_0000_beef_0007);
     let border_dim = data.beta_dim;
     let q = 4usize;
     let budget = 32usize * 64usize; // SCHUR_SLQ_LOGDET_PROBES × LANCZOS_STEPS
 
     let matvec = match build_framed_resident_evidence_matvec(&sys, ridge_t, ridge_beta, budget) {
-        Some(mv) => mv,
-        None => {
+        Ok(Some(mv)) => mv,
+        Ok(None) => {
             // Distinguish "no device" (clean skip) from "device present but the
             // builder declined for a floor-clearing framed system" (a real bug):
             // the probe runs on any device regardless of the offload floor.
@@ -290,6 +298,9 @@ fn evidence_matvec_utilization_loop() {
                  framed system clearing the offload floor (n={n}, k={border_dim})"
             );
             return;
+        }
+        Err(failure) => {
+            panic!("#1017: resident evidence matvec build faulted: {failure:?}")
         }
     };
     let apply = &matvec;

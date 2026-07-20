@@ -43,9 +43,14 @@ impl gam_runtime::resource::ResidentBytes for CachedDuchonBasis {
             .saturating_mul(std::mem::size_of::<f64>());
         let penalty_bytes: usize = self
             .0
-            .penalties
+            .active_penalties
             .iter()
-            .map(|s| s.len().saturating_mul(std::mem::size_of::<f64>()))
+            .map(|penalty| {
+                penalty
+                    .matrix
+                    .len()
+                    .saturating_mul(std::mem::size_of::<f64>())
+            })
             .sum();
         design_bytes
             .saturating_add(penalty_bytes)
@@ -589,7 +594,6 @@ fn build_duchon_basis_uncached(
         aniso.as_deref(),
         &kernel_transform,
         identifiability_transform.as_ref(),
-        poly_cols,
     )?;
     if let Some(points) = operator_collocation_points.as_ref() {
         candidates.extend(duchon_operator_penalty_candidates(
@@ -605,15 +609,12 @@ fn build_duchon_basis_uncached(
             workspace,
         )?);
     }
-    let (penalties, nullspace_dims, penaltyinfo, null_eigenvectors, ops) =
-        filter_active_penalty_candidates_with_ops(candidates)?;
+    let filtered = filter_penalty_candidates(candidates)?;
     Ok(BasisBuildResult {
         design,
-        penalties,
-        nullspace_dims,
-        penaltyinfo,
-        ops,
-        null_eigenvectors,
+        affine_offset: None,
+        active_penalties: filtered.active,
+        dropped_penalties: filtered.dropped,
         joint_null_rotation: None,
         metadata: BasisMetadata::Duchon {
             centers,
@@ -622,7 +623,7 @@ fn build_duchon_basis_uncached(
             power: spec.power,
             nullspace_order: effective_nullspace_order,
             identifiability_transform,
-            input_scales: None,
+            input_scale: crate::IsotropicScale::ONE,
             aniso_log_scales: aniso,
             operator_collocation_points,
             radial_reparam: frozen_radial_reparam,
@@ -650,7 +651,7 @@ fn build_duchon_basis_uncached(
 ///
 /// Returns the per-block penalty matrices (term-local frame, same order/count
 /// the cold build emits) and the active per-block nullspace dims — exactly the
-/// objects the cold build feeds into `filter_active_penalty_candidates_with_ops`.
+/// objects the cold build feeds into `filter_penalty_candidates`.
 pub fn duchon_penalties_at_length_scale(
     centers: ArrayView2<'_, f64>,
     identifiability_transform: Option<&Array2<f64>>,
@@ -683,9 +684,6 @@ pub fn duchon_penalties_at_length_scale(
         }
         kernel_transform = fast_ab(&kernel_transform, v);
     }
-    // Polynomial column count: `C(d+r, r)`, independent of the row count, so the
-    // n-free centers-based form equals the cold build's data-based `.ncols()`.
-    let poly_cols = polynomial_block_from_order(centers, effective_nullspace_order).ncols();
     let mut candidates = duchon_native_penalty_candidates(
         centers,
         length_scale,
@@ -694,7 +692,6 @@ pub fn duchon_penalties_at_length_scale(
         aniso.as_deref(),
         &kernel_transform,
         identifiability_transform,
-        poly_cols,
     )?;
     if let Some(points) = operator_collocation_points {
         candidates.extend(duchon_operator_penalty_candidates(
@@ -710,9 +707,19 @@ pub fn duchon_penalties_at_length_scale(
             workspace,
         )?);
     }
-    let (penalties, nullspace_dims, _info, _eig, _ops) =
-        filter_active_penalty_candidates_with_ops(candidates)?;
-    Ok((penalties, nullspace_dims))
+    let filtered = filter_penalty_candidates(candidates)?;
+    Ok((
+        filtered
+            .active
+            .iter()
+            .map(|penalty| penalty.matrix.clone())
+            .collect(),
+        filtered
+            .active
+            .iter()
+            .map(|penalty| penalty.nullity)
+            .collect(),
+    ))
 }
 
 /// Materialise the polynomial null-space block for a Duchon basis.
@@ -1229,8 +1236,14 @@ pub fn select_thin_plate_knots(
     // thin-plate equivariance contract.  The sorted multiset
     // `{‖x_i - x_l‖² : l=1..n}` is a pure function of the unordered Euclidean
     // geometry, so it survives both row permutations and rigid rotations.  Only
-    // genuinely duplicate/interchangeable rows fall through to the row index.
-    let distance_profile_less = |i: usize, j: usize| -> bool {
+    // A complete tie after this key is a nontrivial symmetry orbit. No
+    // permutation-equivariant rule can choose one distinct member of that
+    // orbit, so callers below retain the whole class atomically *when it fits the
+    // knot budget*; when a strict subset is unavoidable they cap it to the budget
+    // deterministically rather than refusing the fit (see the seed/loop notes).
+    // Only coincident rows are collapsed, because they generate the same kernel
+    // column.
+    let distance_profile_cmp = |i: usize, j: usize| -> std::cmp::Ordering {
         let mut profile_i = Vec::with_capacity(n);
         let mut profile_j = Vec::with_capacity(n);
         for row in 0..n {
@@ -1249,12 +1262,30 @@ pub fn select_thin_plate_knots(
         profile_j.sort_by(|a, b| a.total_cmp(b));
         for (&di, &dj) in profile_i.iter().zip(profile_j.iter()) {
             match di.total_cmp(&dj) {
-                std::cmp::Ordering::Less => return true,
-                std::cmp::Ordering::Greater => return false,
+                std::cmp::Ordering::Less => return std::cmp::Ordering::Less,
+                std::cmp::Ordering::Greater => return std::cmp::Ordering::Greater,
                 std::cmp::Ordering::Equal => {}
             }
         }
-        i < j
+        std::cmp::Ordering::Equal
+    };
+
+    let distinct_orbit = |candidates: &[usize], already_selected: &[usize]| -> Vec<usize> {
+        let mut distinct = Vec::with_capacity(candidates.len());
+        'candidate: for &candidate in candidates {
+            for &selected in already_selected.iter().chain(distinct.iter()) {
+                let mut distance2 = 0.0;
+                for c in 0..d {
+                    let delta = data[[candidate, c]] - data[[selected, c]];
+                    distance2 += delta * delta;
+                }
+                if distance2 == 0.0 {
+                    continue 'candidate;
+                }
+            }
+            distinct.push(candidate);
+        }
+        distinct
     };
 
     // Round-off-robust tie tolerance (#1818). The data's squared radius sets the
@@ -1281,25 +1312,64 @@ pub fn select_thin_plate_knots(
         .fold(f64::INFINITY, f64::min);
     let seed_idx = (0..n)
         .filter(|&i| dist2_to_centroid[i] <= seed_min + tie_tol)
-        .reduce(|a, b| if distance_profile_less(a, b) { a } else { b })
+        .reduce(|a, b| {
+            if distance_profile_cmp(a, b).is_lt() {
+                a
+            } else {
+                b
+            }
+        })
         .unwrap_or(0);
+
+    let seed_class: Vec<usize> = (0..n)
+        .filter(|&i| {
+            dist2_to_centroid[i] <= seed_min + tie_tol && distance_profile_cmp(i, seed_idx).is_eq()
+        })
+        .collect();
+    // When an indivisible symmetry orbit is larger than the entire knot budget,
+    // no rule can pick an *equivariant* strict subset of it — the orbit's members
+    // are interchangeable under the data's symmetry group (#2319). The previous
+    // behaviour refused the fit outright, which bricks the single most common
+    // gridded/lattice spatial input (an integer raster or designed grid has
+    // exactly-representable coordinates, so its corner/edge orbits tie exactly and
+    // exceed typical `k`). Refusing is strictly worse than a deterministic subset,
+    // so we cap the orbit to the budget by taking its lowest-row members. That
+    // choice is still rotation-equivariant — a rigid rotation preserves each row's
+    // identity, so the base and rotated fits select corresponding physical points
+    // and the knot set rotates with the data. Permutation-invariance is provably
+    // unattainable for a strict subset of an exact orbit, and is knowingly traded
+    // away only in that measure-zero case. Orbits that fit the budget are still
+    // taken atomically (whole), preserving both invariants exactly.
+    let seed_orbit: Vec<usize> = distinct_orbit(&seed_class, &[])
+        .into_iter()
+        .take(num_knots)
+        .collect();
 
     let mut selected = Vec::with_capacity(num_knots);
     let mut chosen = vec![false; n];
     let mut min_dist2 = vec![f64::INFINITY; n];
 
-    selected.push(seed_idx);
-    chosen[seed_idx] = true;
+    for &i in &seed_class {
+        chosen[i] = true;
+    }
+    selected.extend(seed_orbit.iter().copied());
 
     min_dist2.par_iter_mut().enumerate().for_each(|(i, slot)| {
-        let mut d2 = 0.0;
-        for c in 0..d {
-            let delta = data[[i, c]] - data[[seed_idx, c]];
-            d2 += delta * delta;
-        }
-        *slot = d2;
+        *slot = seed_orbit
+            .iter()
+            .map(|&center| {
+                let mut d2 = 0.0;
+                for c in 0..d {
+                    let delta = data[[i, c]] - data[[center, c]];
+                    d2 += delta * delta;
+                }
+                d2
+            })
+            .fold(f64::INFINITY, f64::min);
     });
-    min_dist2[seed_idx] = 0.0;
+    for &i in &seed_class {
+        min_dist2[i] = 0.0;
+    }
 
     while selected.len() < num_knots {
         // Maximin: take the larger min-distance to the chosen set. Exact
@@ -1336,28 +1406,61 @@ pub fn select_thin_plate_knots(
             .map(|&i| dist2_to_centroid[i])
             .fold(f64::NEG_INFINITY, f64::max);
         candidates.retain(|&i| dist2_to_centroid[i] >= cand_max_centroid - tie_tol);
-        // Tertiary invariant key: smallest support-distance profile (then row
-        // index, for genuinely interchangeable duplicate points).
+        // Tertiary invariant key: smallest support-distance profile. A tie
+        // after every intrinsic key is an indivisible symmetry orbit.
         let next_idx = candidates
-            .into_iter()
-            .reduce(|a, b| if distance_profile_less(a, b) { a } else { b })
+            .iter()
+            .copied()
+            .reduce(|a, b| {
+                if distance_profile_cmp(a, b).is_lt() {
+                    a
+                } else {
+                    b
+                }
+            })
             .expect("candidate set is non-empty");
-        selected.push(next_idx);
-        chosen[next_idx] = true;
+        candidates.retain(|&i| distance_profile_cmp(i, next_idx).is_eq());
+        let remaining = num_knots - selected.len();
+        // Cap an oversized indivisible orbit to the remaining budget rather than
+        // refusing the fit (see the seed-orbit note above): take its lowest-row
+        // members, which keeps the selection rotation-equivariant and always
+        // yields a fittable `num_knots`-center design. An orbit that fits is still
+        // completed atomically.
+        let orbit: Vec<usize> = distinct_orbit(&candidates, &selected)
+            .into_iter()
+            .take(remaining)
+            .collect();
+        for &i in &candidates {
+            chosen[i] = true;
+            min_dist2[i] = 0.0;
+        }
+        if orbit.is_empty() {
+            continue;
+        }
+        selected.extend(orbit.iter().copied());
 
         min_dist2.par_iter_mut().enumerate().for_each(|(i, slot)| {
             if chosen[i] {
                 return;
             }
-            let mut d2 = 0.0;
-            for c in 0..d {
-                let delta = data[[i, c]] - data[[next_idx, c]];
-                d2 += delta * delta;
-            }
-            if d2 < *slot {
-                *slot = d2;
+            for &center in &orbit {
+                let mut d2 = 0.0;
+                for c in 0..d {
+                    let delta = data[[i, c]] - data[[center, c]];
+                    d2 += delta * delta;
+                }
+                if d2 < *slot {
+                    *slot = d2;
+                }
             }
         });
+    }
+
+    if selected.len() < num_knots {
+        crate::bail_invalid_basis!(
+            "requested {num_knots} distinct thin-plate knots but the data contain only {} geometrically distinct selectable points",
+            selected.len()
+        );
     }
 
     let mut knots = Array2::<f64>::zeros((selected.len(), d));
@@ -1606,7 +1709,7 @@ pub(crate) fn thin_plate_kernel_psi_triplet_from_distance(
 /// - `basis`: `n x (k_c + M)` matrix (`[K_c | P]`) where `M` is the TPS
 ///   polynomial null-space dimension for the selected ambient dimension
 /// - `penalty_bending`: constrained TPS curvature penalty
-/// - `penalty_ridge`: identity penalty for null-space shrinkage
+/// - `penalty_ridge`: center-metric penalty for null-function shrinkage
 pub fn create_thin_plate_spline_basis(
     data: ArrayView2<f64>,
     knots: ArrayView2<f64>,
@@ -1812,8 +1915,25 @@ pub(crate) fn create_thin_plate_spline_basis_scaledwithworkspace(
     for i in 0..kernel_cols {
         penalty_bending[[i, i]] = radial_eigvals[i];
     }
-    let penalty_ridge = build_nullspace_shrinkage_penalty(&penalty_bending)?
-        .map(|block| block.sym_penalty)
+    // Evaluate the active raw chart on its frozen knot support.  The resulting
+    // Gram is a compact domain quadrature for the represented function, so the
+    // double penalty measures the L2 size of the polynomial/null component
+    // instead of the arbitrary Euclidean size of its coefficient vector.
+    let center_kernel_rotated = if kernel_cols == 0 {
+        Array2::<f64>::zeros((k, 0))
+    } else {
+        fast_ab(&fast_ab(&omega, &z), &radial_reparam)
+    };
+    let center_poly = thin_plate_polynomial_block(knots);
+    let mut center_design = Array2::<f64>::zeros((k, total_cols));
+    center_design
+        .slice_mut(s![.., 0..kernel_cols])
+        .assign(&center_kernel_rotated);
+    center_design
+        .slice_mut(s![.., kernel_cols..])
+        .assign(&center_poly);
+    let function_gram = symmetrize_penalty(&fast_ata(&center_design));
+    let penalty_ridge = function_space_nullspace_shrinkage(&penalty_bending, &function_gram)?
         .unwrap_or_else(|| Array2::<f64>::zeros((total_cols, total_cols)));
 
     Ok(ThinPlateSplineBasis {
@@ -1828,17 +1948,15 @@ pub(crate) fn create_thin_plate_spline_basis_scaledwithworkspace(
 }
 
 pub(crate) fn active_thin_plate_penalty_derivatives(
-    penaltyinfo: &[PenaltyInfo],
+    penalties: &[ActivePenalty],
     primary_derivative: &Array2<f64>,
+    nullspace_derivative: &Array2<f64>,
 ) -> Result<Vec<Array2<f64>>, BasisError> {
-    penaltyinfo
+    penalties
         .iter()
-        .filter(|info| info.active)
-        .map(|info| match &info.source {
+        .map(|penalty| match &penalty.info.source {
             PenaltySource::Primary => Ok(primary_derivative.clone()),
-            PenaltySource::DoublePenaltyNullspace => {
-                Ok(Array2::<f64>::zeros(primary_derivative.raw_dim()))
-            }
+            PenaltySource::DoublePenaltyNullspace => Ok(nullspace_derivative.clone()),
             other => Err(BasisError::InvalidInput(format!(
                 "unexpected ThinPlate penalty source in psi-derivative path: {other:?}"
             ))),
@@ -1857,7 +1975,7 @@ pub fn build_thin_plate_penalty_psi_derivativeswithworkspace(
     spec: &ThinPlateBasisSpec,
     identifiability_transform: Option<&Array2<f64>>,
     workspace: &mut BasisWorkspace,
-) -> Result<(Array2<f64>, Array2<f64>), BasisError> {
+) -> Result<(Array2<f64>, Array2<f64>, Array2<f64>, Array2<f64>), BasisError> {
     // Match build_thin_plate_basis exactly (Wood-TPRS path):
     //
     //   M(ψ)        = Z_kernel^T Ω(ψ) Z_kernel
@@ -2068,7 +2186,103 @@ pub fn build_thin_plate_penalty_psi_derivativeswithworkspace(
     let s_psi_out = project_penalty_matrix(&s_norm_psi, identifiability_transform);
     let s_psi_psi_out = project_penalty_matrix(&s_norm_pp, identifiability_transform);
 
-    Ok((s_psi_out, s_psi_psi_out))
+    // 9) Differentiate the double penalty in the same compact function metric
+    // used by the value path.  The frozen center support is an n-independent
+    // quadrature for this regression-spline chart.  With V and the outer
+    // identifiability chart frozen at the base point, its value design and
+    // derivatives are
+    //
+    //   B    = [Omega Z V | P(C)] T,
+    //   B_p  = [Omega_p Z V | 0] T,
+    //   B_pp = [Omega_pp Z V | 0] T.
+    //
+    // Therefore G=B'B follows the exact product rule.  The target frame is
+    // structural: coefficients whose kernel coordinates vanish after T, i.e.
+    // the surviving polynomial-function subspace.  Differentiating
+    // G N (N' G N)^-1 N' G then gives the analytic ridge derivatives; no
+    // eigenspace derivative, finite difference, or coefficient-space projector
+    // enters this path.
+    let kernel_transform = fast_ab(&z_kernel, &v);
+    let center_kernel = fast_ab(&omega, &kernel_transform);
+    let center_kernel_psi = fast_ab(&omega_psi, &kernel_transform);
+    let center_kernel_pp = fast_ab(&omega_psi_psi, &kernel_transform);
+    let center_mean: Vec<f64> = (0..d)
+        .map(|axis| centers.column(axis).sum() / k.max(1) as f64)
+        .collect();
+    let mut centered = centers.to_owned();
+    for axis in 0..d {
+        let mean = center_mean[axis];
+        centered.column_mut(axis).mapv_inplace(|value| value - mean);
+    }
+    let center_poly = thin_plate_polynomial_block(centered.view());
+    let mut center_design = Array2::<f64>::zeros((k, total_cols));
+    let mut center_design_psi = Array2::<f64>::zeros((k, total_cols));
+    let mut center_design_pp = Array2::<f64>::zeros((k, total_cols));
+    center_design
+        .slice_mut(s![.., 0..kernel_cols])
+        .assign(&center_kernel);
+    center_design
+        .slice_mut(s![.., kernel_cols..])
+        .assign(&center_poly);
+    center_design_psi
+        .slice_mut(s![.., 0..kernel_cols])
+        .assign(&center_kernel_psi);
+    center_design_pp
+        .slice_mut(s![.., 0..kernel_cols])
+        .assign(&center_kernel_pp);
+
+    let (center_design, center_design_psi, center_design_pp, null_frame) =
+        if let Some(transform) = identifiability_transform {
+            if transform.nrows() != total_cols {
+                crate::bail_dim_basis!(
+                    "thin-plate identifiability transform has {} rows, expected {}",
+                    transform.nrows(),
+                    total_cols
+                );
+            }
+            let kernel_coordinate_map = transform.slice(s![0..kernel_cols, ..]).to_owned();
+            let (frame, _) = rrqr_nullspace_basis(
+                &kernel_coordinate_map.t().to_owned(),
+                default_rrqr_rank_alpha(),
+            )
+            .map_err(BasisError::LinalgError)?;
+            (
+                fast_ab(&center_design, transform),
+                fast_ab(&center_design_psi, transform),
+                fast_ab(&center_design_pp, transform),
+                frame,
+            )
+        } else {
+            let mut frame = Array2::<f64>::zeros((total_cols, poly_cols));
+            for column in 0..poly_cols {
+                frame[[kernel_cols + column, column]] = 1.0;
+            }
+            (center_design, center_design_psi, center_design_pp, frame)
+        };
+    let gram = symmetrize_penalty(&fast_ata(&center_design));
+    let gram_psi = symmetrize_penalty(
+        &(fast_atb(&center_design_psi, &center_design)
+            + fast_atb(&center_design, &center_design_psi)),
+    );
+    let gram_pp = symmetrize_penalty(
+        &(fast_atb(&center_design_pp, &center_design)
+            + fast_atb(&center_design_psi, &center_design_psi).mapv(|value| 2.0 * value)
+            + fast_atb(&center_design, &center_design_pp)),
+    );
+    let ridge_jet = function_space_subspace_shrinkage_derivatives(
+        &null_frame,
+        &gram,
+        &gram_psi,
+        &gram_psi,
+        &gram_pp,
+    )?;
+    let (_, ridge_psi, ridge_pp, _) = normalize_penaltywith_psi_derivatives(
+        &ridge_jet.value,
+        &ridge_jet.first_a,
+        &ridge_jet.mixed,
+    );
+
+    Ok((s_psi_out, s_psi_psi_out, ridge_psi, ridge_pp))
 }
 
 /// Build the design ψ-derivatives for a Thin-Plate Spline term via the shared
@@ -2182,19 +2396,31 @@ pub fn build_thin_plate_basis_log_kappa_derivativeswithworkspace(
         identifiability_transform.as_ref(),
         workspace,
     )?;
-    let (primary_derivative_opt, primarysecond_derivative_opt) =
-        build_thin_plate_penalty_psi_derivativeswithworkspace(
-            centers.view(),
-            &derivative_spec,
-            identifiability_transform.as_ref(),
-            workspace,
-        )?;
+    let (
+        primary_derivative_opt,
+        primarysecond_derivative_opt,
+        nullspace_derivative_opt,
+        nullspacesecond_derivative_opt,
+    ) = build_thin_plate_penalty_psi_derivativeswithworkspace(
+        centers.view(),
+        &derivative_spec,
+        identifiability_transform.as_ref(),
+        workspace,
+    )?;
     let primary_derivative = primary_derivative_opt;
     let primarysecond_derivative = primarysecond_derivative_opt;
-    let penalties_derivative =
-        active_thin_plate_penalty_derivatives(&base.penaltyinfo, &primary_derivative)?;
-    let penaltiessecond_derivative =
-        active_thin_plate_penalty_derivatives(&base.penaltyinfo, &primarysecond_derivative)?;
+    let nullspace_derivative = nullspace_derivative_opt;
+    let nullspacesecond_derivative = nullspacesecond_derivative_opt;
+    let penalties_derivative = active_thin_plate_penalty_derivatives(
+        &base.active_penalties,
+        &primary_derivative,
+        &nullspace_derivative,
+    )?;
+    let penaltiessecond_derivative = active_thin_plate_penalty_derivatives(
+        &base.active_penalties,
+        &primarysecond_derivative,
+        &nullspacesecond_derivative,
+    )?;
     Ok(BasisPsiDerivativeBundle {
         first: BasisPsiDerivativeResult {
             design_derivative: scalar.design_first,
@@ -2931,6 +3157,106 @@ mod knot_selection_invariance_tests {
             canonical(&knots),
             canonical(&knots_perm),
             "reordering rows must not change the selected knot set (gh#1378)"
+        );
+    }
+
+    #[test]
+    fn symmetric_nonseed_orbit_is_completed_atomically() {
+        let data = ndarray::array![[0.0, 0.0], [0.0, 0.0], [0.0, 1.0], [0.0, -1.0]];
+        let permutations = [[0_usize, 1, 2, 3], [0, 1, 3, 2], [2, 0, 3, 1], [3, 1, 2, 0]];
+        let mut reference = None;
+
+        for order in permutations {
+            let permuted = Array2::from_shape_fn((4, 2), |(row, col)| data[[order[row], col]]);
+            let knots = select_thin_plate_knots(permuted.view(), 3)
+                .expect("origin plus the complete endpoint orbit fits the budget");
+            let center_set = canonical(&knots);
+            if let Some(expected) = reference.as_ref() {
+                assert_eq!(&center_set, expected);
+            } else {
+                reference = Some(center_set);
+            }
+        }
+    }
+
+    #[test]
+    fn incomplete_nonseed_orbit_is_capped_not_refused() {
+        // origin (coincident pair, one distinct seed) plus the endpoint orbit
+        // {(0,1),(0,-1)}. With one slot left after the seed, the endpoint orbit
+        // cannot be split equivariantly — but refusing the fit is worse than
+        // taking a deterministic member. The selection must succeed with exactly
+        // `num_knots` distinct centers: the seed plus the lowest-row endpoint.
+        let data = ndarray::array![[0.0, 0.0], [0.0, 0.0], [0.0, 1.0], [0.0, -1.0]];
+        let knots = select_thin_plate_knots(data.view(), 2)
+            .expect("an oversized orbit must be capped, never refused");
+        assert_eq!(knots.nrows(), 2, "capped selection must honour the budget");
+        assert_eq!(
+            canonical(&knots),
+            canonical(&ndarray::array![[0.0, 0.0], [0.0, 1.0]]),
+            "seed plus the lowest-row endpoint of the tied orbit"
+        );
+    }
+
+    #[test]
+    fn seed_orbit_larger_than_budget_is_capped_not_refused() {
+        // Two antipodal points form a single indivisible seed orbit; a one-knot
+        // budget cannot represent both. The selection must still succeed, taking
+        // the lowest-row member deterministically rather than refusing.
+        let data = ndarray::array![[-1.0, 0.0], [1.0, 0.0]];
+        let knots = select_thin_plate_knots(data.view(), 1)
+            .expect("an antipodal seed orbit must be capped, never refused");
+        assert_eq!(knots.nrows(), 1, "capped selection must honour the budget");
+        assert_eq!(
+            canonical(&knots),
+            canonical(&ndarray::array![[-1.0, 0.0]]),
+            "lowest-row member of the antipodal seed orbit"
+        );
+    }
+
+    #[test]
+    fn regular_grid_fits_every_budget_with_distinct_centers() {
+        // #2319 regression guard: a regular integer grid has exactly-representable
+        // coordinates, so its corner/edge maximin orbits tie EXACTLY and typically
+        // exceed the requested budget. The atomic-orbit rule used to refuse the
+        // fit for common budgets (e.g. `k=15` on a 7x7 grid); it must instead cap
+        // each oversized orbit and return exactly `k` geometrically distinct
+        // centers for every in-range budget.
+        let side = 7usize;
+        let grid = Array2::from_shape_fn((side * side, 2), |(row, col)| {
+            let (ix, iy) = (row % side, row / side);
+            if col == 0 { ix as f64 } else { iy as f64 }
+        });
+        for k in 1..=side * side {
+            let knots = select_thin_plate_knots(grid.view(), k)
+                .unwrap_or_else(|e| panic!("grid must fit k={k}, got: {e}"));
+            assert_eq!(knots.nrows(), k, "grid selection must honour budget k={k}");
+            // Centers must be geometrically distinct (no coincident rows), or the
+            // thin-plate Gram is singular.
+            let mut set = canonical(&knots);
+            let full = set.len();
+            set.dedup();
+            assert_eq!(set.len(), full, "duplicate centers at k={k}");
+        }
+    }
+
+    #[test]
+    fn capping_preserves_rotation_equivariance_on_generic_cloud() {
+        // The #2319 contract lives on ISOTROPIC data, where generic coordinates
+        // never tie exactly, so the capping path is not even entered and every
+        // maximin/tie-break key is exactly rotation-invariant. Verify a budget
+        // large enough to exercise many selection steps stays equivariant under
+        // an exact 90-degree rotation (bit-preserving), so the fix did not perturb
+        // the property the issue is actually about.
+        let data = sample_cloud();
+        let num_knots = 9.min(data.nrows() - 1);
+        let (cx, cz) = data_centroid_2d(&data);
+        let knots = select_thin_plate_knots(data.view(), num_knots).expect("base select");
+        let rotated = rotate_90_about(&data, cx, cz);
+        let knots_rot = select_thin_plate_knots(rotated.view(), num_knots).expect("rotated select");
+        assert_eq!(
+            canonical(&rotate_90_about(&knots, cx, cz)),
+            canonical(&knots_rot),
+            "capping change must not break rotation equivariance on generic data"
         );
     }
 }

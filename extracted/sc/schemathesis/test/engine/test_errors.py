@@ -1,6 +1,19 @@
 import requests
 
-from schemathesis.engine.errors import deduplicate_errors
+from schemathesis.config import ConfigError
+from schemathesis.core.errors import AuthenticationError
+from schemathesis.engine.errors import EngineErrorInfo, deduplicate_errors
+
+
+def test_config_error_has_no_useful_traceback():
+    info = EngineErrorInfo(ConfigError("boom"))
+    assert info.has_useful_traceback is False
+    assert info.title == "Configuration Error"
+
+
+def test_authentication_error_traceback_visibility():
+    assert EngineErrorInfo(AuthenticationError("P", "get", "boom")).has_useful_traceback is False
+    assert EngineErrorInfo(AuthenticationError("P", "get", "boom", show_traceback=True)).has_useful_traceback is True
 
 
 def test_deduplicate_errors():

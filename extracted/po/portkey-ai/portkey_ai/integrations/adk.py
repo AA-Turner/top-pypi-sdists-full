@@ -660,6 +660,14 @@ class PortkeyAdk(_AdkBaseLlm):  # type: ignore[misc]  # _AdkBaseLlm may be a stu
                         is_partial=True,
                     )
 
+            elif event_type == "response.reasoning_summary_text.delta":
+                delta = getattr(event, "delta", "")
+                if delta:
+                    yield _parts_to_llm_response(
+                        [_build_text_part(delta, thought=True)],
+                        is_partial=True,
+                    )
+
             elif event_type == "response.output_text.delta":
                 delta = getattr(event, "delta", "")
                 if delta:

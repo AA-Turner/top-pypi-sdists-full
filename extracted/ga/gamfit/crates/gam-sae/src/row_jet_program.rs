@@ -9,22 +9,22 @@
 //!   ẑ_row,c(p) = Σ_k ζ_k(ℓ) · decoded_{k,c}(t_k),   decoded_{k,c}(t) = Σ_b Φ_b(t)·B_{b,c}
 //! ```
 //!
-//! — a **gate nonlinearity** `ζ(ℓ)` (softmax / ordered Beta--Bernoulli sigmoid) composed with a
-//! **basis** `Φ(t)` composed with a **linear decoder** `B`, in the per-row
-//! primary coordinates `p = (gate logits ℓ, latent coordinates t)`. Today the
-//! arrow-Schur assembly (`SaeManifoldTerm::row_jets_for_logdet`) hand-packs the
-//! `first`/`second` channels of this reconstruction from separate gate
-//! derivative arrays (`gate_derivatives_for_row`) and basis jet tensors —
-//! exactly the kind of hand-maintained cross-block tower whose sign flips are
-//! the #736 / desync bug genus. The #1006 third-order logdet adjoint
-//! `Γ_a = tr(H⁻¹ ∂H/∂θ_a)` is the consumer of those very channels.
+//! — a **gate nonlinearity** `ζ(ℓ)` (softmax / ordered Beta--Bernoulli sigmoid)
+//! composed with a **basis** `Φ(t)` composed with a **linear decoder** `B`, in
+//! the per-row primary coordinates `p = (gate logits ℓ, latent coordinates t)`.
+//! Production derives the complete arrow-Schur `first`/`second` and decoder-
+//! border channels from this semantic program. Softmax rows use the borrowed
+//! [`SaeSoftmaxRowProgramSource`] and [`execute_softmax_row_program`] schedule;
+//! its bounded batch seam evaluates the same centered-moment identities on CPU
+//! or CUDA. Other gate graphs use [`SaeReconstructionRowProgram`] over the
+//! runtime jet algebra. The #1006 third-order logdet adjoint
+//! `Γ_a = tr(H⁻¹ ∂H/∂θ_a)` consumes those shared channels.
 //!
-//! This module writes that reconstruction **once** over the
-//! [`Tower4<K>`](gam_math::jet_tower::Tower4) scalar so the
-//! value/gradient/Hessian/third channels of one row come from ONE jet
-//! evaluation. [`SaeReconstructionRowProgram`] is generic over the gate kind
-//! and the per-row basis jets; the gate, basis and decoder compose with plain
-//! `Tower4` arithmetic, so there is no separate "channel" to forget.
+//! [`SaeReconstructionRowProgram`] is generic over the gate kind and per-row
+//! basis jets, so gate, basis, and decoder are still written once. Dense
+//! [`Tower4<K>`](gam_math::jet_tower::Tower4) evaluation remains an independent
+//! test oracle for the production order-≤2 lowerings and the higher derivative
+//! witnesses; it is not the softmax hot path.
 //!
 //! # The basis as a local jet
 //!
@@ -32,13 +32,11 @@
 //! function of perturbed coordinates: it consumes the precomputed jet tensors
 //! `(Φ, ∂Φ/∂t, ∂²Φ/∂t²)` evaluated at the current `t`. The reconstruction's
 //! dependence on `t` is therefore *defined* by those tensors — the local
-//! quadratic Taylor model of `Φ` about the current point. This program builds
-//! each basis function as exactly that `Tower4` quadratic from the stored jets,
-//! so the value/first/second channels it emits are the same object the hand
-//! path packs — derived by independent arithmetic (tower Leibniz / Faà di
-//! Bruno vs hand-summed cross terms). Agreement across both is a true
-//! correctness proof of the hand kernel; disagreement names a dropped or
-//! sign-flipped cross block loudly. That oracle is the riding test below.
+//! quadratic Taylor model of `Φ` about the current point. The generic runtime
+//! jet and dense `Tower4` oracle build exactly that quadratic; the compiled
+//! softmax schedule lowers it through centered moments. Tests compare both
+//! lowerings with a historical explicit cross-term reference, so a dropped or
+//! sign-flipped block is named independently rather than shared silently.
 
 use gam_math::jet_scalar::{
     DynamicJetArena, DynamicOrder1, DynamicOrder2, FixedRuntimeJet, Order1, Order2,
@@ -378,8 +376,8 @@ impl SaeReconstructionRowProgram {
     /// assignment modes (the production users of dynamic jets) have independent
     /// gates, so this evaluates the same [`Self::gate_tower`] expression once per
     /// atom and stores the handles in the row workspace. Softmax uses the same
-    /// path only as a dynamic correctness oracle; production softmax remains the
-    /// closed-form hand kernel.
+    /// path only as a dynamic correctness oracle; production softmax uses the
+    /// structure-compiled centered-moment schedule.
     fn all_gates_dynamic<'arena, S>(&self, arena: &'arena DynamicJetArena) -> &'arena [S]
     where
         S: RuntimeJetScalar<'arena, Workspace = DynamicJetArena>,
@@ -1264,659 +1262,20 @@ mod tests_schedule_source {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────
-// 4-ROW SIMD BATCH (the jet's throughput lever over hand-scalar code)
-//
-// The hot per-row jet kernels (`reconstruction_all_columns_packed`,
-// `beta_border_order1_packed`) evaluate ONE row's `(v, g, H)` / `(v, g)` tower
-// at a time in scalar `f64`. A hand-written scalar derivative does exactly the
-// same. The throughput lever a jet has that scalar hand-code cannot is **row
-// batching in SIMD lanes**: the order-≤2 Leibniz product is `O(K²)` independent
-// per-channel float ops, and EVERY softmax row runs the IDENTICAL op graph on
-// different data — the textbook SPMD shape. Packing `LANES = 4` aligned rows
-// into a `[f64; 4]` lane and running the algebra once per 4 rows replaces 4
-// scalar passes with one vector pass, so the `K²` Hessian-channel updates become
-// 4-wide lane ops covering 4 rows each (auto-vectorised to SSE2 `pd` / NEON
-// `.2d`), ~4× fewer scalar FP instructions per row.
-//
-// The lane field is a plain `[f64; 4]` whose every op is a lane-wise IEEE
-// `+`/`-`/`*` (NEVER a fused `mul_add`), so lane `i` of a 4-wide op equals the
-// scalar `f64` op on that lane's inputs BIT-FOR-BIT. The op order mirrors
-// [`gam_math::jet_tower::Tower2`] / [`Order1`] term-for-term, so
-// [`O2x4`]/[`O1x4`] lane `i` is `to_bits`-identical to the production
-// [`Order2`]/[`Order1`] row scalar — proven by the `batch_tests` oracle below
-// (≥2000 random aligned 4-row batches across `K ∈ {2,4,6}`).
-//
-// Only the softmax gate is batched: its op graph is identical across rows (every
-// atom is an active free logit), while the per-atom logistic gate's
-// `x.value() >= 0.0` branch is per-row data-dependent (lanes could need
-// different branches, which are NOT bit-identical), so logistic rows fall back
-// to the scalar per-row path in the caller.
-
-const LANES: usize = 4;
-
-#[inline]
-fn l_splat(x: f64) -> [f64; LANES] {
-    [x; LANES]
-}
-#[inline]
-fn l_add(a: [f64; LANES], b: [f64; LANES]) -> [f64; LANES] {
-    let mut o = [0.0; LANES];
-    for i in 0..LANES {
-        o[i] = a[i] + b[i];
-    }
-    o
-}
-#[inline]
-fn l_mul(a: [f64; LANES], b: [f64; LANES]) -> [f64; LANES] {
-    let mut o = [0.0; LANES];
-    for i in 0..LANES {
-        o[i] = a[i] * b[i];
-    }
-    o
-}
-
-/// 4-rows-per-pass order-≤2 lane scalar (value / gradient / Hessian), mirroring
-/// [`gam_math::jet_tower::Tower2`] (hence [`Order2`]) term-for-term so lane `i`
-/// is `to_bits`-identical to the scalar row-`i` [`Order2`].
-#[derive(Clone, Copy)]
-struct O2x4<const K: usize> {
-    v: [f64; LANES],
-    g: [[f64; LANES]; K],
-    h: [[[f64; LANES]; K]; K],
-}
-
-impl<const K: usize> O2x4<K> {
-    #[inline]
-    fn constant(c: [f64; LANES]) -> Self {
-        O2x4 {
-            v: c,
-            g: [[0.0; LANES]; K],
-            h: [[[0.0; LANES]; K]; K],
-        }
-    }
-    /// Seeded primary `axis` at (per-lane) `value`: unit first derivative.
-    #[inline]
-    fn variable(value: [f64; LANES], axis: usize) -> Self {
-        let mut out = Self::constant(value);
-        out.g[axis] = l_splat(1.0);
-        out
-    }
-    #[inline]
-    fn add(&self, o: &Self) -> Self {
-        let mut out = *self;
-        out.v = l_add(self.v, o.v);
-        for i in 0..K {
-            out.g[i] = l_add(self.g[i], o.g[i]);
-            for j in 0..K {
-                out.h[i][j] = l_add(self.h[i][j], o.h[i][j]);
-            }
-        }
-        out
-    }
-    #[inline]
-    fn scale(&self, s: [f64; LANES]) -> Self {
-        let mut out = *self;
-        out.v = l_mul(self.v, s);
-        for i in 0..K {
-            out.g[i] = l_mul(self.g[i], s);
-            for j in 0..K {
-                out.h[i][j] = l_mul(self.h[i][j], s);
-            }
-        }
-        out
-    }
-    /// `self - o`, expressed as `self + o·(-1)` exactly as [`Order2::sub`] does.
-    #[inline]
-    fn sub(&self, o: &Self) -> Self {
-        self.add(&o.scale(l_splat(-1.0)))
-    }
-    /// Order-≤2 Leibniz product, term-for-term identical to `Tower2::mul`.
-    #[inline]
-    fn mul(&self, o: &Self) -> Self {
-        let a = self;
-        let b = o;
-        let mut out = Self::constant(l_mul(a.v, b.v));
-        for i in 0..K {
-            out.g[i] = l_add(l_mul(a.v, b.g[i]), l_mul(a.g[i], b.v));
-        }
-        // Upper-triangle-then-mirror, EXACTLY as the scalar `Tower2::mul`
-        // (`for j in i..K { hij = …; h[i][j] = h[j][i] = hij }`). The scalar tower
-        // never fills the lower triangle independently — it copies the upper one —
-        // so a per-`(i,j)` recomputation here diverges by ULPs on `h[j][i]`: the two
-        // cross terms `a.g·b.g` accumulate in the opposite order for `(j,i)` vs
-        // `(i,j)`, and `b`'s own Hessian is only ULP-symmetric (its `compose_unary`
-        // fills each `(i,j)` independently). Mirroring makes every lane
-        // `to_bits`-identical to the scalar row path.
-        for i in 0..K {
-            for j in i..K {
-                let t0 = l_mul(a.v, b.h[i][j]);
-                let t1 = l_add(t0, l_mul(a.g[i], b.g[j]));
-                let t2 = l_add(t1, l_mul(a.g[j], b.g[i]));
-                let hij = l_add(t2, l_mul(a.h[i][j], b.v));
-                out.h[i][j] = hij;
-                out.h[j][i] = hij;
-            }
-        }
-        out
-    }
-    /// Order-≤2 Faà di Bruno `f ∘ self` from the per-lane stack
-    /// `d = [f(u), f′(u), f″(u)]`, mirroring `Tower2::compose_unary`
-    /// (`acc` starts at `+0.0`, accumulates `d₁·hᵢⱼ` then `(d₂·gᵢ)·gⱼ`).
-    #[inline]
-    fn compose(&self, d: [[f64; LANES]; 3]) -> Self {
-        let mut out = Self::constant(d[0]);
-        for i in 0..K {
-            let mut acc = l_splat(0.0);
-            acc = l_add(acc, l_mul(d[1], self.g[i]));
-            out.g[i] = acc;
-        }
-        for i in 0..K {
-            for j in 0..K {
-                let mut acc = l_splat(0.0);
-                acc = l_add(acc, l_mul(d[1], self.h[i][j]));
-                acc = l_add(acc, l_mul(l_mul(d[2], self.g[i]), self.g[j]));
-                out.h[i][j] = acc;
-            }
-        }
-        out
-    }
-    /// `e^self`, per-lane stack `[e, e, e]` (matches `Tower2::exp`).
-    #[inline]
-    fn exp(&self) -> Self {
-        let mut e = [0.0; LANES];
-        for i in 0..LANES {
-            e[i] = self.v[i].exp();
-        }
-        self.compose([e, e, e])
-    }
-    /// `1/self`, per-lane stack `[1/u, -1/u², 2/u³]` — the DIVISION-based stack
-    /// of the [`recip`] free fn the scalar reconstruction path uses (NOT the
-    /// reciprocal-multiply `[r,-r²,2r³]` of
-    /// [`gam_math::jet_scalar::JetScalar::recip`]; those differ by a
-    /// ULP and would break `to_bits` parity). Caller guarantees nonzero.
-    #[inline]
-    fn recip(&self) -> Self {
-        let mut d0 = [0.0; LANES];
-        let mut d1 = [0.0; LANES];
-        let mut d2 = [0.0; LANES];
-        for i in 0..LANES {
-            let u = self.v[i];
-            let u2 = u * u;
-            let u3 = u2 * u;
-            d0[i] = 1.0 / u;
-            d1[i] = -1.0 / u2;
-            d2[i] = 2.0 / u3;
-        }
-        self.compose([d0, d1, d2])
-    }
-    /// Extract lane `i` as a production [`Order2<K>`] scalar.
-    #[inline]
-    fn lane(&self, i: usize) -> Order2<K> {
-        let mut t = gam_math::jet_tower::Tower2::<K>::constant(self.v[i]);
-        for a in 0..K {
-            t.g[a] = self.g[a][i];
-            for b in 0..K {
-                t.h[a][b] = self.h[a][b][i];
-            }
-        }
-        Order2(t)
-    }
-}
-
-/// 4-rows-per-pass FIRST-order lane scalar (value / gradient only), mirroring
-/// [`Order1`] term-for-term so lane `i` is `to_bits`-identical to row-`i`
-/// [`Order1`]. Used for the β-border consumer (reconstruction is linear in β,
-/// so only value + gradient are read).
-#[derive(Clone, Copy)]
-struct O1x4<const K: usize> {
-    v: [f64; LANES],
-    g: [[f64; LANES]; K],
-}
-
-impl<const K: usize> O1x4<K> {
-    #[inline]
-    fn constant(c: [f64; LANES]) -> Self {
-        O1x4 {
-            v: c,
-            g: [[0.0; LANES]; K],
-        }
-    }
-    #[inline]
-    fn variable(value: [f64; LANES], axis: usize) -> Self {
-        let mut out = Self::constant(value);
-        out.g[axis] = l_splat(1.0);
-        out
-    }
-    #[inline]
-    fn add(&self, o: &Self) -> Self {
-        let mut out = *self;
-        out.v = l_add(self.v, o.v);
-        for i in 0..K {
-            out.g[i] = l_add(self.g[i], o.g[i]);
-        }
-        out
-    }
-    #[inline]
-    fn scale(&self, s: [f64; LANES]) -> Self {
-        let mut out = *self;
-        out.v = l_mul(self.v, s);
-        for i in 0..K {
-            out.g[i] = l_mul(self.g[i], s);
-        }
-        out
-    }
-    #[inline]
-    fn sub(&self, o: &Self) -> Self {
-        self.add(&o.scale(l_splat(-1.0)))
-    }
-    #[inline]
-    fn mul(&self, o: &Self) -> Self {
-        // Tower2::mul value/grad terms (order-≤1 truncation): v = a.v·b.v;
-        // g[i] = a.v·b.g[i] + a.g[i]·b.v. Identical float order to `Order1::mul`.
-        let a = self;
-        let b = o;
-        let mut out = Self::constant(l_mul(a.v, b.v));
-        for i in 0..K {
-            out.g[i] = l_add(l_mul(a.v, b.g[i]), l_mul(a.g[i], b.v));
-        }
-        out
-    }
-    #[inline]
-    fn compose(&self, d: [[f64; LANES]; 2]) -> Self {
-        // Order-≤1 Faà di Bruno: v = d[0]; g[i] = d[1]·g[i] (matches
-        // `Order1::compose_unary`, `acc` starts at +0.0).
-        let mut out = Self::constant(d[0]);
-        for i in 0..K {
-            let mut acc = l_splat(0.0);
-            acc = l_add(acc, l_mul(d[1], self.g[i]));
-            out.g[i] = acc;
-        }
-        out
-    }
-    #[inline]
-    fn exp(&self) -> Self {
-        let mut e = [0.0; LANES];
-        for i in 0..LANES {
-            e[i] = self.v[i].exp();
-        }
-        self.compose([e, e])
-    }
-    #[inline]
-    fn recip(&self) -> Self {
-        // Division-based `[1/u, -1/u²]` matching the `recip` free fn (see
-        // `O2x4::recip`), so lane `i` is `to_bits`-identical to the scalar path.
-        let mut d0 = [0.0; LANES];
-        let mut d1 = [0.0; LANES];
-        for i in 0..LANES {
-            let u = self.v[i];
-            let u2 = u * u;
-            d0[i] = 1.0 / u;
-            d1[i] = -1.0 / u2;
-        }
-        self.compose([d0, d1])
-    }
-    #[inline]
-    fn lane(&self, i: usize) -> Order1<K> {
-        let mut g = [0.0; K];
-        for a in 0..K {
-            g[a] = self.g[a][i];
-        }
-        Order1 { v: self.v[i], g }
-    }
-}
-
-/// Structural layout signature of a row program: the part that MUST be identical
-/// across rows for them to share one SIMD op graph (slot mapping, per-atom
-/// basis/latent/decoder shape, primary count). The per-row numeric data
-/// (`phi`/`d_phi`/`d2_phi`/`decoder` VALUES, `logits`) is what differs between
-/// lanes; the layout is what is shared.
-impl SaeReconstructionRowProgram {
-    /// Whether `self` and `other` share the SIMD-batchable softmax layout: same
-    /// softmax temperature, primary count, slot mapping, and per-atom basis /
-    /// latent / decoder dimensions. (Decoder/basis VALUES may differ per row and
-    /// are lane-packed; only the SHAPES must match.)
-    fn batch_aligned_softmax_with(&self, other: &Self) -> bool {
-        // Both rows must gate through softmax at the same temperature; a
-        // bit-for-bit `inv_tau` match is what lets them share one op graph.
-        match (self.gate, other.gate) {
-            (RowGate::Softmax { inv_tau: a }, RowGate::Softmax { inv_tau: b }) => {
-                if a.to_bits() != b.to_bits() {
-                    return false;
-                }
-            }
-            _ => return false,
-        }
-        if self.n_primaries != other.n_primaries
-            || self.atoms.len() != other.atoms.len()
-            || self.logit_slot != other.logit_slot
-            || self.coord_slot != other.coord_slot
-            || self.logits.len() != other.logits.len()
-        {
-            return false;
-        }
-        for (a, b) in self.atoms.iter().zip(other.atoms.iter()) {
-            if a.latent_dim != b.latent_dim
-                || a.n_basis() != b.n_basis()
-                || a.out_dim() != b.out_dim()
-            {
-                return false;
-            }
-        }
-        true
-    }
-
-    /// All `K` softmax gate lane-jets (`Order2` channels), with the denominator
-    /// SHARED across atoms and 4 rows packed per lane. Mirrors [`Self::all_gates`]
-    /// term-for-term so lane `i` is `to_bits`-identical to the row-`i` scalar
-    /// `all_gates::<K, Order2<K>>()`.
-    fn all_gates_o2x4<const K: usize>(&self, rows: &[&Self; LANES], inv_tau: f64) -> Vec<O2x4<K>> {
-        let n = self.gate_value.len();
-        let inv_tau_l = l_splat(inv_tau);
-        // Per-lane max-subtraction shift (= the scalar `all_gates` softmax shift,
-        // computed independently per row/lane).
-        let mut shift = [0.0; LANES];
-        for (lane, r) in rows.iter().enumerate() {
-            shift[lane] = r.logits.iter().copied().fold(f64::NEG_INFINITY, f64::max) * inv_tau;
-        }
-        let mut exps: Vec<O2x4<K>> = Vec::with_capacity(n);
-        let mut denom = O2x4::<K>::constant(l_splat(0.0));
-        for j in 0..n {
-            let mut lj_val = [0.0; LANES];
-            for (lane, r) in rows.iter().enumerate() {
-                lj_val[lane] = r.logits[j];
-            }
-            let lj = match self.logit_slot[j] {
-                Some(slot) => O2x4::<K>::variable(lj_val, slot),
-                None => O2x4::<K>::constant(lj_val),
-            };
-            let ej = lj.scale(inv_tau_l).sub(&O2x4::<K>::constant(shift)).exp();
-            denom = denom.add(&ej);
-            exps.push(ej);
-        }
-        let inv = denom.recip();
-        exps.iter().map(|e| e.mul(&inv)).collect()
-    }
-
-    /// All `K` softmax gate lane-jets at FIRST order (`Order1` channels).
-    /// Mirrors `all_gates::<K, Order1<K>>()` term-for-term.
-    fn all_gates_o1x4<const K: usize>(&self, rows: &[&Self; LANES], inv_tau: f64) -> Vec<O1x4<K>> {
-        let n = self.gate_value.len();
-        let inv_tau_l = l_splat(inv_tau);
-        let mut shift = [0.0; LANES];
-        for (lane, r) in rows.iter().enumerate() {
-            shift[lane] = r.logits.iter().copied().fold(f64::NEG_INFINITY, f64::max) * inv_tau;
-        }
-        let mut exps: Vec<O1x4<K>> = Vec::with_capacity(n);
-        let mut denom = O1x4::<K>::constant(l_splat(0.0));
-        for j in 0..n {
-            let mut lj_val = [0.0; LANES];
-            for (lane, r) in rows.iter().enumerate() {
-                lj_val[lane] = r.logits[j];
-            }
-            let lj = match self.logit_slot[j] {
-                Some(slot) => O1x4::<K>::variable(lj_val, slot),
-                None => O1x4::<K>::constant(lj_val),
-            };
-            let ej = lj.scale(inv_tau_l).sub(&O1x4::<K>::constant(shift)).exp();
-            denom = denom.add(&ej);
-            exps.push(ej);
-        }
-        let inv = denom.recip();
-        exps.iter().map(|e| e.mul(&inv)).collect()
-    }
-
-    /// One atom's basis jet `Φ_b(t)` as an [`O2x4`] over 4 rows, mirroring
-    /// [`AtomRowBasisJet::basis_tower`] term-for-term. A data-dependent `== 0`
-    /// skip is taken only when ALL 4 lanes are zero (the contribution of a zero
-    /// lane is `+0.0`, bit-identical to the scalar skip).
-    fn basis_tower_o2x4<const K: usize>(
-        rows: &[&Self; LANES],
-        atom: usize,
-        basis_col: usize,
-        coord_slots: &[usize],
-    ) -> O2x4<K> {
-        let latent = rows[0].atoms[atom].latent_dim;
-        let mut phi0 = [0.0; LANES];
-        for (lane, r) in rows.iter().enumerate() {
-            phi0[lane] = r.atoms[atom].phi[basis_col];
-        }
-        let mut acc = O2x4::<K>::constant(phi0);
-        for axis in 0..latent {
-            let slot = coord_slots[axis];
-            if slot == SAE_FIXED_COORD_SLOT {
-                continue;
-            }
-            let mut d1 = [0.0; LANES];
-            let mut any = false;
-            for (lane, r) in rows.iter().enumerate() {
-                let v = r.atoms[atom].d_phi[basis_col][axis];
-                d1[lane] = v;
-                any |= v != 0.0;
-            }
-            if any {
-                acc = acc.add(&O2x4::<K>::variable(l_splat(0.0), slot).scale(d1));
-            }
-        }
-        for axis_a in 0..latent {
-            // Hoist the fixed-slot skip and the `va` variable build out of the
-            // inner axis_b loop: both depend only on axis_a, so the old code
-            // rebuilt `va` and re-tested the slot `latent` times per axis_a.
-            let slot_a = coord_slots[axis_a];
-            if slot_a == SAE_FIXED_COORD_SLOT {
-                continue;
-            }
-            let va = O2x4::<K>::variable(l_splat(0.0), slot_a);
-            for axis_b in 0..latent {
-                let slot_b = coord_slots[axis_b];
-                if slot_b == SAE_FIXED_COORD_SLOT {
-                    continue;
-                }
-                let mut d2 = [0.0; LANES];
-                let mut any = false;
-                for (lane, r) in rows.iter().enumerate() {
-                    let v = r.atoms[atom].d2_phi[basis_col][axis_a][axis_b];
-                    d2[lane] = v;
-                    any |= v != 0.0;
-                }
-                if !any {
-                    continue;
-                }
-                let mut half_d2 = [0.0; LANES];
-                for lane in 0..LANES {
-                    half_d2[lane] = 0.5 * d2[lane];
-                }
-                let vb = O2x4::<K>::variable(l_splat(0.0), slot_b);
-                acc = acc.add(&va.mul(&vb).scale(half_d2));
-            }
-        }
-        acc
-    }
-
-    /// One atom's basis jet as an [`O1x4`] (value + gradient), mirroring
-    /// `basis_tower::<Order1>` term-for-term.
-    fn basis_tower_o1x4<const K: usize>(
-        rows: &[&Self; LANES],
-        atom: usize,
-        basis_col: usize,
-        coord_slots: &[usize],
-    ) -> O1x4<K> {
-        let latent = rows[0].atoms[atom].latent_dim;
-        let mut phi0 = [0.0; LANES];
-        for (lane, r) in rows.iter().enumerate() {
-            phi0[lane] = r.atoms[atom].phi[basis_col];
-        }
-        let mut acc = O1x4::<K>::constant(phi0);
-        for axis in 0..latent {
-            let slot = coord_slots[axis];
-            if slot == SAE_FIXED_COORD_SLOT {
-                continue;
-            }
-            let mut d1 = [0.0; LANES];
-            let mut any = false;
-            for (lane, r) in rows.iter().enumerate() {
-                let v = r.atoms[atom].d_phi[basis_col][axis];
-                d1[lane] = v;
-                any |= v != 0.0;
-            }
-            if any {
-                acc = acc.add(&O1x4::<K>::variable(l_splat(0.0), slot).scale(d1));
-            }
-        }
-        for axis_a in 0..latent {
-            for axis_b in 0..latent {
-                if coord_slots[axis_a] == SAE_FIXED_COORD_SLOT
-                    || coord_slots[axis_b] == SAE_FIXED_COORD_SLOT
-                {
-                    continue;
-                }
-                let mut d2 = [0.0; LANES];
-                let mut any = false;
-                for (lane, r) in rows.iter().enumerate() {
-                    let v = r.atoms[atom].d2_phi[basis_col][axis_a][axis_b];
-                    d2[lane] = v;
-                    any |= v != 0.0;
-                }
-                if !any {
-                    continue;
-                }
-                let mut half_d2 = [0.0; LANES];
-                for lane in 0..LANES {
-                    half_d2[lane] = 0.5 * d2[lane];
-                }
-                let va = O1x4::<K>::variable(l_splat(0.0), coord_slots[axis_a]);
-                let vb = O1x4::<K>::variable(l_splat(0.0), coord_slots[axis_b]);
-                acc = acc.add(&va.mul(&vb).scale(half_d2));
-            }
-        }
-        acc
-    }
-
-    /// All `out_dim` reconstruction columns for FOUR softmax-aligned rows at once,
-    /// returned per row. Each row's column vector is BIT-IDENTICAL to
-    /// [`Self::reconstruction_all_columns_packed`] on that row (same hoisting,
-    /// same Leibniz products in the same order — lane `i` mirrors the scalar
-    /// row-`i` path). Returns `None` if the four rows are not softmax-aligned, so
-    /// the caller can fall back to the scalar per-row path.
-    #[must_use]
-    pub fn reconstruction_all_columns_batch4<const K: usize>(
-        rows: [&Self; 4],
-    ) -> Option<[Vec<Order2<K>>; 4]> {
-        let head = rows[0];
-        if head.n_primaries != K {
-            return None;
-        }
-        let inv_tau = match head.gate {
-            RowGate::Softmax { inv_tau } => inv_tau,
-            RowGate::PerAtomLogistic { .. } => return None,
-        };
-        for r in &rows[1..] {
-            if !head.batch_aligned_softmax_with(r) {
-                return None;
-            }
-        }
-        let p = head.out_dim();
-        let gates: Vec<O2x4<K>> = head.all_gates_o2x4::<K>(&rows, inv_tau);
-        // Build a jet tower ONLY for the basis columns that actually decode to
-        // something: a column whose decoder row is identically zero across every
-        // output channel AND every lane contributes exactly zero to all `p` output
-        // sums, so both its (expensive) O2x4 tower build and its per-output gather
-        // are pure waste. Skipping it is bit-identical — the old inner `any` guard
-        // already dropped the scaled add, this just also drops the dead tower build
-        // and the dead re-gather across all `p` columns. Each atom keeps a compact
-        // `(basis_col, tower)` list of its live columns.
-        let bases: Vec<Vec<(usize, O2x4<K>)>> = head
-            .atoms
-            .iter()
-            .enumerate()
-            .map(|(atom, atom_jet)| {
-                (0..atom_jet.n_basis())
-                    .filter(|&b| {
-                        rows.iter()
-                            .any(|r| (0..p).any(|c| r.atoms[atom].decoder[b][c] != 0.0))
-                    })
-                    .map(|b| {
-                        (
-                            b,
-                            Self::basis_tower_o2x4::<K>(&rows, atom, b, &head.coord_slot[atom]),
-                        )
-                    })
-                    .collect()
-            })
-            .collect();
-        let mut cols: [Vec<Order2<K>>; LANES] = [Vec::new(), Vec::new(), Vec::new(), Vec::new()];
-        for c in 0..p {
-            let mut acc = O2x4::<K>::constant(l_splat(0.0));
-            for atom in 0..head.atoms.len() {
-                let mut decoded = O2x4::<K>::constant(l_splat(0.0));
-                for (basis_col, tower) in &bases[atom] {
-                    let mut coeff = [0.0; LANES];
-                    let mut any = false;
-                    for (lane, r) in rows.iter().enumerate() {
-                        let v = r.atoms[atom].decoder[*basis_col][c];
-                        coeff[lane] = v;
-                        any |= v != 0.0;
-                    }
-                    if any {
-                        decoded = decoded.add(&tower.scale(coeff));
-                    }
-                }
-                acc = acc.add(&gates[atom].mul(&decoded));
-            }
-            for lane in 0..LANES {
-                cols[lane].push(acc.lane(lane));
-            }
-        }
-        Some(cols)
-    }
-
-    /// Packed β-border FIRST-order jets for a batch of `(atom, basis_col)`
-    /// channels, for FOUR softmax-aligned rows at once, returned per row. Each
-    /// row's channel vector is BIT-IDENTICAL to
-    /// [`Self::beta_border_order1_packed`] on that row. Returns `None` if the
-    /// rows are not softmax-aligned.
-    #[must_use]
-    pub fn beta_border_order1_batch4<const K: usize>(
-        rows: [&Self; 4],
-        channels: &[(usize, usize)],
-    ) -> Option<[Vec<Order1<K>>; 4]> {
-        let head = rows[0];
-        if head.n_primaries != K {
-            return None;
-        }
-        let inv_tau = match head.gate {
-            RowGate::Softmax { inv_tau } => inv_tau,
-            RowGate::PerAtomLogistic { .. } => return None,
-        };
-        for r in &rows[1..] {
-            if !head.batch_aligned_softmax_with(r) {
-                return None;
-            }
-        }
-        let gates: Vec<O1x4<K>> = head.all_gates_o1x4::<K>(&rows, inv_tau);
-        let mut out: [Vec<Order1<K>>; LANES] = [Vec::new(), Vec::new(), Vec::new(), Vec::new()];
-        for &(atom, basis_col) in channels {
-            let phi = Self::basis_tower_o1x4::<K>(&rows, atom, basis_col, &head.coord_slot[atom]);
-            let s = gates[atom].mul(&phi);
-            for lane in 0..LANES {
-                out[lane].push(s.lane(lane));
-            }
-        }
-        Some(out)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use gam_math::jet_scalar::JetScalar;
+    // The scalar algebra (`value`/`add`/…) these tests read on concrete scalars
+    // lives on the shared `JetField` base now (JetScalar: JetField); JetScalar
+    // itself is no longer named here, so only JetField is imported.
+    use gam_math::nested_dual::JetField;
 
-    /// Replicate the production hand path (`row_jets_for_logdet`) arithmetic for
-    /// the reconstruction `first`/`second` channels of ONE output column, from
-    /// the same atom jets and softmax gate derivatives — independent code from
-    /// the tower. The two must agree to machine precision; this is the #932
-    /// universal oracle for the SAE row program (the analog of the survival
-    /// `rigid_row_kernel_agrees_with_jet_tower_program` oracle).
+    /// Replicate the historical hand path formerly used by `row_jets_for_logdet`
+    /// for the reconstruction `first`/`second` channels of one output column.
+    /// It starts from the same atom jets and explicit softmax derivatives but is
+    /// independent of both the generic tower and the production compiled
+    /// schedule. Agreement makes it the #932 historical oracle for the SAE row
+    /// program (the analog of the survival RowKernel oracle).
     struct HandChannels {
         first: Vec<f64>,       // [primary]
         second: Vec<Vec<f64>>, // [primary][primary]
@@ -1924,7 +1283,7 @@ mod tests {
     }
 
     /// Softmax gate first/second derivatives wrt logit primaries, term-for-term
-    /// the production `gate_derivatives_for_row` softmax branch.
+    /// the retired `gate_derivatives_for_row` softmax branch.
     fn softmax_gate_derivs(gate: &[f64], inv_tau: f64) -> (Vec<Vec<f64>>, Vec<Vec<Vec<f64>>>) {
         let k = gate.len();
         // dz[j][kk] = ∂ζ_kk/∂ℓ_j ; d2z[j][l][kk] = ∂²ζ_kk/∂ℓ_j∂ℓ_l.
@@ -1952,9 +1311,9 @@ mod tests {
         (dz, d2z)
     }
 
-    /// Hand-pack the reconstruction column channels exactly as the production
-    /// `row_jets_for_logdet` does for a softmax gate: gate-logit primaries first
-    /// (one per atom), then each atom's latent coords.
+    /// Hand-pack the reconstruction column channels exactly as the former
+    /// `row_jets_for_logdet` softmax path did: gate-logit primaries first (one
+    /// per atom), then each atom's latent coordinates.
     fn hand_softmax_column(
         prog: &SaeReconstructionRowProgram,
         out_col: usize,
@@ -2216,10 +1575,10 @@ mod tests {
         }
     }
 
-    /// #932 correctness gate: the production packed jet recon
+    /// #932 correctness gate: the generic packed jet reconstruction
     /// ([`SaeReconstructionRowProgram::reconstruction_all_columns_packed`], gate +
     /// basis jets HOISTED out of the column loop, softmax denom/recip SHARED) and
-    /// the per-column packed call must each reproduce the hand path
+    /// and the per-column packed call must each reproduce the historical hand path
     /// ([`hand_softmax_column`], the old `row_jets_for_logdet` closed-form softmax
     /// gate Jacobian/Hessian × decoded basis, re-derived per output column) on
     /// value/grad/Hessian — the #932 bit-identity bar. (The ns/row timing
@@ -2421,12 +1780,30 @@ mod tests {
                             );
                             let fd = (fm2 - q(8.0) * fm1 + q(8.0) * fp1 - fp2) / q(12.0 * h);
                             let fd_error = (q_to_f64(fd) - exact_f64).abs();
-                            let fd_allowance = 2.0e-12 * condition + 1.0e-300;
+                            // A five-point stencil subtracts four nearby function
+                            // values. In a saturated softmax tail the derivative
+                            // can be tiny while every value is O(phi), so the
+                            // truncation bound alone does not cover Quad rounding
+                            // amplified by 1/h. Bound that cancellation by the
+                            // stencil's absolute condition number and Quad's own
+                            // machine epsilon; this remains scale-aware instead of
+                            // introducing an arbitrary absolute floor.
+                            let stencil_condition = (q_to_f64(fm2).abs()
+                                + 8.0 * q_to_f64(fm1).abs()
+                                + 8.0 * q_to_f64(fp1).abs()
+                                + q_to_f64(fp2).abs())
+                                / (12.0 * h);
+                            let fd_roundoff_allowance = 64.0 * Quad::EPSILON.0 * stencil_condition;
+                            let fd_allowance =
+                                2.0e-12 * condition + fd_roundoff_allowance + 1.0e-300;
                             max_fd_conditioned_error =
                                 max_fd_conditioned_error.max(fd_error / fd_allowance);
                             assert!(
                                 fd_error <= fd_allowance,
-                                "quad five-point derivative error {fd_error:e} > {fd_allowance:e}"
+                                "quad five-point derivative error {fd_error:e} > {fd_allowance:e}; \
+                                 truncation_condition={condition:e} \
+                                 stencil_condition={stencil_condition:e} \
+                                 gated={gated_atom} logit={logit_atom} r={inv_tau} phi={phi:e}"
                             );
                             comparisons += 1;
                         }
@@ -3120,201 +2497,6 @@ mod tests {
                 }
             }
         }
-    }
-
-    /// Build four softmax-aligned row programs that differ ONLY in their per-row
-    /// numeric data (logits, basis values, decoder), keeping the layout
-    /// (slots / dims / temperature) identical so they are 4-row SIMD-batchable.
-    fn softmax_batch_fixture(inv_tau: f64) -> [SaeReconstructionRowProgram; LANES] {
-        let n_basis = 3;
-        let out_dim = 4;
-        let mk = |row_seed: f64| {
-            let mk_atom = |seed: f64| {
-                let phi: Vec<f64> = (0..n_basis)
-                    .map(|b| 0.3 + 0.2 * (b as f64 + seed) + 0.11 * row_seed)
-                    .collect();
-                let d_phi: Vec<Vec<f64>> = (0..n_basis)
-                    .map(|b| {
-                        (0..2)
-                            .map(|axis| {
-                                0.1 * (b as f64 + 1.0) - 0.05 * axis as f64
-                                    + 0.03 * seed
-                                    + 0.017 * row_seed
-                            })
-                            .collect()
-                    })
-                    .collect();
-                let d2_phi: Vec<Vec<Vec<f64>>> = (0..n_basis)
-                    .map(|b| {
-                        (0..2)
-                            .map(|a| {
-                                (0..2)
-                                    .map(|bb| {
-                                        0.02 * (b as f64 + 1.0)
-                                            + 0.01 * (a as f64)
-                                            + 0.01 * (bb as f64)
-                                            + 0.004 * seed
-                                            + 0.003 * row_seed
-                                    })
-                                    .collect()
-                            })
-                            .collect()
-                    })
-                    .collect();
-                let decoder: Vec<Vec<f64>> = (0..n_basis)
-                    .map(|b| {
-                        (0..out_dim)
-                            .map(|c| {
-                                0.5 - 0.1 * (b as f64)
-                                    + 0.07 * (c as f64)
-                                    + 0.02 * seed
-                                    + 0.009 * row_seed
-                            })
-                            .collect()
-                    })
-                    .collect();
-                AtomRowBasisJet {
-                    phi,
-                    d_phi,
-                    d2_phi,
-                    decoder,
-                    latent_dim: 2,
-                }
-            };
-            let logits = vec![0.4 + 0.21 * row_seed, -0.7 + 0.13 * row_seed];
-            let e: Vec<f64> = logits.iter().map(|&l| (l * inv_tau).exp()).collect();
-            let s: f64 = e.iter().sum();
-            let gate_value: Vec<f64> = e.iter().map(|&v| v / s).collect();
-            SaeReconstructionRowProgram {
-                atoms: vec![mk_atom(0.0), mk_atom(1.0)],
-                gate_value,
-                logits,
-                gate_shift: vec![0.0, 0.0],
-                gate: RowGate::Softmax { inv_tau },
-                logit_slot: vec![Some(0), Some(1)],
-                coord_slot: vec![vec![2, 3], vec![4, 5]],
-                fixed_gate_value: Vec::new(),
-                n_primaries: 6,
-            }
-        };
-        [mk(0.0), mk(1.0), mk(2.0), mk(3.0)]
-    }
-
-    /// SIMD-batch bit-identity oracle: `reconstruction_all_columns_batch4` lane
-    /// `i` is `to_bits`-identical to the scalar `reconstruction_all_columns_packed`
-    /// on row `i`, across many temperatures and randomized per-row data
-    /// (≥2000 channel comparisons). The 4-row SIMD pass changes only how many
-    /// rows share one instruction stream, never the arithmetic.
-    #[test]
-    fn batch4_reconstruction_bit_identical_to_per_row() {
-        let mut comparisons = 0usize;
-        for tau in [0.7_f64, 0.9, 1.1, 1.3, 1.7, 2.1, 2.9] {
-            let rows = softmax_batch_fixture(tau);
-            let refs = [&rows[0], &rows[1], &rows[2], &rows[3]];
-            let batch = SaeReconstructionRowProgram::reconstruction_all_columns_batch4::<6>(refs)
-                .expect("softmax-aligned rows must batch");
-            for lane in 0..LANES {
-                let per = rows[lane].reconstruction_all_columns_packed::<6>();
-                assert_eq!(per.len(), batch[lane].len());
-                for (c, (b, p)) in batch[lane].iter().zip(per.iter()).enumerate() {
-                    assert_eq!(
-                        b.value().to_bits(),
-                        p.value().to_bits(),
-                        "tau {tau} lane {lane} col {c} value"
-                    );
-                    let (bg, pg) = (b.g(), p.g());
-                    let (bh, ph) = (b.h(), p.h());
-                    for a in 0..6 {
-                        assert_eq!(
-                            bg[a].to_bits(),
-                            pg[a].to_bits(),
-                            "lane {lane} col {c} g[{a}]"
-                        );
-                        for d in 0..6 {
-                            assert_eq!(
-                                bh[a][d].to_bits(),
-                                ph[a][d].to_bits(),
-                                "lane {lane} col {c} h[{a}][{d}]"
-                            );
-                            comparisons += 1;
-                        }
-                    }
-                }
-            }
-        }
-        assert!(comparisons >= 2000, "oracle ran {comparisons} comparisons");
-    }
-
-    /// SIMD-batch bit-identity oracle for the β-border first-order path:
-    /// `beta_border_order1_batch4` lane `i` is `to_bits`-identical to
-    /// `beta_border_order1_packed` on row `i`.
-    #[test]
-    fn batch4_beta_border_bit_identical_to_per_row() {
-        let mut comparisons = 0usize;
-        for tau in [0.7_f64, 0.9, 1.1, 1.3, 1.7, 2.1, 2.9] {
-            let rows = softmax_batch_fixture(tau);
-            let refs = [&rows[0], &rows[1], &rows[2], &rows[3]];
-            let mut chans: Vec<(usize, usize)> = Vec::new();
-            for atom in 0..rows[0].atoms.len() {
-                for b in 0..rows[0].atoms[atom].n_basis() {
-                    chans.push((atom, b));
-                }
-            }
-            chans.push(chans[0]); // repeat to exercise gate-cache reuse
-            let batch = SaeReconstructionRowProgram::beta_border_order1_batch4::<6>(refs, &chans)
-                .expect("softmax-aligned rows must batch");
-            for lane in 0..LANES {
-                let per = rows[lane].beta_border_order1_packed::<6>(&chans);
-                assert_eq!(per.len(), batch[lane].len());
-                for (i, (b, p)) in batch[lane].iter().zip(per.iter()).enumerate() {
-                    assert_eq!(
-                        b.value().to_bits(),
-                        p.value().to_bits(),
-                        "lane {lane} chan {i} v"
-                    );
-                    let (bg, pg) = (b.g(), p.g());
-                    for a in 0..6 {
-                        assert_eq!(
-                            bg[a].to_bits(),
-                            pg[a].to_bits(),
-                            "lane {lane} chan {i} g[{a}]"
-                        );
-                        comparisons += 1;
-                    }
-                }
-            }
-        }
-        assert!(comparisons >= 1000, "oracle ran {comparisons} comparisons");
-    }
-
-    /// A non-softmax (per-atom logistic) batch must DECLINE (return `None`) so the
-    /// caller falls back to the scalar per-row path — the logistic branch is
-    /// per-row data-dependent and not lane-uniform.
-    #[test]
-    fn batch4_declines_non_softmax() {
-        let inv_tau = 1.1;
-        let mk = || SaeReconstructionRowProgram {
-            atoms: vec![AtomRowBasisJet {
-                phi: vec![1.0],
-                d_phi: vec![vec![0.0]],
-                d2_phi: vec![vec![vec![0.0]]],
-                decoder: vec![vec![1.0]],
-                latent_dim: 1,
-            }],
-            gate_value: vec![0.6],
-            logits: vec![0.6],
-            gate_shift: vec![0.2],
-            gate: RowGate::PerAtomLogistic { inv_tau },
-            logit_slot: vec![Some(0)],
-            coord_slot: vec![vec![1]],
-            fixed_gate_value: Vec::new(),
-            n_primaries: 2,
-        };
-        let rows = [mk(), mk(), mk(), mk()];
-        let refs = [&rows[0], &rows[1], &rows[2], &rows[3]];
-        assert!(
-            SaeReconstructionRowProgram::reconstruction_all_columns_batch4::<2>(refs).is_none()
-        );
     }
 
     /// #932 perf pin: the gate-HOISTED batched β border jets

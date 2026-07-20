@@ -821,8 +821,19 @@ class AtlasNerveDiagram:
     ``computed`` is False for shapes the nerve does not apply to (scalar
     ``block_size == 1`` or fewer than two selected charts), in which case only
     ``reason`` is populated. When ``computed`` is True, ``betti`` is the
-    ``{b0, b1, b2}`` signature and the simplex counts / covering side describe the
-    reduced nerve complex.
+    ``{b0, b1, b2}`` signature and the simplex counts / covering side describe
+    the reduced nerve complex. ``nerve_euler_characteristic`` is the exact
+    alternating sum of those admitted simplices; it is deliberately distinct
+    from ``certified_euler_characteristic``, which is populated only by a
+    finite-sample Gauss--Bonnet certificate. The standalone sparse-route entry
+    point has no ambient observations and therefore reports ``not_analyzed``.
+    ``audit_sae`` supplies ambient observations, constructs a deterministic
+    cross-fit in Rust, and returns ``analyzed_refused`` with structured
+    first-order diagnostics until population spectrum/margin and Gaussian-law
+    authorities are supplied. Its sample prescription separates pilot capture
+    authority from inference occupancy: collecting more rows is never presented
+    as a substitute for a missing population theorem. A refusal is never a
+    negative topology result.
     """
 
     computed: bool
@@ -833,6 +844,16 @@ class AtlasNerveDiagram:
     n_edges: int | None = None
     n_triangles: int | None = None
     n_tetrahedra: int | None = None
+    nerve_euler_characteristic: int | None = None
+    certified_euler_characteristic: int | None = None
+    good_cover_certified: bool | None = None
+    holonomy_status: str | None = None
+    holonomy_provenance: str | None = None
+    holonomy_refusal_codes: list[str] | None = None
+    holonomy_unavailable_reason: str | None = None
+    holonomy_analysis: dict[str, Any] | None = None
+    certified_orientability: str | None = None
+    topology_promotion: dict[str, bool | str | float] | None = None
     sampled_support_size: int | None = None
     covering_side: str | None = None
     max_filtration: float | None = None
@@ -846,6 +867,8 @@ def atlas_nerve_diagram(
     *,
     activation_threshold: float = 1.0e-6,
     blocks: Any | None = None,
+    observations: Any | None = None,
+    familywise_alpha: float | None = None,
 ) -> AtlasNerveDiagram:
     """Build an atlas nerve from fixed-width sparse block routing.
 
@@ -853,9 +876,25 @@ def atlas_nerve_diagram(
     with ``indices`` shaped ``N x s`` and values shaped
     ``N x s x block_size``. ``n_units`` preserves charts with no observed
     firing; the logical ``N x K`` code matrix is never materialized.
+
+    Supplying ``observations`` (the ambient activation rows the charts were read
+    from, one row per route row) together with ``familywise_alpha`` runs the
+    cross-fitted Gaussian-PCA holonomy producer and threads a real finite-sample
+    certificate through the diagram. Both must be given together, since a
+    topology promotion must state the error probability it spends; omitting both
+    keeps the pure combinatorial nerve.
     """
+    if (observations is None) != (familywise_alpha is None):
+        raise ValueError(
+            "atlas_nerve_diagram requires observations and familywise_alpha together"
+        )
     indices, values = _sparse_route_arrays(route, "route", int(block_size))
     block_list = None if blocks is None else [int(b) for b in blocks]
+    ambient = (
+        None
+        if observations is None
+        else np.ascontiguousarray(np.asarray(observations, dtype=np.float64))
+    )
     payload = rust_module().atlas_nerve_diagram(
         indices,
         values,
@@ -863,6 +902,8 @@ def atlas_nerve_diagram(
         int(block_size),
         float(activation_threshold),
         block_list,
+        ambient,
+        None if familywise_alpha is None else float(familywise_alpha),
     )
     if not bool(payload["computed"]):
         return AtlasNerveDiagram(computed=False, reason=str(payload["reason"]))
@@ -879,6 +920,47 @@ def atlas_nerve_diagram(
         n_edges=int(payload["n_edges"]),
         n_triangles=int(payload["n_triangles"]),
         n_tetrahedra=int(payload["n_tetrahedra"]),
+        nerve_euler_characteristic=int(payload["nerve_euler_characteristic"]),
+        certified_euler_characteristic=(
+            None
+            if payload["certified_euler_characteristic"] is None
+            else int(payload["certified_euler_characteristic"])
+        ),
+        good_cover_certified=bool(payload["good_cover_certified"]),
+        holonomy_status=str(payload["holonomy_status"]),
+        holonomy_provenance=(
+            None
+            if payload["holonomy_provenance"] is None
+            else str(payload["holonomy_provenance"])
+        ),
+        holonomy_refusal_codes=(
+            None
+            if payload["holonomy_refusal_codes"] is None
+            else [str(value) for value in payload["holonomy_refusal_codes"]]
+        ),
+        holonomy_unavailable_reason=(
+            None
+            if payload["holonomy_unavailable_reason"] is None
+            else str(payload["holonomy_unavailable_reason"])
+        ),
+        holonomy_analysis=(
+            None
+            if payload["holonomy_analysis"] is None
+            else dict(payload["holonomy_analysis"])
+        ),
+        certified_orientability=(
+            None
+            if payload["certified_orientability"] is None
+            else str(payload["certified_orientability"])
+        ),
+        topology_promotion={
+            "certified": bool(payload["topology_promotion"]["certified"]),
+            "kind": str(payload["topology_promotion"]["kind"]),
+            "name": str(payload["topology_promotion"]["name"]),
+            "generic_bits": float(payload["topology_promotion"]["generic_bits"]),
+            "named_bits": float(payload["topology_promotion"]["named_bits"]),
+            "bits_saved": float(payload["topology_promotion"]["bits_saved"]),
+        },
         sampled_support_size=int(payload["sampled_support_size"]),
         covering_side=str(payload["covering_side"]),
         max_filtration=float(payload["max_filtration"]),

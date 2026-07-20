@@ -114,24 +114,72 @@ pub(crate) fn build_response_basis(
     let mut resp_deriv = Array2::<f64>::zeros((n, p_resp));
     resp_deriv.slice_mut(s![.., 1..]).assign(&shape_deriv);
 
-    // SCOP-CTN coef-transform is identity: I-splines have no constant in
-    // their span, and squaring γ removes the per-component sign null direction.
+    // SCOP-CTN coef-transform is identity: the direct-α chart (gam#2306) keeps
+    // the I-spline shape coordinates as-is (no square, no reparameterization),
+    // and I-splines carry no constant in their span, so no column folding is
+    // needed.
     let transform = Array2::<f64>::eye(p_shape);
 
-    // SCOP keeps a Gaussian quadratic prior on the latent γ shape factors,
-    // not on the final non-negative I-spline coefficient α = γ². That is a
-    // deliberate latent-prior penalty: replacing it with a final-function
-    // roughness penalty would make the penalty nonlinear in β and would need
-    // a different outer objective normalizer than the quadratic REML term.
-    // Embed the latent response penalty into the full response block with an
-    // unpenalized location row/column.
+    // SPEC-5: the response-direction penalty is the EXACT function-space
+    // roughness of the represented I-spline value function, not a
+    // coefficient-difference operator. For derivative order `m` the shape
+    // block carries
+    //
+    //     S_{y,m} = Cᵀ (∫ B_q^{(m)}(y) B_q^{(m)}(y)ᵀ dy) C,
+    //
+    // assembled span by span by Gauss–Legendre with the I-spline cumulative
+    // frame `C` (see `ispline_function_penalties`). This is a quadratic
+    // functional of the represented function itself, so it is scale- and
+    // knot-width-aware (a difference operator is not) while remaining exactly
+    // quadratic in the shape coefficients, i.e. compatible with the fixed
+    // Gaussian-quadratic REML normalizer.
+    //
+    // In the direct-alpha chart (#2306), this Gram enters
+    // `1/2 vec(A)^T (S_{y,m} kron G_x) vec(A)`, so it penalizes the final
+    // represented transformation itself rather than a latent square root.
+    //
+    // The represented value functions have per-span polynomial degree
+    // `value_degree = response_degree + 1`; the `m`-th derivative of a
+    // degree-`value_degree` piecewise polynomial vanishes identically for
+    // `m > value_degree`, so such an order carries no function roughness and
+    // is a hard configuration error rather than a silently skipped no-op.
+    // Embed each Gram into the full response block with an unpenalized
+    // location row/column.
+    let value_degree = response_degree + 1;
     let mut resp_penalties = Vec::new();
     let add_penalty = |order: usize, penalties: &mut Vec<Array2<f64>>| -> Result<(), String> {
-        if order == 0 || order >= p_shape {
-            return Ok(());
+        if order == 0 {
+            return Err(TransformationNormalError::InvalidInput {
+                reason: "response penalty derivative order must be >= 1; order 0 is the value \
+                         function, not a roughness penalty"
+                    .to_string(),
+            }
+            .into());
         }
-        let shape_pen =
-            create_difference_penalty_matrix(p_shape, order, None).map_err(|e| e.to_string())?;
+        if order > value_degree {
+            return Err(TransformationNormalError::InvalidInput {
+                reason: format!(
+                    "response penalty derivative order {order} exceeds the I-spline value degree \
+                     {value_degree}; the {order}-th derivative of the response basis is \
+                     identically zero, so this order carries no function-space roughness"
+                ),
+            }
+            .into());
+        }
+        let function_penalty = ispline_function_penalties(knots.view(), response_degree, order, false)
+            .map_err(|e| e.to_string())?;
+        let shape_pen = function_penalty.roughness;
+        if shape_pen.dim() != (p_shape, p_shape) {
+            return Err(TransformationNormalError::InvalidInput {
+                reason: format!(
+                    "order-{order} I-spline function roughness is {}x{} but the response shape \
+                     block has {p_shape} columns",
+                    shape_pen.nrows(),
+                    shape_pen.ncols(),
+                ),
+            }
+            .into());
+        }
         let mut full_pen = Array2::<f64>::zeros((p_resp, p_resp));
         full_pen.slice_mut(s![1.., 1..]).assign(&shape_pen);
         penalties.push(full_pen);

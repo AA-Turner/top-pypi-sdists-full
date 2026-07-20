@@ -2,12 +2,14 @@
 
 import textwrap
 import tkinter
+from tkinter import filedialog
 from datetime import date
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Tuple
 
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import *
 from ttkbootstrap.localization import MessageCatalog
+from ttkbootstrap.style._compat import normalize_datepicker_kwargs
 from .base import Dialog
 from .datepicker import DatePickerDialog
 from .fontdialog import FontDialog
@@ -86,12 +88,12 @@ class QueryDialog(Dialog):
         self._result = None
 
     def create_body(self, master: tkinter.Misc) -> None:
+        """Build the prompt label and input widget (Entry or Combobox)."""
         frame = ttk.Frame(master, padding=self._padding)
         if self._prompt:
             for p in self._prompt.split("\n"):
                 prompt = "\n".join(textwrap.wrap(p, width=self._width))
-                prompt_label = ttk.Label(frame, text=prompt)
-                prompt_label.pack(pady=(0, 5), fill=X, anchor=N)
+                ttk.Label(frame, text=prompt).pack(pady=(0, 5), fill=X, anchor=N)
         if self._items is None or len(self._items) == 0:
             entry = ttk.Entry(master=frame)
         else:
@@ -106,6 +108,7 @@ class QueryDialog(Dialog):
         self._initial_focus = entry
 
     def create_buttonbox(self, master: tkinter.Misc) -> None:
+        """Build the Submit/Cancel button row."""
         frame = ttk.Frame(master, padding=(5, 10))
 
         submit = ttk.Button(
@@ -114,22 +117,22 @@ class QueryDialog(Dialog):
             text=MessageCatalog.translate("Submit"),
             command=self.on_submit,
         )
-        submit.pack(padx=5, side=RIGHT)
+        submit.pack(padx=2, side=RIGHT)
         submit.lower()
 
         cancel = ttk.Button(
             master=frame,
-            bootstyle="secondary",
             text=MessageCatalog.translate("Cancel"),
             command=self.on_cancel,
         )
-        cancel.pack(padx=5, side=RIGHT)
+        cancel.pack(padx=2, side=RIGHT)
         cancel.lower()
 
         ttk.Separator(self._toplevel).pack(fill=X)
         frame.pack(side=BOTTOM, fill=X, anchor=S)
 
     def on_submit(self, *_: Any) -> None:
+        """Capture the input value, validate it, and close the dialog if valid."""
         self._result = self._initial_focus.get()
         valid_result = self.validate()
         if not valid_result:
@@ -138,10 +141,12 @@ class QueryDialog(Dialog):
         self.apply()
 
     def on_cancel(self, *_: Any) -> None:
+        """Close the dialog without setting a result."""
         self._toplevel.destroy()
         return
 
     def on_filter_list(self, event: tkinter.Event) -> None:
+        """Filter the Combobox values to those matching the typed text."""
         value = event.widget.get().lower()
         if not value:
             event.widget["values"] = self._items
@@ -213,13 +218,17 @@ class Querybox:
             parent: Optional[tkinter.Misc] = None,
             title: str = "Color Chooser",
             initialcolor: Optional[str] = None,
+            *,
+            position: Optional[Tuple[int, int]] = None,
             **kwargs: Any,
     ) -> Any:
-        """Show a color picker and return the selected color when OK is pressed."""
+        """Show a color picker and return the selected color when OK is pressed.
+
+        Returns a ``ColorChoice`` namedtuple, or ``None`` if cancelled.
+        """
         from ttkbootstrap.dialogs.colorchooser import ColorChooserDialog
 
         dialog = ColorChooserDialog(parent, title, initialcolor)
-        position = kwargs.pop("position", None)
         dialog.show(position)
         return dialog.result
 
@@ -227,18 +236,46 @@ class Querybox:
     def get_date(
             parent: Optional[tkinter.Misc] = None,
             title: str = " ",
-            firstweekday: int = 6,
-            startdate: Optional[date] = None,
+            first_weekday: int = 6,
+            start_date: Optional[date] = None,
             bootstyle: str = "primary",
-    ) -> date:
+            *,
+            show_outside_days: bool = True,
+            position: Optional[Tuple[int, int]] = None,
+            **kwargs: Any,
+    ) -> Optional[date]:
+        """Show a calendar and return the selected ``date``.
+
+        2.0 change: returns ``None`` when the picker is cancelled (closed
+        without choosing a day). Previously it always returned a ``date`` --
+        falling back to ``start_date``/today -- so cancellation was
+        indistinguishable from a real selection.
+
+        Set ``show_outside_days=False`` to blank the leading/trailing days that
+        belong to the adjacent months (only the current month's days are shown).
+
+        The pre-2.0 ``firstweekday``/``startdate`` spellings are accepted
+        through 2.x with a ``DeprecationWarning`` (removed in 3.0).
+        """
+        aliases = normalize_datepicker_kwargs(kwargs)
+        first_weekday = aliases.get("first_weekday", first_weekday)
+        start_date = aliases.get("start_date", start_date)
+        if kwargs:
+            raise TypeError(
+                f"get_date() got unexpected keyword arguments: "
+                f"{', '.join(sorted(kwargs))}"
+            )
         chooser = DatePickerDialog(
             parent=parent,
             title=title,
-            firstweekday=firstweekday,
-            startdate=startdate,
+            first_weekday=first_weekday,
+            start_date=start_date,
             bootstyle=bootstyle,
+            show_outside_days=show_outside_days,
+            autoshow=False,
         )
-        return chooser.date_selected
+        chooser.show(position)
+        return chooser.result
 
     @staticmethod
     def get_string(
@@ -246,13 +283,19 @@ class Querybox:
             title: str = " ",
             initialvalue: Optional[str] = None,
             parent: Optional[tkinter.Misc] = None,
+            *,
+            position: Optional[Tuple[int, int]] = None,
             **kwargs: Any,
     ) -> Optional[str]:
+        """Prompt for a string. Returns the text, or ``None`` if cancelled.
+
+        Note: submitting an empty field returns ``""`` (distinct from the
+        ``None`` returned on cancel).
+        """
         initialvalue = initialvalue or ""
-        position = kwargs.pop("position", None)
         dialog = QueryDialog(prompt, title, initialvalue, parent=parent, **kwargs)
         dialog.show(position)
-        return dialog._result
+        return dialog.result
 
     @staticmethod
     def get_item(
@@ -261,13 +304,15 @@ class Querybox:
             initialvalue: Optional[str] = None,
             items: Optional[List[str]] = None,
             parent: Optional[tkinter.Misc] = None,
+            *,
+            position: Optional[Tuple[int, int]] = None,
             **kwargs: Any,
     ) -> Optional[str]:
+        """Prompt for one item from a list. Returns it, or ``None`` if cancelled."""
         initialvalue = initialvalue or ""
-        position = kwargs.pop("position", None)
         dialog = QueryDialog(prompt, title, initialvalue, items=items, parent=parent, **kwargs)
         dialog.show(position)
-        return dialog._result
+        return dialog.result
 
     @staticmethod
     def get_integer(
@@ -277,10 +322,12 @@ class Querybox:
             minvalue: Optional[int] = None,
             maxvalue: Optional[int] = None,
             parent: Optional[tkinter.Misc] = None,
+            *,
+            position: Optional[Tuple[int, int]] = None,
             **kwargs: Any,
     ) -> Optional[int]:
+        """Prompt for an integer. Returns it, or ``None`` if cancelled."""
         initialvalue = initialvalue or ""
-        position = kwargs.pop("position", None)
         datatype = kwargs.pop("datatype", int)
         dialog = QueryDialog(
             prompt,
@@ -293,7 +340,7 @@ class Querybox:
             **kwargs,
         )
         dialog.show(position)
-        return dialog._result
+        return dialog.result
 
     @staticmethod
     def get_float(
@@ -303,10 +350,12 @@ class Querybox:
             minvalue: Optional[float] = None,
             maxvalue: Optional[float] = None,
             parent: Optional[tkinter.Misc] = None,
+            *,
+            position: Optional[Tuple[int, int]] = None,
             **kwargs: Any,
     ) -> Optional[float]:
+        """Prompt for a float. Returns it, or ``None`` if cancelled."""
         initialvalue = initialvalue or ""
-        position = kwargs.pop("position", None)
         datatype = kwargs.pop("datatype", float)
         dialog = QueryDialog(
             prompt,
@@ -319,11 +368,71 @@ class Querybox:
             **kwargs,
         )
         dialog.show(position)
-        return dialog._result
+        return dialog.result
 
     @staticmethod
-    def get_font(parent: Optional[tkinter.Misc] = None, **kwargs: Any):
-        position = kwargs.pop("position", None)
+    def get_font(
+            parent: Optional[tkinter.Misc] = None,
+            *,
+            position: Optional[Tuple[int, int]] = None,
+            **kwargs: Any,
+    ):
+        """Show a font picker. Returns a ``Font``, or ``None`` if cancelled."""
         dialog = FontDialog(parent=parent, **kwargs)
         dialog.show(position)
         return dialog.result
+
+    # File dialogs. These wrap the *native* OS file dialogs
+    # (`tkinter.filedialog`) — the one standard dialog ttkbootstrap does not
+    # restyle, because the OS draws it. They live here so a file path is fetched
+    # through the same `Querybox.get_*` facade as every other value, and they
+    # normalize the stdlib "" -on-cancel to `None` to match that contract.
+
+    @staticmethod
+    def get_open_filename(parent: Optional[tkinter.Misc] = None, **kwargs: Any) -> Optional[str]:
+        """Show an *open file* dialog. Returns the chosen path, or ``None`` if
+        cancelled.
+
+        Wraps ``tkinter.filedialog.askopenfilename``; forward its options
+        (``title``, ``filetypes``, ``initialdir``, ``initialfile``, ...) as
+        keyword arguments.
+        """
+        if parent is not None:
+            kwargs["parent"] = parent
+        return filedialog.askopenfilename(**kwargs) or None
+
+    @staticmethod
+    def get_open_filenames(parent: Optional[tkinter.Misc] = None, **kwargs: Any) -> Optional[Tuple[str, ...]]:
+        """Show an *open multiple files* dialog. Returns a tuple of paths, or
+        ``None`` if cancelled.
+
+        Wraps ``tkinter.filedialog.askopenfilenames``.
+        """
+        if parent is not None:
+            kwargs["parent"] = parent
+        paths = filedialog.askopenfilenames(**kwargs)
+        return tuple(paths) if paths else None
+
+    @staticmethod
+    def get_save_filename(parent: Optional[tkinter.Misc] = None, **kwargs: Any) -> Optional[str]:
+        """Show a *save as* dialog. Returns the chosen path, or ``None`` if
+        cancelled.
+
+        Wraps ``tkinter.filedialog.asksaveasfilename``; forward its options
+        (``title``, ``filetypes``, ``defaultextension``, ``initialfile``, ...)
+        as keyword arguments.
+        """
+        if parent is not None:
+            kwargs["parent"] = parent
+        return filedialog.asksaveasfilename(**kwargs) or None
+
+    @staticmethod
+    def get_directory(parent: Optional[tkinter.Misc] = None, **kwargs: Any) -> Optional[str]:
+        """Show a *choose directory* dialog. Returns the chosen path, or ``None``
+        if cancelled.
+
+        Wraps ``tkinter.filedialog.askdirectory``.
+        """
+        if parent is not None:
+            kwargs["parent"] = parent
+        return filedialog.askdirectory(**kwargs) or None

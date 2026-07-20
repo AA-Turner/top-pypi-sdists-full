@@ -231,7 +231,7 @@ fn remap_feature_columns_rewrites_every_index_bearing_field() {
                         identifiability: SpatialIdentifiability::default(),
                         radial_reparam: None,
                     },
-                    input_scales: None,
+                    input_scale: None,
                 },
                 shape: ShapeConstraint::None,
                 joint_null_rotation: None,
@@ -308,21 +308,14 @@ fn collect_feature_columns(spec: &TermCollectionSpec) -> Vec<usize> {
 }
 
 #[test]
-fn bspline_nonzero_anchor_rejected_homogeneous_pin_baked_structurally() {
-    // #1238 (commit 091830200) changed the B-spline endpoint-boundary contract:
-    // Anchored (Hermite C1: value+slope) and Clamped (slope) endpoints are now
-    // BAKED into the raw coefficient chart as a structural nullspace
-    // reparameterization (build the constraint rows, form their nullspace
-    // transform, apply it to design+penalties, compose it into the stored
-    // identifiability transform so the pinned functionals are structurally zero
-    // and the constrained columns are dropped) — they are no longer emitted as a
-    // `linear_constraints` equality block, and ONLY homogeneous (value≈0) anchors
-    // are representable. This fixture was authored against the pre-#1238 contract
-    // (boundaries → linear equality constraints, non-zero anchors allowed) and
-    // orphaned out of every test binary by #1601, so it silently encoded the dead
-    // contract. Re-homed here it pins the CURRENT contract: non-zero anchors
-    // REJECTED, homogeneous pins baked structurally (no linear constraints,
-    // columns dropped, endpoint functionals structurally zero in the chart).
+fn bspline_nonzero_anchor_has_fixed_affine_lift_and_homogeneous_chart() {
+    // The inhomogeneous endpoint equations are split canonically into a fixed
+    // particular solution plus the old homogeneous null-space chart:
+    //
+    //     f(x) = B_raw(x) beta_p + B_raw(x) Z gamma.
+    //
+    // Thus the constrained coefficient width and penalty geometry remain
+    // identical to a zero anchor, while beta_p alone owns the requested value.
     let x = Array1::linspace(0.0, 1.0, 25);
     let data = x.clone().insert_axis(Axis(1));
     let mk = |left, right| SmoothTermSpec {
@@ -346,24 +339,6 @@ fn bspline_nonzero_anchor_rejected_homogeneous_pin_baked_structurally() {
         joint_null_rotation: None,
     };
 
-    // A non-zero anchor is no longer representable as a homogeneous structural
-    // pin: the builder must reject it with the specific InvalidInput (#1238).
-    let err = build_smooth_design(
-        data.view(),
-        &[mk(
-            BSplineEndpointBoundaryCondition::Anchored { value: 2.0 },
-            BSplineEndpointBoundaryCondition::Clamped,
-        )],
-    )
-    .expect_err("non-zero anchor must be rejected post-#1238");
-    match err {
-        gam_terms::basis::BasisError::InvalidInput(msg) => assert!(
-            msg.contains("anchored B-spline boundary value must be zero"),
-            "unexpected rejection message: {msg}"
-        ),
-        other => panic!("expected InvalidInput for non-zero anchor, got {other:?}"),
-    }
-
     // Reference free basis fixes the raw column count (8 columns here).
     let free = build_smooth_design(
         data.view(),
@@ -376,18 +351,17 @@ fn bspline_nonzero_anchor_rejected_homogeneous_pin_baked_structurally() {
     let raw_cols = free.total_smooth_cols();
     assert_eq!(raw_cols, 8);
 
-    // Homogeneous Anchored{0.0} (Hermite value+slope) left + Clamped (slope)
-    // right is now BAKED into the coefficient chart. Three structural rows (left
-    // value, left slope, right slope) are dropped, so the design loses exactly
-    // three columns and carries NO linear constraints.
+    // Anchored (Hermite value+slope) left + Clamped (slope) right is baked into
+    // the homogeneous coefficient chart. Three structural rows are dropped,
+    // independently of the non-zero right-hand side.
     let design = build_smooth_design(
         data.view(),
         &[mk(
-            BSplineEndpointBoundaryCondition::Anchored { value: 0.0 },
+            BSplineEndpointBoundaryCondition::Anchored { value: 2.0 },
             BSplineEndpointBoundaryCondition::Clamped,
         )],
     )
-    .unwrap_or_else(|e| panic!("{} failed: {:?}", "homogeneous anchored/clamped basis builds", e));
+    .unwrap_or_else(|e| panic!("{} failed: {:?}", "affine anchored/clamped basis builds", e));
     assert!(
         design.linear_constraints.is_none(),
         "boundary conditions are baked structurally, not emitted as linear constraints"
@@ -401,6 +375,7 @@ fn bspline_nonzero_anchor_rejected_homogeneous_pin_baked_structurally() {
     let BasisMetadata::BSpline1D {
         knots,
         identifiability_transform,
+        anchor_offset_coeffs,
         ..
     } = &design.terms[0].metadata
     else {
@@ -411,6 +386,15 @@ fn bspline_nonzero_anchor_rejected_homogeneous_pin_baked_structurally() {
         .unwrap_or_else(|| panic!("{} failed", "baked boundary transform recorded for replay"));
     assert_eq!(z.nrows(), raw_cols);
     assert_eq!(z.ncols(), design.total_smooth_cols());
+    let beta_p = anchor_offset_coeffs
+        .as_ref()
+        .expect("non-zero anchor records its raw-basis particular solution");
+    let realized_offset = &design.affine_offset;
+    assert!(
+        (realized_offset[0] - 2.0).abs() < 1e-10,
+        "realized left endpoint must equal the requested anchor, got {}",
+        realized_offset[0]
+    );
 
     // PROVE the endpoint is structurally pinned in the constrained chart:
     // evaluate the RAW basis at each endpoint, push it through the stored
@@ -459,6 +443,36 @@ fn bspline_nonzero_anchor_rejected_homogeneous_pin_baked_structurally() {
         "right endpoint slope (Clamped) must be structurally pinned to zero, got {:e}",
         maxabs(&baked_right_slope)
     );
+    let affine_left_value = left_value.row(0).dot(beta_p);
+    let affine_left_slope = left_slope.row(0).dot(beta_p);
+    let affine_right_slope = right_slope.row(0).dot(beta_p);
+    assert!((affine_left_value - 2.0).abs() < 1e-10);
+    assert!(affine_left_slope.abs() < 1e-10);
+    assert!(affine_right_slope.abs() < 1e-10);
+
+    // Freeze/replay must reconstruct both halves of the affine realization,
+    // not merely the homogeneous coefficient chart.
+    let collection_spec = TermCollectionSpec {
+        linear_terms: Vec::new(),
+        random_effect_terms: Vec::new(),
+        smooth_terms: vec![mk(
+            BSplineEndpointBoundaryCondition::Anchored { value: 2.0 },
+            BSplineEndpointBoundaryCondition::Clamped,
+        )],
+    };
+    let fit_design = build_term_collection_design(data.view(), &collection_spec)
+        .expect("fit-time affine term collection");
+    let frozen = freeze_term_collection_from_design(&collection_spec, &fit_design)
+        .expect("freeze affine term collection");
+    let replay = build_term_collection_design(data.view(), &frozen)
+        .expect("replay affine term collection");
+    assert_eq!(
+        fit_design.affine_offset, replay.affine_offset,
+        "frozen replay must reproduce the fixed row function exactly"
+    );
+    let fit_linear = fit_design.design.to_dense();
+    let replay_linear = replay.design.to_dense();
+    assert_eq!(fit_linear, replay_linear);
 }
 
 #[test]
@@ -883,16 +897,8 @@ pub(super) fn assert_term_collection_designs_match(
             "{label} penalty source mismatch at {idx}"
         );
         assert_eq!(
-            linfo.penalty.active, rinfo.penalty.active,
-            "{label} penalty active mismatch at {idx}"
-        );
-        assert_eq!(
             linfo.penalty.effective_rank, rinfo.penalty.effective_rank,
             "{label} penalty rank mismatch at {idx}"
-        );
-        assert_eq!(
-            linfo.penalty.nullspace_dim_hint, rinfo.penalty.nullspace_dim_hint,
-            "{label} penalty nullspace hint mismatch at {idx}"
         );
         assert!(
             (linfo.penalty.normalization_scale - rinfo.penalty.normalization_scale).abs() <= 1e-10,
@@ -975,7 +981,7 @@ fn smooth_design_assembles_terms_and_penalties() {
                     identifiability: SpatialIdentifiability::default(),
                     radial_reparam: None,
                 },
-                input_scales: None,
+                input_scale: None,
             },
             shape: ShapeConstraint::None,
             joint_null_rotation: None,
@@ -1034,7 +1040,7 @@ fn build_smooth_design_rejectsmultiaxis_spatial_shape_constraints() {
                 identifiability: SpatialIdentifiability::default(),
                 radial_reparam: None,
             },
-            input_scales: None,
+            input_scale: None,
         },
         shape: ShapeConstraint::MonotoneIncreasing,
         joint_null_rotation: None,
@@ -1068,7 +1074,7 @@ fn build_smooth_design_rejects_uncertified_monotone_thin_plate_1d() {
                 identifiability: SpatialIdentifiability::default(),
                 radial_reparam: None,
             },
-            input_scales: None,
+            input_scale: None,
         },
         shape: ShapeConstraint::MonotoneIncreasing,
         joint_null_rotation: None,
@@ -1109,7 +1115,7 @@ fn build_smooth_design_auto_promotes_thin_plate_below_canonical_polynomial_dimen
                 identifiability: SpatialIdentifiability::default(),
                 radial_reparam: None,
             },
-            input_scales: None,
+            input_scale: None,
         },
         shape: ShapeConstraint::None,
         joint_null_rotation: None,
@@ -1163,7 +1169,7 @@ fn freeze_term_collection_handles_thin_plate_auto_promotion_to_duchon() {
                     identifiability: SpatialIdentifiability::default(),
                     radial_reparam: None,
                 },
-                input_scales: None,
+                input_scale: None,
             },
             shape: ShapeConstraint::None,
             joint_null_rotation: None,
@@ -1183,7 +1189,7 @@ fn freeze_term_collection_handles_thin_plate_auto_promotion_to_duchon() {
         "expected auto-promotion to Duchon, got {metadata:?}"
     );
 
-    let frozen = freeze_term_collection_from_design(&spec, &fit_design).unwrap_or_else(|e| panic!("{} failed: {:?}", 
+    let frozen = freeze_term_collection_from_design(&spec, &fit_design).unwrap_or_else(|e| panic!("{} failed: {:?}",
         "freeze must succeed across the auto-promoted (ThinPlate spec, Duchon metadata) pair", e
     ));
     assert!(
@@ -1218,15 +1224,14 @@ fn build_smooth_design_rejects_uncertified_monotone_matern_1d() {
             spec: MaternBasisSpec {
                 periodic: None,
                 center_strategy: CenterStrategy::FarthestPoint { num_centers: 4 },
-                length_scale: 0.7,
+                length_scale: gam_terms::basis::MaternLengthScale::fixed(0.7),
                 nu: MaternNu::FiveHalves,
                 include_intercept: false,
                 double_penalty: false,
                 identifiability: MaternIdentifiability::CenterSumToZero,
                 aniso_log_scales: None,
-                nullspace_shrinkage_survived: None,
             },
-            input_scales: None,
+            input_scale: None,
         },
         shape: ShapeConstraint::MonotoneIncreasing,
         joint_null_rotation: None,
@@ -1261,7 +1266,7 @@ fn build_smooth_design_rejects_uncertified_monotone_duchon_1d() {
                 operator_penalties: DuchonOperatorPenaltySpec::default(),
                 boundary: OneDimensionalBoundary::Open,
             },
-            input_scales: None,
+            input_scale: None,
         },
         shape: ShapeConstraint::MonotoneIncreasing,
         joint_null_rotation: None,
@@ -1439,7 +1444,7 @@ fn term_collection_design_combines_linear_and_smooth() {
                     identifiability: SpatialIdentifiability::default(),
                     radial_reparam: None,
                 },
-                input_scales: None,
+                input_scale: None,
             },
             shape: ShapeConstraint::None,
             joint_null_rotation: None,
@@ -1487,7 +1492,7 @@ fn spatial_smooth_columns_do_not_duplicate_global_intercept() {
                     identifiability: SpatialIdentifiability::default(),
                     radial_reparam: None,
                 },
-                input_scales: None,
+                input_scale: None,
             },
             shape: ShapeConstraint::None,
             joint_null_rotation: None,
@@ -1546,7 +1551,7 @@ fn spatial_smooth_drops_matching_linear_trend_columns() {
                     identifiability: SpatialIdentifiability::default(),
                     radial_reparam: None,
                 },
-                input_scales: None,
+                input_scale: None,
             },
             shape: ShapeConstraint::None,
             joint_null_rotation: None,
@@ -1610,7 +1615,7 @@ fn spatial_option5_is_orthogonal_to_parametric_block() {
                     identifiability: SpatialIdentifiability::OrthogonalToParametric,
                     radial_reparam: None,
                 },
-                input_scales: None,
+                input_scale: None,
             },
             shape: ShapeConstraint::None,
             joint_null_rotation: None,
@@ -1686,7 +1691,7 @@ fn thin_plate_default_identifiability_centers_against_intercept_only_without_lin
                         identifiability: SpatialIdentifiability::OrthogonalToParametric,
                         radial_reparam: None,
                     },
-                    input_scales: None,
+                    input_scale: None,
                 },
                 shape: ShapeConstraint::None,
                 joint_null_rotation: None,
@@ -1756,7 +1761,7 @@ fn spatial_option5_does_not_overconstrain_on_nonoverlapping_linear_terms() {
                         identifiability: SpatialIdentifiability::OrthogonalToParametric,
                         radial_reparam: None,
                     },
-                    input_scales: None,
+                    input_scale: None,
                 },
                 shape: ShapeConstraint::None,
                 joint_null_rotation: None,
@@ -1773,7 +1778,7 @@ fn spatial_option5_does_not_overconstrain_on_nonoverlapping_linear_terms() {
                         identifiability: SpatialIdentifiability::OrthogonalToParametric,
                         radial_reparam: None,
                     },
-                    input_scales: None,
+                    input_scale: None,
                 },
                 shape: ShapeConstraint::None,
                 joint_null_rotation: None,
@@ -1866,7 +1871,7 @@ fn standalone_tps_keeps_centered_linear_nullspace() {
                 identifiability: SpatialIdentifiability::OrthogonalToParametric,
                 radial_reparam: None,
             },
-            input_scales: None,
+            input_scale: None,
         },
         shape: ShapeConstraint::None,
         joint_null_rotation: None,
@@ -1907,7 +1912,7 @@ fn spatial_parametric_ownership_projects_only_explicit_linear_axes() {
                 identifiability: SpatialIdentifiability::OrthogonalToParametric,
                 radial_reparam: None,
             },
-            input_scales: None,
+            input_scale: None,
         },
         shape: ShapeConstraint::None,
         joint_null_rotation: None,
@@ -1983,7 +1988,7 @@ fn hierarchical_smooth_ownership_is_order_independent_for_bspline_and_duchon() {
                 operator_penalties: DuchonOperatorPenaltySpec::default(),
                 boundary: OneDimensionalBoundary::Open,
             },
-            input_scales: None,
+            input_scale: None,
         },
         shape: ShapeConstraint::None,
         joint_null_rotation: None,
@@ -2099,7 +2104,7 @@ fn freeze_roundtrip_preserves_hierarchical_smooth_transforms() {
                         operator_penalties: DuchonOperatorPenaltySpec::default(),
                         boundary: OneDimensionalBoundary::Open,
                     },
-                    input_scales: None,
+                    input_scale: None,
                 },
                 shape: ShapeConstraint::None,
                 joint_null_rotation: None,
@@ -2196,7 +2201,7 @@ fn spatial_option5_preserves_lazy_thin_plate_terms_at_large_scale() {
                     identifiability: SpatialIdentifiability::OrthogonalToParametric,
                     radial_reparam: None,
                 },
-                input_scales: None,
+                input_scale: None,
             },
             shape: ShapeConstraint::None,
             joint_null_rotation: None,
@@ -2250,7 +2255,7 @@ fn spatial_frozen_transform_rebuild_is_exact_on_trainingrows() {
                     identifiability: SpatialIdentifiability::OrthogonalToParametric,
                     radial_reparam: None,
                 },
-                input_scales: None,
+                input_scale: None,
             },
             shape: ShapeConstraint::None,
             joint_null_rotation: None,
@@ -2289,7 +2294,7 @@ fn spatial_frozen_transform_rebuild_is_exact_on_trainingrows() {
                     identifiability: SpatialIdentifiability::FrozenTransform { transform: z },
                     radial_reparam: None,
                 },
-                input_scales: None,
+                input_scale: None,
             },
             shape: ShapeConstraint::None,
             joint_null_rotation: None,
@@ -2349,7 +2354,7 @@ fn frozen_spatial_replay_preserves_standardized_length_scale_compensation() {
                     identifiability: SpatialIdentifiability::OrthogonalToParametric,
                     radial_reparam: None,
                 },
-                input_scales: None,
+                input_scale: None,
             },
             shape: ShapeConstraint::None,
             joint_null_rotation: None,
@@ -2367,15 +2372,14 @@ fn frozen_spatial_replay_preserves_standardized_length_scale_compensation() {
                 spec: MaternBasisSpec {
                     periodic: None,
                     center_strategy: CenterStrategy::FarthestPoint { num_centers: 6 },
-                    length_scale: 1.1,
+                    length_scale: gam_terms::basis::MaternLengthScale::fixed(1.1),
                     nu: MaternNu::FiveHalves,
                     include_intercept: false,
                     double_penalty: true,
                     identifiability: MaternIdentifiability::CenterSumToZero,
                     aniso_log_scales: None,
-                    nullspace_shrinkage_survived: None,
                 },
-                input_scales: None,
+                input_scale: None,
             },
             shape: ShapeConstraint::None,
             joint_null_rotation: None,
@@ -2402,7 +2406,7 @@ fn frozen_spatial_replay_preserves_standardized_length_scale_compensation() {
                     operator_penalties: DuchonOperatorPenaltySpec::default(),
                     boundary: OneDimensionalBoundary::Open,
                 },
-                input_scales: None,
+                input_scale: None,
             },
             shape: ShapeConstraint::None,
             joint_null_rotation: None,
@@ -2466,15 +2470,14 @@ fn matern_smooth_buildswith_double_penalty_in_high_dim() {
             spec: MaternBasisSpec {
                 periodic: None,
                 center_strategy: CenterStrategy::FarthestPoint { num_centers: 5 },
-                length_scale: 0.75,
+                length_scale: gam_terms::basis::MaternLengthScale::fixed(0.75),
                 nu: MaternNu::FiveHalves,
                 include_intercept: false,
                 double_penalty: true,
                 identifiability: MaternIdentifiability::CenterSumToZero,
                 aniso_log_scales: None,
-                nullspace_shrinkage_survived: None,
             },
-            input_scales: None,
+            input_scale: None,
         },
         shape: ShapeConstraint::None,
         joint_null_rotation: None,
@@ -2531,7 +2534,7 @@ fn duchon_linear_nullspace_builds_and_reports_nullspace_dim() {
                 operator_penalties: DuchonOperatorPenaltySpec::default(),
                 boundary: OneDimensionalBoundary::Open,
             },
-            input_scales: None,
+            input_scale: None,
         },
         shape: ShapeConstraint::None,
         joint_null_rotation: None,
@@ -2571,7 +2574,7 @@ fn joint_duchon_orderzero_raw_smooth_build_preserves_unconstrained_basis() {
                 operator_penalties: DuchonOperatorPenaltySpec::default(),
                 boundary: OneDimensionalBoundary::Open,
             },
-            input_scales: None,
+            input_scale: None,
         },
         shape: ShapeConstraint::None,
         joint_null_rotation: None,
@@ -2623,7 +2626,7 @@ fn term_collection_joint_duchon_carries_frozen_transform_into_metadata() {
                     operator_penalties: DuchonOperatorPenaltySpec::default(),
                     boundary: OneDimensionalBoundary::Open,
                 },
-                input_scales: None,
+                input_scale: None,
             },
             shape: ShapeConstraint::None,
             joint_null_rotation: None,
@@ -2668,15 +2671,14 @@ fn frozen_joint_maternspec_rebuild_keeps_adaptive_cache_in_sync() {
                 spec: MaternBasisSpec {
                     periodic: None,
                     center_strategy: CenterStrategy::FarthestPoint { num_centers: 6 },
-                    length_scale: 1.0,
+                    length_scale: gam_terms::basis::MaternLengthScale::fixed(1.0),
                     nu: MaternNu::FiveHalves,
                     include_intercept: false,
                     double_penalty: true,
                     identifiability: MaternIdentifiability::CenterSumToZero,
                     aniso_log_scales: None,
-                    nullspace_shrinkage_survived: None,
                 },
-                input_scales: None,
+                input_scale: None,
             },
             shape: ShapeConstraint::None,
             joint_null_rotation: None,
@@ -2946,7 +2948,7 @@ fn periodic_bspline_margin_wraps_exactly_at_period() {
     for row in dense.rows() {
         assert!((row.sum() - 1.0).abs() < 1e-12);
     }
-    assert_eq!(built.nullspace_dims[0], 1);
+    assert_eq!(built.active_penalties[0].nullity, 1);
 }
 
 #[test]
@@ -3293,7 +3295,7 @@ fn assert_matern_spatial_length_scale_optimization_monotone(
     assert!(optimized_score <= baseline_score + 1e-10);
 
     let ls = match &optimized.resolvedspec.smooth_terms[0].basis {
-        SmoothBasisSpec::Matern { spec, .. } => spec.length_scale,
+        SmoothBasisSpec::Matern { spec, .. } => spec.length_scale.resolved().unwrap(),
         _ => panic!("expected Matérn term"),
     };
     assert!(ls.is_finite() && (1e-3..=1e3).contains(&ls));
@@ -3339,15 +3341,14 @@ fn spatial_length_scale_optimization_monotone_improves_or_keeps_score_for_matern
                 spec: MaternBasisSpec {
                     periodic: None,
                     center_strategy: CenterStrategy::FarthestPoint { num_centers: 12 },
-                    length_scale: 20.0,
+                    length_scale: gam_terms::basis::MaternLengthScale::fixed(20.0),
                     nu: MaternNu::FiveHalves,
                     include_intercept: false,
                     double_penalty: true,
                     identifiability: MaternIdentifiability::CenterSumToZero,
                     aniso_log_scales: None,
-                    nullspace_shrinkage_survived: None,
                 },
-                input_scales: None,
+                input_scale: None,
             },
             shape: ShapeConstraint::None,
             joint_null_rotation: None,
@@ -3417,7 +3418,7 @@ pub(super) fn run_two_block_exact_joint_optimize(
         false,
         None,
         policy,
-        |theta, specs, designs| {
+        |theta, specs, designs, _provenance| {
             assert_eq!(theta.len(), theta_dim);
             assert_eq!(specs.len(), 2);
             Ok(designs[0].design.ncols() as f64
@@ -3429,10 +3430,10 @@ pub(super) fn run_two_block_exact_joint_optimize(
             assert_eq!(theta.len(), theta_dim);
             assert_eq!(specs.len(), 2);
             assert!(!designs.is_empty());
-            Ok((
-                0.0,
-                Array1::zeros(theta_dim),
-                if matches!(
+            Ok(ExactJointEvaluation {
+                objective: 0.0,
+                gradient: Array1::zeros(theta_dim),
+                hessian: if matches!(
                     eval_mode,
                     gam_solve::estimate::reml::reml_outer_engine::EvalMode::ValueGradientHessian
                 ) {
@@ -3442,26 +3443,217 @@ pub(super) fn run_two_block_exact_joint_optimize(
                 } else {
                     gam_problem::HessianValue::Unavailable
                 },
-            ))
+                mode: (),
+            })
         },
-        |theta, specs, designs| {
+        |theta, specs, designs, _row_set| {
             assert_eq!(theta.len(), theta_dim);
             assert_eq!(specs.len(), 2);
             assert!(!designs.is_empty());
-            Ok(gam_problem::EfsEval {
-                cost: 0.0,
-                steps: vec![0.0; theta_dim],
-                beta: None,
-                psi_gradient: None,
-                psi_indices: None,
-                inner_hessian_scale: None,
-                logdet_enclosure_gap: None,
-                consecutive_restored_incumbents: None,
+            Ok(ExactJointEfsEvaluation {
+                evaluation: gam_problem::EfsEval {
+                    cost: 0.0,
+                    steps: vec![0.0; theta_dim],
+                    beta: None,
+                    psi_gradient: None,
+                    psi_indices: None,
+                    inner_hessian_scale: None,
+                    logdet_enclosure_gap: None,
+                    consecutive_restored_incumbents: None,
+                },
+                mode: (),
             })
         },
         |_beta: &Array1<f64>| Ok(gam_solve::rho_optimizer::SeedOutcome::NoSlot),
     )
     .unwrap_or_else(|e| panic!("{} failed: {:?}", expect_msg, e))
+}
+
+#[test]
+fn staged_exact_joint_outer_reoptimizes_and_certifies_the_full_row_measure() {
+    let n = 24usize;
+    let mut data = Array2::<f64>::zeros((n, 2));
+    for i in 0..n {
+        data[[i, 0]] = i as f64 / (n as f64 - 1.0);
+        data[[i, 1]] = (i as f64 * 0.19).sin();
+    }
+
+    let matern_term = |name: &str| SmoothTermSpec {
+        name: name.to_string(),
+        basis: SmoothBasisSpec::Matern {
+            feature_cols: vec![0, 1],
+            spec: MaternBasisSpec {
+                periodic: None,
+                center_strategy: CenterStrategy::FarthestPoint { num_centers: 6 },
+                length_scale: gam_terms::basis::MaternLengthScale::fixed(1.0),
+                nu: MaternNu::FiveHalves,
+                include_intercept: false,
+                double_penalty: true,
+                identifiability: MaternIdentifiability::CenterSumToZero,
+                // An anisotropic Matérn contributes explicit spatial outer
+                // coordinates; an isotropic term's seeded range is fixed here.
+                aniso_log_scales: Some(vec![0.0, 0.0]),
+            },
+            input_scale: None,
+        },
+        shape: ShapeConstraint::None,
+        joint_null_rotation: None,
+    };
+    let meanspec = TermCollectionSpec {
+        linear_terms: Vec::new(),
+        random_effect_terms: Vec::new(),
+        smooth_terms: vec![matern_term("mean_matern")],
+    };
+    let noisespec = TermCollectionSpec {
+        linear_terms: Vec::new(),
+        random_effect_terms: Vec::new(),
+        smooth_terms: vec![matern_term("noise_matern")],
+    };
+    let kappa_options = SpatialLengthScaleOptimizationOptions {
+        enabled: true,
+        max_outer_iter: 16,
+        rel_tol: 1.0e-7,
+        pilot_subsample_threshold: 0,
+        ..SpatialLengthScaleOptimizationOptions::default()
+    };
+    let joint_setup =
+        two_block_exact_joint_hyper_setup(&meanspec, &noisespec, &kappa_options);
+    let theta_dim = joint_setup.theta0().len();
+    assert!(theta_dim > 0, "fixture must expose spatial outer coordinates");
+
+    struct TerminalEvidence {
+        serial: usize,
+        theta_bits: Vec<u64>,
+        objective_bits: u64,
+        full_rows: bool,
+    }
+
+    let pilot_evals = std::cell::Cell::new(0usize);
+    let exact_evals = std::cell::Cell::new(0usize);
+    let evaluation_serial = std::cell::Cell::new(0usize);
+    let fit_entry_serial = std::cell::Cell::new(None::<usize>);
+    let policy = gam_model_api::families::custom_family::OuterDerivativePolicy {
+        capability: gam_problem::ExactOuterDerivativeOrder::Second,
+        predicted_hessian_work: u128::MAX,
+        predicted_gradient_work: u128::MAX,
+        // Force the staged path at tiny test n; the RowSet variant, rather
+        // than its cardinality, distinguishes the two analytic objectives.
+        subsample_capable: true,
+    };
+
+    let solved = optimize_spatial_length_scale_exact_joint(
+        data.view(),
+        &[meanspec.clone(), noisespec.clone()],
+        &[
+            spatial_length_scale_term_indices(&meanspec),
+            spatial_length_scale_term_indices(&noisespec),
+        ],
+        &kappa_options,
+        &joint_setup,
+        gam_problem::SeedRiskProfile::Gaussian,
+        true,
+        true,
+        true,
+        None,
+        policy,
+        |theta,
+         specs,
+         designs,
+         provenance: SpatialFitProvenance<'_, TerminalEvidence>| {
+            assert_eq!(specs.len(), 2);
+            assert_eq!(designs.len(), 2);
+            let SpatialFitProvenance::Certified { outer, mode } = provenance else {
+                panic!("staged spatial fit must receive certified outer provenance");
+            };
+            assert_eq!(outer.rho(), theta);
+            assert!(outer.criterion_certificate().certifies());
+            assert!(
+                mode.full_rows,
+                "the pilot coefficient mode must be revoked before final fit assembly",
+            );
+            assert_eq!(
+                mode.theta_bits,
+                theta.iter().map(|value| value.to_bits()).collect::<Vec<_>>(),
+                "the moved coefficient mode must belong to the certified full theta",
+            );
+            assert_eq!(
+                mode.objective_bits,
+                outer.final_value().to_bits(),
+                "the moved coefficient mode must have produced the certified objective",
+            );
+            assert_eq!(
+                mode.serial,
+                evaluation_serial.get(),
+                "fit assembly must receive the latest exact evaluation's move-only carrier",
+            );
+            fit_entry_serial.set(Some(evaluation_serial.get()));
+            Ok(theta.clone())
+        },
+        |theta, specs, designs, eval_mode, row_set| {
+            assert_eq!(theta.len(), theta_dim);
+            assert_eq!(specs.len(), 2);
+            assert_eq!(designs.len(), 2);
+            let serial = evaluation_serial.get() + 1;
+            evaluation_serial.set(serial);
+            let (center, full_rows) = match row_set {
+                gam_problem::outer_subsample::RowSet::Subsample { .. } => {
+                    pilot_evals.set(pilot_evals.get() + 1);
+                    (2.0, false)
+                }
+                gam_problem::outer_subsample::RowSet::All => {
+                    exact_evals.set(exact_evals.get() + 1);
+                    (-1.0, true)
+                }
+            };
+            let gradient = theta.mapv(|value| value - center);
+            let cost = 0.5 * gradient.dot(&gradient);
+            let hessian = if matches!(
+                eval_mode,
+                gam_solve::estimate::reml::reml_outer_engine::EvalMode::ValueGradientHessian
+            ) {
+                let mut dense = Array2::<f64>::zeros((theta_dim, theta_dim));
+                dense.diag_mut().fill(1.0);
+                gam_problem::HessianValue::Dense(dense)
+            } else {
+                gam_problem::HessianValue::Unavailable
+            };
+            Ok(ExactJointEvaluation {
+                objective: cost,
+                gradient,
+                hessian,
+                mode: TerminalEvidence {
+                    serial,
+                    theta_bits: theta.iter().map(|value| value.to_bits()).collect(),
+                    objective_bits: cost.to_bits(),
+                    full_rows,
+                },
+            })
+        },
+        |_theta, _specs, _designs, _row_set| {
+            Err("fixed-point callback must stay disabled in staged regression".to_string())
+        },
+        |_beta| Ok(gam_solve::rho_optimizer::SeedOutcome::NoSlot),
+    )
+    .expect("pilot checkpoint must continue to the exact full-data optimum");
+
+    assert!(pilot_evals.get() > 0, "pilot objective was never evaluated");
+    assert!(exact_evals.get() > 0, "exact objective was never evaluated");
+    assert_eq!(
+        fit_entry_serial.get(),
+        Some(evaluation_serial.get()),
+        "no exact profile evaluation may replay during or after owned-mode fit assembly",
+    );
+    assert!(
+        solved.fit.iter().all(|value| (*value + 1.0).abs() <= 1.0e-6),
+        "returned pilot optimum instead of exact optimum: {:?}",
+        solved.fit,
+    );
+    let outer = solved
+        .certified_outer
+        .as_ref()
+        .expect("optimized spatial result must retain its certificate");
+    assert!(outer.criterion_certificate().certifies());
+    assert!(outer.final_value().abs() <= 1.0e-10);
 }
 
 #[test]
@@ -3488,15 +3680,14 @@ fn exact_joint_two_block_spatial_length_scale_freezes_matern_centers() {
             spec: MaternBasisSpec {
                 periodic: None,
                 center_strategy: CenterStrategy::FarthestPoint { num_centers: 8 },
-                length_scale,
+                length_scale: gam_terms::basis::MaternLengthScale::fixed(length_scale),
                 nu: MaternNu::FiveHalves,
                 include_intercept: false,
                 double_penalty: true,
                 identifiability: MaternIdentifiability::CenterSumToZero,
                 aniso_log_scales: Some(vec![0.0, 0.0]),
-                nullspace_shrinkage_survived: None,
             },
-            input_scales: None,
+            input_scale: None,
         },
         shape: ShapeConstraint::None,
         joint_null_rotation: None,
@@ -3599,15 +3790,14 @@ fn spatial_aniso_joint_exact_hessian_materializes_small_case() {
                 spec: MaternBasisSpec {
                     periodic: None,
                     center_strategy: CenterStrategy::FarthestPoint { num_centers: 5 },
-                    length_scale: 0.85,
+                    length_scale: gam_terms::basis::MaternLengthScale::fixed(0.85),
                     nu: MaternNu::FiveHalves,
                     include_intercept: false,
                     double_penalty: true,
                     identifiability: MaternIdentifiability::CenterSumToZero,
                     aniso_log_scales: Some(vec![0.2, -0.2]),
-                    nullspace_shrinkage_survived: None,
                 },
-                input_scales: None,
+                input_scale: None,
             },
             shape: ShapeConstraint::None,
             joint_null_rotation: None,
@@ -3797,15 +3987,14 @@ fn iso_kappa_fd_variant_driver(
             spec: MaternBasisSpec {
                 center_strategy: CenterStrategy::FarthestPoint { num_centers: 8 },
                 periodic: None,
-                length_scale: 1.0,
+                length_scale: gam_terms::basis::MaternLengthScale::fixed(1.0),
                 nu: MaternNu::FiveHalves,
                 include_intercept: false,
                 double_penalty: false,
                 identifiability: MaternIdentifiability::CenterSumToZero,
                 aniso_log_scales: None,
-                nullspace_shrinkage_survived: None,
             },
-            input_scales: None,
+            input_scale: None,
         }
     } else {
         SmoothBasisSpec::Duchon {
@@ -3822,7 +4011,7 @@ fn iso_kappa_fd_variant_driver(
                 operator_penalties: DuchonOperatorPenaltySpec::default(),
                 boundary: OneDimensionalBoundary::Open,
             },
-            input_scales: None,
+            input_scale: None,
         }
     };
     let spec = TermCollectionSpec {
@@ -4096,7 +4285,7 @@ fn exact_spatial_joint_engine_aniso_iso_parity_1d() {
                     operator_penalties: DuchonOperatorPenaltySpec::all_active(),
                     boundary: OneDimensionalBoundary::Open,
                 },
-                input_scales: None,
+                input_scale: None,
             },
             shape: ShapeConstraint::None,
             joint_null_rotation: None,
@@ -4132,13 +4321,15 @@ fn exact_spatial_joint_engine_aniso_iso_parity_1d() {
         &frozen,
         &spatial_terms,
         &kappa_options,
-    );
+    )
+    .expect("lower isotropic-scale bounds");
     let log_kappa_upper = SpatialLogKappaCoords::upper_bounds_from_data(
         data.view(),
         &frozen,
         &spatial_terms,
         &kappa_options,
-    );
+    )
+    .expect("upper isotropic-scale bounds");
     let log_kappa0 = log_kappa0.clamp_to_bounds(&log_kappa_lower, &log_kappa_upper);
     let setup = ExactJointHyperSetup::new(
         Array1::<f64>::zeros(rho_dim), // log λ seed (λ = 1)
@@ -4223,7 +4414,7 @@ fn exact_spatial_joint_engine_aniso_iso_parity_1d() {
 /// frame bug. The two evaluators are byte-identical except that one carries
 /// the tensor — the only thing the test varies is the lane.
 ///
-/// Runs on PRODUCTION geometry (`input_scales: None`, #1215 1-D standardization
+/// Runs on PRODUCTION geometry (`input_scale: None`, #1215 1-D standardization
 /// to unit spread). The per-ψ amplitude normalization (#1216) is what makes the
 /// Chebyshev tail certify on the wide standardized window so the n-free tensor
 /// actually attaches here (`assert!(attached)`).
@@ -4269,7 +4460,7 @@ fn psi_gram_tensor_lane_matches_streamed_reml_cost_and_gradient() {
                     operator_penalties: DuchonOperatorPenaltySpec::all_active(),
                     boundary: OneDimensionalBoundary::Open,
                 },
-                input_scales: None,
+                input_scale: None,
             },
             shape: ShapeConstraint::None,
             joint_null_rotation: None,
@@ -4306,13 +4497,15 @@ fn psi_gram_tensor_lane_matches_streamed_reml_cost_and_gradient() {
         &frozen,
         &spatial_terms,
         &kappa_options,
-    );
+    )
+    .expect("lower isotropic-scale bounds");
     let log_kappa_upper = SpatialLogKappaCoords::upper_bounds_from_data(
         data.view(),
         &frozen,
         &spatial_terms,
         &kappa_options,
-    );
+    )
+    .expect("upper isotropic-scale bounds");
     let log_kappa0 = log_kappa0.clamp_to_bounds(&log_kappa_lower, &log_kappa_upper);
     const JOINT_RHO_BOUND: f64 = 12.0;
     let setup = ExactJointHyperSetup::new(
@@ -4625,7 +4818,7 @@ fn psi_gram_tensor_e2e_kappa_optimum_matches_streamed() {
                 // to unit spread (#1214/#1215) — the real default-fit path. The
                 // n-independence fast path must fire here. An earlier
                 // `Some(vec![1.0])` pin was a gamed gate that masked the open gap.
-                input_scales: None,
+                input_scale: None,
             },
             shape: ShapeConstraint::None,
             joint_null_rotation: None,
@@ -4649,13 +4842,15 @@ fn psi_gram_tensor_e2e_kappa_optimum_matches_streamed() {
         &frozen,
         &spatial_terms,
         &kappa_options,
-    );
+    )
+    .expect("lower isotropic-scale bounds");
     let log_kappa_upper = SpatialLogKappaCoords::upper_bounds_from_data(
         data.view(),
         &frozen,
         &spatial_terms,
         &kappa_options,
-    );
+    )
+    .expect("upper isotropic-scale bounds");
     let log_kappa0 = log_kappa0.clamp_to_bounds(&log_kappa_lower, &log_kappa_upper);
     const JOINT_RHO_BOUND: f64 = 12.0;
     let setup = ExactJointHyperSetup::new(
@@ -4979,7 +5174,7 @@ fn psi_gram_tensor_fast_path_skips_n_row_lane_and_matches_streamed() {
                 // to unit spread (#1214/#1215) — the real default-fit path. The
                 // n-independence fast path must fire here. An earlier
                 // `Some(vec![1.0])` pin was a gamed gate that masked the open gap.
-                input_scales: None,
+                input_scale: None,
             },
             shape: ShapeConstraint::None,
             joint_null_rotation: None,
@@ -5000,13 +5195,15 @@ fn psi_gram_tensor_fast_path_skips_n_row_lane_and_matches_streamed() {
         &frozen,
         &spatial_terms,
         &kappa_options,
-    );
+    )
+    .expect("lower isotropic-scale bounds");
     let log_kappa_upper = SpatialLogKappaCoords::upper_bounds_from_data(
         data.view(),
         &frozen,
         &spatial_terms,
         &kappa_options,
-    );
+    )
+    .expect("upper isotropic-scale bounds");
     let log_kappa0 = log_kappa0.clamp_to_bounds(&log_kappa_lower, &log_kappa_upper);
     const JOINT_RHO_BOUND: f64 = 12.0;
     let setup = ExactJointHyperSetup::new(
@@ -5407,7 +5604,7 @@ fn psi_gram_skip_forced_rotation_beta_error_ladder_diag() {
                     operator_penalties: DuchonOperatorPenaltySpec::all_active(),
                     boundary: OneDimensionalBoundary::Open,
                 },
-                input_scales: None, // PRODUCTION standardized geometry.
+                input_scale: None, // PRODUCTION standardized geometry.
             },
             shape: ShapeConstraint::None,
             joint_null_rotation: None,
@@ -5428,13 +5625,15 @@ fn psi_gram_skip_forced_rotation_beta_error_ladder_diag() {
         &frozen,
         &spatial_terms,
         &kappa_options,
-    );
+    )
+    .expect("lower isotropic-scale bounds");
     let log_kappa_upper = SpatialLogKappaCoords::upper_bounds_from_data(
         data.view(),
         &frozen,
         &spatial_terms,
         &kappa_options,
-    );
+    )
+    .expect("upper isotropic-scale bounds");
     let log_kappa0 = log_kappa0.clamp_to_bounds(&log_kappa_lower, &log_kappa_upper);
     const JOINT_RHO_BOUND: f64 = 12.0;
     let setup = ExactJointHyperSetup::new(
@@ -5887,7 +6086,7 @@ fn build_duchon_probit_setup() -> DuchonProbitSetup {
                     operator_penalties: DuchonOperatorPenaltySpec::all_active(),
                     boundary: OneDimensionalBoundary::Open,
                 },
-                input_scales: None,
+                input_scale: None,
             },
             shape: ShapeConstraint::None,
             joint_null_rotation: None,
@@ -6262,7 +6461,7 @@ fn iso_kappa_duchon_dx_dpsi_matches_fd() {
                     operator_penalties: DuchonOperatorPenaltySpec::default(),
                     boundary: OneDimensionalBoundary::Open,
                 },
-                input_scales: None,
+                input_scale: None,
             },
             shape: ShapeConstraint::None,
             joint_null_rotation: None,
@@ -6410,15 +6609,14 @@ fn joint_build_and_freeze_shares_auto_spatial_centers_across_blocks() {
                 center_strategy: CenterStrategy::Auto(Box::new(CenterStrategy::FarthestPoint {
                     num_centers: 8,
                 })),
-                length_scale: 0.8,
+                length_scale: gam_terms::basis::MaternLengthScale::fixed(0.8),
                 nu: MaternNu::FiveHalves,
                 include_intercept: false,
                 double_penalty: true,
                 identifiability: MaternIdentifiability::CenterSumToZero,
                 aniso_log_scales: None,
-                nullspace_shrinkage_survived: None,
             },
-            input_scales: None,
+            input_scale: None,
         },
         shape: ShapeConstraint::None,
         joint_null_rotation: None,
@@ -6551,20 +6749,24 @@ fn exact_joint_two_block_no_spatial_fast_path_returns_fully_frozen_specs() {
         false,
         None,
         policy,
-        |theta, specs, designs| {
+        |theta, specs, designs, provenance| {
             assert_eq!(theta.len(), theta_dim);
             assert_eq!(specs.len(), 2);
             assert_eq!(designs.len(), 2);
+            assert!(matches!(
+                provenance,
+                SpatialFitProvenance::NoOuterOptimization
+            ));
             Ok(designs[0].design.ncols() as f64 + designs[1].design.ncols() as f64)
         },
         |theta, specs, designs, eval_mode, _| {
             assert_eq!(theta.len(), theta_dim);
             assert_eq!(specs.len(), 2);
             assert_eq!(designs.len(), 2);
-            Ok((
-                0.0,
-                Array1::zeros(theta_dim),
-                if matches!(
+            Ok(ExactJointEvaluation {
+                objective: 0.0,
+                gradient: Array1::zeros(theta_dim),
+                hessian: if matches!(
                     eval_mode,
                     gam_solve::estimate::reml::reml_outer_engine::EvalMode::ValueGradientHessian
                 ) {
@@ -6574,21 +6776,25 @@ fn exact_joint_two_block_no_spatial_fast_path_returns_fully_frozen_specs() {
                 } else {
                     gam_problem::HessianValue::Unavailable
                 },
-            ))
+                mode: (),
+            })
         },
-        |theta, specs, designs| {
+        |theta, specs, designs, _row_set| {
             assert_eq!(theta.len(), theta_dim);
             assert_eq!(specs.len(), 2);
             assert_eq!(designs.len(), 2);
-            Ok(gam_problem::EfsEval {
-                cost: 0.0,
-                steps: vec![0.0; theta_dim],
-                beta: None,
-                psi_gradient: None,
-                psi_indices: None,
-                inner_hessian_scale: None,
-                logdet_enclosure_gap: None,
-                consecutive_restored_incumbents: None,
+            Ok(ExactJointEfsEvaluation {
+                evaluation: gam_problem::EfsEval {
+                    cost: 0.0,
+                    steps: vec![0.0; theta_dim],
+                    beta: None,
+                    psi_gradient: None,
+                    psi_indices: None,
+                    inner_hessian_scale: None,
+                    logdet_enclosure_gap: None,
+                    consecutive_restored_incumbents: None,
+                },
+                mode: (),
             })
         },
         |_beta: &Array1<f64>| Ok(gam_solve::rho_optimizer::SeedOutcome::NoSlot),
@@ -6651,15 +6857,14 @@ fn incremental_frozen_realizer_matches_unified_full_rebuild() {
                     spec: MaternBasisSpec {
                         periodic: None,
                         center_strategy: CenterStrategy::FarthestPoint { num_centers: 6 },
-                        length_scale: 0.8,
+                        length_scale: gam_terms::basis::MaternLengthScale::fixed(0.8),
                         nu: MaternNu::FiveHalves,
                         include_intercept: false,
                         double_penalty: true,
                         identifiability: MaternIdentifiability::CenterSumToZero,
                         aniso_log_scales: Some(vec![0.15, -0.15]),
-                        nullspace_shrinkage_survived: None,
                     },
-                    input_scales: None,
+                    input_scale: None,
                 },
                 shape: ShapeConstraint::None,
                 joint_null_rotation: None,
@@ -6792,15 +6997,14 @@ fn two_block_exact_joint_design_cache_clears_memo_on_theta_change() {
             spec: MaternBasisSpec {
                 periodic: None,
                 center_strategy: CenterStrategy::FarthestPoint { num_centers: 5 },
-                length_scale,
+                length_scale: gam_terms::basis::MaternLengthScale::fixed(length_scale),
                 nu: MaternNu::FiveHalves,
                 include_intercept: false,
                 double_penalty: true,
                 identifiability: MaternIdentifiability::CenterSumToZero,
                 aniso_log_scales: Some(vec![0.0, 0.0]),
-                nullspace_shrinkage_survived: None,
             },
-            input_scales: None,
+            input_scale: None,
         },
         shape: ShapeConstraint::None,
         joint_null_rotation: None,
@@ -6942,7 +7146,7 @@ fn single_block_exact_joint_design_cache_clears_memo_on_theta_change() {
                     operator_penalties: DuchonOperatorPenaltySpec::default(),
                     boundary: OneDimensionalBoundary::Open,
                 },
-                input_scales: None,
+                input_scale: None,
             },
             shape: ShapeConstraint::None,
             joint_null_rotation: None,
@@ -7141,15 +7345,14 @@ fn external_joint_evaluator_reuse_matches_fresh_state_after_theta_update() {
                 spec: MaternBasisSpec {
                     periodic: None,
                     center_strategy: CenterStrategy::FarthestPoint { num_centers: 6 },
-                    length_scale: 0.85,
+                    length_scale: gam_terms::basis::MaternLengthScale::fixed(0.85),
                     nu: MaternNu::FiveHalves,
                     include_intercept: false,
                     double_penalty: true,
                     identifiability: MaternIdentifiability::CenterSumToZero,
                     aniso_log_scales: None,
-                    nullspace_shrinkage_survived: None,
                 },
-                input_scales: None,
+                input_scale: None,
             },
             shape: ShapeConstraint::None,
             joint_null_rotation: None,
@@ -7353,15 +7556,14 @@ fn exact_matern_log_kappa_derivative_uses_feature_columns_only() {
                 spec: MaternBasisSpec {
                     periodic: None,
                     center_strategy: CenterStrategy::FarthestPoint { num_centers: 6 },
-                    length_scale: 0.4,
+                    length_scale: gam_terms::basis::MaternLengthScale::fixed(0.4),
                     nu: MaternNu::FiveHalves,
                     include_intercept: false,
                     double_penalty: true,
                     identifiability: MaternIdentifiability::CenterSumToZero,
                     aniso_log_scales: None,
-                    nullspace_shrinkage_survived: None,
                 },
-                input_scales: None,
+                input_scale: None,
             },
             shape: ShapeConstraint::None,
             joint_null_rotation: None,
@@ -7427,7 +7629,7 @@ fn exact_thin_plate_log_kappa_derivative_uses_feature_columns_only() {
                     identifiability: SpatialIdentifiability::default(),
                     radial_reparam: None,
                 },
-                input_scales: None,
+                input_scale: None,
             },
             shape: ShapeConstraint::None,
             joint_null_rotation: None,
@@ -7539,7 +7741,7 @@ fn exact_duchon_log_kappa_derivative_uses_feature_columns_only() {
                     operator_penalties: DuchonOperatorPenaltySpec::default(),
                     boundary: OneDimensionalBoundary::Open,
                 },
-                input_scales: None,
+                input_scale: None,
             },
             shape: ShapeConstraint::None,
             joint_null_rotation: None,
@@ -7644,15 +7846,14 @@ fn spatial_length_scale_optimization_monotone_improves_or_keeps_score_for_matern
                 spec: MaternBasisSpec {
                     periodic: None,
                     center_strategy: CenterStrategy::FarthestPoint { num_centers: 12 },
-                    length_scale: 12.0,
+                    length_scale: gam_terms::basis::MaternLengthScale::fixed(12.0),
                     nu: MaternNu::FiveHalves,
                     include_intercept: false,
                     double_penalty: true,
                     identifiability: MaternIdentifiability::CenterSumToZero,
                     aniso_log_scales: None,
-                    nullspace_shrinkage_survived: None,
                 },
-                input_scales: None,
+                input_scale: None,
             },
             shape: ShapeConstraint::None,
             joint_null_rotation: None,
@@ -7677,7 +7878,7 @@ fn spatial_length_scale_optimization_monotone_improves_or_keeps_score_for_matern
 }
 
 #[test]
-fn spatial_length_scale_optimization_runs_binomial_logit_matern_with_exact_laml_derivatives() { 
+fn spatial_length_scale_optimization_runs_binomial_logit_matern_with_exact_laml_derivatives() {
     let n = 80usize;
     let d = 2usize;
     let mut data = Array2::<f64>::zeros((n, d));
@@ -7703,15 +7904,14 @@ fn spatial_length_scale_optimization_runs_binomial_logit_matern_with_exact_laml_
                 spec: MaternBasisSpec {
                     periodic: None,
                     center_strategy: CenterStrategy::FarthestPoint { num_centers: 10 },
-                    length_scale: 1.8,
+                    length_scale: gam_terms::basis::MaternLengthScale::fixed(1.8),
                     nu: MaternNu::FiveHalves,
                     include_intercept: false,
                     double_penalty: true,
                     identifiability: MaternIdentifiability::CenterSumToZero,
                     aniso_log_scales: None,
-                    nullspace_shrinkage_survived: None,
                 },
-                input_scales: None,
+                input_scale: None,
             },
             shape: ShapeConstraint::None,
             joint_null_rotation: None,
@@ -7807,7 +8007,7 @@ fn duchon_terms_participate_in_kappa_optimization() {
                     operator_penalties: DuchonOperatorPenaltySpec::default(),
                     boundary: OneDimensionalBoundary::Open,
                 },
-                input_scales: None,
+                input_scale: None,
             },
             shape: ShapeConstraint::None,
             joint_null_rotation: None,
@@ -7891,7 +8091,7 @@ fn pure_duchon_scale_dimensions_seed_geometry_but_enroll_no_hyper_axis() {
                     operator_penalties: DuchonOperatorPenaltySpec::default(),
                     boundary: OneDimensionalBoundary::Open,
                 },
-                input_scales: None,
+                input_scale: None,
             },
             shape: ShapeConstraint::None,
             joint_null_rotation: None,
@@ -7934,7 +8134,7 @@ fn thin_plate_terms_anchor_length_scale_and_enroll_no_kappa_axis() {
                     identifiability: SpatialIdentifiability::default(),
                     radial_reparam: None,
                 },
-                input_scales: None,
+                input_scale: None,
             },
             shape: ShapeConstraint::None,
             joint_null_rotation: None,
@@ -7977,7 +8177,7 @@ fn pure_duchon_from_length_scales_aniso_is_isotropic_single_psi() {
                     operator_penalties: DuchonOperatorPenaltySpec::default(),
                     boundary: OneDimensionalBoundary::Open,
                 },
-                input_scales: None,
+                input_scale: None,
             },
             shape: ShapeConstraint::None,
             joint_null_rotation: None,
@@ -8026,7 +8226,7 @@ fn explicit_duchon_aniso_length_scale_is_locked_kappa() {
                     operator_penalties: DuchonOperatorPenaltySpec::default(),
                     boundary: OneDimensionalBoundary::Open,
                 },
-                input_scales: None,
+                input_scale: None,
             },
             shape: ShapeConstraint::None,
             joint_null_rotation: None,
@@ -8060,15 +8260,14 @@ fn from_length_scales_aniso_keeps_nonaniso_spatial_terms_scalar() {
                             [1.0, 0.0],
                             [0.0, 1.0],
                         ]),
-                        length_scale: 0.5,
+                        length_scale: gam_terms::basis::MaternLengthScale::fixed(0.5),
                         nu: MaternNu::FiveHalves,
                         include_intercept: false,
                         double_penalty: false,
                         identifiability: MaternIdentifiability::None,
                         aniso_log_scales: Some(vec![0.3, -0.3]),
-                        nullspace_shrinkage_survived: None,
                     },
-                    input_scales: None,
+                    input_scale: None,
                 },
                 shape: ShapeConstraint::None,
                 joint_null_rotation: None,
@@ -8084,15 +8283,14 @@ fn from_length_scales_aniso_keeps_nonaniso_spatial_terms_scalar() {
                             [1.0, 0.0],
                             [0.0, 1.0],
                         ]),
-                        length_scale: 0.25,
+                        length_scale: gam_terms::basis::MaternLengthScale::fixed(0.25),
                         nu: MaternNu::ThreeHalves,
                         include_intercept: false,
                         double_penalty: false,
                         identifiability: MaternIdentifiability::None,
                         aniso_log_scales: None,
-                        nullspace_shrinkage_survived: None,
                     },
-                    input_scales: None,
+                    input_scale: None,
                 },
                 shape: ShapeConstraint::None,
                 joint_null_rotation: None,
@@ -8133,15 +8331,14 @@ fn aniso_bounds_clamp_preserves_in_range_global_length_scale_and_eta() {
                         [0.0, 1.0],
                         [1.0, 1.0],
                     ]),
-                    length_scale: 1.0,
+                    length_scale: gam_terms::basis::MaternLengthScale::fixed(1.0),
                     nu: MaternNu::FiveHalves,
                     include_intercept: false,
                     double_penalty: true,
                     identifiability: MaternIdentifiability::None,
                     aniso_log_scales: Some(vec![3.0, -3.0]),
-                    nullspace_shrinkage_survived: None,
                 },
-                input_scales: None,
+                input_scale: None,
             },
             shape: ShapeConstraint::None,
             joint_null_rotation: None,
@@ -8164,14 +8361,16 @@ fn aniso_bounds_clamp_preserves_in_range_global_length_scale_and_eta() {
         &spatial_terms,
         &dims_per_term,
         &options,
-    );
+    )
+    .expect("lower anisotropic spatial bounds");
     let upper = SpatialLogKappaCoords::upper_bounds_aniso_from_data(
         data.view(),
         &spec,
         &spatial_terms,
         &dims_per_term,
         &options,
-    );
+    )
+    .expect("upper anisotropic spatial bounds");
 
     let projected = seed.clone().clamp_to_bounds(&lower, &upper);
     assert_eq!(projected.as_array(), seed.as_array());
@@ -8181,7 +8380,7 @@ fn aniso_bounds_clamp_preserves_in_range_global_length_scale_and_eta() {
         .unwrap_or_else(|e| panic!("{} failed: {:?}", "aniso projection should decode", e));
     match &updated.smooth_terms[0].basis {
         SmoothBasisSpec::Matern { spec, .. } => {
-            assert!((spec.length_scale - 1.0).abs() <= 1e-12);
+            assert!((spec.length_scale.resolved().unwrap() - 1.0).abs() <= 1e-12);
             let eta = spec
                 .aniso_log_scales
                 .as_ref()
@@ -8222,7 +8421,7 @@ fn pure_duchon_aniso_fit_optimizes_without_introducing_hybrid_scale() {
                     operator_penalties: DuchonOperatorPenaltySpec::default(),
                     boundary: OneDimensionalBoundary::Open,
                 },
-                input_scales: None,
+                input_scale: None,
             },
             shape: ShapeConstraint::None,
             joint_null_rotation: None,
@@ -8283,15 +8482,14 @@ fn spatial_anisotropy_pilot_initializer_seeds_geometry_without_fit() {
                         [0.0, 0.05],
                         [1.0, 0.05],
                     ]),
-                    length_scale: 1.0,
+                    length_scale: gam_terms::basis::MaternLengthScale::fixed(1.0),
                     nu: MaternNu::FiveHalves,
                     include_intercept: false,
                     double_penalty: true,
                     identifiability: MaternIdentifiability::None,
                     aniso_log_scales: Some(vec![0.0, 0.0]),
-                    nullspace_shrinkage_survived: None,
                 },
-                input_scales: Some(vec![1.0, 1.0]),
+                input_scale: Some(gam_terms::IsotropicScale::ONE),
             },
             shape: ShapeConstraint::None,
             joint_null_rotation: None,
@@ -8304,7 +8502,8 @@ fn spatial_anisotropy_pilot_initializer_seeds_geometry_without_fit() {
         &spatial_terms,
         8,
         &SpatialLengthScaleOptimizationOptions::default(),
-    );
+    )
+    .expect("pilot anisotropy initialization");
 
     assert_eq!(updated, 1);
     match &spec.smooth_terms[0].basis {
@@ -8319,7 +8518,10 @@ fn spatial_anisotropy_pilot_initializer_seeds_geometry_without_fit() {
                 eta.iter().any(|value| value.abs() > 1e-6),
                 "pilot geometry should seed nonzero axis contrast"
             );
-            assert!(spec.length_scale.is_finite() && spec.length_scale > 0.0);
+            assert!(spec
+                .length_scale
+                .resolved()
+                .is_some_and(|value| value.is_finite() && value > 0.0));
         }
         _ => panic!("expected Matern term"),
     }

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+import time
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
@@ -15,6 +16,14 @@ from ouroboros.core.seed import (
     SeedMetadata,
 )
 from ouroboros.orchestrator.adapter import ParamSupport, RuntimeCapabilities
+from ouroboros.orchestrator.decomposition_policy import (
+    DecompositionChild,
+    DecompositionDecisionRecord,
+    DecompositionDisposition,
+    DecompositionSource,
+    SemanticAttestationStatus,
+    StructuralCheckStatus,
+)
 from ouroboros.orchestrator.model_routing import ModelRouter, decide_model
 from ouroboros.orchestrator.parallel_executor import (
     ACExecutionOutcome,
@@ -148,6 +157,113 @@ async def test_apply_verify_gate_flips_success_to_failed(tmp_path: Any) -> None:
     assert "Verify gate failed" in (gated.error or "")
     assert gated.atomic_verifier_verdict is not None
     assert gated.atomic_verifier_verdict.failure_class == "EVIDENCE_MISSING"
+
+
+@pytest.mark.asyncio
+async def test_apply_verify_gate_reuses_cached_success_outcome(tmp_path: Any) -> None:
+    counter = tmp_path / "verify-count.txt"
+    command = (
+        "python3 -c \"from pathlib import Path; p=Path('verify-count.txt'); "
+        "n=int(p.read_text()) if p.exists() else 0; p.write_text(str(n+1)); "
+        'raise SystemExit(0 if n == 0 else 7)"'
+    )
+    executor = _make_executor(working_directory=str(tmp_path))
+    seed = _seed_with_specs(AcceptanceCriterionSpec(description="ac", verify_command=command))
+    cached = await executor._run_ac_verify_gate(spec=seed.acceptance_criteria[0], cwd=str(tmp_path))
+    result = ACExecutionResult(
+        ac_index=0,
+        ac_content="ac",
+        success=True,
+        verify_gate_outcome=cached,
+    )
+    assert counter.read_text(encoding="utf-8") == "1"
+
+    gated = await executor._apply_verify_gate(
+        seed=seed, ac_index=0, result=result, session_id="s", execution_id="e"
+    )
+
+    assert gated is result
+    assert counter.read_text(encoding="utf-8") == "1"
+
+
+@pytest.mark.asyncio
+async def test_apply_verify_gate_rechecks_artifacts_without_replaying_cached_command(
+    tmp_path: Any,
+) -> None:
+    artifact = tmp_path / "artifact.txt"
+    artifact.write_text("ready", encoding="utf-8")
+    counter = tmp_path / "verify-count.txt"
+    command = (
+        "python3 -c \"from pathlib import Path; p=Path('verify-count.txt'); "
+        "n=int(p.read_text()) if p.exists() else 0; p.write_text(str(n+1)); "
+        'raise SystemExit(0 if n == 0 else 7)"'
+    )
+    executor = _make_executor(working_directory=str(tmp_path))
+    seed = _seed_with_specs(
+        AcceptanceCriterionSpec(
+            description="ac",
+            verify_command=command,
+            expected_artifacts=("artifact.txt",),
+        )
+    )
+    cached = await executor._run_ac_verify_gate(spec=seed.acceptance_criteria[0], cwd=str(tmp_path))
+    artifact.unlink()
+    result = ACExecutionResult(
+        ac_index=0,
+        ac_content="ac",
+        success=True,
+        verify_gate_outcome=cached,
+    )
+
+    gated = await executor._apply_verify_gate(
+        seed=seed, ac_index=0, result=result, session_id="s", execution_id="e"
+    )
+
+    assert gated.success is False
+    assert gated.verify_gate_outcome is not None
+    assert gated.verify_gate_outcome.missing_artifacts == ("artifact.txt",)
+    assert counter.read_text(encoding="utf-8") == "1"
+
+
+@pytest.mark.asyncio
+async def test_apply_verify_gate_recovers_failed_result_once(tmp_path: Any) -> None:
+    executor = _make_executor(working_directory=str(tmp_path))
+    seed = _seed_with_specs(AcceptanceCriterionSpec(description="ac", verify_command="exit 0"))
+    result = ACExecutionResult(
+        ac_index=0,
+        ac_content="ac",
+        success=False,
+        error="runtime false negative",
+        outcome=ACExecutionOutcome.FAILED,
+    )
+
+    recovered = await executor._apply_verify_gate(
+        seed=seed, ac_index=0, result=result, session_id="s", execution_id="e"
+    )
+
+    assert recovered.success is True
+    assert recovered.error is None
+    assert recovered.outcome == ACExecutionOutcome.SUCCEEDED
+    emitted = [call.args[0] for call in executor._event_store.append.await_args_list]
+    recovery_events = [event for event in emitted if event.type == "execution.verify.recovered"]
+    assert len(recovery_events) == 1
+    assert recovery_events[0].data["prior_error"] == "runtime false negative"
+
+
+@pytest.mark.asyncio
+async def test_verify_gate_times_out_hung_command(tmp_path: Any) -> None:
+    executor = _make_executor(working_directory=str(tmp_path), verify_command_timeout_seconds=1)
+    spec = AcceptanceCriterionSpec(
+        description="hung",
+        verify_command='python3 -c "import time; time.sleep(10)"',
+    )
+
+    started = time.monotonic()
+    outcome = await executor._run_ac_verify_gate(spec=spec, cwd=str(tmp_path))
+
+    assert time.monotonic() - started < 5
+    assert outcome.passed is False
+    assert outcome.reason == "verify_command timed out after 1s"
 
 
 @pytest.mark.asyncio
@@ -605,9 +721,24 @@ async def test_retry_decomposed_child_reaches_retry3_frontier(tmp_path: Any) -> 
 
     def _decomposed_fail() -> ACExecutionResult:
         # A decomposed parent whose children (routed one tier cheaper) failed:
-        # the predicate keys off ``is_decomposed`` to probe the child ladder.
+        # the predicate requires both child status and a trusted split record.
         base = _fail(0, "EVIDENCE_MISSING")
-        return replace(base, is_decomposed=True)
+        return replace(
+            base,
+            is_decomposed=True,
+            decomposition_decision=DecompositionDecisionRecord(
+                node_id="trusted-decomposed-parent",
+                source=DecompositionSource.PREFLIGHT,
+                disposition=DecompositionDisposition.SPLIT,
+                children=(
+                    DecompositionChild("child a", ("scope a",), "verify a"),
+                    DecompositionChild("child b", ("scope b",), "verify b"),
+                ),
+                structural_status=StructuralCheckStatus.PASSED,
+                semantic_status=SemanticAttestationStatus.ESTABLISHED,
+                trustworthy=True,
+            ),
+        )
 
     async def fake_batch(**kwargs: Any) -> list[ACExecutionResult]:
         calls.append(list(kwargs["batch_indices"]))
@@ -616,6 +747,7 @@ async def test_retry_decomposed_child_reaches_retry3_frontier(tmp_path: Any) -> 
                 ParamSupport.NATIVE,
                 router=router,
                 is_decomposed_child=True,
+                decomposition_trustworthy=True,
                 retry_attempt=kwargs["ac_retry_attempts"][0],
             ).tier
         )
@@ -772,6 +904,30 @@ def test_retry_prompt_final_attempt_carries_lateral_directive() -> None:
     assert "Change of Approach" not in interim
 
 
+def test_retry_prompt_redacts_secret_like_failure_values() -> None:
+    executor = _make_executor()
+    long_secret = "s" * 505
+    result = ACExecutionResult(
+        ac_index=0,
+        ac_content="build the thing",
+        success=False,
+        error=(
+            f"provider failed with password=hunter2 and API_KEY=secret-value token={long_secret}"
+        ),
+    )
+
+    prompt = executor._build_ac_retry_prompt(
+        result=result,
+        ac_content="build the thing",
+        is_final_attempt=False,
+    )
+
+    assert "hunter2" not in prompt
+    assert "secret-value" not in prompt
+    assert long_secret[-100:] not in prompt
+    assert prompt.count("[REDACTED]") == 3
+
+
 # ---------------------------------------------------------------------------
 # V4 trust leaks — sibling flip gate
 # ---------------------------------------------------------------------------
@@ -806,6 +962,32 @@ async def test_compute_sibling_flip_gated_out_blocks_failing_contract(tmp_path: 
     # AC 1's verify fails → gated out; AC 2 passes → allowed; AC 3 has no
     # contract → never gated.
     assert gated == frozenset({1})
+
+
+@pytest.mark.asyncio
+async def test_sibling_flip_reuses_cached_failed_verify_gate(tmp_path: Any) -> None:
+    counter = tmp_path / "verify-count.txt"
+    command = (
+        "python3 -c \"from pathlib import Path; p=Path('verify-count.txt'); "
+        "n=int(p.read_text()) if p.exists() else 0; p.write_text(str(n+1)); "
+        'raise SystemExit(1)"'
+    )
+    executor = _make_executor(working_directory=str(tmp_path))
+    seed = _seed_with_specs(AcceptanceCriterionSpec(description="contract", verify_command=command))
+    result = ACExecutionResult(ac_index=0, ac_content="contract", success=True)
+
+    failed = await executor._apply_verify_gate(
+        seed=seed, ac_index=0, result=result, session_id="s", execution_id="e"
+    )
+    assert failed.success is False
+    assert counter.read_text(encoding="utf-8") == "1"
+
+    gated = await executor._compute_sibling_flip_gated_out(
+        seed=seed, level_results=[failed], session_id="s", execution_id="e"
+    )
+
+    assert gated == frozenset({0})
+    assert counter.read_text(encoding="utf-8") == "1"
 
 
 def test_sibling_flip_respects_gated_out(tmp_path: Any) -> None:
@@ -1148,7 +1330,10 @@ class TestSuccessContractBlock:
         )
         block = _build_success_contract_block(spec)
         assert block.startswith("SUCCESS CONTRACT for this AC:")
-        assert "- Run: make build and report it in commands_run" in block
+        assert (
+            "- Run locally before completion: make build. "
+            "The verify gate re-runs it and records authoritative evidence." in block
+        )
         assert (
             "- Expected artifacts: dist/app, dist/app.map — ensure they exist in the workspace"
             in block
@@ -1158,6 +1343,9 @@ class TestSuccessContractBlock:
     def test_partial_contract_only_renders_present_fields(self) -> None:
         spec = AcceptanceCriterionSpec(description="verify only", verify_command="pytest -q")
         block = _build_success_contract_block(spec)
-        assert "- Run: pytest -q and report it in commands_run" in block
+        assert (
+            "- Run locally before completion: pytest -q. "
+            "The verify gate re-runs it and records authoritative evidence." in block
+        )
         assert "Expected artifacts" not in block
         assert "Expected output" not in block

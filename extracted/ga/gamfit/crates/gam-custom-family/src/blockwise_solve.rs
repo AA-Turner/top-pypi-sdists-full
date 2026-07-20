@@ -148,7 +148,7 @@ pub(crate) fn physical_warm_start_for_labeled(
     physical_rho: &Array1<f64>,
     layout: &PenaltyLabelLayout,
 ) -> Option<ConstrainedWarmStart> {
-    if !layout.has_tied_coordinates() {
+    if !layout.physical_rho_requires_remap() {
         return None;
     }
     warm_start.map(|seed| {
@@ -247,8 +247,8 @@ pub(crate) fn custom_family_seed_screening_proxy_labeled<
     let physical_rho = expand_labeled_log_lambdas(rho, layout)?;
     let per_block = split_log_lambdas(&physical_rho, &layout.penalty_counts)?;
     let physical_warm_start = physical_warm_start_for_labeled(warm_start, &physical_rho, layout);
-    // Seed screening only RANKS candidate seeds by their penalized objective; it
-    // is capped and never produces the final fit. Mark the inner solve as a
+    // Seed screening only RANKS candidate seeds by their penalized inner merit;
+    // it is capped and never produces the final fit. Mark the inner solve as a
     // screening solve so it skips the O(p · per-axis-Hdot) full Jeffreys/Firth
     // curvature loop and keeps only the cheap value-only Jeffreys term in the
     // score (gam#729/#808). For a K-block coupled family (Dirichlet/multinomial)
@@ -282,10 +282,18 @@ pub(crate) fn custom_family_seed_screening_proxy_labeled<
     )?;
     refresh_all_block_etas(family, specs, &mut inner.block_states)?;
     let prior_terms = rho_prior_cost_gradient_hessian(rho_prior, rho)?;
-    let score = inner_penalized_objective(
-        &inner,
-        include_exact_newton_logdet_h(family, options),
-        include_exact_newton_logdet_s(family, options),
+    // A capped screening iterate is deliberately not a certified coefficient
+    // mode. Its Laplace determinants are therefore undefined, and using them
+    // here would either rank noisy partial-fit curvature or (correctly) fail
+    // once determinant construction is restricted to converged modes. Rank on
+    // the same curvature-free penalized merit minimized by the inner solver.
+    // Accepted inner steps decrease this quantity, so the terminal capped
+    // iterate is a meaningful seed-quality signal. Full outer evaluations keep
+    // requiring convergence and certified REML/LAML determinants.
+    let score = checked_penalizedobjective(
+        inner.log_likelihood,
+        inner.penalty_value,
+        0.0,
         "custom-family labeled seed-screening proxy",
     )? + prior_terms.0;
     let warm = ConstrainedWarmStart {
@@ -668,26 +676,23 @@ pub(crate) fn stabilize_exact_newton_penalized_lhs_in_place<F: CustomFamily + ?S
 }
 
 pub(crate) fn shift_linear_constraints_to_delta(
-    constraints: &LinearInequalityConstraints,
+    constraints: &ConstraintSet,
     beta: &Array1<f64>,
-) -> Result<LinearInequalityConstraints, String> {
-    if constraints.a.ncols() != beta.len() || constraints.a.nrows() != constraints.b.len() {
+) -> Result<ConstraintSet, String> {
+    if constraints.ncols() != beta.len() {
         return Err(CustomFamilyError::ConstraintViolation {
             reason: "linear constraints: shape mismatch".to_string(),
         }
         .into());
     }
-    Ok(LinearInequalityConstraints {
-        a: constraints.a.clone(),
-        b: &constraints.b - &constraints.a.dot(beta),
-    })
+    constraints.shifted_to_delta(beta.view())
 }
 
 pub(crate) fn collect_block_linear_constraints<F: CustomFamily + ?Sized>(
     family: &F,
     states: &[ParameterBlockState],
     specs: &[ParameterBlockSpec],
-) -> Result<Vec<Option<LinearInequalityConstraints>>, String> {
+) -> Result<Vec<Option<ConstraintSet>>, String> {
     let mut constraints = Vec::with_capacity(specs.len());
     for (block_idx, spec) in specs.iter().enumerate() {
         constraints.push(family.block_linear_constraints(states, block_idx, spec)?);
@@ -700,7 +705,7 @@ pub(crate) fn reject_constrained_post_update_repair(
     spec: &ParameterBlockSpec,
     raw_beta: &Array1<f64>,
     updated_beta: &Array1<f64>,
-    constraints: Option<&LinearInequalityConstraints>,
+    constraints: Option<&ConstraintSet>,
 ) -> Result<(), String> {
     let Some(constraints) = constraints else {
         return Ok(());
@@ -716,13 +721,13 @@ pub(crate) fn reject_constrained_post_update_repair(
         }
         .into());
     }
-    if raw_beta.len() != constraints.a.ncols() {
+    if raw_beta.len() != constraints.ncols() {
         return Err(CustomFamilyError::DimensionMismatch {
             reason: format!(
                 "post-update constrained block '{}' (idx {block_idx}) width mismatch: beta={}, constraints={}",
                 spec.name,
                 raw_beta.len(),
-                constraints.a.ncols(),
+                constraints.ncols(),
             ),
         }
         .into());
@@ -761,10 +766,10 @@ pub(crate) fn reject_constrained_post_update_repair(
 }
 
 pub(crate) fn assemble_joint_linear_constraints(
-    block_constraints: &[Option<LinearInequalityConstraints>],
+    block_constraints: &[Option<ConstraintSet>],
     ranges: &[(usize, usize)],
     total_p: usize,
-) -> Result<Option<LinearInequalityConstraints>, String> {
+) -> Result<Option<ConstraintSet>, String> {
     if block_constraints.len() != ranges.len() {
         return Err(CustomFamilyError::DimensionMismatch {
             reason: format!(
@@ -777,42 +782,66 @@ pub(crate) fn assemble_joint_linear_constraints(
     }
     let total_rows = block_constraints
         .iter()
-        .map(|constraints| constraints.as_ref().map_or(0, |c| c.a.nrows()))
+        .map(|constraints| constraints.as_ref().map_or(0, ConstraintSet::nrows))
         .sum::<usize>();
     if total_rows == 0 {
         return Ok(None);
     }
-    let mut a = Array2::<f64>::zeros((total_rows, total_p));
-    let mut b = Array1::<f64>::zeros(total_rows);
-    let mut row_offset = 0usize;
     for (block_idx, constraints_opt) in block_constraints.iter().enumerate() {
         let Some(constraints) = constraints_opt else {
             continue;
         };
         let (start, end) = ranges[block_idx];
-        let block_p = end - start;
-        if constraints.a.ncols() != block_p || constraints.a.nrows() != constraints.b.len() {
+        if constraints.ncols() != end - start {
             return Err(CustomFamilyError::DimensionMismatch { reason: format!(
-                "joint linear constraint assembly mismatch for block {block_idx}: A is {}x{}, b is {}, block width is {}",
-                constraints.a.nrows(),
-                constraints.a.ncols(),
-                constraints.b.len(),
-                block_p
+                "joint linear constraint assembly mismatch for block {block_idx}: {} constraint columns, block width is {}",
+                constraints.ncols(),
+                end - start
             ) }.into());
         }
-        let rows = constraints.a.nrows();
-        a.slice_mut(s![row_offset..(row_offset + rows), start..end])
-            .assign(&constraints.a);
-        b.slice_mut(s![row_offset..(row_offset + rows)])
-            .assign(&constraints.b);
-        row_offset += rows;
     }
-    Ok(Some(LinearInequalityConstraints { a, b }))
+    let all_dense = block_constraints
+        .iter()
+        .all(|constraints| matches!(constraints, None | Some(ConstraintSet::Dense(_))));
+    if all_dense {
+        // Explicit-row concatenation, exactly the historical joint system.
+        let mut a = Array2::<f64>::zeros((total_rows, total_p));
+        let mut b = Array1::<f64>::zeros(total_rows);
+        let mut row_offset = 0usize;
+        for (block_idx, constraints_opt) in block_constraints.iter().enumerate() {
+            let Some(ConstraintSet::Dense(constraints)) = constraints_opt else {
+                continue;
+            };
+            let (start, end) = ranges[block_idx];
+            let rows = constraints.a.nrows();
+            a.slice_mut(s![row_offset..(row_offset + rows), start..end])
+                .assign(&constraints.a);
+            b.slice_mut(s![row_offset..(row_offset + rows)])
+                .assign(&constraints.b);
+            row_offset += rows;
+        }
+        return Ok(Some(ConstraintSet::Dense(LinearInequalityConstraints {
+            a,
+            b,
+        })));
+    }
+    // At least one factored member: keep the joint system factored too.
+    let mut placed = Vec::new();
+    for (block_idx, constraints_opt) in block_constraints.iter().enumerate() {
+        let Some(constraints) = constraints_opt else {
+            continue;
+        };
+        placed.push(gam_problem::PlacedConstraintBlock {
+            col_start: ranges[block_idx].0,
+            set: constraints.clone(),
+        });
+    }
+    Ok(Some(ConstraintSet::block_diagonal(placed, total_p)?))
 }
 
 pub(crate) fn flatten_joint_active_set(
     block_active_sets: &[Option<Vec<usize>>],
-    block_constraints: &[Option<LinearInequalityConstraints>],
+    block_constraints: &[Option<ConstraintSet>],
 ) -> Option<Vec<usize>> {
     if block_active_sets.len() != block_constraints.len() {
         return None;
@@ -820,9 +849,7 @@ pub(crate) fn flatten_joint_active_set(
     let mut offset = 0usize;
     let mut joint_active = Vec::new();
     for (active_opt, constraints_opt) in block_active_sets.iter().zip(block_constraints.iter()) {
-        let rows = constraints_opt
-            .as_ref()
-            .map_or(0, |constraints| constraints.a.nrows());
+        let rows = constraints_opt.as_ref().map_or(0, ConstraintSet::nrows);
         if let Some(active) = active_opt {
             joint_active.extend(
                 active
@@ -843,14 +870,12 @@ pub(crate) fn flatten_joint_active_set(
 
 pub(crate) fn scatter_joint_active_set(
     joint_active: &[usize],
-    block_constraints: &[Option<LinearInequalityConstraints>],
+    block_constraints: &[Option<ConstraintSet>],
 ) -> Vec<Option<Vec<usize>>> {
     let mut per_block = Vec::with_capacity(block_constraints.len());
     let mut offset = 0usize;
     for constraints_opt in block_constraints {
-        let rows = constraints_opt
-            .as_ref()
-            .map_or(0, |constraints| constraints.a.nrows());
+        let rows = constraints_opt.as_ref().map_or(0, ConstraintSet::nrows);
         if rows == 0 {
             per_block.push(None);
             continue;
@@ -862,54 +887,11 @@ pub(crate) fn scatter_joint_active_set(
             .map(|idx| idx - offset)
             .collect::<Vec<_>>();
         offset += rows;
-        if local.is_empty() {
-            per_block.push(None);
-            continue;
-        }
         local.sort_unstable();
         local.dedup();
         per_block.push(Some(local));
     }
     per_block
-}
-
-pub(crate) fn augment_active_sets_with_tight_constraint_rows(
-    block_active_sets: &mut Vec<Option<Vec<usize>>>,
-    block_constraints: &[Option<LinearInequalityConstraints>],
-    states: &[ParameterBlockState],
-    slack_tol: f64,
-) -> usize {
-    if block_active_sets.len() != block_constraints.len() {
-        block_active_sets.resize(block_constraints.len(), None);
-    }
-    let mut added = 0usize;
-    let tol = slack_tol.max(0.0);
-    for (b, constraints_opt) in block_constraints.iter().enumerate() {
-        let Some(constraints) = constraints_opt else {
-            continue;
-        };
-        let Some(state) = states.get(b) else {
-            continue;
-        };
-        if constraints.a.ncols() != state.beta.len() {
-            continue;
-        }
-        let active = block_active_sets[b].get_or_insert_with(Vec::new);
-        for row in 0..constraints.a.nrows() {
-            let slack = constraints.a.row(row).dot(&state.beta) - constraints.b[row];
-            if slack.is_finite() && slack <= tol && !active.contains(&row) {
-                active.push(row);
-                added += 1;
-            }
-        }
-        if active.is_empty() {
-            block_active_sets[b] = None;
-        } else {
-            active.sort_unstable();
-            active.dedup();
-        }
-    }
-    added
 }
 
 /// Assemble the **active rows** of the joint linear inequality constraint
@@ -928,7 +910,7 @@ pub(crate) fn augment_active_sets_with_tight_constraint_rows(
 /// Returns `None` when no block has any active constraints — the caller
 /// can then skip the constraint-aware kernel entirely.
 pub(crate) fn assemble_active_constraint_block(
-    block_constraints: &[Option<LinearInequalityConstraints>],
+    block_constraints: &[Option<ConstraintSet>],
     block_active_sets: &[Option<Vec<usize>>],
     ranges: &[(usize, usize)],
     total_p: usize,
@@ -936,7 +918,7 @@ pub(crate) fn assemble_active_constraint_block(
     if block_constraints.len() != ranges.len() || block_active_sets.len() != ranges.len() {
         return None;
     }
-    let mut active_per_block: Vec<(usize, &[usize], &LinearInequalityConstraints)> = Vec::new();
+    let mut active_per_block: Vec<(usize, &[usize], &ConstraintSet)> = Vec::new();
     let mut total_active = 0usize;
     for (b, (range, (constraints_opt, active_opt))) in ranges
         .iter()
@@ -952,10 +934,10 @@ pub(crate) fn assemble_active_constraint_block(
         if active.is_empty() {
             continue;
         }
-        if constraints.a.ncols() != range.1 - range.0 {
+        if constraints.ncols() != range.1 - range.0 {
             return None;
         }
-        if !active.iter().all(|&r| r < constraints.a.nrows()) {
+        if !active.iter().all(|&r| r < constraints.nrows()) {
             return None;
         }
         total_active += active.len();
@@ -969,9 +951,10 @@ pub(crate) fn assemble_active_constraint_block(
     for (b_idx, active, constraints) in active_per_block {
         let (start, end) = ranges[b_idx];
         let block_p = end - start;
-        for &local_row in active {
+        let gathered = constraints.gather_rows(active).ok()?;
+        for (gathered_row, _) in active.iter().enumerate() {
             for col in 0..block_p {
-                a[[out_row, start + col]] = constraints.a[[local_row, col]];
+                a[[out_row, start + col]] = gathered.a[[gathered_row, col]];
             }
             out_row += 1;
         }
@@ -986,9 +969,14 @@ pub(crate) struct SimpleLowerBounds {
 }
 
 pub(crate) fn extract_simple_lower_bounds(
-    constraints: &LinearInequalityConstraints,
+    constraints: &ConstraintSet,
     p: usize,
 ) -> Result<Option<SimpleLowerBounds>, String> {
+    let ConstraintSet::Dense(constraints) = constraints else {
+        // A factored cone couples whole covariate rows; it is never a
+        // per-coordinate lower-bound system.
+        return Ok(None);
+    };
     if constraints.a.ncols() != p || constraints.a.nrows() != constraints.b.len() {
         return Err(CustomFamilyError::ConstraintViolation {
             reason: "linear constraints: shape mismatch".to_string(),
@@ -1097,13 +1085,6 @@ pub(crate) fn solve_quadratic_with_simple_lower_bounds(
     beta_start: &Array1<f64>,
     bounds: &SimpleLowerBounds,
     active_rows: Option<&[usize]>,
-    // Reflection flag for the KKT release test (gam#979). When the caller passes
-    // a `lhs` that was negative-curvature-reflected to bound the step, supply the
-    // original (pre-reflection) Hessian here; its presence makes the bound solver
-    // judge dual feasibility on the reflection-invariant first-order multiplier
-    // `g_i` (the far-field reflected step makes the second-order term untrust-
-    // worthy). `None` ⇒ exact `g_i + (H·d)_i` (byte-identical to prior behavior).
-    kkt_hessian: Option<&Array2<f64>>,
 ) -> Result<(Array1<f64>, Vec<usize>), String> {
     let gradient = lhs.dot(beta_start) - rhs;
     let mut delta = Array1::zeros(beta_start.len());
@@ -1115,7 +1096,6 @@ pub(crate) fn solve_quadratic_with_simple_lower_bounds(
         &bounds.lower_bounds,
         &mut delta,
         Some(&mut active_coeffs),
-        kkt_hessian,
     )
     .map_err(|e| format!("lower-bound Newton solve failed: {e}"))?;
     let mut beta_new = beta_start + &delta;
@@ -1151,10 +1131,11 @@ pub(crate) struct BlockUpdateContext<'a> {
     pub(crate) block_idx: usize,
     pub(crate) s_lambda: &'a Array2<f64>,
     pub(crate) options: &'a BlockwiseFitOptions,
-    pub(crate) linear_constraints: Option<&'a LinearInequalityConstraints>,
+    pub(crate) linear_constraints: Option<&'a ConstraintSet>,
     pub(crate) cached_active_set: Option<&'a [usize]>,
 }
 
+#[derive(Debug)]
 pub(crate) struct BlockUpdateResult {
     pub(crate) beta_new_raw: Array1<f64>,
     pub(crate) active_set: Option<Vec<usize>>,
@@ -1244,12 +1225,9 @@ impl ParameterBlockUpdater for DiagonalBlockUpdater<'_> {
                         &ctx.states[ctx.block_idx].beta,
                         bounds,
                         ctx.cached_active_set,
-                        // PSD weighted-normal-equations Hessian (X'WX+S), not
-                        // reflected: same matrix for step and KKT test (gam#979).
-                        None,
                     )
                 } else {
-                    solve_quadratic_with_linear_constraints(
+                    gam_solve::active_set::solve_quadratic_with_constraint_set(
                         &lhs,
                         &rhs,
                         &ctx.states[ctx.block_idx].beta,
@@ -1331,6 +1309,16 @@ impl ParameterBlockUpdater for ExactNewtonBlockUpdater<'_> {
             .into());
         }
 
+        // Exact-Newton Hessians are the family's analytic second derivative: a
+        // non-finite entry is invalid math, not a degenerate operating point a
+        // stabilizing ridge or a feasible no-op could rescue. Refuse loudly at
+        // the canonical smooth-regularized logdet boundary — the same boundary
+        // the family-evaluation guard and the coupled joint-Newton initial
+        // iterate enforce — BEFORE assembling `H + S` and entering the
+        // (constrained or unconstrained) solve, so the failure names the
+        // offending entry instead of surfacing later as a non-finite Newton
+        // direction (gam#1088).
+        exact_newton_hessian_finite_check(self.hessian, ctx.block_idx)?;
         let lhs = self.hessian.add_dense(ctx.s_lambda)?;
         // Solve in delta-space for both constrained and unconstrained blocks.
         // That keeps the linear system consistent even when we add a
@@ -1375,9 +1363,6 @@ impl ParameterBlockUpdater for ExactNewtonBlockUpdater<'_> {
                     &ctx.states[ctx.block_idx].beta,
                     bounds,
                     ctx.cached_active_set,
-                    // Ridge-stabilized penalized Hessian, not curvature-reflected:
-                    // same matrix for step and KKT test (gam#979).
-                    None,
                 )
             } else {
                 let delta_constraints =
@@ -1389,14 +1374,15 @@ impl ParameterBlockUpdater for ExactNewtonBlockUpdater<'_> {
                             )
                         })?;
                 let delta_start = Array1::zeros(p);
-                let (delta, active_set) = solve_quadratic_with_linear_constraints(
-                    &lhs_dense,
-                    &rhs_step,
-                    &delta_start,
-                    &delta_constraints,
-                    ctx.cached_active_set,
-                )
-                .map_err(|e| e.to_string())?;
+                let (delta, active_set) =
+                    gam_solve::active_set::solve_quadratic_with_constraint_set(
+                        &lhs_dense,
+                        &rhs_step,
+                        &delta_start,
+                        &delta_constraints,
+                        ctx.cached_active_set,
+                    )
+                    .map_err(|e| e.to_string())?;
                 Ok((&ctx.states[ctx.block_idx].beta + &delta, active_set))
             }
             .map_err(|e| {
@@ -1535,20 +1521,31 @@ impl BlockWorkingSetUpdaterExt for BlockWorkingSet {
 
 pub(crate) fn check_linear_feasibility(
     beta: &Array1<f64>,
-    constraints: &LinearInequalityConstraints,
+    constraints: &ConstraintSet,
     tol: f64,
 ) -> Result<(), String> {
-    if constraints.a.ncols() != beta.len() || constraints.a.nrows() != constraints.b.len() {
+    if constraints.ncols() != beta.len() {
         return Err(CustomFamilyError::ConstraintViolation {
             reason: "linear constraints: shape mismatch".to_string(),
         }
         .into());
     }
-    let slack = constraints.a.dot(beta) - &constraints.b;
+    let values = constraints.values(beta.view()).map_err(|e| {
+        CustomFamilyError::ConstraintViolation {
+            reason: format!("linear constraints: {e}"),
+        }
+        .to_string()
+    })?;
     let mut worst = 0.0_f64;
     let mut worst_idx = 0usize;
-    for (i, &s) in slack.iter().enumerate() {
-        let v = (-s).max(0.0);
+    for i in 0..constraints.nrows() {
+        let bound = constraints.bound(i).map_err(|e| {
+            CustomFamilyError::ConstraintViolation {
+                reason: format!("linear constraints: {e}"),
+            }
+            .to_string()
+        })?;
+        let v = (bound - values[i]).max(0.0);
         if v > worst {
             worst = v;
             worst_idx = i;
@@ -1558,10 +1555,9 @@ pub(crate) fn check_linear_feasibility(
         // #1108 DIAGNOSTIC: pin down whether this infeasible β is PROJECTABLE
         // (→ a wiring bug: the seed bypassed projection) or genuinely outside a
         // hard polytope. Report the worst row's ‖a‖, the scaled violation, the
-        // β magnitude, and the outcome of the exact active-set projections of
+        // β magnitude, and the outcome of the exact active-set projection of
         // THIS β onto these constraints.
-        let a_worst = constraints.a.row(worst_idx);
-        let norm_worst = a_worst.dot(&a_worst).sqrt();
+        let norm_worst = constraints.row_norm(worst_idx).unwrap_or(f64::NAN);
         let scaled_worst = if norm_worst > 0.0 {
             worst / norm_worst
         } else {
@@ -1569,37 +1565,19 @@ pub(crate) fn check_linear_feasibility(
         };
         let beta_inf = beta.iter().fold(0.0_f64, |m, &v| m.max(v.abs()));
         let interior_outcome =
-            match gam_solve::active_set::project_point_strictly_into_feasible_cone(
+            match gam_solve::active_set::project_point_strictly_into_feasible_constraint_set(
                 beta,
                 constraints,
             ) {
-                Some(p) => {
-                    let s = constraints.a.dot(&p) - &constraints.b;
-                    let w = s.iter().fold(0.0_f64, |m, &v| m.max((-v).max(0.0)));
-                    format!("strict-interior→worst={w:.3e}")
+                Ok(p) => {
+                    let w = constraints
+                        .max_scaled_violation(p.view())
+                        .map(|(w, _)| w)
+                        .unwrap_or(f64::NAN);
+                    format!("strict-interior→scaled_worst={w:.3e}")
                 }
-                None => "strict-interior→None".to_string(),
+                Err(e) => format!("strict-interior→refused: {e}"),
             };
-        let boundary_outcome = {
-            let identity = Array2::<f64>::eye(beta.len());
-            match gam_solve::active_set::solve_quadratic_with_linear_constraints(
-                &identity,
-                beta,
-                beta,
-                constraints,
-                None,
-            ) {
-                Ok((p, _)) => {
-                    let s = constraints.a.dot(&p) - &constraints.b;
-                    let w = s.iter().fold(0.0_f64, |m, &v| m.max((-v).max(0.0)));
-                    format!("boundary→worst={w:.3e}")
-                }
-                Err(e) => format!("boundary→Err({e})"),
-            }
-        };
-        let worst_row_nnz = (0..constraints.a.ncols())
-            .filter(|&c| constraints.a[[worst_idx, c]].abs() > 1e-12)
-            .count();
         let simple_bounds_path = match extract_simple_lower_bounds(constraints, beta.len()) {
             Ok(Some(_)) => "extract_simple_lower_bounds→Some(SIMPLE-BOUNDS PATH)",
             Ok(None) => "extract_simple_lower_bounds→None(general QP)",
@@ -1608,10 +1586,10 @@ pub(crate) fn check_linear_feasibility(
         return Err(CustomFamilyError::ConstraintViolation {
             reason: format!(
                 "infeasible iterate: max(Aβ-b violation)={worst:.3e} at constraint row {worst_idx} \
-                 [#1108 diag: rows={}, worst_row_nnz={worst_row_nnz}, ‖a_row‖={norm_worst:.3e}, \
+                 [#1108 diag: rows={}, ‖a_row‖={norm_worst:.3e}, \
                  scaled_viol={scaled_worst:.3e}, |β|∞={beta_inf:.3e}, {interior_outcome}, \
-                 {boundary_outcome}, {simple_bounds_path}]",
-                constraints.a.nrows()
+                 {simple_bounds_path}]",
+                constraints.nrows()
             ),
         }
         .into());
@@ -1863,25 +1841,41 @@ pub(crate) fn validate_block_hessians_finite(eval: &FamilyEvaluation) -> Result<
         let BlockWorkingSet::ExactNewton { hessian, .. } = ws else {
             continue;
         };
-        match hessian {
-            SymmetricMatrix::Dense(matrix) => {
-                smooth_regularized_logdet_hessian_finite_check(matrix, Some(b))?;
-            }
-            SymmetricMatrix::Sparse(matrix) => {
-                let (symbolic, values) = matrix.parts();
-                let col_ptr = symbolic.col_ptr();
-                let row_idx = symbolic.row_idx();
-                for col in 0..matrix.ncols() {
-                    let start = col_ptr[col];
-                    let end = col_ptr[col + 1];
-                    for idx in start..end {
-                        let row = row_idx[idx];
-                        let value = values[idx];
-                        if !value.is_finite() {
-                            return Err(CustomFamilyError::NumericalFailure { reason: format!(
-                                "smooth-regularized logdet Hessian contains non-finite entry at ({row}, {col}): {value} for block {b}"
-                            ) }.into());
-                        }
+        exact_newton_hessian_finite_check(hessian, b)?;
+    }
+    Ok(())
+}
+
+/// Refuse a single exact-Newton block Hessian carrying a non-finite entry,
+/// using the canonical smooth-regularized logdet boundary message with the
+/// offending block index appended. Shared by the family-evaluation-boundary
+/// guard [`validate_block_hessians_finite`] and the per-block exact-Newton
+/// updater, so a `NaN`/`Inf` in the family's analytic second derivative is
+/// rejected at the same boundary with the same phrasing whether the block is
+/// constrained or unconstrained — a contract violation, not a solver
+/// contingency to be absorbed by a ridge or a no-op step (gam#1088).
+pub(crate) fn exact_newton_hessian_finite_check(
+    hessian: &SymmetricMatrix,
+    block: usize,
+) -> Result<(), String> {
+    match hessian {
+        SymmetricMatrix::Dense(matrix) => {
+            smooth_regularized_logdet_hessian_finite_check(matrix, Some(block))?;
+        }
+        SymmetricMatrix::Sparse(matrix) => {
+            let (symbolic, values) = matrix.parts();
+            let col_ptr = symbolic.col_ptr();
+            let row_idx = symbolic.row_idx();
+            for col in 0..matrix.ncols() {
+                let start = col_ptr[col];
+                let end = col_ptr[col + 1];
+                for idx in start..end {
+                    let row = row_idx[idx];
+                    let value = values[idx];
+                    if !value.is_finite() {
+                        return Err(CustomFamilyError::NumericalFailure { reason: format!(
+                            "smooth-regularized logdet Hessian contains non-finite entry at ({row}, {col}): {value} for block {block}"
+                        ) }.into());
                     }
                 }
             }
@@ -1908,12 +1902,50 @@ pub(crate) fn stable_logdet_with_ridge_policy(
     }
 
     match ridge_policy.determinant_mode() {
-        RidgeDeterminantMode::Full => {
-            let chol = a.cholesky(Side::Lower).map_err(|_| {
-                "cholesky failed while computing full ridge-aware logdet".to_string()
-            })?;
-            Ok(2.0 * chol.diag().mapv(f64::ln).sum())
-        }
+        RidgeDeterminantMode::Full => match a.cholesky(Side::Lower) {
+            Ok(chol) => Ok(2.0 * chol.diag().mapv(f64::ln).sum()),
+            Err(_) => {
+                // Cholesky failed. Separate a genuinely INDEFINITE Hessian — a real
+                // SPD-contract violation, no Laplace mode exists — from a PD-but-
+                // ILL-CONDITIONED one (cond > 1/ε: every true eigenvalue is
+                // positive, but a rounding-negative pivot aborts the
+                // factorization). The latter is exactly what a competing-risks
+                // joint Hessian produces from its near-duplicate cross-cause time
+                // columns (fit_orchestration comment on the K block-pairs of
+                // near-identical columns): min_eig ≫ 0 yet cond > 1/ε.
+                //
+                // For a PD matrix the exact SPD log-determinant still exists and
+                // equals `Σ log σ_j` over the symmetric spectrum — the SAME
+                // estimand as `2·Σ log L_ii`, computed stably — so return it rather
+                // than failing the whole ρ evaluation, which otherwise strands the
+                // outer REML search at a non-stationary point (the joint Hessian
+                // logdet is unavailable at that ρ, so no gradient/value is
+                // produced). Only a certified-negative eigenvalue propagates the
+                // error. This is byte-identical on every input where Cholesky
+                // already succeeds.
+                let (evals, _) = gam_linalg::faer_ndarray::FaerEigh::eigh(&a, Side::Lower)
+                    .map_err(|_| {
+                        format!(
+                            "cholesky failed and the eigendecomposition also failed while computing full ridge-aware logdet (p={p}, ridge={ridge:.3e})"
+                        )
+                    })?;
+                let min_eig = evals.iter().copied().fold(f64::INFINITY, f64::min);
+                let max_eig = evals.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+                // Negative-eigenvalue tolerance, relative to the spectrum scale.
+                let neg_tol = CUSTOM_FAMILY_CONDITION_RELATIVE_FLOOR * max_eig.abs().max(1.0);
+                if min_eig <= -neg_tol {
+                    return Err(format!(
+                        "cholesky failed while computing full ridge-aware logdet and the symmetric spectrum is genuinely indefinite (p={p}, ridge={ridge:.3e}, min_eig={min_eig:.6e}, max_eig={max_eig:.6e}); an indefinite Hessian has no SPD log-determinant and defines no Laplace mode"
+                    ));
+                }
+                // PD but ill-conditioned: exact logdet from the positive spectrum,
+                // flooring round-off-nonpositive eigenvalues at the ridge-relative
+                // floor so a numerically-singular direction contributes a bounded
+                // (not `-inf`) term.
+                let floor = ridge.max(neg_tol);
+                Ok(evals.iter().map(|&e| e.max(floor).ln()).sum())
+            }
+        },
         RidgeDeterminantMode::PositivePartApproximation => {
             smooth_regularized_logdet_hessian_finite_check(&a, None)?;
             // Smooth-regularized logdet objective, aligned with the gradient
@@ -2236,22 +2268,6 @@ pub(crate) fn strict_exact_pseudo_logdet(
         .sum())
 }
 
-/// Numerical nullity of a symmetric penalized Hessian at the shared
-/// `KKT_REFUSAL_RANK_TOL` relative cutoff (the same threshold the spectral
-/// range solve and the REML penalty-rank machinery use). Returns `None` only
-/// when the eigendecomposition fails or the matrix is the zero matrix (no
-/// finite curvature scale to normalize against); callers treat a `None` as
-/// "could not certify full rank" and fall back to the conservative (damped)
-/// path.
-///
-/// This exists so the CONSTRAINED active-set QP branch can decide whether the
-/// joint design is genuinely rank-deficient (`nullity > 0` ⇒ an unidentified
-/// gauge direction that needs the self-vanishing Levenberg floor to make the
-/// QP minimizer unique) or fully identified (`nullity == 0` ⇒ the exact,
-/// undamped Newton/KKT step is well-posed and converges quadratically). The
-/// spectral-range branch already gets this for free via
-/// `JointSpectralNewtonStep::nullity`; the constrained branch never runs the
-/// eigensolve otherwise, so it computes it here on the already-penalized `lhs`.
 /// PSD part of a symmetric matrix: eigendecompose and clamp negative
 /// eigenvalues to zero. Used by the step consumers that REQUIRE a convex
 /// model (the constrained active-set QP and the SPD-PCG matvec) when folding
@@ -2274,10 +2290,29 @@ pub(crate) fn symmetric_psd_projection(matrix: &Array2<f64>) -> Array2<f64> {
     scaled.dot(&evecs.t())
 }
 
-/// Modified-Newton convexification of a symmetric (penalized) Hessian: reflect
-/// every negative-curvature eigen-direction to its magnitude `|λ|` and floor the
-/// remaining (near-null) modes to a small positive multiple of `λmax`, returning
-/// a positive-definite matrix with the SAME eigenvectors.
+pub(crate) struct ConstrainedHessianGeometry {
+    pub(crate) matrix: Array2<f64>,
+    pub(crate) nullity: usize,
+    pub(crate) condition: f64,
+    pub(crate) raw_min_eigenvalue: f64,
+    pub(crate) stabilized_min_eigenvalue: f64,
+}
+
+/// Modified-Newton convexification and selective gauge stabilization for a
+/// symmetric penalized Hessian.
+///
+/// Negative identified curvature is reflected to `|λ|`. Numerical-null modes
+/// receive the requested Levenberg curvature, but identified modes are left at
+/// their exact magnitude. Adding `μ I` to a rank-deficient Hessian makes the QP
+/// unique by perturbing every weak identified direction too, reducing Newton's
+/// quadratic endgame to the measured `H/(H+μ)` linear crawl (#979). Adding
+/// `μ P_null` provides the same gauge uniqueness without changing the Newton
+/// equation on `range(H)`.
+///
+/// A family may separately request the historical full-rank ill-conditioning
+/// damping. That case has no numerical null projector, so it retains the
+/// ambient `λ -> λ + μ` shift. Both policies are constructed from this one
+/// eigendecomposition, along with their rank and condition diagnostics.
 ///
 /// This is the exact negative-curvature handling the unconstrained dense-spectral
 /// path already performs inside `WhitenedHessianSpectrum::assemble` (negative `γ`
@@ -2301,44 +2336,75 @@ pub(crate) fn symmetric_psd_projection(matrix: &Array2<f64>) -> Array2<f64> {
 /// clamp-to-zero null mode would make the QP unbounded along that direction). At
 /// a genuine optimum the constrained Hessian over the identified subspace is PSD,
 /// so the reflection is a no-op there and the converged β is unchanged — exactly
-/// the property the dense path relies on. Falls back to the (symmetrized) input
-/// if the eigendecomposition fails: the conservative undamped step, never a wrong
-/// one.
-pub(crate) fn symmetric_negative_curvature_reflected(matrix: &Array2<f64>) -> Array2<f64> {
+/// the property the dense path relies on. Eigensolver failure is a hard error:
+/// silently reverting to an indefinite or differently damped QP would switch
+/// algorithms after its curvature contract failed.
+pub(crate) fn symmetric_constrained_hessian_geometry(
+    matrix: &Array2<f64>,
+    levenberg_mu: f64,
+    damp_full_rank_ill_conditioned: bool,
+) -> Result<ConstrainedHessianGeometry, String> {
     let p = matrix.nrows();
+    if p == 0 || matrix.ncols() != p {
+        return Err(format!(
+            "constrained Hessian must be nonempty and square, got {}x{}",
+            matrix.nrows(),
+            matrix.ncols()
+        ));
+    }
     let mut sym = matrix.clone();
     symmetrize_dense_in_place(&mut sym);
-    let Ok((evals, evecs)) = FaerEigh::eigh(&sym, Side::Lower) else {
-        return sym;
-    };
+    let (evals, evecs) = FaerEigh::eigh(&sym, Side::Lower)
+        .map_err(|error| format!("constrained Hessian eigendecomposition failed: {error:?}"))?;
     let lambda_max_abs = evals.iter().map(|v| v.abs()).fold(0.0_f64, f64::max);
     if !(lambda_max_abs.is_finite() && lambda_max_abs > 0.0) {
-        return sym;
+        return Err("constrained Hessian has no finite nonzero curvature scale".to_string());
     }
-    // Positive floor for near-null modes: the same relative scale the dense
-    // spectral path uses for its numerical-rank cutoff, so a flat direction
-    // gets a tiny-but-strictly-positive curvature (bounded QP) instead of a
-    // zero one (unbounded QP). Reflecting already makes every above-floor mode
-    // positive; this only lifts the genuine null modes off zero.
+    let cutoff = KKT_REFUSAL_RANK_TOL * lambda_max_abs;
+    let nullity = evals.iter().filter(|value| value.abs() < cutoff).count();
+    let min_range = evals
+        .iter()
+        .map(|value| value.abs())
+        .filter(|magnitude| *magnitude >= cutoff && *magnitude > 0.0)
+        .fold(f64::INFINITY, f64::min);
+    let condition = if min_range.is_finite() && min_range > 0.0 {
+        lambda_max_abs / min_range
+    } else {
+        f64::INFINITY
+    };
+    let ambient_levenberg = nullity == 0
+        && damp_full_rank_ill_conditioned
+        && condition > LEVENBERG_ILL_CONDITIONING_THRESHOLD;
     let floor = lambda_max_abs * (p as f64).sqrt() * f64::EPSILON;
-    let reflected = Array1::from_iter(evals.iter().map(|lam| lam.abs().max(floor)));
-    let scaled = &evecs * &reflected.view().insert_axis(ndarray::Axis(0));
-    scaled.dot(&evecs.t())
+    let mu = if levenberg_mu.is_finite() && levenberg_mu > 0.0 {
+        levenberg_mu
+    } else {
+        0.0
+    };
+    let stabilized = Array1::from_iter(evals.iter().map(|lambda| {
+        if nullity > 0 && lambda.abs() < cutoff {
+            mu.max(floor)
+        } else if ambient_levenberg {
+            (lambda + mu).abs().max(floor)
+        } else {
+            lambda.abs().max(floor)
+        }
+    }));
+    let stabilized_min_eigenvalue = stabilized.iter().copied().fold(f64::INFINITY, f64::min);
+    let scaled = &evecs * &stabilized.view().insert_axis(ndarray::Axis(0));
+    Ok(ConstrainedHessianGeometry {
+        matrix: scaled.dot(&evecs.t()),
+        nullity,
+        condition,
+        raw_min_eigenvalue: evals.iter().copied().fold(f64::INFINITY, f64::min),
+        stabilized_min_eigenvalue,
+    })
 }
 
-/// Smallest (signed) eigenvalue of a symmetric matrix; `NaN` if the
-/// eigendecomposition fails. Diagnostic helper for the #1040 convexification
-/// trace — reads the most-negative curvature so the log can confirm whether the
-/// constrained-QP Hessian is indefinite and whether the reflection engaged.
-pub(crate) fn symmetric_min_eigenvalue_signed(matrix: &Array2<f64>) -> f64 {
-    let mut sym = matrix.clone();
-    symmetrize_dense_in_place(&mut sym);
-    match FaerEigh::eigh(&sym, Side::Lower) {
-        Ok((evals, _)) => evals.iter().copied().fold(f64::INFINITY, f64::min),
-        Err(_) => f64::NAN,
-    }
-}
-
+/// Numerical nullity of a symmetric penalized Hessian at the shared
+/// `KKT_REFUSAL_RANK_TOL` relative cutoff used by the spectral range and REML
+/// penalty-rank machinery. Returns `None` when no finite curvature scale or
+/// eigendecomposition is available.
 pub(crate) fn symmetric_penalized_hessian_nullity(lhs: &Array2<f64>) -> Option<usize> {
     let p = lhs.nrows();
     if p == 0 || lhs.ncols() != p {
@@ -2353,45 +2419,39 @@ pub(crate) fn symmetric_penalized_hessian_nullity(lhs: &Array2<f64>) -> Option<u
     Some(evals.iter().filter(|x| x.abs() < cutoff).count())
 }
 
-/// Numerical null-space count AND the (range-space) condition number of a
-/// symmetric penalized Hessian, from ONE eigendecomposition.
-///
-/// `nullity` counts eigenvalues below the shared rank tolerance (`< tol·λmax`);
-/// `condition` is `λmax / λmin_range` where `λmin_range` is the smallest
-/// eigenvalue magnitude ABOVE that tolerance (the smallest *identified*
-/// curvature). On a full-rank-but-ill-conditioned `H_pen` (`nullity == 0`,
-/// `condition` large) the constrained active-set QP minimiser is unique only up
-/// to round-off along the near-null mode, so without a Levenberg floor the
-/// active set slides an O(1) proposal step every cycle and the inner solve
-/// grinds its whole budget — the survival marginal-slope hang (gam#1040). Both
-/// signals come from the single `eigh` the nullity check already paid for.
-pub(crate) fn symmetric_penalized_hessian_nullity_and_condition(
-    lhs: &Array2<f64>,
-) -> Option<(usize, f64)> {
-    let p = lhs.nrows();
-    if p == 0 || lhs.ncols() != p {
-        return Some((0, 1.0));
+#[cfg(test)]
+mod constrained_hessian_geometry_tests {
+    use super::*;
+    use ndarray::array;
+
+    #[test]
+    fn rank_deficient_levenberg_curvature_is_confined_to_the_null_projector() {
+        // Eigenpairs: range vectors (1,0,-1)/sqrt(2) at lambda=4 and
+        // (0,1,0) at lambda=1; gauge vector (1,0,1)/sqrt(2) at lambda=0.
+        let hessian = array![[2.0, 0.0, -2.0], [0.0, 1.0, 0.0], [-2.0, 0.0, 2.0]];
+        let mu = 0.25;
+        let geometry = symmetric_constrained_hessian_geometry(&hessian, mu, false)
+            .expect("rank-deficient symmetric geometry");
+        assert_eq!(geometry.nullity, 1);
+
+        let inv_sqrt_two = 0.5_f64.sqrt();
+        let range = array![inv_sqrt_two, 0.0, -inv_sqrt_two];
+        let second_range = array![0.0, 1.0, 0.0];
+        let null = array![inv_sqrt_two, 0.0, inv_sqrt_two];
+        let range_image = geometry.matrix.dot(&range);
+        let second_range_image = geometry.matrix.dot(&second_range);
+        let null_image = geometry.matrix.dot(&null);
+
+        for (actual, expected) in range_image.iter().zip((4.0 * &range).iter()) {
+            assert!((actual - expected).abs() <= 1e-12);
+        }
+        for (actual, expected) in second_range_image.iter().zip(second_range.iter()) {
+            assert!((actual - expected).abs() <= 1e-12);
+        }
+        for (actual, expected) in null_image.iter().zip((mu * &null).iter()) {
+            assert!((actual - expected).abs() <= 1e-12);
+        }
     }
-    let (evals, _) = FaerEigh::eigh(lhs, Side::Lower).ok()?;
-    let max_abs = evals.iter().map(|x: &f64| x.abs()).fold(0.0_f64, f64::max);
-    if !(max_abs.is_finite() && max_abs > 0.0) {
-        return None;
-    }
-    let cutoff = KKT_REFUSAL_RANK_TOL * max_abs;
-    let nullity = evals.iter().filter(|x| x.abs() < cutoff).count();
-    // Smallest identified (range-space) eigenvalue magnitude: the floor for the
-    // condition number. Eigenvalues below `cutoff` are the null space, excluded.
-    let min_range = evals
-        .iter()
-        .map(|x: &f64| x.abs())
-        .filter(|&m| m >= cutoff && m > 0.0)
-        .fold(f64::INFINITY, f64::min);
-    let condition = if min_range.is_finite() && min_range > 0.0 {
-        max_abs / min_range
-    } else {
-        f64::INFINITY
-    };
-    Some((nullity, condition))
 }
 
 #[cfg(test)]
@@ -2412,16 +2472,13 @@ mod penalty_logdet_unify_tests {
     fn strict_pseudo_logdet_matches_canonical_penalty_value() {
         // Rank-deficient PSD penalty: 2×2 active block + a structural null dim.
         // Active eigenvalues 1.5 and 2.5 ⇒ pseudo-logdet = ln 1.5 + ln 2.5.
-        let s_rank_deficient = array![
-            [2.0, 0.5, 0.0],
-            [0.5, 2.0, 0.0],
-            [0.0, 0.0, 0.0],
-        ];
+        let s_rank_deficient = array![[2.0, 0.5, 0.0], [0.5, 2.0, 0.0], [0.0, 0.0, 0.0],];
         let expected_deficient = 1.5_f64.ln() + 2.5_f64.ln();
         let strict = strict_exact_pseudo_logdet(&s_rank_deficient, 3).expect("strict logdet");
-        let canonical = PenaltyPseudologdet::from_components(&[s_rank_deficient.clone()], &[1.0], 0.0)
-            .expect("canonical pseudo-logdet")
-            .value();
+        let canonical =
+            PenaltyPseudologdet::from_components(&[s_rank_deficient.clone()], &[1.0], 0.0)
+                .expect("canonical pseudo-logdet")
+                .value();
         assert!(
             (strict - expected_deficient).abs() < 1e-10,
             "strict pseudo-logdet {strict} != analytic {expected_deficient}"

@@ -7,11 +7,70 @@ use super::*;
 use crate::gpu_kernels::row_hessian_ops;
 
 impl BernoulliMarginalSlopeFamily {
+    /// Cache-boundary adapter for the canonical device row value/gradient
+    /// aggregate. Every direct-family and workspace consumer goes through this
+    /// authority; a selected device launch can never cross to host calculus.
+    #[cfg(target_os = "linux")]
+    pub(super) fn selected_device_joint_gradient_from_cache(
+        &self,
+        cache: &BernoulliMarginalSlopeExactEvalCache,
+        operation: &str,
+    ) -> Result<Option<ExactNewtonJointGradientEvaluation>, String> {
+        let Some(device_state) = cache.row_primary_hessians.device() else {
+            return Ok(None);
+        };
+        let reduced = crate::bms::gpu::flex::require_selected_gpu_result(
+            operation,
+            crate::bms::gpu::row::launch_bms_flex_row_joint_gradient(device_state),
+        )?;
+        let expected = cache.slices.total;
+        if reduced.gradient.len() != expected {
+            return Err(format!(
+                "BMS {operation}: device gradient len={} != p_total={expected}",
+                reduced.gradient.len()
+            ));
+        }
+        Ok(Some(ExactNewtonJointGradientEvaluation {
+            log_likelihood: reduced.log_likelihood,
+            gradient: Array1::from_vec(reduced.gradient),
+        }))
+    }
+
+    /// Cache-boundary adapter for device joint-Hessian materialization.
+    #[cfg(target_os = "linux")]
+    pub(super) fn selected_device_dense_hessian_from_cache(
+        &self,
+        cache: &BernoulliMarginalSlopeExactEvalCache,
+        operation: &str,
+    ) -> Result<Option<Array2<f64>>, String> {
+        let Some(device_state) = cache.row_primary_hessians.device() else {
+            return Ok(None);
+        };
+        let p_total = cache.slices.total;
+        let flat = crate::bms::gpu::flex::require_selected_gpu_result(
+            operation,
+            crate::bms::gpu::row::launch_bms_flex_row_dense(device_state),
+        )?;
+        let dense = Array2::from_shape_vec((p_total, p_total), flat).map_err(|error| {
+            format!("BMS {operation}: {p_total}x{p_total} reshape failed: {error}")
+        })?;
+        Ok(Some(dense))
+    }
+
     pub(super) fn exact_newton_joint_gradient_evaluation_from_cache(
         &self,
         block_states: &[ParameterBlockState],
         cache: &BernoulliMarginalSlopeExactEvalCache,
     ) -> Result<ExactNewtonJointGradientEvaluation, String> {
+        #[cfg(target_os = "linux")]
+        if let Some(gradient) =
+            self.selected_device_joint_gradient_from_cache(cache, "exact joint gradient")?
+        {
+            return Ok(gradient);
+        }
+        cache
+            .row_primary_hessians
+            .reject_device_cpu_recompute("exact joint gradient")?;
         let slices = &cache.slices;
         let primary = &cache.primary;
         let n = self.y.len();
@@ -59,7 +118,7 @@ impl BernoulliMarginalSlopeFamily {
                                 .row_cell_moments
                                 .as_ref()
                                 .and_then(|bundle| bundle.row(row, 3));
-                            let neglog = self.compute_row_analytic_flex_into_with_moments(
+                            let neglog = self.lower_bms_flex_row_order2_with_moments(
                                 row,
                                 block_states,
                                 primary,
@@ -247,29 +306,22 @@ impl BernoulliMarginalSlopeFamily {
         #[cfg(target_os = "linux")]
         {
             if let Some(device_state) = cache.row_primary_hessians.device() {
-                match crate::bms::gpu::row::launch_bms_flex_row_hvp(
-                    device_state,
-                    direction.as_slice().expect("direction is contiguous"),
-                ) {
-                    Ok(host) => {
-                        if host.len() != out.len() {
-                            return Err(format!(
-                                "BMS GPU HVP length mismatch: got {}, expected {}",
-                                host.len(),
-                                out.len()
-                            ));
-                        }
-                        out.iter_mut().zip(host.iter()).for_each(|(o, &v)| *o = v);
-                        return Ok(());
-                    }
-                    Err(err) => {
-                        log::info!(
-                            "[BMS exact-newton HVP] gpu_hvp_failed: {err}; falling \
-                             back to CPU row-loop (this should be rare under \
-                             gpu=auto and is treated as a runtime degradation)"
-                        );
-                    }
+                let host = crate::bms::gpu::flex::require_selected_gpu_result(
+                    "joint-Hessian HVP",
+                    crate::bms::gpu::row::launch_bms_flex_row_hvp(
+                        device_state,
+                        direction.as_slice().expect("direction is contiguous"),
+                    ),
+                )?;
+                if host.len() != out.len() {
+                    return Err(format!(
+                        "BMS GPU HVP length mismatch: got {}, expected {}",
+                        host.len(),
+                        out.len()
+                    ));
                 }
+                out.iter_mut().zip(host.iter()).for_each(|(o, &v)| *o = v);
+                return Ok(());
             }
         }
 
@@ -358,22 +410,24 @@ impl BernoulliMarginalSlopeFamily {
             let y_rows = {
                 #[cfg(target_os = "linux")]
                 {
-                    match row_hessian_ops::launch_row_hessian_matvec(
-                        row_hessian_ops::RowHessianMatvecInputs {
-                            n_rows: n,
-                            r: r_pr,
-                            h_rows: h_rows_slice,
-                            v_rows: &v_rows,
-                        },
-                    ) {
-                        Ok(result) => result.y_rows,
-                        Err(err) => {
-                            log::info!(
-                                "[BMS exact-newton HVP] host-pin GPU matvec failed: {err}; \
-                                 falling back to CPU oracle"
-                            );
-                            row_hessian_ops::cpu_row_hessian_matvec(&inputs)
-                        }
+                    if gam_gpu::device_runtime::GpuRuntime::resolve(gam_gpu::global_policy())
+                        .map_err(String::from)?
+                        .is_some()
+                    {
+                        crate::bms::gpu::flex::require_selected_gpu_result(
+                            "host-pin row-Hessian matvec",
+                            row_hessian_ops::launch_row_hessian_matvec(
+                                row_hessian_ops::RowHessianMatvecInputs {
+                                    n_rows: n,
+                                    r: r_pr,
+                                    h_rows: h_rows_slice,
+                                    v_rows: &v_rows,
+                                },
+                            ),
+                        )?
+                        .y_rows
+                    } else {
+                        row_hessian_ops::cpu_row_hessian_matvec(&inputs)
                     }
                 }
                 #[cfg(not(target_os = "linux"))]
@@ -455,11 +509,11 @@ impl BernoulliMarginalSlopeFamily {
             // shared path and no serial bottleneck across the ~`n/tile_rows`
             // tiles.
             let partial = gam_linalg::pairwise_reduce::par_deterministic_try_block_fold(
-                    tiles.tiles.len(),
-                    |tile_range| -> Result<_, String> {
-                        let mut tile_out = Array1::<f64>::zeros(slices.total);
-                        let mut row_dir_scratch = Array1::<f64>::zeros(r_pr);
-                        for tile in &tiles.tiles[tile_range] {
+                tiles.tiles.len(),
+                |tile_range| -> Result<_, String> {
+                    let mut tile_out = Array1::<f64>::zeros(slices.total);
+                    let mut row_dir_scratch = Array1::<f64>::zeros(r_pr);
+                    for tile in &tiles.tiles[tile_range] {
                         let tile_rows = tile.rows.hess().nrows();
                         let mut v_rows = vec![0.0_f64; tile_rows * r_pr];
                         for local in 0..tile_rows {
@@ -474,9 +528,10 @@ impl BernoulliMarginalSlopeFamily {
                             v_rows[local * r_pr..(local + 1) * r_pr]
                                 .copy_from_slice(row_dir_scratch.as_slice().expect("contiguous"));
                         }
-                        let h_rows_slice = tile.rows.hess().as_slice().expect(
-                            "tiled row_primary_hessians.hess() is row-major contiguous",
-                        );
+                        let h_rows_slice =
+                            tile.rows.hess().as_slice().expect(
+                                "tiled row_primary_hessians.hess() is row-major contiguous",
+                            );
                         let inputs = row_hessian_ops::RowHessianMatvecInputs {
                             n_rows: tile_rows,
                             r: r_pr,
@@ -486,22 +541,26 @@ impl BernoulliMarginalSlopeFamily {
                         let y_rows = {
                             #[cfg(target_os = "linux")]
                             {
-                                match row_hessian_ops::launch_row_hessian_matvec(
-                                    row_hessian_ops::RowHessianMatvecInputs {
-                                        n_rows: tile_rows,
-                                        r: r_pr,
-                                        h_rows: h_rows_slice,
-                                        v_rows: &v_rows,
-                                    },
-                                ) {
-                                    Ok(result) => result.y_rows,
-                                    Err(err) => {
-                                        log::info!(
-                                            "[BMS exact-newton HVP] tiled GPU matvec failed: {err}; \
-                                             falling back to CPU oracle"
-                                        );
-                                        row_hessian_ops::cpu_row_hessian_matvec(&inputs)
-                                    }
+                                if gam_gpu::device_runtime::GpuRuntime::resolve(
+                                    gam_gpu::global_policy(),
+                                )
+                                .map_err(String::from)?
+                                .is_some()
+                                {
+                                    crate::bms::gpu::flex::require_selected_gpu_result(
+                                        "tiled row-Hessian matvec",
+                                        row_hessian_ops::launch_row_hessian_matvec(
+                                            row_hessian_ops::RowHessianMatvecInputs {
+                                                n_rows: tile_rows,
+                                                r: r_pr,
+                                                h_rows: h_rows_slice,
+                                                v_rows: &v_rows,
+                                            },
+                                        ),
+                                    )?
+                                    .y_rows
+                                } else {
+                                    row_hessian_ops::cpu_row_hessian_matvec(&inputs)
                                 }
                             }
                             #[cfg(not(target_os = "linux"))]
@@ -524,15 +583,15 @@ impl BernoulliMarginalSlopeFamily {
                                 &mut tile_out,
                             )?;
                         }
-                        }
-                        Ok(tile_out)
-                    },
-                    |mut left, right| -> Result<_, String> {
-                        left += &right;
-                        Ok(left)
-                    },
-                )?
-                .unwrap_or_else(|| Array1::<f64>::zeros(slices.total));
+                    }
+                    Ok(tile_out)
+                },
+                |mut left, right| -> Result<_, String> {
+                    left += &right;
+                    Ok(left)
+                },
+            )?
+            .unwrap_or_else(|| Array1::<f64>::zeros(slices.total));
             *out += &partial;
             return Ok(());
         }
@@ -567,7 +626,7 @@ impl BernoulliMarginalSlopeFamily {
                                     .row_cell_moments
                                     .as_ref()
                                     .and_then(|bundle| bundle.row(row, 9));
-                                self.compute_row_analytic_flex_into_with_moments(
+                                self.lower_bms_flex_row_order2_with_moments(
                                     row,
                                     block_states,
                                     primary,
@@ -667,16 +726,17 @@ impl BernoulliMarginalSlopeFamily {
             }
             let r_pr = primary.total;
             let partial = gam_linalg::pairwise_reduce::par_deterministic_try_block_fold(
-                    tiles.tiles.len(),
-                    |tile_range| -> Result<_, String> {
-                        let mut tile_out = Array2::<f64>::zeros((total, n_rhs));
-                        let mut col_scratch = Array1::<f64>::zeros(total);
-                        let mut row_dir_scratch = Array1::<f64>::zeros(r_pr);
-                        for tile in &tiles.tiles[tile_range] {
+                tiles.tiles.len(),
+                |tile_range| -> Result<_, String> {
+                    let mut tile_out = Array2::<f64>::zeros((total, n_rhs));
+                    let mut col_scratch = Array1::<f64>::zeros(total);
+                    let mut row_dir_scratch = Array1::<f64>::zeros(r_pr);
+                    for tile in &tiles.tiles[tile_range] {
                         let tile_rows = tile.rows.hess().nrows();
-                        let h_rows_slice = tile.rows.hess().as_slice().expect(
-                            "tiled row_primary_hessians.hess() is row-major contiguous",
-                        );
+                        let h_rows_slice =
+                            tile.rows.hess().as_slice().expect(
+                                "tiled row_primary_hessians.hess() is row-major contiguous",
+                            );
                         // One `v_rows` / `y_rows` buffer reused across all RHS
                         // columns within this tile so the per-tile working set
                         // stays one column wide regardless of `n_rhs`.
@@ -705,24 +765,26 @@ impl BernoulliMarginalSlopeFamily {
                             let y_rows = {
                                 #[cfg(target_os = "linux")]
                                 {
-                                    match row_hessian_ops::launch_row_hessian_matvec(
-                                        row_hessian_ops::RowHessianMatvecInputs {
-                                            n_rows: tile_rows,
-                                            r: r_pr,
-                                            h_rows: h_rows_slice,
-                                            v_rows: &v_rows,
-                                        },
-                                    ) {
-                                        Ok(result) => result.y_rows,
-                                        Err(err) => {
-                                            log::info!(
-                                                "[BMS exact-newton batched-HVP] tiled GPU matvec failed: {err}; \
-                                                 falling back to CPU oracle"
-                                            );
-                                            row_hessian_ops::cpu_row_hessian_matvec(
-                                                &inputs,
-                                            )
-                                        }
+                                    if gam_gpu::device_runtime::GpuRuntime::resolve(
+                                        gam_gpu::global_policy(),
+                                    )
+                                    .map_err(String::from)?
+                                    .is_some()
+                                    {
+                                        crate::bms::gpu::flex::require_selected_gpu_result(
+                                            "batched tiled row-Hessian matvec",
+                                            row_hessian_ops::launch_row_hessian_matvec(
+                                                row_hessian_ops::RowHessianMatvecInputs {
+                                                    n_rows: tile_rows,
+                                                    r: r_pr,
+                                                    h_rows: h_rows_slice,
+                                                    v_rows: &v_rows,
+                                                },
+                                            ),
+                                        )?
+                                        .y_rows
+                                    } else {
+                                        row_hessian_ops::cpu_row_hessian_matvec(&inputs)
                                     }
                                 }
                                 #[cfg(not(target_os = "linux"))]
@@ -747,15 +809,15 @@ impl BernoulliMarginalSlopeFamily {
                                 )?;
                             }
                         }
-                        }
-                        Ok(tile_out)
-                    },
-                    |mut left, right| -> Result<_, String> {
-                        left += &right;
-                        Ok(left)
-                    },
-                )?
-                .unwrap_or_else(|| Array2::<f64>::zeros((total, n_rhs)));
+                    }
+                    Ok(tile_out)
+                },
+                |mut left, right| -> Result<_, String> {
+                    left += &right;
+                    Ok(left)
+                },
+            )?
+            .unwrap_or_else(|| Array2::<f64>::zeros((total, n_rhs)));
             *out += &partial;
             return Ok(());
         }
@@ -829,17 +891,11 @@ impl BernoulliMarginalSlopeFamily {
         #[cfg(target_os = "linux")]
         {
             if let Some(device_state) = cache.row_primary_hessians.device() {
-                match crate::bms::gpu::row::launch_bms_flex_row_diagonal(device_state) {
-                    Ok(host) => {
-                        return Ok(Array1::<f64>::from_vec(host));
-                    }
-                    Err(err) => {
-                        log::info!(
-                            "[BMS exact-newton diag] gpu_diag_failed: {err}; falling \
-                             back to CPU row-loop"
-                        );
-                    }
-                }
+                let host = crate::bms::gpu::flex::require_selected_gpu_result(
+                    "joint-Hessian diagonal",
+                    crate::bms::gpu::row::launch_bms_flex_row_diagonal(device_state),
+                )?;
+                return Ok(Array1::<f64>::from_vec(host));
             }
         }
 
@@ -864,21 +920,23 @@ impl BernoulliMarginalSlopeFamily {
             let d_rows = {
                 #[cfg(target_os = "linux")]
                 {
-                    match row_hessian_ops::launch_row_hessian_diag(
-                        row_hessian_ops::RowHessianDiagInputs {
-                            n_rows: n,
-                            r: r_pr,
-                            h_rows: h_rows_slice,
-                        },
-                    ) {
-                        Ok(out) => out.d_rows,
-                        Err(err) => {
-                            log::info!(
-                                "[BMS exact-newton diag] host-pin GPU diag failed: {err}; \
-                                 falling back to CPU oracle"
-                            );
-                            row_hessian_ops::cpu_row_hessian_diag(&inputs)
-                        }
+                    if gam_gpu::device_runtime::GpuRuntime::resolve(gam_gpu::global_policy())
+                        .map_err(String::from)?
+                        .is_some()
+                    {
+                        crate::bms::gpu::flex::require_selected_gpu_result(
+                            "host-pin row-Hessian diagonal",
+                            row_hessian_ops::launch_row_hessian_diag(
+                                row_hessian_ops::RowHessianDiagInputs {
+                                    n_rows: n,
+                                    r: r_pr,
+                                    h_rows: h_rows_slice,
+                                },
+                            ),
+                        )?
+                        .d_rows
+                    } else {
+                        row_hessian_ops::cpu_row_hessian_diag(&inputs)
                     }
                 }
                 #[cfg(not(target_os = "linux"))]
@@ -993,21 +1051,25 @@ impl BernoulliMarginalSlopeFamily {
                         let d_rows = {
                             #[cfg(target_os = "linux")]
                             {
-                                match row_hessian_ops::launch_row_hessian_diag(
-                                    row_hessian_ops::RowHessianDiagInputs {
-                                        n_rows: tile_rows,
-                                        r: r_pr,
-                                        h_rows: h_rows_slice,
-                                    },
-                                ) {
-                                    Ok(out) => out.d_rows,
-                                    Err(err) => {
-                                        log::info!(
-                                            "[BMS exact-newton diag] tiled GPU diag failed: {err}; \
-                                             falling back to CPU oracle"
-                                        );
-                                        row_hessian_ops::cpu_row_hessian_diag(&inputs)
-                                    }
+                                if gam_gpu::device_runtime::GpuRuntime::resolve(
+                                    gam_gpu::global_policy(),
+                                )
+                                .map_err(String::from)?
+                                .is_some()
+                                {
+                                    crate::bms::gpu::flex::require_selected_gpu_result(
+                                        "tiled row-Hessian diagonal",
+                                        row_hessian_ops::launch_row_hessian_diag(
+                                            row_hessian_ops::RowHessianDiagInputs {
+                                                n_rows: tile_rows,
+                                                r: r_pr,
+                                                h_rows: h_rows_slice,
+                                            },
+                                        ),
+                                    )?
+                                    .d_rows
+                                } else {
+                                    row_hessian_ops::cpu_row_hessian_diag(&inputs)
                                 }
                             }
                             #[cfg(not(target_os = "linux"))]
@@ -1090,7 +1152,7 @@ impl BernoulliMarginalSlopeFamily {
                                 .row_cell_moments
                                 .as_ref()
                                 .and_then(|bundle| bundle.row(row, 9));
-                            self.compute_row_analytic_flex_into_with_moments(
+                            self.lower_bms_flex_row_order2_with_moments(
                                 row,
                                 block_states,
                                 primary,
@@ -1323,7 +1385,7 @@ impl BernoulliMarginalSlopeFamily {
                         let mut dir = Array1::<f64>::zeros(primary.total);
                         dir[dir_idx] = psi_local.dot(&block_states[axis.block_idx].beta);
                         let mut f_pipi = f_pipi_base.clone();
-                        let mut third = self.row_primary_third_contracted_recompute(
+                        let mut third = self.row_primary_third_contracted(
                             row,
                             block_states,
                             cache,
@@ -1569,21 +1631,21 @@ impl BernoulliMarginalSlopeFamily {
                                     row_ctx,
                                     cache,
                                 )?;
-                            let mut third_i = self.row_primary_third_contracted_recompute(
+                            let mut third_i = self.row_primary_third_contracted(
                                 row,
                                 block_states,
                                 cache,
                                 row_ctx,
                                 &dir_i,
                             )?;
-                            let mut third_j = self.row_primary_third_contracted_recompute(
+                            let mut third_j = self.row_primary_third_contracted(
                                 row,
                                 block_states,
                                 cache,
                                 row_ctx,
                                 &dir_j,
                             )?;
-                            let mut fourth = self.row_primary_fourth_contracted_recompute(
+                            let mut fourth = self.row_primary_fourth_contracted(
                                 row,
                                 block_states,
                                 cache,
@@ -1710,7 +1772,7 @@ impl BernoulliMarginalSlopeFamily {
                             acc.2.add_pullback(self, row, slices, primary, &fourth);
 
                             // --- third_ij tensor pullback ---
-                            let mut third_ij = self.row_primary_third_contracted_recompute(
+                            let mut third_ij = self.row_primary_third_contracted(
                                 row,
                                 block_states,
                                 cache,
@@ -1741,7 +1803,7 @@ impl BernoulliMarginalSlopeFamily {
             objective_psi_psi,
             score_psi_psi,
             hessian_psi_psi: Array2::zeros((0, 0)),
-            hessian_psi_psi_operator: Some(Box::new(block_acc.into_operator(slices))),
+            hessian_psi_psi_operator: Some(Arc::new(block_acc.into_operator(slices))),
         }))
     }
 
@@ -1949,7 +2011,7 @@ impl BernoulliMarginalSlopeFamily {
                             dir_alpha.scaled_add(alpha_psi[j], d);
                         }
                     }
-                    let third_alpha = self.row_primary_third_contracted_recompute(
+                    let third_alpha = self.row_primary_third_contracted(
                         row,
                         block_states,
                         cache,
@@ -1962,7 +2024,7 @@ impl BernoulliMarginalSlopeFamily {
                         let idx_i = if block_i == 0 { 0 } else { 1 };
                         let dir_i = &dir[i];
                         // third_i = third(dir_i); reused below.
-                        let third_i = self.row_primary_third_contracted_recompute(
+                        let third_i = self.row_primary_third_contracted(
                             row,
                             block_states,
                             cache,
@@ -1971,7 +2033,7 @@ impl BernoulliMarginalSlopeFamily {
                         )?;
                         // fourth(dir_i, dir(α)) — bilinear, one cached-tensor
                         // contraction per (output row i, data row).
-                        let mut fourth = self.row_primary_fourth_contracted_recompute(
+                        let mut fourth = self.row_primary_fourth_contracted(
                             row,
                             block_states,
                             cache,
@@ -2146,7 +2208,7 @@ impl BernoulliMarginalSlopeFamily {
                         block_acc.add_pullback(self, row, slices, primary, &fourth);
                         // third_ij(α) tensor pullback
                         if have_ij {
-                            let mut third_ij = self.row_primary_third_contracted_recompute(
+                            let mut third_ij = self.row_primary_third_contracted(
                                 row,
                                 block_states,
                                 cache,
@@ -2288,14 +2350,14 @@ impl BernoulliMarginalSlopeFamily {
                         primary,
                     )?;
                     let row_ctx = Self::row_ctx(cache, row);
-                    let mut third_beta = self.row_primary_third_contracted_recompute(
+                    let mut third_beta = self.row_primary_third_contracted(
                         row,
                         block_states,
                         cache,
                         row_ctx,
                         &row_dir,
                     )?;
-                    let mut fourth = self.row_primary_fourth_contracted_recompute(
+                    let mut fourth = self.row_primary_fourth_contracted(
                         row,
                         block_states,
                         cache,
@@ -2319,7 +2381,7 @@ impl BernoulliMarginalSlopeFamily {
                         &right_primary,
                     );
                     acc.add_pullback(self, row, slices, primary, &fourth);
-                    let mut third_action = self.row_primary_third_contracted_recompute(
+                    let mut third_action = self.row_primary_third_contracted(
                         row,
                         block_states,
                         cache,
@@ -2429,14 +2491,14 @@ impl BernoulliMarginalSlopeFamily {
                         primary,
                     )?;
                     let row_ctx = Self::row_ctx(cache, row);
-                    let mut third_beta = self.row_primary_third_contracted_recompute(
+                    let mut third_beta = self.row_primary_third_contracted(
                         row,
                         block_states,
                         cache,
                         row_ctx,
                         &row_dir,
                     )?;
-                    let mut fourth = self.row_primary_fourth_contracted_recompute(
+                    let mut fourth = self.row_primary_fourth_contracted(
                         row,
                         block_states,
                         cache,
@@ -2460,7 +2522,7 @@ impl BernoulliMarginalSlopeFamily {
                         &right_primary,
                     );
                     acc.add_pullback(self, row, slices, primary, &fourth);
-                    let mut third_action = self.row_primary_third_contracted_recompute(
+                    let mut third_action = self.row_primary_third_contracted(
                         row,
                         block_states,
                         cache,
@@ -2563,7 +2625,7 @@ impl BernoulliMarginalSlopeFamily {
                     let row_dir =
                         self.row_primary_direction_from_flat(row, slices, primary, d_beta_flat)?;
                     let row_ctx = Self::row_ctx(cache, row);
-                    let mut third = self.row_primary_third_contracted_recompute(
+                    let mut third = self.row_primary_third_contracted(
                         row,
                         block_states,
                         cache,
@@ -2652,7 +2714,7 @@ impl BernoulliMarginalSlopeFamily {
                     let row_dir =
                         self.row_primary_direction_from_flat(row, slices, primary, d_beta_flat)?;
                     let row_ctx = Self::row_ctx(cache, row);
-                    let mut third = self.row_primary_third_contracted_recompute(
+                    let mut third = self.row_primary_third_contracted(
                         row,
                         block_states,
                         cache,
@@ -2896,7 +2958,7 @@ impl BernoulliMarginalSlopeFamily {
                             &w_mm[idx],
                             &w_mg[idx],
                             &w_gg[idx],
-                        );
+                        )?;
                     }
                     Ok(accs)
                 };
@@ -3104,7 +3166,7 @@ impl BernoulliMarginalSlopeFamily {
                             &w_mm[idx],
                             &w_mg[idx],
                             &w_gg[idx],
-                        );
+                        )?;
                     }
                     Ok(accs)
                 };
@@ -3325,7 +3387,7 @@ impl BernoulliMarginalSlopeFamily {
                     let row_v =
                         self.row_primary_direction_from_flat(row, slices, primary, d_beta_v_flat)?;
                     let row_ctx = Self::row_ctx(cache, row);
-                    let mut fourth = self.row_primary_fourth_contracted_recompute(
+                    let mut fourth = self.row_primary_fourth_contracted(
                         row,
                         block_states,
                         cache,
@@ -3438,7 +3500,7 @@ impl BernoulliMarginalSlopeFamily {
                     let row_v =
                         self.row_primary_direction_from_flat(row, slices, primary, d_beta_v_flat)?;
                     let row_ctx = Self::row_ctx(cache, row);
-                    let mut fourth = self.row_primary_fourth_contracted_recompute(
+                    let mut fourth = self.row_primary_fourth_contracted(
                         row,
                         block_states,
                         cache,
@@ -3636,15 +3698,18 @@ impl BernoulliMarginalSlopeFamily {
                     })
                     .collect::<Result<Vec<_>, String>>()?;
                 let row_ctx = Self::row_ctx(cache, row);
-                for (idx, (u_idx, v_idx)) in pair_indices.iter().copied().enumerate() {
-                    let mut fourth = self.row_primary_fourth_contracted_recompute(
-                        row,
-                        block_states,
-                        cache,
-                        row_ctx,
-                        &row_dirs[u_idx],
-                        &row_dirs[v_idx],
-                    )?;
+                let row_pairs = pair_indices
+                    .iter()
+                    .map(|&(u_idx, v_idx)| (&row_dirs[u_idx], &row_dirs[v_idx]))
+                    .collect::<Vec<_>>();
+                let fourths = self.row_primary_fourth_contracted_many(
+                    row,
+                    block_states,
+                    cache,
+                    row_ctx,
+                    &row_pairs,
+                )?;
+                for (idx, mut fourth) in fourths.into_iter().enumerate() {
                     if w != 1.0 {
                         fourth.mapv_inplace(|value| value * w);
                     }
@@ -3670,15 +3735,18 @@ impl BernoulliMarginalSlopeFamily {
                             })
                             .collect::<Result<Vec<_>, String>>()?;
                         let row_ctx = Self::row_ctx(cache, row);
-                        for (idx, (u_idx, v_idx)) in pair_indices.iter().copied().enumerate() {
-                            let mut fourth = self.row_primary_fourth_contracted_recompute(
-                                row,
-                                block_states,
-                                cache,
-                                row_ctx,
-                                &row_dirs[u_idx],
-                                &row_dirs[v_idx],
-                            )?;
+                        let row_pairs = pair_indices
+                            .iter()
+                            .map(|&(u_idx, v_idx)| (&row_dirs[u_idx], &row_dirs[v_idx]))
+                            .collect::<Vec<_>>();
+                        let fourths = self.row_primary_fourth_contracted_many(
+                            row,
+                            block_states,
+                            cache,
+                            row_ctx,
+                            &row_pairs,
+                        )?;
+                        for (idx, mut fourth) in fourths.into_iter().enumerate() {
                             if w != 1.0 {
                                 fourth.mapv_inplace(|value| value * w);
                             }
@@ -3763,7 +3831,7 @@ impl BernoulliMarginalSlopeFamily {
                             .row_cell_moments
                             .as_ref()
                             .and_then(|bundle| bundle.row(row, 9));
-                        let row_neglog = self.compute_row_analytic_flex_into_with_moments(
+                        let row_neglog = self.lower_bms_flex_row_order2_with_moments(
                             row,
                             block_states,
                             &primary,
@@ -3909,8 +3977,8 @@ impl BernoulliMarginalSlopeFamily {
                                 hm_w[local_row] = h[0][0];
                                 hl_w[local_row] = h[1][1];
                             }
-                            add_weighted_chunk_gram(&marginal_chunk, hm_w, &mut hm);
-                            add_weighted_chunk_gram(&logslope_chunk, hl_w, &mut hl);
+                            add_weighted_chunk_gram(&marginal_chunk, hm_w, &mut hm)?;
+                            add_weighted_chunk_gram(&logslope_chunk, hl_w, &mut hl)?;
                         }
                         Ok((hm, hl))
                     },
@@ -4077,11 +4145,11 @@ impl BernoulliMarginalSlopeFamily {
                                     (Some(dense), _) => {
                                         let view = dense.slice(s![start..end, ..]);
                                         add_weighted_chunk_gradient(&view, gm_w, &mut gm);
-                                        add_weighted_chunk_gram(&view, hm_w, &mut hm);
+                                        add_weighted_chunk_gram(&view, hm_w, &mut hm)?;
                                     }
                                     (None, Some(owned)) => {
                                         add_weighted_chunk_gradient(owned, gm_w, &mut gm);
-                                        add_weighted_chunk_gram(owned, hm_w, &mut hm);
+                                        add_weighted_chunk_gram(owned, hm_w, &mut hm)?;
                                     }
                                     (None, None) => {
                                         return Err(
@@ -4095,11 +4163,11 @@ impl BernoulliMarginalSlopeFamily {
                                     (Some(dense), _) => {
                                         let view = dense.slice(s![start..end, ..]);
                                         add_weighted_chunk_gradient(&view, gl_w, &mut gl);
-                                        add_weighted_chunk_gram(&view, hl_w, &mut hl);
+                                        add_weighted_chunk_gram(&view, hl_w, &mut hl)?;
                                     }
                                     (None, Some(owned)) => {
                                         add_weighted_chunk_gradient(owned, gl_w, &mut gl);
-                                        add_weighted_chunk_gram(owned, hl_w, &mut hl);
+                                        add_weighted_chunk_gram(owned, hl_w, &mut hl)?;
                                     }
                                     (None, None) => {
                                         return Err(

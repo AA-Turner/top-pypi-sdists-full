@@ -909,24 +909,49 @@ pub(crate) fn hybrid_self_pair_radial_derivative_with_kappa_derivs_odd_d(
     if d % 2 != 1 || q > 2 || !(kappa > 0.0) || !kappa.is_finite() {
         return None;
     }
-    let smoothness_order = 2 * (m + s);
-    let required = d + 2 * q;
-    if smoothness_order <= required {
+
+    // This is a *self-pair penalty* kernel.  Its q=0 spectrum is the product
+    // of the two hybrid Green's-function spectra,
+    //
+    //   |w|^{-4m} (kappa^2 + |w|^2)^{-2s},
+    //
+    // whereas `duchon_partial_fraction_coeffs(p, s, ...)` expands the
+    // single spectrum |w|^{-2p} (kappa^2 + |w|^2)^{-s}.  The partial-fraction
+    // orders therefore have to be doubled here.  Passing `(m, s)` evaluates
+    // a different kernel: for the d=3,m=s=1 collision it scales as kappa^-1,
+    // while the self-pair scales as kappa^-5.  Merely changing the derivative
+    // exponent cannot repair that value/derivative mismatch.
+    let pair_p_order = m.checked_mul(2)?;
+    let pair_s_order = s.checked_mul(2)?;
+    let spectral_decay_order = pair_p_order.checked_add(pair_s_order)?.checked_mul(2)?;
+    let required = d.checked_add(q.checked_mul(2)?)?;
+    if spectral_decay_order <= required {
         return None;
     }
 
     let length_scale = 1.0 / kappa;
-    let coeffs = super::duchon_partial_fraction_coeffs(m, s, kappa);
-    let f = super::duchon_phi_even_derivative_collision(length_scale, m, s, d, &coeffs, q).ok()?;
+    let coeffs = super::duchon_partial_fraction_coeffs(pair_p_order, pair_s_order, kappa);
+    let f = super::duchon_phi_even_derivative_collision(
+        length_scale,
+        pair_p_order,
+        pair_s_order,
+        d,
+        &coeffs,
+        q,
+    )
+    .ok()?;
     if !f.is_finite() {
         return None;
     }
 
-    // In odd dimension, every half-integer Matérn Taylor block and every
-    // contributing Riesz block carries the same κ power after partial
-    // fraction assembly:
-    //   f^(2q)(0; κ) = C · κ^{d + 2q - 2(m+s)}.
-    let exponent = d as f64 + 2.0 * q as f64 - 2.0 * (m + s) as f64;
+    // Every odd-dimensional Taylor block in that doubled-order expansion
+    // carries the same power after cancellation.  Scaling w = kappa*u in the
+    // self-pair Fourier integral and taking 2q radial derivatives gives
+    //
+    //   f^(2q)(0; kappa) = C * kappa^{d + 2q - 4(m+s)}.
+    //
+    // This is exactly the exponent used by the even-d Schoenberg branch.
+    let exponent = d as f64 + 2.0 * q as f64 - 4.0 * (m + s) as f64;
     let f_kappa = exponent * f / kappa;
     let f_kappa2 = exponent * (exponent - 1.0) * f / (kappa * kappa);
     Some((f, f_kappa, f_kappa2))
@@ -2748,6 +2773,179 @@ mod tests {
                     residual.abs() <= 1e-10 * k_next.abs(),
                     "nu={nu} x={x} residual={residual} k_next={k_next}"
                 );
+            }
+        }
+    }
+
+    /// Regression for #2291: the odd-d hybrid self-pair κ-derivative must match
+    /// a central finite difference of the self-pair value `f(R=0; κ)`. Because
+    /// the collision value is an exact power law `f = C·κ^{d+2q-4(m+s)}`, the
+    /// analytic `f_κ = exponent·f/κ` and `f_κκ = exponent(exponent-1)·f/κ²` are
+    /// exact and the central FD of `f` is the honest oracle. The first #2291
+    /// repair corrected this exponent but left the collision value on the
+    /// single-kernel partial-fraction orders `(m,s)` instead of the self-pair
+    /// orders `(2m,2s)`. That made the analytic derivative and its own value
+    /// differ by a fixed factor (five in the lead d=3,m=s=1 case).
+    #[test]
+    pub(crate) fn hybrid_self_pair_odd_d_kappa_derivative_matches_value_finite_difference() {
+        use super::hybrid_self_pair_radial_derivative_with_kappa_derivs_odd_d as odd_d;
+        // Independent normalization oracle for the reported d=3,m=s=1 case.
+        // At kappa=1 the doubled-order partial fraction is
+        //   1/[rho^4(1+rho^2)^2],
+        // whose two Matérn collision constants sum to
+        //   2*(-1/(4*pi)) + 1/(8*pi) = -3/(8*pi).
+        // The erroneous single-kernel expansion returned +1/(4*pi).
+        let lead_value = odd_d(0, 1, 1, 3, 1.0).expect("valid lead self-pair").0;
+        assert_relative_close(lead_value, -3.0 / (8.0 * std::f64::consts::PI), 1e-12);
+
+        // (d, m, s, q): the lead d=3,m=s=1 case plus q=0,1,2 from a smoother
+        // odd-dimensional self-pair, exercising every supported radial block.
+        let cases = [(3usize, 1usize, 1usize, 0usize)].into_iter().chain([
+            (3, 2, 2, 0),
+            (3, 2, 2, 1),
+            (3, 2, 2, 2),
+        ]);
+        for (d, m, s, q) in cases {
+            for kappa in [0.7_f64, 1.9] {
+                let (f, f_kappa, f_kappa2) =
+                    odd_d(q, m, s, d, kappa).expect("valid odd-d hybrid self-pair block");
+                assert!(f.is_finite() && f != 0.0, "f must be finite nonzero");
+                // Central finite differences of the value w.r.t. κ.
+                let h = 1e-4 * kappa;
+                let f_plus = odd_d(q, m, s, d, kappa + h).expect("f(κ+h)").0;
+                let f_minus = odd_d(q, m, s, d, kappa - h).expect("f(κ-h)").0;
+                let fd1 = (f_plus - f_minus) / (2.0 * h);
+                let fd2 = (f_plus - 2.0 * f + f_minus) / (h * h);
+                // O(h²) central-difference accuracy on a smooth power law; the
+                // wrong exponent is off by an integer factor (e.g. −f/κ vs
+                // −5f/κ for m=s=1,q=0), so any sane tolerance separates them.
+                assert_relative_close(f_kappa, fd1, 1e-6);
+                assert_relative_close(f_kappa2, fd2, 1e-4);
+                // Guard the exponent itself against a compensating value error:
+                // exponent = d + 2q − 4(m+s) reconstructed from f_κ·κ/f.
+                let recovered_exponent = f_kappa * kappa / f;
+                let expected_exponent = d as f64 + 2.0 * q as f64 - 4.0 * (m + s) as f64;
+                assert_relative_close(recovered_exponent, expected_exponent, 1e-9);
+            }
+        }
+    }
+
+    /// Compare an analytic derivative against its finite-difference oracle with a
+    /// tolerance that is robust when an individual order is near zero. Central-FD
+    /// truncation error is O(h²·‖higher derivative‖), so the absolute floor is
+    /// tied to `block_scale` (the largest magnitude in the derivative ladder)
+    /// rather than to the single order under test, which may legitimately vanish.
+    fn assert_fd_matches(analytic: f64, fd: f64, rel_tol: f64, block_scale: f64) {
+        let tol = rel_tol * fd.abs().max(analytic.abs()) + rel_tol * block_scale;
+        assert!(
+            (analytic - fd).abs() <= tol,
+            "analytic={analytic} fd={fd} diff={} tol={tol} block_scale={block_scale}",
+            (analytic - fd).abs()
+        );
+    }
+
+    fn block_scale(values: &[f64]) -> f64 {
+        values
+            .iter()
+            .fold(0.0_f64, |largest, value| largest.max(value.abs()))
+            .max(1.0)
+    }
+
+    /// #2315 Gap 3: the analytic Matérn radial-derivative ladder must match a
+    /// central finite difference of the adjacent lower order in `r`. `out[k]` is
+    /// `dᵏf/drᵏ`, so `out[k]` is the honest derivative of `out[k-1]`; a
+    /// wrong-exponent or dropped-chain-rule branch (the #2287–#2292 class) fails
+    /// here even when the value `out[0]` looks plausible. The lower order is the
+    /// exact analytic value, so the only residual is the O(h²) FD truncation.
+    #[test]
+    pub(crate) fn matern_block_radial_derivative_ladder_matches_finite_difference_2315() {
+        for (d, ell) in [(1usize, 1usize), (2, 2), (3, 2), (2, 3)] {
+            for kappa in [0.6_f64, 1.4] {
+                for r in [0.7_f64, 1.9] {
+                    let max_order = 3usize;
+                    let f = super::matern_block_radial_derivatives(d, ell, kappa, r, max_order);
+                    let scale = block_scale(&f);
+                    let h = 1e-4;
+                    let f_plus =
+                        super::matern_block_radial_derivatives(d, ell, kappa, r + h, max_order);
+                    let f_minus =
+                        super::matern_block_radial_derivatives(d, ell, kappa, r - h, max_order);
+                    for k in 1..=max_order {
+                        let fd = (f_plus[k - 1] - f_minus[k - 1]) / (2.0 * h);
+                        assert_fd_matches(f[k], fd, 1e-5, scale);
+                    }
+                }
+            }
+        }
+    }
+
+    /// #2315 Gap 3: the Riesz radial-derivative ladder must match a central
+    /// finite difference of the adjacent lower order in `r`, on the smooth
+    /// (non-log) branch. Fractional `j` keeps `2j − d` away from the even-integer
+    /// log dispatch so the whole ladder is analytic in `r`.
+    #[test]
+    pub(crate) fn riesz_block_radial_derivative_ladder_matches_finite_difference_2315() {
+        for d in [1usize, 2, 3] {
+            for j in [1.3_f64, 2.7] {
+                for r in [0.7_f64, 1.9] {
+                    let max_order = 3usize;
+                    let f = super::riesz_block_radial_derivatives(d, j, r, max_order);
+                    let scale = block_scale(&f);
+                    let h = 1e-4;
+                    let f_plus = super::riesz_block_radial_derivatives(d, j, r + h, max_order);
+                    let f_minus = super::riesz_block_radial_derivatives(d, j, r - h, max_order);
+                    for k in 1..=max_order {
+                        let fd = (f_plus[k - 1] - f_minus[k - 1]) / (2.0 * h);
+                        assert_fd_matches(f[k], fd, 1e-5, scale);
+                    }
+                }
+            }
+        }
+    }
+
+    /// #2315 Gap 3: the isotropic-Duchon κ-partial ladders must match finite
+    /// differences *in κ* of the base radial-derivative ladder, order by order.
+    /// The κ-partial is a per-block power law in κ (see the derivation above the
+    /// production fn), so a wrong `A_j'`/`B_ℓ'` coefficient or a dropped
+    /// `−2ℓκ·M_{ℓ+1}` Matérn-shift term is exactly the silent-derivative class
+    /// #2315 targets. Base order `k` is analytically exact, so the residual is
+    /// the O(h²) central-difference truncation for `_kappa_partial` and O(h²)
+    /// for the second-difference `_kappa_partial2`.
+    #[test]
+    pub(crate) fn isotropic_duchon_kappa_partials_match_finite_difference_2315() {
+        for (d, m, s) in [(1usize, 1usize, 1usize), (2, 2, 1), (3, 2, 2)] {
+            for kappa in [0.8_f64, 1.6] {
+                for r in [0.9_f64, 1.7] {
+                    let max_order = 3usize;
+                    let d1 = super::radial_derivatives_of_isotropic_duchon_kappa_partial(
+                        d, m, s, kappa, r, max_order,
+                    );
+                    let d2 = super::radial_derivatives_of_isotropic_duchon_kappa_partial2(
+                        d, m, s, kappa, r, max_order,
+                    );
+                    let h = 1e-4 * kappa;
+                    let base = |k_shift: f64| {
+                        super::radial_derivatives_of_isotropic_duchon(
+                            d,
+                            m,
+                            s as f64,
+                            kappa + k_shift,
+                            r,
+                            max_order,
+                        )
+                    };
+                    let base_0 = base(0.0);
+                    let base_plus = base(h);
+                    let base_minus = base(-h);
+                    let scale1 = block_scale(&d1);
+                    let scale2 = block_scale(&d2);
+                    for k in 0..=max_order {
+                        let fd1 = (base_plus[k] - base_minus[k]) / (2.0 * h);
+                        let fd2 = (base_plus[k] - 2.0 * base_0[k] + base_minus[k]) / (h * h);
+                        assert_fd_matches(d1[k], fd1, 1e-5, scale1);
+                        assert_fd_matches(d2[k], fd2, 1e-3, scale2);
+                    }
+                }
             }
         }
     }

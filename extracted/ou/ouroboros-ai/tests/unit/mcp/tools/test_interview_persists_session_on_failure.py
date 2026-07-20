@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 import json
 from pathlib import Path
 from typing import Any
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -48,6 +48,7 @@ class _FakeInterviewEngine:
     saved_states: list[InterviewState] = field(default_factory=list)
     states: dict[str, InterviewState] = field(default_factory=dict)
     question_error: Any | None = None
+    question_exception: Exception | None = None
 
     async def start_interview(
         self, initial_context: str, cwd: str | None = None, interview_id: str | None = None
@@ -62,6 +63,8 @@ class _FakeInterviewEngine:
         return Result.ok(state)
 
     async def ask_next_question(self, state: InterviewState) -> Result[str, MCPServerError]:
+        if self.question_exception is not None:
+            raise self.question_exception
         if self.question_error is not None:
             return Result.err(self.question_error)
         return Result.err(_RecoverableProviderError("Question generation timed out"))
@@ -144,7 +147,11 @@ async def test_tool_envelope_question_failure_hands_off_to_parent_session(
         data_dir=tmp_path,
     )
 
-    outcome = await handler.handle({"initial_context": "Build a CLI", "cwd": str(tmp_path)})
+    with patch(
+        "ouroboros.mcp.tools.authoring_handlers.time.perf_counter",
+        side_effect=(100.0, 101.0, 101.5, 102.0),
+    ):
+        outcome = await handler.handle({"initial_context": "Build a CLI", "cwd": str(tmp_path)})
     await handler.close()
 
     assert outcome.is_ok
@@ -171,6 +178,61 @@ async def test_tool_envelope_question_failure_hands_off_to_parent_session(
     event_types = [call.args[0].type for call in mock_store.append.await_args_list]
     assert "interview.question_generation.parent_handoff" in event_types
     assert "interview.failed" not in event_types
+    handoff_event = next(
+        call.args[0]
+        for call in mock_store.append.await_args_list
+        if call.args[0].type == "interview.question_generation.parent_handoff"
+    )
+    assert handoff_event.data["timings_ms"] == {
+        "total": 2000.0,
+        "ambiguity_scoring": None,
+        "question_generation": 500.0,
+        "advisory_build": None,
+    }
+
+
+@pytest.mark.asyncio
+async def test_claude_success_error_text_is_not_treated_as_envelope_violation(
+    tmp_path: Path,
+) -> None:
+    """An SDK diagnostic string alone must not masquerade as an envelope violation."""
+    provider_error = ProviderError(
+        "Claude Agent SDK request failed: Claude Code returned an error result: success",
+        details={"error_type": "Exception", "session_id": "claude-session-1"},
+    )
+    engine = _FakeInterviewEngine(state_dir=tmp_path, question_error=provider_error)
+    mock_store = AsyncMock()
+    handler = InterviewHandler(
+        interview_engine=engine,
+        event_store=mock_store,
+        agent_runtime_backend=None,
+        opencode_mode=None,
+        data_dir=tmp_path,
+    )
+
+    outcome = await handler.handle({"initial_context": "Build a CLI", "cwd": str(tmp_path)})
+    await handler.close()
+
+    assert outcome.is_ok
+    mcp_result = outcome.value
+    assert mcp_result.is_error is True
+    meta = mcp_result.meta or {}
+    assert meta["recoverable"] is True
+    assert meta.get("status") != "parent_question_required"
+    assert "ask_user_directly" not in meta
+    assert "reason_code" not in meta
+    assert "Question generation failed" in mcp_result.content[0].text
+
+    session_id = meta["session_id"]
+    persisted_state = engine.states[session_id]
+    assert persisted_state.rounds == []
+    assert persisted_state.status == InterviewStatus.IN_PROGRESS
+    assert (tmp_path / f"interview_{session_id}.json").exists()
+    assert engine.saved_states
+
+    event_types = [call.args[0].type for call in mock_store.append.await_args_list]
+    assert "interview.question_generation.parent_handoff" not in event_types
+    assert "interview.failed" in event_types
 
 
 @pytest.mark.asyncio
@@ -245,13 +307,17 @@ async def test_tool_envelope_failure_after_answer_hands_off_without_mcp_error(
         data_dir=tmp_path,
     )
 
-    outcome = await handler.handle(
-        {
-            "session_id": session_id,
-            "answer": "Use the existing plugin manifest format.",
-            "last_question": "Which manifest format should the CLI use?",
-        }
-    )
+    with patch(
+        "ouroboros.mcp.tools.authoring_handlers.time.perf_counter",
+        side_effect=(100.0, 101.0, 101.5, 102.0),
+    ):
+        outcome = await handler.handle(
+            {
+                "session_id": session_id,
+                "answer": "Use the existing plugin manifest format.",
+                "last_question": "Which manifest format should the CLI use?",
+            }
+        )
     await handler.close()
 
     assert outcome.is_ok
@@ -272,6 +338,17 @@ async def test_tool_envelope_failure_after_answer_hands_off_without_mcp_error(
     event_types = [call.args[0].type for call in mock_store.append.await_args_list]
     assert "interview.question_generation.parent_handoff" in event_types
     assert "interview.failed" not in event_types
+    handoff_event = next(
+        call.args[0]
+        for call in mock_store.append.await_args_list
+        if call.args[0].type == "interview.question_generation.parent_handoff"
+    )
+    assert handoff_event.data["timings_ms"] == {
+        "total": 2000.0,
+        "ambiguity_scoring": None,
+        "question_generation": 500.0,
+        "advisory_build": None,
+    }
 
 
 @pytest.mark.asyncio
@@ -309,7 +386,11 @@ async def test_question_failure_event_uses_compact_provider_error(
         data_dir=tmp_path,
     )
 
-    outcome = await handler.handle({"initial_context": "Build a CLI", "cwd": str(tmp_path)})
+    with patch(
+        "ouroboros.mcp.tools.authoring_handlers.time.perf_counter",
+        side_effect=(100.0, 101.0, 101.5, 102.0),
+    ):
+        outcome = await handler.handle({"initial_context": "Build a CLI", "cwd": str(tmp_path)})
     await handler.close()
 
     assert outcome.is_ok
@@ -324,6 +405,135 @@ async def test_question_failure_event_uses_compact_provider_error(
     assert str(codex_home) not in event_error
     assert str(home) not in event_error
     assert "codex_auth_context" not in event_error
+    assert failed_events[-1].data["timings_ms"] == {
+        "total": 2000.0,
+        "ambiguity_scoring": None,
+        "question_generation": 500.0,
+        "advisory_build": None,
+    }
+
+
+@pytest.mark.asyncio
+async def test_question_failure_after_answer_closes_phase_timings(tmp_path: Path) -> None:
+    provider_error = ProviderError(
+        "Question generation timed out",
+        provider="codex_cli",
+        details={"error_type": "TimeoutError"},
+    )
+    session_id = "interview_failuretiming0001"
+    state = InterviewState(
+        interview_id=session_id,
+        initial_context="Build a CLI",
+        status=InterviewStatus.IN_PROGRESS,
+    )
+    state.rounds.append(
+        InterviewRound(
+            round_number=1,
+            question="What should the CLI do first?",
+            user_response=None,
+        )
+    )
+    engine = _FakeInterviewEngine(
+        state_dir=tmp_path,
+        question_error=provider_error,
+        states={session_id: state},
+    )
+    await engine.save_state(state)
+    mock_store = AsyncMock()
+    handler = InterviewHandler(
+        interview_engine=engine,
+        event_store=mock_store,
+        agent_runtime_backend=None,
+        opencode_mode=None,
+        data_dir=tmp_path,
+    )
+
+    with patch(
+        "ouroboros.mcp.tools.authoring_handlers.time.perf_counter",
+        side_effect=(100.0, 101.0, 101.5, 102.0),
+    ):
+        outcome = await handler.handle(
+            {
+                "session_id": session_id,
+                "answer": "It should scaffold plugin manifests.",
+            }
+        )
+    await handler.close()
+
+    assert outcome.is_err
+    failed_event = next(
+        call.args[0]
+        for call in mock_store.append.await_args_list
+        if call.args[0].type == "interview.failed"
+    )
+    assert failed_event.data["timings_ms"] == {
+        "total": 2000.0,
+        "ambiguity_scoring": None,
+        "question_generation": 500.0,
+        "advisory_build": None,
+    }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("action", ["start", "answer", "resume"])
+async def test_raised_question_generation_closes_active_span(
+    tmp_path: Path,
+    action: str,
+) -> None:
+    session_id = f"interview_raised_{action}"
+    engine = _FakeInterviewEngine(
+        state_dir=tmp_path,
+        question_exception=RuntimeError("question generation raised"),
+    )
+    if action == "start":
+        arguments = {"initial_context": "Build a CLI", "cwd": str(tmp_path)}
+    else:
+        state = InterviewState(
+            interview_id=session_id,
+            initial_context="Build a CLI",
+            status=InterviewStatus.IN_PROGRESS,
+        )
+        state.rounds.append(
+            InterviewRound(
+                round_number=1,
+                question="What should the CLI do first?",
+                user_response=None if action == "answer" else "It scaffolds plugins.",
+            )
+        )
+        await engine.save_state(state)
+        arguments = {"session_id": session_id}
+        if action == "answer":
+            arguments["answer"] = "It scaffolds plugin manifests."
+
+    mock_store = AsyncMock()
+    handler = InterviewHandler(
+        interview_engine=engine,
+        event_store=mock_store,
+        agent_runtime_backend=None,
+        opencode_mode=None,
+        data_dir=tmp_path,
+    )
+
+    with patch(
+        "ouroboros.mcp.tools.authoring_handlers.time.perf_counter",
+        side_effect=(100.0, 101.0, 101.5, 102.0),
+    ):
+        outcome = await handler.handle(arguments)
+    await handler.close()
+
+    assert outcome.is_err
+    failed_event = next(
+        call.args[0]
+        for call in mock_store.append.await_args_list
+        if call.args[0].type == "interview.failed"
+    )
+    assert failed_event.data["phase"] == "unexpected_error"
+    assert failed_event.data["timings_ms"] == {
+        "total": 2000.0,
+        "ambiguity_scoring": None,
+        "question_generation": 500.0,
+        "advisory_build": None,
+    }
 
 
 @pytest.mark.asyncio

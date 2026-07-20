@@ -38,6 +38,7 @@
 #[cfg(test)]
 mod spatial_adaptive_hyper_fd_tests {
     use super::*;
+    use gam_custom_family::evaluate_custom_family_joint_hyper;
     use gam_solve::model_types::AdaptiveRegularizationOptions;
     // `CenterStrategy` and `MaternIdentifiability` already arrive through
     // `super::*` (the parent drivers module imports them from
@@ -102,10 +103,10 @@ fn build_spatial_adaptive_joint_hyper_scaffold(
         linear_constraints: baseline.design.linear_constraints.clone(),
         runtime_caches: Arc::new(runtime_caches.to_vec()),
         adaptive_params: Vec::new(),
-        fixed_quadratichessian: Arc::new(Array2::<f64>::zeros((
+        fixed_quadratic_hessian: ValidatedFixedQuadraticHessian::zero(
             baseline.design.design.ncols(),
-            baseline.design.design.ncols(),
-        ))),
+        )
+        .expect("zero fixed quadratic Hessian"),
         hyperspecs: Arc::new(hyperspecs),
         exact_eval_cache: Arc::new(Mutex::new(None)),
     };
@@ -148,15 +149,14 @@ fn exact_spatial_adaptive_joint_hypergradient_matches_finite_difference() {
                 spec: MaternBasisSpec {
                     periodic: None,
                     center_strategy: CenterStrategy::FarthestPoint { num_centers: 8 },
-                    length_scale: 0.6,
+                    length_scale: gam_terms::basis::MaternLengthScale::fixed(0.6),
                     nu: MaternNu::FiveHalves,
                     include_intercept: false,
                     double_penalty: true,
                     identifiability: MaternIdentifiability::CenterSumToZero,
                     aniso_log_scales: None,
-                    nullspace_shrinkage_survived: None,
                 },
-                input_scales: None,
+                input_scale: None,
             },
             shape: ShapeConstraint::None,
             joint_null_rotation: None,
@@ -212,17 +212,21 @@ fn exact_spatial_adaptive_joint_hypergradient_matches_finite_difference() {
                 lambda: [theta[0].exp(), theta[1].exp(), theta[2].exp()],
                 epsilon: [theta[3].exp(), theta[4].exp(), theta[5].exp()],
             }],
-            Arc::new(Array2::<f64>::zeros((
-                baseline.design.design.ncols(),
-                baseline.design.design.ncols(),
-            ))),
+            ValidatedFixedQuadraticHessian::zero(baseline.design.design.ncols())
+                .expect("zero fixed quadratic Hessian"),
         );
+        let hyper_layout = gam_problem::CustomFamilyHyperLayout::new(
+            derivative_blocks.clone(),
+            Vec::new(),
+            theta.clone(),
+        )
+        .expect("six-axis adaptive hyper layout");
         evaluate_custom_family_joint_hyper(
             &family,
             std::slice::from_ref(&blockspec),
             &outer_opts,
             &Array1::zeros(0),
-            &derivative_blocks,
+            &hyper_layout,
             None,
             if need_hessian {
                 gam_solve::estimate::reml::reml_outer_engine::EvalMode::ValueGradientHessian
@@ -338,7 +342,7 @@ fn adaptive_hyper_derivative_dispatch_matches_reference() {
                     operator_penalties: DuchonOperatorPenaltySpec::all_active(),
                     boundary: OneDimensionalBoundary::Open,
                 },
-                input_scales: None,
+                input_scale: None,
             },
             shape: ShapeConstraint::None,
             joint_null_rotation: None,
@@ -381,7 +385,8 @@ fn adaptive_hyper_derivative_dispatch_matches_reference() {
             lambda: [0.7, 1.3, 0.4],
             epsilon: [eps_0, eps_g, eps_c],
         }],
-        fixed_quadratichessian: Arc::new(Array2::<f64>::zeros((p, p))),
+        fixed_quadratic_hessian: ValidatedFixedQuadraticHessian::zero(p)
+            .expect("zero fixed quadratic Hessian"),
         hyperspecs: Arc::new(hyperspecs),
         exact_eval_cache: Arc::new(Mutex::new(None)),
     };

@@ -1,10 +1,5 @@
 use super::*;
 
-pub(crate) const EXPENSIVE_PREWARM_COEFF_DIM: usize = 24;
-pub(crate) const EXPENSIVE_PREWARM_RHO_DIM: usize = 4;
-pub(crate) const MULTI_SEED_PREWARM_BUDGET: usize = 8;
-pub(crate) const SINGLE_EXPENSIVE_PREWARM_BUDGET: usize = 16;
-
 /// Require a continuation arrival to certify the literal outer seed itself.
 ///
 /// Only a state whose rho is bit-identical to the bounded literal seed and
@@ -35,159 +30,23 @@ pub(crate) fn reactive_arrival_postcondition(
     Ok(())
 }
 
-/// Coefficient dimension at which the per-step inner solve cost begins to grow
-/// steeply (the empirical #979 "centers≈8→10" cliff). For a custom-family
-/// marginal-slope fit `p_coefficients` ≈ Σ over both formulas of the basis
-/// dim, so two `matern(centers=K)` formulas land at `p ≈ 2K`; the per-step
-/// inner joint-Newton solve becomes multi-second by `K ≈ 8` (`p ≈ 16`), well
-/// BELOW the `EXPENSIVE_PREWARM_COEFF_DIM = 24` "expensive shape" gate. Below
-/// this floor the pre-warm keeps the full `PATH_BUDGET` (cheap fits anneal
-/// fully and the seed-continuation accuracy is untouched); at or above it the
-/// per-seed step budget is scaled DOWN inversely with `p_coefficients` so the
-/// TOTAL pre-warm inner-solve work stays bounded as the problem grows past the
-/// cliff, instead of paying `PATH_BUDGET` (= 64) full inner solves per seed.
-pub(crate) const PREWARM_COST_CLIFF_COEFF_DIM: usize = 12;
-
-/// Target ceiling on `budget × p_coefficients` once past the cost cliff: the
-/// per-step inner solve cost scales roughly with `p_coefficients`, so holding
-/// `budget · p` constant keeps the per-seed pre-warm wall-clock flat across
-/// center counts (the #979 acceptance workloads centers ∈ {4, 12, 20} all land
-/// at a comparable, bounded pre-warm cost instead of the centers=20 non-finish).
-pub(crate) const PREWARM_COST_BUDGET_COEFF_PRODUCT: usize =
-    PREWARM_COST_CLIFF_COEFF_DIM * SINGLE_EXPENSIVE_PREWARM_BUDGET;
-
-/// RAII guard that lifts the outer-aware inner-PIRLS iteration cap
-/// (`RemlState::outer_inner_cap`, shared into the outer optimizer via
-/// `InnerProgressFeedback::cap`) to 0 ("no cap") for the duration of the
-/// finalize evaluation at the converged outer point, then restores whatever
-/// value the search-time schedule had last published on drop. This mirrors the
-/// post-run convergence guard `run_outer_inner_cap_guard`
-/// (`src/solver/estimate/optimizer.rs:135`), which does the same `swap(0, …)` /
-/// restore, but happens INSIDE `run_outer_with_plan` so the finalize inner
-/// solve runs at full inner budget and a search-time throttle (e.g. 3 iters)
-/// can never escalate a capped `MaxIterationsReached` into a fatal
-/// `PirlsDidNotConverge` (#1572).
-struct FinalizeInnerCapGuard<'a> {
-    cap: &'a std::sync::atomic::AtomicUsize,
-    prev_cap: usize,
-}
-
-impl<'a> FinalizeInnerCapGuard<'a> {
-    fn lift(cap: &'a std::sync::atomic::AtomicUsize) -> Self {
-        let prev_cap = cap.swap(0, std::sync::atomic::Ordering::Relaxed);
-        if prev_cap != 0 {
-            log::debug!(
-                "[OUTER] finalize: lifting throttled inner-PIRLS cap (prev_cap={prev_cap}) \
-                 for full-budget evaluation at θ̂"
-            );
-        }
-        Self { cap, prev_cap }
+/// A transferred dense outer Hessian is eligible as a BFGS seed only when the
+/// current objective itself declares analytic second-order geometry. Shape and
+/// finiteness are necessary but cannot establish provenance: without this gate,
+/// a persistent checkpoint can inject curvature produced by an older objective
+/// implementation (including the deleted SAE finite-difference path) into a
+/// current Hessian-unavailable solve (#2253).
+pub(crate) fn eligible_transferred_outer_hessian<'a>(
+    hessian: Option<&'a Array2<f64>>,
+    declared: DeclaredHessianForm,
+    n_params: usize,
+) -> Option<&'a Array2<f64>> {
+    if !declared.is_analytic() {
+        return None;
     }
-}
-
-impl Drop for FinalizeInnerCapGuard<'_> {
-    fn drop(&mut self) {
-        self.cap
-            .store(self.prev_cap, std::sync::atomic::Ordering::Relaxed);
-    }
-}
-
-/// Floor on the scaled budget: even on the largest problems the pre-warm must
-/// still anneal a few continuation legs from the oversmoothing ρ₀ toward the
-/// seed so the warm β it forwards is genuinely near-optimal (capping must not
-/// regress the seed-continuation accuracy the pre-warm exists to provide).
-pub(crate) const PREWARM_MIN_SCALED_BUDGET: usize = 4;
-
-/// Scale the per-seed continuation pre-warm step budget by `p_coefficients`
-/// once the problem is past the cost cliff, so the TOTAL pre-warm inner-solve
-/// work stays bounded as center count grows. Returns a budget in
-/// `[PREWARM_MIN_SCALED_BUDGET, base_budget]` that is non-increasing in
-/// `p_coefficients`. Below the cliff this is the identity (`base_budget`).
-pub(crate) fn cost_scaled_prewarm_budget(base_budget: usize, p_coefficients: usize) -> usize {
-    if p_coefficients <= PREWARM_COST_CLIFF_COEFF_DIM {
-        return base_budget;
-    }
-    let scaled =
-        (PREWARM_COST_BUDGET_COEFF_PRODUCT / p_coefficients).max(PREWARM_MIN_SCALED_BUDGET);
-    scaled.min(base_budget)
-}
-
-pub(crate) fn continuation_prewarm_step_budget(
-    config: &OuterConfig,
-    cap: &OuterCapability,
-    seed_count: usize,
-    seed_budget: usize,
-) -> usize {
-    // Warm-start cache hit: the seed (ρ, and since 0.1.204 the inner β) was
-    // populated from a prior fit's persisted near-optimal iterate, so the
-    // continuation pre-warm — which only exists to anneal a COLD seed toward the
-    // optimum — has nothing to anneal. Skip it entirely; the outer BFGS/Newton
-    // still runs to its REML/KKT certificate from the cached iterate, so the
-    // converged optimum is identical. Cold-start fits (no hit) fall through to
-    // the existing shape-based budget byte-for-byte.
-    if config.warm_start_cache_hit {
-        return 0;
-    }
-    let default_budget = crate::estimate::reml::continuation::PATH_BUDGET;
-    let p_coefficients = config
-        .rho_uncertainty_problem_size
-        .p_coefficients
-        .unwrap_or(0);
-    let multi_seed_cascade = seed_count > seed_budget.max(1);
-    // An "expensive shape" for pre-warm bounding is ANY problem at or past the
-    // #979 per-step cost cliff. The legacy gate (p ≥ 24 or rho dim ≥ 4) MISSED
-    // the marginal-slope cliff: two `matern/duchon(centers=K)` formulas give
-    // p ≈ 2K, so the centers≈8 cliff lands at p ≈ 16 — below the legacy p ≥ 24
-    // tier and below the rho-dim ≥ 4 tier (two formulas ⇒ rho_dim ≈ 2). Without
-    // the cliff term `base_budget` stayed at the full PATH_BUDGET (64) and the
-    // ONLY thing that bounded the cold walk was the inverse-p `cost_scaled_*`
-    // taper (64 → ~12 at p = 16). Twelve multi-second inner solves is still the
-    // ~108s the owner measured under parallel (all-cold) load, while a sequential
-    // rerun that happened to hit the persisted warm-start cache skipped it
-    // entirely — so the SAME inputs were "seconds vs intractable" purely as a
-    // function of disk-cache/scheduling state (#979 Experiment-2). Folding the
-    // cost cliff into `expensive_shape` collapses the cold base to the small
-    // bounded tier at the cliff, making the fired magnitude a deterministic
-    // function of the PROBLEM (p_coefficients, rho dim) — the warm-start cache
-    // hit then only ever turns the bounded tier into a redundant skip-to-0,
-    // never the difference between bounded and unbounded.
-    let expensive_shape = p_coefficients >= EXPENSIVE_PREWARM_COEFF_DIM
-        || p_coefficients >= PREWARM_COST_CLIFF_COEFF_DIM
-        || cap.n_params >= EXPENSIVE_PREWARM_RHO_DIM;
-
-    // True once the coefficient dim is at or past the #979 per-step cost cliff,
-    // where each inner joint-Newton solve is already multi-second. This is the
-    // regime where the cold pre-warm became intractable (~108s for ~12 steps at
-    // the centers≈8 cliff), so the cold base is bounded by the SMALL documented
-    // tier (`MULTI_SEED_PREWARM_BUDGET`) here — NOT the larger
-    // `SINGLE_EXPENSIVE_PREWARM_BUDGET` — before the inverse-p taper scales it
-    // down further. The taper alone (from a base of 64) left 12 steps at the
-    // cliff; capping the base to the small tier first brings the cold magnitude
-    // to the owner's 4–6 / `MULTI_SEED_PREWARM_BUDGET` "small number" intent.
-    let past_cost_cliff = p_coefficients >= PREWARM_COST_CLIFF_COEFF_DIM;
-
-    // Shape-derived base budget: the legacy "expensive shape" tiers, with the
-    // #979 cost cliff bounding the cold base to the small tier. This caps the
-    // pre-warm once the problem is large enough to declare an expensive shape
-    // (p ≥ 24, p ≥ the cost cliff, or rho dim ≥ 4).
-    let base_budget = if past_cost_cliff || (multi_seed_cascade && expensive_shape) {
-        MULTI_SEED_PREWARM_BUDGET.min(default_budget)
-    } else if expensive_shape {
-        SINGLE_EXPENSIVE_PREWARM_BUDGET.min(default_budget)
-    } else {
-        default_budget
-    };
-
-    // #979 cost-cliff cap: the per-step inner solve cost grows steeply with
-    // `p_coefficients` (the centers≈8→10 cliff for two-formula marginal-slope
-    // fits, where p ≈ 2·centers). The legacy "expensive shape" gate only fires
-    // at p ≥ 24, so a centers ∈ {8..12} fit still paid the FULL PATH_BUDGET (64)
-    // multi-second inner solves per seed — the binary marginal-slope slowdown.
-    // Scale the base budget DOWN inversely with `p_coefficients` past the cliff
-    // so total pre-warm work stays bounded, while preserving the full budget on
-    // cheap (small-p) fits and never collapsing below
-    // `PREWARM_MIN_SCALED_BUDGET` legs (so the warm β stays near-optimal).
-    cost_scaled_prewarm_budget(base_budget, p_coefficients)
+    hessian.filter(|h| {
+        h.nrows() == n_params && h.ncols() == n_params && h.iter().all(|v| v.is_finite())
+    })
 }
 
 /// A multistart candidate that has cleared the analytic outer certificate.
@@ -236,19 +95,24 @@ fn retain_best_outer_checkpoint(slot: &mut Option<OuterResult>, candidate: Outer
 }
 
 /// Execute a single plan attempt (seed generation → solver loop → best result).
+///
+/// `allow_tail_snap_reseed` gates the one-shot #2348 Inc 2b retry from a
+/// confirmed-tail snapped checkpoint (see [`OuterResult::tail_snap_reseed`]);
+/// the retry pass itself runs with it `false` so a reseed can never recurse.
 pub(crate) fn run_outer_with_plan(
     obj: &mut dyn OuterObjective,
     config: &OuterConfig,
     context: &str,
     cap: &OuterCapability,
     the_plan: &OuterPlan,
+    allow_tail_snap_reseed: bool,
 ) -> Result<PlanRunOutcome, EstimationError> {
     let mut seeds = {
         let generated = crate::seeding::generate_rho_candidates(
             cap.n_params,
             config.heuristic_lambdas.as_deref(),
             &config.seed_config,
-        );
+        )?;
         if generated.is_empty() {
             Vec::new()
         } else {
@@ -296,7 +160,9 @@ pub(crate) fn run_outer_with_plan(
     if !explicit_initial_rho_owns_single_seed_budget
         && should_screen_seeds(config, the_plan.solver, seeds.len(), seed_budget)
     {
-        seeds = rank_seeds_with_screening(obj, config, context, &seeds);
+        seeds = rank_seeds_with_screening(obj, config, context, &seeds).map_err(|error| {
+            EstimationError::fatal_outer_evaluation("outer seed screening", error)
+        })?;
     }
     log::debug!(
         "[OUTER] {context}: trying generated seeds directly (generated={}, budget={})",
@@ -321,6 +187,15 @@ pub(crate) fn run_outer_with_plan(
 
     let mut best: Option<CertifiedOuterCandidate> = None;
     let mut best_checkpoint: Option<OuterResult> = None;
+    // First confirmed-tail snapped reseed published by a refused certification
+    // (#2348 Inc 2b). Consumed once, after the seed cascade, for a single
+    // polishing retry pinned at the snapped rail point.
+    let mut tail_snap_reseed_point: Option<Array1<f64>> = None;
+    // First negative-curvature escape reseed published by a refused
+    // certification whose interior reduced Hessian is a certified strict saddle
+    // (#2357). Consumed once, after the seed cascade, for a single retry seeded
+    // off the saddle ridge so the outer search descends to the true PSD minimum.
+    let mut saddle_escape_reseed_point: Option<Array1<f64>> = None;
     // A reactive domain-entry path is created inside a seed attempt only after
     // that objective's exact seed cost is non-finite. Already-feasible seeds
     // therefore stay on the zero-heavy-entry path.
@@ -336,29 +211,6 @@ pub(crate) fn run_outer_with_plan(
     // the more-penalized basin in the non-Gaussian multi-start keep-best.
     let rho_dim = layout.rho_dim();
     let mut started_seeds = 0usize;
-    let continuation_prewarm_budget =
-        continuation_prewarm_step_budget(config, cap, seeds.len(), seed_budget);
-    if config.warm_start_cache_hit {
-        log::info!(
-            "[OUTER] {context}: continuation pre-warm skipped: warm-start cache hit \
-             (seed already near-optimal); proceeding straight to BFGS/Newton certificate"
-        );
-    } else if continuation_prewarm_budget < crate::estimate::reml::continuation::PATH_BUDGET {
-        let p_coefficients = config
-            .rho_uncertainty_problem_size
-            .p_coefficients
-            .unwrap_or(0);
-        log::info!(
-            "[OUTER] {context}: bounded continuation pre-warm budget to {} rho-step(s) \
-             for seed_count={} seed_budget={} rho_dim={} p_coefficients={}",
-            continuation_prewarm_budget,
-            seeds.len(),
-            seed_budget,
-            cap.n_params,
-            p_coefficients,
-        );
-    }
-    let mut continuation_prewarm_suppressed_after: Option<String> = None;
     // Structured mirror of `rejection_reasons` used for honest seed
     // accounting + structural early-exit. Populated lazily at the top of
     // each iteration from any reasons accumulated during the previous
@@ -481,7 +333,7 @@ pub(crate) fn run_outer_with_plan(
             }
             Some(Err(err)) => {
                 // A hard anchor-construction failure is not a feasibility gate:
-                // fall through to the cascade exactly as a refused pre-warm does.
+                // fall through to the ordinary seed cascade.
                 log::warn!(
                     "[OUTER] {context}: curvature-homotopy entry seed {seed_idx} errored ({err}); \
                      deferring to seed cascade"
@@ -495,8 +347,8 @@ pub(crate) fn run_outer_with_plan(
             // A refused walk is NEVER a feasibility gate. By contract the walk
             // leaves the term at the full `η = 1` basis (a degenerate anchor or
             // a detected branch bifurcation), so the NORMAL seed cascade below
-            // — `accept_seed_without_outer_iterations`, the continuation
-            // pre-warm, and the direct solve at `seed` — takes over from the
+            // — `accept_seed_without_outer_iterations` and the direct solve at
+            // `seed` — takes over from the
             // pristine cold state. Rejecting the seed here instead emptied the
             // candidate set for objectives WITHOUT a continuation path (#1095:
             // a periodic K=1 circle whose walk "buys nothing" and refuses on a
@@ -511,6 +363,7 @@ pub(crate) fn run_outer_with_plan(
             );
             obj.reset();
         }
+        install_matching_initial_inner_seed(obj, config, seed, context)?;
         if let Some(seed_cost) = obj.accept_seed_without_outer_iterations(seed)? {
             started_seeds += 1;
             let candidate = OuterResult::new(seed.clone(), seed_cost, 0, true, *the_plan);
@@ -529,6 +382,12 @@ pub(crate) fn run_outer_with_plan(
                         "[OUTER] {context}: zero-iteration seed {seed_idx} claimed acceptance but \
                          failed analytic certification: {error}"
                     );
+                    if tail_snap_reseed_point.is_none() {
+                        tail_snap_reseed_point = checkpoint.tail_snap_reseed.clone();
+                    }
+                    if saddle_escape_reseed_point.is_none() {
+                        saddle_escape_reseed_point = checkpoint.saddle_escape_reseed.clone();
+                    }
                     retain_best_outer_checkpoint(&mut best_checkpoint, checkpoint);
                     rejection_reasons.push((seed_idx, "certificate", error.to_string()));
                     continue 'seed_attempts;
@@ -579,24 +438,6 @@ pub(crate) fn run_outer_with_plan(
                 }
             }
         }
-        // Magic-by-default continuation pre-warm. On hard fits this
-        // walks ρ from an oversmoothing ρ₀ down to `seed`, leaving the
-        // objective's inner state warm at `seed`. On easy fits (ρ₀
-        // collapses to seed inside the bounds box) this is a single
-        // pre-screen comparison with no inner call, no allocation. A
-        // failure here means continuation could not even *reach* the
-        // seed; route the underlying InnerFailure through the same
-        // SeedRejection accounting any other pre-validation rejection
-        // would take, then continue to the next seed.
-        //
-        // The pre-warm is a warm-start for gradient-bearing PIRLS-inner
-        // REML objectives: it walks ρ via `eval_with_order(_, ValueAndGradient)`
-        // and carries the converged inner β forward through each step's
-        // `inner_beta_hint`. A reactive-domain objective enters the explicit
-        // path only after the exact real-objective probe above returned a
-        // non-finite criterion; already-finite seeds never allocate or drive it.
-        let enter_via_continuation_path =
-            obj.allow_continuation_prewarm() || continuation_path.is_some();
         // Reactive domain entry (SAE-manifold dense K>=2 joint fit): DRIVE the
         // coupled `ContinuationPath` homotopy explicitly. Each step installs
         // the objective-owned scalar state and evaluates its matching log-ρ
@@ -738,89 +579,10 @@ pub(crate) fn run_outer_with_plan(
                     continue 'seed_attempts;
                 }
                 Err(err) => {
-                    let msg = format!(
-                        "reactive domain entry refused: exact seed verification failed after \
-                         certified continuation arrival: {err}"
-                    );
-                    log::warn!("[OUTER] {context}: rejecting seed {seed_idx}: {msg}");
-                    rejection_reasons.push((seed_idx, "domain-entry", msg));
-                    continue 'seed_attempts;
-                }
-            }
-        }
-        if continuation_path.is_none()
-            && enter_via_continuation_path
-            && continuation_prewarm_budget > 0
-        {
-            if let Some(reason) = continuation_prewarm_suppressed_after.as_ref() {
-                log::info!(
-                    "[OUTER] {context}: skipping continuation pre-warm for seed {seed_idx} \
-                     after earlier non-structural pre-warm failure ({reason}); direct seed eval \
-                     will judge this candidate"
-                );
-            } else {
-                let prewarm_start = std::time::Instant::now();
-                match crate::estimate::reml::continuation::prime_outer_seed_with_budget(
-                    obj,
-                    seed,
-                    &bounds_template.1,
-                    continuation_prewarm_budget,
-                ) {
-                    Ok(summary) => {
-                        // Skip the log line on collapse — that's the
-                        // zero-overhead easy-fit case and a log per seed would
-                        // be noise. Anything else is a real anneal worth
-                        // surfacing so large-scale runs are diagnosable.
-                        if !summary.collapsed {
-                            log::info!(
-                                "[OUTER] {context}: continuation pre-warm seed {seed_idx} steps={} elapsed={:.3}s",
-                                summary.steps_accepted,
-                                prewarm_start.elapsed().as_secs_f64(),
-                            );
-                        }
-                    }
-                    Err(cf) if cf.is_structural() => {
-                        // The pre-warm surfaced a structural defect of the seed's
-                        // joint design (rank/alias deficiency or a genuine
-                        // active-set KKT bug). This block runs only for
-                        // Objectives without an active reactive-domain path.
-                        // An active path was already driven and exact-verified
-                        // above, so it cannot enter this generic pre-warm block.
-                        // Legacy contract: a cold solve
-                        // at the seed ρ* would hit the same defect, so disqualify the
-                        // seed and route the failure through the same structural
-                        // accounting any other pre-validation rejection takes.
-                        let msg = format!(
-                            "continuation pre-warm refused before seed eval: {}",
-                            cf.message()
-                        );
-                        log::warn!(
-                            "[OUTER] {context}: rejecting seed {seed_idx} (continuation): {msg}"
-                        );
-                        rejection_reasons.push((seed_idx, "validation", msg));
-                        continue 'seed_attempts;
-                    }
-                    Err(cf) => {
-                        // Non-structural pre-warm failure: the continuation walk
-                        // could not complete from the heavily-oversmoothed ρ₀
-                        // (e.g. an ill-conditioned constraint KKT residual at
-                        // λ₀ ≫ λ*, a likelihood domain miss at that start, or a
-                        // stuck/budget-exhausted path). That is a property of the
-                        // warm-start schedule, NOT of the seed ρ* itself — which
-                        // the cold seed eval below judges on its own merits. The
-                        // pre-warm is a warm-start optimization, never a
-                        // feasibility gate (cf. #236, #500): a refusal here must
-                        // not disqualify a seed that would solve cold. Reset to a
-                        // clean baseline and fall through to the cold seed eval.
-                        log::warn!(
-                            "[OUTER] {context}: continuation pre-warm for seed {seed_idx} did not \
-                             complete ({}); direct seed eval will judge this candidate and remaining \
-                             seeds will skip the pre-warm",
-                            cf.message()
-                        );
-                        obj.reset();
-                        continuation_prewarm_suppressed_after = Some(cf.message());
-                    }
+                    return Err(EstimationError::fatal_outer_evaluation(
+                        "reactive continuation target verification",
+                        err,
+                    ));
                 }
             }
         }
@@ -833,13 +595,8 @@ pub(crate) fn run_outer_with_plan(
                     .map_err(|err| into_objective_error("outer eval failed", err));
                 let seed_eval = match seed_eval {
                     Ok(seed_eval) => seed_eval,
-                    Err(err) => {
-                        let err = match err {
-                            ObjectiveEvalError::Recoverable { message }
-                            | ObjectiveEvalError::Fatal { message } => {
-                                EstimationError::RemlOptimizationFailed(message)
-                            }
-                        };
+                    Err(ObjectiveEvalError::Recoverable { message }) => {
+                        let err = EstimationError::RemlOptimizationFailed(message);
                         if requests_immediate_first_order_fallback(&err.to_string()) {
                             return Err(err);
                         }
@@ -849,22 +606,29 @@ pub(crate) fn run_outer_with_plan(
                         rejection_reasons.push((seed_idx, "validation", err.to_string()));
                         continue 'seed_attempts;
                     }
+                    Err(ObjectiveEvalError::Fatal { message }) => {
+                        return Err(EstimationError::fatal_outer_evaluation(
+                            "outer ARC seed evaluation",
+                            EstimationError::RemlOptimizationFailed(message),
+                        ));
+                    }
                 };
-                let seed_eval = finite_outer_eval_or_error("outer eval failed", layout, seed_eval)
-                    .map_err(|err| match err {
-                        ObjectiveEvalError::Recoverable { message }
-                        | ObjectiveEvalError::Fatal { message } => {
-                            EstimationError::RemlOptimizationFailed(message)
-                        }
-                    });
+                let seed_eval = finite_outer_eval_or_error("outer eval failed", layout, seed_eval);
                 let mut seed_eval = match seed_eval {
                     Ok(seed_eval) => seed_eval,
-                    Err(err) => {
+                    Err(ObjectiveEvalError::Recoverable { message }) => {
+                        let err = EstimationError::RemlOptimizationFailed(message);
                         log::warn!(
                             "[OUTER] {context}: rejecting seed {seed_idx} before solver start: {err}"
                         );
                         rejection_reasons.push((seed_idx, "validation", err.to_string()));
                         continue 'seed_attempts;
+                    }
+                    Err(ObjectiveEvalError::Fatal { message }) => {
+                        return Err(EstimationError::fatal_outer_evaluation(
+                            "outer ARC seed validation",
+                            EstimationError::RemlOptimizationFailed(message),
+                        ));
                     }
                 };
                 validate_second_order_seed_hessian(context, layout, &seed_eval).map_err(|err| {
@@ -1081,11 +845,17 @@ pub(crate) fn run_outer_with_plan(
                             Ok(result)
                         }
                         OptimizationStatus::ObjectiveFailed
-                        | OptimizationStatus::NumericalFailure
+                            => Err(EstimationError::fatal_outer_evaluation(
+                                "matrix-free trust-region evaluation",
+                                EstimationError::RemlOptimizationFailed(
+                                    "matrix-free trust-region objective evaluation failed"
+                                        .to_string(),
+                                ),
+                            )),
+                        OptimizationStatus::NumericalFailure
                         | OptimizationStatus::LineSearchFailed => {
                             Err(EstimationError::RemlOptimizationFailed(format!(
-                                "matrix-free TR solver failed with status={:?}",
-                                report.status
+                                "matrix-free TR solver failed with status={:?}", report.status
                             )))
                         }
                     }
@@ -1118,13 +888,37 @@ pub(crate) fn run_outer_with_plan(
                         .threshold(seed_eval.cost, arc_seed_grad_norm)
                         .max(COST_STALL_PROJECTED_GRAD_FLOOR);
 
+                    // Build the exact seed Hessian before enrolling the seed in
+                    // the stall guard. The guard must know whether its incumbent
+                    // is a second-order point: repeated infeasible trials cannot
+                    // justify halting at a certified strict saddle.
+                    let seed_hessian = build_bridge_hessian_for_source(
+                        hessian_source,
+                        seed_eval.hessian,
+                        OUTER_HVP_MATERIALIZE_MAX_DIM,
+                    )
+                    .map_err(|err| match err {
+                        ObjectiveEvalError::Recoverable { message }
+                        | ObjectiveEvalError::Fatal { message } => {
+                            EstimationError::RemlOptimizationFailed(message)
+                        }
+                    })?;
+                    let seed_hessian_psd = seed_hessian.as_ref().and_then(|dense| {
+                        reduced_hessian_psd_at_point(
+                            &seed,
+                            &seed_eval.gradient,
+                            dense,
+                            Some((lo, hi)),
+                        )
+                    });
+
                     let mut cost_stall_guard = CostStallGuard::new(
                         cost_stall_rel_tol,
                         ARC_COST_STALL_WINDOW,
                         cost_stall_grad_threshold,
                         cost_stall_exit.clone(),
                     );
-                    cost_stall_guard.observe_seed(
+                    cost_stall_guard.observe_second_order_seed(
                         &seed,
                         seed_eval.cost,
                         projected_gradient_norm(
@@ -1132,6 +926,7 @@ pub(crate) fn run_outer_with_plan(
                             &seed_eval.gradient,
                             Some(&(lo.clone(), hi.clone())),
                         ),
+                        seed_hessian_psd,
                     );
 
                     let objective = OuterSecondOrderBridge {
@@ -1148,26 +943,9 @@ pub(crate) fn run_outer_with_plan(
                         cost_stall_bounds: Some((lo.clone(), hi.clone())),
                     };
 
-                    // Build the opt seed sample from the precomputed
-                    // outer evaluation. The Hessian translation goes
-                    // through `build_bridge_hessian_for_source` so the
-                    // analytic-route contract (no None Hessian on
-                    // `HessianSource::Analytic`) applies at seed time
-                    // too, not just inside the bridge's live path.
-                    let seed_hessian = build_bridge_hessian_for_source(
-                        hessian_source,
-                        seed_eval.hessian.clone(),
-                        OUTER_HVP_MATERIALIZE_MAX_DIM,
-                    )
-                    .map_err(|err| match err {
-                        ObjectiveEvalError::Recoverable { message }
-                        | ObjectiveEvalError::Fatal { message } => {
-                            EstimationError::RemlOptimizationFailed(message)
-                        }
-                    })?;
                     let initial_sample = SecondOrderSample {
                         value: seed_eval.cost,
-                        gradient: seed_eval.gradient.clone(),
+                        gradient: seed_eval.gradient,
                         hessian: seed_hessian,
                     };
 
@@ -1282,16 +1060,15 @@ pub(crate) fn run_outer_with_plan(
                             }
                         }
                         Err(ArcError::ObjectiveFailed { message })
-                            if message == COST_STALL_CONVERGED_SENTINEL =>
+                            if message == ARC_INFEASIBLE_STALL_SENTINEL =>
                         {
-                            // The bridge's cost-stall guard halted ARC because
-                            // the REML score stopped decreasing (#1089/#1237).
-                            // Rebuild the outer result from the published best
-                            // iterate; the converged flag rides on the guard's
-                            // bound-projected stationarity test (`exit.converged`)
-                            // exactly as the BFGS branch does. A non-converged
-                            // cost-stall flows into the same best-so-far
-                            // non-convergence reporting as MaxIterations.
+                            // ARC received a consecutive run of non-finite
+                            // probes, so there was no current Hessian with which
+                            // to certify the stored best. Rebuild a checkpoint
+                            // from that best, but never report bridge-level
+                            // convergence: only ARC's synchronized projected-
+                            // gradient + reduced-Hessian gate can own a finite
+                            // second-order convergence verdict (#979).
                             let exit = cost_stall_exit.lock().ok().and_then(|mut slot| slot.take());
                             match exit {
                                 Some(exit) => {
@@ -1300,7 +1077,7 @@ pub(crate) fn run_outer_with_plan(
                                         exit.value,
                                         exit.iterations,
                                         Some(exit.grad_norm),
-                                        exit.converged,
+                                        false,
                                         *the_plan,
                                     );
                                     // #2241 — carry the guard's measured probe-
@@ -1308,25 +1085,25 @@ pub(crate) fn run_outer_with_plan(
                                     // certificate honors the same flat band the
                                     // guard certified in the loop.
                                     result.flat_noise_grad_bound = exit.noise_grad_bound;
-                                    // Preserve HOW ARC stopped even when the
-                                    // guard already certified the stalled score
-                                    // surface. The mandatory final analytic
-                                    // certificate uses this provenance to apply
-                                    // the same derived score-relative flat-valley
-                                    // bound as the guard. Dropping the marker on
-                                    // `exit.converged=true` made the final pass
-                                    // silently revert to the much tighter raw
-                                    // solver bound and reject the identical
-                                    // point (#1689: |g|=.042 on |V|≈982).
+                                    // Preserve HOW ARC stopped so the mandatory
+                                    // final analytic certificate can report the
+                                    // checkpoint provenance without confusing it
+                                    // with an optimizer convergence result.
                                     result.operator_stop_reason =
                                         Some(OperatorTrustRegionStopReason::CostStallFlatValley);
                                     Ok(result)
                                 }
                                 None => Err(EstimationError::RemlOptimizationFailed(format!(
-                                    "ARC cost-stall sentinel fired without a published best \
+                                    "ARC infeasible-stall sentinel fired without a published best \
                                      iterate ({context})"
                                 ))),
                             }
+                        }
+                        Err(ArcError::ObjectiveFailed { message }) => {
+                            Err(EstimationError::fatal_outer_evaluation(
+                                "outer ARC evaluation",
+                                EstimationError::RemlOptimizationFailed(message),
+                            ))
                         }
                         Err(e) => Err(EstimationError::RemlOptimizationFailed(format!(
                             "Arc solver failed: {e:?}"
@@ -1385,18 +1162,19 @@ pub(crate) fn run_outer_with_plan(
                         .map_err(|err| into_objective_error("outer eval failed", err))
                     {
                         Ok(e) => e,
-                        Err(err) => {
-                            let err = match err {
-                                ObjectiveEvalError::Recoverable { message }
-                                | ObjectiveEvalError::Fatal { message } => {
-                                    EstimationError::RemlOptimizationFailed(message)
-                                }
-                            };
+                        Err(ObjectiveEvalError::Recoverable { message }) => {
+                            let err = EstimationError::RemlOptimizationFailed(message);
                             log::warn!(
                                 "[OUTER] {context}: rejecting seed {seed_idx} before device-BFGS start: {err}"
                             );
                             rejection_reasons.push((seed_idx, "validation", err.to_string()));
                             continue 'seed_attempts;
+                        }
+                        Err(ObjectiveEvalError::Fatal { message }) => {
+                            return Err(EstimationError::fatal_outer_evaluation(
+                                "outer device-BFGS seed evaluation",
+                                EstimationError::RemlOptimizationFailed(message),
+                            ));
                         }
                     };
                     started_seeds += 1;
@@ -1463,6 +1241,9 @@ pub(crate) fn run_outer_with_plan(
                             Ok::<OuterResult, EstimationError>(result)
                         }
                         Err(err) => {
+                            if err.is_fatal_outer_evaluation() {
+                                return Err(err);
+                            }
                             log::warn!(
                                 "[OUTER] {context}: device-BFGS failed at seed {seed_idx}: {err}; falling back to host BFGS"
                             );
@@ -1503,38 +1284,40 @@ pub(crate) fn run_outer_with_plan(
                         .map_err(|err| into_objective_error("outer eval failed", err));
                     let seed_eval = match seed_eval {
                         Ok(seed_eval) => seed_eval,
-                        Err(err) => {
-                            let err = match err {
-                                ObjectiveEvalError::Recoverable { message }
-                                | ObjectiveEvalError::Fatal { message } => {
-                                    EstimationError::RemlOptimizationFailed(message)
-                                }
-                            };
+                        Err(ObjectiveEvalError::Recoverable { message }) => {
+                            let err = EstimationError::RemlOptimizationFailed(message);
                             log::warn!(
                                 "[OUTER] {context}: rejecting seed {seed_idx} before solver start: {err}"
                             );
                             rejection_reasons.push((seed_idx, "validation", err.to_string()));
                             continue 'seed_attempts;
+                        }
+                        Err(ObjectiveEvalError::Fatal { message }) => {
+                            return Err(EstimationError::fatal_outer_evaluation(
+                                "outer BFGS seed evaluation",
+                                EstimationError::RemlOptimizationFailed(message),
+                            ));
                         }
                     };
                     let seed_eval = match finite_outer_first_order_eval_or_error(
                         "outer eval failed",
                         layout,
                         seed_eval,
-                    )
-                    .map_err(|err| match err {
-                        ObjectiveEvalError::Recoverable { message }
-                        | ObjectiveEvalError::Fatal { message } => {
-                            EstimationError::RemlOptimizationFailed(message)
-                        }
-                    }) {
+                    ) {
                         Ok(eval) => eval,
-                        Err(err) => {
+                        Err(ObjectiveEvalError::Recoverable { message }) => {
+                            let err = EstimationError::RemlOptimizationFailed(message);
                             log::warn!(
                                 "[OUTER] {context}: rejecting seed {seed_idx} before solver start: {err}"
                             );
                             rejection_reasons.push((seed_idx, "validation", err.to_string()));
                             continue 'seed_attempts;
+                        }
+                        Err(ObjectiveEvalError::Fatal { message }) => {
+                            return Err(EstimationError::fatal_outer_evaluation(
+                                "outer BFGS seed validation",
+                                EstimationError::RemlOptimizationFailed(message),
+                            ));
                         }
                     };
                     started_seeds += 1;
@@ -1633,21 +1416,17 @@ pub(crate) fn run_outer_with_plan(
                     // This scalar normalization is safe for every finite seed:
                     // it changes only the line-search path, not the stationary
                     // point. Dense transferred curvature stays gated on true warm
-                    // starts, because it is local to the parent fit. Two warm-start
-                    // mechanisms both pin `initial_rho`: the in-process / disk
-                    // persistent cache (which also flips `warm_start_cache_hit`)
-                    // and the biobank cross-fit beta projection, which sets
-                    // `initial_rho` to the transferred rho but leaves
-                    // `warm_start_cache_hit` false. Cover both by testing seed
-                    // identity against `initial_rho`. The scalar scale is clamped
+                    // starts, because it is local to the parent fit. Every
+                    // warm-start mechanism pins `initial_rho`, so seed identity
+                    // is the complete authority for transferred curvature. The
+                    // scalar scale is clamped
                     // to the same `[1e-3, 1e3]` band the optimizer applies to its
                     // own BB estimate so a pathological seed gradient cannot
                     // produce a degenerate metric.
-                    let is_warm_seed = config.warm_start_cache_hit
-                        || config
-                            .initial_rho
-                            .as_ref()
-                            .is_some_and(|initial| initial == seed);
+                    let is_warm_seed = config
+                        .initial_rho
+                        .as_ref()
+                        .is_some_and(|initial| outer_theta_bitwise_eq(initial, seed));
                     let mut installed_initial_metric = false;
                     if is_warm_seed {
                         // Prefer the converged outer curvature transferred from
@@ -1666,14 +1445,11 @@ pub(crate) fn run_outer_with_plan(
                         // way the converged
                         // optimum is unchanged: BFGS reaches ∇V=0 under any SPD
                         // initial metric, and the gradient/KKT tests are identical.
-                        let dense_metric = config
-                            .warm_start_outer_hessian
-                            .as_ref()
-                            .filter(|h| {
-                                h.nrows() == layout.n_params
-                                    && h.ncols() == layout.n_params
-                                    && h.iter().all(|v| v.is_finite())
-                            })
+                        let dense_metric = eligible_transferred_outer_hessian(
+                            config.warm_start_outer_hessian.as_ref(),
+                            cap.hessian,
+                            layout.n_params,
+                        )
                             .and_then(|h| {
                                 match gam_linalg::utils::certified_spd_inverse(
                                     h,
@@ -1869,9 +1645,10 @@ pub(crate) fn run_outer_with_plan(
                             )))
                         }
                         Err(BfgsError::ObjectiveFailed { message }) => {
-                            Err(EstimationError::RemlOptimizationFailed(format!(
-                                "BFGS solver failed: ObjectiveFailed {{ message: {message:?} }}"
-                            )))
+                            Err(EstimationError::fatal_outer_evaluation(
+                                "outer BFGS evaluation",
+                                EstimationError::RemlOptimizationFailed(message),
+                            ))
                         }
                         Err(e) => Err(EstimationError::RemlOptimizationFailed(format!(
                             "BFGS solver failed: {e:?}"
@@ -1980,6 +1757,12 @@ pub(crate) fn run_outer_with_plan(
                             "[OUTER] {context}: seed {seed_idx} solver convergence claim failed \
                              analytic certification: {error}; retaining only a resume checkpoint"
                         );
+                        if tail_snap_reseed_point.is_none() {
+                            tail_snap_reseed_point = checkpoint.tail_snap_reseed.clone();
+                        }
+                        if saddle_escape_reseed_point.is_none() {
+                            saddle_escape_reseed_point = checkpoint.saddle_escape_reseed.clone();
+                        }
                         retain_best_outer_checkpoint(&mut best_checkpoint, checkpoint);
                         rejection_reasons.push((seed_idx, "certificate", error.to_string()));
                         continue 'seed_attempts;
@@ -2049,6 +1832,9 @@ pub(crate) fn run_outer_with_plan(
                 }
             }
             Err(e) => {
+                if e.is_fatal_outer_evaluation() {
+                    return Err(e);
+                }
                 if requests_immediate_first_order_fallback(&e.to_string()) {
                     return Err(e);
                 }
@@ -2092,11 +1878,80 @@ pub(crate) fn run_outer_with_plan(
         let finalize_cap_guard = config
             .outer_inner_cap
             .as_ref()
-            .map(|feedback| FinalizeInnerCapGuard::lift(feedback.cap.as_ref()));
+            .map(TerminalInnerCapGuard::lift);
+        if finalize_cap_guard.is_some() {
+            // Certification may have happened before later multistart trials.
+            // Clear every search-state cache before installing the selected
+            // point so a rho-only hit cannot leave the objective owning the
+            // last rejected trial's inner mode.
+            obj.reset();
+        }
         let finalize_outcome = obj.finalize_outer_result(&result.rho, the_plan);
         drop(finalize_cap_guard);
         finalize_outcome?;
         return Ok(PlanRunOutcome::Converged(result));
+    }
+
+    // #2348 Inc 2b: a refused certification CONFIRMED an exponential tail
+    // (probing passed) but the interior was still unpolished — the budget died
+    // mid-crawl while the interior tracked the crawling tail coordinate.
+    // Retry ONCE seeded at the snapped rail point: the box projection pins the
+    // tail coordinate at its bound while the interior converges in its few
+    // remaining Newton steps, and the Inc 1 railed mint then certifies through
+    // the natural path. The retry pass runs with the reseed gate closed, so
+    // this can never recurse; a failed retry falls back to the original
+    // exhaustion accounting.
+    if allow_tail_snap_reseed && let Some(reseed) = tail_snap_reseed_point {
+        log::info!(
+            "[OUTER] {context}: retrying once from the confirmed-tail snapped \
+             reseed {reseed} (#2348 Inc 2b)"
+        );
+        let mut retry_config = config.clone();
+        retry_config.initial_rho = Some(reseed);
+        retry_config.screen_initial_rho = false;
+        retry_config.seed_config.max_seeds = 1;
+        retry_config.seed_config.seed_budget = 1;
+        obj.reset();
+        match run_outer_with_plan(obj, &retry_config, context, cap, the_plan, false) {
+            Ok(outcome) => return Ok(outcome),
+            Err(retry_error) => {
+                log::warn!(
+                    "[OUTER] {context}: confirmed-tail reseed retry failed ({retry_error}); \
+                     falling through to the original exhaustion accounting"
+                );
+            }
+        }
+    }
+
+    // #2357 — saddle escape. A refused certification identified an interior
+    // strict saddle (first-order stationary, indefinite curvature, no rail) and
+    // published a negative-curvature escape point strictly below it. Retry ONCE
+    // seeded there: the outer search resumes off the saddle ridge and descends
+    // to the true PSD minimum — the deterministic form of the identical
+    // warm-started resume that converges where the cold run refuses. The retry
+    // pass runs with the reseed gate closed (`allow_tail_snap_reseed = false`),
+    // so it can never recurse; a failed retry falls back to the original
+    // exhaustion accounting.
+    if allow_tail_snap_reseed && let Some(reseed) = saddle_escape_reseed_point {
+        log::info!(
+            "[OUTER] {context}: retrying once from the negative-curvature saddle-escape \
+             reseed {reseed} (#2357)"
+        );
+        let mut retry_config = config.clone();
+        retry_config.initial_rho = Some(reseed);
+        retry_config.screen_initial_rho = false;
+        retry_config.seed_config.max_seeds = 1;
+        retry_config.seed_config.seed_budget = 1;
+        obj.reset();
+        match run_outer_with_plan(obj, &retry_config, context, cap, the_plan, false) {
+            Ok(outcome) => return Ok(outcome),
+            Err(retry_error) => {
+                log::warn!(
+                    "[OUTER] {context}: saddle-escape reseed retry failed ({retry_error}); \
+                     falling through to the original exhaustion accounting"
+                );
+            }
+        }
     }
 
     if let Some(checkpoint) = best_checkpoint {

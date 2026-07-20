@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fabric-dw
-Version: 2026.7.2
+Version: 2026.7.3
 Summary: Python CLI and MCP server for Microsoft Fabric Data Warehouses and SQL Analytics Endpoints: administer, query, optimize, and secure them from your terminal or your AI agent
 Project-URL: Homepage, https://fdw.debruyn.dev
 Project-URL: Documentation, https://fdw.debruyn.dev

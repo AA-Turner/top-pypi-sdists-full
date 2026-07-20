@@ -4,6 +4,24 @@
 
 use super::*;
 
+/// Family-owned survival-baseline coordinates for the joint LAML surface.
+///
+/// `Linear` is structurally fixed and contributes no family hyperparameter
+/// axes. `Nonlinear` owns one frozen offset chart; its theta coordinates are
+/// optimized jointly with smoothing, spatial, and learned-frailty axes.
+#[derive(Clone, Debug)]
+pub enum SurvivalMarginalSlopeBaselineHyperSpec {
+    Linear {
+        /// Exact fixed baseline represented by the prepared offset channels.
+        /// It contributes zero optimizer axes but is carried through the fit
+        /// result without reconstruction or fallback.
+        config: crate::survival::construction::SurvivalBaselineConfig,
+    },
+    Nonlinear {
+        chart: crate::survival::construction::SurvivalMarginalSlopeFrozenOffsetChart,
+    },
+}
+
 #[derive(Clone)]
 pub struct SurvivalMarginalSlopeTermSpec {
     pub age_entry: Array1<f64>,
@@ -29,6 +47,7 @@ pub struct SurvivalMarginalSlopeTermSpec {
     /// Strict lower bound on q'(t) used by both the likelihood domain and
     /// the monotonicity constraints.
     pub derivative_guard: f64,
+    pub baseline_hyper: SurvivalMarginalSlopeBaselineHyperSpec,
     pub time_block: TimeBlockInput,
     pub timewiggle_block: Option<TimeWiggleBlockInput>,
     pub logslopespec: TermCollectionSpec,
@@ -101,12 +120,19 @@ pub struct SurvivalMarginalSlopeFitResult {
     pub marginal_design: TermCollectionDesign,
     /// Learned or fixed Gaussian-shift frailty SD.  `None` = no frailty.
     pub gaussian_frailty_sd: Option<f64>,
+    /// Certified nonlinear baseline selected by the joint LAML solve. Linear
+    /// baselines have no family-owned coordinates and therefore return `None`.
+    pub baseline_config: crate::survival::construction::SurvivalBaselineConfig,
     pub logslope_design: TermCollectionDesign,
     pub baseline_slope: f64,
     pub baseline_offset_residuals: OffsetChannelResiduals,
     pub baseline_offset_curvatures: OffsetChannelCurvatures,
     pub z_normalization: LatentZNormalization,
+    pub score_covariance: Array2<f64>,
     pub time_block_penalties_len: usize,
+    pub time_wiggle_knots: Option<Array1<f64>>,
+    pub time_wiggle_degree: Option<usize>,
+    pub time_wiggle_ncols: usize,
     pub score_warp_runtime: Option<DeviationRuntime>,
     pub link_dev_runtime: Option<DeviationRuntime>,
     /// Width `p₁` of the absorbed Stage-1 influence block (#461) when the fit
@@ -115,6 +141,10 @@ pub struct SurvivalMarginalSlopeFitResult {
     /// absorber's `γ`; this width lets it account for the extra trailing block
     /// and slice `γ` out of the joint covariance.
     pub influence_absorber_width: Option<usize>,
+    /// Exact residualized training-row absorber design.  This is likelihood
+    /// state, not prediction state: ordinary prediction drops the fitted
+    /// absorber, while saved-model ALO must replay its row Jacobian exactly.
+    pub influence_absorber_design: Option<Array2<f64>>,
 }
 
 pub(crate) fn validate_spec(spec: &SurvivalMarginalSlopeTermSpec) -> Result<(), String> {
@@ -202,24 +232,7 @@ pub(crate) fn validate_spec(spec: &SurvivalMarginalSlopeTermSpec) -> Result<(), 
     spec.frailty.validate_for_marginal_slope()?;
     match &spec.frailty {
         FrailtySpec::None => {}
-        FrailtySpec::GaussianShift { sigma_fixed } => {
-            let Some(sigma) = sigma_fixed else {
-                return Err(SurvivalMarginalSlopeError::UnsupportedConfiguration {
-                    reason:
-                        "survival-marginal-slope requires GaussianShift sigma_fixed or FrailtySpec::None; learnable GaussianShift sigma is not implemented for the exact marginal-slope outer solver"
-                            .to_string(),
-                }
-                .into());
-            };
-            if !sigma.is_finite() || *sigma < 0.0 {
-                return Err(SurvivalMarginalSlopeError::InvalidInput {
-                    reason: format!(
-                        "survival-marginal-slope requires GaussianShift sigma >= 0, got {sigma}"
-                    ),
-                }
-                .into());
-            }
-        }
+        FrailtySpec::GaussianShift { .. } => {}
         FrailtySpec::HazardMultiplier { .. } => {
             return Err(SurvivalMarginalSlopeError::InvalidInput {
                 reason: "survival-marginal-slope does not support FrailtySpec::HazardMultiplier"
@@ -227,6 +240,17 @@ pub(crate) fn validate_spec(spec: &SurvivalMarginalSlopeTermSpec) -> Result<(), 
             }
             .into());
         }
+    }
+    if matches!(
+        &spec.baseline_hyper,
+        SurvivalMarginalSlopeBaselineHyperSpec::Nonlinear { .. }
+    ) && !spec.time_block.time_monotonicity.is_coordinate_cone()
+    {
+        return Err(SurvivalMarginalSlopeError::UnsupportedConfiguration {
+            reason: "learned survival marginal-slope baseline coordinates require a StructuralISpline coordinate cone; rowwise derivative constraints would move with the baseline offsets"
+                .to_string(),
+        }
+        .into());
     }
     if spec.event_target.iter().any(|&d| d != 0.0 && d != 1.0) {
         return Err(SurvivalMarginalSlopeError::InvalidInput {

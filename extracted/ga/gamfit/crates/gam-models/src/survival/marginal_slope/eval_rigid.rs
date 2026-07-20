@@ -27,20 +27,21 @@ impl SurvivalMarginalSlopeFamily {
         q_geom: SurvivalMarginalSlopeDynamicRowValues,
         block_states: &[ParameterBlockState],
         probit_scale: f64,
+        logslope_workspace: &mut LogslopeRowWorkspace,
+        value_workspace: &RigidVectorValueWorkspace<'_>,
     ) -> Result<f64, String> {
-        let slopes = if self.per_z_logslope_active() {
-            self.logslope_surface_values_for_row(row, &block_states[2].beta)?
-        } else {
-            self.logslope_vector_for_row(row, &block_states[2].eta)?
-        };
-        let z = self.z.row(row).to_vec();
+        self.fill_logslope_values_for_row(row, block_states, logslope_workspace)?;
+        let z_row = self.z.row(row);
+        let z = z_row.as_slice().ok_or_else(|| {
+            "survival marginal-slope vector value score row must be contiguous".to_string()
+        })?;
         survival_marginal_slope_vector_neglog(
             q_geom.q0,
             q_geom.q1,
             q_geom.qd1,
-            &slopes,
-            &z,
-            &self.score_covariance,
+            logslope_workspace.values(),
+            z,
+            value_workspace,
             self.weights[row],
             self.event[row],
             self.derivative_guard,
@@ -89,11 +90,13 @@ impl SurvivalMarginalSlopeFamily {
         } else {
             Some(event_secondary.as_slice())
         };
-        // The outer ρ is supplied externally via `OuterEvalContext`; a
-        // non-contiguous view here is degenerate but possible. Auto-subsampling
-        // is a pure performance optimization, so fall back to the original
-        // options (full-data eval) rather than panicking.
-        let rho_slice = ctx.rho.as_slice()?;
+        // `OuterEvalContext` owns an `Array1`, so its ρ storage is a contiguous
+        // construction invariant. Violating that contract is a programming
+        // error; silently changing the row measure would hide it.
+        let rho_slice = ctx
+            .rho
+            .as_slice()
+            .expect("outer-evaluation rho must be contiguous");
         crate::marginal_slope_shared::maybe_install_auto_outer_subsample(
             options,
             z_key.as_slice().expect("z key must be contiguous"),

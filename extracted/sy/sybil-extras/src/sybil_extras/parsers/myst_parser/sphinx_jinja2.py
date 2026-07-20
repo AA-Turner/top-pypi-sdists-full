@@ -14,11 +14,14 @@ from sybil.typing import Evaluator
 
 from sybil_extras.parsers._line_offsets import line_offsets
 
-_OPTION_PATTERN = re.compile(pattern=r"^:(?P<key>\w+):\s*(?P<value>.*)$")
+_OPTION_PATTERN = re.compile(pattern=r"^:(?P<key>[\w-]+):\s*(?P<value>.*)$")
+_JINJA_INFO_PATTERN = re.compile(
+    pattern=r"^\{jinja\}(?:\s+(?P<arguments>.*))?$"
+)
 
 
 @beartype
-def _parse_options_and_body(
+def parse_options_and_body(
     content: str,
 ) -> tuple[dict[str, str], str]:
     """Separate options from body in directive content."""
@@ -75,9 +78,13 @@ class SphinxJinja2Parser:
             if token.type != "fence":
                 continue
 
-            # Only match {jinja} directives
-            if token.info.strip() != "{jinja}":
+            # Only match {jinja} directives, with an optional argument.
+            info_match = _JINJA_INFO_PATTERN.fullmatch(
+                string=token.info.strip()
+            )
+            if info_match is None:
                 continue
+            arguments = info_match.group("arguments") or ""
 
             if token.map is None:  # pragma: no cover
                 # This should never happen; map is always set for fence tokens.
@@ -92,13 +99,13 @@ class SphinxJinja2Parser:
             else:
                 region_end = len(document.text)
 
-            options, body = _parse_options_and_body(
+            options, body = parse_options_and_body(
                 content=token.content,
             )
 
             lexemes: dict[str, str | dict[str, str]] = {
                 "directive": "jinja",
-                "arguments": "",
+                "arguments": arguments,
                 "source": body,
                 "options": options,
             }

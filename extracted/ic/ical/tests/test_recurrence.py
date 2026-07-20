@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime
 import zoneinfo
+from typing import Any
 
 import pytest
 from ical.exceptions import CalendarParseError
@@ -393,13 +394,14 @@ def test_rdate_period_serialization() -> None:
 
 def test_parse_rdate_list_strings() -> None:
     """Test before validator parse_rdate_list with strings."""
+    rdate_data: list[Any] = [
+        "20220804T100000/20220804T120000",  # Period format
+        "20220805T060000Z",  # Datetime format
+        "20220806",  # Date format
+    ]
     recurrences = Recurrences(
         dtstart=datetime.datetime(2022, 8, 3, 6, 0, 0),
-        rdate=[
-            "20220804T100000/20220804T120000",  # Period format
-            "20220805T060000Z",  # Datetime format
-            "20220806",  # Date format
-        ],  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+        rdate=rdate_data,
     )
     assert len(recurrences.rdate) == 3
     assert isinstance(recurrences.rdate[0], Period)
@@ -421,3 +423,17 @@ def test_parse_rdate_mixed() -> None:
     assert isinstance(recurrences.rdate[1], datetime.date)
     assert isinstance(recurrences.rdate[2], Period)
     assert isinstance(recurrences.rdate[3], datetime.datetime)
+
+
+def test_rdate_with_datetime_objects() -> None:
+    """Test validation of Recurrences when rdate contains datetime/date objects directly."""
+    recurrences = Recurrences(
+        dtstart=datetime.datetime(2022, 8, 3, 6, 0, 0),
+        rdate=[
+            datetime.datetime(2022, 8, 5, 6, 0, 0, tzinfo=datetime.timezone.utc),
+            datetime.date(2022, 8, 6),
+        ],
+    )
+    assert len(recurrences.rdate) == 2
+    assert isinstance(recurrences.rdate[0], datetime.datetime)
+    assert isinstance(recurrences.rdate[1], datetime.date)

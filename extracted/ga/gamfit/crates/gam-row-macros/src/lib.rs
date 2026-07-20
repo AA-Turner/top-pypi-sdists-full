@@ -18,6 +18,8 @@ use syn::{
     Result, Token, UnOp, Visibility, braced, bracketed, parenthesized, parse_macro_input,
 };
 
+mod row_program;
+
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 enum Lowering {
     Generic,
@@ -820,7 +822,7 @@ fn expand(input: RowAtomInput) -> Result<TokenStream2> {
 
 /// Define one row atom and emit exactly its requested build-time lowerings.
 ///
-/// ```ignore
+/// ```text
 /// row_atom! {
 ///     pub(crate) fn row [generic, order2, third, fourth](
 ///         eta, deriv;
@@ -833,6 +835,21 @@ fn expand(input: RowAtomInput) -> Result<TokenStream2> {
 #[proc_macro]
 pub fn row_atom(input: TokenStream) -> TokenStream {
     match expand(parse_macro_input!(input as RowAtomInput)) {
+        Ok(tokens) => tokens.into(),
+        Err(error) => error.into_compile_error().into(),
+    }
+}
+
+/// Define one backend-neutral row program and emit its generic `JetScalar`
+/// evaluator plus symbolically sparse order-2 Rust and CUDA functions. The
+/// declaration owns the complete algebraic schedule; stable unary primitives
+/// are explicit leaves mapped to one Rust derivative-stack builder and one CUDA
+/// stack function. Both direct backends consume the same symbolic SSA lowering,
+/// compute each nonzero gradient and packed Hessian component once, and scatter
+/// Hessian symmetry only at the output seam.
+#[proc_macro]
+pub fn row_program(input: TokenStream) -> TokenStream {
+    match row_program::expand(parse_macro_input!(input as row_program::Input)) {
         Ok(tokens) => tokens.into(),
         Err(error) => error.into_compile_error().into(),
     }

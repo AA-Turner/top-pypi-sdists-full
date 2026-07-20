@@ -22,7 +22,8 @@ use super::hmc_io::{
 pub use super::hmc_io::{NutsConfig, NutsResult};
 use crate::formula_dsl::{LinkWiggleFormulaSpec, parse_formula};
 use crate::model::{
-    FittedModel as SavedModel, PredictModelClass, load_survival_time_basis_config_from_model,
+    FittedModel as SavedModel, PredictModelClass, SavedLinkWiggleRuntime,
+    load_survival_time_basis_config_from_model,
 };
 use gam_linalg::faer_ndarray::FaerCholesky;
 use gam_linalg::triangular::back_substitution_lower_transpose_guarded_into;
@@ -42,13 +43,12 @@ use gam_models::survival::{
     PenaltyBlock, PenaltyBlocks, SurvivalMonotonicityPenalty, SurvivalSpec,
 };
 use gam_models::wiggle::{
-    append_selected_wiggle_penalty_orders, buildwiggle_block_input_from_knots,
-    split_wiggle_penalty_orders,
+    append_selected_wiggle_function_penalties, buildwiggle_block_input_from_knots,
+    canonical_wiggle_function_penalties, split_wiggle_penalty_orders,
 };
 use gam_problem::types::{InverseLink, LikelihoodSpec, ResponseFamily, StandardLink};
 use gam_runtime::resource::{MemoryGovernor, ResourcePolicy, rows_for_target_bytes};
 use gam_solve::estimate::{BlockRole, validate_all_finite};
-use gam_terms::basis::create_difference_penalty_matrix;
 use gam_terms::smooth::build_term_collection_design;
 use gam_terms::smooth::{LinearCoefficientGeometry, weighted_blockwise_penalty_sum};
 use gam_terms::term_builder::resolve_role_col;
@@ -176,6 +176,51 @@ fn weighted_penalty_matrix(
         out += &(s * lam);
     }
     Ok(out)
+}
+
+/// Rebuild the standard link-wiggle penalty from the exact semantic metadata
+/// persisted by fitting. The canonical constructor is shared with fit-time
+/// block assembly, and every count, shape, and ordered block kind is checked
+/// before lambdas are applied. There is intentionally no inferred order,
+/// skipped block, or zero-matrix completion path.
+fn saved_link_wiggle_penalty_matrix(
+    runtime: &SavedLinkWiggleRuntime,
+    lambdas: ArrayView1<'_, f64>,
+    expected_dimension: usize,
+) -> Result<Array2<f64>, String> {
+    let metadata = runtime.penalty_metadata.as_ref().ok_or_else(|| {
+        "standard link-wiggle sampling requires saved canonical penalty metadata; refit".to_string()
+    })?;
+    let canonical = canonical_wiggle_function_penalties(
+        &Array1::from_vec(runtime.knots.clone()),
+        runtime.degree,
+        &metadata.derivative_orders,
+        metadata.double_penalty,
+    )
+    .map_err(|error| format!("saved link-wiggle penalty reconstruction failed: {error}"))?;
+    if canonical.metadata != *metadata {
+        return Err(format!(
+            "saved link-wiggle penalty topology {:?} disagrees with canonical topology {:?}",
+            metadata.blocks, canonical.metadata.blocks,
+        ));
+    }
+    if canonical.matrices.len() != lambdas.len() {
+        return Err(format!(
+            "saved link-wiggle penalty/lambda mismatch: canonical topology has {} blocks but fit stores {} lambdas",
+            canonical.matrices.len(),
+            lambdas.len(),
+        ));
+    }
+    for (index, matrix) in canonical.matrices.iter().enumerate() {
+        if matrix.dim() != (expected_dimension, expected_dimension) {
+            return Err(format!(
+                "saved link-wiggle penalty block {index} is {}x{} but fitted LinkWiggle coordinate has dimension {expected_dimension}",
+                matrix.nrows(),
+                matrix.ncols(),
+            ));
+        }
+    }
+    weighted_penalty_matrix(&canonical.matrices, lambdas)
 }
 
 fn validate_explicit_link_wiggle_joint_hessian(
@@ -401,7 +446,11 @@ pub fn sample_saved_model(
             laplace_gaussian_fallback(model, cfg, "bernoulli marginal-slope posterior")
         }
         PredictModelClass::TransformationNormal => {
-            laplace_gaussian_fallback(model, cfg, "transformation-normal posterior")
+            // The CTN posterior is the Laplace Gaussian TRUNCATED to the
+            // monotonicity cone Γ = Ψ Aᵀ ≥ 0 (gam#2306 §5); draw it by rejection
+            // rather than the unconstrained Gaussian fallback, which would put
+            // mass on non-monotone (invalid) transformations.
+            sample_transformation_normal_constrained(model, cfg)
         }
     }
 }
@@ -508,6 +557,165 @@ pub fn laplace_gaussian_fallback(
         .unwrap_or_else(|| Array1::<f64>::zeros(p));
     let posterior_std = samples.std_axis(ndarray::Axis(0), 1.0);
 
+    Ok(NutsResult {
+        samples,
+        posterior_mean,
+        posterior_std,
+        rhat: 1.0,
+        ess: n_total as f64,
+        converged: true,
+    })
+}
+
+/// Draw constrained transformation-normal posterior samples by rejection from
+/// the Laplace Gaussian `N(mode, cov_scale·H⁻¹)`, keeping only draws inside the
+/// monotonicity cone `Γ = Ψ Aᵀ ≥ 0` (gam#2306 §5).
+///
+/// The truncated posterior IS the model: a draw whose realized shape field has
+/// any negative entry is a non-monotone transformation and not a member of the
+/// parameter space, so rejection is exact sampling from the correct target (no
+/// projection, no clamping). The fitted mode is strictly interior — the
+/// monotonicity floor keeps `h' > 0` — so acceptance is high for a well-fit
+/// model. If acceptance collapses (a pathological fit hugging the cone boundary)
+/// we refuse (typed) with the measured acceptance rate rather than silently
+/// returning unconstrained draws or spending an unbounded draw budget.
+fn sample_transformation_normal_constrained(
+    model: &SavedModel,
+    cfg: &NutsConfig,
+) -> Result<NutsResult, String> {
+    const RATIONALE: &str = "transformation-normal constrained posterior";
+    // Hard per-chain draw cap (no wall-clock budget): if a chain cannot fill its
+    // sample quota within `n_samples · MAX_REJECTION_FACTOR` draws the fit hugs
+    // the cone boundary and we refuse with the measured rate.
+    const MAX_REJECTION_FACTOR: usize = 1000;
+
+    validate_nuts_config(cfg).map_err(String::from)?;
+    let fit = fit_result_from_saved_model_for_prediction(model)?;
+    let mode = fit.beta.clone();
+    let p = mode.len();
+    if p == 0 {
+        return Err(format!(
+            "{RATIONALE}: cannot sample from an empty coefficient vector"
+        ));
+    }
+
+    let geometry = model.transformation_geometry.as_ref().ok_or_else(|| {
+        format!("{RATIONALE}: missing the direct-α geometry record; refit (gam#2306)")
+    })?;
+    let carrier = model.transformation_cone_carrier.as_ref().ok_or_else(|| {
+        format!(
+            "{RATIONALE}: missing the monotonicity-cone carrier (transformation_cone_carrier); \
+             refit to persist the cone so constrained sampling can certify draws"
+        )
+    })?;
+    let n = geometry.cone_carrier_row_count;
+    let p_cov = geometry.cone_carrier_covariate_width;
+    let p_resp = geometry.shape_coordinate_count + 1;
+    if carrier.len() != n.saturating_mul(p_cov) {
+        return Err(format!(
+            "{RATIONALE}: cone carrier length {} != {n} rows x {p_cov} covariate columns",
+            carrier.len()
+        ));
+    }
+    if p != p_resp.saturating_mul(p_cov) {
+        return Err(format!(
+            "{RATIONALE}: coefficient length {p} != p_resp {p_resp} x p_cov {p_cov}; the saved \
+             coefficient block does not match the persisted cone geometry"
+        ));
+    }
+    let psi = Array2::from_shape_vec((n, p_cov), carrier.clone())
+        .map_err(|err| format!("{RATIONALE}: cone carrier reshape to {n}x{p_cov} failed: {err}"))?;
+
+    // Feasibility: the realized shape field of each monotone (non-location) row
+    // `k` is `Γ_k = Ψ · A_{k,:} ≥ 0` on every certified training row.
+    let is_feasible = |beta: &Array1<f64>| -> bool {
+        for k in 1..p_resp {
+            let block = beta.slice(ndarray::s![k * p_cov..(k + 1) * p_cov]);
+            if psi.dot(&block).iter().any(|value| *value < 0.0) {
+                return false;
+            }
+        }
+        true
+    };
+    if !is_feasible(&mode) {
+        return Err(format!(
+            "{RATIONALE}: the fitted mode violates the monotonicity cone Γ ≥ 0 — the saved model is \
+             not a valid monotone transformation; refit"
+        ));
+    }
+
+    let h = fit.penalized_hessian().ok_or_else(|| {
+        format!(
+            "{RATIONALE}: requires the explicit penalised Hessian; refit with exact geometry export"
+        )
+    })?;
+    let sqrt_cov_scale = sampling_sqrt_covariance_scale(&fit, RATIONALE)?;
+    if h.nrows() != p || h.ncols() != p {
+        return Err(format!(
+            "{RATIONALE}: penalised Hessian is {}x{}, expected {p}x{p}",
+            h.nrows(),
+            h.ncols()
+        ));
+    }
+    let chol = h.cholesky(Side::Lower).map_err(|err| {
+        format!("{RATIONALE}: Cholesky factorisation of the penalised Hessian failed: {err:?}")
+    })?;
+    let l = chol.lower_triangular();
+
+    let n_total = cfg.n_samples.saturating_mul(cfg.n_chains);
+    let mut samples = Array2::<f64>::zeros((n_total, p));
+    let mut eps = Array1::<f64>::zeros(p);
+    let mut delta = Array1::<f64>::zeros(p);
+    let mut draw = Array1::<f64>::zeros(p);
+    let attempts_cap = cfg
+        .n_samples
+        .saturating_mul(MAX_REJECTION_FACTOR)
+        .max(MAX_REJECTION_FACTOR);
+    let mut total_attempts: u64 = 0;
+    let mut total_accepted: u64 = 0;
+
+    for chain in 0..cfg.n_chains {
+        let mut rng = rand::rngs::StdRng::seed_from_u64(chain_stream_seed(
+            cfg.seed,
+            chain,
+            0xA0B7_6C5D_E431_298F,
+        ));
+        let mut accepted_in_chain = 0usize;
+        let mut attempts_in_chain = 0usize;
+        while accepted_in_chain < cfg.n_samples {
+            if attempts_in_chain >= attempts_cap {
+                let rate = total_accepted as f64 / (total_attempts.max(1) as f64);
+                return Err(format!(
+                    "{RATIONALE}: acceptance collapsed — {total_accepted} accepted of \
+                     {total_attempts} draws (rate {rate:.3e}); the fit hugs the monotonicity-cone \
+                     boundary so its truncated posterior cannot be rejection-sampled within \
+                     {attempts_cap} draws per chain. Refit or widen the certified response support."
+                ));
+            }
+            attempts_in_chain += 1;
+            total_attempts += 1;
+            for i in 0..p {
+                eps[i] = sample_standard_normal(&mut rng);
+            }
+            back_substitution_lower_transpose_guarded_into(&l, &eps, &mut delta);
+            for i in 0..p {
+                draw[i] = mode[i] + sqrt_cov_scale * delta[i];
+            }
+            if is_feasible(&draw) {
+                let k = chain * cfg.n_samples + accepted_in_chain;
+                samples.row_mut(k).assign(&draw);
+                accepted_in_chain += 1;
+                total_accepted += 1;
+            }
+        }
+    }
+
+    let posterior_mean = samples
+        .mean_axis(ndarray::Axis(0))
+        .unwrap_or_else(|| Array1::<f64>::zeros(p));
+    let posterior_std = samples.std_axis(ndarray::Axis(0), 1.0);
+    // Accepted draws are iid from the truncated posterior by construction, so the
+    // chains are exact-independent: rhat = 1 and ess = n_total.
     Ok(NutsResult {
         samples,
         posterior_mean,
@@ -724,7 +932,12 @@ fn sample_standard(
     let penalty =
         weighted_blockwise_penalty_sum(&design.penalties, fit.lambdas.as_slice().unwrap(), p);
 
-    let offset_vec = saved_offset(model, data, col_map)?;
+    let saved_offset_vec = saved_offset(model, data, col_map)?;
+    let base_offset =
+        saved_offset_vec.unwrap_or_else(|| Array1::<f64>::zeros(design.design.nrows()));
+    let offset_vec = design
+        .compose_offset(base_offset.view(), "saved standard model sampling")
+        .map_err(|error| error.to_string())?;
 
     let result = run_nuts_sampling_flattened_family(
         likelihood,
@@ -744,7 +957,7 @@ fn sample_standard(
             // from a Firth fit samples a different posterior (#2245
             // finding 16). Persisted on the fit artifacts at fit time.
             firth_bias_reduction: fit.artifacts.firth_bias_reduction,
-            offset: offset_vec.as_ref().map(|o| o.view()),
+            offset: Some(offset_vec.view()),
         }),
         cfg,
     )
@@ -883,15 +1096,22 @@ fn sample_standard_truncated(
              unconstrained Gaussian center; refit with exact geometry export"
                 .to_string()
         })?;
+        let working = geometry.working.as_ref().ok_or_else(|| {
+            "standard constrained-coefficient posterior: an inequality constraint is active at \
+             the mode but the saved coefficient geometry has no owned single-diagonal working \
+             evidence; Exact-Newton and multi-parameter fits cannot reconstruct the \
+             unconstrained Gaussian center from row geometry"
+                .to_string()
+        })?;
         let n = design.nrows();
-        if geometry.working_weights.len() != n || geometry.working_response.len() != n {
+        if working.weights.len() != n || working.response.len() != n {
             return Err(format!(
                 "standard constrained-coefficient posterior: saved working geometry has {} rows \
                  but the rebuilt design has {n}",
-                geometry.working_weights.len(),
+                working.weights.len(),
             ));
         }
-        let wz = &geometry.working_weights * &geometry.working_response;
+        let wz = &working.weights * &working.response;
         let rhs = design.transpose_vector_multiply(&wz);
         let chol = penalized_hessian.cholesky(Side::Lower).map_err(|e| {
             format!(
@@ -1036,39 +1256,21 @@ fn sample_standard_link_wiggle(
     let degree = wiggle_runtime.degree;
     let knot_arr = Array1::from_vec(wiggle_runtime.knots.clone());
 
-    let mut wiggle_penalties = Vec::new();
-    let default_orders = [2usize];
-    let n_wiggle_lambdas = wiggle_lambdas.len();
-    for k in 0..n_wiggle_lambdas {
-        let order = if k < default_orders.len() {
-            default_orders[k]
-        } else {
-            k + 1
-        };
-        if order >= p_wiggle {
-            continue;
-        }
-        let penalty = create_difference_penalty_matrix(p_wiggle, order, None)
-            .map_err(|e| format!("wiggle difference penalty failed: {e}"))?;
-        wiggle_penalties.push(penalty);
-    }
-    while wiggle_penalties.len() < n_wiggle_lambdas {
-        wiggle_penalties.push(Array2::zeros((p_wiggle, p_wiggle)));
-    }
-
-    let penalty_link = weighted_penalty_matrix(&wiggle_penalties, wiggle_lambdas)?;
+    let penalty_link = saved_link_wiggle_penalty_matrix(&wiggle_runtime, wiggle_lambdas, p_wiggle)?;
 
     // Fitted prior weights and offset, so the sampled target is exactly the
     // fitted model's posterior (#2245 finding 16). The offset also enters the
     // wiggle abscissa q₀ = Xβ + offset below, matching the target's basis
     // evaluation.
     let weights = saved_prior_weights(model, data, col_map)?;
-    let offset_vec = saved_offset(model, data, col_map)?;
+    let saved_offset_vec = saved_offset(model, data, col_map)?;
+    let base_offset =
+        saved_offset_vec.unwrap_or_else(|| Array1::<f64>::zeros(design.design.nrows()));
+    let offset_vec = design
+        .compose_offset(base_offset.view(), "saved link-wiggle model sampling")
+        .map_err(|error| error.to_string())?;
 
-    let mut q0 = design.design.dot(&mode_beta);
-    if let Some(offset) = offset_vec.as_ref() {
-        q0 += offset;
-    }
+    let q0 = design.design.dot(&mode_beta) + &offset_vec;
     let (q0_min, q0_max) = q0
         .iter()
         .fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), &v| {
@@ -1144,7 +1346,7 @@ fn sample_standard_link_wiggle(
         wiggle_nuts_dense.view(),
         y.view(),
         weights.view(),
-        offset_vec.as_ref().map(|o| o.view()),
+        Some(offset_vec.view()),
         penalty_base.view(),
         penalty_link.view(),
         mode_beta.view(),
@@ -1260,6 +1462,11 @@ fn sample_survival(
             &mut derivative_offset_exit,
         )?;
     }
+    // A covariate term's inhomogeneous boundary lift contributes to both
+    // cumulative-hazard evaluations. It is independent of time, so it does
+    // not contribute to the time derivative channel.
+    eta_offset_entry += &cov_design.affine_offset;
+    eta_offset_exit += &cov_design.affine_offset;
     let saved_timewiggle = saved_baseline_timewiggle_components(
         &eta_offset_entry,
         &eta_offset_exit,
@@ -1385,7 +1592,7 @@ fn sample_survival(
             seed[n + i] = eta_offset_exit[i];
         }
         let (primary_order, extra_orders) =
-            split_wiggle_penalty_orders(2, &wiggle_cfg.penalty_orders);
+            split_wiggle_penalty_orders(2, &wiggle_cfg.penalty_orders)?;
         let mut block = buildwiggle_block_input_from_knots(
             seed.view(),
             &wiggle_knots,
@@ -1393,8 +1600,13 @@ fn sample_survival(
             primary_order,
             wiggle_cfg.double_penalty,
         )?;
-        append_selected_wiggle_penalty_orders(&mut block, &extra_orders)
-            .map_err(|e| format!("baseline-timewiggle penalty reconstruction failed: {e}"))?;
+        append_selected_wiggle_function_penalties(
+            &mut block,
+            &wiggle_knots,
+            wiggle_degree,
+            &extra_orders,
+        )
+        .map_err(|e| format!("baseline-timewiggle penalty reconstruction failed: {e}"))?;
         for (widx, s) in block.penalties.iter().enumerate() {
             let s = match s {
                 gam_solve::estimate::PenaltySpec::Block { local, .. } => local,
@@ -1556,7 +1768,97 @@ fn sample_survival(
 mod tests {
     use super::*;
     use gam_linalg::matrix::{DenseDesignMatrix, DenseDesignOperator, LinearOperator};
+    use gam_models::wiggle::WigglePenaltyBlockKind;
     use gam_problem::types::LikelihoodScaleMetadata;
+
+    /// #2306: fit and sampling must consume the same exact function-space
+    /// penalty, including order and lambda topology. The highly nonuniform knot
+    /// vector makes an unweighted coefficient-difference reconstruction
+    /// observably different. With primary order one the anchored I-spline
+    /// roughness is full rank, so `double_penalty=true` must not invent a ridge.
+    #[test]
+    fn standard_link_wiggle_sampling_penalty_matches_fit_value_gradient_hessian_2306() {
+        let a = -1.3_f64;
+        let b = 2.6_f64;
+        let width = b - a;
+        let mut knot_values = vec![a; 4];
+        knot_values.extend([
+            a + 0.03 * width,
+            a + 0.21 * width,
+            a + 0.22 * width,
+            a + 0.68 * width,
+            a + 0.94 * width,
+        ]);
+        knot_values.extend(vec![b; 4]);
+        let knots = Array1::from_vec(knot_values);
+        let derivative_orders = [1usize, 2, 3];
+        let fit_penalties =
+            canonical_wiggle_function_penalties(&knots, 3, &derivative_orders, true)
+                .expect("fit-time canonical penalties");
+        assert_eq!(
+            fit_penalties.metadata.blocks,
+            vec![
+                WigglePenaltyBlockKind::Roughness {
+                    derivative_order: 1,
+                },
+                WigglePenaltyBlockKind::Roughness {
+                    derivative_order: 2,
+                },
+                WigglePenaltyBlockKind::Roughness {
+                    derivative_order: 3,
+                },
+            ],
+            "order-one primary roughness has no null space, so double penalty emits no fake ridge",
+        );
+        let p = fit_penalties.matrices[0].nrows();
+        let runtime = SavedLinkWiggleRuntime {
+            knots: knots.to_vec(),
+            degree: 3,
+            penalty_metadata: Some(fit_penalties.metadata.clone()),
+            beta: vec![0.0; p],
+            index_shift: None,
+        };
+        let lambdas = Array1::from_vec(vec![0.7, 1.3, 2.1]);
+        let sampled_hessian = saved_link_wiggle_penalty_matrix(&runtime, lambdas.view(), p)
+            .expect("sampling rebuilds the fit topology");
+        let mut fitted_hessian = Array2::<f64>::zeros((p, p));
+        for (matrix, &lambda) in fit_penalties.matrices.iter().zip(lambdas.iter()) {
+            fitted_hessian.scaled_add(lambda, matrix);
+        }
+
+        let theta = Array1::from_shape_fn(p, |index| 0.15 + 0.07 * index as f64);
+        let fitted_gradient = fitted_hessian.dot(&theta);
+        let sampled_gradient = sampled_hessian.dot(&theta);
+        let fitted_value = 0.5 * theta.dot(&fitted_gradient);
+        let sampled_value = 0.5 * theta.dot(&sampled_gradient);
+        let max_hessian_error = sampled_hessian
+            .iter()
+            .zip(fitted_hessian.iter())
+            .map(|(sampled, fitted)| (sampled - fitted).abs())
+            .fold(0.0_f64, f64::max);
+        let max_gradient_error = sampled_gradient
+            .iter()
+            .zip(fitted_gradient.iter())
+            .map(|(sampled, fitted)| (sampled - fitted).abs())
+            .fold(0.0_f64, f64::max);
+        assert!(
+            max_hessian_error < 1.0e-12,
+            "penalty Hessian drift: {max_hessian_error}"
+        );
+        assert!(
+            max_gradient_error < 1.0e-12,
+            "penalty gradient drift: {max_gradient_error}"
+        );
+        assert!(
+            (sampled_value - fitted_value).abs() < 1.0e-12,
+            "penalty target drift"
+        );
+
+        let mismatch_lambdas = Array1::from_vec(vec![0.7, 1.3]);
+        let mismatch = saved_link_wiggle_penalty_matrix(&runtime, mismatch_lambdas.view(), p)
+            .expect_err("lambda count mismatch must be rejected, never padded");
+        assert!(mismatch.contains("3 blocks but fit stores 2 lambdas"));
+    }
 
     struct ChunkOnlySampleDesign {
         values: Array2<f64>,

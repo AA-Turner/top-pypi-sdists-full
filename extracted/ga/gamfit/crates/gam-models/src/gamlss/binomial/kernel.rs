@@ -33,8 +33,6 @@ pub(crate) struct NonWiggleQDirectional {
     pub(crate) delta_q: f64,
     pub(crate) delta_q_t: f64,
     pub(crate) delta_q_ls: f64,
-    pub(crate) delta_q_tl: f64,
-    pub(crate) delta_q_ll: f64,
 }
 
 #[derive(Clone, Copy)]
@@ -94,8 +92,6 @@ pub(crate) fn nonwiggle_q_directional(
         delta_q: q.q_t * d_eta_t + q.q_ls * d_eta_ls,
         delta_q_t: q.q_tl * d_eta_ls,
         delta_q_ls: q.q_tl * d_eta_t + q.q_ll * d_eta_ls,
-        delta_q_tl: q.q_tl_ls * d_eta_ls,
-        delta_q_ll: q.q_tl_ls * d_eta_t + q.q_ll_ls * d_eta_ls,
     }
 }
 
@@ -586,7 +582,8 @@ pub(crate) fn binomial_location_scale_nll_gradient(
         false,
         |x, axis| Order1::<2>::variable(x, axis),
     )?;
-    Ok(out.g())
+    let (_, gradient) = out.into_channels();
+    Ok(gradient)
 }
 
 /// SIMD 4-rows-per-pass evaluation of the binomial location-scale row NLL at the
@@ -863,6 +860,7 @@ mod packed_scalar_oracle_tests {
     use super::*;
     use crate::gamlss::test_support::binomial_location_scale_nll_tower;
     use gam_math::jet_scalar::{JetScalar, OneSeed, Order2, TwoSeed};
+    use gam_math::nested_dual::JetField;
     use gam_problem::{InverseLink, StandardLink};
 
     fn rel_close(a: f64, b: f64, label: &str) {

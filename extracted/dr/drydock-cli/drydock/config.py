@@ -73,10 +73,24 @@ DEFAULTS: dict[str, object] = {
     # even when interleaved actions look productive. Polling is exempt (its
     # result changes each time).
     "recovery_same_outcome_threshold": 6,
+    # Time-aware effort governor: once any single LLM turn takes longer than this
+    # many seconds, the rest of the request runs decisive (low reasoning effort,
+    # tight token cap) to protect the time budget — a think-bound task otherwise
+    # burns a whole window on a handful of giant reasoning turns. 0 = off.
+    "turn_seconds_soft_cap": 240,
     # Verified-trajectory export (RSI training-data collection). When set to a path,
     # drydock writes the full task trajectory (system prompt + transcript) there at
     # task end; a benchmark harness keeps only verifier-passing ones. Empty = off.
     "trajectory_file": "",
+    # Tool names dynamic tool selection must NEVER trim (tool_select.py), on top
+    # of the built-in core coding set — e.g. ["WebSearch", "WebFetch"] keeps the
+    # web tools surfaced even on tasks whose text never mentions the web. Names
+    # not in the registry are ignored.
+    "pin_tools": [],
+    # URL substrings the web tools refuse: WebSearch drops matching results,
+    # WebFetch declines matching URLs (with a plain message, never an error).
+    # Used to keep benchmark/solution sites out of harvested training runs.
+    "web_denylist": [],
     "theme": "harbor",
     # Optional SECOND model ("advisor") for a stronger second opinion — e.g. a
     # Gemini OpenAI-compatible endpoint on another box. Empty = disabled. The

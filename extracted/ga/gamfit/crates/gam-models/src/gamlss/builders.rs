@@ -174,7 +174,7 @@ pub(crate) fn build_two_block_exact_joint_setup(
     extra_rho0: &[f64],
     rho0_override: Option<&Array1<f64>>,
     kappa_options: &SpatialLengthScaleOptimizationOptions,
-) -> ExactJointHyperSetup {
+) -> Result<ExactJointHyperSetup, gam_terms::basis::BasisError> {
     // GAMLSS-specific part: assemble the rho seed in [mean | noise | extra]
     // penalty order, honoring a caller override when it matches the layout.
     let rho_dim = mean_penalties + noise_penalties + extra_rho0.len();
@@ -417,13 +417,10 @@ pub(crate) fn append_binomial_log_sigma_shrinkage_penalty_design(
     design.penaltyinfo.push(PenaltyBlockInfo {
         global_index: design.penaltyinfo.len(),
         termname: Some("log_sigma_shrinkage".to_string()),
-        penalty: PenaltyInfo {
+        penalty: ActivePenaltyInfo {
             source: PenaltySource::Other("shrinkage".to_string()),
             original_index: 0,
-            active: true,
             effective_rank: p,
-            dropped_reason: None,
-            nullspace_dim_hint: 0,
             normalization_scale: 1.0,
             kronecker_factors: None,
         },
@@ -449,10 +446,16 @@ pub(crate) fn build_gaussian_mean_and_scale_blocks(
     noise_beta_hint: Option<Array1<f64>>,
     context: &str,
 ) -> Result<(ParameterBlockSpec, ParameterBlockSpec), String> {
+    let mean_offset = mean_design
+        .compose_offset(mean_offset.view(), &format!("{context}: mu"))
+        .map_err(|error| error.to_string())?;
+    let noise_offset = noise_design
+        .compose_offset(noise_offset.view(), &format!("{context}: log_sigma"))
+        .map_err(|error| error.to_string())?;
     let mut meanspec = build_location_scale_block(
         "mu",
         mean_design.design.clone(),
-        mean_offset.clone(),
+        mean_offset,
         mean_design.penalties_as_penalty_matrix(),
         mean_design.nullspace_dims.clone(),
         mean_log_lambdas,
@@ -473,7 +476,7 @@ pub(crate) fn build_gaussian_mean_and_scale_blocks(
     let mut noisespec = build_location_scale_block(
         "log_sigma",
         prepared_noise_design,
-        noise_offset.clone(),
+        noise_offset,
         noise_design.penalties_as_penalty_matrix(),
         noise_design.nullspace_dims.clone(),
         noise_log_lambdas,
@@ -521,6 +524,12 @@ pub(crate) fn build_binomial_threshold_and_scale_blocks(
     noise_beta_hint: Option<Array1<f64>>,
     context: &str,
 ) -> Result<(ParameterBlockSpec, ParameterBlockSpec), String> {
+    let mean_offset = mean_design
+        .compose_offset(mean_offset.view(), &format!("{context}: threshold"))
+        .map_err(|error| error.to_string())?;
+    let noise_offset = noise_design
+        .compose_offset(noise_offset.view(), &format!("{context}: log_sigma"))
+        .map_err(|error| error.to_string())?;
     let identifiednoise_design =
         identified_binomial_log_sigma_design(mean_design, noise_design, weights)?;
     let p_noise = identifiednoise_design.ncols();
@@ -530,7 +539,7 @@ pub(crate) fn build_binomial_threshold_and_scale_blocks(
     let mut thresholdspec = build_location_scale_block(
         "threshold",
         mean_design.design.clone(),
-        mean_offset.clone(),
+        mean_offset,
         mean_design.penalties_as_penalty_matrix(),
         vec![],
         mean_log_lambdas,
@@ -542,7 +551,7 @@ pub(crate) fn build_binomial_threshold_and_scale_blocks(
     let mut log_sigmaspec = build_location_scale_block(
         "log_sigma",
         identifiednoise_design,
-        noise_offset.clone(),
+        noise_offset,
         log_sigma_penalty_matrices,
         vec![],
         noise_log_lambdas,
@@ -1098,6 +1107,344 @@ pub struct GaussianLocationScaleFitResult {
     pub response_scale: f64,
 }
 
+/// Exact coefficient-frame map for the frozen-basis binomial mean-wiggle
+/// de-aliasing step.
+///
+/// The joint solver sees `[X, B - XA]` and returns coordinates
+/// `(beta_mean_solver, beta_w)`. Saved prediction deliberately uses `[X, B]`,
+/// so the reported coordinates are
+///
+/// ```text
+/// beta_mean_saved = beta_mean_solver - A beta_w
+/// beta_w_saved    = beta_w.
+/// ```
+///
+/// This is one linear section with the cross-block lift
+/// `M = [[I, -A], [0, I]]`. Keeping it as a [`gam_problem::Gauge`] makes the
+/// same map authoritative for coefficients, covariance, and the active
+/// geometry lineage used by saved-model ALO.
+fn binomial_mean_wiggle_saved_frame_gauge(
+    alias: &Array2<f64>,
+    mean_width: usize,
+    wiggle_width: usize,
+) -> Result<gam_problem::Gauge, String> {
+    if alias.dim() != (mean_width, wiggle_width) {
+        return Err(format!(
+            "binomial mean-wiggle de-alias map is {}x{}, expected {mean_width}x{wiggle_width}",
+            alias.nrows(),
+            alias.ncols(),
+        ));
+    }
+    let total_width = mean_width
+        .checked_add(wiggle_width)
+        .ok_or_else(|| "binomial mean-wiggle coefficient dimension overflows usize".to_string())?;
+    let mut transform = Array2::<f64>::eye(total_width);
+    for row in 0..mean_width {
+        for column in 0..wiggle_width {
+            transform[[row, mean_width + column]] = -alias[[row, column]];
+        }
+    }
+    let gauge = gam_problem::Gauge::from_t(
+        transform,
+        &[mean_width, wiggle_width],
+        &[mean_width, wiggle_width],
+    );
+    gauge.validate().map_err(|reason| {
+        format!("binomial mean-wiggle saved coefficient gauge is invalid: {reason}")
+    })?;
+    Ok(gauge)
+}
+
+fn binomial_mean_wiggle_saved_geometry(
+    geometry: &gam_solve::model_types::FitGeometry,
+    saved_frame: &gam_problem::Gauge,
+) -> Result<gam_solve::model_types::FitGeometry, String> {
+    let mut saved_geometry = geometry.clone();
+    saved_geometry.coefficient_gauge = geometry
+        .coefficient_gauge
+        .left_compose(saved_frame)
+        .map_err(|reason| {
+            format!(
+                "binomial mean-wiggle active geometry cannot compose with its exact saved-result gauge: {reason}"
+            )
+        })?;
+    Ok(saved_geometry)
+}
+
+fn binomial_mean_wiggle_saved_covariance(
+    covariance: &Array2<f64>,
+    saved_frame: &gam_problem::Gauge,
+    label: &str,
+) -> Result<Array2<f64>, String> {
+    let expected = saved_frame.reduced_total();
+    if covariance.dim() != (expected, expected) {
+        return Err(format!(
+            "binomial mean-wiggle {label} is {}x{}; exact saved-result gauge requires {expected}x{expected} solver-frame coordinates",
+            covariance.nrows(),
+            covariance.ncols(),
+        ));
+    }
+    if let Some(((row, column), value)) = covariance
+        .indexed_iter()
+        .find(|(_, value)| !value.is_finite())
+    {
+        return Err(format!(
+            "binomial mean-wiggle {label} is non-finite at ({row}, {column}): {value}"
+        ));
+    }
+    let saved = saved_frame.lift_covariance(covariance);
+    if let Some(((row, column), value)) = saved.indexed_iter().find(|(_, value)| !value.is_finite())
+    {
+        return Err(format!(
+            "binomial mean-wiggle saved-frame {label} is non-finite at ({row}, {column}): {value}"
+        ));
+    }
+    Ok(saved)
+}
+
+/// Atomically move a converged frozen-basis mean-wiggle fit from the solver's
+/// residualized-design coordinates into the saved prediction coordinates.
+///
+/// The penalized Hessian remains in its exact active solver coordinates;
+/// composing its coefficient gauge records how raw saved rows pull back into
+/// that frame. Covariances, in contrast, push forward through the saved-frame
+/// map. No dimension mismatch is ignorable: returning a partially transformed
+/// fit would make point estimates and uncertainty describe different models.
+fn finalize_binomial_mean_wiggle_saved_frame(
+    fit: &mut UnifiedFitResult,
+    alias: &Array2<f64>,
+    mean_design: &Array2<f64>,
+    mean_offset: &Array1<f64>,
+) -> Result<(), String> {
+    use gam_problem::BlockRole;
+
+    if fit.blocks.len() != 2
+        || fit.blocks[0].role != BlockRole::Mean
+        || fit.blocks[1].role != BlockRole::LinkWiggle
+    {
+        return Err(format!(
+            "binomial mean-wiggle saved-frame finalization requires fitted blocks [Mean, LinkWiggle], got {:?}",
+            fit.blocks
+                .iter()
+                .map(|block| block.role)
+                .collect::<Vec<_>>()
+        ));
+    }
+    if fit.block_states.len() != 2 {
+        return Err(format!(
+            "binomial mean-wiggle saved-frame finalization requires two fitted block states, got {}",
+            fit.block_states.len(),
+        ));
+    }
+    if mean_offset.len() != mean_design.nrows() {
+        return Err(format!(
+            "binomial mean-wiggle mean offset has {} rows, expected {}",
+            mean_offset.len(),
+            mean_design.nrows(),
+        ));
+    }
+
+    let mean_width = fit.blocks[0].beta.len();
+    let wiggle_width = fit.blocks[1].beta.len();
+    if mean_design.ncols() != mean_width {
+        return Err(format!(
+            "binomial mean-wiggle saved mean design has {} columns, expected fitted width {mean_width}",
+            mean_design.ncols(),
+        ));
+    }
+    for block_index in 0..2 {
+        if fit.block_states[block_index].beta != fit.blocks[block_index].beta {
+            return Err(format!(
+                "binomial mean-wiggle fitted block {block_index} and block-state coefficients disagree before saved-frame finalization"
+            ));
+        }
+    }
+    let total_width = mean_width
+        .checked_add(wiggle_width)
+        .ok_or_else(|| "binomial mean-wiggle coefficient dimension overflows usize".to_string())?;
+    if fit.beta.len() != total_width {
+        return Err(format!(
+            "binomial mean-wiggle flat coefficient vector has width {}, expected {total_width}",
+            fit.beta.len(),
+        ));
+    }
+    if fit.beta.slice(s![0..mean_width]) != fit.blocks[0].beta
+        || fit.beta.slice(s![mean_width..total_width]) != fit.blocks[1].beta
+    {
+        return Err(
+            "binomial mean-wiggle flat and block coefficient vectors disagree before saved-frame finalization"
+                .to_string(),
+        );
+    }
+
+    let saved_frame = binomial_mean_wiggle_saved_frame_gauge(alias, mean_width, wiggle_width)?;
+    let saved_blocks =
+        saved_frame.lift_block_betas(&[fit.blocks[0].beta.clone(), fit.blocks[1].beta.clone()]);
+    let saved_mean_eta = mean_design.dot(&saved_blocks[0]) + mean_offset;
+    let mut saved_beta = Array1::<f64>::zeros(total_width);
+    saved_beta
+        .slice_mut(s![0..mean_width])
+        .assign(&saved_blocks[0]);
+    saved_beta
+        .slice_mut(s![mean_width..total_width])
+        .assign(&saved_blocks[1]);
+
+    let saved_conditional = fit
+        .covariance_conditional
+        .as_ref()
+        .map(|covariance| {
+            binomial_mean_wiggle_saved_covariance(
+                covariance,
+                &saved_frame,
+                "conditional covariance",
+            )
+        })
+        .transpose()?;
+    let saved_corrected = fit
+        .covariance_corrected
+        .as_ref()
+        .map(|covariance| {
+            binomial_mean_wiggle_saved_covariance(covariance, &saved_frame, "corrected covariance")
+        })
+        .transpose()?;
+    let saved_geometry = binomial_mean_wiggle_saved_geometry(
+        fit.geometry.as_ref().ok_or_else(|| {
+            "binomial mean-wiggle fit is missing its exact active geometry".to_string()
+        })?,
+        &saved_frame,
+    )?;
+
+    let mut saved_inference = fit.inference.clone();
+    if let Some(inference) = saved_inference.as_mut() {
+        if inference.beta_covariance.is_none() && inference.beta_standard_errors.is_some() {
+            return Err(
+                "binomial mean-wiggle inference has conditional standard errors without their covariance"
+                    .to_string(),
+            );
+        }
+        if inference.beta_covariance_corrected.is_none()
+            && inference.beta_standard_errors_corrected.is_some()
+        {
+            return Err(
+                "binomial mean-wiggle inference has corrected standard errors without their covariance"
+                    .to_string(),
+            );
+        }
+        if let Some(covariance) = inference.beta_covariance.take() {
+            let covariance = binomial_mean_wiggle_saved_covariance(
+                covariance.as_array(),
+                &saved_frame,
+                "inference conditional covariance",
+            )?;
+            if inference.beta_standard_errors.is_some() {
+                inference.beta_standard_errors = Some(
+                    gam_problem::se_from_covariance(&covariance).map_err(|reason| {
+                        format!(
+                            "binomial mean-wiggle saved conditional standard errors are invalid: {reason}"
+                        )
+                    })?,
+                );
+            }
+            inference.beta_covariance = Some(covariance.into());
+        }
+        if let Some(covariance) = inference.beta_covariance_corrected.take() {
+            let covariance = binomial_mean_wiggle_saved_covariance(
+                &covariance,
+                &saved_frame,
+                "inference corrected covariance",
+            )?;
+            if inference.beta_standard_errors_corrected.is_some() {
+                inference.beta_standard_errors_corrected = Some(
+                    gam_problem::se_from_covariance(&covariance).map_err(|reason| {
+                        format!(
+                            "binomial mean-wiggle saved corrected standard errors are invalid: {reason}"
+                        )
+                    })?,
+                );
+            }
+            inference.beta_covariance_corrected = Some(covariance);
+        }
+        if let Some(covariance) = inference.beta_covariance_frequentist.take() {
+            inference.beta_covariance_frequentist = Some(binomial_mean_wiggle_saved_covariance(
+                &covariance,
+                &saved_frame,
+                "frequentist covariance",
+            )?);
+        }
+        if let Some(correction) = inference.smoothing_correction.take() {
+            inference.smoothing_correction = Some(binomial_mean_wiggle_saved_covariance(
+                &correction,
+                &saved_frame,
+                "smoothing covariance correction",
+            )?);
+        }
+    }
+
+    fit.blocks[0].beta = saved_blocks[0].clone();
+    fit.blocks[1].beta = saved_blocks[1].clone();
+    fit.block_states[0].beta = saved_blocks[0].clone();
+    fit.block_states[0].eta = saved_mean_eta;
+    fit.block_states[1].beta = saved_blocks[1].clone();
+    fit.beta = saved_beta;
+    fit.covariance_conditional = saved_conditional;
+    fit.covariance_corrected = saved_corrected;
+    fit.geometry = Some(saved_geometry);
+    fit.inference = saved_inference;
+    Ok(())
+}
+
+#[cfg(test)]
+mod binomial_mean_wiggle_saved_frame_tests {
+    use super::*;
+    use ndarray::array;
+
+    #[test]
+    fn cross_block_dealias_composes_non_square_geometry_and_pushes_covariance() {
+        let alias = array![[2.0], [-0.5]];
+        let saved_frame = binomial_mean_wiggle_saved_frame_gauge(&alias, 2, 1)
+            .expect("valid cross-block de-alias map");
+
+        // The canonical solver retained one of two Mean directions plus the
+        // LinkWiggle direction: active(2) -> solver raw(3) is rectangular.
+        let active_to_solver = gam_problem::Gauge::from_t(
+            array![[1.0, 0.0], [0.0, 0.0], [0.0, 1.0]],
+            &[2, 1],
+            &[1, 1],
+        );
+        let active_hessian = array![[7.0, 1.5], [1.5, 4.0]];
+        let geometry = gam_solve::model_types::FitGeometry {
+            coefficient_gauge: active_to_solver,
+            penalized_hessian: active_hessian.clone().into(),
+            working: None,
+        };
+        let saved_geometry = binomial_mean_wiggle_saved_geometry(&geometry, &saved_frame)
+            .expect("non-square active geometry composes through saved frame");
+
+        assert_eq!(
+            saved_geometry.coefficient_gauge.t_full,
+            array![[1.0, -2.0], [0.0, 0.5], [0.0, 1.0]],
+        );
+        assert_eq!(
+            saved_geometry.penalized_hessian.as_array(),
+            &active_hessian,
+            "precision stays in the canonical active frame",
+        );
+
+        let solver_covariance = Array2::<f64>::eye(3);
+        let saved_covariance = binomial_mean_wiggle_saved_covariance(
+            &solver_covariance,
+            &saved_frame,
+            "test covariance",
+        )
+        .expect("covariance pushes into saved frame");
+        assert_eq!(
+            saved_covariance,
+            array![[5.0, -1.0, -2.0], [-1.0, 1.25, 0.5], [-2.0, 0.5, 1.0]],
+            "the -A cross block must alter both Mean variance and Mean/Wiggle covariance",
+        );
+    }
+}
+
 /// Fit the binomial mean link-wiggle model. The observation-space de-aliasing
 /// preserves the standard I-spline coefficient coordinate, which is returned
 /// for the saved-model predict runtime.
@@ -1420,7 +1767,6 @@ pub(crate) fn fit_binomial_mean_wiggle(
     // *different* link than the fit used. We persist the shift
     // `s = β_frozen_source − β_saved` (a mean-coordinate vector) so predict can form the
     // frozen index `X·(β_saved + s) = η̂` and reproduce the fitted `q` exactly.
-    let frozen_source_beta = Some(frozen_source_beta);
     // The solver coefficient is already the standard I-spline coefficient:
     // observation-space residualization changed the design, not its coefficient
     // chart. The family imposes β_w ≥ 0 during the continuously optimized
@@ -1430,51 +1776,40 @@ pub(crate) fn fit_binomial_mean_wiggle(
     let saved_warp_beta = fit
         .block_states
         .get(BinomialMeanWiggleFamily::BLOCK_WIGGLE)
-        .map(|state| state.beta.to_vec());
-    if let Some(beta_w) = saved_warp_beta.as_ref() {
-        validate_monotone_wiggle_beta_nonnegative(beta_w, "fit_binomial_mean_wiggle saved warp")?;
-    }
-    if let Some(beta_w) = saved_warp_beta.as_ref() {
-        let alias = &last_alias;
-        let beta_w = Array1::from_vec(beta_w.clone());
-        if alias.ncols() == beta_w.len() && alias.nrows() == eta_block_input.design.ncols() {
-            let shift = alias.dot(&beta_w);
-            if let Some(block) = fit.blocks.get_mut(BinomialMeanWiggleFamily::BLOCK_ETA) {
-                if block.beta.len() == shift.len() {
-                    block.beta -= &shift;
-                }
-            }
-            if let Some(state) = fit
-                .block_states
-                .get_mut(BinomialMeanWiggleFamily::BLOCK_ETA)
-            {
-                if state.beta.len() == shift.len() {
-                    state.beta -= &shift;
-                    state.eta = x_dense.dot(&state.beta) + &eta_block_input.offset;
-                }
-            }
-            if fit.beta.len() >= shift.len() {
-                for i in 0..shift.len() {
-                    fit.beta[i] -= shift[i];
-                }
-            }
-        }
-    }
+        .map(|state| state.beta.to_vec())
+        .ok_or_else(|| {
+            "fit_binomial_mean_wiggle: converged fit is missing its LinkWiggle block state"
+                .to_string()
+        })?;
+    validate_monotone_wiggle_beta_nonnegative(
+        &saved_warp_beta,
+        "fit_binomial_mean_wiggle saved warp",
+    )?;
+    finalize_binomial_mean_wiggle_saved_frame(
+        &mut fit,
+        &last_alias,
+        &x_dense,
+        &eta_block_input.offset,
+    )?;
     // The frozen-index shift `s = β_frozen_source − β_saved` for the predict
     // runtime (#2141). `β_saved` is the just-de-aliased mean block; adding
     // `X·s` to the predict base predictor recovers the frozen warp index `η̂`.
     // Only meaningful when a warp actually engaged (`saved_warp_beta` present).
-    let saved_index_shift: Option<Vec<f64>> = match (
-        saved_warp_beta.as_ref(),
-        frozen_source_beta.as_ref(),
-        fit.block_states.get(BinomialMeanWiggleFamily::BLOCK_ETA),
-    ) {
-        (Some(_), Some(source), Some(state)) if source.len() == state.beta.len() => {
-            Some((source - &state.beta).to_vec())
-        }
-        _ => None,
-    };
-    Ok((fit, saved_warp_beta, saved_index_shift))
+    let saved_mean_state = fit
+        .block_states
+        .get(BinomialMeanWiggleFamily::BLOCK_ETA)
+        .ok_or_else(|| {
+            "fit_binomial_mean_wiggle: finalized fit is missing its Mean block state".to_string()
+        })?;
+    if frozen_source_beta.len() != saved_mean_state.beta.len() {
+        return Err(format!(
+            "fit_binomial_mean_wiggle: frozen-index source has {} coefficients, but saved Mean block has {}",
+            frozen_source_beta.len(),
+            saved_mean_state.beta.len(),
+        ));
+    }
+    let saved_index_shift = Some((&frozen_source_beta - &saved_mean_state.beta).to_vec());
+    Ok((fit, Some(saved_warp_beta), saved_index_shift))
 }
 
 /// Densify a wiggle-block penalty spec to its full `p×p` matrix for the
@@ -1659,7 +1994,8 @@ pub(crate) fn fit_location_scale_terms<B: LocationScaleFamilyBuilder>(
                 extra_rho0.as_slice().unwrap_or(&[]),
                 None,
                 kappa_options,
-            );
+            )
+            .map_err(|error| error.to_string())?;
             let mean_terms = spatial_length_scale_term_indices(builder.meanspec());
             let noise_terms = spatial_length_scale_term_indices(builder.noisespec());
             let mean_beta_hint_cell = std::cell::RefCell::new(mean_beta_hint.clone());
@@ -1760,7 +2096,10 @@ pub(crate) fn fit_location_scale_terms<B: LocationScaleFamilyBuilder>(
                 gamlss_disable_fixed_point,
                 None,
                 outer_policy,
-                |theta, specs: &[TermCollectionSpec], designs: &[TermCollectionDesign]| {
+                |theta,
+                 specs: &[TermCollectionSpec],
+                 designs: &[TermCollectionDesign],
+                 provenance| {
                     assert_eq!(
                         specs.len(),
                         2,
@@ -1816,15 +2155,27 @@ pub(crate) fn fit_location_scale_terms<B: LocationScaleFamilyBuilder>(
                         //   intended behaviour when `length_scale=…` is
                         //   set on every spatial term.
                         if joint_setup.log_kappa_dim() > 0 && kappa_options.enabled {
-                            let warm_start = hyper_warm_start_cell.borrow().clone();
-                            fit_custom_family_fixed_log_lambdas(
+                            let (certified_outer, mode) = match provenance {
+                                SpatialFitProvenance::Certified { outer, mode } => (outer, mode),
+                                SpatialFitProvenance::NoOuterOptimization => {
+                                    return Err(
+                                        "active GAMLSS spatial optimization returned no certified outer provenance"
+                                            .to_string(),
+                                    );
+                                }
+                            };
+                            let exact_options =
+                                crate::outer_subsample::exact_outer_options_for_row_set(
+                                    options,
+                                    &crate::row_kernel::RowSet::All,
+                                );
+                            fit_custom_family_fixed_log_lambdas_from_owned_mode(
                                 &family,
                                 &blocks,
-                                options,
-                                warm_start.as_ref(),
-                                0,
-                                None,
-                                true,
+                                &exact_options,
+                                mode,
+                                theta,
+                                certified_outer,
                             )?
                         } else {
                             fit_custom_family(&family, &blocks, options)?
@@ -1868,27 +2219,18 @@ pub(crate) fn fit_location_scale_terms<B: LocationScaleFamilyBuilder>(
                         *noise_beta_hint_cell.borrow_mut() = Some(beta);
                     }
                     let family = builder.build_family(&designs[0], &designs[1]);
-                    let psiderivative_blocks = if matches!(eval_mode, EvalMode::ValueOnly) {
-                        // Cost-only line-search probes need only the profiled
-                        // likelihood at the already-realized θ. The ψ
-                        // derivative payloads are O(n) to assemble and are
-                        // consumed solely by the IFT gradient/Hessian path;
-                        // building them for every backtracking probe made the
-                        // Gaussian location-scale path scale with sample size
-                        // even when the optimizer discarded the derivative
-                        // pieces. Pass empty blocks so the shared evaluator
-                        // performs the same fixed-design inner REML solve
-                        // without derivative-only setup work.
-                        (0..specs.len()).map(|_| Vec::new()).collect()
-                    } else {
-                        builder.build_psiderivative_blocks(
-                            data,
-                            &specs[0],
-                            &specs[1],
-                            &designs[0],
-                            &designs[1],
-                        )?
-                    };
+                    let psiderivative_blocks = builder.build_psiderivative_blocks(
+                        data,
+                        &specs[0],
+                        &specs[1],
+                        &designs[0],
+                        &designs[1],
+                    )?;
+                    let hyper_layout = crate::custom_family::CustomFamilyHyperLayout::new(
+                        psiderivative_blocks,
+                        Vec::new(),
+                        theta.slice(s![joint_setup.rho_dim()..]).to_owned(),
+                    )?;
                     let warm_start = hyper_warm_start_cell.borrow().clone();
                     // Forward the κ-staging row set to the family by installing it
                     // on the canonical `outer_score_subsample` option. Inner-PIRLS
@@ -1896,52 +2238,42 @@ pub(crate) fn fit_location_scale_terms<B: LocationScaleFamilyBuilder>(
                     // weight is consulted only by outer-only paths inside the
                     // family). When the staging schedule is full-data the option
                     // stays `None` and the call is equivalent to the prior path.
-                    let eval_options = match row_set {
-                        crate::row_kernel::RowSet::All => {
-                            std::borrow::Cow::Borrowed(options)
-                        }
-                        crate::row_kernel::RowSet::Subsample {
-                            rows,
-                            n_full,
-                        } => {
-                            let subsample = crate::outer_subsample::
-                                OuterScoreSubsample::from_weighted_rows(
-                                    (**rows).clone(),
-                                    *n_full,
-                                    *n_full as u64,
-                                );
-                            let mut cloned = options.clone();
-                            cloned.outer_score_subsample =
-                                Some(std::sync::Arc::new(subsample));
-                            std::borrow::Cow::Owned(cloned)
-                        }
-                    };
-                    let eval = evaluate_custom_family_joint_hyper(
+                    let eval_options =
+                        crate::outer_subsample::exact_outer_options_for_row_set(options, row_set);
+                    let owned = evaluate_custom_family_joint_hyper_owned(
                         &family,
                         &blocks,
-                        eval_options.as_ref(),
+                        &eval_options,
                         &rho,
-                        &psiderivative_blocks,
+                        &hyper_layout,
                         warm_start.as_ref(),
                         eval_mode,
                     )?;
-                    *hyper_warm_start_cell.borrow_mut() = Some(eval.warm_start.clone());
-                    if !eval.inner_converged {
+                    *hyper_warm_start_cell.borrow_mut() = Some(owned.result.warm_start.clone());
+                    if !owned.result.inner_converged {
                         return Err(
                             "exact two-block spatial inner solve did not converge".to_string(),
                         );
                     }
                     if matches!(eval_mode, EvalMode::ValueGradientHessian)
-                        && !eval.outer_hessian.is_analytic()
+                        && !owned.result.outer_hessian.is_analytic()
                     {
                         return Err(
                             "exact two-block spatial objective requires a full joint [rho, psi] hessian"
-                                .to_string(),
+                            .to_string(),
                         );
                     }
-                    Ok((eval.objective, eval.gradient, eval.outer_hessian))
+                    Ok(ExactJointEvaluation {
+                        objective: owned.result.objective,
+                        gradient: owned.result.gradient,
+                        hessian: owned.result.outer_hessian,
+                        mode: owned.mode,
+                    })
                 },
-                |theta, specs: &[TermCollectionSpec], designs: &[TermCollectionDesign]| {
+                |theta,
+                 specs: &[TermCollectionSpec],
+                 designs: &[TermCollectionDesign],
+                 row_set: &crate::row_kernel::RowSet| {
                     if !analytic_joint_derivatives_available {
                         return Err(
                             "analytic spatial psi derivatives are unavailable for this exact two-block path"
@@ -1974,22 +2306,32 @@ pub(crate) fn fit_location_scale_terms<B: LocationScaleFamilyBuilder>(
                         &designs[0],
                         &designs[1],
                     )?;
+                    let hyper_layout = crate::custom_family::CustomFamilyHyperLayout::new(
+                        psiderivative_blocks,
+                        Vec::new(),
+                        theta.slice(s![joint_setup.rho_dim()..]).to_owned(),
+                    )?;
                     let warm_start = hyper_warm_start_cell.borrow().clone();
-                    let eval = evaluate_custom_family_joint_hyper_efs(
+                    let eval_options =
+                        crate::outer_subsample::exact_outer_options_for_row_set(options, row_set);
+                    let owned = evaluate_custom_family_joint_hyper_efs_owned(
                         &family,
                         &blocks,
-                        options,
+                        &eval_options,
                         &rho,
-                        &psiderivative_blocks,
+                        &hyper_layout,
                         warm_start.as_ref(),
                     )?;
-                    *hyper_warm_start_cell.borrow_mut() = Some(eval.warm_start.clone());
-                    if !eval.inner_converged {
+                    *hyper_warm_start_cell.borrow_mut() = Some(owned.result.warm_start.clone());
+                    if !owned.result.inner_converged {
                         return Err(
                             "exact two-block spatial EFS inner solve did not converge".to_string(),
                         );
                     }
-                    Ok(eval.efs_eval)
+                    Ok(ExactJointEfsEvaluation {
+                        evaluation: owned.result.efs_eval,
+                        mode: owned.mode,
+                    })
                 },
                 |_beta: &Array1<f64>| Ok(gam_solve::rho_optimizer::SeedOutcome::NoSlot),
             )
@@ -2785,7 +3127,9 @@ pub(crate) fn select_binomial_mean_link_wiggle_basis_from_pilot(
     wiggle_cfg: &WiggleBlockConfig,
     wiggle_penalty_orders: &[usize],
 ) -> Result<SelectedWiggleBasis, String> {
-    let q_seed = pilot_design.design.dot(&pilot_fit.beta);
+    let q_seed = pilot_design
+        .apply(pilot_fit.beta.view())
+        .map_err(|error| error.to_string())?;
     select_wiggle_basis_from_seed(q_seed.view(), wiggle_cfg, wiggle_penalty_orders)
 }
 
@@ -2834,7 +3178,7 @@ pub(crate) fn fit_binomial_mean_wiggle_terms_with_selected_basis(
                 wiggle_degree,
                 eta_block: ParameterBlockInput {
                     design: pilot_design.design.clone(),
-                    offset: Array1::zeros(y.len()),
+                    offset: pilot_design.affine_offset.clone(),
                     penalties: pilot_design
                         .penalties
                         .iter()
@@ -2865,21 +3209,24 @@ pub(crate) fn fit_binomial_mean_wiggle_terms_with_selected_basis(
     let dims_per_term = spatial_dims_per_term(pilot_spec, &spatial_terms);
     let log_kappa0 =
         SpatialLogKappaCoords::from_length_scales_aniso(pilot_spec, &spatial_terms, kappa_options)
-            .reseed_from_data(data, pilot_spec, &spatial_terms, kappa_options);
+            .reseed_from_data(data, pilot_spec, &spatial_terms, kappa_options)
+            .map_err(|error| error.to_string())?;
     let log_kappa_lower = SpatialLogKappaCoords::lower_bounds_aniso_from_data(
         data,
         pilot_spec,
         &spatial_terms,
         &dims_per_term,
         kappa_options,
-    );
+    )
+    .map_err(|error| error.to_string())?;
     let log_kappa_upper = SpatialLogKappaCoords::upper_bounds_aniso_from_data(
         data,
         pilot_spec,
         &spatial_terms,
         &dims_per_term,
         kappa_options,
-    );
+    )
+    .map_err(|error| error.to_string())?;
     // Project seed onto bounds; spec.length_scale is a hint, not a constraint.
     let log_kappa0 = log_kappa0.clamp_to_bounds(&log_kappa_lower, &log_kappa_upper);
 
@@ -2900,7 +3247,7 @@ pub(crate) fn fit_binomial_mean_wiggle_terms_with_selected_basis(
             wiggle_degree,
             eta_block: ParameterBlockInput {
                 design: baseline_design.design.clone(),
-                offset: Array1::zeros(y.len()),
+                offset: baseline_design.affine_offset.clone(),
                 penalties: baseline_design
                     .penalties
                     .iter()
@@ -3022,7 +3369,7 @@ pub(crate) fn fit_binomial_mean_wiggle_terms_with_selected_basis(
             ParameterBlockSpec {
                 name: "eta".to_string(),
                 design: design.design.clone(),
-                offset: Array1::zeros(y_cloned.len()),
+                offset: design.affine_offset.clone(),
                 penalties: design.penalties_as_penalty_matrix(),
                 nullspace_dims: vec![],
                 initial_log_lambdas: theta.slice(s![0..eta_penalty_count]).to_owned(),
@@ -3082,12 +3429,17 @@ pub(crate) fn fit_binomial_mean_wiggle_terms_with_selected_basis(
         String,
     > {
         let (resolvedspec, design, blocks, eta_derivs) = build_realized_blocks(theta)?;
+        let hyper_layout = crate::custom_family::CustomFamilyHyperLayout::new(
+            vec![eta_derivs, Vec::new()],
+            Vec::new(),
+            theta.slice(s![rho_dim..]).to_owned(),
+        )?;
         let eval = evaluate_custom_family_joint_hyper(
             &outer_family,
             &blocks,
             &outer_options,
             &theta.slice(s![0..rho_dim]).to_owned(),
-            &[eta_derivs, Vec::new()],
+            &hyper_layout,
             warm_cache,
             if need_hessian {
                 gam_problem::EvalMode::ValueGradientHessian
@@ -3102,12 +3454,17 @@ pub(crate) fn fit_binomial_mean_wiggle_terms_with_selected_basis(
                      warm_cache: Option<&crate::custom_family::CustomFamilyWarmStart>|
      -> Result<crate::custom_family::CustomFamilyJointHyperEfsResult, String> {
         let (_, _, blocks, eta_derivs) = build_realized_blocks(theta)?;
+        let hyper_layout = crate::custom_family::CustomFamilyHyperLayout::new(
+            vec![eta_derivs, Vec::new()],
+            Vec::new(),
+            theta.slice(s![rho_dim..]).to_owned(),
+        )?;
         evaluate_custom_family_joint_hyper_efs(
             &outer_family,
             &blocks,
             &outer_options,
             &theta.slice(s![0..rho_dim]).to_owned(),
-            &[eta_derivs, Vec::new()],
+            &hyper_layout,
             warm_cache,
         )
         .map_err(|e| e.to_string())
@@ -3311,7 +3668,7 @@ pub(crate) fn fit_binomial_mean_wiggle_terms_with_selected_basis(
             wiggle_degree,
             eta_block: ParameterBlockInput {
                 design: design.design.clone(),
-                offset: Array1::zeros(y.len()),
+                offset: design.affine_offset.clone(),
                 penalties: design
                     .penalties
                     .iter()

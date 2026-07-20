@@ -14,6 +14,7 @@ use std::sync::{Arc, RwLock};
 
 pub mod assembly;
 pub mod atoms;
+pub mod boundary_laml;
 pub(crate) mod continuation;
 pub(crate) mod eval;
 mod firth;
@@ -24,6 +25,7 @@ mod inner_strategy;
 pub mod jeffreys_subspace;
 pub mod outer_eval;
 pub mod penalty_logdet;
+pub mod reparameterized_inner;
 pub mod per_atom_efs;
 pub mod reml_outer_engine;
 mod rho_key;
@@ -622,6 +624,134 @@ mod tests {
         .expect("state")
     }
 
+    fn bundle_with_inner_kkt_residual(bundle: &EvalShared, residual: Array1<f64>) -> EvalShared {
+        let mut pirls_result = bundle.pirls_result.as_ref().clone();
+        pirls_result.lastgradient_norm = residual.dot(&residual).sqrt();
+        pirls_result.penalized_gradient_transformed = residual;
+        let mut cloned = bundle.clone();
+        cloned.pirls_result = Arc::new(pirls_result);
+        cloned
+    }
+
+    fn evaluate_synthetic_psi_value_without_inner_kkt(
+        state: &RemlState<'_>,
+        rho: &Array1<f64>,
+        bundle: &EvalShared,
+    ) -> f64 {
+        let mode = super::reml_outer_engine::EvalMode::ValueOnly;
+        let mut assembly = state
+            .build_auto_assembly(rho, bundle, mode, true, false)
+            .expect("uncorrected synthetic-psi assembly");
+        assert!(
+            matches!(
+                &assembly.dispersion,
+                super::reml_outer_engine::DispersionHandling::Fixed { .. }
+            ),
+            "the #2305 bridge fixture must exercise the fixed-dispersion LAML identity"
+        );
+        let p_dim = assembly.beta.len();
+        assembly.ext_coords = vec![super::reml_outer_engine::HyperCoord {
+            a: 0.0,
+            g: Array1::zeros(p_dim),
+            drift: super::reml_outer_engine::HyperCoordDrift::none(),
+            ld_s: 0.0,
+            b_depends_on_beta: false,
+            is_penalty_like: false,
+            firth_g: None,
+            tk_eta_fixed: None,
+            tk_x_fixed: None,
+        }];
+        state
+            .assemble_and_evaluate(rho, bundle, mode, assembly)
+            .expect("uncorrected synthetic-psi value")
+            .cost
+    }
+
+    #[test]
+    fn psi_value_bridge_corrects_nonstationary_inner_mode_2305() {
+        // The residual correction implemented by the unified evaluator is the
+        // fixed-dispersion LAML identity. Gaussian-identity uses profiled-scale
+        // REML and deliberately does not enter that gate, so use a genuine
+        // fixed-dispersion design-moving model here.
+        let y = array![0.0, 1.0, 0.0, 1.0, 0.0, 1.0];
+        let w = Array1::<f64>::ones(y.len());
+        let x = array![
+            [1.0, -1.0, 0.2],
+            [1.0, -0.6, -0.4],
+            [1.0, -0.2, 0.7],
+            [1.0, 0.3, -0.5],
+            [1.0, 0.8, 0.1],
+            [1.0, 1.2, 0.6],
+        ];
+        let s = array![[0.0, 0.0, 0.0], [0.0, 1.0, 0.15], [0.0, 0.15, 0.8]];
+        let cfg = RemlConfig::external(binomial_logit_glm_spec(), 1e-12, false);
+        let state = build_logit_state(&y, &w, &x, &s, &cfg);
+        let rho = array![0.2];
+        let base = state.obtain_eval_bundle(&rho).expect("base inner mode");
+        let residual = array![0.18, -0.11, 0.07];
+        let capped = bundle_with_inner_kkt_residual(&base, residual);
+
+        let corrected = state
+            .evaluate_unified_value_only_with_synthetic_ext_count(&rho, &capped, 1, false)
+            .expect("psi value with inner-KKT correction");
+        let exact_kkt_assumption =
+            evaluate_synthetic_psi_value_without_inner_kkt(&state, &rho, &capped);
+        let residual_energy = corrected
+            .ift_residual_energy
+            .expect("design-moving bridge must attach the nonstationary KKT residual");
+
+        assert!(
+            residual_energy.abs() > 1e-10,
+            "the synthetic nonstationary residual must produce a material fixed-dispersion \
+             IFT correction, got residual_energy={residual_energy:.12e}"
+        );
+        assert_eq!(
+            corrected.cost,
+            exact_kkt_assumption - residual_energy,
+            "the psi value bridge must apply exactly the correction reported by the unified \
+             evaluator: corrected={:.12e}, exact-kkt={exact_kkt_assumption:.12e}, \
+             residual-energy={residual_energy:.12e}",
+            corrected.cost,
+        );
+    }
+
+    #[test]
+    fn psi_value_bridge_correction_vanishes_at_stationarity_2305() {
+        let y = array![0.0, 1.0, 0.0, 1.0, 0.0, 1.0];
+        let w = Array1::<f64>::ones(y.len());
+        let x = array![
+            [1.0, -1.0, 0.2],
+            [1.0, -0.6, -0.4],
+            [1.0, -0.2, 0.7],
+            [1.0, 0.3, -0.5],
+            [1.0, 0.8, 0.1],
+            [1.0, 1.2, 0.6],
+        ];
+        let s = array![[0.0, 0.0, 0.0], [0.0, 1.0, 0.15], [0.0, 0.15, 0.8]];
+        let cfg = RemlConfig::external(binomial_logit_glm_spec(), 1e-12, false);
+        let state = build_logit_state(&y, &w, &x, &s, &cfg);
+        let rho = array![0.2];
+        let base = state.obtain_eval_bundle(&rho).expect("base inner mode");
+        let stationary = bundle_with_inner_kkt_residual(&base, Array1::zeros(x.ncols()));
+
+        let corrected = state
+            .evaluate_unified_value_only_with_synthetic_ext_count(&rho, &stationary, 1, false)
+            .expect("stationary psi value with correction enabled");
+        let exact_kkt_assumption =
+            evaluate_synthetic_psi_value_without_inner_kkt(&state, &rho, &stationary);
+
+        assert_eq!(
+            corrected.ift_residual_energy,
+            Some(0.0),
+            "the design-moving bridge must attach the residual, whose correction is exactly \
+             zero at stationarity"
+        );
+        assert_eq!(
+            corrected.cost, exact_kkt_assumption,
+            "the generic inner-KKT correction must be exactly zero at a stationary inner mode"
+        );
+    }
+
     #[test]
     fn repeated_penalty_ranges_keep_analytic_outer_hessian() {
         let y = array![0.2, -0.1, 0.3, 0.0];
@@ -651,6 +781,84 @@ mod tests {
         assert!(
             state.analytic_outer_hessian_enabled(),
             "double-penalty-style repeated coefficient ranges must still route to exact Hessian"
+        );
+    }
+
+    /// #2379: the Gaussian profiled-diagonal seed helper honors its (validated)
+    /// ρ-box by CLAMPING into it — never silently swapping or escaping it. The
+    /// helper now takes an `OrderedRhoBounds`, so an inverted box is impossible
+    /// to hand it (refused upstream at construction); this pins that a valid box
+    /// with the upper bound below the natural profiled optimum clamps the emitted
+    /// seed to that upper bound rather than producing an out-of-box value.
+    #[test]
+    fn gaussian_profiled_diagonal_seed_clamps_into_its_validated_box() {
+        // A smooth-ish Gaussian-identity design whose profiled REML optimum for
+        // the summed penalty sits at a moderate, finite ρ.
+        let n = 40usize;
+        let y = Array1::from_iter((0..n).map(|i| {
+            let t = (i as f64 + 0.5) / n as f64;
+            (std::f64::consts::TAU * t).sin() + 0.05 * (i as f64 % 3.0 - 1.0)
+        }));
+        let w = Array1::<f64>::ones(n);
+        let mut x = Array2::<f64>::zeros((n, 3));
+        for i in 0..n {
+            let t = (i as f64 + 0.5) / n as f64;
+            x[[i, 0]] = 1.0;
+            x[[i, 1]] = t;
+            x[[i, 2]] = t * t;
+        }
+        let offset = Array1::<f64>::zeros(n);
+        let cfg = RemlConfig::external(gaussian_identity_glm_spec(), 1e-10, false);
+        let p = x.ncols();
+        let canonical = vec![gam_terms::construction::CanonicalPenalty::from_dense_root(
+            array![[0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+            p,
+        )];
+        let state = RemlState::newwith_offset(
+            y.view(),
+            x,
+            w.view(),
+            offset.view(),
+            canonical,
+            p,
+            &cfg,
+            Some(vec![1]),
+            None,
+            None,
+        )
+        .expect("state");
+
+        // A wide, ordered box: the emitted seed is finite and inside it. Its
+        // value is the natural profiled ρ (nothing binds).
+        let wide = gam_problem::OrderedRhoBounds::new(-12.0, 12.0).unwrap();
+        let seed_wide = state
+            .analytic_gaussian_profiled_diagonal_rho(wide)
+            .expect("no error")
+            .expect("gaussian-identity profiled diagonal returns a seed");
+        let natural = seed_wide[0];
+        for &r in seed_wide.iter() {
+            assert!(r.is_finite(), "seed coordinate is finite");
+            assert!(
+                (-12.0..=12.0).contains(&r),
+                "seed {r} stays inside the wide box"
+            );
+        }
+
+        // A box whose UPPER bound is pinned strictly below the natural optimum:
+        // the profiled ρ must be clamped DOWN to that upper bound, proving the box
+        // is honored (a silent swap would instead have solved a different box).
+        // Derive the cap from the measured optimum so the assertion is robust to
+        // the exact fixture geometry; `cap_lo < cap_hi` and both are finite.
+        let cap_hi = natural - 2.0;
+        let cap_lo = natural - 10.0;
+        let capped = gam_problem::OrderedRhoBounds::new(cap_lo, cap_hi).unwrap();
+        let seed_capped = state
+            .analytic_gaussian_profiled_diagonal_rho(capped)
+            .expect("no error")
+            .expect("seed present");
+        assert!(
+            seed_capped.iter().all(|&r| (r - cap_hi).abs() < 1e-9),
+            "capped seed {seed_capped:?} clamps to the binding upper bound {cap_hi}"
         );
     }
 
@@ -1047,7 +1255,7 @@ mod tests {
     pub(crate) fn eval_cache_manager_stores_first_order_outer_eval() {
         let cache = EvalCacheManager::new();
         let rho = array![0.25, -0.0];
-        let rho_key = EvalCacheManager::sanitized_rhokey(&rho);
+        let rho_key = super::rho_key::sanitized_rhokey(&rho);
         let eval = OuterEval {
             cost: 3.5,
             gradient: array![1.0, -2.0],
@@ -1106,7 +1314,7 @@ mod tests {
         // (1) Round-trip fidelity: store at rho_a, then a forced hit must equal
         // the stored eval bit-for-bit (the "hit == miss" guarantee).
         let rho_a = array![0.25, -1.5];
-        let key_a = EvalCacheManager::sanitized_rhokey(&rho_a);
+        let key_a = super::rho_key::sanitized_rhokey(&rho_a);
         let eval_a = make_eval(0.25);
         cache.store_outer_eval(&key_a, &eval_a);
         let hit_a = cache
@@ -1125,7 +1333,7 @@ mod tests {
         // (2) No aliasing: a second, distinct rho must return its OWN eval, and
         // the first key must still return the first eval untouched.
         let rho_b = array![0.25, -1.4999999999999998];
-        let key_b = EvalCacheManager::sanitized_rhokey(&rho_b);
+        let key_b = super::rho_key::sanitized_rhokey(&rho_b);
         assert_ne!(key_a, key_b, "the two rho-keys must differ");
         let eval_b = make_eval(7.0);
         cache.store_outer_eval(&key_b, &eval_b);
@@ -1154,7 +1362,7 @@ mod tests {
         let mut evals = Vec::new();
         for i in 0..OUTER_EVAL_LRU_CAPACITY {
             let rho = array![i as f64, -(i as f64)];
-            let key = EvalCacheManager::sanitized_rhokey(&rho);
+            let key = super::rho_key::sanitized_rhokey(&rho);
             let eval = make_eval(i as f64 + 0.123);
             cache.store_outer_eval(&key, &eval);
             keys.push(key);
@@ -1167,7 +1375,7 @@ mod tests {
         );
         // One more distinct key evicts the LRU (key[0]).
         let rho_overflow = array![999.0, -999.0];
-        let key_overflow = EvalCacheManager::sanitized_rhokey(&rho_overflow);
+        let key_overflow = super::rho_key::sanitized_rhokey(&rho_overflow);
         let eval_overflow = make_eval(42.0);
         cache.store_outer_eval(&key_overflow, &eval_overflow);
         assert_eq!(
@@ -4564,9 +4772,9 @@ pub struct FirthDenseOperator {
 /// The β-dependent remainder (Fisher weights `w(η)`, reduced Fisher
 /// `I_r = X_rᵀ W X_r`, its inverse `K_r`, the hat diagonal `h`, and the
 /// half-log-determinant) is rebuilt per iteration from this factor via
-/// [`FirthDenseOperator::build_from_design_factor`] (full operator) or
-/// [`FirthDenseOperator::pirls_diagnostics_from_factor`] (the three PIRLS
-/// diagnostics only). Both reproduce the un-hoisted build bit-for-bit.
+/// [`FirthDenseOperator::build_from_design_factor`]. The design-only work stays
+/// hoisted while the full per-state operator supplies both PIRLS diagnostics
+/// and the exact Jeffreys coefficient curvature.
 #[derive(Clone)]
 pub(crate) struct FirthDesignFactor {
     // Raw design and its transpose (the operator stores owned copies).
@@ -5035,18 +5243,17 @@ pub(crate) fn symmetric_matrix_cache_bytes(m: &gam_linalg::matrix::SymmetricMatr
 pub(crate) const OUTER_EVAL_LRU_CAPACITY: usize = 8;
 
 /// Bounded least-recently-used cache of converged outer REML evaluations,
-/// keyed by sanitized rho-bits.
+/// keyed by sanitized rho-bits plus the active inner-solve caps.
 ///
-/// CORRECTNESS: the key (`Vec<u64>` of `f64::to_bits`, with ±0 canonicalized)
-/// is the complete result-determining input for a fixed `RemlState`. Every
+/// CORRECTNESS: the key starts with `Vec<u64>` of `f64::to_bits` (with ±0
+/// canonicalized) and appends the screening and outer P-IRLS caps. Every
 /// other input to `OuterEval` — design matrix, prior weights, offset, penalty
 /// structure, link/SAS/mixture state, Firth/Jeffreys configuration, and the
-/// rho-prior — is immutable for the lifetime of the state that owns the cache,
-/// so the stored cost / gradient / inner-beta hint depend only on rho. A hit
-/// therefore returns exactly the value a recompute at that rho would converge
-/// to (to the solver's own tolerance, identical to the trust the pre-existing
-/// single-slot cache already placed in rho-only keying). Distinct rho-points
-/// never alias: lookups compare the full key vector.
+/// rho-prior — is immutable for the lifetime of the state that owns the cache.
+/// Inner fidelity is not immutable: search-time caps deliberately change it.
+/// Including those caps prevents a full-fidelity terminal request from
+/// replaying a coarse search entry at the same rho. Distinct rho/fidelity
+/// states never alias because lookups compare the full key vector.
 pub(crate) struct OuterEvalLru {
     capacity: usize,
     /// Front = least-recently-used, back = most-recently-used.
@@ -5106,14 +5313,15 @@ pub(crate) struct EvalCacheManager {
     /// distinct eval" semantics, independent of the multi-slot reuse cache.
     pub(crate) current_outer_eval: RwLock<Option<(Vec<u64>, OuterEval)>>,
     /// Bounded multi-slot LRU of converged outer evaluations keyed by the
-    /// sanitized rho-bits (#1575).
+    /// sanitized rho-bits and the active inner-solve caps (#1575/#2309).
     ///
     /// For a frozen `RemlState` (fixed design, prior weights, offset, penalty
     /// structure, link state, Firth/Jeffreys configuration, and rho-prior — all
     /// of which are immutable for the lifetime of the state that owns this
-    /// manager and therefore the lifetime of the cache), the outer objective
-    /// value, its gradient, and the inner-beta hint are deterministic functions
-    /// of rho alone. The sanitized rho-bits are thus the complete result key.
+    /// manager and therefore the lifetime of the cache), the remaining
+    /// result-determining state is `(rho, screening_cap, outer_cap)`. The cap
+    /// suffix is essential because a search-time partial inner mode and the
+    /// terminal uncapped mode can share bit-identical rho.
     /// The binomial REML fit performs ~20-32 seed-grid pre-solves plus
     /// line-search revisits; with only the single `current_outer_eval` slot,
     /// any revisit to an earlier rho re-ran a full n-sized P-IRLS. This LRU
@@ -5132,13 +5340,6 @@ impl EvalCacheManager {
             outer_eval_lru: RwLock::new(OuterEvalLru::new(OUTER_EVAL_LRU_CAPACITY)),
             pirls_cache_enabled: AtomicBool::new(true),
         }
-    }
-
-    /// Creates a sanitized cache key from rho values.
-    /// Returns None if any component is NaN, in which case caching is skipped.
-    /// Maps -0.0 to 0.0 to ensure key stability.
-    pub(crate) fn sanitized_rhokey(rho: &Array1<f64>) -> Option<Vec<u64>> {
-        self::rho_key::sanitized_rhokey(rho)
     }
 
     /// Memoizing wrapper for `PenaltySubspace` construction.
@@ -5391,6 +5592,25 @@ pub(crate) struct RemlState<'a> {
     /// tensor under-recovery). The single final reported fit still ML-refreshes
     /// `k` at the converged η. Reset on `reset_surface`.
     pub(crate) frozen_gamma_shape: Arc<AtomicU64>,
+
+    /// Beta-regression precision `phi` frozen for the smoothing-parameter (λ)
+    /// search (#2369), bit-packed `f64` (`f64::to_bits`). `0` (the default)
+    /// signals "not yet frozen". On the first non-screening λ-search inner solve
+    /// of an estimated-φ Beta fit, the seed's converged-η Pearson `phî` is
+    /// captured once and stored here; every subsequent λ-search evaluation pins
+    /// the inner solve to this value via
+    /// `GlmLikelihoodSpec::with_beta_phi_frozen_for_search`, so the REML
+    /// criterion `F(ρ) = REML(ρ, φ_frozen)` is a stationary function of ρ. With
+    /// `phi` estimated the inner solver re-derives it from each warm-start η, and
+    /// because the Beta precision does not factor out of the digamma mean score
+    /// `∂ℓ/∂β = φ·Σ xᵢ(y*ᵢ − μ*ᵢ)`, a `phi` swinging with η makes both β̂(ρ) and
+    /// the REML data-fit / log-det terms jump with ρ while the analytic outer
+    /// gradient holds `phi` fixed — the projected gradient floors above tolerance
+    /// and the optimizer refuses ("NOT STATIONARY"), the family-unusable #2369
+    /// signature, identical to the sibling Gamma/Tweedie/NB drift. The single
+    /// final reported fit still Pearson-refreshes `phi` at the converged η. Reset
+    /// on `reset_surface`.
+    pub(crate) frozen_beta_phi: Arc<AtomicU64>,
 
     /// Last observed IFT-prediction residual (`‖β_converged − β_predicted‖
     /// / ‖β_converged‖`) from the most recent non-screening solve where

@@ -664,9 +664,9 @@ def _generate_diagnostics_for_stage(df, country, crop, model, dg, dir_outlook,
     stage_safe = friendly.replace(" - ", "-").replace(" ", "_") if friendly else ""
     stage_suffix = f"_{stage_safe}" if stage_safe else ""
 
-    dir_plots = dir_outlook / "plots" / model / country
-    dir_maps = dir_outlook / "maps" / model / country
-    dir_csvs = dir_outlook / "csvs" / model / country
+    dir_plots = dir_outlook / "plots" / model / country / crop
+    dir_maps = dir_outlook / "maps" / model / country / crop
+    dir_csvs = dir_outlook / "csvs" / model / country / crop
     if stage_safe:
         dir_plots = dir_plots / stage_safe
         dir_maps = dir_maps / stage_safe
@@ -1215,8 +1215,8 @@ def _plot_all_progressions(df, country, crop, model, dir_outlook, yield_units="M
     from .viz import diagnostics as diag
     prod_pct = diag.compute_production_pct(df, country)
 
-    dir_progression = dir_outlook / "plots" / model / country / "progression"
-    dir_csvs_prog = dir_outlook / "csvs" / model / country / "progression"
+    dir_progression = dir_outlook / "plots" / model / country / crop / "progression"
+    dir_csvs_prog = dir_outlook / "csvs" / model / country / crop / "progression"
     os.makedirs(dir_csvs_prog, exist_ok=True)
     base_title = f"{country.title().replace('_', ' ')} {crop.title().replace('_', ' ')} ({model})"
 
@@ -1447,8 +1447,8 @@ def _plot_feature_selection_by_stage(df_features, country, crop, model, dir_outl
     # Determine pre-season boundary for vertical line
     n_pre = sum(1 for s in stages_sorted if s.startswith("Pre-Season"))
 
-    dir_plots = dir_outlook / "plots" / model / country / "feature_selection"
-    dir_csvs = dir_outlook / "csvs" / model / country / "feature_selection"
+    dir_plots = dir_outlook / "plots" / model / country / crop / "feature_selection"
+    dir_csvs = dir_outlook / "csvs" / model / country / crop / "feature_selection"
     os.makedirs(dir_plots, exist_ok=True)
     os.makedirs(dir_csvs, exist_ok=True)
 
@@ -1818,8 +1818,8 @@ def _generate_diagnostics(df_pred_store, dg, dir_outlook, current_year=None,
         # projects; on for wolayita and wolayita_dt.
         if make_trigger_plot:
             from .viz import diagnostics as diag
-            dir_plots_tr = dir_outlook / "plots" / model / country
-            dir_csvs_tr = dir_outlook / "csvs" / model / country
+            dir_plots_tr = dir_outlook / "plots" / model / country / crop
+            dir_csvs_tr = dir_outlook / "csvs" / model / country / crop
             os.makedirs(dir_plots_tr, exist_ok=True)
             os.makedirs(dir_csvs_tr, exist_ok=True)
             stem = f"trigger_eval_{country}_{crop}_{model}"
@@ -3237,15 +3237,28 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
     if since_year is None:
         since_year = parser.getint("ML", "outlook_since_year", fallback=2005)
 
-    # [ML] make_maps (default False): master switch for ALL yield-outlook
-    # figure rendering — outlook / obs-anomaly / ensemble / blend choropleths,
-    # per-combo diagnostic plots, and the pre-ML observed-yield plots. When
-    # False the ML fit, the DB, and the outlook CSVs are still written; only
-    # PNGs are skipped, so metric-only reruns are fast. Sets the module-level
-    # _MAKE_MAPS that gates the shared _generate_outlook_map renderer.
+    # [ML] make_maps (default False): gates ONLY the slow per-stage choropleth
+    # maps — outlook / predicted-yield / obs-anomaly / ensemble / blend imagery
+    # rendered via the shared _generate_outlook_map renderer (see _MAKE_MAPS).
+    # Diagnostic PLOTS (forest, yield table, MAPE/RMSE boxes, scatter,
+    # model-comparison, cross-country, breakpoint) and the pre-ML observed-yield
+    # plots ALWAYS render regardless of this flag — they are cheap. When
+    # make_maps is False the ML fit, the DB, and the outlook CSVs are still
+    # written and only the slow choropleths are skipped, so plot-only reruns
+    # (esp. reuse_db) are fast.
     global _MAKE_MAPS
     make_maps = parser.getboolean("ML", "make_maps", fallback=False)
     _MAKE_MAPS = make_maps
+
+    # [ML] outlook_maps_current_year_only (default False): when True, the
+    # headline outlook-index + predicted-yield choropleths are rendered ONLY
+    # for current_year (the live forecast), skipping every per-hindcast-year
+    # map (2005..current_year-1). Obs-anomaly maps are already current-year
+    # only. This turns a full maps pass (every year x combo, ~hours) into a
+    # fast forecast-only pass (~minutes) — ideal for reuse_db map reruns.
+    maps_current_year_only = parser.getboolean(
+        "ML", "outlook_maps_current_year_only", fallback=False
+    )
 
     countries = ast.literal_eval(parser.get("DEFAULT", "countries"))
     experiment_name = parser.get("DEFAULT", "experiment_name", fallback="default")
@@ -3278,11 +3291,11 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
     # Pre-ML observed-yield line plots (one PNG per country/crop, one
     # line per region) so the user can see the training-data ground
     # truth while the long-running ML pipeline starts.
-    if make_maps:
-        try:
-            _plot_observed_yields(parser, dir_outlook)
-        except Exception as e:
-            logger.warning(f"Observed-yields plotting failed (non-fatal): {e}")
+    # Observed-yield line plots ALWAYS render (a plot, not a slow choropleth).
+    try:
+        _plot_observed_yields(parser, dir_outlook)
+    except Exception as e:
+        logger.warning(f"Observed-yields plotting failed (non-fatal): {e}")
 
     if reuse_db is not None:
         # ---- Skip ML, reuse existing DB ----
@@ -3540,6 +3553,13 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                 logger.warning(f"No prediction years in DB for {country} {crop} {model}")
                 continue
 
+            # [ML] outlook_maps_current_year_only: restrict the per-year map
+            # loop to the live forecast year, skipping hindcast-year maps.
+            # Only applied when current_year actually has predictions, so a
+            # hindcast-only combo still renders (rather than producing zero).
+            if maps_current_year_only and current_year in years_with_preds:
+                years_with_preds = [current_year]
+
             map_countries = countries if is_pooled else [country]
 
             # Store raw predictions for diagnostics (once per combo, not per year)
@@ -3618,7 +3638,7 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
 
                     # Generate map — saved in maps/{model}[/{stage}] subfolder
                     stage_safe = friendly_stage_label(stage_name).replace(" - ", "-").replace(" ", "_")
-                    dir_model = dir_outlook / "maps" / model / country
+                    dir_model = dir_outlook / "maps" / model / country / crop
                     if len(available_stages) > 1:
                         dir_model = dir_model / stage_safe
                     os.makedirs(dir_model, exist_ok=True)
@@ -3738,17 +3758,15 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                                         label_extra=season_label,
                                     )
 
-            # [ML] make_maps gate: skip per-combo diagnostic plots (forest,
-            # yield table, MAPE/RMSE boxes, %-area map). df_pred_store was
-            # stored before the year loop, so _generate_diagnostics inputs
-            # are unaffected.
-            if not make_maps:
-                continue
+            # Diagnostic plots (forest, yield table, MAPE/RMSE boxes, scatter,
+            # per-year scatters) ALWAYS run — no longer gated by make_maps.
+            # make_maps now controls ONLY the choropleth maps (rendered above);
+            # plots are cheap, the choropleth maps are the slow part.
 
             # Per-(country, crop, model) diagnostic plots
             from .viz import diagnostics as diag
             country_lower = country.lower().replace(" ", "_")
-            plot_dir = dir_outlook / "plots" / model / country_lower
+            plot_dir = dir_outlook / "plots" / model / country_lower / crop
 
             # Production share (last 5 years) — shared by forest plot and
             # MAPE bar to order regions consistently.
@@ -3949,7 +3967,7 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                     df_area_pct["Country"].str.lower().str.replace("_", " ")
                     + " " + df_area_pct["Region"].str.lower()
                 )
-                area_map_dir = dir_outlook / "maps" / model / country_lower
+                area_map_dir = dir_outlook / "maps" / model / country_lower / crop
                 plot.plot_map(
                     dg,
                     df_area_pct,
@@ -4293,9 +4311,11 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                 f"rrmsep / MAPE / RMSE / scatter / model_comparison plots)"
             )
 
-    # Diagnostic plots: scatter, MAPE bar, progression — gated by [ML]
-    # make_maps so metric-only reruns skip them.
-    if make_maps and df_pred_store:
+    # Diagnostic plots: scatter, MAPE bar, MAPE map, model-comparison,
+    # cross-country, breakpoint — ALWAYS render (not gated by make_maps).
+    # make_maps controls only the slow per-stage choropleth maps; these
+    # diagnostics (incl. their per-combo MAPE map) are cheap by comparison.
+    if df_pred_store:
         _generate_diagnostics(df_pred_store, dg, dir_outlook,
                               current_year=current_year, dict_config=dict_config,
                               db_path=db_path, parser=parser)

@@ -55,6 +55,7 @@ use crate::jet_tower::{
     RowProgram, Tower4, program_fourth_contracted, program_full_tower, program_row_kernel,
     program_third_contracted,
 };
+use crate::nested_dual::JetField;
 
 /// One Poisson-log row fixture: the response `y` (a count, as `f64`) and the
 /// three bilinear-predictor coefficients `(a, b, d)` defining

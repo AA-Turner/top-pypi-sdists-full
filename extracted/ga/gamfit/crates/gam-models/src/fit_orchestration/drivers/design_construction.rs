@@ -70,6 +70,9 @@ pub fn fit_term_collection_with_coefficient_groups(
     let realized = design
         .realize_coefficient_groups(groups, &base_fit_opts.rho_prior)
         .map_err(EstimationError::BasisError)?;
+    let effective_offset = design
+        .compose_offset(offset, "coefficient-group fit")
+        .map_err(EstimationError::BasisError)?;
     let mut grouped_options = base_fit_opts.clone();
     grouped_options.rho_prior = realized.rho_prior;
     let fitted = FittedTermCollection {
@@ -77,7 +80,7 @@ pub fn fit_term_collection_with_coefficient_groups(
             design.design.clone(),
             y,
             weights,
-            offset,
+            effective_offset.view(),
             realized.penalty_specs,
             realized.nullspace_dims,
             family.clone(),
@@ -104,6 +107,9 @@ where
     F: FnMut(&PenaltyBlockGammaPriorMetadata<'_>) -> Option<(f64, f64)>,
 {
     let design = build_term_collection_design_with_policy(data, spec, &options.resource_policy)?;
+    let effective_offset = design
+        .compose_offset(offset, "penalty-prior callback fit")
+        .map_err(EstimationError::BasisError)?;
     let mut fit_opts = adaptive_fit_options_base(options, &design);
     fit_opts.rho_prior = realize_penalty_block_gamma_priors(&design, callback)
         .map_err(EstimationError::BasisError)?;
@@ -112,7 +118,7 @@ where
             design.design.clone(),
             y,
             weights,
-            offset,
+            effective_offset.view(),
             &design.penalties,
             None,
             family.clone(),
@@ -136,6 +142,9 @@ pub fn fit_term_collection_with_penalty_block_gamma_priors(
     options: &FitOptions,
 ) -> Result<FittedTermCollection, EstimationError> {
     let design = build_term_collection_design_with_policy(data, spec, &options.resource_policy)?;
+    let effective_offset = design
+        .compose_offset(offset, "penalty-prior fit")
+        .map_err(EstimationError::BasisError)?;
     let mut fit_opts = adaptive_fit_options_base(options, &design);
     fit_opts.rho_prior = realize_keyed_penalty_block_gamma_priors(&design, priors)
         .map_err(EstimationError::BasisError)?;
@@ -144,7 +153,7 @@ pub fn fit_term_collection_with_penalty_block_gamma_priors(
             design.design.clone(),
             y,
             weights,
-            offset,
+            effective_offset.view(),
             &design.penalties,
             None,
             family.clone(),
@@ -189,6 +198,9 @@ pub fn fit_term_collection_with_coefficient_groups_and_penalty_block_gamma_prior
     let realized = design
         .realize_coefficient_groups(groups, &base_rho_prior)
         .map_err(EstimationError::BasisError)?;
+    let effective_offset = design
+        .compose_offset(offset, "coefficient-group and penalty-prior fit")
+        .map_err(EstimationError::BasisError)?;
     let mut grouped_options = base_fit_opts.clone();
     grouped_options.rho_prior = realized.rho_prior;
     let fitted = FittedTermCollection {
@@ -196,7 +208,7 @@ pub fn fit_term_collection_with_coefficient_groups_and_penalty_block_gamma_prior
             design.design.clone(),
             y,
             weights,
-            offset,
+            effective_offset.view(),
             realized.penalty_specs,
             realized.nullspace_dims,
             family.clone(),
@@ -296,6 +308,10 @@ fn fit_term_collection_on_realized_design(
     family: LikelihoodSpec,
     options: &FitOptions,
 ) -> Result<FittedTermCollection, EstimationError> {
+    let effective_offset = design
+        .compose_offset(offset, "term-collection fit")
+        .map_err(EstimationError::BasisError)?;
+    let offset = effective_offset.view();
     if has_bounded_linear_terms(spec) {
         return fit_bounded_term_collection_with_design(
             y,
@@ -315,7 +331,7 @@ fn fit_term_collection_on_realized_design(
     // term's signal lives in its penalty null space (#1271 single-penalty tp/ps,
     // #1266 double-penalty selection). Length-safe: only fires when the inner ρ
     // aligns 1:1 with the penalty blocks (see `relax_smoothing_rho_prior`).
-    base_fit_opts.rho_prior = relax_smoothing_rho_prior(options, design);
+    base_fit_opts.rho_prior = relax_smoothing_rho_prior(options, design, y, weights);
     let fitted = FittedTermCollection {
         fit: fit_gamwith_heuristic_lambdas(
             design.design.clone(),
@@ -1201,36 +1217,35 @@ fn extract_spatial_operator_runtime_caches(
         .zip(design.smooth.terms.iter())
         .enumerate()
     {
-        let Some(global_base_idx) = smooth_term_penalty_index(spec, design, term_idx) else {
+        let Some(global_range) = design
+            .smooth_term_penalty_range(term_idx)
+            .map_err(EstimationError::InvalidInput)?
+        else {
             continue;
         };
-        let mut active_local_idx = 0usize;
+        let global_base_idx = global_range.start;
         let mut mass_local_idx = None;
         let mut tension_local_idx = None;
         let mut stiffness_local_idx = None;
         let mut mass_norm = None;
         let mut tension_norm = None;
         let mut stiffness_norm = None;
-        for info in &term_fit.penaltyinfo_local {
-            if !info.active {
-                continue;
-            }
-            match info.source {
+        for (active_local_idx, penalty) in term_fit.active_penalties.iter().enumerate() {
+            match penalty.info.source {
                 PenaltySource::OperatorMass => {
                     mass_local_idx = Some(active_local_idx);
-                    mass_norm = Some(info.normalization_scale);
+                    mass_norm = Some(penalty.info.normalization_scale);
                 }
                 PenaltySource::OperatorTension => {
                     tension_local_idx = Some(active_local_idx);
-                    tension_norm = Some(info.normalization_scale);
+                    tension_norm = Some(penalty.info.normalization_scale);
                 }
                 PenaltySource::OperatorStiffness => {
                     stiffness_local_idx = Some(active_local_idx);
-                    stiffness_norm = Some(info.normalization_scale);
+                    stiffness_norm = Some(penalty.info.normalization_scale);
                 }
                 _ => {}
             }
-            active_local_idx += 1;
         }
         // The Charbonnier adaptive overlay rebuilds the {mass, tension,
         // stiffness} D-operator triplet from explicit collocation derivatives
@@ -1277,21 +1292,17 @@ fn extract_spatial_operator_runtime_caches(
                         include_intercept,
                         identifiability_transform,
                         aniso_log_scales,
-                        input_scales,
+                        input_scale,
                         ..
                     },
                 ) => {
-                    // Match the σ_geom-compensated effective length scale the
+                    // Match the isotropic-scale-compensated effective length scale the
                     // design (and shipped penalties) use against the standardized
                     // centers; the raw metadata length_scale lives in original
                     // coordinates and would put this overlay on a different kernel
                     // range than the penalties it scales (#706).
-                    let collocation_length_scale = match input_scales.as_deref() {
-                        Some(scales) => {
-                            compensate_length_scale_for_standardization(*length_scale, scales)
-                        }
-                        None => *length_scale,
-                    };
+                    let collocation_length_scale =
+                        input_scale.to_standardized_units(*length_scale);
                     let ops = build_matern_collocation_operator_matrices(
                         centers.view(),
                         None,
@@ -1319,19 +1330,15 @@ fn extract_spatial_operator_runtime_caches(
                         power,
                         nullspace_order,
                         identifiability_transform,
-                        input_scales,
+                        input_scale,
                         aniso_log_scales,
                         operator_collocation_points: Some(collocation_points),
+                        radial_reparam,
                         ..
                     },
                 ) => {
-                    let collocation_length_scale = match (length_scale, input_scales.as_deref()) {
-                        (Some(ls), Some(scales)) => {
-                            Some(compensate_length_scale_for_standardization(*ls, scales))
-                        }
-                        (Some(ls), None) => Some(*ls),
-                        (None, _) => None,
-                    };
+                    let collocation_length_scale = (*length_scale)
+                        .map(|length| input_scale.to_standardized_units(length));
                     let ops =
                         gam_terms::basis::build_duchon_collocation_operator_matriceswithworkspace(
                             centers.view(),
@@ -1343,7 +1350,7 @@ fn extract_spatial_operator_runtime_caches(
                             aniso_log_scales.as_deref(),
                             identifiability_transform.as_ref().map(|z| z.view()),
                             2,
-                            None,
+                            radial_reparam.as_ref().map(|v| v.view()),
                             &mut BasisWorkspace::default(),
                         )?;
                     (
@@ -1368,7 +1375,7 @@ fn extract_spatial_operator_runtime_caches(
         // Runtime operator caches must live on the same normalized penalty scale as the
         // shipped design penalties. The basis builders normalize S0=D0'D0, S1=D1'D1, and
         // S2=D2'D2 before exposing them as smoothing blocks, recording the corresponding
-        // Frobenius norms in penaltyinfo_local.normalization_scale. If the exact adaptive
+        // Frobenius norms in each atomic active penalty's normalization scale. If the exact adaptive
         // path uses raw collocation operators here, then its Charbonnier penalties live on a
         // different geometry from the ordinary Matérn/Duchon penalties:
         //
@@ -1742,8 +1749,6 @@ fn fit_term_collectionwith_exact_spatial_adaptive_regularization(
         global_penalty: Array2<f64>,
         nullspace_dim: usize,
         log_lambda: f64,
-        col_range: Range<usize>,
-        hessian_piece: Array2<f64>,
     }
     use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
     let retained_setups = baseline
@@ -1755,7 +1760,6 @@ fn fit_term_collectionwith_exact_spatial_adaptive_regularization(
             if adaptive_penalty_indices.contains(&idx) {
                 return None;
             }
-            let lambda = baseline.fit.lambdas[idx];
             Some(RetainedPenaltySetup {
                 global_idx: idx,
                 global_penalty: bp.to_global(p_total),
@@ -1766,8 +1770,6 @@ fn fit_term_collectionwith_exact_spatial_adaptive_regularization(
                     .copied()
                     .unwrap_or(0),
                 log_lambda: baseline_log_lambdas[idx],
-                col_range: bp.col_range.clone(),
-                hessian_piece: bp.local.mapv(|v| lambda * v),
             })
         })
         .collect::<Vec<_>>();
@@ -1779,15 +1781,11 @@ fn fit_term_collectionwith_exact_spatial_adaptive_regularization(
     let mut retained_nullspace_dims = Vec::<usize>::with_capacity(retained_count);
     let mut retained_log_lambdas = Vec::<f64>::with_capacity(retained_count);
     let mut retained_global_indices = Vec::<usize>::with_capacity(retained_count);
-    let mut fixed_quadratichessian = Array2::<f64>::zeros((p_total, p_total));
     for setup in retained_setups.into_iter().flatten() {
         retained_penalties.push(setup.global_penalty);
         retained_nullspace_dims.push(setup.nullspace_dim);
         retained_log_lambdas.push(setup.log_lambda);
         retained_global_indices.push(setup.global_idx);
-        fixed_quadratichessian
-            .slice_mut(s![setup.col_range.clone(), setup.col_range])
-            .scaled_add(1.0, &setup.hessian_piece);
     }
 
     let (eps_0_init, eps_g_init, eps_c_init) = compute_initial_epsilons(
@@ -1889,10 +1887,10 @@ fn fit_term_collectionwith_exact_spatial_adaptive_regularization(
     let shared_offset = Arc::new(offset.to_owned());
     let shared_runtime_caches = Arc::new(runtime_caches.to_vec());
     let shared_hyperspecs = Arc::new(hyperspecs.clone());
-    let zero_quadratic = Arc::new(Array2::<f64>::zeros((
+    let zero_quadratic = ValidatedFixedQuadraticHessian::zero(
         baseline.design.design.ncols(),
-        baseline.design.design.ncols(),
-    )));
+    )
+    .map_err(EstimationError::InvalidInput)?;
     let base_family = SpatialAdaptiveExactFamily {
         family: family.clone(),
         latent_cloglog_state,
@@ -1905,7 +1903,7 @@ fn fit_term_collectionwith_exact_spatial_adaptive_regularization(
         linear_constraints: baseline.design.linear_constraints.clone(),
         runtime_caches: shared_runtime_caches.clone(),
         adaptive_params: Vec::new(),
-        fixed_quadratichessian: zero_quadratic.clone(),
+        fixed_quadratic_hessian: zero_quadratic.clone(),
         hyperspecs: shared_hyperspecs.clone(),
         exact_eval_cache: Arc::new(Mutex::new(None)),
     };
@@ -1979,6 +1977,7 @@ fn fit_term_collectionwith_exact_spatial_adaptive_regularization(
 
     struct SpatialAdaptiveOuterState {
         warm_cache: Option<CustomFamilyWarmStart>,
+        terminal_mode: Option<(Array1<f64>, f64, CustomFamilyOwnedMode)>,
         last_eval: Option<(
             Array1<f64>,
             f64,
@@ -2044,6 +2043,14 @@ fn fit_term_collectionwith_exact_spatial_adaptive_regularization(
     let clamp_theta = |theta: &Array1<f64>| -> Array1<f64> {
         Array1::from_shape_fn(theta.len(), |i| theta[i].clamp(eps_lower[i], eps_upper[i]))
     };
+    let realize_hyper_layout = |theta: &Array1<f64>| {
+        gam_custom_family::CustomFamilyHyperLayout::new(
+            derivative_blocks.clone(),
+            Vec::new(),
+            theta.slice(s![rho_dim..]).to_owned(),
+        )
+        .map_err(EstimationError::InvalidInput)
+    };
     let analytic_outer_hessian_available =
         gam_custom_family::joint_exact_analytic_outer_hessian_available()
             && base_family
@@ -2067,6 +2074,11 @@ fn fit_term_collectionwith_exact_spatial_adaptive_regularization(
         .with_fallback_policy(gam_solve::rho_optimizer::FallbackPolicy::Disabled)
         .with_psi_dim(n_theta.saturating_sub(rho_dim))
         .with_tolerance(options.tol)
+        // The Charbonnier surface is routinely flat at an active box face.
+        // Make its intended score-relative stationarity resolution part of the
+        // optimizer-owned certificate instead of reinterpreting a rejected
+        // checkpoint after `run` returns (SPEC 20).
+        .with_rel_cost_tolerance(Some(options.tol))
         .with_max_iter(options.max_iter)
         .with_seed_config(gam_problem::SeedConfig::default())
         .with_screening_cap(Arc::clone(&screening_cap))
@@ -2089,7 +2101,18 @@ fn fit_term_collectionwith_exact_spatial_adaptive_regularization(
             && cached_theta
                 .iter()
                 .zip(theta.iter())
-                .all(|(&a, &b)| (a - b).abs() <= 1e-12)
+                .all(|(&a, &b)| a.to_bits() == b.to_bits())
+            && st
+                .terminal_mode
+                .as_ref()
+                .is_some_and(|(mode_theta, mode_objective, _)| {
+                    mode_theta.len() == theta.len()
+                        && mode_theta
+                            .iter()
+                            .zip(theta.iter())
+                            .all(|(&a, &b)| a.to_bits() == b.to_bits())
+                        && mode_objective.to_bits() == cached_cost.to_bits()
+                })
             && (!matches!(
                 order,
                 gam_solve::rho_optimizer::OuterEvalOrder::ValueGradientHessian
@@ -2114,16 +2137,17 @@ fn fit_term_collectionwith_exact_spatial_adaptive_regularization(
 
         let family_eval =
             base_family.with_adaptive_params(decoded.adaptive_params, zero_quadratic.clone());
+        let hyper_layout = realize_hyper_layout(theta)?;
         let need_hessian = matches!(
             order,
             gam_solve::rho_optimizer::OuterEvalOrder::ValueGradientHessian
         ) && analytic_outer_hessian_available;
-        let result = evaluate_custom_family_joint_hyper(
+        let owned = evaluate_custom_family_joint_hyper_owned(
             &family_eval,
             std::slice::from_ref(&blockspec),
             &outer_opts,
             &decoded.rho,
-            &derivative_blocks,
+            &hyper_layout,
             st.warm_cache.as_ref(),
             if need_hessian {
                 gam_solve::estimate::reml::reml_outer_engine::EvalMode::ValueGradientHessian
@@ -2134,25 +2158,27 @@ fn fit_term_collectionwith_exact_spatial_adaptive_regularization(
         .map_err(|e| {
             EstimationError::RemlOptimizationFailed(format!("spatial adaptive eval failed: {e}"))
         })?;
-        if !result.inner_converged {
-            st.warm_cache = Some(result.warm_start.clone());
+        if !owned.result.inner_converged {
+            st.warm_cache = Some(owned.result.warm_start.clone());
             return Err(EstimationError::RemlOptimizationFailed(
                 "exact spatial adaptive inner solve did not converge".to_string(),
             ));
         }
-        if !result.objective.is_finite() || result.gradient.iter().any(|v| !v.is_finite()) {
+        if !owned.result.objective.is_finite()
+            || owned.result.gradient.iter().any(|v| !v.is_finite())
+        {
             return Err(EstimationError::RemlOptimizationFailed(
                 "exact spatial adaptive objective returned non-finite values".to_string(),
             ));
         }
         let hessian_result = if need_hessian {
-            if !result.outer_hessian.is_analytic() {
+            if !owned.result.outer_hessian.is_analytic() {
                 return Err(EstimationError::RemlOptimizationFailed(
                     "exact spatial adaptive objective did not return an exact outer Hessian"
                         .to_string(),
                 ));
             }
-            match result.outer_hessian.dim() {
+            match owned.result.outer_hessian.dim() {
                 Some(dim) if dim == theta.len() => {}
                 Some(dim) => {
                     return Err(EstimationError::RemlOptimizationFailed(format!(
@@ -2169,19 +2195,22 @@ fn fit_term_collectionwith_exact_spatial_adaptive_regularization(
             }
             st.last_eval = Some((
                 theta.to_owned(),
-                result.objective,
-                result.gradient.clone(),
-                result.outer_hessian.clone(),
-                result.warm_start.clone(),
+                owned.result.objective,
+                owned.result.gradient.clone(),
+                owned.result.outer_hessian.clone(),
+                owned.result.warm_start.clone(),
             ));
-            result.outer_hessian
+            owned.result.outer_hessian
         } else {
             HessianValue::Unavailable
         };
-        st.warm_cache = Some(result.warm_start);
+        let objective = owned.result.objective;
+        let gradient = owned.result.gradient;
+        st.warm_cache = Some(owned.result.warm_start);
+        st.terminal_mode = Some((theta.to_owned(), objective, owned.mode));
         Ok(OuterEval {
-            cost: result.objective,
-            gradient: result.gradient,
+            cost: objective,
+            gradient,
             hessian: hessian_result,
             inner_beta_hint: None,
         })
@@ -2190,6 +2219,7 @@ fn fit_term_collectionwith_exact_spatial_adaptive_regularization(
     let mut obj = problem.build_objective_with_screening_proxy(
         SpatialAdaptiveOuterState {
             warm_cache: None,
+            terminal_mode: None,
             last_eval: None,
         },
         |st: &mut SpatialAdaptiveOuterState, theta: &Array1<f64>| {
@@ -2201,12 +2231,13 @@ fn fit_term_collectionwith_exact_spatial_adaptive_regularization(
             } = decode_theta(&theta)?;
             let family_eval =
                 base_family.with_adaptive_params(adaptive_params, zero_quadratic.clone());
-            let result = evaluate_custom_family_joint_hyper(
+            let hyper_layout = realize_hyper_layout(&theta)?;
+            let owned = evaluate_custom_family_joint_hyper_owned(
                 &family_eval,
                 std::slice::from_ref(&blockspec),
                 &outer_opts,
                 &rho,
-                &derivative_blocks,
+                &hyper_layout,
                 st.warm_cache.as_ref(),
                 gam_solve::estimate::reml::reml_outer_engine::EvalMode::ValueOnly,
             )
@@ -2215,14 +2246,16 @@ fn fit_term_collectionwith_exact_spatial_adaptive_regularization(
                     "spatial adaptive cost eval failed: {e}"
                 ))
             })?;
-            if !result.inner_converged {
-                st.warm_cache = Some(result.warm_start);
+            if !owned.result.inner_converged {
+                st.warm_cache = Some(owned.result.warm_start);
                 return Err(EstimationError::RemlOptimizationFailed(
                     "exact spatial adaptive cost inner solve did not converge".to_string(),
                 ));
             }
-            st.warm_cache = Some(result.warm_start);
-            Ok(result.objective)
+            let objective = owned.result.objective;
+            st.warm_cache = Some(owned.result.warm_start);
+            st.terminal_mode = Some((theta, objective, owned.mode));
+            Ok(objective)
         },
         |st: &mut SpatialAdaptiveOuterState, theta: &Array1<f64>| {
             eval_outer(
@@ -2240,6 +2273,7 @@ fn fit_term_collectionwith_exact_spatial_adaptive_regularization(
          order: gam_solve::rho_optimizer::OuterEvalOrder| { eval_outer(st, theta, order) },
         Some(|st: &mut SpatialAdaptiveOuterState| {
             st.warm_cache = None;
+            st.terminal_mode = None;
             st.last_eval = None;
         }),
         Some(|st: &mut SpatialAdaptiveOuterState, theta: &Array1<f64>| {
@@ -2251,12 +2285,13 @@ fn fit_term_collectionwith_exact_spatial_adaptive_regularization(
             } = decode_theta(&theta)?;
             let family_eval =
                 base_family.with_adaptive_params(adaptive_params, zero_quadratic.clone());
-            let result = evaluate_custom_family_joint_hyper_efs(
+            let hyper_layout = realize_hyper_layout(&theta)?;
+            let owned = evaluate_custom_family_joint_hyper_efs_owned(
                 &family_eval,
                 std::slice::from_ref(&blockspec),
                 &outer_opts,
                 &rho,
-                &derivative_blocks,
+                &hyper_layout,
                 st.warm_cache.as_ref(),
             )
             .map_err(|e| {
@@ -2264,14 +2299,16 @@ fn fit_term_collectionwith_exact_spatial_adaptive_regularization(
                     "spatial adaptive EFS eval failed: {e}"
                 ))
             })?;
-            if !result.inner_converged {
-                st.warm_cache = Some(result.warm_start);
+            if !owned.result.inner_converged {
+                st.warm_cache = Some(owned.result.warm_start);
                 return Err(EstimationError::RemlOptimizationFailed(
                     "exact spatial adaptive EFS inner solve did not converge".to_string(),
                 ));
             }
-            st.warm_cache = Some(result.warm_start);
-            Ok(result.efs_eval)
+            let objective = owned.result.efs_eval.cost;
+            st.warm_cache = Some(owned.result.warm_start);
+            st.terminal_mode = Some((theta, objective, owned.mode));
+            Ok(owned.result.efs_eval)
         }),
         // Seed-screening ranking proxy (#969). The regular cost closure
         // above hard-errors on a non-converged inner solve — correct for
@@ -2293,12 +2330,13 @@ fn fit_term_collectionwith_exact_spatial_adaptive_regularization(
             } = decode_theta(&theta)?;
             let family_eval =
                 base_family.with_adaptive_params(adaptive_params, zero_quadratic.clone());
-            let result = evaluate_custom_family_joint_hyper(
+            let hyper_layout = realize_hyper_layout(&theta)?;
+            let owned = evaluate_custom_family_joint_hyper_owned(
                 &family_eval,
                 std::slice::from_ref(&blockspec),
                 &outer_opts,
                 &rho,
-                &derivative_blocks,
+                &hyper_layout,
                 st.warm_cache.as_ref(),
                 gam_solve::estimate::reml::reml_outer_engine::EvalMode::ValueOnly,
             )
@@ -2307,68 +2345,45 @@ fn fit_term_collectionwith_exact_spatial_adaptive_regularization(
                     "spatial adaptive screening eval failed: {e}"
                 ))
             })?;
-            st.warm_cache = Some(result.warm_start);
-            Ok(result.objective)
+            st.warm_cache = Some(owned.result.warm_start);
+            Ok(owned.result.objective)
         },
     );
 
-    let outer_result = problem
-        .run(&mut obj, "exact spatial adaptive regularization")
+    let certified_outer = problem
+        .run_certified(&mut obj, "exact spatial adaptive regularization")
         .map_err(|e| {
             EstimationError::InvalidInput(format!(
                 "exact spatial adaptive outer optimization failed: {e}"
             ))
         })?;
-    if !outer_result.converged {
-        // The strict absolute-floor gradient criterion (`‖g‖_proj ≤ options.tol`)
-        // is too tight near the box-constrained boundary of the adaptive
-        // Charbonnier pseudo-Laplace objective: as the optimizer pushes ε → ∞
-        // (overlay-disabled corner), λ → λ_min, the Hessian's nearly-null
-        // direction lets Cauchy/Newton accept ~e-3-magnitude probe steps that
-        // give cost changes well below 6-digit precision, and the projected
-        // gradient floors at numerical-noise-scale (≈ 5e-6 for n≈500, cost≈
-        // 3e2 fits in double precision) rather than at 0. Accept the iterate
-        // when the mgcv-style relative-to-cost criterion ‖g‖_proj ≤ τ·(1+|f|)
-        // is satisfied — that is the textbook REML convergence rule and is
-        // exactly what `opt::GradientTolerance::relative_to_cost(τ)` would
-        // have enforced if this OuterProblem path had wired it through. The
-        // strict absolute floor is retained as the primary check; the
-        // rel-to-cost form only kicks in once the absolute one has timed out
-        // at `max_iter`, so unconverged divergent runs (which have large |g|)
-        // still surface as errors.
-        let rel_to_cost_threshold = options.tol * (1.0_f64 + outer_result.final_value.abs());
-        // Rel-to-cost acceptance requires an actual gradient measurement;
-        // `None` (cache-hit short-circuit, gradient-free path) cannot satisfy
-        // the mgcv-style criterion regardless of magnitude.
-        if let Some(final_grad) = outer_result
-            .final_grad_norm
-            .filter(|v| v.is_finite() && *v <= rel_to_cost_threshold)
-        {
-            log::info!(
-                "[spatial-adaptive] outer optimization hit max_iter={} but \
-                 projected gradient norm {:.3e} ≤ τ·(1+|f|) = {:.3e} \
-                 (τ={:.3e}, |f|={:.3e}); accepting iterate under the mgcv-style \
-                 relative-to-cost REML convergence criterion.",
-                outer_result.iterations,
-                final_grad,
-                rel_to_cost_threshold,
-                options.tol,
-                outer_result.final_value.abs(),
-            );
-        } else {
-            crate::bail_invalid_estim!(
-                "exact spatial adaptive outer optimization did not converge after {} iterations (final_objective={:.6e}, final_grad_norm={})",
-                outer_result.iterations,
-                outer_result.final_value,
-                outer_result.final_grad_norm_report(),
-            );
-        }
+    let outer_iterations = certified_outer.iterations();
+    let outer_grad_norm = certified_outer.final_grad_norm();
+    let theta_star = certified_outer.rho().clone();
+    let (mode_theta, mode_objective, terminal_mode) =
+        obj.state.terminal_mode.take().ok_or_else(|| {
+            EstimationError::InvalidInput(
+                "exact spatial adaptive optimization certified without retaining its terminal coefficient mode"
+                    .to_string(),
+            )
+        })?;
+    if mode_theta.len() != theta_star.len()
+        || mode_theta
+            .iter()
+            .zip(theta_star.iter())
+            .any(|(mode, certified)| mode.to_bits() != certified.to_bits())
+    {
+        return Err(EstimationError::InvalidInput(
+            "exact spatial adaptive terminal coefficient mode does not bitwise match the certified hyperparameter vector"
+                .to_string(),
+        ));
     }
-    let outer_iterations = outer_result.iterations;
-    // `None` = no gradient measurement (cache-hit / gradient-free); the
-    // authoritative convergence signal is `outer_converged`.
-    let outer_grad_norm: Option<f64> = outer_result.final_grad_norm;
-    let theta_star = outer_result.rho;
+    if mode_objective.to_bits() != certified_outer.final_value().to_bits() {
+        return Err(EstimationError::InvalidInput(format!(
+            "exact spatial adaptive terminal coefficient mode objective does not bitwise match the certified objective: mode={mode_objective:.17e}, certified={:.17e}",
+            certified_outer.final_value(),
+        )));
+    }
     let DecodedSpatialAdaptiveTheta {
         rho: _,
         retained_lambdas,
@@ -2382,23 +2397,45 @@ fn fit_term_collectionwith_exact_spatial_adaptive_regularization(
     for (idx, penalty) in retained_penalties.iter().enumerate() {
         fixed_total.scaled_add(retained_lambdas[idx], penalty);
     }
+    // Preserve the exact outer geometry for certified finalization: retained
+    // quadratic penalties remain in the block spec (and therefore in the rho
+    // prefix), while adaptive lambda/epsilon coordinates are realized in the
+    // family.  A second equivalent representation with the retained quadratic
+    // folded into the family is used only for downstream diagnostics below.
+    let certified_final_family = base_family.with_adaptive_params(
+        adaptive_params.clone(),
+        zero_quadratic.clone(),
+    );
+    let fixed_total = ValidatedFixedQuadraticHessian::try_from_dense(
+        fixed_total,
+        baseline.design.design.ncols(),
+    )
+    .map_err(|error| {
+        EstimationError::InvalidInput(format!(
+            "optimized spatial adaptive fixed quadratic Hessian is invalid: {error}"
+        ))
+    })?;
     let final_family =
-        base_family.with_adaptive_params(adaptive_params.clone(), Arc::new(fixed_total.clone()));
+        base_family.with_adaptive_params(adaptive_params.clone(), fixed_total.clone());
     let final_blockspec = ParameterBlockSpec {
         name: "eta".to_string(),
         design: baseline.design.design.clone(),
         offset: offset.to_owned(),
-        penalties: vec![],
-        nullspace_dims: vec![],
-        initial_log_lambdas: Array1::zeros(0),
+        penalties: retained_penalties
+            .iter()
+            .cloned()
+            .map(PenaltyMatrix::Dense)
+            .collect(),
+        nullspace_dims: retained_nullspace_dims.clone(),
+        initial_log_lambdas: theta_star.slice(s![..rho_dim]).to_owned(),
         initial_beta: Some(baseline.fit.beta.clone()),
         gauge_priority: 100,
         jacobian_callback: None,
         stacked_design: None,
         stacked_offset: None,
     };
-    let final_fit = fit_custom_family(
-        &final_family,
+    let final_fit = fit_custom_family_fixed_log_lambdas_from_owned_mode(
+        &certified_final_family,
         &[final_blockspec],
         &BlockwiseFitOptions {
             inner_max_cycles: options.max_iter,
@@ -2408,6 +2445,9 @@ fn fit_term_collectionwith_exact_spatial_adaptive_regularization(
             compute_covariance: true,
             ..BlockwiseFitOptions::default()
         },
+        terminal_mode,
+        &theta_star,
+        &certified_outer,
     )
     .map_err(EstimationError::CustomFamily)?;
     let beta = final_fit.block_states[0].beta.clone();
@@ -2506,8 +2546,8 @@ fn fit_term_collectionwith_exact_spatial_adaptive_regularization(
             0.0,
         )
     };
-    let stable_penalty_term =
-        2.0 * final_eval.adaptive_penalty_value + beta.dot(&fixed_total.dot(&beta));
+    let stable_penalty_term = 2.0 * final_eval.adaptive_penalty_value
+        + beta.dot(&fixed_total.as_dense().dot(&beta));
     let standard_deviation = if family.is_gaussian_identity() {
         let denom = (y.len() as f64 - edf_total).max(1.0);
         (deviance / denom).sqrt()
@@ -2577,6 +2617,10 @@ fn fit_term_collectionwith_exact_spatial_adaptive_regularization(
         fit: {
             let log_lambdas =
                 checked_fit_log_lambdas(&full_lambdas, "final exact spatial adaptive fit")?;
+            let working = gam_solve::estimate::WorkingGeometry {
+                weights: final_eval.obs.fisherweight.clone(),
+                response: exact_standard_working_response(&final_eval.obs)?,
+            };
             let inf = FitInference {
                 edf_by_block,
                 penalty_block_trace,
@@ -2586,8 +2630,6 @@ fn fit_term_collectionwith_exact_spatial_adaptive_regularization(
                 // Boundary adapter: wrap the raw `Array2<f64>` Hessian as
                 // `UnscaledPrecision` for the newtype storage.
                 penalized_hessian: penalized_hessian.clone().into(),
-                working_weights: final_eval.obs.fisherweight.clone(),
-                working_response: exact_standard_working_response(&final_eval.obs)?,
                 reparam_qs: None,
                 dispersion: gam_solve::estimate::Dispersion::UNIT,
                 beta_covariance: beta_covariance
@@ -2603,15 +2645,14 @@ fn fit_term_collectionwith_exact_spatial_adaptive_regularization(
                 bias_correction_jacobian: None,
             };
             let geometry = Some(gam_solve::estimate::FitGeometry {
+                coefficient_gauge: gam_problem::gauge::Gauge::identity(&[beta.len()]),
                 penalized_hessian: penalized_hessian.into(),
-                working_weights: inf.working_weights.clone(),
-                working_response: inf.working_response.clone(),
+                working: Some(working),
             });
             let covariance_conditional = beta_covariance;
-            // `final_fit` is a sealed `UnifiedFitResult`: it can only exist
-            // because `try_from_parts` already certified inner+outer
-            // convergence, so its outer status is convergence by construction.
-            let pirls_status_val = gam_solve::pirls::PirlsStatus::Converged;
+            let convergence = final_fit.convergence_evidence();
+            let pirls_status_val = convergence.inner_status();
+            let certified_outer_present = convergence.outer_certificate().is_some();
             UnifiedFitResult::try_from_parts(UnifiedFitResultParts {
                 blocks: vec![gam_solve::estimate::FittedBlock {
                     beta: beta.clone(),
@@ -2631,8 +2672,7 @@ fn fit_term_collectionwith_exact_spatial_adaptive_regularization(
                 penalized_objective: final_fit.penalized_objective,
                 used_device: false,
                 outer_iterations,
-                // Sealed result ⇒ outer convergence was certified at assembly.
-                outer_converged: true,
+                outer_converged: certified_outer_present,
                 outer_gradient_norm: outer_grad_norm,
                 standard_deviation,
                 covariance_conditional,
@@ -2646,6 +2686,7 @@ fn fit_term_collectionwith_exact_spatial_adaptive_regularization(
                 constraint_kkt: None,
                 artifacts: gam_solve::estimate::FitArtifacts {
                     pirls: None,
+                    criterion_certificate: final_fit.artifacts.criterion_certificate.clone(),
                     ..Default::default()
                 },
                 inner_cycles: 0,
@@ -2700,6 +2741,8 @@ fn fit_term_collectionwith_exact_spatial_adaptive_regularization(
 fn relax_smoothing_rho_prior(
     options: &FitOptions,
     design: &TermCollectionDesign,
+    y: ArrayView1<'_, f64>,
+    weights: ArrayView1<'_, f64>,
 ) -> gam_spec::RhoPrior {
     use gam_terms::basis::BasisMetadata;
     let base = &options.rho_prior;
@@ -2961,7 +3004,8 @@ fn relax_smoothing_rho_prior(
     };
     let per_coord = coords
         .iter()
-        .map(|info| {
+        .enumerate()
+        .map(|(coord_idx, info)| {
             let relax = info
                 .termname
                 .as_deref()
@@ -3009,7 +3053,29 @@ fn relax_smoothing_rho_prior(
             //     REML's own score (the sin-data linear trend → λ_null large) and a
             //     genuinely-supported one is not over-shrunk.
             if is_nullspace {
-                if underdetermined {
+                // The aggressive select-out prior is only ever justified when the
+                // data is INDIFFERENT to the null-space (polynomial) component —
+                // its steep `θ·e^{−ρ/2}` wall (θ ≈ 92, cost reaching ~1e8 at the
+                // ρ box edge) is a near-hard constraint that dominates the base
+                // REML criterion by many orders of magnitude, so it CANNOT be
+                // overridden by the likelihood once applied. The `n < 2·p`
+                // under-determined proxy alone is far too broad: a perfectly
+                // well-posed linear signal that lives ENTIRELY in the null space
+                // (e.g. `y = x` fit with `s(x)`, `p = 8`, any `n < 16`) is
+                // over-parameterised by that count yet strongly determines its
+                // null-space (slope) coefficient. Select-out there annihilates the
+                // true slope and silently ships a flat line (#2355). Before
+                // applying the select-out, verify the data does NOT clearly support
+                // this coordinate's null-space directions; if it does, fall back to
+                // the wide, weakly-informative degeneracy Normal (which supplies
+                // termination curvature without a directional select-out bias) so
+                // pure REML — matching mgcv `select=TRUE` — recovers the component.
+                // The check is conservative: it only downgrades when the null space
+                // is UNAMBIGUOUSLY supported, so a genuinely-unsupported null space
+                // (#1392 wine `p > n`) keeps its select-out byte-for-byte.
+                if underdetermined
+                    && !nullspace_directions_are_supported(design, coord_idx, y, weights)
+                {
                     nullspace_select_prior.clone()
                 } else {
                     nullspace_degeneracy_prior.clone()
@@ -3020,6 +3086,210 @@ fn relax_smoothing_rho_prior(
         })
         .collect::<Vec<_>>();
     gam_spec::RhoPrior::Independent(per_coord)
+}
+
+/// Fraction of the null-space-conditional response variance the null-space
+/// directions of `design.penalties[penalty_idx]` must explain before their
+/// smoothing coordinate is treated as data-SUPPORTED (and therefore exempt from
+/// the aggressive `nullspace_select_prior`). Deliberately high: only an
+/// unambiguously-supported null space is downgraded, so a genuinely-unsupported
+/// one (#1392) keeps its select-out.
+const NULLSPACE_SUPPORT_FRACTION_THRESHOLD: f64 = 0.5;
+
+/// Does the data clearly support the null-space (polynomial) component that the
+/// `DoublePenaltyNullspace` penalty `design.penalties[penalty_idx]` selects on?
+///
+/// The null-space ridge `S₂` penalizes exactly the bending-penalty null space
+/// (`{1, x}` for a 1-D P-spline; the affine trend for a thin-plate). Its RANGE
+/// spans those design directions `Z = X[:, col_range] · V₊(S₂)`. We ask whether
+/// `Z` explains a substantial fraction of the response variance that the
+/// *structurally-unpenalized* columns `C` (intercept + parametric fixed effects)
+/// leave unexplained — a weighted partial-`R²` of the null-space block:
+///
+/// ```text
+///   support = (RSS(y | C) − RSS(y | [C, Z])) / RSS(y | C).
+/// ```
+///
+/// This is a cheap, low-dimensional (`≤ |C| + rank(S₂)` columns, always
+/// well-posed even when `p > n`) evidence test that mirrors what mgcv's REML
+/// would conclude from the marginal likelihood: a null space carrying real
+/// signal (a slope, a linear trend) yields `support → 1`; an unsupported one
+/// yields `support → 0`. Returns `false` on any degeneracy (missing dense
+/// design, empty null space, vanishing residual variance) so the caller keeps
+/// the existing select-out behaviour whenever the test cannot be trusted.
+fn nullspace_directions_are_supported(
+    design: &TermCollectionDesign,
+    penalty_idx: usize,
+    y: ArrayView1<'_, f64>,
+    weights: ArrayView1<'_, f64>,
+) -> bool {
+    use gam_linalg::faer_ndarray::FaerEigh;
+
+    let Some(pen) = design.penalties.get(penalty_idx) else {
+        return false;
+    };
+    let col_range = pen.col_range.clone();
+    if col_range.is_empty() {
+        return false;
+    }
+    let x = design.design.to_dense();
+    let n = x.nrows();
+    if n == 0 || y.len() != n || weights.len() != n || x.ncols() < col_range.end {
+        return false;
+    }
+    // Response with the design's fixed affine channel removed (the fit sees
+    // `affine_offset + X·β`, so the estimable part of the response is
+    // `y − affine_offset`). Fall back to raw `y` if the channel is absent.
+    let mut resp = y.to_owned();
+    if design.affine_offset.len() == n {
+        resp -= &design.affine_offset;
+    }
+
+    // Null-space design directions `Z = X[:, col_range] · V₊(S₂)`, where `V₊`
+    // are the eigenvectors of the (PSD) ridge with strictly-positive eigenvalue.
+    let Ok((evals, evecs)) = pen.local.eigh(faer::Side::Lower) else {
+        return false;
+    };
+    let max_eig = evals.iter().cloned().fold(0.0_f64, |m, v| m.max(v));
+    if !(max_eig > 0.0) {
+        return false;
+    }
+    let tol = 1.0e-9 * max_eig;
+    let pos_cols: Vec<usize> = (0..evals.len()).filter(|&j| evals[j] > tol).collect();
+    if pos_cols.is_empty() {
+        return false;
+    }
+    let xblock = x.slice(s![.., col_range.clone()]);
+    let mut z = Array2::<f64>::zeros((n, pos_cols.len()));
+    for (out_j, &j) in pos_cols.iter().enumerate() {
+        let v = evecs.column(j);
+        // Guard against a col_range / local-matrix width disagreement.
+        if v.len() != xblock.ncols() {
+            return false;
+        }
+        z.column_mut(out_j).assign(&xblock.dot(&v));
+    }
+
+    // Structurally-unpenalized control columns `C`: intercept + parametric
+    // fixed-effect ranges. These are the directions that are always free, so the
+    // null-space block must EARN its keep beyond them (a linear covariate `x`
+    // must not let a collinear smooth's null space claim spurious support).
+    let mut control: Vec<usize> = design.intercept_range.clone().collect();
+    for (_, r) in &design.linear_ranges {
+        control.extend(r.clone());
+    }
+    control.retain(|&c| c < x.ncols());
+    let mut cmat = Array2::<f64>::zeros((n, control.len().max(1)));
+    if control.is_empty() {
+        // No explicit intercept column: control for the mean with a constant.
+        cmat.column_mut(0).fill(1.0);
+    } else {
+        for (out_j, &c) in control.iter().enumerate() {
+            cmat.column_mut(out_j).assign(&x.column(c));
+        }
+    }
+
+    let rss_c = weighted_regression_rss(cmat.view(), resp.view(), weights);
+    let Some(rss_c) = rss_c else { return false };
+    // If the controls already explain essentially all of the response, the null
+    // space cannot be "supported" in any meaningful sense — keep select-out.
+    let base_scale = weighted_total_ss(resp.view(), weights);
+    if !(rss_c > 1.0e-12 * base_scale.max(f64::MIN_POSITIVE)) {
+        return false;
+    }
+    let mut cz = Array2::<f64>::zeros((n, cmat.ncols() + z.ncols()));
+    cz.slice_mut(s![.., ..cmat.ncols()]).assign(&cmat);
+    cz.slice_mut(s![.., cmat.ncols()..]).assign(&z);
+    let Some(rss_cz) = weighted_regression_rss(cz.view(), resp.view(), weights) else {
+        return false;
+    };
+
+    let support = (rss_c - rss_cz) / rss_c;
+    support.is_finite() && support > NULLSPACE_SUPPORT_FRACTION_THRESHOLD
+}
+
+/// Weighted total sum of squares of `y` about its weighted mean, `Σ wᵢ(yᵢ − ȳ)²`.
+fn weighted_total_ss(y: ArrayView1<'_, f64>, w: ArrayView1<'_, f64>) -> f64 {
+    let mut sw = 0.0;
+    let mut swy = 0.0;
+    for (&yi, &wi) in y.iter().zip(w.iter()) {
+        if wi > 0.0 && yi.is_finite() {
+            sw += wi;
+            swy += wi * yi;
+        }
+    }
+    if sw <= 0.0 {
+        return 0.0;
+    }
+    let mean = swy / sw;
+    let mut ss = 0.0;
+    for (&yi, &wi) in y.iter().zip(w.iter()) {
+        if wi > 0.0 && yi.is_finite() {
+            ss += wi * (yi - mean) * (yi - mean);
+        }
+    }
+    ss
+}
+
+/// Weighted least-squares residual sum of squares of `y` on the columns of `d`,
+/// `min_b Σ wᵢ(yᵢ − dᵢ·b)²`, via ridge-stabilised normal equations
+/// `(DᵀWD + εI) b = DᵀW y`. The tiny relative ridge only regularises an exactly
+/// rank-deficient `D` (e.g. duplicated control columns); it does not perturb a
+/// well-posed low-dimensional solve enough to move the coarse support verdict.
+/// Returns `None` if the factorisation fails.
+fn weighted_regression_rss(
+    d: ArrayView2<'_, f64>,
+    y: ArrayView1<'_, f64>,
+    w: ArrayView1<'_, f64>,
+) -> Option<f64> {
+    use gam_linalg::faer_ndarray::FaerCholesky;
+
+    let m = d.ncols();
+    if m == 0 {
+        return Some(weighted_total_ss(y, w));
+    }
+    let mut gram = Array2::<f64>::zeros((m, m));
+    let mut rhs = Array1::<f64>::zeros(m);
+    for row in 0..d.nrows() {
+        let wi = w[row];
+        if !(wi > 0.0) || !y[row].is_finite() {
+            continue;
+        }
+        let dr = d.row(row);
+        for a in 0..m {
+            let wda = wi * dr[a];
+            rhs[a] += wda * y[row];
+            for b in a..m {
+                gram[[a, b]] += wda * dr[b];
+            }
+        }
+    }
+    for a in 0..m {
+        for b in (a + 1)..m {
+            gram[[b, a]] = gram[[a, b]];
+        }
+    }
+    let trace = (0..m).map(|i| gram[[i, i]]).sum::<f64>();
+    if !(trace > 0.0) {
+        return Some(weighted_total_ss(y, w));
+    }
+    let ridge = 1.0e-10 * trace / (m as f64);
+    for i in 0..m {
+        gram[[i, i]] += ridge;
+    }
+    let chol = gram.cholesky(faer::Side::Lower).ok()?;
+    let beta = chol.solvevec(&rhs);
+    let mut rss = 0.0;
+    for row in 0..d.nrows() {
+        let wi = w[row];
+        if !(wi > 0.0) || !y[row].is_finite() {
+            continue;
+        }
+        let fitted = d.row(row).dot(&beta);
+        let resid = y[row] - fitted;
+        rss += wi * resid * resid;
+    }
+    Some(rss)
 }
 
 /// Standard deviation of the wide, weakly-informative symmetric `Normal` prior
@@ -4040,12 +4310,7 @@ fn exact_standard_observation_row(
             let scaled_weight = match resolved_scale {
                 gam_spec::ResolvedLikelihoodScale::ProfiledGaussian => weight,
                 gam_spec::ResolvedLikelihoodScale::FixedGaussian { phi } => {
-                    crate::gamlss::scaled_positive_product_quotient(
-                        weight,
-                        1.0,
-                        1.0,
-                        phi.value(),
-                    )
+                    crate::gamlss::scaled_positive_product_quotient(weight, 1.0, 1.0, phi.value())
                 }
                 _ => {
                     crate::bail_invalid_estim!(
@@ -4167,9 +4432,7 @@ fn exact_standard_observation_row(
             let phi = resolved_scale
                 .tweedie_phi()
                 .map_err(|error| EstimationError::InvalidInput(error.to_string()))?;
-            let weight = crate::gamlss::scaled_positive_product_quotient(
-                weight, 1.0, 1.0, phi,
-            );
+            let weight = crate::gamlss::scaled_positive_product_quotient(weight, 1.0, 1.0, phi);
             if !(weight.is_finite() && weight > 0.0) {
                 return Err(bounded_row_error(
                     row,
@@ -4332,16 +4595,15 @@ fn evaluate_resolved_standard_family_observations(
     let mut log_likelihood_compensation = 0.0;
 
     for i in 0..n {
-        let row =
-            exact_standard_observation_row(
-                likelihood,
-                resolved_scale,
-                &binomial_link,
-                i,
-                y[i],
-                weights[i],
-                eta[i],
-            )?;
+        let row = exact_standard_observation_row(
+            likelihood,
+            resolved_scale,
+            &binomial_link,
+            i,
+            y[i],
+            weights[i],
+            eta[i],
+        )?;
         score[i] = row.score;
         fisherweight[i] = row.fisherweight;
         neghessian_eta[i] = row.neghessian_eta;
@@ -4566,6 +4828,63 @@ struct SpatialAdaptiveTermHyperParams {
     epsilon: [f64; 3],
 }
 
+/// Immutable proof that a dense fixed quadratic Hessian is a finite symmetric
+/// positive-semidefinite matrix on one exact coefficient space.
+///
+/// The adaptive family evaluates `q(beta) = beta^T H beta / 2` and its gradient
+/// as `H beta`. Those are derivatives of the same scalar function only when
+/// `H` is symmetric. Keeping the raw matrix behind this private carrier makes
+/// that invariant structural: arbitrary dense input has exactly one admission
+/// boundary, which rejects rather than symmetrizes a defective matrix.
+#[derive(Clone, Debug)]
+struct ValidatedFixedQuadraticHessian {
+    dense: Arc<Array2<f64>>,
+}
+
+impl ValidatedFixedQuadraticHessian {
+    fn try_from_dense(dense: Array2<f64>, coefficient_dim: usize) -> Result<Self, String> {
+        gam_linalg::utils::validate_finite_symmetric_matrix(
+            &dense,
+            "spatial adaptive fixed quadratic Hessian",
+        )
+        .map_err(|error| error.to_string())?;
+        PenaltyMatrix::Dense(dense.clone())
+            .validate(coefficient_dim)
+            .map_err(|error| {
+                format!(
+                    "spatial adaptive fixed quadratic Hessian failed quadratic-form validation: {error}"
+                )
+            })?;
+        Ok(Self {
+            dense: Arc::new(dense),
+        })
+    }
+
+    fn zero(coefficient_dim: usize) -> Result<Self, String> {
+        Self::try_from_dense(
+            Array2::<f64>::zeros((coefficient_dim, coefficient_dim)),
+            coefficient_dim,
+        )
+    }
+
+    fn as_dense(&self) -> &Array2<f64> {
+        self.dense.as_ref()
+    }
+
+    fn quadratic_terms(&self, beta: &Array1<f64>) -> Result<(f64, Array1<f64>), String> {
+        if beta.len() != self.dense.ncols() {
+            return Err(format!(
+                "spatial adaptive fixed quadratic beta length {} does not match validated Hessian dimension {}",
+                beta.len(),
+                self.dense.ncols()
+            ));
+        }
+        let gradient = self.dense.dot(beta);
+        let value = 0.5 * beta.dot(&gradient);
+        Ok((value, gradient))
+    }
+}
+
 #[derive(Clone)]
 struct SpatialAdaptiveExactEvaluation {
     obs: StandardFamilyObservationState,
@@ -4575,7 +4894,7 @@ struct SpatialAdaptiveExactEvaluation {
     adaptive_penaltyhessian: Array2<f64>,
     fixed_quadraticvalue: f64,
     fixed_quadraticgradient: Array1<f64>,
-    fixed_quadratichessian: Array2<f64>,
+    fixed_quadratic_hessian: ValidatedFixedQuadraticHessian,
 }
 
 #[derive(Clone)]
@@ -4594,7 +4913,7 @@ impl SpatialAdaptiveExactEvaluation {
     }
 
     fn total_penaltyhessian(&self) -> Array2<f64> {
-        &self.adaptive_penaltyhessian + &self.fixed_quadratichessian
+        &self.adaptive_penaltyhessian + self.fixed_quadratic_hessian.as_dense()
     }
 
     fn totalobjectivehessian(&self, design: &Array2<f64>) -> Result<Array2<f64>, String> {
@@ -4617,7 +4936,7 @@ struct SpatialAdaptiveExactFamily {
     linear_constraints: Option<LinearInequalityConstraints>,
     runtime_caches: Arc<Vec<SpatialOperatorRuntimeCache>>,
     adaptive_params: Vec<SpatialAdaptiveTermHyperParams>,
-    fixed_quadratichessian: Arc<Array2<f64>>,
+    fixed_quadratic_hessian: ValidatedFixedQuadraticHessian,
     hyperspecs: Arc<Vec<SpatialAdaptiveHyperSpec>>,
     exact_eval_cache: Arc<Mutex<Option<CachedSpatialAdaptiveExactEvaluation>>>,
 }
@@ -4626,7 +4945,7 @@ impl SpatialAdaptiveExactFamily {
     fn with_adaptive_params(
         &self,
         adaptive_params: Vec<SpatialAdaptiveTermHyperParams>,
-        fixed_quadratichessian: Arc<Array2<f64>>,
+        fixed_quadratic_hessian: ValidatedFixedQuadraticHessian,
     ) -> Self {
         Self {
             family: self.family.clone(),
@@ -4640,7 +4959,7 @@ impl SpatialAdaptiveExactFamily {
             linear_constraints: self.linear_constraints.clone(),
             runtime_caches: self.runtime_caches.clone(),
             adaptive_params,
-            fixed_quadratichessian,
+            fixed_quadratic_hessian,
             hyperspecs: self.hyperspecs.clone(),
             exact_eval_cache: Arc::new(Mutex::new(None)),
         }
@@ -4650,10 +4969,11 @@ impl SpatialAdaptiveExactFamily {
         gam_linalg::faer_ndarray::fast_av(self.design.as_ref(), beta) + self.offset.as_ref()
     }
 
-    fn fixed_quadratic_terms(&self, beta: &Array1<f64>) -> (f64, Array1<f64>) {
-        let grad = self.fixed_quadratichessian.dot(beta);
-        let value = 0.5 * beta.dot(&grad);
-        (value, grad)
+    fn fixed_quadratic_terms(
+        &self,
+        beta: &Array1<f64>,
+    ) -> Result<(f64, Array1<f64>), String> {
+        self.fixed_quadratic_hessian.quadratic_terms(beta)
     }
 
     fn adaptive_penalty_value_only(&self, beta: &Array1<f64>) -> Result<f64, String> {
@@ -5142,7 +5462,8 @@ impl SpatialAdaptiveExactFamily {
             adaptive_states.push(state);
         }
 
-        let (fixed_quadraticvalue, fixed_quadraticgradient) = self.fixed_quadratic_terms(beta);
+        let (fixed_quadraticvalue, fixed_quadraticgradient) =
+            self.fixed_quadratic_terms(beta)?;
         Ok(SpatialAdaptiveExactEvaluation {
             obs,
             adaptive_states,
@@ -5151,7 +5472,7 @@ impl SpatialAdaptiveExactFamily {
             adaptive_penaltyhessian: penaltyhessian,
             fixed_quadraticvalue,
             fixed_quadraticgradient,
-            fixed_quadratichessian: self.fixed_quadratichessian.as_ref().clone(),
+            fixed_quadratic_hessian: self.fixed_quadratic_hessian.clone(),
         })
     }
 
@@ -5522,7 +5843,7 @@ impl CustomFamily for SpatialAdaptiveExactFamily {
         )
         .map_err(|e| e.to_string())?;
         let adaptive_penalty = self.adaptive_penalty_value_only(beta)?;
-        let (fixed_quadratic, _) = self.fixed_quadratic_terms(beta);
+        let (fixed_quadratic, _) = self.fixed_quadratic_terms(beta)?;
         Ok(obs.log_likelihood - adaptive_penalty - fixed_quadratic)
     }
 
@@ -5598,23 +5919,30 @@ impl CustomFamily for SpatialAdaptiveExactFamily {
         block_states: &[ParameterBlockState],
         block_idx: usize,
         block_spec: &ParameterBlockSpec,
-    ) -> Result<Option<LinearInequalityConstraints>, String> {
+    ) -> Result<Option<ConstraintSet>, String> {
         assert!(!block_states.is_empty(), "block_states must be non-empty");
         assert!(
             !block_spec.name.is_empty(),
             "block spec name must be non-empty",
         );
         expect_block_idx_zero(block_idx, "spatial adaptive exact family", "")?;
-        Ok(self.linear_constraints.clone())
+        Ok(self.linear_constraints.clone().map(ConstraintSet::Dense))
     }
 
     fn exact_newton_joint_psi_terms(
         &self,
         block_states: &[ParameterBlockState],
         specs: &[ParameterBlockSpec],
-        derivative_blocks: &[Vec<CustomFamilyBlockPsiDerivative>],
+        hyper_layout: &crate::custom_family::CustomFamilyHyperLayout,
         psi_index: usize,
     ) -> Result<Option<ExactNewtonJointPsiTerms>, String> {
+        if hyper_layout.family_axis_count() != 0 {
+            return Err(
+                "spatial adaptive exact family does not declare family-owned hyper axes"
+                    .to_string(),
+            );
+        }
+        let derivative_blocks = hyper_layout.design_derivative_blocks();
         if block_states.len() != 1 || specs.len() != 1 || derivative_blocks.len() != 1 {
             return Err(SmoothError::dimension_mismatch(format!(
                 "spatial adaptive exact family expects one block/state/spec/psi payload, got states={} specs={} deriv_blocks={}",
@@ -5668,10 +5996,17 @@ impl CustomFamily for SpatialAdaptiveExactFamily {
         &self,
         block_states: &[ParameterBlockState],
         specs: &[ParameterBlockSpec],
-        derivative_blocks: &[Vec<CustomFamilyBlockPsiDerivative>],
+        hyper_layout: &crate::custom_family::CustomFamilyHyperLayout,
         psi_i: usize,
         psi_j: usize,
     ) -> Result<Option<gam_problem::ExactNewtonJointPsiSecondOrderTerms>, String> {
+        if hyper_layout.family_axis_count() != 0 {
+            return Err(
+                "spatial adaptive exact family does not declare family-owned hyper axes"
+                    .to_string(),
+            );
+        }
+        let derivative_blocks = hyper_layout.design_derivative_blocks();
         if block_states.len() != 1 || specs.len() != 1 || derivative_blocks.len() != 1 {
             return Err(SmoothError::dimension_mismatch(format!(
                 "spatial adaptive exact family expects one block/state/spec/psi payload, got states={} specs={} deriv_blocks={}",
@@ -5712,10 +6047,17 @@ impl CustomFamily for SpatialAdaptiveExactFamily {
         &self,
         block_states: &[ParameterBlockState],
         specs: &[ParameterBlockSpec],
-        derivative_blocks: &[Vec<CustomFamilyBlockPsiDerivative>],
+        hyper_layout: &crate::custom_family::CustomFamilyHyperLayout,
         psi_index: usize,
         direction: &Array1<f64>,
     ) -> Result<Option<Array2<f64>>, String> {
+        if hyper_layout.family_axis_count() != 0 {
+            return Err(
+                "spatial adaptive exact family does not declare family-owned hyper axes"
+                    .to_string(),
+            );
+        }
+        let derivative_blocks = hyper_layout.design_derivative_blocks();
         if block_states.len() != 1 || specs.len() != 1 || derivative_blocks.len() != 1 {
             return Err(SmoothError::dimension_mismatch(format!(
                 "spatial adaptive exact family expects one block/state/spec/psi payload, got states={} specs={} deriv_blocks={}",
@@ -6758,9 +7100,12 @@ fn fit_bounded_term_collection_with_design(
     let working_response = exact_standard_working_response(&eta_state)?;
 
     let geometry = Some(gam_solve::estimate::FitGeometry {
+        coefficient_gauge: gam_problem::gauge::Gauge::identity(&[beta_user.len()]),
         penalized_hessian: penalized_hessian.clone().into(),
-        working_weights: eta_state.fisherweight.clone(),
-        working_response: working_response.clone(),
+        working: Some(gam_solve::estimate::WorkingGeometry {
+            weights: eta_state.fisherweight.clone(),
+            response: working_response,
+        }),
     });
     let max_abs_eta = eta_state
         .eta
@@ -6779,8 +7124,6 @@ fn fit_bounded_term_collection_with_design(
                 // Boundary adapter: `penalized_hessian` storage is now
                 // `UnscaledPrecision`.
                 penalized_hessian: penalized_hessian.clone().into(),
-                working_weights: eta_state.fisherweight.clone(),
-                working_response,
                 reparam_qs: None,
                 dispersion,
                 beta_covariance: beta_covariance
@@ -7104,16 +7447,20 @@ fn blended_pilot_axis_contrasts(
     pilot_data: ArrayView2<'_, f64>,
     term: &SmoothTermSpec,
     centers: ArrayView2<'_, f64>,
-) -> Option<Vec<f64>> {
+) -> Result<Option<Vec<f64>>, BasisError> {
     let d = centers.ncols();
     if d <= 1 {
-        return None;
+        return Ok(None);
     }
     let center_eta = initial_aniso_contrasts(centers);
-    let data_eta = standardized_spatial_term_data(pilot_data, term)
-        .ok()
-        .and_then(|x| finite_centered_axis_contrasts(&initial_aniso_contrasts(x.view()), d));
-    let center_eta = finite_centered_axis_contrasts(&center_eta, d)?;
+    let standardized_data = standardized_spatial_term_data(pilot_data, term)?;
+    let data_eta = finite_centered_axis_contrasts(
+        &initial_aniso_contrasts(standardized_data.view()),
+        d,
+    );
+    let Some(center_eta) = finite_centered_axis_contrasts(&center_eta, d) else {
+        return Ok(None);
+    };
     let blended = match data_eta {
         Some(data_eta) => center_eta
             .iter()
@@ -7122,7 +7469,7 @@ fn blended_pilot_axis_contrasts(
             .collect::<Vec<_>>(),
         None => center_eta,
     };
-    finite_centered_axis_contrasts(&blended, d)
+    Ok(finite_centered_axis_contrasts(&blended, d))
 }
 
 fn apply_pilot_spatial_psi_reseed(
@@ -7138,7 +7485,9 @@ fn apply_pilot_spatial_psi_reseed(
     } else {
         SpatialLogKappaCoords::from_length_scales(spec, spatial_terms, kappa_options)
     };
-    let log_kappa0 = log_kappa0.reseed_from_data(pilot_data, spec, spatial_terms, kappa_options);
+    let log_kappa0 = log_kappa0
+        .reseed_from_data(pilot_data, spec, spatial_terms, kappa_options)
+        .map_err(EstimationError::BasisError)?;
     let log_kappa_lower = if use_aniso {
         SpatialLogKappaCoords::lower_bounds_aniso_from_data(
             pilot_data,
@@ -7154,7 +7503,8 @@ fn apply_pilot_spatial_psi_reseed(
             spatial_terms,
             kappa_options,
         )
-    };
+    }
+    .map_err(EstimationError::BasisError)?;
     let log_kappa_upper = if use_aniso {
         SpatialLogKappaCoords::upper_bounds_aniso_from_data(
             pilot_data,
@@ -7170,7 +7520,8 @@ fn apply_pilot_spatial_psi_reseed(
             spatial_terms,
             kappa_options,
         )
-    };
+    }
+    .map_err(EstimationError::BasisError)?;
     log_kappa0
         .clamp_to_bounds(&log_kappa_lower, &log_kappa_upper)
         .apply_tospec(spec, spatial_terms)
@@ -7182,13 +7533,13 @@ pub(crate) fn apply_spatial_anisotropy_pilot_initializer(
     spatial_terms: &[usize],
     target_size: usize,
     kappa_options: &SpatialLengthScaleOptimizationOptions,
-) -> usize {
+) -> Result<usize, EstimationError> {
     if target_size == 0 || data.nrows() <= target_size.saturating_mul(2) || spatial_terms.is_empty()
     {
-        return 0;
+        return Ok(0);
     }
     if !has_aniso_terms(spec, spatial_terms) {
-        return 0;
+        return Ok(0);
     }
     let indices = stratified_spatial_subsample(data, spec, target_size);
     let pilot_data = sampled_rows(data, &indices);
@@ -7197,7 +7548,7 @@ pub(crate) fn apply_spatial_anisotropy_pilot_initializer(
     const GEOMETRY_UPDATES: usize = 2;
 
     for pass in 0..GEOMETRY_UPDATES {
-        let planned_terms = match plan_joint_spatial_centers_for_term_blocks(
+        let planned_terms = plan_joint_spatial_centers_for_term_blocks(
             pilot_data.view(),
             &[working.smooth_terms.clone()],
         )
@@ -7207,15 +7558,8 @@ pub(crate) fn apply_spatial_anisotropy_pilot_initializer(
                     "pilot geometry initializer produced no smooth-term block".to_string(),
                 )
             })
-        }) {
-            Ok(terms) => terms,
-            Err(err) => {
-                log::warn!(
-                    "[spatial-kappa] pilot geometry initializer skipped after center planning failed: {err}"
-                );
-                return updated_terms;
-            }
-        };
+        })
+        .map_err(EstimationError::BasisError)?;
 
         for &term_idx in spatial_terms {
             let Some(current_eta) = get_spatial_aniso_log_scales(&working, term_idx) else {
@@ -7233,31 +7577,25 @@ pub(crate) fn apply_spatial_anisotropy_pilot_initializer(
             let Some(centers) = spatial_term_user_centers(planned_term) else {
                 continue;
             };
-            let Some(eta) = blended_pilot_axis_contrasts(pilot_data.view(), planned_term, centers)
+            let Some(eta) = blended_pilot_axis_contrasts(
+                pilot_data.view(),
+                planned_term,
+                centers,
+            )
+            .map_err(EstimationError::BasisError)?
             else {
                 continue;
             };
-            if set_spatial_aniso_log_scales(&mut working, term_idx, eta).is_ok() {
-                updated_terms += usize::from(pass == 0);
-            }
+            set_spatial_aniso_log_scales(&mut working, term_idx, eta)?;
+            updated_terms += usize::from(pass == 0);
         }
 
-        match apply_pilot_spatial_psi_reseed(
+        working = apply_pilot_spatial_psi_reseed(
             pilot_data.view(),
             &working,
             spatial_terms,
             kappa_options,
-        ) {
-            Ok(updated) => {
-                working = updated;
-            }
-            Err(err) => {
-                log::warn!(
-                    "[spatial-kappa] pilot geometry ψ reseed skipped after deterministic initializer error: {err}"
-                );
-                break;
-            }
-        }
+        )?;
     }
 
     if updated_terms > 0 {
@@ -7268,7 +7606,7 @@ pub(crate) fn apply_spatial_anisotropy_pilot_initializer(
         );
         *spec = working;
     }
-    updated_terms
+    Ok(updated_terms)
 }
 
 pub(crate) fn spatial_length_scale_term_indices(spec: &TermCollectionSpec) -> Vec<usize> {
@@ -7535,39 +7873,6 @@ fn exact_joint_spatial_outer_hessian_available(
     family_supported && design.design.ncols() > 0
 }
 
-fn smooth_term_penalty_index(
-    spec: &TermCollectionSpec,
-    design: &TermCollectionDesign,
-    term_idx: usize,
-) -> Option<usize> {
-    if term_idx >= design.smooth.terms.len() || term_idx >= spec.smooth_terms.len() {
-        return None;
-    }
-    if design.smooth.terms[term_idx].penalties_local.is_empty() {
-        return None;
-    }
-    let linear_penalties = spec
-        .linear_terms
-        .iter()
-        .filter(|t| t.double_penalty)
-        .count()
-        * 2;
-    let random_penalties = design
-        .random_effect_ranges
-        .iter()
-        .filter(|(_, range)| !range.is_empty())
-        .count();
-    let smooth_offset = linear_penalties + random_penalties;
-    let local_offset = design
-        .smooth
-        .terms
-        .iter()
-        .take(term_idx)
-        .map(|term| term.penalties_local.len())
-        .sum::<usize>();
-    Some(smooth_offset + local_offset)
-}
-
 fn try_build_spatial_term_log_kappa_derivativeinfo(
     data: ArrayView2<'_, f64>,
     resolvedspec: &TermCollectionSpec,
@@ -7588,9 +7893,13 @@ fn try_build_spatial_term_log_kappa_derivativeinfo(
     else {
         return Ok(None);
     };
-    let Some(penalty_start) = smooth_term_penalty_index(resolvedspec, design, term_idx) else {
+    let Some(penalty_range) = design
+        .smooth_term_penalty_range(term_idx)
+        .map_err(EstimationError::InvalidInput)?
+    else {
         return Ok(None);
     };
+    let penalty_start = penalty_range.start;
     if s_psi_components_local.is_empty() || s_psi_psi_components_local.is_empty() {
         return Ok(None);
     }
@@ -7674,11 +7983,11 @@ fn try_build_spatial_term_log_kappa_aniso_derivativeinfos(
         SmoothBasisSpec::Matern {
             feature_cols,
             spec,
-            input_scales,
+            input_scale,
         } => {
             let mut x = select_columns(data, feature_cols).map_err(EstimationError::from)?;
-            if let Some(s) = input_scales {
-                apply_input_standardization(&mut x, s);
+            if let Some(scale) = input_scale {
+                scale.standardize(&mut x);
             }
             // #1122: the realized Matérn design always carries the operator
             // {mass, tension, stiffness} penalty triplet (`build_term` overrides
@@ -7701,11 +8010,11 @@ fn try_build_spatial_term_log_kappa_aniso_derivativeinfos(
         SmoothBasisSpec::MeasureJet {
             feature_cols,
             spec,
-            input_scales,
+            input_scale,
         } => {
             let mut x = select_columns(data, feature_cols).map_err(EstimationError::from)?;
-            if let Some(s) = input_scales {
-                apply_input_standardization(&mut x, s);
+            if let Some(scale) = input_scale {
+                scale.standardize(&mut x);
             }
             build_measure_jet_basis_psi_derivatives(x.view(), spec)
                 .map_err(EstimationError::from)?
@@ -7724,9 +8033,13 @@ fn try_build_spatial_term_log_kappa_aniso_derivativeinfos(
     if d == 0 {
         return Ok(None);
     }
-    let Some(penalty_start) = smooth_term_penalty_index(resolvedspec, design, term_idx) else {
+    let Some(penalty_range) = design
+        .smooth_term_penalty_range(term_idx)
+        .map_err(EstimationError::InvalidInput)?
+    else {
         return Ok(None);
     };
+    let penalty_start = penalty_range.start;
     let p_total = design.design.ncols();
     let smooth_start = p_total.saturating_sub(design.smooth.total_smooth_cols());
     let global_range = (smooth_start + smooth_term.coeff_range.start)

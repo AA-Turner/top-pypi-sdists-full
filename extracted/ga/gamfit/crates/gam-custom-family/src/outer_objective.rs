@@ -183,7 +183,7 @@ pub(crate) fn custom_family_batched_outer_hessian_operator<F: CustomFamily>(
     family: &F,
     states: &[ParameterBlockState],
     specs: &[ParameterBlockSpec],
-    derivative_blocks: &[Vec<CustomFamilyBlockPsiDerivative>],
+    hyper_layout: &CustomFamilyHyperLayout,
     rho: &Array1<f64>,
     workspace: Option<Arc<dyn ExactNewtonJointHessianWorkspace>>,
     eval_mode: EvalMode,
@@ -192,7 +192,7 @@ pub(crate) fn custom_family_batched_outer_hessian_operator<F: CustomFamily>(
         return Ok(None);
     }
     let Some(terms) =
-        family.batched_outer_hessian_terms(states, specs, derivative_blocks, rho, workspace)?
+        family.batched_outer_hessian_terms(states, specs, hyper_layout, rho, workspace)?
     else {
         return Ok(None);
     };
@@ -209,10 +209,12 @@ pub(crate) fn outer_efs_result_to_joint_hyper_efs_result(
     efs_eval: gam_problem::EfsEval,
     warm_start: ConstrainedWarmStart,
     inner_converged: bool,
+    hyper_values: Array1<f64>,
 ) -> CustomFamilyJointHyperEfsResult {
     CustomFamilyJointHyperEfsResult {
         efs_eval,
         warm_start: CustomFamilyWarmStart { inner: warm_start },
+        hyper_values,
         inner_converged,
     }
 }

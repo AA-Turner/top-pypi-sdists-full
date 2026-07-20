@@ -30,19 +30,21 @@
 //! [`binomial_q_derivs`], [`binomial_q_coeffs`], [`validation`],
 //! [`weighted_design_products`], [`row_linalg`], and [`joint_packing`].
 
-use gam_terms::basis::{BasisOptions, PenaltyInfo, PenaltySource};
+use gam_terms::basis::{ActivePenaltyInfo, BasisOptions, PenaltySource};
 
 use crate::custom_family::{
     AdditiveBlockJacobian, BlockEffectiveJacobian, BlockWorkingSet, BlockwiseFitOptions,
-    CustomFamily, CustomFamilyBlockPsiDerivative, CustomFamilyJointDesignChannel,
+    ConstraintSet, CustomFamily, CustomFamilyBlockPsiDerivative, CustomFamilyJointDesignChannel,
     CustomFamilyJointDesignPairContribution, CustomFamilyJointPsiOperator,
     CustomFamilyPsiDesignAction, CustomFamilyPsiLinearMapRef, CustomFamilyPsiSecondDesignAction,
     CustomFamilyWarmStart, ExactNewtonJointGradientEvaluation, ExactNewtonJointHessianWorkspace,
-    ExactNewtonJointPsiDirectCache, FamilyEvaluation, ParameterBlockSpec,
-    ParameterBlockState, PenaltyMatrix, PsiDesignMap, evaluate_custom_family_joint_hyper,
-    evaluate_custom_family_joint_hyper_efs, fit_custom_family, fit_custom_family_fixed_log_lambdas,
-    resolve_custom_family_x_psi_map, resolve_custom_family_x_psi_psi_map, second_psi_linear_map,
-    shared_dense_arc, weighted_crossprod_psi_maps,
+    ExactNewtonJointPsiDirectCache, FamilyEvaluation, ParameterBlockSpec, ParameterBlockState,
+    PenaltyMatrix, PsiDesignMap, evaluate_custom_family_joint_hyper,
+    evaluate_custom_family_joint_hyper_efs, evaluate_custom_family_joint_hyper_efs_owned,
+    evaluate_custom_family_joint_hyper_owned, fit_custom_family,
+    fit_custom_family_fixed_log_lambdas_from_owned_mode,
+    resolve_custom_family_x_psi_map, resolve_custom_family_x_psi_psi_map,
+    second_psi_linear_map, shared_dense_arc, weighted_crossprod_psi_maps,
 };
 use gam_problem::{ExactNewtonJointPsiSecondOrderTerms, ExactNewtonJointPsiWorkspace};
 
@@ -88,14 +90,12 @@ use gam_linalg::matrix::{DenseDesignOperator, DesignMatrix};
 
 use gam_solve::mixture_link::inverse_link_jet_for_inverse_link;
 
-use gam_solve::pirls::LinearInequalityConstraints;
-
 use crate::probability::{normal_logcdf, normal_logsf, standard_normal_quantile};
 
 use crate::fit_orchestration::drivers::{
-    ExactJointHyperSetup, freeze_term_collection_from_design,
-    optimize_spatial_length_scale_exact_joint, spatial_dims_per_term,
-    spatial_length_scale_term_indices,
+    ExactJointEfsEvaluation, ExactJointEvaluation, ExactJointHyperSetup, SpatialFitProvenance,
+    freeze_term_collection_from_design, optimize_spatial_length_scale_exact_joint,
+    spatial_dims_per_term, spatial_length_scale_term_indices,
 };
 use gam_terms::smooth::{
     BlockwisePenalty, PenaltyBlockInfo, SpatialLengthScaleOptimizationOptions,
@@ -136,8 +136,9 @@ use std::sync::{Arc, Mutex};
 
 mod dispersion_family;
 pub use dispersion_family::{
-    DispersionFamilyKind, DispersionGlmLocationScaleTermSpec, FAMILY_BETA_LOCATION_SCALE,
-    FAMILY_GAMMA_LOCATION_SCALE, FAMILY_NEGBIN_LOCATION_SCALE, FAMILY_TWEEDIE_LOCATION_SCALE,
+    DispersionAloRowGeometry, DispersionFamilyKind, DispersionGlmLocationScaleTermSpec,
+    FAMILY_BETA_LOCATION_SCALE, FAMILY_GAMMA_LOCATION_SCALE, FAMILY_NEGBIN_LOCATION_SCALE,
+    FAMILY_TWEEDIE_LOCATION_SCALE, dispersion_alo_row_geometry,
     fit_dispersion_glm_location_scale_terms,
 };
 
@@ -197,6 +198,13 @@ pub use gaussian::*;
 
 mod binomial;
 pub use binomial::*;
+
+mod alo_replay;
+pub use alo_replay::{
+    BinomialLocationScaleAloRowInput, GaussianLocationScaleAloRowInput,
+    LocationScaleAloRowGeometry, binomial_location_scale_alo_row_geometry,
+    gaussian_location_scale_alo_row_geometry,
+};
 
 #[cfg(test)]
 mod test_support;

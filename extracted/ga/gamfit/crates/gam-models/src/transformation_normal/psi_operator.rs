@@ -1037,11 +1037,10 @@ impl TransformationNormalPsiWorkspace {
                 }
 
                 let mut acc = PsiAllAxesAccum::new(n_psi, p_total);
-                let mut gamma = vec![0.0; p_resp];
                 let mut h_factor = vec![0.0; p_resp];
                 let mut hp_factor = vec![0.0; p_resp];
                 let mut endpoint_factor = vec![[0.0_f64; 2]; p_resp];
-                let mut gamma_psi = vec![0.0; p_resp];
+                let mut alpha_psi = vec![0.0; p_resp];
                 let mut hpsi_cov_factor = vec![0.0; p_resp];
                 let mut hppsi_cov_factor = vec![0.0; p_resp];
                 let mut hpsi_psi_factor = vec![0.0; p_resp];
@@ -1061,23 +1060,14 @@ impl TransformationNormalPsiWorkspace {
                     let inv_hp = 1.0 / hp;
                     let inv_hp_sq = inv_hp * inv_hp;
                     let q = &endpoint_q[i];
-                    let gamma_row = row.gamma.row(i);
-
                     for k in 0..p_resp {
-                        gamma[k] = gamma_row[k];
-                    }
-
-                    h_factor[0] = rv[0];
-                    hp_factor[0] = rd[0];
-                    for k in 1..p_resp {
-                        h_factor[k] = 2.0 * rv[k] * gamma[k];
-                        hp_factor[k] = 2.0 * rd[k] * gamma[k];
+                        h_factor[k] = rv[k];
+                        hp_factor[k] = rd[k];
                     }
                     for e in 0..2 {
                         let basis = endpoint_basis[e];
-                        endpoint_factor[0][e] = basis[0];
-                        for k in 1..p_resp {
-                            endpoint_factor[k][e] = 2.0 * basis[k] * gamma[k];
+                        for k in 0..p_resp {
+                            endpoint_factor[k][e] = basis[k];
                         }
                     }
 
@@ -1085,25 +1075,23 @@ impl TransformationNormalPsiWorkspace {
                         let psi_row = cov_psi_chunks[axis_idx].row(local_i);
 
                         for k in 0..p_resp {
-                            gamma_psi[k] = beta_mat.row(k).dot(&psi_row);
+                            alpha_psi[k] = beta_mat.row(k).dot(&psi_row);
                         }
 
-                        let mut h_psi = rv[0] * gamma_psi[0];
-                        let mut hp_psi = rd[0] * gamma_psi[0];
-                        for k in 1..p_resp {
-                            h_psi += 2.0 * rv[k] * gamma[k] * gamma_psi[k];
-                            hp_psi += 2.0 * rd[k] * gamma[k] * gamma_psi[k];
+                        let mut h_psi = 0.0;
+                        let mut hp_psi = 0.0;
+                        for k in 0..p_resp {
+                            h_psi += rv[k] * alpha_psi[k];
+                            hp_psi += rd[k] * alpha_psi[k];
                         }
 
                         for e in 0..2 {
                             let basis = endpoint_basis[e];
-                            endpoint_psi[e] = basis[0] * gamma_psi[0];
-                            endpoint_psi_psi_factor[0][e] = basis[0];
-                            endpoint_psi_cov_factor[0][e] = 0.0;
-                            for k in 1..p_resp {
-                                endpoint_psi[e] += 2.0 * basis[k] * gamma[k] * gamma_psi[k];
-                                endpoint_psi_cov_factor[k][e] = 2.0 * basis[k] * gamma_psi[k];
-                                endpoint_psi_psi_factor[k][e] = 2.0 * basis[k] * gamma[k];
+                            endpoint_psi[e] = 0.0;
+                            for k in 0..p_resp {
+                                endpoint_psi[e] += basis[k] * alpha_psi[k];
+                                endpoint_psi_cov_factor[k][e] = 0.0;
+                                endpoint_psi_psi_factor[k][e] = basis[k];
                             }
                         }
 
@@ -1112,15 +1100,11 @@ impl TransformationNormalPsiWorkspace {
                                 - hp_psi * inv_hp
                                 + endpoint_chain_first(q, endpoint_psi));
 
-                        hpsi_psi_factor[0] = rv[0];
-                        hppsi_psi_factor[0] = rd[0];
-                        hpsi_cov_factor[0] = 0.0;
-                        hppsi_cov_factor[0] = 0.0;
-                        for k in 1..p_resp {
-                            hpsi_cov_factor[k] = 2.0 * rv[k] * gamma_psi[k];
-                            hppsi_cov_factor[k] = 2.0 * rd[k] * gamma_psi[k];
-                            hpsi_psi_factor[k] = 2.0 * rv[k] * gamma[k];
-                            hppsi_psi_factor[k] = 2.0 * rd[k] * gamma[k];
+                        for k in 0..p_resp {
+                            hpsi_cov_factor[k] = 0.0;
+                            hppsi_cov_factor[k] = 0.0;
+                            hpsi_psi_factor[k] = rv[k];
+                            hppsi_psi_factor[k] = rd[k];
                         }
 
                         let score_axis = &mut acc.score_psi[axis_idx];
@@ -1188,7 +1172,7 @@ impl TransformationNormalPsiWorkspace {
                 axis,
                 trace_axes: Arc::clone(&trace_axes),
                 trace_axis_pos: axis_idx,
-                row_gamma: Arc::clone(&row.gamma),
+                row_gamma: Arc::clone(&row.alpha),
                 row_h: Arc::clone(&row.h),
                 row_h_prime: Arc::clone(&row.h_prime),
                 endpoint_q: Arc::clone(&row.endpoint_q),
@@ -1477,7 +1461,7 @@ impl ExactNewtonJointPsiWorkspace for TransformationNormalPsiWorkspace {
             return Ok(None);
         };
 
-        let hessian_psi_psi_operator: Box<dyn HyperOperator> = Box::new(
+        let hessian_psi_psi_operator: Arc<dyn HyperOperator> = Arc::new(
             TransformationNormalPsiPsiHessianOperator::new_with_trace_axes(
                 Arc::new(self.family.clone()),
                 entry.beta.as_ref().clone(),
@@ -1539,7 +1523,7 @@ impl ExactNewtonJointPsiWorkspace for TransformationNormalPsiWorkspace {
         }
         let row_quantities = TransformationNormalRowQuantityCache {
             beta: Arc::clone(&entry.beta),
-            gamma: Arc::clone(&entry.row_gamma),
+            alpha: Arc::clone(&entry.row_gamma),
             h: Arc::clone(&entry.row_h),
             h_prime: Arc::clone(&entry.row_h_prime),
             h_lower: Arc::new(Array1::zeros(entry.row_h.len())),
@@ -1594,54 +1578,202 @@ pub fn build_tensor_psi_derivatives(
 ) -> Result<Vec<CustomFamilyBlockPsiDerivative>, String> {
     let p_resp = family.response_val_basis.ncols();
     let n_axes = covariate_psi_derivs.len();
-    let mut shape_resp = Array2::<f64>::eye(p_resp);
-    shape_resp[[0, 0]] = 0.0;
-    let shared_operator: Arc<dyn CustomFamilyPsiDerivativeOperator> =
-        Arc::new(TensorKroneckerPsiOperator {
-            response_val_basis: Arc::new(family.response_val_basis.clone()),
-            covariate_design: family.covariate_design.clone(),
-            covariate_derivs: covariate_psi_derivs.to_vec(),
-            covariate_first_cache: Arc::new(
-                (0..n_axes).map(|_| Mutex::new(None)).collect::<Vec<_>>(),
-            ),
-        });
+    // Left factor of the covariate-direction penalty `G_y ⊗ S_{x,j}(κ)`. The
+    // response value-basis mass Gram `G_y` is κ-independent, so the ψ/κ
+    // derivative is `G_y ⊗ dS_cov/dκ`; using the same `G_y` the penalty value
+    // uses keeps the outer criterion and its gradient in sync (gam#2306).
+    let response_left = weighted_function_gram(
+        family.response_val_basis.view(),
+        family.weights.view(),
+        p_resp,
+        "response",
+    )?;
+    // Keep a concrete handle so the κ-derivative assembly below can source the
+    // covariate ψ-derivatives (`∂Ψ/∂κ`, `∂²Ψ/∂κ²`) through the operator's own
+    // guarded accessors, which materialize from the implicit operator when the
+    // dense `x_psi` is the deliberate 0×0 placeholder (Duchon / matrix-free
+    // path) and fall back to the dense block otherwise. This completes the
+    // `x_psi`-placeholder guard pattern the other consumers already honor
+    // (gam#979 / gam#2306).
+    let shared_concrete = Arc::new(TensorKroneckerPsiOperator {
+        response_val_basis: Arc::new(family.response_val_basis.clone()),
+        covariate_design: family.covariate_design.clone(),
+        covariate_derivs: covariate_psi_derivs.to_vec(),
+        covariate_first_cache: Arc::new((0..n_axes).map(|_| Mutex::new(None)).collect::<Vec<_>>()),
+    });
+    let shared_operator: Arc<dyn CustomFamilyPsiDerivativeOperator> = shared_concrete.clone();
+
+    // Only the response-roughness penalties (`S_{y,m} ⊗ G_x`) carry the κ-moving
+    // covariate mass Gram `G_x = Ψ(κ)ᵀWΨ(κ)`. Collect their κ-independent left
+    // factors so we can emit the matching `S_{y,m} ⊗ dG_x/dκ` derivative
+    // components at the right penalty indices; the outer κ-gradient/Hessian would
+    // otherwise desync from the penalty value. The double (null-shrinkage) ridge
+    // is `shape_resp ⊗ I_cov` — full-rank and κ-independent — so it carries no
+    // G_x derivative.
+    let layout = family.tensor_penalty_layout;
+    let mut gx_penalty_lefts: Vec<(usize, Array2<f64>)> = Vec::new();
+    for idx in layout.response_indices() {
+        gx_penalty_lefts.push((idx, extract_kron_left(&family.tensor_penalties[idx], idx)?));
+    }
+    let covariate_dense = if gx_penalty_lefts.is_empty() {
+        None
+    } else {
+        Some(family.covariate_dense_arc()?)
+    };
+    let weights = family.weights.view();
+
+    // Covariate ψ first-derivatives `∂Ψ/∂κ_a` for every axis, materialized once
+    // per evaluation (n × p_cov) through the guarded accessor. It returns the
+    // dense `x_psi` when present and materializes from the implicit operator
+    // when `x_psi` is the 0×0 placeholder, so the dense and matrix-free paths
+    // feed the same `G_x` derivative contraction. Only the response-roughness
+    // penalties carry the κ-moving `G_x`, so this is skipped otherwise.
+    let n_data = shared_concrete.n_data();
+    let cov_first_mats: Option<Vec<Array2<f64>>> = if gx_penalty_lefts.is_empty() {
+        None
+    } else {
+        let mut mats = Vec::with_capacity(n_axes);
+        for ax in 0..n_axes {
+            mats.push(
+                shared_concrete
+                    .cov_first_axis_row_chunk(ax, 0..n_data)
+                    .map_err(|e| e.to_string())?,
+            );
+        }
+        Some(mats)
+    };
 
     let mut derivs = Vec::with_capacity(n_axes);
     for a in 0..n_axes {
         let cov_deriv = &covariate_psi_derivs[a];
-        let s_psi_penalty_components = cov_deriv
+        // Covariate-direction first-order components `G_y ⊗ dS_cov/dκ_a`.
+        let covariate_first = cov_deriv
             .s_psi_penalty_components
             .as_ref()
-            .map(|components| lift_covariate_penalty_derivative_components(components, &shape_resp))
+            .map(|components| lift_covariate_penalty_derivative_components(components, &response_left))
             .transpose()?
             .or_else(|| {
                 cov_deriv.s_psi_components.as_ref().map(|components| {
-                    lift_dense_covariate_penalty_derivative_components(components, &shape_resp)
+                    lift_dense_covariate_penalty_derivative_components(components, &response_left)
                 })
             });
-        let s_psi_psi_penalty_components = cov_deriv
-            .s_psi_psi_penalty_components
-            .as_ref()
-            .map(|rows| {
-                rows.iter()
-                    .map(|cov_pen_pairs| -> Result<_, String> {
-                        lift_covariate_penalty_derivative_components(cov_pen_pairs, &shape_resp)
-                    })
-                    .collect::<Result<Vec<_>, _>>()
-            })
-            .transpose()?
-            .or_else(|| {
-                cov_deriv.s_psi_psi_components.as_ref().map(|rows| {
+        let s_psi_penalty_components = if gx_penalty_lefts.is_empty() {
+            covariate_first
+        } else {
+            let psi: &Array2<f64> = covariate_dense.as_ref().expect("gx penalties imply dense");
+            let cov_first = cov_first_mats
+                .as_ref()
+                .expect("gx penalties imply covariate first derivatives");
+            // dG_x/dκ_a = (∂Ψ/∂κ_a)ᵀWΨ + ΨᵀW(∂Ψ/∂κ_a). `∂Ψ/∂κ_a` is sourced
+            // through the guarded accessor, so a 0×0 `x_psi` placeholder is
+            // materialized from the implicit operator rather than contracted raw.
+            let dgx_a = symmetrize_sum(&weighted_cross_gram(
+                cov_first[a].view(),
+                psi.view(),
+                weights,
+            )?);
+            let mut components = covariate_first.unwrap_or_default();
+            for (idx, left) in &gx_penalty_lefts {
+                components.push((
+                    *idx,
+                    PenaltyMatrix::KroneckerFactored {
+                        left: left.clone(),
+                        right: dgx_a.clone(),
+                    },
+                ));
+            }
+            Some(components)
+        };
+
+        let s_psi_psi_penalty_components = if gx_penalty_lefts.is_empty() {
+            cov_deriv
+                .s_psi_psi_penalty_components
+                .as_ref()
+                .map(|rows| {
                     rows.iter()
-                        .map(|cov_pen_pairs| {
-                            lift_dense_covariate_penalty_derivative_components(
+                        .map(|cov_pen_pairs| -> Result<_, String> {
+                            lift_covariate_penalty_derivative_components(
                                 cov_pen_pairs,
-                                &shape_resp,
+                                &response_left,
                             )
                         })
-                        .collect::<Vec<_>>()
+                        .collect::<Result<Vec<_>, _>>()
                 })
-            });
+                .transpose()?
+                .or_else(|| {
+                    cov_deriv.s_psi_psi_components.as_ref().map(|rows| {
+                        rows.iter()
+                            .map(|cov_pen_pairs| {
+                                lift_dense_covariate_penalty_derivative_components(
+                                    cov_pen_pairs,
+                                    &response_left,
+                                )
+                            })
+                            .collect::<Vec<_>>()
+                    })
+                })
+        } else {
+            // Every partner axis `j` gets a `d²G_x/dκ_a∂κ_j` component — the
+            // `(∂Ψ/∂κ_a)ᵀW(∂Ψ/∂κ_j)` cross term is nonzero even when the design
+            // is linear in κ (G_x is quadratic in Ψ) — merged with any covariate
+            // second-order component for that pair.
+            let psi: &Array2<f64> = covariate_dense.as_ref().expect("gx penalties imply dense");
+            let cov_first = cov_first_mats
+                .as_ref()
+                .expect("gx penalties imply covariate first derivatives");
+            let mut per_j: Vec<Vec<(usize, PenaltyMatrix)>> = Vec::with_capacity(n_axes);
+            for j in 0..n_axes {
+                let mut comp_ij: Vec<(usize, PenaltyMatrix)> = Vec::new();
+                if let Some(rows) = cov_deriv.s_psi_psi_penalty_components.as_ref() {
+                    if let Some(cov_pen_pairs) = rows.get(j) {
+                        comp_ij.extend(lift_covariate_penalty_derivative_components(
+                            cov_pen_pairs,
+                            &response_left,
+                        )?);
+                    }
+                } else if let Some(rows) = cov_deriv.s_psi_psi_components.as_ref() {
+                    if let Some(cov_pen_pairs) = rows.get(j) {
+                        comp_ij.extend(lift_dense_covariate_penalty_derivative_components(
+                            cov_pen_pairs,
+                            &response_left,
+                        ));
+                    }
+                }
+                // d²G_x/dκ_a∂κ_j = (∂²Ψ/∂κ_a∂κ_j)ᵀWΨ + (∂Ψ/∂κ_a)ᵀW(∂Ψ/∂κ_j),
+                // each symmetrized. Both ψ-derivative factors are sourced through
+                // the guarded accessors: `cov_first` holds the materialized
+                // `∂Ψ/∂κ`, and `cov_second_axis_row_chunk` returns the dense
+                // `x_psi_psi` block when present and otherwise materializes the
+                // second κ-derivative from the implicit operator (diag/cross axis
+                // dispatch included) — so the matrix-free path carries the same
+                // `∂²Ψ` term the dense path does instead of silently dropping it.
+                let mut d2gx = symmetrize_sum(&weighted_cross_gram(
+                    cov_first[a].view(),
+                    cov_first[j].view(),
+                    weights,
+                )?);
+                let x_psi_psi_aj = shared_concrete
+                    .cov_second_axis_row_chunk(a, j, 0..n_data)
+                    .map_err(|e| e.to_string())?;
+                d2gx = d2gx
+                    + symmetrize_sum(&weighted_cross_gram(
+                        x_psi_psi_aj.view(),
+                        psi.view(),
+                        weights,
+                    )?);
+                for (idx, left) in &gx_penalty_lefts {
+                    comp_ij.push((
+                        *idx,
+                        PenaltyMatrix::KroneckerFactored {
+                            left: left.clone(),
+                            right: d2gx.clone(),
+                        },
+                    ));
+                }
+                per_j.push(comp_ij);
+            }
+            Some(per_j)
+        };
 
         let mut deriv = CustomFamilyBlockPsiDerivative::new(
             None,
@@ -1663,20 +1795,32 @@ pub fn build_tensor_psi_derivatives(
     Ok(derivs)
 }
 
+/// Extract the κ-independent left factor of a Kronecker-factored tensor penalty
+/// (`S_left` in `S_left ⊗ G_x`), used to build its `S_left ⊗ dG_x/dκ`
+/// derivative component.
+fn extract_kron_left(penalty: &PenaltyMatrix, idx: usize) -> Result<Array2<f64>, String> {
+    match penalty {
+        PenaltyMatrix::KroneckerFactored { left, .. } => Ok(left.clone()),
+        _ => Err(format!(
+            "CTN tensor penalty {idx} must be Kronecker-factored to carry a G_x derivative"
+        )),
+    }
+}
+
 pub(crate) fn lift_dense_covariate_penalty_derivative_components(
     components: &[(usize, Array2<f64>)],
-    shape_resp: &Array2<f64>,
+    response_left: &Array2<f64>,
 ) -> Vec<(usize, PenaltyMatrix)> {
     let mut out = Vec::with_capacity(components.len());
     for &(idx, ref ds_cov) in components {
-        push_lifted_covariate_penalty_component(&mut out, idx, ds_cov.clone(), shape_resp);
+        push_lifted_covariate_penalty_component(&mut out, idx, ds_cov.clone(), response_left);
     }
     out
 }
 
 pub(crate) fn lift_covariate_penalty_derivative_components(
     components: &[(usize, PenaltyMatrix)],
-    shape_resp: &Array2<f64>,
+    response_left: &Array2<f64>,
 ) -> Result<Vec<(usize, PenaltyMatrix)>, String> {
     let mut out = Vec::with_capacity(components.len());
     for (idx, ds_cov) in components {
@@ -1684,7 +1828,7 @@ pub(crate) fn lift_covariate_penalty_derivative_components(
             &mut out,
             *idx,
             extract_covariate_penalty_factor(ds_cov)?,
-            shape_resp,
+            response_left,
         );
     }
     Ok(out)
@@ -1694,12 +1838,12 @@ pub(crate) fn push_lifted_covariate_penalty_component(
     out: &mut Vec<(usize, PenaltyMatrix)>,
     cov_penalty_idx: usize,
     ds_cov: Array2<f64>,
-    shape_resp: &Array2<f64>,
+    response_left: &Array2<f64>,
 ) {
     out.push((
         cov_penalty_idx,
         PenaltyMatrix::KroneckerFactored {
-            left: shape_resp.clone(),
+            left: response_left.clone(),
             right: ds_cov,
         },
     ));

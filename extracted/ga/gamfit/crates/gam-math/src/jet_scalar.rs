@@ -43,7 +43,7 @@
 //!
 //! As in [`crate::jet_tower`], humans own primitive stability and the algebra
 //! owns combinatorics: tail-critical special functions enter ONLY as
-//! hand-certified `[f64; 5]` derivative stacks through [`JetScalar::compose_unary`]
+//! hand-certified `[f64; 5]` derivative stacks through [`crate::nested_dual::JetField::compose_unary`]
 //! (each scalar consumes the leading entries its order needs), never by
 //! differentiating an unstable primal.
 //!
@@ -62,6 +62,293 @@
 //! is the oracle that pins the contracted scalars against the dense
 //! value/grad/Hessian/`t3`/`t4` truth, so it lives in the `#[cfg(test)]` module.
 
+/// Symmetric coefficient operator used by the universal quadratic-form jet
+/// primitive.
+///
+/// Implementations own representation-specific matrix access (diagonal,
+/// dense, low rank, structured, or matrix free). Jet scalars own the one
+/// derivative rule for `x' A x`; callers never spell its chain rule.
+pub trait SymmetricQuadraticCoefficients {
+    /// Input-space dimension of the symmetric operator.
+    fn dimension(&self) -> usize;
+
+    /// Compute `output = A * input` without materializing `A`.
+    fn multiply(&self, input: &[f64], output: &mut [f64]);
+
+    /// One symmetric coefficient `A[row, column]`.
+    fn coefficient(&self, row: usize, column: usize) -> f64;
+
+    /// Visit the operator's input-space upper triangle without materializing a
+    /// dense matrix. The default probes one basis direction at a time through
+    /// [`Self::multiply`], preserving matrix-free operators. Representations
+    /// with direct structure should override this hook so a packed curvature
+    /// lowering is O(K), O(K²), or O(K²R) as appropriate instead of performing
+    /// K full operator applications.
+    ///
+    /// `direction` and `projected` are caller-owned scratch of exact length
+    /// [`Self::dimension`]. Every `(row, column)` with `row <= column` is
+    /// visited exactly once, including structural zeros.
+    fn visit_upper_triangle(
+        &self,
+        direction: &mut [f64],
+        projected: &mut [f64],
+        mut visit: impl FnMut(usize, usize, f64),
+    ) {
+        let dimension = self.dimension();
+        assert_eq!(direction.len(), dimension);
+        assert_eq!(projected.len(), dimension);
+        direction.fill(0.0);
+        for column in 0..dimension {
+            direction[column] = 1.0;
+            self.multiply(direction, projected);
+            direction[column] = 0.0;
+            for row in 0..=column {
+                visit(row, column, projected[row]);
+            }
+        }
+    }
+
+    /// Evaluate the primal quadratic form without materializing the input as a
+    /// separate `f64` vector. Structured operators should override this to
+    /// preserve their representation's natural complexity (for example O(KR)
+    /// for a K-by-R low-rank factor).
+    fn quadratic_value<T, F>(&self, inputs: &[T], value: F) -> f64
+    where
+        F: Fn(&T) -> f64,
+    {
+        assert_eq!(
+            inputs.len(),
+            self.dimension(),
+            "symmetric quadratic-form dimension mismatch"
+        );
+        let mut out = 0.0;
+        for row in 0..inputs.len() {
+            let row_value = value(&inputs[row]);
+            out += self.coefficient(row, row) * row_value * row_value;
+            for column in row + 1..inputs.len() {
+                out += 2.0 * self.coefficient(row, column) * row_value * value(&inputs[column]);
+            }
+        }
+        out
+    }
+}
+
+fn symmetric_quadratic_form_default<T, C>(
+    inputs: &[T],
+    coefficients: &C,
+    constant: impl Fn(f64) -> T,
+    add: impl Fn(&T, &T) -> T,
+    mul: impl Fn(&T, &T) -> T,
+    scale: impl Fn(&T, f64) -> T,
+) -> T
+where
+    C: SymmetricQuadraticCoefficients,
+{
+    assert_eq!(
+        inputs.len(),
+        coefficients.dimension(),
+        "symmetric quadratic-form dimension mismatch"
+    );
+    let mut out = constant(0.0);
+    for row in 0..inputs.len() {
+        let diagonal = mul(&inputs[row], &inputs[row]);
+        out = add(&out, &scale(&diagonal, coefficients.coefficient(row, row)));
+        for column in row + 1..inputs.len() {
+            let cross = mul(&inputs[row], &inputs[column]);
+            out = add(
+                &out,
+                &scale(&cross, 2.0 * coefficients.coefficient(row, column)),
+            );
+        }
+    }
+    out
+}
+
+fn linear_combination_default<T>(
+    inputs: &[T],
+    weights: &[f64],
+    constant: impl Fn(f64) -> T,
+    add: impl Fn(&T, &T) -> T,
+    scale: impl Fn(&T, f64) -> T,
+) -> T {
+    assert_eq!(
+        inputs.len(),
+        weights.len(),
+        "linear-combination dimension mismatch"
+    );
+    inputs
+        .iter()
+        .zip(weights)
+        .fold(constant(0.0), |sum, (input, &weight)| {
+            add(&sum, &scale(input, weight))
+        })
+}
+
+fn multiply_add_default<T>(
+    left: &T,
+    right: &T,
+    addend: &T,
+    mul: impl Fn(&T, &T) -> T,
+    add: impl Fn(&T, &T) -> T,
+) -> T {
+    add(&mul(left, right), addend)
+}
+
+fn composed_sum_default<T>(
+    inputs: &[T],
+    derivative_stacks: &[[f64; 5]],
+    constant: impl Fn(f64) -> T,
+    add: impl Fn(&T, &T) -> T,
+    compose: impl Fn(&T, [f64; 5]) -> T,
+) -> T {
+    assert_eq!(
+        inputs.len(),
+        derivative_stacks.len(),
+        "composed-sum term-count mismatch"
+    );
+    inputs
+        .iter()
+        .zip(derivative_stacks)
+        .fold(constant(0.0), |sum, (input, &stack)| {
+            add(&sum, &compose(input, stack))
+        })
+}
+
+fn affine_compose_default<T>(
+    input: &T,
+    input_scale: f64,
+    input_shift: f64,
+    derivative_stack: [f64; 5],
+    scale: impl Fn(&T, f64) -> T,
+    add_constant: impl Fn(&T, f64) -> T,
+    compose: impl Fn(&T, [f64; 5]) -> T,
+) -> T {
+    compose(
+        &add_constant(&scale(input, input_scale), input_shift),
+        derivative_stack,
+    )
+}
+
+fn affine_composed_sum_default<T>(
+    inputs: &[T],
+    input_scales: &[f64],
+    derivative_stacks: &[[f64; 5]],
+    constant: impl Fn(f64) -> T,
+    add: impl Fn(&T, &T) -> T,
+    scale: impl Fn(&T, f64) -> T,
+    add_constant: impl Fn(&T, f64) -> T,
+    compose: impl Fn(&T, [f64; 5]) -> T,
+) -> T {
+    assert_eq!(inputs.len(), input_scales.len());
+    assert_eq!(inputs.len(), derivative_stacks.len());
+    inputs.iter().zip(input_scales).zip(derivative_stacks).fold(
+        constant(0.0),
+        |sum, ((input, &input_scale), &stack)| {
+            add(
+                &sum,
+                &affine_compose_default(
+                    input,
+                    input_scale,
+                    0.0,
+                    stack,
+                    &scale,
+                    &add_constant,
+                    &compose,
+                ),
+            )
+        },
+    )
+}
+
+fn shared_multiply_add_affine_composed_sum_default<T, const N: usize>(
+    lefts: &[&T; N],
+    right: &T,
+    addend: &T,
+    addend_scales: &[f64; N],
+    input_scales: &[f64; N],
+    derivative_stacks: &[[f64; 5]; N],
+    constant: impl Fn(f64) -> T,
+    add: impl Fn(&T, &T) -> T,
+    mul: impl Fn(&T, &T) -> T,
+    scale: impl Fn(&T, f64) -> T,
+    multiply_add: impl Fn(&T, &T, &T) -> T,
+    affine_compose: impl Fn(&T, f64, f64, [f64; 5]) -> T,
+) -> T {
+    let (representatives, term_sources, source_count) =
+        canonical_shared_source_schedule(|term, representative| {
+            std::ptr::eq(lefts[term], lefts[representative])
+                && addend_scales[term] == addend_scales[representative]
+        });
+    let (value, source_derivatives) =
+        aggregate_shared_source_derivatives(&term_sources, input_scales, derivative_stacks);
+    (0..source_count).fold(constant(value), |sum, source| {
+        let term = representatives[source];
+        let inner = if addend_scales[term] == 0.0 {
+            mul(lefts[term], right)
+        } else if addend_scales[term] == 1.0 {
+            multiply_add(lefts[term], right, addend)
+        } else {
+            multiply_add(lefts[term], right, &scale(addend, addend_scales[term]))
+        };
+        let composed = affine_compose(&inner, 1.0, 0.0, source_derivatives[source]);
+        add(&sum, &composed)
+    })
+}
+
+/// Canonical representatives for repeated inner sources in a shared composed sum.
+///
+/// Backends define source identity at their representation boundary: eager jets
+/// use reference identity, while compiled graphs use node identity. Terms are
+/// equivalent only when their left operand and structural addend coefficient
+/// name the same inner expression. The returned term-to-source map lets every
+/// backend sum outer first/second coefficients before propagating that source.
+#[inline(always)]
+pub(crate) fn canonical_shared_source_schedule<const N: usize>(
+    mut equivalent: impl FnMut(usize, usize) -> bool,
+) -> ([usize; N], [usize; N], usize) {
+    let mut representatives = [0; N];
+    let mut term_sources = [0; N];
+    let mut source_count = 0;
+    for term in 0..N {
+        let mut source = 0;
+        while source < source_count && !equivalent(term, representatives[source]) {
+            source += 1;
+        }
+        if source == source_count {
+            representatives[source] = term;
+            source_count += 1;
+        }
+        term_sources[term] = source;
+    }
+    (representatives, term_sources, source_count)
+}
+
+/// Sum each source's affine-scaled derivative stack through fourth order.
+///
+/// For a term `f(s*x)`, derivative order `r` contributes `f^(r) * s^r`.
+/// The primal value is accumulated once in original term order, while source
+/// stacks deliberately keep a zero value channel so adding their composed jets
+/// cannot perturb that authoritative primal sum.
+#[inline(always)]
+pub(crate) fn aggregate_shared_source_derivatives<const N: usize>(
+    term_sources: &[usize; N],
+    input_scales: &[f64; N],
+    derivative_stacks: &[[f64; 5]; N],
+) -> (f64, [[f64; 5]; N]) {
+    let mut value = 0.0;
+    let mut source_derivatives = [[0.0; 5]; N];
+    for term in 0..N {
+        value += derivative_stacks[term][0];
+        let source = term_sources[term];
+        let mut scale_power = input_scales[term];
+        for order in 1..5 {
+            source_derivatives[source][order] += derivative_stacks[term][order] * scale_power;
+            scale_power *= input_scales[term];
+        }
+    }
+    (value, source_derivatives)
+}
+
 /// A truncated-Taylor scalar carrying derivatives in `K` primaries.
 ///
 /// All concrete scalars here ([`Order2`], [`OneSeed`], [`TwoSeed`]) and the full
@@ -69,7 +356,7 @@
 /// channel set differs. A row loss written once against this interface yields a
 /// different channel set per instantiation, all exact for the channel they serve
 /// (doc §A.0).
-pub trait JetScalar<const K: usize>: Copy {
+pub trait JetScalar<const K: usize>: crate::nested_dual::JetField + Copy {
     /// A constant: value `c`, every derivative channel zero.
     fn constant(c: f64) -> Self;
 
@@ -79,31 +366,141 @@ pub trait JetScalar<const K: usize>: Copy {
     /// the scalar-specific [`OneSeed::seed_direction`] / [`TwoSeed::seed`].)
     fn variable(x: f64, axis: usize) -> Self;
 
-    /// The value channel `ℓ(p)`.
-    fn value(&self) -> f64;
+    /// Evaluate `inputs' A inputs` from one universal semantic primitive.
+    /// Order-specific scalars may lower the mechanically derived channels
+    /// directly; the default is the exact scalar program over `mul/add/scale`.
+    fn symmetric_quadratic_form<C: SymmetricQuadraticCoefficients>(
+        inputs: &[Self],
+        coefficients: &C,
+    ) -> Self {
+        symmetric_quadratic_form_default(
+            inputs,
+            coefficients,
+            Self::constant,
+            crate::nested_dual::JetField::add,
+            crate::nested_dual::JetField::mul,
+            crate::nested_dual::JetField::scale,
+        )
+    }
 
-    /// Exact truncated Leibniz sum `self + o`.
-    fn add(&self, o: &Self) -> Self;
-    /// Exact truncated Leibniz difference `self − o`.
-    fn sub(&self, o: &Self) -> Self;
-    /// Exact truncated Leibniz product `self · o`.
-    fn mul(&self, o: &Self) -> Self;
-    /// Negate every channel.
-    fn neg(&self) -> Self;
-    /// Multiply every channel by a plain scalar `s`.
-    fn scale(&self, s: f64) -> Self;
+    /// Evaluate `sum_i weights[i] * inputs[i]` in one semantic primitive.
+    fn linear_combination(inputs: &[Self], weights: &[f64]) -> Self {
+        linear_combination_default(
+            inputs,
+            weights,
+            Self::constant,
+            crate::nested_dual::JetField::add,
+            crate::nested_dual::JetField::scale,
+        )
+    }
 
-    /// Exact multivariate Faà di Bruno composition `f ∘ self`, given the outer
-    /// derivative stack `d = [f(u), f′(u), f″(u), f‴(u), f⁗(u)]` at
-    /// `u = self.value()`.
-    ///
-    /// This is the SAME `[f64; 5]` stack shape [`crate::jet_tower::Tower4`] and
-    /// the families' `unary_derivatives_*` helpers (built on erfcx / log_ndtr)
-    /// already produce, so those stacks plug in directly. Each scalar consumes
-    /// only the leading entries its order needs (order-2 reads `d[0..=2]`; the
-    /// directional scalars read one / two beyond their base) — the fixed-length
-    /// array makes that windowing total, no length guard required.
-    fn compose_unary(&self, d: [f64; 5]) -> Self;
+    /// Add a primal constant without changing derivative channels.
+    fn add_constant(&self, constant: f64) -> Self {
+        self.add(&Self::constant(constant))
+    }
+
+    /// Evaluate `self * right + addend` in one semantic primitive.
+    fn multiply_add(&self, right: &Self, addend: &Self) -> Self {
+        multiply_add_default(
+            self,
+            right,
+            addend,
+            crate::nested_dual::JetField::mul,
+            crate::nested_dual::JetField::add,
+        )
+    }
+
+    /// Sum unary compositions directly from certified derivative stacks.
+    fn composed_sum(inputs: &[Self], derivative_stacks: &[[f64; 5]]) -> Self {
+        composed_sum_default(
+            inputs,
+            derivative_stacks,
+            Self::constant,
+            crate::nested_dual::JetField::add,
+            crate::nested_dual::JetField::compose_unary,
+        )
+    }
+
+    /// Exact product as an explicit compiled graph node.
+    fn product(&self, right: &Self) -> Self {
+        self.mul(right)
+    }
+
+    /// Compose a certified outer stack after the affine map
+    /// `u = input_scale * self + input_shift`.
+    fn affine_compose(
+        &self,
+        input_scale: f64,
+        input_shift: f64,
+        derivative_stack: [f64; 5],
+    ) -> Self {
+        affine_compose_default(
+            self,
+            input_scale,
+            input_shift,
+            derivative_stack,
+            crate::nested_dual::JetField::scale,
+            Self::add_constant,
+            crate::nested_dual::JetField::compose_unary,
+        )
+    }
+
+    /// Sum unary compositions whose inputs each carry an affine scale.
+    fn affine_composed_sum(
+        inputs: &[Self],
+        input_scales: &[f64],
+        derivative_stacks: &[[f64; 5]],
+    ) -> Self {
+        affine_composed_sum_default(
+            inputs,
+            input_scales,
+            derivative_stacks,
+            Self::constant,
+            crate::nested_dual::JetField::add,
+            crate::nested_dual::JetField::scale,
+            Self::add_constant,
+            crate::nested_dual::JetField::compose_unary,
+        )
+    }
+
+    /// Evaluate
+    /// `Σ_i f_i(input_scale_i · (left_i · right + addend_scale_i · addend))`
+    /// from the certified derivative stack of each `f_i`. The shared operands
+    /// make expression-level common subexpressions explicit, so optimized
+    /// backends apply their inherited derivative channels once. Expression
+    /// arity is part of the type, and borrowed operands never copy a full tower.
+    /// An exact-zero addend scale (either sign of IEEE zero) removes that addend
+    /// from the corresponding term entirely.
+    fn shared_multiply_add_affine_composed_sum<const N: usize>(
+        lefts: &[&Self; N],
+        right: &Self,
+        addend: &Self,
+        addend_scales: &[f64; N],
+        input_scales: &[f64; N],
+        derivative_stacks: &[[f64; 5]; N],
+    ) -> Self {
+        shared_multiply_add_affine_composed_sum_default(
+            lefts,
+            right,
+            addend,
+            addend_scales,
+            input_scales,
+            derivative_stacks,
+            Self::constant,
+            crate::nested_dual::JetField::add,
+            crate::nested_dual::JetField::mul,
+            crate::nested_dual::JetField::scale,
+            Self::multiply_add,
+            Self::affine_compose,
+        )
+    }
+
+    // The scalar-field algebra — `value`, `add`, `sub`, `mul`, `neg`, `scale`,
+    // and the single Faà di Bruno `compose_unary([f64; 5])` — is declared ONCE on
+    // the shared [`crate::nested_dual::JetField`] supertrait (which the runtime-`p`
+    // flex jets also extend), so it is not re-declared here. The value/composition
+    // convention is identical (`u = self.value()`, the `[f64; 5]` stack shape
+    // [`crate::jet_tower::Tower4`] consumes). The helpers below build on it.
 
     /// Compose with a unary special-function whose derivative stack is built from
     /// the scalar base value through `stack_fn`. This evaluates
@@ -178,6 +575,33 @@ pub trait JetScalar<const K: usize>: Copy {
     }
 }
 
+/// Lift a fixed-width primary jet through an independent second-order
+/// direction. Primary variables live in the inner scalar; constructing one
+/// must not seed the outer direction, which is reserved for a family or
+/// hyperparameter derivative selected by the caller.
+impl<S, const K: usize> JetScalar<K> for crate::nested_dual::Dual2<S>
+where
+    S: JetScalar<K>,
+{
+    #[inline]
+    fn constant(c: f64) -> Self {
+        Self {
+            v: S::constant(c),
+            g: S::constant(0.0),
+            h: S::constant(0.0),
+        }
+    }
+
+    #[inline]
+    fn variable(x: f64, axis: usize) -> Self {
+        Self {
+            v: S::variable(x, axis),
+            g: S::constant(0.0),
+            h: S::constant(0.0),
+        }
+    }
+}
+
 /// A Taylor-jet scalar whose primary dimension is selected at runtime.
 ///
 /// This is the dimensioned counterpart of [`JetScalar`].  Its algebra is the
@@ -194,6 +618,143 @@ pub trait RuntimeJetScalar<'arena>: Clone {
     fn constant(c: f64, dimension: usize, workspace: &'arena Self::Workspace) -> Self;
     /// A seeded variable in a `dimension`-primary algebra.
     fn variable(x: f64, axis: usize, dimension: usize, workspace: &'arena Self::Workspace) -> Self;
+
+    /// Evaluate `inputs' A inputs` from the same universal semantic primitive
+    /// as [`JetScalar::symmetric_quadratic_form`].
+    fn symmetric_quadratic_form<C: SymmetricQuadraticCoefficients>(
+        inputs: &[Self],
+        coefficients: &C,
+        dimension: usize,
+        workspace: &'arena Self::Workspace,
+    ) -> Self {
+        symmetric_quadratic_form_default(
+            inputs,
+            coefficients,
+            |value| Self::constant(value, dimension, workspace),
+            Self::add,
+            Self::mul,
+            Self::scale,
+        )
+    }
+
+    /// Evaluate `sum_i weights[i] * inputs[i]` in one semantic primitive.
+    fn linear_combination(
+        inputs: &[Self],
+        weights: &[f64],
+        dimension: usize,
+        workspace: &'arena Self::Workspace,
+    ) -> Self {
+        linear_combination_default(
+            inputs,
+            weights,
+            |value| Self::constant(value, dimension, workspace),
+            Self::add,
+            Self::scale,
+        )
+    }
+
+    /// Add a primal constant without changing derivative channels.
+    fn add_constant(&self, constant: f64, workspace: &'arena Self::Workspace) -> Self {
+        self.add(&Self::constant(constant, self.dimension(), workspace))
+    }
+
+    /// Evaluate `self * right + addend` in one semantic primitive.
+    fn multiply_add(&self, right: &Self, addend: &Self) -> Self {
+        multiply_add_default(self, right, addend, Self::mul, Self::add)
+    }
+
+    /// Sum unary compositions directly from certified derivative stacks.
+    fn composed_sum(
+        inputs: &[Self],
+        derivative_stacks: &[[f64; 5]],
+        dimension: usize,
+        workspace: &'arena Self::Workspace,
+    ) -> Self {
+        composed_sum_default(
+            inputs,
+            derivative_stacks,
+            |value| Self::constant(value, dimension, workspace),
+            Self::add,
+            Self::compose_unary,
+        )
+    }
+
+    /// Exact product as an explicit compiled graph node.
+    fn product(&self, right: &Self) -> Self {
+        self.mul(right)
+    }
+
+    /// Compose a certified outer stack after an affine input map.
+    fn affine_compose(
+        &self,
+        input_scale: f64,
+        input_shift: f64,
+        derivative_stack: [f64; 5],
+        workspace: &'arena Self::Workspace,
+    ) -> Self {
+        affine_compose_default(
+            self,
+            input_scale,
+            input_shift,
+            derivative_stack,
+            Self::scale,
+            |value, constant| value.add_constant(constant, workspace),
+            Self::compose_unary,
+        )
+    }
+
+    /// Sum unary compositions whose inputs each carry an affine scale.
+    fn affine_composed_sum(
+        inputs: &[Self],
+        input_scales: &[f64],
+        derivative_stacks: &[[f64; 5]],
+        dimension: usize,
+        workspace: &'arena Self::Workspace,
+    ) -> Self {
+        affine_composed_sum_default(
+            inputs,
+            input_scales,
+            derivative_stacks,
+            |value| Self::constant(value, dimension, workspace),
+            Self::add,
+            Self::scale,
+            |value, constant| value.add_constant(constant, workspace),
+            Self::compose_unary,
+        )
+    }
+
+    /// Runtime-dimension lowering of
+    /// `Σ_i f_i(input_scale_i · (left_i · right + addend_scale_i · addend))`
+    /// from certified derivative stacks. Const expression arity replaces an
+    /// implementation-specific term cap, while shared operands expose universal
+    /// common-subexpression elimination. If every addend scale is exact zero
+    /// (including `-0.0`), the addend has no dimension, workspace, or
+    /// derivative-channel obligations.
+    fn shared_multiply_add_affine_composed_sum<const N: usize>(
+        lefts: &[&Self; N],
+        right: &Self,
+        addend: &Self,
+        addend_scales: &[f64; N],
+        input_scales: &[f64; N],
+        derivative_stacks: &[[f64; 5]; N],
+        dimension: usize,
+        workspace: &'arena Self::Workspace,
+    ) -> Self {
+        shared_multiply_add_affine_composed_sum_default(
+            lefts,
+            right,
+            addend,
+            addend_scales,
+            input_scales,
+            derivative_stacks,
+            |value| Self::constant(value, dimension, workspace),
+            Self::add,
+            Self::mul,
+            Self::scale,
+            Self::multiply_add,
+            |input, scale, shift, stack| input.affine_compose(scale, shift, stack, workspace),
+        )
+    }
     /// Number of primary derivative axes carried by this scalar.
     fn dimension(&self) -> usize;
     /// Value channel.
@@ -217,6 +778,15 @@ pub trait RuntimeJetScalar<'arena>: Clone {
         self.compose_unary([e, e, e, e, e])
     }
 
+    /// `ln(self)`. Caller guarantees positivity. This is the runtime-width
+    /// counterpart of [`JetScalar::ln`] and uses the identical certified
+    /// derivative stack.
+    fn ln(&self) -> Self {
+        let u = self.value();
+        let r = 1.0 / u;
+        self.compose_unary([u.ln(), r, -r * r, 2.0 * r * r * r, -6.0 * r * r * r * r])
+    }
+
     /// `1/self`.
     fn recip(&self) -> Self {
         let r = 1.0 / self.value();
@@ -225,17 +795,233 @@ pub trait RuntimeJetScalar<'arena>: Clone {
     }
 }
 
+/// Zero-order runtime scalar for evaluating the primal value of a canonical
+/// runtime-width row program without constructing derivative channels.
+///
+/// The primary dimension remains part of the scalar so it obeys the same
+/// runtime algebra contract as derivative-carrying implementations. Unary
+/// derivative stacks contribute only their value entry, while structured
+/// quadratic operators retain their representation-specific primal lowering.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RuntimeValue {
+    value: f64,
+    dimension: usize,
+}
+
+impl<'arena> RuntimeJetScalar<'arena> for RuntimeValue {
+    type Workspace = ();
+
+    #[inline(always)]
+    fn constant(c: f64, dimension: usize, &(): &'arena Self::Workspace) -> Self {
+        Self {
+            value: c,
+            dimension,
+        }
+    }
+
+    #[inline(always)]
+    fn variable(x: f64, axis: usize, dimension: usize, &(): &'arena Self::Workspace) -> Self {
+        assert!(
+            axis < dimension,
+            "runtime value variable axis out of bounds"
+        );
+        Self {
+            value: x,
+            dimension,
+        }
+    }
+
+    #[inline(always)]
+    fn symmetric_quadratic_form<C: SymmetricQuadraticCoefficients>(
+        inputs: &[Self],
+        coefficients: &C,
+        dimension: usize,
+        &(): &'arena Self::Workspace,
+    ) -> Self {
+        assert_eq!(inputs.len(), coefficients.dimension());
+        assert!(inputs.iter().all(|input| input.dimension == dimension));
+        Self {
+            value: coefficients.quadratic_value(inputs, |input| input.value),
+            dimension,
+        }
+    }
+
+    #[inline(always)]
+    fn linear_combination(
+        inputs: &[Self],
+        weights: &[f64],
+        dimension: usize,
+        &(): &'arena Self::Workspace,
+    ) -> Self {
+        assert_eq!(inputs.len(), weights.len());
+        assert!(inputs.iter().all(|input| input.dimension == dimension));
+        let value = inputs
+            .iter()
+            .zip(weights)
+            .map(|(input, &weight)| input.value * weight)
+            .sum();
+        Self { value, dimension }
+    }
+
+    #[inline(always)]
+    fn add_constant(&self, constant: f64, &(): &'arena Self::Workspace) -> Self {
+        Self {
+            value: self.value + constant,
+            dimension: self.dimension,
+        }
+    }
+
+    #[inline(always)]
+    fn multiply_add(&self, right: &Self, addend: &Self) -> Self {
+        self.assert_same_dimension(right);
+        self.assert_same_dimension(addend);
+        Self {
+            value: self.value * right.value + addend.value,
+            dimension: self.dimension,
+        }
+    }
+
+    #[inline(always)]
+    fn composed_sum(
+        inputs: &[Self],
+        derivative_stacks: &[[f64; 5]],
+        dimension: usize,
+        &(): &'arena Self::Workspace,
+    ) -> Self {
+        assert_eq!(inputs.len(), derivative_stacks.len());
+        assert!(inputs.iter().all(|input| input.dimension == dimension));
+        Self {
+            value: derivative_stacks.iter().map(|stack| stack[0]).sum(),
+            dimension,
+        }
+    }
+
+    #[inline(always)]
+    fn product(&self, right: &Self) -> Self {
+        self.mul(right)
+    }
+
+    #[inline(always)]
+    fn affine_compose(
+        &self,
+        _: f64,
+        _: f64,
+        derivative_stack: [f64; 5],
+        &(): &'arena Self::Workspace,
+    ) -> Self {
+        Self {
+            value: derivative_stack[0],
+            dimension: self.dimension,
+        }
+    }
+
+    #[inline(always)]
+    fn affine_composed_sum(
+        inputs: &[Self],
+        input_scales: &[f64],
+        derivative_stacks: &[[f64; 5]],
+        dimension: usize,
+        &(): &'arena Self::Workspace,
+    ) -> Self {
+        assert_eq!(inputs.len(), input_scales.len());
+        assert_eq!(inputs.len(), derivative_stacks.len());
+        assert!(inputs.iter().all(|input| input.dimension == dimension));
+        Self {
+            value: derivative_stacks.iter().map(|stack| stack[0]).sum(),
+            dimension,
+        }
+    }
+
+    #[inline(always)]
+    fn dimension(&self) -> usize {
+        self.dimension
+    }
+
+    #[inline(always)]
+    fn value(&self) -> f64 {
+        self.value
+    }
+
+    #[inline(always)]
+    fn add(&self, other: &Self) -> Self {
+        self.assert_same_dimension(other);
+        Self {
+            value: self.value + other.value,
+            dimension: self.dimension,
+        }
+    }
+
+    #[inline(always)]
+    fn sub(&self, other: &Self) -> Self {
+        self.assert_same_dimension(other);
+        Self {
+            value: self.value - other.value,
+            dimension: self.dimension,
+        }
+    }
+
+    #[inline(always)]
+    fn mul(&self, other: &Self) -> Self {
+        self.assert_same_dimension(other);
+        Self {
+            value: self.value * other.value,
+            dimension: self.dimension,
+        }
+    }
+
+    #[inline(always)]
+    fn neg(&self) -> Self {
+        Self {
+            value: -self.value,
+            dimension: self.dimension,
+        }
+    }
+
+    #[inline(always)]
+    fn scale(&self, scale: f64) -> Self {
+        Self {
+            value: self.value * scale,
+            dimension: self.dimension,
+        }
+    }
+
+    #[inline(always)]
+    fn compose_unary(&self, derivative_stack: [f64; 5]) -> Self {
+        Self {
+            value: derivative_stack[0],
+            dimension: self.dimension,
+        }
+    }
+}
+
+impl RuntimeValue {
+    #[inline(always)]
+    fn assert_same_dimension(&self, other: &Self) {
+        assert_eq!(self.dimension, other.dimension);
+    }
+}
+
 /// Adapter that presents any const-generic [`JetScalar<K>`] through the
 /// runtime-dimension interface.  It is used by derivative oracles so the same
 /// row program can be instantiated at a fixed tower and at a dynamic packed
 /// scalar; production code unwraps the inner fixed tower after evaluation.
 #[derive(Clone, Copy, Debug)]
+#[repr(transparent)]
 pub struct FixedRuntimeJet<S, const K: usize> {
     inner: S,
 }
 
 impl<S, const K: usize> FixedRuntimeJet<S, K> {
+    /// Wrap a fixed-dimension scalar so a runtime-dimension row expression can
+    /// evaluate it without authoring a second const-generic body.
+    #[inline(always)]
+    #[must_use]
+    pub fn from_inner(inner: S) -> Self {
+        Self { inner }
+    }
+
     /// Recover the wrapped const-generic scalar.
+    #[inline(always)]
     #[must_use]
     pub fn into_inner(self) -> S {
         self.inner
@@ -245,6 +1031,7 @@ impl<S, const K: usize> FixedRuntimeJet<S, K> {
 impl<'arena, S: JetScalar<K>, const K: usize> RuntimeJetScalar<'arena> for FixedRuntimeJet<S, K> {
     type Workspace = ();
 
+    #[inline(always)]
     fn constant(c: f64, dimension: usize, &(): &'arena Self::Workspace) -> Self {
         assert_eq!(dimension, K, "fixed jet dimension mismatch");
         Self {
@@ -252,6 +1039,7 @@ impl<'arena, S: JetScalar<K>, const K: usize> RuntimeJetScalar<'arena> for Fixed
         }
     }
 
+    #[inline(always)]
     fn variable(x: f64, axis: usize, dimension: usize, &(): &'arena Self::Workspace) -> Self {
         assert_eq!(dimension, K, "fixed jet dimension mismatch");
         Self {
@@ -259,44 +1047,190 @@ impl<'arena, S: JetScalar<K>, const K: usize> RuntimeJetScalar<'arena> for Fixed
         }
     }
 
+    #[inline(always)]
+    fn symmetric_quadratic_form<C: SymmetricQuadraticCoefficients>(
+        inputs: &[Self],
+        coefficients: &C,
+        dimension: usize,
+        &(): &'arena Self::Workspace,
+    ) -> Self {
+        assert_eq!(dimension, K, "fixed jet dimension mismatch");
+        assert_eq!(inputs.len(), coefficients.dimension());
+        // SAFETY: `FixedRuntimeJet<S, K>` is `repr(transparent)` with exactly one
+        // non-zero-sized field of type `S`. Therefore each element has the same
+        // layout and alignment as `S`; the cast preserves the allocation,
+        // provenance, element count, and shared lifetime of `inputs`, and no
+        // mutable reference is created while the original slice is borrowed.
+        let inner =
+            unsafe { std::slice::from_raw_parts(inputs.as_ptr().cast::<S>(), inputs.len()) };
+        Self {
+            inner: S::symmetric_quadratic_form(inner, coefficients),
+        }
+    }
+
+    #[inline(always)]
+    fn linear_combination(
+        inputs: &[Self],
+        weights: &[f64],
+        dimension: usize,
+        &(): &'arena Self::Workspace,
+    ) -> Self {
+        assert_eq!(dimension, K, "fixed jet dimension mismatch");
+        assert_eq!(inputs.len(), weights.len());
+        // SAFETY: `FixedRuntimeJet<S, K>` is `repr(transparent)` over its sole
+        // non-zero-sized `S` field, so the shared slice has identical element
+        // layout, alignment, provenance, length, and lifetime after the cast.
+        let inner =
+            unsafe { std::slice::from_raw_parts(inputs.as_ptr().cast::<S>(), inputs.len()) };
+        Self {
+            inner: S::linear_combination(inner, weights),
+        }
+    }
+
+    #[inline(always)]
+    fn add_constant(&self, constant: f64, &(): &'arena Self::Workspace) -> Self {
+        Self {
+            inner: self.inner.add_constant(constant),
+        }
+    }
+
+    #[inline(always)]
+    fn multiply_add(&self, right: &Self, addend: &Self) -> Self {
+        Self {
+            inner: self.inner.multiply_add(&right.inner, &addend.inner),
+        }
+    }
+
+    #[inline(always)]
+    fn composed_sum(
+        inputs: &[Self],
+        derivative_stacks: &[[f64; 5]],
+        dimension: usize,
+        &(): &'arena Self::Workspace,
+    ) -> Self {
+        assert_eq!(dimension, K, "fixed jet dimension mismatch");
+        // SAFETY: `FixedRuntimeJet<S, K>` is `repr(transparent)` over its sole
+        // non-zero-sized `S` field, so the shared slice has identical element
+        // layout, alignment, provenance, length, and lifetime after the cast.
+        let inner =
+            unsafe { std::slice::from_raw_parts(inputs.as_ptr().cast::<S>(), inputs.len()) };
+        Self {
+            inner: S::composed_sum(inner, derivative_stacks),
+        }
+    }
+
+    #[inline(always)]
+    fn product(&self, right: &Self) -> Self {
+        Self {
+            inner: self.inner.product(&right.inner),
+        }
+    }
+
+    #[inline(always)]
+    fn affine_compose(
+        &self,
+        input_scale: f64,
+        input_shift: f64,
+        derivative_stack: [f64; 5],
+        &(): &'arena Self::Workspace,
+    ) -> Self {
+        Self {
+            inner: self
+                .inner
+                .affine_compose(input_scale, input_shift, derivative_stack),
+        }
+    }
+
+    #[inline(always)]
+    fn affine_composed_sum(
+        inputs: &[Self],
+        input_scales: &[f64],
+        derivative_stacks: &[[f64; 5]],
+        dimension: usize,
+        &(): &'arena Self::Workspace,
+    ) -> Self {
+        assert_eq!(dimension, K, "fixed jet dimension mismatch");
+        // SAFETY: `FixedRuntimeJet<S, K>` is `repr(transparent)` over its sole
+        // non-zero-sized `S` field, so the shared slice has identical element
+        // layout, alignment, provenance, length, and lifetime after the cast.
+        let inner =
+            unsafe { std::slice::from_raw_parts(inputs.as_ptr().cast::<S>(), inputs.len()) };
+        Self {
+            inner: S::affine_composed_sum(inner, input_scales, derivative_stacks),
+        }
+    }
+
+    #[inline(always)]
+    fn shared_multiply_add_affine_composed_sum<const N: usize>(
+        lefts: &[&Self; N],
+        right: &Self,
+        addend: &Self,
+        addend_scales: &[f64; N],
+        input_scales: &[f64; N],
+        derivative_stacks: &[[f64; 5]; N],
+        dimension: usize,
+        &(): &'arena Self::Workspace,
+    ) -> Self {
+        assert_eq!(dimension, K, "fixed jet dimension mismatch");
+        let left_inner: [&S; N] = std::array::from_fn(|term| &lefts[term].inner);
+        Self {
+            inner: S::shared_multiply_add_affine_composed_sum(
+                &left_inner,
+                &right.inner,
+                &addend.inner,
+                addend_scales,
+                input_scales,
+                derivative_stacks,
+            ),
+        }
+    }
+
+    #[inline(always)]
     fn dimension(&self) -> usize {
         K
     }
 
+    #[inline(always)]
     fn value(&self) -> f64 {
         self.inner.value()
     }
 
+    #[inline(always)]
     fn add(&self, o: &Self) -> Self {
         Self {
             inner: self.inner.add(&o.inner),
         }
     }
 
+    #[inline(always)]
     fn sub(&self, o: &Self) -> Self {
         Self {
             inner: self.inner.sub(&o.inner),
         }
     }
 
+    #[inline(always)]
     fn mul(&self, o: &Self) -> Self {
         Self {
             inner: self.inner.mul(&o.inner),
         }
     }
 
+    #[inline(always)]
     fn neg(&self) -> Self {
         Self {
             inner: self.inner.neg(),
         }
     }
 
+    #[inline(always)]
     fn scale(&self, s: f64) -> Self {
         Self {
             inner: self.inner.scale(s),
         }
     }
 
+    #[inline(always)]
     fn compose_unary(&self, d: [f64; 5]) -> Self {
         Self {
             inner: self.inner.compose_unary(d),
@@ -329,9 +1263,22 @@ impl DynamicJetArena {
         }
     }
 
-    /// Reclaim all scalar outputs while retaining allocated chunks.
+    /// Reclaim all scalar outputs and compact a fragmented high-water mark
+    /// into one retained chunk.
+    ///
+    /// `bumpalo::Bump::reset` keeps only its newest chunk and returns every
+    /// older chunk to the global allocator. Runtime jet tapes routinely span
+    /// several geometrically-grown chunks, so a bare reset would allocate
+    /// those discarded chunks again on every row. When reset exposes that
+    /// fragmentation, replace the empty arena once with a single chunk large
+    /// enough for the complete prior tape. Later equal-or-smaller rows reuse
+    /// that chunk without allocator traffic.
     pub fn reset(&mut self) {
+        let high_water = self.bump.allocated_bytes();
         self.bump.reset();
+        if self.bump.allocated_bytes() < high_water {
+            self.bump = bumpalo::Bump::with_capacity(high_water);
+        }
     }
 
     /// Bytes currently reserved from the global allocator. A warm-reset-warm
@@ -341,7 +1288,7 @@ impl DynamicJetArena {
         self.bump.allocated_bytes()
     }
 
-    #[inline]
+    #[inline(always)]
     fn zeros(&self, len: usize) -> &mut [f64] {
         self.bump.alloc_slice_fill_copy(len, 0.0)
     }
@@ -349,6 +1296,7 @@ impl DynamicJetArena {
     /// Allocate and initialize a runtime-sized slice in the arena. Row programs
     /// use this for their primary-scalar arrays so those arrays share the same
     /// reusable workspace as derivative channels.
+    #[inline(always)]
     pub fn alloc_slice_fill_with<T>(&self, len: usize, fill: impl FnMut(usize) -> T) -> &mut [T] {
         self.bump.alloc_slice_fill_with(len, fill)
     }
@@ -503,6 +1451,41 @@ pub struct DynamicOrder2<'arena> {
 }
 
 impl DynamicOrder2<'_> {
+    /// Construct an arena-backed second-order scalar from channel functions.
+    ///
+    /// This is the allocation-free extension seam for exact projected products
+    /// whose channel law is not ordinary scalar multiplication. Each channel is
+    /// written directly into the row arena, so downstream runtime-jet programs
+    /// can keep their specialized algebra without materializing temporary
+    /// `Vec`s or exposing the arena pointer stored by [`DynamicOrder2`]. The
+    /// Hessian function is evaluated on the upper triangle and mirrored because
+    /// a scalar Hessian is symmetric.
+    #[inline]
+    #[must_use]
+    pub fn from_channel_functions<'arena>(
+        value: f64,
+        dimension: usize,
+        arena: &'arena DynamicJetArena,
+        mut gradient: impl FnMut(usize) -> f64,
+        mut hessian: impl FnMut(usize, usize) -> f64,
+    ) -> DynamicOrder2<'arena> {
+        let g = arena.alloc_slice_fill_with(dimension, |axis| gradient(axis));
+        let h = arena.zeros(dimension * dimension);
+        for row in 0..dimension {
+            for column in row..dimension {
+                let channel = hessian(row, column);
+                h[row * dimension + column] = channel;
+                h[column * dimension + row] = channel;
+            }
+        }
+        DynamicOrder2 {
+            arena,
+            v: value,
+            g,
+            h,
+        }
+    }
+
     /// Gradient channel.
     #[inline]
     #[must_use]
@@ -524,7 +1507,7 @@ impl DynamicOrder2<'_> {
         self.h[row * self.dimension() + col]
     }
 
-    #[inline]
+    #[inline(always)]
     fn assert_compatible(&self, o: &Self) {
         assert_eq!(
             self.g.len(),
@@ -546,6 +1529,7 @@ impl DynamicOrder2<'_> {
 impl<'arena> RuntimeJetScalar<'arena> for DynamicOrder2<'arena> {
     type Workspace = DynamicJetArena;
 
+    #[inline(always)]
     fn constant(c: f64, dimension: usize, arena: &'arena DynamicJetArena) -> Self {
         Self {
             arena,
@@ -555,6 +1539,7 @@ impl<'arena> RuntimeJetScalar<'arena> for DynamicOrder2<'arena> {
         }
     }
 
+    #[inline(always)]
     fn variable(x: f64, axis: usize, dimension: usize, arena: &'arena DynamicJetArena) -> Self {
         assert!(
             axis < dimension,
@@ -570,23 +1555,415 @@ impl<'arena> RuntimeJetScalar<'arena> for DynamicOrder2<'arena> {
         }
     }
 
+    #[inline(always)]
+    fn symmetric_quadratic_form<C: SymmetricQuadraticCoefficients>(
+        inputs: &[Self],
+        coefficients: &C,
+        dimension: usize,
+        arena: &'arena DynamicJetArena,
+    ) -> Self {
+        assert_eq!(inputs.len(), coefficients.dimension());
+        assert!(
+            inputs.iter().all(|input| {
+                input.dimension() == dimension && std::ptr::eq(input.arena, arena)
+            }),
+            "dynamic quadratic-form jets must share dimension and arena"
+        );
+        let input_dimension = inputs.len();
+        let values = arena.zeros(input_dimension);
+        for (value, input) in values.iter_mut().zip(inputs) {
+            *value = input.v;
+        }
+        let projected = arena.zeros(input_dimension);
+        coefficients.multiply(values, projected);
+
+        let mut value = 0.0;
+        for axis in 0..input_dimension {
+            value += values[axis] * projected[axis];
+        }
+        let gradient = arena.zeros(dimension);
+        for primary in 0..dimension {
+            let mut channel = 0.0;
+            for axis in 0..input_dimension {
+                channel += projected[axis] * inputs[axis].g[primary];
+            }
+            gradient[primary] = 2.0 * channel;
+        }
+        let hessian = arena.zeros(dimension * dimension);
+        let input_gradient = arena.zeros(input_dimension);
+        let projected_gradient = arena.zeros(input_dimension);
+        for primary_b in 0..dimension {
+            for row in 0..input_dimension {
+                input_gradient[row] = inputs[row].g[primary_b];
+            }
+            coefficients.multiply(input_gradient, projected_gradient);
+            for primary_a in 0..=primary_b {
+                let mut inherited = 0.0;
+                let mut curvature = 0.0;
+                for row in 0..input_dimension {
+                    inherited += projected[row] * inputs[row].h[primary_a * dimension + primary_b];
+                    curvature += inputs[row].g[primary_a] * projected_gradient[row];
+                }
+                let channel = 2.0 * (inherited + curvature);
+                hessian[primary_a * dimension + primary_b] = channel;
+                hessian[primary_b * dimension + primary_a] = channel;
+            }
+        }
+        Self {
+            arena,
+            v: value,
+            g: gradient,
+            h: hessian,
+        }
+    }
+
+    #[inline(always)]
+    fn product(&self, right: &Self) -> Self {
+        self.assert_compatible(right);
+        let dimension = self.dimension();
+        let gradient = self.arena.zeros(dimension);
+        let hessian = self.arena.zeros(dimension * dimension);
+        for primary in 0..dimension {
+            gradient[primary] = self.v * right.g[primary] + self.g[primary] * right.v;
+            for other in primary..dimension {
+                let index = primary * dimension + other;
+                let channel = self.v * right.h[index]
+                    + self.g[primary] * right.g[other]
+                    + self.g[other] * right.g[primary]
+                    + self.h[index] * right.v;
+                hessian[index] = channel;
+                hessian[other * dimension + primary] = channel;
+            }
+        }
+        Self {
+            arena: self.arena,
+            v: self.v * right.v,
+            g: gradient,
+            h: hessian,
+        }
+    }
+
+    #[inline(always)]
+    fn affine_compose(
+        &self,
+        input_scale: f64,
+        input_shift: f64,
+        derivative_stack: [f64; 5],
+        arena: &'arena DynamicJetArena,
+    ) -> Self {
+        assert!(std::ptr::eq(self.arena, arena));
+        assert!(input_shift.is_finite(), "affine input shift must be finite");
+        let dimension = self.dimension();
+        let first = derivative_stack[1] * input_scale;
+        let second = derivative_stack[2] * input_scale * input_scale;
+        let gradient = arena.zeros(dimension);
+        let hessian = arena.zeros(dimension * dimension);
+        for primary in 0..dimension {
+            gradient[primary] = first * self.g[primary];
+            for other in primary..dimension {
+                let index = primary * dimension + other;
+                let channel = first * self.h[index] + second * self.g[primary] * self.g[other];
+                hessian[index] = channel;
+                hessian[other * dimension + primary] = channel;
+            }
+        }
+        Self {
+            arena,
+            v: derivative_stack[0],
+            g: gradient,
+            h: hessian,
+        }
+    }
+
+    #[inline(always)]
+    fn affine_composed_sum(
+        inputs: &[Self],
+        input_scales: &[f64],
+        derivative_stacks: &[[f64; 5]],
+        dimension: usize,
+        arena: &'arena DynamicJetArena,
+    ) -> Self {
+        assert_eq!(inputs.len(), input_scales.len());
+        assert_eq!(inputs.len(), derivative_stacks.len());
+        assert!(
+            inputs.iter().all(|input| {
+                input.dimension() == dimension && std::ptr::eq(input.arena, arena)
+            }),
+            "dynamic affine-composed-sum jets must share dimension and arena"
+        );
+        let gradient = arena.zeros(dimension);
+        let hessian = arena.zeros(dimension * dimension);
+        let mut value = 0.0;
+        for ((input, &input_scale), stack) in inputs.iter().zip(input_scales).zip(derivative_stacks)
+        {
+            let first = stack[1] * input_scale;
+            let second = stack[2] * input_scale * input_scale;
+            value += stack[0];
+            for primary in 0..dimension {
+                gradient[primary] += first * input.g[primary];
+                for other in primary..dimension {
+                    let index = primary * dimension + other;
+                    hessian[index] +=
+                        first * input.h[index] + second * input.g[primary] * input.g[other];
+                }
+            }
+        }
+        for primary in 0..dimension {
+            for other in primary + 1..dimension {
+                hessian[other * dimension + primary] = hessian[primary * dimension + other];
+            }
+        }
+        Self {
+            arena,
+            v: value,
+            g: gradient,
+            h: hessian,
+        }
+    }
+
+    #[inline(always)]
+    fn shared_multiply_add_affine_composed_sum<const N: usize>(
+        lefts: &[&Self; N],
+        right: &Self,
+        addend: &Self,
+        addend_scales: &[f64; N],
+        input_scales: &[f64; N],
+        derivative_stacks: &[[f64; 5]; N],
+        dimension: usize,
+        arena: &'arena DynamicJetArena,
+    ) -> Self {
+        assert!(
+            lefts.iter().all(|input| {
+                input.dimension() == dimension && std::ptr::eq(input.arena, arena)
+            }) && (N == 0 || (right.dimension() == dimension && std::ptr::eq(right.arena, arena))),
+            "dynamic fused product-composition jets must share dimension and arena"
+        );
+        let addend_live = addend_scales.iter().any(|&scale| scale != 0.0);
+        assert!(
+            !addend_live || (addend.dimension() == dimension && std::ptr::eq(addend.arena, arena)),
+            "live dynamic fused addends must share dimension and arena"
+        );
+        let (representatives, term_sources, source_count) =
+            canonical_shared_source_schedule::<N>(|term, representative| {
+                std::ptr::eq(lefts[term], lefts[representative])
+                    && addend_scales[term] == addend_scales[representative]
+            });
+        let (value, source_derivatives) =
+            aggregate_shared_source_derivatives(&term_sources, input_scales, derivative_stacks);
+        let source_gradients = arena.zeros(source_count * dimension);
+        let gradient = arena.zeros(dimension);
+        let hessian = arena.zeros(dimension * dimension);
+        let mut right_first = 0.0;
+        let mut addend_first = 0.0;
+        for source in 0..source_count {
+            let term = representatives[source];
+            let first = source_derivatives[source][1];
+            right_first += first * lefts[term].v;
+            addend_first += first * addend_scales[term];
+            for primary in 0..dimension {
+                let product_gradient =
+                    lefts[term].v * right.g[primary] + lefts[term].g[primary] * right.v;
+                let inner_gradient = if addend_scales[term] == 0.0 {
+                    product_gradient
+                } else if addend_scales[term] == 1.0 {
+                    product_gradient + addend.g[primary]
+                } else {
+                    product_gradient + addend_scales[term] * addend.g[primary]
+                };
+                source_gradients[source * dimension + primary] = inner_gradient;
+                gradient[primary] += first * lefts[term].g[primary] * right.v;
+            }
+        }
+        if N != 0 {
+            for primary in 0..dimension {
+                gradient[primary] += right_first * right.g[primary];
+            }
+        }
+        if addend_live {
+            for primary in 0..dimension {
+                gradient[primary] += addend_first * addend.g[primary];
+            }
+        }
+        for primary in 0..dimension {
+            for other in primary..dimension {
+                let index = primary * dimension + other;
+                let mut channel = if N == 0 {
+                    0.0
+                } else {
+                    right_first * right.h[index]
+                };
+                if addend_live {
+                    channel += addend_first * addend.h[index];
+                }
+                for source in 0..source_count {
+                    let term = representatives[source];
+                    let local_product_hessian = lefts[term].g[primary] * right.g[other]
+                        + lefts[term].g[other] * right.g[primary]
+                        + lefts[term].h[index] * right.v;
+                    channel += source_derivatives[source][1] * local_product_hessian
+                        + source_derivatives[source][2]
+                            * source_gradients[source * dimension + primary]
+                            * source_gradients[source * dimension + other];
+                }
+                hessian[index] = channel;
+                hessian[other * dimension + primary] = channel;
+            }
+        }
+        Self {
+            arena,
+            v: value,
+            g: gradient,
+            h: hessian,
+        }
+    }
+
+    #[inline(always)]
+    fn add_constant(&self, constant: f64, arena: &'arena DynamicJetArena) -> Self {
+        assert!(std::ptr::eq(self.arena, arena));
+        Self {
+            arena,
+            v: self.v + constant,
+            g: self.g,
+            h: self.h,
+        }
+    }
+
+    #[inline(always)]
+    fn multiply_add(&self, right: &Self, addend: &Self) -> Self {
+        self.assert_compatible(right);
+        self.assert_compatible(addend);
+        let dimension = self.dimension();
+        let gradient = self.arena.zeros(dimension);
+        let hessian = self.arena.zeros(dimension * dimension);
+        for primary in 0..dimension {
+            gradient[primary] =
+                self.v * right.g[primary] + self.g[primary] * right.v + addend.g[primary];
+            for other in primary..dimension {
+                let index = primary * dimension + other;
+                let channel = self.v * right.h[index]
+                    + self.g[primary] * right.g[other]
+                    + self.g[other] * right.g[primary]
+                    + self.h[index] * right.v
+                    + addend.h[index];
+                hessian[index] = channel;
+                hessian[other * dimension + primary] = channel;
+            }
+        }
+        Self {
+            arena: self.arena,
+            v: self.v * right.v + addend.v,
+            g: gradient,
+            h: hessian,
+        }
+    }
+
+    #[inline(always)]
+    fn composed_sum(
+        inputs: &[Self],
+        derivative_stacks: &[[f64; 5]],
+        dimension: usize,
+        arena: &'arena DynamicJetArena,
+    ) -> Self {
+        assert_eq!(inputs.len(), derivative_stacks.len());
+        assert!(
+            inputs.iter().all(|input| {
+                input.dimension() == dimension && std::ptr::eq(input.arena, arena)
+            }),
+            "dynamic composed-sum jets must share dimension and arena"
+        );
+        let gradient = arena.zeros(dimension);
+        let hessian = arena.zeros(dimension * dimension);
+        let mut value = 0.0;
+        for (input, stack) in inputs.iter().zip(derivative_stacks) {
+            value += stack[0];
+            for primary in 0..dimension {
+                gradient[primary] += stack[1] * input.g[primary];
+                for other in primary..dimension {
+                    let index = primary * dimension + other;
+                    hessian[index] +=
+                        stack[1] * input.h[index] + stack[2] * input.g[primary] * input.g[other];
+                }
+            }
+        }
+        for primary in 0..dimension {
+            for other in primary + 1..dimension {
+                hessian[other * dimension + primary] = hessian[primary * dimension + other];
+            }
+        }
+        Self {
+            arena,
+            v: value,
+            g: gradient,
+            h: hessian,
+        }
+    }
+
+    #[inline(always)]
+    fn linear_combination(
+        inputs: &[Self],
+        weights: &[f64],
+        dimension: usize,
+        arena: &'arena DynamicJetArena,
+    ) -> Self {
+        assert_eq!(inputs.len(), weights.len());
+        assert!(
+            inputs.iter().all(|input| {
+                input.dimension() == dimension && std::ptr::eq(input.arena, arena)
+            }),
+            "dynamic linear-combination jets must share dimension and arena"
+        );
+        let mut value = 0.0;
+        for (input, &weight) in inputs.iter().zip(weights) {
+            value += input.v * weight;
+        }
+        let gradient = arena.zeros(dimension);
+        let hessian = arena.zeros(dimension * dimension);
+        for primary in 0..dimension {
+            for (input, &weight) in inputs.iter().zip(weights) {
+                gradient[primary] += input.g[primary] * weight;
+            }
+            for other in primary..dimension {
+                let index = primary * dimension + other;
+                for (input, &weight) in inputs.iter().zip(weights) {
+                    hessian[index] += input.h[index] * weight;
+                }
+                hessian[other * dimension + primary] = hessian[index];
+            }
+        }
+        Self {
+            arena,
+            v: value,
+            g: gradient,
+            h: hessian,
+        }
+    }
+
+    #[inline(always)]
     fn dimension(&self) -> usize {
         self.g.len()
     }
 
+    #[inline(always)]
     fn value(&self) -> f64 {
         self.v
     }
 
+    #[inline(always)]
     fn add(&self, o: &Self) -> Self {
         self.assert_compatible(o);
-        let g = self.arena.zeros(self.dimension());
+        let dimension = self.dimension();
+        let g = self.arena.zeros(dimension);
         let h = self.arena.zeros(self.h.len());
         for i in 0..g.len() {
             g[i] = self.g[i] + o.g[i];
         }
-        for i in 0..h.len() {
-            h[i] = self.h[i] + o.h[i];
+        for row in 0..dimension {
+            for column in row..dimension {
+                let index = row * dimension + column;
+                let channel = self.h[index] + o.h[index];
+                h[index] = channel;
+                h[column * dimension + row] = channel;
+            }
         }
         Self {
             arena: self.arena,
@@ -596,15 +1973,22 @@ impl<'arena> RuntimeJetScalar<'arena> for DynamicOrder2<'arena> {
         }
     }
 
+    #[inline(always)]
     fn sub(&self, o: &Self) -> Self {
         self.assert_compatible(o);
-        let g = self.arena.zeros(self.dimension());
+        let dimension = self.dimension();
+        let g = self.arena.zeros(dimension);
         let h = self.arena.zeros(self.h.len());
         for i in 0..g.len() {
             g[i] = self.g[i] - o.g[i];
         }
-        for i in 0..h.len() {
-            h[i] = self.h[i] - o.h[i];
+        for row in 0..dimension {
+            for column in row..dimension {
+                let index = row * dimension + column;
+                let channel = self.h[index] - o.h[index];
+                h[index] = channel;
+                h[column * dimension + row] = channel;
+            }
         }
         Self {
             arena: self.arena,
@@ -614,6 +1998,7 @@ impl<'arena> RuntimeJetScalar<'arena> for DynamicOrder2<'arena> {
         }
     }
 
+    #[inline(always)]
     fn mul(&self, o: &Self) -> Self {
         self.assert_compatible(o);
         let n = self.dimension();
@@ -639,18 +2024,26 @@ impl<'arena> RuntimeJetScalar<'arena> for DynamicOrder2<'arena> {
         }
     }
 
+    #[inline(always)]
     fn neg(&self) -> Self {
         self.scale(-1.0)
     }
 
+    #[inline(always)]
     fn scale(&self, s: f64) -> Self {
-        let g = self.arena.zeros(self.dimension());
+        let dimension = self.dimension();
+        let g = self.arena.zeros(dimension);
         let h = self.arena.zeros(self.h.len());
         for i in 0..g.len() {
             g[i] = self.g[i] * s;
         }
-        for i in 0..h.len() {
-            h[i] = self.h[i] * s;
+        for row in 0..dimension {
+            for column in row..dimension {
+                let index = row * dimension + column;
+                let channel = self.h[index] * s;
+                h[index] = channel;
+                h[column * dimension + row] = channel;
+            }
         }
         Self {
             arena: self.arena,
@@ -660,6 +2053,7 @@ impl<'arena> RuntimeJetScalar<'arena> for DynamicOrder2<'arena> {
         }
     }
 
+    #[inline(always)]
     fn compose_unary(&self, d: [f64; 5]) -> Self {
         let n = self.dimension();
         let g = self.arena.zeros(n);
@@ -668,9 +2062,11 @@ impl<'arena> RuntimeJetScalar<'arena> for DynamicOrder2<'arena> {
             g[i] = d[1] * self.g[i];
         }
         for i in 0..n {
-            for j in 0..n {
+            for j in i..n {
                 let ij = i * n + j;
-                h[ij] = d[1] * self.h[ij] + d[2] * self.g[i] * self.g[j];
+                let channel = d[1] * self.h[ij] + d[2] * self.g[i] * self.g[j];
+                h[ij] = channel;
+                h[j * n + i] = channel;
             }
         }
         Self {
@@ -693,6 +2089,7 @@ pub struct DynamicOneSeed<'arena> {
 
 impl<'arena> DynamicOneSeed<'arena> {
     /// Seed one primary with the supplied contraction direction component.
+    #[inline(always)]
     #[must_use]
     pub fn seed_direction(
         x: f64,
@@ -708,6 +2105,7 @@ impl<'arena> DynamicOneSeed<'arena> {
     }
 
     /// Row-major contracted-third matrix.
+    #[inline(always)]
     #[must_use]
     pub fn contracted_third(&self) -> &[f64] {
         self.eps.h()
@@ -717,6 +2115,7 @@ impl<'arena> DynamicOneSeed<'arena> {
 impl<'arena> RuntimeJetScalar<'arena> for DynamicOneSeed<'arena> {
     type Workspace = DynamicJetArena;
 
+    #[inline(always)]
     fn constant(c: f64, dimension: usize, arena: &'arena DynamicJetArena) -> Self {
         Self {
             base: DynamicOrder2::constant(c, dimension, arena),
@@ -724,6 +2123,7 @@ impl<'arena> RuntimeJetScalar<'arena> for DynamicOneSeed<'arena> {
         }
     }
 
+    #[inline(always)]
     fn variable(x: f64, axis: usize, dimension: usize, arena: &'arena DynamicJetArena) -> Self {
         Self {
             base: DynamicOrder2::variable(x, axis, dimension, arena),
@@ -731,14 +2131,17 @@ impl<'arena> RuntimeJetScalar<'arena> for DynamicOneSeed<'arena> {
         }
     }
 
+    #[inline(always)]
     fn dimension(&self) -> usize {
         self.base.dimension()
     }
 
+    #[inline(always)]
     fn value(&self) -> f64 {
         self.base.value()
     }
 
+    #[inline(always)]
     fn add(&self, o: &Self) -> Self {
         Self {
             base: self.base.add(&o.base),
@@ -746,6 +2149,7 @@ impl<'arena> RuntimeJetScalar<'arena> for DynamicOneSeed<'arena> {
         }
     }
 
+    #[inline(always)]
     fn sub(&self, o: &Self) -> Self {
         Self {
             base: self.base.sub(&o.base),
@@ -753,13 +2157,38 @@ impl<'arena> RuntimeJetScalar<'arena> for DynamicOneSeed<'arena> {
         }
     }
 
+    #[inline(always)]
     fn mul(&self, o: &Self) -> Self {
+        self.base.assert_compatible(&o.base);
+        self.eps.assert_compatible(&o.eps);
         Self {
             base: self.base.mul(&o.base),
-            eps: self.base.mul(&o.eps).add(&self.eps.mul(&o.base)),
+            eps: DynamicOrder2::from_channel_functions(
+                self.base.v * o.eps.v + self.eps.v * o.base.v,
+                self.dimension(),
+                self.base.arena,
+                |i| {
+                    self.base.v * o.eps.g[i]
+                        + self.base.g[i] * o.eps.v
+                        + self.eps.v * o.base.g[i]
+                        + self.eps.g[i] * o.base.v
+                },
+                |i, j| {
+                    let ij = i * self.dimension() + j;
+                    self.base.v * o.eps.h[ij]
+                        + self.base.g[i] * o.eps.g[j]
+                        + self.base.g[j] * o.eps.g[i]
+                        + self.base.h[ij] * o.eps.v
+                        + self.eps.v * o.base.h[ij]
+                        + self.eps.g[i] * o.base.g[j]
+                        + self.eps.g[j] * o.base.g[i]
+                        + self.eps.h[ij] * o.base.v
+                },
+            ),
         }
     }
 
+    #[inline(always)]
     fn neg(&self) -> Self {
         Self {
             base: self.base.neg(),
@@ -767,6 +2196,7 @@ impl<'arena> RuntimeJetScalar<'arena> for DynamicOneSeed<'arena> {
         }
     }
 
+    #[inline(always)]
     fn scale(&self, s: f64) -> Self {
         Self {
             base: self.base.scale(s),
@@ -774,11 +2204,493 @@ impl<'arena> RuntimeJetScalar<'arena> for DynamicOneSeed<'arena> {
         }
     }
 
+    #[inline(always)]
     fn compose_unary(&self, d: [f64; 5]) -> Self {
         let base = self.base.compose_unary(d);
-        let fprime = self.base.compose_unary([d[1], d[2], d[3], d[4], d[4]]);
-        let eps = fprime.mul(&self.eps);
+        let dimension = self.dimension();
+        let eps = DynamicOrder2::from_channel_functions(
+            d[1] * self.eps.v,
+            dimension,
+            self.base.arena,
+            |i| d[2] * self.base.g[i] * self.eps.v + d[1] * self.eps.g[i],
+            |i, j| {
+                let ij = i * dimension + j;
+                d[1] * self.eps.h[ij]
+                    + d[2]
+                        * (self.base.g[i] * self.eps.g[j]
+                            + self.base.g[j] * self.eps.g[i]
+                            + self.base.h[ij] * self.eps.v)
+                    + d[3] * self.base.g[i] * self.base.g[j] * self.eps.v
+            },
+        );
         Self { base, eps }
+    }
+}
+
+/// Reusable arena plus lane count for runtime directional batches.
+///
+/// A caller resets this once per row/chunk and evaluates every requested
+/// third- or fourth-derivative contraction in one row-program pass. The bump
+/// retains its largest chunk, so warmed rows do not return to the global
+/// allocator.
+#[derive(Debug)]
+pub struct DynamicJetBatchWorkspace {
+    arena: DynamicJetArena,
+    lanes: usize,
+}
+
+impl DynamicJetBatchWorkspace {
+    /// Create a reusable workspace for `lanes` simultaneous directions.
+    #[must_use]
+    pub fn new(lanes: usize) -> Self {
+        Self {
+            arena: DynamicJetArena::new(),
+            lanes,
+        }
+    }
+
+    /// Reclaim all jet storage and select the next evaluation's lane count.
+    pub fn reset(&mut self, lanes: usize) {
+        self.arena.reset();
+        self.lanes = lanes;
+    }
+
+    /// Bytes retained by the bump allocator after the largest evaluation.
+    #[must_use]
+    pub fn allocated_bytes(&self) -> usize {
+        self.arena.allocated_bytes()
+    }
+
+    /// Allocate a primary array in the same arena as every scalar channel.
+    #[inline(always)]
+    pub fn alloc_slice_fill_with<T>(&self, len: usize, fill: impl FnMut(usize) -> T) -> &mut [T] {
+        self.arena.alloc_slice_fill_with(len, fill)
+    }
+}
+
+/// Runtime-sized batch of one-seed contractions sharing one order-two base.
+///
+/// Lane `l` is algebraically identical to a standalone [`DynamicOneSeed`]
+/// seeded by direction `u_l`, but the value/gradient/Hessian base is evaluated
+/// once rather than once per direction. The output lane's epsilon Hessian is
+/// `sum_c d³f/(dx_a dx_b dx_c) u_l[c]`.
+#[derive(Clone, Copy, Debug)]
+pub struct DynamicOneSeedBatch<'arena> {
+    /// Shared value/gradient/Hessian channels.
+    pub base: DynamicOrder2<'arena>,
+    /// One nilpotent epsilon coefficient per contraction direction.
+    eps: &'arena [DynamicOrder2<'arena>],
+}
+
+impl<'arena> DynamicOneSeedBatch<'arena> {
+    /// Seed one primary across every direction lane.
+    #[inline(always)]
+    #[must_use]
+    pub fn seed_directions(
+        x: f64,
+        axis: usize,
+        dimension: usize,
+        workspace: &'arena DynamicJetBatchWorkspace,
+        mut direction_at: impl FnMut(usize) -> f64,
+    ) -> Self {
+        let eps = workspace
+            .arena
+            .alloc_slice_fill_with(workspace.lanes, |lane| {
+                DynamicOrder2::constant(direction_at(lane), dimension, &workspace.arena)
+            });
+        Self {
+            base: DynamicOrder2::variable(x, axis, dimension, &workspace.arena),
+            eps,
+        }
+    }
+
+    /// Number of simultaneous contraction directions.
+    #[inline(always)]
+    #[must_use]
+    pub fn lanes(&self) -> usize {
+        self.eps.len()
+    }
+
+    /// Row-major contracted-third matrix for one direction lane.
+    #[inline(always)]
+    #[must_use]
+    pub fn contracted_third(&self, lane: usize) -> &[f64] {
+        self.eps[lane].h()
+    }
+
+    #[inline(always)]
+    fn assert_compatible(&self, other: &Self) {
+        self.base.assert_compatible(&other.base);
+        assert_eq!(
+            self.eps.len(),
+            other.eps.len(),
+            "dynamic one-seed batch lane mismatch"
+        );
+    }
+}
+
+impl<'arena> RuntimeJetScalar<'arena> for DynamicOneSeedBatch<'arena> {
+    type Workspace = DynamicJetBatchWorkspace;
+
+    #[inline(always)]
+    fn constant(c: f64, dimension: usize, workspace: &'arena DynamicJetBatchWorkspace) -> Self {
+        let eps = workspace.arena.alloc_slice_fill_with(workspace.lanes, |_| {
+            DynamicOrder2::constant(0.0, dimension, &workspace.arena)
+        });
+        Self {
+            base: DynamicOrder2::constant(c, dimension, &workspace.arena),
+            eps,
+        }
+    }
+
+    #[inline(always)]
+    fn variable(
+        x: f64,
+        axis: usize,
+        dimension: usize,
+        workspace: &'arena DynamicJetBatchWorkspace,
+    ) -> Self {
+        let eps = workspace.arena.alloc_slice_fill_with(workspace.lanes, |_| {
+            DynamicOrder2::constant(0.0, dimension, &workspace.arena)
+        });
+        Self {
+            base: DynamicOrder2::variable(x, axis, dimension, &workspace.arena),
+            eps,
+        }
+    }
+
+    #[inline(always)]
+    fn dimension(&self) -> usize {
+        self.base.dimension()
+    }
+
+    #[inline(always)]
+    fn value(&self) -> f64 {
+        self.base.value()
+    }
+
+    #[inline(always)]
+    fn add(&self, other: &Self) -> Self {
+        self.assert_compatible(other);
+        let eps = self
+            .base
+            .arena
+            .alloc_slice_fill_with(self.eps.len(), |lane| self.eps[lane].add(&other.eps[lane]));
+        Self {
+            base: self.base.add(&other.base),
+            eps,
+        }
+    }
+
+    #[inline(always)]
+    fn sub(&self, other: &Self) -> Self {
+        self.assert_compatible(other);
+        let eps = self
+            .base
+            .arena
+            .alloc_slice_fill_with(self.eps.len(), |lane| self.eps[lane].sub(&other.eps[lane]));
+        Self {
+            base: self.base.sub(&other.base),
+            eps,
+        }
+    }
+
+    #[inline(always)]
+    fn mul(&self, other: &Self) -> Self {
+        self.assert_compatible(other);
+        let eps = self
+            .base
+            .arena
+            .alloc_slice_fill_with(self.eps.len(), |lane| {
+                self.base
+                    .mul(&other.eps[lane])
+                    .add(&self.eps[lane].mul(&other.base))
+            });
+        Self {
+            base: self.base.mul(&other.base),
+            eps,
+        }
+    }
+
+    #[inline(always)]
+    fn neg(&self) -> Self {
+        self.scale(-1.0)
+    }
+
+    #[inline(always)]
+    fn scale(&self, scale: f64) -> Self {
+        let eps = self
+            .base
+            .arena
+            .alloc_slice_fill_with(self.eps.len(), |lane| self.eps[lane].scale(scale));
+        Self {
+            base: self.base.scale(scale),
+            eps,
+        }
+    }
+
+    #[inline(always)]
+    fn compose_unary(&self, derivatives: [f64; 5]) -> Self {
+        let fprime = self.base.compose_unary([
+            derivatives[1],
+            derivatives[2],
+            derivatives[3],
+            derivatives[4],
+            derivatives[4],
+        ]);
+        let eps = self
+            .base
+            .arena
+            .alloc_slice_fill_with(self.eps.len(), |lane| fprime.mul(&self.eps[lane]));
+        Self {
+            base: self.base.compose_unary(derivatives),
+            eps,
+        }
+    }
+}
+
+/// Runtime-sized batch of two-seed contractions sharing one order-two base.
+///
+/// Lane `l` is algebraically identical to a standalone [`DynamicTwoSeed`]
+/// seeded by the direction pair `(u_l, v_l)`, while the base row expression is
+/// traversed once for the entire pair batch. Storage is `O(lanes * K^2)`; no
+/// dense fourth-order tensor is formed.
+#[derive(Clone, Copy, Debug)]
+pub struct DynamicTwoSeedBatch<'arena> {
+    /// Shared value/gradient/Hessian channels.
+    pub base: DynamicOrder2<'arena>,
+    eps: &'arena [DynamicOrder2<'arena>],
+    del: &'arena [DynamicOrder2<'arena>],
+    eps_del: &'arena [DynamicOrder2<'arena>],
+}
+
+impl<'arena> DynamicTwoSeedBatch<'arena> {
+    /// Seed one primary across every direction-pair lane.
+    #[inline(always)]
+    #[must_use]
+    pub fn seed_direction_pairs(
+        x: f64,
+        axis: usize,
+        dimension: usize,
+        workspace: &'arena DynamicJetBatchWorkspace,
+        mut direction_pair_at: impl FnMut(usize) -> (f64, f64),
+    ) -> Self {
+        let directions = workspace
+            .arena
+            .alloc_slice_fill_with(workspace.lanes, |lane| direction_pair_at(lane));
+        let eps = workspace
+            .arena
+            .alloc_slice_fill_with(workspace.lanes, |lane| {
+                DynamicOrder2::constant(directions[lane].0, dimension, &workspace.arena)
+            });
+        let del = workspace
+            .arena
+            .alloc_slice_fill_with(workspace.lanes, |lane| {
+                DynamicOrder2::constant(directions[lane].1, dimension, &workspace.arena)
+            });
+        let eps_del = workspace.arena.alloc_slice_fill_with(workspace.lanes, |_| {
+            DynamicOrder2::constant(0.0, dimension, &workspace.arena)
+        });
+        Self {
+            base: DynamicOrder2::variable(x, axis, dimension, &workspace.arena),
+            eps,
+            del,
+            eps_del,
+        }
+    }
+
+    /// Number of simultaneous contraction pairs.
+    #[inline(always)]
+    #[must_use]
+    pub fn lanes(&self) -> usize {
+        self.eps.len()
+    }
+
+    /// Row-major contracted-fourth matrix for one direction-pair lane.
+    #[inline(always)]
+    #[must_use]
+    pub fn contracted_fourth(&self, lane: usize) -> &[f64] {
+        self.eps_del[lane].h()
+    }
+
+    #[inline(always)]
+    fn assert_compatible(&self, other: &Self) {
+        self.base.assert_compatible(&other.base);
+        assert_eq!(
+            self.eps.len(),
+            other.eps.len(),
+            "dynamic two-seed batch lane mismatch"
+        );
+        assert_eq!(
+            self.del.len(),
+            self.eps.len(),
+            "dynamic two-seed batch delta mismatch"
+        );
+        assert_eq!(
+            self.eps_del.len(),
+            self.eps.len(),
+            "dynamic two-seed batch cross mismatch"
+        );
+    }
+}
+
+impl<'arena> RuntimeJetScalar<'arena> for DynamicTwoSeedBatch<'arena> {
+    type Workspace = DynamicJetBatchWorkspace;
+
+    #[inline(always)]
+    fn constant(c: f64, dimension: usize, workspace: &'arena Self::Workspace) -> Self {
+        let zero = workspace.arena.alloc_slice_fill_with(workspace.lanes, |_| {
+            DynamicOrder2::constant(0.0, dimension, &workspace.arena)
+        });
+        Self {
+            base: DynamicOrder2::constant(c, dimension, &workspace.arena),
+            eps: zero,
+            del: zero,
+            eps_del: zero,
+        }
+    }
+
+    #[inline(always)]
+    fn variable(x: f64, axis: usize, dimension: usize, workspace: &'arena Self::Workspace) -> Self {
+        let zero = workspace.arena.alloc_slice_fill_with(workspace.lanes, |_| {
+            DynamicOrder2::constant(0.0, dimension, &workspace.arena)
+        });
+        Self {
+            base: DynamicOrder2::variable(x, axis, dimension, &workspace.arena),
+            eps: zero,
+            del: zero,
+            eps_del: zero,
+        }
+    }
+
+    #[inline(always)]
+    fn dimension(&self) -> usize {
+        self.base.dimension()
+    }
+
+    #[inline(always)]
+    fn value(&self) -> f64 {
+        self.base.value()
+    }
+
+    #[inline(always)]
+    fn add(&self, other: &Self) -> Self {
+        self.assert_compatible(other);
+        let arena = self.base.arena;
+        let eps =
+            arena.alloc_slice_fill_with(self.lanes(), |lane| self.eps[lane].add(&other.eps[lane]));
+        let del =
+            arena.alloc_slice_fill_with(self.lanes(), |lane| self.del[lane].add(&other.del[lane]));
+        let eps_del = arena.alloc_slice_fill_with(self.lanes(), |lane| {
+            self.eps_del[lane].add(&other.eps_del[lane])
+        });
+        Self {
+            base: self.base.add(&other.base),
+            eps,
+            del,
+            eps_del,
+        }
+    }
+
+    #[inline(always)]
+    fn sub(&self, other: &Self) -> Self {
+        self.assert_compatible(other);
+        let arena = self.base.arena;
+        let eps =
+            arena.alloc_slice_fill_with(self.lanes(), |lane| self.eps[lane].sub(&other.eps[lane]));
+        let del =
+            arena.alloc_slice_fill_with(self.lanes(), |lane| self.del[lane].sub(&other.del[lane]));
+        let eps_del = arena.alloc_slice_fill_with(self.lanes(), |lane| {
+            self.eps_del[lane].sub(&other.eps_del[lane])
+        });
+        Self {
+            base: self.base.sub(&other.base),
+            eps,
+            del,
+            eps_del,
+        }
+    }
+
+    #[inline(always)]
+    fn mul(&self, other: &Self) -> Self {
+        self.assert_compatible(other);
+        let arena = self.base.arena;
+        let eps = arena.alloc_slice_fill_with(self.lanes(), |lane| {
+            self.base
+                .mul(&other.eps[lane])
+                .add(&self.eps[lane].mul(&other.base))
+        });
+        let del = arena.alloc_slice_fill_with(self.lanes(), |lane| {
+            self.base
+                .mul(&other.del[lane])
+                .add(&self.del[lane].mul(&other.base))
+        });
+        let eps_del = arena.alloc_slice_fill_with(self.lanes(), |lane| {
+            self.base
+                .mul(&other.eps_del[lane])
+                .add(&self.eps[lane].mul(&other.del[lane]))
+                .add(&self.del[lane].mul(&other.eps[lane]))
+                .add(&self.eps_del[lane].mul(&other.base))
+        });
+        Self {
+            base: self.base.mul(&other.base),
+            eps,
+            del,
+            eps_del,
+        }
+    }
+
+    #[inline(always)]
+    fn neg(&self) -> Self {
+        self.scale(-1.0)
+    }
+
+    #[inline(always)]
+    fn scale(&self, scale: f64) -> Self {
+        let arena = self.base.arena;
+        let eps = arena.alloc_slice_fill_with(self.lanes(), |lane| self.eps[lane].scale(scale));
+        let del = arena.alloc_slice_fill_with(self.lanes(), |lane| self.del[lane].scale(scale));
+        let eps_del =
+            arena.alloc_slice_fill_with(self.lanes(), |lane| self.eps_del[lane].scale(scale));
+        Self {
+            base: self.base.scale(scale),
+            eps,
+            del,
+            eps_del,
+        }
+    }
+
+    #[inline(always)]
+    fn compose_unary(&self, derivatives: [f64; 5]) -> Self {
+        let arena = self.base.arena;
+        let fprime = self.base.compose_unary([
+            derivatives[1],
+            derivatives[2],
+            derivatives[3],
+            derivatives[4],
+            derivatives[4],
+        ]);
+        let fsecond = self.base.compose_unary([
+            derivatives[2],
+            derivatives[3],
+            derivatives[4],
+            derivatives[4],
+            derivatives[4],
+        ]);
+        let eps = arena.alloc_slice_fill_with(self.lanes(), |lane| fprime.mul(&self.eps[lane]));
+        let del = arena.alloc_slice_fill_with(self.lanes(), |lane| fprime.mul(&self.del[lane]));
+        let eps_del = arena.alloc_slice_fill_with(self.lanes(), |lane| {
+            fsecond
+                .mul(&self.eps[lane])
+                .mul(&self.del[lane])
+                .add(&fprime.mul(&self.eps_del[lane]))
+        });
+        Self {
+            base: self.base.compose_unary(derivatives),
+            eps,
+            del,
+            eps_del,
+        }
     }
 }
 
@@ -797,6 +2709,7 @@ pub struct DynamicTwoSeed<'arena> {
 
 impl<'arena> DynamicTwoSeed<'arena> {
     /// Seed one primary with both contraction direction components.
+    #[inline(always)]
     #[must_use]
     pub fn seed(
         x: f64,
@@ -815,6 +2728,7 @@ impl<'arena> DynamicTwoSeed<'arena> {
     }
 
     /// Row-major contracted-fourth matrix.
+    #[inline(always)]
     #[must_use]
     pub fn contracted_fourth(&self) -> &[f64] {
         self.eps_del.h()
@@ -824,6 +2738,7 @@ impl<'arena> DynamicTwoSeed<'arena> {
 impl<'arena> RuntimeJetScalar<'arena> for DynamicTwoSeed<'arena> {
     type Workspace = DynamicJetArena;
 
+    #[inline(always)]
     fn constant(c: f64, dimension: usize, arena: &'arena DynamicJetArena) -> Self {
         Self {
             base: DynamicOrder2::constant(c, dimension, arena),
@@ -833,6 +2748,7 @@ impl<'arena> RuntimeJetScalar<'arena> for DynamicTwoSeed<'arena> {
         }
     }
 
+    #[inline(always)]
     fn variable(x: f64, axis: usize, dimension: usize, arena: &'arena DynamicJetArena) -> Self {
         Self {
             base: DynamicOrder2::variable(x, axis, dimension, arena),
@@ -842,14 +2758,17 @@ impl<'arena> RuntimeJetScalar<'arena> for DynamicTwoSeed<'arena> {
         }
     }
 
+    #[inline(always)]
     fn dimension(&self) -> usize {
         self.base.dimension()
     }
 
+    #[inline(always)]
     fn value(&self) -> f64 {
         self.base.value()
     }
 
+    #[inline(always)]
     fn add(&self, o: &Self) -> Self {
         Self {
             base: self.base.add(&o.base),
@@ -859,6 +2778,7 @@ impl<'arena> RuntimeJetScalar<'arena> for DynamicTwoSeed<'arena> {
         }
     }
 
+    #[inline(always)]
     fn sub(&self, o: &Self) -> Self {
         Self {
             base: self.base.sub(&o.base),
@@ -868,6 +2788,7 @@ impl<'arena> RuntimeJetScalar<'arena> for DynamicTwoSeed<'arena> {
         }
     }
 
+    #[inline(always)]
     fn mul(&self, o: &Self) -> Self {
         let base = self.base.mul(&o.base);
         let eps = self.base.mul(&o.eps).add(&self.eps.mul(&o.base));
@@ -886,6 +2807,7 @@ impl<'arena> RuntimeJetScalar<'arena> for DynamicTwoSeed<'arena> {
         }
     }
 
+    #[inline(always)]
     fn neg(&self) -> Self {
         Self {
             base: self.base.neg(),
@@ -895,6 +2817,7 @@ impl<'arena> RuntimeJetScalar<'arena> for DynamicTwoSeed<'arena> {
         }
     }
 
+    #[inline(always)]
     fn scale(&self, s: f64) -> Self {
         Self {
             base: self.base.scale(s),
@@ -904,6 +2827,7 @@ impl<'arena> RuntimeJetScalar<'arena> for DynamicTwoSeed<'arena> {
         }
     }
 
+    #[inline(always)]
     fn compose_unary(&self, d: [f64; 5]) -> Self {
         let base = self.base.compose_unary(d);
         let fprime = self.base.compose_unary([d[1], d[2], d[3], d[4], d[4]]);
@@ -929,7 +2853,7 @@ impl<'arena> RuntimeJetScalar<'arena> for DynamicTwoSeed<'arena> {
 // the primaries (mirroring how they read as `Tower4` expressions). These
 // delegate channel-for-channel to the inner `Tower2` arithmetic (which has
 // `Add`/`Mul`; `Sub`/`Neg` are expressed as `+ (-1)·rhs` exactly as the
-// `JetScalar::sub` / `JetScalar::neg` impls do), so an `Order2` expression is
+// `crate::nested_dual::JetField::sub` / `crate::nested_dual::JetField::neg` impls do), so an `Order2` expression is
 // bit-identical to the same `Tower4` expression's order-≤2 channels.
 
 impl<const K: usize> std::ops::Add for Order2<K> {
@@ -1027,6 +2951,31 @@ pub fn filtered_implicit_solve_scalar<const K: usize, S: JetScalar<K>>(
 }
 
 // ── PatternedOrder2<P, K, H>: compile-time sparse Hessian ───────────────
+
+/// Runtime-dimension form of [`filtered_implicit_solve_scalar`].
+///
+/// The state is lifted directly in the caller's [`RuntimeJetScalar`] algebra,
+/// so one row expression can serve a runtime-sized value/gradient/Hessian
+/// evaluation (`DynamicOrder2`), a Hessian-contracted third derivative
+/// (`DynamicOneSeed`), and a Hessian-contracted fourth derivative
+/// (`DynamicTwoSeed`). `iters` is the algebra's nilpotency order: two, three,
+/// and four respectively. No implicit axis is appended to the derivative
+/// storage.
+pub fn filtered_implicit_solve_runtime_scalar<'arena, S: RuntimeJetScalar<'arena>>(
+    a0: f64,
+    inv_fa: f64,
+    iters: usize,
+    dimension: usize,
+    workspace: &'arena S::Workspace,
+    f: impl Fn(&S) -> S,
+) -> S {
+    let mut a = S::constant(a0, dimension, workspace);
+    for _ in 0..iters {
+        let residual = f(&a);
+        a = a.sub(&residual.scale(inv_fa));
+    }
+    a
+}
 
 /// Compile-time upper-triangle Hessian pattern for [`PatternedOrder2`].
 ///
@@ -1150,7 +3099,12 @@ where
         }
         out
     }
+}
 
+impl<P, const K: usize, const H: usize> crate::nested_dual::JetField for PatternedOrder2<P, K, H>
+where
+    P: HessianPattern<K, H>,
+{
     #[inline]
     fn value(&self) -> f64 {
         self.v
@@ -1288,14 +3242,24 @@ pub struct Order2<const K: usize>(pub crate::jet_tower::Tower2<K>);
 impl<const K: usize> Order2<K> {
     /// Read the gradient channel `g_a = ∂ℓ/∂p_a`.
     #[inline]
-    pub fn g(&self) -> [f64; K] {
-        self.0.g
+    #[must_use]
+    pub fn g(&self) -> &[f64; K] {
+        &self.0.g
     }
 
     /// Read the Hessian channel.
     #[inline]
-    pub fn h(&self) -> [[f64; K]; K] {
-        self.0.h
+    #[must_use]
+    pub fn h(&self) -> &[[f64; K]; K] {
+        &self.0.h
+    }
+
+    /// Consume the jet and move out its value, gradient, and Hessian channels.
+    #[inline]
+    #[must_use]
+    pub fn into_channels(self) -> (f64, [f64; K], [[f64; K]; K]) {
+        let crate::jet_tower::Tower2 { v, g, h } = self.0;
+        (v, g, h)
     }
 }
 
@@ -1306,6 +3270,283 @@ impl<const K: usize> JetScalar<K> for Order2<K> {
     fn variable(x: f64, axis: usize) -> Self {
         Order2(crate::jet_tower::Tower2::variable(x, axis))
     }
+
+    #[inline(always)]
+    fn symmetric_quadratic_form<C: SymmetricQuadraticCoefficients>(
+        inputs: &[Self],
+        coefficients: &C,
+    ) -> Self {
+        assert_eq!(inputs.len(), coefficients.dimension());
+        let input_dimension = inputs.len();
+        assert!(input_dimension <= K);
+        let mut values = [0.0; K];
+        for axis in 0..input_dimension {
+            values[axis] = inputs[axis].0.v;
+        }
+        let mut projected = [0.0; K];
+        coefficients.multiply(
+            &values[..input_dimension],
+            &mut projected[..input_dimension],
+        );
+
+        let mut out = crate::jet_tower::Tower2::zero();
+        for axis in 0..input_dimension {
+            out.v += values[axis] * projected[axis];
+        }
+        for primary in 0..K {
+            let mut channel = 0.0;
+            for axis in 0..input_dimension {
+                channel += projected[axis] * inputs[axis].0.g[primary];
+            }
+            out.g[primary] = 2.0 * channel;
+        }
+        let mut input_gradient = [0.0; K];
+        let mut projected_gradient = [0.0; K];
+        for primary_b in 0..K {
+            for row in 0..input_dimension {
+                input_gradient[row] = inputs[row].0.g[primary_b];
+            }
+            coefficients.multiply(
+                &input_gradient[..input_dimension],
+                &mut projected_gradient[..input_dimension],
+            );
+            for primary_a in 0..=primary_b {
+                let mut inherited = 0.0;
+                let mut curvature = 0.0;
+                for row in 0..input_dimension {
+                    inherited += projected[row] * inputs[row].0.h[primary_a][primary_b];
+                    curvature += inputs[row].0.g[primary_a] * projected_gradient[row];
+                }
+                let channel = 2.0 * (inherited + curvature);
+                out.h[primary_a][primary_b] = channel;
+                out.h[primary_b][primary_a] = channel;
+            }
+        }
+        Order2(out)
+    }
+
+    #[inline(always)]
+    fn linear_combination(inputs: &[Self], weights: &[f64]) -> Self {
+        assert_eq!(inputs.len(), weights.len());
+        let mut out = crate::jet_tower::Tower2::zero();
+        for (input, &weight) in inputs.iter().zip(weights) {
+            out.v += input.0.v * weight;
+        }
+        for primary in 0..K {
+            for (input, &weight) in inputs.iter().zip(weights) {
+                out.g[primary] += input.0.g[primary] * weight;
+            }
+            for other in primary..K {
+                for (input, &weight) in inputs.iter().zip(weights) {
+                    out.h[primary][other] += input.0.h[primary][other] * weight;
+                }
+                out.h[other][primary] = out.h[primary][other];
+            }
+        }
+        Order2(out)
+    }
+
+    #[inline(always)]
+    fn add_constant(&self, constant: f64) -> Self {
+        let mut out = *self;
+        out.0.v += constant;
+        out
+    }
+
+    #[inline(always)]
+    fn multiply_add(&self, right: &Self, addend: &Self) -> Self {
+        let mut out = crate::jet_tower::Tower2::zero();
+        out.v = self.0.v * right.0.v + addend.0.v;
+        for primary in 0..K {
+            out.g[primary] =
+                self.0.v * right.0.g[primary] + self.0.g[primary] * right.0.v + addend.0.g[primary];
+            for other in primary..K {
+                let channel = self.0.v * right.0.h[primary][other]
+                    + self.0.g[primary] * right.0.g[other]
+                    + self.0.g[other] * right.0.g[primary]
+                    + self.0.h[primary][other] * right.0.v
+                    + addend.0.h[primary][other];
+                out.h[primary][other] = channel;
+                out.h[other][primary] = channel;
+            }
+        }
+        Order2(out)
+    }
+
+    #[inline(always)]
+    fn product(&self, right: &Self) -> Self {
+        let mut out = crate::jet_tower::Tower2::zero();
+        out.v = self.0.v * right.0.v;
+        for primary in 0..K {
+            out.g[primary] = self.0.v * right.0.g[primary] + self.0.g[primary] * right.0.v;
+            for other in primary..K {
+                let channel = self.0.v * right.0.h[primary][other]
+                    + self.0.g[primary] * right.0.g[other]
+                    + self.0.g[other] * right.0.g[primary]
+                    + self.0.h[primary][other] * right.0.v;
+                out.h[primary][other] = channel;
+                out.h[other][primary] = channel;
+            }
+        }
+        Order2(out)
+    }
+
+    #[inline(always)]
+    fn affine_compose(
+        &self,
+        input_scale: f64,
+        input_shift: f64,
+        derivative_stack: [f64; 5],
+    ) -> Self {
+        assert!(input_shift.is_finite(), "affine input shift must be finite");
+        let first = derivative_stack[1] * input_scale;
+        let second = derivative_stack[2] * input_scale * input_scale;
+        let mut out = crate::jet_tower::Tower2::zero();
+        out.v = derivative_stack[0];
+        for primary in 0..K {
+            out.g[primary] = first * self.0.g[primary];
+            for other in primary..K {
+                let channel =
+                    first * self.0.h[primary][other] + second * self.0.g[primary] * self.0.g[other];
+                out.h[primary][other] = channel;
+                out.h[other][primary] = channel;
+            }
+        }
+        Order2(out)
+    }
+
+    #[inline(always)]
+    fn affine_composed_sum(
+        inputs: &[Self],
+        input_scales: &[f64],
+        derivative_stacks: &[[f64; 5]],
+    ) -> Self {
+        assert_eq!(inputs.len(), input_scales.len());
+        assert_eq!(inputs.len(), derivative_stacks.len());
+        let mut out = crate::jet_tower::Tower2::zero();
+        for ((input, &input_scale), stack) in inputs.iter().zip(input_scales).zip(derivative_stacks)
+        {
+            let first = stack[1] * input_scale;
+            let second = stack[2] * input_scale * input_scale;
+            out.v += stack[0];
+            for primary in 0..K {
+                out.g[primary] += first * input.0.g[primary];
+                for other in primary..K {
+                    out.h[primary][other] += first * input.0.h[primary][other]
+                        + second * input.0.g[primary] * input.0.g[other];
+                }
+            }
+        }
+        for primary in 0..K {
+            for other in primary + 1..K {
+                out.h[other][primary] = out.h[primary][other];
+            }
+        }
+        Order2(out)
+    }
+
+    #[inline(always)]
+    fn shared_multiply_add_affine_composed_sum<const N: usize>(
+        lefts: &[&Self; N],
+        right: &Self,
+        addend: &Self,
+        addend_scales: &[f64; N],
+        input_scales: &[f64; N],
+        derivative_stacks: &[[f64; 5]; N],
+    ) -> Self {
+        let (representatives, term_sources, source_count) =
+            canonical_shared_source_schedule::<N>(|term, representative| {
+                std::ptr::eq(lefts[term], lefts[representative])
+                    && addend_scales[term] == addend_scales[representative]
+            });
+        let (value, source_derivatives) =
+            aggregate_shared_source_derivatives(&term_sources, input_scales, derivative_stacks);
+        let mut source_gradients = [[0.0; K]; N];
+        let mut out = crate::jet_tower::Tower2::zero();
+        out.v = value;
+        let mut right_first = 0.0;
+        let mut addend_first = 0.0;
+        for source in 0..source_count {
+            let term = representatives[source];
+            let first = source_derivatives[source][1];
+            right_first += first * lefts[term].0.v;
+            addend_first += first * addend_scales[term];
+            for primary in 0..K {
+                let product_gradient =
+                    lefts[term].0.v * right.0.g[primary] + lefts[term].0.g[primary] * right.0.v;
+                let inner_gradient = if addend_scales[term] == 0.0 {
+                    product_gradient
+                } else if addend_scales[term] == 1.0 {
+                    product_gradient + addend.0.g[primary]
+                } else {
+                    product_gradient + addend_scales[term] * addend.0.g[primary]
+                };
+                source_gradients[source][primary] = inner_gradient;
+                out.g[primary] += first * lefts[term].0.g[primary] * right.0.v;
+            }
+        }
+        if N != 0 {
+            for primary in 0..K {
+                out.g[primary] += right_first * right.0.g[primary];
+            }
+        }
+        let addend_live = addend_scales.iter().any(|&scale| scale != 0.0);
+        if addend_live {
+            for primary in 0..K {
+                out.g[primary] += addend_first * addend.0.g[primary];
+            }
+        }
+        for primary in 0..K {
+            for other in primary..K {
+                let mut channel = if N == 0 {
+                    0.0
+                } else {
+                    right_first * right.0.h[primary][other]
+                };
+                if addend_live {
+                    channel += addend_first * addend.0.h[primary][other];
+                }
+                for source in 0..source_count {
+                    let term = representatives[source];
+                    let local_product_hessian = lefts[term].0.g[primary] * right.0.g[other]
+                        + lefts[term].0.g[other] * right.0.g[primary]
+                        + lefts[term].0.h[primary][other] * right.0.v;
+                    channel += source_derivatives[source][1] * local_product_hessian
+                        + source_derivatives[source][2]
+                            * source_gradients[source][primary]
+                            * source_gradients[source][other];
+                }
+                out.h[primary][other] = channel;
+                out.h[other][primary] = channel;
+            }
+        }
+        Order2(out)
+    }
+
+    #[inline(always)]
+    fn composed_sum(inputs: &[Self], derivative_stacks: &[[f64; 5]]) -> Self {
+        assert_eq!(inputs.len(), derivative_stacks.len());
+        let mut out = crate::jet_tower::Tower2::zero();
+        for (input, stack) in inputs.iter().zip(derivative_stacks) {
+            out.v += stack[0];
+            for primary in 0..K {
+                out.g[primary] += stack[1] * input.0.g[primary];
+                for other in primary..K {
+                    out.h[primary][other] += stack[1] * input.0.h[primary][other]
+                        + stack[2] * input.0.g[primary] * input.0.g[other];
+                }
+            }
+        }
+        for primary in 0..K {
+            for other in primary + 1..K {
+                out.h[other][primary] = out.h[primary][other];
+            }
+        }
+        Order2(out)
+    }
+}
+
+impl<const K: usize> crate::nested_dual::JetField for Order2<K> {
     fn value(&self) -> f64 {
         self.0.v
     }
@@ -2076,8 +4317,16 @@ pub struct Order1<const K: usize> {
 impl<const K: usize> Order1<K> {
     /// Read the gradient channel `g_a = ∂ℓ/∂p_a`.
     #[inline]
-    pub fn g(&self) -> [f64; K] {
-        self.g
+    #[must_use]
+    pub fn g(&self) -> &[f64; K] {
+        &self.g
+    }
+
+    /// Consume the jet and move out its value and gradient channels.
+    #[inline]
+    #[must_use]
+    pub fn into_channels(self) -> (f64, [f64; K]) {
+        (self.v, self.g)
     }
 }
 
@@ -2092,6 +4341,9 @@ impl<const K: usize> JetScalar<K> for Order1<K> {
         g[axis] = 1.0;
         Order1 { v: x, g }
     }
+}
+
+impl<const K: usize> crate::nested_dual::JetField for Order1<K> {
     fn value(&self) -> f64 {
         self.v
     }
@@ -2185,7 +4437,7 @@ impl<const K: usize> OneSeed<K> {
     /// The contracted-third channel after a `seed_direction(u)` evaluation:
     /// `out[a][b] = Σ_c ℓ_{abc} u_c`, i.e. the ε-coefficient's Hessian (doc §A.2).
     pub fn contracted_third(&self) -> [[f64; K]; K] {
-        self.eps.h()
+        *self.eps.h()
     }
 }
 
@@ -2203,6 +4455,9 @@ impl<const K: usize> JetScalar<K> for OneSeed<K> {
             eps: Order2::constant(0.0),
         }
     }
+}
+
+impl<const K: usize> crate::nested_dual::JetField for OneSeed<K> {
     fn value(&self) -> f64 {
         self.base.value()
     }
@@ -2219,10 +4474,37 @@ impl<const K: usize> JetScalar<K> for OneSeed<K> {
         }
     }
     fn mul(&self, o: &Self) -> Self {
-        // (a.base + ε a.eps)(b.base + ε b.eps), dropping ε².
+        // (a.base + ε a.eps)(b.base + ε b.eps), dropping ε².  Build
+        // the epsilon channels directly instead of materialising two complete
+        // Order2 products and adding them.  The upper triangle is sufficient:
+        // every input Hessian is symmetric and this polynomial preserves that
+        // invariant exactly.
+        let ab = &self.base.0;
+        let ae = &self.eps.0;
+        let bb = &o.base.0;
+        let be = &o.eps.0;
+        let mut eps = crate::jet_tower::Tower2::<K>::zero();
+        eps.v = ab.v * be.v + ae.v * bb.v;
+        for i in 0..K {
+            eps.g[i] = ab.v * be.g[i] + ab.g[i] * be.v + ae.v * bb.g[i] + ae.g[i] * bb.v;
+        }
+        for i in 0..K {
+            for j in i..K {
+                let channel = ab.v * be.h[i][j]
+                    + ab.g[i] * be.g[j]
+                    + ab.g[j] * be.g[i]
+                    + ab.h[i][j] * be.v
+                    + ae.v * bb.h[i][j]
+                    + ae.g[i] * bb.g[j]
+                    + ae.g[j] * bb.g[i]
+                    + ae.h[i][j] * bb.v;
+                eps.h[i][j] = channel;
+                eps.h[j][i] = channel;
+            }
+        }
         OneSeed {
             base: self.base.mul(&o.base),
-            eps: self.base.mul(&o.eps).add(&self.eps.mul(&o.base)),
+            eps: Order2(eps),
         }
     }
     fn neg(&self) -> Self {
@@ -2238,17 +4520,31 @@ impl<const K: usize> JetScalar<K> for OneSeed<K> {
         }
     }
     fn compose_unary(&self, d: [f64; 5]) -> Self {
-        // f(base + ε eps) = f(base) + ε · f'(base)·eps  (ε² = 0). Each factor is
-        // an Order2 composition: the base composes with the f-stack, and the
-        // ε-coefficient is the Order2 of the SHIFTED stack (the chain rule
-        // `f'(base)` as an Order2) times eps. Order2 reads only the leading
-        // three entries of whatever stack it is handed, so the trailing slots
-        // are unused padding (the fixed-length array makes the windowing total).
+        // f(base + ε eps) = f(base) + ε · f'(base)·eps (ε² = 0).
+        // Fuse the shifted composition and product into their final channels;
+        // this removes one temporary Order2 composition and one Order2 product
+        // from every unary primitive in a directional row program.
         let base = self.base.compose_unary([d[0], d[1], d[2], d[3], d[4]]);
-        // f'(base) as an Order2 (consumes [f', f'', f''']).
-        let fprime = self.base.compose_unary([d[1], d[2], d[3], d[4], d[4]]);
-        let eps = fprime.mul(&self.eps);
-        OneSeed { base, eps }
+        let b = &self.base.0;
+        let e = &self.eps.0;
+        let mut eps = crate::jet_tower::Tower2::<K>::zero();
+        eps.v = d[1] * e.v;
+        for i in 0..K {
+            eps.g[i] = d[2] * b.g[i] * e.v + d[1] * e.g[i];
+        }
+        for i in 0..K {
+            for j in i..K {
+                let channel = d[1] * e.h[i][j]
+                    + d[2] * (b.g[i] * e.g[j] + b.g[j] * e.g[i] + b.h[i][j] * e.v)
+                    + d[3] * b.g[i] * b.g[j] * e.v;
+                eps.h[i][j] = channel;
+                eps.h[j][i] = channel;
+            }
+        }
+        OneSeed {
+            base,
+            eps: Order2(eps),
+        }
     }
 }
 
@@ -2336,9 +4632,36 @@ impl<L: Lane, const K: usize> OneSeedLane<L, K> {
     /// Lane-wise `self · o`, ε² = 0 truncation (mirrors [`OneSeed::mul`]).
     #[inline]
     pub fn mul(&self, o: &Self) -> Self {
+        let ab = &self.base;
+        let ae = &self.eps;
+        let bb = &o.base;
+        let be = &o.eps;
+        let mut eps = Order2Lane::constant(ab.v.mul(be.v).add(ae.v.mul(bb.v)));
+        for i in 0..K {
+            eps.g[i] =
+                ab.v.mul(be.g[i])
+                    .add(ab.g[i].mul(be.v))
+                    .add(ae.v.mul(bb.g[i]))
+                    .add(ae.g[i].mul(bb.v));
+        }
+        for i in 0..K {
+            for j in i..K {
+                let channel =
+                    ab.v.mul(be.h[i][j])
+                        .add(ab.g[i].mul(be.g[j]))
+                        .add(ab.g[j].mul(be.g[i]))
+                        .add(ab.h[i][j].mul(be.v))
+                        .add(ae.v.mul(bb.h[i][j]))
+                        .add(ae.g[i].mul(bb.g[j]))
+                        .add(ae.g[j].mul(bb.g[i]))
+                        .add(ae.h[i][j].mul(bb.v));
+                eps.h[i][j] = channel;
+                eps.h[j][i] = channel;
+            }
+        }
         OneSeedLane {
             base: self.base.mul(&o.base),
-            eps: self.base.mul(&o.eps).add(&self.eps.mul(&o.base)),
+            eps,
         }
     }
 
@@ -2362,13 +4685,32 @@ impl<L: Lane, const K: usize> OneSeedLane<L, K> {
 
     /// Exact order-≤2-per-part Faà di Bruno composition `f ∘ self`, given the
     /// per-lane outer-derivative stack `d = [f, f′, f″, f‴, f⁗]`. Term-for-term
-    /// identical to [`OneSeed::compose_unary`]: the base reads `d[0..=2]` and the
-    /// ε-coefficient is `f′(base)` (reads `d[1..=3]`) times `eps`.
+    /// identical to the fused [`OneSeed::compose_unary`] channels: the base reads
+    /// `d[0..=2]`, while the ε-coefficient directly evaluates
+    /// `f′(base)·eps` from `d[1..=3]` without an intermediate jet.
     #[inline]
     pub fn compose_unary(&self, d: [L; 5]) -> Self {
         let base = self.base.compose_unary([d[0], d[1], d[2]]);
-        let fprime = self.base.compose_unary([d[1], d[2], d[3]]);
-        let eps = fprime.mul(&self.eps);
+        let b = &self.base;
+        let e = &self.eps;
+        let mut eps = Order2Lane::constant(d[1].mul(e.v));
+        for i in 0..K {
+            eps.g[i] = d[2].mul(b.g[i]).mul(e.v).add(d[1].mul(e.g[i]));
+        }
+        for i in 0..K {
+            for j in i..K {
+                let mixed = b.g[i]
+                    .mul(e.g[j])
+                    .add(b.g[j].mul(e.g[i]))
+                    .add(b.h[i][j].mul(e.v));
+                let channel = d[1]
+                    .mul(e.h[i][j])
+                    .add(d[2].mul(mixed))
+                    .add(d[3].mul(b.g[i]).mul(b.g[j]).mul(e.v));
+                eps.h[i][j] = channel;
+                eps.h[j][i] = channel;
+            }
+        }
         OneSeedLane { base, eps }
     }
 
@@ -2517,7 +4859,7 @@ impl<const K: usize> TwoSeed<K> {
     /// The contracted-fourth channel after a `seed(u, v)` evaluation:
     /// `out[a][b] = Σ_{cd} ℓ_{abcd} u_c v_d`, i.e. the εδ-coefficient's Hessian.
     pub fn contracted_fourth(&self) -> [[f64; K]; K] {
-        self.eps_del.h()
+        *self.eps_del.h()
     }
 }
 
@@ -2538,6 +4880,9 @@ impl<const K: usize> JetScalar<K> for TwoSeed<K> {
             eps_del: Order2::constant(0.0),
         }
     }
+}
+
+impl<const K: usize> crate::nested_dual::JetField for TwoSeed<K> {
     fn value(&self) -> f64 {
         self.base.value()
     }
@@ -2900,6 +5245,9 @@ impl<const K: usize> JetScalar<K> for crate::jet_tower::Tower3<K> {
     fn variable(x: f64, axis: usize) -> Self {
         crate::jet_tower::Tower3::variable(x, axis)
     }
+}
+
+impl<const K: usize> crate::nested_dual::JetField for crate::jet_tower::Tower3<K> {
     fn value(&self) -> f64 {
         self.v
     }
@@ -2944,6 +5292,9 @@ impl<const K: usize> JetScalar<K> for crate::jet_tower::Tower4<K> {
     fn variable(x: f64, axis: usize) -> Self {
         crate::jet_tower::Tower4::variable(x, axis)
     }
+}
+
+impl<const K: usize> crate::nested_dual::JetField for crate::jet_tower::Tower4<K> {
     fn value(&self) -> f64 {
         self.v
     }
@@ -2971,6 +5322,794 @@ impl<const K: usize> JetScalar<K> for crate::jet_tower::Tower4<K> {
 mod tests {
     use super::*;
     use crate::jet_tower::{RowProgram, Tower4, program_full_tower};
+    use crate::nested_dual::JetField;
+
+    struct DenseSymmetric3([[f64; 3]; 3]);
+
+    impl SymmetricQuadraticCoefficients for DenseSymmetric3 {
+        fn dimension(&self) -> usize {
+            3
+        }
+
+        fn multiply(&self, input: &[f64], output: &mut [f64]) {
+            assert_eq!(input.len(), 3);
+            assert_eq!(output.len(), 3);
+            for (row, output) in output.iter_mut().enumerate() {
+                *output = (0..3)
+                    .map(|column| self.0[row][column] * input[column])
+                    .sum();
+            }
+        }
+
+        fn coefficient(&self, row: usize, column: usize) -> f64 {
+            self.0[row][column]
+        }
+    }
+
+    #[test]
+    fn symmetric_quadratic_order2_lowerings_match_scalar_program() {
+        const K: usize = 4;
+        let coefficients = DenseSymmetric3([[1.2, 0.3, -0.2], [0.3, 0.8, 0.15], [-0.2, 0.15, 1.5]]);
+        let values = [0.4, -0.7, 1.1, 0.25];
+        let fixed_vars: [Order2<K>; K] =
+            std::array::from_fn(|axis| Order2::variable(values[axis], axis));
+        let fixed_inputs = [
+            fixed_vars[0].mul(&fixed_vars[1]).add(&fixed_vars[3]),
+            fixed_vars[1].exp().add(&fixed_vars[2].scale(0.4)),
+            fixed_vars[2].mul(&fixed_vars[2]).sub(&fixed_vars[0]),
+        ];
+        let fixed_direct = Order2::symmetric_quadratic_form(&fixed_inputs, &coefficients);
+        let fixed_scalar = symmetric_quadratic_form_default(
+            &fixed_inputs,
+            &coefficients,
+            Order2::constant,
+            JetField::add,
+            JetField::mul,
+            JetField::scale,
+        );
+        let weights = [0.7, -1.1, 0.35];
+        let fixed_linear_direct = Order2::linear_combination(&fixed_inputs, &weights);
+        let fixed_linear_scalar = linear_combination_default(
+            &fixed_inputs,
+            &weights,
+            Order2::constant,
+            JetField::add,
+            JetField::scale,
+        );
+        let derivative_stacks = [
+            [0.8, -0.3, 0.7, 0.0, 0.0],
+            [-0.2, 1.1, -0.4, 0.0, 0.0],
+            [1.4, 0.25, 0.6, 0.0, 0.0],
+        ];
+        let fixed_add_direct = fixed_inputs[0].add_constant(0.65);
+        let fixed_add_scalar = fixed_inputs[0].add(&Order2::constant(0.65));
+        let fixed_multiply_add_direct =
+            fixed_inputs[0].multiply_add(&fixed_inputs[1], &fixed_inputs[2]);
+        let fixed_multiply_add_scalar = multiply_add_default(
+            &fixed_inputs[0],
+            &fixed_inputs[1],
+            &fixed_inputs[2],
+            JetField::mul,
+            JetField::add,
+        );
+        let fixed_composed_direct = Order2::composed_sum(&fixed_inputs, &derivative_stacks);
+        let fixed_composed_scalar = composed_sum_default(
+            &fixed_inputs,
+            &derivative_stacks,
+            Order2::constant,
+            JetField::add,
+            JetField::compose_unary,
+        );
+
+        let value_vars: [RuntimeValue; K] =
+            std::array::from_fn(|axis| RuntimeValue::variable(values[axis], axis, K, &()));
+        let value_inputs = [
+            value_vars[0].mul(&value_vars[1]).add(&value_vars[3]),
+            value_vars[1].exp().add(&value_vars[2].scale(0.4)),
+            value_vars[2].mul(&value_vars[2]).sub(&value_vars[0]),
+        ];
+        let value_quadratic =
+            RuntimeValue::symmetric_quadratic_form(&value_inputs, &coefficients, K, &());
+        let value_linear = RuntimeValue::linear_combination(&value_inputs, &weights, K, &());
+        let value_composed = RuntimeValue::composed_sum(&value_inputs, &derivative_stacks, K, &());
+
+        let arena = DynamicJetArena::new();
+        let dynamic_vars: [DynamicOrder2<'_>; K] =
+            std::array::from_fn(|axis| DynamicOrder2::variable(values[axis], axis, K, &arena));
+        let dynamic_inputs = [
+            dynamic_vars[0].mul(&dynamic_vars[1]).add(&dynamic_vars[3]),
+            dynamic_vars[1].exp().add(&dynamic_vars[2].scale(0.4)),
+            dynamic_vars[2].mul(&dynamic_vars[2]).sub(&dynamic_vars[0]),
+        ];
+        let dynamic_direct =
+            DynamicOrder2::symmetric_quadratic_form(&dynamic_inputs, &coefficients, K, &arena);
+        let dynamic_scalar = symmetric_quadratic_form_default(
+            &dynamic_inputs,
+            &coefficients,
+            |value| DynamicOrder2::constant(value, K, &arena),
+            RuntimeJetScalar::add,
+            RuntimeJetScalar::mul,
+            RuntimeJetScalar::scale,
+        );
+        let dynamic_linear_direct =
+            DynamicOrder2::linear_combination(&dynamic_inputs, &weights, K, &arena);
+        let dynamic_linear_scalar = linear_combination_default(
+            &dynamic_inputs,
+            &weights,
+            |value| DynamicOrder2::constant(value, K, &arena),
+            RuntimeJetScalar::add,
+            RuntimeJetScalar::scale,
+        );
+        let dynamic_add_direct = dynamic_inputs[0].add_constant(0.65, &arena);
+        let dynamic_add_scalar = dynamic_inputs[0].add(&DynamicOrder2::constant(0.65, K, &arena));
+        let dynamic_multiply_add_direct =
+            dynamic_inputs[0].multiply_add(&dynamic_inputs[1], &dynamic_inputs[2]);
+        let dynamic_multiply_add_scalar = multiply_add_default(
+            &dynamic_inputs[0],
+            &dynamic_inputs[1],
+            &dynamic_inputs[2],
+            RuntimeJetScalar::mul,
+            RuntimeJetScalar::add,
+        );
+        let dynamic_composed_direct =
+            DynamicOrder2::composed_sum(&dynamic_inputs, &derivative_stacks, K, &arena);
+        let dynamic_composed_scalar = composed_sum_default(
+            &dynamic_inputs,
+            &derivative_stacks,
+            |value| DynamicOrder2::constant(value, K, &arena),
+            RuntimeJetScalar::add,
+            RuntimeJetScalar::compose_unary,
+        );
+
+        let tolerance = 2.0e-13;
+        for (label, actual, expected) in [
+            ("fixed value", fixed_direct.value(), fixed_scalar.value()),
+            (
+                "zero-order quadratic value",
+                value_quadratic.value(),
+                fixed_direct.value(),
+            ),
+            (
+                "zero-order linear value",
+                value_linear.value(),
+                fixed_linear_direct.value(),
+            ),
+            (
+                "zero-order composed value",
+                value_composed.value(),
+                fixed_composed_direct.value(),
+            ),
+            (
+                "dynamic value",
+                dynamic_direct.value(),
+                dynamic_scalar.value(),
+            ),
+            (
+                "fixed linear value",
+                fixed_linear_direct.value(),
+                fixed_linear_scalar.value(),
+            ),
+            (
+                "dynamic linear value",
+                dynamic_linear_direct.value(),
+                dynamic_linear_scalar.value(),
+            ),
+            (
+                "fixed add-constant value",
+                fixed_add_direct.value(),
+                fixed_add_scalar.value(),
+            ),
+            (
+                "dynamic add-constant value",
+                dynamic_add_direct.value(),
+                dynamic_add_scalar.value(),
+            ),
+            (
+                "fixed multiply-add value",
+                fixed_multiply_add_direct.value(),
+                fixed_multiply_add_scalar.value(),
+            ),
+            (
+                "dynamic multiply-add value",
+                dynamic_multiply_add_direct.value(),
+                dynamic_multiply_add_scalar.value(),
+            ),
+            (
+                "fixed composed-sum value",
+                fixed_composed_direct.value(),
+                fixed_composed_scalar.value(),
+            ),
+            (
+                "dynamic composed-sum value",
+                dynamic_composed_direct.value(),
+                dynamic_composed_scalar.value(),
+            ),
+        ] {
+            assert!(
+                (actual - expected).abs() <= tolerance * actual.abs().max(expected.abs()).max(1.0),
+                "{label}: direct={actual:+.16e}, scalar={expected:+.16e}"
+            );
+        }
+        for primary_a in 0..K {
+            for (label, actual, expected) in [
+                (
+                    "fixed gradient",
+                    fixed_direct.g()[primary_a],
+                    fixed_scalar.g()[primary_a],
+                ),
+                (
+                    "dynamic gradient",
+                    dynamic_direct.g()[primary_a],
+                    dynamic_scalar.g()[primary_a],
+                ),
+                (
+                    "fixed linear gradient",
+                    fixed_linear_direct.g()[primary_a],
+                    fixed_linear_scalar.g()[primary_a],
+                ),
+                (
+                    "dynamic linear gradient",
+                    dynamic_linear_direct.g()[primary_a],
+                    dynamic_linear_scalar.g()[primary_a],
+                ),
+                (
+                    "fixed add-constant gradient",
+                    fixed_add_direct.g()[primary_a],
+                    fixed_add_scalar.g()[primary_a],
+                ),
+                (
+                    "dynamic add-constant gradient",
+                    dynamic_add_direct.g()[primary_a],
+                    dynamic_add_scalar.g()[primary_a],
+                ),
+                (
+                    "fixed multiply-add gradient",
+                    fixed_multiply_add_direct.g()[primary_a],
+                    fixed_multiply_add_scalar.g()[primary_a],
+                ),
+                (
+                    "dynamic multiply-add gradient",
+                    dynamic_multiply_add_direct.g()[primary_a],
+                    dynamic_multiply_add_scalar.g()[primary_a],
+                ),
+                (
+                    "fixed composed-sum gradient",
+                    fixed_composed_direct.g()[primary_a],
+                    fixed_composed_scalar.g()[primary_a],
+                ),
+                (
+                    "dynamic composed-sum gradient",
+                    dynamic_composed_direct.g()[primary_a],
+                    dynamic_composed_scalar.g()[primary_a],
+                ),
+            ] {
+                assert!(
+                    (actual - expected).abs()
+                        <= tolerance * actual.abs().max(expected.abs()).max(1.0),
+                    "{label}[{primary_a}]: direct={actual:+.16e}, scalar={expected:+.16e}"
+                );
+            }
+            for primary_b in 0..K {
+                for (label, actual, expected) in [
+                    (
+                        "fixed Hessian",
+                        fixed_direct.h()[primary_a][primary_b],
+                        fixed_scalar.h()[primary_a][primary_b],
+                    ),
+                    (
+                        "dynamic Hessian",
+                        dynamic_direct.h_at(primary_a, primary_b),
+                        dynamic_scalar.h_at(primary_a, primary_b),
+                    ),
+                    (
+                        "fixed linear Hessian",
+                        fixed_linear_direct.h()[primary_a][primary_b],
+                        fixed_linear_scalar.h()[primary_a][primary_b],
+                    ),
+                    (
+                        "dynamic linear Hessian",
+                        dynamic_linear_direct.h_at(primary_a, primary_b),
+                        dynamic_linear_scalar.h_at(primary_a, primary_b),
+                    ),
+                    (
+                        "fixed add-constant Hessian",
+                        fixed_add_direct.h()[primary_a][primary_b],
+                        fixed_add_scalar.h()[primary_a][primary_b],
+                    ),
+                    (
+                        "dynamic add-constant Hessian",
+                        dynamic_add_direct.h_at(primary_a, primary_b),
+                        dynamic_add_scalar.h_at(primary_a, primary_b),
+                    ),
+                    (
+                        "fixed multiply-add Hessian",
+                        fixed_multiply_add_direct.h()[primary_a][primary_b],
+                        fixed_multiply_add_scalar.h()[primary_a][primary_b],
+                    ),
+                    (
+                        "dynamic multiply-add Hessian",
+                        dynamic_multiply_add_direct.h_at(primary_a, primary_b),
+                        dynamic_multiply_add_scalar.h_at(primary_a, primary_b),
+                    ),
+                    (
+                        "fixed composed-sum Hessian",
+                        fixed_composed_direct.h()[primary_a][primary_b],
+                        fixed_composed_scalar.h()[primary_a][primary_b],
+                    ),
+                    (
+                        "dynamic composed-sum Hessian",
+                        dynamic_composed_direct.h_at(primary_a, primary_b),
+                        dynamic_composed_scalar.h_at(primary_a, primary_b),
+                    ),
+                ] {
+                    assert!(
+                        (actual - expected).abs()
+                            <= tolerance * actual.abs().max(expected.abs()).max(1.0),
+                        "{label}[{primary_a},{primary_b}]: direct={actual:+.16e}, scalar={expected:+.16e}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn compiled_product_affine_and_fused_nodes_match_scalar_program_randomized() {
+        const K: usize = 4;
+        const TERMS: usize = 10;
+
+        fn sample(state: &mut u64) -> f64 {
+            *state ^= *state << 13;
+            *state ^= *state >> 7;
+            *state ^= *state << 17;
+            let unit = (*state >> 11) as f64 * (1.0 / ((1_u64 << 53) as f64));
+            2.0 * unit - 1.0
+        }
+
+        fn arbitrary_order2<const K: usize>(state: &mut u64) -> Order2<K> {
+            let mut tower = crate::jet_tower::Tower2::zero();
+            tower.v = sample(state);
+            for primary in 0..K {
+                tower.g[primary] = sample(state);
+                for other in primary..K {
+                    let channel = sample(state);
+                    tower.h[primary][other] = channel;
+                    tower.h[other][primary] = channel;
+                }
+            }
+            Order2(tower)
+        }
+
+        fn close(actual: f64, expected: f64, case: usize, label: &str) {
+            let tolerance = 2.0e-12 * actual.abs().max(expected.abs()).max(1.0);
+            assert!(
+                (actual - expected).abs() <= tolerance,
+                "case {case} {label}: direct={actual:+.16e}, scalar={expected:+.16e}, tolerance={tolerance:.3e}"
+            );
+        }
+
+        let mut state = 0x932a_ff1e_c0de_5eed_u64;
+        for case in 0..256 {
+            // Arbitrary value, gradient, and symmetric-Hessian inputs model the
+            // complete local state of nonlinear upstream expressions. This is
+            // stronger than testing only independently seeded variables.
+            let fixed_inputs: [Order2<K>; TERMS] =
+                std::array::from_fn(|_| arbitrary_order2(&mut state));
+            let mut input_scales: [f64; TERMS] = std::array::from_fn(|_| sample(&mut state));
+            input_scales[0] = -1.25;
+            input_scales[1] = 0.0;
+            input_scales[4] = 1.25;
+            let addend_scales: [f64; TERMS] = std::array::from_fn(|term| match term % 4 {
+                0 => 0.0,
+                1 => 1.0,
+                2 => -0.75,
+                _ => 0.35,
+            });
+            let derivative_stacks: [[f64; 5]; TERMS] =
+                std::array::from_fn(|_| std::array::from_fn(|_| sample(&mut state)));
+            let input_shift = sample(&mut state);
+            let mut fixed_lefts = std::array::from_fn(|term| &fixed_inputs[term]);
+            fixed_lefts[4] = &fixed_inputs[0];
+            fixed_lefts[5] = &fixed_inputs[0];
+            let fixed_right = &fixed_inputs[1];
+            let fixed_addend = &fixed_inputs[2];
+
+            let fixed_product_direct = fixed_inputs[0].product(&fixed_inputs[1]);
+            let fixed_product_scalar = fixed_inputs[0].mul(&fixed_inputs[1]);
+            let fixed_affine_direct =
+                fixed_inputs[2].affine_compose(input_scales[2], input_shift, derivative_stacks[2]);
+            let fixed_affine_scalar = affine_compose_default(
+                &fixed_inputs[2],
+                input_scales[2],
+                input_shift,
+                derivative_stacks[2],
+                JetField::scale,
+                Order2::add_constant,
+                JetField::compose_unary,
+            );
+            let fixed_sum_direct =
+                Order2::affine_composed_sum(&fixed_inputs, &input_scales, &derivative_stacks);
+            let fixed_sum_scalar = affine_composed_sum_default(
+                &fixed_inputs,
+                &input_scales,
+                &derivative_stacks,
+                Order2::constant,
+                JetField::add,
+                JetField::scale,
+                Order2::add_constant,
+                JetField::compose_unary,
+            );
+            let fixed_fused_direct = Order2::shared_multiply_add_affine_composed_sum(
+                &fixed_lefts,
+                fixed_right,
+                fixed_addend,
+                &addend_scales,
+                &input_scales,
+                &derivative_stacks,
+            );
+            let fixed_fused_scalar = shared_multiply_add_affine_composed_sum_default(
+                &fixed_lefts,
+                fixed_right,
+                fixed_addend,
+                &addend_scales,
+                &input_scales,
+                &derivative_stacks,
+                Order2::constant,
+                JetField::add,
+                JetField::mul,
+                JetField::scale,
+                Order2::multiply_add,
+                Order2::affine_compose,
+            );
+
+            let arena = DynamicJetArena::new();
+            let dynamic_inputs: [DynamicOrder2<'_>; TERMS] = std::array::from_fn(|term| {
+                DynamicOrder2::from_channel_functions(
+                    fixed_inputs[term].value(),
+                    K,
+                    &arena,
+                    |primary| fixed_inputs[term].g()[primary],
+                    |primary, other| fixed_inputs[term].h()[primary][other],
+                )
+            });
+            let dynamic_product_direct = dynamic_inputs[0].product(&dynamic_inputs[1]);
+            let dynamic_product_scalar = dynamic_inputs[0].mul(&dynamic_inputs[1]);
+            let dynamic_affine_direct = dynamic_inputs[2].affine_compose(
+                input_scales[2],
+                input_shift,
+                derivative_stacks[2],
+                &arena,
+            );
+            let dynamic_affine_scalar = affine_compose_default(
+                &dynamic_inputs[2],
+                input_scales[2],
+                input_shift,
+                derivative_stacks[2],
+                RuntimeJetScalar::scale,
+                |input, constant| input.add_constant(constant, &arena),
+                RuntimeJetScalar::compose_unary,
+            );
+            let dynamic_sum_direct = DynamicOrder2::affine_composed_sum(
+                &dynamic_inputs,
+                &input_scales,
+                &derivative_stacks,
+                K,
+                &arena,
+            );
+            let dynamic_sum_scalar = affine_composed_sum_default(
+                &dynamic_inputs,
+                &input_scales,
+                &derivative_stacks,
+                |value| DynamicOrder2::constant(value, K, &arena),
+                RuntimeJetScalar::add,
+                RuntimeJetScalar::scale,
+                |input, constant| input.add_constant(constant, &arena),
+                RuntimeJetScalar::compose_unary,
+            );
+            let mut dynamic_lefts = std::array::from_fn(|term| &dynamic_inputs[term]);
+            dynamic_lefts[4] = &dynamic_inputs[0];
+            dynamic_lefts[5] = &dynamic_inputs[0];
+            let dynamic_right = &dynamic_inputs[1];
+            let dynamic_addend = &dynamic_inputs[2];
+            let dynamic_fused_direct = DynamicOrder2::shared_multiply_add_affine_composed_sum(
+                &dynamic_lefts,
+                dynamic_right,
+                dynamic_addend,
+                &addend_scales,
+                &input_scales,
+                &derivative_stacks,
+                K,
+                &arena,
+            );
+            let dynamic_fused_scalar = shared_multiply_add_affine_composed_sum_default(
+                &dynamic_lefts,
+                dynamic_right,
+                dynamic_addend,
+                &addend_scales,
+                &input_scales,
+                &derivative_stacks,
+                |value| DynamicOrder2::constant(value, K, &arena),
+                RuntimeJetScalar::add,
+                RuntimeJetScalar::mul,
+                RuntimeJetScalar::scale,
+                RuntimeJetScalar::multiply_add,
+                |input, scale, shift, stack| input.affine_compose(scale, shift, stack, &arena),
+            );
+
+            for (label, actual, expected) in [
+                (
+                    "fixed product value",
+                    fixed_product_direct.value(),
+                    fixed_product_scalar.value(),
+                ),
+                (
+                    "fixed affine value",
+                    fixed_affine_direct.value(),
+                    fixed_affine_scalar.value(),
+                ),
+                (
+                    "fixed affine sum value",
+                    fixed_sum_direct.value(),
+                    fixed_sum_scalar.value(),
+                ),
+                (
+                    "fixed fused value",
+                    fixed_fused_direct.value(),
+                    fixed_fused_scalar.value(),
+                ),
+                (
+                    "dynamic product value",
+                    dynamic_product_direct.value(),
+                    dynamic_product_scalar.value(),
+                ),
+                (
+                    "dynamic affine value",
+                    dynamic_affine_direct.value(),
+                    dynamic_affine_scalar.value(),
+                ),
+                (
+                    "dynamic affine sum value",
+                    dynamic_sum_direct.value(),
+                    dynamic_sum_scalar.value(),
+                ),
+                (
+                    "dynamic fused value",
+                    dynamic_fused_direct.value(),
+                    dynamic_fused_scalar.value(),
+                ),
+            ] {
+                close(actual, expected, case, label);
+            }
+            for primary in 0..K {
+                for (label, actual, expected) in [
+                    (
+                        "fixed product gradient",
+                        fixed_product_direct.g()[primary],
+                        fixed_product_scalar.g()[primary],
+                    ),
+                    (
+                        "fixed affine gradient",
+                        fixed_affine_direct.g()[primary],
+                        fixed_affine_scalar.g()[primary],
+                    ),
+                    (
+                        "fixed affine sum gradient",
+                        fixed_sum_direct.g()[primary],
+                        fixed_sum_scalar.g()[primary],
+                    ),
+                    (
+                        "fixed fused gradient",
+                        fixed_fused_direct.g()[primary],
+                        fixed_fused_scalar.g()[primary],
+                    ),
+                    (
+                        "dynamic product gradient",
+                        dynamic_product_direct.g()[primary],
+                        dynamic_product_scalar.g()[primary],
+                    ),
+                    (
+                        "dynamic affine gradient",
+                        dynamic_affine_direct.g()[primary],
+                        dynamic_affine_scalar.g()[primary],
+                    ),
+                    (
+                        "dynamic affine sum gradient",
+                        dynamic_sum_direct.g()[primary],
+                        dynamic_sum_scalar.g()[primary],
+                    ),
+                    (
+                        "dynamic fused gradient",
+                        dynamic_fused_direct.g()[primary],
+                        dynamic_fused_scalar.g()[primary],
+                    ),
+                ] {
+                    close(actual, expected, case, label);
+                }
+                for other in 0..K {
+                    for (label, actual, expected) in [
+                        (
+                            "fixed product Hessian",
+                            fixed_product_direct.h()[primary][other],
+                            fixed_product_scalar.h()[primary][other],
+                        ),
+                        (
+                            "fixed affine Hessian",
+                            fixed_affine_direct.h()[primary][other],
+                            fixed_affine_scalar.h()[primary][other],
+                        ),
+                        (
+                            "fixed affine sum Hessian",
+                            fixed_sum_direct.h()[primary][other],
+                            fixed_sum_scalar.h()[primary][other],
+                        ),
+                        (
+                            "fixed fused Hessian",
+                            fixed_fused_direct.h()[primary][other],
+                            fixed_fused_scalar.h()[primary][other],
+                        ),
+                        (
+                            "dynamic product Hessian",
+                            dynamic_product_direct.h_at(primary, other),
+                            dynamic_product_scalar.h_at(primary, other),
+                        ),
+                        (
+                            "dynamic affine Hessian",
+                            dynamic_affine_direct.h_at(primary, other),
+                            dynamic_affine_scalar.h_at(primary, other),
+                        ),
+                        (
+                            "dynamic affine sum Hessian",
+                            dynamic_sum_direct.h_at(primary, other),
+                            dynamic_sum_scalar.h_at(primary, other),
+                        ),
+                        (
+                            "dynamic fused Hessian",
+                            dynamic_fused_direct.h_at(primary, other),
+                            dynamic_fused_scalar.h_at(primary, other),
+                        ),
+                    ] {
+                        close(actual, expected, case, label);
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn shared_product_composition_accepts_empty_expression() {
+        const K: usize = 4;
+        let fixed_terms: [&Order2<K>; 0] = [];
+        let fixed_shared = Order2::constant(1.0);
+        let scales: [f64; 0] = [];
+        let stacks: [[f64; 5]; 0] = [];
+        let fixed = Order2::shared_multiply_add_affine_composed_sum(
+            &fixed_terms,
+            &fixed_shared,
+            &fixed_shared,
+            &scales,
+            &scales,
+            &stacks,
+        );
+        assert_eq!(fixed.value().to_bits(), 0.0_f64.to_bits());
+        assert!(fixed.g().iter().all(|&channel| channel == 0.0));
+        assert!(fixed.h().iter().flatten().all(|&channel| channel == 0.0));
+
+        let value_terms: [&RuntimeValue; 0] = [];
+        let value_shared = RuntimeValue::constant(1.0, K, &());
+        let value = RuntimeValue::shared_multiply_add_affine_composed_sum(
+            &value_terms,
+            &value_shared,
+            &value_shared,
+            &scales,
+            &scales,
+            &stacks,
+            K,
+            &(),
+        );
+        assert_eq!(value.value().to_bits(), 0.0_f64.to_bits());
+        assert_eq!(value.dimension(), K);
+
+        let arena = DynamicJetArena::new();
+        let dynamic_terms: [&DynamicOrder2<'_>; 0] = [];
+        let dynamic_shared = DynamicOrder2::constant(1.0, K, &arena);
+        let dynamic = DynamicOrder2::shared_multiply_add_affine_composed_sum(
+            &dynamic_terms,
+            &dynamic_shared,
+            &dynamic_shared,
+            &scales,
+            &scales,
+            &stacks,
+            K,
+            &arena,
+        );
+        assert_eq!(dynamic.value().to_bits(), 0.0_f64.to_bits());
+        assert!((0..K).all(|axis| dynamic.g()[axis] == 0.0));
+        assert!((0..K).all(|row| (0..K).all(|column| dynamic.h_at(row, column) == 0.0)));
+    }
+
+    #[test]
+    fn runtime_fused_product_composition_preserves_tower4_channels() {
+        const K: usize = 2;
+        const N: usize = 9;
+        let vars = [
+            Tower4::<K>::variable(0.37, 0),
+            Tower4::<K>::variable(-0.61, 1),
+        ];
+        let upstream = [
+            vars[0].mul(&vars[1]).add(&vars[0].exp()),
+            vars[1].mul(&vars[1]).add(&vars[0].scale(0.3)),
+            vars[0].mul(&vars[0]).sub(&vars[1].scale(-0.2)),
+        ];
+        let mut lefts: [Tower4<K>; N] = std::array::from_fn(|term| upstream[term % upstream.len()]);
+        lefts[4] = lefts[0];
+        lefts[5] = lefts[0];
+        let right = upstream[1];
+        let addend = upstream[2];
+        let addend_scales: [f64; N] = std::array::from_fn(|term| [-0.0, 1.0, -0.7, 0.25][term % 4]);
+        let mut input_scales: [f64; N] =
+            std::array::from_fn(|term| [0.0, -1.3, 0.45, 1.1][term % 4]);
+        input_scales[0] = -1.1;
+        input_scales[4] = 1.1;
+        let stacks: [[f64; 5]; N] = std::array::from_fn(|term| {
+            let t = term as f64 + 1.0;
+            [0.17 * t, -0.11 * t, 0.07 * t, -0.03 * t, 0.013 * t]
+        });
+
+        let expected = (0..N).fold(Tower4::<K>::constant(0.0), |sum, term| {
+            let inner = if addend_scales[term] == 0.0 {
+                lefts[term].mul(&right)
+            } else if addend_scales[term] == 1.0 {
+                JetScalar::multiply_add(&lefts[term], &right, &addend)
+            } else {
+                JetScalar::multiply_add(&lefts[term], &right, &addend.scale(addend_scales[term]))
+            };
+            sum.add(&JetScalar::affine_compose(
+                &inner,
+                input_scales[term],
+                0.0,
+                stacks[term],
+            ))
+        });
+        let wrapped_lefts: [FixedRuntimeJet<Tower4<K>, K>; N] =
+            std::array::from_fn(|term| FixedRuntimeJet::from_inner(lefts[term]));
+        let wrapped_right = FixedRuntimeJet::from_inner(right);
+        let wrapped_addend = FixedRuntimeJet::from_inner(addend);
+        let mut wrapped_left_refs: [&FixedRuntimeJet<Tower4<K>, K>; N] =
+            std::array::from_fn(|term| &wrapped_lefts[term]);
+        wrapped_left_refs[4] = &wrapped_lefts[0];
+        wrapped_left_refs[5] = &wrapped_lefts[0];
+        let actual = FixedRuntimeJet::<Tower4<K>, K>::shared_multiply_add_affine_composed_sum(
+            &wrapped_left_refs,
+            &wrapped_right,
+            &wrapped_addend,
+            &addend_scales,
+            &input_scales,
+            &stacks,
+            K,
+            &(),
+        )
+        .into_inner();
+
+        let same = |label: &str, got: f64, want: f64| {
+            let tolerance = 2.0e-13 * got.abs().max(want.abs()).max(1.0);
+            assert!(
+                (got - want).abs() <= tolerance,
+                "{label}: got={got:+.17e}, want={want:+.17e}, tolerance={tolerance:.3e}"
+            );
+        };
+        same("value", actual.v, expected.v);
+        for a in 0..K {
+            same("gradient", actual.g[a], expected.g[a]);
+            for b in 0..K {
+                same("Hessian", actual.h[a][b], expected.h[a][b]);
+                for c in 0..K {
+                    same("third", actual.t3[a][b][c], expected.t3[a][b][c]);
+                    for d in 0..K {
+                        same("fourth", actual.t4[a][b][c][d], expected.t4[a][b][c][d]);
+                    }
+                }
+            }
+        }
+    }
 
     /// A small polynomial-plus-unary row expression written ONCE, generically
     /// over `S: JetScalar<2>`, so it can be evaluated against every scalar:
@@ -3019,7 +6158,7 @@ mod tests {
     }
 
     fn tower() -> Tower4<2> {
-        program_full_tower(&ExprProgram { p: SEED }, 0).expect("tower")
+        *program_full_tower(&ExprProgram { p: SEED }, 0).expect("tower")
     }
 
     /// Order2 reproduces Tower4's value/grad/Hessian channels exactly.
@@ -3169,14 +6308,14 @@ mod tests {
             Term {
                 first: first_stack[1],
                 second: first_stack[2],
-                gradient: first_atom.g(),
-                hessian: first_atom.h(),
+                gradient: *first_atom.g(),
+                hessian: *first_atom.h(),
             },
             Term {
                 first: second_stack[1],
                 second: second_stack[2],
-                gradient: second_atom.g(),
-                hessian: second_atom.h(),
+                gradient: *second_atom.g(),
+                hessian: *second_atom.h(),
             },
         ];
         let (value, gradient, hessian) = DynamicOrder2Accumulator::from_composed_sum(
@@ -3263,7 +6402,10 @@ mod tests {
                 let base = rand_unit(state);
                 let mut s = Order2::<K>::variable(base, 0);
                 for a in 1..K {
-                    s = JetScalar::mul(&s, &Order2::<K>::variable(rand_unit(state), a));
+                    s = crate::nested_dual::JetField::mul(
+                        &s,
+                        &Order2::<K>::variable(rand_unit(state), a),
+                    );
                 }
                 let with = s.compose_unary_with(stack);
                 let explicit = s.compose_unary(stack(s.value()));
@@ -3310,6 +6452,123 @@ mod tests {
             for b in 0..2 {
                 close(third[a][b], truth[a][b], &format!("third[{a}][{b}]"));
             }
+        }
+    }
+
+    /// The fused fixed-width OneSeed product/composition preserves every
+    /// channel of the defining unfused nilpotent algebra. Random symmetric
+    /// Order2 inputs exercise dense non-seed intermediates, while exact
+    /// mirrored symmetry is checked as an independent production invariant.
+    #[test]
+    fn fused_one_seed_channels_match_unfused_definition_932() {
+        const K: usize = 8;
+
+        fn random_scalar(state: &mut u64) -> f64 {
+            *state ^= *state << 13;
+            *state ^= *state >> 7;
+            *state ^= *state << 17;
+            ((*state >> 11) as f64 / ((1_u64 << 53) as f64)) * 2.0 - 1.0
+        }
+
+        fn random_order2<const N: usize>(state: &mut u64) -> Order2<N> {
+            let mut tower = crate::jet_tower::Tower2::<N>::zero();
+            tower.v = random_scalar(state);
+            for axis in 0..N {
+                tower.g[axis] = random_scalar(state);
+            }
+            for row in 0..N {
+                for column in row..N {
+                    let channel = random_scalar(state);
+                    tower.h[row][column] = channel;
+                    tower.h[column][row] = channel;
+                }
+            }
+            Order2(tower)
+        }
+
+        fn assert_channels_close<const N: usize>(
+            label: &str,
+            actual: &OneSeed<N>,
+            expected: &OneSeed<N>,
+        ) {
+            for (part_label, actual_part, expected_part, require_exact_symmetry) in [
+                ("base", &actual.base.0, &expected.base.0, false),
+                ("eps", &actual.eps.0, &expected.eps.0, true),
+            ] {
+                let check = |channel: &str, got: f64, want: f64| {
+                    let tolerance = 2.0e-14 * got.abs().max(want.abs()).max(1.0);
+                    assert!(
+                        (got - want).abs() <= tolerance,
+                        "{label} {part_label} {channel}: got={got:+.17e} want={want:+.17e}"
+                    );
+                };
+                check("value", actual_part.v, expected_part.v);
+                for row in 0..N {
+                    check(
+                        &format!("gradient[{row}]"),
+                        actual_part.g[row],
+                        expected_part.g[row],
+                    );
+                    for column in 0..N {
+                        check(
+                            &format!("hessian[{row},{column}]"),
+                            actual_part.h[row][column],
+                            expected_part.h[row][column],
+                        );
+                        if require_exact_symmetry {
+                            assert_eq!(
+                                actual_part.h[row][column].to_bits(),
+                                actual_part.h[column][row].to_bits(),
+                                "{label} {part_label} Hessian symmetry at [{row},{column}]"
+                            );
+                        }
+                    }
+                }
+            }
+        }
+
+        let mut state = 0x9320_1eed_5eed_cafe_u64;
+        for sample in 0..256 {
+            let left = OneSeed {
+                base: random_order2::<K>(&mut state),
+                eps: random_order2::<K>(&mut state),
+            };
+            let right = OneSeed {
+                base: random_order2::<K>(&mut state),
+                eps: random_order2::<K>(&mut state),
+            };
+
+            let fused_product = left.mul(&right);
+            let unfused_product = OneSeed {
+                base: left.base.mul(&right.base),
+                eps: left.base.mul(&right.eps).add(&left.eps.mul(&right.base)),
+            };
+            assert_channels_close(
+                &format!("sample {sample} product"),
+                &fused_product,
+                &unfused_product,
+            );
+
+            let derivatives: [f64; 5] = std::array::from_fn(|_| random_scalar(&mut state));
+            let fused_composition = left.compose_unary(derivatives);
+            let unfused_composition = OneSeed {
+                base: left.base.compose_unary(derivatives),
+                eps: left
+                    .base
+                    .compose_unary([
+                        derivatives[1],
+                        derivatives[2],
+                        derivatives[3],
+                        derivatives[4],
+                        derivatives[4],
+                    ])
+                    .mul(&left.eps),
+            };
+            assert_channels_close(
+                &format!("sample {sample} composition"),
+                &fused_composition,
+                &unfused_composition,
+            );
         }
     }
 
@@ -3460,10 +6719,46 @@ mod tests {
         let dynamic_third = expression(&dynamic_one);
         for a in 0..K {
             for b in 0..K {
+                assert_eq!(
+                    dynamic_third.contracted_third()[a * K + b].to_bits(),
+                    dynamic_third.contracted_third()[b * K + a].to_bits(),
+                    "arena third Hessian must be exactly symmetric at ({a},{b})"
+                );
                 close(
                     dynamic_third.contracted_third()[a * K + b],
                     fixed_third[a][b],
                 );
+            }
+        }
+
+        let fixed_one_v: Vec<FixedRuntimeJet<OneSeed<K>, K>> = (0..K)
+            .map(|axis| FixedRuntimeJet {
+                inner: OneSeed::seed_direction(values[axis], axis, direction_v[axis]),
+            })
+            .collect();
+        let fixed_third_v = expression(&fixed_one_v).into_inner().contracted_third();
+        let batch_workspace = DynamicJetBatchWorkspace::new(2);
+        let directions = [direction_u, direction_v];
+        let batch_vars = batch_workspace.alloc_slice_fill_with(K, |axis| {
+            DynamicOneSeedBatch::seed_directions(values[axis], axis, K, &batch_workspace, |lane| {
+                directions[lane][axis]
+            })
+        });
+        let dynamic_batch = expression(batch_vars);
+        assert_eq!(dynamic_batch.lanes(), 2);
+        for lane in 0..2 {
+            let expected = if lane == 0 {
+                &fixed_third
+            } else {
+                &fixed_third_v
+            };
+            for a in 0..K {
+                for b in 0..K {
+                    close(
+                        dynamic_batch.contracted_third(lane)[a * K + b],
+                        expected[a][b],
+                    );
+                }
             }
         }
 
@@ -3495,6 +6790,85 @@ mod tests {
                 );
             }
         }
+
+        let fixed_two_swapped: Vec<FixedRuntimeJet<TwoSeed<K>, K>> = (0..K)
+            .map(|axis| {
+                FixedRuntimeJet::from_inner(TwoSeed::seed(
+                    values[axis],
+                    axis,
+                    direction_v[axis],
+                    direction_u[axis],
+                ))
+            })
+            .collect();
+        let fixed_fourth_swapped = expression(&fixed_two_swapped)
+            .into_inner()
+            .contracted_fourth();
+        let pair_workspace = DynamicJetBatchWorkspace::new(2);
+        let direction_pairs = [(direction_u, direction_v), (direction_v, direction_u)];
+        let pair_vars = pair_workspace.alloc_slice_fill_with(K, |axis| {
+            DynamicTwoSeedBatch::seed_direction_pairs(
+                values[axis],
+                axis,
+                K,
+                &pair_workspace,
+                |lane| (direction_pairs[lane].0[axis], direction_pairs[lane].1[axis]),
+            )
+        });
+        let dynamic_pair_batch = expression(pair_vars);
+        assert_eq!(dynamic_pair_batch.lanes(), 2);
+        for lane in 0..2 {
+            let expected = if lane == 0 {
+                &fixed_fourth
+            } else {
+                &fixed_fourth_swapped
+            };
+            for a in 0..K {
+                for b in 0..K {
+                    close(
+                        dynamic_pair_batch.contracted_fourth(lane)[a * K + b],
+                        expected[a][b],
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn dynamic_jet_arena_compacts_fragmented_high_water_932() {
+        const WORDS_PER_ALLOCATION: usize = 1 << 17;
+        const ALLOCATIONS: usize = 6;
+
+        let mut arena = DynamicJetArena::new();
+        for lane in 0..ALLOCATIONS {
+            let allocation = arena.alloc_slice_fill_with(WORDS_PER_ALLOCATION, |_| lane as u64);
+            std::hint::black_box(allocation);
+        }
+        let fragmented_high_water = arena.allocated_bytes();
+
+        arena.reset();
+        let compact_high_water = arena.allocated_bytes();
+        assert!(
+            compact_high_water >= fragmented_high_water,
+            "compacted arena must retain the complete fragmented tape"
+        );
+
+        for lane in 0..ALLOCATIONS {
+            let allocation = arena.alloc_slice_fill_with(WORDS_PER_ALLOCATION, |_| lane as u64);
+            std::hint::black_box(allocation);
+        }
+        assert_eq!(
+            arena.allocated_bytes(),
+            compact_high_water,
+            "equal replay must fit in the compacted chunk"
+        );
+
+        arena.reset();
+        assert_eq!(
+            arena.allocated_bytes(),
+            compact_high_water,
+            "stable reset must retain the compacted chunk"
+        );
     }
 }
 
@@ -3511,6 +6885,9 @@ mod batch_tests {
         JetScalar, Lane, OneSeed, OneSeedBatch, OneSeedLane, Order2, Order2Batch, Order2Lane,
         TwoSeed, TwoSeedBatch, TwoSeedLane,
     };
+    // The scalar-field algebra (`value`, `add`, …) lives on the shared `JetField`
+    // base now, so the concrete-typed channel reads below need it in scope.
+    use crate::nested_dual::JetField;
 
     /// The ops the witness row expression needs, so ONE generic body evaluates
     /// at the production [`Order2<K>`], the new scalar [`Order2Lane<f64, K>`],
@@ -3531,16 +6908,16 @@ mod batch_tests {
             <Self as JetScalar<K>>::constant(c)
         }
         fn add(&self, o: &Self) -> Self {
-            JetScalar::add(self, o)
+            crate::nested_dual::JetField::add(self, o)
         }
         fn sub(&self, o: &Self) -> Self {
-            JetScalar::sub(self, o)
+            crate::nested_dual::JetField::sub(self, o)
         }
         fn mul(&self, o: &Self) -> Self {
-            JetScalar::mul(self, o)
+            crate::nested_dual::JetField::mul(self, o)
         }
         fn scale(&self, s: f64) -> Self {
-            JetScalar::scale(self, s)
+            crate::nested_dual::JetField::scale(self, s)
         }
         fn exp(&self) -> Self {
             JetScalar::exp(self)
@@ -3700,16 +7077,16 @@ mod batch_tests {
             <Self as JetScalar<K>>::constant(c)
         }
         fn add(&self, o: &Self) -> Self {
-            JetScalar::add(self, o)
+            crate::nested_dual::JetField::add(self, o)
         }
         fn sub(&self, o: &Self) -> Self {
-            JetScalar::sub(self, o)
+            crate::nested_dual::JetField::sub(self, o)
         }
         fn mul(&self, o: &Self) -> Self {
-            JetScalar::mul(self, o)
+            crate::nested_dual::JetField::mul(self, o)
         }
         fn scale(&self, s: f64) -> Self {
-            JetScalar::scale(self, s)
+            crate::nested_dual::JetField::scale(self, s)
         }
         fn exp(&self) -> Self {
             JetScalar::exp(self)
@@ -3754,16 +7131,16 @@ mod batch_tests {
             <Self as JetScalar<K>>::constant(c)
         }
         fn add(&self, o: &Self) -> Self {
-            JetScalar::add(self, o)
+            crate::nested_dual::JetField::add(self, o)
         }
         fn sub(&self, o: &Self) -> Self {
-            JetScalar::sub(self, o)
+            crate::nested_dual::JetField::sub(self, o)
         }
         fn mul(&self, o: &Self) -> Self {
-            JetScalar::mul(self, o)
+            crate::nested_dual::JetField::mul(self, o)
         }
         fn scale(&self, s: f64) -> Self {
-            JetScalar::scale(self, s)
+            crate::nested_dual::JetField::scale(self, s)
         }
         fn exp(&self) -> Self {
             JetScalar::exp(self)
@@ -3968,7 +7345,120 @@ mod batch_tests {
 
 #[cfg(test)]
 mod unit_tests {
-    use super::{JetScalar, Order1, Order2, filtered_implicit_solve_scalar};
+    use super::{
+        DynamicJetArena, DynamicOrder2, JetScalar, OneSeed, Order1, Order2, RuntimeJetScalar,
+        filtered_implicit_solve_scalar,
+    };
+    use crate::nested_dual::{Dual2, JetField};
+
+    // A deliberately mixed beta/family program. Its family derivatives below
+    // are analytic scalar programs, so these checks have no finite-difference
+    // truncation or step-size oracle.
+    fn family_program<const K: usize, S: JetScalar<K>>(x: &S, y: &S, theta: &S) -> S {
+        let xy = x.mul(y);
+        let exponential = theta.mul(&xy).exp();
+        let theta_squared_x_squared = theta.mul(theta).mul(&x.mul(x)).scale(0.375);
+        let theta_y_cubed = theta.mul(&y.mul(y).mul(y)).scale(-0.2);
+        exponential
+            .add(&theta_squared_x_squared)
+            .add(&theta_y_cubed)
+    }
+
+    fn analytic_family_first<const K: usize, S: JetScalar<K>>(x: &S, y: &S, theta: &S) -> S {
+        let xy = x.mul(y);
+        let exponential = theta.mul(&xy).exp();
+        xy.mul(&exponential)
+            .add(&theta.mul(&x.mul(x)).scale(0.75))
+            .add(&y.mul(y).mul(y).scale(-0.2))
+    }
+
+    fn analytic_family_second<const K: usize, S: JetScalar<K>>(x: &S, y: &S, theta: &S) -> S {
+        let xy = x.mul(y);
+        let exponential = theta.mul(&xy).exp();
+        xy.mul(&xy).mul(&exponential).add(&x.mul(x).scale(0.75))
+    }
+
+    fn assert_channel_close(actual: f64, expected: f64, channel: &str) {
+        let tolerance = 256.0 * f64::EPSILON * (1.0 + actual.abs().max(expected.abs()));
+        assert!(
+            (actual - expected).abs() <= tolerance,
+            "{channel}: actual={actual:.17e}, expected={expected:.17e}, tolerance={tolerance:.3e}"
+        );
+    }
+
+    fn assert_order2_channels<const K: usize>(
+        actual: &Order2<K>,
+        expected: &Order2<K>,
+        prefix: &str,
+    ) {
+        assert_channel_close(actual.value(), expected.value(), &format!("{prefix}.value"));
+        for a in 0..K {
+            assert_channel_close(actual.g()[a], expected.g()[a], &format!("{prefix}.g[{a}]"));
+            for b in 0..K {
+                assert_channel_close(
+                    actual.h()[a][b],
+                    expected.h()[a][b],
+                    &format!("{prefix}.h[{a}][{b}]"),
+                );
+            }
+        }
+    }
+
+    /// The outer first/second channels carry the family derivative while each
+    /// inner `Order2` independently carries beta value/gradient/Hessian.
+    #[test]
+    fn dual2_order2_extracts_exact_family_value_gradient_hessian_channels() {
+        const K: usize = 2;
+        let x0 = 0.7;
+        let y0 = -0.45;
+        let theta0 = 0.6;
+        let x = <Dual2<Order2<K>> as JetScalar<K>>::variable(x0, 0);
+        let y = <Dual2<Order2<K>> as JetScalar<K>>::variable(y0, 1);
+        let theta = Dual2 {
+            v: Order2::constant(theta0),
+            g: Order2::constant(1.0),
+            h: Order2::constant(0.0),
+        };
+
+        let actual = family_program(&x, &y, &theta);
+        let reference_x = Order2::variable(x0, 0);
+        let reference_y = Order2::variable(y0, 1);
+        let reference_theta = Order2::constant(theta0);
+        let expected_first = analytic_family_first(&reference_x, &reference_y, &reference_theta);
+        let expected_second = analytic_family_second(&reference_x, &reference_y, &reference_theta);
+
+        assert_order2_channels(&actual.g, &expected_first, "family_first");
+        assert_order2_channels(&actual.h, &expected_second, "family_second");
+    }
+
+    /// `g.eps.h[a][b]` is the directional beta drift of the family-Hessian
+    /// channel, obtained by exact nested AD rather than differencing Hessians.
+    #[test]
+    fn dual2_oneseed_extracts_exact_family_hessian_drift() {
+        const K: usize = 2;
+        let x0 = 0.7;
+        let y0 = -0.45;
+        let theta0 = 0.6;
+        let direction = [0.3, -0.8];
+
+        let mut x = <Dual2<OneSeed<K>> as JetScalar<K>>::variable(x0, 0);
+        let mut y = <Dual2<OneSeed<K>> as JetScalar<K>>::variable(y0, 1);
+        x.v.eps = Order2::constant(direction[0]);
+        y.v.eps = Order2::constant(direction[1]);
+        let theta = Dual2 {
+            v: OneSeed::constant(theta0),
+            g: OneSeed::constant(1.0),
+            h: OneSeed::constant(0.0),
+        };
+
+        let actual = family_program(&x, &y, &theta);
+        let reference_x = OneSeed::seed_direction(x0, 0, direction[0]);
+        let reference_y = OneSeed::seed_direction(y0, 1, direction[1]);
+        let reference_theta = OneSeed::constant(theta0);
+        let expected = analytic_family_first(&reference_x, &reference_y, &reference_theta);
+
+        assert_order2_channels(&actual.g.eps, &expected.eps, "family_first_drift");
+    }
 
     // ── Order2 direct property tests ─────────────────────────────────────────
 
@@ -4006,10 +7496,10 @@ mod unit_tests {
     fn order2_add_sub_roundtrip() {
         let p = Order2::<2>::variable(3.0, 0);
         let q = Order2::<2>::variable(2.0, 1);
-        let pq = JetScalar::add(&p, &q);
+        let pq = crate::nested_dual::JetField::add(&p, &q);
         // value = 3 + 2 = 5
         assert_eq!(pq.value(), 5.0, "add value");
-        let back = JetScalar::sub(&pq, &q);
+        let back = crate::nested_dual::JetField::sub(&pq, &q);
         // (p + q) - q gradient should equal p's gradient exactly
         for a in 0..2 {
             assert_eq!(back.g()[a], p.g()[a], "grad[{a}] roundtrip");
@@ -4024,7 +7514,7 @@ mod unit_tests {
         let qv = -2.0_f64;
         let p = Order2::<2>::variable(pv, 0);
         let q = Order2::<2>::variable(qv, 1);
-        let pq = JetScalar::mul(&p, &q);
+        let pq = crate::nested_dual::JetField::mul(&p, &q);
         assert_eq!(pq.value(), pv * qv, "value = p·q");
         assert_eq!(pq.g()[0], qv, "∂(p·q)/∂p = q");
         assert_eq!(pq.g()[1], pv, "∂(p·q)/∂q = p");
@@ -4039,7 +7529,7 @@ mod unit_tests {
     fn order2_scale_multiplies_all_channels() {
         let p = Order2::<2>::variable(4.0, 0);
         let s = 2.5_f64;
-        let ps = JetScalar::scale(&p, s);
+        let ps = crate::nested_dual::JetField::scale(&p, s);
         assert_eq!(ps.value(), 4.0 * s);
         assert_eq!(ps.g()[0], 1.0 * s);
         assert_eq!(ps.g()[1], 0.0);
@@ -4068,6 +7558,20 @@ mod unit_tests {
         assert!((lnp.g()[0] - 1.0 / p0).abs() < 1e-15, "d/dp ln(p) = 1/p");
         assert!(
             (lnp.h()[0][0] - (-1.0 / (p0 * p0))).abs() < 1e-15,
+            "d²/dp² ln(p) = -1/p²"
+        );
+    }
+
+    #[test]
+    fn dynamic_order2_ln_uses_runtime_scalar_derivative_stack() {
+        let p0 = 2.0_f64;
+        let arena = DynamicJetArena::new();
+        let p = DynamicOrder2::variable(p0, 0, 1, &arena);
+        let lnp = RuntimeJetScalar::ln(&p);
+        assert!((lnp.value() - p0.ln()).abs() < 1e-15, "ln value");
+        assert!((lnp.g()[0] - 1.0 / p0).abs() < 1e-15, "d/dp ln(p) = 1/p");
+        assert!(
+            (lnp.h_at(0, 0) - (-1.0 / (p0 * p0))).abs() < 1e-15,
             "d²/dp² ln(p) = -1/p²"
         );
     }
@@ -4110,7 +7614,7 @@ mod unit_tests {
         let qv = -2.0_f64;
         let p = Order1::<2>::variable(pv, 0);
         let q = Order1::<2>::variable(qv, 1);
-        let pq = JetScalar::mul(&p, &q);
+        let pq = crate::nested_dual::JetField::mul(&p, &q);
         assert_eq!(pq.value(), pv * qv);
         assert_eq!(pq.g()[0], qv, "∂(p·q)/∂p = q");
         assert_eq!(pq.g()[1], pv, "∂(p·q)/∂q = p");
@@ -4136,11 +7640,17 @@ mod unit_tests {
         // evaluate (p * q + p).exp() at (p0, q0)
         let p1 = Order1::<2>::variable(p0, 0);
         let q1 = Order1::<2>::variable(q0, 1);
-        let expr1 = JetScalar::exp(&JetScalar::add(&JetScalar::mul(&p1, &q1), &p1));
+        let expr1 = JetScalar::exp(&crate::nested_dual::JetField::add(
+            &crate::nested_dual::JetField::mul(&p1, &q1),
+            &p1,
+        ));
 
         let p2 = Order2::<2>::variable(p0, 0);
         let q2 = Order2::<2>::variable(q0, 1);
-        let expr2 = JetScalar::exp(&JetScalar::add(&JetScalar::mul(&p2, &q2), &p2));
+        let expr2 = JetScalar::exp(&crate::nested_dual::JetField::add(
+            &crate::nested_dual::JetField::mul(&p2, &q2),
+            &p2,
+        ));
 
         assert!(
             (expr1.value() - expr2.value()).abs() < 1e-14,
@@ -4164,7 +7674,7 @@ mod unit_tests {
         let theta = Order2::<1>::variable(theta0, 0);
         // a0 = theta0, F_a = 1, inv_fa = 1; 2 iters suffice for Order2.
         let a = filtered_implicit_solve_scalar::<1, Order2<1>>(theta0, 1.0, 2, |a_jet| {
-            JetScalar::sub(a_jet, &theta)
+            crate::nested_dual::JetField::sub(a_jet, &theta)
         });
         assert!((a.value() - theta0).abs() < 1e-14, "value = theta0");
         // da/dtheta = 1 (identity)
@@ -4183,8 +7693,8 @@ mod unit_tests {
         let theta = Order2::<1>::variable(theta0, 0);
         // F(a,theta) = a*a - theta
         let a = filtered_implicit_solve_scalar::<1, Order2<1>>(a0, inv_fa, 2, |a_jet| {
-            let aa = JetScalar::mul(a_jet, a_jet);
-            JetScalar::sub(&aa, &theta)
+            let aa = crate::nested_dual::JetField::mul(a_jet, a_jet);
+            crate::nested_dual::JetField::sub(&aa, &theta)
         });
         let tol = 1e-12;
         assert!((a.value() - a0).abs() < tol, "value = sqrt(theta0)");

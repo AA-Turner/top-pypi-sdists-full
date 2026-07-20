@@ -5,8 +5,7 @@ use crate::estimate::evaluation::{
     sas_log_deltaridgeweight,
 };
 use crate::estimate::penalty::{
-    REML_CONTINUATION_PREWARM_RHO_CAP, REML_SECOND_ORDER_RHO_CAP, REML_SEED_SCREENING_RHO_CAP,
-    scaled_covariance,
+    REML_SECOND_ORDER_RHO_CAP, REML_SEED_SCREENING_RHO_CAP, scaled_covariance,
 };
 use crate::estimate::prefit::{
     reject_prefit_binomial_separation, reject_prefit_unpenalized_rank_deficiency,
@@ -15,8 +14,8 @@ use crate::estimate::smoothing_correction::AUTO_CUBATURE_MAX_EIGENVECTORS;
 use gam_linalg::matrix::FactorizedSystem;
 use gam_linalg::utils::KahanSum;
 use gam_problem::dispersion_cov::se_from_covariance;
-use gam_problem::{SeedConfig, SeedRiskProfile};
-use std::sync::atomic::{AtomicUsize, Ordering};
+use gam_problem::{OrderedRhoBounds, SeedConfig, SeedRiskProfile};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::Instant;
 
 /// Unscaled posterior covariance `H⁻¹` of the supplied Hessian.
@@ -328,6 +327,10 @@ fn reml_inner_progress_feedback(
         last_converged: Arc::clone(&state.last_inner_converged),
         ift_residual: Arc::clone(&state.last_ift_prediction_residual),
         accept_rho: Arc::clone(&state.last_pirls_accept_rho),
+        // The standard REML path does not consume the cold-reeval pulse
+        // (#2349); give it an inert, unshared flag so the guard's writes go
+        // nowhere and behavior is unchanged.
+        force_cold: Arc::new(AtomicBool::new(false)),
     }
 }
 
@@ -351,54 +354,6 @@ fn with_reml_beta_seed_hook<'state, 'data>() -> impl FnMut(
         state.setwarm_start_original_beta(Some(beta.view()));
         Ok(crate::rho_optimizer::SeedOutcome::Installed)
     }
-}
-
-enum RemlInnerCapGuardArm {
-    Standard,
-    MixtureSas,
-}
-
-/// Re-run one full-inner-tolerance `compute_cost` at the converged operating
-/// point so the cached warm-start β is no longer pinned to whatever coarse cap
-/// the outer-aware inner-PIRLS schedule last set (path #3; see the call-site
-/// comments).
-///
-/// `rho` MUST be the smoothing-only penalty-block log-λ — its length equals the
-/// number of penalty blocks, because `compute_cost` exponentiates the whole
-/// vector into the penalty λ vector. For the parameterized-link arms
-/// (`MixtureSas`: SAS / Beta-Logistic / mixture / blended) the outer optimizer
-/// works in an augmented θ that trails the link parameters after the smoothing
-/// block; the caller must slice that block out (and install the link state on
-/// `state`) via `apply_link_theta` BEFORE calling this guard. Passing the raw
-/// augmented θ here over-counts the lambdas and faults the reparameterizer
-/// ("Lambda count mismatch", #1571). The `arm` only selects the log label.
-fn run_outer_inner_cap_guard(
-    state: &mut crate::estimate::reml::RemlState<'_>,
-    rho: &Array1<f64>,
-    arm: RemlInnerCapGuardArm,
-) -> Result<(), EstimationError> {
-    let prev_cap = state.outer_inner_cap.swap(0, Ordering::Relaxed);
-    let guard_start = std::time::Instant::now();
-    // The eval-bundle and cross-call PIRLS caches are keyed by rho, not by the
-    // inner iteration cap. Even `prev_cap == 0` does not prove that a cached
-    // visit to the selected rho was full fidelity: the adaptive schedule can
-    // lift its cap after that entry was written. Always invalidate before the
-    // guard evaluation so the shipped point is necessarily a fresh
-    // full-tolerance inner solve and the later projected-KKT audit cannot reuse
-    // coarse beta/gradient state.
-    state.reset_outer_seed_state();
-    state.compute_cost(rho)?;
-    match arm {
-        RemlInnerCapGuardArm::Standard => log::info!(
-            "[OUTER guard] convergence-guard re-eval at converged ρ done (prev_cap={prev_cap}, elapsed={:.3}s)",
-            guard_start.elapsed().as_secs_f64()
-        ),
-        RemlInnerCapGuardArm::MixtureSas => log::info!(
-            "[OUTER guard] convergence-guard re-eval at converged ρ done (mixture/SAS arm; prev_cap={prev_cap}, elapsed={:.3}s)",
-            guard_start.elapsed().as_secs_f64()
-        ),
-    }
-    Ok(())
 }
 
 /// The weighted-mean response level an unpenalized intercept would absorb, used
@@ -814,17 +769,10 @@ where
             let gaussian_identity = matches!(cfg.link_function(), LinkFunction::Identity);
             let n_obs = y_o.len();
             let prefer_gradient_only = k >= REML_SECOND_ORDER_RHO_CAP;
-            let continuation_prewarm = k < REML_CONTINUATION_PREWARM_RHO_CAP;
             if prefer_gradient_only {
                 log::info!(
                     "[OUTER] rho_dim {k} reaches exact REML Hessian budget \
                    ({REML_SECOND_ORDER_RHO_CAP}); routing analytic-gradient quasi-Newton"
-                );
-            }
-            if !continuation_prewarm {
-                log::info!(
-                    "[OUTER] rho_dim {k} reaches continuation-prewarm budget \
-                   ({REML_CONTINUATION_PREWARM_RHO_CAP}); starting optimizer directly from seeds"
                 );
             }
             let problem = OuterProblem::new(k)
@@ -835,7 +783,6 @@ where
                     DeclaredHessianForm::Unavailable
                 })
                 .with_prefer_gradient_only(prefer_gradient_only)
-                .with_continuation_prewarm(continuation_prewarm)
                 .with_barrier(
                     crate::estimate::reml::reml_outer_engine::BarrierConfig::from_constraints(
                         fit_linear_constraints.as_ref(),
@@ -951,12 +898,19 @@ where
             // identifiable. Same machinery as the gam#1266 double-penalty rescue.
             let caller_seeded_rho = rho_warm_start.is_some_and(|h| h.len() == k);
             let prepass_seed: Option<Array1<f64>> = {
+                // Validate the seed ρ-box ONCE, at the boundary where it enters the
+                // seed machinery, and REFUSE an inverted/non-finite interval rather
+                // than silently reordering it (#2379). An inverted `[lo, hi]` means
+                // the ρ lower wall and the over-smoothing ceiling — two
+                // independently-owned constants — have drifted apart (the #2370
+                // disease); a swap here would make the optimizer solve a different,
+                // silently substituted box and still return a fitted model.
+                // `run_outer_uncertified` already enforces this contract at the outer
+                // entry; the prepass must not undercut it. Crucially the raw pair is
+                // validated BEFORE the `RHO_BOUND` widening below, so the widening
+                // can never silently un-invert a drifted box.
                 let bnds = reml_seed_config.bounds;
-                let (lo, hi_seed) = if bnds.0 <= bnds.1 {
-                    bnds
-                } else {
-                    (bnds.1, bnds.0)
-                };
+                let raw_bounds = OrderedRhoBounds::new(bnds.0, bnds.1)?;
                 // The criterion-ranked prepass evaluates the TRUE REML/LAML cost, so
                 // it is safe — and necessary — to let it explore the full
                 // over-smoothing range the outer optimizer itself can reach
@@ -976,7 +930,11 @@ where
                 // overfit origin. The seed is still only adopted when it strictly
                 // lowers the REML cost, so well-balanced and single-penalty fits are
                 // unaffected.
-                let hi = hi_seed.max(crate::estimate::RHO_BOUND);
+                // Widen only the upper (over-smoothing) bound to the full range the
+                // outer optimizer can reach. `with_upper_at_least` only ever *raises*
+                // `hi`, so the box stays ordered by construction (`RHO_BOUND` is a
+                // finite constant) — no re-validation needed.
+                let seed_bounds = raw_bounds.with_upper_at_least(crate::estimate::RHO_BOUND);
                 // risk_shift is the default seed bias when no caller warm-start is given;
                 // it is NOT applied on top of a caller-supplied rho seed.
                 let risk_shift: f64 = match reml_seed_config.risk_profile {
@@ -990,9 +948,9 @@ where
                 // it unless it is strictly better. Otherwise anchor the default
                 // risk-shift origin to the weight scale (issue #877).
                 let base = if let Some(h) = rho_warm_start.filter(|h| h.len() == k) {
-                    Array1::from_iter(h.iter().map(|&v| v.clamp(lo, hi)))
+                    Array1::from_iter(h.iter().map(|&v| seed_bounds.clamp(v)))
                 } else {
-                    Array1::from_elem(k, (risk_shift + weight_log_geom_mean).clamp(lo, hi))
+                    Array1::from_elem(k, seed_bounds.clamp(risk_shift + weight_log_geom_mean))
                 };
                 // #2069 / #1575: the analytic mgcv-style `initial.sp` seed
                 // replaces the banned log-λ grid prepass. One commensurate-
@@ -1004,7 +962,7 @@ where
                 // search; `(lo, hi)` already widens `hi` to `RHO_BOUND` so a
                 // genuinely large `λ_j` is not clipped to the seed band. The seed is
                 // order-independent, so no canonical permutation is needed.
-                // Three principled, data-derived candidates are scored against the
+                // Two principled, data-derived candidates are scored against the
                 // anchor, each adopted only when it STRICTLY lowers the true
                 // REML/LAML cost — exactly the criterion the old grid used, but
                 // scoring a handful of hand-derived candidates instead of a
@@ -1018,55 +976,36 @@ where
                 //      analytic high-λ basin (#1266 double-penalty null-space,
                 //      #1464 collapsing-kernel spatial).
                 //
-                //   2. The Demmler–Reinsch closed-form GLOBAL Gaussian-identity
-                //      REML optimum, PER BLOCK, via cyclic exact 1-D
-                //      minimisation. The profiled Gaussian REML criterion is an
-                //      explicit scalar whose ρ-derivative decays to zero on the
-                //      high-λ shelf, so a descent method (mgcv included) rails to
-                //      an over-smoothed λ̂ there even though a finite-λ basin has a
-                //      strictly lower REML (sin8 k=40: shelf edf≈2 vs basin
-                //      edf≈39). The closed form SELECTS each block's global
-                //      minimiser from an eigendecomposition of the `(S_k, A_k)`
-                //      pencil (A_k folds the other blocks' λ into the metric)
-                //      rather than descending, so no coordinate shelf-traps and a
-                //      double-penalty smooth's blocks can split (λ_bend high /
-                //      λ_null low). Only fires for a dense Gaussian-identity
-                //      design (see `analytic_gaussian_closed_form_rho`).
-                //
                 // The generated-seed screen (`generate_rho_candidates` +
                 // `rank_seeds_with_screening`) remains the multi-basin backstop.
-                let initial_sp = reml_state.analytic_initial_sp_rho(&base, (lo, hi));
-                let closed_form =
-                    reml_state
-                        .analytic_gaussian_closed_form_rho((lo, hi))
-                        .map(|rho_blocks| {
-                            // Map the per-block ρ onto the leading penalty
-                            // coordinates; any trailing ext/ψ coordinates in `base`
-                            // are not smoothing parameters and pass through unchanged
-                            // (the same 1:1 layout `analytic_initial_sp_rho` uses).
-                            let mut seed = base.clone();
-                            for (coord, &r) in seed.iter_mut().zip(rho_blocks.iter()) {
-                                *coord = r.clamp(lo, hi);
-                            }
-                            seed
-                        });
-                //   3. The GLOBAL single-λ (diagonal) closed-form optimum on the
+                let initial_sp = reml_state.analytic_initial_sp_rho(&base, seed_bounds);
+                //   2. The certified single-λ (diagonal) profiled optimum on the
                 //      SUMMED penalty `Σ_j S_j`, broadcast to a uniform per-block
-                //      ρ. The per-block cyclic solver (candidate 2) descends one
-                //      coordinate at a time and can PARK at a coordinate-wise
-                //      stationary interior point that is not the joint optimum —
-                //      on the double-penalty null-recovery fixture the joint REML
-                //      rails both blocks onto the collapse shelf, but cyclic
-                //      descent stalls at an inferior split (#1815/#1867). The
-                //      diagonal restriction is solved by grid-free stationary
-                //      enumeration (no coordinate stall), so it supplies that
-                //      shelf corner as a scored candidate.
+                //      ρ. This is an honest one-dimensional restriction of the
+                //      coupled multi-λ objective: overlapping penalty blocks make
+                //      the penalty pseudo-determinant nonseparable, so there is no
+                //      per-block "exact" cyclic closed form. The candidate is
+                //      admitted only after the true coupled REML cost scores it.
+                // A FAILED seed heuristic must never be fatal. The summed-penalty
+                // profiled-diagonal candidate solves a closed-form REML on the
+                // collapsed 1-D restriction; on a tiny / near-degenerate design
+                // (e.g. `n ≈ nullity` of the summed penalty, the `p ≥ n` corner
+                // reached by `y ~ s(x)` on very few rows, #2355) that closed form
+                // can honestly refuse. That refusal only means "this ONE seed is
+                // unavailable" — the generated-seed screen and the neutral/base
+                // anchors remain, and the outer optimizer is the sole authority on
+                // whether the fit certifies. Propagating the seed error with `?`
+                // instead killed the entire fit for a mere unavailable candidate.
+                // Treat an errored candidate as absent (`None`) so the search still
+                // runs from the surviving seeds.
                 let summed_diagonal = reml_state
-                    .analytic_gaussian_summed_diagonal_rho((lo, hi))
+                    .analytic_gaussian_profiled_diagonal_rho(seed_bounds)
+                    .ok()
+                    .flatten()
                     .map(|rho_blocks| {
                         let mut seed = base.clone();
                         for (coord, &r) in seed.iter_mut().zip(rho_blocks.iter()) {
-                            *coord = r.clamp(lo, hi);
+                            *coord = seed_bounds.clamp(r);
                         }
                         seed
                     });
@@ -1074,13 +1013,10 @@ where
                     .compute_cost(&base)
                     .ok()
                     .filter(|c| c.is_finite());
-                // Keep the strictly-cheapest of {anchor, initial.sp, closed-form}.
+                // Keep the strictly-cheapest certified/scored candidate.
                 let mut refined = base.clone();
                 let mut best_cost = base_cost;
-                for candidate in [initial_sp, closed_form, summed_diagonal]
-                    .into_iter()
-                    .flatten()
-                {
+                for candidate in [initial_sp, summed_diagonal].into_iter().flatten() {
                     let candidate_cost = reml_state
                         .compute_cost(&candidate)
                         .ok()
@@ -1164,35 +1100,14 @@ where
                     state.compute_screening_proxy(rho)
                 },
             );
-            // Standard REML's eval closure publishes
-            // `inner_beta_hint = state.current_original_basis_beta()` on
-            // every accepted eval. The continuation pre-warm carries that
-            // hint forward and calls `seed_inner_state(beta)` before the
-            // next eval — see src/solver/reml/continuation.rs:209-212,
-            // 434-438. Without a hook here, `ClosureObjective::seed_inner_state`
-            // (src/solver/rho_optimizer.rs:2097-2107) rejected any
-            // non-empty β fatally, dropping every seed before the inner
-            // solver started (issue #236). Wire the symmetric consumer:
-            // when the pre-warm forwards the cached β, install it into the
-            // same `warm_start_beta` slot the publisher reads from.
+            // Standard REML publishes its current original-basis coefficients
+            // and consumes a cached coefficient vector through the symmetric
+            // hook below. The runner calls it only after reset and only for the
+            // bitwise-matching outer seed that owns the cached vector.
             let mut obj = obj.with_seed_inner_state(with_reml_beta_seed_hook());
 
             let strategy_result = problem.run(&mut obj, "standard REML")?;
             drop(obj);
-            // Convergence guard for the outer-aware inner-PIRLS schedule
-            // (path #3): the BFGS bridge stores a coarsen-then-tighten cap
-            // into `reml_state.outer_inner_cap` on every accepted gradient
-            // eval. After the outer optimizer returns, the cached warm-start
-            // β was computed at whatever cap the schedule last set — which
-            // for fast-converging fits (≤5 BFGS iters) is a coarse cap of
-            // 5/10/20 rather than the full inner budget. Reset the cap to 0
-            // and run one final cost eval at the converged ρ so the cached
-            // β is at full inner tolerance.
-            run_outer_inner_cap_guard(
-                &mut reml_state,
-                &strategy_result.rho,
-                RemlInnerCapGuardArm::Standard,
-            )?;
             let accepted_rho = strategy_result.rho.clone();
             (
                 accepted_rho,
@@ -1252,24 +1167,16 @@ where
             use gam_problem::{DeclaredHessianForm, Derivative, HessianValue, OuterEval};
             let initial_link_kind = cfg.link_kind.clone();
             let prefer_gradient_only = theta_dim >= REML_SECOND_ORDER_RHO_CAP;
-            let continuation_prewarm = theta_dim < REML_CONTINUATION_PREWARM_RHO_CAP;
             if prefer_gradient_only {
                 log::info!(
                     "[OUTER] theta_dim {theta_dim} reaches exact REML Hessian budget \
                    ({REML_SECOND_ORDER_RHO_CAP}); routing analytic-gradient quasi-Newton"
                 );
             }
-            if !continuation_prewarm {
-                log::info!(
-                    "[OUTER] theta_dim {theta_dim} reaches continuation-prewarm budget \
-                   ({REML_CONTINUATION_PREWARM_RHO_CAP}); starting optimizer directly from seeds"
-                );
-            }
             let problem = OuterProblem::new(theta_dim)
                 .with_gradient(Derivative::Analytic)
                 .with_hessian(DeclaredHessianForm::Either)
                 .with_prefer_gradient_only(prefer_gradient_only)
-                .with_continuation_prewarm(continuation_prewarm)
                 .with_psi_dim(mixture_dim + sas_dim)
                 .with_barrier(
                     crate::estimate::reml::reml_outer_engine::BarrierConfig::from_constraints(
@@ -1503,43 +1410,11 @@ where
                 },
             ),
         );
-            // Same publish/consume symmetry as the standard REML arm above
-            // (issue #236). The mixture/SAS eval closure also surfaces
-            // `inner_beta_hint = state.current_original_basis_beta()` (see
-            // src/solver/estimate.rs:3275), so continuation pre-warm needs
-            // a real seed hook to install it.
+            // Same exact-seed cache publish/consume symmetry as the standard
+            // REML arm above (issue #236).
             let mut obj = obj.with_seed_inner_state(with_reml_beta_seed_hook());
             let outer_result = problem.run(&mut obj, "mixture/SAS flexible link")?;
             drop(obj);
-            // Convergence guard for the outer-aware inner-PIRLS schedule
-            // (path #3) — see the matching comment in the standard REML arm
-            // above. Reset the cap and run one final compute_cost at the
-            // converged θ so the cached warm-start β is at full inner
-            // tolerance regardless of where the BFGS schedule was when the
-            // optimizer terminated.
-            //
-            // The outer vector here is the AUGMENTED θ = [ρ_smooth (k) | link
-            // params (mixture_dim and/or sas_dim)], not a smoothing-only ρ.
-            // `compute_cost` exponentiates its argument wholesale into the
-            // penalty λ vector (loop_driver.rs `rho.mapv(exp)`), so the guard
-            // must receive exactly the same smoothing-only ρ — and the same
-            // installed link state — the outer evaluator operated on, never the
-            // raw augmented θ. Feeding the full θ in made the guard hand `k +
-            // mixture_dim + sas_dim` "lambdas" to a `k`-penalty reparameterizer,
-            // which faults with "Lambda count mismatch" (#1571). Route θ through
-            // the same `apply_link_theta` the eval closure (optimizer.rs:1759)
-            // and the accept-fit slice (the `final_rho` line just below) use: it
-            // installs the converged mixture/SAS link state onto `reml_state`
-            // and returns the smoothing-only ρ block.
-            let guard_rho = {
-                let mut state_ref: &mut crate::estimate::reml::RemlState<'_> = &mut reml_state;
-                apply_link_theta(&mut state_ref, &outer_result.rho)?
-            };
-            run_outer_inner_cap_guard(
-                &mut reml_state,
-                &guard_rho,
-                RemlInnerCapGuardArm::MixtureSas,
-            )?;
             let final_rho = outer_result.rho.slice(s![..k]).to_owned();
             let final_mix_state = if use_mixture {
                 let final_mix_rho = outer_result.rho.slice(s![k..(k + mixture_dim)]).to_owned();
@@ -2164,10 +2039,8 @@ where
         }
         _ => None,
     };
-    let dispersion = dispersion_from_likelihood(
-        &pirls_res.likelihood,
-        profiled_gaussian_standard_deviation,
-    )?;
+    let dispersion =
+        dispersion_from_likelihood(&pirls_res.likelihood, profiled_gaussian_standard_deviation)?;
     // Persist the square root of the resolved response dispersion for every
     // scalar-scale family. It is never an overloaded Gamma shape or an inert
     // unit placeholder; family-specific inference consumes the typed metadata.
@@ -2215,9 +2088,22 @@ where
         )));
     }
 
-    // Re-certify the exact rho point and inner state that will be shipped.
-    // Seeds and nuisance refinements may initialize work, but they can never
-    // promote a different point under the optimizer's old certificate.
+    // Re-install the exact rho point and inner state that will be shipped, and
+    // verify it IS the certified optimum. Seeds and nuisance refinements may
+    // initialize work, but they can never promote a different point under the
+    // optimizer's old certificate.
+    //
+    // The identity check is BITWISE on ρ, not a re-judged gradient norm: the
+    // retained certificate is the analytic stationarity authority minted at
+    // `outer_result.rho` by the full certification machinery (noise-floor
+    // widenings, flatness probes, asymptote rails). In the deep-smoothing
+    // regime the analytic gradient is a noise instrument (|Pg| redraws across
+    // evaluations of the SAME point — the reproducibility floor exists because
+    // of it), so re-drawing it once here and comparing against the certified
+    // band refuses honest noise-band certificates with coin-flip probability
+    // while adding nothing to point-identity (which bit equality decides
+    // exactly). The evaluation itself is kept: it installs the inner state at
+    // the shipped point and supplies the shipped value/gradient fields.
     let (final_value, finalgrad, finalgrad_norm, stationarity_bound) = if final_rho.is_empty() {
         (outer_result.final_value, Array1::zeros(0), 0.0, reml_tol)
     } else {
@@ -2237,18 +2123,34 @@ where
             .max(f64::EPSILON);
         (value, gradient, projected, bound)
     };
+    let shipped_point_is_certified = final_rho.len() == outer_result.rho.len()
+        && final_rho
+            .iter()
+            .zip(outer_result.rho.iter())
+            .all(|(shipped, certified)| shipped.to_bits() == certified.to_bits());
     let certificate_valid = final_rho.is_empty()
         || (outer_result.converged
             && outer_result
                 .criterion_certificate
                 .as_ref()
                 .is_some_and(|certificate| certificate.certifies())
-            && finalgrad_norm.is_finite()
-            && finalgrad_norm <= stationarity_bound);
+            && shipped_point_is_certified
+            && finalgrad_norm.is_finite());
     if !certificate_valid {
         return Err(EstimationError::RemlDidNotConverge {
             context: "standard REML final shipped point".to_string(),
-            reason: "post-fit analytic projected-KKT certificate failed".to_string(),
+            reason: format!(
+                "post-fit certificate identity check failed: shipped rho {:?} vs \
+                 certified rho {:?} (converged={}, certifies={}, |Pg| at shipped point {:.3e})",
+                final_rho.to_vec(),
+                outer_result.rho.to_vec(),
+                outer_result.converged,
+                outer_result
+                    .criterion_certificate
+                    .as_ref()
+                    .is_some_and(|certificate| certificate.certifies()),
+                finalgrad_norm,
+            ),
             iterations: outer_result.iterations,
             final_value,
             projected_grad_norm: finalgrad_norm.is_finite().then_some(finalgrad_norm),
@@ -2400,9 +2302,41 @@ where
             )?;
             match smoothing_outcome {
                 super::reml::eval::SmoothingCorrectionOutcome::Unavailable { reason, .. } => {
-                    return Err(EstimationError::InvalidInput(format!(
-                        "exact smoothing-corrected covariance unavailable: {reason:?}"
-                    )));
+                    // A fit certified at an infinite-smoothing rail (typed
+                    // AsymptoteRail, or box-railed coordinates) has NO finite
+                    // ρ-variance along the rail direction — the outer Hessian
+                    // is legitimately non-PD there, so the first-order
+                    // smoothing correction is TYPED-unavailable rather than a
+                    // defect. Ship the certified fit with the plug-in
+                    // covariance and no correction; the downstream corrected
+                    // EDF/AIC channels report the typed absence (#946/#1027)
+                    // instead of the whole fit dying over an enhancement. A
+                    // fit WITHOUT rail evidence keeps the fail-loud error: an
+                    // unexpectedly uninvertible outer Hessian on a
+                    // well-conditioned interior optimum is a real defect.
+                    let rail_certified =
+                        outer_result
+                            .criterion_certificate
+                            .as_ref()
+                            .is_some_and(|certificate| {
+                                matches!(
+                            certificate.stationarity,
+                            crate::model_types::OuterStationarityCertificate::AsymptoteRail { .. }
+                        ) || !certificate.lambdas_railed.is_empty()
+                            });
+                    if !rail_certified {
+                        return Err(EstimationError::InvalidInput(format!(
+                            "exact smoothing-corrected covariance unavailable: {reason:?}"
+                        )));
+                    }
+                    log::info!(
+                        "[SMOOTHING-CORRECTION] typed-unavailable on a rail-certified \
+                         fit ({reason:?}); shipping the plug-in covariance without a \
+                         smoothing correction"
+                    );
+                    rho_covariance = None;
+                    smoothing_correction = None;
+                    smoothing_correction_method = None;
                 }
                 outcome => {
                     rho_covariance = outcome.rho_covariance().cloned();
@@ -2512,8 +2446,8 @@ where
                 // reservation covers this buffer and its `solvemulti` output
                 // jointly, so it is bound to whichever one outlives the other
                 // (both are dropped together at the end of this iteration).
-                let rhs =
-                    chunk_reservation.bind(qs.t().slice(ndarray::s![.., col_start..col_end]).to_owned());
+                let rhs = chunk_reservation
+                    .bind(qs.t().slice(ndarray::s![.., col_start..col_end]).to_owned());
                 let z_chunk = factor_t.solvemulti(&rhs).map_err(|reason| {
                     EstimationError::RemlOptimizationFailed(format!(
                         "exact coefficient-SE solve failed at columns {col_start}..{col_end}: {reason}"
@@ -2617,8 +2551,6 @@ where
         smoothing_correction,
         smoothing_correction_method,
         penalized_hessian: penalized_hessian.into(),
-        working_weights: pirls_res.solveweights.to_owned(),
-        working_response: pirls_res.solveworking_response.to_owned(),
         reparam_qs: Some(pirls_res.reparam_result.qs.clone()),
         dispersion,
         beta_covariance,
@@ -2968,7 +2900,8 @@ mod reported_loglikelihood_normalization_tests {
     use super::optimize_external_design;
     use crate::estimate::external_options::ExternalOptimOptions;
     use gam_problem::{
-        InverseLink, LikelihoodSpec, LogLikelihoodNormalization, ResponseFamily, StandardLink,
+        InverseLink, LikelihoodScaleMetadata, LikelihoodSpec, LogLikelihoodNormalization,
+        ResponseFamily, StandardLink,
     };
     use gam_terms::smooth::BlockwisePenalty;
     use ndarray::{Array1, Array2};
@@ -3066,12 +2999,12 @@ mod reported_loglikelihood_normalization_tests {
 
     #[test]
     fn gaussian_reported_loglikelihood_is_finite() {
-        // #2096 follow-through: the reporting field switched to the
-        // fully-normalized Gaussian kernel, which reads a CONCRETE dispersion
-        // `φ = σ̂²` from `likelihood.scale`. If the reporting site ships the
-        // unresolved `ProfiledGaussian` marker (fixed_phi() == None), the kernel
-        // returns NaN — every Gaussian summary().log_likelihood / AIC becomes
-        // NaN. This asserts the profiled σ̂² is resolved into the reported scale.
+        // #2096 follow-through: the reporting field uses the
+        // fully-normalized Gaussian kernel, which requires a CONCRETE
+        // dispersion `φ = σ̂²`. The reporting site must resolve that temporary
+        // likelihood without rewriting the fit's canonical scale-ownership
+        // contract: the returned metadata remains `ProfiledGaussian`, while
+        // the reported full log-likelihood is finite.
         let n = 40usize;
         let mut design = Array2::<f64>::zeros((n, 2));
         let mut y = Array1::<f64>::zeros(n);
@@ -3097,6 +3030,10 @@ mod reported_loglikelihood_normalization_tests {
         )
         .expect("Gaussian solve on clean near-linear data must converge");
 
+        assert!(matches!(
+            result.likelihood_scale,
+            LikelihoodScaleMetadata::ProfiledGaussian
+        ));
         assert!(
             result.log_likelihood.is_finite(),
             "reported Gaussian log-likelihood must be finite (the profiled σ̂² \
@@ -3216,36 +3153,5 @@ mod negative_binomial_joint_certificate_tests {
             }
             other => panic!("expected typed negative-binomial joint exhaustion, got {other}"),
         }
-    }
-}
-
-#[cfg(test)]
-mod diagonal_smoothing_correction_tests {
-    use super::low_rank_covariance_diagonal;
-    use ndarray::array;
-
-    #[test]
-    fn low_rank_diagonal_matches_the_full_congruence() {
-        let mode_response = array![[1.0, 2.0], [-3.0, 0.5], [0.0, 4.0]];
-        let rho_covariance = array![[2.0, 0.25], [0.25, 1.5]];
-        let expected = mode_response
-            .dot(&rho_covariance)
-            .dot(&mode_response.t())
-            .diag()
-            .to_owned();
-        let actual = low_rank_covariance_diagonal(mode_response.view(), &rho_covariance)
-            .expect("compatible finite low-rank factors");
-        for (&got, &want) in actual.iter().zip(expected.iter()) {
-            assert!((got - want).abs() <= 16.0 * f64::EPSILON * want.abs().max(1.0));
-        }
-    }
-
-    #[test]
-    fn low_rank_diagonal_rejects_shape_mismatch() {
-        let mode_response = array![[1.0, 2.0]];
-        let wrong_rho_covariance = array![[1.0]];
-        assert!(
-            low_rank_covariance_diagonal(mode_response.view(), &wrong_rho_covariance).is_none()
-        );
     }
 }

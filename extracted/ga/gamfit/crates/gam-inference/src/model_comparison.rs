@@ -26,9 +26,9 @@
 //! Both channels are *corroboration*: they ride alongside the evidence headline
 //! a race already produces, never replacing it.
 
-use crate::alo::AloDiagnostics;
 use gam_problem::types::{GlmLikelihoodSpec, LikelihoodSpec};
 use gam_solve::estimate::{EstimationError, UnifiedFitResult};
+use gam_solve::model_types::SmoothingCorrectionMethod;
 use gam_solve::psis::pareto_smooth_weights;
 use ndarray::{Array1, ArrayView1, ArrayView2};
 
@@ -465,12 +465,14 @@ pub fn compare(
 }
 
 /// Assemble the comparison payload for a fitted GLM/GAM from the fit result plus
-/// optional ALO diagnostics.
+/// optional ALO leave-one-out predictor coordinates.
 ///
 /// Corrected AIC is populated only with retained, method-certified correction
-/// provenance. The ALO elpd channel is populated when `alo` is supplied and the
-/// fit carries an engine-level family; both predictors are scored directly in
-/// eta coordinates.
+/// provenance. The ALO elpd channel is populated when `alo_eta_tilde` is
+/// supplied and the fit carries an engine-level family; both predictors are
+/// scored directly in eta coordinates. Taking the sole coordinate consumed by
+/// this calculation keeps model comparison independent of any particular ALO
+/// result schema (scalar or multi-coordinate).
 ///
 /// `eta_hat` is the *fitted* linear predictor (including offset) and `y` the
 /// response, both length `n`.
@@ -479,7 +481,7 @@ pub fn model_comparison_from_unified(
     y: ArrayView1<'_, f64>,
     eta_hat: ArrayView1<'_, f64>,
     prior_weights: ArrayView1<'_, f64>,
-    alo: Option<&AloDiagnostics>,
+    alo_eta_tilde: Option<ArrayView1<'_, f64>>,
 ) -> Result<ModelComparison, EstimationError> {
     let phi = fit.dispersion_phi()?;
     let edf_conditional = fit.edf_total().ok_or_else(|| {
@@ -501,13 +503,21 @@ pub fn model_comparison_from_unified(
             })
         })
         .transpose()?;
+    // The WPS correction is reported as exact only under the typed provenance
+    // the optimizer retained with the correction itself: first-order IFT on the
+    // identified outer-Hessian subspace. SigmaPointCubature is a named
+    // approximation and must stay out of the exact channel.
+    let method_certified_exact = matches!(
+        fit.smoothing_correction_method(),
+        Some(SmoothingCorrectionMethod::FirstOrderIdentifiedSubspace { .. })
+    );
     let edf = corrected_edf(
         edf_conditional,
         fit.weighted_gram().map(|g| g.view()),
         fit.smoothing_correction().map(|c| c.view()),
         covariance_scale,
         fit.log_lambdas.len(),
-        false,
+        method_certified_exact,
     )?;
 
     // The user-facing `log_likelihood` (and the AIC / elpd derived from it) must
@@ -543,13 +553,13 @@ pub fn model_comparison_from_unified(
         .corrected
         .map(|corrected| -2.0 * log_lik + 2.0 * (corrected + scale_dof));
 
-    let loo = match (alo, fit.likelihood_family.as_ref()) {
-        (Some(alo), Some(spec)) => {
+    let loo = match (alo_eta_tilde, fit.likelihood_family.as_ref()) {
+        (Some(eta_tilde), Some(spec)) => {
             let scale = reporting_scale(spec, &fit.likelihood_scale, phi);
             Some(alo_elpd_from_family(
                 y,
                 eta_hat,
-                alo.eta_tilde.view(),
+                eta_tilde,
                 prior_weights,
                 spec,
                 scale,

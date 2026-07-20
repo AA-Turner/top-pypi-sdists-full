@@ -867,6 +867,24 @@ def _matches_pattern(pattern: str):
     return Field(pattern=pattern, regex=pattern)
 
 
+class OfflineQueryWriteTo(BaseModel):
+    """Destination to which the query's output rows should be written directly by the engine.
+
+    Mirrors the `chalk.common.v1.OfflineQueryWriteTo` proto oneof: exactly one destination
+    field must be set. Today the only supported destination is a storage URI, but richer
+    transports (e.g. structured sink configurations) may be added later.
+    """
+
+    uri: Optional[str] = None
+    """A storage URI (e.g. `s3://bucket/path`) that is a valid destination for a velox `TableWriteNode`."""
+
+    @root_validator
+    def _validate_exactly_one_destination(cls, values: Dict[str, Any]):
+        if values.get("uri") is None:
+            raise ValueError("write_to requires exactly one destination; provide 'uri'")
+        return values
+
+
 class ResourceRequests(BaseModel):
     """
     Override resource requests for processes with isolated resources, e.g., offline queries and cron jobs.
@@ -1052,6 +1070,9 @@ class CreateOfflineQueryJobRequest(BaseModel):
 
     unload_resolvers: Optional[List[Dict[str, Any]]] = None
     """Resolvers to pre-compute and unload from shard jobs. Each entry is a dict with 'fqn' and optional 'partition_by', or {"any": []} to auto-detect all eligible resolvers."""
+
+    write_to: Optional[OfflineQueryWriteTo] = None
+    """Optional destination to write query outputs to directly."""
 
     @root_validator
     def _validate_multiple_computers(cls, values: Dict[str, Any]):

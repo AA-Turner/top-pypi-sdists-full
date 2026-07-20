@@ -1,5 +1,6 @@
 use super::*;
 use gam_math::special::bessel_i0_centered_terms_from_log_abs;
+use gam_linalg::faer_ndarray::FaerEigh;
 
 // ── Theorem K: the rank charge is a RUNNING COMPLEXITY λ(n) ──────────────────
 //
@@ -76,6 +77,113 @@ pub struct StreamingRankInputs {
 /// value path here, the WBIC diagnostic, and the ρ-derivative through
 /// [`classify_reconstruction_rank`], so the three views cannot desync.
 pub(crate) const RANK_VANISHED_REL: f64 = 1.0e-9;
+
+/// Non-empty, canonical set of numerical atom slots whose realised decoder
+/// rank is exactly zero at a converged fixed-`rho` inner state.
+///
+/// This is a structural boundary of the fixed-`K` model, not a floating-point
+/// value and not a numerical failure.  Keeping the slots sorted and unique
+/// makes dense, streaming, and criterion-as-atoms evaluations report the same
+/// event byte-for-byte and gives the variable-`K` orchestrator one unambiguous
+/// transactional removal set.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct VanishedAtoms(Box<[usize]>);
+
+impl VanishedAtoms {
+    pub(crate) fn from_slots(slots: impl IntoIterator<Item = usize>) -> Option<Self> {
+        let mut slots: Vec<usize> = slots.into_iter().collect();
+        slots.sort_unstable();
+        slots.dedup();
+        (!slots.is_empty()).then(|| Self(slots.into_boxed_slice()))
+    }
+
+    pub fn iter(&self) -> impl ExactSizeIterator<Item = usize> + '_ {
+        self.0.iter().copied()
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        false
+    }
+
+    pub(crate) fn as_btree_set(&self) -> std::collections::BTreeSet<usize> {
+        self.iter().collect()
+    }
+}
+
+impl std::fmt::Display for VanishedAtoms {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "vanished atoms {:?}", &self.0)
+    }
+}
+
+/// Typed result boundary for the quasi-Laplace criterion.
+///
+/// `VanishedAtoms` deliberately does not travel through a formatted string:
+/// the outer fixed-`K` optimizer treats it as an infeasible trial, while the
+/// fit-stage owner can inspect the committed terminal state and restart on the
+/// physically compacted `K-r` stratum.  Every other failure remains an ordinary
+/// numerical/contract error.
+#[derive(Debug)]
+pub enum SaeCriterionError {
+    VanishedAtoms(VanishedAtoms),
+    Numerical(String),
+    /// #2330 — the exact observed-information Hessian `A = ∇²_θθ L` is not
+    /// positive definite at the converged inner mode, so the dense-route Laplace
+    /// term `½log|A|` is undefined: the point is a saddle, not a maximum. The
+    /// dense capability route refuses typed rather than ranking a non-maximum
+    /// (the majorized surrogate `B` stays PD by construction; this is the exact
+    /// observed information declining to certify a non-max). `block` names the
+    /// factorized block that failed (`"joint"` or `"coordinate"`).
+    IndefiniteObservedInformation { block: &'static str },
+}
+
+impl SaeCriterionError {
+    pub fn vanished_atoms(&self) -> Option<&VanishedAtoms> {
+        match self {
+            Self::VanishedAtoms(atoms) => Some(atoms),
+            Self::Numerical(_) | Self::IndefiniteObservedInformation { .. } => None,
+        }
+    }
+
+    pub fn numerical_message(&self) -> Option<&str> {
+        match self {
+            Self::Numerical(message) => Some(message),
+            Self::VanishedAtoms(_) | Self::IndefiniteObservedInformation { .. } => None,
+        }
+    }
+}
+
+impl From<String> for SaeCriterionError {
+    fn from(message: String) -> Self {
+        Self::Numerical(message)
+    }
+}
+
+impl From<&str> for SaeCriterionError {
+    fn from(message: &str) -> Self {
+        Self::Numerical(message.to_string())
+    }
+}
+
+impl std::fmt::Display for SaeCriterionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::VanishedAtoms(atoms) => atoms.fmt(f),
+            Self::Numerical(message) => f.write_str(message),
+            Self::IndefiniteObservedInformation { block } => write!(
+                f,
+                "exact observed-information Hessian is indefinite at the converged mode \
+                 ({block} block): ½log|A| is undefined (the inner point is not a maximum)"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for SaeCriterionError {}
 
 /// The two integer rank notions carried by the evidence code.
 ///
@@ -463,51 +571,57 @@ pub(crate) fn coordinate_block_log_det(cache: &ArrowFactorCache) -> Result<f64, 
 /// Dense, streaming, and criterion-as-atoms assembly all call this function so
 /// the value cannot retain the full coordinate logdet after the analytic
 /// gradient has switched to the realised-rank charge. A zero realised rank is
-/// the categorical Laplace-invalid branch and therefore yields positive
-/// infinity, matching the production criterion contract.
+/// the categorical Laplace-invalid boundary and is returned as a typed
+/// [`VanishedAtoms`] event. It is never laundered into a floating-point
+/// sentinel.
 pub(crate) fn rank_adjusted_quasi_laplace_complexity(
     log_det: f64,
     log_det_tt: f64,
     d_eff: &[f64],
     n_eff: &[f64],
-) -> Result<f64, String> {
+) -> Result<f64, SaeCriterionError> {
     if d_eff.len() != n_eff.len() {
-        return Err(format!(
+        return Err(SaeCriterionError::Numerical(format!(
             "rank_adjusted_quasi_laplace_complexity: d_eff length {} does not match N_eff length {}",
             d_eff.len(),
             n_eff.len()
-        ));
-    }
-    if d_eff.iter().any(|&value| value == 0.0) {
-        return Ok(f64::INFINITY);
+        )));
     }
     if !(log_det.is_finite() && log_det_tt.is_finite()) {
-        return Err(format!(
+        return Err(SaeCriterionError::Numerical(format!(
             "rank_adjusted_quasi_laplace_complexity: non-finite logdet input \
              (joint={log_det}, coordinate={log_det_tt})"
-        ));
+        )));
     }
     let mut rank_charge = 0.0_f64;
+    let mut vanished = Vec::new();
     for (atom, (&dof, &occupancy)) in d_eff.iter().zip(n_eff.iter()).enumerate() {
-        if !(dof.is_finite() && dof > 0.0) {
-            return Err(format!(
-                "rank_adjusted_quasi_laplace_complexity: atom {atom} has invalid positive realised DOF {dof}"
-            ));
+        if !(dof.is_finite() && dof >= 0.0) {
+            return Err(SaeCriterionError::Numerical(format!(
+                "rank_adjusted_quasi_laplace_complexity: atom {atom} has invalid non-negative realised DOF {dof}"
+            )));
         }
         if !(occupancy.is_finite() && occupancy >= 0.0) {
-            return Err(format!(
+            return Err(SaeCriterionError::Numerical(format!(
                 "rank_adjusted_quasi_laplace_complexity: atom {atom} has invalid effective sample size {occupancy}"
-            ));
+            )));
+        }
+        if dof == 0.0 {
+            vanished.push(atom);
+            continue;
         }
         rank_charge += 0.5 * dof * occupancy.max(1.0).ln();
+    }
+    if let Some(atoms) = VanishedAtoms::from_slots(vanished) {
+        return Err(SaeCriterionError::VanishedAtoms(atoms));
     }
     let value = 0.5 * (log_det - log_det_tt) + rank_charge;
     if value.is_finite() {
         Ok(value)
     } else {
-        Err(format!(
+        Err(SaeCriterionError::Numerical(format!(
             "rank_adjusted_quasi_laplace_complexity: assembled non-finite value {value}"
-        ))
+        )))
     }
 }
 
@@ -575,10 +689,10 @@ impl SaeManifoldTerm {
                     atom.output_dim()
                 ));
             }
-            if atom.latent_dim != assignment.coords[k].latent_dim() {
+            if atom.latent_dim() != assignment.coords[k].latent_dim() {
                 return Err(format!(
                     "SaeManifoldTerm::new: atom {k} latent_dim={} but assignment coord has {}",
-                    atom.latent_dim,
+                    atom.latent_dim(),
                     assignment.coords[k].latent_dim()
                 ));
             }
@@ -613,6 +727,7 @@ impl SaeManifoldTerm {
             structural_cocollapse_reseeds: 0,
             decoder_repulsion_gate: None,
             barrier_coactivation_gate: None,
+            amplitude_barrier_gate: None,
             // #1801 — default false: the dense/full-batch assembly refreshes the
             // collapse-prevention gates per assembly (bit-for-bit historical). The
             // streaming fit driver re-arms this to freeze them once globally.
@@ -621,6 +736,7 @@ impl SaeManifoldTerm {
             atom_inner_fits: None,
             oos_linear_images: None,
             separation_barrier_strength_override: None,
+            gpu_policy: gam_gpu::GpuPolicy::Auto,
             // Rung-2 behavioral block: default None (ordinary single-block term,
             // bit-for-bit unchanged). Attached via `set_behavior_block`.
             behavior: None,
@@ -646,6 +762,7 @@ impl SaeManifoldTerm {
     /// and before fitting; distinct terms remain isolated by construction.
     pub fn set_fit_config(&mut self, config: SaeFitConfig) {
         self.separation_barrier_strength_override = config.separation_barrier_strength_override;
+        self.gpu_policy = config.gpu_policy;
         self.assignment.set_ordered_beta_bernoulli_alpha_override(
             config.ordered_beta_bernoulli_alpha_override,
         );
@@ -661,6 +778,7 @@ impl SaeManifoldTerm {
             ordered_beta_bernoulli_alpha_override: self
                 .assignment
                 .ordered_beta_bernoulli_alpha_override,
+            gpu_policy: self.gpu_policy,
         }
     }
 
@@ -792,6 +910,7 @@ impl SaeManifoldTerm {
         primary.border_hbb_workspace = Array2::<f64>::zeros((0, 0));
         primary.decoder_repulsion_gate = None;
         primary.barrier_coactivation_gate = None;
+        primary.amplitude_barrier_gate = None;
         // Evidence-gauge / co-collapse cluster — the canonical reset (mirrors
         // outer_objective.rs and the ctor) clears all FIVE fields together: the
         // reanchor count and last-delta sign feed the penalized_quasi_laplace_criterion reversal-
@@ -1122,7 +1241,7 @@ impl SaeManifoldTerm {
                 }
             }
         }
-        let penalty = atom.smooth_penalty.clone();
+        let penalty = atom.smooth_penalty().clone();
         if penalty.dim() != (m, m) {
             return Err(format!(
                 "build_atom_inner_fit: atom {atom_idx} smooth penalty {:?} != ({m}, {m})",
@@ -1506,7 +1625,7 @@ impl SaeManifoldTerm {
         // ACCUMULATES the same `grams`/`n_eff` chunk-by-chunk (basis_values is not
         // persisted there) and calls the SAME core — so the criterion is identical.
         let mut grams = self.empty_decoder_gram_accumulator();
-        self.accumulate_decoder_gram(&mut grams);
+        self.accumulate_decoder_gram(&mut grams)?;
         let n_eff = self.per_atom_effective_sample_size();
         self.rank_dof_from_grams(&grams, &n_eff, rho, dispersion_r)
     }
@@ -1526,6 +1645,84 @@ impl SaeManifoldTerm {
                     .expect("term assignment shape must match atom count")
             })
             .collect()
+    }
+
+    /// Certify decoder disappearance without consulting the joint inverse.
+    ///
+    /// Every reconstruction-Gram eigenvalue of atom `k` is bounded by
+    /// `||G_k||_2 ||D_k||_F^2 / N_eff,k`, which is in turn bounded by
+    /// `||G_k||_inf ||D_k||_F^2 / N_eff,k`. If that upper bound is already at
+    /// or below `RANK_VANISHED_REL * dispersion_lower_bound`, the atom is
+    /// vanished for every admissible dispersion. This one-sided certificate
+    /// belongs before ARD EDF: the null stratum makes the joint decoder mode
+    /// degenerate, while disappearance itself depends only on the fitted
+    /// function image and likelihood scale.
+    pub(crate) fn vanished_atoms_from_signal_upper_bound(
+        &self,
+        grams: &[Array2<f64>],
+        n_eff: &[f64],
+        dispersion_lower_bound: f64,
+    ) -> Result<Option<VanishedAtoms>, String> {
+        if grams.len() != self.k_atoms() || n_eff.len() != self.k_atoms() {
+            return Err(format!(
+                "vanished_atoms_from_signal_upper_bound: expected {} Gram/sample blocks; got {} and {}",
+                self.k_atoms(),
+                grams.len(),
+                n_eff.len(),
+            ));
+        }
+        if !(dispersion_lower_bound.is_finite() && dispersion_lower_bound >= 0.0) {
+            return Err(format!(
+                "vanished_atoms_from_signal_upper_bound: dispersion lower bound must be finite and non-negative; got {dispersion_lower_bound}"
+            ));
+        }
+
+        let mut vanished = Vec::new();
+        for atom in 0..self.k_atoms() {
+            let gram = &grams[atom];
+            let decoder = &self.atoms[atom].decoder_coefficients;
+            let m = decoder.nrows();
+            if gram.dim() != (m, m) {
+                return Err(format!(
+                    "vanished_atoms_from_signal_upper_bound: atom {atom} Gram {:?} does not match decoder basis width {m}",
+                    gram.dim(),
+                ));
+            }
+            if gram
+                .iter()
+                .chain(decoder.iter())
+                .any(|value| !value.is_finite())
+            {
+                return Err(format!(
+                    "vanished_atoms_from_signal_upper_bound: atom {atom} Gram and decoder must be finite"
+                ));
+            }
+            let occupancy = n_eff[atom];
+            if !(occupancy.is_finite() && occupancy >= 0.0) {
+                return Err(format!(
+                    "vanished_atoms_from_signal_upper_bound: atom {atom} effective sample size must be finite and non-negative; got {occupancy}"
+                ));
+            }
+            if occupancy == 0.0 {
+                vanished.push(atom);
+                continue;
+            }
+
+            let gram_inf_norm = (0..m)
+                .map(|row| (0..m).map(|col| gram[[row, col]].abs()).sum::<f64>())
+                .fold(0.0_f64, f64::max);
+            let decoder_frobenius_squared = decoder.iter().map(|value| value * value).sum::<f64>();
+            let signal_upper_bound = gram_inf_norm * decoder_frobenius_squared / occupancy;
+            if !signal_upper_bound.is_finite() {
+                return Err(format!(
+                    "vanished_atoms_from_signal_upper_bound: atom {atom} signal upper bound is not finite"
+                ));
+            }
+            if signal_upper_bound <= RANK_VANISHED_REL * dispersion_lower_bound {
+                vanished.push(atom);
+            }
+        }
+        Ok(VanishedAtoms::from_slots(vanished))
     }
 
     /// Shared rank-charge DOF core (#11): `d_eff_k = rank_eff_k · basis_edf_k` from the
@@ -1567,7 +1764,7 @@ impl SaeManifoldTerm {
                 p_out,
                 r_floor,
                 lam_k,
-                Some(&self.atoms[k].smooth_penalty),
+                Some(self.atoms[k].smooth_penalty()),
             )
             .map_err(|e| format!("rank_dof_from_grams: atom {k}: {e}"))?;
             out.push(d);
@@ -1872,7 +2069,7 @@ impl SaeManifoldTerm {
                 support_mass: support.mass(),
                 effective_n: support.fisher_n(),
                 support_ess: support.ess(),
-                untyped: matches!(atom.basis_kind, SaeAtomBasisKind::Precomputed(_)),
+                untyped: matches!(atom.basis_kind(), SaeAtomBasisKind::Precomputed(_)),
                 active_token_count,
             });
         }
@@ -1886,7 +2083,7 @@ impl SaeManifoldTerm {
         metric: &gam_problem::RowMetric,
     ) -> Result<(f64, f64), String> {
         let atom = &self.atoms[atom_idx];
-        let d = atom.latent_dim;
+        let d = atom.latent_dim();
         let p = self.output_dim();
         if d == 0 || p == 0 {
             return Ok((0.0, 0.0));
@@ -1972,11 +2169,11 @@ impl SaeManifoldTerm {
             .iter()
             .enumerate()
             .map(|(k, atom)| {
-                if matches!(atom.basis_kind, SaeAtomBasisKind::Sphere) {
+                if matches!(atom.basis_kind(), SaeAtomBasisKind::Sphere) {
                     return None;
                 }
                 let coords = self.assignment.coords[k].as_matrix().to_owned();
-                if coords.nrows() != n || coords.ncols() != atom.latent_dim {
+                if coords.nrows() != n || coords.ncols() != atom.latent_dim() {
                     return None;
                 }
                 let mut activations = Array1::<f64>::zeros(n);
@@ -2051,8 +2248,8 @@ impl SaeManifoldTerm {
         let mut atom_axis_dim: Vec<usize> = Vec::with_capacity(k);
         let mut cursor = 0usize;
         for (atom_idx, atom) in self.atoms.iter().enumerate() {
-            let d = atom.latent_dim;
-            let topology = match (&atom.basis_kind, d) {
+            let d = atom.latent_dim();
+            let topology = match (atom.basis_kind(), d) {
                 (SaeAtomBasisKind::Periodic, 1) | (SaeAtomBasisKind::Torus, 1) => {
                     AtomTopology::Circle
                 }
@@ -2060,6 +2257,8 @@ impl SaeManifoldTerm {
                     AtomTopology::Torus { latent_dim: d }
                 }
                 (SaeAtomBasisKind::Sphere, _) => AtomTopology::Sphere,
+                (SaeAtomBasisKind::ProjectivePlane, _) => AtomTopology::ProjectivePlane,
+                (SaeAtomBasisKind::KleinBottle, _) => AtomTopology::KleinBottle,
                 // `Cylinder` (`S¹ × ℝ`) has exactly one continuous gauge: the
                 // rotation (shift) of the periodic axis. The unbounded line axis
                 // carries no rotational gauge, and its translation is already
@@ -2158,7 +2357,7 @@ impl SaeManifoldTerm {
                     && (d == 1
                         || (d == 2
                             && matches!(
-                                atom.basis_kind,
+                                atom.basis_kind(),
                                 SaeAtomBasisKind::Torus
                                     | SaeAtomBasisKind::Linear
                                     | SaeAtomBasisKind::Duchon
@@ -2399,13 +2598,13 @@ impl SaeManifoldTerm {
     /// This is intentionally not user-configurable: the route follows the
     /// retained full-batch working-set estimate and the currently selected GPU
     /// memory budget when CUDA is usable, otherwise a conservative host budget.
-    pub fn streaming_plan(&self) -> SaeStreamingPlan {
+    pub fn streaming_plan(&self) -> Result<SaeStreamingPlan, String> {
         let n_obs = self.n_obs();
         let total_basis: usize = self.atoms.iter().map(|atom| atom.basis_size()).sum();
         let d_max = self
             .atoms
             .iter()
-            .map(|atom| atom.latent_dim)
+            .map(SaeManifoldAtom::latent_dim)
             .max()
             .unwrap_or(0);
         let border_dim = if self.any_frame_active() {
@@ -2413,7 +2612,14 @@ impl SaeManifoldTerm {
         } else {
             self.beta_dim()
         };
-        sae_streaming_plan_for_shape(n_obs, total_basis, self.k_atoms(), d_max, border_dim)
+        sae_streaming_plan_for_shape(
+            n_obs,
+            total_basis,
+            self.k_atoms(),
+            d_max,
+            border_dim,
+            self.gpu_policy,
+        )
     }
 
     /// Construction-time validation: every Psi-tier analytic penalty in the
@@ -3342,7 +3548,7 @@ impl SaeManifoldTerm {
                     ));
                 }
             }
-            if self.atoms[img.atom_idx].latent_dim != 1 {
+            if self.atoms[img.atom_idx].latent_dim() != 1 {
                 return Err(format!(
                     "set_hybrid_linear_images: atom {} is not d=1; only d=1 slots collapse to a straight image",
                     img.atom_idx
@@ -3878,10 +4084,10 @@ impl SaeManifoldTerm {
         let eligible: Vec<usize> = (0..self.k_atoms())
             .filter(|&atom_idx| {
                 let atom = &self.atoms[atom_idx];
-                atom.latent_dim == 1
+                atom.latent_dim() == 1
                     && atom.basis_evaluator.is_some()
                     && atom.homotopy_eta == 1.0
-                    && self.assignment.coords[atom_idx].latent_dim() == atom.latent_dim
+                    && self.assignment.coords[atom_idx].latent_dim() == atom.latent_dim()
             })
             .collect();
         // Per-atom fitted decoded image at every row (the curved candidate's
@@ -4203,7 +4409,7 @@ impl SaeManifoldTerm {
         let mut coords: Vec<Array2<f64>> = self
             .atoms
             .iter()
-            .map(|a| Array2::<f64>::zeros((n, a.latent_dim)))
+            .map(|a| Array2::<f64>::zeros((n, a.latent_dim())))
             .collect();
         let mut converged = vec![false; n];
 
@@ -4431,7 +4637,8 @@ impl SaeManifoldTerm {
                 ridge_ext_coord,
                 ridge_beta,
                 true,
-            )?;
+            )
+            .map_err(|error| error.to_string())?;
         let consistency = self.amortized_encoder_consistency(target, rho)?;
         // Auto-scale the co-training weights to the penalized quasi-Laplace magnitude so the
         // consistency penalty is a bounded, scale-free fraction of the objective
@@ -4523,7 +4730,7 @@ impl SaeManifoldTerm {
         // Tentatively apply every converged joint solution, then accept/reject per row.
         let mut candidate_rows: Vec<bool> = vec![false; n];
         for atom_idx in 0..k_atoms {
-            let d = self.atoms[atom_idx].latent_dim;
+            let d = self.atoms[atom_idx].latent_dim();
             if d == 0 {
                 continue;
             }
@@ -4563,7 +4770,7 @@ impl SaeManifoldTerm {
             .collect();
         let mut reverted_any = false;
         for atom_idx in 0..k_atoms {
-            let d = self.atoms[atom_idx].latent_dim;
+            let d = self.atoms[atom_idx].latent_dim();
             if d == 0 {
                 continue;
             }
@@ -4801,7 +5008,8 @@ impl SaeManifoldTerm {
             rho,
             self.row_loss_weights.as_deref(),
         )?;
-        let smoothness = penalty_scale * self.decoder_smoothness_value(&rho.lambda_smooth_vec()?);
+        let smoothness =
+            penalty_scale * self.decoder_smoothness_value(&rho.lambda_smooth_vec()?)?;
         let ard = self.ard_value(rho)?;
         Ok(SaeManifoldLoss {
             data_fit,
@@ -5123,7 +5331,8 @@ impl SaeManifoldTerm {
     /// terms carry energy. The base is now exactly
     /// `penalized_objective_total − loss.total()`: the full registry value
     /// (ARD skipped inside, `loss.ard` already carries it) plus repulsion plus
-    /// the separation barrier. All of these have zero DIRECT ρ-derivative
+    /// the amplitude barrier (#2343) plus the separation barrier. All of these have
+    /// zero DIRECT ρ-derivative
     /// (their weights are not ρ coordinates), so the analytic outer-gradient
     /// channels are unchanged — this only restores value/gradient consistency.
     pub fn reml_extra_penalty_value_total(
@@ -5137,6 +5346,7 @@ impl SaeManifoldTerm {
         Ok(
             registry_energy
                 + self.decoder_repulsion_value(1.0)
+                + self.amplitude_barrier_value(1.0)
                 + self.separation_barrier_value(1.0),
         )
     }
@@ -5158,14 +5368,16 @@ impl SaeManifoldTerm {
         // used, so the line search sees the term the Newton step optimizes. 0
         // unless two atoms are near-collinear (the no-op case).
         total += self.decoder_repulsion_value(penalty_scale);
-        // #1026/#1522 — interior-point collapse-prevention barriers, on the SAME
-        // decoders the assembly's gradient/curvature used, so the line search sees
-        // exactly the term the inner Newton step optimises (no value/grad desync).
+        // #1026/#1522/#2343 — interior-point collapse-prevention barriers, on the
+        // SAME decoders (and SAME frozen gates) the assembly's gradient/curvature
+        // used, so the line search sees exactly the term the inner Newton step
+        // optimises (no value/grad desync).
+        total += self.amplitude_barrier_value(penalty_scale);
         total += self.separation_barrier_value(penalty_scale);
         Ok(total)
     }
 
-    pub(crate) fn decoder_smoothness_value(&self, lambda_smooth: &[f64]) -> f64 {
+    pub(crate) fn decoder_smoothness_value(&self, lambda_smooth: &[f64]) -> Result<f64, String> {
         // Smoothness penalty value is `0.5·λ·Σ_oc B[:,oc]ᵀ S B[:,oc]`. Form the
         // `S·B` matrix product once per atom (O(M²·p)) and reduce against `B`
         // with a single O(M·p) Hadamard sum, instead of the previous
@@ -5176,36 +5388,50 @@ impl SaeManifoldTerm {
         // Per-atom `S_k · B_k` products are independent across atoms, so they ride
         // the multi-GPU batched smoothness GEMM (uniform-shape groups tiled across
         // every device); `symmetrize = false` because the quadratic form only sees
-        // the symmetric part of `S` regardless. Exact CPU fallback per atom.
+        // the symmetric part of `S` regardless. Device-free and sub-threshold
+        // groups use the exact CPU products; admitted device failures propagate.
         let sb_inputs: Vec<(ArrayView2<'_, f64>, ArrayView2<'_, f64>)> = self
             .atoms
             .iter()
-            .map(|atom| (atom.smooth_penalty.view(), atom.decoder_coefficients.view()))
+            .map(|atom| {
+                (
+                    atom.smooth_penalty().view(),
+                    atom.decoder_coefficients.view(),
+                )
+            })
             .collect();
-        let sb_all = batched_smooth_sb(&sb_inputs, false);
+        let sb_all = batched_smooth_sb(&sb_inputs, false, self.gpu_policy)?;
         let mut acc = 0.0;
         for (atom_idx, (atom, sb)) in self.atoms.iter().zip(sb_all.iter()).enumerate() {
             acc += 0.5 * lambda_smooth[atom_idx] * (&atom.decoder_coefficients * sb).sum();
         }
-        acc
+        Ok(acc)
     }
 
     /// Per-atom decoder-smoothness values (#1556): entry `k` is
     /// `0.5·λ_smooth[k]·<B_k, S_k B_k>` (sum = [`Self::decoder_smoothness_value`]).
     /// This is the explicit `∂loss.smoothness/∂log λ_smooth[k]` gradient entry.
-    pub(crate) fn decoder_smoothness_value_per_atom(&self, lambda_smooth: &[f64]) -> Vec<f64> {
+    pub(crate) fn decoder_smoothness_value_per_atom(
+        &self,
+        lambda_smooth: &[f64],
+    ) -> Result<Vec<f64>, String> {
         let sb_inputs: Vec<(ArrayView2<'_, f64>, ArrayView2<'_, f64>)> = self
             .atoms
             .iter()
-            .map(|atom| (atom.smooth_penalty.view(), atom.decoder_coefficients.view()))
+            .map(|atom| {
+                (
+                    atom.smooth_penalty().view(),
+                    atom.decoder_coefficients.view(),
+                )
+            })
             .collect();
-        let sb_all = batched_smooth_sb(&sb_inputs, false);
+        let sb_all = batched_smooth_sb(&sb_inputs, false, self.gpu_policy)?;
         let mut per_atom = vec![0.0_f64; self.atoms.len()];
         for (atom_idx, (atom, sb)) in self.atoms.iter().zip(sb_all.iter()).enumerate() {
             per_atom[atom_idx] =
                 0.5 * lambda_smooth[atom_idx] * (&atom.decoder_coefficients * sb).sum();
         }
-        per_atom
+        Ok(per_atom)
     }
 
     pub(crate) fn ard_value(&self, rho: &SaeManifoldRho) -> Result<f64, String> {
@@ -5287,6 +5513,32 @@ impl SaeManifoldTerm {
         out
     }
 
+    /// Append one coordinate block in the scalar-factor representation required
+    /// by [`LatentManifold::Product`]. A top-level `Euclidean` means `R^d`, but
+    /// the same variant inside a product means one scalar axis, so an `R^d`
+    /// coordinate must be expanded to `d` Euclidean children. Constrained
+    /// manifolds already encode their ambient width and remain one child.
+    fn append_coordinate_manifold_parts(
+        parts: &mut Vec<LatentManifold>,
+        manifold: &LatentManifold,
+        latent_dim: usize,
+    ) -> bool {
+        assert_eq!(
+            manifold.ambient_dim(latent_dim),
+            latent_dim,
+            "coordinate manifold ambient width must equal its latent dimension"
+        );
+        if manifold.is_euclidean() {
+            for _ in 0..latent_dim {
+                parts.push(LatentManifold::Euclidean);
+            }
+            false
+        } else {
+            parts.push(manifold.clone());
+            true
+        }
+    }
+
     pub(crate) fn ext_coord_manifold(&self) -> LatentManifold {
         let mut parts = Vec::with_capacity(self.assignment.row_block_dim());
         for _ in 0..self.assignment.assignment_coord_dim() {
@@ -5294,14 +5546,11 @@ impl SaeManifoldTerm {
         }
         let mut any_constrained = false;
         for coord in &self.assignment.coords {
-            if coord.manifold().is_euclidean() {
-                for _ in 0..coord.latent_dim() {
-                    parts.push(LatentManifold::Euclidean);
-                }
-            } else {
-                any_constrained = true;
-                parts.push(coord.manifold().clone());
-            }
+            any_constrained |= Self::append_coordinate_manifold_parts(
+                &mut parts,
+                coord.manifold(),
+                coord.latent_dim(),
+            );
         }
         if any_constrained {
             LatentManifold::Product(parts)
@@ -5333,7 +5582,7 @@ impl SaeManifoldTerm {
     ) -> (LatentManifold, Array1<f64>) {
         let active = &layout.active_atoms[row];
         let q_active = layout.row_q_active(row);
-        let mut parts: Vec<LatentManifold> = Vec::with_capacity(active.len());
+        let mut parts: Vec<LatentManifold> = Vec::with_capacity(q_active);
         let mut point = Array1::<f64>::zeros(q_active);
         // Coordinate blocks: each active atom's coordinate manifold + point, at
         // the compact coord start the layout assigned it.
@@ -5342,11 +5591,7 @@ impl SaeManifoldTerm {
             let d = coord.latent_dim();
             let coord_start = layout.coord_starts[row][j];
             let manifold_k = coord.manifold();
-            // A `d`-dim coordinate whose manifold is a product (e.g. a torus =
-            // Circle×Circle) already carries its `d` parts; a scalar manifold is
-            // one part. Either way the manifold's ambient width must equal `d`,
-            // matching the `d` compact columns at `coord_start`.
-            parts.push(manifold_k.clone());
+            Self::append_coordinate_manifold_parts(&mut parts, manifold_k, d);
             let coord_point = coord.row(row);
             for axis in 0..d {
                 point[coord_start + axis] = coord_point[axis];
@@ -5424,9 +5669,16 @@ include!("construction_smoothness_dof.rs");
 
 // [#780 line-count gate] The `#[cfg(test)]` modules below the production code
 // are mechanically split into a sibling `*_tests` file and inlined via
-// `include!` (the sanctioned cohesive-module decomposition — see build.rs
-// file_stem_is_exempt_test_module). Keeps this tracked file under the 10k limit.
-include!("construction_tests.rs");
+// `include!` inside a private test-only module (the sanctioned cohesive-module
+// decomposition — see build.rs file_stem_is_exempt_test_module). Keeps this
+// tracked file under the 10k limit without putting test imports/items in the
+// production module namespace.
+#[cfg(test)]
+mod construction_tests {
+    use super::*;
+
+    include!("construction_tests.rs");
+}
 
 /// Solve-invariant operands of `selected_inverse_row_blocks_or_solve` (#932
 /// FRONT C): everything fixed across the per-row sweep of one

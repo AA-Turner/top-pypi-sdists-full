@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: python-roborock
-Version: 5.31.1
+Version: 5.34.0
 Summary: A package to control Roborock vacuums.
 Project-URL: Repository, https://github.com/python-roborock/python-roborock
 Project-URL: Documentation, https://python-roborock.readthedocs.io/
 Author: Lash-L, allenporter
 Author-email: humbertogontijo <humbertogontijo@users.noreply.github.com>
-License-Expression: GPL-3.0-only
+License-Expression: Apache-2.0
 License-File: LICENSE
 Keywords: homeassistant,roborock,vacuum
 Classifier: Development Status :: 5 - Production/Stable

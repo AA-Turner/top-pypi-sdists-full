@@ -568,7 +568,7 @@ def _scatter_plot(dir_outlook, country, crop, best):
     Excludes the national (``scatter_national_``) and per-year
     (``scatter_by_year/``) variants. Returns the :class:`~pathlib.Path` or
     ``None`` when absent."""
-    base = Path(dir_outlook) / "plots" / best / country
+    base = Path(dir_outlook) / "plots" / best / country / crop
     if not base.exists():
         return None
     exact = base / f"scatter_{country}_{crop}_{best}.png"
@@ -965,7 +965,7 @@ def generate_report_lite(
 
             report.section(f"{country_display} — {crop_display}{suffix}")
 
-            base_maps = dir_outlook / "maps" / best / country
+            base_maps = dir_outlook / "maps" / best / country / crop
 
             # Accuracy first, then the forecast. Order within a section:
             #   (a) rRMSEp scorecard  (b) best-model scatter

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: docsig
-Version: 0.91.1
+Version: 0.91.3
 Summary: Check signature params for proper documentation
 License-Expression: MIT
 License-File: LICENSE
@@ -98,11 +98,9 @@ Maintain accurate and up-to-date Python documentation by automatically checking
 that all parameters in function signatures match their docstring documentation.
 Use docsig as a standalone tool, integrate it with ``flake8``, or add it as a
 ``pre-commit`` hook to catch documentation issues before they reach your
-repository. **docsig** is also available as a ``PyCharm`` plugin
-
-Contributing
-------------
-If you are interested in contributing to ``docsig``, please read about contributing `here <https://docsig.io/en/latest/development/contributing.html>`__
+repository. **docsig** is also available as a plugin for ``PyCharm``,
+``VS Code``, and ``Neovim``, documented
+`here <https://docsig.io/en/latest/usage/integrations.html>`__
 
 Installation
 ------------
@@ -206,7 +204,7 @@ ensure your installation has registered `docsig`
 .. code-block:: console
 
     $ flake8 --version
-    7.3.0 (docsig: 0.91.1, mccabe: 0.7.0, pycodestyle: 2.14.0, pyflakes: 3.4.0) CPython 3.10.19 on Darwin
+    7.3.0 (docsig: 0.91.3, mccabe: 0.7.0, pycodestyle: 2.14.0, pyflakes: 3.4.0) CPython 3.10.19 on Darwin
 
 And now use `flake8` to lint your files
 
@@ -216,7 +214,7 @@ And now use `flake8` to lint your files
     example.py:1:1: SIG202 includes parameters that do not exist (params-do-not-exist) 'function'
 
 With ``flake8`` the pyproject.toml config will still be the base config, though the
-`ini files <https://flake8.pycqa.org/en/latest/user/configuration.html#configuration-locations>`_ ``flake8`` gets it config from will override the pyproject.toml config.
+`ini files <https://flake8.pycqa.org/en/latest/user/configuration.html#configuration-locations>`_ ``flake8`` gets its config from will override the pyproject.toml config.
 For ``flake8`` all args and config options are prefixed with ``sig`` to
 avoid any potential conflicts with other plugins
 
@@ -292,7 +290,7 @@ Standalone
 
     repos:
       - repo: https://github.com/jshwi/docsig
-        rev: v0.91.1
+        rev: v0.91.3
         hooks:
           - id: docsig
             args:
@@ -307,14 +305,18 @@ or integrated with ``flake8``
 
     repos:
       - repo: https://github.com/PyCQA/flake8
-        rev: "7.1.0"
+        rev: "7.3.0"
         hooks:
           - id: flake8
             additional_dependencies:
-              - docsig==0.91.1
+              - docsig==0.91.3
             args:
               - "--sig-check-class"
               - "--sig-check-dunders"
               - "--sig-check-overridden"
               - "--sig-check-protected"
+
+Contributing
+------------
+If you are interested in contributing to ``docsig``, please read about contributing `here <https://docsig.io/en/latest/development/contributing.html>`__
 

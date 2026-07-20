@@ -138,7 +138,7 @@ fn iso_kappa_fd_variant_driver(
             spec: MaternBasisSpec {
                 center_strategy: CenterStrategy::FarthestPoint { num_centers: 8 },
                 periodic: None,
-                length_scale: 1.0,
+                length_scale: gam_terms::basis::MaternLengthScale::fixed(1.0),
                 nu: MaternNu::FiveHalves,
                 include_intercept: false,
                 // The realized Matérn design ALWAYS carries the operator triplet
@@ -151,9 +151,8 @@ fn iso_kappa_fd_variant_driver(
                 double_penalty: label.contains("_dp"),
                 identifiability: MaternIdentifiability::CenterSumToZero,
                 aniso_log_scales: None,
-                nullspace_shrinkage_survived: None,
             },
-            input_scales: None,
+            input_scale: None,
         }
     } else {
         SmoothBasisSpec::Duchon {
@@ -170,7 +169,7 @@ fn iso_kappa_fd_variant_driver(
                 operator_penalties: DuchonOperatorPenaltySpec::default(),
                 boundary: OneDimensionalBoundary::Open,
             },
-            input_scales: None,
+            input_scale: None,
         }
     };
     let spec = TermCollectionSpec {
@@ -507,15 +506,14 @@ fn iso_kappa_matern_2d_psi_fd_step_sweep_diagnostic() {
                 spec: MaternBasisSpec {
                     center_strategy: CenterStrategy::FarthestPoint { num_centers: 37 },
                     periodic: None,
-                    length_scale,
+                    length_scale: gam_terms::basis::MaternLengthScale::fixed(length_scale),
                     nu: MaternNu::FiveHalves,
                     include_intercept: false,
                     double_penalty: true,
                     identifiability: MaternIdentifiability::CenterSumToZero,
                     aniso_log_scales: None,
-                    nullspace_shrinkage_survived: None,
                 },
-                input_scales: None,
+                input_scale: None,
             },
             shape: ShapeConstraint::None,
             joint_null_rotation: None,
@@ -581,11 +579,11 @@ fn iso_kappa_matern_2d_psi_fd_step_sweep_diagnostic() {
                     SmoothBasisSpec::Matern { spec, .. } => format!(
                         "Matern{{nu={:?}, ls={:.8}, dp={}, ident={}, aniso={:?}, centers_kind={}}}",
                         spec.nu,
-                        spec.length_scale,
+                        spec.length_scale.resolved().unwrap(),
                         spec.double_penalty,
                         match &spec.identifiability {
-                            MaternIdentifiability::FrozenTransform { transform, nullspace_shrinkage_survived } =>
-                                format!("FrozenTransform{{z_dims={:?}, survived={:?}}}", transform.dim(), nullspace_shrinkage_survived),
+                            MaternIdentifiability::FrozenTransform { transform } =>
+                                format!("FrozenTransform{{z_dims={:?}}}", transform.dim()),
                             other => format!("{other:?}"),
                         },
                         spec.aniso_log_scales,
@@ -600,14 +598,14 @@ fn iso_kappa_matern_2d_psi_fd_step_sweep_diagnostic() {
             }
             if let Some(t) = frozen_design.smooth.terms.get(ti) {
                 if let gam_terms::basis::BasisMetadata::Matern {
-                    centers, input_scales, length_scale, ..
+                    centers, input_scale, length_scale, ..
                 } = &t.metadata
                 {
                     let csum: f64 = centers.iter().map(|v| v.abs()).sum();
                     let c00 = centers.get((0, 0)).copied().unwrap_or(f64::NAN);
                     let c01 = centers.get((0, 1)).copied().unwrap_or(f64::NAN);
                     eprintln!(
-                        "[FINGERPRINT] HARNESS meta.Matern length_scale={length_scale:.10} input_scales={input_scales:?} centers_abs_sum={csum:.10e} c[0,0]={c00:.10} c[0,1]={c01:.10}"
+                        "[FINGERPRINT] HARNESS meta.Matern length_scale={length_scale:.10} input_scale={input_scale:?} centers_abs_sum={csum:.10e} c[0,0]={c00:.10} c[0,1]={c01:.10}"
                     );
                 }
             }
@@ -927,7 +925,7 @@ fn build_duchon_probit_setup() -> DuchonProbitSetup {
                     operator_penalties: DuchonOperatorPenaltySpec::all_active(),
                     boundary: OneDimensionalBoundary::Open,
                 },
-                input_scales: None,
+                input_scale: None,
             },
             shape: ShapeConstraint::None,
             joint_null_rotation: None,
@@ -1108,7 +1106,7 @@ fn iso_kappa_duchon_dx_dpsi_matches_fd() {
                     operator_penalties: DuchonOperatorPenaltySpec::default(),
                     boundary: OneDimensionalBoundary::Open,
                 },
-                input_scales: None,
+                input_scale: None,
             },
             shape: ShapeConstraint::None,
             joint_null_rotation: None,

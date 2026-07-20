@@ -5,6 +5,7 @@ TOKEN_URL = AUTH_BASE_URL + "/{realm}/protocol/openid-connect/token"
 API_URL_BASE = {
     "tli": "https://api.vaillant-group.com/service-connected-control/end-user-app-api/v1",
     "vrc700": "https://api.vaillant-group.com/service-connected-control/vrc700/v1",
+    "scf": "https://api.vaillant-group.com/service-connected-control/scf/v1",
 }
 SYSTEM_CONTROL_API_URL_BASE = (
     "https://api.vaillant-group.com/service-connected-control/system-control/v1"

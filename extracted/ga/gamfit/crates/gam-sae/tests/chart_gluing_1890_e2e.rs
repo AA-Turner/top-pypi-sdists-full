@@ -441,7 +441,7 @@ fn orientation_reversing_pair_registers_atlas_end_to_end() {
     // negative edge. The dedicated Möbius pin below exercises that path.
     assert_eq!(
         atlas.orientability(),
-        AtlasOrientability::Orientable,
+        Some(AtlasOrientability::Orientable),
         "one reversing edge is a gauge choice; the cover stays orientable"
     );
 
@@ -703,14 +703,14 @@ fn sphere_pole_pair_registers_atlas_end_to_end() {
     );
     let sphere_seam = &atlas.sphere_transitions()[0];
     assert_eq!(
-        sphere_seam.seam_kind,
+        sphere_seam.seam_kind(),
         AtlasSeamKind::Pole,
         "classified as a pole seam"
     );
     assert_eq!(
-        sphere_seam.sign(),
-        1,
-        "a sphere is orientable: its proper-rotation transition carries sign +1"
+        sphere_seam.analytic_sign(),
+        None,
+        "a fitted proper rotation cannot be promoted to an analytic sign"
     );
     assert!(
         (sphere_seam.determinant() - 1.0).abs() < 1e-9,
@@ -718,11 +718,13 @@ fn sphere_pole_pair_registers_atlas_end_to_end() {
         sphere_seam.determinant()
     );
 
-    // A single orientable sphere cover: the sign cocycle is trivially +1.
+    // The fitted seam is useful geometry but does not contribute an analytic
+    // sign. Because it is a single bridge (an unknown-edge forest), its sign is
+    // gauge-removable and orientability is nevertheless determined.
     assert_eq!(
         atlas.orientability(),
-        AtlasOrientability::Orientable,
-        "a sphere pole cover is orientable"
+        Some(AtlasOrientability::Orientable),
+        "one fitted bridge cannot create a sign-holonomy cycle"
     );
 
     // Registration is an image-EXACT algebraic quotient of the same gates: it
@@ -796,7 +798,7 @@ fn mobius_cocycle_reports_non_orientable_via_sign_holonomy() {
     );
     assert_eq!(
         atlas.orientability(),
-        AtlasOrientability::NonOrientable,
+        Some(AtlasOrientability::NonOrientable),
         "opposite-sign overlap components give the atlas Möbius holonomy"
     );
 

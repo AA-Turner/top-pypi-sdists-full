@@ -235,6 +235,9 @@ pub struct StandardFitResult {
     pub saved_link_state: FittedLinkState,
     pub wiggle_knots: Option<Array1<f64>>,
     pub wiggle_degree: Option<usize>,
+    /// Exact canonical function-penalty semantics and smoothing-parameter
+    /// order used by the fitted link-wiggle block.
+    pub wiggle_penalty_metadata: Option<WigglePenaltyMetadata>,
     /// Standard-basis link-warp coefficients `β_w = Z·γ` for the saved-model
     /// predict runtime when the frozen-basis de-aliasing engaged (#1596). The
     /// fit's coefficients stay in the reduced `γ` coordinate; this lift is
@@ -329,6 +332,17 @@ pub struct SurvivalLocationScaleFitResult {
     pub inverse_link: InverseLink,
     pub wiggle_knots: Option<Array1<f64>>,
     pub wiggle_degree: Option<usize>,
+    /// Distinct proof for outer inverse-link profiling. The nested unified fit
+    /// retains its own smoothing/spatial certificate; optimized-link results
+    /// retain this sealed carrier instead of overwriting or dropping either
+    /// optimization layer's evidence. `None` means the inverse link was fixed.
+    pub(crate) inverse_link_outer: Option<gam_solve::rho_optimizer::CertifiedOuterResult>,
+}
+
+impl SurvivalLocationScaleFitResult {
+    pub fn inverse_link_outer(&self) -> Option<&gam_solve::rho_optimizer::CertifiedOuterResult> {
+        self.inverse_link_outer.as_ref()
+    }
 }
 
 pub struct SurvivalTransformationFitResult {
@@ -524,9 +538,13 @@ pub struct FitConfig {
     pub time_degree: usize,
     pub time_num_internal_knots: usize,
     pub time_smooth_lambda: f64,
-    /// Survival likelihood mode: "location-scale", "transformation", "weibull",
-    /// "marginal-slope", "latent", or "latent-binary".
-    pub survival_likelihood: String,
+    /// Survival likelihood mode: `Some("transformation" | "location-scale" |
+    /// "weibull" | "marginal-slope" | "latent" | "latent-binary")`, or `None`
+    /// (the default), which resolves to `"transformation"` at the `Surv(...)`
+    /// materialization seam via [`FitConfig::resolved_survival_likelihood`]
+    /// (#2301 — no library-side string default). `Some(_)` on a non-survival
+    /// response is a typed configuration error.
+    pub survival_likelihood: Option<String>,
     /// Residual distribution: "gaussian", "logistic", "gumbel".
     pub survival_distribution: String,
     pub threshold_time_k: Option<usize>,
@@ -688,7 +706,7 @@ impl Default for FitConfig {
             time_degree: 3,
             time_num_internal_knots: 8,
             time_smooth_lambda: 1e-2,
-            survival_likelihood: "location-scale".into(),
+            survival_likelihood: None,
             survival_distribution: "gaussian".into(),
             threshold_time_k: None,
             threshold_time_degree: 3,

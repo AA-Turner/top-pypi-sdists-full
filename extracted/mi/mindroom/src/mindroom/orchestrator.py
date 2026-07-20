@@ -113,6 +113,7 @@ from .orchestration.runtime import (
     sync_forever_with_restart,
     wait_for_matrix_homeserver,
 )
+from .orchestration.todo_poke_runtime import TodoPokeRuntimeCoordinator
 from .runtime_support import (
     OwnedRuntimeSupport,
     build_owned_runtime_support,
@@ -127,6 +128,7 @@ if TYPE_CHECKING:
     from types import FrameType
 
     from mindroom.hooks import HookMatrixAdmin, HookMessageSender, HookRoomStatePutter, HookRoomStateQuerier
+    from mindroom.matrix.cache import ConversationEventCache
 
     from .constants import RuntimePaths
     from .orchestration.config_updates import ConfigUpdatePlan
@@ -238,6 +240,7 @@ class _MultiAgentOrchestrator:
     _bot_start_tasks: dict[str, asyncio.Task] = field(default_factory=dict, init=False)
     _memory_auto_flush_worker: MemoryAutoFlushWorker | None = field(default=None, init=False)
     _memory_auto_flush_task: asyncio.Task | None = field(default=None, init=False)
+    _todo_poke_runtime: TodoPokeRuntimeCoordinator = field(init=False, repr=False)
     config_reload: ConfigReloadLifecycle = field(init=False)
     _mcp_manager: MCPServerManager | None = field(default=None, init=False)
     _config_update_lock: asyncio.Lock = field(default_factory=asyncio.Lock, init=False)
@@ -251,6 +254,7 @@ class _MultiAgentOrchestrator:
     _runtime_shutdown_event: asyncio.Event | None = field(default=None, init=False, repr=False)
     _external_trigger_runtime: ExternalTriggerRuntimeCoordinator = field(init=False, repr=False)
     _approval_transport: ApprovalMatrixTransport = field(init=False, repr=False)
+    _router_principal_id: str | None = field(default=None, init=False, repr=False)
     _startup_maintenance: StartupMaintenanceController = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
@@ -269,6 +273,11 @@ class _MultiAgentOrchestrator:
             runtime_paths=self.runtime_paths,
             api_enabled=self.api_enabled,
         )
+        self._todo_poke_runtime = TodoPokeRuntimeCoordinator(
+            runtime_paths=self.runtime_paths,
+            config_provider=lambda: self.config,
+            bot_provider=lambda entity_name: self.agent_bots.get(entity_name),
+        )
         self.config_reload = ConfigReloadLifecycle(
             runtime_paths=self.runtime_paths,
             is_running=lambda: self.running,
@@ -283,7 +292,7 @@ class _MultiAgentOrchestrator:
             runtime_paths=self.runtime_paths,
             bot_provider=lambda agent_name: self.agent_bots.get(agent_name),
             config_provider=lambda: self.config,
-            event_cache_provider=lambda: self._runtime_support.event_cache,
+            event_cache_provider=self._approval_event_cache,
         )
         self._startup_maintenance = StartupMaintenanceController(
             recover_stale_streams=lambda bots, config, startup_cutoff_ms, scanned_room_ids: (
@@ -367,9 +376,19 @@ class _MultiAgentOrchestrator:
 
     def _bind_runtime_support_services(self, bot: AgentBot | TeamBot) -> None:
         """Bind the current runtime support services to one managed bot."""
-        bot.event_cache = self._runtime_support.event_cache
+        bot.event_cache = self._runtime_support.event_cache.for_principal(bot.matrix_id.full_id)
         bot.event_cache_write_coordinator = self._runtime_support.event_cache_write_coordinator
         bot.startup_thread_prewarm_registry = self._runtime_support.startup_thread_prewarm_registry
+
+    def _approval_event_cache(self) -> ConversationEventCache:
+        """Return the router principal's isolated cache before or after bot construction."""
+        router_bot = self.agent_bots.get(ROUTER_AGENT_NAME)
+        if router_bot is not None:
+            return router_bot.event_cache
+        if self._router_principal_id is None:
+            msg = "Router Matrix principal is unavailable for approval cache binding"
+            raise RuntimeError(msg)
+        return self._runtime_support.event_cache.for_principal(self._router_principal_id)
 
     def _rebind_runtime_support_services(self) -> None:
         """Rebind the current runtime support services to every managed bot."""
@@ -607,6 +626,7 @@ class _MultiAgentOrchestrator:
         await self._sync_event_cache_service(config)
         self._configure_approval_store_transport()
         await self._sync_memory_auto_flush_worker()
+        await self._todo_poke_runtime.sync()
 
     async def _stop_mcp_manager(self) -> None:
         """Stop the MCP manager and clear the active runtime binding."""
@@ -752,6 +772,8 @@ class _MultiAgentOrchestrator:
         bot.hook_registry = self.hook_registry
         self._bind_runtime_support_services(bot)
         self.agent_bots[entity_name] = bot
+        if entity_name == ROUTER_AGENT_NAME:
+            self._router_principal_id = agent_user.user_id
         return bot
 
     def _build_hook_registry(self, config: Config) -> HookRegistry:
@@ -937,6 +959,7 @@ class _MultiAgentOrchestrator:
         self._preflight_account_provisioning(config, entity_names=entity_names, include_internal_user=True)
         await self._prepare_user_account(config, update_runtime_state=True)
         entity_users = await self._prepare_entity_accounts(config, entity_names)
+        self._router_principal_id = entity_users[ROUTER_AGENT_NAME].user_id
         self.config = config
         self._activate_hook_registry(hook_registry)
         await self._sync_mcp_manager(config)
@@ -1806,6 +1829,7 @@ class _MultiAgentOrchestrator:
         await shutdown_approval_runtime()
         await self.config_reload.cancel()
         await self._startup_maintenance.cancel()
+        await self._todo_poke_runtime.stop()
         await self._stop_memory_auto_flush_worker()
         await self._knowledge_source_watcher.shutdown()
         await self._knowledge_refresh_scheduler.shutdown()

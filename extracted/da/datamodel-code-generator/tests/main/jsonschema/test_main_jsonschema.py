@@ -8,6 +8,7 @@ import json
 import os
 import sys
 import tempfile
+import warnings
 from collections import defaultdict
 from collections.abc import Sequence
 from pathlib import Path
@@ -32,7 +33,7 @@ from datamodel_code_generator import (
     load_data_from_path,
 )
 from datamodel_code_generator.__main__ import Exit
-from datamodel_code_generator.format import is_supported_in_black
+from datamodel_code_generator.format import Formatter, is_supported_in_black
 from datamodel_code_generator.model import base as model_base
 from datamodel_code_generator.model.pydantic_v2.version import PYDANTIC_V2_DATACLASS_ALIAS_NEEDS_FALLBACK
 from tests.conftest import (
@@ -41,6 +42,8 @@ from tests.conftest import (
     assert_directory_content,
     assert_httpx_get_kwargs,
     assert_output,
+    assert_warnings_contain,
+    assert_warnings_do_not_contain,
     create_assert_file_content,
     freeze_time,
     validate_generated_code,
@@ -56,6 +59,7 @@ from tests.main.conftest import (
     LEGACY_BLACK_SKIP,
     MSGSPEC_LEGACY_BLACK_SKIP,
     TIMESTAMP,
+    _generated_model,
     assert_generated_model_json_invalid,
     assert_generated_model_json_validation,
     assert_path_cache_invalidates_after_write,
@@ -177,6 +181,44 @@ def test_main_external_ref_slash_containing_key(output_dir: Path) -> None:
         expected_directory=EXPECTED_JSON_SCHEMA_PATH / "external_ref_slash_key",
         extra_args=["--disable-timestamp", "--target-python-version", "3.10"],
     )
+
+
+def test_generate_external_ref_slash_containing_key_strict(output_file: Path) -> None:
+    """Flatten URL-like inferred names only when strict inference is enabled."""
+    run_generate_file_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "external_ref_slash_key" / "schema.json",
+        output_path=output_file,
+        input_file_type=InputFileType.JsonSchema,
+        assert_func=assert_file_content,
+        expected_file="external_ref_slash_key_strict.py",
+        strict_dotted_module_names=True,
+        disable_timestamp=True,
+        target_python_version=PythonVersion.PY_310,
+    )
+
+
+def test_generate_strict_dotted_custom_generator_nested(output_dir: Path) -> None:
+    """Apply strict module inference to names returned by a custom generator."""
+
+    def invalid_module_prefix(name: str) -> str:
+        return f"bad-name.{name}"
+
+    generate(
+        JSON_SCHEMA_DATA_PATH / "strict_dotted_custom_generator_nested.json",
+        input_file_type=InputFileType.JsonSchema,
+        output=output_dir,
+        custom_class_name_generator=invalid_module_prefix,
+        strict_dotted_module_names=True,
+        disable_timestamp=True,
+        formatters=[Formatter.BUILTIN],
+    )
+
+    assert_directory_content(
+        output_dir,
+        EXPECTED_JSON_SCHEMA_PATH / "strict_dotted_custom_generator_nested",
+    )
+    generated_file = output_dir / "bad_name.py"
+    validate_generated_code(generated_file.read_text(encoding="utf-8"), str(generated_file), do_exec=True)
 
 
 def test_main_root_ref(output_file: Path) -> None:
@@ -454,6 +496,7 @@ def test_main_keep_model_order_field_references(output_file: Path) -> None:
     )
 
 
+@pytest.mark.benchmark
 @pytest.mark.parametrize(
     ("target_python_version", "keep_model_order", "disable_future_imports"),
     [
@@ -3723,6 +3766,175 @@ def test_main_jsonschema_special_field_name(output_file: Path) -> None:
     )
 
 
+@pytest.mark.parametrize(
+    ("output_model_type", "expected_file"),
+    [
+        pytest.param(DataModelType.PydanticV2BaseModel, "empty_field_name.py", id="pydantic-v2"),
+        pytest.param(DataModelType.MsgspecStruct, "empty_field_name_msgspec.py", id="msgspec"),
+        pytest.param(DataModelType.TypingTypedDict, "empty_field_name_typed_dict.py", id="typed-dict"),
+    ],
+)
+def test_main_jsonschema_empty_field_name(  # noqa: PLR0912
+    output_file: Path,
+    output_model_type: DataModelType,
+    expected_file: str,
+) -> None:
+    """Preserve empty property names through generation, inheritance, and runtime round-trips."""
+    metadata_path = output_file.with_suffix(".metadata.json")
+    extra_args = ["--output-model-type", output_model_type.value, "--disable-timestamp"]
+    if output_model_type is DataModelType.PydanticV2BaseModel:
+        extra_args.extend([
+            "--read-only-write-only-model-type",
+            "all",
+            "--emit-model-metadata",
+            str(metadata_path),
+        ])
+
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "empty_field_name.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file=expected_file,
+        extra_args=extra_args,
+        force_exec_validation=True,
+    )
+
+    payload = {"": "value"}
+    match output_model_type:
+        case DataModelType.PydanticV2BaseModel:
+            assert_output(
+                metadata_path.read_text(encoding="utf-8"),
+                EXPECTED_JSON_SCHEMA_PATH / "empty_field_name_metadata.txt",
+            )
+            for model_name in ("RequiredEmpty", "AllOfRequiredEmpty", "AllOfOverrideEmpty"):
+                assert_generated_model_json_validation(
+                    output_file,
+                    module_name=f"empty_field_name_{model_name}",
+                    model_name=model_name,
+                    valid_json=json.dumps(payload),
+                    invalid_json="{}",
+                    expected_error_type="missing",
+                    expected_attribute_path=("field_",),
+                    expected_attribute_value="value",
+                )
+            assert_generated_model_json_validation(
+                output_file,
+                module_name="empty_field_name_request",
+                model_name="ReadWriteEmptyRequest",
+                valid_json='{"field_":1}',
+                invalid_json="{}",
+                expected_error_type="missing",
+                expected_attribute_path=("field__1",),
+                expected_attribute_value=1,
+            )
+            assert_generated_model_json_validation(
+                output_file,
+                module_name="empty_field_name_response",
+                model_name="ReadWriteEmptyResponse",
+                valid_json=json.dumps(payload),
+                invalid_json="{}",
+                expected_error_type="missing",
+                expected_attribute_path=("field_",),
+                expected_attribute_value="value",
+            )
+            with _generated_model(output_file, "empty_field_name_dump", "ReadWriteEmpty") as model:
+                instance = model.model_validate({**payload, "field_": 1})
+                if (dumped := instance.model_dump(by_alias=True, exclude_unset=True)) == {  # pragma: no branch
+                    **payload,
+                    "field_": 1,
+                }:
+                    return
+                pytest.fail(f"Empty alias was not preserved in Pydantic dump: {dumped!r}")  # pragma: no cover
+
+        case DataModelType.MsgspecStruct:
+            import msgspec
+
+            for model_name in ("RequiredEmpty", "AllOfRequiredEmpty", "AllOfOverrideEmpty"):
+                with _generated_model(output_file, f"empty_field_name_{model_name}", model_name) as model:
+                    instance = msgspec.json.decode(b'{"":"value"}', type=model)
+                    if (dumped := msgspec.to_builtins(instance)) != payload:  # pragma: no cover
+                        pytest.fail(f"Empty alias was not preserved in {model_name}: {dumped!r}")
+                    with pytest.raises(msgspec.ValidationError):
+                        msgspec.json.decode(b"{}", type=model)
+            with _generated_model(output_file, "empty_field_name_optional", "OptionalEmpty") as model:
+                if (dumped := msgspec.to_builtins(msgspec.json.decode(b"{}", type=model))) != {}:  # pragma: no cover
+                    pytest.fail(f"Unset empty alias was not omitted from msgspec dump: {dumped!r}")
+            with _generated_model(output_file, "empty_field_name_msgspec_dump", "ReadWriteEmpty") as model:
+                instance = msgspec.json.decode(b'{"":"value","field_":1}', type=model)
+                if (dumped := msgspec.to_builtins(instance)) == {**payload, "field_": 1}:  # pragma: no branch
+                    return
+                pytest.fail(f"Empty alias collided in msgspec dump: {dumped!r}")  # pragma: no cover
+
+        case DataModelType.TypingTypedDict:
+            from typing import get_origin, is_typeddict
+
+            from typing_extensions import NotRequired
+
+            expected_fields = {
+                "RequiredEmpty": (frozenset({"", "a"}), frozenset({"a"})),
+                "OptionalEmpty": (frozenset({"", "a"}), frozenset({"", "a"})),
+                "AllOfRequiredEmpty": (frozenset({"", "a"}), frozenset({"a"})),
+                "AllOfOverrideEmpty": (frozenset({"", "a"}), frozenset({"a"})),
+                "ReadWriteEmpty": (frozenset({"", "field_", "shared"}), frozenset({"shared"})),
+            }
+            for model_name, (field_names, optional_names) in expected_fields.items():
+                with _generated_model(output_file, f"empty_field_name_{model_name}", model_name) as model:
+                    if not is_typeddict(model):  # pragma: no cover
+                        pytest.fail(f"Expected {model_name} to be a TypedDict")
+                    if (actual_names := frozenset(model.__annotations__)) != field_names:  # pragma: no cover
+                        pytest.fail(f"Unexpected fields for {model_name}: {actual_names!r}")
+                    actual_optional_names = frozenset(
+                        name
+                        for name, annotation in model.__annotations__.items()
+                        if get_origin(annotation) is NotRequired
+                    )
+                    if actual_optional_names != optional_names:  # pragma: no cover
+                        pytest.fail(f"Unexpected optional fields for {model_name}: {actual_optional_names!r}")
+            return
+
+    pytest.fail(f"Unhandled output model type: {output_model_type}")  # pragma: no cover
+
+
+def test_main_jsonschema_empty_field_name_schema_validators(output_file: Path) -> None:
+    """Treat an empty property name as declared in direct and inherited schema validators."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "empty_field_name_schema_validators.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="empty_field_name_schema_validators.py",
+        extra_args=[
+            "--generate-schema-validators",
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--use-annotated",
+            "--disable-timestamp",
+            "--formatters",
+            "builtin",
+        ],
+        force_exec_validation=True,
+    )
+
+    valid_payload = {"": "ok", "x_1": "7"}
+    expected_dump = {"": "ok", "x_1": 7}
+    for model_name in ("DirectEmptyPattern", "InheritedEmptyPattern"):
+        assert_generated_model_json_validation(
+            output_file,
+            module_name=f"empty_field_name_validator_{model_name}",
+            model_name=model_name,
+            valid_json=json.dumps(valid_payload),
+            invalid_json='{"":"ok","bad":1}',
+            expected_error_type="value_error",
+            expected_attribute_path=("field_",),
+            expected_attribute_value="ok",
+        )
+        with _generated_model(output_file, f"empty_field_name_dump_{model_name}", model_name) as model:
+            instance = model.model_validate(valid_payload)
+            if (dumped := instance.model_dump(by_alias=True, exclude_unset=True)) != expected_dump:  # pragma: no cover
+                pytest.fail(f"Empty alias was not preserved by {model_name}: {dumped!r}")
+
+
 def test_main_jsonschema_complex_one_of(output_file: Path) -> None:
     """Test complex oneOf schemas."""
     run_main_and_assert(
@@ -5016,6 +5228,7 @@ def test_main_use_union_operator(output_dir: Path) -> None:
         (["--treat-dot-as-module"], "treat_dot_as_module"),
         (None, "treat_dot_not_as_module"),
         (["--no-treat-dot-as-module"], "treat_dot_not_as_module"),
+        (["--strict-dotted-module-names", "--no-treat-dot-as-module"], "treat_dot_not_as_module"),
     ],
 )
 def test_treat_dot_as_module(extra_args: list[str] | None, expected_suffix: str, output_dir: Path) -> None:
@@ -6056,6 +6269,129 @@ def test_main_jsonschema_additional_properties_schema_with_properties(output_fil
     )
 
 
+@pytest.mark.parametrize(
+    ("input_name", "expected_file", "disable_future_imports", "old_style_template"),
+    [
+        pytest.param(
+            "additional_properties_schema_with_properties.json",
+            "additional_properties_schema_with_properties_legacy_custom_template.py",
+            False,
+            False,
+            id="scalar-future",
+        ),
+        pytest.param(
+            "additional_properties_schema_with_properties.json",
+            "additional_properties_schema_with_properties_py313_no_future_imports.py",
+            True,
+            False,
+            id="scalar-no-future",
+        ),
+        pytest.param(
+            "additional_properties_self_ref.json",
+            "additional_properties_self_ref_legacy_custom_template.py",
+            False,
+            False,
+            id="self-ref-future",
+        ),
+        pytest.param(
+            "additional_properties_self_ref.json",
+            "additional_properties_self_ref_py314.py",
+            True,
+            False,
+            id="self-ref-no-future",
+        ),
+        pytest.param(
+            "additional_properties_schema_with_properties.json",
+            "additional_properties_schema_with_properties_legacy_custom_template.py",
+            False,
+            True,
+            id="scalar-future-old-style",
+        ),
+    ],
+)
+def test_main_jsonschema_legacy_pydantic_extra_custom_template(
+    input_name: str,
+    expected_file: str,
+    disable_future_imports: bool,
+    old_style_template: bool,
+    output_file: Path,
+    tmp_path: Path,
+) -> None:
+    """Test pre-0.68.1 custom templates keep typed-extra runtime validation."""
+    mode_args = ["--disable-future-imports"] if disable_future_imports else []
+    template_dir = (DATA_PATH / "templates_pydantic_extra_pre_3593").relative_to(Path.cwd())
+    copy_files = None
+    if old_style_template:
+        copied_template = tmp_path / "pydantic_v2/BaseModel.jinja2"
+        copied_template.parent.mkdir()
+        copy_files = [(template_dir / "pydantic_v2/BaseModel.jinja2", copied_template)]
+        template_dir = tmp_path
+    with warnings.catch_warnings(record=True) as recorded_warnings:
+        warnings.simplefilter("always", UserWarning)
+        run_main_and_assert(
+            input_path=JSON_SCHEMA_DATA_PATH / input_name,
+            output_path=output_file,
+            input_file_type="jsonschema",
+            assert_func=assert_file_content,
+            expected_file=expected_file,
+            extra_args=[
+                "--output-model-type",
+                "pydantic_v2.BaseModel",
+                "--custom-template-dir",
+                str(template_dir),
+                *mode_args,
+            ],
+            copy_files=copy_files,
+            force_exec_validation=True,
+        )
+
+    warning_fragment = "was rewritten automatically for Pydantic typed-extra compatibility"
+    if disable_future_imports:
+        assert_warnings_do_not_contain(recorded_warnings, warning_fragment)
+    else:
+        assert_warnings_contain(recorded_warnings, warning_fragment)
+
+    validation_case: tuple[str, str, str, str, tuple[str, ...], object] | None = None
+    match input_name:
+        case "additional_properties_schema_with_properties.json":
+            validation_case = (
+                "KnownAndExtra",
+                '{"name":"known","size":1}',
+                '{"name":"known","size":[]}',
+                "int_type",
+                ("__pydantic_extra__",),
+                {"size": 1},
+            )
+        case "additional_properties_self_ref.json":
+            validation_case = (
+                "Node",
+                '{"name":"root","child":{"name":"leaf"}}',
+                '{"name":"root","child":{"name":"leaf","bad":1}}',
+                "model_type",
+                ("__pydantic_extra__", "child", "name"),
+                "leaf",
+            )
+    if validation_case is None:  # pragma: no cover
+        raise AssertionError(input_name)
+    model_name, valid_json, invalid_json, expected_error_type, expected_attribute_path, expected_attribute_value = (
+        validation_case
+    )
+
+    assert_generated_model_json_validation(
+        output_file,
+        module_name=(
+            f"legacy_pydantic_extra_{Path(input_name).stem}_{'no_future' if disable_future_imports else 'future'}"
+            f"{'_old_style' if old_style_template else ''}"
+        ),
+        model_name=model_name,
+        valid_json=valid_json,
+        invalid_json=invalid_json,
+        expected_error_type=expected_error_type,
+        expected_attribute_path=expected_attribute_path,
+        expected_attribute_value=expected_attribute_value,
+    )
+
+
 @BLACK_PY314_SKIP
 def test_main_jsonschema_additional_properties_schema_with_properties_target_python_314(output_file: Path) -> None:
     """Test Python 3.14 target keeps typed extras as native deferred annotations."""
@@ -6390,6 +6726,123 @@ def test_main_jsonschema_additional_properties_self_ref(output_file: Path) -> No
         module_name="additional_properties_self_ref",
         model_name="Node",
         valid_json='{"name":"root","child":{"name":"leaf"}}',
+        invalid_json='{"name":"root","child":{"name":"leaf","bad":1}}',
+        expected_error_type="model_type",
+        expected_attribute_path=("__pydantic_extra__", "child", "name"),
+        expected_attribute_value="leaf",
+    )
+
+
+@BLACK_PY314_SKIP
+def test_main_jsonschema_additional_properties_self_ref_target_python_314(output_file: Path) -> None:
+    """Test Python 3.14 typed extras keep self-references safe at runtime."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "additional_properties_self_ref.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="additional_properties_self_ref_py314.py",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--target-python-version",
+            "3.14",
+        ],
+    )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="additional_properties_self_ref_py314",
+        model_name="Node",
+        valid_json='{"name":"root","child":{"name":"leaf"}}',
+        invalid_json='{"name":"root","child":{"name":"leaf","bad":1}}',
+        expected_error_type="model_type",
+        expected_attribute_path=("__pydantic_extra__", "child", "name"),
+        expected_attribute_value="leaf",
+    )
+
+
+@BLACK_PY313_SKIP
+def test_main_jsonschema_additional_properties_scalar_no_future_imports_target_python_313(
+    output_file: Path,
+) -> None:
+    """Test typed extras do not hide ordinary fields without deferred annotations."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "additional_properties_schema_with_properties.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="additional_properties_schema_with_properties_py313_no_future_imports.py",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--target-python-version",
+            "3.13",
+            "--disable-future-imports",
+        ],
+        force_exec_validation=True,
+    )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="additional_properties_schema_with_properties_py313_no_future_imports",
+        model_name="KnownAndExtra",
+        valid_json='{"name":"known","size":1}',
+        invalid_json='{"name":"known","size":[]}',
+        expected_error_type="int_type",
+        expected_attribute_path=("__pydantic_extra__",),
+        expected_attribute_value={"size": 1},
+    )
+
+
+def test_main_jsonschema_additional_properties_self_ref_use_union_operator_force_optional(
+    output_file: Path,
+) -> None:
+    """Test typed self-references do not rewrite unrelated PEP 604 annotations."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "additional_properties_self_ref.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="additional_properties_self_ref_union_operator_force_optional.py",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--use-union-operator",
+            "--force-optional",
+        ],
+        force_exec_validation=True,
+    )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="additional_properties_self_ref_union_operator_force_optional",
+        model_name="Node",
+        valid_json='{"name":"root","child":{"name":"leaf"}}',
+        invalid_json='{"name":"root","child":{"name":"leaf","bad":1}}',
+        expected_error_type="model_type",
+        expected_attribute_path=("__pydantic_extra__", "child", "name"),
+        expected_attribute_value="leaf",
+    )
+
+
+def test_main_jsonschema_additional_properties_nullable_self_ref_use_union_operator(output_file: Path) -> None:
+    """Test typed-extra forward refs invalidate retained import caches."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "additional_properties_nullable_self_ref.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="additional_properties_nullable_self_ref_union_operator.py",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--use-union-operator",
+        ],
+        force_exec_validation=True,
+    )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="additional_properties_nullable_self_ref_union_operator",
+        model_name="Node",
+        valid_json='{"name":"root","child":{"name":"leaf"},"empty":null}',
         invalid_json='{"name":"root","child":{"name":"leaf","bad":1}}',
         expected_error_type="model_type",
         expected_attribute_path=("__pydantic_extra__", "child", "name"),

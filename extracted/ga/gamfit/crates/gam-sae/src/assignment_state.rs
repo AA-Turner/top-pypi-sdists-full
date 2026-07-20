@@ -65,6 +65,49 @@ struct AtomCoordMeta {
     latent_id: u64,
 }
 
+/// Coordinate geometry for one atom in a support-sparse assignment.
+///
+/// Unlike the former `d_max` constructor, this is indexed by atom and therefore
+/// preserves mixed intrinsic dimensions and topologies without padding inactive
+/// coordinates. The retraction and stable identity travel with the coordinate
+/// block so a later full-support specialization remains an exact inverse of the
+/// dense representation.
+#[derive(Debug, Clone)]
+pub struct SaeAssignmentAtomSpec {
+    pub latent_dim: usize,
+    pub id_mode: LatentIdMode,
+    pub manifold: LatentManifold,
+    pub retraction: LatentRetractionRegistry,
+    pub latent_id: u64,
+}
+
+impl SaeAssignmentAtomSpec {
+    /// Euclidean atom metadata for uniform-dimension callers.
+    #[must_use]
+    pub fn euclidean(latent_dim: usize) -> Self {
+        Self {
+            latent_dim,
+            id_mode: LatentIdMode::None,
+            manifold: LatentManifold::Euclidean,
+            retraction: LatentRetractionRegistry::all_euclidean(),
+            latent_id: 0,
+        }
+    }
+
+    /// Capture the exact geometry of an existing coordinate block without
+    /// copying any of its `N×d` values.
+    #[must_use]
+    pub fn from_coord_template(template: &LatentCoordValues) -> Self {
+        Self {
+            latent_dim: template.latent_dim(),
+            id_mode: template.id_mode().clone(),
+            manifold: template.manifold().clone(),
+            retraction: template.retraction_registry().clone(),
+            latent_id: template.latent_id(),
+        }
+    }
+}
+
 /// Support-sparse per-row assignment state (see module docs). Internal type: the
 /// unified engine's ONE routing state, of which the dense [`SaeAssignment`] is
 /// the full-support specialization.
@@ -149,14 +192,69 @@ impl SaeAssignmentState {
         gate_params: Vec<Vec<f64>>,
         coords: Vec<Vec<f64>>,
     ) -> Result<Self, String> {
+        let atom_specs = (0..k_atoms)
+            .map(|_| SaeAssignmentAtomSpec::euclidean(d_max))
+            .collect();
+        Self::from_topk_support_heterogeneous(
+            n_obs,
+            k_atoms,
+            support_k,
+            atom_specs,
+            indices,
+            gate_params,
+            coords,
+        )
+    }
+
+    /// Construct the canonical hard-TopK state for heterogeneous atoms.
+    ///
+    /// Every input row contains exactly `support_k` distinct atom indices. Its
+    /// coordinate row is the concatenation of those atoms' unpadded coordinate
+    /// blocks in the same order. Construction sorts each support by atom index
+    /// and moves the corresponding gate/coordinate blocks with it, so logically
+    /// equivalent routings have one deterministic representation.
+    #[must_use = "state build error must be handled"]
+    pub fn from_topk_support_heterogeneous(
+        n_obs: usize,
+        k_atoms: usize,
+        support_k: usize,
+        atom_specs: Vec<SaeAssignmentAtomSpec>,
+        mut indices: Vec<Vec<u32>>,
+        mut gate_params: Vec<Vec<f64>>,
+        mut coords: Vec<Vec<f64>>,
+    ) -> Result<Self, String> {
         if support_k == 0 || support_k > k_atoms {
             return Err(format!(
-                "SaeAssignmentState::from_topk_support: support_k must satisfy 1 <= s <= K={k_atoms}; got {support_k}"
+                "SaeAssignmentState::from_topk_support_heterogeneous: support_k must satisfy 1 <= s <= K={k_atoms}; got {support_k}"
             ));
+        }
+        if atom_specs.len() != k_atoms {
+            return Err(format!(
+                "SaeAssignmentState::from_topk_support_heterogeneous: atom_specs length {} must equal K={k_atoms}",
+                atom_specs.len()
+            ));
+        }
+        for (atom, spec) in atom_specs.iter().enumerate() {
+            if spec.latent_dim == 0 {
+                return Err(format!(
+                    "SaeAssignmentState::from_topk_support_heterogeneous: atom {atom} latent_dim must be positive"
+                ));
+            }
+            let manifold_dim = spec.manifold.ambient_dim(spec.latent_dim);
+            if manifold_dim != spec.latent_dim {
+                return Err(format!(
+                    "SaeAssignmentState::from_topk_support_heterogeneous: atom {atom} manifold ambient dimension {manifold_dim} != latent_dim {}",
+                    spec.latent_dim
+                ));
+            }
+            spec.retraction.validate_dim(
+                spec.latent_dim,
+                "SaeAssignmentState::from_topk_support_heterogeneous",
+            )?;
         }
         if indices.len() != n_obs || gate_params.len() != n_obs || coords.len() != n_obs {
             return Err(format!(
-                "SaeAssignmentState::from_topk_support: per-row arrays must all have length N={n_obs}; \
+                "SaeAssignmentState::from_topk_support_heterogeneous: per-row arrays must all have length N={n_obs}; \
                  got indices={}, gate_params={}, coords={}",
                 indices.len(),
                 gate_params.len(),
@@ -164,34 +262,72 @@ impl SaeAssignmentState {
             ));
         }
         for i in 0..n_obs {
-            if indices[i].len() != support_k
-                || gate_params[i].len() != support_k
-                || coords[i].len() != support_k * d_max
-            {
+            if indices[i].len() != support_k || gate_params[i].len() != support_k {
                 return Err(format!(
-                    "SaeAssignmentState::from_topk_support: row {i} widths must be indices={support_k}, \
-                     gate_params={support_k}, coords={}; got {}, {}, {}",
-                    support_k * d_max,
+                    "SaeAssignmentState::from_topk_support_heterogeneous: row {i} widths must be indices={support_k}, gate_params={support_k}; got {}, {}",
                     indices[i].len(),
                     gate_params[i].len(),
+                ));
+            }
+            if gate_params[i].iter().any(|value| !value.is_finite()) {
+                return Err(format!(
+                    "SaeAssignmentState::from_topk_support_heterogeneous: row {i} contains a non-finite gate parameter"
+                ));
+            }
+            if coords[i].iter().any(|value| !value.is_finite()) {
+                return Err(format!(
+                    "SaeAssignmentState::from_topk_support_heterogeneous: row {i} contains a non-finite coordinate"
+                ));
+            }
+
+            let mut coord_cursor = 0usize;
+            let mut slots = Vec::with_capacity(support_k);
+            for slot in 0..support_k {
+                let atom = indices[i][slot] as usize;
+                if atom >= k_atoms {
+                    return Err(format!(
+                        "SaeAssignmentState::from_topk_support_heterogeneous: row {i} atom index {atom} out of range K={k_atoms}"
+                    ));
+                }
+                let d = atom_specs[atom].latent_dim;
+                let end = coord_cursor.saturating_add(d);
+                if end > coords[i].len() {
+                    return Err(format!(
+                        "SaeAssignmentState::from_topk_support_heterogeneous: row {i} coordinate width {} is too short for its declared support",
+                        coords[i].len()
+                    ));
+                }
+                slots.push((
+                    atom as u32,
+                    gate_params[i][slot],
+                    coords[i][coord_cursor..end].to_vec(),
+                ));
+                coord_cursor = end;
+            }
+            if coord_cursor != coords[i].len() {
+                return Err(format!(
+                    "SaeAssignmentState::from_topk_support_heterogeneous: row {i} coordinate width {} != support-implied width {coord_cursor}",
                     coords[i].len()
                 ));
             }
-            for &atom in &indices[i] {
-                if atom as usize >= k_atoms {
-                    return Err(format!(
-                        "SaeAssignmentState::from_topk_support: row {i} atom index {atom} out of range K={k_atoms}"
-                    ));
-                }
+            slots.sort_by_key(|slot| slot.0);
+            if slots.windows(2).any(|pair| pair[0].0 == pair[1].0) {
+                return Err(format!(
+                    "SaeAssignmentState::from_topk_support_heterogeneous: row {i} support contains a duplicate atom"
+                ));
             }
+            indices[i] = slots.iter().map(|slot| slot.0).collect();
+            gate_params[i] = slots.iter().map(|slot| slot.1).collect();
+            coords[i] = slots.into_iter().flat_map(|slot| slot.2).collect();
         }
-        let atom_coord_meta = (0..k_atoms)
-            .map(|_| AtomCoordMeta {
-                latent_dim: d_max,
-                id_mode: LatentIdMode::None,
-                manifold: LatentManifold::Euclidean,
-                retraction: LatentRetractionRegistry::all_euclidean(),
-                latent_id: 0,
+        let atom_coord_meta = atom_specs
+            .into_iter()
+            .map(|spec| AtomCoordMeta {
+                latent_dim: spec.latent_dim,
+                id_mode: spec.id_mode,
+                manifold: spec.manifold,
+                retraction: spec.retraction,
+                latent_id: spec.latent_id,
             })
             .collect();
         Ok(Self {
@@ -234,6 +370,118 @@ impl SaeAssignmentState {
     /// (`Σ_{k∈S_i} d_k` scalars, support order).
     pub fn coords_row(&self, row: usize) -> &[f64] {
         &self.coords[row]
+    }
+
+    /// Per-atom intrinsic dimension, with no `d_max` padding.
+    pub fn atom_coord_dim(&self, atom: usize) -> usize {
+        self.atom_coord_meta[atom].latent_dim
+    }
+
+    /// Per-atom coordinate manifold/topology.
+    pub fn atom_manifold(&self, atom: usize) -> &LatentManifold {
+        &self.atom_coord_meta[atom].manifold
+    }
+
+    /// Effective per-axis periodicity for one atom, including a retraction
+    /// override attached to an otherwise Euclidean coordinate block.
+    ///
+    /// `LatentManifold::Euclidean` is dimension-generic and therefore reports a
+    /// single topology axis. The assignment state owns the concrete atom
+    /// dimension, so every sparse-coordinate consumer must obtain its topology
+    /// here rather than index the raw manifold descriptor directly.
+    pub fn atom_axis_periods(&self, atom: usize) -> Vec<Option<f64>> {
+        let meta = &self.atom_coord_meta[atom];
+        let periods = if meta.manifold.is_euclidean() {
+            meta.retraction.axis_periods(meta.latent_dim)
+        } else {
+            meta.manifold.axis_periods()
+        };
+        assert_eq!(
+            periods.len(),
+            meta.latent_dim,
+            "SaeAssignmentState atom {atom} axis-period count {} != latent dimension {}",
+            periods.len(),
+            meta.latent_dim,
+        );
+        periods
+    }
+
+    /// Coordinate block for one active support slot.
+    pub fn coords_for_slot(&self, row: usize, slot: usize) -> &[f64] {
+        let start: usize = self.indices[row][..slot]
+            .iter()
+            .map(|&atom| self.atom_coord_meta[atom as usize].latent_dim)
+            .sum();
+        let atom = self.indices[row][slot] as usize;
+        &self.coords[row][start..start + self.atom_coord_meta[atom].latent_dim]
+    }
+
+    /// Apply one compact coordinate update and retract each active atom through
+    /// its own manifold. `delta` uses the same heterogeneous support order as
+    /// [`Self::coords_row`].
+    pub fn apply_row_coord_step(&mut self, row: usize, delta: &[f64]) -> Result<(), String> {
+        if delta.len() != self.coords[row].len() {
+            return Err(format!(
+                "SaeAssignmentState::apply_row_coord_step: row {row} delta width {} != compact coordinate width {}",
+                delta.len(),
+                self.coords[row].len()
+            ));
+        }
+        let mut cursor = 0usize;
+        for slot in 0..self.indices[row].len() {
+            let atom = self.indices[row][slot] as usize;
+            let meta = &self.atom_coord_meta[atom];
+            let end = cursor + meta.latent_dim;
+            let mut current = Array1::from_vec(self.coords[row][cursor..end].to_vec());
+            let step = Array1::from_vec(delta[cursor..end].to_vec());
+            if meta.retraction.is_all_euclidean() {
+                current = meta.manifold.retract(current.view(), step.view());
+            } else {
+                meta.retraction
+                    .retract(&mut current.view_mut(), step.view());
+            }
+            self.coords[row][cursor..end]
+                .copy_from_slice(current.as_slice().expect("retraction is contiguous"));
+            cursor = end;
+        }
+        Ok(())
+    }
+
+    /// Replace one compact coordinate row and project every heterogeneous atom
+    /// block onto its declared manifold. This is the exact snapshot-restore
+    /// operation required by support-sparse line searches: applying a negated
+    /// step is not an inverse retraction at interval boundaries or on curved
+    /// manifolds, so rollback must restore the accepted point itself.
+    pub fn set_row_coords(&mut self, row: usize, values: &[f64]) -> Result<(), String> {
+        if row >= self.n_obs {
+            return Err(format!(
+                "SaeAssignmentState::set_row_coords: row {row} out of range N={}",
+                self.n_obs
+            ));
+        }
+        if values.len() != self.coords[row].len() {
+            return Err(format!(
+                "SaeAssignmentState::set_row_coords: row {row} value width {} != compact coordinate width {}",
+                values.len(),
+                self.coords[row].len()
+            ));
+        }
+        if values.iter().any(|value| !value.is_finite()) {
+            return Err(format!(
+                "SaeAssignmentState::set_row_coords: row {row} contains a non-finite coordinate"
+            ));
+        }
+        let mut cursor = 0usize;
+        for &atom in &self.indices[row] {
+            let meta = &self.atom_coord_meta[atom as usize];
+            let end = cursor + meta.latent_dim;
+            let candidate = Array1::from_vec(values[cursor..end].to_vec());
+            let projected = meta.manifold.project_point(candidate.view());
+            self.coords[row][cursor..end]
+                .copy_from_slice(projected.as_slice().expect("projection is contiguous"));
+            cursor = end;
+        }
+        Ok(())
     }
 
     /// Whether every row's support is the full `[0, K)` in ascending order (the
@@ -577,6 +825,133 @@ mod tests {
         )
         .expect("state builds");
         assert!(!state.is_full_support());
+        assert!(state.materialize_dense().is_err());
+    }
+
+    #[test]
+    fn heterogeneous_support_is_canonical_duplicate_free_and_unpadded() {
+        let specs = vec![
+            SaeAssignmentAtomSpec {
+                latent_dim: 1,
+                id_mode: LatentIdMode::None,
+                manifold: LatentManifold::Circle { period: 1.0 },
+                retraction: LatentRetractionRegistry::all_euclidean(),
+                latent_id: 11,
+            },
+            SaeAssignmentAtomSpec::euclidean(3),
+            SaeAssignmentAtomSpec {
+                latent_dim: 2,
+                id_mode: LatentIdMode::None,
+                manifold: LatentManifold::Product(vec![
+                    LatentManifold::Circle { period: 1.0 },
+                    LatentManifold::Interval { lo: -1.0, hi: 1.0 },
+                ]),
+                retraction: LatentRetractionRegistry::all_euclidean(),
+                latent_id: 12,
+            },
+        ];
+        // Input order [2,0] is deliberately non-canonical. Coordinate blocks
+        // are [atom2: two values, atom0: one value] in that input order.
+        let state = SaeAssignmentState::from_topk_support_heterogeneous(
+            1,
+            3,
+            2,
+            specs.clone(),
+            vec![vec![2, 0]],
+            vec![vec![0.2, 0.8]],
+            vec![vec![0.25, -0.5, 0.75]],
+        )
+        .expect("heterogeneous state builds");
+        assert_eq!(state.support_indices(0), &[0, 2]);
+        assert_eq!(state.gate_params(0), &[0.8, 0.2]);
+        assert_eq!(state.coords_for_slot(0, 0), &[0.75]);
+        assert_eq!(state.coords_for_slot(0, 1), &[0.25, -0.5]);
+        assert_eq!(
+            state.coord_cells(),
+            3,
+            "sum of active d_k, no d_max padding"
+        );
+        assert_eq!(state.atom_coord_dim(0), 1);
+        assert_eq!(state.atom_coord_dim(1), 3);
+        assert_eq!(state.atom_coord_dim(2), 2);
+        assert_eq!(
+            state.atom_manifold(0),
+            &LatentManifold::Circle { period: 1.0 }
+        );
+
+        let duplicate = SaeAssignmentState::from_topk_support_heterogeneous(
+            1,
+            3,
+            2,
+            specs,
+            vec![vec![1, 1]],
+            vec![vec![1.0, 1.0]],
+            vec![vec![0.0; 6]],
+        )
+        .expect_err("duplicate support must fail");
+        assert!(duplicate.contains("duplicate atom"));
+    }
+
+    #[test]
+    fn sparse_atom_geometry_owns_dimension_and_retraction_override() {
+        let specs = vec![
+            SaeAssignmentAtomSpec::euclidean(2),
+            SaeAssignmentAtomSpec {
+                latent_dim: 1,
+                id_mode: LatentIdMode::None,
+                manifold: LatentManifold::Euclidean,
+                retraction: LatentRetractionRegistry::new(
+                    gam_problem::riemannian_retraction::RetractionKind::Circle,
+                ),
+                latent_id: 17,
+            },
+        ];
+        let mut state = SaeAssignmentState::from_topk_support_heterogeneous(
+            1,
+            2,
+            2,
+            specs,
+            vec![vec![0, 1]],
+            vec![vec![0.0, 0.0]],
+            vec![vec![1.0, -2.0, std::f64::consts::PI - 0.25]],
+        )
+        .expect("heterogeneous state builds");
+
+        assert_eq!(state.atom_axis_periods(0), vec![None, None]);
+        assert_eq!(
+            state.atom_axis_periods(1),
+            vec![Some(2.0 * std::f64::consts::PI)],
+        );
+        state
+            .apply_row_coord_step(0, &[0.5, 1.0, 0.5])
+            .expect("coordinate step retracts");
+        assert_eq!(state.coords_for_slot(0, 0), &[1.5, -1.0]);
+        assert!(
+            (state.coords_for_slot(0, 1)[0] - (-std::f64::consts::PI + 0.25)).abs() < 1.0e-15,
+            "explicit circle retraction must wrap the Euclidean-declared atom",
+        );
+    }
+
+    #[test]
+    fn ten_thousand_atoms_do_not_change_resident_row_state() {
+        let n = 7usize;
+        let k = 10_000usize;
+        let s = 3usize;
+        let state = SaeAssignmentState::from_topk_support(
+            n,
+            k,
+            s,
+            1,
+            (0..n)
+                .map(|row| vec![row as u32, (row + 100) as u32, (row + 999) as u32])
+                .collect(),
+            vec![vec![1.0; s]; n],
+            vec![vec![0.0; s]; n],
+        )
+        .expect("K=1e4 support state builds");
+        assert_eq!(state.active_state_cells(), n * s * 3);
+        assert_eq!(state.gate_cells(), n * s);
+        assert_ne!(state.gate_cells(), n * k);
         assert!(state.materialize_dense().is_err());
     }
 }

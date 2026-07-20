@@ -105,11 +105,11 @@ use ndarray::{Array1, Array2, Array3, Array4, ArrayView1, ArrayView2, ArrayView3
 use std::sync::Arc;
 
 pub(crate) use gam_solve::arrow_schur::{
-    ArrowProximalCorrectionOptions, ArrowRowBlock, ArrowSchurError, ArrowSchurSystem,
-    ArrowSolveOptions, BetaPenaltyOp, CompositePenaltyOp, DensePenaltyOp, DeviceSaePcgData,
-    DeviceSaeSmoothBlock, FactoredFrameGBlock, FactoredFrameKroneckerOp,
-    IdentityRightKroneckerPenaltyOp, SparseBlockKroneckerPenaltyOp, SparseGBlock,
-    SparseRankOnePenaltyOp, StreamingArrowSchur, matrix_free_arrow_inverse_apply,
+    ArrowBetaGaugeQuotient, ArrowProximalCorrectionOptions, ArrowRowBlock, ArrowSchurError,
+    ArrowSchurSystem, ArrowSolveOptions, ArrowSolverMode, BetaPenaltyOp, CompositePenaltyOp,
+    DensePenaltyOp, DeviceSaePcgData, DeviceSaeSmoothBlock, FactoredFrameGBlock,
+    FactoredFrameKroneckerOp, IdentityRightKroneckerPenaltyOp, SparseBlockKroneckerPenaltyOp,
+    SparseGBlock, SparseRankOnePenaltyOp, StreamingArrowSchur, matrix_free_arrow_inverse_apply,
     matrix_free_arrow_operator_apply, prepare_sae_resident_frame, row_sub_floor_null_directions,
     solve_arrow_newton_step_with_proximal_correction, solve_streaming_reduced_beta,
     solve_with_lm_escalation_inner,
@@ -153,8 +153,8 @@ pub(crate) use gam_solve::arrow_schur::{
 // swaps the SLQ reduced-Schur log|S| for the desync-safe rational surrogate
 // (value + ρ-gradient one functional), plus its per-outer-solve frozen state.
 pub(crate) use gam_solve::arrow_schur::{
-    SurrogateLaneConfig, SurrogateLaneState, hutchinson_reduced_schur_inverse_trace,
-    matrix_free_arrow_evidence_log_det_surrogate,
+    RationalLogdetDerivativeBundle, SurrogateLaneConfig, SurrogateLaneState,
+    hutchinson_reduced_schur_inverse_trace, matrix_free_arrow_evidence_log_det_surrogate,
 };
 
 pub(crate) use gam_solve::estimate::EstimationError;
@@ -164,7 +164,6 @@ pub(crate) use gam_solve::evidence::arrow_log_det_from_cache;
 pub(crate) use gam_problem::{DeclaredHessianForm, Derivative, EfsEval, HessianValue, OuterEval};
 pub(crate) use gam_solve::rho_optimizer::{
     OuterCapability, OuterConvergedVia, OuterEvalOrder, OuterObjective, SeedOutcome,
-    fd_outer_hessian_from_gradient,
 };
 
 pub(crate) use gam_solve::structure_search::{CollapseAction, CollapseEvent};
@@ -202,7 +201,9 @@ mod cross_fit;
 mod crosscoder_drift;
 mod crosscoder_fit;
 mod curl;
+pub mod curve_promotion;
 mod derivative_oracle;
+pub mod dormant_certificate;
 mod dual;
 mod evaluator_rebuild;
 mod fisher_metric;
@@ -210,12 +211,14 @@ mod fit_drivers;
 mod fit_entry;
 mod fit_seed;
 mod gauge;
+mod geometry_plan;
 mod graph_atom;
 mod inframe_curved;
 mod intrinsic_seed;
 mod isa_seed;
 mod kronecker;
 pub mod lift;
+mod local_charts;
 mod loss;
 mod minimal_seed;
 mod oos_entry;
@@ -237,7 +240,9 @@ mod stagewise_seed;
 mod steering;
 mod stratum_births;
 mod streaming_plan;
-mod streaming_seed;
+mod support_outer;
+mod support_seed;
+mod support_term;
 mod term;
 mod terracini;
 mod transport_law;
@@ -289,13 +294,15 @@ mod tests_steering_crosscoder_2234;
 mod tests_collateral_e2_2234;
 
 #[cfg(test)]
+mod tests_collateral_noncyclic_2234;
+
+#[cfg(test)]
 mod tests_schur_seed_refusal_1782;
+#[cfg(test)]
+mod tests_indefinite_a_refusal_2336;
 
 #[cfg(test)]
 mod tests_streaming_materialize_chunk_1801;
-
-#[cfg(test)]
-mod tests_streaming_seed_parity_2134;
 
 #[cfg(test)]
 mod tests_recovery_split_780;
@@ -303,6 +310,7 @@ mod tests_recovery_split_780;
 #[cfg(test)]
 mod tests_intrinsic_seed_swiss_roll_2280;
 
+#[cfg(test)]
 #[cfg(test)]
 mod tests_unit_speed_inloop_2022;
 
@@ -478,7 +486,6 @@ pub use construction_aux_types::*;
 pub use construction_cache_refresh::*;
 pub use construction_padded_blocks::*;
 pub use construction_reconstruction::reconstruct_persisted_atom_set;
-pub use construction_reconstruction::steer_persisted_atom_set;
 // #16/#2023 — the shared rank-charge DOF core, exposed so the hybrid-split DEMOTE
 // gate prices linear/curved candidates in the SAME currency as the joint REML fit.
 pub(crate) use construction::realised_rank_charge_dof;
@@ -507,6 +514,8 @@ pub fn rank_charge_dof(
     construction::realised_rank_charge_dof(gram, decoder, n_eff, p_out, dispersion, 0.0, None)
 }
 
+pub use construction::{SaeCriterionError, VanishedAtoms};
+
 pub use crate::inference::atlas_nerve::AtlasCoveringSide;
 pub use atom_build::*;
 pub use coordinate_fidelity::*;
@@ -520,11 +529,13 @@ pub use fisher_metric::*;
 pub use fit_entry::*;
 pub use fit_seed::*;
 pub use gauge::*;
+pub use geometry_plan::*;
 pub use graph_atom::*;
 pub use inframe_curved::*;
 pub use intrinsic_seed::*;
 pub use isa_seed::*;
 pub(crate) use kronecker::*;
+pub use local_charts::*;
 pub use loss::*;
 pub use minimal_seed::*;
 pub use oos_entry::*;
@@ -544,6 +555,9 @@ pub use stagewise::*;
 pub use stagewise_seed::*;
 pub use stratum_births::*;
 pub use streaming_plan::*;
+pub use support_outer::*;
+pub use support_seed::*;
+pub use support_term::*;
 pub use term::*;
 pub use terracini::*;
 pub use transport_law::*;

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: confuse
-Version: 2.2.0
+Version: 2.2.1
 Summary: Painless YAML config files
 License-Expression: MIT
 License-File: LICENSE
@@ -19,6 +19,7 @@ Provides-Extra: docs
 Requires-Dist: pyyaml
 Requires-Dist: sphinx (>=7.4.7) ; extra == "docs"
 Requires-Dist: sphinx-rtd-theme (>=3.0.2) ; extra == "docs"
+Requires-Dist: typing_extensions (>=4.4) ; python_version < "3.13"
 Project-URL: Bug Tracker, https://github.com/beetbox/confuse/issues
 Project-URL: Homepage, https://github.com/beetbox/confuse
 Project-URL: Repository, https://github.com/beetbox/confuse

@@ -16,9 +16,11 @@ questions for classification and collects PM-specific metadata.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+import asyncio
+from dataclasses import dataclass, field, replace
 import json
 from pathlib import Path
+import re
 from typing import Any
 
 import structlog
@@ -28,6 +30,10 @@ from ouroboros.bigbang.brownfield import (
     load_brownfield_repos_as_dicts as _load_brownfield_dicts,
 )
 from ouroboros.bigbang.explore import CodebaseExplorer, format_explore_results
+from ouroboros.bigbang.inner_guidance import (
+    compose_steered_prompt,
+    reserve_steering_extension,
+)
 from ouroboros.bigbang.interview import (
     INITIAL_CONTEXT_SUMMARY_QUESTION,
     MIN_ROUNDS_BEFORE_EARLY_EXIT,
@@ -45,6 +51,7 @@ from ouroboros.bigbang.question_classifier import (
 )
 from ouroboros.config import get_llm_model_for_role
 from ouroboros.core.errors import ProviderError, ValidationError
+from ouroboros.core.pm_snapshot import refresh_pm_snapshot_worktrees
 from ouroboros.core.types import Result
 from ouroboros.providers.base import (
     CompletionConfig,
@@ -66,8 +73,12 @@ PM_UNCERTAINTY_GUIDANCE = (
 _SEED_DIR = Path.home() / ".ouroboros" / "seeds"
 _PM_SYSTEM_PROMPT_PREFIX = f"""\
 You are a Product Requirements interviewer helping a PM define their product.
-Assume the resulting product requirements document will drive all downstream work through AI workflows, so elicit decisions precise enough for autonomous planning, implementation, and verification.
-If a product question is not settled, preserve that uncertainty explicitly instead of inventing certainty; capture assumptions and decide-later items as first-class PM output.
+The PRD will drive autonomous AI planning, implementation, and verification
+downstream — elicit decisions precise enough for that.
+
+A PRD is a contract between the PM and the developers: success criteria are the
+behavior and policy the PM must observe in the delivered feature to accept it
+as built. Post-launch outcomes have no place in this contract.
 
 Focus on: goal, user stories, constraints, success criteria, assumptions.
 
@@ -102,6 +113,12 @@ Respond ONLY with valid JSON in this exact format:
     "assumptions": ["assumption 1"]
 }
 """
+
+
+# Identifies the PRD-contract paragraph — the policy #1663 exists to
+# enforce. It is shed last so tight budgets drop the supporting paragraphs
+# before the policy itself.
+_PM_CONTRACT_MARKER = "contract between the PM and the developers"
 
 
 @dataclass
@@ -286,6 +303,18 @@ class PMInterviewEngine:
                 model=self.model,
             )
             results = await explorer.explore(paths)
+
+            # Snapshot worktrees are scan locations only — present the
+            # durable source checkout in the injected context.
+            source_by_scan_path = {
+                r["path"]: r["source_path"] for r in repos if r.get("source_path")
+            }
+            if source_by_scan_path:
+                results = [
+                    replace(res, path=source_by_scan_path.get(res.path, res.path))
+                    for res in results
+                ]
+
             self.codebase_context = format_explore_results(results)
 
             # Share context with classifier
@@ -390,8 +419,15 @@ class PMInterviewEngine:
         self.classifications = []
         self._reframe_map = {}
 
-        # Explore codebases if brownfield repos are provided
+        # Explore codebases if brownfield repos are provided.
+        # Redirect exploration to persistent snapshot worktrees pinned to
+        # the remote default branch (created once, then fetch + hard-reset)
+        # so a stale local checkout never leaks into PRD context. This hook
+        # covers every engine-driven entry point (MCP in-process and CLI).
         if brownfield_repos:
+            brownfield_repos = await asyncio.to_thread(
+                refresh_pm_snapshot_worktrees, list(brownfield_repos)
+            )
             self._selected_brownfield_repos = list(brownfield_repos)
             await self.explore_codebases(brownfield_repos)
 
@@ -424,8 +460,12 @@ class PMInterviewEngine:
             if brownfield_repos and self.codebase_context:
                 state.is_brownfield = True
                 state.codebase_context = self.codebase_context
+                # Persist the durable source checkout, not an ephemeral
+                # snapshot worktree path, into interview state.
                 state.codebase_paths = [
-                    {"path": r["path"], "role": "primary"} for r in brownfield_repos if "path" in r
+                    {"path": r.get("source_path") or r["path"], "role": "primary"}
+                    for r in brownfield_repos
+                    if "path" in r
                 ]
                 state.explore_completed = True
             log.info(
@@ -441,8 +481,30 @@ class PMInterviewEngine:
 
         Idempotent — if already installed, replaces previous wrapper to prevent
         stacking across multiple start/resume calls on the same engine instance.
+
+        Budget-extension contract: the PM-owned inner instance gets its
+        system-prompt budgets widened by exactly the steering length (instance
+        attributes only — ``interview.py`` and dev-interview instances are
+        untouched). ``ask_next_question`` therefore computes budgets and trims
+        history against the widened numbers, the wire ceiling
+        (``_MAX_TOTAL_PROMPT_CHARS``) stays enforced by the inner engine
+        itself, and on the normal path the steering rides entirely inside the
+        reserved extension: the inner build keeps the engine's *designed*
+        budget, byte-identical to what a dev interview would produce.
+
+        The interview layer always has priority. When a caller supplies a cap
+        smaller than designed-budget-plus-extension (tests, wire pressure in
+        the history-decline zone), steering falls back to fit-and-shed:
+        paragraphs are included atomically (contract paragraph first, shed
+        last) and dropped one by one until every ``INNER_GUIDANCE_INVARIANTS``
+        marker retained by the unwrapped baseline build also survives the
+        steered build — or no steering remains.
         """
         self._pm_steering = getattr(self, "_pm_steering", _PM_SYSTEM_PROMPT_PREFIX)
+
+        # Reserve the steering extension on the PM-owned inner instance
+        # (idempotent — derived from class attributes, never stacks).
+        reserve_steering_extension(self.inner, self._pm_steering)
 
         # Store the original (unwrapped) build method on first install
         if not hasattr(self, "_original_build_system_prompt"):
@@ -450,9 +512,20 @@ class PMInterviewEngine:
 
         original_build = self._original_build_system_prompt
 
-        def _pm_build_system_prompt(state: InterviewState, *args, **kwargs) -> str:
-            base = original_build(state, *args, **kwargs)
-            return self._pm_steering + "\n\n" + base
+        def _pm_build_system_prompt(
+            state: InterviewState,
+            initial_context: str | None = None,
+            max_chars: int | None = None,
+        ) -> str:
+            return compose_steered_prompt(
+                inner=self.inner,
+                build=original_build,
+                steering=self._pm_steering,
+                state=state,
+                initial_context=initial_context,
+                max_chars=max_chars,
+                shed_last_marker=_PM_CONTRACT_MARKER,
+            )
 
         self.inner._build_system_prompt = _pm_build_system_prompt  # type: ignore[assignment]
 
@@ -1216,7 +1289,6 @@ Include them as original question text in "decide_later_items":
         Raises:
             ValueError: If response cannot be parsed.
         """
-        import re
 
         text = response.strip()
 
@@ -1258,8 +1330,17 @@ Include them as original question text in "decide_later_items":
             if item not in all_decide_later:
                 all_decide_later.append(item)
 
-        # Include brownfield repos — use session-stored repos, not DB
-        brownfield_repos = tuple(dict(r) for r in self._selected_brownfield_repos)
+        # Include brownfield repos — use session-stored repos, not DB.
+        # Snapshot worktree paths are working locations only; the seed must
+        # record the durable source checkout (``source_path``) instead.
+        def _durable_repo(repo: dict[str, str]) -> dict[str, str]:
+            entry = dict(repo)
+            source = entry.pop("source_path", None)
+            if source:
+                entry["path"] = source
+            return entry
+
+        brownfield_repos = tuple(_durable_repo(r) for r in self._selected_brownfield_repos)
 
         return PMSeed(
             pm_id=f"pm_seed_{interview_id}",

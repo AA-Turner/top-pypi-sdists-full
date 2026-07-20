@@ -34,26 +34,33 @@ use gam_math::probability::beta_quantile;
 use gam_problem::topology_certificates::CertificateLedger;
 use gam_problem::{EstimationError, MetricProvenance};
 use gam_solve::inference::residual_factor::{ResidualFactorInput, StructuredResidualModel};
-use gam_solve::rho_optimizer::{OuterProblem, OuterResult};
+use gam_solve::rho_optimizer::{OuterProblem, OuterResult, audit_stationary_point};
 use gam_solve::seeding::SeedConfig;
 use gam_solve::structure_search::{MoveBudget, StructureMove};
 use gam_terms::analytic_penalties::AnalyticPenaltyRegistry;
 use gam_terms::inference::structure_evidence::StructureLedger;
 
 use crate::structure_harvest;
+use crate::tiered::Tier0Mean;
 
 use super::{
     AmortizedEncoderConsistency, AssignmentMode, CoordinateFidelityCertificate,
     SaeManifoldFitDiagnostics, SaeManifoldLoss, SaeManifoldOuterObjective, SaeManifoldRho,
-    SaeManifoldTerm, SaeOuterTermination, SaeOuterVerdict, SaeShapeUncertainty,
-    SaeTrustDiagnostics, TopologyPersistenceCertificate,
+    SaeManifoldTerm, SaeOuterTermination, SaeShapeUncertainty, SaeTrustDiagnostics,
+    TopologyPersistenceCertificate, VanishedAtoms,
 };
 
 /// Hard cap on evidence-certified #2021 whitened-residual refit passes.
 pub const STRUCTURED_RESIDUAL_PASSES_MAX: usize = 4;
-/// Canonical structured-residual alternation budget. The iid-only A/B mode was
-/// removed; every production fit starts with this evidence-refined budget.
-pub const STRUCTURED_RESIDUAL_PASSES_DEFAULT: usize = 2;
+
+fn validate_structured_residual_passes(passes: usize) -> Result<(), SaeFitError> {
+    if passes > STRUCTURED_RESIDUAL_PASSES_MAX {
+        return Err(SaeFitError::InvalidRequest(format!(
+            "structured_residual_passes={passes} exceeds the hard maximum {STRUCTURED_RESIDUAL_PASSES_MAX}"
+        )));
+    }
+    Ok(())
+}
 
 /// Absolute precision floor on the RELATIVE post-dictionary residual energy
 /// `‖Z − Ẑ‖²_F / ‖Z‖²_F` below which the structured-residual pass is skipped and
@@ -220,10 +227,126 @@ pub struct SaeFitReport {
     /// `None` when the search did not run (skipped by K ceiling or
     /// `run_structure_search == false`).
     pub structure_search_json: Option<String>,
-    /// The anytime-valid structure certificate (#1058/#984), serialized JSON.
-    pub structure_certificate_json: String,
+    /// The anytime-valid structure certificate (#1058/#984), serialized JSON;
+    /// absent when no genuine structure search ran.
+    pub structure_certificate_json: Option<String>,
     /// The reported `log_alpha` (ordered Beta--Bernoulli concentration or the caller's α fallback).
     pub reported_log_alpha: f64,
+}
+
+/// Exact inner-KKT measurements at one caller-installed external state. No
+/// optimizer is invoked to form these values; they are read directly from the
+/// analytic joint system assembled at the supplied `(term, rho)`.
+#[derive(Clone, Debug, PartialEq)]
+pub struct SaeInstalledInnerKktAudit {
+    pub raw_gradient_norm: f64,
+    pub quotient_gradient_norm: f64,
+    pub stationarity_bound: f64,
+}
+
+impl SaeInstalledInnerKktAudit {
+    pub fn certifies(&self) -> bool {
+        SaeManifoldTerm::quasi_laplace_kkt_stationary(
+            self.raw_gradient_norm,
+            self.quotient_gradient_norm,
+            self.stationarity_bound,
+        )
+    }
+}
+
+/// Typed diagnostic for an externally supplied state that was evaluated but
+/// refused as a fit. It intentionally carries no term, fitted payload, shape
+/// uncertainty, certificate ledger, or structure evidence.
+#[derive(Clone, Debug, PartialEq)]
+pub struct SaeExternalEvaluationReport {
+    pub inner: SaeInstalledInnerKktAudit,
+    pub outer_raw_gradient_norm: Option<f64>,
+    pub outer_projected_gradient_norm: Option<f64>,
+    pub outer_stationarity_bound: Option<f64>,
+    pub optimization_iterations: usize,
+    pub reason: String,
+}
+
+/// External state certification either mints the ordinary converged-fit report
+/// or returns a non-fit diagnostic. The rejected variant cannot be confused
+/// with [`SaeFitOutcome`] and cannot reach inference/structure marshalling.
+pub enum SaeExternalCertificationOutcome {
+    Certified(SaeFitReport),
+    NonStationary(SaeExternalEvaluationReport),
+}
+
+fn installed_inner_kkt_audit(
+    term: &mut SaeManifoldTerm,
+    target: ndarray::ArrayView2<'_, f64>,
+    rho: &SaeManifoldRho,
+    registry: &AnalyticPenaltyRegistry,
+) -> Result<SaeInstalledInnerKktAudit, SaeFitError> {
+    let system = term
+        .assemble_arrow_schur(target, rho, Some(registry))
+        .map_err(SaeFitError::Fit)?;
+    let raw_gradient_norm_sq = SaeManifoldTerm::system_grad_norm_sq(&system);
+    let raw_gradient_norm = raw_gradient_norm_sq.sqrt();
+    let lambda_smooth = rho.lambda_smooth_vec().map_err(SaeFitError::Fit)?;
+    let quotient_gradient_norm =
+        term.quotient_gradient_norm_from_system(&system, raw_gradient_norm_sq, &lambda_smooth);
+    Ok(SaeInstalledInnerKktAudit {
+        raw_gradient_norm,
+        quotient_gradient_norm,
+        stationarity_bound: super::SAE_MANIFOLD_INNER_GRAD_REL_TOL * term.inner_iterate_scale(),
+    })
+}
+
+fn external_nonstationary_report(
+    inner: SaeInstalledInnerKktAudit,
+    outer: Option<&OuterResult>,
+    reason: String,
+) -> SaeExternalCertificationOutcome {
+    let stationarity = outer
+        .and_then(|result| result.criterion_certificate.as_ref())
+        .map(|certificate| &certificate.stationarity);
+    SaeExternalCertificationOutcome::NonStationary(SaeExternalEvaluationReport {
+        inner,
+        outer_raw_gradient_norm: stationarity.map(|certificate| certificate.raw_norm()),
+        outer_projected_gradient_norm: stationarity.map(|certificate| certificate.projected_norm()),
+        outer_stationarity_bound: stationarity.map(|certificate| certificate.bound()),
+        optimization_iterations: outer.map_or(0, |result| result.iterations),
+        reason,
+    })
+}
+
+/// Exact intercept-only result when the committed fixed-`K` terminal state has
+/// zero realised decoder rank for every atom.  This is not a non-converged
+/// manifold fit and therefore carries no manifold rho, shape bands, or outer
+/// termination fiction.  Tier-0 is closed form; the vanished set records the
+/// structural boundary that selected it.
+pub struct SaeNullFitReport {
+    pub tier0: Tier0Mean,
+    pub fitted: Array2<f64>,
+    pub residual_sum_squares: f64,
+    pub reconstruction_r2: f64,
+    pub metric_provenance: &'static str,
+    pub vanished_atoms: VanishedAtoms,
+}
+
+/// A native SAE fit either has at least one certified manifold atom or is the
+/// exact Tier-0 null.  Keeping these variants distinct prevents a `K=0` payload
+/// from masquerading as a converged `SaeManifoldTerm`, whose constructors and
+/// inference reports require at least one atom.
+pub enum SaeFitOutcome {
+    Manifold(SaeFitReport),
+    Null(SaeNullFitReport),
+}
+
+impl SaeFitOutcome {
+    pub fn manifold_or_error(self) -> Result<SaeFitReport, String> {
+        match self {
+            Self::Manifold(report) => Ok(report),
+            Self::Null(report) => Err(format!(
+                "fit selected the exact Tier-0 null after {} atom(s) vanished",
+                report.vanished_atoms.len()
+            )),
+        }
+    }
 }
 
 /// Optimization phase that owns an SAE wall-survival checkpoint and convergence
@@ -266,6 +389,7 @@ impl std::fmt::Display for SaeFitStage {
 /// flattened into a message or converted into a fit.
 #[derive(Debug)]
 pub enum SaeFitError {
+    InvalidRequest(String),
     Fit(String),
     OuterRun {
         stage: SaeFitStage,
@@ -286,7 +410,7 @@ impl From<String> for SaeFitError {
 impl std::fmt::Display for SaeFitError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Fit(message) => f.write_str(message),
+            Self::InvalidRequest(message) | Self::Fit(message) => f.write_str(message),
             Self::OuterRun { stage, source } => {
                 write!(f, "SAE manifold {stage} outer search failed: {source}")
             }
@@ -316,7 +440,7 @@ impl std::error::Error for SaeFitError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::OuterRun { source, .. } => Some(source),
-            Self::Fit(_) | Self::OuterDidNotConverge { .. } => None,
+            Self::InvalidRequest(_) | Self::Fit(_) | Self::OuterDidNotConverge { .. } => None,
         }
     }
 }
@@ -366,6 +490,181 @@ pub(crate) fn certify_outer_stage(
     }
 }
 
+enum SaeStageFit {
+    Certified(SaeManifoldOuterObjective),
+    Null(SaeNullFitReport),
+}
+
+fn exact_null_report(
+    state: super::SaeVanishedStageState,
+    target: &Array2<f64>,
+    metric_provenance: &'static str,
+) -> SaeNullFitReport {
+    let p = target.ncols();
+    let mean = state
+        .term
+        .tier0_mean()
+        .cloned()
+        .unwrap_or_else(|| Array1::<f64>::zeros(p));
+    let fitted = Array2::from_shape_fn(target.dim(), |(_, col)| mean[col]);
+    let target_mean = target
+        .mean_axis(ndarray::Axis(0))
+        .unwrap_or_else(|| Array1::<f64>::zeros(p));
+    let mut residual_sum_squares = 0.0_f64;
+    let mut total_sum_squares = 0.0_f64;
+    for row in 0..target.nrows() {
+        for col in 0..p {
+            let residual = target[[row, col]] - fitted[[row, col]];
+            let centered = target[[row, col]] - target_mean[col];
+            residual_sum_squares += residual * residual;
+            total_sum_squares += centered * centered;
+        }
+    }
+    let reconstruction_r2 = if total_sum_squares > 0.0 {
+        1.0 - residual_sum_squares / total_sum_squares
+    } else {
+        0.0
+    };
+    SaeNullFitReport {
+        tier0: Tier0Mean { mean },
+        fitted,
+        residual_sum_squares,
+        reconstruction_r2,
+        metric_provenance,
+        vanished_atoms: state.atoms,
+    }
+}
+
+enum SaeBoundaryDisposition {
+    Restart {
+        term: SaeManifoldTerm,
+        rho: SaeManifoldRho,
+    },
+    Null(SaeNullFitReport),
+}
+
+fn vanished_disposition(
+    mut state: super::SaeVanishedStageState,
+    target: &Array2<f64>,
+    metric_provenance: &'static str,
+) -> Result<SaeBoundaryDisposition, SaeFitError> {
+    if state.atoms.len() == state.term.k_atoms() {
+        return Ok(SaeBoundaryDisposition::Null(exact_null_report(
+            state,
+            target,
+            metric_provenance,
+        )));
+    }
+    let remove = state.atoms.as_btree_set();
+    structure_harvest::remove_atoms(&mut state.term, &mut state.rho, &remove)
+        .map_err(SaeFitError::Fit)?;
+    Ok(SaeBoundaryDisposition::Restart {
+        term: state.term,
+        rho: state.rho,
+    })
+}
+
+fn fit_outer_stage_to_boundary(
+    mut term: SaeManifoldTerm,
+    target: &Array2<f64>,
+    registry: &AnalyticPenaltyRegistry,
+    mut rho: SaeManifoldRho,
+    max_iter: usize,
+    learning_rate: f64,
+    ridge_ext_coord: f64,
+    ridge_beta: f64,
+    run_outer_rho_search: bool,
+    stage: SaeFitStage,
+    cancel_flag: &Arc<AtomicBool>,
+    metric_provenance: &'static str,
+) -> Result<SaeStageFit, SaeFitError> {
+    loop {
+        let mut objective = SaeManifoldOuterObjective::new(
+            term,
+            target.clone(),
+            Some(registry.clone()),
+            rho,
+            max_iter,
+            learning_rate,
+            ridge_ext_coord,
+            ridge_beta,
+        );
+        // `new` canonicalizes the rho layout against the term's assignment
+        // family.  In particular, compacting a softmax dictionary to K=1
+        // removes the now-nonexistent sparse/router coordinate.  Flatten only
+        // after that canonicalization: retaining the pre-construction flat
+        // vector would feed a stale old-K layout into the reduced objective.
+        let rho_flat = objective.current_rho_flat();
+        scope_outer_checkpoint_to_stage(&mut objective, stage);
+        objective.set_cancel_flag(Arc::clone(cancel_flag));
+
+        let boundary = if run_outer_rho_search {
+            let search_init_rho = match objective.try_resume_from_checkpoint(rho_flat.len())? {
+                Some(banked) => ndarray::Array1::from(banked),
+                None => rho_flat,
+            };
+            let problem = OuterProblem::new(search_init_rho.len())
+                .with_initial_rho(search_init_rho)
+                .with_seed_config(SeedConfig {
+                    max_seeds: 1,
+                    seed_budget: 1,
+                    ..Default::default()
+                });
+            match problem.run(&mut objective, "SAE manifold") {
+                Ok(result) if result.converged => {
+                    return certify_outer_stage(objective, stage, Ok(result))
+                        .map(SaeStageFit::Certified);
+                }
+                Ok(result) => {
+                    let terminal_rho = Array1::from(result.rho.clone());
+                    match objective.vanished_stage_state_at(terminal_rho.view()) {
+                        Ok(Some(state)) => Some(state),
+                        Ok(None) => {
+                            return Err(SaeFitError::OuterDidNotConverge {
+                                stage,
+                                result: Box::new(result),
+                            });
+                        }
+                        Err(error) => return Err(SaeFitError::Fit(error)),
+                    }
+                }
+                Err(source) => {
+                    let terminal_rho = objective.current_rho_flat();
+                    match objective.vanished_stage_state_at(terminal_rho.view()) {
+                        Ok(Some(state)) => Some(state),
+                        Ok(None) => {
+                            return Err(SaeFitError::OuterRun { stage, source });
+                        }
+                        Err(error) => return Err(SaeFitError::Fit(error)),
+                    }
+                }
+            }
+        } else {
+            match objective.fit_at_fixed_rho(rho_flat.view()) {
+                Ok(()) => return Ok(SaeStageFit::Certified(objective)),
+                Err(original) => match objective.vanished_stage_state_at(rho_flat.view()) {
+                    Ok(Some(state)) => Some(state),
+                    Ok(None) => return Err(SaeFitError::Fit(original)),
+                    Err(error) => return Err(SaeFitError::Fit(error)),
+                },
+            }
+        };
+
+        let state = boundary.expect("each non-returning branch installs a boundary state");
+        objective.remove_checkpoint();
+        match vanished_disposition(state, target, metric_provenance)? {
+            SaeBoundaryDisposition::Restart {
+                term: reduced_term,
+                rho: reduced_rho,
+            } => {
+                term = reduced_term;
+                rho = reduced_rho;
+            }
+            SaeBoundaryDisposition::Null(report) => return Ok(SaeStageFit::Null(report)),
+        }
+    }
+}
+
 /// Fully typed request for the single SAE-manifold fit entry.
 ///
 /// Seed construction is deliberately outside this type: callers build and
@@ -387,14 +686,10 @@ pub struct SaeFitRequest {
     pub promote_from_residual: bool,
     pub run_structure_search: bool,
     pub run_outer_rho_search: bool,
-    /// Number of structured-residual whitening passes (each installs a NEW
-    /// row-metric likelihood and re-runs the entire outer ρ search). `None` =
-    /// the historical default ([`STRUCTURED_RESIDUAL_PASSES_DEFAULT`] = 2);
-    /// `Some(0)` = the UNBUNDLED direct path: seed → single certified fit on
-    /// the iid likelihood. Together with `promote_from_residual = false` and
-    /// `run_structure_search = false` this is the stage-5 "which path did my
-    /// fit take" answer: exactly one.
-    pub structured_residual_passes: Option<usize>,
+    /// Explicit number of structured-residual whitening passes. Each pass
+    /// installs a new row-metric likelihood and re-runs the full outer search;
+    /// zero is the direct seed → single certified fit path.
+    pub structured_residual_passes: usize,
     pub cancel: Option<Arc<AtomicBool>>,
 }
 
@@ -411,7 +706,8 @@ pub struct SaeFitRequest {
 ///   the post-search joint shape recompute).
 /// * `cancel`, when present, is polled by every inner objective; the caller sets
 ///   it on interrupt so the abandoned worker's next outer eval bails.
-pub fn run_sae_manifold_fit(mut request: SaeFitRequest) -> Result<SaeFitReport, SaeFitError> {
+pub fn run_sae_manifold_fit(mut request: SaeFitRequest) -> Result<SaeFitOutcome, SaeFitError> {
+    validate_structured_residual_passes(request.structured_residual_passes)?;
     // #2023 Increment 5 — Tier-0 shared-mean peel as the ONE entry's NATIVE
     // preprocessing (the "seed policy" tier of the tiered schedule, folded into the
     // single fit rather than a separate surface). The shared column mean μ is the
@@ -443,6 +739,11 @@ pub fn run_sae_manifold_fit(mut request: SaeFitRequest) -> Result<SaeFitReport, 
     for mut row in request.target.rows_mut() {
         row -= &mu;
     }
+    let tier0_residual_sum_squares = request
+        .target
+        .iter()
+        .map(|value| value * value)
+        .sum::<f64>();
     // Tier-0 INPUT STANDARDIZATION — the conditioning half of the peel. There is
     // no column equilibration anywhere else in the fit path, so a raw activation
     // target's column-norm spread (measured ~1.3e4, joint Hessian κ ≈ 1e8 on
@@ -503,22 +804,159 @@ pub fn run_sae_manifold_fit(mut request: SaeFitRequest) -> Result<SaeFitReport, 
     } else {
         None
     };
-    let mut report = run_sae_manifold_fit_on_target(request)?;
-    report
-        .term
-        .set_tier0_mean(mu.clone())
-        .map_err(SaeFitError::Fit)?;
-    if let Some(sigma) = sigma.as_ref() {
-        report
-            .term
-            .set_tier0_scale(sigma.clone())
-            .map_err(SaeFitError::Fit)?;
+    let mut outcome = run_sae_manifold_fit_on_target(request)?;
+    match &mut outcome {
+        SaeFitOutcome::Manifold(report) => {
+            report
+                .term
+                .set_tier0_mean(mu.clone())
+                .map_err(SaeFitError::Fit)?;
+            if let Some(sigma) = sigma.as_ref() {
+                report
+                    .term
+                    .set_tier0_scale(sigma.clone())
+                    .map_err(SaeFitError::Fit)?;
+            }
+            lift_tier0_rows(&mut report.fitted, &mu, sigma.as_ref());
+        }
+        SaeFitOutcome::Null(report) => {
+            report.tier0 = Tier0Mean { mean: mu.clone() };
+            lift_tier0_rows(&mut report.fitted, &mu, sigma.as_ref());
+            report.residual_sum_squares = tier0_residual_sum_squares;
+            report.reconstruction_r2 = 0.0;
+        }
     }
-    // Lift the reported reconstructions back to raw-target space (the fit produced
-    // them against `(Z − μ)/σ`); assignment masses carry no mean/scale and are
-    // untouched.
-    lift_tier0_rows(&mut report.fitted, &mu, sigma.as_ref());
-    Ok(report)
+    Ok(outcome)
+}
+
+#[cfg(test)]
+mod structured_pass_request_tests {
+    use super::*;
+
+    #[test]
+    fn explicit_structured_pass_count_above_hard_cap_is_rejected_2267() {
+        assert!(validate_structured_residual_passes(0).is_ok());
+        assert!(validate_structured_residual_passes(STRUCTURED_RESIDUAL_PASSES_MAX).is_ok());
+        assert!(matches!(
+            validate_structured_residual_passes(STRUCTURED_RESIDUAL_PASSES_MAX + 1),
+            Err(SaeFitError::InvalidRequest(_))
+        ));
+    }
+}
+
+#[cfg(test)]
+mod vanished_stage_tests {
+    use super::*;
+    use crate::basis::EuclideanPatchEvaluator;
+    use crate::manifold::{AssignmentMode, SaeAssignment, SaeAtomBasisKind, SaeManifoldAtom};
+    use gam_terms::latent::LatentManifold;
+    use ndarray::Array3;
+
+    fn fixed_boundary_term(k: usize, live_first: bool) -> (SaeManifoldTerm, SaeManifoldRho) {
+        let n = 8usize;
+        let p = 2usize;
+        let mut atoms = Vec::with_capacity(k);
+        for atom in 0..k {
+            let mut decoder = Array2::<f64>::zeros((1, p));
+            if atom == 0 && live_first {
+                decoder[[0, 0]] = 1.0;
+            }
+            let evaluator = Arc::new(
+                EuclideanPatchEvaluator::new(1, 0).expect("degree-zero Euclidean evaluator"),
+            );
+            atoms.push(
+                SaeManifoldAtom::new_with_provided_function_gram(
+                    format!("atom{atom}"),
+                    SaeAtomBasisKind::EuclideanPatch,
+                    1,
+                    Array2::<f64>::ones((n, 1)),
+                    Array3::<f64>::zeros((n, 1, 1)),
+                    decoder,
+                    Array2::<f64>::eye(1),
+                )
+                .unwrap()
+                .with_basis_second_jet(evaluator),
+            );
+        }
+        let mut logits = Array2::<f64>::zeros((n, k));
+        if k > 1 {
+            logits.column_mut(1).fill(-40.0);
+        }
+        let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
+            logits,
+            vec![Array2::<f64>::zeros((n, 1)); k],
+            vec![LatentManifold::Euclidean; k],
+            AssignmentMode::softmax(1.0),
+        )
+        .unwrap();
+        let term = SaeManifoldTerm::new(atoms, assignment).unwrap();
+        let rho = SaeManifoldRho::new(0.0, 0.0, vec![Array1::<f64>::zeros(1); k]);
+        (term, rho)
+    }
+
+    #[test]
+    fn committed_k2_boundary_compacts_and_fixed_rho_restart_certifies_k1() {
+        let (term, rho) = fixed_boundary_term(2, true);
+        let mut target = Array2::<f64>::zeros((8, 2));
+        target.column_mut(0).fill(1.0);
+        let registry = AnalyticPenaltyRegistry::new();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let stage = fit_outer_stage_to_boundary(
+            term,
+            &target,
+            &registry,
+            rho,
+            0,
+            1.0,
+            1.0e-6,
+            1.0e-6,
+            false,
+            SaeFitStage::Primary,
+            &cancel,
+            "Euclidean",
+        )
+        .expect("proper vanished subset must restart on the compacted stratum");
+        let SaeStageFit::Certified(objective) = stage else {
+            panic!("one live atom must not collapse to the Tier-0 null");
+        };
+        let fitted = objective
+            .into_fitted()
+            .expect("reduced fixed-rho state must carry an inner certificate");
+        assert_eq!(fitted.term.k_atoms(), 1);
+        assert_eq!(fitted.rho.log_lambda_smooth.len(), 1);
+        assert_eq!(fitted.rho.log_ard.len(), 1);
+        assert!(fitted.penalized_quasi_laplace_criterion.is_finite());
+    }
+
+    #[test]
+    fn committed_k1_boundary_returns_exact_tier0_null_not_manifold_fit() {
+        let (term, rho) = fixed_boundary_term(1, false);
+        let target = Array2::<f64>::ones((8, 2));
+        let registry = AnalyticPenaltyRegistry::new();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let stage = fit_outer_stage_to_boundary(
+            term,
+            &target,
+            &registry,
+            rho,
+            0,
+            1.0,
+            1.0e-6,
+            1.0e-6,
+            false,
+            SaeFitStage::Primary,
+            &cancel,
+            "Euclidean",
+        )
+        .expect("all-vanished state must be an exact structural result");
+        let SaeStageFit::Null(report) = stage else {
+            panic!("K=1 vanished boundary must not mint a manifold fit");
+        };
+        assert_eq!(report.vanished_atoms.iter().collect::<Vec<_>>(), vec![0]);
+        assert_eq!(report.tier0.mean, Array1::<f64>::zeros(2));
+        assert!(report.residual_sum_squares.is_finite());
+        assert_eq!(report.fitted, Array2::<f64>::zeros((8, 2)));
+    }
 }
 
 /// Lift an `N×p` reconstruction produced against the standardized de-meaned
@@ -538,7 +976,7 @@ fn lift_tier0_rows(recon: &mut Array2<f64>, mu: &Array1<f64>, sigma: Option<&Arr
 /// already been peeled by [`run_sae_manifold_fit`] (or that the caller centered
 /// and whose mean the seed term already owns). Every reconstruction/EV inside is
 /// therefore in the de-meaned frame; the wrapper owns the μ add-back.
-fn run_sae_manifold_fit_on_target(request: SaeFitRequest) -> Result<SaeFitReport, SaeFitError> {
+fn run_sae_manifold_fit_on_target(request: SaeFitRequest) -> Result<SaeFitOutcome, SaeFitError> {
     let SaeFitRequest {
         base_term,
         target: z,
@@ -567,62 +1005,28 @@ fn run_sae_manifold_fit_on_target(request: SaeFitRequest) -> Result<SaeFitReport
         .assignment
         .validate_rho_domain(&init_rho)
         .map_err(SaeFitError::Fit)?;
-    let init_rho_flat = init_rho.to_flat();
-    let n_params = init_rho_flat.len();
-
     // #2138 — the whole entry runs on the binding's GIL-released worker thread, so
     // interruptibility is the shared `cancel` flag rather than a per-fit thread.
     // Each objective polls it and bails its next outer eval when the caller sets
     // it on interrupt. Absent ⇒ a fresh, never-set flag (no cancellation).
     let cancel_flag = cancel.unwrap_or_else(|| Arc::new(AtomicBool::new(false)));
 
-    // Route every problem size through the full-batch objective on the owned
-    // `target`: the inner Arrow-Schur fit materializes the `(N × M_total)`
-    // basis, `(N × M_total × d)` jacobian, and `(N × K)` logit buffers in full,
-    // so the outer-cascade entry point owns the full target verbatim.
-    let mut objective = SaeManifoldOuterObjective::new(
+    let mut objective = match fit_outer_stage_to_boundary(
         base_term,
-        z.clone(),
-        Some(registry.clone()),
+        &z,
+        &registry,
         init_rho,
         max_iter,
         learning_rate,
         ridge_ext_coord,
         ridge_beta,
-    );
-    scope_outer_checkpoint_to_stage(&mut objective, SaeFitStage::Primary);
-    // #1026 — "normal SAE" entry: a single seed (the PCA decoder-projection
-    // seed already installed on the term) with NO ρ-multistart. seed_budget=1 +
-    // max_seeds=1 collapses the cascade to the single initial ρ.
-    objective.set_cancel_flag(Arc::clone(&cancel_flag));
-    let mut objective = if run_outer_rho_search {
-        // #2241 — do not tune convergence to a workload's observed criterion
-        // creep and do not return merely because an iteration budget expired.
-        // SAE's Fellner–Schall lane carries a typed recurrent-incumbent
-        // certificate: two consecutive inner solves restoring the same banked
-        // model terminate the fixed-point walk directly. Gradient-based plans
-        // retain the shared solver's stationarity and cost-stall tests.
-        // SPEC wall-survival resume: if a checkpoint for this exact data
-        // fingerprint exists (a prior job died at its wall mid-search), install
-        // the banked incumbent as the warm start and open the ρ search at the
-        // banked coordinate. The resumed run must still CONVERGE on its own —
-        // a checkpoint never mints a fit, it only saves the work.
-        let search_init_rho = match objective.try_resume_from_checkpoint(n_params)? {
-            Some(banked) => ndarray::Array1::from(banked),
-            None => init_rho_flat.clone(),
-        };
-        let problem = OuterProblem::new(n_params)
-            .with_initial_rho(search_init_rho)
-            .with_seed_config(SeedConfig {
-                max_seeds: 1,
-                seed_budget: 1,
-                ..Default::default()
-            });
-        let run_result = problem.run(&mut objective, "SAE manifold");
-        certify_outer_stage(objective, SaeFitStage::Primary, run_result)?
-    } else {
-        objective.fit_at_fixed_rho(init_rho_flat.view())?;
-        objective
+        run_outer_rho_search,
+        SaeFitStage::Primary,
+        &cancel_flag,
+        metric_provenance,
+    )? {
+        SaeStageFit::Certified(objective) => objective,
+        SaeStageFit::Null(report) => return Ok(SaeFitOutcome::Null(report)),
     };
     // Posterior shape uncertainty: per-atom φ-scaled decoder covariance and
     // ambient bands, read off the converged joint-Hessian Schur factor at the
@@ -672,8 +1076,7 @@ fn run_sae_manifold_fit_on_target(request: SaeFitRequest) -> Result<SaeFitReport
     // γ_p = (p+1)/(N+1) ∈ (0,1) trusts the new estimate more each pass while
     // damping the early jump off the iid fit (γ is never 0 or 1, so every pass
     // builds a genuine WhitenedStructured blend).
-    let structured_passes =
-        structured_residual_passes.unwrap_or(STRUCTURED_RESIDUAL_PASSES_DEFAULT);
+    let structured_passes = structured_residual_passes;
     let mut structured_residual_diagnostics: Vec<StructuredResidualPassDiagnostic> = Vec::new();
     if structured_passes > 0 && metric_provenance == "Euclidean" {
         let mut prev_model: Option<StructuredResidualModel> = None;
@@ -709,9 +1112,8 @@ fn run_sae_manifold_fit_on_target(request: SaeFitRequest) -> Result<SaeFitReport
         // rank `r`. It is derived here and used identically by the producer-side
         // candidate gate and the nursery lineage-dedup below.
         //
-        // `promote_from_residual` is the typed caller flag (default TRUE, #2239:
-        // magic-by-default — the evidence certificate above, not the flag, is the
-        // real gate). `false` pins the historical whitening-without-growth path.
+        // `promote_from_residual` is an explicit typed stage switch. Evidence
+        // gates candidates inside the stage; a direct fit never enters it.
         let mut nursery: Vec<(Array1<f64>, usize)> = Vec::new();
         let mut total_passes = structured_passes;
         let mut pass = 0usize;
@@ -727,59 +1129,26 @@ fn run_sae_manifold_fit_on_target(request: SaeFitRequest) -> Result<SaeFitReport
             let dispersion_before = shape_uncertainty.dispersion;
             let log_lambda_smooth_before = rho.log_lambda_smooth.clone();
             term.set_row_metric(metric)?;
-            // Clone the pre-built registry (cheap) and warm-start ρ from the
-            // settled fit — identical to the binding rebuilding it from the same
-            // `latent_payload` + descriptor JSON each pass.
-            let warm_flat = rho.to_flat();
-            let mut objective = SaeManifoldOuterObjective::new(
+            let stage = SaeFitStage::StructuredResidual {
+                pass: pass + 1,
+                total_passes,
+            };
+            let mut objective = match fit_outer_stage_to_boundary(
                 term,
-                z.clone(),
-                Some(registry.clone()),
+                &z,
+                &registry,
                 rho,
                 max_iter,
                 learning_rate,
                 ridge_ext_coord,
                 ridge_beta,
-            );
-            let stage = SaeFitStage::StructuredResidual {
-                pass: pass + 1,
-                total_passes,
-            };
-            scope_outer_checkpoint_to_stage(&mut objective, stage);
-            // #2021 — a promotion (below) grows K, enlarging ρ; size the outer
-            // problem from the CURRENT warm vector, not the pass-0 `n_params`
-            // (identical to `n_params` when no birth has occurred).
-            // Resume only the checkpoint for this exact structured phase. Earlier
-            // phases have already been deterministically rebuilt on this run;
-            // their distinct files cannot leak a differently-whitened state here.
-            let search_init_rho = match objective.try_resume_from_checkpoint(warm_flat.len())? {
-                Some(banked) => ndarray::Array1::from(banked),
-                None => warm_flat,
-            };
-            // #2138 — same shared cancel flag; each pass's objective polls it.
-            objective.set_cancel_flag(Arc::clone(&cancel_flag));
-            // Honor the same typed outer-search contract as pass 0. Structured
-            // residual alternation still runs when ρ search is disabled; only
-            // the hyperparameter walk is fixed at the warm ρ. The former
-            // unconditional `OuterProblem` silently re-enabled an outer search
-            // after a fixed-ρ primary fit.
-            let mut objective = if run_outer_rho_search {
-                let problem = OuterProblem::new(search_init_rho.len())
-                    .with_initial_rho(search_init_rho)
-                    .with_seed_config(SeedConfig {
-                        max_seeds: 1,
-                        seed_budget: 1,
-                        ..Default::default()
-                    });
-                // SPEC 20 — possession of the objective below is itself the
-                // convergence certificate: `certify_outer_stage` returns it only for
-                // `OuterResult.converged`, and drops it without removing its
-                // phase-scoped checkpoint for every typed failure.
-                let run_result = problem.run(&mut objective, "SAE manifold (structured)");
-                certify_outer_stage(objective, stage, run_result)?
-            } else {
-                objective.fit_at_fixed_rho(search_init_rho.view())?;
-                objective
+                run_outer_rho_search,
+                stage,
+                &cancel_flag,
+                installed_label,
+            )? {
+                SaeStageFit::Certified(objective) => objective,
+                SaeStageFit::Null(report) => return Ok(SaeFitOutcome::Null(report)),
             };
             // Refresh shape bands + fitted state from the FINAL pass objective
             // (decoder_shape_uncertainty must be read before `into_fitted`).
@@ -1151,15 +1520,22 @@ fn run_sae_manifold_fit_on_target(request: SaeFitRequest) -> Result<SaeFitReport
         _ => alpha.ln(),
     };
 
-    // Anytime-valid structure certificate (#1058 / #984): the e-BH certificate
-    // over the ledger's per-claim e-processes at the search FDR level α = 0.05.
-    let structure_certificate = structure_ledger
-        .certify(0.05)
-        .map_err(|error| error.to_string())?;
-    let structure_certificate_json =
-        serde_json::to_string(&structure_certificate).map_err(|e| e.to_string())?;
+    // A structure certificate is evidence about a structure search, not a
+    // generic stationary-fit badge. An absent/skipped search therefore carries
+    // no empty-ledger certificate.
+    let structure_certificate_json = structure_search_json
+        .as_ref()
+        .map(|_| {
+            structure_ledger
+                .certify(0.05)
+                .map_err(|error| error.to_string())
+                .and_then(|certificate| {
+                    serde_json::to_string(&certificate).map_err(|error| error.to_string())
+                })
+        })
+        .transpose()?;
 
-    Ok(SaeFitReport {
+    Ok(SaeFitOutcome::Manifold(SaeFitReport {
         term,
         rho,
         loss,
@@ -1179,7 +1555,7 @@ fn run_sae_manifold_fit_on_target(request: SaeFitRequest) -> Result<SaeFitReport
         structure_search_json,
         structure_certificate_json,
         reported_log_alpha,
-    })
+    }))
 }
 
 /// Fully typed request for the EVALUATION-ONLY certification entry (#2266):
@@ -1208,36 +1584,26 @@ pub struct SaeCertifyRequest {
     pub isometry_pin_active: bool,
     pub metric_provenance: &'static str,
     /// #977/#997 evidence-guarded structure search around the installed
-    /// state. Default TRUE at the binding boundary (magic-by-default, the
-    /// same policy the fit entry applies): certification is still a genuine
-    /// dictionary-discovery boundary, not a pass-through of the caller's K.
+    /// state. This is explicit opt-in: evaluation-only certification preserves
+    /// the dictionary the external trainer supplied unless asked to search.
     pub run_structure_search: bool,
-    /// No outer search and no inner solve run on this path, so nothing polls
-    /// this flag; kept only for typed symmetry with [`SaeFitRequest::cancel`].
-    pub cancel: Option<Arc<AtomicBool>>,
 }
 
-/// Evaluation-only certification entry (#2266). Installs an
-/// externally-trained (torch-lane) SAE-manifold state VERBATIM — no outer ρ
-/// search, no inner solve, no #2021 structured-residual alternation, no
-/// residual-promotion — and then runs exactly the post-fit
-/// diagnostics/certificate pipeline [`run_sae_manifold_fit`] runs after ITS
-/// own solve (shape-uncertainty bands, trust/fit reports, coordinate
-/// fidelity, the optional #977/#997 structure search, and the anytime-valid
-/// structure certificate). This is how a fit produced outside the closed-form
-/// engine gets the same certificates as a native fit, without pretending a
-/// first-order stationarity certificate exists for state this entry never
-/// optimized: `outer_termination.verdict` reports
-/// [`SaeOuterVerdict::External`], and `penalized_quasi_laplace_criterion` is
-/// documented as the penalized objective evaluated AT the provided state, not
-/// a certified stationary criterion.
+/// Zero-optimization certification entry (#2263). Installs an externally
+/// trained SAE-manifold state verbatim, measures its exact inner KKT residual,
+/// then applies the shared analytic outer-criterion certificate at the supplied
+/// rho. A failed audit returns [`SaeExternalEvaluationReport`], never a fit.
+/// Only a state that independently passes both authorities enters the native
+/// post-fit diagnostics and optional structure-evidence pipeline.
 ///
 /// KEEP IN SYNC WITH `run_sae_manifold_fit_on_target`'s postlude (#2266): the
 /// shared post-fit pipeline is duplicated here rather than extracted into a
 /// common helper, because the source function is under concurrent edit
 /// elsewhere in this workspace and an extraction risked colliding with that
 /// churn. A change to one postlude must be mirrored in the other.
-pub fn run_sae_manifold_certify(request: SaeCertifyRequest) -> Result<SaeFitReport, SaeFitError> {
+pub fn run_sae_manifold_certify(
+    request: SaeCertifyRequest,
+) -> Result<SaeExternalCertificationOutcome, SaeFitError> {
     let SaeCertifyRequest {
         base_term,
         target: z,
@@ -1251,33 +1617,69 @@ pub fn run_sae_manifold_certify(request: SaeCertifyRequest) -> Result<SaeFitRepo
         isometry_pin_active,
         metric_provenance,
         run_structure_search,
-        cancel: _cancel,
     } = request;
     let (n_obs, p_out) = z.dim();
     let mut term = base_term;
     // Bind the flat assignment-strength layout tag to the term's assignment
     // family; this changes no numeric value, so `rho` is otherwise installed
     // verbatim from the caller.
-    let mut rho = initial_rho.for_assignment(term.assignment.mode);
+    let rho = initial_rho.for_assignment(term.assignment.mode);
     term.assignment
         .validate_rho_domain(&rho)
         .map_err(SaeFitError::Fit)?;
 
-    // No outer search / inner solve ran, so there is no just-converged joint
-    // Hessian factor to read off an outer objective (contrast
-    // `run_sae_manifold_fit_on_target`'s `objective.decoder_shape_uncertainty()`
-    // before `into_fitted`). Form the joint shape bands directly off the
-    // CURRENT term + rho — the same rebuild `run_sae_manifold_fit_on_target`
-    // uses when a post-search structural change stales its pre-search bands.
-    let mut shape_uncertainty = term.recompute_joint_shape_uncertainty(
-        z.view(),
-        &rho,
-        Some(&registry),
-        max_iter,
+    let inner_audit = installed_inner_kkt_audit(&mut term, z.view(), &rho, &registry)?;
+    if !inner_audit.certifies() {
+        return Ok(external_nonstationary_report(
+            inner_audit.clone(),
+            None,
+            format!(
+                "installed external state failed inner KKT stationarity: raw={:.6e}, quotient={:.6e}, bound={:.6e}",
+                inner_audit.raw_gradient_norm,
+                inner_audit.quotient_gradient_norm,
+                inner_audit.stationarity_bound,
+            ),
+        ));
+    }
+
+    // Construct the ordinary native outer objective in frozen installed-state
+    // mode. The audit evaluates the exact supplied point once; it runs neither
+    // an inner update nor an outer optimization loop.
+    let rho_flat = rho.to_flat();
+    let mut objective = SaeManifoldOuterObjective::new(
+        term,
+        z.clone(),
+        Some(registry.clone()),
+        rho,
+        0,
         learning_rate,
         ridge_ext_coord,
         ridge_beta,
-    )?;
+    )
+    .for_installed_state_audit();
+    let outer_result = match audit_stationary_point(
+        &mut objective,
+        rho_flat,
+        "SAE external installed-state audit",
+    ) {
+        Ok(result) => result,
+        Err(rejection) => {
+            return Ok(external_nonstationary_report(
+                inner_audit,
+                Some(&rejection.result),
+                rejection.source.to_string(),
+            ));
+        }
+    };
+    objective
+        .certify_installed_state_audit(&outer_result)
+        .map_err(SaeFitError::Fit)?;
+    let mut shape_uncertainty = objective.decoder_shape_uncertainty()?;
+    let fitted_result = objective.into_fitted().map_err(SaeFitError::Fit)?;
+    let mut term = fitted_result.term;
+    let mut rho = fitted_result.rho;
+    let penalized_quasi_laplace_criterion = fitted_result.penalized_quasi_laplace_criterion;
+    let outer_termination = fitted_result.termination;
 
     {
         let assignments = term.assignment.assignments();
@@ -1492,28 +1894,23 @@ pub fn run_sae_manifold_certify(request: SaeCertifyRequest) -> Result<SaeFitRepo
         _ => alpha.ln(),
     };
 
-    // Anytime-valid structure certificate (#1058 / #984), exactly as the fit
-    // entry produces it — empty ledger certifies trivially when the search did
-    // not run.
-    let structure_certificate = structure_ledger
-        .certify(0.05)
-        .map_err(|error| error.to_string())?;
-    let structure_certificate_json =
-        serde_json::to_string(&structure_certificate).map_err(|e| e.to_string())?;
-
-    // #2266 — no outer search and no inner solve ran; the returned scalars are
-    // evaluated AT the installed state, not certified as a stationary optimum.
+    // A structure certificate exists only when this entry genuinely ran the
+    // structure search. Stationarity alone certifies the installed fit state,
+    // not unsearched dictionary alternatives.
+    let structure_certificate_json = structure_search_json
+        .as_ref()
+        .map(|_| {
+            structure_ledger
+                .certify(0.05)
+                .map_err(|error| error.to_string())
+                .and_then(|certificate| {
+                    serde_json::to_string(&certificate).map_err(|error| error.to_string())
+                })
+        })
+        .transpose()?;
     let loss = term.loss(z.view(), &rho)?;
-    let penalized_quasi_laplace_criterion =
-        term.penalized_objective_total(z.view(), &rho, Some(&registry), 1.0)?;
-    let outer_termination = SaeOuterTermination {
-        verdict: SaeOuterVerdict::External,
-        evals: 0,
-        evals_since_improvement: 0,
-        wall: std::time::Duration::ZERO,
-    };
 
-    Ok(SaeFitReport {
+    Ok(SaeExternalCertificationOutcome::Certified(SaeFitReport {
         term,
         rho,
         loss,
@@ -1533,7 +1930,7 @@ pub fn run_sae_manifold_certify(request: SaeCertifyRequest) -> Result<SaeFitRepo
         structure_search_json,
         structure_certificate_json,
         reported_log_alpha,
-    })
+    }))
 }
 
 #[cfg(test)]

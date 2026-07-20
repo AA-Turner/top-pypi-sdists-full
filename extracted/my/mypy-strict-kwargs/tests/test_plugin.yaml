@@ -15,7 +15,7 @@
     def func(a: int) -> None: ...
     func(1)
   out: |
-    main:2: error: Too many positional arguments for "func"  [misc]
+    main:2: error: Too many positional arguments for "func"  [call-arg]
 
 - case: positional_optional
   mypy_config: |
@@ -26,7 +26,7 @@
     func(1)
     func()
   out: |
-    main:2: error: Too many positional arguments for "func"  [misc]
+    main:2: error: Too many positional arguments for "func"  [call-arg]
 
 - case: keyword_only
   mypy_config: |
@@ -86,7 +86,7 @@
     def func(a: int, **kwargs: str) -> None: ...
     func(1)
   out: |
-    main:2: error: Too many positional arguments for "func"  [misc]
+    main:2: error: Too many positional arguments for "func"  [call-arg]
 
 - case: var_positional_followed_by_keyword
   mypy_config: |
@@ -109,7 +109,7 @@
     c = C()
     c.method(1)
   out: |-
-    main:7: error: Too many positional arguments for "method" of "C"  [misc]
+    main:7: error: Too many positional arguments for "method" of "C"  [call-arg]
 
 - case: super_method
   mypy_config: |
@@ -123,7 +123,7 @@
         def method(self, a: int) -> None:
             super().method(1)
   out: |-
-    main:6: error: Too many positional arguments for "method" of "B"  [misc]
+    main:6: error: Too many positional arguments for "method" of "B"  [call-arg]
 
 - case: super_method_ignore_name
   mypy_config: |
@@ -162,7 +162,7 @@
         def call(self) -> int:
             return super().method(1)
   out: |-
-    main:5: error: Too many positional arguments for "method" of "B"  [misc]
+    main:5: error: Too many positional arguments for "method" of "B"  [call-arg]
 
 - case: super_method_explicit_super
   mypy_config: |
@@ -176,7 +176,77 @@
         def method(self, a: int) -> None:
             super(C, self).method(1)
   out: |-
-    main:6: error: Too many positional arguments for "method" of "B"  [misc]
+    main:6: error: Too many positional arguments for "method" of "B"  [call-arg]
+
+- case: super_method_explicit_super_from_base
+  mypy_config: |
+    [mypy]
+    plugins = mypy_strict_kwargs
+  main: |-
+    class A:
+        def method(self, value: int, /) -> None: ...
+
+    class B(A):
+        def method(self, value: int) -> None: ...
+
+    class C(B):
+        def call(self) -> None:
+            super(B, self).method(1)
+
+# Fall back to zero-argument super() MRO when the first argument is not a
+# simple name or attribute (e.g. an index expression).
+- case: super_method_explicit_super_non_name
+  mypy_config: |
+    [mypy]
+    plugins = mypy_strict_kwargs
+  main: |-
+    class B:
+        def method(self, a: int) -> None: ...
+
+    class C(B):
+        def method(self, a: int) -> None:
+            classes = (B,)
+            super(classes[0], self).method(1)
+  out: |-
+    main:7: error: Too many positional arguments for "method" of "B"  [call-arg]
+    main:7: error: "method" undefined in superclass  [misc]
+
+# Fall back when the first argument name does not resolve to a type.
+- case: super_method_explicit_super_non_type
+  mypy_config: |
+    [mypy]
+    plugins = mypy_strict_kwargs
+  main: |-
+    x = 1
+
+    class B:
+        def method(self, a: int) -> None: ...
+
+    class C(B):
+        def method(self, a: int) -> None:
+            super(x, self).method(1)
+  out: |-
+    main:8: error: Too many positional arguments for "method" of "B"  [call-arg]
+    main:8: error: Argument 1 for "super" must be a type object; got a non-type instance  [arg-type]
+
+# Fall back when the explicit type is not in the current class MRO.
+- case: super_method_explicit_super_not_in_mro
+  mypy_config: |
+    [mypy]
+    plugins = mypy_strict_kwargs
+  main: |-
+    class Unrelated:
+        pass
+
+    class B:
+        def method(self, a: int) -> None: ...
+
+    class C(B):
+        def method(self, a: int) -> None:
+            super(Unrelated, self).method(1)
+  out: |-
+    main:9: error: Too many positional arguments for "method" of "B"  [call-arg]
+    main:9: error: Argument 2 for "super" not an instance of argument 1  [misc]
 
 - case: super_method_keyword_argument
   mypy_config: |
@@ -202,6 +272,23 @@
         def method(self, a: int) -> None:
             super().method(1)
 
+- case: super_method_var_positional_followed_by_keyword
+  mypy_config: |
+    [mypy]
+    plugins = mypy_strict_kwargs
+  main: |-
+    class B:
+        def method(
+            self,
+            first: int,
+            *rest: int,
+            option: int = 0,
+        ) -> None: ...
+
+    class C(B):
+        def call(self) -> None:
+            super().method(1, 2, 3)
+
 - case: super_method_too_many_arguments
   mypy_config: |
     [mypy]
@@ -215,6 +302,137 @@
             super().method(1)
   out: |-
     main:6: error: Too many arguments for "method" of "B"  [call-arg]
+
+- case: super_method_fixed_tuple_unpacking
+  mypy_config: |
+    [mypy]
+    plugins = mypy_strict_kwargs
+  main: |-
+    class Base:
+        def method(self, value: int) -> None: ...
+
+    class Child(Base):
+        def call(self, args: tuple[int]) -> None:
+            super().method(*args)
+            super().method(*(1,))
+            super().method(*[1])
+
+    class VariadicBase:
+        def method(self, *values: int, option: int = 0) -> None: ...
+
+    class VariadicChild(VariadicBase):
+        def call(self, args: tuple[int, int]) -> None:
+            super().method(*args)
+
+    args = (1,)
+    Base().method(*args)
+    Base().method(*(1,))
+  out: |-
+    main:6: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:7: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:8: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:18: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:19: error: Too many positional arguments for "method" of "Base"  [call-arg]
+
+- case: super_method_star_spread_in_tuple_literal
+  mypy_config: |
+    [mypy]
+    plugins = mypy_strict_kwargs
+  main: |-
+    class Base:
+        def method(self, a: int, /, b: int = 0) -> None: ...
+
+    class Child(Base):
+        def call(self, rest: tuple[int, ...]) -> None:
+            super().method(*(1, *rest))
+
+- case: super_method_star_spread_checks_leading_items
+  mypy_config: |
+    [mypy]
+    plugins = mypy_strict_kwargs
+  main: |-
+    class Base:
+        def method(self, value: int) -> None: ...
+
+    class Child(Base):
+        def call(self, rest: tuple[int, ...]) -> None:
+            super().method(*(1, *rest))
+  out: |-
+    main:6: error: Too many positional arguments for "method" of "Base"  [call-arg]
+
+- case: super_method_list_literal_unpacking
+  mypy_config: |
+    [mypy]
+    plugins = mypy_strict_kwargs
+  main: |-
+    class Base:
+        def method(self, value: int) -> None: ...
+
+    class Child(Base):
+        def call(self) -> None:
+            super().method(*[1])
+            super().method(*[1, 2])
+  out: |-
+    main:6: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:7: error: Too many positional arguments for "method" of "Base"  [call-arg]
+
+- case: super_method_list_literal_star_spread
+  mypy_config: |
+    [mypy]
+    plugins = mypy_strict_kwargs
+  main: |-
+    class Base:
+        def method(self, a: int, /, b: int = 0) -> None: ...
+
+    class Child(Base):
+        def call(self, rest: tuple[int, ...]) -> None:
+            super().method(*[1, *rest])
+
+- case: super_method_unpacking_unknown_expression
+  mypy_config: |
+    [mypy]
+    plugins = mypy_strict_kwargs
+  main: |-
+    class Base:
+        def method(self, value: int) -> None: ...
+
+    class Child(Base):
+        data: tuple[int, ...]
+
+        def call(self) -> None:
+            super().method(*self.data)
+
+- case: super_method_fixed_tuple_unpacking_nested_scope
+  mypy_config: |
+    [mypy]
+    plugins = mypy_strict_kwargs
+  main: |-
+    class Base:
+        def method(self, value: int) -> None: ...
+
+    class Child(Base):
+        def call(self, args: tuple[int]) -> None:
+            def inner() -> None:
+                super(Child, self).method(*args)
+
+            inner()
+  out: |-
+    main:7: error: Too many positional arguments for "method" of "Base"  [call-arg]
+
+- case: super_method_fixed_tuple_unpacking_inner_scope_shadows
+  mypy_config: |
+    [mypy]
+    plugins = mypy_strict_kwargs
+  main: |-
+    class Base:
+        def method(self, value: int) -> None: ...
+
+    class Child(Base):
+        def call(self, args: tuple[int]) -> None:
+            def inner(args: list[int]) -> None:
+                super(Child, self).method(*args)
+
+            inner(args=[1])
 
 - case: super_method_ignores_non_super_calls
   mypy_config: |
@@ -262,6 +480,14 @@
     class C(B):
         def call(self) -> None:
             super().method()
+
+    class NestedBase:
+        class factory:
+            pass
+
+    class NestedChild(NestedBase):
+        def call(self) -> None:
+            super().factory()
   out: |-
     main:6: error: "int" not callable  [operator]
 
@@ -285,7 +511,7 @@
         def method(self, a: int) -> None:
             super().method(1)
   out: |-
-    main:14: error: Too many positional arguments for "method" of "B"  [misc]
+    main:14: error: Too many positional arguments for "method" of "B"  [call-arg]
 
 - case: super_method_staticmethod
   mypy_config: |
@@ -300,7 +526,26 @@
         def call(self) -> None:
             super().method(1)
   out: |-
-    main:7: error: Too many positional arguments for "method" of "B"  [misc]
+    main:7: error: Too many positional arguments for "method" of "B"  [call-arg]
+
+- case: super_method_assigned_staticmethod
+  mypy_config: |
+    [mypy]
+    plugins = mypy_strict_kwargs
+  main: |-
+    def implementation(value: int) -> None: ...
+
+    class B:
+        method = staticmethod(implementation)
+
+    class C(B):
+        def call(self) -> None:
+            super().method(1)
+
+    B().method(1)
+  out: |-
+    main:8: error: Too many positional arguments for "method" of "B"  [call-arg]
+    main:10: error: Too many positional arguments  [call-arg]
 
 - case: super_method_no_type_check_decorated_base_method
   disable_cache: true
@@ -319,7 +564,7 @@
         def method(self, a: int) -> None:
             super().method(1)
 
-- case: super_method_continues_past_positional_only_base
+- case: super_method_stops_at_positional_only_base
   mypy_config: |
     [mypy]
     plugins = mypy_strict_kwargs
@@ -333,8 +578,208 @@
     class C(B, A):
         def method(self, a: int) -> None:
             super().method(1)
+
+- case: super_method_stops_at_non_callable_base_member
+  mypy_config: |
+    [mypy]
+    plugins = mypy_strict_kwargs
+  main: |-
+    class A:
+        def method(self, a: int) -> None: ...
+
+    class B:
+        method = 1
+
+    class C(B, A):
+        def call(self) -> None:
+            super().method(1)
   out: |-
-    main:9: error: Too many positional arguments for "method" of "A"  [misc]
+    main:7: error: Definition of "method" in base class "B" is incompatible with definition in base class "A"  [misc]
+    main:9: error: "int" not callable  [operator]
+
+- case: nested_class_super_uses_nested_class_mro
+  mypy_config: |
+    [mypy]
+    plugins = mypy_strict_kwargs
+  main: |-
+    class PositionalOnlyBase:
+        def method(self, value: int, /) -> None: ...
+
+    class KeywordBase:
+        def method(self, value: int) -> None: ...
+
+    class Outer(KeywordBase):
+        class Inner(PositionalOnlyBase):
+            def call(self) -> None:
+                super().method(1)
+
+- case: class_method_traversal_collects_calls
+  disable_cache: true
+  mypy_config: |
+    [mypy]
+    plugins = mypy_strict_kwargs
+  main: |-
+    from collections.abc import Iterator
+    from contextlib import contextmanager
+    from typing import Generic, TypeVar, assert_type, cast, overload
+
+    T = TypeVar("T")
+
+    def cond() -> bool:
+        return True
+
+    def one() -> int:
+        return 0
+
+    def two(x: int) -> int:
+        return x
+
+    def items() -> list[int]:
+        return []
+
+    def gen() -> Iterator[int]:
+        return iter([])
+
+    @contextmanager
+    def cm() -> Iterator[None]:
+        yield
+
+    async def aio() -> int:
+        return 0
+
+    def class_decorator(cls: type) -> type:
+        return cls
+
+    class B:
+        def m(self) -> None: ...
+
+    class C(B):
+        @overload
+        def overloaded(self, x: int) -> int: ...
+
+        @overload
+        def overloaded(self, x: str) -> str: ...
+
+        def overloaded(self, x: int | str) -> int | str:
+            return one()
+
+        def exercise(self) -> int:
+            @class_decorator
+            class Local(B, Generic[T], metaclass=type):
+                pass
+
+            while cond():
+                one()
+            else:
+                two(x=0)
+            while False:
+                one()
+            for _ in items():
+                one()
+            else:
+                two(x=0)
+            for _ in items():
+                one()
+            if cond():
+                one()
+            else:
+                two(x=0)
+            try:
+                one()
+            except OSError as error:
+                two(x=0)
+                raise ValueError from error
+            except:
+                two(x=0)
+                raise
+            try:
+                one()
+            except OSError:
+                two(x=0)
+            else:
+                one()
+            finally:
+                two(x=0)
+            with cm():
+                one()
+            with cm() as _:
+                one()
+            _ = cast(int, one())
+            assert_type(one(), int)
+            _ = f"{one():d}"
+            match one():
+                case 0 | 1:
+                    one()
+                case {"k": v}:
+                    one()
+                case {"j": w, **mapping_rest}:
+                    one()
+                case [a, *rest]:
+                    one()
+                case [*_]:
+                    one()
+                case int():
+                    one()
+                case _ as captured:
+                    one()
+                case 0 if cond():
+                    two(x=0)
+                case _:
+                    one()
+            match object():
+                case None:
+                    one()
+                case _:
+                    two(x=0)
+            assert cond()
+            assert False, one()
+            _ = f"plain"
+            _ = f"prefix{one()}suffix"
+            _ = f"{one()}"
+            scratch = items()
+            del scratch
+            x = one() + two(x=0)
+            x += one()
+            _ = not one()
+            _ = items()[0]
+            _ = items()[one():1]
+            _ = items()[:1]
+            _ = items()[::1]
+            _ = (y := one())
+            _ = lambda: one()
+            _ = one() if cond() else two(x=0)
+            _ = [one() for _ in items()]
+            _ = {one(): two(x=0)}
+            _ = {**{one(): two(x=0)}}
+            _ = {one()}
+            _ = {i for i in items() if one()}
+            _ = (one() for _ in items())
+            _ = {i: two(x=i) for i in items() if one()}
+            raise ValueError(str(one()))
+            return two(x=x)
+
+        def bare_return(self) -> None:
+            return
+
+        async def awaiter(self) -> None:
+            await aio()
+
+        def gen_from(self) -> Iterator[int]:
+            yield from gen()
+
+        def generator(self) -> Iterator[int | None]:
+            yield None
+            yield one()
+
+        def bare_yield(self) -> Iterator[None]:
+            yield
+
+        def defaulted(self, limit: int = one()) -> None:
+            del limit
+
+    @class_decorator
+    class D(B, metaclass=type):
+        pass
 
 - case: inherited_methods_preserve_protocol_compatibility
   mypy_config: |
@@ -431,7 +876,7 @@
     c(func=lambda: None, a=1)
     c(lambda: None, a=1)
   out: |-
-    main:7: error: Too many positional arguments for "__call__" of "C"  [misc]
+    main:7: error: Too many positional arguments for "__call__" of "C"  [call-arg]
 
 - case: descriptor
   mypy_config: |
@@ -452,6 +897,55 @@
     c.a
     c.a = 1
 
+- case: protocol_named_module_functions
+  mypy_config: |
+    [mypy]
+    plugins = mypy_strict_kwargs
+  main: |-
+    def __call__(value: int) -> None: ...
+    def __get__(instance: object, owner: type[object] | None = None) -> None: ...
+    def __set__(instance: object, value: int) -> None: ...
+
+    __call__(1)
+    __get__(object(), object)
+    __set__(object(), 1)
+  out: |-
+    main:5: error: Too many positional arguments for "__call__"  [call-arg]
+    main:6: error: Too many positional arguments for "__get__"  [call-arg]
+    main:7: error: Too many positional arguments for "__set__"  [call-arg]
+
+- case: explicit_protocol_method_calls
+  mypy_config: |
+    [mypy]
+    plugins = mypy_strict_kwargs
+  main: |-
+    class ProtocolMethods:
+        def __call__(self, value: int) -> None: ...
+        def __get__(self, instance: object, owner: type[object] | None = None) -> None: ...
+        def __set__(self, instance: object, value: int) -> None: ...
+
+    methods = ProtocolMethods()
+    methods.__call__(1)
+    methods.__get__(object(), object)
+    methods.__set__(object(), 1)
+
+    call = methods.__call__
+    call(1)
+
+    class Child(ProtocolMethods):
+        def explicit_super_calls(self) -> None:
+            super().__call__(1)
+            super().__get__(object(), object)
+            super().__set__(object(), 1)
+  out: |-
+    main:7: error: Too many positional arguments for "__call__" of "ProtocolMethods"  [call-arg]
+    main:8: error: Too many positional arguments for "__get__" of "ProtocolMethods"  [call-arg]
+    main:9: error: Too many positional arguments for "__set__" of "ProtocolMethods"  [call-arg]
+    main:12: error: Too many positional arguments  [call-arg]
+    main:16: error: Too many positional arguments for "__call__" of "ProtocolMethods"  [call-arg]
+    main:17: error: Too many positional arguments for "__get__" of "ProtocolMethods"  [call-arg]
+    main:18: error: Too many positional arguments for "__set__" of "ProtocolMethods"  [call-arg]
+
 - case: ignore_name
   files:
     - path: pyproject.toml
@@ -470,7 +964,7 @@
 
     str(1)
   out: |-
-    main:5: error: Too many positional arguments for "not_ignored"  [misc]
+    main:5: error: Too many positional arguments for "not_ignored"  [call-arg]
 
 # We disable the cache for debug tests so that --mypy-same-process
 # does not skip calling the signature hooks (which would miss the
@@ -495,7 +989,7 @@
 
     str(1)
   out: |-
-    main:5: error: Too many positional arguments for "not_ignored"  [misc]
+    main:5: error: Too many positional arguments for "not_ignored"  [call-arg]
 
 - case: ignore_name_ini
   mypy_config: |
@@ -513,7 +1007,7 @@
 
     str(1)
   out: |-
-    main:5: error: Too many positional arguments for "not_ignored"  [misc]
+    main:5: error: Too many positional arguments for "not_ignored"  [call-arg]
 
 # We disable the cache for debug tests so that --mypy-same-process
 # does not skip calling the signature hooks (which would miss the
@@ -536,7 +1030,7 @@
 
     str(1)
   out: |-
-    main:5: error: Too many positional arguments for "not_ignored"  [misc]
+    main:5: error: Too many positional arguments for "not_ignored"  [call-arg]
 
 - case: ignore_name_ini_no_spaces
   mypy_config: |
@@ -554,7 +1048,7 @@
 
     str(1)
   out: |-
-    main:5: error: Too many positional arguments for "not_ignored"  [misc]
+    main:5: error: Too many positional arguments for "not_ignored"  [call-arg]
 
 # Test when no mypy_strict_kwargs section exists - plugin should work with defaults
 - case: no_plugin_section_ini
@@ -565,7 +1059,7 @@
     def func(a: int) -> None: ...
     func(1)
   out: |-
-    main:2: error: Too many positional arguments for "func"  [misc]
+    main:2: error: Too many positional arguments for "func"  [call-arg]
 
 # Test when ignore_names is empty
 - case: empty_ignore_names_ini
@@ -579,7 +1073,7 @@
     def func(a: int) -> None: ...
     func(1)
   out: |-
-    main:2: error: Too many positional arguments for "func"  [misc]
+    main:2: error: Too many positional arguments for "func"  [call-arg]
 
 - case: ignore_name_dot_mypy_ini
   files:
@@ -599,7 +1093,7 @@
 
     str(1)
   out: |-
-    main:5: error: Too many positional arguments for "not_ignored"  [misc]
+    main:5: error: Too many positional arguments for "not_ignored"  [call-arg]
 
 - case: ignore_name_setup_cfg
   files:
@@ -619,7 +1113,7 @@
 
     str(1)
   out: |-
-    main:5: error: Too many positional arguments for "not_ignored"  [misc]
+    main:5: error: Too many positional arguments for "not_ignored"  [call-arg]
 
 # We disable the cache for debug tests so that --mypy-same-process
 # does not skip calling the signature hooks (which would miss the
@@ -644,4 +1138,4 @@
 
     str(1)
   out: |-
-    main:5: error: Too many positional arguments for "not_ignored"  [misc]
+    main:5: error: Too many positional arguments for "not_ignored"  [call-arg]

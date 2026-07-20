@@ -244,7 +244,10 @@ class CompactionOverrideConfig(BaseModel):
     replay_window_tokens: int | None = Field(
         default=None,
         ge=1,
-        description="Optional context-window cap used only for persisted replay and compaction planning",
+        description=(
+            "Optional operational cap for persisted replay, required-compaction planning, and summary input chunks; "
+            "destructive compaction requires the resolved summary input budget to exceed 2,000 tokens"
+        ),
     )
     reserve_tokens: int | None = Field(
         default=None,
@@ -254,6 +257,10 @@ class CompactionOverrideConfig(BaseModel):
     model: str | None = Field(
         default=None,
         description="Optional model config name to use for summary generation",
+    )
+    fallback_model: str | None = Field(
+        default=None,
+        description="Optional model config name retried once when the summary model refuses for safeguards",
     )
 
     @model_validator(mode="after")
@@ -290,7 +297,10 @@ class CompactionConfig(BaseModel):
     replay_window_tokens: int | None = Field(
         default=None,
         ge=1,
-        description="Optional context-window cap used only for persisted replay and compaction planning",
+        description=(
+            "Optional operational cap for persisted replay, required-compaction planning, and summary input chunks; "
+            "destructive compaction requires the resolved summary input budget to exceed 2,000 tokens"
+        ),
     )
     reserve_tokens: int = Field(
         default=16384,
@@ -300,6 +310,10 @@ class CompactionConfig(BaseModel):
     model: str | None = Field(
         default=None,
         description="Optional model config name to use for summary generation",
+    )
+    fallback_model: str | None = Field(
+        default=None,
+        description="Optional model config name retried once when the summary model refuses for safeguards",
     )
 
     @model_validator(mode="after")
@@ -554,7 +568,8 @@ class ModelConfig(BaseModel):
         description=(
             "Actual provider context window size in tokens. MindRoom uses it as the default replay-planning "
             "window unless compaction.replay_window_tokens sets a smaller cap. An explicit compaction.model "
-            "also needs its own context_window for summary generation. On vertexai_claude models it additionally "
+            "or compaction.fallback_model also needs its own context_window for summary generation. "
+            "On vertexai_claude models it additionally "
             "enables request-time fitting that trims replayed history when a request would exceed the window"
         ),
     )

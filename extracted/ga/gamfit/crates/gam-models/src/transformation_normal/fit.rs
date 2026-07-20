@@ -7,47 +7,40 @@ pub(crate) struct TransformationExactGeometryCache {
     pub(crate) covariate_design: TermCollectionDesign,
     pub(crate) family: TransformationNormalFamily,
     pub(crate) blocks: Vec<ParameterBlockSpec>,
-    pub(crate) derivative_blocks: Vec<Vec<CustomFamilyBlockPsiDerivative>>,
+    pub(crate) hyper_layout: SharedCustomFamilyHyperLayout,
 }
 
 #[derive(Default)]
 pub(crate) struct TransformationExactModeBranch {
-    continuation: Option<CustomFamilyWarmStart>,
+    carried_mode: Option<CustomFamilyWarmStart>,
     anchor: Option<CustomFamilyWarmStart>,
     frozen: bool,
 }
 
 impl TransformationExactModeBranch {
-    pub(crate) fn warm_start(&self, rho: &Array1<f64>) -> Option<CustomFamilyWarmStart> {
-        self.anchor
-            .as_ref()
-            .or(self.continuation.as_ref())
-            .filter(|warm| warm.compatible_with_rho(rho))
-            .cloned()
-    }
-
-    /// Before the branch is frozen, compare a cold solve with the carried
-    /// continuation at every value-only prewarm point. This is a deterministic
+    /// Before the branch is frozen, compare a cold solve with the carried mode
+    /// at every value-only objective trial. This is a deterministic
     /// mode-selection rule based on the profiled criterion, not coefficient
-    /// magnitude or cache distance. After freezing, expose only the anchor.
+    /// magnitude or cache distance. Freezing makes the carried candidate
+    /// immutable; cold remains a candidate so a worse anchor can never define
+    /// the profiled surface.
     pub(crate) fn candidates(
         &mut self,
         eval_mode: gam_problem::EvalMode,
         rho: &Array1<f64>,
     ) -> (bool, Vec<Option<CustomFamilyWarmStart>>) {
         let froze = self.prepare(eval_mode);
-        if !self.frozen {
-            let continuation = self
-                .continuation
-                .as_ref()
-                .filter(|warm| warm.compatible_with_rho(rho))
-                .cloned();
-            return match continuation {
-                Some(warm) => (froze, vec![None, Some(warm)]),
-                None => (froze, vec![None]),
-            };
+        let carried = self
+            .frozen
+            .then_some(&self.anchor)
+            .unwrap_or(&self.carried_mode)
+            .as_ref()
+            .filter(|warm| warm.compatible_with_rho(rho))
+            .cloned();
+        match carried {
+            Some(warm) => (froze, vec![None, Some(warm)]),
+            None => (froze, vec![None]),
         }
-        (froze, vec![self.warm_start(rho)])
     }
 
     /// Freeze the INPUT mode for the first derivative-bearing seed evaluation.
@@ -57,25 +50,26 @@ impl TransformationExactModeBranch {
         if self.frozen || matches!(eval_mode, gam_problem::EvalMode::ValueOnly) {
             return false;
         }
-        self.anchor = self.continuation.take();
+        self.anchor = self.carried_mode.take();
         self.frozen = true;
         true
     }
 
-    /// Value-only prewarm is the sole phase allowed to advance the continuation.
+    /// Value-only objective trials are the sole phase allowed to advance the
+    /// carried mode.
     pub(crate) fn record_value(
         &mut self,
         eval_mode: gam_problem::EvalMode,
         warm_start: CustomFamilyWarmStart,
     ) {
         if !self.frozen && matches!(eval_mode, gam_problem::EvalMode::ValueOnly) {
-            self.continuation = Some(warm_start);
+            self.carried_mode = Some(warm_start);
         }
     }
 }
 
 impl TransformationExactGeometryCache {
-    pub(crate) fn update_initial_log_lambdas(
+    pub(crate) fn update_block_log_lambdas(
         &mut self,
         log_lambdas: &Array1<f64>,
     ) -> Result<(), String> {
@@ -93,6 +87,11 @@ impl TransformationExactGeometryCache {
             }
             .into());
         }
+        gam_problem::validate_log_strengths(log_lambdas.iter().copied()).map_err(|error| {
+            TransformationNormalError::InvalidInput {
+                reason: format!("invalid transformation smoothing strength: {error}"),
+            }
+        })?;
         spec.initial_log_lambdas = log_lambdas.clone();
         Ok(())
     }
@@ -222,6 +221,9 @@ pub fn fit_transformation_normal(
         // ------------------------------------------------------------------
         let cov_design = boot_design;
         let cov_spec_resolved = boot_spec;
+        let effective_offset = cov_design
+            .compose_offset(offset.view(), "transformation-normal fit")
+            .map_err(|error| error.to_string())?;
 
         let family = TransformationNormalFamily::from_prebuilt_response_basis(
             response,
@@ -232,7 +234,7 @@ pub fn fit_transformation_normal(
             effective_config.response_degree,
             resp_transform,
             weights,
-            offset,
+            &effective_offset,
             cov_design.design.clone(),
             cov_design
                 .penalties
@@ -242,7 +244,8 @@ pub fn fit_transformation_normal(
             &effective_config,
             warm_start,
         )?;
-        let blocks = vec![family.block_spec()];
+        let rho0 = family.penalty_scale_log_lambdas()?;
+        let blocks = vec![family.block_spec(&rho0)?];
         let fit = fit_custom_family(&family, &blocks, &options)
             .map_err(|e| format!("transformation fit failed: {e}"))?;
         let (fit, score_calibration) = calibrate_transformation_scores(&family, fit)?;
@@ -270,7 +273,8 @@ pub fn fit_transformation_normal(
         &covariate_spec,
         &spatial_terms,
         kappa_options,
-    );
+    )
+    .map_err(|error| error.to_string())?;
     let kappa_dims = kappa0.dims_per_term().to_vec();
     let kappa_lower = SpatialLogKappaCoords::lower_bounds_aniso_from_data(
         covariate_data,
@@ -278,14 +282,16 @@ pub fn fit_transformation_normal(
         &spatial_terms,
         &kappa_dims,
         kappa_options,
-    );
+    )
+    .map_err(|error| error.to_string())?;
     let kappa_upper = SpatialLogKappaCoords::upper_bounds_aniso_from_data(
         covariate_data,
         &covariate_spec,
         &spatial_terms,
         &kappa_dims,
         kappa_options,
-    );
+    )
+    .map_err(|error| error.to_string())?;
     // Project seed onto bounds; spec.length_scale is a hint, not a constraint.
     let kappa0 = kappa0.clamp_to_bounds(&kappa_lower, &kappa_upper);
 
@@ -301,15 +307,16 @@ pub fn fit_transformation_normal(
     // both feed the basis builder a frozen `FrozenTransform` identifiability,
     // while `boot_design` was built from the raw `covariate_spec` with
     // identifiability computed from scratch. Applying the captured
-    // `FrozenTransform` to the same Duchon kernel can land the structural
-    // null-space block on either side of `build_nullspace_shrinkage_penalty`'s
-    // spectral tolerance, so the raw and frozen builds disagree on whether
-    // the trend ridge survives as an active penalty candidate. Without this
-    // rebuild, `n_penalties` is taken from the raw build but every subsequent
+    // `FrozenTransform` changes the exact coefficient chart of the penalty
+    // blocks. Without this rebuild, `n_penalties` is taken from the raw build
+    // but every subsequent
     // evaluator measures the frozen build, and `evaluate_custom_family_joint_hyper`
     // refuses with a `joint hyper rho dimension mismatch`.
     let probe_design = build_term_collection_design(covariate_data, &boot_spec)
         .map_err(|e| format!("failed to rebuild frozen probe covariate design: {e}"))?;
+    let probe_offset = probe_design
+        .compose_offset(offset.view(), "transformation-normal spatial probe")
+        .map_err(|error| error.to_string())?;
 
     // Build an initial family + blocks for capability probing.
     let probe_family = TransformationNormalFamily::from_prebuilt_response_basis(
@@ -321,7 +328,7 @@ pub fn fit_transformation_normal(
         effective_config.response_degree,
         resp_transform.clone(),
         weights,
-        offset,
+        &probe_offset,
         probe_design.design.clone(),
         probe_design
             .penalties
@@ -331,7 +338,8 @@ pub fn fit_transformation_normal(
         &effective_config,
         warm_start,
     )?;
-    let probe_block = probe_family.block_spec();
+    let rho0 = probe_family.penalty_scale_log_lambdas()?;
+    let probe_block = probe_family.block_spec(&rho0)?;
     let n_penalties = probe_block.initial_log_lambdas.len();
     log::info!(
         "[transformation-normal] exact joint setup: rho_dim={} log_kappa_dim={} dims_per_term={:?}",
@@ -339,7 +347,6 @@ pub fn fit_transformation_normal(
         kappa0.len(),
         kappa_dims,
     );
-    let rho0 = probe_block.initial_log_lambdas.clone();
     let rho_floor = -12.0;
     let rho_lower = Array1::<f64>::from_elem(n_penalties, rho_floor);
     let rho_upper = Array1::<f64>::from_elem(n_penalties, 12.0);
@@ -382,8 +389,8 @@ pub fn fit_transformation_normal(
         );
     }
 
-    // SCOP's squared shape coordinates make the coefficient objective
-    // non-convex. Value-only prewarming compares cold and continuation modes;
+    // The finite-support normalized objective can have multiple coefficient
+    // modes. Value-only trials compare cold and carried modes;
     // the first derivative-bearing evaluation freezes the selected mode's
     // INPUT as the branch anchor. Every later trial restarts from that fixed
     // anchor, making the profile independent of rejected-trial cache history.
@@ -406,6 +413,9 @@ pub fn fit_transformation_normal(
     // Helper: build family from prebuilt response basis + covariate design.
     let make_family =
         |cov_design: &TermCollectionDesign| -> Result<TransformationNormalFamily, String> {
+            let effective_offset = cov_design
+                .compose_offset(offset.view(), "transformation-normal spatial fit")
+                .map_err(|error| error.to_string())?;
             TransformationNormalFamily::from_prebuilt_response_basis(
                 response,
                 rv.clone(),
@@ -415,7 +425,7 @@ pub fn fit_transformation_normal(
                 rdeg,
                 rt.clone(),
                 weights,
-                offset,
+                &effective_offset,
                 cov_design.design.clone(),
                 cov_design
                     .penalties
@@ -434,7 +444,9 @@ pub fn fit_transformation_normal(
     let spatial_terms_for_cache = spatial_terms.clone();
 
     let ensure_exact_geometry = |spec: &TermCollectionSpec,
-                                 design: &TermCollectionDesign|
+                                 design: &TermCollectionDesign,
+                                 rho: &Array1<f64>,
+                                 hyper_values: &Array1<f64>|
      -> Result<(), String> {
         let effective_spec = freeze_term_collection_from_design(spec, design)
             .map_err(|e| format!("failed to freeze transformation geometry key: {e}"))?;
@@ -445,7 +457,24 @@ pub fn fit_transformation_normal(
             .map(|cached| cached.key != key)
             .unwrap_or(true);
         if !needs_rebuild {
-            return Ok(());
+            let mut cache = exact_geometry_cache.borrow_mut();
+            let cached = cache
+                .as_mut()
+                .ok_or_else(|| "missing transformation exact geometry cache".to_string())?;
+            if cached.hyper_layout.values().len() != hyper_values.len()
+                || cached
+                    .hyper_layout
+                    .values()
+                    .iter()
+                    .zip(hyper_values)
+                    .any(|(cached, current)| cached.to_bits() != current.to_bits())
+            {
+                return Err(
+                    "transformation exact geometry key reused across distinct hypercoordinate values"
+                        .to_string(),
+                );
+            }
+            return cached.update_block_log_lambdas(rho);
         }
 
         let geom_start = std::time::Instant::now();
@@ -469,9 +498,13 @@ pub fn fit_transformation_normal(
             key,
             covariate_spec_resolved: effective_spec,
             covariate_design: exact_design,
-            blocks: vec![family.block_spec()],
+            blocks: vec![family.block_spec(rho)?],
             family,
-            derivative_blocks: vec![tensor_derivs],
+            hyper_layout: Arc::new(CustomFamilyHyperLayout::new(
+                vec![tensor_derivs],
+                Vec::new(),
+                hyper_values.clone(),
+            )?),
         }));
         Ok(())
     };
@@ -500,7 +533,6 @@ pub fn fit_transformation_normal(
     // rather than the generic `coefficient_*_cost × K` default.
     let outer_derivative_policy =
         probe_family.outer_derivative_policy(&probe_blocks, joint_setup.log_kappa_dim(), &options);
-
     let solved = optimize_spatial_length_scale_exact_joint(
         covariate_data,
         &block_specs_slice,
@@ -520,24 +552,63 @@ pub fn fit_transformation_normal(
         None,
         outer_derivative_policy,
         // fit_fn
-        |theta, specs: &[TermCollectionSpec], designs: &[TermCollectionDesign]| {
-            ensure_exact_geometry(&specs[0], &designs[0])?;
+        |theta,
+         specs: &[TermCollectionSpec],
+         designs: &[TermCollectionDesign],
+         provenance: SpatialFitProvenance<'_, CustomFamilyJointHyperModeSelection>| {
+            let rho = theta.slice(s![..joint_setup.rho_dim()]).to_owned();
+            let hyper_values = theta.slice(s![joint_setup.rho_dim()..]).to_owned();
+            ensure_exact_geometry(&specs[0], &designs[0], &rho, &hyper_values)?;
             let mut cache_ref = exact_geometry_cache.borrow_mut();
             let geometry = cache_ref
                 .as_mut()
                 .ok_or_else(|| "missing transformation exact geometry cache".to_string())?;
-            let rho = theta.slice(s![..joint_setup.rho_dim()]).to_owned();
-            geometry.update_initial_log_lambdas(&rho)?;
-            let warm_start = exact_mode_branch.borrow().warm_start(&rho);
-            let fit = fit_custom_family_fixed_log_lambdas(
-                &geometry.family,
-                &geometry.blocks,
+            let final_options = crate::outer_subsample::exact_outer_options_for_row_set(
                 &options,
-                warm_start.as_ref(),
-                0,
-                None,
-                true,
-            )
+                &gam_problem::outer_subsample::RowSet::All,
+            );
+            let fit = match provenance {
+                SpatialFitProvenance::NoOuterOptimization => {
+                    let warm_starts =
+                        exact_mode_candidates(gam_problem::EvalMode::ValueOnly, &rho);
+                    let selection = evaluate_custom_family_joint_hyper_best_mode_shared(
+                        &geometry.family,
+                        &geometry.blocks,
+                        &final_options,
+                        &rho,
+                        Arc::clone(&geometry.hyper_layout),
+                        &warm_starts,
+                        gam_problem::EvalMode::ValueOnly,
+                    )
+                    .map_err(|e| format!("transformation fixed mode profile: {e}"))?;
+                    log::info!(
+                        "[transformation-normal] user-fixed coefficient mode selected candidate={} objective={:.16e}",
+                        selection.selected_candidate,
+                        selection.result.objective,
+                    );
+                    fit_custom_family_user_fixed_log_lambdas_from_mode_selection(
+                        &geometry.family,
+                        &geometry.blocks,
+                        &final_options,
+                        selection,
+                    )
+                }
+                SpatialFitProvenance::Certified { outer, mode: selection } => {
+                    log::info!(
+                        "[transformation-normal] consuming certified terminal coefficient mode candidate={} objective={:.16e} without profile replay",
+                        selection.selected_candidate,
+                        selection.result.objective,
+                    );
+                    fit_custom_family_fixed_log_lambdas_from_mode_selection(
+                        &geometry.family,
+                        &geometry.blocks,
+                        &final_options,
+                        selection,
+                        theta,
+                        outer,
+                    )
+                }
+            }
             .map_err(|e| format!("transformation fit_fn: {e}"))?;
             if let Some(block) = fit.block_states.first() {
                 *geometry
@@ -579,105 +650,83 @@ pub fn fit_transformation_normal(
          specs: &[TermCollectionSpec],
          designs: &[TermCollectionDesign],
          eval_mode,
-         _row_set| {
-            ensure_exact_geometry(&specs[0], &designs[0])?;
+         row_set| {
+            let rho = theta.slice(s![..joint_setup.rho_dim()]).to_owned();
+            let hyper_values = theta.slice(s![joint_setup.rho_dim()..]).to_owned();
+            ensure_exact_geometry(&specs[0], &designs[0], &rho, &hyper_values)?;
             let mut cache_ref = exact_geometry_cache.borrow_mut();
             let geometry = cache_ref
                 .as_mut()
                 .ok_or_else(|| "missing transformation exact geometry cache".to_string())?;
-            let rho = theta.slice(s![..joint_setup.rho_dim()]).to_owned();
             let warm_starts = exact_mode_candidates(eval_mode, &rho);
             let competing_modes = warm_starts.len() > 1;
-            let mut selected_eval = None;
-            let mut selected_source = "anchor";
-            for (candidate_idx, warm_start) in warm_starts.iter().enumerate() {
-                let candidate = evaluate_custom_family_joint_hyper(
-                    &geometry.family,
-                    &geometry.blocks,
-                    &options,
-                    &rho,
-                    &geometry.derivative_blocks,
-                    warm_start.as_ref(),
-                    eval_mode,
-                )
-                .map_err(|e| {
-                    format!("transformation exact_fn mode candidate {candidate_idx}: {e}")
-                })?;
-                if !candidate.inner_converged {
-                    return Err(format!(
-                        "transformation exact joint inner solve did not converge for eval_mode={eval_mode:?}, mode_candidate={candidate_idx}"
-                    ));
-                }
-                if !candidate.objective.is_finite()
-                    || candidate.gradient.iter().any(|value| !value.is_finite())
-                {
-                    return Err(format!(
-                        "transformation exact joint returned non-finite criterion for eval_mode={eval_mode:?}, mode_candidate={candidate_idx}"
-                    ));
-                }
-                let source = if candidate_idx == 0 {
-                    "cold"
-                } else {
-                    "continuation"
-                };
-                if competing_modes {
-                    log::info!(
-                        "[transformation-normal] exact coefficient-mode prewarm candidate source={} objective={:.16e}",
-                        source,
-                        candidate.objective,
-                    );
-                }
-                if selected_eval.as_ref().is_none_or(
-                    |best: &gam_custom_family::CustomFamilyJointHyperResult| {
-                        candidate.objective < best.objective
-                    },
-                ) {
-                    selected_eval = Some(candidate);
-                    selected_source = source;
-                }
-            }
-            let eval = selected_eval.ok_or_else(|| {
-                "transformation exact joint produced no coefficient-mode candidate".to_string()
-            })?;
-            if competing_modes {
-                log::info!(
-                    "[transformation-normal] selected exact coefficient-mode prewarm source={} objective={:.16e}",
-                    selected_source,
-                    eval.objective,
-                );
-            }
-            exact_mode_branch
-                .borrow_mut()
-                .record_value(eval_mode, eval.warm_start.clone());
-
-            Ok((eval.objective, eval.gradient, eval.outer_hessian))
-        },
-        |theta, specs: &[TermCollectionSpec], designs: &[TermCollectionDesign]| {
-            ensure_exact_geometry(&specs[0], &designs[0])?;
-            let mut cache_ref = exact_geometry_cache.borrow_mut();
-            let geometry = cache_ref
-                .as_mut()
-                .ok_or_else(|| "missing transformation exact geometry cache".to_string())?;
-            let rho = theta.slice(s![..joint_setup.rho_dim()]).to_owned();
-            let warm_start = exact_mode_candidates(gam_problem::EvalMode::ValueAndGradient, &rho)
-                .into_iter()
-                .next()
-                .expect("a frozen CTN branch always has one EFS candidate");
-            let eval = evaluate_custom_family_joint_hyper_efs(
+            // `row_set` is the outer driver's authoritative measure. Rebuild
+            // the family-facing option on every evaluation so a pilot mask
+            // cannot survive the driver's rotation back to full data.
+            let eval_options =
+                crate::outer_subsample::exact_outer_options_for_row_set(&options, row_set);
+            let selection = evaluate_custom_family_joint_hyper_best_mode_shared(
                 &geometry.family,
                 &geometry.blocks,
-                &options,
+                &eval_options,
                 &rho,
-                &geometry.derivative_blocks,
-                warm_start.as_ref(),
+                Arc::clone(&geometry.hyper_layout),
+                &warm_starts,
+                eval_mode,
             )
-            .map_err(|e| format!("transformation exact_efs_fn: {e}"))?;
-            if !eval.inner_converged {
-                return Err(
-                    "transformation exact joint EFS inner solve did not converge".to_string(),
+            .map_err(|e| format!("transformation exact joint mode profile: {e}"))?;
+            for (candidate_idx, rejection) in selection.rejected_candidates.iter().enumerate() {
+                if let Some(rejection) = rejection {
+                    log::warn!(
+                        "[transformation-normal] rejected exact coefficient-mode candidate mode_candidate={candidate_idx}: {rejection}"
+                    );
+                }
+            }
+            if competing_modes {
+                for (candidate_idx, objective) in selection.screened_objectives.iter().enumerate() {
+                    if let Some(objective) = objective {
+                        let source = if candidate_idx == 0 {
+                            "cold"
+                        } else {
+                            "carried"
+                        };
+                        log::info!(
+                            "[transformation-normal] exact coefficient-mode screen source={} objective={:.16e}",
+                            source,
+                            objective,
+                        );
+                    }
+                }
+                let selected_source = if selection.selected_candidate == 0 {
+                    "cold"
+                } else {
+                    "carried"
+                };
+                log::info!(
+                    "[transformation-normal] selected exact coefficient mode source={} objective={:.16e}",
+                    selected_source,
+                    selection.result.objective,
                 );
             }
-            Ok(eval.efs_eval)
+            let objective = selection.result.objective;
+            let gradient = selection.result.gradient.clone();
+            let outer_hessian = selection.result.outer_hessian.clone();
+            exact_mode_branch
+                .borrow_mut()
+                .record_value(eval_mode, selection.result.warm_start.clone());
+
+            Ok(ExactJointEvaluation {
+                objective,
+                gradient,
+                hessian: outer_hessian,
+                mode: selection,
+            })
+        },
+        |_theta,
+         _specs: &[TermCollectionSpec],
+         _designs: &[TermCollectionDesign],
+         _row_set| {
+            Err::<ExactJointEfsEvaluation<crate::custom_family::CustomFamilyJointHyperModeSelection>, String>("transformation-normal EFS callback invoked even though fixed-point optimization is disabled for beta-dependent exact curvature".to_string())
         },
         |_beta: &Array1<f64>| Ok(gam_solve::rho_optimizer::SeedOutcome::NoSlot),
     )?;

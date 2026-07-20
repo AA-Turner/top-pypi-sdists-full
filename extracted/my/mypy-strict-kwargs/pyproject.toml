@@ -40,50 +40,48 @@ optional-dependencies.dev = [
     "check-manifest==0.51",
     "deptry==0.25.1",
     "doc8==2.0.0",
-    "doccmd==2026.5.19",
+    "doccmd==2026.5.25",
     "interrogate==1.7.0",
-    "mypy[faster-cache]==2.1.0",
-    "prek==0.4.0",
-    "pydocstringformatter==0.7.5",
-    "pylint[spelling]==4.0.5",
+    "mypy[faster-cache]==2.3.0",
+    "prek==0.4.10",
+    "pydocstringformatter==1.0.0",
+    "pylint[spelling]==4.0.6",
     "pylint-per-file-ignores==3.2.1",
-    "pyproject-fmt==2.21.2",
-    "pyrefly==1.0.0",
-    "pyright==1.1.409",
+    "pyproject-fmt==2.25.3",
+    "pyrefly==1.1.1",
+    "pyright==1.1.411",
     "pyroma==5.0.1",
-    "pytest==9.0.3",
+    "pytest==9.1.1",
     "pytest-cov==7.1.0",
     "pytest-mypy-plugins==4.0.3",
     "pyyaml==6.0.3",
-    "ruff==0.15.13",
+    "ruff==0.15.22",
     # We add shellcheck-py not only for shell scripts and shell code blocks,
     # but also because having it installed means that ``actionlint-py`` will
     # use it to lint shell commands in GitHub workflow files.
     "shellcheck-py==0.11.0.1",
     "shfmt-py==4.0.0",
     "sphinx-lint==1.0.2",
-    "strict-kwargs==2026.5.19.post3",
-    "ty==0.0.38",
+    "strict-kwargs==2026.6.8.post1",
+    "towncrier==25.8.0",
+    "ty==0.0.60",
     "vulture==2.16",
     "yamlfix==1.19.1",
-    "zizmor==1.25.2",
+    "zizmor==1.27.0",
 ]
-optional-dependencies.release = [ "check-wheel-contents==0.6.3" ]
+optional-dependencies.release = [ "check-wheel-contents==0.6.3", "towncrier==25.8.0" ]
 urls.Documentation = "https://mypy-strict-kwargs.readthedocs.io/en/latest/"
 urls.Source = "https://github.com/adamtheturtle/mypy-strict-kwargs"
 entry-points."mypy.plugins".mypy_strict_kwargs = "mypy_strict_kwargs.plugin:plugin"
 
 [tool.setuptools]
-zip-safe = false
-package-data.mypy_strict_kwargs = [
-    "py.typed",
-]
 packages.find.where = [
     "src",
 ]
-
-[tool.distutils]
-bdist_wheel.universal = true
+package-data.mypy_strict_kwargs = [
+    "py.typed",
+]
+zip-safe = false
 
 [tool.setuptools_scm]
 # This keeps the start of the version the same as the last release.
@@ -128,14 +126,81 @@ lint.per-file-ignores."tests/*" = [
 lint.unfixable = [
     "ERA001",
 ]
+lint.flake8-tidy-imports.banned-api."typing.cast".msg = "typing.cast is banned: use explicit type narrowing or a typed variable instead."
 lint.pydocstyle.convention = "google"
 
 [tool.pylint]
+# Disable the message, report, category or checker with the given id(s). You
+# can either give multiple identifiers separated by comma (,) or put this
+# option multiple times (only on the command line, not in the configuration
+# file where it should appear only once).You can also use "--disable=all" to
+# disable everything first and then reenable specific checks. For example, if
+# you want to run only the similarities checker, you can use "--disable=all
+# --enable=similarities". If you want to run only the classes checker, but have
+# no Warning level messages displayed, use"--disable=all --enable=classes
+# --disable=W"
+"MESSAGES CONTROL".disable = [
+    # Too difficult to please
+    "duplicate-code",
+    # Let ruff handle long lines
+    "line-too-long",
+    "locally-disabled",
+    "missing-return-type-doc",
+    # We don't need everything to be documented because of mypy
+    "missing-type-doc",
+    "too-few-public-methods",
+    "too-many-arguments",
+    "too-many-instance-attributes",
+    "too-many-lines",
+    "too-many-locals",
+    "too-many-return-statements",
+    # Let ruff deal with sorting
+    "ungrouped-imports",
+    # Let ruff handle unused imports
+    "unused-import",
+    # mypy does not want untyped parameters.
+    "useless-type-doc",
+    # Let ruff handle imports
+    "wrong-import-order",
+]
+# Enable the message, report, category or checker with the given id(s). You can
+# either give multiple identifier separated by comma (,) or put this option
+# multiple time (only on the command line, not in the configuration file where
+# it should appear only once). See also the "--disable" option for examples.
+"MESSAGES CONTROL".enable = [
+    "bad-inline-option",
+    "deprecated-pragma",
+    "file-ignored",
+    "spelling",
+    "use-symbolic-message-instead",
+    "useless-suppression",
+]
+# We ignore invalid names because:
+# - We want to use generated module names, which may not be valid, but are never seen.
+"MESSAGES CONTROL".per-file-ignores = [
+    "doccmd_README_rst_*.py:invalid-name",
+]
+DEPRECATED_BUILTINS.bad-functions = [
+    # Use Pylint until Ruff can ban bare builtin calls, or until custom rules
+    # make this removable:
+    # https://github.com/astral-sh/ruff/issues/10079
+    # https://github.com/astral-sh/ruff/issues/970
+    "filter",
+    "getattr",
+    "hasattr",
+    "map",
+    "setattr",
+]
 # Allow the body of an if to be on the same line as the test if there is no
 # else.
 FORMAT.single-line-if-stmt = false
-# Pickle collected data for later comparisons.
-MASTER.persistent = true
+# Return non-zero exit code if useless-suppression is emitted.
+MAIN.fail-on = [
+    "useless-suppression",
+]
+MASTER.extension-pkg-allow-list = [
+    "mypy",
+]
 # Use multiple processes to speed up Pylint.
 MASTER.jobs = 0
 # List of plugins (as comma separated values of python modules names) to load,
@@ -148,7 +213,6 @@ MASTER.jobs = 0
 # - pylint.extensions.while_used
 # as they seemed to get in the way.
 MASTER.load-plugins = [
-    "pylint_per_file_ignores",
     "pylint.extensions.bad_builtin",
     "pylint.extensions.comparison_placement",
     "pylint.extensions.consider_refactoring_into_while_condition",
@@ -164,63 +228,13 @@ MASTER.load-plugins = [
     "pylint.extensions.redefined_variable_type",
     "pylint.extensions.set_membership",
     "pylint.extensions.typing",
+    "pylint_per_file_ignores",
 ]
+# Pickle collected data for later comparisons.
+MASTER.persistent = true
 # Allow loading of arbitrary C extensions. Extensions are imported into the
 # active Python interpreter and may run arbitrary code.
 MASTER.unsafe-load-any-extension = false
-MASTER.extension-pkg-allow-list = [
-    "mypy",
-]
-# Enable the message, report, category or checker with the given id(s). You can
-# either give multiple identifier separated by comma (,) or put this option
-# multiple time (only on the command line, not in the configuration file where
-# it should appear only once). See also the "--disable" option for examples.
-"MESSAGES CONTROL".enable = [
-    "bad-inline-option",
-    "deprecated-pragma",
-    "file-ignored",
-    "spelling",
-    "use-symbolic-message-instead",
-    "useless-suppression",
-]
-# Disable the message, report, category or checker with the given id(s). You
-# can either give multiple identifiers separated by comma (,) or put this
-# option multiple times (only on the command line, not in the configuration
-# file where it should appear only once).You can also use "--disable=all" to
-# disable everything first and then reenable specific checks. For example, if
-# you want to run only the similarities checker, you can use "--disable=all
-# --enable=similarities". If you want to run only the classes checker, but have
-# no Warning level messages displayed, use"--disable=all --enable=classes
-# --disable=W"
-"MESSAGES CONTROL".disable = [
-    "too-few-public-methods",
-    "too-many-locals",
-    "too-many-arguments",
-    "too-many-instance-attributes",
-    "too-many-return-statements",
-    "too-many-lines",
-    "locally-disabled",
-    # Let ruff handle long lines
-    "line-too-long",
-    # Let ruff handle unused imports
-    "unused-import",
-    # Let ruff deal with sorting
-    "ungrouped-imports",
-    # We don't need everything to be documented because of mypy
-    "missing-type-doc",
-    "missing-return-type-doc",
-    # Too difficult to please
-    "duplicate-code",
-    # Let ruff handle imports
-    "wrong-import-order",
-    # mypy does not want untyped parameters.
-    "useless-type-doc",
-]
-# We ignore invalid names because:
-# - We want to use generated module names, which may not be valid, but are never seen.
-"MESSAGES CONTROL".per-file-ignores = [
-    "doccmd_README_rst_*.py:invalid-name",
-]
 # Spelling dictionary name. Available dictionaries: none. To make it working
 # install python-enchant package.
 SPELLING.spelling-dict = "en_US"
@@ -230,30 +244,38 @@ SPELLING.spelling-private-dict-file = "spelling_private_dict.txt"
 # --spelling-private-dict-file option instead of raising a message.
 SPELLING.spelling-store-unknown-words = "no"
 
+[tool.interrogate]
+fail-under = 100
+verbose = 2
+omit-covered-files = true
+
 [tool.check-manifest]
 ignore = [
+    "*.enc",
     ".checkmake-config.ini",
+    ".git_archival.txt",
+    ".pre-commit-config.yaml",
     ".prettierrc",
     ".vscode/*",
     ".yamlfmt",
-    "*.enc",
-    ".pre-commit-config.yaml",
-    "readthedocs.yaml",
     "CHANGELOG.rst",
-    "CODE_OF_CONDUCT.rst",
-    "CONTRIBUTING.rst",
-    "LICENSE",
-    "Makefile",
     "ci",
     "ci/**",
+    "CODE_OF_CONDUCT.rst",
+    "CONTRIBUTING.rst",
     "docs",
     "docs/**",
-    ".git_archival.txt",
+    "LICENSE",
+    "lint.mk",
+    "Makefile",
+    "newsfragments",
+    "newsfragments/**",
+    "readthedocs.yaml",
     "spelling_private_dict.txt",
     "tests",
     "tests-pylintrc",
     "tests/**",
-    "lint.mk",
+    "towncrier_template.rst.jinja",
     "zizmor.yml",
 ]
 
@@ -261,79 +283,6 @@ ignore = [
 optional_dependencies_dev_groups = [
     "dev",
     "release",
-]
-
-[tool.pyproject-fmt]
-indent = 4
-keep_full_version = true
-max_supported_python = "3.14"
-
-[tool.mypy]
-strict = true
-files = [ "." ]
-exclude = [ "build" ]
-plugins = [
-    "mypy_strict_kwargs",
-    # See
-    # https://mypy.readthedocs.io/en/latest/extending_mypy.html#useful-tools.
-    "mypy.plugins.proper_plugin",
-]
-follow_untyped_imports = true
-
-[tool.pyrefly]
-errors.non-exhaustive-match = "error"
-
-[tool.pyright]
-reportUnnecessaryTypeIgnoreComment = true
-enableTypeIgnoreComments = false
-typeCheckingMode = "strict"
-# See
-# https://github.com/microsoft/pyright/issues/9617#issuecomment-2558167677.
-# This defines as a constant a variable in the ``mypy`` source code which is
-# used to configure a type hint.
-defineConstant = { MYPYC = false }
-
-[tool.ty]
-# Disable support for `type: ignore` comments
-analysis.respect-type-ignore-comments = false
-# Error if ty emits any warning-level diagnostics.
-terminal.error-on-warning = true
-
-[tool.pytest]
-xfail_strict = true
-log_cli = true
-# Use the same process so that we can get coverage.
-#  * --mypy-same-process
-#  * The help documentation says that this "will create problems with import cache"
-addopts = [ "--mypy-same-process" ]
-
-[tool.coverage]
-run.branch = true
-report.exclude_also = [
-    "if TYPE_CHECKING:",
-]
-report.show_missing = true
-
-[tool.pydocstringformatter]
-write = true
-split-summary-body = false
-max-line-length = 75
-linewrap-full-docstring = true
-
-[tool.interrogate]
-fail-under = 100
-omit-covered-files = true
-verbose = 2
-
-[tool.doc8]
-max_line_length = 2000
-ignore_path = [
-    "./.eggs",
-    "./docs/build",
-    "./docs/build/spelling/output.txt",
-    "./node_modules",
-    "./src/*.egg-info/",
-    "./src/*/_setuptools_scm_version.txt",
 ]
 
 [tool.vulture]
@@ -345,6 +294,100 @@ ignore_names = [
     "get_base_class_hook",
     "get_function_signature_hook",
     "get_method_signature_hook",
+    "report_config_data",
+]
+
+[tool.pyproject-fmt]
+indent = 4
+keep_full_version = true
+max_supported_python = "3.14"
+
+[tool.mypy]
+files = [ "." ]
+exclude = [ "build" ]
+follow_untyped_imports = true
+strict = true
+plugins = [
+    "mypy_strict_kwargs",
+    # See
+    # https://mypy.readthedocs.io/en/latest/extending_mypy.html#useful-tools.
+    "mypy.plugins.proper_plugin",
+]
+
+[tool.pyrefly]
+errors.non-exhaustive-match = "error"
+
+[tool.pyright]
+typeCheckingMode = "strict"
+enableTypeIgnoreComments = false
+# See
+# https://github.com/microsoft/pyright/issues/9617#issuecomment-2558167677.
+# This defines as a constant a variable in the ``mypy`` source code which is
+# used to configure a type hint.
+defineConstant = { MYPYC = false }
+reportUnnecessaryTypeIgnoreComment = true
+
+[tool.ty]
+# Error if ty emits any warning-level diagnostics.
+terminal.error-on-warning = true
+# Disable support for `type: ignore` comments
+analysis.respect-type-ignore-comments = false
+
+[tool.pytest]
+# Use the same process so that we can get coverage.
+#  * --mypy-same-process
+#  * The help documentation says that this "will create problems with import cache"
+addopts = [ "--mypy-same-process" ]
+log_cli = true
+xfail_strict = true
+
+[tool.coverage]
+run.branch = true
+report.exclude_also = [
+    "case _ as unreachable:\n\\s*assert_never\\(",
+    "if TYPE_CHECKING:",
+]
+report.show_missing = true
+
+[tool.towncrier]
+# The changelog and the per-release GitHub release notes are both built
+# from news fragments under ``newsfragments/``.  The release workflow
+# runs ``towncrier build`` to assemble them; contributors add one
+# fragment file per user-facing change.
+directory = "newsfragments"
+filename = "CHANGELOG.rst"
+# Custom template so an assembled version reproduces the historical
+# style exactly: a bare ``<version>`` heading (no project name, no
+# date) followed by a flat bullet list with no per-type sub-headings.
+template = "towncrier_template.rst.jinja"
+title_format = "{version}"
+issue_format = "#{issue}"
+# ``title_format`` underline first, then any nested headings.  A bare
+# version such as ``2026.05.18`` underlined with ``-`` matches every
+# pre-towncrier entry in CHANGELOG.rst.
+underlines = [ "-", "~", "^" ]
+type = [
+    # A single, unnamed fragment type keeps the assembled output as one
+    # flat bullet list, matching the historical changelog (which never
+    # grouped entries under "Features"/"Bugfixes"/... sub-headings).
+    { directory = "change", name = "", showcontent = true },
+]
+
+[tool.pydocstringformatter]
+write = true
+split-summary-body = false
+max-line-length = 75
+linewrap-full-docstring = true
+
+[tool.doc8]
+max_line_length = 2000
+ignore_path = [
+    "./.eggs",
+    "./docs/build",
+    "./docs/build/spelling/output.txt",
+    "./node_modules",
+    "./src/*.egg-info/",
+    "./src/*/_setuptools_scm_version.txt",
 ]
 
 [tool.yamlfix]

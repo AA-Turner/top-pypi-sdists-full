@@ -5,7 +5,7 @@
 // `pirls::tests` module) because the scanner forbids `#[cfg(test)]` on bare
 // src items and cross-module consumption rules out a private test_support
 // submodule in `deviance.rs`.
-use super::{LN_2PI, log_gamma_stirling_correction, tweedie_exact_series_loglik_from_eta};
+use super::{LN_2PI, tweedie_exact_series_loglik_from_eta};
 use gam_spec::is_valid_tweedie_power;
 
 #[inline]
@@ -29,13 +29,7 @@ fn tweedie_unit_deviance(yi: f64, mui_c: f64, p: f64) -> f64 {
 /// kernel's `−w·d/φ` term exactly; this only restores the `−½ln(2πφᵢ y^p)`
 /// prefactor. Homogeneous so `elpd(c·y) − elpd(y) = −n ln c` still holds.
 #[inline]
-fn tweedie_saddlepoint_loglik_approximation(
-    yi: f64,
-    mui: f64,
-    w: f64,
-    p: f64,
-    phi: f64,
-) -> f64 {
+fn tweedie_saddlepoint_loglik_approximation(yi: f64, mui: f64, w: f64, p: f64, phi: f64) -> f64 {
     if w <= 0.0 {
         // Zero prior weight excludes the observation (the y>0 prefactor's
         // −ln wᵢ would otherwise diverge).
@@ -87,11 +81,10 @@ fn tweedie_series_loglik(yi: f64, mui: f64, w: f64, p: f64, phi: f64) -> f64 {
 fn tweedie_exact_loglik(yi: f64, mui: f64, w: f64, p: f64, phi: f64) -> f64 {
     tweedie_series_loglik(yi, mui, w, p, phi)
 }
-//!
-//! The nested `#[cfg(test)] mod`s below address the rest of the solver through
-//! `super::`, which now resolves to this module; the re-imports here forward the
-//! sibling concern modules and the shared item surface so those paths keep
-//! pointing at the same definitions they did when this file was inlined.
+// The nested test modules below address the rest of the solver through
+// `super::`, which resolves to this module; the re-imports here forward the
+// sibling concern modules and the shared item surface so those paths keep
+// pointing at the same definitions they did when this file was inlined.
 
 pub(crate) use super::*;
 
@@ -108,12 +101,12 @@ mod tests {
         compute_observed_hessian_curvature_arrays, deviance_eta_row_with_log_measure_scale,
         deviance_eta_rows_with_log_measure_scale, evaluate_full_log_likelihood_from_eta,
         fit_model_for_fixed_rho, observed_weight_dispatch, observed_weight_noncanonical,
-        select_active_set_release, should_log_pirls_decision_summary,
-        should_use_sparse_native_pirls, solve_newton_directionwith_linear_constraints,
-        solve_newton_directionwith_lower_bounds, stable_finite_signed_sum, update_glmvectors,
-        variance_jet_for_weight_family, write_gamma_log_working_state,
-        write_negative_binomial_log_working_state, write_poisson_log_working_state,
-        write_tweedie_log_working_state,
+        pirls_data_log_kernel_from_eta, select_active_set_release,
+        should_log_pirls_decision_summary, should_use_sparse_native_pirls,
+        solve_newton_directionwith_linear_constraints, solve_newton_directionwith_lower_bounds,
+        stable_finite_signed_sum, update_glmvectors, variance_jet_for_weight_family,
+        write_gamma_log_working_state, write_negative_binomial_log_working_state,
+        write_poisson_log_working_state, write_tweedie_log_working_state,
     };
     use crate::active_set;
     use crate::estimate::EstimationError;
@@ -123,8 +116,9 @@ mod tests {
     use gam_linalg::matrix::DesignMatrix;
     use gam_math::probability::standard_normal_quantile;
     use gam_problem::{
-        Coefficients, GlmLikelihoodSpec, InverseLink, LikelihoodSpec, LinkComponent, LinkFunction,
-        LogSmoothingParamsView, MixtureLinkSpec, ResponseFamily, StandardLink,
+        Coefficients, GlmLikelihoodSpec, InverseLink, LikelihoodScaleMetadata, LikelihoodSpec,
+        LinkComponent, LinkFunction, LogSmoothingParamsView, MixtureLinkSpec, ResponseFamily,
+        StandardLink,
     };
 
     // Test-only zero-log-measure-scale wrapper over the production single-row
@@ -151,7 +145,7 @@ mod tests {
     }
 
     // Full-operator Firth/Jeffreys diagnostics reference (#1575): bit-identical to
-    // the production `jeffreys_pirls_diagnostics_from_factor` fast path, used here
+    // the production factor-cached Firth diagnostics path, used here
     // as the operator-equivalence oracle. Lives in this test module (its only
     // consumer) rather than as a `#[cfg(test)]`-gated production fn.
     fn compute_jeffreys_pirls_diagnostics(
@@ -276,7 +270,7 @@ mod tests {
     pub(crate) fn firth_factored_path_matches_full_operator_oracle_1575() {
         // #1575 hoisted the β-INDEPENDENT Firth design factor out of the inner
         // Newton loop: `build_design_factor_with_observation_weights` (η-free,
-        // built once) followed by `pirls_diagnostics_from_factor` (per-η) must
+        // built once) followed by `build_from_design_factor` (per-η) must
         // reproduce the full operator rebuilt fresh at each η — the
         // by-construction equivalence the hoist's correctness rests on. This
         // pins that equivalence directly (the surrounding tests only exercise
@@ -320,9 +314,11 @@ mod tests {
 
             for eta in &etas {
                 // Weighted: factored fast path vs full-operator oracle.
-                let (hat_f, logdet_f, shift_f) =
-                    FirthDenseOperator::pirls_diagnostics_from_factor(&factor_w, link, eta)
-                        .expect("factored weighted diagnostics");
+                let op_f = FirthDenseOperator::build_from_design_factor(&factor_w, link, eta)
+                    .expect("factored weighted operator");
+                let hat_f = op_f.pirls_hat_diag();
+                let logdet_f = op_f.jeffreys_logdet();
+                let shift_f = op_f.pirls_firth_score_shift();
                 let (hat_o, logdet_o, shift_o) =
                     compute_jeffreys_pirls_diagnostics(link, x.view(), eta.view(), weights.view())
                         .expect("oracle weighted diagnostics");
@@ -339,9 +335,11 @@ mod tests {
 
                 // Unweighted (`None` branch of the factor builder) vs the full
                 // operator with no observation weights.
-                let (hat_fu, logdet_fu, shift_fu) =
-                    FirthDenseOperator::pirls_diagnostics_from_factor(&factor_u, link, eta)
-                        .expect("factored unweighted diagnostics");
+                let op_fu = FirthDenseOperator::build_from_design_factor(&factor_u, link, eta)
+                    .expect("factored unweighted operator");
+                let hat_fu = op_fu.pirls_hat_diag();
+                let logdet_fu = op_fu.jeffreys_logdet();
+                let shift_fu = op_fu.pirls_firth_score_shift();
                 let op_u = FirthDenseOperator::build_for_link(link, &x, eta)
                     .expect("full unweighted operator");
                 assert_relative_eq!(
@@ -1841,7 +1839,27 @@ mod tests {
             mu[0],
             jet.mu
         );
-        let expected_z = eta[0] + (y[0] - jet.mu) / jet.d1;
+        // `mu` rounds to EXACTLY 1.0 here: 1 - e^-50 is not representable
+        // distinctly from 1 (e^-50 = 1.93e-22, machine epsilon = 2.2e-16). So
+        // reconstructing the residual as `y - jet.mu` CANCELS to zero and would
+        // claim z == eta — i.e. that this observation carries no information,
+        // which is precisely the tail-mass loss this test exists to catch.
+        //
+        // Production avoids that by rebuilding `y - mu` from the tail complement
+        // (`canonical_logit_working_response`: "mu may round to exactly zero or
+        // one while exp(-|eta|) and the score remain representable"), so the
+        // reference here must be built the same way:
+        //     tail = e^{-|eta|},  1 - mu = tail/(1+tail),  d1 = tail/(1+tail)^2
+        // hence for y = 1,  (y - mu)/d1 = 1 + tail  (= 51 at eta = 50).
+        let tail = (-eta[0].abs()).exp();
+        let one_minus_mu = tail / (1.0 + tail);
+        let expected_z = eta[0] + one_minus_mu / jet.d1;
+        assert!(
+            (expected_z - (eta[0] + 1.0 + tail)).abs() <= 1e-12,
+            "stable working-response reference disagrees with its closed form: {} vs {}",
+            expected_z,
+            eta[0] + 1.0 + tail
+        );
         assert!(
             (z[0] - expected_z).abs() < 1e-12,
             "pure logit PIRLS z should preserve the exact working response at eta={}; got {} vs {}",
@@ -1849,12 +1867,22 @@ mod tests {
             z[0],
             expected_z
         );
+        // Same cancellation trap as above, and here it defeated the assertion's
+        // own purpose: `y[0] - jet.mu` evaluates to 0 at this eta, so the check
+        // "the score carrier preserves y-mu" was satisfied by any implementation
+        // that ALSO lost the tail mass to zero — the exact regression the test is
+        // named for. The true residual is the stable complement, so compare
+        // against that:  w·(z-eta) = d1·(1+tail) = tail/(1+tail) = 1-mu.
         assert!(
-            (weights[0] * (z[0] - eta[0]) - (y[0] - jet.mu)).abs() < 1e-30,
+            (weights[0] * (z[0] - eta[0]) - one_minus_mu).abs() < 1e-30,
             "pure logit PIRLS score carrier should preserve y-mu at eta={}; got {} vs {}",
             eta[0],
             weights[0] * (z[0] - eta[0]),
-            y[0] - jet.mu
+            one_minus_mu
+        );
+        assert!(
+            one_minus_mu > 0.0,
+            "the tail residual must not be the cancelled zero this test guards against"
         );
     }
 
@@ -2191,6 +2219,89 @@ mod tests {
                 .expect("representable final sum"),
             f64::MAX
         );
+    }
+
+    #[test]
+    fn profiled_gaussian_pirls_data_kernel_is_exactly_negative_half_raw_deviance() {
+        let y = array![2.0, -1.0, 4.0];
+        let eta = array![1.0, 0.5, 3.0];
+        let weights = array![2.0, 0.5, 1.5];
+        let likelihood = GlmLikelihoodSpec::canonical(LikelihoodSpec::new(
+            ResponseFamily::Gaussian,
+            InverseLink::Standard(StandardLink::Identity),
+        ));
+        assert!(matches!(
+            likelihood.scale,
+            LikelihoodScaleMetadata::ProfiledGaussian
+        ));
+
+        let deviance = calculate_deviance_from_eta(
+            y.view(),
+            &eta,
+            &likelihood,
+            &likelihood.spec.link,
+            weights.view(),
+        )
+        .expect("profiled-Gaussian conventional deviance");
+        let raw_weighted_rss = 4.625_f64;
+        assert_eq!(deviance, raw_weighted_rss);
+
+        let data_kernel = pirls_data_log_kernel_from_eta(
+            y.view(),
+            &eta,
+            &likelihood,
+            &likelihood.spec.link,
+            weights.view(),
+            deviance,
+        )
+        .expect("profiled-Gaussian P-IRLS data kernel");
+        assert_eq!(data_kernel, -0.5 * deviance);
+    }
+
+    #[test]
+    fn fixed_gaussian_pirls_keeps_raw_deviance_but_scales_likelihood_kernel() {
+        let y = array![2.0, -1.0, 4.0];
+        let eta = array![1.0, 0.5, 3.0];
+        let weights = array![2.0, 0.5, 1.5];
+        let phi = 4.0_f64;
+        let likelihood = GlmLikelihoodSpec {
+            spec: LikelihoodSpec::new(
+                ResponseFamily::Gaussian,
+                InverseLink::Standard(StandardLink::Identity),
+            ),
+            scale: LikelihoodScaleMetadata::FixedDispersion { phi },
+        };
+
+        let deviance = calculate_deviance_from_eta(
+            y.view(),
+            &eta,
+            &likelihood,
+            &likelihood.spec.link,
+            weights.view(),
+        )
+        .expect("fixed-Gaussian conventional deviance");
+        let raw_weighted_rss = 4.625_f64;
+        assert_eq!(deviance, raw_weighted_rss);
+
+        let data_kernel = pirls_data_log_kernel_from_eta(
+            y.view(),
+            &eta,
+            &likelihood,
+            &likelihood.spec.link,
+            weights.view(),
+            deviance,
+        )
+        .expect("fixed-Gaussian P-IRLS data kernel");
+        let strict_kernel = calculate_loglikelihood_omitting_constants_from_eta(
+            y.view(),
+            &eta,
+            &likelihood,
+            &likelihood.spec.link,
+            weights.view(),
+        )
+        .expect("fixed-Gaussian strict eta likelihood");
+        assert_eq!(data_kernel, strict_kernel);
+        assert_eq!(data_kernel, -0.5 * raw_weighted_rss / phi);
     }
 
     /// Regression for issue #2126: `calculate_deviance` for a Gamma family must
@@ -2887,7 +2998,6 @@ mod tests {
             &lower_bounds,
             &mut direction,
             Some(&mut active_hint),
-            None,
         )
         .expect("lower-bound active-set solve should succeed");
 
@@ -2897,83 +3007,34 @@ mod tests {
         assert!(active_hint.is_empty());
     }
 
-    /// gam#979: when a caller reflects negative-curvature modes to keep the QP
-    /// step bounded (survival joint-Newton), the freed step `d` is far-field, so
-    /// the second-order release multiplier `(H·d)_i` is untrustworthy and can flip
-    /// a first-order-optimal bound loose — released spuriously, then re-added on
-    /// the next outer re-linearization (the active-set zigzag that ground the
-    /// n=3000 survival marginal-slope fit for 30 cycles). Passing the pre-
-    /// reflection Hessian via `kkt_hessian` flags the reflection, so the release is
-    /// judged on the reflection-invariant FIRST-ORDER multiplier `λ_i = g_i`.
-    ///
-    /// Here coord 1 is pinned (β₁ at its lower bound, d₁=0) with a first-order-
-    /// optimal reduced gradient g₁ = 1 > 0. On the reflected path (`Some(kkt)`) the
-    /// first-order test KEEPS it regardless of the far-field `(H·d)₁`; on the
-    /// unreflected path (`None`) the exact `λ₁ = g₁ + (H_step·d)₁ = 1 + 3·(−1) =
-    /// −2 < 0` releases it (β₁ overshoots to 4.0) — the historical behavior the
-    /// unreflected callers keep byte-for-byte.
+    /// gam#979: the free solve and active-bound multiplier must come from one
+    /// quadratic model. Here the bare gradient on coordinate 1 is positive, but
+    /// coupling to the free coordinate makes the full multiplier negative, so the
+    /// bound must be released. Dropping `H d` keeps it active; using a different
+    /// Hessian can release/re-add it forever. The exact convex-model KKT solve has
+    /// the unconstrained minimizer `d=(-7,4)`, which is feasible and stationary.
     #[test]
-    pub(crate) fn lower_bound_release_uses_true_curvature_not_reflected_step_979() {
-        // Step Hessian (stands in for the reflected, PD model used for the step).
-        let h_step = array![[2.0, 3.0], [3.0, 5.0]];
-        // Pre-reflection Hessian: its presence flags the reflected path (the
-        // release then uses the first-order g₁, so these entries are not consulted
-        // for the decision — only for the diagnostic log).
-        let h_kkt = array![[2.0, 0.5], [0.5, -3.0]];
+    pub(crate) fn lower_bound_release_uses_the_step_models_full_multiplier_979() {
+        let hessian = array![[2.0, 3.0], [3.0, 5.0]];
         let gradient = array![2.0, 1.0];
         let beta = array![0.0, 0.0];
         let lower_bounds = array![f64::NEG_INFINITY, 0.0];
-
-        // Reflected path: first-order λ₁ = g₁ = 1 > 0, so the bound is KEPT.
-        // β₁ stays pinned at its lower bound (no zigzag).
-        let mut dir_fixed = Array1::zeros(2);
-        let mut active_fixed = vec![1];
+        let mut direction = Array1::zeros(2);
+        let mut active = vec![1];
         solve_newton_directionwith_lower_bounds(
-            &h_step,
+            &hessian,
             &gradient,
             &beta,
             &lower_bounds,
-            &mut dir_fixed,
-            Some(&mut active_fixed),
-            Some(&h_kkt),
+            &mut direction,
+            Some(&mut active),
         )
-        .expect("true-curvature bounded solve should succeed");
-        assert_eq!(
-            active_fixed,
-            vec![1],
-            "true-curvature release must KEEP the genuinely-binding bound active"
-        );
-        assert!(
-            (beta[1] + dir_fixed[1]).abs() < 1e-12,
-            "coord 1 must stay pinned at its lower bound; got {}",
-            beta[1] + dir_fixed[1]
-        );
-
-        // WITHOUT it (kkt=None ⇒ the release test uses the STEP Hessian, the old
-        // behavior): λ₁ = 1 + 3·(−1) = −2 < 0, so the bound is released
-        // spuriously and coord 1 flies off to 4.0 — the overshoot the outer loop
-        // then has to walk back, cycle after cycle.
-        let mut dir_bug = Array1::zeros(2);
-        let mut active_bug = vec![1];
-        solve_newton_directionwith_lower_bounds(
-            &h_step,
-            &gradient,
-            &beta,
-            &lower_bounds,
-            &mut dir_bug,
-            Some(&mut active_bug),
-            None,
-        )
-        .expect("step-curvature bounded solve should succeed");
-        assert!(
-            active_bug.is_empty(),
-            "sanity: with the step Hessian the bound is (wrongly) released"
-        );
-        assert!(
-            (beta[1] + dir_bug[1]) > 1.0,
-            "sanity: the spuriously-freed coord overshoots its bound; got {}",
-            beta[1] + dir_bug[1]
-        );
+        .expect("consistent convex-model QP should succeed");
+        assert!(active.is_empty());
+        assert_relative_eq!(direction[0], -7.0, epsilon = 1e-12);
+        assert_relative_eq!(direction[1], 4.0, epsilon = 1e-12);
+        let stationarity = &gradient + &hessian.dot(&direction);
+        assert!(stationarity.iter().all(|value| value.abs() < 1e-12));
     }
 
     #[test]
@@ -2987,7 +3048,7 @@ mod tests {
         let hd = array![0.0, 0.0, 0.0];
         let active_idx = vec![0, 1, 2];
         assert_eq!(
-            select_active_set_release(&gradient, &hd, &active_idx, false, false),
+            select_active_set_release(&gradient, &hd, &active_idx, false),
             Some(1)
         );
     }
@@ -3004,7 +3065,7 @@ mod tests {
         let hd = array![0.0, 0.0, 0.0];
         let active_idx = vec![0, 1, 2];
         assert_eq!(
-            select_active_set_release(&gradient, &hd, &active_idx, true, false),
+            select_active_set_release(&gradient, &hd, &active_idx, true),
             Some(0)
         );
     }
@@ -3021,7 +3082,7 @@ mod tests {
         let hd = array![lambda_noise - g]; // λ = g + hd = lambda_noise
         let active_idx = vec![0];
         assert_eq!(
-            select_active_set_release(&gradient, &hd, &active_idx, true, false),
+            select_active_set_release(&gradient, &hd, &active_idx, true),
             None,
             "round-off-level multiplier must not trigger Bland's release"
         );
@@ -3031,7 +3092,7 @@ mod tests {
         let lambda_real = -128.0 * f64::EPSILON * g;
         let hd = array![lambda_real - g];
         assert_eq!(
-            select_active_set_release(&gradient, &hd, &active_idx, true, false),
+            select_active_set_release(&gradient, &hd, &active_idx, true),
             Some(0)
         );
     }
@@ -3044,58 +3105,12 @@ mod tests {
         let hd = array![0.0, 0.0, 0.0];
         let active_idx = vec![0, 1, 2];
         assert_eq!(
-            select_active_set_release(&gradient, &hd, &active_idx, false, false),
+            select_active_set_release(&gradient, &hd, &active_idx, false),
             None
         );
         assert_eq!(
-            select_active_set_release(&gradient, &hd, &active_idx, true, false),
+            select_active_set_release(&gradient, &hd, &active_idx, true),
             None
-        );
-    }
-
-    /// gam#979: on a negative-curvature-reflected step the freed-block Newton
-    /// step `d` is far-field along the reflected modes, so the second-order
-    /// release term `(H·d)_i` is not model-trustworthy. A bound that is
-    /// FIRST-ORDER optimal (`g_i ≥ 0`) must be KEPT even when the far-field
-    /// `(H·d)_i` drives the full multiplier `g_i + (H·d)_i` negative — otherwise
-    /// the freed coefficient overshoots (β∞ ≈ 26 on the n=3000 marginal-slope
-    /// fit) and the active set zigzags across outer cycles. The reflected path
-    /// judges dual feasibility on the reflection-invariant first-order `g_i`.
-    #[test]
-    pub(crate) fn select_active_set_release_reflected_uses_first_order_multiplier_979() {
-        let gradient = array![1.0]; // g_0 = 1 ≥ 0 ⇒ first-order optimal ⇒ keep
-        let hd = array![-3.0]; // far-field second-order term (fictitious length)
-        let active_idx = vec![0];
-
-        // Reflected path (worst-violation): first-order g_0 = 1 > 0 ⇒ KEEP.
-        assert_eq!(
-            select_active_set_release(&gradient, &hd, &active_idx, false, true),
-            None,
-            "reflected release must judge on first-order g_i and KEEP a first-order-optimal bound"
-        );
-        // Reflected path (Bland's): same first-order verdict ⇒ KEEP.
-        assert_eq!(
-            select_active_set_release(&gradient, &hd, &active_idx, true, true),
-            None,
-            "Bland's variant must also KEEP on the reflected first-order test"
-        );
-
-        // Non-reflected path (exact λ = g + Hd = 1 − 3 = −2 < 0) ⇒ RELEASE.
-        // Byte-identical to the historical behavior for callers that do not
-        // reflect their step Hessian.
-        assert_eq!(
-            select_active_set_release(&gradient, &hd, &active_idx, false, false),
-            Some(0),
-            "the non-reflected exact multiplier is unchanged"
-        );
-
-        // The fix is conservative, NOT release-blocking: a genuinely first-order-
-        // infeasible bound (g_0 < 0) still releases on the reflected path.
-        let gradient_neg = array![-0.5];
-        assert_eq!(
-            select_active_set_release(&gradient_neg, &hd, &active_idx, false, true),
-            Some(0),
-            "a first-order-infeasible bound (g_i < 0) must still release on the reflected path"
         );
     }
 
@@ -3115,7 +3130,6 @@ mod tests {
             &lower_bounds,
             &mut direction,
             Some(&mut active_hint),
-            None,
         )
         .expect("stale warm lower-bound hint should be releasable");
 
@@ -3130,6 +3144,7 @@ mod tests {
 
 #[cfg(test)]
 mod root_cause_tests {
+    use super::reweight::exact_newton_decrement_sq;
     use super::*;
     use approx::assert_relative_eq;
     use gam_problem::LogSmoothingParamsView;
@@ -3166,6 +3181,48 @@ mod root_cause_tests {
             hessian_curvature: curvature,
             gradient_natural_scale: 0.0,
         }
+    }
+
+    #[test]
+    pub(crate) fn exact_decrement_certifies_stiff_numerical_plateau_2316() {
+        let beta = Coefficients::new(array![0.0]);
+        let mut state =
+            scalar_working_state(&beta, HessianCurvatureKind::Fisher, 1.448_052e-3, 428.0);
+        state.hessian = gam_linalg::matrix::SymmetricMatrix::Dense(array![[1.0e8]]);
+
+        let decrement_sq = exact_newton_decrement_sq(&state)
+            .expect("a finite positive-definite Hessian has an exact decrement");
+        let threshold = 1.0e-6_f64.powi(2) * (1.0 + state.penalized_objective().abs());
+
+        assert!(decrement_sq <= threshold);
+        assert_relative_eq!(
+            decrement_sq,
+            1.448_052e-3_f64.powi(2) / 1.0e8,
+            epsilon = 1.0e-28
+        );
+        // The old damped resolvent bound used ridge_used.max(1e-12) as a
+        // lower eigenvalue bound. At the observed λ≈1e5 it inflated this
+        // decisive decrement by 1e17 and therefore could never certify.
+        let obsolete_bound = decrement_sq * (1.0 + 1.0e5 / 1.0e-12);
+        assert!(obsolete_bound > threshold);
+    }
+
+    #[test]
+    pub(crate) fn lm_gain_value_matches_working_state_objective_2316() {
+        let beta = Coefficients::new(array![0.0]);
+        let mut state = scalar_working_state(&beta, HessianCurvatureKind::Fisher, 0.0, 8.0);
+        state.penalty_term = 2.0;
+        let expected = state.penalized_objective();
+
+        let screened = CandidateEvaluation::Screen(CandidateScreen {
+            deviance: state.deviance,
+            penalty_term: state.penalty_term,
+            arithmetic_finite: true,
+        });
+        let full = CandidateEvaluation::Full(state);
+
+        assert_eq!(screened.penalized_objective(false, 1.0), expected);
+        assert_eq!(full.penalized_objective(false, 1.0), expected);
     }
 
     pub(crate) fn test_working_state(
@@ -3419,6 +3476,49 @@ mod root_cause_tests {
         }
     }
 
+    pub(crate) struct ExactDecrementAtIterationCapModel {
+        pub(crate) exact_calls: usize,
+        pub(crate) gradient: f64,
+        pub(crate) candidate_deviance: f64,
+    }
+
+    impl WorkingModel for ExactDecrementAtIterationCapModel {
+        fn update(&mut self, beta: &Coefficients) -> Result<WorkingState, EstimationError> {
+            self.update_with_curvature(beta, HessianCurvatureKind::Fisher)
+        }
+
+        fn update_with_curvature(
+            &mut self,
+            beta: &Coefficients,
+            curvature: HessianCurvatureKind,
+        ) -> Result<WorkingState, EstimationError> {
+            Ok(scalar_working_state(beta, curvature, self.gradient, 1.0))
+        }
+
+        fn update_candidate(
+            &mut self,
+            beta: &Coefficients,
+            curvature: HessianCurvatureKind,
+        ) -> Result<WorkingState, EstimationError> {
+            Ok(scalar_working_state(
+                beta,
+                curvature,
+                self.gradient,
+                self.candidate_deviance,
+            ))
+        }
+
+        fn exact_unconstrained_decrement_sq(
+            &mut self,
+            beta: &Coefficients,
+            state: &WorkingState,
+        ) -> Result<Option<f64>, EstimationError> {
+            assert_eq!(beta.as_ref().len(), state.gradient.len());
+            self.exact_calls += 1;
+            Ok(Some(0.0))
+        }
+    }
+
     pub(crate) struct LinearObjectivePlateauModel {
         pub(crate) gradient: f64,
     }
@@ -3494,7 +3594,6 @@ mod root_cause_tests {
             &lower_bounds,
             &mut direction,
             Some(&mut active_hint),
-            None,
         )
         .expect("solve should succeed");
 
@@ -3707,40 +3806,6 @@ mod root_cause_tests {
         assert!(!state.near_stationary_kkt(2.0e-3, tol));
         // Strict KKT at the same point should be ~10× tighter.
         assert!(!state.certifies_kkt(9.9e-4, tol));
-    }
-
-    /// The Newton-decrement upper bound `(−lin)·(1 + λ_lm/λ_min)` is
-    /// derived from the resolvent identity and is a *provable* upper bound
-    /// on `gᵀH⁻¹g` whenever `λ_min(H) ≥ ridge_floor`. Verify the algebraic
-    /// inequality on a 2×2 worked example so the formula is locked in.
-    #[test]
-    pub(crate) fn newton_decrement_correction_upper_bounds_true_decrement() {
-        // H = diag(2, 0.5).  λ_min = 0.5.  λ_lm = 0.25.
-        let lambda_min = 0.5_f64;
-        let lambda_lm = 0.25_f64;
-        let g = ndarray::array![1.0_f64, 1.0];
-        // True Newton decrement²: gᵀ H⁻¹ g = 1/2 + 1/0.5 = 0.5 + 2.0 = 2.5
-        let true_decrement_sq = g[0].powi(2) / 2.0 + g[1].powi(2) / 0.5;
-        // Damped: gᵀ (H+λI)⁻¹ g = 1/(2+0.25) + 1/(0.5+0.25) = 1/2.25 + 1/0.75
-        let damped_decrement_sq =
-            g[0].powi(2) / (2.0 + lambda_lm) + g[1].powi(2) / (0.5 + lambda_lm);
-        // Correction factor: 1 + λ_lm / λ_min = 1 + 0.25/0.5 = 1.5
-        let correction = 1.0 + lambda_lm / lambda_min;
-        let upper_bound = damped_decrement_sq * correction;
-        assert!(
-            upper_bound >= true_decrement_sq,
-            "(1 + λ_lm/λ_min)·damped must upper-bound true decrement: \
-             upper={:.6}  true={:.6}",
-            upper_bound,
-            true_decrement_sq,
-        );
-        // And the bound should be tight enough to be useful (within 2× of true).
-        assert!(
-            upper_bound <= 2.0 * true_decrement_sq,
-            "correction should not be wildly loose: upper={:.6}  true={:.6}",
-            upper_bound,
-            true_decrement_sq,
-        );
     }
 
     /// Hypothesis 3: LM gain-ratio fallback should accept when both predicted
@@ -4018,6 +4083,65 @@ mod root_cause_tests {
     }
 
     #[test]
+    pub(crate) fn iteration_cap_runs_one_final_exact_decrement_certificate_2316() {
+        let mut model = ExactDecrementAtIterationCapModel {
+            exact_calls: 0,
+            gradient: 5.0e-5,
+            candidate_deviance: 1.0 - 1.25e-9,
+        };
+        let options = WorkingModelPirlsOptions {
+            max_iterations: 1,
+            convergence_tolerance: 1e-6,
+            adaptive_kkt_tolerance: None,
+            max_step_halving: 4,
+            min_step_size: 0.0,
+            firth_bias_reduction: false,
+            coefficient_lower_bounds: None,
+            linear_constraints: None,
+            initial_lm_lambda: None,
+            arrow_schur: None,
+        };
+
+        let result =
+            runworking_model_pirls(&mut model, Coefficients::new(array![0.0]), &options, |_| {})
+                .expect("the exact final-state decrement certifies iteration exhaustion");
+
+        assert_eq!(model.exact_calls, 1);
+        assert_eq!(result.status, PirlsStatus::Converged);
+    }
+
+    #[test]
+    pub(crate) fn soft_stall_gets_one_final_exact_decrement_certificate_2316() {
+        let mut model = ExactDecrementAtIterationCapModel {
+            exact_calls: 0,
+            // Outside strict KKT (1e-6) but inside the 10× soft band.
+            gradient: 5.0e-6,
+            // Force LM rejection so the loop exits through soft acceptance
+            // before the accepted-state exact-decrement check.
+            candidate_deviance: 2.0,
+        };
+        let options = WorkingModelPirlsOptions {
+            max_iterations: 1,
+            convergence_tolerance: 1e-6,
+            adaptive_kkt_tolerance: None,
+            max_step_halving: 1,
+            min_step_size: 0.0,
+            firth_bias_reduction: false,
+            coefficient_lower_bounds: None,
+            linear_constraints: None,
+            initial_lm_lambda: None,
+            arrow_schur: None,
+        };
+
+        let result =
+            runworking_model_pirls(&mut model, Coefficients::new(array![0.0]), &options, |_| {})
+                .expect("the exact final-state decrement certifies a soft LM stall");
+
+        assert_eq!(model.exact_calls, 1);
+        assert_eq!(result.status, PirlsStatus::Converged);
+    }
+
+    #[test]
     pub(crate) fn long_constrained_objective_plateau_reports_valid_stall() {
         let mut model = LinearObjectivePlateauModel { gradient: -5e-5 };
         let options = WorkingModelPirlsOptions {
@@ -4115,91 +4239,6 @@ mod root_cause_tests {
                 curr - prev,
             );
         }
-    }
-
-    #[test]
-    pub(crate) fn test_deviance_monotonicity_gaussian() {
-        // Simple Gaussian GAM: y ~ X beta with a smooth penalty.
-        // Design matrix with an intercept column and one covariate.
-        let n = 20;
-        let mut x_data = Array2::<f64>::zeros((n, 2));
-        let mut y = Array1::<f64>::zeros(n);
-        for i in 0..n {
-            let t = i as f64 / (n - 1) as f64;
-            x_data[[i, 0]] = 1.0; // intercept
-            x_data[[i, 1]] = t; // covariate
-            // true relationship: y = 3 + 2*t + deterministic pseudo-noise
-            y[i] = 3.0 + 2.0 * t + 0.3 * (((i * 17 + 5) % 11) as f64 / 11.0 - 0.5);
-        }
-
-        let w = Array1::ones(n);
-        let offset = Array1::zeros(n);
-        let rho = array![0.0]; // log(lambda) = 0, so lambda = 1
-        // Penalty on the second coefficient only (leave intercept unpenalized).
-        let rs = [array![[0.0, 0.0], [0.0, 1.0]]];
-        let canonical: Vec<gam_terms::construction::CanonicalPenalty> = rs
-            .iter()
-            .map(|r| {
-                let local = r.t().dot(r);
-                gam_terms::construction::CanonicalPenalty {
-                    root: r.clone(),
-                    col_range: 0..r.ncols(),
-                    total_dim: r.ncols(),
-                    nullity: 0,
-                    local,
-                    prior_mean: Array1::zeros(r.ncols()),
-                    positive_eigenvalues: Vec::new(),
-                    op: None,
-                }
-            })
-            .collect();
-        let config = PirlsConfig {
-            likelihood: GlmLikelihoodSpec::canonical(LikelihoodSpec::new(
-                ResponseFamily::Gaussian,
-                InverseLink::Standard(StandardLink::Identity),
-            )),
-            link_kind: InverseLink::Standard(StandardLink::Identity),
-            max_iterations: 100,
-            convergence_tolerance: 1e-8,
-            firth_bias_reduction: false,
-            initial_lm_lambda: None,
-            arrow_schur: None,
-        };
-
-        let (result, trace) = capture_pirls_penalized_deviance(|| {
-            fit_model_for_fixed_rho(
-                LogSmoothingParamsView::new(rho.view())
-                    .expect("test rho lies in exact strength domain"),
-                PirlsProblem {
-                    x: x_data.view(),
-                    offset: offset.view(),
-                    y: y.view(),
-                    priorweights: w.view(),
-                    covariate_se: None,
-                    gaussian_fixed_cache: None,
-                    glm_first_step_gram: None,
-                },
-                PenaltyConfig {
-                    canonical_penalties: &canonical,
-                    balanced_penalty_root: None,
-                    reparam_invariant: None,
-                    p: 2,
-                    coefficient_lower_bounds: None,
-                    linear_constraints_original: None,
-                    penalty_shrinkage_floor: None,
-                    kronecker_factored: None,
-                },
-                &config,
-                None,
-            )
-        });
-        result.expect("Gaussian P-IRLS fit should succeed");
-        if trace.len() < 2 {
-            // Gaussian identity-link can short-circuit through an exact dense solve
-            // path without iterative PIRLS updates, yielding an empty trace.
-            return;
-        }
-        assert_deviance_monotone(&trace, "Gaussian");
     }
 
     #[test]
@@ -4674,7 +4713,8 @@ mod root_cause_tests {
 #[cfg(test)]
 mod reporting_loglikelihood_tests {
     use super::super::{
-        calculate_loglikelihood_omitting_constants_from_eta, evaluate_full_log_likelihood_from_eta,
+        calculate_loglikelihood_omitting_constants_from_eta,
+        eta_log_likelihood_value_and_score_into, evaluate_full_log_likelihood_from_eta,
     };
     use gam_problem::{
         GlmLikelihoodSpec, InverseLink, LikelihoodScaleMetadata, LikelihoodSpec, ResponseFamily,
@@ -4848,6 +4888,33 @@ mod reporting_loglikelihood_tests {
         let error = evaluate_full_log_likelihood_from_eta(y.view(), eta.view(), &glm, w.view())
             .expect_err("unresolved profiled Gaussian scale must fail");
         assert!(error.to_string().contains("explicit positive dispersion"));
+
+        let error = calculate_loglikelihood_omitting_constants_from_eta(
+            y.view(),
+            &eta,
+            &glm,
+            &glm.spec.link,
+            w.view(),
+        )
+        .expect_err("strict eta likelihood must not invent a profiled Gaussian dispersion");
+        assert!(error.to_string().contains("explicit positive dispersion"));
+
+        let original_score = array![7.0, 8.0, 9.0];
+        let mut score = original_score.clone();
+        let error = eta_log_likelihood_value_and_score_into(
+            y.view(),
+            &eta,
+            &glm,
+            &glm.spec.link,
+            w.view(),
+            &mut score,
+        )
+        .expect_err("HMC eta likelihood must not invent a profiled Gaussian dispersion");
+        assert!(error.to_string().contains("explicit positive dispersion"));
+        assert_eq!(
+            score, original_score,
+            "strict eta likelihood failure must leave the caller's score untouched"
+        );
     }
 
     // Gaussian prior weights act as inverse-variance scaling (Var = φ/wᵢ): the

@@ -37,6 +37,7 @@ class TestJenkinsIntegrationEditDto(unittest.TestCase):
             return JenkinsIntegrationEditDto(
                 name = '',
                 url = '',
+                browse_url = '',
                 username = '',
                 token = '',
                 broker_id = '',

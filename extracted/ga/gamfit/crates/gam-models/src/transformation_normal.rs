@@ -6,28 +6,33 @@
 //!
 //! The response-direction basis is `[1, I_1(y), ..., I_K(y)]`, tensored with an
 //! arbitrary covariate design operator. Column 0 is an unconstrained location
-//! component `b(x)`. The I-spline columns are shape components with squared
-//! covariate-side coefficients, giving the SCOP representation
-//! `h(y, x) = b(x) + ε·(y−median_y) + Σ_k I_k(y) γ_k(x)^2` and
-//! `h'(y, x) = ε + Σ_k M_k(y) γ_k(x)^2`. Monotonicity is structural:
+//! component `b(x)`. The I-spline columns are direct non-negative shape
+//! functions `α_k(x)`, giving the SCOP representation
+//! `h(y, x) = b(x) + ε·(y−median_y) + Σ_k I_k(y) α_k(x)` and
+//! `h'(y, x) = ε + Σ_k M_k(y) α_k(x)`. Monotonicity is exact:
 //! the fixed derivative floor `ε` keeps the change-of-variables log-density
 //! away from the `log(0)` singularity, while the non-negative M-spline basis
-//! and squared covariate-side coefficients supply the learned shape.
+//! and the factored Khatri-Rao cone `α_k(x_i) >= 0` supply the learned shape.
 //!
 //! The log-likelihood per observation is the finite-support normalized
 //! change-of-variables density for a standard normal target:
 //!
 //!   ℓ_i = -½ h_i² + log(h'_i) - log(Φ(h_U(x_i)) - Φ(h_L(x_i)))
 //!
-//! where `h_i = b(x_i) + ε·(y_i−median_y) + Σ_k I_k(y_i) γ_k(x_i)^2`
-//! and `h'_i = ε + Σ_k M_k(y_i) γ_k(x_i)^2`. The endpoint normalizer is
+//! where `h_i = b(x_i) + ε·(y_i−median_y) + Σ_k I_k(y_i) α_k(x_i)`
+//! and `h'_i = ε + Σ_k M_k(y_i) α_k(x_i)`. The endpoint normalizer is
 //! required because the I-spline response basis saturates at finite support
 //! values rather than mapping onto the full real line.
 
+mod alo_replay;
 mod endpoint_normalizer;
 
 // Shared imports re-exported so every concern submodule pulls them through
 // `use super::*;` without re-listing. `pub(crate)` lets the child globs see them.
+pub use alo_replay::{
+    TransformationNormalAloRowGeometry, TransformationNormalAloRowInput,
+    transformation_normal_alo_row_geometry,
+};
 pub(crate) use endpoint_normalizer::{
     LogNormalCdfDiffDerivatives, endpoint_chain_first, endpoint_chain_fourth,
     endpoint_chain_second, endpoint_chain_third, log_normal_cdf_diff,
@@ -36,15 +41,19 @@ pub(crate) use endpoint_normalizer::{
 
 pub(crate) use crate::custom_family::{
     BlockWorkingSet, BlockwiseFitOptions, CustomFamily, CustomFamilyBlockPsiDerivative,
+    CustomFamilyHyperLayout, CustomFamilyJointHyperModeSelection,
     CustomFamilyPsiDerivativeOperator, CustomFamilyWarmStart, ExactNewtonJointGradientEvaluation,
     ExactNewtonJointHessianWorkspace, FamilyEvaluation, JointHessianSourcePreference,
     MaterializablePsiDerivativeOperator, MaterializationIntent, ParameterBlockSpec,
-    ParameterBlockState, PenaltyMatrix, evaluate_custom_family_joint_hyper,
-    evaluate_custom_family_joint_hyper_efs, fit_custom_family, fit_custom_family_fixed_log_lambdas,
+    ParameterBlockState, PenaltyMatrix, SharedCustomFamilyHyperLayout,
+    evaluate_custom_family_joint_hyper_best_mode_shared, fit_custom_family,
+    fit_custom_family_fixed_log_lambdas_from_mode_selection,
+    fit_custom_family_user_fixed_log_lambdas_from_mode_selection,
 };
 pub(crate) use crate::fit_orchestration::drivers::{
-    ExactJointHyperSetup, freeze_term_collection_from_design,
-    optimize_spatial_length_scale_exact_joint, spatial_length_scale_term_indices,
+    ExactJointEfsEvaluation, ExactJointEvaluation, ExactJointHyperSetup, SpatialFitProvenance,
+    freeze_term_collection_from_design, optimize_spatial_length_scale_exact_joint,
+    spatial_length_scale_term_indices,
 };
 pub(crate) use crate::inference::model::{
     TRANSFORMATION_SCORE_PIT_CLIP_EPS, TransformationScoreCalibration,
@@ -56,16 +65,15 @@ pub(crate) use crate::spatial_psi_bridge::build_block_spatial_psi_derivatives;
 pub(crate) use gam_linalg::faer_ndarray::{fast_ab, fast_abt, fast_atb};
 pub(crate) use gam_linalg::matrix::{
     DenseDesignMatrix, DenseDesignOperator, DesignMatrix, FiniteSignedWeightsView, LinearOperator,
-    SymmetricMatrix, dense_rowwise_kronecker,
+    PsdWeightsView, SymmetricMatrix, dense_rowwise_kronecker,
 };
 pub(crate) use gam_problem::{
     ExactNewtonJointPsiSecondOrderTerms, ExactNewtonJointPsiTerms, ExactNewtonJointPsiWorkspace,
 };
-pub(crate) use gam_solve::pirls::LinearInequalityConstraints;
 pub(crate) use gam_terms::basis::initializewiggle_knots_from_seed;
 pub(crate) use gam_terms::basis::{
-    BasisOptions, Dense, KnotSource, create_basis, create_difference_penalty_matrix,
-    create_ispline_derivative_dense,
+    BasisOptions, Dense, KnotSource, create_basis, create_ispline_derivative_dense,
+    ispline_function_penalties,
 };
 pub(crate) use gam_terms::smooth::{
     SpatialLengthScaleOptimizationOptions, SpatialLogKappaCoords, TermCollectionDesign,

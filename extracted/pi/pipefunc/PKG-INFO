@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pipefunc
-Version: 0.93.0
+Version: 0.93.1
 Summary: A Python library for defining, managing, and executing function pipelines.
 Project-URL: homepage, https://pipefunc.readthedocs.io/
 Project-URL: documentation, https://pipefunc.readthedocs.io/

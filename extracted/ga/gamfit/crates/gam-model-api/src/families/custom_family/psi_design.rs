@@ -13,9 +13,9 @@ use std::sync::Arc;
 // `gam-problem`. Only the trait that couples to the `CustomFamily` evaluation
 // carrier (`ExactNewtonJointHessianWorkspace`) stays local below.
 pub use gam_problem::{
-    CustomFamilyBlockPsiDerivative, CustomFamilyPsiDerivativeOperator,
-    JointHessianSourcePreference, MaterializablePsiDerivativeOperator, MaterializationIntent,
-    SharedDerivativeBlocks,
+    CustomFamilyBlockPsiDerivative, CustomFamilyHyperAxis, CustomFamilyHyperLayout,
+    CustomFamilyPsiDerivativeOperator, JointHessianSourcePreference,
+    MaterializablePsiDerivativeOperator, MaterializationIntent, SharedCustomFamilyHyperLayout,
 };
 
 pub trait ExactNewtonJointHessianWorkspace: Send + Sync {
@@ -38,7 +38,7 @@ pub trait ExactNewtonJointHessianWorkspace: Send + Sync {
     /// seed-screen cost):
     ///   * [`EvalMode::ValueOnly`] consumes **no** directional cache — the
     ///     objective is read straight off the converged inner mode — so a
-    ///     value-only probe (line search, seed screen, continuation pre-warm)
+    ///     value-only probe (line search, seed screen, reactive domain entry)
     ///     should prime nothing.
     ///   * [`EvalMode::ValueAndGradient`] consumes only the **first** (third-
     ///     derivative) directional cache, which feeds the REML/LAML gradient's

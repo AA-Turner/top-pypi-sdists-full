@@ -121,7 +121,7 @@ class TestTestgresCommon:
         # Author: Mark G.
         assert v.major == 1
         assert v.minor == 15
-        assert v.micro == 0
+        assert v.micro == 1
 
         assert str(v) == testgres_version
         return
@@ -190,15 +190,15 @@ class TestTestgresCommon:
         return
 
     def test_node_constructor__default(self):
-        node = PostgresNode()
-        assert node._os_ops is not None
-        assert isinstance(node._os_ops, OsOperations)
-        assert node._port_manager is not None
-        assert isinstance(node._port_manager, PortManager)
-        assert node._name is not None
-        assert type(node._name) is str
-        assert node._name != ""
-        assert node._base_dir is None
+        with PostgresNode() as node:
+            assert node._os_ops is not None
+            assert isinstance(node._os_ops, OsOperations)
+            assert node._port_manager is not None
+            assert isinstance(node._port_manager, PortManager)
+            assert node._name is not None
+            assert type(node._name) is str
+            assert node._name != ""
+            assert node._base_dir is None
         return
 
     def test_node_constructor__host(self):
@@ -456,12 +456,70 @@ class TestTestgresCommon:
         assert isinstance(node_svc, PostgresNodeService)
 
         with __class__.helper__get_node(node_svc) as node:
-            node.init().start()
+            node.init()
 
-            # restart, ok
-            res = node.execute('select 1')
-            assert (res == [(1,)])
-            node.restart()
+            nRestartAttempt = 0
+
+            while True:
+                nRestartAttempt += 1
+
+                logging.info("Attempt #{}".format(nRestartAttempt))
+
+                node.start()
+
+                # restart, ok
+                res = node.execute('select 1')
+                assert (res == [(1,)])
+
+                node_log_reader = PostgresNodeLogReader(
+                    node,
+                    from_beginnig=False,
+                )
+
+                try:
+                    node.restart()
+                except StartNodeException as e:
+                    logging.info("Exception ({}): {}".format(
+                        type(e).__name__,
+                        e,
+                    ))
+
+                    if nRestartAttempt == 5:
+                        raise
+
+                    if not PostgresNodeUtils.detect_port_conflict(node_log_reader):
+                        raise
+
+                    logging.info("Node port {} conflicted with another PostgreSQL instance.".format(
+                        node.port
+                    ))
+
+                    logging.info("Wait for node stop")
+
+                    nStopAttemtp = 0
+
+                    while True:
+                        if nStopAttemtp == 5:
+                            raise RuntimeError("Node is not stopped!")
+
+                        nStopAttemtp += 1
+
+                        time.sleep(1)
+
+                        node_status = node.status()
+
+                        logging.info("Node status is {}".format(node_status))
+
+                        if node_status == NodeStatus.Stopped:
+                            break
+                        continue
+
+                    # node is stopped. try again
+                    continue
+
+                assert node.status() == NodeStatus.Running
+                break
+
             res = node.execute('select 2')
             assert (res == [(2,)])
 
@@ -771,6 +829,8 @@ class TestTestgresCommon:
         finally:
             if node.is_started:
                 node.stop()
+
+        node.cleanup(release_resources=True)
         return
 
     def test_kill_backgroud_writer__ok(
@@ -1630,7 +1690,7 @@ class TestTestgresCommon:
 
         nAttempt = 0
         while True:
-            if PostgresNodeUtils.delect_port_conflict(node_log_reader):
+            if PostgresNodeUtils.detect_port_conflict(node_log_reader):
                 logging.info("Node port {} conflicted with another PostgreSQL instance.".format(
                     node.port
                 ))
@@ -1726,12 +1786,9 @@ class TestTestgresCommon:
         __class__.helper__skip_test_if_pg_version_is_not_ge(current_version, "9.6")
 
         with __class__.helper__get_node(node_svc) as master:
-            old_version = not __class__.helper__pg_version_ge(current_version, '9.6')
-
             master.init(allow_streaming=True).start()
 
-            if not old_version:
-                master.append_conf('synchronous_commit = remote_apply')
+            master.append_conf('synchronous_commit = remote_apply')
 
             # create standby
             with master.replicate() as standby1, master.replicate() as standby2:
@@ -1748,21 +1805,20 @@ class TestTestgresCommon:
 
                 # set synchronous_standby_names
                 master.set_synchronous_standbys(First(2, [standby1, standby2]))
-                master.restart()
+                master.reload()
 
-                # the following part of the test is only applicable to newer
-                # versions of PostgresQL
-                if not old_version:
-                    master.safe_psql('create table abc(a int)')
+                master.safe_psql('create table abc(a int)')
 
-                    # Create a large transaction that will take some time to apply
-                    # on standby to check that it applies synchronously
-                    # (If set synchronous_commit to 'on' or other lower level then
-                    # standby most likely won't catchup so fast and test will fail)
-                    master.safe_psql(
-                        'insert into abc select generate_series(1, 1000000)')
-                    res = standby1.safe_psql('select count(*) from abc')
-                    assert (__class__.helper__rm_carriage_returns(res) == b'1000000\n')
+                # Create a large transaction that will take some time to apply
+                # on standby to check that it applies synchronously
+                # (If set synchronous_commit to 'on' or other lower level then
+                # standby most likely won't catchup so fast and test will fail)
+                master.safe_psql(
+                    'insert into abc select generate_series(1, 1000000)',
+                )
+                res = standby1.safe_psql('select count(*) from abc')
+                assert (__class__.helper__rm_carriage_returns(res) == b'1000000\n')
+        return
 
     def test_logical_replication(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)

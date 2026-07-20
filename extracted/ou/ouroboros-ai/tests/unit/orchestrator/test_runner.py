@@ -11,10 +11,12 @@ import pytest
 
 from ouroboros.core.errors import ConfigError
 from ouroboros.core.seed import (
+    AcceptanceCriterionSpec,
     BrownfieldContext,
     ContextReference,
     EvaluationPrinciple,
     ExitCondition,
+    InvestmentSpec,
     OntologyField,
     OntologySchema,
     Seed,
@@ -40,6 +42,7 @@ from ouroboros.orchestrator.runner import (
     OrchestratorError,
     OrchestratorResult,
     OrchestratorRunner,
+    _seed_has_investment_metadata,
     build_system_prompt,
     build_task_prompt,
 )
@@ -58,6 +61,26 @@ def _task_workspace() -> TaskWorkspace:
         branch="ooo/orch_test",
         lock_path="/tmp/worktree/.locks/repo/orch_test.json",
     )
+
+
+def test_seed_investment_detection_supports_legacy_string_criteria(sample_seed: Seed) -> None:
+    assert _seed_has_investment_metadata(sample_seed) is False
+
+
+def test_seed_investment_detection_finds_structured_metadata(sample_seed: Seed) -> None:
+    seed = sample_seed.model_copy(
+        update={
+            "acceptance_criteria": (
+                sample_seed.acceptance_criteria[0],
+                AcceptanceCriterionSpec(
+                    description="Protect the production migration",
+                    investment=InvestmentSpec(stakes="high"),
+                ),
+            )
+        }
+    )
+
+    assert _seed_has_investment_metadata(seed) is True
 
 
 @pytest.fixture
@@ -312,6 +335,130 @@ class TestOrchestratorResult:
             result.success = False  # type: ignore
 
 
+class TestACExecutionResult:
+    """Tests for AC execution result convenience properties."""
+
+    def test_decomposition_trustworthy_reflects_finalized_decision(self) -> None:
+        """ACExecutionResult exposes trusted split status without callers parsing records."""
+        from ouroboros.orchestrator.decomposition_policy import (
+            DecompositionChild,
+            DecompositionDecisionRecord,
+            DecompositionDisposition,
+            DecompositionSource,
+            SemanticAttestationStatus,
+            StructuralCheckStatus,
+        )
+
+        decision = DecompositionDecisionRecord(
+            node_id="node_abc",
+            source=DecompositionSource.PREFLIGHT,
+            disposition=DecompositionDisposition.SPLIT,
+            children=(
+                DecompositionChild(
+                    description="Implement config field",
+                    coverage_claims=("config",),
+                    verification_hint="unit",
+                ),
+                DecompositionChild(
+                    description="Wire runner field",
+                    coverage_claims=("runner",),
+                    verification_hint="unit",
+                ),
+            ),
+            structural_status=StructuralCheckStatus.PASSED,
+            semantic_status=SemanticAttestationStatus.ESTABLISHED,
+            trustworthy=True,
+        )
+
+        result = ACExecutionResult(
+            ac_index=0,
+            ac_content="Split a trusted task",
+            success=True,
+            decomposition_decision=decision,
+        )
+
+        assert result.decomposition_trustworthy is True
+        assert (
+            ACExecutionResult(
+                ac_index=1, ac_content="Atomic task", success=True
+            ).decomposition_trustworthy
+            is False
+        )
+
+
+class TestExecutionEventEmitter:
+    """Tests for decomposition event helpers used by executor wiring."""
+
+    @pytest.mark.asyncio
+    async def test_emit_decomposition_decision_finalized_persists_bounded_payload(
+        self,
+    ) -> None:
+        from ouroboros.orchestrator.decomposition_policy import (
+            DecompositionDecisionRecord,
+            DecompositionDisposition,
+            DecompositionSource,
+        )
+        from ouroboros.orchestrator.execution_event_emitter import ExecutionEventEmitter
+        from ouroboros.orchestrator.execution_runtime_scope import ExecutionNodeIdentity
+
+        safe_emit = AsyncMock(return_value=True)
+        emitter = ExecutionEventEmitter(AsyncMock(), safe_emit_event=safe_emit)
+        node = ExecutionNodeIdentity.root(execution_context_id="exec_1", ac_index=0)
+        decision = DecompositionDecisionRecord(
+            node_id=node.node_id,
+            source=DecompositionSource.PREFLIGHT,
+            disposition=DecompositionDisposition.ATOMIC,
+            reasons=("small enough",),
+        )
+
+        await emitter.emit_decomposition_decision_finalized(
+            execution_id="exec_1",
+            session_id="sess_1",
+            mode="preflight",
+            node_identity=node,
+            decision=decision,
+        )
+
+        event = safe_emit.await_args.args[0]
+        assert event.type == "execution.decomposition.decision_finalized"
+        assert event.aggregate_id == "exec_1"
+        assert event.data["node_id"] == node.node_id
+        assert event.data["mode"] == "preflight"
+        assert event.data["disposition"] == "ATOMIC"
+        assert event.data["child_count"] == 0
+
+    @pytest.mark.asyncio
+    async def test_emit_bounce_classified_persists_classification_payload(self) -> None:
+        from ouroboros.orchestrator.execution_event_emitter import ExecutionEventEmitter
+        from ouroboros.orchestrator.execution_runtime_scope import ExecutionNodeIdentity
+
+        safe_emit = AsyncMock(return_value=True)
+        emitter = ExecutionEventEmitter(AsyncMock(), safe_emit_event=safe_emit)
+        node = ExecutionNodeIdentity.root(execution_context_id="exec_1", ac_index=0)
+
+        await emitter.emit_bounce_classified(
+            execution_id="exec_1",
+            session_id="sess_1",
+            node_identity=node,
+            cause="TOO_BIG",
+            rationale="leaf exceeded scope",
+            failure_class="blocked",
+            retry_admission="redispatch",
+            evidence_refs=("event:1",),
+            trace_summary="bounded summary",
+        )
+
+        event = safe_emit.await_args.args[0]
+        assert event.type == "execution.decomposition.bounce_classified"
+        assert event.aggregate_id == "exec_1"
+        assert event.data["node_id"] == node.node_id
+        assert event.data["cause"] == "TOO_BIG"
+        assert event.data["failure_class"] == "blocked"
+        assert event.data["retry_admission"] == "redispatch"
+        assert event.data["evidence_refs"] == ["event:1"]
+        assert event.data["trace_summary"] == "bounded summary"
+
+
 class TestOrchestratorRunner:
     """Tests for OrchestratorRunner."""
 
@@ -369,6 +516,30 @@ class TestOrchestratorRunner:
         assert "system_prompt" in notice
         assert "opencode" in notice
 
+    def test_decomposition_mode_override_and_disable_are_resolved_on_runner(
+        self,
+        mock_adapter: MagicMock,
+        mock_event_store: AsyncMock,
+        mock_console: MagicMock,
+    ) -> None:
+        """Runner resolves explicit decomposition mode before executor dispatch."""
+        runner = OrchestratorRunner(
+            mock_adapter,
+            mock_event_store,
+            mock_console,
+            decomposition_mode="bounce_only",
+        )
+        disabled_runner = OrchestratorRunner(
+            mock_adapter,
+            mock_event_store,
+            mock_console,
+            enable_decomposition=False,
+            decomposition_mode="preflight",
+        )
+
+        assert runner._decomposition_mode == "bounce_only"
+        assert disabled_runner._decomposition_mode == "off"
+
     @pytest.mark.asyncio
     async def test_route_call_effort_emits_observability_only_event(
         self,
@@ -407,6 +578,12 @@ class TestOrchestratorRunner:
         assert data["call_site"] == "runner"
         assert data["effort_level"] == "high"
         assert data["effort_mode"] == "enforced"
+        assessed = [e for e in appended if e.type == "execution.ac.investment_assessed"]
+        assert len(assessed) == 1
+        assert "ac_id" not in assessed[0].data
+        assert assessed[0].data["provenance"] == "absent"
+        assert assessed[0].data["can_cheapen"] is False
+        assert assessed[0].data["call_site"] == "runner"
 
     @pytest.mark.asyncio
     async def test_route_call_effort_persist_failure_does_not_abort(
@@ -1477,6 +1654,62 @@ class TestOrchestratorRunner:
         release_lock_mock.assert_called_once_with("/tmp/worktree/.locks/repo/orch_test.json")
 
     @pytest.mark.asyncio
+    async def test_resume_investment_seed_is_blocked_before_ungated_direct_execution(
+        self,
+        mock_adapter: MagicMock,
+        mock_event_store: AsyncMock,
+        mock_console: MagicMock,
+        sample_seed: Seed,
+    ) -> None:
+        """Resume must fail closed until it can restore per-AC investment authority."""
+        from ouroboros.core.types import Result
+
+        investment_seed = sample_seed.model_copy(
+            update={
+                "acceptance_criteria": (
+                    AcceptanceCriterionSpec(
+                        description="Rotate production signing keys",
+                        investment=InvestmentSpec(
+                            difficulty="medium",
+                            stakes="high",
+                            provenance="declared",
+                            confidence="high",
+                        ),
+                    ),
+                )
+            }
+        )
+        runner = OrchestratorRunner(
+            mock_adapter,
+            mock_event_store,
+            mock_console,
+            task_workspace=_task_workspace(),
+        )
+        running_tracker = SessionTracker.create("exec_resume", "seed_resume").with_status(
+            SessionStatus.RUNNING
+        )
+
+        with (
+            patch.object(
+                runner._session_repo,
+                "reconstruct_session",
+                return_value=Result.ok(running_tracker),
+            ),
+            patch.object(runner, "_get_merged_tools", AsyncMock()) as get_merged_tools,
+            patch.object(mock_adapter, "execute_task", AsyncMock()) as execute_task,
+            patch("ouroboros.orchestrator.runner.release_lock") as release_lock_mock,
+        ):
+            result = await runner.resume_session("sess_resume", investment_seed)
+
+        assert result.is_err
+        assert "Resume is blocked" in result.error.message
+        assert "per-AC investment authority" in result.error.message
+        assert result.error.details["resume_blocked"] == "investment_authority_required"
+        get_merged_tools.assert_not_called()
+        execute_task.assert_not_called()
+        release_lock_mock.assert_called_once_with("/tmp/worktree/.locks/repo/orch_test.json")
+
+    @pytest.mark.asyncio
     async def test_resume_session_tool_setup_failure_cleans_up_workspace_lock(
         self,
         mock_adapter: MagicMock,
@@ -2456,6 +2689,7 @@ class TestOrchestratorRunner:
         assert profile.profile == sample_seed.task_type == "code"
         assert profile.axis == "testable_unit"
         assert captured_init["fat_harness_mode"] is True
+        assert captured_init["decomposition_mode"] == "preflight"
 
     @pytest.mark.asyncio
     async def test_execute_parallel_passes_fat_harness_mode_to_executor(
@@ -2630,6 +2864,172 @@ class TestOrchestratorRunner:
         assert result is expected
         assert execute.await_args.kwargs["seed"] is single_ac_seed
         assert "force_sequential_levels" not in execute.await_args.kwargs
+
+    @pytest.mark.asyncio
+    async def test_single_ac_investment_uses_ac_executor_path(
+        self,
+        mock_adapter: MagicMock,
+        mock_event_store: AsyncMock,
+        mock_console: MagicMock,
+        sample_seed: Seed,
+    ) -> None:
+        """Structured investment authority must not be lost on direct dispatch."""
+        from ouroboros.orchestrator.mcp_tools import assemble_session_tool_catalog
+
+        investment_seed = sample_seed.model_copy(
+            update={
+                "acceptance_criteria": (
+                    AcceptanceCriterionSpec(
+                        description="Rotate production signing keys",
+                        investment=InvestmentSpec(
+                            difficulty="medium",
+                            stakes="high",
+                            provenance="declared",
+                            confidence="high",
+                        ),
+                    ),
+                )
+            }
+        )
+        tracker = SessionTracker.create("exec_investment_single", investment_seed.metadata.seed_id)
+        runner = OrchestratorRunner(mock_adapter, mock_event_store, mock_console)
+        expected = Result.ok(
+            OrchestratorResult(
+                success=True,
+                session_id=tracker.session_id,
+                execution_id=tracker.execution_id,
+            )
+        )
+
+        with (
+            patch.object(runner, "_check_startup_cancellation", AsyncMock(return_value=False)),
+            patch.object(
+                runner,
+                "_get_merged_tools",
+                AsyncMock(return_value=(["Read"], None, assemble_session_tool_catalog(["Read"]))),
+            ),
+            patch.object(runner, "_execute_parallel", AsyncMock(return_value=expected)) as execute,
+        ):
+            result = await runner.execute_precreated_session(
+                investment_seed,
+                tracker,
+                parallel=True,
+            )
+
+        assert result is expected
+        assert execute.await_args.kwargs["seed"] is investment_seed
+        assert "force_sequential_levels" not in execute.await_args.kwargs
+
+    @pytest.mark.asyncio
+    async def test_incomplete_investment_metadata_uses_ac_executor_path(
+        self,
+        mock_adapter: MagicMock,
+        mock_event_store: AsyncMock,
+        mock_console: MagicMock,
+        sample_seed: Seed,
+    ) -> None:
+        """Any explicit metadata uses per-AC routing, even without lowering authority."""
+        from ouroboros.orchestrator.mcp_tools import assemble_session_tool_catalog
+
+        investment_seed = sample_seed.model_copy(
+            update={
+                "acceptance_criteria": (
+                    AcceptanceCriterionSpec(
+                        description="Inspect the deployment boundary",
+                        investment=InvestmentSpec(stakes="medium"),
+                    ),
+                )
+            }
+        )
+        tracker = SessionTracker.create(
+            "exec_investment_incomplete",
+            investment_seed.metadata.seed_id,
+        )
+        runner = OrchestratorRunner(mock_adapter, mock_event_store, mock_console)
+        expected = Result.ok(
+            OrchestratorResult(
+                success=True,
+                session_id=tracker.session_id,
+                execution_id=tracker.execution_id,
+            )
+        )
+
+        with (
+            patch.object(runner, "_check_startup_cancellation", AsyncMock(return_value=False)),
+            patch.object(
+                runner,
+                "_get_merged_tools",
+                AsyncMock(return_value=(["Read"], None, assemble_session_tool_catalog(["Read"]))),
+            ),
+            patch.object(runner, "_execute_parallel", AsyncMock(return_value=expected)) as execute,
+        ):
+            result = await runner.execute_precreated_session(
+                investment_seed,
+                tracker,
+                parallel=True,
+            )
+
+        assert result is expected
+        assert execute.await_args.kwargs["seed"] is investment_seed
+
+    @pytest.mark.asyncio
+    async def test_sequential_investment_seed_preserves_one_ac_per_stage(
+        self,
+        mock_adapter: MagicMock,
+        mock_event_store: AsyncMock,
+        mock_console: MagicMock,
+        sample_seed: Seed,
+    ) -> None:
+        """Investment-bearing legacy sequential runs retain sequential semantics."""
+        from ouroboros.orchestrator.mcp_tools import assemble_session_tool_catalog
+
+        investment_seed = sample_seed.model_copy(
+            update={
+                "acceptance_criteria": (
+                    sample_seed.acceptance_criteria[0],
+                    AcceptanceCriterionSpec(
+                        description="Migrate the payment ledger",
+                        investment=InvestmentSpec(
+                            difficulty="high",
+                            stakes="high",
+                            provenance="measured",
+                            confidence="high",
+                        ),
+                    ),
+                )
+            }
+        )
+        tracker = SessionTracker.create(
+            "exec_investment_sequential",
+            investment_seed.metadata.seed_id,
+        )
+        runner = OrchestratorRunner(mock_adapter, mock_event_store, mock_console)
+        expected = Result.ok(
+            OrchestratorResult(
+                success=True,
+                session_id=tracker.session_id,
+                execution_id=tracker.execution_id,
+            )
+        )
+
+        with (
+            patch.object(runner, "_check_startup_cancellation", AsyncMock(return_value=False)),
+            patch.object(
+                runner,
+                "_get_merged_tools",
+                AsyncMock(return_value=(["Read"], None, assemble_session_tool_catalog(["Read"]))),
+            ),
+            patch.object(runner, "_execute_parallel", AsyncMock(return_value=expected)) as execute,
+        ):
+            result = await runner.execute_precreated_session(
+                investment_seed,
+                tracker,
+                parallel=False,
+            )
+
+        assert result is expected
+        assert execute.await_args.kwargs["seed"] is investment_seed
+        assert execute.await_args.kwargs["force_sequential_levels"] is True
 
     @pytest.mark.asyncio
     async def test_fat_harness_sequential_run_uses_sequential_ac_executor_plan(

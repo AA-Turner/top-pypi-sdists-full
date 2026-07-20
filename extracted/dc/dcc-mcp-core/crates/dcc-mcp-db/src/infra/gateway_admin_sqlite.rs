@@ -162,6 +162,215 @@ impl GatewayAdminSqliteReader {
         rows.filter_map(|r| r.ok()).collect()
     }
 
+    /// PIP-2751: List sessions, newest first, with optional filters.
+    pub fn list_sessions_json(
+        &self,
+        limit: usize,
+        dcc_type: Option<&str>,
+        status: Option<&str>,
+    ) -> Vec<String> {
+        let Some(conn) = self.open_ro() else {
+            return Vec::new();
+        };
+        let mut sql = String::from(
+            "SELECT session_id, parent_session_id, dcc_type, instance_id, status, \
+             started_at_ms, last_activity_at_ms, ended_at_ms, end_reason_json, \
+             tool_call_count, error_count, core_version, adapter_version, build_sha \
+             FROM sessions WHERE 1 = 1",
+        );
+        let mut values: Vec<Box<dyn ToSql>> = Vec::new();
+        if let Some(value) = non_empty(dcc_type) {
+            sql.push_str(" AND dcc_type = ?");
+            values.push(Box::new(value.to_owned()));
+        }
+        if let Some(value) = non_empty(status) {
+            sql.push_str(" AND status = ?");
+            values.push(Box::new(value.to_owned()));
+        }
+        sql.push_str(" ORDER BY started_at_ms DESC LIMIT ?");
+        values.push(Box::new(limit.clamp(1, 10_000) as i64));
+        let refs: Vec<&dyn ToSql> = values.iter().map(|value| value.as_ref()).collect();
+        let mut stmt = match conn.prepare_cached(&sql) {
+            Ok(s) => s,
+            Err(_) => return Vec::new(),
+        };
+        let rows = stmt.query_map(params_from_iter(refs), |row| {
+            Ok(json!({
+                "session_id": row.get::<_, String>(0)?,
+                "parent_session_id": row.get::<_, Option<String>>(1)?,
+                "dcc_type": row.get::<_, String>(2)?,
+                "instance_id": row.get::<_, Option<String>>(3)?,
+                "status": row.get::<_, String>(4)?,
+                "started_at_ms": row.get::<_, i64>(5)?,
+                "last_activity_at_ms": row.get::<_, i64>(6)?,
+                "ended_at_ms": row.get::<_, Option<i64>>(7)?,
+                "end_reason_json": row.get::<_, Option<String>>(8)?,
+                "tool_call_count": row.get::<_, i64>(9)?,
+                "error_count": row.get::<_, i64>(10)?,
+                "core_version": row.get::<_, String>(11)?,
+                "adapter_version": row.get::<_, Option<String>>(12)?,
+                "build_sha": row.get::<_, Option<String>>(13)?,
+            })
+            .to_string())
+        });
+        let Ok(rows) = rows else {
+            return Vec::new();
+        };
+        rows.filter_map(|row| row.ok()).collect()
+    }
+
+    /// PIP-2751: Get a single session by id.
+    pub fn get_session_json(&self, session_id: &str) -> Option<String> {
+        let conn = self.open_ro()?;
+        conn.query_row(
+            "SELECT session_id, parent_session_id, dcc_type, instance_id, status, \
+             started_at_ms, last_activity_at_ms, ended_at_ms, end_reason_json, \
+             tool_call_count, error_count, core_version, adapter_version, build_sha \
+             FROM sessions WHERE session_id = ?1",
+            params![session_id],
+            |row| {
+                Ok(json!({
+                    "session_id": row.get::<_, String>(0)?,
+                    "parent_session_id": row.get::<_, Option<String>>(1)?,
+                    "dcc_type": row.get::<_, String>(2)?,
+                    "instance_id": row.get::<_, Option<String>>(3)?,
+                    "status": row.get::<_, String>(4)?,
+                    "started_at_ms": row.get::<_, i64>(5)?,
+                    "last_activity_at_ms": row.get::<_, i64>(6)?,
+                    "ended_at_ms": row.get::<_, Option<i64>>(7)?,
+                    "end_reason_json": row.get::<_, Option<String>>(8)?,
+                    "tool_call_count": row.get::<_, i64>(9)?,
+                    "error_count": row.get::<_, i64>(10)?,
+                    "core_version": row.get::<_, String>(11)?,
+                    "adapter_version": row.get::<_, Option<String>>(12)?,
+                    "build_sha": row.get::<_, Option<String>>(13)?,
+                })
+                .to_string())
+            },
+        )
+        .ok()
+    }
+
+    /// PIP-2751: List session events for a given session, newest first.
+    pub fn list_session_events_json(&self, session_id: &str, limit: usize) -> Vec<String> {
+        let Some(conn) = self.open_ro() else {
+            return Vec::new();
+        };
+        let mut stmt = match conn.prepare_cached(
+            "SELECT event_json FROM session_events WHERE session_id = ?1 \
+             ORDER BY created_at_ms DESC LIMIT ?2",
+        ) {
+            Ok(s) => s,
+            Err(_) => return Vec::new(),
+        };
+        let rows = stmt.query_map(params![session_id, limit.clamp(1, 1_000) as i64], |row| {
+            let s: String = row.get(0)?;
+            Ok(s)
+        });
+        let Ok(rows) = rows else {
+            return Vec::new();
+        };
+        rows.filter_map(|r| r.ok()).collect()
+    }
+
+    /// PIP-2751: List tool calls for a given session, newest first.
+    pub fn list_tool_calls_json(&self, session_id: &str, limit: usize) -> Vec<String> {
+        let Some(conn) = self.open_ro() else {
+            return Vec::new();
+        };
+        let mut stmt = match conn.prepare_cached(
+            "SELECT request_id, session_id, parent_request_id, batch_id, tool_name, skill_name, \
+             dcc_type, instance_id, agent_id, transport, via_gateway, started_at_ms, \
+             duration_ms, success, error_message, error_kind, mcp_method, trace_id, span_id \
+             FROM tool_calls WHERE session_id = ?1 \
+             ORDER BY started_at_ms DESC LIMIT ?2",
+        ) {
+            Ok(s) => s,
+            Err(_) => return Vec::new(),
+        };
+        let rows = stmt.query_map(params![session_id, limit.clamp(1, 1_000) as i64], |row| {
+            Ok(json!({
+                "request_id": row.get::<_, String>(0)?,
+                "session_id": row.get::<_, String>(1)?,
+                "parent_request_id": row.get::<_, Option<String>>(2)?,
+                "batch_id": row.get::<_, Option<String>>(3)?,
+                "tool_name": row.get::<_, String>(4)?,
+                "skill_name": row.get::<_, Option<String>>(5)?,
+                "dcc_type": row.get::<_, Option<String>>(6)?,
+                "instance_id": row.get::<_, Option<String>>(7)?,
+                "agent_id": row.get::<_, Option<String>>(8)?,
+                "transport": row.get::<_, Option<String>>(9)?,
+                "via_gateway": row.get::<_, Option<i64>>(10)?,
+                "started_at_ms": row.get::<_, i64>(11)?,
+                "duration_ms": row.get::<_, i64>(12)?,
+                "success": row.get::<_, i64>(13)?,
+                "error_message": row.get::<_, Option<String>>(14)?,
+                "error_kind": row.get::<_, Option<String>>(15)?,
+                "mcp_method": row.get::<_, Option<String>>(16)?,
+                "trace_id": row.get::<_, Option<String>>(17)?,
+                "span_id": row.get::<_, Option<String>>(18)?,
+            })
+            .to_string())
+        });
+        let Ok(rows) = rows else {
+            return Vec::new();
+        };
+        rows.filter_map(|r| r.ok()).collect()
+    }
+
+    /// PIP-2751: List all tool calls, newest first, with optional session filter.
+    pub fn list_all_tool_calls_json(&self, limit: usize, session_id: Option<&str>) -> Vec<String> {
+        let Some(conn) = self.open_ro() else {
+            return Vec::new();
+        };
+        let mut sql = String::from(
+            "SELECT request_id, session_id, parent_request_id, batch_id, tool_name, skill_name, \
+             dcc_type, instance_id, agent_id, transport, via_gateway, started_at_ms, \
+             duration_ms, success, error_message, error_kind, mcp_method, trace_id, span_id \
+             FROM tool_calls WHERE 1 = 1",
+        );
+        let mut values: Vec<Box<dyn ToSql>> = Vec::new();
+        if let Some(value) = non_empty(session_id) {
+            sql.push_str(" AND session_id = ?");
+            values.push(Box::new(value.to_owned()));
+        }
+        sql.push_str(" ORDER BY started_at_ms DESC LIMIT ?");
+        values.push(Box::new(limit.clamp(1, 10_000) as i64));
+        let refs: Vec<&dyn ToSql> = values.iter().map(|value| value.as_ref()).collect();
+        let mut stmt = match conn.prepare_cached(&sql) {
+            Ok(s) => s,
+            Err(_) => return Vec::new(),
+        };
+        let rows = stmt.query_map(params_from_iter(refs), |row| {
+            Ok(json!({
+                "request_id": row.get::<_, String>(0)?,
+                "session_id": row.get::<_, String>(1)?,
+                "parent_request_id": row.get::<_, Option<String>>(2)?,
+                "batch_id": row.get::<_, Option<String>>(3)?,
+                "tool_name": row.get::<_, String>(4)?,
+                "skill_name": row.get::<_, Option<String>>(5)?,
+                "dcc_type": row.get::<_, Option<String>>(6)?,
+                "instance_id": row.get::<_, Option<String>>(7)?,
+                "agent_id": row.get::<_, Option<String>>(8)?,
+                "transport": row.get::<_, Option<String>>(9)?,
+                "via_gateway": row.get::<_, Option<i64>>(10)?,
+                "started_at_ms": row.get::<_, i64>(11)?,
+                "duration_ms": row.get::<_, i64>(12)?,
+                "success": row.get::<_, i64>(13)?,
+                "error_message": row.get::<_, Option<String>>(14)?,
+                "error_kind": row.get::<_, Option<String>>(15)?,
+                "mcp_method": row.get::<_, Option<String>>(16)?,
+                "trace_id": row.get::<_, Option<String>>(17)?,
+                "span_id": row.get::<_, Option<String>>(18)?,
+            })
+            .to_string())
+        });
+        let Ok(rows) = rows else {
+            return Vec::new();
+        };
+        rows.filter_map(|r| r.ok()).collect()
+    }
+
     pub fn list_agent_memory_json(
         &self,
         layer: Option<&str>,
@@ -232,6 +441,12 @@ enum PersistMsg {
         session_id: Option<String>,
         key_prefix: Option<String>,
     },
+    /// PIP-2751: Structured tool-call event (JSON-serialized ToolCallEvent).
+    ToolCallEventJson(String),
+    /// PIP-2751: Session upsert (JSON-serialized Session).
+    SessionUpsertJson(String),
+    /// PIP-2751: Session lifecycle event (JSON-serialized).
+    SessionEventJson(String),
 }
 
 struct LaneShared {
@@ -363,6 +578,33 @@ impl GatewayAdminSqliteLane {
             })
             .unwrap_or(false)
     }
+
+    /// PIP-2751: Persist a structured tool-call event.
+    pub fn try_persist_tool_call_event_json(&self, json: &str) {
+        if let Ok(g) = self.inner.tx.lock()
+            && let Some(tx) = g.as_ref()
+        {
+            let _ = tx.try_send(PersistMsg::ToolCallEventJson(json.to_owned()));
+        }
+    }
+
+    /// PIP-2751: Upsert a session record.
+    pub fn try_upsert_session_json(&self, json: &str) {
+        if let Ok(g) = self.inner.tx.lock()
+            && let Some(tx) = g.as_ref()
+        {
+            let _ = tx.try_send(PersistMsg::SessionUpsertJson(json.to_owned()));
+        }
+    }
+
+    /// PIP-2751: Persist a session lifecycle event.
+    pub fn try_persist_session_event_json(&self, json: &str) {
+        if let Ok(g) = self.inner.tx.lock()
+            && let Some(tx) = g.as_ref()
+        {
+            let _ = tx.try_send(PersistMsg::SessionEventJson(json.to_owned()));
+        }
+    }
 }
 
 fn writer_main(path: PathBuf, retention_days: u32, rx: Receiver<PersistMsg>) {
@@ -443,6 +685,89 @@ fn writer_main(path: PathBuf, retention_days: u32, rx: Receiver<PersistMsg>) {
                     tracing::debug!(error = %e, "admin sqlite: agent memory delete failed");
                 }
             }
+            PersistMsg::ToolCallEventJson(json) => {
+                if let Ok(event) = serde_json::from_str::<dcc_mcp_models::ToolCallEvent>(&json)
+                    && let Err(e) = conn.execute(
+                        "INSERT OR REPLACE INTO tool_calls \
+                         (request_id, session_id, parent_request_id, batch_id, tool_name, skill_name, \
+                          dcc_type, instance_id, agent_id, transport, via_gateway, started_at_ms, \
+                          duration_ms, success, error_message, error_kind, mcp_method, trace_id, span_id) \
+                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)",
+                        params![
+                            event.request_id,
+                            event.session_id,
+                            event.parent_request_id,
+                            event.batch_id,
+                            event.tool_name,
+                            event.skill_name,
+                            event.dcc_type,
+                            event.instance_id,
+                            event.agent_id,
+                            event.transport,
+                            event.via_gateway.map(|v| v as i64),
+                            event.started_at_ms,
+                            event.duration_ms,
+                            event.success as i64,
+                            event.error_message,
+                            event.error_kind,
+                            event.mcp_method,
+                            event.trace_id,
+                            event.span_id,
+                        ],
+                    )
+                {
+                    tracing::debug!(error = %e, "admin sqlite: tool call event insert failed");
+                }
+            }
+            PersistMsg::SessionUpsertJson(json) => {
+                if let Ok(session) = serde_json::from_str::<dcc_mcp_models::Session>(&json) {
+                    let end_reason_json = session
+                        .end_reason
+                        .as_ref()
+                        .and_then(|r| serde_json::to_string(r).ok());
+                    if let Err(e) = conn.execute(
+                        "INSERT OR REPLACE INTO sessions \
+                         (session_id, parent_session_id, dcc_type, instance_id, status, \
+                          started_at_ms, last_activity_at_ms, ended_at_ms, end_reason_json, \
+                          tool_call_count, error_count, core_version, adapter_version, build_sha) \
+                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+                        params![
+                            session.session_id,
+                            session.parent_session_id,
+                            session.dcc_type,
+                            session.instance_id,
+                            serde_json::to_string(&session.status).unwrap_or_default(),
+                            session.started_at_ms,
+                            session.last_activity_at_ms,
+                            session.ended_at_ms,
+                            end_reason_json,
+                            session.tool_call_count as i64,
+                            session.error_count as i64,
+                            session.core_version,
+                            session.adapter_version,
+                            session.build_sha,
+                        ],
+                    ) {
+                        tracing::debug!(error = %e, session_id = %session.session_id, "admin sqlite: session upsert failed");
+                    }
+                }
+            }
+            PersistMsg::SessionEventJson(json) => {
+                if let Ok(event) = serde_json::from_str::<serde_json::Value>(&json)
+                    && let (Some(session_id), Some(event_type), Some(created_at_ms)) = (
+                        event.get("session_id").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                        event.get("event_type").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                        event.get("created_at_ms").and_then(|v| v.as_i64()),
+                    )
+                    && let Err(e) = conn.execute(
+                        "INSERT INTO session_events (session_id, event_type, event_json, created_at_ms) \
+                         VALUES (?1, ?2, ?3, ?4)",
+                        params![session_id, event_type, json, created_at_ms],
+                    )
+                {
+                    tracing::debug!(error = %e, "admin sqlite: session event insert failed");
+                }
+            }
         }
         n += 1;
         if n.is_multiple_of(128) {
@@ -461,6 +786,18 @@ fn prune_old_rows(conn: &mut Connection, retention_days: u32) {
         .unwrap_or(0);
     let _ = conn.execute("DELETE FROM traces WHERE started_ms < ?1", params![cutoff]);
     let _ = conn.execute("DELETE FROM audits WHERE ts_ms < ?1", params![cutoff]);
+    let _ = conn.execute(
+        "DELETE FROM sessions WHERE ended_at_ms IS NOT NULL AND ended_at_ms < ?1",
+        params![cutoff],
+    );
+    let _ = conn.execute(
+        "DELETE FROM session_events WHERE created_at_ms < ?1",
+        params![cutoff],
+    );
+    let _ = conn.execute(
+        "DELETE FROM tool_calls WHERE started_at_ms < ?1",
+        params![cutoff],
+    );
 }
 
 fn prune_deregistered_instances(conn: &mut Connection, keep: usize) {

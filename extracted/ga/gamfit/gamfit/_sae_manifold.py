@@ -11,8 +11,9 @@ import numpy as np
 from ._binding import rust_module
 from ._penalty_bridge import GumbelTemperatureSchedule
 
-
 ManifoldSAE = rust_module().ManifoldSAE
+Tier0SAE = rust_module().Tier0SAE
+_FISHER_SHARD_SCHEMA = "gamfit.FisherHarvest/v1"
 
 
 def gumbel_geometric_schedule(
@@ -73,7 +74,9 @@ def _optional_array(value: Any, *, dimensions: int) -> np.ndarray | None:
         return None
     array = np.asarray(value, dtype=np.float64)
     if array.ndim != dimensions:
-        raise ValueError(f"expected a {dimensions}-dimensional array; got {array.shape}")
+        raise ValueError(
+            f"expected a {dimensions}-dimensional array; got {array.shape}"
+        )
     return np.ascontiguousarray(array)
 
 
@@ -93,6 +96,12 @@ def _atom_bases(value: Any) -> list[str] | None:
     return [str(basis) for basis in value]
 
 
+def _structured_residual_pass_count(value: Any) -> int:
+    if isinstance(value, (bool, np.bool_)) or not isinstance(value, (int, np.integer)):
+        raise TypeError("structured_residual_passes must be an integer")
+    return int(value)
+
+
 def _schedule_descriptor(
     schedule: GumbelTemperatureSchedule | Mapping[str, Any] | None,
 ) -> dict[str, Any] | None:
@@ -105,27 +114,42 @@ def _schedule_descriptor(
 
 def _fisher_arrays(
     value: Any,
-) -> tuple[np.ndarray | None, np.ndarray | None, str | None]:
+) -> tuple[np.ndarray | None, np.ndarray | None, str | None, str | None]:
     if value is None:
-        return None, None, None
+        return None, None, None, None
     if isinstance(value, Mapping):
+        schema = value.get("schema")
+        if schema != _FISHER_SHARD_SCHEMA:
+            raise ValueError(
+                f"fisher_factors mapping must declare schema {_FISHER_SHARD_SCHEMA!r}; "
+                f"got {schema!r}"
+            )
         factors = value["U"]
         residual = value.get("mass_residual")
-        provenance = value.get("provenance", "output_fisher")
+        provenance = value["provenance"]
+        factor_kind = value["factor_kind"]
     elif hasattr(value, "U"):
         factors = value.U
         residual = getattr(value, "mass_residual", None)
-        provenance = getattr(value, "provenance", "output_fisher")
+        try:
+            provenance = value.provenance
+            factor_kind = value.factor_kind
+        except AttributeError as error:
+            raise TypeError(
+                "fisher_factors object must carry provenance and factor_kind"
+            ) from error
     else:
-        factors = value
-        residual = None
-        provenance = "output_fisher"
+        raise TypeError(
+            "fisher_factors must be a HarvestShard or a strict loaded shard mapping; "
+            "bare factor arrays have no scientific provenance or operator status"
+        )
     return (
         np.ascontiguousarray(np.asarray(factors, dtype=np.float64)),
         None
         if residual is None
         else np.ascontiguousarray(np.asarray(residual, dtype=np.float64)),
         str(provenance),
+        str(factor_kind),
     )
 
 
@@ -136,12 +160,12 @@ def sae_manifold_fit(
     atom_topology: str | None = None,
     assignment: str = "softmax",
     schedule: GumbelTemperatureSchedule | Mapping[str, Any] | None = None,
-    isometry_weight: float = 1.0,
+    isometry_weight: float = 0.0,
     ard_per_atom: bool = True,
     decoder_feature_sparsity_groups: Sequence[Sequence[int]] | None = None,
     n_iter: int = 50,
     *,
-    sparsity_weight: float = 1.0,
+    sparsity_weight: float | None = None,
     coord_sparsity: str = "scad",
     scad_mcp_gamma: float | None = None,
     smoothness_weight: float = 1.0,
@@ -149,9 +173,9 @@ def sae_manifold_fit(
     learning_rate: float | None = None,
     random_state: int = 0,
     block_orthogonality_weight: float = 0.0,
-    nuclear_norm_weight: float = 1.0,
+    nuclear_norm_weight: float = 0.0,
     nuclear_norm_max_rank: int | None = None,
-    decoder_incoherence_weight: float = 1.0,
+    decoder_incoherence_weight: float = 0.0,
     top_k: int | None = None,
     t_init: Any = None,
     a_init: Any = None,
@@ -161,10 +185,11 @@ def sae_manifold_fit(
     fisher_factors: Any = None,
     weights: Any = None,
     separation_barrier_strength: float | None = None,
-    promote_from_residual: bool = True,
-    run_structure_search: bool = True,
-    structured_residual_passes: int | None = None,
-) -> ManifoldSAE:
+    gpu: str = "auto",
+    promote_from_residual: bool = False,
+    run_structure_search: bool = False,
+    structured_residual_passes: int = 0,
+) -> ManifoldSAE | Tier0SAE:
     """Fit and return the immutable Rust-owned manifold-SAE model.
 
     Python only converts user containers to contiguous arrays and literal
@@ -173,7 +198,9 @@ def sae_manifold_fit(
     are owned by the native front door.
     """
     x = _matrix(X)
-    fisher, fisher_residual, fisher_provenance = _fisher_arrays(fisher_factors)
+    fisher, fisher_residual, fisher_provenance, fisher_factor_kind = _fisher_arrays(
+        fisher_factors
+    )
     if alpha == "auto":
         alpha_value = None
         learnable_alpha = True
@@ -185,7 +212,10 @@ def sae_manifold_fit(
     groups = (
         None
         if decoder_feature_sparsity_groups is None
-        else [[int(feature) for feature in group] for group in decoder_feature_sparsity_groups]
+        else [
+            [int(feature) for feature in group]
+            for group in decoder_feature_sparsity_groups
+        ]
     )
     return rust_module().sae_manifold_fit_model(
         x,
@@ -199,7 +229,7 @@ def sae_manifold_fit(
         native_ard_enabled=bool(ard_per_atom),
         decoder_feature_sparsity_groups=groups,
         max_iter=int(n_iter),
-        sparsity_strength=float(sparsity_weight),
+        sparsity_strength=(None if sparsity_weight is None else float(sparsity_weight)),
         coord_sparsity=str(coord_sparsity),
         scad_mcp_gamma=None if scad_mcp_gamma is None else float(scad_mcp_gamma),
         smoothness=float(smoothness_weight),
@@ -221,32 +251,33 @@ def sae_manifold_fit(
         fisher_factors=fisher,
         fisher_mass_residual=fisher_residual,
         fisher_provenance=fisher_provenance,
+        fisher_factor_kind=fisher_factor_kind,
         row_loss_weights=_optional_array(weights, dimensions=1),
         separation_barrier_strength_override=(
             None
             if separation_barrier_strength is None
             else float(separation_barrier_strength)
         ),
+        gpu_policy=str(gpu),
         promote_from_residual=bool(promote_from_residual),
         run_structure_search=bool(run_structure_search),
-        structured_residual_passes=(
-            None if structured_residual_passes is None else int(structured_residual_passes)
+        structured_residual_passes=_structured_residual_pass_count(
+            structured_residual_passes
         ),
     )
 
 
 def sae_manifold_certify_external(
     X: Any,
-    atom_basis: Sequence[str],
-    d_atom: Any,
+    geometry_plans: Sequence[Mapping[str, Any]],
     decoder_blocks: Sequence[Any],
     t_init: Sequence[Any],
     a_init: Any,
     log_lambda_smooth: Sequence[float],
     log_ard: Sequence[Sequence[float]],
     *,
-    duchon_centers: Sequence[Any | None] | None = None,
-    n_harmonics: Sequence[int | None] | None = None,
+    tier0_mean: Any = None,
+    tier0_scale: Any = None,
     assignment: str = "softmax",
     alpha: float = 1.0,
     tau: float = 0.5,
@@ -259,45 +290,53 @@ def sae_manifold_certify_external(
     ridge_ext_coord: float = 1.0e-6,
     ridge_beta: float = 1.0e-6,
     isometry_pin_active: bool = False,
-    run_structure_search: bool = True,
+    run_structure_search: bool = False,
     analytic_penalties: Mapping[str, Any] | None = None,
     fisher_factors: Any = None,
 ) -> dict[str, Any]:
-    """Certify an externally-trained (torch-lane) manifold-SAE state (#2266).
+    """Audit and certify an externally-trained manifold-SAE state (#2263/#2266).
 
     Unlike :func:`sae_manifold_fit`, this runs NO closed-form solve: `t_init`
     (per-atom trained on-manifold coordinates), `a_init` (trained routing
-    logits), and `decoder_blocks` (per-atom trained decoders) are installed
-    VERBATIM, and the native post-fit certificate/diagnostics pipeline runs
-    directly on that supplied state. `log_lambda_sparse` /
+    logits), and `decoder_blocks` (per-atom trained decoders) define the exact
+    installed state. Native Rust performs only the declared Tier-0 coordinate
+    change before auditing it. `log_lambda_sparse` /
     `log_lambda_smooth` / `log_ard` must be the terminal regularization state
     that produced the decoder (the same "regularization the decoder was
     trained under" contract the frozen-decoder OOS encode carries) — an
     initial-strength substitute certifies a different model.
 
-    Returns the same report dict shape the native fit's internal payload
-    uses (`certificates`, `structure_certificate`, `atom_inference`,
-    `coordinate_fidelity`, diagnostics, …); `outer_termination.verdict` reads
-    `"external"` rather than a native stationarity certificate, since no
-    optimization ran here. Python only converts user containers to
-    contiguous arrays; validation, dictionary rebuild, certification, and
-    diagnostics are owned by the native evaluation-only entry.
+    `tier0_mean` and `tier0_scale` identify the output frame in which training
+    ran. Persisted decoder blocks and `X` stay in physical units; native Rust
+    maps both into that exact centered/standardized frame for the audit and
+    lifts a certified reconstruction back afterward.
+
+    The native entry takes no optimization step. It first measures the exact
+    installed-state inner KKT residual and outer criterion stationarity. A
+    passing state returns the ordinary fit report with
+    `status="certified"` and termination verdict `"audited_stationary"`. A
+    failing state returns `status="nonstationary"`, `is_fit=False`, typed
+    inner/outer residual diagnostics, and no fit or structure certificate.
+    Python only converts containers; validation, audit, and certification are
+    native-owned.
+
+    ``geometry_plans`` is the canonical, typed per-atom geometry declaration.
+    Each mapping carries the atom kind, latent dimension, basis-native
+    resolution, and reference metric. Native Rust validates that declaration
+    and derives each decoder width from it; no parallel geometry metadata is
+    accepted by this entry.
     """
     x = _matrix(X)
-    k_atoms = len(atom_basis)
-    fisher, fisher_residual, fisher_provenance = _fisher_arrays(fisher_factors)
-    centers = duchon_centers if duchon_centers is not None else [None] * k_atoms
-    harmonics = n_harmonics if n_harmonics is not None else [None] * k_atoms
-    dims = _atom_dimensions(d_atom)
-    dims = dims * k_atoms if len(dims) == 1 else dims
+    fisher, fisher_residual, fisher_provenance, fisher_factor_kind = _fisher_arrays(
+        fisher_factors
+    )
     return rust_module().sae_manifold_certify_external(
         x,
-        list(atom_basis),
-        dims,
-        [np.ascontiguousarray(np.asarray(block, dtype=np.float64)) for block in decoder_blocks],
-        [None if c is None else _matrix(c) for c in centers],
-        [None if h is None else int(h) for h in harmonics],
-        [int(np.asarray(block, dtype=np.float64).shape[0]) for block in decoder_blocks],
+        [dict(plan) for plan in geometry_plans],
+        [
+            np.ascontiguousarray(np.asarray(block, dtype=np.float64))
+            for block in decoder_blocks
+        ],
         [_matrix(t) for t in t_init],
         _matrix(a_init),
         float(alpha),
@@ -306,6 +345,8 @@ def sae_manifold_certify_external(
         float(log_lambda_sparse),
         [float(v) for v in log_lambda_smooth],
         [[float(v) for v in atom_ard] for atom_ard in log_ard],
+        tier0_mean=_optional_array(tier0_mean, dimensions=1),
+        tier0_scale=_optional_array(tier0_scale, dimensions=1),
         learnable_alpha=bool(learnable_alpha),
         top_k=None if top_k is None else int(top_k),
         threshold_gate_threshold=float(threshold_gate_threshold),
@@ -321,6 +362,7 @@ def sae_manifold_certify_external(
         fisher_factors=fisher,
         fisher_mass_residual=fisher_residual,
         fisher_provenance=fisher_provenance,
+        fisher_factor_kind=fisher_factor_kind,
     )
 
 
@@ -339,6 +381,7 @@ def plot(atom: Any, **kwargs: Any) -> Any:
 __all__ = [
     "GumbelTemperatureSchedule",
     "ManifoldSAE",
+    "Tier0SAE",
     "flat_block_assignment",
     "gumbel_geometric_schedule",
     "gumbel_linear_schedule",

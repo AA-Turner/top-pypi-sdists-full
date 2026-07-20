@@ -85,59 +85,60 @@ pub fn build_spherical_spline_basis(
         SphericalSplineIdentifiability::CenterSumToZero => Array2::<f64>::eye(raw_width),
     };
     let gauge = gam_problem::Gauge::from_block_transforms(&[z.clone()]);
-    let penalty = gauge.restrict_penalty(&raw_penalty);
+    let raw_penalty = ConstructiveQuadratic::try_from_dense_psd(
+        symmetrize_penalty(&raw_penalty),
+        "Wahba sphere raw roughness",
+    )?;
+    let penalty = raw_penalty.restricted(&gauge, "Wahba sphere identifiability")?;
+    // The selected sphere centers are the compact domain quadrature carried by
+    // this finite-rank Wahba representation. Evaluate the exact decomposed
+    // chart `[K_CC Z - H C | H]` on those centers, then apply the FINAL active
+    // coefficient chart before forming G. This makes the null ridge a penalty
+    // on the represented low-degree function, covariant under every frozen
+    // basis reparameterization.
+    let raw_center_design = build_wahba_decomposed_design(
+        center_kernel.view(),
+        centers.view(),
+        spec.radians,
+        &decomposition,
+    );
+    let center_design = gauge.restrict_design(&raw_center_design);
+    let function_gram = symmetrize_penalty(&fast_ata(&center_design));
     let design = DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(
         gauge.restrict_design(&raw_design),
     ));
-    let (penalty_norm, c_primary) = normalize_penalty(&((&penalty + &penalty.t()) * 0.5));
+    let (_, c_primary) = normalize_penalty(penalty.dense());
+    let penalty_norm = penalty.scaled(1.0 / c_primary, "normalized Wahba roughness")?;
     let mut candidates = vec![PenaltyCandidate {
         matrix: penalty_norm,
-        nullspace_dim_hint: 0,
         source: PenaltySource::Primary,
         normalization_scale: c_primary,
         kronecker_factors: None,
         op: None,
     }];
     if spec.double_penalty {
-        // The Marra & Wood double-penalty ridge must shrink the NULL SPACE of the
-        // primary RKHS penalty — the unpenalized low-degree spherical-harmonic
-        // block. `build_wahba_decomposed_null_shrinkage` instead put an identity
-        // on the KERNEL block (`[0..kernel_cols]`) whenever `low_degree_cols > 0`,
-        // i.e. it shrank the directions the primary ALREADY penalizes and left the
-        // genuinely-unpenalized low-degree harmonics free — the wrong subspace (a
-        // standalone numeric check gives ‖ridge·primary‖/(‖ridge‖‖primary‖) ≈ 0.41
-        // instead of 0). Build the ridge from the actual null space of the primary
-        // (`raw_penalty`, whose low-degree block is identically zero while the
-        // kernel block carries the RKHS Gram, so its structural null space is
-        // the low-degree block), matching the corrected
-        // thin-plate / Matérn / 1-D B-spline pattern. The local `gauge` is the
-        // identity for the fresh-fit `CenterSumToZero` chart (and the frozen
-        // transform otherwise), so restricting `Z_null Z_nullᵀ` here keeps the
-        // ridge co-located with the constrained primary; the global
-        // orthogonalization in `design_construction` rebuilds it again from the
-        // globally-constrained primary, so this is correct whether or not an outer
-        // parametric block is residualized out.
-        let null_shrinkage = build_nullspace_shrinkage_penalty(&raw_penalty)?
-            .map(|block| block.sym_penalty)
-            .unwrap_or_else(|| Array2::<f64>::zeros((raw_width, raw_width)));
-        let ridge = gauge.restrict_penalty(&null_shrinkage);
-        let (ridge_norm, c_ridge) = normalize_penalty(&ridge);
-        candidates.push(PenaltyCandidate {
-            matrix: ridge_norm,
-            nullspace_dim_hint: 0,
-            source: PenaltySource::DoublePenaltyNullspace,
-            normalization_scale: c_ridge,
-            kronecker_factors: None,
-            op: None,
-        });
+        if let Some(ridge) =
+            function_space_nullspace_shrinkage(penalty.dense(), &function_gram)?
+        {
+            let (ridge_norm, c_ridge) = normalize_penalty(&ridge);
+            candidates.push(PenaltyCandidate {
+                matrix: ConstructiveQuadratic::try_from_dense_psd(
+                    ridge_norm,
+                    "Wahba sphere null-function ridge",
+                )?,
+                source: PenaltySource::DoublePenaltyNullspace,
+                normalization_scale: c_ridge,
+                kronecker_factors: None,
+                op: None,
+            });
+        }
     }
-    let (penalties, nullspace_dims, penaltyinfo, null_eigenvectors, ops) =
-        filter_active_penalty_candidates_with_ops(candidates)?;
+    let filtered = filter_penalty_candidates(candidates)?;
     Ok(BasisBuildResult {
         design,
-        penalties,
-        nullspace_dims,
-        penaltyinfo,
+        affine_offset: None,
+        active_penalties: filtered.active,
+        dropped_penalties: filtered.dropped,
         metadata: BasisMetadata::Sphere {
             centers,
             penalty_order: spec.penalty_order,
@@ -147,8 +148,6 @@ pub fn build_spherical_spline_basis(
             constraint_transform: Some(z),
         },
         kronecker_factored: None,
-        ops,
-        null_eigenvectors,
         joint_null_rotation: None,
     })
 }
@@ -690,35 +689,44 @@ pub(crate) fn build_spherical_harmonic_basis(
     };
     let gauge = gam_problem::Gauge::from_block_transforms(&[transform.clone()]);
     let design = gauge.restrict_design(&design);
-    let penalty = gauge.restrict_penalty(&penalty);
-    let ridge = gauge.restrict_penalty(&ridge);
+    let penalty = ConstructiveQuadratic::try_from_dense_psd(
+        symmetrize_penalty(&penalty),
+        "spherical-harmonic raw roughness",
+    )?
+    .restricted(&gauge, "spherical-harmonic identifiability")?;
+    let ridge = ConstructiveQuadratic::try_from_dense_psd(
+        symmetrize_penalty(&ridge),
+        "spherical-harmonic raw null ridge",
+    )?
+    .restricted(&gauge, "spherical-harmonic ridge identifiability")?;
 
     let mut candidates = vec![PenaltyCandidate {
         matrix: penalty,
-        nullspace_dim_hint: 0,
         source: PenaltySource::Primary,
         normalization_scale: 1.0,
         kronecker_factors: None,
         op: None,
     }];
     if spec.double_penalty {
-        let (ridge_norm, c_ridge) = normalize_penalty(&ridge);
+        let (_, c_ridge) = normalize_penalty(ridge.dense());
+        let ridge_norm = ridge.scaled(
+            1.0 / c_ridge,
+            "normalized spherical-harmonic null ridge",
+        )?;
         candidates.push(PenaltyCandidate {
             matrix: ridge_norm,
-            nullspace_dim_hint: 0,
             source: PenaltySource::DoublePenaltyNullspace,
             normalization_scale: c_ridge,
             kronecker_factors: None,
             op: None,
         });
     }
-    let (penalties, nullspace_dims, penaltyinfo, null_eigenvectors, ops) =
-        filter_active_penalty_candidates_with_ops(candidates)?;
+    let filtered = filter_penalty_candidates(candidates)?;
     Ok(BasisBuildResult {
         design: DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(design)),
-        penalties,
-        nullspace_dims,
-        penaltyinfo,
+        affine_offset: None,
+        active_penalties: filtered.active,
+        dropped_penalties: filtered.dropped,
         metadata: BasisMetadata::Sphere {
             centers: Array2::<f64>::zeros((0, 2)),
             penalty_order: spec.penalty_order,
@@ -728,8 +736,6 @@ pub(crate) fn build_spherical_harmonic_basis(
             constraint_transform: Some(transform),
         },
         kronecker_factored: None,
-        ops,
-        null_eigenvectors,
         joint_null_rotation: None,
     })
 }
@@ -770,6 +776,12 @@ pub(crate) fn build_matern_basis_seeded(
     workspace: &mut BasisWorkspace,
     aniso_seed_mode: AnisoSeedMode,
 ) -> Result<BasisBuildResult, BasisError> {
+    let length_scale = spec.length_scale.resolved().ok_or_else(|| {
+        BasisError::InvalidInput(
+            "Matérn Auto length_scale must be resolved before basis construction".to_string(),
+        )
+    })?;
+    validate_matern_length_scale(length_scale)?;
     let selected_centers = select_centers_by_strategy(data, &spec.center_strategy)?;
     // Drop redundant centers when an over-specified `centers=K` exceeds the
     // Matérn kernel's numerical rank on the data cloud (#755). Reducing the base
@@ -802,7 +814,7 @@ pub(crate) fn build_matern_basis_seeded(
         matern_rank_reduce_centers(
             data,
             &selected_centers,
-            spec.length_scale,
+            length_scale,
             spec.nu,
             reduce_aniso.as_deref(),
         )?
@@ -827,21 +839,6 @@ pub(crate) fn build_matern_basis_seeded(
             z.clone()
         }
     });
-    // Frozen double-penalty nullspace-shrinkage decision carried by a
-    // FrozenTransform identifiability (gam#787/#860). `None` for cold/non-frozen
-    // builds → decide via the κ-dependent spectral test; `Some(b)` (set at the
-    // bootstrap-κ freeze) forces the decision so the learned-penalty count is
-    // invariant across the κ optimizer's per-trial design rebuilds.
-    let frozen_nullspace_shrinkage_survived = match &spec.identifiability {
-        MaternIdentifiability::FrozenTransform {
-            nullspace_shrinkage_survived,
-            ..
-        } => *nullspace_shrinkage_survived,
-        _ => None,
-    };
-    // Realized decision, recorded into metadata so the freeze step can pin it.
-    // Each candidate-emission arm below overwrites this with its actual outcome.
-    let mut realized_nullspace_shrinkage_survived = false;
     let design_cols =
         z_opt.as_ref().map_or(centers.nrows(), Array2::ncols) + usize::from(spec.include_intercept);
     let dense_bytes = dense_design_bytes(data.nrows(), design_cols);
@@ -860,7 +857,7 @@ pub(crate) fn build_matern_basis_seeded(
         let op = StreamingMaternEvaluator::new(
             shared_data,
             Arc::new(centers.clone()),
-            spec.length_scale,
+            length_scale,
             spec.nu,
             aniso.clone(),
             z_opt.as_ref().map(|z| Arc::new(z.clone())),
@@ -872,22 +869,22 @@ pub(crate) fn build_matern_basis_seeded(
         let candidates = if spec.double_penalty {
             let penalty_kernel = build_matern_kernel_penalty(
                 centers.view(),
-                spec.length_scale,
+                length_scale,
                 spec.nu,
                 spec.include_intercept,
                 aniso.as_deref(),
             )?;
             let primary = project_penalty_matrix(&penalty_kernel, full_transform.as_ref());
-            let (candidates, survived) = matern_double_penalty_candidates_with_decision(
-                &primary,
-                frozen_nullspace_shrinkage_survived,
+            let function_gram = matern_center_function_gram(
+                &penalty_kernel,
+                spec.include_intercept,
+                full_transform.as_ref(),
             )?;
-            realized_nullspace_shrinkage_survived = survived;
-            candidates
+            matern_double_penalty_candidates(&primary, &function_gram, spec.include_intercept)?
         } else {
             build_matern_operator_penalty_candidates(
                 centers.view(),
-                spec.length_scale,
+                length_scale,
                 spec.nu,
                 spec.include_intercept,
                 z_opt.as_ref(),
@@ -905,7 +902,6 @@ pub(crate) fn build_matern_basis_seeded(
         );
         let shared_data = shared_owned_data_matrix(data, &workspace.cache);
         let d = data.ncols();
-        let length_scale = spec.length_scale;
         let nu = spec.nu;
         let poly_basis = if spec.include_intercept {
             Some(Arc::new(Array2::<f64>::ones((data.nrows(), 1))))
@@ -956,22 +952,22 @@ pub(crate) fn build_matern_basis_seeded(
         let candidates = if spec.double_penalty {
             let penalty_kernel = build_matern_kernel_penalty(
                 centers.view(),
-                spec.length_scale,
+                length_scale,
                 spec.nu,
                 spec.include_intercept,
                 aniso.as_deref(),
             )?;
             let primary = project_penalty_matrix(&penalty_kernel, full_transform.as_ref());
-            let (candidates, survived) = matern_double_penalty_candidates_with_decision(
-                &primary,
-                frozen_nullspace_shrinkage_survived,
+            let function_gram = matern_center_function_gram(
+                &penalty_kernel,
+                spec.include_intercept,
+                full_transform.as_ref(),
             )?;
-            realized_nullspace_shrinkage_survived = survived;
-            candidates
+            matern_double_penalty_candidates(&primary, &function_gram, spec.include_intercept)?
         } else {
             build_matern_operator_penalty_candidates(
                 centers.view(),
-                spec.length_scale,
+                length_scale,
                 spec.nu,
                 spec.include_intercept,
                 z_opt.as_ref(),
@@ -983,7 +979,7 @@ pub(crate) fn build_matern_basis_seeded(
         let m = create_matern_spline_basiswithworkspace(
             data,
             centers.view(),
-            spec.length_scale,
+            length_scale,
             spec.nu,
             spec.include_intercept,
             aniso.as_deref(),
@@ -997,17 +993,11 @@ pub(crate) fn build_matern_basis_seeded(
             DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(m.basis.clone()))
         };
         let candidates = if spec.double_penalty {
-            let (candidates, survived) = build_matern_double_penalty_candidates(
-                &m,
-                full_transform.as_ref(),
-                frozen_nullspace_shrinkage_survived,
-            )?;
-            realized_nullspace_shrinkage_survived = survived;
-            candidates
+            build_matern_double_penalty_candidates(&m, full_transform.as_ref())?
         } else {
             build_matern_operator_penalty_candidates(
                 centers.view(),
-                spec.length_scale,
+                length_scale,
                 spec.nu,
                 spec.include_intercept,
                 z_opt.as_ref(),
@@ -1016,27 +1006,23 @@ pub(crate) fn build_matern_basis_seeded(
         };
         (design, candidates)
     };
-    let (penalties, nullspace_dims, penaltyinfo, null_eigenvectors, ops) =
-        filter_active_penalty_candidates_with_ops(candidates)?;
+    let filtered = filter_penalty_candidates(candidates)?;
     Ok(BasisBuildResult {
         design,
-        penalties,
-        nullspace_dims,
-        penaltyinfo,
+        affine_offset: None,
+        active_penalties: filtered.active,
+        dropped_penalties: filtered.dropped,
         metadata: BasisMetadata::Matern {
             centers: original_centers,
-            length_scale: spec.length_scale,
+            length_scale,
             periodic: spec.periodic.clone(),
             nu: spec.nu,
             include_intercept: spec.include_intercept,
             identifiability_transform,
-            input_scales: None,
+            input_scale: crate::IsotropicScale::ONE,
             aniso_log_scales: aniso,
-            nullspace_shrinkage_survived: realized_nullspace_shrinkage_survived,
         },
         kronecker_factored: None,
-        ops,
-        null_eigenvectors,
         joint_null_rotation: None,
     })
 }
@@ -1618,8 +1604,10 @@ pub fn build_matern_operator_penalty_psi_derivatives(
             continue;
         }
         candidates.push(PenaltyCandidate {
-            matrix,
-            nullspace_dim_hint: 0,
+            matrix: ConstructiveQuadratic::try_from_dense_psd(
+                matrix,
+                "spherical operator penalty",
+            )?,
             source,
             normalization_scale,
             kronecker_factors: None,
@@ -1631,14 +1619,14 @@ pub fn build_matern_operator_penalty_psi_derivatives(
     // `[mass, tension, stiffness]` triple, so a gated-out (or rank-0-dropped)
     // operator is simply never requested and the returned derivative list stays
     // index-aligned with the forward penalty list.
-    let (_, _, penaltyinfo) = filter_active_penalty_candidates(candidates)?;
+    let filtered = filter_penalty_candidates(candidates)?;
     let penalties_derivative = active_operator_penalty_derivatives(
-        &penaltyinfo,
+        &filtered.active,
         &[s0_norm_psi, s1_norm_psi, s2_norm_psi],
         "Matérn",
     )?;
     let penaltiessecond_derivative = active_operator_penalty_derivatives(
-        &penaltyinfo,
+        &filtered.active,
         &[s0_norm_psi_psi, s1_norm_psi_psi, s2_norm_psi_psi],
         "Matérn",
     )?;
@@ -2057,24 +2045,30 @@ pub fn build_duchon_operator_penalty_psi_derivatives(
 
     let candidates = vec![
         PenaltyCandidate {
-            matrix: s0_norm,
-            nullspace_dim_hint: 0,
+            matrix: ConstructiveQuadratic::try_from_dense_psd(
+                s0_norm,
+                "spherical operator mass penalty",
+            )?,
             source: PenaltySource::OperatorMass,
             normalization_scale: c0,
             kronecker_factors: None,
             op: None,
         },
         PenaltyCandidate {
-            matrix: s1_norm,
-            nullspace_dim_hint: 0,
+            matrix: ConstructiveQuadratic::try_from_dense_psd(
+                s1_norm,
+                "spherical operator tension penalty",
+            )?,
             source: PenaltySource::OperatorTension,
             normalization_scale: c1,
             kronecker_factors: None,
             op: None,
         },
         PenaltyCandidate {
-            matrix: s2_norm,
-            nullspace_dim_hint: 0,
+            matrix: ConstructiveQuadratic::try_from_dense_psd(
+                s2_norm,
+                "spherical operator stiffness penalty",
+            )?,
             source: PenaltySource::OperatorStiffness,
             normalization_scale: c2,
             kronecker_factors: None,
@@ -2089,16 +2083,16 @@ pub fn build_duchon_operator_penalty_psi_derivatives(
     let first_derivs = vec![s0_norm_psi, s1_norm_psi, s2_norm_psi];
     let second_derivs = vec![s0_norm_psi_psi, s1_norm_psi_psi, s2_norm_psi_psi];
 
-    let (_, _, penaltyinfo) = filter_active_penalty_candidates(candidates)?;
-    let active_sources = penaltyinfo
+    let filtered = filter_penalty_candidates(candidates)?;
+    let active_sources = filtered
+        .active
         .iter()
-        .filter(|info| info.active)
-        .map(|info| info.source.clone())
+        .map(|penalty| penalty.info.source.clone())
         .collect::<Vec<_>>();
     let penalties_derivative =
-        active_operator_penalty_derivatives(&penaltyinfo, &first_derivs, "Duchon")?;
+        active_operator_penalty_derivatives(&filtered.active, &first_derivs, "Duchon")?;
     let penaltiessecond_derivative =
-        active_operator_penalty_derivatives(&penaltyinfo, &second_derivs, "Duchon")?;
+        active_operator_penalty_derivatives(&filtered.active, &second_derivs, "Duchon")?;
     Ok((
         active_sources,
         penalties_derivative,
@@ -2216,6 +2210,102 @@ pub fn build_duchon_native_penalty_psi_derivatives(
     let primary_psi_psi = embed(omega_psi_psi);
     let (_, primary_psi_norm, primary_psi_psi_norm, _) =
         normalize_penaltywith_psi_derivatives(&primary, &primary_psi, &primary_psi_psi);
+
+    // The native trend block is a function penalty, so its κ derivative comes
+    // from the moving center-chart Gram, not from a frozen Euclidean selector.
+    // The chart matches `duchon_native_penalty_candidates` exactly:
+    //
+    //   B    = [alpha K_CC Z | P(C)] T,
+    //   B_p  = [alpha K_CC,p Z | 0] T,
+    //   B_pp = [alpha K_CC,pp Z | 0] T.
+    //
+    // `alpha` is the fixed numerical chart amplification used throughout the
+    // existing analytic Duchon derivative surface.  The structural target is
+    // the surviving polynomial subspace after T (or the explicit nonconstant
+    // polynomial columns when no outer intercept constraint is present).
+    let center_mean: Vec<f64> = (0..dim)
+        .map(|axis| centers.column(axis).sum() / n_centers.max(1) as f64)
+        .collect();
+    let mut centered = centers.to_owned();
+    for axis in 0..dim {
+        let mean = center_mean[axis];
+        centered.column_mut(axis).mapv_inplace(|value| value - mean);
+    }
+    let center_poly = polynomial_block_from_order(centered.view(), effective_nullspace_order);
+    let kernel_center_design = fast_ab(&kernel, &z).mapv(|value| value * kernel_amp);
+    let kernel_center_design_psi = fast_ab(&kernel_psi, &z).mapv(|value| value * kernel_amp);
+    let kernel_center_design_psi_psi =
+        fast_ab(&kernel_psi_psi, &z).mapv(|value| value * kernel_amp);
+    let mut center_design = Array2::<f64>::zeros((n_centers, total_cols));
+    let mut center_design_psi = Array2::<f64>::zeros((n_centers, total_cols));
+    let mut center_design_psi_psi = Array2::<f64>::zeros((n_centers, total_cols));
+    center_design
+        .slice_mut(s![.., 0..kernel_cols])
+        .assign(&kernel_center_design);
+    center_design
+        .slice_mut(s![.., kernel_cols..])
+        .assign(&center_poly);
+    center_design_psi
+        .slice_mut(s![.., 0..kernel_cols])
+        .assign(&kernel_center_design_psi);
+    center_design_psi_psi
+        .slice_mut(s![.., 0..kernel_cols])
+        .assign(&kernel_center_design_psi_psi);
+    let (center_design, center_design_psi, center_design_psi_psi, trend_frame) =
+        if let Some(transform) = identifiability_transform {
+            if transform.nrows() != total_cols {
+                crate::bail_dim_basis!(
+                    "Duchon identifiability transform has {} rows, expected {}",
+                    transform.nrows(),
+                    total_cols
+                );
+            }
+            let kernel_coordinate_map = transform.slice(s![0..kernel_cols, ..]).to_owned();
+            let (frame, _) = rrqr_nullspace_basis(
+                &kernel_coordinate_map.t().to_owned(),
+                default_rrqr_rank_alpha(),
+            )
+            .map_err(BasisError::LinalgError)?;
+            (
+                fast_ab(&center_design, transform),
+                fast_ab(&center_design_psi, transform),
+                fast_ab(&center_design_psi_psi, transform),
+                frame,
+            )
+        } else {
+            let mut frame = Array2::<f64>::zeros((total_cols, poly_cols.saturating_sub(1)));
+            for column in 1..poly_cols {
+                frame[[kernel_cols + column, column - 1]] = 1.0;
+            }
+            (
+                center_design,
+                center_design_psi,
+                center_design_psi_psi,
+                frame,
+            )
+        };
+    let gram = symmetrize_penalty(&fast_ata(&center_design));
+    let gram_psi = symmetrize_penalty(
+        &(fast_atb(&center_design_psi, &center_design)
+            + fast_atb(&center_design, &center_design_psi)),
+    );
+    let gram_psi_psi = symmetrize_penalty(
+        &(fast_atb(&center_design_psi_psi, &center_design)
+            + fast_atb(&center_design_psi, &center_design_psi).mapv(|value| 2.0 * value)
+            + fast_atb(&center_design, &center_design_psi_psi)),
+    );
+    let trend_jet = function_space_subspace_shrinkage_derivatives(
+        &trend_frame,
+        &gram,
+        &gram_psi,
+        &gram_psi,
+        &gram_psi_psi,
+    )?;
+    let (_, trend_psi_norm, trend_psi_psi_norm, _) = normalize_penaltywith_psi_derivatives(
+        &trend_jet.value,
+        &trend_jet.first_a,
+        &trend_jet.mixed,
+    );
     let candidates = duchon_native_penalty_candidates(
         centers,
         spec.length_scale,
@@ -2224,22 +2314,21 @@ pub fn build_duchon_native_penalty_psi_derivatives(
         spec.aniso_log_scales.as_deref(),
         &z,
         identifiability_transform,
-        poly_cols,
     )?;
-    let (_, _, penaltyinfo) = filter_active_penalty_candidates(candidates)?;
+    let filtered = filter_penalty_candidates(candidates)?;
     let mut sources = Vec::new();
     let mut first = Vec::new();
     let mut second = Vec::new();
-    for info in penaltyinfo.iter().filter(|info| info.active) {
-        sources.push(info.source.clone());
-        match info.source {
+    for penalty in &filtered.active {
+        sources.push(penalty.info.source.clone());
+        match penalty.info.source {
             PenaltySource::Primary => {
                 first.push(primary_psi_norm.clone());
                 second.push(primary_psi_psi_norm.clone());
             }
             PenaltySource::DoublePenaltyNullspace => {
-                first.push(Array2::<f64>::zeros(primary_psi_norm.raw_dim()));
-                second.push(Array2::<f64>::zeros(primary_psi_psi_norm.raw_dim()));
+                first.push(trend_psi_norm.clone());
+                second.push(trend_psi_psi_norm.clone());
             }
             ref other => {
                 crate::bail_invalid_basis!(
@@ -2523,9 +2612,11 @@ pub(crate) fn build_periodic_duchon_basis_log_kappa_derivativeswithworkspace(
             &symmetrize(&penalty_psi),
             &symmetrize(&penalty_psi_psi),
         );
-    let (_, _, penaltyinfo) = filter_active_penalty_candidates(vec![PenaltyCandidate {
-        matrix: penalty_norm,
-        nullspace_dim_hint: 1,
+    let filtered = filter_penalty_candidates(vec![PenaltyCandidate {
+        matrix: ConstructiveQuadratic::try_from_dense_psd(
+            penalty_norm,
+            "spherical learned-kernel primary penalty",
+        )?,
         source: PenaltySource::Primary,
         normalization_scale,
         kronecker_factors: None,
@@ -2533,8 +2624,8 @@ pub(crate) fn build_periodic_duchon_basis_log_kappa_derivativeswithworkspace(
     }])?;
     let mut penalties_derivative = Vec::new();
     let mut penaltiessecond_derivative = Vec::new();
-    for info in penaltyinfo.iter().filter(|info| info.active) {
-        match info.source {
+    for penalty in &filtered.active {
+        match penalty.info.source {
             PenaltySource::Primary => {
                 penalties_derivative.push(penalty_norm_psi.clone());
                 penaltiessecond_derivative.push(penalty_norm_psi_psi.clone());
@@ -2587,19 +2678,72 @@ pub(crate) fn build_matern_design_psi_derivatives(
     )
 }
 
+fn matern_center_design_chart(
+    kernel: &Array2<f64>,
+    z_opt: Option<&Array2<f64>>,
+    include_intercept: bool,
+    intercept_value: f64,
+) -> Array2<f64> {
+    let k = kernel.nrows();
+    let kernel_chart = match z_opt {
+        Some(transform) => fast_ab(kernel, transform),
+        None => kernel.clone(),
+    };
+    let mut design =
+        Array2::<f64>::zeros((k, kernel_chart.ncols() + usize::from(include_intercept)));
+    design
+        .slice_mut(s![.., 0..kernel_chart.ncols()])
+        .assign(&kernel_chart);
+    if include_intercept {
+        design
+            .column_mut(kernel_chart.ncols())
+            .fill(intercept_value);
+    }
+    design
+}
+
+/// Function-metric ridge jet on Matérn's frozen center measure.
+///
+/// The structural subspace is the explicit intercept; the kernel transform is
+/// frozen and only the center-evaluation chart `K(θ)Z` moves. Product rules
+/// form `(G, G_a, G_b, G_ab)` exactly, then the shared metric-projector inverse
+/// rule supplies `(R, R_a, R_b, R_ab)` with no spectral-eigenvector sensitivity.
+fn matern_center_function_metric_jet(
+    kernel: &Array2<f64>,
+    kernel_a: &Array2<f64>,
+    kernel_b: &Array2<f64>,
+    kernel_ab: &Array2<f64>,
+    z_opt: Option<&Array2<f64>>,
+    include_intercept: bool,
+) -> Result<FunctionSpaceSubspaceShrinkageDerivatives, BasisError> {
+    let design = matern_center_design_chart(kernel, z_opt, include_intercept, 1.0);
+    let design_a = matern_center_design_chart(kernel_a, z_opt, include_intercept, 0.0);
+    let design_b = matern_center_design_chart(kernel_b, z_opt, include_intercept, 0.0);
+    let design_ab = matern_center_design_chart(kernel_ab, z_opt, include_intercept, 0.0);
+    let gram = symmetrize_penalty(&fast_ata(&design));
+    let gram_a = symmetrize_penalty(&(fast_atb(&design_a, &design) + fast_atb(&design, &design_a)));
+    let gram_b = symmetrize_penalty(&(fast_atb(&design_b, &design) + fast_atb(&design, &design_b)));
+    let gram_ab = symmetrize_penalty(
+        &(fast_atb(&design_ab, &design)
+            + fast_atb(&design_a, &design_b)
+            + fast_atb(&design_b, &design_a)
+            + fast_atb(&design, &design_ab)),
+    );
+    let p = design.ncols();
+    let mut frame = Array2::<f64>::zeros((p, usize::from(include_intercept)));
+    if include_intercept {
+        frame[[p - 1, 0]] = 1.0;
+    }
+    function_space_subspace_shrinkage_derivatives(&frame, &gram, &gram_a, &gram_b, &gram_ab)
+}
+
 /// Build the Matérn double-penalty **primary** block (the projected kernel
 /// Gram `A = Zᵀ K Z`, embedded into the `total_cols` coefficient space) and its
 /// log-κ ψ-derivatives, in BOTH the un-normalized and the Frobenius-normalized
 /// forms.
 ///
-/// Returns `(s_norm, s_norm_psi, s_norm_psi_psi, c, a_raw, a_raw_psi,
-/// a_raw_psi_psi)` where the `s_norm*` are the normalized primary penalty and
-/// its ψ-derivatives (the active `PenaltySource::Primary` block) and the
-/// `a_raw*` are the UN-normalized projected kernel and its ψ-derivatives. The
-/// un-normalized triplet is what `build_nullspace_shrinkage_penalty` eigen-
-/// decomposes in the value build, so it is exactly the matrix whose spectral
-/// projector — and therefore the `DoublePenaltyNullspace` shrinkage block —
-/// must be differentiated against (#1122).
+/// Returns normalized primary value/derivatives plus the normalized first and
+/// second derivatives of the center-function-metric intercept ridge.
 pub(crate) fn build_matern_double_penalty_primarywith_psi_derivatives(
     centers: ArrayView2<'_, f64>,
     length_scale: f64,
@@ -2611,8 +2755,6 @@ pub(crate) fn build_matern_double_penalty_primarywith_psi_derivatives(
     (
         Array2<f64>,
         Array2<f64>,
-        Array2<f64>,
-        f64,
         Array2<f64>,
         Array2<f64>,
         Array2<f64>,
@@ -2651,6 +2793,20 @@ pub(crate) fn build_matern_double_penalty_primarywith_psi_derivatives(
         }
     }
 
+    let shrinkage_jet = matern_center_function_metric_jet(
+        &kernel,
+        &kernel_psi,
+        &kernel_psi,
+        &kernel_psi_psi,
+        z_opt,
+        include_intercept,
+    )?;
+    let (_, shrinkage_psi, shrinkage_psi_psi, _) = normalize_penaltywith_psi_derivatives(
+        &shrinkage_jet.value,
+        &shrinkage_jet.first_a,
+        &shrinkage_jet.mixed,
+    );
+
     let (kernel, kernel_psi, kernel_psi_psi) = if let Some(gauge) =
         z_opt.map(|z| gam_problem::Gauge::from_block_transforms(&[z.clone()]))
     {
@@ -2674,198 +2830,15 @@ pub(crate) fn build_matern_double_penalty_primarywith_psi_derivatives(
     s_psi_psi
         .slice_mut(s![0..kernel_cols, 0..kernel_cols])
         .assign(&kernel_psi_psi);
-    // `s`/`s_psi`/`s_psi_psi` are the UN-normalized projected kernel Gram
-    // `A = Zᵀ K Z` (embedded into `total_cols`) and its exact log-κ
-    // ψ-derivatives. `build_nullspace_shrinkage_penalty` (value build) eigen-
-    // decomposes exactly this `A`, so the shrinkage-block derivative is the
-    // spectral-projector derivative driven by `s_psi` / `s_psi_psi`.
-    let (s_norm, s_norm_psi, s_norm_psi_psi, c) =
+    let (s_norm, s_norm_psi, s_norm_psi_psi, _) =
         normalize_penaltywith_psi_derivatives(&s, &s_psi, &s_psi_psi);
-    Ok((s_norm, s_norm_psi, s_norm_psi_psi, c, s, s_psi, s_psi_psi))
-}
-
-/// Frozen-eigenbasis frame of the un-normalized projected Matérn kernel Gram
-/// `A`, plus the constant data needed to differentiate the spectral projector
-/// onto its near-null eigenspace `N = { i : |λ_i| ≤ tol }`.
-///
-/// The value build forms the `DoublePenaltyNullspace` block
-/// (`build_nullspace_shrinkage_penalty`) as the Frobenius-normalized projector
-///   `R~ = P / ‖P‖_F`,   `P = Σ_{i ∈ N} u_i u_iᵀ`,
-/// at the SAME spectral tolerance used here. `P` is an orthogonal projector, so
-/// `‖P‖_F = √r` with `r = |N|` the (FrozenTransform-pinned) null dimension — a
-/// hyperparameter-independent constant. Hence every projector derivative is
-/// scaled by `1/√r`.
-///
-/// `P` moves with the hyperparameters because `A` does, so its earlier hard-
-/// coded zero derivative was an objective↔gradient desync that stalled the
-/// isotropic-κ joint REML (#1122). Derivatives come from exact eigen-
-/// perturbation in this frozen eigenbasis `U`.
-pub(crate) struct ShrinkageProjectorFrame {
-    /// Eigenvectors of `sym(A)`, columns ascending in eigenvalue.
-    pub(crate) u: Array2<f64>,
-    /// Eigenvalues (ascending).
-    pub(crate) evals: Array1<f64>,
-    /// `1` on near-null indices `N`, `0` elsewhere.
-    pub(crate) in_null: Vec<f64>,
-    /// Null dimension `r = |N|`.
-    pub(crate) null_dim: usize,
-    /// Connection-gap floor `tol` (pairs closer than this have no resolvable
-    /// gap; their eigenvector sensitivity is ambiguous and they do not move the
-    /// projector, so the connection entry is set to zero).
-    pub(crate) gap_floor: f64,
-}
-
-impl ShrinkageProjectorFrame {
-    /// Build the frame from the un-normalized projected kernel Gram `A`.
-    /// Returns `None` when `A` has no near-null eigenspace at this tolerance
-    /// (the value build emits no shrinkage block, so there is nothing to
-    /// differentiate).
-    pub(crate) fn build(a_raw: &Array2<f64>) -> Result<Option<Self>, BasisError> {
-        if a_raw.nrows() == 0 {
-            return Ok(None);
-        }
-        let (sym, evals, evecs) = spectral_summary(a_raw)?;
-        let tol = spectral_tolerance(&sym, &evals);
-        let in_null: Vec<f64> = evals
-            .iter()
-            .map(|&ev| if ev.abs() <= tol { 1.0 } else { 0.0 })
-            .collect();
-        let null_dim = in_null.iter().filter(|&&b| b != 0.0).count();
-        if null_dim == 0 {
-            return Ok(None);
-        }
-        Ok(Some(Self {
-            u: evecs,
-            evals,
-            in_null,
-            null_dim,
-            gap_floor: tol.max(f64::MIN_POSITIVE),
-        }))
-    }
-
-    pub(crate) fn dim(&self) -> usize {
-        self.u.nrows()
-    }
-
-    /// Skew connection `Ω_d[m,k] = (Uᵀ A_d U)[m,k] / (λ_k − λ_m)` for a single
-    /// direction's `A_d = ∂A/∂η_d` (`m ≠ k`, floored at small gaps), together
-    /// with the eigenbasis representation `B̂_d = Uᵀ A_d U` and the
-    /// Hellmann–Feynman eigenvalue derivatives `λ_k' = B̂_d[k,k]`.
-    pub(crate) fn connection(&self, a_dir: &Array2<f64>) -> (Array2<f64>, Array2<f64>, Vec<f64>) {
-        let p = self.dim();
-        let b_hat = fast_atb(&self.u, &fast_ab(&symmetrize(a_dir), &self.u));
-        let mut omega = Array2::<f64>::zeros((p, p));
-        for m in 0..p {
-            for k in 0..p {
-                if m == k {
-                    continue;
-                }
-                let gap = self.evals[k] - self.evals[m];
-                if gap.abs() > self.gap_floor {
-                    omega[[m, k]] = b_hat[[m, k]] / gap;
-                }
-            }
-        }
-        let lam_prime: Vec<f64> = (0..p).map(|k| b_hat[[k, k]]).collect();
-        (omega, b_hat, lam_prime)
-    }
-
-    /// `P̂_d' = Ω_d I_N − I_N Ω_d` (frozen-frame projector first derivative for
-    /// direction `d`; nonzero only across `N`↔`R`).
-    pub(crate) fn projector_first_hat(&self, omega: &Array2<f64>) -> Array2<f64> {
-        let p = self.dim();
-        let mut out = Array2::<f64>::zeros((p, p));
-        for i in 0..p {
-            for j in 0..p {
-                let coeff = self.in_null[j] - self.in_null[i];
-                if coeff != 0.0 {
-                    out[[i, j]] = omega[[i, j]] * coeff;
-                }
-            }
-        }
-        out
-    }
-
-    /// Lab-frame, `1/√r`-normalized first derivative of the shrinkage block for
-    /// direction `d`: `R~_d = U P̂_d' Uᵀ / √r`.
-    pub(crate) fn first(&self, a_dir: &Array2<f64>) -> Array2<f64> {
-        let (omega, _b_hat, _lam) = self.connection(a_dir);
-        let p1_hat = self.projector_first_hat(&omega);
-        self.to_lab(&p1_hat)
-    }
-
-    /// Lab-frame, `1/√r`-normalized mixed second derivative of the shrinkage
-    /// block for directions `(a, b)`:
-    ///   `Uᵀ P_ab U = ∂_b(P̂_a') + Ω_b P̂_a' − P̂_a' Ω_b`,
-    /// `∂_b(P̂_a') = (∂_b Ω_a) I_N − I_N (∂_b Ω_a)`,
-    /// `∂_b Ω_a[m,k] = B̂_a'^{(b)}[m,k]/(λ_k−λ_m) − B̂_a[m,k]·(λ_k'^{(b)}−λ_m'^{(b)})/(λ_k−λ_m)²`,
-    /// `B̂_a'^{(b)} = Uᵀ A_ab U + B̂_a Ω_b − Ω_b B̂_a`,  `λ_k'^{(b)} = B̂_b[k,k]`.
-    /// For the diagonal case `a == b` this is the ordinary second derivative.
-    pub(crate) fn second(
-        &self,
-        a_dir_a: &Array2<f64>,
-        a_dir_b: &Array2<f64>,
-        a_cross: &Array2<f64>,
-    ) -> Array2<f64> {
-        let p = self.dim();
-        let (omega_a, b_hat_a, _lam_a) = self.connection(a_dir_a);
-        let (omega_b, _b_hat_b, lam_prime_b) = self.connection(a_dir_b);
-        let p1a_hat = self.projector_first_hat(&omega_a);
-        // B̂_a'^{(b)} = Uᵀ A_ab U + B̂_a Ω_b − Ω_b B̂_a.
-        let c_hat = fast_atb(&self.u, &fast_ab(&symmetrize(a_cross), &self.u));
-        let b_hat_a_prime = &c_hat + &(fast_ab(&b_hat_a, &omega_b) - fast_ab(&omega_b, &b_hat_a));
-        // ∂_b Ω_a.
-        let mut omega_a_db = Array2::<f64>::zeros((p, p));
-        for m in 0..p {
-            for k in 0..p {
-                if m == k {
-                    continue;
-                }
-                let gap = self.evals[k] - self.evals[m];
-                if gap.abs() > self.gap_floor {
-                    omega_a_db[[m, k]] = b_hat_a_prime[[m, k]] / gap
-                        - b_hat_a[[m, k]] * (lam_prime_b[k] - lam_prime_b[m]) / (gap * gap);
-                }
-            }
-        }
-        // P̂_ab = (∂_b Ω_a) I_N − I_N (∂_b Ω_a) + Ω_b P̂_a' − P̂_a' Ω_b.
-        let mut p2_hat = fast_ab(&omega_b, &p1a_hat) - fast_ab(&p1a_hat, &omega_b);
-        for i in 0..p {
-            for j in 0..p {
-                let coeff = self.in_null[j] - self.in_null[i];
-                if coeff != 0.0 {
-                    p2_hat[[i, j]] += omega_a_db[[i, j]] * coeff;
-                }
-            }
-        }
-        self.to_lab(&p2_hat)
-    }
-
-    /// Map a frozen-frame projector derivative `P̂` back to the lab frame and
-    /// apply the constant `1/√r` normalization: `symmetrize(U P̂ Uᵀ) / √r`.
-    pub(crate) fn to_lab(&self, p_hat: &Array2<f64>) -> Array2<f64> {
-        let inv_norm = 1.0 / (self.null_dim as f64).sqrt();
-        symmetrize(&fast_ab(&self.u, &fast_abt(p_hat, &self.u))).mapv(|v| v * inv_norm)
-    }
-}
-
-/// Exact isotropic-κ (`ρ = log κ`) first and second ψ-derivatives of the
-/// Matérn double-penalty `DoublePenaltyNullspace` shrinkage block, driven by
-/// the un-normalized projected-kernel Gram `A` and its log-κ derivatives.
-/// Returns `(R~', R~'')`. Zeros when no shrinkage subspace exists at this ρ.
-pub(crate) fn matern_nullspace_shrinkage_psi_derivatives(
-    a_raw: &Array2<f64>,
-    a_raw_psi: &Array2<f64>,
-    a_raw_psi_psi: &Array2<f64>,
-) -> Result<(Array2<f64>, Array2<f64>), BasisError> {
-    let p = a_raw.nrows();
-    let zero = || Array2::<f64>::zeros((p, p));
-    let Some(frame) = ShrinkageProjectorFrame::build(a_raw)? else {
-        return Ok((zero(), zero()));
-    };
-    let first = frame.first(a_raw_psi);
-    let second = frame.second(a_raw_psi, a_raw_psi, a_raw_psi_psi);
-    Ok((first, second))
+    Ok((
+        s_norm,
+        s_norm_psi,
+        s_norm_psi_psi,
+        shrinkage_psi,
+        shrinkage_psi_psi,
+    ))
 }
 
 /// Assemble the active Matérn double-penalty ψ-derivative blocks (first or
@@ -2873,14 +2846,13 @@ pub(crate) fn matern_nullspace_shrinkage_psi_derivatives(
 /// the projected-kernel-Gram derivative; the `DoublePenaltyNullspace` block
 /// uses the exact spectral-projector derivative (#1122) supplied per block.
 pub(crate) fn active_matern_double_penalty_derivatives(
-    penaltyinfo: &[PenaltyInfo],
+    penalties: &[ActivePenalty],
     primary_derivative: &Array2<f64>,
     shrinkage_derivative: &Array2<f64>,
 ) -> Result<Vec<Array2<f64>>, BasisError> {
-    penaltyinfo
+    penalties
         .iter()
-        .filter(|info| info.active)
-        .map(|info| match &info.source {
+        .map(|penalty| match &penalty.info.source {
             PenaltySource::Primary => Ok(primary_derivative.clone()),
             PenaltySource::DoublePenaltyNullspace => Ok(shrinkage_derivative.clone()),
             other => Err(BasisError::InvalidInput(format!(
@@ -2929,7 +2901,7 @@ pub fn build_matern_basis_log_kappa_derivativeswithworkspace(
     // #755), periodic-expands it, and resolves the anisotropy/identifiability
     // transform over the surviving centers. Re-deriving the centers here from
     // `select_centers_by_strategy` (un-reduced) produced a derivative penalty
-    // sized to the FULL center set while `base.penaltyinfo` (the active-block
+    // sized to the FULL center set while `base.active_penalties` (the active-block
     // mask + the forward penalty list) is sized to the REDUCED set — an
     // index/shape desync that crashed the double-penalty ψ-derivative assembly
     // with an IncompatibleShape matmul and left the FD audit comparing
@@ -2937,9 +2909,10 @@ pub fn build_matern_basis_log_kappa_derivativeswithworkspace(
     // the realized centers, transform, and anisotropy from the value build so the
     // two are byte-consistent by construction.
     let base = build_matern_basiswithworkspace(data, spec, workspace)?;
-    let (base_centers, base_transform, base_aniso) = match &base.metadata {
+    let (base_centers, base_transform, base_aniso, length_scale) = match &base.metadata {
         BasisMetadata::Matern {
             centers,
+            length_scale,
             identifiability_transform,
             aniso_log_scales,
             ..
@@ -2947,6 +2920,7 @@ pub fn build_matern_basis_log_kappa_derivativeswithworkspace(
             centers.clone(),
             identifiability_transform.clone(),
             aniso_log_scales.clone(),
+            *length_scale,
         ),
         other => {
             return Err(BasisError::InvalidInput(format!(
@@ -2963,44 +2937,30 @@ pub fn build_matern_basis_log_kappa_derivativeswithworkspace(
     let design_derivatives = build_matern_design_psi_derivatives(
         data,
         centers.view(),
-        spec.length_scale,
+        length_scale,
         spec.nu,
         spec.include_intercept,
         z_opt.as_ref(),
         aniso,
     )?;
     let (penalties_derivative, penaltiessecond_derivative) = if spec.double_penalty {
-        let (_, primary_derivative, primarysecond_derivative, _, a_raw, a_raw_psi, a_raw_psi_psi) =
+        let (_, primary_derivative, primarysecond_derivative, shrinkage_first, shrinkagesecond) =
             build_matern_double_penalty_primarywith_psi_derivatives(
                 centers.view(),
-                spec.length_scale,
+                length_scale,
                 spec.nu,
                 spec.include_intercept,
                 z_opt.as_ref(),
                 aniso,
             )?;
-        // Exact log-κ ψ-derivatives of the `DoublePenaltyNullspace` shrinkage
-        // projector, driven by the UN-normalized projected-kernel ψ-derivatives
-        // (#1122). Computed only when an active shrinkage block exists.
-        let (shrinkage_first, shrinkagesecond) =
-            if base.penaltyinfo.iter().any(|info| {
-                info.active && matches!(info.source, PenaltySource::DoublePenaltyNullspace)
-            }) {
-                matern_nullspace_shrinkage_psi_derivatives(&a_raw, &a_raw_psi, &a_raw_psi_psi)?
-            } else {
-                (
-                    Array2::<f64>::zeros(a_raw.raw_dim()),
-                    Array2::<f64>::zeros(a_raw.raw_dim()),
-                )
-            };
         (
             active_matern_double_penalty_derivatives(
-                &base.penaltyinfo,
+                &base.active_penalties,
                 &primary_derivative,
                 &shrinkage_first,
             )?,
             active_matern_double_penalty_derivatives(
-                &base.penaltyinfo,
+                &base.active_penalties,
                 &primarysecond_derivative,
                 &shrinkagesecond,
             )?,
@@ -3008,7 +2968,7 @@ pub fn build_matern_basis_log_kappa_derivativeswithworkspace(
     } else {
         build_matern_operator_penalty_psi_derivatives(
             centers.view(),
-            spec.length_scale,
+            length_scale,
             spec.nu,
             spec.include_intercept,
             z_opt.as_ref(),
@@ -3189,7 +3149,7 @@ pub fn build_matern_basis_log_kappa_aniso_derivatives(
     // (`build_matern_basiswithworkspace`) rank-REDUCES an over-specified center
     // set over this data cloud (`matern_rank_reduce_centers`) and periodic-EXPANDS
     // it; re-selecting raw centers here produced a derivative sized to the FULL
-    // center set while `base.penaltyinfo` / the realized design columns are sized
+    // center set while `base.active_penalties` / the realized design columns are sized
     // to the REDUCED+expanded set — a shape desync that the κ-gradient consumer
     // (`design_construction.rs` aniso entry) silently drops on a column-count
     // mismatch, disabling the analytic aniso κ-gradient for any rank-reduced or
@@ -3203,9 +3163,10 @@ pub fn build_matern_basis_log_kappa_aniso_derivatives(
         &mut BasisWorkspace::default(),
         AnisoSeedMode::Literal,
     )?;
-    let (base_centers, z_opt, base_aniso) = match &base.metadata {
+    let (base_centers, z_opt, base_aniso, length_scale) = match &base.metadata {
         BasisMetadata::Matern {
             centers,
+            length_scale,
             identifiability_transform,
             aniso_log_scales,
             ..
@@ -3213,6 +3174,7 @@ pub fn build_matern_basis_log_kappa_aniso_derivatives(
             centers.clone(),
             identifiability_transform.clone(),
             aniso_log_scales.clone(),
+            *length_scale,
         ),
         other => {
             return Err(BasisError::InvalidInput(format!(
@@ -3238,7 +3200,7 @@ pub fn build_matern_basis_log_kappa_aniso_derivatives(
     let mut result = build_matern_design_psi_aniso_derivatives(
         data,
         centers.view(),
-        spec.length_scale,
+        length_scale,
         spec.nu,
         eta,
         spec.include_intercept,
@@ -3256,26 +3218,22 @@ pub fn build_matern_basis_log_kappa_aniso_derivatives(
         let coefficient_gauge = z_opt
             .as_ref()
             .map(|z| gam_problem::Gauge::from_block_transforms(&[z.clone()]));
-        let (mut raw_first, mut raw_second_diag) =
-            build_matern_aniso_primary_raw_derivative_matrices(
-                centers.view(),
-                eta,
-                spec.length_scale,
-                spec.nu,
-            )?;
+        let (raw_first, raw_second_diag) = build_matern_aniso_primary_raw_derivative_matrices(
+            centers.view(),
+            eta,
+            length_scale,
+            spec.nu,
+        )?;
         for a in 0..dim {
-            // raw_first[a] / raw_second_diag[a] are dropped after this loop.
-            // When there is no identifiability transform we previously cloned
-            // them just to slice into primary_*; move them instead.
             let projected_first = if let Some(gauge) = coefficient_gauge.as_ref() {
                 gauge.restrict_penalty(&raw_first[a])
             } else {
-                std::mem::take(&mut raw_first[a])
+                raw_first[a].clone()
             };
             let projected_second = if let Some(gauge) = coefficient_gauge.as_ref() {
                 gauge.restrict_penalty(&raw_second_diag[a])
             } else {
-                std::mem::take(&mut raw_second_diag[a])
+                raw_second_diag[a].clone()
             };
             primary_first_raw[a]
                 .slice_mut(s![0..kernel_cols, 0..kernel_cols])
@@ -3292,18 +3250,18 @@ pub fn build_matern_basis_log_kappa_aniso_derivatives(
         }
 
         // Reuse the value build already constructed at the top of this function
-        // (its metadata seeded the realized geometry) — `base.penaltyinfo` is the
+        // (its metadata seeded the realized geometry) — `base.active_penalties` is the
         // active-block mask sized to the realized (reduced) basis.
-        let has_shrinkage = base.penaltyinfo.iter().any(|info| {
-            info.active && matches!(info.source, PenaltySource::DoublePenaltyNullspace)
-        });
-        // The value path emits the primary double-penalty block as
-        // `A / ||A||_F`. Differentiate that normalized block here too; the raw
-        // `A_a` / `A_aa` derivatives are still retained for the shrinkage
-        // projector, whose eigenspace is defined by the un-normalized `A`.
+        let has_shrinkage = base
+            .active_penalties
+            .iter()
+            .any(|penalty| matches!(penalty.info.source, PenaltySource::DoublePenaltyNullspace));
+        // The value path emits each block after Frobenius normalization. Keep
+        // the raw center kernel and its exact axis derivatives for both the
+        // primary RKHS block and the moving function-metric intercept ridge.
         let kernel = build_matern_kernel_penalty(
             centers.view(),
-            spec.length_scale,
+            length_scale,
             spec.nu,
             spec.include_intercept,
             Some(eta),
@@ -3329,37 +3287,37 @@ pub fn build_matern_basis_log_kappa_aniso_derivatives(
             primary_first.push(first);
             primary_second_diag.push(second);
         }
-        let shrinkage_frame = if has_shrinkage {
-            ShrinkageProjectorFrame::build(&a_raw)?
-        } else {
-            None
-        };
-        let shrinkage_first: Vec<Array2<f64>> = (0..dim)
-            .map(|a| match &shrinkage_frame {
-                Some(frame) => frame.first(&primary_first_raw[a]),
-                None => Array2::<f64>::zeros((total_cols, total_cols)),
-            })
-            .collect();
-        let shrinkage_second_diag: Vec<Array2<f64>> = (0..dim)
-            .map(|a| match &shrinkage_frame {
-                Some(frame) => frame.second(
-                    &primary_first_raw[a],
-                    &primary_first_raw[a],
-                    &primary_second_diag_raw[a],
-                ),
-                None => Array2::<f64>::zeros((total_cols, total_cols)),
-            })
-            .collect();
+        let mut shrinkage_first = Vec::with_capacity(dim);
+        let mut shrinkage_second_diag = Vec::with_capacity(dim);
+        for a in 0..dim {
+            if has_shrinkage {
+                let jet = matern_center_function_metric_jet(
+                    &kernel.slice(s![0..k, 0..k]).to_owned(),
+                    &raw_first[a],
+                    &raw_first[a],
+                    &raw_second_diag[a],
+                    z_opt.as_ref(),
+                    spec.include_intercept,
+                )?;
+                let (_, first, second, _) =
+                    normalize_penaltywith_psi_derivatives(&jet.value, &jet.first_a, &jet.mixed);
+                shrinkage_first.push(first);
+                shrinkage_second_diag.push(second);
+            } else {
+                shrinkage_first.push(Array2::<f64>::zeros((total_cols, total_cols)));
+                shrinkage_second_diag.push(Array2::<f64>::zeros((total_cols, total_cols)));
+            }
+        }
         result.penalties_first = Vec::with_capacity(dim);
         result.penalties_second_diag = Vec::with_capacity(dim);
         for a in 0..dim {
             let pf = active_matern_double_penalty_derivatives(
-                &base.penaltyinfo,
+                &base.active_penalties,
                 &primary_first[a],
                 &shrinkage_first[a],
             )?;
             let ps = active_matern_double_penalty_derivatives(
-                &base.penaltyinfo,
+                &base.active_penalties,
                 &primary_second_diag[a],
                 &shrinkage_second_diag[a],
             )?;
@@ -3372,14 +3330,13 @@ pub fn build_matern_basis_log_kappa_aniso_derivatives(
         let gauge_owned = z_opt
             .as_ref()
             .map(|z| gam_problem::Gauge::from_block_transforms(&[z.clone()]));
-        let penaltyinfo = base.penaltyinfo.clone();
-        let length_scale = spec.length_scale;
+        let active_penalties = base.active_penalties.clone();
         let nu = spec.nu;
-        // Per-axis projected first derivatives ∂A/∂η_a (embedded), so the
-        // cross-pair shrinkage second derivative `∂²P/∂η_a∂η_b` can be formed
-        // exactly inside the provider (#1122).
         let primary_first_raw_owned = primary_first_raw.clone();
         let a_raw_owned = a_raw.clone();
+        let kernel_block_owned = kernel.slice(s![0..k, 0..k]).to_owned();
+        let kernel_first_owned = raw_first.clone();
+        let z_owned = z_opt.clone();
         let include_intercept = spec.include_intercept;
         result.penalties_cross_provider = Some(AnisoPenaltyCrossProvider::new(
             move |axis_a: usize, axis_b: usize| {
@@ -3399,6 +3356,7 @@ pub fn build_matern_basis_log_kappa_aniso_derivatives(
                     a,
                     b,
                 )?;
+                let raw_cross_for_metric = raw_cross.clone();
                 let projected: Array2<f64> = if let Some(gauge) = gauge_owned.as_ref() {
                     gauge.restrict_penalty(&raw_cross)
                 } else {
@@ -3415,42 +3373,32 @@ pub fn build_matern_basis_log_kappa_aniso_derivatives(
                     &padded,
                     trace_of_product(&a_raw_owned, &a_raw_owned).sqrt(),
                 );
-                // Exact cross second derivative of the shrinkage projector, if
-                // an active shrinkage block exists at this hyperparameter.
-                let shrinkage_cross = if penaltyinfo.iter().any(|info| {
-                    info.active && matches!(info.source, PenaltySource::DoublePenaltyNullspace)
+                // Exact mixed derivative of the function-metric ridge. The
+                // structural intercept frame is fixed; only the compact center
+                // Gram moves with the two anisotropy axes.
+                let shrinkage_cross = if active_penalties.iter().any(|penalty| {
+                    matches!(penalty.info.source, PenaltySource::DoublePenaltyNullspace)
                 }) {
-                    let kernel = build_matern_kernel_penalty(
-                        centers_owned.view(),
-                        length_scale,
-                        nu,
+                    let jet = matern_center_function_metric_jet(
+                        &kernel_block_owned,
+                        &kernel_first_owned[a],
+                        &kernel_first_owned[b],
+                        &raw_cross_for_metric,
+                        z_owned.as_ref(),
                         include_intercept,
-                        Some(&eta_owned),
                     )?;
-                    let k = centers_owned.nrows();
-                    let kblock = kernel.slice(s![0..k, 0..k]).to_owned();
-                    let projected_a = if let Some(gauge) = gauge_owned.as_ref() {
-                        gauge.restrict_penalty(&kblock)
-                    } else {
-                        kblock
-                    };
-                    let mut a_raw = Array2::<f64>::zeros((total_cols, total_cols));
-                    a_raw
-                        .slice_mut(s![0..kernel_cols, 0..kernel_cols])
-                        .assign(&projected_a);
-                    match ShrinkageProjectorFrame::build(&a_raw)? {
-                        Some(frame) => frame.second(
-                            &primary_first_raw_owned[a],
-                            &primary_first_raw_owned[b],
-                            &padded,
-                        ),
-                        None => Array2::<f64>::zeros((total_cols, total_cols)),
-                    }
+                    normalize_penalty_cross_psi_derivative(
+                        &jet.value,
+                        &jet.first_a,
+                        &jet.first_b,
+                        &jet.mixed,
+                        trace_of_product(&jet.value, &jet.value).sqrt(),
+                    )
                 } else {
                     Array2::<f64>::zeros((total_cols, total_cols))
                 };
                 active_matern_double_penalty_derivatives(
-                    &penaltyinfo,
+                    &active_penalties,
                     &primary_cross,
                     &shrinkage_cross,
                 )
@@ -3464,7 +3412,7 @@ pub fn build_matern_basis_log_kappa_aniso_derivatives(
         let (per_axis, cross_pairs, cross_provider) =
             build_matern_operator_penalty_aniso_derivatives(
                 centers.view(),
-                spec.length_scale,
+                length_scale,
                 spec.nu,
                 spec.include_intercept,
                 z_opt.as_ref(),
@@ -3545,7 +3493,7 @@ mod wahba_penalty_invariants_tests {
             identifiability: SphericalSplineIdentifiability::CenterSumToZero,
         };
         let built = build_spherical_spline_basis(data.view(), &spec).expect("Wahba basis");
-        assert_eq!(built.penalties.len(), 1);
+        assert_eq!(built.active_penalties.len(), 1);
         let BasisMetadata::Sphere { centers, .. } = &built.metadata else {
             panic!("Wahba builder must return spherical metadata");
         };
@@ -3564,7 +3512,7 @@ mod wahba_penalty_invariants_tests {
         let exact_raw = build_wahba_decomposed_penalty(center_kernel.view(), &decomposition);
         let (expected, _) = normalize_penalty(&exact_raw);
 
-        let observed = &built.penalties[0];
+        let observed = &built.active_penalties[0].matrix;
         assert_eq!(observed.dim(), expected.dim());
         let error = observed
             .iter()
@@ -3574,6 +3522,82 @@ mod wahba_penalty_invariants_tests {
         assert!(
             error <= 1.0e-12,
             "primary Wahba penalty must be exactly the normalized RKHS seminorm; max error={error:.3e}"
+        );
+    }
+
+    #[test]
+    fn wahba_null_shrinkage_is_center_function_metric_and_chart_covariant() {
+        let centers = array![
+            [-1.1, 0.1],
+            [-0.7, 1.0],
+            [-0.2, 2.0],
+            [0.3, 2.8],
+            [0.8, -2.5],
+            [1.1, -1.4],
+            [0.5, -0.4],
+            [-0.4, -1.8],
+        ];
+        let kernel = spherical_wahba_kernel_matrix_with_kind(
+            centers.view(),
+            centers.view(),
+            2,
+            true,
+            SphereWahbaKernel::Sobolev,
+        )
+        .expect("center kernel");
+        let decomposition = wahba_low_degree_decomposition(centers.view(), true, kernel.view())
+            .expect("low-degree decomposition");
+        let design =
+            build_wahba_decomposed_design(kernel.view(), centers.view(), true, &decomposition);
+        let penalty = build_wahba_decomposed_penalty(kernel.view(), &decomposition);
+        let gram = symmetrize_penalty(&fast_ata(&design));
+        let ridge = function_space_nullspace_shrinkage(&penalty, &gram)
+            .expect("metric construction")
+            .expect("Wahba low-degree null space");
+
+        // The decomposed Wahba chart is `[kernel | low degree]`, and the
+        // primary RKHS seminorm has an exact zero block on the appended
+        // low-degree columns.  Exercise those structural null directions
+        // directly instead of reaching into the sibling B-spline module's
+        // private generalized-eigensolver (which is an implementation detail
+        // of the ridge constructor being tested).
+        let low_degree = decomposition.low_degree_cols;
+        assert!(low_degree > 0, "fixture must retain low-degree harmonics");
+        let mut null = Array2::<f64>::zeros((penalty.nrows(), low_degree));
+        let low_degree_start = penalty.nrows() - low_degree;
+        for column in 0..low_degree {
+            null[[low_degree_start + column, column]] = 1.0;
+        }
+        let metric_action_error = (&ridge.dot(&null) - &gram.dot(&null))
+            .iter()
+            .map(|value| value.abs())
+            .fold(0.0_f64, f64::max);
+        assert!(
+            metric_action_error < 2.0e-9,
+            "ridge must equal the function metric on null directions; error={metric_action_error:.3e}"
+        );
+
+        let p = penalty.nrows();
+        let mut transform = Array2::<f64>::eye(p);
+        for j in 0..p {
+            transform[[j, j]] = if j % 2 == 0 { 0.2 } else { 3.0 };
+            if j + 1 < p {
+                transform[[j, j + 1]] = 0.07 * (j + 1) as f64;
+            }
+        }
+        let congruence = |matrix: &Array2<f64>| fast_atb(&transform, &fast_ab(matrix, &transform));
+        let transformed =
+            function_space_nullspace_shrinkage(&congruence(&penalty), &congruence(&gram))
+                .expect("transformed metric construction")
+                .expect("transformed null space");
+        let expected = congruence(&ridge);
+        let covariance_error = (&transformed - &expected)
+            .iter()
+            .map(|value| value.abs())
+            .fold(0.0_f64, f64::max);
+        assert!(
+            covariance_error < 2.0e-8,
+            "Wahba null ridge changed under a harmless basis chart; error={covariance_error:.3e}"
         );
     }
 
@@ -3774,9 +3798,9 @@ mod harmonic_penalty_invariants_tests {
             identifiability: SphericalSplineIdentifiability::CenterSumToZero,
         };
         let built = build_spherical_harmonic_basis(data.view(), &spec).expect("harmonic basis");
-        assert_eq!(built.penalties.len(), 2);
-        let primary = &built.penalties[0];
-        let shrink = &built.penalties[1];
+        assert_eq!(built.active_penalties.len(), 2);
+        let primary = &built.active_penalties[0].matrix;
+        let shrink = &built.active_penalties[1].matrix;
 
         // The CURRENT harmonic builder (see build_spherical_harmonic_basis) uses
         // a FULL-RANK Laplace–Beltrami curvature penalty: the harmonic basis

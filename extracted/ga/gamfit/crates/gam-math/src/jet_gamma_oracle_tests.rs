@@ -62,8 +62,8 @@
 
 use crate::jet_scalar::JetScalar;
 use crate::jet_tower::{
-    Tower4, digamma_derivative_stack, program_fourth_contracted, program_full_tower,
-    program_row_kernel, program_third_contracted, ln_gamma_derivative_stack,
+    Tower4, digamma_derivative_stack, ln_gamma_derivative_stack, program_fourth_contracted,
+    program_full_tower, program_row_kernel, program_third_contracted,
 };
 
 /// A tiny deterministic LCG so the test points are pseudo-random yet fixed
@@ -269,7 +269,7 @@ fn gamma_dispersion_jet_tower_matches_independent_fd_oracle() {
     };
 
     for (row, fixture) in rows.iter().enumerate() {
-        let tower: Tower4<2> = program_full_tower(&program, row).expect("gamma jet tower");
+        let tower: Box<Tower4<2>> = program_full_tower(&program, row).expect("gamma jet tower");
 
         // Value.
         close(
@@ -361,7 +361,7 @@ fn gamma_dispersion_packed_scalars_match_dense_tower_contractions() {
     };
 
     for row in 0..rows.len() {
-        let tower: Tower4<2> = program_full_tower(&program, row).expect("tower");
+        let tower: Box<Tower4<2>> = program_full_tower(&program, row).expect("tower");
 
         // Order2: value / gradient / Hessian via the production packed scalar.
         let (v, g, h) = program_row_kernel(&program, row).expect("Order2 channel");
@@ -495,7 +495,7 @@ fn affine_special_function_composition_places_certified_stack_by_order() {
             ln_gamma_derivative_stack(x0)
         };
         let c = [c0, c1];
-        let tower: Tower4<2> = program_full_tower(&program, 0).expect("affine tower");
+        let tower: Box<Tower4<2>> = program_full_tower(&program, 0).expect("affine tower");
 
         let tag = if digamma { "digamma" } else { "ln_gamma" };
         // Value.

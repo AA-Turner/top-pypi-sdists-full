@@ -1033,6 +1033,34 @@ impl SparseDesignMatrix {
         self.csr_cache.set(arc.clone()).ok();
         Some(arc)
     }
+
+    fn row_chunk_into(
+        &self,
+        rows: Range<usize>,
+        mut out: ArrayViewMut2<'_, f64>,
+    ) -> Result<(), MatrixMaterializationError> {
+        if out.nrows() != rows.end - rows.start || out.ncols() != self.ncols() {
+            return Err(MatrixMaterializationError::MissingRowChunk {
+                context: "SparseDesignMatrix::row_chunk_into shape mismatch",
+            });
+        }
+        out.fill(0.0);
+        let csr = self
+            .to_csr_arc()
+            .ok_or(MatrixMaterializationError::MissingRowChunk {
+                context: "SparseDesignMatrix::row_chunk_into: failed to obtain CSR view",
+            })?;
+        let symbolic = csr.symbolic();
+        let row_ptr = symbolic.row_ptr();
+        let col_idx = symbolic.col_idx();
+        let values = csr.val();
+        for (local_row, row) in rows.enumerate() {
+            for ptr in row_ptr[row]..row_ptr[row + 1] {
+                out[[local_row, col_idx[ptr]]] = values[ptr];
+            }
+        }
+        Ok(())
+    }
 }
 
 impl Deref for SparseDesignMatrix {
@@ -2411,6 +2439,27 @@ impl DesignBlock {
         }
     }
 
+    fn row_chunk_into(
+        &self,
+        rows: Range<usize>,
+        mut out: ArrayViewMut2<'_, f64>,
+    ) -> Result<(), MatrixMaterializationError> {
+        if out.nrows() != rows.end - rows.start || out.ncols() != self.ncols() {
+            return Err(MatrixMaterializationError::MissingRowChunk {
+                context: "DesignBlock::row_chunk_into shape mismatch",
+            });
+        }
+        match self {
+            Self::Dense(d) => d.row_chunk_into(rows, out),
+            Self::Sparse(s) => s.row_chunk_into(rows, out),
+            Self::RandomEffect(op) => op.row_chunk_into(rows, out),
+            Self::Intercept(_) => {
+                out.fill(1.0);
+                Ok(())
+            }
+        }
+    }
+
     fn diag_xtw_x(&self, weights: &Array1<f64>) -> Result<Array2<f64>, String> {
         certify_signed_weights("DesignBlock::diag_xtw_x", weights, self.nrows())?;
         match self {
@@ -3009,8 +3058,7 @@ impl DenseDesignOperator for BlockDesignOperator {
         for (idx, block) in self.blocks.iter().enumerate() {
             let cs = self.col_offsets[idx];
             let ce = self.col_offsets[idx + 1];
-            let block_chunk = block.try_row_chunk(rows.clone())?;
-            out.slice_mut(s![.., cs..ce]).assign(&block_chunk);
+            block.row_chunk_into(rows.clone(), out.slice_mut(s![.., cs..ce]))?;
         }
         Ok(())
     }
@@ -3203,9 +3251,10 @@ impl DenseDesignOperator for MultiChannelOperator {
             let ch_local_start = global % n;
             let ch_local_end = ((ch_idx + 1) * n).min(rows.end) - ch_idx * n;
             let segment_len = ch_local_end - ch_local_start;
-            let ch_chunk = self.channels[ch_idx].try_row_chunk(ch_local_start..ch_local_end)?;
-            out.slice_mut(s![local..local + segment_len, ..])
-                .assign(&ch_chunk);
+            self.channels[ch_idx].row_chunk_into(
+                ch_local_start..ch_local_end,
+                out.slice_mut(s![local..local + segment_len, ..]),
+            )?;
             local += segment_len;
             global += segment_len;
         }
@@ -4064,9 +4113,7 @@ pub trait LinearOperator {
             MATRIX_FREE_PCG_MAX_ITER.max(4 * p),
         )
         .ok_or_else(|| {
-            format!(
-                "matrix-free PCG broke down for explicitly requested ridge {baseridge:.3e}"
-            )
+            format!("matrix-free PCG broke down for explicitly requested ridge {baseridge:.3e}")
         })?;
         if !solution.iter().all(|value| value.is_finite()) {
             return Err("matrix-free PCG produced a non-finite solution".to_string());
@@ -4109,13 +4156,7 @@ pub trait LinearOperator {
         rhs: &Array1<f64>,
         penalty: Option<&Array2<f64>>,
     ) -> Result<Array1<f64>, String> {
-        self.solve_systemwith_policy(
-            weights,
-            rhs,
-            penalty,
-            0.0,
-            RidgePolicy::solver_only(),
-        )
+        self.solve_systemwith_policy(weights, rhs, penalty, 0.0, RidgePolicy::solver_only())
     }
     fn solve_systemwith_policy(
         &self,
@@ -4531,7 +4572,7 @@ impl DenseDesignOperator for DesignMatrix {
     fn row_chunk_into(
         &self,
         rows: Range<usize>,
-        mut out: ArrayViewMut2<'_, f64>,
+        out: ArrayViewMut2<'_, f64>,
     ) -> Result<(), MatrixMaterializationError> {
         if out.nrows() != rows.end - rows.start || out.ncols() != self.ncols() {
             return Err(MatrixMaterializationError::MissingRowChunk {
@@ -4540,25 +4581,7 @@ impl DenseDesignOperator for DesignMatrix {
         }
         match self {
             Self::Dense(matrix) => matrix.row_chunk_into(rows, out),
-            Self::Sparse(matrix) => {
-                out.fill(0.0);
-                let csr =
-                    matrix
-                        .to_csr_arc()
-                        .ok_or(MatrixMaterializationError::MissingRowChunk {
-                            context: "DesignMatrix::row_chunk_into: failed to obtain CSR view",
-                        })?;
-                let sym = csr.symbolic();
-                let row_ptr = sym.row_ptr();
-                let col_idx = sym.col_idx();
-                let vals = csr.val();
-                for (local_row, row) in rows.enumerate() {
-                    for ptr in row_ptr[row]..row_ptr[row + 1] {
-                        out[[local_row, col_idx[ptr]]] = vals[ptr];
-                    }
-                }
-                Ok(())
-            }
+            Self::Sparse(matrix) => matrix.row_chunk_into(rows, out),
         }
     }
 
@@ -5535,7 +5558,7 @@ impl DesignMatrix {
                 let col_ptr = symbolic.col_ptr();
                 let row_idx = symbolic.row_idx();
                 for idx in col_ptr[col]..col_ptr[col + 1] {
-                    output[row_idx[idx]] = values[idx];
+                    output[row_idx[idx]] += values[idx];
                 }
             }
         }
@@ -5617,7 +5640,7 @@ impl DesignMatrix {
                     let end = col_ptr[j + 1];
                     let mut out_col = out.column_mut(k);
                     for idx in start..end {
-                        out_col[row_idx[idx]] = values[idx];
+                        out_col[row_idx[idx]] += values[idx];
                     }
                 }
                 out
@@ -6112,12 +6135,12 @@ impl From<&DesignMatrix> for DesignBlock {
 #[cfg(test)]
 mod tests {
     use super::{
-        BlockDesignOperator, CoefficientTransformOperator, DenseDesignMatrix, DenseDesignOperator,
-        DesignBlock, DesignMatrix, EmbeddedColumnBlock, FiniteSignedWeightsView,
-        MultiChannelOperator, PsdWeightsView, ReparamOperator, ResidualisedDesignOperator,
-        RowwiseKroneckerOperator, SparseDesignMatrix, dense_operator_to_dense_by_chunks,
-        dense_transpose_weighted_response, fast_atv, fast_av, streaming_sparse_csc_xt_diag_x,
-        weighted_crossprod_dense_view, xt_diag_x_symmetric,
+        BlockDesignOperator, CoefficientTransformOperator, ConditionedDesign, DenseDesignMatrix,
+        DenseDesignOperator, DesignBlock, DesignMatrix, EmbeddedColumnBlock,
+        FiniteSignedWeightsView, MultiChannelOperator, PsdWeightsView, RandomEffectOperator,
+        ReparamOperator, ResidualisedDesignOperator, RowwiseKroneckerOperator, SparseDesignMatrix,
+        dense_operator_to_dense_by_chunks, dense_transpose_weighted_response, fast_atv, fast_av,
+        streaming_sparse_csc_xt_diag_x, weighted_crossprod_dense_view, xt_diag_x_symmetric,
     };
     use crate::matrix::LinearOperator;
     use crate::test_support::no_densify_design;
@@ -6213,6 +6236,76 @@ mod tests {
         }
     }
 
+    struct DirectFillOnlyOperator {
+        values: Array2<f64>,
+        row_chunk_calls: AtomicUsize,
+    }
+
+    impl LinearOperator for DirectFillOnlyOperator {
+        fn nrows(&self) -> usize {
+            self.values.nrows()
+        }
+
+        fn ncols(&self) -> usize {
+            self.values.ncols()
+        }
+
+        fn apply(&self, vector: &Array1<f64>) -> Array1<f64> {
+            self.values.dot(vector)
+        }
+
+        fn apply_transpose(&self, vector: &Array1<f64>) -> Array1<f64> {
+            self.values.t().dot(vector)
+        }
+
+        fn diag_xtw_x(&self, weights: &Array1<f64>) -> Result<Array2<f64>, String> {
+            let mut out = Array2::<f64>::zeros((self.ncols(), self.ncols()));
+            for row in 0..self.nrows() {
+                for left in 0..self.ncols() {
+                    for right in 0..self.ncols() {
+                        out[[left, right]] +=
+                            weights[row] * self.values[[row, left]] * self.values[[row, right]];
+                    }
+                }
+            }
+            Ok(out)
+        }
+    }
+
+    impl DenseDesignOperator for DirectFillOnlyOperator {
+        fn row_chunk_into(
+            &self,
+            rows: Range<usize>,
+            mut out: ArrayViewMut2<'_, f64>,
+        ) -> Result<(), MatrixMaterializationError> {
+            self.row_chunk_calls.fetch_add(1, Ordering::SeqCst);
+            if rows.end > self.nrows()
+                || out.nrows() != rows.end - rows.start
+                || out.ncols() != self.ncols()
+            {
+                return Err(MatrixMaterializationError::MissingRowChunk {
+                    context: "DirectFillOnlyOperator::row_chunk_into shape mismatch",
+                });
+            }
+            out.assign(&self.values.slice(s![rows, ..]));
+            Ok(())
+        }
+
+        fn try_row_chunk(
+            &self,
+            rows: Range<usize>,
+        ) -> Result<Array2<f64>, MatrixMaterializationError> {
+            panic!(
+                "DirectFillOnlyOperator owned row chunk {}..{} is forbidden",
+                rows.start, rows.end
+            )
+        }
+
+        fn to_dense(&self) -> Array2<f64> {
+            panic!("DirectFillOnlyOperator dense materialization is forbidden")
+        }
+    }
+
     fn exact_weighted_penalized_solve(
         design: &Array2<f64>,
         weights: &Array1<f64>,
@@ -6284,6 +6377,40 @@ mod tests {
         let y_dense = dense.dot(&v);
         for i in 0..y_sparse.len() {
             assert!((y_sparse[i] - y_dense[i]).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn sparse_column_extractors_accumulate_duplicate_entries() {
+        // Same non-canonical CSC as the to_dense fixture: column 0 carries two
+        // entries at row 1 (2.0 + 3.5 = 5.5); column 1 a single -1.0 at row 0.
+        // column_into and extract_columns must accumulate duplicates exactly
+        // like to_dense/apply, not last-write-wins.
+        let symbolic = SymbolicSparseColMat::new_unsorted_checked(
+            3,
+            2,
+            vec![0_usize, 2, 3],
+            None,
+            vec![1_usize, 1, 0],
+        );
+        let sparse = SparseColMat::new(symbolic, vec![2.0_f64, 3.5, -1.0]);
+        let design = DesignMatrix::from(sparse);
+        let dense = design.to_dense();
+
+        let mut col0 = Array1::<f64>::zeros(3);
+        design.column_into(0, col0.view_mut());
+        assert!((col0[1] - 5.5).abs() < 1e-12);
+        for i in 0..3 {
+            assert!((col0[i] - dense[[i, 0]]).abs() < 1e-12);
+        }
+
+        let block = design.extract_columns(&[0, 1]);
+        assert!((block[[1, 0]] - 5.5).abs() < 1e-12);
+        assert!((block[[0, 1]] + 1.0).abs() < 1e-12);
+        for i in 0..3 {
+            for (k, &j) in [0usize, 1].iter().enumerate() {
+                assert!((block[[i, k]] - dense[[i, j]]).abs() < 1e-12);
+            }
         }
     }
 
@@ -6425,6 +6552,77 @@ mod tests {
     }
 
     #[test]
+    fn block_design_row_chunk_into_fills_mixed_blocks_without_owned_child_chunks() {
+        let eager = array![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [7.0, 8.0]];
+        let lazy = Arc::new(DirectFillOnlyOperator {
+            values: array![[10.0, 11.0], [12.0, 13.0], [14.0, 15.0], [16.0, 17.0]],
+            row_chunk_calls: AtomicUsize::new(0),
+        });
+        let sparse = SparseColMat::try_new_from_triplets(
+            4,
+            3,
+            &[
+                Triplet::new(0, 0, 20.0),
+                Triplet::new(1, 1, 21.0),
+                Triplet::new(2, 2, 22.0),
+                Triplet::new(3, 0, 23.0),
+            ],
+        )
+        .expect("sparse block");
+        let random_effect = Arc::new(RandomEffectOperator::new(
+            vec![Some(0), None, Some(1), Some(0)],
+            2,
+        ));
+        let op = BlockDesignOperator::new(vec![
+            DesignBlock::Dense(DenseDesignMatrix::from(eager)),
+            DesignBlock::Dense(DenseDesignMatrix::from(Arc::clone(&lazy))),
+            DesignBlock::Sparse(SparseDesignMatrix::new(sparse)),
+            DesignBlock::RandomEffect(random_effect),
+            DesignBlock::Intercept(4),
+        ])
+        .expect("mixed block design");
+
+        let mut got = Array2::<f64>::from_elem((3, 10), f64::NAN);
+        op.row_chunk_into(1..4, got.view_mut())
+            .expect("mixed block direct row fill");
+
+        assert_eq!(
+            got,
+            array![
+                [3.0, 4.0, 12.0, 13.0, 0.0, 21.0, 0.0, 0.0, 0.0, 1.0],
+                [5.0, 6.0, 14.0, 15.0, 0.0, 0.0, 22.0, 0.0, 1.0, 1.0],
+                [7.0, 8.0, 16.0, 17.0, 23.0, 0.0, 0.0, 1.0, 0.0, 1.0],
+            ]
+        );
+        assert_eq!(lazy.row_chunk_calls.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn multi_channel_row_chunk_into_crosses_boundary_without_owned_channel_chunks() {
+        let first = Arc::new(DirectFillOnlyOperator {
+            values: array![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]],
+            row_chunk_calls: AtomicUsize::new(0),
+        });
+        let second = Arc::new(DirectFillOnlyOperator {
+            values: array![[10.0, 20.0], [30.0, 40.0], [50.0, 60.0]],
+            row_chunk_calls: AtomicUsize::new(0),
+        });
+        let op = MultiChannelOperator::new(vec![
+            DesignMatrix::Dense(DenseDesignMatrix::from(Arc::clone(&first))),
+            DesignMatrix::Dense(DenseDesignMatrix::from(Arc::clone(&second))),
+        ])
+        .expect("direct-fill multi-channel operator");
+
+        let mut got = Array2::<f64>::from_elem((3, 2), f64::NAN);
+        op.row_chunk_into(2..5, got.view_mut())
+            .expect("cross-channel direct row fill");
+
+        assert_eq!(got, array![[5.0, 6.0], [10.0, 20.0], [30.0, 40.0]]);
+        assert_eq!(first.row_chunk_calls.load(Ordering::SeqCst), 1);
+        assert_eq!(second.row_chunk_calls.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
     fn multi_channel_operator_view_paths_match_stacked_dense_reference() {
         let dense_channel = array![[1.0, 2.0], [0.5, -1.0], [3.0, 0.25]];
         let sparse_dense = array![[0.0, 1.5], [2.0, 0.0], [-1.0, 0.75]];
@@ -6503,7 +6701,7 @@ mod tests {
         let re_dense = op.to_dense();
         let expected_cross = dense
             .t()
-            .dot(&(&re_dense * weights.view().insert_axis(Axis(1))));
+            .dot(&(&re_dense * &weights.view().insert_axis(Axis(1))));
         assert_eq!(cross, expected_cross);
 
         let beta = array![4.0, -2.0];

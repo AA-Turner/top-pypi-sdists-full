@@ -666,21 +666,12 @@ pub(crate) fn deviance_eta_row_with_log_measure_scale(
             if !y.is_finite() {
                 return Err(deviance_row_error(row, "Gaussian response", eta, y));
             }
-            let phi = if matches!(
-                &likelihood.scale,
-                gam_problem::LikelihoodScaleMetadata::ProfiledGaussian
-            ) {
-                // Reported profiled-Gaussian deviance is intentionally the raw
-                // RSS measure; profiling happens in the outer objective.
-                1.0
-            } else {
-                likelihood.fixed_phi().ok_or_else(|| {
-                    deviance_row_error(row, "Gaussian dispersion metadata", eta, f64::NAN)
-                })?
-            };
-            if !(phi.is_finite() && phi > 0.0) {
-                return Err(deviance_row_error(row, "Gaussian dispersion", eta, phi));
-            }
+            // The conventional reported deviance is weighted RSS and therefore
+            // receives `log_measure_scale = 0`.  Exact likelihood/score callers
+            // pass `-log(phi)` through that same explicit channel.  Keeping phi
+            // out of this family branch prevents one row object from silently
+            // changing the reporting estimand while preserving the scaled
+            // Gaussian likelihood geometry.
             let (residual_sign, residual_log_abs) = signed_log_difference(y, eta);
             let half = if residual_sign == 0.0 {
                 0.0
@@ -690,7 +681,7 @@ pub(crate) fn deviance_eta_row_with_log_measure_scale(
                     "Gaussian half-deviance",
                     eta,
                     1.0,
-                    log_weight + 2.0 * residual_log_abs - phi.ln() - std::f64::consts::LN_2,
+                    log_weight + 2.0 * residual_log_abs - std::f64::consts::LN_2,
                 )?
             };
             let score = if residual_sign == 0.0 {
@@ -701,7 +692,7 @@ pub(crate) fn deviance_eta_row_with_log_measure_scale(
                     "Gaussian eta score",
                     eta,
                     -residual_sign,
-                    log_weight + residual_log_abs - phi.ln(),
+                    log_weight + residual_log_abs,
                 )?
             };
             (half, score)
@@ -1032,8 +1023,7 @@ pub(crate) fn deviance_eta_row_with_log_measure_scale(
             let half_unit = if eta_difference == 0.0 {
                 0.0
             } else if eta_difference.abs() <= 1.0e-6 {
-                let (saturated_mu, saturated_one_minus_mu) =
-                    logit_probability_pair(saturated_eta);
+                let (saturated_mu, saturated_one_minus_mu) = logit_probability_pair(saturated_eta);
                 let saturated_a = saturated_mu * *phi;
                 let saturated_b = saturated_one_minus_mu * *phi;
                 let saturated_c = *phi * saturated_mu * saturated_one_minus_mu;
@@ -1143,6 +1133,12 @@ pub(crate) fn deviance_eta_rows_with_log_measure_scale(
             priorweights.len()
         );
     }
+    likelihood.resolved_scale().map_err(|error| {
+        EstimationError::InvalidInput(format!(
+            "{} deviance scale: {error}",
+            likelihood.spec.response.name()
+        ))
+    })?;
     let rows: Vec<Result<DevianceEtaRow, EstimationError>> = (0..eta.len())
         .into_par_iter()
         .map(|i| {
@@ -1563,11 +1559,18 @@ fn eta_log_measure_scale(likelihood: &GlmLikelihoodSpec) -> Result<f64, Estimati
     // Resolve every family, even those whose numeric row scale is one: this is
     // the ownership boundary that rejects contradictory NB/Beta duplicates and
     // non-unit Poisson/Binomial metadata before any parallel output exists.
-    likelihood.resolved_scale().map_err(scale_error)?;
+    let scale = likelihood.resolved_scale().map_err(scale_error)?;
     match &likelihood.spec.response {
-        ResponseFamily::Gamma => likelihood.resolved_gamma_log_shape().map_err(scale_error),
-        ResponseFamily::Tweedie { .. } => likelihood
-            .resolved_tweedie_log_phi()
+        ResponseFamily::Gaussian => scale.gaussian_log_phi().map(|log_phi| -log_phi).map_err(
+            |error| {
+                EstimationError::InvalidInput(format!(
+                    "Gaussian eta log-likelihood requires an explicit positive dispersion: {error}"
+                ))
+            },
+        ),
+        ResponseFamily::Gamma => scale.gamma_log_shape().map_err(scale_error),
+        ResponseFamily::Tweedie { .. } => scale
+            .tweedie_log_phi()
             .map(|log_phi| -log_phi)
             .map_err(scale_error),
         _ => Ok(0.0),
@@ -1768,6 +1771,51 @@ pub(crate) fn calculate_loglikelihood_omitting_constants_from_eta(
         .map(|(value, _)| value)
 }
 
+/// Return the data log-kernel carried by a P-IRLS working state.
+///
+/// A profiled Gaussian has no physical dispersion until the outer REML
+/// objective resolves it from the penalized deviance. Its inner data kernel is
+/// therefore exactly `-D/2`, where `D` is the already-computed conventional
+/// Gaussian deviance (raw weighted RSS). Every likelihood whose scale is
+/// already resolved delegates to the strict eta-space likelihood oracle above.
+/// Keeping these surfaces separate prevents HMC and reporting callers from
+/// silently interpreting `ProfiledGaussian` as unit physical variance, while
+/// also avoiding a duplicate row pass in the Gaussian P-IRLS path.
+pub(crate) fn pirls_data_log_kernel_from_eta(
+    y: ArrayView1<f64>,
+    eta: &Array1<f64>,
+    likelihood: &GlmLikelihoodSpec,
+    inverse_link: &InverseLink,
+    priorweights: ArrayView1<f64>,
+    conventional_deviance: f64,
+) -> Result<f64, EstimationError> {
+    let resolved_scale = likelihood.resolved_scale().map_err(|error| {
+        EstimationError::InvalidInput(format!(
+            "{} P-IRLS data-log-kernel scale: {error}",
+            likelihood.spec.response.name()
+        ))
+    })?;
+    if matches!(
+        resolved_scale,
+        gam_problem::ResolvedLikelihoodScale::ProfiledGaussian
+    ) {
+        if !(conventional_deviance.is_finite() && conventional_deviance >= 0.0) {
+            return Err(EstimationError::InvalidInput(format!(
+                "profiled-Gaussian P-IRLS data log-kernel requires a finite non-negative conventional deviance, got {conventional_deviance}"
+            )));
+        }
+        Ok(-0.5 * conventional_deviance)
+    } else {
+        calculate_loglikelihood_omitting_constants_from_eta(
+            y,
+            eta,
+            likelihood,
+            inverse_link,
+            priorweights,
+        )
+    }
+}
+
 #[inline]
 pub(crate) fn log_gamma_stirling_correction(x: f64) -> f64 {
     let inv = 1.0 / x;
@@ -1819,7 +1867,6 @@ pub(crate) fn beta_log_normalizer(a: f64, b: f64, sum: f64) -> f64 {
         - log_gamma_stirling_correction(a)
         - log_gamma_stirling_correction(b)
 }
-
 
 /// `ln(2π)` — the per-observation Gaussian / saddlepoint normalizer constant.
 pub(crate) const LN_2PI: f64 = 1.837_877_066_409_345_5;
@@ -2072,13 +2119,6 @@ pub fn evaluate_full_log_likelihood_from_eta(
         );
     }
     let log_measure_scale = eta_log_measure_scale(likelihood)?;
-    if matches!(&likelihood.spec.response, ResponseFamily::Gaussian) {
-        likelihood.resolved_gaussian_log_phi().map_err(|error| {
-            EstimationError::InvalidInput(format!(
-                "fully-normalized Gaussian likelihood requires an explicit positive dispersion: {error}"
-            ))
-        })?;
-    }
     let rows: Vec<Result<f64, EstimationError>> = (0..eta.len())
         .into_par_iter()
         .map(|row| {
@@ -2113,7 +2153,6 @@ pub fn evaluate_full_log_likelihood_from_eta(
     )?;
     Ok(FullLogLikelihoodEvaluation { pointwise, total })
 }
-
 
 /// Exact compound-Poisson–gamma density in log-mean coordinates. A finite work
 /// certificate is part of the contract: an observation whose dominant series
@@ -2317,8 +2356,6 @@ pub(crate) fn tweedie_exact_series_loglik_from_eta(
         ))
     }
 }
-
-
 
 /// Total exact Tweedie log-likelihood over all observations. This is the
 /// objective a maximum-likelihood profile of the variance power `p` optimizes

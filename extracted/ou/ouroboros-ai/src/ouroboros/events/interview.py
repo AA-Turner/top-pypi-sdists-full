@@ -7,6 +7,22 @@ the dot.notation.past_tense naming convention.
 from ouroboros.events.base import BaseEvent
 
 
+def _interview_timings(
+    *,
+    total_duration_ms: float | None,
+    ambiguity_scoring_duration_ms: float | None,
+    question_generation_duration_ms: float | None,
+    advisory_build_duration_ms: float | None,
+) -> dict[str, float | None]:
+    """Return the shared privacy-safe timing payload for interview turns."""
+    return {
+        "total": total_duration_ms,
+        "ambiguity_scoring": ambiguity_scoring_duration_ms,
+        "question_generation": question_generation_duration_ms,
+        "advisory_build": advisory_build_duration_ms,
+    }
+
+
 def interview_started(
     interview_id: str,
     initial_context: str,
@@ -44,6 +60,11 @@ def interview_response_recorded(
 def interview_completed(
     interview_id: str,
     total_rounds: int,
+    *,
+    total_duration_ms: float | None = None,
+    ambiguity_scoring_duration_ms: float | None = None,
+    question_generation_duration_ms: float | None = None,
+    advisory_build_duration_ms: float | None = None,
 ) -> BaseEvent:
     """Create event when an interview session completes."""
     return BaseEvent(
@@ -52,6 +73,12 @@ def interview_completed(
         aggregate_id=interview_id,
         data={
             "total_rounds": total_rounds,
+            "timings_ms": _interview_timings(
+                total_duration_ms=total_duration_ms,
+                ambiguity_scoring_duration_ms=ambiguity_scoring_duration_ms,
+                question_generation_duration_ms=question_generation_duration_ms,
+                advisory_build_duration_ms=advisory_build_duration_ms,
+            ),
         },
     )
 
@@ -60,6 +87,11 @@ def interview_failed(
     interview_id: str,
     error_message: str,
     phase: str,
+    *,
+    total_duration_ms: float | None = None,
+    ambiguity_scoring_duration_ms: float | None = None,
+    question_generation_duration_ms: float | None = None,
+    advisory_build_duration_ms: float | None = None,
 ) -> BaseEvent:
     """Create event when an interview encounters a fatal error."""
     return BaseEvent(
@@ -69,6 +101,12 @@ def interview_failed(
         data={
             "error": error_message[:500],
             "phase": phase,
+            "timings_ms": _interview_timings(
+                total_duration_ms=total_duration_ms,
+                ambiguity_scoring_duration_ms=ambiguity_scoring_duration_ms,
+                question_generation_duration_ms=question_generation_duration_ms,
+                advisory_build_duration_ms=advisory_build_duration_ms,
+            ),
         },
     )
 
@@ -79,11 +117,21 @@ def interview_question_parent_handoff(
     phase: str,
     reason_code: str,
     provider_error_type: str | None = None,
+    total_duration_ms: float | None = None,
+    ambiguity_scoring_duration_ms: float | None = None,
+    question_generation_duration_ms: float | None = None,
+    advisory_build_duration_ms: float | None = None,
 ) -> BaseEvent:
     """Create event when question generation is handed to the parent session."""
     data = {
         "phase": phase,
         "reason_code": reason_code,
+        "timings_ms": _interview_timings(
+            total_duration_ms=total_duration_ms,
+            ambiguity_scoring_duration_ms=ambiguity_scoring_duration_ms,
+            question_generation_duration_ms=question_generation_duration_ms,
+            advisory_build_duration_ms=advisory_build_duration_ms,
+        ),
     }
     if provider_error_type:
         data["provider_error_type"] = provider_error_type
@@ -104,6 +152,10 @@ def interview_response_emitted(
     transcript_chars: int,
     ambiguity_prefix_present: bool,
     is_length_guard: bool,
+    total_duration_ms: float | None = None,
+    ambiguity_scoring_duration_ms: float | None = None,
+    question_generation_duration_ms: float | None = None,
+    advisory_build_duration_ms: float | None = None,
 ) -> BaseEvent:
     """Diagnostic event recording the shape of an MCP question-bearing response.
 
@@ -124,6 +176,12 @@ def interview_response_emitted(
             "transcript_chars": transcript_chars,
             "ambiguity_prefix_present": ambiguity_prefix_present,
             "is_length_guard": is_length_guard,
+            "timings_ms": _interview_timings(
+                total_duration_ms=total_duration_ms,
+                ambiguity_scoring_duration_ms=ambiguity_scoring_duration_ms,
+                question_generation_duration_ms=question_generation_duration_ms,
+                advisory_build_duration_ms=advisory_build_duration_ms,
+            ),
         },
     )
 

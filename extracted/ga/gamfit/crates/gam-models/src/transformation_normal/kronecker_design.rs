@@ -99,65 +99,6 @@ impl KroneckerDesign {
         }
     }
 
-    /// SCOP-CTN forward: compute
-    /// `left[i,0] · γ_0(x_i) + Σ_{k>=1} left[i,k] · γ_k(x_i)²`
-    /// where `γ_k(x_i) = (right · β_mat[k, :])[i]` and
-    /// `β_mat[k, j] = beta[k * p_cov + j]` (row-major reshape into
-    /// `p_resp × p_cov`).
-    ///
-    /// Equivalent to forming `γ_mat = right · β_matᵀ` (shape `n × p_resp`),
-    /// pointwise squaring columns `k>=1`, and contracting against the
-    /// corresponding response basis row. The squaring is post-operator — the
-    /// underlying `right` operator and the row-replicated Khatri-Rao image
-    /// are never materialized. Storage cost matches `forward_mul`: an
-    /// intermediate `n × p_resp` `right_beta` plus the `n` output.
-    pub(crate) fn scop_affine_squared_forward(&self, beta: &Array1<f64>) -> Array1<f64> {
-        match self {
-            KroneckerDesign::KhatriRao { left, right } => {
-                let pa = left.ncols();
-                let pb = right.ncols();
-                let n = left.nrows();
-                assert_eq!(beta.len(), pa * pb);
-                let beta_mat = beta.view().into_shape_with_order((pa, pb)).unwrap();
-                let mut result = Array1::zeros(n);
-                if let Some(right_dense) = right.as_dense_ref() {
-                    // right_beta[i, k] = γ_k(x_i)
-                    let right_beta = fast_abt(right_dense, &beta_mat);
-                    ndarray::Zip::from(&mut result)
-                        .and(left.rows())
-                        .and(right_beta.rows())
-                        .par_for_each(|r, l_row, gamma_row| {
-                            let mut acc = l_row[0] * gamma_row[0];
-                            for k in 1..pa {
-                                let g = gamma_row[k];
-                                acc += l_row[k] * g * g;
-                            }
-                            *r = acc;
-                        });
-                    return result;
-                }
-                // Sparse-right fallback: materialize γ_k column-by-column.
-                let mut gamma_cols = Array2::<f64>::zeros((n, pa));
-                for k in 0..pa {
-                    let cov_part = right.apply(&beta_mat.row(k).to_owned());
-                    gamma_cols.column_mut(k).assign(&cov_part);
-                }
-                ndarray::Zip::from(&mut result)
-                    .and(left.rows())
-                    .and(gamma_cols.rows())
-                    .par_for_each(|r, l_row, gamma_row| {
-                        let mut acc = l_row[0] * gamma_row[0];
-                        for k in 1..pa {
-                            let g = gamma_row[k];
-                            acc += l_row[k] * g * g;
-                        }
-                        *r = acc;
-                    });
-                result
-            }
-        }
-    }
-
     /// Compute `self^T · v` where v is an n-vector.
     /// Returns a (p_a * p_b)-vector.
     pub(crate) fn transpose_mul(&self, v: &Array1<f64>) -> Array1<f64> {
@@ -202,6 +143,80 @@ impl KroneckerDesign {
         policy: &ResourcePolicy,
     ) -> Result<Array2<f64>, String> {
         self.weighted_cross_with(w.view(), self, policy)
+    }
+
+    /// Mean diagonal of `self^T diag(w) self` for non-negative weights without
+    /// materializing the `(p_a p_b)^2` Gram.
+    ///
+    /// For one row of `X = A ⊙ B`, `||X_i||² = ||A_i||² ||B_i||²`; therefore
+    /// `mean(diag(X^T W X)) = Σ_i w_i ||A_i||² ||B_i||² / (p_a p_b)`.
+    /// This is the only likelihood scale the CTN cold smoothing seed consumes.
+    pub(crate) fn weighted_gram_diagonal_mean(
+        &self,
+        weights: &Array1<f64>,
+        policy: &ResourcePolicy,
+    ) -> Result<f64, String> {
+        PsdWeightsView::try_from_array(weights).map_err(|reason| {
+            format!("KroneckerDesign::weighted_gram_diagonal_mean: {reason}")
+        })?;
+        match self {
+            KroneckerDesign::KhatriRao { left, right } => {
+                let n = left.nrows();
+                if weights.len() != n || right.nrows() != n {
+                    return Err(TransformationNormalError::InvalidInput {
+                        reason: format!(
+                            "KroneckerDesign diagonal-mean row mismatch: weights={}, left={}, right={}",
+                            weights.len(),
+                            n,
+                            right.nrows(),
+                        ),
+                    }
+                    .into());
+                }
+                let p_total = left.ncols().checked_mul(right.ncols()).ok_or_else(|| {
+                    TransformationNormalError::InvalidInput {
+                        reason: "KroneckerDesign diagonal-mean column product overflow"
+                            .to_string(),
+                    }
+                    .to_string()
+                })?;
+                if p_total == 0 {
+                    return Ok(0.0);
+                }
+                let rows_per_chunk = gam_runtime::resource::rows_for_target_bytes(
+                    policy.row_chunk_target_bytes,
+                    right.ncols().max(1),
+                );
+                let mut diagonal_sum = 0.0_f64;
+                for start in (0..n).step_by(rows_per_chunk) {
+                    let end = (start + rows_per_chunk).min(n);
+                    let right_chunk = right
+                        .try_row_chunk(start..end)
+                        .map_err(|error| error.to_string())?;
+                    for local in 0..right_chunk.nrows() {
+                        let row = start + local;
+                        let left_norm_squared =
+                            left.row(row).iter().map(|value| value * value).sum::<f64>();
+                        let right_norm_squared = right_chunk
+                            .row(local)
+                            .iter()
+                            .map(|value| value * value)
+                            .sum::<f64>();
+                        diagonal_sum += weights[row] * left_norm_squared * right_norm_squared;
+                    }
+                }
+                let mean = diagonal_sum / p_total as f64;
+                if !mean.is_finite() {
+                    return Err(TransformationNormalError::NonFinite {
+                        reason: format!(
+                            "KroneckerDesign weighted Gram diagonal mean is non-finite: {mean}"
+                        ),
+                    }
+                    .into());
+                }
+                Ok(mean)
+            }
+        }
     }
 
     /// Compute `self^T · diag(w) · other` while keeping rowwise-Kronecker
@@ -351,25 +366,63 @@ impl DenseDesignOperator for KroneckerDesign {
 
 /// A penalty matrix in separable Kronecker form: `S_left ⊗ S_right`.
 ///
-/// Build tensor product penalties in Kronecker-separable form.
+/// Build the direct-α (gam#2306) tensor product penalties in Kronecker-separable
+/// form.
+///
+/// In the direct-α chart the transformation `h(y, x) = Σ_k α_k(x) v_k(y)` is
+/// linear in the tensor coefficients `A ∈ R^{p_resp × p_cov}` (`β = vec(A)`,
+/// row-major so `β[k·p_cov + a] = A[k, a]`), so the SPEC-5 function-space
+/// roughness of `h` is exactly quadratic in `β`.
+///
+/// - Covariate roughness `∫∫ (L_x h)² dμ_y(y) dx = ½ βᵀ (G_y ⊗ S_{x,j}) β` with
+///   `S_{x,j}` the covariate roughness Gram and `G_y = Vᵀ W V` the response
+///   value-basis mass Gram under the empirical (weighted) data measure — never
+///   an identity coefficient matrix, which equals the function integral only for
+///   an orthonormal response basis. The location row `v_0 ≡ 1` participates:
+///   this is the main-effect-of-`x` smoothing of the conditional centering
+///   field, and a constant centering field lies in `null(S_{x,j})`, so the free
+///   intercept is left unpenalized exactly. `G_y` is independent of the covariate
+///   spatial hyper `κ` (the response basis is reused across `κ` iterations), so
+///   the existing `dS_{x,j}/dκ` psi-derivative path — lifted through the same
+///   `G_y` — keeps the outer criterion and its gradient in sync.
+/// - Response roughness `½ βᵀ (S_{y,m} ⊗ G_x) β` with `G_x = Ψ(κ)ᵀ W Ψ(κ)` the
+///   covariate value-basis mass Gram. `G_x` MOVES with the covariate spatial
+///   hyper `κ`, so the response and double penalties carry a matching
+///   `dG_x/dκ` / `d²G_x/dκ²` psi-derivative channel (emitted in
+///   [`build_tensor_psi_derivatives`]) to keep the outer criterion and its
+///   κ-gradient/Hessian in sync.
+///
+/// The returned [`CtnTensorPenaltyLayout`] pins the assembled order
+/// `[covariate.., response.., double?]`, which the psi-derivative channel relies
+/// on to address the `G_x`-bearing penalties by index.
 pub(crate) fn build_tensor_penalties_kronecker(
     response_penalties: &[Array2<f64>],
     covariate_penalties: Vec<PenaltyMatrix>,
+    response_val: ArrayView2<'_, f64>,
+    covariate_dense: ArrayView2<'_, f64>,
+    weights: ArrayView1<'_, f64>,
     p_resp: usize,
     p_cov: usize,
     config: &TransformationNormalConfig,
-) -> Result<Vec<PenaltyMatrix>, String> {
+) -> Result<(Vec<PenaltyMatrix>, CtnTensorPenaltyLayout), String> {
+    // Function-space mass Grams under the empirical (weighted) data measure.
+    // `G_y` (response) is κ-independent; `G_x` (covariate) moves with κ.
+    let g_resp = weighted_function_gram(response_val, weights, p_resp, "response")?;
+    let g_cov = weighted_function_gram(covariate_dense, weights, p_cov, "covariate")?;
+    // Full-rank coefficient-space ridge for the double (null-shrinkage) penalty.
     let eye_cov = Array2::<f64>::eye(p_cov);
-    let mut penalties = Vec::new();
 
+    // Shape-only response ridge (double-penalty null shrinkage). The location
+    // row is the conditional centering field, identified by the likelihood; keep
+    // it outside every SCOP shrinkage penalty so population shifts stay freely
+    // calibrated in the selected covariate span.
     let mut shape_resp = Array2::<f64>::eye(p_resp);
     shape_resp[[0, 0]] = 0.0;
 
-    // Covariate roughness is a latent γ prior on the squared monotone shape
-    // rows. The derivative-free location row is the conditional centering
-    // field itself; penalizing it by REML under-corrects broad population
-    // shifts and leaves h(Y|x) calibrated only marginally instead of
-    // conditionally.
+    let mut penalties = Vec::new();
+
+    // Covariate roughness: G_y ⊗ S_{x,j}.
+    let n_covariate = covariate_penalties.len();
     for s_cov in covariate_penalties {
         let fixed_log_lambda = s_cov.fixed_log_lambda();
         let right = match s_cov {
@@ -385,7 +438,7 @@ pub(crate) fn build_tensor_penalties_kronecker(
             }
         };
         let penalty = PenaltyMatrix::KroneckerFactored {
-            left: shape_resp.clone(),
+            left: g_resp.clone(),
             right,
         };
         penalties.push(match fixed_log_lambda {
@@ -394,18 +447,23 @@ pub(crate) fn build_tensor_penalties_kronecker(
         });
     }
 
-    // Response penalties: S_resp_m ⊗ I_cov
+    // Response roughness: S_{y,m} ⊗ G_x.
+    let n_response = response_penalties.len();
     for s_resp in response_penalties {
         penalties.push(PenaltyMatrix::KroneckerFactored {
             left: s_resp.clone(),
-            right: eye_cov.clone(),
+            right: g_cov.clone(),
         });
     }
 
-    // Double penalty: shape-row ridge only. The location row is identified by
-    // the likelihood as the conditional centering field; keep it outside every
-    // SCOP roughness/shrinkage penalty so population shifts can be calibrated
-    // in the selected covariate span.
+    // Double penalty: full-rank shape-row ridge `shape_resp ⊗ I_cov`. This is
+    // the null-shrinkage that makes the penalized Hessian positive-definite on
+    // weakly-identified shape×covariate directions, so its covariate factor MUST
+    // be full rank — NOT the function-measure Gram `G_x = Ψᵀ W Ψ`, which is
+    // itself rank-deficient at ill-conditioned covariate designs and would leave
+    // exactly those directions unpinned (`rank_deficient_H_pen`). The primary
+    // roughness penalties above carry the function measure; the null-shrinkage
+    // ridge is a coefficient-space operation and stays κ-independent.
     if config.double_penalty {
         penalties.push(PenaltyMatrix::KroneckerFactored {
             left: shape_resp,
@@ -413,7 +471,108 @@ pub(crate) fn build_tensor_penalties_kronecker(
         });
     }
 
-    Ok(penalties)
+    let layout = CtnTensorPenaltyLayout {
+        n_covariate,
+        n_response,
+        has_double: config.double_penalty,
+    };
+    // The psi-derivative channel addresses the G_x-bearing penalties by the
+    // index arithmetic this layout defines; an inconsistent assembly order would
+    // silently desync the κ-derivatives.
+    if penalties.len() != layout.total() {
+        return Err(format!(
+            "CTN tensor penalty count {} disagrees with layout total {}",
+            penalties.len(),
+            layout.total()
+        ));
+    }
+    Ok((penalties, layout))
+}
+
+/// Assembled order and counts of the CTN tensor penalty list. The list is laid
+/// out as `[covariate.., response.., double?]`; the response and double
+/// penalties carry the κ-moving `G_x` factor, so [`build_tensor_psi_derivatives`]
+/// uses these ranges to emit their `dG_x/dκ` derivative components at the right
+/// indices.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct CtnTensorPenaltyLayout {
+    pub n_covariate: usize,
+    pub n_response: usize,
+    pub has_double: bool,
+}
+
+impl CtnTensorPenaltyLayout {
+    pub fn total(&self) -> usize {
+        self.n_covariate + self.n_response + usize::from(self.has_double)
+    }
+
+    /// Indices of the response-roughness penalties (`S_{y,m} ⊗ G_x`) — the only
+    /// penalties carrying the κ-moving covariate mass Gram.
+    pub fn response_indices(&self) -> std::ops::Range<usize> {
+        self.n_covariate..self.n_covariate + self.n_response
+    }
+}
+
+/// Weighted function-space mass Gram `Bᵀ diag(w) B` of a value basis `B`
+/// (`n × p`) under the empirical measure `w`.
+pub(crate) fn weighted_function_gram(
+    basis: ArrayView2<'_, f64>,
+    weights: ArrayView1<'_, f64>,
+    p: usize,
+    label: &str,
+) -> Result<Array2<f64>, String> {
+    if basis.ncols() != p {
+        return Err(format!(
+            "{label} value basis has {} columns, expected {p}",
+            basis.ncols()
+        ));
+    }
+    if basis.nrows() != weights.len() {
+        return Err(format!(
+            "{label} value basis has {} rows but {} weights",
+            basis.nrows(),
+            weights.len()
+        ));
+    }
+    let weighted = weight_rows(&basis.to_owned(), &weights.to_owned());
+    let gram = basis.t().dot(&weighted);
+    // Symmetrize against round-off so the factor is exactly symmetric PSD.
+    let mut sym = &gram + &gram.t();
+    sym.mapv_inplace(|v| 0.5 * v);
+    Ok(sym)
+}
+
+/// Weighted cross Gram `Aᵀ diag(w) B` of two row-aligned bases `A` (`n × p`) and
+/// `B` (`n × q`) under the empirical measure `w`. Used to differentiate the
+/// covariate mass Gram `G_x = Ψᵀ W Ψ`: `dG_x/dκ_a = M + Mᵀ` with
+/// `M = (∂Ψ/∂κ_a)ᵀ W Ψ`, and the second derivative adds the analogous
+/// `(∂²Ψ/∂κ_a∂κ_b)ᵀ W Ψ` and `(∂Ψ/∂κ_a)ᵀ W (∂Ψ/∂κ_b)` cross terms.
+pub(crate) fn weighted_cross_gram(
+    a: ArrayView2<'_, f64>,
+    b: ArrayView2<'_, f64>,
+    weights: ArrayView1<'_, f64>,
+) -> Result<Array2<f64>, String> {
+    if a.nrows() != weights.len() || b.nrows() != weights.len() {
+        return Err(format!(
+            "weighted_cross_gram row/weight mismatch: left {}x{}, right {}x{}, {} weights \
+             (both factors must have one row per observation; an unconformable factor here is \
+             usually an unmaterialized 0x0 x_psi placeholder — materialize it from the implicit \
+             operator before contracting)",
+            a.nrows(),
+            a.ncols(),
+            b.nrows(),
+            b.ncols(),
+            weights.len()
+        ));
+    }
+    let weighted = weight_rows(&b.to_owned(), &weights.to_owned());
+    Ok(a.t().dot(&weighted))
+}
+
+/// Symmetrize a cross-Gram contribution: `M + Mᵀ`. Used to assemble the exact
+/// symmetric derivative matrices `dG_x/dκ` and `d²G_x/dκ²`.
+pub(crate) fn symmetrize_sum(m: &Array2<f64>) -> Array2<f64> {
+    m + &m.t()
 }
 
 // ---------------------------------------------------------------------------

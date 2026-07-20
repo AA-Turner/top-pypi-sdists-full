@@ -32,8 +32,11 @@ impl SurvivalMarginalSlopeFamily {
             primary[0] + primary[1],
             &mut score_m.view_mut(),
         )?;
-        self.logslope_design
-            .axpy_row_into(row, primary[3], &mut score_g.view_mut())?;
+        self.logslope_layout.coefficient_design().axpy_row_into(
+            row,
+            primary[3],
+            &mut score_g.view_mut(),
+        )?;
         Ok(())
     }
 
@@ -76,8 +79,11 @@ impl SurvivalMarginalSlopeFamily {
                 score_m.scaled_add(primary[q], jm[q]);
             }
         }
-        self.logslope_design
-            .axpy_row_into(row, primary[3], &mut score_g.view_mut())?;
+        self.logslope_layout.coefficient_design().axpy_row_into(
+            row,
+            primary[3],
+            &mut score_g.view_mut(),
+        )?;
         Ok(())
     }
 
@@ -454,12 +460,6 @@ impl SurvivalMarginalSlopeFamily {
         if self.effective_flex_active(block_states)? || self.flex_timewiggle_active() {
             return Ok(None);
         }
-        for &psi_index in psi_indices {
-            if self.is_sigma_aux_index(derivative_blocks, psi_index) {
-                return Ok(None);
-            }
-        }
-
         let k = psi_indices.len();
         if k == 0 {
             return Ok(Some(Vec::new()));
@@ -1147,7 +1147,7 @@ impl SurvivalMarginalSlopeFamily {
             objective_psi_psi,
             score_psi_psi,
             hessian_psi_psi: Array2::zeros((0, 0)),
-            hessian_psi_psi_operator: Some(Box::new(hessian.into_operator(slices))),
+            hessian_psi_psi_operator: Some(Arc::new(hessian.into_operator(slices))),
         }))
     }
 

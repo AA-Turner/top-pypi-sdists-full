@@ -28,11 +28,16 @@ class MyPyllantEnum(str, Enum, metaclass=MyPyllantEnumMeta):
 class ControlIdentifier(MyPyllantEnum):
     TLI = "tli"
     VRC700 = "vrc700"
+    SCF = "scf"
     UNSUPPORTED = "unsupported"
 
     @property
     def is_vrc700(self) -> bool:
         return self == ControlIdentifier.VRC700
+
+    @property
+    def is_scf(self) -> bool:
+        return self == ControlIdentifier.SCF
 
     @property
     def is_unsupported(self) -> bool:

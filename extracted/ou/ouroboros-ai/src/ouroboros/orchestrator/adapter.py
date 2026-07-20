@@ -332,6 +332,8 @@ _RUNTIME_HANDLE_BACKEND_ALIASES = {
     "grok_cli": "grok_cli",
     "antigravity": "antigravity_cli",
     "antigravity_cli": "antigravity_cli",
+    "zcode": "zcode_cli",
+    "zcode_cli": "zcode_cli",
 }
 
 
@@ -945,8 +947,9 @@ class RuntimeCapabilities:
     # runtimes pin one model at construction and cannot re-target per call. A
     # runtime opts in to NATIVE only when it can verifiably route a per-call model
     # id to its backend (Claude SDK ``model`` option, claude-worker/codex
-    # ``--model`` argv). This lets the orchestrator route a cheaper model to a
-    # decomposed child and escalate on retry only where the choice is enforced.
+    # ``--model`` argv). This lets the orchestrator route a cheaper model to an
+    # explicitly trusted decomposed child and escalate on retry only where the
+    # choice is enforced.
     model_override_support: ParamSupport = ParamSupport.IGNORED
     # How the orchestrator may fan work out to sub-agents on this backend (see
     # :class:`SubagentOrchestration`). Defaults to NONE so a backend opts in to

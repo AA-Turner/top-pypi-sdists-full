@@ -171,11 +171,14 @@ pub fn build_bspline_basis_1d(
             );
         }
         let knots = cyclic_uniform_knot_vector(start, end, spec.degree, num_basis);
-        let s_bend_raw = cyclic_bspline_derivative_penalty_matrix(
+        let s_bend_raw = ConstructiveQuadratic::from_energy_factor(
+            cyclic_bspline_derivative_penalty_factor(
             spec.degree,
             num_basis,
             end - start,
             spec.penalty_order,
+            )?,
+            "cyclic B-spline roughness",
         )?;
         // A cyclic derivative penalty has a single null direction — the constant
         // vector — and that direction is removed wholesale by the periodic
@@ -202,10 +205,12 @@ pub fn build_bspline_basis_1d(
         // raw `S` (scale 1.0) put `λ` on a basis-dependent scale and the outer
         // λ-search heuristics under-smoothed exactly as for the open ps single
         // penalty. Fit-invariant at the REML optimum (only `λ̂` rescales by `c`).
-        let (s_bend_norm, s_bend_scale) = normalize_penalty(&s_bend_raw);
+        let (_, s_bend_scale) = normalize_penalty(s_bend_raw.dense());
         let penalties_raw = vec![PenaltyCandidate {
-            matrix: s_bend_norm,
-            nullspace_dim_hint: 1,
+            matrix: s_bend_raw.scaled(
+                1.0 / s_bend_scale,
+                "normalized cyclic B-spline roughness",
+            )?,
             source: PenaltySource::Primary,
             normalization_scale: s_bend_scale,
             kronecker_factors: None,
@@ -213,7 +218,7 @@ pub fn build_bspline_basis_1d(
         }];
         let penalties_raw_mats = penalties_raw
             .iter()
-            .map(|candidate| candidate.matrix.clone())
+            .map(|candidate| candidate.matrix.dense().clone())
             .collect();
         let auto_chunk = auto_streaming_chunk_size_for_dense(data.len(), num_basis);
         let (design, transformed_candidates, identifiability_transform) =
@@ -245,18 +250,15 @@ pub fn build_bspline_basis_1d(
                         spec.degree,
                         &spec.identifiability,
                     )?;
-                let transformed_candidates = penalty_mats
-                    .into_iter()
-                    .zip(penalties_raw)
-                    .map(|(matrix, candidate)| PenaltyCandidate {
-                        nullspace_dim_hint: candidate.nullspace_dim_hint,
-                        matrix,
-                        source: candidate.source,
-                        normalization_scale: candidate.normalization_scale,
-                        kronecker_factors: None,
-                        op: None,
-                    })
-                    .collect();
+                // `penalty_mats` is retained only for the public dense policy
+                // API. The fit candidates follow the same transform through
+                // their energy factors, preserving PSD/null provenance.
+                drop(penalty_mats);
+                let transformed_candidates = restrict_penalty_candidates(
+                    penalties_raw,
+                    identifiability_transform.as_ref(),
+                    "cyclic B-spline identifiability",
+                )?;
                 (
                     DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(design_c)),
                     transformed_candidates,
@@ -265,25 +267,24 @@ pub fn build_bspline_basis_1d(
             };
         let transformed_candidates =
             rebuild_double_penalty_nullspace_in_constrained_chart(transformed_candidates)?;
-        let (penalties, nullspace_dims, penaltyinfo, null_eigenvectors, ops) =
-            filter_active_penalty_candidates_with_ops(renormalize_constrained_penalty_candidates(
-                transformed_candidates,
-            ))?;
+        let filtered = filter_penalty_candidates(renormalize_constrained_penalty_candidates(
+            transformed_candidates,
+        )?)?;
         return Ok(BasisBuildResult {
             design,
-            penalties,
-            nullspace_dims,
-            penaltyinfo,
+            affine_offset: None,
+            active_penalties: filtered.active,
+            dropped_penalties: filtered.dropped,
             metadata: BasisMetadata::BSpline1D {
                 knots,
                 identifiability_transform,
                 periodic: Some((start, end - start, num_basis)),
                 degree: Some(spec.degree),
                 auto_shrink_note: auto_shrink_note.clone(),
+                // Periodic B-splines wrap and carry no endpoint anchor.
+                anchor_offset_coeffs: None,
             },
             kronecker_factored: None,
-            ops,
-            null_eigenvectors,
             joint_null_rotation: None,
         });
     }
@@ -346,12 +347,14 @@ pub fn build_bspline_basis_1d(
         None
     };
     if let Some((knots, p_raw, chunk)) = auto_chunk_streaming {
-        let s_bend_raw =
-            bspline_derivative_penalty_matrix(knots.view(), spec.degree, spec.penalty_order)?;
+        let s_bend_raw = ConstructiveQuadratic::from_energy_factor(
+            bspline_derivative_penalty_factor(knots.view(), spec.degree, spec.penalty_order)?,
+            "streaming B-spline roughness",
+        )?;
         let penalties_raw = bspline_penalty_candidates(&s_bend_raw, spec, &knots)?;
         let penalties_raw_mats = penalties_raw
             .iter()
-            .map(|candidate| candidate.matrix.clone())
+            .map(|candidate| candidate.matrix.dense().clone())
             .collect();
         log::info!(
             "B-spline basis auto-streaming evaluator: n={} p={} chunk_size={}",
@@ -372,25 +375,25 @@ pub fn build_bspline_basis_1d(
             )?;
         let transformed_candidates =
             rebuild_double_penalty_nullspace_in_constrained_chart(transformed_candidates)?;
-        let (penalties, nullspace_dims, penaltyinfo, null_eigenvectors, ops) =
-            filter_active_penalty_candidates_with_ops(renormalize_constrained_penalty_candidates(
-                transformed_candidates,
-            ))?;
+        let filtered = filter_penalty_candidates(renormalize_constrained_penalty_candidates(
+            transformed_candidates,
+        )?)?;
         return Ok(BasisBuildResult {
             design,
-            penalties,
-            nullspace_dims,
-            penaltyinfo,
+            affine_offset: None,
+            active_penalties: filtered.active,
+            dropped_penalties: filtered.dropped,
             metadata: BasisMetadata::BSpline1D {
                 knots,
                 identifiability_transform,
                 periodic: None,
                 degree: Some(spec.degree),
                 auto_shrink_note: auto_shrink_note.clone(),
+                // The auto-streaming path only activates for free boundary
+                // conditions (see the `is_free()` gate above), so no anchor.
+                anchor_offset_coeffs: None,
             },
             kronecker_factored: None,
-            ops,
-            null_eigenvectors,
             joint_null_rotation: None,
         });
     }
@@ -531,34 +534,49 @@ pub fn build_bspline_basis_1d(
             }
         }
     };
-    let s_bend_raw =
-        bspline_derivative_penalty_matrix(knots.view(), spec.degree, spec.penalty_order)?;
+    let anchor_offset_coeffs =
+        bspline_anchor_offset_coeffs(&knots, spec.degree, spec.boundary_conditions)?;
+    let affine_offset = match anchor_offset_coeffs.as_ref() {
+        Some(beta_p) => {
+            let raw_design = design_dense_opt.as_ref().ok_or_else(|| {
+                BasisError::InvalidInput(
+                    "anchored B-spline affine offset requires the dense raw basis".to_string(),
+                )
+            })?;
+            if raw_design.ncols() != beta_p.len() {
+                crate::bail_dim_basis!(
+                    "anchored B-spline affine offset coefficient length {} does not match raw basis width {}",
+                    beta_p.len(),
+                    raw_design.ncols()
+                );
+            }
+            let offset = raw_design.dot(beta_p);
+            if offset.iter().any(|value| !value.is_finite()) {
+                crate::bail_invalid_basis!(
+                    "anchored B-spline affine offset produced a non-finite row value"
+                );
+            }
+            Some(offset)
+        }
+        None => None,
+    };
+    let s_bend_raw = ConstructiveQuadratic::from_energy_factor(
+        bspline_derivative_penalty_factor(knots.view(), spec.degree, spec.penalty_order)?,
+        "B-spline roughness",
+    )?;
     let penalties_raw = bspline_penalty_candidates(&s_bend_raw, spec, &knots)?;
     let penalties_raw_mats: Vec<Array2<f64>> = penalties_raw
         .iter()
-        .map(|candidate| candidate.matrix.clone())
+        .map(|candidate| candidate.matrix.dense().clone())
         .collect();
     let (design, transformed_candidates, identifiability_transform) = if let Some(sparse_basis) =
         design_sparse_opt
     {
         match &spec.identifiability {
             BSplineIdentifiability::None => {
-                let transformed_candidates = penalties_raw
-                    .into_iter()
-                    .map(|candidate| -> Result<PenaltyCandidate, BasisError> {
-                        Ok(PenaltyCandidate {
-                            nullspace_dim_hint: candidate.nullspace_dim_hint,
-                            matrix: candidate.matrix,
-                            source: candidate.source,
-                            normalization_scale: candidate.normalization_scale,
-                            kronecker_factors: None,
-                            op: None,
-                        })
-                    })
-                    .collect::<Result<Vec<_>, _>>()?;
                 (
                     DesignMatrix::Sparse(gam_linalg::matrix::SparseDesignMatrix::new(sparse_basis)),
-                    transformed_candidates,
+                    penalties_raw,
                     None,
                 )
             }
@@ -572,9 +590,11 @@ pub fn build_bspline_basis_1d(
                 let transformed_candidates = penalties_raw
                     .into_iter()
                     .map(|candidate| -> Result<PenaltyCandidate, BasisError> {
-                        let matrix = gauge.restrict_penalty(&candidate.matrix);
+                        let matrix = candidate.matrix.restricted(
+                            &gauge,
+                            "sparse B-spline sum-to-zero restriction",
+                        )?;
                         Ok(PenaltyCandidate {
-                            nullspace_dim_hint: candidate.nullspace_dim_hint,
                             matrix,
                             source: candidate.source,
                             normalization_scale: candidate.normalization_scale,
@@ -651,22 +671,12 @@ pub fn build_bspline_basis_1d(
             )?;
         let identifiability_transform =
             compose_optional_bspline_transform(boundary_transform, identifiability_local)?;
-        let transformed_candidates = penalties
-            .into_iter()
-            .zip(penalties_raw.into_iter())
-            .map(
-                |(matrix, candidate)| -> Result<PenaltyCandidate, BasisError> {
-                    Ok(PenaltyCandidate {
-                        nullspace_dim_hint: candidate.nullspace_dim_hint,
-                        matrix,
-                        source: candidate.source,
-                        normalization_scale: candidate.normalization_scale,
-                        kronecker_factors: None,
-                        op: None,
-                    })
-                },
-            )
-            .collect::<Result<Vec<_>, _>>()?;
+        drop(penalties);
+        let transformed_candidates = restrict_penalty_candidates(
+            penalties_raw,
+            identifiability_transform.as_ref(),
+            "B-spline boundary and identifiability restriction",
+        )?;
         (
             DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(design)),
             transformed_candidates,
@@ -675,25 +685,29 @@ pub fn build_bspline_basis_1d(
     };
     let transformed_candidates =
         rebuild_double_penalty_nullspace_in_constrained_chart(transformed_candidates)?;
-    let (penalties, nullspace_dims, penaltyinfo, null_eigenvectors, ops) =
-        filter_active_penalty_candidates_with_ops(renormalize_constrained_penalty_candidates(
-            transformed_candidates,
-        ))?;
+    let filtered = filter_penalty_candidates(renormalize_constrained_penalty_candidates(
+        transformed_candidates,
+    )?)?;
+    // Non-zero endpoint anchor (#2297): the constrained design above spans the
+    // zero-anchor nullspace `Z`; the anchor value is carried by the raw-basis
+    // particular solution `β_p` as an affine offset function `B_raw · β_p`. This
+    // is recomputed identically on the FrozenTransform predict rebuild (the
+    // frozen spec retains `boundary_conditions`), so `save → load → predict`
+    // replays the same offset. `None` for free / clamped / zero-anchor specs.
     Ok(BasisBuildResult {
         design,
-        penalties,
-        nullspace_dims,
-        penaltyinfo,
+        affine_offset,
+        active_penalties: filtered.active,
+        dropped_penalties: filtered.dropped,
         metadata: BasisMetadata::BSpline1D {
             knots,
             identifiability_transform,
             periodic: None,
             degree: Some(spec.degree),
             auto_shrink_note,
+            anchor_offset_coeffs,
         },
         kronecker_factored: None,
-        ops,
-        null_eigenvectors,
         joint_null_rotation: None,
     })
 }
@@ -748,8 +762,10 @@ pub fn build_cubic_regression_basis_1d(
     let want_nullspace = spec.double_penalty;
     let (bend_norm, bend_scale) = normalize_penalty(&s_bend_raw);
     let mut penalties_raw = vec![PenaltyCandidate {
-        matrix: bend_norm,
-        nullspace_dim_hint: 2,
+        matrix: ConstructiveQuadratic::try_from_dense_psd(
+            bend_norm,
+            "cubic-regression roughness",
+        )?,
         source: PenaltySource::Primary,
         normalization_scale: bend_scale,
         kronecker_factors: None,
@@ -766,8 +782,10 @@ pub fn build_cubic_regression_basis_1d(
     if let Some(shrinkage) = cr_shrinkage {
         let (ridge_norm, ridge_scale) = normalize_penalty(&shrinkage);
         penalties_raw.push(PenaltyCandidate {
-            matrix: ridge_norm,
-            nullspace_dim_hint: 0,
+            matrix: ConstructiveQuadratic::try_from_dense_psd(
+                ridge_norm,
+                "cubic-regression null-function ridge",
+            )?,
             source: PenaltySource::DoublePenaltyNullspace,
             normalization_scale: ridge_scale,
             kronecker_factors: None,
@@ -783,7 +801,7 @@ pub fn build_cubic_regression_basis_1d(
     // constrained map stored in metadata for predict-time replay.
     let raw_penalty_mats: Vec<Array2<f64>> = penalties_raw
         .iter()
-        .map(|candidate| candidate.matrix.clone())
+        .map(|candidate| candidate.matrix.dense().clone())
         .collect();
     let (design_c, penalty_mats_c, identifiability_transform) =
         apply_bspline_identifiability_policy(
@@ -794,41 +812,32 @@ pub fn build_cubic_regression_basis_1d(
             &spec.identifiability,
         )?;
 
-    let transformed_candidates: Vec<PenaltyCandidate> = penalty_mats_c
-        .into_iter()
-        .zip(penalties_raw)
-        .map(|(matrix, candidate)| PenaltyCandidate {
-            nullspace_dim_hint: candidate.nullspace_dim_hint,
-            matrix,
-            source: candidate.source,
-            normalization_scale: candidate.normalization_scale,
-            kronecker_factors: None,
-            op: None,
-        })
-        .collect();
+    drop(penalty_mats_c);
+    let transformed_candidates = restrict_penalty_candidates(
+        penalties_raw,
+        identifiability_transform.as_ref(),
+        "cubic-regression identifiability restriction",
+    )?;
 
     // Rebuild the double-penalty ridge in the constrained chart (no-op when no
     // ridge candidate is present) and renormalize every constrained block to
     // unit Frobenius norm, exactly as the 1-D B-spline path does.
     let transformed_candidates =
         rebuild_double_penalty_nullspace_in_constrained_chart(transformed_candidates)?;
-    let (penalties, nullspace_dims, penaltyinfo, null_eigenvectors, ops) =
-        filter_active_penalty_candidates_with_ops(renormalize_constrained_penalty_candidates(
-            transformed_candidates,
-        ))?;
+    let filtered = filter_penalty_candidates(renormalize_constrained_penalty_candidates(
+        transformed_candidates,
+    )?)?;
 
     Ok(BasisBuildResult {
         design: DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(design_c)),
-        penalties,
-        nullspace_dims,
-        penaltyinfo,
+        affine_offset: None,
+        active_penalties: filtered.active,
+        dropped_penalties: filtered.dropped,
         metadata: BasisMetadata::CubicRegression1D {
             knots: knots.clone(),
             identifiability_transform,
         },
         kronecker_factored: None,
-        ops,
-        null_eigenvectors,
         joint_null_rotation: None,
     })
 }
@@ -909,6 +918,7 @@ fn bspline_endpoint_derivative_row(
 
 fn push_bspline_boundary_rows_for_endpoint(
     rows: &mut Vec<Array1<f64>>,
+    rhs: &mut Vec<f64>,
     knots: &Array1<f64>,
     degree: usize,
     condition: BSplineEndpointBoundaryCondition,
@@ -919,15 +929,25 @@ fn push_bspline_boundary_rows_for_endpoint(
         BSplineEndpointBoundaryCondition::Free => {}
         BSplineEndpointBoundaryCondition::Clamped => {
             rows.push(bspline_endpoint_derivative_row(knots, degree, endpoint)?);
+            rhs.push(0.0);
         }
         BSplineEndpointBoundaryCondition::Anchored { value } => {
-            if !value.is_finite() || value.abs() > 1e-12 {
+            if !value.is_finite() {
                 crate::bail_invalid_basis!(
-                    "anchored B-spline boundary value must be zero for the structural Hermite pin; non-zero anchors are not supported"
+                    "anchored B-spline boundary value must be finite; got {value}"
                 );
             }
+            // The *homogeneous* constraint rows (value + derivative at the
+            // endpoint) are independent of the anchor value — a non-zero anchor
+            // shares the same nullspace transform `Z` as the zero anchor. The
+            // value only enters the RHS: `f(endpoint) = value`, with the first
+            // derivative still structurally pinned to zero (the Hermite pin).
+            // A non-zero RHS is realized by the caller as an affine offset
+            // function `B_raw · β_p` (see `bspline_anchor_offset_coeffs`).
             rows.push(bspline_endpoint_value_row(knots, degree, endpoint)?);
+            rhs.push(value);
             rows.push(bspline_endpoint_derivative_row(knots, degree, endpoint)?);
+            rhs.push(0.0);
         }
     }
     Ok(())
@@ -937,7 +957,7 @@ fn bspline_boundary_constraint_rows(
     knots: &Array1<f64>,
     degree: usize,
     boundary_conditions: BSplineBoundaryConditions,
-) -> Result<Option<Array2<f64>>, BasisError> {
+) -> Result<Option<(Array2<f64>, Array1<f64>)>, BasisError> {
     if boundary_conditions.is_free() {
         return Ok(None);
     }
@@ -946,8 +966,10 @@ fn bspline_boundary_constraint_rows(
         .checked_sub(degree + 1)
         .ok_or_else(|| BasisError::InvalidInput("invalid B-spline knot vector".to_string()))?;
     let mut rows = Vec::<Array1<f64>>::new();
+    let mut rhs_vals = Vec::<f64>::new();
     push_bspline_boundary_rows_for_endpoint(
         &mut rows,
+        &mut rhs_vals,
         knots,
         degree,
         boundary_conditions.left,
@@ -955,6 +977,7 @@ fn bspline_boundary_constraint_rows(
     )?;
     push_bspline_boundary_rows_for_endpoint(
         &mut rows,
+        &mut rhs_vals,
         knots,
         degree,
         boundary_conditions.right,
@@ -974,7 +997,49 @@ fn bspline_boundary_constraint_rows(
         }
         c.row_mut(i).assign(&row);
     }
-    Ok(Some(c))
+    Ok(Some((c, Array1::from_vec(rhs_vals))))
+}
+
+/// Raw-basis particular solution `β_p` of the (possibly inhomogeneous) endpoint
+/// boundary constraint `C · β = rhs`, or `None` when every anchor is zero
+/// (`rhs = 0`, i.e. free/clamped/zero-anchor bases).
+///
+/// The full anchored coefficient vector decomposes as `β = β_p + Z · γ`, where
+/// `Z` spans `null(C)` — the *same* nullspace the zero-anchor case uses for its
+/// constrained design — and `γ` is the free fitted coefficient. The term's
+/// contribution to the linear predictor is therefore
+///
+/// ```text
+///   B_raw · β = B_raw · β_p  +  (B_raw · Z) · γ,
+/// ```
+///
+/// a fixed affine **offset function** `B_raw · β_p` plus the ordinary
+/// constrained design `B_raw · Z`. `β_p` is the minimum-norm solution
+/// `Cᵀ (C Cᵀ)⁻¹ rhs`, so it is orthogonal to `range(Z)` and contributes nothing
+/// the fitted `γ` could also represent. At the anchored endpoint the offset
+/// reproduces the pin exactly: value = anchor, first derivative = 0.
+pub(crate) fn bspline_anchor_offset_coeffs(
+    knots: &Array1<f64>,
+    degree: usize,
+    boundary_conditions: BSplineBoundaryConditions,
+) -> Result<Option<Array1<f64>>, BasisError> {
+    let Some((c, rhs)) = bspline_boundary_constraint_rows(knots, degree, boundary_conditions)?
+    else {
+        return Ok(None);
+    };
+    if rhs.iter().all(|value| *value == 0.0) {
+        return Ok(None);
+    }
+    // `C Cᵀ` is the small (r × r) Gram of the endpoint rows (r ≤ 4). The value
+    // and derivative rows at each active endpoint are linearly independent for
+    // degree ≥ 1, so it is strictly positive definite; a rank drop (degenerate
+    // knot geometry) surfaces as a `strict_metric_inverse` error rather than a
+    // silently wrong offset.
+    let gram = fast_abt(&c, &c);
+    let gram_inv = strict_metric_inverse(&gram)?;
+    let alpha = gram_inv.dot(&rhs);
+    let beta_p = c.t().dot(&alpha);
+    Ok(Some(beta_p))
 }
 
 fn bspline_boundary_nullspace_transform(
@@ -982,7 +1047,8 @@ fn bspline_boundary_nullspace_transform(
     degree: usize,
     boundary_conditions: BSplineBoundaryConditions,
 ) -> Result<Option<Array2<f64>>, BasisError> {
-    let Some(c) = bspline_boundary_constraint_rows(knots, degree, boundary_conditions)? else {
+    let Some((c, _rhs)) = bspline_boundary_constraint_rows(knots, degree, boundary_conditions)?
+    else {
         return Ok(None);
     };
     let p_raw = c.ncols();
@@ -1273,18 +1339,15 @@ pub(crate) fn build_streaming_bspline_design_and_candidates(
         }
     }
 
-    let transformed_candidates = penalty_mats
-        .into_iter()
-        .zip(penalties_raw)
-        .map(|(matrix, candidate)| PenaltyCandidate {
-            nullspace_dim_hint: candidate.nullspace_dim_hint,
-            matrix,
-            source: candidate.source,
-            normalization_scale: candidate.normalization_scale,
-            kronecker_factors: None,
-            op: None,
-        })
-        .collect();
+    // The dense matrices above serve the legacy design-policy return shape;
+    // candidates themselves are restricted through their factors exactly once
+    // by the composed raw-to-final transform.
+    drop(penalty_mats);
+    let transformed_candidates = restrict_penalty_candidates(
+        penalties_raw,
+        transform_opt.as_ref(),
+        "streaming B-spline identifiability restriction",
+    )?;
     let op = StreamingBSplineEvaluator::new(
         Arc::new(data.to_owned()),
         Arc::new(knots.clone()),
@@ -1713,14 +1776,6 @@ pub fn analyze_penalty_block_with_op(
     })
 }
 
-pub fn filter_active_penalty_candidates(
-    candidates: Vec<PenaltyCandidate>,
-) -> Result<(Vec<Array2<f64>>, Vec<usize>, Vec<PenaltyInfo>), BasisError> {
-    let (penalties, nullspace_dims, penaltyinfo, _null_eigenvectors, _ops) =
-        filter_active_penalty_candidates_with_ops(candidates)?;
-    Ok((penalties, nullspace_dims, penaltyinfo))
-}
-
 /// Extract the orthonormal basis of `null(S)` from a `CanonicalPenaltyBlock`.
 ///
 /// Returns `Some(U_null)` with `U_null.ncols() == block.nullity` when the
@@ -1762,42 +1817,18 @@ pub(crate) fn nullspace_basis_from_block(block: &CanonicalPenaltyBlock) -> Optio
 /// when the local dimension is zero, or when the joint penalty is
 /// full-rank (joint nullity = 0). A non-trivial `joint_nullity` is the
 /// only state encoded as `Some`.
-/// Recompute per-block null-eigenvector matrices from a sequence of penalty
-/// matrices. Each output entry `null_eigenvectors[k]` is `Some(U_null)`
-/// (eigenvectors of `penalties[k]` at eigenvalues `|ev| ≤ spectral_tolerance`,
-/// the genuine null directions) when the block has a non-trivial null space,
-/// and `None` otherwise.
-///
-/// This is the inverse of "consumers update `penalties[k]` without
-/// refreshing `null_eigenvectors[k]`": whenever a code path rebuilds a
-/// penalty matrix in-place (e.g., the factor-sum-to-zero handler's
-/// Kronecker-style `S_big` reconstruction), the parallel `null_eigenvectors`
-/// vector becomes stale unless this helper is called. The invariant the
-/// pipeline relies on is `null_eigenvectors[k]` always mirrors
-/// `penalties[k]`'s spectral null space.
-pub fn recompute_null_eigenvectors(
-    penalties: &[Array2<f64>],
-) -> Result<Vec<Option<Array2<f64>>>, BasisError> {
-    penalties
-        .iter()
-        .map(|s| {
-            let block = analyze_penalty_block_with_op(s, None)?;
-            Ok(nullspace_basis_from_block(&block))
-        })
-        .collect()
-}
-
 pub fn compute_joint_null_rotation(
-    penalties: &[Array2<f64>],
+    penalties: &[ActivePenalty],
 ) -> Result<Option<JointNullRotation>, BasisError> {
     if penalties.is_empty() {
         return Ok(None);
     }
-    let p = penalties[0].nrows();
+    let p = penalties[0].matrix.nrows();
     if p == 0 {
         return Ok(None);
     }
-    for (k, s) in penalties.iter().enumerate() {
+    for (k, penalty) in penalties.iter().enumerate() {
+        let s = &penalty.matrix;
         if s.nrows() != p || s.ncols() != p {
             crate::bail_dim_basis!(
                 "compute_joint_null_rotation: penalty[{}] is {}×{}, expected {}×{}",
@@ -1810,8 +1841,8 @@ pub fn compute_joint_null_rotation(
         }
     }
     let mut s_sum = Array2::<f64>::zeros((p, p));
-    for s in penalties {
-        s_sum += s;
+    for penalty in penalties {
+        s_sum += &penalty.matrix;
     }
     let (sym, evals, evecs) = spectral_summary(&s_sum)?;
     let tol = spectral_tolerance(&sym, &evals);
@@ -1837,39 +1868,28 @@ pub fn compute_joint_null_rotation(
     }))
 }
 
-/// Same filtering pass as [`filter_active_penalty_candidates`] but also
-/// returns the per-active-penalty operator handles and null-space bases.
+/// Canonicalize candidate matrices and partition them into active penalty
+/// identities and separately typed dropped diagnostics.
 ///
-/// All three "side-channel" vectors (`nullspace_dims`, `null_eigenvectors`,
-/// `ops`) are parallel to `penalties` — same length, same order. `null_eigenvectors[k]`
-/// is `Some(U_null)` iff `nullspace_dims[k] > 0`; `ops[k]` is `Some(op)` iff
-/// the candidate carried an operator-form handle bit-equivalent to the dense
-/// matrix. Construction-side consumers use `null_eigenvectors` to absorb the
-/// smooth's penalty null space into the parametric block; PIRLS/REML
-/// consumers route through the `ops` `Some` entries for exact operator
-/// matvec without materializing the dense `p x p` Gram.
-pub fn filter_active_penalty_candidates_with_ops(
+/// A retained candidate is emitted as one [`ActivePenalty`], so its matrix,
+/// nullity, null basis, operator, semantic source, and normalization can never
+/// acquire different positional offsets. Rank-zero candidates exist only in
+/// `FilteredPenalties::dropped` and therefore cannot be indexed as matrices.
+pub fn filter_penalty_candidates(
     candidates: Vec<PenaltyCandidate>,
-) -> Result<
-    (
-        Vec<Array2<f64>>,
-        Vec<usize>,
-        Vec<PenaltyInfo>,
-        Vec<Option<Array2<f64>>>,
-        Vec<Option<std::sync::Arc<dyn crate::analytic_penalties::PenaltyOp>>>,
-    ),
-    BasisError,
-> {
-    let mut penalties = Vec::with_capacity(candidates.len());
-    let mut nullspace_dims = Vec::with_capacity(candidates.len());
-    let mut penaltyinfo = Vec::with_capacity(candidates.len());
-    let mut active_null_eigenvectors: Vec<Option<Array2<f64>>> =
-        Vec::with_capacity(candidates.len());
-    let mut active_ops: Vec<Option<std::sync::Arc<dyn crate::analytic_penalties::PenaltyOp>>> =
-        Vec::with_capacity(candidates.len());
+) -> Result<FilteredPenalties, BasisError> {
+    let mut active = Vec::with_capacity(candidates.len());
+    let mut dropped = Vec::new();
 
     for (original_index, candidate) in candidates.into_iter().enumerate() {
-        let analysis = analyze_penalty_block_with_op(&candidate.matrix, candidate.op.clone())?;
+        let PenaltyCandidate {
+            matrix,
+            source,
+            normalization_scale,
+            kronecker_factors,
+            op,
+        } = candidate;
+        let analysis = analyze_penalty_block_with_op(&matrix, op)?;
         let dropped_reason = if analysis.rank == 0 {
             Some(if analysis.iszero {
                 PenaltyDropReason::ZeroMatrix
@@ -1879,51 +1899,164 @@ pub fn filter_active_penalty_candidates_with_ops(
         } else {
             None
         };
-        let active = dropped_reason.is_none();
         let kronecker_factors =
-            validated_kronecker_factors(candidate.kronecker_factors, &analysis.sym_penalty);
-        if active {
+            validated_kronecker_factors(kronecker_factors, &analysis.sym_penalty);
+        if let Some(reason) = dropped_reason {
+            log::debug!(
+                "Dropped inactive penalty block source={:?} original_index={} reason={:?}",
+                source,
+                original_index,
+                reason
+            );
+            dropped.push(DroppedPenaltyInfo {
+                source,
+                original_index,
+                reason,
+                normalization_scale,
+            });
+        } else {
             let null_basis = nullspace_basis_from_block(&analysis);
             log::debug!(
-                "Retained penalty block source={:?} original_index={} rank={} nullspace_dim_hint={} has_op={} has_null_basis={}",
-                candidate.source,
+                "Retained penalty block source={:?} original_index={} rank={} nullity={} has_op={} has_null_basis={}",
+                source,
                 original_index,
                 analysis.rank,
                 analysis.nullity,
                 analysis.op.is_some(),
                 null_basis.is_some(),
             );
-            penalties.push(analysis.sym_penalty);
-            nullspace_dims.push(analysis.nullity);
-            active_null_eigenvectors.push(null_basis);
-            active_ops.push(analysis.op);
-        } else {
-            log::debug!(
-                "Dropped inactive penalty block source={:?} original_index={} reason={:?}",
-                candidate.source,
-                original_index,
-                dropped_reason
-            );
+            active.push(ActivePenalty {
+                matrix: analysis.sym_penalty,
+                nullity: analysis.nullity,
+                null_eigenvectors: null_basis,
+                op: analysis.op,
+                info: ActivePenaltyInfo {
+                    source,
+                    original_index,
+                    effective_rank: analysis.rank,
+                    normalization_scale,
+                    kronecker_factors,
+                },
+            });
         }
-        penaltyinfo.push(PenaltyInfo {
-            source: candidate.source,
-            original_index,
-            active,
-            effective_rank: analysis.rank,
-            dropped_reason,
-            nullspace_dim_hint: analysis.nullity,
-            normalization_scale: candidate.normalization_scale,
-            kronecker_factors,
-        });
     }
 
-    Ok((
-        penalties,
-        nullspace_dims,
-        penaltyinfo,
-        active_null_eigenvectors,
-        active_ops,
-    ))
+    Ok(FilteredPenalties { active, dropped })
+}
+
+#[cfg(test)]
+mod atomic_penalty_record_tests {
+    use std::sync::Arc;
+
+    use ndarray::array;
+
+    use crate::analytic_penalties::PenaltyOp;
+
+    use super::*;
+
+    fn assert_matrix_roundoff_equal(actual: &Array2<f64>, expected: &Array2<f64>) {
+        assert_eq!(actual.dim(), expected.dim());
+        let scale = expected
+            .iter()
+            .fold(1.0_f64, |current, value| current.max(value.abs()));
+        let tolerance = 32.0 * f64::EPSILON * scale;
+        let max_error = actual
+            .iter()
+            .zip(expected.iter())
+            .map(|(lhs, rhs)| (lhs - rhs).abs())
+            .fold(0.0_f64, f64::max);
+        assert!(
+            max_error <= tolerance,
+            "canonical PSD reconstruction changed a penalty beyond roundoff: max error {max_error:e}, tolerance {tolerance:e}"
+        );
+    }
+
+    #[test]
+    fn dropped_candidate_cannot_shift_atomic_active_penalty_identity_2315() {
+        let primary_matrix = array![[4.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]];
+        let primary_op: Arc<dyn PenaltyOp> = Arc::new(primary_matrix.clone());
+        let secondary_matrix = array![[0.0, 0.0, 0.0], [0.0, 3.0, 0.0], [0.0, 0.0, 2.0]];
+
+        let filtered = filter_penalty_candidates(vec![
+            PenaltyCandidate {
+                matrix: ConstructiveQuadratic::zero(3),
+                source: PenaltySource::Other("dropped-before-active".to_string()),
+                normalization_scale: 11.0,
+                kronecker_factors: None,
+                op: None,
+            },
+            PenaltyCandidate {
+                matrix: ConstructiveQuadratic::try_from_dense_psd(
+                    primary_matrix.clone(),
+                    "atomic primary test penalty",
+                )
+                .expect("constructive primary"),
+                source: PenaltySource::Primary,
+                normalization_scale: 13.0,
+                kronecker_factors: None,
+                op: Some(Arc::clone(&primary_op)),
+            },
+            PenaltyCandidate {
+                matrix: ConstructiveQuadratic::try_from_dense_psd(
+                    secondary_matrix.clone(),
+                    "atomic secondary test penalty",
+                )
+                .expect("constructive secondary"),
+                source: PenaltySource::DoublePenaltyNullspace,
+                normalization_scale: 17.0,
+                kronecker_factors: None,
+                op: None,
+            },
+        ])
+        .expect("canonical penalty filtering");
+
+        assert_eq!(filtered.dropped.len(), 1);
+        let dropped = &filtered.dropped[0];
+        assert_eq!(dropped.original_index, 0);
+        assert_eq!(
+            dropped.source,
+            PenaltySource::Other("dropped-before-active".to_string())
+        );
+        assert_eq!(dropped.reason, PenaltyDropReason::ZeroMatrix);
+        assert_eq!(dropped.normalization_scale, 11.0);
+
+        assert_eq!(filtered.active.len(), 2);
+        let primary = &filtered.active[0];
+        assert_eq!(primary.info.original_index, 1);
+        assert_eq!(primary.info.source, PenaltySource::Primary);
+        assert_eq!(primary.info.effective_rank, 1);
+        assert_eq!(primary.info.normalization_scale, 13.0);
+        assert_matrix_roundoff_equal(&primary.matrix, &primary_matrix);
+        assert_eq!(primary.nullity, 2);
+        assert_eq!(
+            primary
+                .null_eigenvectors
+                .as_ref()
+                .expect("rank-one primary has a null basis")
+                .ncols(),
+            primary.nullity
+        );
+        let retained_op = primary.op.as_ref().expect("primary operator retained");
+        assert!(Arc::ptr_eq(retained_op, &primary_op));
+        assert_eq!(retained_op.as_dense(), primary.matrix);
+
+        let secondary = &filtered.active[1];
+        assert_eq!(secondary.info.original_index, 2);
+        assert_eq!(secondary.info.source, PenaltySource::DoublePenaltyNullspace);
+        assert_eq!(secondary.info.effective_rank, 2);
+        assert_eq!(secondary.info.normalization_scale, 17.0);
+        assert_matrix_roundoff_equal(&secondary.matrix, &secondary_matrix);
+        assert_eq!(secondary.nullity, 1);
+        assert_eq!(
+            secondary
+                .null_eigenvectors
+                .as_ref()
+                .expect("rank-two secondary has a null basis")
+                .ncols(),
+            secondary.nullity
+        );
+        assert!(secondary.op.is_none());
+    }
 }
 
 /// Re-normalize already-constrained 1-D B-spline penalty candidates to unit
@@ -1943,19 +2076,100 @@ pub fn filter_active_penalty_candidates_with_ops(
 ///
 /// Fit-invariant at the REML optimum: rescaling `S → S/c` only rescales the
 /// recorded `λ̂` by `c`. Scaling a block never changes its rank, so this cannot
-/// alter which penalties `filter_active_penalty_candidates_with_ops` keeps
-/// active; the `> 1e-12` guard only avoids dividing a numerically-zero block.
-fn renormalize_constrained_penalty_candidates(
-    mut candidates: Vec<PenaltyCandidate>,
-) -> Vec<PenaltyCandidate> {
-    for candidate in &mut candidates {
-        let frob = candidate.matrix.iter().map(|v| v * v).sum::<f64>().sqrt();
-        if frob.is_finite() && frob > 1e-12 {
-            candidate.matrix.mapv_inplace(|v| v / frob);
-            candidate.normalization_scale *= frob;
+/// alter which penalties `filter_penalty_candidates` keeps active.  The norm is
+/// accumulated with a scaled sum of squares so admission has no unit-dependent
+/// absolute floor and cannot overflow merely because individual entries are
+/// representable.
+fn stable_frobenius_norm(matrix: &ConstructiveQuadratic) -> f64 {
+    let mut scale = 0.0_f64;
+    let mut sum_squares = 1.0_f64;
+    for magnitude in matrix.iter().map(|value| value.abs()) {
+        if magnitude == 0.0 {
+            continue;
+        }
+        if scale < magnitude {
+            let ratio = scale / magnitude;
+            sum_squares = 1.0 + sum_squares * ratio * ratio;
+            scale = magnitude;
+        } else {
+            let ratio = magnitude / scale;
+            sum_squares += ratio * ratio;
         }
     }
+    if scale == 0.0 {
+        0.0
+    } else {
+        scale * sum_squares.sqrt()
+    }
+}
+
+fn renormalize_constrained_penalty_candidates(
+    mut candidates: Vec<PenaltyCandidate>,
+) -> Result<Vec<PenaltyCandidate>, BasisError> {
+    for candidate in &mut candidates {
+        let frob = stable_frobenius_norm(&candidate.matrix);
+        if !frob.is_finite() {
+            crate::bail_invalid_basis!(
+                "constrained penalty Frobenius norm is not representable"
+            );
+        }
+        if frob > 0.0 {
+            let reciprocal = 1.0 / frob;
+            if !reciprocal.is_finite() {
+                crate::bail_invalid_basis!(
+                    "constrained penalty is too small to normalize representably"
+                );
+            }
+            let combined_scale = candidate.normalization_scale * frob;
+            if !combined_scale.is_finite()
+                || (candidate.normalization_scale > 0.0 && combined_scale == 0.0)
+            {
+                crate::bail_invalid_basis!(
+                    "constrained penalty normalization scale is not representable"
+                );
+            }
+            candidate.matrix = candidate
+                .matrix
+                .scaled(reciprocal, "constrained penalty normalization")?;
+            candidate.normalization_scale = combined_scale;
+        }
+    }
+    Ok(candidates)
+}
+
+/// Restrict a complete candidate set through one composed coefficient chart.
+///
+/// The transform is applied to each authoritative energy factor (`A → A M`),
+/// never to a rounded dense Gram. This makes PSD and the structural null space
+/// invariant under the fold-specific chart by construction (#2318).
+fn restrict_penalty_candidates(
+    candidates: Vec<PenaltyCandidate>,
+    transform: Option<&Array2<f64>>,
+    context: &str,
+) -> Result<Vec<PenaltyCandidate>, BasisError> {
+    let Some(transform) = transform else {
+        return Ok(candidates);
+    };
+    let gauge = gam_problem::Gauge::from_block_transforms(&[transform.clone()]);
     candidates
+        .into_iter()
+        .map(|candidate| {
+            let PenaltyCandidate {
+                matrix,
+                source,
+                normalization_scale,
+                kronecker_factors: _,
+                op: _,
+            } = candidate;
+            Ok(PenaltyCandidate {
+                matrix: matrix.restricted(&gauge, context)?,
+                source,
+                normalization_scale,
+                kronecker_factors: None,
+                op: None,
+            })
+        })
+        .collect()
 }
 
 /// Rebuild the double-penalty null-space shrinkage ridge in the FINAL
@@ -1966,8 +2180,9 @@ fn renormalize_constrained_penalty_candidates(
 /// restricts both physical penalties by congruence, `S_c=MᵀSM` and
 /// `R_c=MᵀRM`. If `M` removes part of `null(S)`, merely retaining `R_c`
 /// also retains metric coupling to the removed direction. Rebuilding from the
-/// surviving generalized null space gives the L² norm of exactly the null
-/// component that remains representable in the final chart.
+/// surviving structural null space of the retained energy factor gives the L²
+/// norm of exactly the null component that remains representable in the final
+/// chart.
 ///
 /// The rebuild is METRIC-CONSISTENT (`rebuild_metric_consistent_ridge`): the
 /// raw ridge is the function-space block `G Z (ZᵀGZ)⁻¹ ZᵀG` (penalizing
@@ -1996,28 +2211,39 @@ fn rebuild_double_penalty_nullspace_in_constrained_chart(
     // could then mis-pick it and rebuild the projector from the wrong null space.
     // Deriving the ridge from `null(S_c)` only makes sense for the genuine
     // wiggliness penalty, so we pin that selection here.
-    let primary_constrained = candidates
+    let primary_candidate = candidates
         .iter()
         .find(|c| matches!(c.source, PenaltySource::Primary))
-        .map(|c| c.matrix.mapv(|value| value * c.normalization_scale));
-    let Some(s_c) = primary_constrained else {
+        .ok_or_else(|| {
+            BasisError::InvalidInput(
+                "double-penalty B-spline has a null-space shrinkage ridge but no primary wiggliness penalty to derive its constrained null space from".to_string(),
+            )
+        })?;
+    let primary_constrained = primary_candidate.matrix.scaled(
+        primary_candidate.normalization_scale,
+        "physical constrained B-spline roughness",
+    )?;
+    if primary_constrained.nrows() == 0 {
         crate::bail_invalid_basis!(
-            "double-penalty B-spline has a null-space shrinkage ridge but no primary \
-             wiggliness penalty to derive its constrained null space from"
+            "double-penalty B-spline primary roughness has an empty coefficient chart"
         );
-    };
-    let p = s_c.nrows();
+    }
+    let p = primary_constrained.nrows();
     for candidate in &mut candidates {
         if matches!(candidate.source, PenaltySource::DoublePenaltyNullspace) {
             // Undo the raw-chart Frobenius normalizations before rebuilding.
             // The two physical congruence transforms are covariant under any
             // basis change; their independently normalized working matrices
             // are not.
-            let ridge_constrained = candidate
-                .matrix
-                .mapv(|value| value * candidate.normalization_scale);
-            candidate.matrix = rebuild_metric_consistent_ridge(&s_c, &ridge_constrained)?
-                .unwrap_or_else(|| Array2::<f64>::zeros((p, p)));
+            let ridge_constrained = candidate.matrix.scaled(
+                candidate.normalization_scale,
+                "physical constrained B-spline null ridge",
+            )?;
+            candidate.matrix = rebuild_metric_consistent_ridge(
+                &primary_constrained,
+                &ridge_constrained,
+            )?
+            .unwrap_or_else(|| ConstructiveQuadratic::zero(p));
             candidate.normalization_scale = 1.0;
             candidate.op = None;
         }
@@ -2066,7 +2292,7 @@ pub(crate) fn validated_kronecker_factors(
 /// Duchon / constant-curvature / tensor-B-spline paths already normalize their
 /// own primary + `DoublePenaltyNullspace` blocks. This normalization is what
 /// makes the second smoothing parameter `λ_nullspace` *identifiable*: an
-/// un-normalized `Z Zᵀ` (largest eigenvalue 1) sits on a wildly different scale
+/// an un-normalized null-function ridge can sit on a wildly different scale
 /// from the raw bending penalty, leaving the outer REML objective nearly flat
 /// along the `λ_nullspace` coordinate. Under that flat coordinate REML weakened
 /// the wiggliness penalty instead of shrinking the term out, which *inflated*
@@ -2074,7 +2300,7 @@ pub(crate) fn validated_kronecker_factors(
 /// common (unit-Frobenius) scale the coordinate is identified and the double
 /// penalty shrinks — never inflates — null-space / unsupported terms.
 fn bspline_penalty_candidates(
-    s_bend_raw: &Array2<f64>,
+    s_bend_raw: &ConstructiveQuadratic,
     spec: &BSplineBasisSpec,
     knots: &Array1<f64>,
 ) -> Result<Vec<PenaltyCandidate>, BasisError> {
@@ -2090,7 +2316,7 @@ fn bspline_penalty_candidates(
         // quantity is a property of the fitted function, invariant to how the
         // B-spline basis happens to be scaled or parameterized.
         let gram = bspline_function_gram(knots, spec.degree)?;
-        function_space_nullspace_shrinkage(s_bend_raw, &gram)?
+        function_space_nullspace_shrinkage(s_bend_raw.dense(), &gram)?
     } else {
         None
     };
@@ -2111,10 +2337,12 @@ fn bspline_penalty_candidates(
     // `λ̂` rescales by `c`); it just removes the scale miscalibration of the
     // λ-search heuristics.
     let Some(shrinkage) = shrinkage else {
-        let (bend_norm, bend_scale) = normalize_penalty(s_bend_raw);
+        let (_, bend_scale) = normalize_penalty(s_bend_raw.dense());
         return Ok(vec![PenaltyCandidate {
-            matrix: bend_norm,
-            nullspace_dim_hint: 0,
+            matrix: s_bend_raw.scaled(
+                1.0 / bend_scale,
+                "normalized B-spline roughness",
+            )?,
             source: PenaltySource::Primary,
             normalization_scale: bend_scale,
             kronecker_factors: None,
@@ -2122,20 +2350,24 @@ fn bspline_penalty_candidates(
         }]);
     };
 
-    let (bend_norm, bend_scale) = normalize_penalty(s_bend_raw);
+    let (_, bend_scale) = normalize_penalty(s_bend_raw.dense());
     let (ridge_norm, ridge_scale) = normalize_penalty(&shrinkage);
     Ok(vec![
         PenaltyCandidate {
-            matrix: bend_norm,
-            nullspace_dim_hint: 0,
+            matrix: s_bend_raw.scaled(
+                1.0 / bend_scale,
+                "normalized B-spline roughness",
+            )?,
             source: PenaltySource::Primary,
             normalization_scale: bend_scale,
             kronecker_factors: None,
             op: None,
         },
         PenaltyCandidate {
-            matrix: ridge_norm,
-            nullspace_dim_hint: 0,
+            matrix: ConstructiveQuadratic::try_from_dense_psd(
+                ridge_norm,
+                "B-spline null-function ridge",
+            )?,
             source: PenaltySource::DoublePenaltyNullspace,
             normalization_scale: ridge_scale,
             kronecker_factors: None,
@@ -2412,6 +2644,196 @@ fn ridge_from_null_metric_action(
     Ok(fast_abt(&gz, &gz))
 }
 
+/// Construct the same metric ridge while retaining its energy factor.
+fn constructive_ridge_from_null_metric_action(
+    n: &Array2<f64>,
+    w: &Array2<f64>,
+    context: &str,
+) -> Result<ConstructiveQuadratic, BasisError> {
+    let c_raw = n.t().dot(w);
+    let (c_sym, evals, evecs) = spectral_summary(&c_raw)?;
+    let tol = generalized_spectral_tolerance(&evals, &c_sym);
+    if let Some(&invalid) = evals.iter().find(|&&value| value <= tol) {
+        crate::bail_invalid_basis!(
+            "{context}: null-function metric is not strictly positive definite; eigenvalue {invalid:.6e} is at or below tolerance {tol:.6e}"
+        );
+    }
+    let mut metric_columns = w.dot(&evecs);
+    for (mut column, &eigenvalue) in metric_columns
+        .axis_iter_mut(Axis(1))
+        .zip(evals.iter())
+    {
+        column /= eigenvalue.sqrt();
+    }
+    ConstructiveQuadratic::from_energy_factor(metric_columns.t().to_owned(), context)
+}
+
+/// Structural null space of a constructive quadratic.
+///
+/// Rank revelation acts on `A`, not on `AᵀA`: this avoids squaring the
+/// condition number and, critically, there is no negative-eigenvalue class to
+/// adjudicate because PSD is encoded by the type.
+fn constructive_nullspace_basis(
+    quadratic: &ConstructiveQuadratic,
+) -> Result<Option<Array2<f64>>, BasisError> {
+    let coefficient_dim = quadratic.factor().ncols();
+    if coefficient_dim == 0 {
+        return Ok(None);
+    }
+    if quadratic.factor().nrows() == 0 {
+        return Ok(Some(Array2::eye(coefficient_dim)));
+    }
+    let factor_transpose = quadratic.factor().t().to_owned();
+    let (null, rank) = rrqr_nullspace_basis(&factor_transpose, default_rrqr_rank_alpha())
+        .map_err(BasisError::LinalgError)?;
+    if rank >= coefficient_dim || null.ncols() == 0 {
+        Ok(None)
+    } else {
+        Ok(Some(null))
+    }
+}
+
+/// Function-space ridge for an explicitly identified coefficient subspace.
+///
+/// `frame` may be any full-column-rank frame for the target function subspace;
+/// it need not be Euclidean-orthonormal.  With `G` the Gram matrix of the
+/// represented basis under its domain measure, this returns
+///
+/// `R = G N (Nᵀ G N)⁻¹ Nᵀ G`.
+///
+/// This is the same metric projector used by
+/// [`function_space_nullspace_shrinkage`], but accepting a structural frame is
+/// important for penalties such as Duchon's selectable trend block: that block
+/// is a known function subspace even when a separate machine-scale conditioning
+/// term means it is not the numerical null space of another matrix.
+pub(crate) fn function_space_subspace_shrinkage(
+    frame: &Array2<f64>,
+    gram: &Array2<f64>,
+) -> Result<Array2<f64>, BasisError> {
+    if gram.nrows() != gram.ncols() || frame.nrows() != gram.nrows() {
+        crate::bail_dim_basis!(
+            "function-space subspace shrinkage: frame is {}x{} but Gram is {}x{}",
+            frame.nrows(),
+            frame.ncols(),
+            gram.nrows(),
+            gram.ncols()
+        );
+    }
+    if frame.ncols() == 0 {
+        return Ok(Array2::<f64>::zeros(gram.raw_dim()));
+    }
+    let metric_action = gram.dot(frame);
+    ridge_from_null_metric_action(frame, &metric_action)
+}
+
+fn strict_metric_inverse(matrix: &Array2<f64>) -> Result<Array2<f64>, BasisError> {
+    let (sym, evals, evecs) = spectral_summary(matrix)?;
+    let tol = generalized_spectral_tolerance(&evals, &sym);
+    if let Some(&invalid) = evals.iter().find(|&&value| value <= tol) {
+        crate::bail_invalid_basis!(
+            "function-space subspace metric is not strictly positive definite; eigenvalue {invalid:.6e} is at or below tolerance {tol:.6e}"
+        );
+    }
+    let mut scaled = evecs.clone();
+    for (mut col, &value) in scaled.axis_iter_mut(Axis(1)).zip(evals.iter()) {
+        col /= value;
+    }
+    Ok(fast_abt(&scaled, &evecs))
+}
+
+/// Value, two first derivatives, and their mixed derivative for a fixed
+/// structural subspace under a moving function metric.
+///
+/// For hyper-coordinates `a` and `b`, callers supply `(G, G_a, G_b, G_ab)`.
+/// The subspace frame itself is structural and therefore fixed; only the basis
+/// Gram moves.  All derivatives are closed-form product/inverse rules, so κ and
+/// anisotropy optimizers remain analytic (SPEC: no production finite
+/// differences or autodiff).
+pub(crate) struct FunctionSpaceSubspaceShrinkageDerivatives {
+    pub(crate) value: Array2<f64>,
+    pub(crate) first_a: Array2<f64>,
+    pub(crate) first_b: Array2<f64>,
+    pub(crate) mixed: Array2<f64>,
+}
+
+pub(crate) fn function_space_subspace_shrinkage_derivatives(
+    frame: &Array2<f64>,
+    gram: &Array2<f64>,
+    gram_a: &Array2<f64>,
+    gram_b: &Array2<f64>,
+    gram_ab: &Array2<f64>,
+) -> Result<FunctionSpaceSubspaceShrinkageDerivatives, BasisError> {
+    let p = gram.nrows();
+    if gram.ncols() != p
+        || frame.nrows() != p
+        || gram_a.dim() != gram.dim()
+        || gram_b.dim() != gram.dim()
+        || gram_ab.dim() != gram.dim()
+    {
+        crate::bail_dim_basis!(
+            "function-space subspace derivative shape mismatch: frame={:?}, G={:?}, G_a={:?}, G_b={:?}, G_ab={:?}",
+            frame.dim(),
+            gram.dim(),
+            gram_a.dim(),
+            gram_b.dim(),
+            gram_ab.dim()
+        );
+    }
+    if frame.ncols() == 0 {
+        let zero = || Array2::<f64>::zeros((p, p));
+        return Ok(FunctionSpaceSubspaceShrinkageDerivatives {
+            value: zero(),
+            first_a: zero(),
+            first_b: zero(),
+            mixed: zero(),
+        });
+    }
+
+    let w = gram.dot(frame);
+    let w_a = gram_a.dot(frame);
+    let w_b = gram_b.dot(frame);
+    let w_ab = gram_ab.dot(frame);
+    let c = frame.t().dot(&w);
+    let c_a = frame.t().dot(&w_a);
+    let c_b = frame.t().dot(&w_b);
+    let c_ab = frame.t().dot(&w_ab);
+    let inverse = strict_metric_inverse(&c)?;
+    let inverse_a = -fast_ab(&fast_ab(&inverse, &c_a), &inverse);
+    let inverse_b = -fast_ab(&fast_ab(&inverse, &c_b), &inverse);
+    let inverse_ab = fast_ab(
+        &fast_ab(&fast_ab(&fast_ab(&inverse, &c_b), &inverse), &c_a),
+        &inverse,
+    ) + fast_ab(
+        &fast_ab(&fast_ab(&fast_ab(&inverse, &c_a), &inverse), &c_b),
+        &inverse,
+    ) - fast_ab(&fast_ab(&inverse, &c_ab), &inverse);
+
+    let sandwich = |left: &Array2<f64>, middle: &Array2<f64>, right: &Array2<f64>| {
+        fast_abt(&fast_ab(left, middle), right)
+    };
+    let value = sandwich(&w, &inverse, &w);
+    let first_a =
+        sandwich(&w_a, &inverse, &w) + sandwich(&w, &inverse_a, &w) + sandwich(&w, &inverse, &w_a);
+    let first_b =
+        sandwich(&w_b, &inverse, &w) + sandwich(&w, &inverse_b, &w) + sandwich(&w, &inverse, &w_b);
+    let mixed = sandwich(&w_ab, &inverse, &w)
+        + sandwich(&w_a, &inverse_b, &w)
+        + sandwich(&w_a, &inverse, &w_b)
+        + sandwich(&w_b, &inverse_a, &w)
+        + sandwich(&w, &inverse_ab, &w)
+        + sandwich(&w, &inverse_a, &w_b)
+        + sandwich(&w_b, &inverse, &w_a)
+        + sandwich(&w, &inverse_b, &w_a)
+        + sandwich(&w, &inverse, &w_ab);
+
+    Ok(FunctionSpaceSubspaceShrinkageDerivatives {
+        value: symmetrize_penalty(&value),
+        first_a: symmetrize_penalty(&first_a),
+        first_b: symmetrize_penalty(&first_b),
+        mixed: symmetrize_penalty(&mixed),
+    })
+}
+
 /// Function-space double-penalty ridge: shrink the *function* component that
 /// the primary penalty cannot see, not the raw coefficients (SPEC rule 5).
 ///
@@ -2421,7 +2843,7 @@ fn ridge_from_null_metric_action(
 /// ridge `G Z (ZᵀGZ)⁻¹ ZᵀG` penalizes `∫ (null component of f)²` instead — a
 /// property of the function alone, covariant under any basis change
 /// (`S → MᵀSM`, `G → MᵀGM` maps the ridge to exactly `MᵀRM`).
-pub(crate) fn function_space_nullspace_shrinkage(
+pub fn function_space_nullspace_shrinkage(
     penalty: &Array2<f64>,
     gram: &Array2<f64>,
 ) -> Result<Option<Array2<f64>>, BasisError> {
@@ -2462,14 +2884,16 @@ pub(crate) fn function_space_nullspace_shrinkage(
 ///
 ///   `N = null(S_c)`,  `W = R_c N (= G_c N)`,  `ridge = W (NᵀW)⁻¹ Wᵀ`.
 ///
-/// Null classification is itself generalized, using the strictly-positive
-/// metric `H=S_c+R_c`. This avoids reintroducing a coefficient-scale-dependent
-/// ordinary eigenvalue cutoff during a later chart change. Returns `Ok(None)`
-/// when the constrained primary has no null space.
+/// The structural null space is revealed from the authoritative energy factor
+/// `A_c` (`S_c=A_cᵀA_c`) with rank-revealing QR, rather than recovered from
+/// signed eigenvalues of the rounded dense Gram.  This avoids squaring the
+/// factor's condition number and makes negative-curvature classification
+/// impossible by construction (#2318). Returns `Ok(None)` when the constrained
+/// primary has no null space.
 pub(crate) fn rebuild_metric_consistent_ridge(
-    primary_constrained: &Array2<f64>,
-    ridge_constrained: &Array2<f64>,
-) -> Result<Option<Array2<f64>>, BasisError> {
+    primary_constrained: &ConstructiveQuadratic,
+    ridge_constrained: &ConstructiveQuadratic,
+) -> Result<Option<ConstructiveQuadratic>, BasisError> {
     if primary_constrained.dim() != ridge_constrained.dim()
         || primary_constrained.nrows() != primary_constrained.ncols()
     {
@@ -2484,56 +2908,15 @@ pub(crate) fn rebuild_metric_consistent_ridge(
     if primary_constrained.nrows() == 0 {
         return Ok(None);
     }
-    let metric = primary_constrained + ridge_constrained;
-    let Some(n) = generalized_nullspace_basis(
-        primary_constrained,
-        &metric,
-        "metric-consistent ridge rebuild generalized eigenproblem",
-    )?
-    else {
+    let Some(n) = constructive_nullspace_basis(primary_constrained)? else {
         return Ok(None);
     };
-    let w = ridge_constrained.dot(&n);
-    Ok(Some(ridge_from_null_metric_action(&n, &w)?))
-}
-
-/// Build the double-penalty ridge from the structural null space of a PSD penalty.
-pub fn build_nullspace_shrinkage_penalty(
-    penalty: &Array2<f64>,
-) -> Result<Option<CanonicalPenaltyBlock>, BasisError> {
-    if penalty.nrows() != penalty.ncols() {
-        crate::bail_dim_basis!(
-            "penalty matrix must be square when building nullspace shrinkage penalty"
-        );
-    }
-    if penalty.nrows() == 0 {
-        return Ok(None);
-    }
-
-    let (sym, evals, evecs) = spectral_summary(penalty)?;
-    let tol = spectral_tolerance(&sym, &evals);
-
-    let zero_idx: Vec<usize> = evals
-        .iter()
-        .enumerate()
-        .filter_map(|(i, &ev)| (ev.abs() <= tol).then_some(i))
-        .collect();
-    if zero_idx.is_empty() {
-        return Ok(None);
-    }
-    let z = evecs.select(Axis(1), &zero_idx);
-    let shrink = fast_abt(&z, &z);
-    Ok(Some(CanonicalPenaltyBlock {
-        sym_penalty: shrink,
-        eigenvalues: evals,
-        eigenvectors: evecs,
-        rank: zero_idx.len(),
-        nullity: 0,
-        negative_dim: 0,
-        tol,
-        iszero: false,
-        op: None,
-    }))
+    let w = ridge_constrained.dense().dot(&n);
+    Ok(Some(constructive_ridge_from_null_metric_action(
+        &n,
+        &w,
+        "metric-consistent ridge rebuild",
+    )?))
 }
 
 pub(crate) fn default_internal_knot_count_for_data(n: usize, degree: usize) -> usize {
@@ -2769,6 +3152,179 @@ mod function_space_null_shrinkage_tests {
             .fold(0.0_f64, f64::max)
     }
 
+    fn max_abs(matrix: &Array2<f64>) -> f64 {
+        matrix
+            .iter()
+            .map(|value| value.abs())
+            .fold(0.0_f64, f64::max)
+    }
+
+    fn assert_matrix_close(
+        label: &str,
+        analytic: &Array2<f64>,
+        finite_difference: &Array2<f64>,
+        relative_tolerance: f64,
+        absolute_tolerance: f64,
+    ) {
+        let error = max_abs_difference(analytic, finite_difference);
+        let scale = max_abs(analytic).max(max_abs(finite_difference));
+        let bound = absolute_tolerance + relative_tolerance * scale;
+        assert!(
+            error <= bound,
+            "{label}: max error {error:.3e} exceeds {bound:.3e} (analytic scale {:.3e}, FD scale {:.3e})",
+            max_abs(analytic),
+            max_abs(finite_difference),
+        );
+    }
+
+    fn affine_chart_gram(
+        base: &Array2<f64>,
+        tangent_a: &Array2<f64>,
+        tangent_b: &Array2<f64>,
+        coordinate_a: f64,
+        coordinate_b: f64,
+    ) -> Array2<f64> {
+        let chart = base
+            + &tangent_a.mapv(|value| coordinate_a * value)
+            + &tangent_b.mapv(|value| coordinate_b * value);
+        symmetrize_penalty(&fast_ata(&chart))
+    }
+
+    #[test]
+    fn function_space_subspace_shrinkage_derivatives_match_independent_central_differences() {
+        // G(a,b) is induced by an explicitly moving, full-rank function chart
+        // B(a,b) = B0 + a Ba + b Bb.  The structural frame is deliberately
+        // non-coordinate and non-orthogonal, so every product/inverse-rule term
+        // contributes.  Finite differences below rebuild the VALUE projector;
+        // they do not reuse the derivative implementation under test.
+        let base = array![
+            [1.0, 0.2, -0.3],
+            [0.1, 1.1, 0.4],
+            [-0.5, 0.3, 1.2],
+            [0.7, -0.8, 0.2],
+            [-0.2, 0.6, -0.9],
+        ];
+        let tangent_a = array![
+            [0.2, -0.4, 0.1],
+            [-0.3, 0.2, 0.5],
+            [0.4, 0.1, -0.2],
+            [0.1, 0.3, 0.4],
+            [-0.5, 0.2, 0.3],
+        ];
+        let tangent_b = array![
+            [-0.1, 0.3, 0.2],
+            [0.5, -0.2, 0.1],
+            [0.2, 0.4, -0.3],
+            [-0.4, 0.1, 0.5],
+            [0.3, -0.5, 0.2],
+        ];
+        let frame = array![[1.0, 0.25], [-0.4, 1.1], [0.7, -0.3]];
+
+        let gram = affine_chart_gram(&base, &tangent_a, &tangent_b, 0.0, 0.0);
+        let gram_a =
+            symmetrize_penalty(&(fast_atb(&tangent_a, &base) + fast_atb(&base, &tangent_a)));
+        let gram_b =
+            symmetrize_penalty(&(fast_atb(&tangent_b, &base) + fast_atb(&base, &tangent_b)));
+        let gram_ab = symmetrize_penalty(
+            &(fast_atb(&tangent_a, &tangent_b) + fast_atb(&tangent_b, &tangent_a)),
+        );
+        let gram_aa = symmetrize_penalty(&fast_atb(&tangent_a, &tangent_a).mapv(|v| 2.0 * v));
+
+        let analytic = function_space_subspace_shrinkage_derivatives(
+            &frame, &gram, &gram_a, &gram_b, &gram_ab,
+        )
+        .expect("analytic mixed moving-metric projector jet");
+        let value = function_space_subspace_shrinkage(&frame, &gram)
+            .expect("value moving-metric projector");
+        assert_matrix_close("value", &analytic.value, &value, 5.0e-13, 5.0e-14);
+
+        let first_step = 1.0e-5;
+        let value_a_plus = function_space_subspace_shrinkage(
+            &frame,
+            &affine_chart_gram(&base, &tangent_a, &tangent_b, first_step, 0.0),
+        )
+        .expect("value at +a");
+        let value_a_minus = function_space_subspace_shrinkage(
+            &frame,
+            &affine_chart_gram(&base, &tangent_a, &tangent_b, -first_step, 0.0),
+        )
+        .expect("value at -a");
+        let value_b_plus = function_space_subspace_shrinkage(
+            &frame,
+            &affine_chart_gram(&base, &tangent_a, &tangent_b, 0.0, first_step),
+        )
+        .expect("value at +b");
+        let value_b_minus = function_space_subspace_shrinkage(
+            &frame,
+            &affine_chart_gram(&base, &tangent_a, &tangent_b, 0.0, -first_step),
+        )
+        .expect("value at -b");
+        let fd_a = (&value_a_plus - &value_a_minus) / (2.0 * first_step);
+        let fd_b = (&value_b_plus - &value_b_minus) / (2.0 * first_step);
+        assert_matrix_close("first a", &analytic.first_a, &fd_a, 2.0e-7, 2.0e-10);
+        assert_matrix_close("first b", &analytic.first_b, &fd_b, 2.0e-7, 2.0e-10);
+
+        let second_step = 2.0e-4;
+        let value_aa_plus = function_space_subspace_shrinkage(
+            &frame,
+            &affine_chart_gram(&base, &tangent_a, &tangent_b, second_step, 0.0),
+        )
+        .expect("value at second-order +a");
+        let value_aa_minus = function_space_subspace_shrinkage(
+            &frame,
+            &affine_chart_gram(&base, &tangent_a, &tangent_b, -second_step, 0.0),
+        )
+        .expect("value at second-order -a");
+        let fd_aa =
+            (&value_aa_plus - &(&value * 2.0) + &value_aa_minus) / (second_step * second_step);
+        let analytic_aa = function_space_subspace_shrinkage_derivatives(
+            &frame, &gram, &gram_a, &gram_a, &gram_aa,
+        )
+        .expect("analytic diagonal moving-metric projector jet")
+        .mixed;
+        assert_matrix_close("second diagonal a", &analytic_aa, &fd_aa, 2.0e-5, 2.0e-7);
+
+        let value_pp = function_space_subspace_shrinkage(
+            &frame,
+            &affine_chart_gram(&base, &tangent_a, &tangent_b, second_step, second_step),
+        )
+        .expect("value at +a,+b");
+        let value_pm = function_space_subspace_shrinkage(
+            &frame,
+            &affine_chart_gram(&base, &tangent_a, &tangent_b, second_step, -second_step),
+        )
+        .expect("value at +a,-b");
+        let value_mp = function_space_subspace_shrinkage(
+            &frame,
+            &affine_chart_gram(&base, &tangent_a, &tangent_b, -second_step, second_step),
+        )
+        .expect("value at -a,+b");
+        let value_mm = function_space_subspace_shrinkage(
+            &frame,
+            &affine_chart_gram(&base, &tangent_a, &tangent_b, -second_step, -second_step),
+        )
+        .expect("value at -a,-b");
+        let fd_ab =
+            (&value_pp - &value_pm - &value_mp + &value_mm) / (4.0 * second_step * second_step);
+        assert_matrix_close("mixed a,b", &analytic.mixed, &fd_ab, 2.0e-5, 2.0e-7);
+
+        // These guards make the fixture discriminating: hard-coded zero first,
+        // diagonal-second, or mixed derivatives cannot satisfy the FD oracle.
+        for (label, derivative, finite_difference) in [
+            ("first a", &analytic.first_a, &fd_a),
+            ("first b", &analytic.first_b, &fd_b),
+            ("second diagonal a", &analytic_aa, &fd_aa),
+            ("mixed a,b", &analytic.mixed, &fd_ab),
+        ] {
+            assert!(
+                max_abs(derivative) > 1.0e-4 && max_abs(finite_difference) > 1.0e-4,
+                "{label} fixture must have a resolved nonzero signal; analytic={:.3e}, FD={:.3e}",
+                max_abs(derivative),
+                max_abs(finite_difference),
+            );
+        }
+    }
+
     #[test]
     fn degree_one_hat_basis_has_exact_analytic_gram() {
         let knots = array![0.0, 0.0, 1.0, 1.0];
@@ -2800,6 +3356,54 @@ mod function_space_null_shrinkage_tests {
             max_abs_difference(&ridge_t, &expected) < 2.0e-9,
             "function-space ridge is not congruence-covariant:\nactual={ridge_t:?}\nexpected={expected:?}"
         );
+    }
+
+    #[test]
+    fn metric_ridge_rebuild_adjudicates_whitening_amplified_roundoff_2318() {
+        // This is the rounded dense artifact that triggered #2318.  A tiny
+        // negative residue in a structural null direction is magnified by an
+        // ill-scaled metric into a macroscopically negative generalized value.
+        // It is deliberately *not* admitted as a PenaltyCandidate: the actual
+        // construction below retains A for S=AᵀA through every chart change.
+        let poisoned_dense =
+            array![[-1.0e-14, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 2.0]];
+        let ridge_dense =
+            array![[1.0e-12, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]];
+        let amplified_negative =
+            poisoned_dense[[0, 0]] / (poisoned_dense[[0, 0]] + ridge_dense[[0, 0]]);
+        assert!(
+            amplified_negative < -1.0e-3,
+            "fixture must be decisively negative after whitening"
+        );
+
+        let primary = ConstructiveQuadratic::from_energy_factor(
+            array![[0.0, 1.0, 0.0], [0.0, 0.0, 2.0_f64.sqrt()]],
+            "#2318 constructive primary",
+        )
+        .expect("finite primary factor");
+        let ridge = ConstructiveQuadratic::from_energy_factor(
+            array![[1.0e-6, 0.0, 0.0]],
+            "#2318 constructive null ridge",
+        )
+        .expect("finite ridge factor");
+        let rebuilt = rebuild_metric_consistent_ridge(&primary, &ridge)
+            .expect("constructive PSD provenance must survive the ill-scaled metric")
+            .expect("the structural null direction must survive");
+        assert!(rebuilt.iter().all(|value| value.is_finite()));
+        assert!(
+            max_abs_difference(rebuilt.dense(), ridge.dense()) < 1.0e-20,
+            "metric ridge changed after constructive rebuild:\nactual={rebuilt:?}\nexpected={ridge:?}"
+        );
+
+        // The checked legacy bridge remains strict: material negative curvature
+        // is a typed error, not repaired or hidden by a stabilizing ridge.
+        let indefinite = array![[-1.0e-8, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 2.0]];
+        let error = ConstructiveQuadratic::try_from_dense_psd(
+            indefinite,
+            "#2318 materially indefinite legacy penalty",
+        )
+        .expect_err("materially indefinite source penalty must be rejected");
+        assert!(matches!(error, BasisError::IndefinitePenalty { .. }));
     }
 
     #[test]
@@ -2843,16 +3447,33 @@ mod function_space_null_shrinkage_tests {
         let ridge = function_space_nullspace_shrinkage(&penalty, &gram)
             .expect("raw ridge")
             .expect("raw null space");
+        let raw_primary = ConstructiveQuadratic::from_energy_factor(
+            array![[0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 0.0, 2.0_f64.sqrt()]],
+            "test raw primary",
+        )
+        .expect("finite primary factor");
+        let raw_ridge = ConstructiveQuadratic::try_from_dense_psd(ridge, "test raw ridge")
+            .expect("PSD function-space ridge");
         let penalty_t = congruence(&penalty, &transform);
         let gram_t = congruence(&gram, &transform);
-        let restricted_ridge = congruence(&ridge, &transform);
-        let rebuilt = rebuild_metric_consistent_ridge(&penalty_t, &restricted_ridge)
+        let restricted_primary = ConstructiveQuadratic::from_energy_factor(
+            raw_primary.factor().dot(&transform),
+            "test restricted primary",
+        )
+        .expect("finite restricted primary factor");
+        let restricted_ridge = ConstructiveQuadratic::from_energy_factor(
+            raw_ridge.factor().dot(&transform),
+            "test restricted ridge",
+        )
+        .expect("finite restricted ridge factor");
+        assert!(max_abs_difference(restricted_primary.dense(), &penalty_t) < 2.0e-15);
+        let rebuilt = rebuild_metric_consistent_ridge(&restricted_primary, &restricted_ridge)
             .expect("metric rebuild")
             .expect("surviving null direction");
         let direct = function_space_nullspace_shrinkage(&penalty_t, &gram_t)
             .expect("direct constrained ridge")
             .expect("surviving null direction");
-        assert!(max_abs_difference(&rebuilt, &direct) < 2.0e-10);
+        assert!(max_abs_difference(rebuilt.dense(), &direct) < 2.0e-10);
     }
 
     #[test]
@@ -2865,7 +3486,7 @@ mod function_space_null_shrinkage_tests {
     }
 
     #[test]
-    fn one_sided_endpoint_constraint_keeps_surviving_null_recovery() {
+    fn one_sided_clamped_constraint_keeps_surviving_constant_null_recovery() {
         let data = Array1::linspace(0.0, 1.0, 32);
         let spec = BSplineBasisSpec {
             degree: 3,
@@ -2878,21 +3499,20 @@ mod function_space_null_shrinkage_tests {
             identifiability: BSplineIdentifiability::None,
             boundary: OneDimensionalBoundary::Open,
             boundary_conditions: BSplineBoundaryConditions {
-                left: BSplineEndpointBoundaryCondition::Anchored { value: 0.0 },
+                left: BSplineEndpointBoundaryCondition::Clamped,
                 right: BSplineEndpointBoundaryCondition::Free,
             },
         };
         let built = build_bspline_basis_1d(data.view(), &spec)
-            .expect("one-sided anchored double-penalty basis");
+            .expect("one-sided clamped double-penalty basis");
         assert_eq!(
-            built.penalties.len(),
+            built.active_penalties.len(),
             2,
-            "the anchor removes the constant null direction but the linear direction must remain shrinkable"
+            "the slope constraint removes the linear null direction but the constant direction must remain shrinkable"
         );
-        assert!(built.penaltyinfo.iter().any(|info| {
-            info.active
-                && matches!(info.source, PenaltySource::DoublePenaltyNullspace)
-                && info.effective_rank == 1
+        assert!(built.active_penalties.iter().any(|penalty| {
+            matches!(penalty.info.source, PenaltySource::DoublePenaltyNullspace)
+                && penalty.info.effective_rank == 1
         }));
     }
 
@@ -2920,6 +3540,148 @@ mod function_space_null_shrinkage_tests {
             error
                 .to_string()
                 .contains("do not support additional endpoint")
+        );
+    }
+}
+
+#[cfg(test)]
+mod anchor_offset_tests {
+    use super::*;
+
+    fn cubic_knots() -> Array1<f64> {
+        internal::generate_full_knot_vector((0.0, 1.0), 5, 3).expect("cubic knot vector")
+    }
+
+    fn endpoint(knots: &Array1<f64>, degree: usize, right: bool) -> f64 {
+        bspline_boundary_endpoint(knots, degree, right).expect("endpoint")
+    }
+
+    /// The minimum-norm particular solution reproduces the endpoint pin exactly:
+    /// value = anchor, first derivative = 0, for a one-sided left anchor.
+    #[test]
+    fn left_anchor_offset_reproduces_value_and_zero_slope() {
+        let knots = cubic_knots();
+        let degree = 3;
+        let anchor = 1.7_f64;
+        let bc = BSplineBoundaryConditions {
+            left: BSplineEndpointBoundaryCondition::Anchored { value: anchor },
+            right: BSplineEndpointBoundaryCondition::Free,
+        };
+        let beta_p = bspline_anchor_offset_coeffs(&knots, degree, bc)
+            .expect("offset solve")
+            .expect("non-zero anchor yields a particular solution");
+        let left = endpoint(&knots, degree, false);
+        let value_row = bspline_endpoint_value_row(&knots, degree, left).expect("value row");
+        let deriv_row = bspline_endpoint_derivative_row(&knots, degree, left).expect("deriv row");
+        assert!(
+            (value_row.dot(&beta_p) - anchor).abs() < 1e-10,
+            "offset value at endpoint = {} (want {anchor})",
+            value_row.dot(&beta_p)
+        );
+        assert!(
+            deriv_row.dot(&beta_p).abs() < 1e-9,
+            "offset derivative at endpoint = {} (want 0)",
+            deriv_row.dot(&beta_p)
+        );
+    }
+
+    /// A two-sided anchor pins both endpoints independently, each with zero slope.
+    #[test]
+    fn two_sided_anchor_pins_both_endpoints() {
+        let knots = cubic_knots();
+        let degree = 3;
+        let (a_left, a_right) = (2.0_f64, -0.5_f64);
+        let bc = BSplineBoundaryConditions {
+            left: BSplineEndpointBoundaryCondition::Anchored { value: a_left },
+            right: BSplineEndpointBoundaryCondition::Anchored { value: a_right },
+        };
+        let beta_p = bspline_anchor_offset_coeffs(&knots, degree, bc)
+            .expect("offset solve")
+            .expect("non-zero anchors yield a particular solution");
+        for (right, want) in [(false, a_left), (true, a_right)] {
+            let x = endpoint(&knots, degree, right);
+            let v = bspline_endpoint_value_row(&knots, degree, x).expect("value row");
+            let d = bspline_endpoint_derivative_row(&knots, degree, x).expect("deriv row");
+            assert!((v.dot(&beta_p) - want).abs() < 1e-10, "value at endpoint");
+            assert!(d.dot(&beta_p).abs() < 1e-9, "slope at endpoint");
+        }
+    }
+
+    /// The offset scales linearly with the anchor value (the constraint is
+    /// linear in the RHS), and a zero anchor yields no offset at all.
+    #[test]
+    fn offset_is_linear_in_anchor_and_zero_anchor_has_no_offset() {
+        let knots = cubic_knots();
+        let degree = 3;
+        let base = bspline_anchor_offset_coeffs(
+            &knots,
+            degree,
+            BSplineBoundaryConditions {
+                left: BSplineEndpointBoundaryCondition::Anchored { value: 1.0 },
+                right: BSplineEndpointBoundaryCondition::Free,
+            },
+        )
+        .expect("solve")
+        .expect("unit anchor");
+        let scaled = bspline_anchor_offset_coeffs(
+            &knots,
+            degree,
+            BSplineBoundaryConditions {
+                left: BSplineEndpointBoundaryCondition::Anchored { value: 3.5 },
+                right: BSplineEndpointBoundaryCondition::Free,
+            },
+        )
+        .expect("solve")
+        .expect("scaled anchor");
+        let max_dev = scaled
+            .iter()
+            .zip(base.iter())
+            .map(|(&s, &b)| (s - 3.5 * b).abs())
+            .fold(0.0_f64, f64::max);
+        assert!(
+            max_dev < 1e-12,
+            "offset must be linear in anchor: dev={max_dev}"
+        );
+
+        // A zero anchor is the ordinary homogeneous pin — no offset function.
+        assert!(
+            bspline_anchor_offset_coeffs(
+                &knots,
+                degree,
+                BSplineBoundaryConditions {
+                    left: BSplineEndpointBoundaryCondition::Anchored { value: 0.0 },
+                    right: BSplineEndpointBoundaryCondition::Clamped,
+                },
+            )
+            .expect("solve")
+            .is_none(),
+            "zero anchor + clamped endpoint must carry no affine offset"
+        );
+    }
+
+    /// The offset lives in the raw basis and is *disjoint* from the constrained
+    /// design's nullspace `Z`: `β_p` is the minimum-norm solution, hence
+    /// `Zᵀ β_p = 0`. This is what makes `β = β_p + Z γ` a clean split with no
+    /// double-counting of the anchored direction.
+    #[test]
+    fn offset_is_orthogonal_to_constrained_nullspace() {
+        let knots = cubic_knots();
+        let degree = 3;
+        let bc = BSplineBoundaryConditions {
+            left: BSplineEndpointBoundaryCondition::Anchored { value: 4.0 },
+            right: BSplineEndpointBoundaryCondition::Free,
+        };
+        let beta_p = bspline_anchor_offset_coeffs(&knots, degree, bc)
+            .expect("solve")
+            .expect("anchor");
+        let z = bspline_boundary_nullspace_transform(&knots, degree, bc)
+            .expect("nullspace transform")
+            .expect("non-trivial nullspace");
+        let projected = z.t().dot(&beta_p);
+        let max_abs = projected.iter().fold(0.0_f64, |m, &v| m.max(v.abs()));
+        assert!(
+            max_abs < 1e-9,
+            "min-norm offset should be orthogonal to Z, got {max_abs}"
         );
     }
 }

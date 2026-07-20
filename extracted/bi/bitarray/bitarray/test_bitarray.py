@@ -112,7 +112,7 @@ class Util:
 
         if type(a) is frozenbitarray:
             # frozenbitarray have read-only memory
-            self.assertEqual(a.readonly, 1)
+            self.assertTrue(a.readonly)
             if a.padbits:  # ensure padbits are zero
                 b = bitarray(bytes(a)[-1:], endian=a.endian)[-a.padbits:]
                 self.assertEqual(len(b), a.padbits)
@@ -648,6 +648,14 @@ class GetSliceTests(unittest.TestCase, Util):
         self.assertEQUAL(a[:8:-1], bitarray('1000'))
         self.assertRaises(ValueError, a.__getitem__, slice(None, None, 0))
 
+    def test_frozenbitarray(self):
+        a = frozenbitarray('01001111 00001')
+        b = a[13:2:-3]
+        self.assertIs(type(b), frozenbitarray)
+        self.assertEqual(b, bitarray('1010'))
+        self.assertTrue(b.readonly)
+        self.check_obj(b)
+
     def test_reverse(self):
         for _ in range(20):
             n = randrange(200)
@@ -1153,8 +1161,19 @@ class GetMaskedIndexTests(unittest.TestCase, Util):
     def test_basic(self):
         a =    bitarray('1001001')
         mask = bitarray('1010111')
-        self.assertEqual(a[mask], bitarray('10001'))
+        b = a[mask]
+        self.assertEqual(b, bitarray('10001'))
+        self.assertIs(type(b), bitarray)
         self.assertRaises(IndexError, a.__getitem__, bitarray('1011'))
+
+    def test_frozenbitarray(self):
+        a = frozenbitarray('1001001')
+        mask = bitarray('1010111')
+        b = a[mask]
+        self.assertIs(type(b), frozenbitarray)
+        self.assertEqual(b, bitarray('10001'))
+        self.assertTrue(b.readonly)
+        self.check_obj(b)
 
     def test_random(self):
         for a in self.randombitarrays():
@@ -1367,6 +1386,14 @@ class GetSequenceIndexTests(unittest.TestCase, Util):
         self.assertEqual(a[[]], bitarray())
         self.assertRaises(IndexError, a.__getitem__, [1, 10])
         self.assertRaises(IndexError, a.__getitem__, [-11])
+
+    def test_frozenbitarray(self):
+        a = frozenbitarray('00110101 00')
+        b = a[[2, 4, -3, 9]]
+        self.assertIs(type(b), frozenbitarray)
+        self.assertEqual(b, bitarray('1010'))
+        self.assertTrue(b.readonly)
+        self.check_obj(b)
 
     def test_types(self):
         a = bitarray('11001101 01')
@@ -1850,13 +1877,13 @@ class RichCompareTests(unittest.TestCase, Util):
         ]:
             a = bitarray(sa, self.random_endian())
             b = bitarray(sb, self.random_endian())
-            r = bitarray(res)
-            self.assertEqual(a == b, r[0])
-            self.assertEqual(a != b, r[1])
-            self.assertEqual(a >= b, r[2])
-            self.assertEqual(a >  b, r[3])
-            self.assertEqual(a <= b, r[4])
-            self.assertEqual(a <  b, r[5])
+            r = [bool(x) for x in bitarray(res)]
+            self.assertIs(a == b, r[0])
+            self.assertIs(a != b, r[1])
+            self.assertIs(a >= b, r[2])
+            self.assertIs(a >  b, r[3])
+            self.assertIs(a <= b, r[4])
+            self.assertIs(a <  b, r[5])
 
     def test_eq_ne(self):
         for _ in range(5):
@@ -1984,6 +2011,7 @@ class SequenceTests(unittest.TestCase, Util):
         self.assertRaises(TypeError, a.__add__, 42)
         self.assertRaises(ValueError, a.__add__, b'1101')
 
+    def test_concat_random(self):
         for a in self.randombitarrays():
             aa = a.copy()
             for b in self.randombitarrays():
@@ -1995,6 +2023,14 @@ class SequenceTests(unittest.TestCase, Util):
 
                 self.assertEQUAL(a, aa)
                 self.assertEQUAL(b, bb)
+
+    def test_concat_frozenbitarray(self):
+        a = frozenbitarray('001')
+        b = a + bitarray('011')
+        self.assertIs(type(b), frozenbitarray)
+        self.assertEqual(b, bitarray('001 011'))
+        self.assertTrue(b.readonly)
+        self.check_obj(b)
 
     def test_inplace_concat(self):
         a = bitarray('001')
@@ -2046,6 +2082,14 @@ class SequenceTests(unittest.TestCase, Util):
         self.assertRaises(TypeError, a.__mul__, 2.0)
         self.assertRaises(TypeError, a.__imul__, None)
         self.assertRaises(TypeError, a.__imul__, 3.0)
+
+    def test_repeat_frozenbitarray(self):
+        a = frozenbitarray('001')
+        b = 3 * a
+        self.assertIs(type(b), frozenbitarray)
+        self.assertEqual(b, bitarray('001 001 001'))
+        self.assertTrue(b.readonly)
+        self.check_obj(b)
 
     def test_repeat_random(self):
         for a in self.randombitarrays():
@@ -2169,6 +2213,15 @@ class NumberTests(unittest.TestCase, Util):
         self.assertEqual(a, bitarray('11001'))
         self.assertEqual(b, bitarray('10011'))
 
+    def test_and_frozenbitarray(self):
+        a = frozenbitarray('1100100')
+        b =       bitarray('1001111')
+        c = a & b
+        self.assertIs(type(c), frozenbitarray)
+        self.assertEqual(c, bitarray('1000100'))
+        self.assertTrue(c.readonly)
+        self.check_obj(c)
+
     def test_or(self):
         a = bitarray('11001')
         b = bitarray('10011')
@@ -2256,6 +2309,7 @@ class NumberTests(unittest.TestCase, Util):
         self.assertEQUAL(a, bitarray('11011'))
         self.check_obj(b)
 
+    def test_invert_random(self):
         for a in self.randombitarrays():
             b = bitarray(a)
             b.invert()
@@ -2263,6 +2317,14 @@ class NumberTests(unittest.TestCase, Util):
                 self.assertEqual(b[i], not a[i])
             self.check_obj(b)
             self.assertEQUAL(~a, b)
+
+    def test_invert_frozenbitarray(self):
+        a = frozenbitarray('1101100')
+        b = ~a
+        self.assertIs(type(b), frozenbitarray)
+        self.assertEqual(b, bitarray('0010011'))
+        self.assertTrue(b.readonly)
+        self.check_obj(b)
 
     @staticmethod
     def shift(a, n, direction):
@@ -2308,6 +2370,19 @@ class NumberTests(unittest.TestCase, Util):
             self.assertEqual(len(b), len(a))
             self.assertEQUAL(b, self.shift(a, n, 'right'))
             self.assertEQUAL(a, c)
+
+    def test_shift_frozenbitarray(self):
+        a = frozenbitarray('11011010011')
+        b = a >> 3
+        self.assertIs(type(b), frozenbitarray)
+        self.assertEqual(b, bitarray('00011011010'))
+        self.assertTrue(b.readonly)
+        self.check_obj(b)
+        b = a << 2
+        self.assertIs(type(b), frozenbitarray)
+        self.assertEqual(b, bitarray('01101001100'))
+        self.assertTrue(b.readonly)
+        self.check_obj(b)
 
     def test_ilshift(self):
         a = bitarray('110110101')
@@ -3348,11 +3423,12 @@ class ByteReverseTests(unittest.TestCase, Util):
         self.assertEqual(a, bitarray('11100000 00000011 11111100 00011111'))
         a.bytereverse(-2)  # last two bytes
         self.assertEqual(a, bitarray('11100000 00000011 00111111 11111000'))
-
-        self.assertRaises(IndexError, a.bytereverse, -5)
-        self.assertRaises(IndexError, a.bytereverse, 0, -5)
-        self.assertRaises(IndexError, a.bytereverse, 5)
-        self.assertRaises(IndexError, a.bytereverse, 0, 5)
+        a.bytereverse()  # reverse all bytes
+        self.assertEqual(a, bitarray('00000111 11000000 11111100 00011111'))
+        a.bytereverse(-100, 100)  # reverse all bytes
+        self.assertEqual(a, bitarray('11100000 00000011 00111111 11111000'))
+        a.bytereverse(-5)  # reverse all bytes
+        self.assertEqual(a, bitarray('00000111 11000000 11111100 00011111'))
 
     def test_byte(self):
         for i in range(256):
@@ -3470,6 +3546,9 @@ class CountTests(unittest.TestCase, Util):
         a = bitarray('10011000 1110000')
         self.assertEqual(len(a), 15)
         self.assertEqual(a.count(bitarray('')), 16)
+        self.assertEqual(a.count(bitarray(''), 16), 0)  # start > len(a)
+        self.assertEqual(a.count(bitarray('0')), 9)
+        self.assertEqual(a.count(bitarray('1')), 6)
         self.assertEqual(a.count(bitarray('00')), 4)
         self.assertEqual(a.count(bitarray('11')), 2)
         self.assertEqual(a.count(bitarray('000')), 2)
@@ -3480,6 +3559,7 @@ class CountTests(unittest.TestCase, Util):
         self.assertEqual(a.count(bitarray('00'), -3), 1)
         self.assertEqual(a.count(bitarray('00'), -4), 2)
         self.assertRaises(ValueError, a.count, bitarray(''), 0, 15, 2)
+        self.assertRaises(ValueError, a.count, bitarray('0'), 0, 15, 2)
         self.assertRaises(ValueError, a.count, bitarray('11'), 0, 15, 2)
         self.assertRaises(ValueError, a.count, bitarray('11'), 15, 0, -1)
 
@@ -5377,6 +5457,8 @@ def run(verbosity=1):
     print('bitarray version: %s' % __version__)
     print('sys.version: %s' % sys.version)
     print('sys.prefix: %s' % sys.prefix)
+    if os.name == "posix":
+        print('sys.abiflags: %r' % sys.abiflags)
     if sys.version_info[:2] >= (3, 14):
         print('sys._is_gil_enabled(): %s' % sys._is_gil_enabled())
     print('pointer size: %d bit' % (8 * PTRSIZE))

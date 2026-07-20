@@ -45,8 +45,8 @@ use crate::survival::location_scale::{
 };
 
 use crate::survival::marginal_slope::{
-    SurvivalMarginalSlopeFitResult, SurvivalMarginalSlopeTermSpec,
-    fit_survival_marginal_slope_terms,
+    SurvivalMarginalSlopeBaselineHyperSpec, SurvivalMarginalSlopeFitResult,
+    SurvivalMarginalSlopeTermSpec, fit_survival_marginal_slope_terms,
 };
 
 use crate::transformation_normal::{
@@ -54,7 +54,7 @@ use crate::transformation_normal::{
     fit_transformation_normal,
 };
 
-use crate::wiggle::WiggleBlockConfig;
+use crate::wiggle::{WiggleBlockConfig, WigglePenaltyMetadata};
 
 use gam_data::{ColumnKindTag, DataSchema, SchemaColumn};
 
@@ -104,21 +104,21 @@ use std::sync::Arc;
 // orchestration-entry, and materialization concerns, so they live at the parent
 // level where every submodule's `use super::*;` picks them up.
 use crate::survival::construction::{
-    SurvivalBaselineTarget, SurvivalLikelihoodMode, SurvivalTimeBasisConfig,
-    add_survival_time_derivative_guard_offset, append_zero_tail_columns,
+    SurvivalBaselineTarget, SurvivalLikelihoodMode, SurvivalMarginalSlopeFrozenOffsetChart,
+    SurvivalTimeBasisConfig, add_survival_time_derivative_guard_offset, append_zero_tail_columns,
     baseline_chain_rule_gradient, build_latent_survival_baseline_offsets,
     build_survival_time_basis, build_survival_time_offsets_for_likelihood,
     build_survival_timewiggle_from_baseline, build_time_varying_survival_covariate_template,
     center_survival_time_designs_at_anchor, evaluate_survival_time_basis_row,
     fitted_weibull_baseline_from_linear_time_beta, initial_survival_baseline_config_for_fit,
     location_scale_uses_probit_survival_baseline, marginal_slope_baseline_chain_rule_gradient,
-    marginal_slope_baseline_chain_rule_hessian, normalize_survival_time_pair,
-    optimize_survival_baseline_config_with_gradient,
-    optimize_survival_baseline_config_with_gradient_only, parse_survival_distribution,
-    parse_survival_likelihood_mode, parse_survival_time_basis_config, positive_survival_time_seed,
-    require_structural_survival_time_basis, resolve_survival_marginal_slope_time_anchor_value,
-    resolve_survival_time_anchor_value, resolve_survival_transformation_time_anchor_value,
+    normalize_survival_time_pair, optimize_survival_baseline_config_with_gradient_only,
+    parse_survival_distribution, parse_survival_likelihood_mode, parse_survival_time_basis_config,
+    positive_survival_time_seed, require_structural_survival_time_basis,
+    resolve_survival_marginal_slope_time_anchor_value, resolve_survival_time_anchor_value,
+    resolve_survival_transformation_time_anchor_value,
     resolved_survival_time_basis_config_from_build, survival_derivative_guard_for_likelihood,
+    survival_marginal_slope_offset_baseline_config,
 };
 
 use crate::survival::location_scale::{
@@ -172,6 +172,9 @@ mod smooth_significance_ref_df_floor_1766_tests;
 
 #[cfg(test)]
 mod gaussian_reml_stall_edf_collapse_1788_tests;
+
+#[cfg(test)]
+mod gaussian_reml_near_linear_offset_plateau_2299_tests;
 
 #[cfg(test)]
 mod curv_fixed_kappa_2152_tests;

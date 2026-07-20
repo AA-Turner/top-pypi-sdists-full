@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 from ouroboros.core.seed import ac_text
 from ouroboros.events.base import BaseEvent
+from ouroboros.orchestrator.decomposition_policy import DecompositionDecisionRecord
 from ouroboros.orchestrator.events import (
     create_heartbeat_event,
     create_progress_event,
@@ -72,6 +73,65 @@ class ExecutionEventEmitter:
                 parts.append(f"{key}: {rendered}")
         preview = ", ".join(parts)
         return preview[:100] if preview else None
+
+    async def emit_decomposition_decision_finalized(
+        self,
+        *,
+        execution_id: str,
+        session_id: str,
+        mode: str,
+        node_identity: ExecutionNodeIdentity,
+        decision: DecompositionDecisionRecord,
+    ) -> None:
+        """Persist one finalized decomposition decision as best-effort audit data."""
+        await self._safe_emit_event(
+            BaseEvent(
+                type="execution.decomposition.decision_finalized",
+                aggregate_type="execution",
+                aggregate_id=execution_id or session_id,
+                data={
+                    **node_identity.to_event_metadata(),
+                    **decision.to_dict(),
+                    "execution_id": execution_id,
+                    "session_id": session_id,
+                    "mode": mode,
+                    "child_count": len(decision.children),
+                },
+            )
+        )
+
+    async def emit_bounce_classified(
+        self,
+        *,
+        execution_id: str,
+        session_id: str,
+        node_identity: ExecutionNodeIdentity,
+        cause: str,
+        rationale: str,
+        failure_class: str | None,
+        retry_admission: str | None,
+        evidence_refs: tuple[str, ...],
+        trace_summary: str,
+    ) -> None:
+        """Persist a bounded cause-matched recovery classification."""
+        await self._safe_emit_event(
+            BaseEvent(
+                type="execution.decomposition.bounce_classified",
+                aggregate_type="execution",
+                aggregate_id=execution_id or session_id,
+                data={
+                    **node_identity.to_event_metadata(),
+                    "execution_id": execution_id,
+                    "session_id": session_id,
+                    "cause": cause,
+                    "rationale": rationale,
+                    "failure_class": failure_class,
+                    "retry_admission": retry_admission,
+                    "evidence_refs": list(evidence_refs),
+                    "trace_summary": trace_summary,
+                },
+            )
+        )
 
     @staticmethod
     def coordinator_aggregate_id(execution_id: str, level: int) -> str:
@@ -306,6 +366,36 @@ class ExecutionEventEmitter:
         )
         await self._event_store.append(event)
 
+    async def emit_investment_assessed(
+        self,
+        *,
+        runtime_identity: ACRuntimeIdentity,
+        execution_id: str | None,
+        session_id: str,
+        ac_index: int,
+        is_sub_ac: bool,
+        assessment: dict[str, Any],
+        runtime_backend: str | None,
+    ) -> None:
+        """Persist the exact AC investment inputs used by effort policy."""
+        await self._safe_emit_event(
+            BaseEvent(
+                type="execution.ac.investment_assessed",
+                aggregate_type=runtime_identity.runtime_scope.aggregate_type,
+                aggregate_id=runtime_identity.session_scope_id,
+                data={
+                    **runtime_identity.to_metadata(),
+                    "ac_id": runtime_identity.ac_id,
+                    "execution_id": execution_id,
+                    "session_id": session_id,
+                    "ac_index": ac_index,
+                    "is_decomposed_child": is_sub_ac,
+                    **assessment,
+                    "runtime_backend": runtime_backend,
+                },
+            )
+        )
+
     async def emit_effort_routed(
         self,
         *,
@@ -318,6 +408,7 @@ class ExecutionEventEmitter:
         effort_mode: str,
         base_reasoning_effort: str | None,
         runtime_backend: str | None,
+        investment_assessment: dict[str, Any] | None = None,
     ) -> None:
         """Persist per-AC effort-routing telemetry."""
         await self._safe_emit_event(
@@ -336,6 +427,11 @@ class ExecutionEventEmitter:
                     "effort_mode": effort_mode,
                     "base_reasoning_effort": base_reasoning_effort,
                     "runtime_backend": runtime_backend,
+                    **(
+                        {"investment_assessment": investment_assessment}
+                        if investment_assessment is not None
+                        else {}
+                    ),
                 },
             )
         )
@@ -353,6 +449,7 @@ class ExecutionEventEmitter:
         model_mode: str,
         retry_attempt: int,
         runtime_backend: str | None,
+        decomposition_trustworthy: bool = False,
         semantic_ac_key: str | None = None,
         base_model_tier: str | None = None,
         escalation_retry_threshold: int | None = None,
@@ -377,6 +474,8 @@ class ExecutionEventEmitter:
                     "session_id": session_id,
                     "ac_index": ac_index,
                     "is_decomposed_child": is_sub_ac,
+                    "decomposition_trustworthy": decomposition_trustworthy is True,
+                    "child_downgrade_authorized": (is_sub_ac and decomposition_trustworthy is True),
                     "model_tier": model_tier,
                     "model": model,
                     "model_mode": model_mode,

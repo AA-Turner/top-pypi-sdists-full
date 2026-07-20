@@ -79,7 +79,6 @@ use gam_problem::{
 use gam_solve::pirls::dense_block_xtwx;
 use ndarray::{Array1, Array2, ArrayView1, ArrayView2, ArrayView3};
 use opt::{BacktrackConfig, RidgeSchedule, backtracking_line_search, escalate_ridge};
-use std::convert::Infallible;
 
 /// Base Levenberg–Marquardt ridge as a fraction of the penalized Hessian's
 /// largest diagonal entry (so it is invariant to the problem's overall
@@ -136,13 +135,61 @@ pub enum ClassPenaltyMetric {
     Diagonal,
     /// Reference-symmetric centered penalty `λ·((I − J/K) ⊗ S)`, `K = M + 1`.
     Centered,
+    /// Permutation-equivariant heterogeneous per-CLASS penalty (#2344, the
+    /// fixed-λ twin of the REML equivariant carrier from `1326d0794`): the
+    /// caller supplies `K = M + 1` lambdas — one per class, REFERENCE CLASS
+    /// INCLUDED — and the quadratic is `Σ_c λ_c · γ_cᵀ S γ_c` on the CENTERED
+    /// class functions `γ_c = β_c − β̄` (with `β_ref ≡ 0`, `β̄ = Σ_b β_b / K`).
+    /// In the active-class (ALR) gauge that is `A(λ) ⊗ S` with the M×M class
+    /// metric `A[a,b] = λ_a δ_ab − (λ_a + λ_b)/K + (Σ_c λ_c)/K²` — closed
+    /// under class relabeling (the (γ_c, λ_c) pairs permute together), unlike
+    /// `Diagonal`'s ALR-anchored family, and collapsing exactly to `Centered`
+    /// when every λ_c is equal. The engine reads `M = lambdas.len() − 1` for
+    /// this variant.
+    EquivariantPerClass,
+}
+
+impl ClassPenaltyMetric {
+    /// Number of ACTIVE outputs `M` implied by a lambda vector under this
+    /// metric: `Diagonal`/`Centered` carry one λ per active output;
+    /// `EquivariantPerClass` carries one λ per CLASS (`K = M + 1`, reference
+    /// included).
+    pub fn active_outputs(self, lambdas_len: usize) -> usize {
+        match self {
+            ClassPenaltyMetric::Diagonal | ClassPenaltyMetric::Centered => lambdas_len,
+            ClassPenaltyMetric::EquivariantPerClass => lambdas_len.saturating_sub(1),
+        }
+    }
+}
+
+/// The M×M equivariant class metric `A[a,b] = Σ_c λ_c·(δ_ca − 1/K)(δ_cb − 1/K)`
+/// over the active (ALR) coordinates, `c` ranging over ALL `K = M + 1` classes
+/// (the reference contributes through its centering row `−𝟙/K`). Expanded:
+/// `A[a,b] = λ_a δ_ab − (λ_a + λ_b)/K + (Σ_c λ_c)/K²`. PSD by construction
+/// (a nonnegative sum of rank-1 outer products).
+pub(crate) fn equivariant_class_metric(lambdas: ArrayView1<'_, f64>, m: usize) -> Array2<f64> {
+    let k = (m + 1) as f64;
+    let total: f64 = lambdas.iter().sum();
+    let mut a_mat = Array2::<f64>::zeros((m, m));
+    for a in 0..m {
+        for b in 0..m {
+            let mut value = -(lambdas[a] + lambdas[b]) / k + total / (k * k);
+            if a == b {
+                value += lambdas[a];
+            }
+            a_mat[[a, b]] = value;
+        }
+    }
+    a_mat
 }
 
 /// Inputs to [`fit_penalized_vector_glm`].
 ///
-/// `M` (the number of active outputs / linear-predictor columns) is taken from
-/// `lambdas.len()`; the engine validates it against the design and override
-/// shapes. The response `y` is passed verbatim to the [`VectorLikelihood`]
+/// `M` (the number of active outputs / linear-predictor columns) is derived
+/// from `lambdas.len()` under the selected [`ClassPenaltyMetric`]
+/// (`Diagonal`/`Centered`: `M = lambdas.len()`; `EquivariantPerClass`:
+/// `M = lambdas.len() − 1`, one λ per CLASS, reference included); the engine
+/// validates it against the design and override shapes. The response `y` is passed verbatim to the [`VectorLikelihood`]
 /// adapter, which owns its own `(N, ·)` shape contract (binomial columns use
 /// `K = M`; multinomial one-hot uses `K = M + 1`), so the engine does not
 /// constrain its column count beyond `y.nrows() == N`.
@@ -322,6 +369,37 @@ pub enum VectorGlmSolve {
     Stalled(VectorGlmStall),
 }
 
+/// Add `A(λ) ⊗ S` — the equivariant per-class metric's coupled blocks
+/// (#2344, see [`equivariant_class_metric`]) — onto the penalized Hessian.
+/// Shared by the in-loop and final-iterate Hessian assemblies so both see the
+/// identical algebra.
+fn add_equivariant_penalty_blocks(
+    hessian: &mut Array2<f64>,
+    penalty: ArrayView2<'_, f64>,
+    lambdas: ArrayView1<'_, f64>,
+    p: usize,
+    m: usize,
+) {
+    if m == 0 {
+        return;
+    }
+    let a_mat = equivariant_class_metric(lambdas, m);
+    for a in 0..m {
+        for b in 0..m {
+            let coef = a_mat[[a, b]];
+            if coef == 0.0 {
+                continue;
+            }
+            let (ba, bb) = (a * p, b * p);
+            for i in 0..p {
+                for j in 0..p {
+                    hessian[[ba + i, bb + j]] += coef * penalty[[i, j]];
+                }
+            }
+        }
+    }
+}
+
 /// Quadratic form `½ β_aᵀ S β_a` accumulated across outputs with per-output
 /// weight `λ_a`. Shared by the objective evaluator and the final tally.
 fn weighted_penalty_sum(
@@ -395,6 +473,42 @@ fn weighted_penalty_sum(
             }
             0.5 * lam * (sum_quad - g_quad / k)
         }
+        // EquivariantPerClass (#2344): ½·Σ_{a,b} A[a,b]·β_aᵀSβ_b with the
+        // heterogeneous per-class metric A(λ) (see
+        // [`equivariant_class_metric`]); equal λ collapses to `Centered`.
+        ClassPenaltyMetric::EquivariantPerClass => {
+            if m == 0 {
+                return 0.0;
+            }
+            let a_mat = equivariant_class_metric(lambdas, m);
+            let mut s_beta = Array2::<f64>::zeros((p, m));
+            for b in 0..m {
+                let col = beta.column(b);
+                for i in 0..p {
+                    let mut acc = 0.0_f64;
+                    for j in 0..p {
+                        acc += penalty[[i, j]] * col[j];
+                    }
+                    s_beta[[i, b]] = acc;
+                }
+            }
+            let mut pen = 0.0_f64;
+            for a in 0..m {
+                let col = beta.column(a);
+                for b in 0..m {
+                    let coef = a_mat[[a, b]];
+                    if coef == 0.0 {
+                        continue;
+                    }
+                    let mut cross = 0.0_f64;
+                    for i in 0..p {
+                        cross += col[i] * s_beta[[i, b]];
+                    }
+                    pen += 0.5 * coef * cross;
+                }
+            }
+            pen
+        }
     }
 }
 
@@ -465,6 +579,32 @@ fn fill_penalized_gradient(
             }
         }
         ClassPenaltyMetric::Centered => {}
+        // EquivariantPerClass (#2344): out_a += Σ_b A[a,b]·S·β_b — the exact
+        // gradient of the ½·Σ A[a,b]·β_aᵀSβ_b objective arm (A symmetric).
+        ClassPenaltyMetric::EquivariantPerClass if m > 0 => {
+            let a_mat = equivariant_class_metric(lambdas, m);
+            let mut s_beta = Array2::<f64>::zeros((p, m));
+            for b in 0..m {
+                let col = beta.column(b);
+                for i in 0..p {
+                    let mut acc = 0.0_f64;
+                    for j in 0..p {
+                        acc += penalty[[i, j]] * col[j];
+                    }
+                    s_beta[[i, b]] = acc;
+                }
+            }
+            for a in 0..m {
+                for i in 0..p {
+                    let mut acc = 0.0_f64;
+                    for b in 0..m {
+                        acc += a_mat[[a, b]] * s_beta[[i, b]];
+                    }
+                    out[a * p + i] += acc;
+                }
+            }
+        }
+        ClassPenaltyMetric::EquivariantPerClass => {}
     }
 }
 
@@ -591,7 +731,7 @@ pub fn fit_penalized_vector_glm<L: VectorLikelihood>(
     if n_obs == 0 || p == 0 {
         crate::bail_invalid_estim!("{context}: design must be nonempty (got {n_obs}x{p})");
     }
-    let m = lambdas.len();
+    let m = class_penalty_metric.active_outputs(lambdas.len());
     if m == 0 {
         crate::bail_invalid_estim!("{context}: need at least one active output (got M=0)");
     }
@@ -686,12 +826,13 @@ pub fn fit_penalized_vector_glm<L: VectorLikelihood>(
     // it is read, so reusing it is bit-for-bit identical to the prior
     // allocate-fresh body: `recompute_eta` runs the SAME `Σ_i design·β` loop in
     // the SAME order this closure used inline.
-    let evaluate_objective = |beta_trial: &Array2<f64>, eta_scratch: &mut Array2<f64>| -> f64 {
-        recompute_eta(beta_trial, eta_scratch);
-        let ll = likelihood.log_lik(eta_scratch.view(), y);
-        let pen = weighted_penalty_sum(beta_trial, penalty, lambdas, class_penalty_metric);
-        -ll + pen
-    };
+    let evaluate_objective =
+        |beta_trial: &Array2<f64>, eta_scratch: &mut Array2<f64>| -> Result<f64, EstimationError> {
+            recompute_eta(beta_trial, eta_scratch);
+            let ll = likelihood.log_lik(eta_scratch.view(), y)?;
+            let pen = weighted_penalty_sum(beta_trial, penalty, lambdas, class_penalty_metric);
+            Ok(-ll + pen)
+        };
 
     for iter in 0..max_iter {
         iterations = completed_iterations.checked_add(iter + 1).ok_or_else(|| {
@@ -706,9 +847,10 @@ pub fn fit_penalized_vector_glm<L: VectorLikelihood>(
         // the caller-supplied curvature override (issue #349 escape-hatch —
         // curvature only) or the analytic [`VectorLikelihood::hess_block`]. The
         // residual r_{n,a} = −∂ log L / ∂η_a stays analytic in both cases.
-        let analytic_fisher = fisher_w_override
-            .as_ref()
-            .map_or_else(|| Some(likelihood.hess_block(eta.view(), y)), |_| None);
+        let analytic_fisher = match fisher_w_override.as_ref() {
+            Some(_) => None,
+            None => Some(likelihood.hess_block(eta.view(), y)?),
+        };
         let fisher_blocks = match fisher_w_override.as_ref() {
             Some(fw) => *fw,
             None => analytic_fisher
@@ -716,7 +858,7 @@ pub fn fit_penalized_vector_glm<L: VectorLikelihood>(
                 .expect("analytic Fisher computed when no override")
                 .view(),
         };
-        let residual = likelihood.grad_eta(eta.view(), y).mapv(|v| -v);
+        let residual = likelihood.grad_eta(eta.view(), y)?.mapv(|v| -v);
 
         // Penalized Hessian: H = block(XᵀWX) + diag_a(λ_a S).
         let mut hessian = dense_block_xtwx(design, fisher_blocks, None)?;
@@ -760,6 +902,11 @@ pub fn fit_penalized_vector_glm<L: VectorLikelihood>(
                 }
             }
             ClassPenaltyMetric::Centered => {}
+            // EquivariantPerClass (#2344): H += A(λ) ⊗ S, the coupled
+            // heterogeneous per-class blocks.
+            ClassPenaltyMetric::EquivariantPerClass => {
+                add_equivariant_penalty_blocks(&mut hessian, penalty, lambdas, p, m);
+            }
         }
 
         fill_penalized_gradient(
@@ -882,12 +1029,12 @@ pub fn fit_penalized_vector_glm<L: VectorLikelihood>(
             out
         };
         if iter == 0 {
-            last_objective = evaluate_objective(&beta, &mut eta_objective_scratch);
+            last_objective = evaluate_objective(&beta, &mut eta_objective_scratch)?;
             if !last_objective.is_finite() {
                 crate::bail_invalid_estim!("{context}: non-finite objective at β = 0");
             }
         }
-        let accepted = match backtracking_line_search::<_, Infallible>(
+        let accepted = backtracking_line_search::<_, EstimationError>(
             BacktrackConfig {
                 contraction: LINE_SEARCH_SHRINK,
                 max_steps: MAX_BACKTRACKS + 1,
@@ -895,14 +1042,11 @@ pub fn fit_penalized_vector_glm<L: VectorLikelihood>(
             },
             |alpha| {
                 let candidate = proposed_beta(alpha);
-                let objective = evaluate_objective(&candidate, &mut eta_objective_scratch);
+                let objective = evaluate_objective(&candidate, &mut eta_objective_scratch)?;
                 Ok(Some((objective, candidate)))
             },
             |_alpha, f| f.is_finite() && f <= last_objective + OBJECTIVE_DECREASE_SLACK,
-        ) {
-            Ok(accepted) => accepted,
-            Err(never) => match never {},
-        };
+        )?;
         let Some(accepted) = accepted else {
             // Every candidate failed the descent certificate. Keep the last
             // ACCEPTED iterate as checkpoint evidence; a rejected trial can
@@ -955,7 +1099,7 @@ pub fn fit_penalized_vector_glm<L: VectorLikelihood>(
 
     // ──────────────────────────── post-process ────────────────────────────
     recompute_eta(&beta, &mut eta);
-    let log_likelihood = likelihood.log_lik(eta.view(), y);
+    let log_likelihood = likelihood.log_lik(eta.view(), y)?;
     let penalty_term = weighted_penalty_sum(&beta, penalty, lambdas, class_penalty_metric);
 
     // Re-assemble the final penalized Hessian before certification. This is not
@@ -972,9 +1116,10 @@ pub fn fit_penalized_vector_glm<L: VectorLikelihood>(
     // ridge is added only when the raw factorization / solve is non-finite
     // (rank-deficient null direction), mirroring the Newton step's ridge logic,
     // so the covariance is always finite; at full rank the ridge is never used.
-    let analytic_fisher_final = fisher_w_override
-        .as_ref()
-        .map_or_else(|| Some(likelihood.hess_block(eta.view(), y)), |_| None);
+    let analytic_fisher_final = match fisher_w_override.as_ref() {
+        Some(_) => None,
+        None => Some(likelihood.hess_block(eta.view(), y)?),
+    };
     let fisher_blocks_final = match fisher_w_override.as_ref() {
         Some(fw) => *fw,
         None => analytic_fisher_final
@@ -1014,6 +1159,11 @@ pub fn fit_penalized_vector_glm<L: VectorLikelihood>(
             }
         }
         ClassPenaltyMetric::Centered => {}
+        // EquivariantPerClass (#2344): H += A(λ) ⊗ S, the coupled
+        // heterogeneous per-class blocks.
+        ClassPenaltyMetric::EquivariantPerClass => {
+            add_equivariant_penalty_blocks(&mut hessian_final, penalty, lambdas, p, m);
+        }
     }
 
     // Re-evaluate the exact penalized score AT the accepted final iterate. The
@@ -1021,7 +1171,7 @@ pub fn fit_penalized_vector_glm<L: VectorLikelihood>(
     // when the accepted step is tiny); this second evaluation closes the only
     // gap through which heavy backtracking could otherwise certify a point
     // whose post-step score is still material.
-    let final_residual = likelihood.grad_eta(eta.view(), y).mapv(|value| -value);
+    let final_residual = likelihood.grad_eta(eta.view(), y)?.mapv(|value| -value);
     fill_penalized_gradient(
         design,
         final_residual.view(),
@@ -1270,15 +1420,37 @@ mod parity_tests {
                 }
             }
         }
+        // #2344 equivariant per-class penalty, RE-DERIVED independently of the
+        // engine's metric assembly (Σ_c λ_c·γ_cᵀSγ_c on the centered class
+        // functions, γ_c = β_c − β̄ with β_ref ≡ 0) so the FD parity witness
+        // still checks the production algebra against a second formulation.
+        let kf = k as f64;
         let mut pen = 0.0_f64;
+        let mut beta_bar = vec![0.0_f64; p];
         for a in 0..m {
-            let la = lambdas[a];
             for i in 0..p {
-                let mut sbi = 0.0_f64;
-                for j in 0..p {
-                    sbi += penalty[[i, j]] * beta[[j, a]];
+                beta_bar[i] += beta[[i, a]] / kf;
+            }
+        }
+        for c in 0..k {
+            let lc = lambdas[c];
+            if lc == 0.0 {
+                continue;
+            }
+            // γ_c[i] = β_c[i] − β̄[i]; the reference class has β_ref ≡ 0.
+            let gamma_i = |i: usize| -> f64 {
+                if c < m {
+                    beta[[i, c]] - beta_bar[i]
+                } else {
+                    -beta_bar[i]
                 }
-                pen += 0.5 * la * beta[[i, a]] * sbi;
+            };
+            for i in 0..p {
+                let mut s_gamma_i = 0.0_f64;
+                for j in 0..p {
+                    s_gamma_i += penalty[[i, j]] * gamma_i(j);
+                }
+                pen += 0.5 * lc * gamma_i(i) * s_gamma_i;
             }
         }
         -ll + pen
@@ -1341,7 +1513,9 @@ mod parity_tests {
             y[[i, (i * 3 + 1) % k]] = 1.0;
         }
         let penalty = Array2::<f64>::eye(p);
-        let lambdas = Array1::from(vec![0.5_f64, 1.0, 2.0]);
+        // #2344: K per-class lambdas (reference class included), heterogeneous
+        // so the equivariant metric's off-diagonal coupling is exercised.
+        let lambdas = Array1::from(vec![0.5_f64, 1.0, 2.0, 0.8]);
         (design, y, penalty, lambdas)
     }
 
@@ -1535,7 +1709,8 @@ mod parity_tests {
         // unregularized — exactly the rank-deficient regime that triggered #557.
         let mut penalty = Array2::<f64>::zeros((p, p));
         penalty[[3, 3]] = 1.0;
-        let lambdas = Array1::from(vec![1.0e-10_f64, 1.0e-10, 1.0e-10]);
+        // #2344: K per-class lambdas (reference class included).
+        let lambdas = Array1::from(vec![1.0e-10_f64, 1.0e-10, 1.0e-10, 1.0e-10]);
 
         let fit = fit_penalized_multinomial(MultinomialFitInputs {
             design: design.view(),

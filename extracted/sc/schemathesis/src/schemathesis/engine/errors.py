@@ -14,6 +14,7 @@ from functools import cached_property
 from typing import TYPE_CHECKING, cast
 
 from schemathesis import errors
+from schemathesis.config import ConfigError
 from schemathesis.core.errors import (
     AuthenticationError,
     HookExecutionError,
@@ -110,6 +111,7 @@ class EngineErrorInfo:
             RuntimeErrorKind.SERIALIZATION_UNBOUNDED_PREFIX: "XML serialization error",
             RuntimeErrorKind.SERIALIZATION_NOT_POSSIBLE: "Serialization not possible",
             RuntimeErrorKind.AUTHENTICATION_ERROR: "Authentication Error",
+            RuntimeErrorKind.CONFIG_ERROR: "Configuration Error",
             RuntimeErrorKind.HOOK_EXECUTION_ERROR: "Hook Error",
             RuntimeErrorKind.HYPOTHESIS_UNSATISFIABLE_FILTER_HOOK: "Hook Error",
         }.get(self._kind, "Runtime Error")
@@ -153,7 +155,10 @@ class EngineErrorInfo:
 
     @property
     def has_useful_traceback(self) -> bool:
+        if isinstance(self._error, AuthenticationError):
+            return self._error.show_traceback
         return self._kind not in (
+            RuntimeErrorKind.CONFIG_ERROR,
             RuntimeErrorKind.SCHEMA_INVALID_REGULAR_EXPRESSION,
             RuntimeErrorKind.SCHEMA_INVALID_STATE_MACHINE,
             RuntimeErrorKind.SCHEMA_INVALID_UNRESOLVABLE_REFERENCE,
@@ -277,6 +282,9 @@ class RuntimeErrorKind(str, enum.Enum):
     # Authentication issues
     AUTHENTICATION_ERROR = "authentication_error"
 
+    # Configuration issues
+    CONFIG_ERROR = "config_error"
+
     # Hypothesis issues
     HYPOTHESIS_UNSATISFIABLE = "hypothesis_unsatisfiable"
     HYPOTHESIS_UNSATISFIABLE_FILTER_HOOK = "hypothesis_unsatisfiable_filter_hook"
@@ -306,6 +314,10 @@ def _classify(*, error: Exception) -> RuntimeErrorKind:
     import hypothesis.errors
     import requests
     from hypothesis import HealthCheck
+
+    # Configuration errors
+    if isinstance(error, ConfigError):
+        return RuntimeErrorKind.CONFIG_ERROR
 
     # Authentication errors
     if isinstance(error, AuthenticationError):

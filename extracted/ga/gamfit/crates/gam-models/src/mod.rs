@@ -48,9 +48,7 @@ pub mod quadrature {
 /// `crate::seeding` → seed-config carriers now in `gam-problem` (the `seeding`
 /// module is private there; its items are surfaced at the crate root).
 pub mod seeding {
-    pub use gam_problem::{
-        SeedConfig, SeedRiskProfile, clamp_seed_rho_to_bounds, normalize_seed_bounds,
-    };
+    pub use gam_problem::{OrderedRhoBounds, SeedConfig, SeedRiskProfile};
 }
 
 /// `crate::model_types` → fit-result / penalty-spec carriers now in `gam-solve`,
@@ -94,6 +92,7 @@ pub mod marginal_slope_shared;
 pub mod multinomial;
 pub mod multinomial_posterior;
 pub(crate) mod multinomial_reml;
+pub use multinomial_reml::{MultinomialFamily, MultinomialLogitRowProgram};
 pub mod outer_subsample;
 pub mod parameter_block;
 pub mod penalized_vector_glm;

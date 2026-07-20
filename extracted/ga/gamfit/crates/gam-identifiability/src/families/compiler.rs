@@ -17,6 +17,7 @@ use std::sync::Arc;
 use ndarray::{Array1, Array2, Array3, Axis, s};
 
 use faer::Side;
+use gam_linalg::decision::{RankDecision, certified_rank, equilibrate_gram};
 use gam_linalg::faer_ndarray::{
     FaerEigh, default_rrqr_rank_alpha, fast_ab, fast_ata, fast_atb, fast_xt_diag_y,
     rrqr_with_permutation,
@@ -32,6 +33,14 @@ use gam_linalg::faer_ndarray::{
 /// every genuinely identified direction at large-scale conditioning.
 const RANK_REVEAL_EPS_SLACK: f64 = 64.0;
 
+/// Two-sided multiplicative half-gap for the certified-rank guard band (issue
+/// #2337 §9-step-6). A rank decision is host-stable only when no equilibrated
+/// eigenvalue lands inside `(τ/(1+gap), τ·(1+gap))`. `gap = 1.0` (a factor-of-2
+/// band on each side) is used purely to *observe* Ambiguous frequency in this
+/// stage-1, observe-only rollout; the actual retained rank still comes from the
+/// unchanged threshold count.
+const RANK_DECISION_GAP: f64 = 1.0;
+
 /// Maps a coefficient perturbation `δβ ∈ R^p` for one parameter block into
 /// its contribution to the per-row primary state `u_i ∈ R^K`.
 ///
@@ -39,7 +48,8 @@ const RANK_REVEAL_EPS_SLACK: f64 = 64.0;
 /// independent of `β` and equals the transposed row of the block's effective
 /// design matrix lifted into `R^K`.
 pub trait RowJacobianOperator: Send + Sync {
-    /// Dimension of the row primary state (survival: 4, Bernoulli: 1).
+    /// Dimension of the row primary state (survival marginal-slope: `3 + K`
+    /// for `K` score coordinates; Bernoulli: 1).
     fn k(&self) -> usize;
 
     /// Number of coefficients in this block (= width of `J_i`).
@@ -265,6 +275,8 @@ pub enum CompilerError {
     FullyAliased { block_idx: usize, reason: String },
     /// A linear-algebra step failed (Gram solve, eigendecomposition, QR).
     LinalgFailure(String),
+    /// CUDA was configured for this compile, but probing the runtime failed.
+    GpuFailure(String),
 }
 
 impl std::fmt::Display for CompilerError {
@@ -276,6 +288,7 @@ impl std::fmt::Display for CompilerError {
                 write!(f, "block {block_idx} fully aliased: {reason}")
             }
             CompilerError::LinalgFailure(msg) => write!(f, "linalg failure: {msg}"),
+            CompilerError::GpuFailure(msg) => write!(f, "GPU failure: {msg}"),
         }
     }
 }
@@ -865,21 +878,79 @@ fn keep_positive_eigenspace(
     if p == 0 {
         return Ok(Array2::zeros((0, 0)));
     }
+    // A block whose UNRESIDUALISED diagonal trace is zero owns no positive
+    // eigenspace (an all-zero residual Gram): rank 0.
+    if g_bb_trace <= 0.0 {
+        return Ok(Array2::zeros((p, 0)));
+    }
     let (evals, evecs) = g_tilde.eigh(Side::Lower).map_err(|err| {
         CompilerError::LinalgFailure(format!("residual Gram eigh failed: {err:?}"))
     })?;
-    let lambda_max = evals.iter().cloned().fold(0.0_f64, f64::max).max(0.0);
-    let scale = lambda_max.max(g_bb_trace);
-    let nk = (n.saturating_mul(k)).max(p).max(1) as f64;
-    let tau = scale * RANK_REVEAL_EPS_SLACK * nk * f64::EPSILON;
-    // Collect kept column indices.
-    let mut kept: Vec<usize> = (0..p).filter(|&i| evals[i] > tau).collect();
-    // Sort kept indices by descending eigenvalue for a stable column order.
+
+    // WEIGHT-INVARIANT RANK COUNT. The rank tolerance is relative to the dominant
+    // eigenvalue, so a single stiff residual direction inflates it until
+    // well-conditioned independent directions are dropped. The marginal-slope
+    // effective Jacobian carries the per-row chain weight c_i = sqrt(1+(s·g_i)²);
+    // it produced a residual Gram spectrum σ² of [7.5e15, 1.3e3, …, 2.3e-3] — one
+    // stiff direction and eleven absolutely well-conditioned ones — and the
+    // lambda_max-relative cutoff dropped all eleven, reporting range_rank 1/12 on
+    // a fully identified time surface. Identifiability is invariant to a positive
+    // per-column scaling (a diagonal congruence D^{-1/2}·G·D^{-1/2} preserves rank
+    // and inertia), so take the rank COUNT from the diagonally-equilibrated
+    // residual Gram, whose cutoff sees true residual correlation rather than
+    // scale. Return the RAW eigenvectors (top-`rank` by descending raw
+    // eigenvalue), so blocks already ranked correctly are byte-identical — only
+    // stiff-direction-mislabeled blocks gain their true rank.
+    let rank = {
+        // Diagonally equilibrate into the column-scale gauge (Sylvester's law of
+        // inertia: the congruence preserves rank), then take the count from the
+        // equilibrated spectrum. See `gam_linalg::decision::equilibrate_gram`.
+        let (g_eq, _) = equilibrate_gram(g_tilde);
+        let (evals_eq, _) = g_eq.eigh(Side::Lower).map_err(|err| {
+            CompilerError::LinalgFailure(format!("equilibrated residual Gram eigh failed: {err:?}"))
+        })?;
+        let lambda_max_eq = evals_eq.iter().cloned().fold(0.0_f64, f64::max).max(0.0);
+        let nk = (n.saturating_mul(k)).max(p).max(1) as f64;
+        let tau_eq = lambda_max_eq * RANK_REVEAL_EPS_SLACK * nk * f64::EPSILON;
+        // Threshold count the pipeline has always acted on: the decision we must
+        // preserve exactly.
+        let threshold_count = evals_eq.iter().filter(|&&e| e > tau_eq).count();
+        // Two-stage rollout (#2337 §9-step-6). STAGE 1 — OBSERVE ONLY: classify
+        // the same decision against a two-sided guard band. When the band is
+        // clean the certified rank equals `threshold_count` by construction (no
+        // eigenvalue lies in `(τ/(1+gap), τ·(1+gap))`, so `#{e ≥ high}` =
+        // `#{e > τ}`). When a value sits inside the band the decision is
+        // host-unstable; we do NOT refuse here — we log the payload so we can
+        // measure Ambiguous frequency before enforcing a refusal path in stage 2
+        // — and fall back to the preserved threshold count.
+        match certified_rank(evals_eq.as_slice().unwrap_or(&[]), tau_eq, RANK_DECISION_GAP) {
+            RankDecision::Certified { rank, .. } => rank,
+            RankDecision::Ambiguous {
+                rank_floor,
+                rank_ceil,
+                sigma_in_band,
+                tol,
+                gap,
+            } => {
+                log::warn!(
+                    "keep_positive_eigenspace: ambiguous equilibrated rank (observe-only, \
+                     #2337 stage 1): rank_floor={rank_floor}, rank_ceil={rank_ceil}, \
+                     sigma_in_band={sigma_in_band:.3e}, tol={tol:.3e}, gap={gap}, \
+                     falling back to threshold_count={threshold_count}"
+                );
+                threshold_count
+            }
+        }
+    };
+
+    // Top-`rank` RAW eigenvectors by descending raw eigenvalue (stable order).
+    let mut kept: Vec<usize> = (0..p).collect();
     kept.sort_by(|&a, &b| {
         evals[b]
             .partial_cmp(&evals[a])
             .unwrap_or(std::cmp::Ordering::Equal)
     });
+    kept.truncate(rank);
     let mut v = Array2::<f64>::zeros((p, kept.len()));
     for (out_col, &src_col) in kept.iter().enumerate() {
         for row in 0..p {
@@ -1181,7 +1252,9 @@ pub fn build_primary_grams_gpu_or_cpu(
                 &gpu_blocks,
                 &h_packed,
                 raw_block_ranges,
-            ) {
+            )
+            .map_err(|error| CompilerError::GpuFailure(error.to_string()))?
+            {
                 log::info!("[identifiability_compile] gram path = gpu");
                 return Ok((bundle.gram_h, bundle.gram_struct));
             }

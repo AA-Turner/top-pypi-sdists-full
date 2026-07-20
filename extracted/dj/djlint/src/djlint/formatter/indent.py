@@ -20,6 +20,7 @@ from djlint.helpers import (
     RE_FLAGS_IMX,
     RE_FLAGS_IX,
     inside_ignored_block,
+    inside_ignored_linter_block,
     is_ignored_block_closing,
     is_ignored_block_opening,
     is_safe_closing_tag,
@@ -38,6 +39,10 @@ _TAG_SPACING_PATTERN: Final = re.compile(
 )
 _INTERPOLATION_SPACING_PATTERN: Final = re.compile(
     r"({{)[ ]*?(\w(?:(?!}}).)*?)[ ]*?(\+?-?}})", cache_pattern=False
+)
+# string literals may contain backslash-escaped quotes (django, jinja)
+_EXTRA_TAG_WHITESPACE_PATTERN: Final = re.compile(
+    r"(\"(?:\\.|[^\"\\])*\"|'(?:\\.|[^'\\])*')|[ \t]{2,}", cache_pattern=False
 )
 _HANDLEBARS_BLOCK_END_PATTERN: Final = re.compile(
     r"({{#(?:each|if).+?[^ ])(}})", cache_pattern=False
@@ -62,6 +67,17 @@ _SET_OPENING_BRACE_PATTERN: Final = re.compile(
 _TEMPLATE_TAG_CLOSE_PATTERN: Final = re.compile(
     r"\{%-?\s*end|\{\{/", RE_FLAGS_IMX, cache_pattern=False
 )
+# a line ending inside a template tag or expression that opened on it.
+_MULTILINE_TAG_OPEN_PATTERN: Final = re.compile(
+    r"(?:\{\{|\{%)(?:(?!\}\}|%\}).)*$", cache_pattern=False
+)
+# a line closing a template tag or expression opened on an earlier line.
+_MULTILINE_TAG_CLOSE_PATTERN: Final = re.compile(
+    r"^(?:(?!\{\{|\{%).)*?(?:\}\}|%\})", cache_pattern=False
+)
+_LEADING_CLOSE_BRACKET_PATTERN: Final = re.compile(
+    r"[ ]*[)\]}]", cache_pattern=False
+)
 _TEXTAREA_CLOSE_PATTERN: Final = re.compile(
     r"^\s*</textarea\b", RE_FLAGS_IX, cache_pattern=False
 )
@@ -70,8 +86,10 @@ _SET_CONTENT_PATTERN: Final = re.compile(
     RE_FLAGS_IMSX,
     cache_pattern=False,
 )
+# possessive quantifiers keep an unbalanced "(" from backtracking
+# exponentially across the rest of the file.
 _FUNCTION_CONTENT_PATTERN: Final = re.compile(
-    r"([ ]*)({{-?\+?)[ ]*?((?:(?!}}).)*?\w)(\((?:\"[^\"]*\"|'[^']*'|[^\)])*?\)[ ]*)((?:\[[^\]]*?\]|\.[^\s]+)[ ]*)?((?:(?!}}).)*?-?\+?}})",
+    r"([ ]*)({{-?\+?)[ ]*?((?:(?!}}).)*?\w)((?P<paren>\((?:\"[^\"]*+\"|'[^']*+'|[^()]++|(?&paren))*+\))[ ]*)((?:\[[^\]]*?\]|\.[^\s]+)[ ]*)?((?:(?!}}).)*?-?\+?}})",
     RE_FLAGS_IMSX,
     cache_pattern=False,
 )
@@ -175,7 +193,15 @@ def indent_html(rawcode: str, config: Config) -> str:
             if inside_ignored_block(config, html, match):
                 return match.group()
 
-            return f"{match.group(1)} {match.group(2)} {match.group(3)}"
+            content = match.group(2)
+            # {% verbatim %}/{% raw %} contents render literally; only
+            # normalize the tag edges there
+            if not inside_ignored_linter_block(config, html, match):
+                # collapse runs of whitespace outside string literals (T032)
+                content = _EXTRA_TAG_WHITESPACE_PATTERN.sub(
+                    lambda m: m.group(1) or " ", content
+                ).strip()
+            return f"{match.group(1)} {content} {match.group(3)}"
 
         """
         We should have tags like this:
@@ -185,6 +211,10 @@ def indent_html(rawcode: str, config: Config) -> str:
         func = partial(fix_tag_spacing, rawcode)
 
         rawcode = _TAG_SPACING_PATTERN.sub(func, rawcode)
+
+        # rebind: the first pass shifted the offsets the ignored-block
+        # spans are compared against
+        func = partial(fix_tag_spacing, rawcode)
 
         rawcode = _INTERPOLATION_SPACING_PATTERN.sub(func, rawcode)
 
@@ -209,6 +239,9 @@ def indent_html(rawcode: str, config: Config) -> str:
     beautified_code = ""
     indent_level = 0
     in_set_tag = False
+    in_multiline_tag = False
+    multiline_tag_level = 0
+    multiline_tag_is_block = False
     is_raw_first_line = False
     in_script_style_tag = False
     is_block_raw = False
@@ -223,6 +256,12 @@ def indent_html(rawcode: str, config: Config) -> str:
 
     # nested ignored blocks..
     ignored_level = 0
+
+    # (level at open tag, first branch depth delta, deltas consistent) for
+    # each open template block; closing a block restores its saved level so
+    # html tags left unclosed inside (e.g. a conditionally rendered wrapper)
+    # don't leak indentation to following siblings.
+    template_block_stack: list[tuple[int, int | None, bool]] = []
 
     ignored_inline_start_pattern = re.compile(
         rf"^\s*?(?:{config.ignored_inline_blocks})", flags=RE_FLAGS_IMX
@@ -275,6 +314,9 @@ def indent_html(rawcode: str, config: Config) -> str:
     template_start_pattern = re.compile(
         r"(?:\{\{\#|\{%-?)[ ]*?" + str(config.start_template_tags),
         flags=RE_FLAGS_IMX,
+    )
+    template_indent_pattern = re.compile(
+        str(config.template_indent), flags=RE_FLAGS_IMX
     )
     template_unindent_pattern = re.compile(
         str(config.template_unindent), flags=RE_FLAGS_IMX
@@ -374,6 +416,8 @@ def indent_html(rawcode: str, config: Config) -> str:
             if close_count:
                 open_count = len(template_start_pattern.findall(item))
                 dedent_after = max(close_count - open_count, 0)
+                if dedent_after:
+                    del template_block_stack[-dedent_after:]
 
         if (
             not is_block_raw
@@ -423,6 +467,54 @@ def indent_html(rawcode: str, config: Config) -> str:
             indent_level = max(indent_level - 1, 0)
             tmp = (indent * indent_level) + item + "\n"
 
+        # closing line of a template tag or expression spanning multiple lines
+        elif (
+            not is_block_raw
+            and in_multiline_tag
+            and _MULTILINE_TAG_CLOSE_PATTERN.search(item)
+        ):
+            tmp_level = (
+                multiline_tag_level
+                if _LEADING_CLOSE_BRACKET_PATTERN.match(item)
+                else multiline_tag_level + 1
+            )
+            tmp = (indent * tmp_level) + item + "\n"
+            indent_level = multiline_tag_level + (
+                1 if multiline_tag_is_block else 0
+            )
+            if multiline_tag_is_block:
+                template_block_stack.append((multiline_tag_level, None, True))
+            # the line may also close an html tag, e.g. ") }}</span>"
+            if tag_unindent_pattern.search(item):
+                indent_level = max(indent_level - 1, 0)
+            # the same line may open another multi-line tag or expression
+            if _MULTILINE_TAG_OPEN_PATTERN.search(item):
+                multiline_tag_level = indent_level
+                multiline_tag_is_block = len(
+                    template_start_pattern.findall(item)
+                ) > len(template_unindent_pattern.findall(item))
+                indent_level += 1
+            else:
+                in_multiline_tag = False
+
+        # closing bracket inside a multi-line template tag or expression
+        elif (
+            not is_block_raw
+            and in_multiline_tag
+            and _SET_CLOSING_BRACE_PATTERN.search(item)
+        ):
+            indent_level = max(indent_level - 1, 0)
+            tmp = (indent * indent_level) + item + "\n"
+
+        # opening bracket inside a multi-line template tag or expression
+        elif (
+            not is_block_raw
+            and in_multiline_tag
+            and _SET_OPENING_BRACE_PATTERN.search(item)
+        ):
+            tmp = (indent * indent_level) + item + "\n"
+            indent_level += 1
+
         # if unindent, move left
         elif (
             not is_block_raw
@@ -440,12 +532,55 @@ def indent_html(rawcode: str, config: Config) -> str:
                 # unindent after instead of before
                 tmp = (indent * indent_level) + item + "\n"
                 indent_level = max(indent_level - 1, 0)
+            elif template_block_stack and template_unindent_pattern.match(
+                item.lstrip()
+            ):
+                # closing a template block; restore the level saved at its
+                # open tag. When every branch shifted the depth equally
+                # (e.g. a tag opened in both if and else) keep that shift.
+                saved_level, branch_delta, consistent = (
+                    template_block_stack.pop()
+                )
+                delta = indent_level - saved_level - 1
+                target = (
+                    saved_level + delta
+                    if consistent and branch_delta == delta
+                    else saved_level
+                )
+                indent_level = min(max(indent_level - 1, 0), max(target, 0))
+                tmp = (indent * min(indent_level, saved_level)) + item + "\n"
             else:
-                indent_level = max(indent_level - 1, 0)
+                # an html close tag never dedents below the content level
+                # of the template block it is in; it may close a tag opened
+                # outside the block (or in another block).
+                floor = (
+                    template_block_stack[-1][0] + 1
+                    if template_block_stack
+                    else 0
+                )
+                indent_level = max(indent_level - 1, floor)
                 tmp = (indent * indent_level) + item + "\n"
 
         elif not is_block_raw and tag_unindent_line_pattern.search(item):
-            tmp = (indent * (indent_level - 1)) + item + "\n"
+            if template_block_stack:
+                # a branch tag ({% else %}, {% elif %}, ...) aligns with its
+                # block's open tag and starts the new branch at the same
+                # level, so branches don't inherit a sibling's leftovers.
+                saved_level, branch_delta, consistent = template_block_stack[-1]
+                delta = indent_level - saved_level - 1
+                if branch_delta is None:
+                    branch_delta = delta
+                elif branch_delta != delta:
+                    consistent = False
+                template_block_stack[-1] = (
+                    saved_level,
+                    branch_delta,
+                    consistent,
+                )
+                tmp = (indent * saved_level) + item + "\n"
+                indent_level = saved_level + 1
+            else:
+                tmp = (indent * (indent_level - 1)) + item + "\n"
 
         # if indent, move right
 
@@ -459,6 +594,26 @@ def indent_html(rawcode: str, config: Config) -> str:
             tmp = (indent * indent_level) + item + "\n"
             indent_level += 1
             in_set_tag = True
+
+        # opening line of a template tag or expression that continues on the
+        # next line; its contents are indented by bracket depth until the
+        # closing line.
+        elif (
+            not is_block_raw
+            and not config.preserve_leading_space
+            and not in_set_tag
+            and not in_multiline_tag
+            and _MULTILINE_TAG_OPEN_PATTERN.search(item)
+            # a line opening an html tag is indented as html instead.
+            and not starts_unclosed_html_tag(item)
+        ):
+            tmp = (indent * indent_level) + item + "\n"
+            in_multiline_tag = True
+            multiline_tag_level = indent_level
+            multiline_tag_is_block = len(
+                template_start_pattern.findall(item)
+            ) > len(template_unindent_pattern.findall(item))
+            indent_level += 1
 
         # opening curly brace inside a set tag
         elif (
@@ -477,6 +632,8 @@ def indent_html(rawcode: str, config: Config) -> str:
             )
         ):
             tmp = (indent * indent_level) + item + "\n"
+            if template_indent_pattern.match(item.lstrip()):
+                template_block_stack.append((indent_level, None, True))
             indent_level += 1
 
         elif is_raw_first_line or (is_safe_closing_tag_ and not is_block_raw):
@@ -546,6 +703,10 @@ def indent_html(rawcode: str, config: Config) -> str:
         quote_style: QuoteStyle = QuoteStyle.ALWAYS_DOUBLE,
         normalize_string_quotes: bool = False,
     ) -> str:
+        # json.dumps produces relative indentation that must be shifted by
+        # leading_space; the fallback keeps the absolute indentation already
+        # applied by the indent pass, so its lines are joined unshifted.
+        joiner = "\n"
         try:
             # try to format the contents as json
             data = json.loads(contents)
@@ -567,6 +728,7 @@ def indent_html(rawcode: str, config: Config) -> str:
                     quote_keys=True,
                     quote_style=quote_style,
                 )
+                joiner = f"\n{leading_space}"
 
         except Exception:
             # was not json.. try to format as a Python literal.
@@ -584,7 +746,7 @@ def indent_html(rawcode: str, config: Config) -> str:
             if normalize_string_quotes:
                 contents = _format_string_tokens(contents, quote_style)
 
-        return (f"\n{leading_space}").join(contents.splitlines())
+        return joiner.join(contents.splitlines())
 
     def format_set(config: Config, html: str, match: re.Match[str]) -> str:
         if inside_ignored_block(config, html, match):
@@ -618,8 +780,8 @@ def indent_html(rawcode: str, config: Config) -> str:
         leading_space = match.group(1)
         open_bracket = match.group(2)
         tag = match.group(3).strip()
-        index = (match.group(5) or "").strip()
-        close_bracket = match.group(6)
+        index = (match.group(6) or "").strip()
+        close_bracket = match.group(7)
         quote_style = QuoteStyle.ALWAYS_DOUBLE
         normalize_string_quotes = False
 

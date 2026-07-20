@@ -548,7 +548,12 @@ mod dim_selection_precision_domain_tests {
         let tiny = ValidatedDimSelectionPrecisions::new(array![-700.0].view(), 1).unwrap();
         let coordinates = array![[1.0e200], [-1.0e200]];
         let energy = tiny.axis_energy(coordinates.view(), 0).unwrap();
-        assert!(energy.is_finite() && energy > 0.0);
+        let scaled_coordinate = (0.5 * tiny.physical[0]).sqrt() * 1.0e200;
+        let expected = 2.0 * scaled_coordinate * scaled_coordinate;
+        assert!(
+            (energy - expected).abs() <= 1e-12 * expected,
+            "scaled large-coordinate energy: expected {expected}, got {energy}"
+        );
     }
 }
 
@@ -768,14 +773,20 @@ fn latent_multi_output_fit_to_pydict<'py>(
     }
 
     // Per-class smoothing pulled from `init_lambda`: the latent path is a
-    // fixed-λ inner solve, so every active class shares the same λ. REML
-    // selection per class is a separate slice (issue #349 follow-up).
+    // fixed-λ inner solve, so every class shares the same λ. REML selection
+    // per class is a separate slice (issue #349 follow-up).
     let active_outputs = if multinomial {
         n_outputs - 1
     } else {
         n_outputs
     };
-    let lambdas_vec = Array1::<f64>::from_elem(active_outputs, lambda);
+    // #2344: the multinomial fixed-λ contract is K per-CLASS lambdas
+    // (reference class included; the equivariant metric collapses to the
+    // shared Centered penalty at uniform λ, so a uniform vector preserves the
+    // intended "one shared λ" semantics reference-freely). Binomial-multi
+    // keeps one λ per independent output column. Both are `n_outputs` long —
+    // the wire K — with different meanings per family.
+    let lambdas_vec = Array1::<f64>::from_elem(n_outputs, lambda);
 
     let max_iter = 50usize;
     let tol = 1.0e-7_f64;
@@ -947,8 +958,10 @@ fn latent_multi_output_fit_to_pydict<'py>(
 /// stacked Newton solve.
 ///
 /// REML / LAML λ selection is a separate slice (the multinomial CustomFamily
-/// outer that lifts this driver into the ρ loop). Until that lands, callers
-/// pass an explicit `lambdas` vector (length `K - 1`).
+/// outer that lifts this driver into the ρ loop). Callers pass an explicit
+/// `lambdas` vector of length `K` — one λ per CLASS, reference included
+/// (#2344: the permutation-equivariant per-class contract; the penalty is
+/// `Σ_c λ_c·γ_cᵀSγ_c` on the centered class functions, reference-free).
 #[pyfunction(signature = (
     design,
     y_one_hot,
@@ -1147,6 +1160,10 @@ fn predict_multinomial_intervals_pyfunc<'py>(
     out.set_item("prob_se", intervals.standard_error.into_pyarray(py))?;
     out.set_item("mean_lower", intervals.mean_lower.into_pyarray(py))?;
     out.set_item("mean_upper", intervals.mean_upper.into_pyarray(py))?;
+    // #2296: multinomial fits persist only the conditional joint-Laplace
+    // covariance; label the band with the definition actually integrated so
+    // the uncertainty is never presented as smoothing-corrected.
+    out.set_item("covariance_source", "conditional")?;
     Ok(out.unbind())
 }
 
@@ -1809,12 +1826,9 @@ fn structured_residual_pass_diagnostics_dict<'py>(
 fn sae_manifold_fit_inner<'py>(
     py: Python<'py>,
     z_view: ArrayView2<'_, f64>,
-    atom_basis: &[String],
-    atom_dim: Vec<usize>,
-    atom_centers: &[Option<Array2<f64>>],
+    geometry_plans: &[SaeAtomGeometryPlan],
     basis_values: ArrayView3<'_, f64>,
     basis_jacobian: ArrayView4<'_, f64>,
-    basis_sizes: Vec<usize>,
     decoder_coefficients: ArrayView3<'_, f64>,
     smooth_penalties: ArrayView3<'_, f64>,
     initial_logits: ArrayView2<'_, f64>,
@@ -1849,6 +1863,8 @@ fn sae_manifold_fit_inner<'py>(
     // forward-looking `"output_fisher_downstream"`. Gauge/lens consume either
     // unchanged.
     fisher_provenance: Option<&str>,
+    // Required factor operator status; never reconstructed from rank or trace.
+    fisher_factor_kind: Option<&str>,
     // Per-row design-honesty reconstruction weights (#977). When present, the
     // length-`n_obs` `√w` reweighting installed via `set_row_loss_weights`
     // scales every per-row reconstruction loss before the inner joint fit and
@@ -1856,29 +1872,35 @@ fn sae_manifold_fit_inner<'py>(
     row_loss_weights: Option<ArrayView1<'_, f64>>,
     // Per-fit separation barrier. `None` selects the native data-derived default.
     separation_barrier_strength_override: Option<f64>,
+    gpu_policy: gam::gpu::GpuPolicy,
     promote_from_residual: bool,
-    // Bundled-pipeline stage toggles (#2267). `run_structure_search=false` takes the
-    // unbundled direct fit path (no topology race growing K); `structured_residual_passes`
-    // overrides the default number of structured-whitening residual passes
-    // (`None` = the native default of 2, `Some(0)` disables them). A fixed-K sweep
-    // wants exactly `k` atoms and none of these re-searches — see the example.
+    // Explicit composable stages (#2267). The public default is the direct fit;
+    // structure search and each structured-residual likelihood refit are opt-in.
     run_structure_search: bool,
-    structured_residual_passes: Option<usize>,
+    structured_residual_passes: usize,
 ) -> PyResult<Py<PyDict>> {
     let analytic_penalties: Option<serde_json::Value> = match analytic_penalties {
         Some(s) => Some(serde_json::from_str(&s).map_err(serde_json_error_to_pyerr)?),
         None => None,
     };
     let (n_obs, p_out) = z_view.dim();
-    let max_atom_dim = atom_dim
+    let max_atom_dim = geometry_plans
         .iter()
-        .copied()
+        .map(SaeAtomGeometryPlan::latent_dim)
         .max()
-        .ok_or_else(|| py_value_error("sae_manifold_fit: atom_dim is empty".to_string()))?;
+        .ok_or_else(|| py_value_error("sae_manifold_fit: geometry_plans is empty".to_string()))?;
     // Registry descriptor parsing remains boundary marshalling because the JSON
     // descriptor builder lives above gam-sae. Every seed decision after this
     // point is owned by the typed gam-sae entry.
-    let total_basis: usize = basis_sizes.iter().copied().sum();
+    let total_basis = geometry_plans
+        .iter()
+        .map(SaeAtomGeometryPlan::basis_size)
+        .try_fold(0usize, |total, width| {
+            total
+                .checked_add(width?)
+                .ok_or_else(|| "sae_manifold_fit: total basis width overflowed".to_string())
+        })
+        .map_err(py_value_error)?;
     let mut latent_blocks = serde_json::Map::new();
     latent_blocks.insert(
         "t".into(),
@@ -1905,6 +1927,7 @@ fn sae_manifold_fit_inner<'py>(
                 n_obs,
                 p_out,
                 fisher_provenance,
+                fisher_factor_kind,
                 fisher_mass_residual.as_ref().map(|mass| mass.view()),
             )
             .map_err(py_value_error)?,
@@ -1913,12 +1936,9 @@ fn sae_manifold_fit_inner<'py>(
     };
     let seed = build_sae_fit_seed(SaeFitSeedRequest {
         target: z_view,
-        atom_basis,
-        atom_dim: &atom_dim,
-        atom_centers,
+        geometry_plans,
         basis_values,
         basis_jacobian,
-        basis_sizes: &basis_sizes,
         decoder_coefficients,
         smooth_penalties,
         initial_logits,
@@ -1942,6 +1962,7 @@ fn sae_manifold_fit_inner<'py>(
         fit_config: gam::terms::sae::manifold::SaeFitConfig {
             separation_barrier_strength_override,
             ordered_beta_bernoulli_alpha_override: None,
+            gpu_policy,
         },
         temperature_schedule,
         fisher_metric,
@@ -1983,6 +2004,24 @@ fn sae_manifold_fit_inner<'py>(
         gam::terms::sae::manifold::run_sae_manifold_fit(request)
     })?
     .map_err(|err| sae_fit_error_to_pyerr(py, err))?;
+    let report = match report {
+        gam::terms::sae::manifold::SaeFitOutcome::Manifold(report) => report,
+        gam::terms::sae::manifold::SaeFitOutcome::Null(report) => {
+            let out = PyDict::new(py);
+            out.set_item("model_kind", "tier0_null")?;
+            out.set_item("training_mean", report.tier0.mean.into_pyarray(py))?;
+            out.set_item("fitted", report.fitted.into_pyarray(py))?;
+            out.set_item("residual_sum_squares", report.residual_sum_squares)?;
+            out.set_item("reconstruction_r2", report.reconstruction_r2)?;
+            out.set_item("metric_provenance", report.metric_provenance)?;
+            out.set_item(
+                "vanished_atoms",
+                report.vanished_atoms.iter().collect::<Vec<_>>(),
+            )?;
+            out.set_item("chosen_k", 0usize)?;
+            return Ok(out.unbind());
+        }
+    };
     let gam::terms::sae::manifold::SaeFitReport {
         term,
         rho,
@@ -2012,9 +2051,9 @@ fn sae_manifold_fit_inner<'py>(
     let atom_basis: Vec<String> = term
         .atoms
         .iter()
-        .map(|atom| sae_atom_basis_kind_name(&atom.basis_kind))
+        .map(|atom| sae_atom_basis_kind_name(atom.basis_kind()))
         .collect();
-    let atom_dim: Vec<usize> = term.atoms.iter().map(|atom| atom.latent_dim).collect();
+    let atom_dim: Vec<usize> = term.atoms.iter().map(|atom| atom.latent_dim()).collect();
     let log_ard_py = PyList::empty(py);
     for atom_log_ard in &rho.log_ard {
         log_ard_py.append(atom_log_ard.clone().into_pyarray(py))?;
@@ -2210,7 +2249,11 @@ fn sae_manifold_fit_inner<'py>(
     out.set_item("assignment_prior", assignment_kind)?;
     out.set_item(
         "solver_plan",
-        sae_streaming_plan_to_pydict(py, term.streaming_plan())?,
+        sae_streaming_plan_to_pydict(
+            py,
+            term.streaming_plan()
+                .map_err(pyo3::exceptions::PyRuntimeError::new_err)?,
+        )?,
     )?;
     out.set_item(
         "diagnostics",
@@ -2303,22 +2346,14 @@ fn sae_manifold_fit_inner<'py>(
         "certificates",
         certificate_ledger_dict(py, &certificate_ledger)?,
     )?;
-    let fitted_atom_plans = sae_fitted_atom_plans(&term, atom_centers, seed_refine_random_state)
-        .map_err(py_value_error)?;
-    let atom_plans_py = PyList::empty(py);
-    for plan in fitted_atom_plans {
-        let entry = PyDict::new(py);
-        entry.set_item("kind", sae_atom_basis_kind_name(&plan.kind))?;
-        entry.set_item("latent_dim", plan.latent_dim)?;
-        entry.set_item("n_harmonics", plan.n_harmonics)?;
-        entry.set_item("basis_size", plan.basis_size)?;
-        match plan.duchon_centers {
-            Some(centers) => entry.set_item("duchon_centers", centers.into_pyarray(py))?,
-            None => entry.set_item("duchon_centers", py.None())?,
-        }
-        atom_plans_py.append(entry)?;
-    }
-    out.set_item("atom_plans", atom_plans_py)?;
+    let geometry_plans = sae_fitted_atom_plans(&term)
+        .map_err(py_value_error)?
+        .into_iter()
+        .map(|plan| plan.into_geometry())
+        .collect::<Vec<_>>();
+    let geometry_value = serde_json::to_value(geometry_plans)
+        .map_err(|error| py_value_error(format!("failed to serialize geometry plans: {error}")))?;
+    out.set_item("geometry_plans", json_value_to_py(py, geometry_value)?)?;
 
     // Contract keys the python `ManifoldSAE.from_payload` boundary reads
     // unconditionally (tightened in 23db2c80a, which rejected stale payload
@@ -2331,20 +2366,17 @@ fn sae_manifold_fit_inner<'py>(
     // #997 — the evidence-guarded structure-search honesty surface: the per-round
     // SearchLedger (every harvested move in canonical order with its e-gate
     // verdict) plus the joint fit's collapse events, serialized as JSON. Present
-    // whenever the structure search ran (it runs on every fit); the value is the
+    // whenever the structure search genuinely ran; the value is the
     // certificate of which dictionary moves the held-out data does and does not
     // support — an all-contested ledger is the common, conservative outcome.
-    if let Some(json) = structure_search_json {
-        out.set_item("structure_search", json)?;
+    match structure_search_json {
+        Some(json) => out.set_item("structure_search", json)?,
+        None => out.set_item("structure_search", py.None())?,
     }
-    // Anytime-valid structure certificate (#1058 / #984): the e-BH certificate
-    // over the ledger's per-claim e-processes at the search FDR level α = 0.05.
-    // Serialized onto the payload (alongside the raw `structure_search` rounds)
-    // so the post-fit `ManifoldSAE.structure_certificate()` can surface which
-    // discovered atoms / bindings / geometries the held-out data confirmed vs
-    // left contested — without re-running any fitting. Valid at this (or any)
-    // data-dependent stopping time because each claim is an e-process.
-    out.set_item("structure_certificate", structure_certificate_json)?;
+    match structure_certificate_json {
+        Some(json) => out.set_item("structure_certificate", json)?,
+        None => out.set_item("structure_certificate", py.None())?,
+    }
     Ok(out.unbind())
 }
 
@@ -2857,9 +2889,9 @@ fn sae_incoherence_report_dict<'py>(
 /// Exposed to Python as a read-only diagnostic so callers (and the LLM-scale
 /// streaming demo) can inspect the exact dispatch decision and chunk size the
 /// fit will follow for a given `(n_obs, total_basis, k_atoms, d_max)` without
-/// running it. It carries no tunable knobs — the plan is fully derived from the
-/// problem size and the `GpuRuntime` memory budget.
-#[pyfunction(signature = (n_obs, total_basis, k_atoms, d_max, border_dim = None))]
+/// running it. The only execution-policy input is `gpu`; all memory thresholds
+/// and chunk sizes remain derived from the problem shape and selected runtime.
+#[pyfunction(signature = (n_obs, total_basis, k_atoms, d_max, border_dim = None, gpu = "auto"))]
 fn sae_streaming_plan(
     py: Python<'_>,
     n_obs: usize,
@@ -2867,15 +2899,23 @@ fn sae_streaming_plan(
     k_atoms: usize,
     d_max: usize,
     border_dim: Option<usize>,
+    gpu: &str,
 ) -> PyResult<Py<PyDict>> {
     let border_dim = border_dim.unwrap_or(total_basis);
+    let gpu_policy = gam::gpu::GpuPolicy::parse(gpu).ok_or_else(|| {
+        py_value_error(format!(
+            "sae_streaming_plan gpu must be 'auto', 'off', or 'required'; got {gpu:?}"
+        ))
+    })?;
     let plan = gam::terms::sae::manifold::sae_streaming_plan_for_shape(
         n_obs,
         total_basis,
         k_atoms,
         d_max,
         border_dim,
-    );
+        gpu_policy,
+    )
+    .map_err(pyo3::exceptions::PyRuntimeError::new_err)?;
     let out = PyDict::new(py);
     out.set_item("streaming", plan.streaming)?;
     out.set_item("chunk_size", plan.chunk_size)?;
@@ -2897,7 +2937,7 @@ fn sae_streaming_plan(
         plan.estimated_matrix_free_peak_bytes,
     )?;
     out.set_item("in_core_budget_bytes", plan.in_core_budget_bytes)?;
-    out.set_item("host_available_bytes", plan.host_available_bytes)?;
+    out.set_item("process_available_bytes", plan.process_available_bytes)?;
     out.set_item("direct_admitted", plan.direct_admitted)?;
     out.set_item("matrix_free_admitted", plan.matrix_free_admitted)?;
     out.set_item(
@@ -2938,7 +2978,7 @@ fn sae_streaming_plan_to_pydict<'py>(
         plan.estimated_matrix_free_peak_bytes,
     )?;
     out.set_item("in_core_budget_bytes", plan.in_core_budget_bytes)?;
-    out.set_item("host_available_bytes", plan.host_available_bytes)?;
+    out.set_item("process_available_bytes", plan.process_available_bytes)?;
     out.set_item("direct_admitted", plan.direct_admitted)?;
     out.set_item("matrix_free_admitted", plan.matrix_free_admitted)?;
     out.set_item(

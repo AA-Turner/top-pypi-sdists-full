@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ImageIO
-Version: 2.37.3
+Version: 2.37.4
 Summary: Read and write images and video across all major formats. Supports scientific and volumetric data.
 Author: ImageIO contributors
 Maintainer-email: Sebastian Wallkotter <sebastian@wallkoetter.net>, Almar Klein <almar.klein@gmail.com>
@@ -24,7 +24,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
-Description-Content-Type: text/x-rst
+Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: numpy
 Requires-Dist: pillow>=8.3.2
@@ -89,7 +89,6 @@ Requires-Dist: fsspec[http]; extra == "all-plugins-pypy"
 Requires-Dist: imageio-ffmpeg; extra == "all-plugins-pypy"
 Requires-Dist: pillow-heif; extra == "all-plugins-pypy"
 Requires-Dist: psutil; extra == "all-plugins-pypy"
-Requires-Dist: tifffile; extra == "all-plugins-pypy"
 Provides-Extra: full
 Requires-Dist: astropy; extra == "full"
 Requires-Dist: av; extra == "full"

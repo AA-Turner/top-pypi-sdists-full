@@ -1108,3 +1108,314 @@ mod frechet_mean_tests {
         assert!(affine_sq_norm(2, &inv_sqrt_p, tangent.view()).is_err());
     }
 }
+
+#[cfg(test)]
+mod parallel_transport_tests {
+    use super::SpdManifold;
+    use crate::manifold::{RiemannianManifold, from_flat, sym};
+    use ndarray::{Array1, Array2};
+
+    /// `R(θ) diag(a,b) R(θ)ᵀ` as a flat row-major 2×2 SPD point.
+    fn rotated_diag(theta: f64, a: f64, b: f64) -> Array1<f64> {
+        let (c, s) = (theta.cos(), theta.sin());
+        let m00 = c * c * a + s * s * b;
+        let m01 = c * s * (a - b);
+        let m11 = s * s * a + c * c * b;
+        Array1::from(vec![m00, m01, m01, m11])
+    }
+
+    /// Non-commuting fixture: `P` and `Q` have distinct eigenbases, so the
+    /// affine-invariant geodesic between them genuinely curves — not the
+    /// trivial commuting case, where the transport congruence collapses to a
+    /// diagonal rescaling and cannot exercise the general formula.
+    fn fixture() -> (SpdManifold, Array1<f64>, Array1<f64>) {
+        let spd = SpdManifold::new(2);
+        let p = rotated_diag(0.3, 3.0, 0.5);
+        let q = rotated_diag(-0.5, 1.2, 4.0);
+        (spd, p, q)
+    }
+
+    /// Stack two flat `n×n` points into the `2×n²` path `parallel_transport`
+    /// reads its endpoints from (only `point_along.row(0)` and the last row
+    /// matter — see [`SpdManifold::parallel_transport`]).
+    fn path2(a: &Array1<f64>, b: &Array1<f64>) -> Array2<f64> {
+        let mut m = Array2::<f64>::zeros((2, a.len()));
+        for (col, &x) in a.iter().enumerate() {
+            m[[0, col]] = x;
+        }
+        for (col, &x) in b.iter().enumerate() {
+            m[[1, col]] = x;
+        }
+        m
+    }
+
+    /// Parallel transport under the Levi-Civita connection is, by
+    /// definition, a linear ISOMETRY between tangent spaces:
+    /// `⟨Γ(U), Γ(V)⟩_Q = ⟨U, V⟩_P` for every pair of tangents `U, V`. This is
+    /// the defining property of the affine-invariant congruence
+    /// `Γ(U) = A U Aᵀ`, `A = (Q P⁻¹)^{1/2}`, implemented above, which had no
+    /// direct test coverage in this file (unlike, e.g.,
+    /// `constant_curvature.rs`'s `parallel_transport_preserves_riemannian_norm`).
+    #[test]
+    fn parallel_transport_preserves_affine_inner_product() {
+        let (spd, p, q) = fixture();
+        let path = path2(&p, &q);
+        let u = Array1::from(vec![1.0, 0.4, 0.4, -0.7]);
+        let v = Array1::from(vec![-0.3, 0.9, 0.9, 1.6]);
+
+        let tu = spd.parallel_transport(path.view(), u.view()).expect("Γ(U)");
+        let tv = spd.parallel_transport(path.view(), v.view()).expect("Γ(V)");
+
+        let pm = spd.matrix(p.view()).expect("P");
+        let qm = spd.matrix(q.view()).expect("Q");
+        let um = sym(&from_flat(u.view(), 2, 2).expect("U"));
+        let vm = sym(&from_flat(v.view(), 2, 2).expect("V"));
+        let tum = sym(&from_flat(tu.view(), 2, 2).expect("ΓU"));
+        let tvm = sym(&from_flat(tv.view(), 2, 2).expect("ΓV"));
+
+        let before = spd.affine_inner(&pm, &um, &vm).expect("⟨U,V⟩_P");
+        let after = spd.affine_inner(&qm, &tum, &tvm).expect("⟨ΓU,ΓV⟩_Q");
+        assert!(
+            (before - after).abs() <= 1e-10 * before.abs().max(1.0),
+            "parallel transport is not an isometry: ⟨U,V⟩_P={before:.12e}, ⟨ΓU,ΓV⟩_Q={after:.12e}"
+        );
+    }
+
+    /// Manifold-agnostic sign check: transporting the initial velocity of
+    /// the `P→Q` geodesic gives the negative of the `Q→P` geodesic's initial
+    /// velocity, `Γ_{P→Q}(log_P Q) = −log_Q P` — the reverse-parametrized
+    /// geodesic runs backward through the same tangent line. This is exactly
+    /// the kind of sign/order error the affine-metric formula above is
+    /// prone to (see the `#955`/`#693` regression comments elsewhere in this
+    /// file for the class of bug), and was likewise untested.
+    #[test]
+    fn parallel_transport_matches_geodesic_velocity_identity() {
+        let (spd, p, q) = fixture();
+        let forward = path2(&p, &q);
+        let v_p_to_q = spd.log_map(p.view(), q.view()).expect("log_P(Q)");
+        let v_q_to_p = spd.log_map(q.view(), p.view()).expect("log_Q(P)");
+
+        let transported = spd
+            .parallel_transport(forward.view(), v_p_to_q.view())
+            .expect("Γ(log_P Q)");
+        for (i, (&t, &v)) in transported.iter().zip(v_q_to_p.iter()).enumerate() {
+            assert!(
+                (t + v).abs() <= 1e-9 * v.abs().max(1.0),
+                "component {i}: Γ(log_P Q)={t:.12e}, −log_Q P={:.12e}",
+                -v
+            );
+        }
+    }
+
+    /// Transporting forward `P→Q` and then back `Q→P` along the same
+    /// geodesic must recover the original tangent exactly (the two
+    /// congruence operators `A_{P→Q}` and `A_{Q→P}` are mutual inverses).
+    #[test]
+    fn parallel_transport_round_trip_is_identity() {
+        let (spd, p, q) = fixture();
+        let forward = path2(&p, &q);
+        let backward = path2(&q, &p);
+        let u = Array1::from(vec![0.6, -0.2, -0.2, 1.1]);
+
+        let out = spd
+            .parallel_transport(forward.view(), u.view())
+            .expect("Γ_{P→Q}(U)");
+        let back = spd
+            .parallel_transport(backward.view(), out.view())
+            .expect("Γ_{Q→P}(Γ_{P→Q}(U))");
+
+        for (i, (&b, &orig)) in back.iter().zip(u.iter()).enumerate() {
+            assert!(
+                (b - orig).abs() <= 1e-9 * orig.abs().max(1.0),
+                "component {i}: round-trip {b:.12e} vs original {orig:.12e}"
+            );
+        }
+    }
+}
+
+#[cfg(test)]
+mod christoffel_tests {
+    use super::SpdManifold;
+    use crate::manifold::{RiemannianManifold, flatten, from_flat};
+    use ndarray::{Array1, Array2};
+
+    /// Symmetric basis of `n×n` symmetric matrices, dimension `n(n+1)/2`:
+    /// `E_ii = e_i e_iᵀ`, `E_ij (i<j) = e_i e_jᵀ + e_j e_iᵀ`. Perturbing the
+    /// base point along these directions keeps it symmetric (unlike a raw
+    /// single-entry ambient perturbation, which `SpdManifold::matrix` would
+    /// reject as off-manifold), so this is a genuine local chart.
+    fn symmetric_basis(n: usize) -> Vec<Array2<f64>> {
+        let mut basis = Vec::with_capacity(n * (n + 1) / 2);
+        for i in 0..n {
+            let mut m = Array2::<f64>::zeros((n, n));
+            m[[i, i]] = 1.0;
+            basis.push(m);
+        }
+        for i in 0..n {
+            for j in (i + 1)..n {
+                let mut m = Array2::<f64>::zeros((n, n));
+                m[[i, j]] = 1.0;
+                m[[j, i]] = 1.0;
+                basis.push(m);
+            }
+        }
+        basis
+    }
+
+    /// A fixed, genuinely non-diagonal SPD base point (small, distinct
+    /// off-diagonal entries on top of a well-separated diagonal), so the
+    /// check exercises the general affine-invariant tensor rather than the
+    /// degenerate identity/diagonal case.
+    fn base_point(n: usize) -> Array2<f64> {
+        let mut p = Array2::<f64>::zeros((n, n));
+        for i in 0..n {
+            p[[i, i]] = 1.0 + i as f64;
+        }
+        for i in 0..n {
+            for j in (i + 1)..n {
+                let v = 0.05 * (i as f64 + 1.0) - 0.03 * (j as f64 + 1.0) + 0.1;
+                p[[i, j]] = v;
+                p[[j, i]] = v;
+            }
+        }
+        p
+    }
+
+    /// `⟨Γ(∂_a,∂_b), ∂_c⟩ = ½(∂_a g_{bc} + ∂_b g_{ac} − ∂_c g_{ab})` — the
+    /// Levi-Civita identity for coordinate vector fields (zero Lie bracket),
+    /// lowered by the metric. `christoffel_symbols` must be the connection
+    /// generated by `metric_tensor`, not merely an independently hand-derived
+    /// formula that happens to look right. `constant_curvature.rs`'s
+    /// `christoffel_matches_fd_of_metric` pins the same identity for the
+    /// conformal (diagonal) metric; this generalizes it to SPD's full
+    /// non-diagonal ambient tensor along a genuine symmetric chart, which had
+    /// no test anywhere — every existing test in this file exercises
+    /// `exp_map`/`log_map`/`parallel_transport`/the Fréchet-mean solver, none
+    /// of `christoffel_symbols` or `sectional_curvature`.
+    #[test]
+    fn christoffel_matches_fd_of_metric_on_symmetric_chart() {
+        let n = 3;
+        let m = SpdManifold::new(n);
+        let p0 = base_point(n);
+        let basis = symmetric_basis(n);
+        let basis_flat: Vec<Array1<f64>> = basis.iter().map(flatten).collect();
+        let d = basis.len();
+        assert_eq!(d, n * (n + 1) / 2);
+        let ambient = m.ambient_dim();
+
+        let point_at = |x: &[f64]| -> Array1<f64> {
+            let mut p = p0.clone();
+            for (a, &xa) in x.iter().enumerate() {
+                if xa != 0.0 {
+                    p = &p + &(&basis[a] * xa);
+                }
+            }
+            flatten(&p)
+        };
+        let contract = |g: &Array2<f64>, b: usize, c: usize| -> f64 {
+            basis_flat[b].dot(&g.dot(&basis_flat[c]))
+        };
+
+        let x0 = vec![0.0_f64; d];
+        let h = 1e-6;
+
+        // ∂_a g_{bc} via central finite differences of `metric_tensor`,
+        // caching one `metric_tensor` evaluation per perturbed point rather
+        // than recomputing it inside the `(b, c)` loop.
+        let mut dg = vec![vec![vec![0.0_f64; d]; d]; d]; // dg[a][b][c]
+        for a in 0..d {
+            let mut xp = x0.clone();
+            xp[a] += h;
+            let mut xn = x0.clone();
+            xn[a] -= h;
+            let gp = m.metric_tensor(point_at(&xp).view()).expect("G(x+h e_a)");
+            let gn = m.metric_tensor(point_at(&xn).view()).expect("G(x-h e_a)");
+            for b in 0..d {
+                for c in 0..d {
+                    dg[a][b][c] = (contract(&gp, b, c) - contract(&gn, b, c)) / (2.0 * h);
+                }
+            }
+        }
+
+        let point0 = point_at(&x0);
+        let gamma = m.christoffel_symbols(point0.view()).expect("Γ tensor");
+        let connection_matrix = |a: usize, b: usize| -> Array2<f64> {
+            // Γ(E_a, E_b) as an ambient n×n matrix, contracted out of the
+            // full ambient-indexed tensor `gamma[out][[in_a, in_b]]`.
+            let mut gamma_vec = Array1::<f64>::zeros(ambient);
+            for out in 0..ambient {
+                let mut acc = 0.0;
+                for p_idx in 0..ambient {
+                    let coeff = basis_flat[a][p_idx];
+                    if coeff == 0.0 {
+                        continue;
+                    }
+                    for q_idx in 0..ambient {
+                        acc += coeff * gamma[out][[p_idx, q_idx]] * basis_flat[b][q_idx];
+                    }
+                }
+                gamma_vec[out] = acc;
+            }
+            from_flat(gamma_vec.view(), n, n).expect("Γ(E_a,E_b) as n×n")
+        };
+
+        for a in 0..d {
+            for b in 0..d {
+                let gamma_mat = connection_matrix(a, b);
+                for c in 0..d {
+                    let lhs = m
+                        .affine_inner(&p0, &gamma_mat, &basis[c])
+                        .expect("⟨Γ(E_a,E_b), E_c⟩");
+                    let rhs = 0.5 * (dg[a][b][c] + dg[b][a][c] - dg[c][a][b]);
+                    assert!(
+                        (lhs - rhs).abs() <= 1e-6 * rhs.abs().max(1.0),
+                        "a={a} b={b} c={c}: ⟨Γ,E_c⟩_analytic={lhs:.10e} vs FD-of-metric={rhs:.10e}"
+                    );
+                }
+            }
+        }
+    }
+
+    /// Two commuting symmetric directions at a *diagonal* base point (e.g.
+    /// `diag(1,0)` and `diag(0,1)`) span a totally geodesic flat torus: the
+    /// affine-invariant SPD geometry restricted to simultaneously
+    /// diagonalizable matrices is exactly Euclidean in log-coordinates.
+    /// `sectional_curvature` on that plane must be (numerically) zero — the
+    /// one closed-form value the whitened-commutator formula
+    /// `-¼‖[Ã,B̃]‖²/denom` predicts trivially (`[Ã,B̃] = 0`) and that every
+    /// other test in this file leaves unchecked.
+    #[test]
+    fn sectional_curvature_vanishes_on_commuting_diagonal_plane() {
+        let m = SpdManifold::new(2);
+        let p = Array1::from(vec![2.0_f64, 0.0, 0.0, 3.0]); // diag(2,3)
+        let u = Array1::from(vec![1.0_f64, 0.0, 0.0, 0.0]); // diag(1,0)
+        let v = Array1::from(vec![0.0_f64, 0.0, 0.0, 1.0]); // diag(0,1)
+        let k = m
+            .sectional_curvature(p.view(), (u.view(), v.view()))
+            .expect("sectional curvature on commuting plane");
+        assert!(
+            k.abs() <= 1e-12,
+            "expected flat commuting plane, got κ={k:.3e}"
+        );
+    }
+
+    /// The affine-invariant SPD metric is a symmetric space of non-compact
+    /// type (`GL(n)/O(n)`), whose sectional curvature is non-positive
+    /// everywhere — never spuriously positive from a sign slip in the
+    /// commutator/denominator formula. Check on a genuinely non-commuting
+    /// plane (distinct eigenbases), where curvature is strictly negative.
+    #[test]
+    fn sectional_curvature_is_nonpositive_on_noncommuting_plane() {
+        let m = SpdManifold::new(2);
+        let p = Array1::from(vec![1.0_f64, 0.0, 0.0, 1.0]); // identity
+        let u = Array1::from(vec![1.0_f64, 0.0, 0.0, -1.0]); // diag(1,-1)
+        let v = Array1::from(vec![0.0_f64, 1.0, 1.0, 0.0]); // off-diagonal
+        let k = m
+            .sectional_curvature(p.view(), (u.view(), v.view()))
+            .expect("sectional curvature on non-commuting plane");
+        assert!(
+            k < -1e-6,
+            "expected strictly negative curvature, got κ={k:.3e}"
+        );
+    }
+}

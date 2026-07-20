@@ -239,6 +239,11 @@ fn transformation_normal_quantile_grid(
     n: usize,
     offset: &Array1<f64>,
 ) -> Result<(Array1<f64>, Array2<f64>), PredictInputError> {
+    let offset = design
+        .compose_offset(offset.view(), "transformation-normal prediction")
+        .map_err(|error| PredictInputError::InvalidInput {
+            reason: error.to_string(),
+        })?;
     let payload = model.payload();
     let response_knots = payload
         .transformation_response_knots
@@ -482,6 +487,14 @@ fn transformation_normal_observed_scores(
             reason: "transformation-normal observed responses must be finite".to_string(),
         });
     }
+    let offset = design
+        .compose_offset(
+            offset.view(),
+            "transformation-normal observed-score prediction",
+        )
+        .map_err(|error| PredictInputError::InvalidInput {
+            reason: error.to_string(),
+        })?;
 
     let payload = model.payload();
     let response_knots = payload
@@ -898,7 +911,12 @@ fn build_predict_input_for_model_inner(
                 });
             }
             let fit_saved = fit_result_from_saved_model_for_prediction(model)?;
-            let beta = if model.has_link_wiggle() {
+            // Resolve the saved runtime through its typed error path instead of
+            // `has_link_wiggle`, whose boolean surface cannot distinguish no
+            // wiggle from partial/corrupt metadata.  Prediction and affine
+            // export must fail loudly on the latter.
+            let link_wiggle = model.saved_link_wiggle()?;
+            let beta = if link_wiggle.is_some() {
                 fit_saved
                     .block_by_role(BlockRole::Mean)
                     .ok_or_else(|| PredictInputError::MissingMetadata {
@@ -930,9 +948,14 @@ fn build_predict_input_for_model_inner(
                     ),
                 });
             }
+            let mean_offset = design
+                .compose_offset(offset.view(), "standard prediction")
+                .map_err(|error| PredictInputError::InvalidInput {
+                    reason: error.to_string(),
+                })?;
             Ok(PredictInput {
                 design: mean_design,
-                offset: offset.clone(),
+                offset: mean_offset,
                 design_noise: None,
                 offset_noise: None,
                 auxiliary_scalar: None,
@@ -957,6 +980,16 @@ fn build_predict_input_for_model_inner(
                 .map_err(|e| PredictInputError::InvalidInput {
                     reason: format!("failed to build noise prediction design: {e}"),
                 })?;
+            let mean_offset = design
+                .compose_offset(offset.view(), "location-scale mean prediction")
+                .map_err(|error| PredictInputError::InvalidInput {
+                    reason: error.to_string(),
+                })?;
+            let noise_offset = design_noise_raw
+                .compose_offset(offset_noise.view(), "location-scale noise prediction")
+                .map_err(|error| PredictInputError::InvalidInput {
+                    reason: error.to_string(),
+                })?;
 
             let noise_transform = scale_transform_from_payload(
                 &model.noise_projection,
@@ -977,9 +1010,9 @@ fn build_predict_input_for_model_inner(
 
             Ok(PredictInput {
                 design: design.design.clone(),
-                offset: offset.clone(),
+                offset: mean_offset,
                 design_noise: Some(prepared_noise_design),
-                offset_noise: Some(offset_noise.clone()),
+                offset_noise: Some(noise_offset),
                 auxiliary_scalar: None,
                 auxiliary_matrix: None,
             })
@@ -1004,13 +1037,23 @@ fn build_predict_input_for_model_inner(
                 .map_err(|e| PredictInputError::InvalidInput {
                     reason: format!("failed to build logslope prediction design: {e}"),
                 })?;
+            let mean_offset = design
+                .compose_offset(offset.view(), "marginal-slope mean prediction")
+                .map_err(|error| PredictInputError::InvalidInput {
+                    reason: error.to_string(),
+                })?;
+            let logslope_offset = design_logslope
+                .compose_offset(offset_noise.view(), "marginal-slope logslope prediction")
+                .map_err(|error| PredictInputError::InvalidInput {
+                    reason: error.to_string(),
+                })?;
             let auxiliary_matrix =
                 build_marginal_slope_local_auxiliary_matrix(model, design_input, col_map)?;
             Ok(PredictInput {
                 design: design.design.clone(),
-                offset: offset.clone(),
+                offset: mean_offset,
                 design_noise: Some(design_logslope.design.clone()),
-                offset_noise: Some(offset_noise.clone()),
+                offset_noise: Some(logslope_offset),
                 auxiliary_scalar: Some(z),
                 auxiliary_matrix,
             })

@@ -19,7 +19,14 @@ from agno.utils.message import filter_tool_calls
 from pydantic import BaseModel
 
 from mindroom.claude_prompt_cache import as_anthropic_claude
-from mindroom.constants import MINDROOM_COMPACTION_CHUNK_TIMEOUT_SECONDS, prompt_roles_for_history_storage
+from mindroom.constants import (
+    AI_RUN_METADATA_KEY,
+    MINDROOM_COMPACTION_CHUNK_TIMEOUT_SECONDS,
+    MINDROOM_COMPACTION_METADATA_KEY,
+    MINDROOM_MATRIX_HISTORY_METADATA_KEY,
+    prompt_roles_for_history_storage,
+)
+from mindroom.error_handling import is_model_safeguard_refusal
 from mindroom.history.storage import (
     compacted_run_ids_with,
     is_model_history_visible_run,
@@ -51,12 +58,17 @@ if TYPE_CHECKING:
     from agno.session.agent import AgentSession
     from agno.session.team import TeamSession
 
+    from mindroom.history.summary_call import SummaryRetryDecision
+
 logger = get_logger(__name__)
 
 _WRAPPER_OVERHEAD_TOKENS = 200
 _OVERSIZED_RUN_NOTE = "Run truncated to fit compaction budget."
 _SUMMARY_METADATA_OMIT_KEYS = frozenset(
     {
+        AI_RUN_METADATA_KEY,
+        MINDROOM_COMPACTION_METADATA_KEY,
+        MINDROOM_MATRIX_HISTORY_METADATA_KEY,
         "model_params",
         "tools_schema",
     },
@@ -82,12 +94,19 @@ class _CompactionRewriteResult:
     compacted_run_count: int
     compacted_run_ids: tuple[str, ...]
     compacted_messages: tuple[Message, ...]
+    # The model that actually served the final persisted summary chunk; differs
+    # from the configured primary after a safeguard-refusal fallback switch.
+    summary_model: Model
+    summary_model_name: str
 
 
 @dataclass(frozen=True)
 class _GeneratedSummaryChunk:
     summary: SessionSummary
     included_runs: list[RunOutput | TeamRunOutput]
+    # The model that actually served this chunk (fallback after a refusal switch).
+    model: Model
+    model_name: str
 
 
 def _persist_cleared_force_state_if_needed(
@@ -174,6 +193,8 @@ async def compact_scope_history(
     replay_window_tokens: int | None,
     threshold_tokens: int | None,
     summary_prompt: str,
+    fallback_summary_model: Model | None = None,
+    fallback_summary_model_name: str | None = None,
     lifecycle_notice_event_id: str | None = None,
     progress_callback: Callable[[CompactionLifecycleProgress], Awaitable[None]] | None = None,
 ) -> CompactionOutcome | None:
@@ -235,6 +256,8 @@ async def compact_scope_history(
         working_session=working_session,
         summary_model=summary_model,
         summary_model_name=summary_model_name,
+        fallback_summary_model=fallback_summary_model,
+        fallback_summary_model_name=fallback_summary_model_name,
         session_id=session.session_id,
         scope=scope,
         state=state,
@@ -263,7 +286,7 @@ async def compact_scope_history(
     compacted_at = _iso_utc_now()
     new_state = HistoryScopeState(
         last_compacted_at=compacted_at,
-        last_summary_model=_model_identifier(summary_model),
+        last_summary_model=_model_identifier(rewrite_result.summary_model),
         last_compacted_run_count=rewrite_result.compacted_run_count,
         compacted_run_ids=compacted_run_ids_with(state, rewrite_result.compacted_run_ids),
         force_compact_before_next_run=False,
@@ -283,7 +306,7 @@ async def compact_scope_history(
         session_id=session.session_id,
         scope=scope.key,
         compacted_runs=rewrite_result.compacted_run_count,
-        model=_model_identifier(summary_model),
+        model=_model_identifier(rewrite_result.summary_model),
     )
 
     after_visible_runs = scope_visible_runs(session, scope)
@@ -297,7 +320,7 @@ async def compact_scope_history(
         session_id=session.session_id,
         scope=scope.key,
         summary=rewrite_result.summary_text,
-        summary_model=summary_model_name,
+        summary_model=rewrite_result.summary_model_name,
         before_tokens=before_tokens,
         after_tokens=after_tokens,
         window_tokens=replay_window_tokens or 0,
@@ -342,14 +365,12 @@ async def _rewrite_working_session_for_compaction(  # noqa: C901
     progress_callback: Callable[[CompactionLifecycleProgress], Awaitable[None]] | None,
     collect_compaction_hook_messages: bool,
     summary_prompt: str,
+    fallback_summary_model: Model | None = None,
+    fallback_summary_model_name: str | None = None,
     before_persist_callback: Callable[[Sequence[RunOutput | TeamRunOutput]], Awaitable[None]] | None = None,
 ) -> _CompactionRewriteResult | None:
     final_summary_text = _current_summary_text(working_session) or ""
-    token_estimator = partial(
-        estimate_compaction_input_tokens,
-        model_id=summary_model.id,
-        conservative_fallback=as_anthropic_claude(summary_model) is not None,
-    )
+    token_estimator = _compaction_token_estimator(summary_model)
     total_compacted_run_count = 0
     all_compacted_run_ids: list[str] = []
     all_compacted_run_id_set: set[str] = set()
@@ -387,6 +408,7 @@ async def _rewrite_working_session_for_compaction(  # noqa: C901
 
         new_summary = await _generate_compaction_summary_with_retry(
             model=summary_model,
+            model_name=summary_model_name,
             previous_summary=_current_summary_text(working_session),
             compactable_runs=compactable_runs,
             initial_summary_input=summary_input,
@@ -397,7 +419,17 @@ async def _rewrite_working_session_for_compaction(  # noqa: C901
             history_settings=history_settings,
             summary_prompt=summary_prompt,
             token_estimator=token_estimator,
+            fallback_model=fallback_summary_model,
+            fallback_model_name=fallback_summary_model_name,
         )
+        if new_summary.model is not summary_model:
+            # A safeguard-refusal fallback served this chunk; it becomes the
+            # summary model for every later chunk, including token estimation.
+            summary_model = new_summary.model
+            summary_model_name = new_summary.model_name
+            token_estimator = _compaction_token_estimator(summary_model)
+            fallback_summary_model = None
+            fallback_summary_model_name = None
         included_runs = new_summary.included_runs
         generated_summary = new_summary.summary
         if before_persist_callback is not None:
@@ -452,6 +484,17 @@ async def _rewrite_working_session_for_compaction(  # noqa: C901
         compacted_run_count=total_compacted_run_count,
         compacted_run_ids=tuple(all_compacted_run_ids),
         compacted_messages=tuple(compacted_messages),
+        summary_model=summary_model,
+        summary_model_name=summary_model_name,
+    )
+
+
+def _compaction_token_estimator(summary_model: Model) -> Callable[[str], int]:
+    """Return the summary-input token estimator tuned for one loaded summary model."""
+    return partial(
+        estimate_compaction_input_tokens,
+        model_id=summary_model.id,
+        conservative_fallback=as_anthropic_claude(summary_model) is not None,
     )
 
 
@@ -502,6 +545,7 @@ async def _emit_lifecycle_progress_after_persist(
 async def _generate_compaction_summary_with_retry(
     *,
     model: Model,
+    model_name: str,
     previous_summary: str | None,
     compactable_runs: Sequence[RunOutput | TeamRunOutput],
     initial_summary_input: str,
@@ -512,12 +556,29 @@ async def _generate_compaction_summary_with_retry(
     history_settings: ResolvedHistorySettings,
     summary_prompt: str,
     token_estimator: Callable[[str], int],
+    fallback_model: Model | None = None,
+    fallback_model_name: str | None = None,
 ) -> _GeneratedSummaryChunk:
-    """Generate one summary chunk, retrying the same or smaller input when safe."""
+    """Generate one summary chunk, retrying the same or smaller input when safe.
+
+    A safeguard refusal from the primary model switches once to
+    ``fallback_model``, keeping the ``summary_prompt`` and ``summary_input``
+    bytes, included runs, and budget unchanged (only the target model
+    differs); a refusal or failure from the fallback propagates. The switch
+    shares the retry policy's attempt bound, so a
+    refusal after an earlier shrink or transient retry propagates without a
+    fallback call. All other failures keep the existing shrink and transient
+    same-input retry behavior.
+    """
     summary_input = initial_summary_input
     included_runs = initial_included_runs
     budget = summary_input_budget
     retry_policy = DEFAULT_SUMMARY_RETRY_POLICY
+    minimum_progress_input_tokens = _minimum_progress_input_tokens(
+        previous_summary=previous_summary,
+        first_run=compactable_runs[0],
+        token_estimator=token_estimator,
+    )
     attempt = 1
     while True:
         estimated_input_tokens = token_estimator(summary_input)
@@ -526,6 +587,7 @@ async def _generate_compaction_summary_with_retry(
             "Compaction summary chunk request",
             session_id=session_id,
             scope=scope.key,
+            model_name=model_name,
             attempt=attempt,
             candidate_runs=len(compactable_runs),
             included_runs=len(included_runs),
@@ -545,6 +607,7 @@ async def _generate_compaction_summary_with_retry(
                 "Compaction summary chunk failed",
                 session_id=session_id,
                 scope=scope.key,
+                model_name=model_name,
                 attempt=attempt,
                 candidate_runs=len(compactable_runs),
                 included_runs=len(included_runs),
@@ -554,9 +617,36 @@ async def _generate_compaction_summary_with_retry(
                 duration_ms=duration_ms,
                 error=str(exc) or type(exc).__name__,
             )
-            retry_budget = retry_policy.retry_budget(attempt=attempt, budget=budget, error=exc)
-            if retry_budget is not None:
-                if retry_budget == budget:
+            # The attempt bound covers the fallback call too: a refusal after an
+            # earlier shrink or transient retry propagates instead of issuing a
+            # third provider call.
+            if fallback_model is not None and attempt < retry_policy.max_attempts and is_model_safeguard_refusal(exc):
+                logger.info(
+                    "Compaction summary refused; switching to fallback model",
+                    session_id=session_id,
+                    scope=scope.key,
+                    attempt=attempt,
+                    refused_model=model_name,
+                    fallback_model=fallback_model_name,
+                )
+                assert fallback_model_name is not None
+                model = fallback_model
+                model_name = fallback_model_name
+                # The fallback resends the unchanged prompt and input bytes
+                # exactly once; only the target model differs.
+                fallback_model = None
+                fallback_model_name = None
+                attempt += 1
+                continue
+            retry_decision: SummaryRetryDecision | None = retry_policy.retry_budget(
+                attempt=attempt,
+                budget=budget,
+                input_tokens=estimated_input_tokens,
+                minimum_progress_input_tokens=minimum_progress_input_tokens,
+                error=exc,
+            )
+            if retry_decision is not None:
+                if retry_decision.kind == "same-budget-transient":
                     await asyncio.sleep(retry_policy.same_input_retry_delay_seconds)
                     attempt += 1
                     continue
@@ -564,16 +654,16 @@ async def _generate_compaction_summary_with_retry(
                     previous_summary=previous_summary,
                     compacted_runs=compactable_runs,
                     history_settings=history_settings,
-                    max_input_tokens=retry_budget,
+                    max_input_tokens=retry_decision.budget,
                     token_estimator=token_estimator,
                 )
-                # The policy decides whether a retry is allowed; rebuilt_runs is the
-                # feasibility gate. If no run fits the smaller budget, fall through
-                # to raise instead of resending the original input.
                 if rebuilt_runs:
+                    rebuilt_input_tokens = token_estimator(rebuilt_input)
+                    if retry_decision.kind == "shrink" and rebuilt_input_tokens >= estimated_input_tokens:
+                        raise
                     summary_input = rebuilt_input
                     included_runs = rebuilt_runs
-                    budget = retry_budget
+                    budget = retry_decision.budget
                     attempt += 1
                     continue
             raise
@@ -582,6 +672,7 @@ async def _generate_compaction_summary_with_retry(
             "Compaction summary chunk completed",
             session_id=session_id,
             scope=scope.key,
+            model_name=model_name,
             attempt=attempt,
             candidate_runs=len(compactable_runs),
             included_runs=len(included_runs),
@@ -590,7 +681,12 @@ async def _generate_compaction_summary_with_retry(
             timeout_seconds=MINDROOM_COMPACTION_CHUNK_TIMEOUT_SECONDS,
             duration_ms=duration_ms,
         )
-        return _GeneratedSummaryChunk(summary=summary, included_runs=included_runs)
+        return _GeneratedSummaryChunk(
+            summary=summary,
+            included_runs=included_runs,
+            model=model,
+            model_name=model_name,
+        )
 
 
 @timed("system_prompt_assembly.history_prepare.compaction.summary_input_build")
@@ -604,15 +700,14 @@ def _build_summary_input(
 ) -> tuple[str, list[RunOutput | TeamRunOutput]]:
     summary_block = ""
     if previous_summary is not None and previous_summary.strip():
-        escaped_summary = _escape_xml_content(previous_summary)
-        summary_block = f"<previous_summary>\n{escaped_summary}\n</previous_summary>"
+        summary_block = _previous_summary_block(previous_summary)
 
     empty_input = _compose_summary_input(summary_block, "")
     remaining = max_input_tokens - token_estimator(empty_input) - _WRAPPER_OVERHEAD_TOKENS
 
     if remaining <= 0:
         return _build_oversized_summary_input(
-            summary_block=summary_block,
+            previous_summary=previous_summary,
             compacted_runs=compacted_runs[:1],
             history_settings=history_settings,
             max_input_tokens=max_input_tokens,
@@ -628,7 +723,7 @@ def _build_summary_input(
         if run_tokens > remaining:
             if not included_runs:
                 return _build_oversized_summary_input(
-                    summary_block=summary_block,
+                    previous_summary=previous_summary,
                     compacted_runs=[run],
                     history_settings=history_settings,
                     max_input_tokens=max_input_tokens,
@@ -647,12 +742,15 @@ def _build_summary_input(
 
 def _build_oversized_summary_input(
     *,
-    summary_block: str,
+    previous_summary: str | None,
     compacted_runs: Sequence[RunOutput | TeamRunOutput],
     history_settings: ResolvedHistorySettings,
     max_input_tokens: int,
     token_estimator: Callable[[str], int],
 ) -> tuple[str, list[RunOutput | TeamRunOutput]]:
+    summary_block = (
+        _previous_summary_block(previous_summary) if previous_summary is not None and previous_summary.strip() else ""
+    )
     if not compacted_runs:
         return summary_block, []
     first_run = compacted_runs[0]
@@ -666,6 +764,28 @@ def _build_oversized_summary_input(
     if oversized_excerpt is None:
         return summary_block, []
     return _compose_summary_input(summary_block, oversized_excerpt), [first_run]
+
+
+def _minimum_progress_input_tokens(
+    *,
+    previous_summary: str | None,
+    first_run: RunOutput | TeamRunOutput,
+    token_estimator: Callable[[str], int],
+) -> int:
+    """Return the smallest shrink budget preserving the prior summary and one run envelope.
+
+    Below this size ``_build_summary_input`` rebuilds to a run-less input
+    because the previous-summary block alone swallows the envelope, so
+    ``SummaryRetryPolicy`` clamps shrink targets here. A zero content budget
+    renders the run as its open tag, truncation note, and close tag; the
+    wrapper overhead covers the builder's own envelope accounting and
+    tokenizer boundary effects.
+    """
+    summary_block = (
+        _previous_summary_block(previous_summary) if previous_summary is not None and previous_summary.strip() else ""
+    )
+    minimal_excerpt = _serialize_run_excerpt(first_run, index=0, blocks=(), content_budget_chars=0)
+    return token_estimator(_compose_summary_input(summary_block, minimal_excerpt)) + _WRAPPER_OVERHEAD_TOKENS
 
 
 def _serialize_oversized_run_excerpt(
@@ -777,6 +897,10 @@ def _compose_summary_input(summary_block: str, serialized_runs: str) -> str:
         parts.append(summary_block)
     parts.append(f"<new_conversation>\n{serialized_runs}\n</new_conversation>")
     return "\n\n".join(parts)
+
+
+def _previous_summary_block(summary: str) -> str:
+    return f"<previous_summary>\n{_escape_xml_content(summary)}\n</previous_summary>"
 
 
 def _messages_for_runs(

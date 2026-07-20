@@ -18,6 +18,29 @@ async def async_client():
     await pool.aclose()
 
 
+@pytest.mark.parametrize(
+    ("kwargs", "expected_version"),
+    [({}, "package-version"), ({"lib_version": "custom-version"}, "custom-version")],
+)
+def test_driver_info_version(kwargs, expected_version):
+    with (
+        patch("falkordb.asyncio.falkordb.redis.Redis") as mock_redis,
+        patch("falkordb.asyncio.falkordb.Is_Cluster", return_value=False),
+        patch(
+            "falkordb.asyncio.falkordb.get_package_version",
+            return_value="package-version",
+        ) as mock_get_package_version,
+    ):
+        FalkorDB(**kwargs)
+
+    driver_info = mock_redis.call_args.kwargs["driver_info"]
+    assert driver_info.lib_version == expected_version
+    if kwargs:
+        mock_get_package_version.assert_not_called()
+    else:
+        mock_get_package_version.assert_called_once_with()
+
+
 @pytest.mark.asyncio
 async def test_config(async_client):
     db = async_client
@@ -138,6 +161,34 @@ async def test_from_url_unix_socket_with_password(mock_cluster):
     assert pool.connection_kwargs.get("password") == "mypass"
     assert pool.connection_kwargs.get("db") == 2
     await db.aclose()
+
+
+@pytest.mark.asyncio
+async def test_is_cluster_unix_socket_does_not_crash_on_path_kwarg():
+    """Is_Cluster must not crash on unix:// connections (#235).
+
+    The async pool stores the socket path under ``path``, but the synchronous
+    ``redis.Redis`` probe only accepts ``unix_socket_path``. Is_Cluster
+    previously forwarded ``path`` verbatim and crashed with
+    ``TypeError: ... unexpected keyword argument 'path'`` before any I/O. After
+    the fix it builds the sync client and the only failure is the expected
+    connection error against the (absent) socket -- never a ``TypeError``.
+    """
+    from redis.asyncio import Redis as AsyncRedis
+    from redis.asyncio.connection import UnixDomainSocketConnection
+
+    from falkordb.asyncio.cluster import Is_Cluster
+
+    conn = AsyncRedis.from_url(
+        "unix:///tmp/falkordb-missing-235.sock?db=0", decode_responses=True
+    )
+    assert conn.connection_pool.connection_class is UnixDomainSocketConnection
+
+    # the socket does not exist, so the probe must fail at connect time with a
+    # connection error, not at construction time with a TypeError on `path`.
+    with pytest.raises((redis.exceptions.ConnectionError, OSError)):
+        Is_Cluster(conn)
+    await conn.aclose()
 
 
 @pytest.mark.asyncio

@@ -39,7 +39,11 @@ class MissingDeserializerWarning:
     @property
     def message(self) -> str:
         """Human-readable description of the warning."""
-        return f"Cannot validate response {self.status_code}: no deserializer registered for {self.content_type}"
+        return self.status_code
+
+    @property
+    def group(self) -> str | None:
+        return self.content_type
 
 
 def detect_missing_deserializers(operation: APIOperation) -> list[MissingDeserializerWarning]:
@@ -47,19 +51,16 @@ def detect_missing_deserializers(operation: APIOperation) -> list[MissingDeseria
     warnings: list[MissingDeserializerWarning] = []
 
     for status_code, response in operation.responses.items():
-        raw_schema = getattr(response, "get_raw_schema", lambda: None)()
-        if raw_schema is None:
-            continue
+        content = response.definition.get("content", {}) if response.definition else {}
 
-        schema_types = get_type(raw_schema)
-        is_structured = any(t in ("object", "array") for t in schema_types)
+        for content_type, media_type_object in content.items():
+            schema = media_type_object.get("schema")
+            if schema is None:
+                continue
 
-        if not is_structured:
-            continue
+            if not any(t in ("object", "array") for t in get_type(schema)):
+                continue
 
-        content_types = response.definition.get("content", {}).keys() if response.definition else []
-
-        for content_type in content_types:
             try:
                 has_deserializer = deserialization.has_deserializer(content_type)
             except MalformedMediaType:
@@ -101,6 +102,10 @@ class UnusedOpenAPIAuthWarning:
         if self.suggestion:
             return f"'{self.scheme_name}' - Did you mean '{self.suggestion}'?"
         return f"'{self.scheme_name}'"
+
+    @property
+    def group(self) -> str | None:
+        return None
 
 
 def detect_unused_openapi_auth(schema: OpenApiSchema) -> list[UnusedOpenAPIAuthWarning]:
@@ -148,6 +153,10 @@ class UnsupportedRegexWarning:
     @property
     def message(self) -> str:
         return f"Unsupported regex `{self.pattern}` was removed"
+
+    @property
+    def group(self) -> str | None:
+        return None
 
 
 def detect_unsupported_regex(operation: APIOperation) -> list[UnsupportedRegexWarning]:

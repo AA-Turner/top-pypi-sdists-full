@@ -5,15 +5,15 @@
 //! the kernel to a device is fully automatic and never requires a user-facing
 //! flag — it depends only on:
 //!
-//!   1. `GpuRuntime::global()` returning `Some(_)` (a device was probed at
-//!      process startup).
+//!   1. Lossless runtime resolution returning an available device.
 //!   2. The kernel being large enough to amortize launch/PCIe overhead, per
 //!      the thresholds in `policy::GpuDispatchPolicy`.
 //!   3. cudarc successfully dynamically loading `libcuda` at process startup
 //!      via its `fallback-dynamic-loading` feature. When the loader fails
-//!      (no driver, no toolkit installed), `GpuRuntime::probe()` returns
-//!      `Ok(None)` and every `try_*` returns `None` so the caller falls
-//!      through to the existing faer CPU kernel.
+//!      (no driver, no toolkit installed), Auto receives typed absence and
+//!      every `try_*` returns `None` so the caller falls through to the
+//!      existing faer CPU kernel. Probe faults and Required absence fail
+//!      loudly instead of being reclassified as an optional decline.
 //!
 //! The wiring lives here so `solver/pirls.rs` and the family Hessian
 //! assemblers can stay backend-agnostic: they call `gam_linalg::faer_ndarray::fast_*`
@@ -23,6 +23,7 @@ use ndarray::{Array1, Array2, Array3, ArrayView1, ArrayView2, ArrayView3};
 
 use super::device_runtime::GpuRuntime;
 use super::policy::GpuDispatchPolicy;
+use super::GpuPolicy;
 
 pub struct CudaGemmDispatch;
 
@@ -72,7 +73,8 @@ impl gam_linalg::gpu_hook::GpuGemmDispatch for CudaGemmDispatch {
     }
 
     fn device_count(&self) -> usize {
-        GpuRuntime::global().map_or(0, |rt| rt.device_count())
+        let policy = super::global_policy();
+        runtime_for_dispatch(policy).map_or(0, GpuRuntime::device_count)
     }
 
     fn try_fast_ab_broadcast_b_batched(
@@ -116,6 +118,102 @@ pub enum DispatchOp {
     JointHessian2x2 { n: usize, pa: usize, pb: usize },
 }
 
+/// Resolve the runtime at the infallible `gam-linalg` optimization-hook
+/// boundary. Typed Auto/Off absence declines the optional acceleration;
+/// faults and Required absence cannot be represented by the hook's `Option`
+/// return type, so they fail loudly rather than silently executing a CPU path.
+#[inline]
+fn runtime_for_dispatch(policy: GpuPolicy) -> Option<&'static GpuRuntime> {
+    GpuRuntime::resolve(policy).unwrap_or_else(|error| {
+        // SAFETY: the gam-linalg optimization hook is an infallible `Option`
+        // boundary. `None` means "run on the CPU", so returning it for a probe
+        // fault or Required-device absence would silently change semantics.
+        panic!(
+            "GPU runtime resolution failed under policy '{}': {error}",
+            policy
+        )
+    })
+}
+
+/// Preserve the semantic difference between an optional Auto acceleration and
+/// a user-mandated device execution at this module's legacy `Option` boundary.
+/// `gam-linalg` uses `None` to continue on the CPU, so returning it under
+/// `gpu=required` would silently violate the configured execution contract.
+#[inline]
+#[track_caller]
+fn decline_gpu<T>(operation: &'static str, reason: &'static str) -> Option<T> {
+    if super::global_policy() == GpuPolicy::Required {
+        // SAFETY: this legacy `Option` hook has no typed error channel and
+        // `None` explicitly authorizes CPU execution, which Required forbids.
+        panic!("gpu=required operation '{operation}' cannot execute on the GPU: {reason}");
+    }
+    None
+}
+
+/// Invalid inputs are caller faults, not evidence that an optional accelerator
+/// is absent or unprofitable. They must fail independently of GPU policy so an
+/// `Option` hook cannot hide them by continuing in a different implementation.
+#[inline]
+#[track_caller]
+fn invalid_gpu_request(operation: &'static str, reason: &'static str) -> ! {
+    // SAFETY: invalid dimensions are caller-contract violations, not an
+    // optional accelerator decline that may be represented by `None`.
+    panic!("GPU operation '{operation}' received invalid input: {reason}");
+}
+
+/// Policy-explicit variant of [`decline_gpu`] for the `_with_policy` entry
+/// points on platforms without the CUDA backend: the CALLER's policy — not the
+/// process-global one — owns the Required contract at that boundary, so a
+/// caller-passed `Required` must fail loudly here instead of silently falling
+/// back to CPU while `decline_gpu` consults an unrelated global. Only compiled
+/// off-Linux because every Linux path consumes the policy through
+/// `route_through_gpu_with_policy` before any decline.
+#[cfg(not(target_os = "linux"))]
+#[inline]
+#[track_caller]
+fn decline_gpu_with_policy<T>(
+    operation: &'static str,
+    reason: &'static str,
+    gpu_policy: GpuPolicy,
+) -> Option<T> {
+    if gpu_policy == GpuPolicy::Required {
+        // SAFETY: this legacy `Option` hook has no typed error channel and
+        // `None` explicitly authorizes CPU execution, which Required forbids.
+        panic!("gpu=required operation '{operation}' cannot execute on the GPU: {reason}");
+    }
+    None
+}
+
+/// A malformed device result is an execution fault, never an Auto decline.
+#[cfg(target_os = "linux")]
+#[inline]
+#[track_caller]
+fn invalid_gpu_result(operation: &'static str, reason: &'static str) -> ! {
+    // SAFETY: a malformed result after device execution cannot be represented
+    // by this hook's `Option` without authorizing a misleading CPU retry.
+    panic!("GPU operation '{operation}' produced invalid output: {reason}");
+}
+
+/// Complete a CUDA attempt after policy admission. Backend `Option` APIs use
+/// `None` for an execution failure, but absence and profitability were already
+/// settled before the attempt. A post-admission `None` is therefore a fault
+/// under every policy and must not be laundered into a CPU fallback.
+#[cfg(target_os = "linux")]
+#[inline]
+#[track_caller]
+fn complete_gpu_attempt<T>(operation: &'static str, result: Option<T>) -> T {
+    match result {
+        Some(value) => value,
+        // SAFETY: runtime availability and policy admission already succeeded;
+        // backend `None` is an execution fault, while this hook's `None` means
+        // an ordinary pre-admission decline and would silently retry on CPU.
+        None => panic!(
+            "GPU operation '{operation}' failed after admission under policy '{}'",
+            super::global_policy()
+        ),
+    }
+}
+
 impl DispatchOp {
     /// Conservative flop estimate used for the generic `gemm_min_flops` gate.
     #[inline]
@@ -138,9 +236,9 @@ impl DispatchOp {
         }
     }
 
-    /// True when SOME reachable dispatch policy could admit this op.
+    /// True when SOME reachable Auto dispatch policy could admit this op.
     ///
-    /// Pre-probe size gate (the CUDA startup-tax ordering fix): evaluated with
+    /// Pre-probe Auto size gate (the CUDA startup-tax ordering fix): evaluated with
     /// the MOST PERMISSIVE values any production policy can carry — the
     /// calibration crossover floors ([`GpuDispatchPolicy::MIN_CALIBRATABLE_GEMM_FLOPS`],
     /// [`GpuDispatchPolicy::MIN_CALIBRATABLE_POTRF_P`]) for the calibrated
@@ -148,7 +246,7 @@ impl DispatchOp {
     /// small-dense-batched-POTRF fields, which `calibration::calibrate_device`
     /// never adjusts. A `false` here means EVERY reachable policy's
     /// [`route_through_gpu`] admission would also refuse, so the caller may
-    /// return to the CPU path WITHOUT touching `GpuRuntime::global()` — i.e.
+    /// return to the CPU path WITHOUT resolving GPU availability — i.e.
     /// without triggering the device probe and its per-GPU
     /// `cuDevicePrimaryCtxRetain` context creation. A `true` decides nothing:
     /// the probed runtime's real policy still gates the op exactly as before.
@@ -183,28 +281,44 @@ impl DispatchOp {
             Self::XtDiagX { n, p } => n > 0 && p > 0 && self.flops() >= min_gemm,
             Self::XtDiagY { n, px, q } => n > 0 && px > 0 && q > 0 && self.flops() >= min_gemm,
             Self::JointHessian2x2 { n, pa, pb } => {
-                n > 0 && (pa + pb) > 0 && self.flops() >= min_gemm
+                n > 0 && (pa > 0 || pb > 0) && self.flops() >= min_gemm
             }
         }
     }
 }
 
-/// Returns `Some(runtime)` when both a device is available and the workload
-/// is large enough per policy. The caller can then attempt the actual device
-/// kernel; any backend failure is expected to return `None` from the lower
-/// layer and the CPU fast path resumes.
+/// Returns `Some(runtime)` when a device is available and policy admits the
+/// operation. Auto applies calibrated profitability thresholds; Required
+/// deliberately bypasses those thresholds because a CPU continuation would
+/// violate the requested execution policy.
 #[inline]
 #[must_use]
 pub fn route_through_gpu(op: DispatchOp) -> Option<&'static GpuRuntime> {
+    route_through_gpu_with_policy(op, super::global_policy())
+}
+
+/// Per-request counterpart of [`route_through_gpu`]. This is the device seam
+/// for solvers whose policy is part of an immutable fit request rather than the
+/// legacy process-wide configuration.
+#[inline]
+#[must_use]
+pub fn route_through_gpu_with_policy(
+    op: DispatchOp,
+    selected_policy: GpuPolicy,
+) -> Option<&'static GpuRuntime> {
     // Size gate BEFORE the device probe (startup-tax ordering fix): an op no
-    // reachable policy could admit must not pay `GpuRuntime::global()` — the
-    // first call of which creates a CUDA primary context on every GPU. Ops that
+    // reachable Auto policy could admit must not resolve availability — the first
+    // call creates a CUDA primary context on every GPU. Ops that
     // clear this most-permissive bound fall through to the probed runtime's
-    // real policy admission below, bit-for-bit as before.
-    if !op.admissible_under_any_policy() {
+    // real policy admission below, bit-for-bit as before. Required bypasses
+    // this profitability-only gate and resolves the mandatory runtime.
+    if selected_policy != GpuPolicy::Required && !op.admissible_under_any_policy() {
         return None;
     }
-    let runtime = GpuRuntime::global()?;
+    let runtime = runtime_for_dispatch(selected_policy)?;
+    if selected_policy == GpuPolicy::Required {
+        return Some(runtime);
+    }
     let policy = &runtime.policy;
     let admit = match op {
         DispatchOp::Gemm { m, n, k } => {
@@ -233,7 +347,7 @@ pub fn route_through_gpu(op: DispatchOp) -> Option<&'static GpuRuntime> {
         DispatchOp::XtDiagX { n, p } => policy.xtwx_target_is_gpu(n, p, true),
         DispatchOp::XtDiagY { n, px, q } => policy.xtwy_target_is_gpu(n, px, q, true),
         DispatchOp::JointHessian2x2 { n, pa, pb } => {
-            n > 0 && (pa + pb) > 0 && op.flops() >= policy.gemm_min_flops as u128
+            n > 0 && (pa > 0 || pb > 0) && op.flops() >= policy.gemm_min_flops as u128
         }
     };
     if admit { Some(runtime) } else { None }
@@ -253,7 +367,9 @@ const MULTI_GPU_BATCH_FLOOR: usize = 64;
 #[cfg(target_os = "linux")]
 #[inline]
 fn should_split_batch(batch: usize) -> bool {
-    GpuRuntime::global().is_some_and(|rt| rt.device_count() > 1) && batch >= MULTI_GPU_BATCH_FLOOR
+    let policy = super::global_policy();
+    runtime_for_dispatch(policy).is_some_and(|rt| rt.device_count() > 1)
+        && batch >= MULTI_GPU_BATCH_FLOOR
 }
 
 #[inline]
@@ -264,12 +380,18 @@ pub fn try_fast_ab_broadcast_b_batched(
 ) -> Option<Array3<f64>> {
     let (batch, m, k) = a.dim();
     let (bk, n) = b.dim();
-    if k != bk || batch == 0 || m == 0 || n == 0 {
-        return None;
+    if k != bk {
+        invalid_gpu_request("batched A·B", "the reduction dimensions differ");
+    }
+    if batch == 0 || m == 0 || n == 0 || k == 0 {
+        return decline_gpu(
+            "batched A·B",
+            "the workload has an empty dimension",
+        );
     }
     #[cfg(not(target_os = "linux"))]
     {
-        return None;
+        return decline_gpu("batched A·B", "the CUDA backend is not compiled on this platform");
     }
     #[cfg(target_os = "linux")]
     {
@@ -281,7 +403,10 @@ pub fn try_fast_ab_broadcast_b_batched(
             // A multi-GPU tile failed; fall through to the single-device path so
             // the whole batch is still produced on the primary device.
         }
-        cuda_backend::gemm_broadcast_b_batched(runtime.device.ordinal, a, b)
+        Some(complete_gpu_attempt(
+            "batched A·B",
+            cuda_backend::gemm_broadcast_b_batched(runtime.device.ordinal, a, b),
+        ))
     }
 }
 
@@ -329,24 +454,48 @@ pub fn try_fast_abt_strided_batched(
     a: ArrayView3<'_, f64>,
     b: ArrayView3<'_, f64>,
 ) -> Option<Array3<f64>> {
+    try_fast_abt_strided_batched_with_policy(a, b, super::global_policy())
+}
+
+#[inline]
+#[must_use]
+pub fn try_fast_abt_strided_batched_with_policy(
+    a: ArrayView3<'_, f64>,
+    b: ArrayView3<'_, f64>,
+    gpu_policy: GpuPolicy,
+) -> Option<Array3<f64>> {
     let (batch, m, k) = a.dim();
     let (batch_b, n, k_b) = b.dim();
-    if batch != batch_b || k != k_b || batch == 0 || m == 0 || n == 0 {
-        return None;
+    if batch != batch_b || k != k_b {
+        invalid_gpu_request("batched A·Bᵀ", "the batch or reduction dimensions differ");
+    }
+    if batch == 0 || m == 0 || n == 0 || k == 0 {
+        return decline_gpu(
+            "batched A·Bᵀ",
+            "the workload has an empty dimension",
+        );
     }
     #[cfg(not(target_os = "linux"))]
     {
-        return None;
+        return decline_gpu_with_policy(
+            "batched A·Bᵀ",
+            "the CUDA backend is not compiled on this platform",
+            gpu_policy,
+        );
     }
     #[cfg(target_os = "linux")]
     {
-        let runtime = route_through_gpu(DispatchOp::BatchedGemm { batch, m, n, k })?;
+        let runtime =
+            route_through_gpu_with_policy(DispatchOp::BatchedGemm { batch, m, n, k }, gpu_policy)?;
         if should_split_batch(batch) {
             if let Some(out) = scatter_abt_strided_batched(runtime, a, b, m, n) {
                 return Some(out);
             }
         }
-        cuda_backend::gemm_abt_strided_batched(runtime.device.ordinal, a, b)
+        Some(complete_gpu_attempt(
+            "batched A·Bᵀ",
+            cuda_backend::gemm_abt_strided_batched(runtime.device.ordinal, a, b),
+        ))
     }
 }
 
@@ -418,12 +567,15 @@ fn stitch_batched<L>(
 
 // ---------------------------------------------------------------------------
 // Dispatch entry points. Each takes views to keep the call site allocation-
-// free and returns Some(result) iff the GPU actually produced one. The CPU
-// fast path resumes on None.
+// free and returns Some(result) iff the GPU actually produced one. Under Auto,
+// the CPU fast path resumes only on a pre-admission None (typed absence or an
+// unprofitable workload). Every post-admission failure is fatal at this legacy
+// Option boundary; Required additionally makes pre-admission declines fatal.
 //
 // CUDA kernels are compiled into the runtime through cudarc's dynamic loader.
-// Each entry point admits only profitable workloads, then returns `None` when
-// no CUDA runtime path is available or the backend reports failure.
+// Auto admits only profitable workloads. Required bypasses profitability gates
+// and fails if no CUDA runtime path is available. An admitted backend failure
+// is an execution fault under every policy and never falls through to the CPU.
 // ---------------------------------------------------------------------------
 
 #[inline]
@@ -432,7 +584,10 @@ pub fn try_fast_ab(a: ArrayView2<'_, f64>, b: ArrayView2<'_, f64>) -> Option<Arr
     let (m, k) = a.dim();
     let (kb, n) = b.dim();
     if k != kb {
-        return None;
+        invalid_gpu_request("A·B", "the reduction dimensions differ");
+    }
+    if m == 0 || n == 0 || k == 0 {
+        return decline_gpu("A·B", "the workload has an empty dimension");
     }
     // Record every dispatch attempt — including ones that fall back to CPU
     // because either the runtime is unavailable or the workload is below
@@ -452,12 +607,15 @@ pub fn try_fast_ab(a: ArrayView2<'_, f64>, b: ArrayView2<'_, f64>) -> Option<Arr
     });
     #[cfg(not(target_os = "linux"))]
     {
-        None
+        decline_gpu("A·B", "the CUDA backend is not compiled on this platform")
     }
     #[cfg(target_os = "linux")]
     {
         let runtime = runtime?;
-        cuda_backend::gemm(runtime, a, b, false, false)
+        Some(complete_gpu_attempt(
+            "A·B",
+            cuda_backend::gemm(runtime, a, b, false, false),
+        ))
     }
 }
 
@@ -466,17 +624,23 @@ pub fn try_fast_ab(a: ArrayView2<'_, f64>, b: ArrayView2<'_, f64>) -> Option<Arr
 pub fn try_fast_atb(a: ArrayView2<'_, f64>, b: ArrayView2<'_, f64>) -> Option<Array2<f64>> {
     let (n_a, p) = a.dim();
     let (n_b, q) = b.dim();
-    if n_a != n_b || p == 0 || q == 0 {
-        return None;
+    if n_a != n_b {
+        invalid_gpu_request("Aᵀ·B", "the row dimensions differ");
+    }
+    if n_a == 0 || p == 0 || q == 0 {
+        return decline_gpu("Aᵀ·B", "the workload has an empty dimension");
     }
     #[cfg(not(target_os = "linux"))]
     {
-        return None;
+        return decline_gpu("Aᵀ·B", "the CUDA backend is not compiled on this platform");
     }
     #[cfg(target_os = "linux")]
     {
         let runtime = route_through_gpu(DispatchOp::Gemm { m: p, n: q, k: n_a })?;
-        cuda_backend::gemm(runtime, a, b, true, false)
+        Some(complete_gpu_attempt(
+            "Aᵀ·B",
+            cuda_backend::gemm(runtime, a, b, true, false),
+        ))
     }
 }
 
@@ -484,9 +648,10 @@ pub fn try_fast_atb(a: ArrayView2<'_, f64>, b: ArrayView2<'_, f64>) -> Option<Ar
 /// the ordinal (the worker thread has bound that ordinal's context). Semantics
 /// are identical to [`try_fast_atb`] — `a` is `m×k`, `b` is `m×n`, output is the
 /// `k×n` product `aᵀ·b` — but the kernel is pinned to `ordinal` instead of the
-/// probe-selected primary device. Returns `None` when CUDA is unavailable, the
-/// shape is below policy threshold, or the backend reports a transient failure,
-/// so the caller runs its CPU fallback. f64 only.
+/// probe-selected primary device. Auto returns `None` only when CUDA is absent
+/// or the shape is below policy threshold, so the caller can run its CPU path.
+/// A post-admission backend failure is fatal under every policy; Required also
+/// makes pre-admission absence fatal. f64 only.
 #[inline]
 #[must_use]
 pub fn try_fast_atb_on_ordinal(
@@ -496,8 +661,14 @@ pub fn try_fast_atb_on_ordinal(
 ) -> Option<Array2<f64>> {
     let (n_a, p) = a.dim();
     let (n_b, q) = b.dim();
-    if n_a != n_b || p == 0 || q == 0 {
-        return None;
+    if n_a != n_b {
+        invalid_gpu_request("ordinal-pinned Aᵀ·B", "the row dimensions differ");
+    }
+    if n_a == 0 || p == 0 || q == 0 {
+        return decline_gpu(
+            "ordinal-pinned Aᵀ·B",
+            "the workload has an empty dimension",
+        );
     }
     #[cfg(not(target_os = "linux"))]
     {
@@ -509,7 +680,10 @@ pub fn try_fast_atb_on_ordinal(
         log::trace!(
             "try_fast_atb_on_ordinal: CUDA unavailable off Linux; declining ordinal {ordinal}"
         );
-        return None;
+        return decline_gpu(
+            "ordinal-pinned Aᵀ·B",
+            "the CUDA backend is not compiled on this platform",
+        );
     }
     #[cfg(target_os = "linux")]
     {
@@ -525,7 +699,10 @@ pub fn try_fast_atb_on_ordinal(
         // 1_610_612_736_000 flops across K=8 batches, so admission must be
         // keyed on work rather than the observation row count.
         route_through_gpu(DispatchOp::Gemm { m: p, n: q, k: n_a })?;
-        cuda_backend::gemm_on_ordinal(ordinal, a, b, true, false)
+        Some(complete_gpu_attempt(
+            "ordinal-pinned Aᵀ·B",
+            cuda_backend::gemm_on_ordinal(ordinal, a, b, true, false),
+        ))
     }
 }
 
@@ -533,17 +710,23 @@ pub fn try_fast_atb_on_ordinal(
 #[must_use]
 pub fn try_fast_av(a: ArrayView2<'_, f64>, v: ArrayView1<'_, f64>) -> Option<Array1<f64>> {
     let (m, k) = a.dim();
-    if k != v.len() || m == 0 || k == 0 {
-        return None;
+    if k != v.len() {
+        invalid_gpu_request("A·v", "the matrix width and vector length differ");
+    }
+    if m == 0 || k == 0 {
+        return decline_gpu("A·v", "the workload has an empty dimension");
     }
     #[cfg(not(target_os = "linux"))]
     {
-        return None;
+        return decline_gpu("A·v", "the CUDA backend is not compiled on this platform");
     }
     #[cfg(target_os = "linux")]
     {
         let runtime = route_through_gpu(DispatchOp::Gemv { m, k })?;
-        cuda_backend::gemv(runtime, a, v, false)
+        Some(complete_gpu_attempt(
+            "A·v",
+            cuda_backend::gemv(runtime, a, v, false),
+        ))
     }
 }
 
@@ -551,17 +734,23 @@ pub fn try_fast_av(a: ArrayView2<'_, f64>, v: ArrayView1<'_, f64>) -> Option<Arr
 #[must_use]
 pub fn try_fast_atv(a: ArrayView2<'_, f64>, v: ArrayView1<'_, f64>) -> Option<Array1<f64>> {
     let (n, p) = a.dim();
-    if n != v.len() || n == 0 || p == 0 {
-        return None;
+    if n != v.len() {
+        invalid_gpu_request("Aᵀ·v", "the matrix height and vector length differ");
+    }
+    if n == 0 || p == 0 {
+        return decline_gpu("Aᵀ·v", "the workload has an empty dimension");
     }
     #[cfg(not(target_os = "linux"))]
     {
-        return None;
+        return decline_gpu("Aᵀ·v", "the CUDA backend is not compiled on this platform");
     }
     #[cfg(target_os = "linux")]
     {
         let runtime = route_through_gpu(DispatchOp::Gemv { m: p, k: n })?;
-        cuda_backend::gemv(runtime, a, v, true)
+        Some(complete_gpu_attempt(
+            "Aᵀ·v",
+            cuda_backend::gemv(runtime, a, v, true),
+        ))
     }
 }
 
@@ -569,17 +758,26 @@ pub fn try_fast_atv(a: ArrayView2<'_, f64>, v: ArrayView1<'_, f64>) -> Option<Ar
 #[must_use]
 pub fn try_fast_xt_diag_x(x: ArrayView2<'_, f64>, w: ArrayView1<'_, f64>) -> Option<Array2<f64>> {
     let (n, p) = x.dim();
-    if n != w.len() || n == 0 || p == 0 {
-        return None;
+    if n != w.len() {
+        invalid_gpu_request("Xᵀ·diag(w)·X", "the row and weight counts differ");
+    }
+    if n == 0 || p == 0 {
+        return decline_gpu("Xᵀ·diag(w)·X", "the workload has an empty dimension");
     }
     #[cfg(not(target_os = "linux"))]
     {
-        return None;
+        return decline_gpu(
+            "Xᵀ·diag(w)·X",
+            "the CUDA backend is not compiled on this platform",
+        );
     }
     #[cfg(target_os = "linux")]
     {
         let runtime = route_through_gpu(DispatchOp::XtDiagX { n, p })?;
-        cuda_backend::xt_diag_x(runtime, x, w)
+        Some(complete_gpu_attempt(
+            "Xᵀ·diag(w)·X",
+            cuda_backend::xt_diag_x(runtime, x, w),
+        ))
     }
 }
 
@@ -598,10 +796,11 @@ pub fn try_fast_xt_diag_x(x: ArrayView2<'_, f64>, w: ArrayView1<'_, f64>) -> Opt
 /// Admission keys on the same work-based [`DispatchOp::XtDiagX`] gate as the
 /// per-call path (so it engages exactly when the Gram is GPU-profitable) and the
 /// numerics are bit-identical to [`try_fast_xt_diag_x`] on the same device
-/// (same `cublasDdgmm` row-scale + `gemm` reduction order). On a non-CUDA host,
-/// a below-threshold shape, or any device failure, [`Self::try_new`] returns
-/// `None` and the caller keeps its CPU/per-call path — residency never changes
-/// the result, only where (and how often) `X` is staged.
+/// (same `cublasDdgmm` row-scale + `gemm` reduction order). On a non-CUDA host
+/// or a below-threshold shape, Auto makes [`Self::try_new`] return `None` and
+/// the caller keeps its CPU/per-call path; Required fails instead. Once
+/// admitted, upload or execution failures are fatal under every policy —
+/// residency never changes the result, only where (and how often) `X` is staged.
 pub struct ResidentDesignGram {
     #[cfg(target_os = "linux")]
     inner: super::blas::ResidentWeightedGram,
@@ -610,38 +809,45 @@ pub struct ResidentDesignGram {
 }
 
 impl ResidentDesignGram {
-    /// Upload `x` (`n×p`) to the device once. Returns `None` when CUDA is
-    /// unavailable, the shape is below the GPU Gram threshold, or the upload
-    /// fails.
+    /// Upload `x` (`n×p`) to the device once. Auto returns `None` when CUDA is
+    /// unavailable or the shape is below the GPU Gram threshold; Required
+    /// fails loudly. An admitted upload failure is fatal under every policy.
     #[must_use]
     pub fn try_new(x: ArrayView2<'_, f64>) -> Option<Self> {
         let (n, p) = x.dim();
         if n == 0 || p == 0 {
-            return None;
+            return decline_gpu("resident weighted Gram upload", "the design matrix is empty");
         }
         #[cfg(not(target_os = "linux"))]
         {
-            None
+            decline_gpu(
+                "resident weighted Gram upload",
+                "the CUDA backend is not compiled on this platform",
+            )
         }
         #[cfg(target_os = "linux")]
         {
             let runtime = route_through_gpu(DispatchOp::XtDiagX { n, p })?;
-            let inner = super::blas::ResidentWeightedGram::new(runtime.device.ordinal, x)?;
+            let inner = complete_gpu_attempt(
+                "resident weighted Gram upload",
+                super::blas::ResidentWeightedGram::new(runtime.device.ordinal, x),
+            );
             Some(Self { inner })
         }
     }
 
     /// Compute `Xᵀ·diag(w)·X` reusing the resident `X`. `w` must have one entry
-    /// per design row. Returns `None` on a shape mismatch or device failure.
+    /// per design row. Shape mismatches and device failures after construction
+    /// are fatal rather than being converted into a CPU continuation.
     #[must_use]
     pub fn gram(&self, w: ArrayView1<'_, f64>) -> Option<Array2<f64>> {
         #[cfg(not(target_os = "linux"))]
         {
-            // SAFETY: off CUDA, `try_new` always returns `None`, so no `Self` of
-            // this type is ever constructed and this method is statically
-            // unreachable. Returning a benign `None` would silently launder that
-            // impossibility into a "GPU declined" sentinel, so fail loudly. The
-            // `w.len()` use also consumes the parameter on this target.
+            // SAFETY: off CUDA, `try_new` never constructs `Self`, so this
+            // method is statically unreachable. Returning a benign `None` would
+            // silently launder that impossibility into a "GPU declined"
+            // sentinel, so fail loudly. The `w.len()` use also consumes the
+            // parameter on this target.
             panic!(
                 "ResidentDesignGram cannot be constructed off CUDA (w.len()={})",
                 w.len()
@@ -649,7 +855,10 @@ impl ResidentDesignGram {
         }
         #[cfg(target_os = "linux")]
         {
-            self.inner.gram(w)
+            Some(complete_gpu_attempt(
+                "resident Xᵀ·diag(w)·X",
+                self.inner.gram(w),
+            ))
         }
     }
 
@@ -660,10 +869,11 @@ impl ResidentDesignGram {
     /// This is the #1017 Phase-3 fix for the next ceiling after [`Self::gram`]:
     /// the bare Gram still pays a `p×p` D2H (134 MB at p=4096), but the SAE/IRLS
     /// inner step only needs `β`, so chaining row-scale→GEMM→POTRF→TRSM on-device
-    /// and returning only the `p`-vector removes that transfer entirely. Returns
-    /// `None` on a shape mismatch, a non-PD Gram, or any device failure — the
-    /// caller then runs the CPU normal-equations solve. The numerics match a
-    /// host `Cholesky((XᵀWX+ridge·I))` solve up to IEEE-754 reduction order.
+    /// and returning only the `p`-vector removes that transfer entirely. A
+    /// shape mismatch, non-PD Gram, or device failure after construction is
+    /// fatal rather than being converted into a CPU continuation. The numerics
+    /// match a host `Cholesky((XᵀWX+ridge·I))` solve up to IEEE-754 reduction
+    /// order.
     #[must_use]
     pub fn solve_normal_equations(
         &self,
@@ -682,7 +892,10 @@ impl ResidentDesignGram {
         }
         #[cfg(target_os = "linux")]
         {
-            self.inner.solve_psd_normal_equations(w, rhs, ridge)
+            Some(complete_gpu_attempt(
+                "resident normal-equations solve",
+                self.inner.solve_psd_normal_equations(w, rhs, ridge),
+            ))
         }
     }
 
@@ -738,9 +951,10 @@ fn leverage_chunk_rows(cols: usize, n_rows: usize) -> usize {
 /// whole-solve row-block granularity as Arrow-Schur — and each tile runs one
 /// cuBLAS GEMM `X_chunk · G` on its bound ordinal before reducing row-wise
 /// sum-of-squares. The arithmetic is identical f64 to the CPU faer path (modulo
-/// IEEE-754 reduction order); on no device, a below-threshold shape, or any
-/// tile failure the function returns `None` and the caller runs its
-/// deterministic CPU stream.
+/// IEEE-754 reduction order). On no device or a below-threshold shape, Auto
+/// returns `None` and the caller runs its deterministic CPU stream; Required
+/// fails at the dispatch boundary. A tile failure after admission is fatal
+/// under every policy.
 #[inline]
 #[must_use]
 pub fn try_fast_spectral_leverage_diagonal(
@@ -750,12 +964,24 @@ pub fn try_fast_spectral_leverage_diagonal(
     let n = x.nrows();
     let p = x.ncols();
     let rank = g.ncols();
-    if n == 0 || p == 0 || rank == 0 || g.nrows() != p {
-        return None;
+    if g.nrows() != p {
+        invalid_gpu_request(
+            "spectral leverage diagonal",
+            "the design width and spectral-factor height differ",
+        );
+    }
+    if n == 0 || p == 0 || rank == 0 {
+        return decline_gpu(
+            "spectral leverage diagonal",
+            "the workload has an empty dimension",
+        );
     }
     #[cfg(not(target_os = "linux"))]
     {
-        return None;
+        return decline_gpu(
+            "spectral leverage diagonal",
+            "the CUDA backend is not compiled on this platform",
+        );
     }
     #[cfg(target_os = "linux")]
     {
@@ -779,24 +1005,31 @@ pub fn try_fast_spectral_leverage_diagonal(
             start = end;
         }
 
-        super::pool::scatter_batched(runtime, &mut tiles, |ordinal, tile| {
-            for (range, slot) in tile.iter_mut() {
-                let rows = x.try_row_chunk(range.clone()).ok()?;
-                let xg = cuda_backend::gemm_on_ordinal(ordinal, rows.view(), g, false, false)?;
-                let mut out = Array1::<f64>::zeros(range.end - range.start);
-                for (local, row) in xg.outer_iter().enumerate() {
-                    out[local] = row.iter().map(|&v| v * v).sum();
+        complete_gpu_attempt(
+            "spectral leverage diagonal scatter",
+            super::pool::scatter_batched(runtime, &mut tiles, |ordinal, tile| {
+                for (range, slot) in tile.iter_mut() {
+                    let rows = x.try_row_chunk(range.clone()).ok()?;
+                    let xg =
+                        cuda_backend::gemm_on_ordinal(ordinal, rows.view(), g, false, false)?;
+                    let mut out = Array1::<f64>::zeros(range.end - range.start);
+                    for (local, row) in xg.outer_iter().enumerate() {
+                        out[local] = row.iter().map(|&v| v * v).sum();
+                    }
+                    *slot = Some(out);
                 }
-                *slot = Some(out);
-            }
-            Some(())
-        })?;
+                Some(())
+            }),
+        );
 
         let mut h = Array1::<f64>::zeros(n);
         for (range, slot) in tiles {
-            let vals = slot?;
+            let vals = complete_gpu_attempt("spectral leverage diagonal stitch", slot);
             if vals.len() != range.end - range.start {
-                return None;
+                invalid_gpu_result(
+                    "spectral leverage diagonal stitch",
+                    "a device tile produced an invalid row count",
+                );
             }
             h.slice_mut(ndarray::s![range]).assign(&vals);
         }
@@ -813,17 +1046,29 @@ pub fn try_fast_xt_diag_y(
 ) -> Option<Array2<f64>> {
     let (n, px) = x.dim();
     let (n_y, q) = y.dim();
-    if n != n_y || n != w.len() || n == 0 || px == 0 || q == 0 {
-        return None;
+    if n != n_y || n != w.len() {
+        invalid_gpu_request("Xᵀ·diag(w)·Y", "the row or weight counts differ");
+    }
+    if n == 0 || px == 0 || q == 0 {
+        return decline_gpu(
+            "Xᵀ·diag(w)·Y",
+            "the workload has an empty dimension",
+        );
     }
     #[cfg(not(target_os = "linux"))]
     {
-        return None;
+        return decline_gpu(
+            "Xᵀ·diag(w)·Y",
+            "the CUDA backend is not compiled on this platform",
+        );
     }
     #[cfg(target_os = "linux")]
     {
         let runtime = route_through_gpu(DispatchOp::XtDiagY { n, px, q })?;
-        cuda_backend::xt_diag_y(runtime, x, w, y)
+        Some(complete_gpu_attempt(
+            "Xᵀ·diag(w)·Y",
+            cuda_backend::xt_diag_y(runtime, x, w, y),
+        ))
     }
 }
 
@@ -838,17 +1083,29 @@ pub fn try_fast_joint_hessian_2x2(
 ) -> Option<Array2<f64>> {
     let (n, pa) = x_a.dim();
     let (n_b, pb) = x_b.dim();
-    if n != n_b || n != w_aa.len() || n != w_ab.len() || n != w_bb.len() || pa + pb == 0 {
-        return None;
+    if n != n_b || n != w_aa.len() || n != w_ab.len() || n != w_bb.len() {
+        invalid_gpu_request("joint 2×2 Hessian", "the row or weight counts differ");
+    }
+    if n == 0 || (pa == 0 && pb == 0) {
+        return decline_gpu(
+            "joint 2×2 Hessian",
+            "the workload has an empty dimension",
+        );
     }
     #[cfg(not(target_os = "linux"))]
     {
-        return None;
+        return decline_gpu(
+            "joint 2×2 Hessian",
+            "the CUDA backend is not compiled on this platform",
+        );
     }
     #[cfg(target_os = "linux")]
     {
         let runtime = route_through_gpu(DispatchOp::JointHessian2x2 { n, pa, pb })?;
-        cuda_backend::joint_hessian_2x2(runtime, x_a, x_b, w_aa, w_ab, w_bb)
+        Some(complete_gpu_attempt(
+            "joint 2×2 Hessian",
+            cuda_backend::joint_hessian_2x2(runtime, x_a, x_b, w_aa, w_ab, w_bb),
+        ))
     }
 }
 
@@ -857,16 +1114,25 @@ pub fn try_fast_joint_hessian_2x2(
 pub fn try_cholesky_lower_inplace(a: &mut Array2<f64>) -> Option<()> {
     let p = a.nrows();
     if p != a.ncols() {
-        return None;
+        invalid_gpu_request("Cholesky factorization", "the input matrix is non-square");
+    }
+    if p == 0 {
+        return decline_gpu("Cholesky factorization", "the workload has an empty dimension");
     }
     #[cfg(not(target_os = "linux"))]
     {
-        return None;
+        return decline_gpu(
+            "Cholesky factorization",
+            "the CUDA backend is not compiled on this platform",
+        );
     }
     #[cfg(target_os = "linux")]
     {
         let runtime = route_through_gpu(DispatchOp::Potrf { p, batch: 1 })?;
-        let lower = cuda_backend::cholesky_lower(runtime, a.view())?;
+        let lower = complete_gpu_attempt(
+            "Cholesky factorization",
+            cuda_backend::cholesky_lower(runtime, a.view()),
+        );
         *a = lower;
         Some(())
     }
@@ -875,20 +1141,48 @@ pub fn try_cholesky_lower_inplace(a: &mut Array2<f64>) -> Option<()> {
 #[inline]
 #[must_use]
 pub fn try_cholesky_batched_lower_inplace(matrices: &mut [Array2<f64>]) -> Option<()> {
-    let first = matrices.first()?;
+    try_cholesky_batched_lower_inplace_with_policy(matrices, super::global_policy())
+}
+
+#[inline]
+#[must_use]
+pub fn try_cholesky_batched_lower_inplace_with_policy(
+    matrices: &mut [Array2<f64>],
+    gpu_policy: GpuPolicy,
+) -> Option<()> {
+    let first = match matrices.first() {
+        Some(first) => first,
+        None => return decline_gpu("batched Cholesky factorization", "the batch is empty"),
+    };
     let p = first.nrows();
-    if p == 0 || first.ncols() != p || matrices.iter().any(|matrix| matrix.dim() != (p, p)) {
-        return None;
+    if first.ncols() != p || matrices.iter().any(|matrix| matrix.dim() != (p, p)) {
+        invalid_gpu_request(
+            "batched Cholesky factorization",
+            "an input matrix is non-square or has a different shape",
+        );
+    }
+    if p == 0 {
+        return decline_gpu(
+            "batched Cholesky factorization",
+            "the workload has an empty dimension",
+        );
     }
     #[cfg(not(target_os = "linux"))]
     {
-        return None;
+        return decline_gpu_with_policy(
+            "batched Cholesky factorization",
+            "the CUDA backend is not compiled on this platform",
+            gpu_policy,
+        );
     }
     #[cfg(target_os = "linux")]
     {
         let batch = matrices.len();
-        let runtime = route_through_gpu(DispatchOp::SmallDenseBatchedPotrf { p, batch })
-            .or_else(|| route_through_gpu(DispatchOp::Potrf { p, batch }))?;
+        let runtime = route_through_gpu_with_policy(
+            DispatchOp::SmallDenseBatchedPotrf { p, batch },
+            gpu_policy,
+        )
+        .or_else(|| route_through_gpu_with_policy(DispatchOp::Potrf { p, batch }, gpu_policy))?;
         if should_split_batch(batch) {
             // `matrices` is already the per-item slice, so the batch dimension
             // tiles directly onto `scatter_batched`: each device factors its own
@@ -902,7 +1196,10 @@ pub fn try_cholesky_batched_lower_inplace(matrices: &mut [Array2<f64>]) -> Optio
                 return Some(());
             }
         }
-        cuda_backend::cholesky_batched_lower(runtime.device.ordinal, matrices)
+        Some(complete_gpu_attempt(
+            "batched Cholesky factorization",
+            cuda_backend::cholesky_batched_lower(runtime.device.ordinal, matrices),
+        ))
     }
 }
 
@@ -913,17 +1210,32 @@ pub fn try_solve_lower_triangular_matrix(
     rhs: ArrayView2<'_, f64>,
 ) -> Option<Array2<f64>> {
     let (m, n) = rhs.dim();
-    if m == 0 || n == 0 || lower.nrows() != m {
-        return None;
+    if lower.dim() != (m, m) {
+        invalid_gpu_request(
+            "lower-triangular solve",
+            "the triangular matrix shape does not match the right-hand side",
+        );
+    }
+    if m == 0 || n == 0 {
+        return decline_gpu(
+            "lower-triangular solve",
+            "the workload has an empty dimension",
+        );
     }
     #[cfg(not(target_os = "linux"))]
     {
-        return None;
+        return decline_gpu(
+            "lower-triangular solve",
+            "the CUDA backend is not compiled on this platform",
+        );
     }
     #[cfg(target_os = "linux")]
     {
         let runtime = route_through_gpu(DispatchOp::Trsm { m, n })?;
-        cuda_backend::trsm(runtime, lower, rhs, false)
+        Some(complete_gpu_attempt(
+            "lower-triangular solve",
+            cuda_backend::trsm(runtime, lower, rhs, false),
+        ))
     }
 }
 
@@ -934,17 +1246,32 @@ pub fn try_solve_upper_triangular_matrix(
     rhs: ArrayView2<'_, f64>,
 ) -> Option<Array2<f64>> {
     let (m, n) = rhs.dim();
-    if m == 0 || n == 0 || upper.nrows() != m {
-        return None;
+    if upper.dim() != (m, m) {
+        invalid_gpu_request(
+            "upper-triangular solve",
+            "the triangular matrix shape does not match the right-hand side",
+        );
+    }
+    if m == 0 || n == 0 {
+        return decline_gpu(
+            "upper-triangular solve",
+            "the workload has an empty dimension",
+        );
     }
     #[cfg(not(target_os = "linux"))]
     {
-        return None;
+        return decline_gpu(
+            "upper-triangular solve",
+            "the CUDA backend is not compiled on this platform",
+        );
     }
     #[cfg(target_os = "linux")]
     {
         let runtime = route_through_gpu(DispatchOp::Trsm { m, n })?;
-        cuda_backend::trsm(runtime, upper, rhs, true)
+        Some(complete_gpu_attempt(
+            "upper-triangular solve",
+            cuda_backend::trsm(runtime, upper, rhs, true),
+        ))
     }
 }
 
@@ -952,10 +1279,10 @@ pub fn try_solve_upper_triangular_matrix(
 mod pre_probe_gate_tests {
     //! Pins the CUDA startup-tax ordering fix at the dispatch chokepoint: an op
     //! no reachable policy could admit must be refused by `route_through_gpu`
-    //! WITHOUT calling `GpuRuntime::global()` — i.e. without triggering the
+    //! WITHOUT resolving GPU availability — i.e. without triggering the
     //! device probe and its per-GPU `cuDevicePrimaryCtxRetain` context
     //! creation. Observable on any host (CUDA or not) through the process-wide
-    //! `global_call_count` counter; nextest gives each test its own process.
+    //! `resolution_call_count` counter; nextest gives each test its own process.
     use super::{DispatchOp, GpuDispatchPolicy, route_through_gpu};
     use crate::device_runtime::GpuRuntime;
 
@@ -984,7 +1311,7 @@ mod pre_probe_gate_tests {
                 pb: 8,
             },
         ];
-        let before = GpuRuntime::global_call_count();
+        let before = GpuRuntime::resolution_call_count();
         for op in tiny_ops {
             assert!(
                 !op.admissible_under_any_policy(),
@@ -996,9 +1323,9 @@ mod pre_probe_gate_tests {
             );
         }
         assert_eq!(
-            GpuRuntime::global_call_count(),
+            GpuRuntime::resolution_call_count(),
             before,
-            "route_through_gpu must refuse CPU-sized ops BEFORE GpuRuntime::global(), \
+            "route_through_gpu must refuse CPU-sized ops BEFORE runtime resolution, \
              so no CUDA context is ever created for them"
         );
     }
@@ -1013,15 +1340,15 @@ mod pre_probe_gate_tests {
             k: 2_048,
         };
         assert!(big.admissible_under_any_policy());
-        let before = GpuRuntime::global_call_count();
+        let before = GpuRuntime::resolution_call_count();
         let routed = route_through_gpu(big);
         assert!(
             routed.is_none_or(|runtime| !runtime.devices.is_empty()),
             "a routed operation must receive a runtime with at least one usable device"
         );
         assert!(
-            GpuRuntime::global_call_count() > before,
-            "an admissible op must fall through to GpuRuntime::global()"
+            GpuRuntime::resolution_call_count() > before,
+            "an admissible op must fall through to runtime resolution"
         );
     }
 
@@ -1108,7 +1435,9 @@ mod pre_probe_gate_tests {
                     DispatchOp::XtDiagX { n, p } => policy.xtwx_target_is_gpu(n, p, true),
                     DispatchOp::XtDiagY { n, px, q } => policy.xtwy_target_is_gpu(n, px, q, true),
                     DispatchOp::JointHessian2x2 { n, pa, pb } => {
-                        n > 0 && (pa + pb) > 0 && op.flops() >= policy.gemm_min_flops as u128
+                        n > 0
+                            && (pa > 0 || pb > 0)
+                            && op.flops() >= policy.gemm_min_flops as u128
                     }
                 };
                 if admitted {
@@ -1126,11 +1455,19 @@ mod pre_probe_gate_tests {
 #[cfg(test)]
 mod tests {
     use super::{DispatchOp, route_through_gpu, try_fast_ab};
+    use crate::GpuPolicy;
     use crate::device_runtime::GpuRuntime;
+
+    fn available_runtime_or_skip(label: &str) -> Option<&'static GpuRuntime> {
+        match GpuRuntime::resolve(GpuPolicy::Auto) {
+            Ok(runtime) => runtime,
+            Err(error) => panic!("[{label}] GPU probe fault: {error}"),
+        }
+    }
 
     #[test]
     fn sae_shape_dispatch_ops_route_when_cuda_runtime_is_present() {
-        let Some(runtime) = GpuRuntime::global() else {
+        let Some(runtime) = available_runtime_or_skip("sae dispatch gate") else {
             eprintln!("[sae dispatch gate] no CUDA runtime - skipping branch-admission check");
             return;
         };
@@ -1174,7 +1511,7 @@ mod tests {
         );
     }
 
-    /// Touching `GpuRuntime::global()` must install the dense-GEMM dispatch
+    /// Resolving an available runtime must install the dense-GEMM dispatch
     /// hook into `gam_linalg`, so a profitable `fast_ab` call routes through
     /// the device — and the device result must match the CPU oracle within
     /// IEEE reduction tolerance. This is the regression guard for the bug
@@ -1184,14 +1521,14 @@ mod tests {
     fn global_runtime_installs_fast_ab_hook_and_matches_cpu() {
         use ndarray::Array2;
 
-        let Some(_runtime) = GpuRuntime::global() else {
+        let Some(_runtime) = available_runtime_or_skip("fast_ab hook") else {
             eprintln!("[fast_ab hook] no CUDA runtime - skipping engagement check");
             return;
         };
-        // After `global()` returned `Some`, the hook MUST be installed.
+        // After resolution returned an available device, the hook MUST be installed.
         assert!(
             gam_linalg::gpu_hook::gpu_dispatch().is_some(),
-            "GpuRuntime::global() returned a device but did not register the \
+            "GpuRuntime::resolve(Auto) returned a device but did not register the \
              dense-GEMM dispatch hook — fast_ab would silently stay on the CPU"
         );
 
@@ -1252,7 +1589,7 @@ mod tests {
         use crate::blas::gemm_cuda;
         use ndarray::Array2;
 
-        let Some(runtime) = GpuRuntime::global() else {
+        let Some(runtime) = available_runtime_or_skip("gemm transpose-free") else {
             eprintln!("[gemm transpose-free] no CUDA runtime - skipping");
             return;
         };
@@ -1334,9 +1671,10 @@ mod cuda_backend {
     //! The real device kernels live in `super::super::blas` and
     //! `super::super::kernels::*`; this module simply forwards. When the
     //! lower layer reports an unrecoverable backend error (OOM, transient
-    //! launch failure, …) the wrapper returns `None` so the CPU fast path
-    //! is exercised — there is never a silent panic, and the numerical
-    //! result is identical to the CPU code modulo IEEE-754 reduction order.
+    //! launch failure, …) the wrapper reports `None` to the policy-aware outer
+    //! boundary, which fails rather than silently changing execution backend.
+    //! Successful numerical results match the CPU code modulo IEEE-754
+    //! reduction order.
 
     use ndarray::{Array1, Array2, Array3, ArrayView1, ArrayView2, ArrayView3};
 

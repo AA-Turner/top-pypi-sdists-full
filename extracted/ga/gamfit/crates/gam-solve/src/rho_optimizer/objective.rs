@@ -25,8 +25,8 @@ pub use gam_problem::{EfsEval, FixedPointCertificateEval, FixedPointCoordinateCe
 ///   pair from disk; if the objective has no β slot it must log loudly
 ///   ("β-bearing checkpoint silently degraded to ρ-only resume") so cache
 ///   provenance is auditable.
-/// - The continuation walk (`prime_outer_seed`) forwards `inner_beta_hint`
-///   from the previous step; if the objective has no β slot the walk
+/// - The typed reactive continuation path forwards `inner_beta_hint` from the
+///   previous solved waypoint; if the objective has no β slot the path
 ///   simply proceeds cold — no log, no error.
 ///
 /// Encoding the distinction in the return type lets each caller branch on
@@ -71,9 +71,9 @@ pub enum SeedOutcome {
 ///   step to first-order behavior instead of requiring the objective to fake a
 ///   stale or non-finite Hessian.
 /// - Use `eval_cost()` / `OuterEval::infeasible()` for infeasible trial points.
-///   Return `Err(...)` for genuine evaluation breakdowns so the runner can mark
-///   the step as a recoverable solver failure and escalate to the next declared
-///   fallback plan if the full attempt still fails.
+///   Return `Err(...)` only when the evaluation artifact itself cannot be
+///   constructed. Such errors are fatal across screening, multistart, and
+///   solver plans; they are never reinterpreted as another numerical trial.
 /// - `eval_cost()` is used only for cost-based optimization paths.
 /// - `eval()` is the main evaluation path (cost + gradient + optional Hessian).
 /// - `eval_efs()` is used only by the EFS solver. It runs the inner solve,
@@ -180,6 +180,40 @@ pub trait OuterObjective {
     /// Restore to a clean baseline for the next multi-start candidate.
     fn reset(&mut self);
 
+    /// Whether this objective owns a terminal *coefficient* mode whose bitwise
+    /// identity fit assembly will later bind against the certified outer value.
+    ///
+    /// The certification sequence (`run.rs`) installs the terminal state twice
+    /// at `result.rho`: once via [`Self::finalize_outer_result`] (which the
+    /// mode-owning evaluator uses to install its coefficient mode) and once via
+    /// the analytic re-evaluation inside `certify_outer_optimality` (which sets
+    /// `result.final_value`). On a nonconvex profiled objective those two
+    /// evaluations can settle in *different* coefficient basins unless each is
+    /// forced to re-install from the same clean baseline through [`Self::reset`]
+    /// — otherwise they prime the inner solve off whatever warm state the
+    /// preceding diagnostic/finalize left behind, and the mode's objective and
+    /// the certified value disagree by a whole basin (measured: `9.1931e2` vs
+    /// `9.1671e2` on the cause-specific survival gate).
+    ///
+    /// That terminal reset is otherwise gated on `config.outer_inner_cap`,
+    /// which the REML/mixture objectives wire but the custom-family (and any
+    /// other terminal-mode-owning closure) objective does not — it holds its
+    /// inner cap in a different field and leaves `outer_inner_cap` `None`, so
+    /// the reset never fires and the bitwise bind can spuriously fail on a
+    /// bimodal inner solve. Returning `true` here forces the terminal reset
+    /// *independently of the cap*, so `finalize` and `certify` provably come
+    /// from one fresh evaluation at `rho_star`. It deliberately does NOT touch
+    /// the `inner_solve_converged(config.outer_inner_cap)` gate: an objective
+    /// that owns a terminal mode but does not populate the cap's convergence
+    /// atomic keeps its own stateful convergence semantics.
+    ///
+    /// The default is `false`: an objective that owns no terminal coefficient
+    /// mode (the reactive-domain fixture among them) retains the very state its
+    /// evaluation at `result.rho` depends on and must not be reset.
+    fn owns_terminal_coefficient_mode(&self) -> bool {
+        false
+    }
+
     /// Transition an objective that actually used an approximate derivative
     /// pilot to its exact full-data measure.
     ///
@@ -193,7 +227,8 @@ pub trait OuterObjective {
 
     /// Seed the inner-solver iterate before the first eval, e.g. when the
     /// outer-iterate cache restored a `(ρ, β)` pair from a prior run, or
-    /// when the continuation walk forwards `OuterEval::inner_beta_hint`
+    /// when a typed reactive continuation path forwards
+    /// `OuterEval::inner_beta_hint`
     /// from the previous step.
     ///
     /// Objectives make an explicit choice via the [`SeedOutcome`] return:
@@ -204,23 +239,10 @@ pub trait OuterObjective {
     ///
     /// Callers that need to distinguish "no slot" from "installed" (the
     /// outer cache warm-start path, which logs cache provenance) branch on
-    /// the variant. Callers that don't care (the continuation walk, which
-    /// only proceeds-cold when the hint is unusable) ignore it and only
+    /// the variant. Callers that don't care (the reactive continuation path,
+    /// which only proceeds cold when the hint is unusable) ignore it and only
     /// propagate `Err`.
     fn seed_inner_state(&mut self, beta: &Array1<f64>) -> Result<SeedOutcome, EstimationError>;
-
-    /// Whether the objective can benefit from continuation pre-warm before
-    /// the first solver eval at a candidate seed.
-    ///
-    /// Pre-warm is only correct for objectives with a real writable inner
-    /// state slot: it evaluates an oversmoothed rho path before the seed and
-    /// forwards non-empty `inner_beta_hint`s between steps. Generic synthetic
-    /// objectives and rho-only cache probes must start at the chosen seed
-    /// directly, otherwise the pre-warm becomes an observable extra eval and
-    /// can clobber seed-dispatch bookkeeping with empty beta seeds.
-    fn allow_continuation_prewarm(&self) -> bool {
-        false
-    }
 
     /// Optional objective-owned hard upper domain for the outer coordinates.
     ///
@@ -381,6 +403,17 @@ pub trait OuterObjective {
         Ok(None)
     }
 
+    /// Optional analytic evaluation order that must own the final installed
+    /// objective state, independently of the solver plan that found `rho`.
+    ///
+    /// The default follows the solver (`EFS` finalizes through `eval_efs`,
+    /// BFGS through first order, ARC through second order). Stateful profiled
+    /// objectives may override this when only one evaluator produces the
+    /// ownership payload consumed by fit assembly.
+    fn terminal_eval_order(&self) -> Option<OuterEvalOrder> {
+        None
+    }
+
     /// Re-install the selected outer result into the mutable objective before
     /// callers consume objective-owned fitted state. Optimizers may evaluate
     /// rejected trial points after the best point was found; without this final
@@ -395,14 +428,14 @@ pub trait OuterObjective {
             "[OUTER] finalize: re-installing best rho into the objective (solver {:?})",
             plan.solver
         );
-        match plan.solver {
-            Solver::Efs | Solver::HybridEfs => self.eval_efs(rho).map(|_| ()),
-            Solver::Bfgs => self
-                .eval_with_order(rho, OuterEvalOrder::ValueAndGradient)
-                .map(|_| ()),
-            Solver::Arc => self
-                .eval_with_order(rho, OuterEvalOrder::ValueGradientHessian)
-                .map(|_| ()),
+        let order = self.terminal_eval_order().or(match plan.solver {
+            Solver::Efs | Solver::HybridEfs => None,
+            Solver::Bfgs => Some(OuterEvalOrder::ValueAndGradient),
+            Solver::Arc => Some(OuterEvalOrder::ValueGradientHessian),
+        });
+        match order {
+            Some(order) => self.eval_with_order(rho, order).map(|_| ()),
+            None => self.eval_efs(rho).map(|_| ()),
         }
     }
 }
@@ -456,7 +489,11 @@ pub(crate) struct IteratePayload {
 /// Entries with a different schema id are rejected by `decode_iterate`
 /// so incompatible on-disk payloads fall through to cold start instead
 /// of seeding the inner solve with a malformed iterate.
-pub(crate) const ITERATE_PAYLOAD_SCHEMA: u32 = 2;
+/// Schema 3 invalidates every payload written before outer-Hessian provenance
+/// was tied to the objective's declared analytic capability. In particular,
+/// schema-2 SAE checkpoints may contain the now-deleted finite-difference
+/// curvature and must never influence a resumed quasi-Newton metric (#2253).
+pub(crate) const ITERATE_PAYLOAD_SCHEMA: u32 = 3;
 
 pub(crate) fn encode_iterate(
     rho: &Array1<f64>,
@@ -528,7 +565,7 @@ pub(crate) fn decode_iterate(bytes: &[u8], expected_rho_dim: usize) -> Option<It
 /// cold-start against a Hessian with condition number `≈ e^{2·rho_bound}`,
 /// and Newton degraded to O(1/k) descent that exhausted the cycle budget.
 ///
-/// The contract is now `(ρ, β)`: the schema-2 iterate payload carries
+/// The contract is now `(ρ, β)`: the current iterate payload carries
 /// both, and [`CheckpointingObjective`] refuses to persist a divergent
 /// inner state (non-finite cost or β). Boundary ρ — when written under
 /// the new invariant — is a *legitimate* finding (the smoothness wants
@@ -646,6 +683,11 @@ pub(crate) struct CheckpointingObjective<'a> {
     /// this the finalize would clobber per-eval checkpoint β state with a
     /// ρ-only payload, reintroducing the cold-β resume failure.
     last_inner_beta: std::sync::Mutex<Option<Array1<f64>>>,
+    /// True only while the typed reactive-domain path evaluates an
+    /// initialization waypoint. Those waypoints are transactional means of
+    /// reaching the literal requested model, not candidate outer iterates, so
+    /// they must never become persistent restart seeds.
+    reactive_waypoint_active: AtomicBool,
 }
 
 impl<'a> CheckpointingObjective<'a> {
@@ -660,6 +702,7 @@ impl<'a> CheckpointingObjective<'a> {
             mirror_sessions,
             eval_counter: AtomicU64::new(0),
             last_inner_beta: std::sync::Mutex::new(None),
+            reactive_waypoint_active: AtomicBool::new(false),
         }
     }
 
@@ -668,6 +711,9 @@ impl<'a> CheckpointingObjective<'a> {
     }
 
     fn note(&self, rho: &Array1<f64>, beta: Option<&Array1<f64>>, cost: f64) {
+        if self.reactive_waypoint_active.load(Ordering::Relaxed) {
+            return;
+        }
         if !cost.is_finite() {
             return;
         }
@@ -760,8 +806,15 @@ impl<'a> OuterObjective for CheckpointingObjective<'a> {
         result
     }
 
-    fn allow_continuation_prewarm(&self) -> bool {
-        self.inner.allow_continuation_prewarm()
+    fn terminal_eval_order(&self) -> Option<OuterEvalOrder> {
+        self.inner.terminal_eval_order()
+    }
+
+    fn owns_terminal_coefficient_mode(&self) -> bool {
+        // Forward the wrapped objective's ownership: the terminal reset must
+        // still fire for a cap-less mode owner (e.g. a custom family) when its
+        // fit routes through a cache session and is wrapped here (#2334).
+        self.inner.owns_terminal_coefficient_mode()
     }
 
     fn reactive_domain_scalar_contract(
@@ -778,21 +831,32 @@ impl<'a> OuterObjective for CheckpointingObjective<'a> {
     }
 
     fn begin_reactive_domain_waypoint(&mut self) -> Result<(), EstimationError> {
-        self.inner.begin_reactive_domain_waypoint()
+        self.inner.begin_reactive_domain_waypoint()?;
+        self.reactive_waypoint_active
+            .store(true, Ordering::Relaxed);
+        Ok(())
     }
 
     fn commit_reactive_domain_waypoint(
         &mut self,
         rho: &Array1<f64>,
     ) -> Result<(), EstimationError> {
-        self.inner.commit_reactive_domain_waypoint(rho)
+        let result = self.inner.commit_reactive_domain_waypoint(rho);
+        self.reactive_waypoint_active
+            .store(false, Ordering::Relaxed);
+        result
     }
 
     fn rollback_reactive_domain_waypoint(&mut self) -> Result<(), EstimationError> {
-        self.inner.rollback_reactive_domain_waypoint()
+        let result = self.inner.rollback_reactive_domain_waypoint();
+        self.reactive_waypoint_active
+            .store(false, Ordering::Relaxed);
+        result
     }
 
     fn reset(&mut self) {
+        self.reactive_waypoint_active
+            .store(false, Ordering::Relaxed);
         self.inner.reset();
     }
 
@@ -841,10 +905,9 @@ pub struct ClosureObjective<
     /// Optional inner-state seeding closure. Objectives with PIRLS / Newton
     /// inner state install cached β here before the first outer eval.
     pub(crate) seed_fn: Option<Fseed>,
-    /// Whether a seed hook should also opt the objective into generic
-    /// continuation pre-warm. High-dimensional REML keeps the seed hook for
-    /// cache/warm-start replay but declines the expensive rho-anneal pre-pass.
-    pub(crate) continuation_prewarm: bool,
+    /// Analytic evaluator that must install the terminal owned state even when
+    /// the selected optimization plan itself used EFS.
+    pub(crate) terminal_eval_order: Option<OuterEvalOrder>,
 }
 
 impl<S, Fc, Fe, Fr, Fefs, Feo, Fsp, Fseed> OuterObjective
@@ -933,14 +996,27 @@ where
         }
     }
 
-    fn allow_continuation_prewarm(&self) -> bool {
-        self.continuation_prewarm && self.seed_fn.is_some()
+    fn terminal_eval_order(&self) -> Option<OuterEvalOrder> {
+        self.terminal_eval_order
     }
 
     fn reset(&mut self) {
         if let Some(f) = self.reset_fn.as_mut() {
             f(&mut self.state);
         }
+    }
+
+    fn owns_terminal_coefficient_mode(&self) -> bool {
+        // A forced terminal eval order is set *precisely* to install this
+        // objective's owned coefficient mode through one analytic evaluator at
+        // `rho_star` (see `terminal_eval_order`'s field doc and
+        // `with_terminal_eval_order`). So `terminal_eval_order.is_some()` is the
+        // existing, single-source-of-truth marker that this closure objective
+        // owns a terminal coefficient mode — no separate flag to keep in sync.
+        // Only the custom-family builder sets it; every other closure objective
+        // (REML search proxies, reactive fixtures) leaves it `None` and keeps
+        // the default `false`.
+        self.terminal_eval_order.is_some()
     }
 
     fn begin_exact_polish(&mut self) -> bool {
@@ -956,6 +1032,13 @@ impl<S, Fc, Fe, Fr, Fefs, Feo, Fsp, Fseed> ClosureObjective<S, Fc, Fe, Fr, Fefs,
         Fpolish: FnMut(&mut S) -> bool + 'static,
     {
         self.exact_polish_fn = Some(Box::new(transition));
+        self
+    }
+
+    /// Force final state installation through one analytic evaluator order.
+    /// Search-time solver selection remains unchanged.
+    pub fn with_terminal_eval_order(mut self, order: OuterEvalOrder) -> Self {
+        self.terminal_eval_order = Some(order);
         self
     }
 }
@@ -997,13 +1080,13 @@ where
             exact_polish_fn: self.exact_polish_fn,
             screening_proxy_fn: self.screening_proxy_fn,
             seed_fn: Some(seed_fn),
-            continuation_prewarm: self.continuation_prewarm,
+            terminal_eval_order: self.terminal_eval_order,
         }
     }
 }
 
 pub(crate) fn into_objective_error(context: &str, err: EstimationError) -> ObjectiveEvalError {
-    ObjectiveEvalError::recoverable(format!("{context}: {err}"))
+    ObjectiveEvalError::fatal(format!("{context}: {err}"))
 }
 
 pub(crate) fn finite_cost_or_error(context: &str, cost: f64) -> Result<f64, ObjectiveEvalError> {
@@ -1259,6 +1342,18 @@ impl<'a> OuterObjective for CanonicalizedObjective<'a> {
         self.inner.capability()
     }
 
+    fn terminal_eval_order(&self) -> Option<OuterEvalOrder> {
+        self.inner.terminal_eval_order()
+    }
+
+    fn owns_terminal_coefficient_mode(&self) -> bool {
+        // Forward through the canonicalizing permutation wrapper so a cap-less
+        // mode owner (e.g. a custom family) still gets the terminal reset when
+        // its outer search runs in a non-identity canonical coordinate layout
+        // (#2334). Ownership is coordinate-order-invariant.
+        self.inner.owns_terminal_coefficient_mode()
+    }
+
     fn eval_cost(&mut self, rho: &Array1<f64>) -> Result<f64, EstimationError> {
         let native = self.to_native(rho);
         self.inner.eval_cost(&native)
@@ -1330,10 +1425,6 @@ impl<'a> OuterObjective for CanonicalizedObjective<'a> {
     fn seed_inner_state(&mut self, beta: &Array1<f64>) -> Result<SeedOutcome, EstimationError> {
         // β is in the coefficient basis, not ρ-coordinate order — forward as-is.
         self.inner.seed_inner_state(beta)
-    }
-
-    fn allow_continuation_prewarm(&self) -> bool {
-        self.inner.allow_continuation_prewarm()
     }
 
     fn reactive_domain_scalar_contract(

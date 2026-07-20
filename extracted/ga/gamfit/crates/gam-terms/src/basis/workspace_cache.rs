@@ -350,39 +350,60 @@ pub(crate) fn build_matern_operator_penalty_candidates(
     // (e.g. ν=1/2) is not over-smoothed by a higher-order roughness penalty its
     // own RKHS norm does not control (#707).
     let matern_spec = DuchonOperatorPenaltySpec::matern_for_smoothness(nu, centers.ncols());
-    Ok(operator_penalty_candidates_from_collocation(
+    operator_penalty_candidates_from_collocation(
         &ops.d0,
         &ops.d1,
         &ops.d2,
         &matern_spec,
-    ))
+    )
 }
 
-/// Decide whether the matern double-penalty path emits the
-/// `DoublePenaltyNullspace` shrinkage candidate, honoring a FROZEN bootstrap-κ
-/// decision when one is present (gam#787/#860). `frozen` is
-/// `MaternIdentifiability::FrozenTransform`'s `nullspace_shrinkage_survived`:
-/// `Some(b)` forces the answer (so the learned-penalty count stays invariant as
-/// the κ-optimizer rebuilds the design), `None` falls back to the κ-dependent
-/// spectral test (the cold-build / non-frozen behavior). Returns the emitted
-/// candidate list together with the realized decision so the caller can record
-/// it into the basis metadata for the freeze step.
-/// True when every entry of `m` is finite. A non-finite projected kernel Gram
-/// or shrinkage projector must never be turned into a penalty: its root feeds
-/// the λ-weighted range block whose eigensolve hard-rejects non-finite input
-/// ("range penalty block contains non-finite entries", gam#1379). On certain
-/// 1-D `matern(x)` / `bs="gp"` data geometries the projected kernel Gram is
-/// numerically degenerate enough that the eigensolver returns non-finite
-/// near-null eigenvectors, so the spectral-projector shrinkage block comes back
-/// non-finite; we drop that block rather than poison the whole penalty.
+/// True when every entry of `m` is finite.
 fn matrix_all_finite(m: &Array2<f64>) -> bool {
     m.iter().all(|v| v.is_finite())
 }
 
-pub(crate) fn matern_double_penalty_candidates_with_decision(
+/// Discrete function Gram on Matérn's frozen center support.
+///
+/// The embedded primary contains `K_CC` in its kernel block. Evaluating the
+/// represented raw basis at the same centers gives `[K_CC | 1]`; applying the
+/// final kernel-identifiability chart and taking `B_CᵀB_C` therefore provides
+/// an exact compact Gram for this finite-rank representation without touching
+/// the training rows.
+pub(crate) fn matern_center_function_gram(
+    embedded_kernel: &Array2<f64>,
+    include_intercept: bool,
+    full_transform: Option<&Array2<f64>>,
+) -> Result<Array2<f64>, BasisError> {
+    if embedded_kernel.nrows() != embedded_kernel.ncols() {
+        crate::bail_dim_basis!("Matérn embedded kernel penalty must be square");
+    }
+    let total = embedded_kernel.nrows();
+    let k = total
+        .checked_sub(usize::from(include_intercept))
+        .ok_or_else(|| BasisError::InvalidInput("Matérn basis width underflow".to_string()))?;
+    if k == 0 {
+        crate::bail_invalid_basis!("Matérn function metric requires at least one center");
+    }
+    let mut center_design = Array2::<f64>::zeros((k, total));
+    center_design
+        .slice_mut(s![.., 0..k])
+        .assign(&embedded_kernel.slice(s![0..k, 0..k]));
+    if include_intercept {
+        center_design.column_mut(k).fill(1.0);
+    }
+    let center_design = match full_transform {
+        Some(transform) => fast_ab(&center_design, transform),
+        None => center_design,
+    };
+    Ok(symmetrize_penalty(&fast_ata(&center_design)))
+}
+
+pub(crate) fn matern_double_penalty_candidates(
     primary: &Array2<f64>,
-    frozen: Option<bool>,
-) -> Result<(Vec<PenaltyCandidate>, bool), BasisError> {
+    function_gram: &Array2<f64>,
+    include_intercept: bool,
+) -> Result<Vec<PenaltyCandidate>, BasisError> {
     // gam#1379 — guard the Primary projected kernel Gram itself. It is `Zᵀ K Z`
     // with a finite Matérn kernel `K`, so it is finite in exact arithmetic; if a
     // degenerate trial geometry made it non-finite we cannot ship it as a
@@ -395,60 +416,42 @@ pub(crate) fn matern_double_penalty_candidates_with_decision(
              geometry). Widen the data spread, change the length scale, or drop the term."
         );
     }
+    if primary.dim() != function_gram.dim() || !matrix_all_finite(function_gram) {
+        crate::bail_invalid_basis!(
+            "Matérn center function Gram is non-finite or does not match the primary penalty"
+        );
+    }
     let mut candidates = vec![normalize_penalty_candidate(
         primary.clone(),
-        0,
         PenaltySource::Primary,
-    )];
-    let survived = match frozen {
-        Some(forced) => {
-            if forced
-                && let Some(shrinkage) = build_nullspace_shrinkage_penalty(primary)?
-                && matrix_all_finite(&shrinkage.sym_penalty)
-            {
-                candidates.push(normalize_penalty_candidate(
-                    shrinkage.sym_penalty,
-                    0,
-                    PenaltySource::DoublePenaltyNullspace,
-                ));
-                true
-            } else {
-                // Forced ON but the projected kernel has no near-zero direction
-                // at this κ (so there is literally no shrinkage subspace to
-                // build), OR forced OFF: emit only the primary kernel penalty.
-                // Forced-ON-without-a-subspace cannot manufacture a 7th penalty,
-                // but the frozen path only sets `Some(true)` when the bootstrap κ
-                // DID find a subspace, and the projected-kernel null space is a
-                // geometric property of the centers/transform (κ rescales every
-                // eigenvalue together), so the subspace persists across rebuilds.
-                false
-            }
-        }
-        None => {
-            if let Some(shrinkage) = build_nullspace_shrinkage_penalty(primary)?
-                && matrix_all_finite(&shrinkage.sym_penalty)
-            {
-                candidates.push(normalize_penalty_candidate(
-                    shrinkage.sym_penalty,
-                    0,
-                    PenaltySource::DoublePenaltyNullspace,
-                ));
-                true
-            } else {
-                false
-            }
-        }
-    };
-    Ok((candidates, survived))
+    )?];
+    // K_CC is strictly positive definite after center rank reduction. The ONLY
+    // structural null direction is the explicitly appended intercept. Kernel
+    // eigenvalues near a floating-point tolerance remain range directions; they
+    // must be conditioned/reduced, never reclassified into a κ-dependent null
+    // projector. This makes penalty topology structural and κ-invariant.
+    if include_intercept {
+        let p = primary.nrows();
+        let mut intercept_frame = Array2::<f64>::zeros((p, 1));
+        intercept_frame[[p - 1, 0]] = 1.0;
+        let shrinkage = function_space_subspace_shrinkage(&intercept_frame, function_gram)?;
+        candidates.push(normalize_penalty_candidate(
+            shrinkage,
+            PenaltySource::DoublePenaltyNullspace,
+        )?);
+    }
+    Ok(candidates)
 }
 
 pub(crate) fn build_matern_double_penalty_candidates(
     spline: &MaternSplineBasis,
     full_transform: Option<&Array2<f64>>,
-    frozen_nullspace_shrinkage_survived: Option<bool>,
-) -> Result<(Vec<PenaltyCandidate>, bool), BasisError> {
+) -> Result<Vec<PenaltyCandidate>, BasisError> {
     let primary = project_penalty_matrix(&spline.penalty_kernel, full_transform);
-    matern_double_penalty_candidates_with_decision(&primary, frozen_nullspace_shrinkage_survived)
+    let include_intercept = spline.num_polynomial_basis == 1;
+    let function_gram =
+        matern_center_function_gram(&spline.penalty_kernel, include_intercept, full_transform)?;
+    matern_double_penalty_candidates(&primary, &function_gram, include_intercept)
 }
 
 /// Creates a Matérn spline basis from data and centers.
@@ -458,8 +461,8 @@ pub(crate) fn build_matern_double_penalty_candidates(
 ///
 /// The default kernel penalty is `alpha' S alpha` with `S_jl = k(||c_j - c_l||)`, embedded
 /// in the full coefficient space. With intercept included, that column is unpenalized by
-/// `penalty_kernel`; optional `penalty_ridge` is a nullspace projector used for
-/// double-penalty shrinkage of previously unpenalized directions.
+/// `penalty_kernel`; optional `penalty_ridge` is the center-function-metric
+/// penalty for double-penalty shrinkage of the explicit intercept direction.
 ///
 /// NOTE: This follows the RKHS Gram construction S = K_CC (not K_CC^{-1}) in
 /// coefficient space, with global scaling absorbed by the smoothing parameter λ.
@@ -586,9 +589,14 @@ pub fn create_matern_spline_basiswithworkspace(
     penalty_kernel
         .slice_mut(s![0..k, 0..k])
         .assign(&center_kernel);
-    let penalty_ridge = build_nullspace_shrinkage_penalty(&penalty_kernel)?
-        .map(|block| block.sym_penalty)
-        .unwrap_or_else(|| Array2::<f64>::zeros((total_cols, total_cols)));
+    let function_gram = matern_center_function_gram(&penalty_kernel, include_intercept, None)?;
+    let penalty_ridge = if include_intercept {
+        let mut intercept_frame = Array2::<f64>::zeros((total_cols, 1));
+        intercept_frame[[total_cols - 1, 0]] = 1.0;
+        function_space_subspace_shrinkage(&intercept_frame, &function_gram)?
+    } else {
+        Array2::<f64>::zeros((total_cols, total_cols))
+    };
 
     Ok(MaternSplineBasis {
         basis,
@@ -1219,6 +1227,78 @@ mod spherical_farthest_point_symmetry_tests {
             error.to_string().contains("symmetry orbit"),
             "unexpected refusal: {error}"
         );
+    }
+}
+
+#[cfg(test)]
+mod matern_function_metric_tests {
+    use super::*;
+    use ndarray::array;
+
+    #[test]
+    fn center_metric_null_ridge_is_covariant_and_targets_only_intercept_function() {
+        let center_kernel = array![[1.4, 0.3, 0.1], [0.3, 1.2, 0.2], [0.1, 0.2, 1.1]];
+        let mut embedded = Array2::<f64>::zeros((4, 4));
+        embedded.slice_mut(s![0..3, 0..3]).assign(&center_kernel);
+        let gram =
+            matern_center_function_gram(&embedded, true, None).expect("raw center function Gram");
+        let base =
+            matern_double_penalty_candidates(&embedded, &gram, true).expect("raw candidates");
+        assert_eq!(base.len(), 2);
+        let raw_ridge = base[1].matrix.dense() * base[1].normalization_scale;
+
+        let intercept = array![[0.0], [0.0], [0.0], [1.0]];
+        let action_error = (&raw_ridge.dot(&intercept) - &gram.dot(&intercept))
+            .iter()
+            .map(|value| value.abs())
+            .fold(0.0_f64, f64::max);
+        assert!(
+            action_error < 2.0e-13,
+            "ridge must equal G on the structural intercept; error={action_error:.3e}"
+        );
+
+        // A strongly non-orthogonal kernel chart plus intercept rescaling. The
+        // block structure is exactly Matérn's supported final transform: kernel
+        // coordinates may shear/rescale, while the explicit intercept remains a
+        // separate structural coordinate.
+        let transform = array![
+            [0.2, 0.5, 0.0, 0.0],
+            [0.0, 3.0, -0.4, 0.0],
+            [0.0, 0.0, 1.7, 0.0],
+            [0.0, 0.0, 0.0, 2.5]
+        ];
+        let primary_t = fast_atb(&transform, &fast_ab(&embedded, &transform));
+        let gram_t = matern_center_function_gram(&embedded, true, Some(&transform))
+            .expect("transformed center function Gram");
+        let transformed = matern_double_penalty_candidates(&primary_t, &gram_t, true)
+            .expect("transformed candidates");
+        let ridge_t = transformed[1].matrix.dense() * transformed[1].normalization_scale;
+        let expected = fast_atb(&transform, &fast_ab(&raw_ridge, &transform));
+        let covariance_error = (&ridge_t - &expected)
+            .iter()
+            .map(|value| value.abs())
+            .fold(0.0_f64, f64::max);
+        assert!(
+            covariance_error < 2.0e-12,
+            "Matérn function ridge changed under a basis chart; error={covariance_error:.3e}"
+        );
+
+        let no_intercept_gram = matern_center_function_gram(
+            &center_kernel,
+            false,
+            Some(&transform.slice(s![0..3, 0..3]).to_owned()),
+        )
+        .expect("kernel-only Gram");
+        let kernel_only = matern_double_penalty_candidates(
+            &fast_atb(
+                &transform.slice(s![0..3, 0..3]).to_owned(),
+                &fast_ab(&center_kernel, &transform.slice(s![0..3, 0..3]).to_owned()),
+            ),
+            &no_intercept_gram,
+            false,
+        )
+        .expect("kernel-only candidates");
+        assert_eq!(kernel_only.len(), 1, "an SPD kernel has no null ridge");
     }
 }
 

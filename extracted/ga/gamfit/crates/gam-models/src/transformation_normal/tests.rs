@@ -3,56 +3,78 @@ use crate::custom_family::custom_family_outer_derivatives;
 use gam_test_support::assert_matrix_derivativefd;
 use ndarray::array;
 
+fn test_design_hyper_layout(
+    derivative_blocks: &[Vec<CustomFamilyBlockPsiDerivative>],
+) -> CustomFamilyHyperLayout {
+    let axis_count = derivative_blocks.iter().map(Vec::len).sum::<usize>();
+    CustomFamilyHyperLayout::new(
+        derivative_blocks.to_vec(),
+        Vec::new(),
+        Array1::zeros(axis_count),
+    )
+    .expect("test CTN hyper layout")
+}
+
 #[test]
 pub(crate) fn exact_ctn_mode_branch_freezes_derivative_input() {
     let warm = |value: f64| {
         CustomFamilyWarmStart::from_cached_beta(&[1], &array![value])
             .expect("one-coefficient CTN mode seed")
     };
-    let beta_value = |state: &TransformationExactModeBranch| {
-        state
-            .warm_start(&Array1::zeros(0))
-            .expect("compatible CTN mode seed")
+    let carried_beta = |candidates: &[Option<CustomFamilyWarmStart>]| {
+        candidates
+            .get(1)
+            .and_then(Option::as_ref)
+            .expect("compatible carried CTN mode seed")
             .block_beta_view(0)
             .expect("one CTN coefficient")[0]
     };
 
     let mut state = TransformationExactModeBranch::default();
-    assert!(state.warm_start(&Array1::zeros(0)).is_none());
+    let (froze, candidates) = state.candidates(gam_problem::EvalMode::ValueOnly, &Array1::zeros(0));
+    assert!(!froze);
+    assert_eq!(candidates.len(), 1);
+    assert!(candidates[0].is_none());
 
     state.record_value(gam_problem::EvalMode::ValueOnly, warm(1.0));
-    assert_eq!(beta_value(&state), 1.0);
+    let (_, candidates) = state.candidates(gam_problem::EvalMode::ValueOnly, &Array1::zeros(0));
+    assert_eq!(carried_beta(&candidates), 1.0);
     state.record_value(gam_problem::EvalMode::ValueOnly, warm(2.0));
-    assert_eq!(beta_value(&state), 2.0);
 
     let (froze, candidates) = state.candidates(gam_problem::EvalMode::ValueOnly, &Array1::zeros(0));
     assert!(!froze);
     assert_eq!(candidates.len(), 2);
     assert!(candidates[0].is_none(), "cold candidate is evaluated first");
-    assert_eq!(
-        candidates[1]
-            .as_ref()
-            .expect("continuation candidate")
-            .block_beta_view(0)
-            .expect("one CTN coefficient")[0],
-        2.0
-    );
+    assert_eq!(carried_beta(&candidates), 2.0);
 
-    assert!(state.prepare(gam_problem::EvalMode::ValueGradientHessian));
-    assert_eq!(beta_value(&state), 2.0);
+    let (froze, candidates) = state.candidates(
+        gam_problem::EvalMode::ValueGradientHessian,
+        &Array1::zeros(0),
+    );
+    assert!(froze);
+    assert_eq!(candidates.len(), 2);
+    assert!(candidates[0].is_none(), "cold remains first after freeze");
+    assert_eq!(carried_beta(&candidates), 2.0);
 
     state.record_value(gam_problem::EvalMode::ValueOnly, warm(4.0));
     state.record_value(gam_problem::EvalMode::ValueAndGradient, warm(5.0));
     assert!(!state.prepare(gam_problem::EvalMode::ValueAndGradient));
+    let (froze, candidates) = state.candidates(gam_problem::EvalMode::ValueOnly, &Array1::zeros(0));
+    assert!(!froze);
+    assert_eq!(candidates.len(), 2);
+    assert!(candidates[0].is_none());
     assert_eq!(
-        beta_value(&state),
+        carried_beta(&candidates),
         2.0,
         "outer trial history must not replace the CTN branch anchor"
     );
 
     let mut cold = TransformationExactModeBranch::default();
-    assert!(cold.prepare(gam_problem::EvalMode::ValueAndGradient));
-    assert!(cold.warm_start(&Array1::zeros(0)).is_none());
+    let (froze, candidates) =
+        cold.candidates(gam_problem::EvalMode::ValueAndGradient, &Array1::zeros(0));
+    assert!(froze);
+    assert_eq!(candidates.len(), 1);
+    assert!(candidates[0].is_none());
 }
 
 pub(crate) fn dense_first_order_psi_hessian(terms: &ExactNewtonJointPsiTerms) -> Array2<f64> {
@@ -69,22 +91,87 @@ pub(crate) fn dense_first_order_psi_hessian(terms: &ExactNewtonJointPsiTerms) ->
 
 #[test]
 pub(crate) fn ctn_penalty_scale_seed_uses_likelihood_to_penalty_ratio() {
-    let likelihood_gram = array![[8.0, 0.0], [0.0, 8.0]];
     let penalties = vec![
         PenaltyMatrix::Dense(array![[2.0, 0.0], [0.0, 2.0]]),
         PenaltyMatrix::Dense(array![[4.0, 0.0], [0.0, 4.0]]),
     ];
-    let rho = ctn_penalty_scale_log_lambdas(&penalties, &likelihood_gram);
+    let rho = ctn_penalty_scale_log_lambdas(&penalties, 8.0);
     assert!((rho[0] - 4.0_f64.ln()).abs() < 1.0e-12);
     assert!((rho[1] - 2.0_f64.ln()).abs() < 1.0e-12);
 }
 
 #[test]
-pub(crate) fn tensor_psi_penalty_derivatives_follow_shape_only_scop_layout() {
+pub(crate) fn prebuilt_ctn_family_uses_explicit_rho_without_reseeding() {
+    let response = array![-1.0, -0.2, 0.6, 1.3];
+    let config = toy_scop_ctn_config();
+    let (val_basis, deriv_basis, response_penalties, knots, transform) =
+        build_response_basis(&response, &config).expect("toy response basis builds");
+    let weights = Array1::ones(response.len());
+    let offset = Array1::zeros(response.len());
+    let covariate = array![[1.0], [1.0], [1.0], [1.0]];
+    let family = TransformationNormalFamily::from_prebuilt_response_basis(
+        &response,
+        val_basis,
+        deriv_basis,
+        response_penalties,
+        knots,
+        config.response_degree,
+        transform,
+        &weights,
+        &offset,
+        DesignMatrix::Dense(DenseDesignMatrix::from(covariate)),
+        vec![],
+        &config,
+        None,
+    )
+    .expect("prebuilt CTN family");
+
+    let derived = family
+        .penalty_scale_log_lambdas()
+        .expect("data-scaled smoothing seed");
+    let rho_dim = derived.len();
+    assert!(rho_dim > 0, "fixture must carry a smoothing coordinate");
+    let explicit = Array1::from_iter((0..rho_dim).map(|index| -0.75 + 0.125 * index as f64));
+    let supplied = family
+        .block_spec(&explicit)
+        .expect("explicit-rho coefficient block");
+    assert!(beta_bits_match(
+        &supplied.initial_log_lambdas,
+        &explicit,
+    ));
+    assert!(beta_bits_match(
+        supplied.initial_beta.as_ref().expect("initial beta"),
+        &family.initial_beta,
+    ));
+
+    let wrong_length = match family.block_spec(&Array1::zeros(rho_dim + 1)) {
+        Ok(_) => panic!("wrong-length explicit rho must fail"),
+        Err(error) => error,
+    };
+    assert!(wrong_length.contains("smoothing vector has length"));
+
+    let mut non_finite = explicit;
+    non_finite[0] = f64::NAN;
+    let non_finite = match family.block_spec(&non_finite) {
+        Ok(_) => panic!("non-finite explicit rho must fail"),
+        Err(error) => error,
+    };
+    assert!(non_finite.contains("invalid transformation smoothing strength"));
+}
+
+#[test]
+pub(crate) fn tensor_psi_penalty_derivatives_carry_response_mass_gram_layout() {
     let response = array![-1.0, -0.2, 0.6, 1.3];
     let (val_basis, deriv_basis, knots, transform, p_resp) = toy_response_basis(&response);
     let weights = Array1::from_elem(response.len(), 1.0);
     let offset = Array1::zeros(response.len());
+    // The covariate-direction penalty is `G_y ⊗ S_{x,j}(κ)`, so every ψ/κ
+    // derivative component lifts through the κ-independent response value-basis
+    // mass Gram `G_y = Vᵀ W V` (gam#2306). Compute it from the same basis and
+    // weights the family sees.
+    let expected_g_resp =
+        weighted_function_gram(val_basis.view(), weights.view(), p_resp, "response")
+            .expect("response mass gram");
     let cov_design = array![[1.0, 0.2], [1.0, -0.1], [1.0, 0.4], [1.0, -0.3]];
     let family = TransformationNormalFamily::from_prebuilt_response_basis(
         &response,
@@ -130,8 +217,8 @@ pub(crate) fn tensor_psi_penalty_derivatives_follow_shape_only_scop_layout() {
         .expect("first derivatives");
     let got_indices: Vec<usize> = first.iter().map(|(idx, _)| *idx).collect();
     assert_eq!(got_indices, vec![0, 1]);
-    assert_shape_penalty_component(&first[0].1, p_resp, &ds0);
-    assert_shape_penalty_component(&first[1].1, p_resp, &ds1);
+    assert_covariate_penalty_component(&first[0].1, &expected_g_resp, &ds0);
+    assert_covariate_penalty_component(&first[1].1, &expected_g_resp, &ds1);
 
     let second = tensor_derivs[0]
         .s_psi_psi_penalty_components
@@ -140,7 +227,207 @@ pub(crate) fn tensor_psi_penalty_derivatives_follow_shape_only_scop_layout() {
     assert_eq!(second.len(), 1);
     let got_second_indices: Vec<usize> = second[0].iter().map(|(idx, _)| *idx).collect();
     assert_eq!(got_second_indices, vec![1]);
-    assert_shape_penalty_component(&second[0][0].1, p_resp, &ds1_second);
+    assert_covariate_penalty_component(&second[0][0].1, &expected_g_resp, &ds1_second);
+}
+
+/// The CTN tensor penalty list is assembled as `[covariate.., response.., double]`
+/// and the layout records that order load-bearingly (the psi-derivative channel
+/// addresses the G_x-bearing response/double penalties by `n_cov+i`). This pins
+/// the order so an innocent future reorder cannot silently desync the
+/// κ-derivatives (gam#2306).
+#[test]
+pub(crate) fn ctn_tensor_penalty_layout_orders_covariate_response_double() {
+    let response = array![-1.0, -0.2, 0.6, 1.3];
+    let config = TransformationNormalConfig {
+        double_penalty: true,
+        response_degree: 1,
+        response_num_internal_knots: 2,
+        ..TransformationNormalConfig::default()
+    };
+    let (val_basis, deriv_basis, response_penalties, knots, transform) =
+        build_response_basis(&response, &config).expect("response basis builds");
+    let n_response = response_penalties.len();
+    assert!(n_response >= 1, "toy config must carry a response roughness penalty");
+    let weights = Array1::from_elem(response.len(), 1.0);
+    let offset = Array1::zeros(response.len());
+    let cov_design = array![[1.0, 0.2], [1.0, -0.1], [1.0, 0.4], [1.0, -0.3]];
+    let p_cov = cov_design.ncols();
+    let s_cov = array![[2.0, -1.0], [-1.0, 2.0]];
+    let g_cov = weighted_function_gram(cov_design.view(), weights.view(), p_cov, "covariate")
+        .expect("covariate mass gram");
+
+    let family = TransformationNormalFamily::from_prebuilt_response_basis(
+        &response,
+        val_basis,
+        deriv_basis,
+        response_penalties,
+        knots,
+        config.response_degree,
+        transform,
+        &weights,
+        &offset,
+        DesignMatrix::Dense(DenseDesignMatrix::from(cov_design)),
+        vec![PenaltyMatrix::Dense(s_cov.clone())],
+        &config,
+        None,
+    )
+    .expect("toy transformation family");
+
+    let layout = family.tensor_penalty_layout;
+    assert_eq!(layout.n_covariate, 1);
+    assert_eq!(layout.n_response, n_response);
+    assert!(layout.has_double);
+    assert_eq!(layout.total(), family.tensor_penalties.len());
+    assert_eq!(layout.response_indices(), 1..1 + n_response);
+    let double_index = 1 + n_response;
+
+    // Covariate penalty (index 0) carries S_x on the right.
+    let PenaltyMatrix::KroneckerFactored { right, .. } = &family.tensor_penalties[0] else {
+        panic!("covariate penalty must be Kronecker-factored");
+    };
+    assert_eq!(right, &s_cov);
+
+    // Every response penalty carries the covariate mass Gram G_x on the right.
+    for r in layout.response_indices() {
+        let PenaltyMatrix::KroneckerFactored { right, .. } = &family.tensor_penalties[r] else {
+            panic!("response penalty must be Kronecker-factored");
+        };
+        for ((i, j), &value) in right.indexed_iter() {
+            assert!(
+                (value - g_cov[[i, j]]).abs() <= 1e-12 * (1.0 + g_cov[[i, j]].abs()),
+                "response penalty {r} right factor must be G_x"
+            );
+        }
+    }
+
+    // The double penalty is the full-rank shape-row ridge shape_resp ⊗ I_cov:
+    // its covariate factor MUST be the identity (not the rank-deficient G_x), so
+    // it pins weakly-identified shape×covariate directions (no rank_deficient_H_pen).
+    let PenaltyMatrix::KroneckerFactored { left, right } =
+        &family.tensor_penalties[double_index]
+    else {
+        panic!("double penalty must be Kronecker-factored");
+    };
+    for ((i, j), &value) in right.indexed_iter() {
+        let want: f64 = if i == j { 1.0 } else { 0.0 };
+        assert_eq!(value, want, "double penalty covariate factor must be identity");
+    }
+    for ((i, j), &value) in left.indexed_iter() {
+        let want: f64 = if i == j && i > 0 { 1.0 } else { 0.0 };
+        assert_eq!(value, want, "double penalty left factor is the shape-row ridge");
+    }
+}
+
+/// First-order κ-derivative of the response-roughness penalty `S_y ⊗ G_x(κ)`
+/// (assembled from the emitted `s_psi_penalty_components`) matches a central
+/// finite difference of the assembled penalty, rebuilding Ψ(κ±h) per leg so the
+/// covariate mass Gram `G_x` is re-evaluated each side (no frozen cache). This
+/// is the desync guard for the moving-Ψ penalty channel (gam#2306).
+#[test]
+pub(crate) fn ctn_response_penalty_gx_first_order_kappa_derivative_matches_fd() {
+    let psi = array![0.15, -0.10];
+    let h = 1e-6;
+    let (family, blocks, _state, _spec) =
+        toy_family_and_derivatives_with_penalty_mode(&psi, true);
+    let p_total = family.p_total();
+    let n_pen = family.tensor_penalties.len();
+    assert!(
+        family.tensor_penalty_layout.n_response >= 1,
+        "penalty-mode family must carry the G_x-bearing response penalty"
+    );
+    // Unit smoothing strengths: the penalty-derivative assembly scales each
+    // component by lambda[idx]; matching lambdas on both sides isolates dG_x/dκ.
+    let lambdas = Array1::<f64>::ones(n_pen);
+
+    let analytic_first = |derivs: &[CustomFamilyBlockPsiDerivative], a: usize| -> Array2<f64> {
+        let mut s = Array2::<f64>::zeros((p_total, p_total));
+        if let Some(components) = derivs[a].s_psi_penalty_components.as_ref() {
+            for (idx, component) in components {
+                s.scaled_add(lambdas[*idx], &component.to_dense());
+            }
+        }
+        s
+    };
+    let assembled = |psi_eval: &Array1<f64>| -> Array2<f64> {
+        let (f, _, _, _) = toy_family_and_derivatives_with_penalty_mode(psi_eval, true);
+        let mut s = Array2::<f64>::zeros((p_total, p_total));
+        for (k, penalty) in f.tensor_penalties.iter().enumerate() {
+            s.scaled_add(lambdas[k], &penalty.to_dense());
+        }
+        s
+    };
+
+    for a in 0..psi.len() {
+        let mut psi_plus = psi.clone();
+        psi_plus[a] += h;
+        let mut psi_minus = psi.clone();
+        psi_minus[a] -= h;
+        let fd = (assembled(&psi_plus) - assembled(&psi_minus)) / (2.0 * h);
+        let analytic = analytic_first(&blocks[0], a);
+        assert_matrix_derivativefd(
+            &fd,
+            &analytic,
+            2e-4,
+            &format!("CTN response penalty dG_x/dkappa axis {a}"),
+        );
+    }
+}
+
+/// Second-order κ-derivative of `S_y ⊗ G_x(κ)` (assembled from
+/// `s_psi_psi_penalty_components`) matches a central finite difference of the
+/// first-order derivative, per-leg Ψ rebuild. Validates the `d²G_x/dκ²` channel
+/// — including the `(∂Ψ/∂κ_a)ᵀW(∂Ψ/∂κ_j)` cross term — used by the outer
+/// exact-Newton Hessian (gam#2306).
+#[test]
+pub(crate) fn ctn_response_penalty_gx_second_order_kappa_derivative_matches_fd() {
+    let psi = array![0.15, -0.10];
+    let h = 1e-5;
+    let (family, _blocks, _state, _spec) =
+        toy_family_and_derivatives_with_penalty_mode(&psi, true);
+    let p_total = family.p_total();
+    let n_pen = family.tensor_penalties.len();
+    let lambdas = Array1::<f64>::ones(n_pen);
+
+    let analytic_first_at = |psi_eval: &Array1<f64>, a: usize| -> Array2<f64> {
+        let (_, blocks, _, _) = toy_family_and_derivatives_with_penalty_mode(psi_eval, true);
+        let mut s = Array2::<f64>::zeros((p_total, p_total));
+        if let Some(components) = blocks[0][a].s_psi_penalty_components.as_ref() {
+            for (idx, component) in components {
+                s.scaled_add(lambdas[*idx], &component.to_dense());
+            }
+        }
+        s
+    };
+    let analytic_second = |a: usize, j: usize| -> Array2<f64> {
+        let (_, blocks, _, _) = toy_family_and_derivatives_with_penalty_mode(&psi, true);
+        let mut s = Array2::<f64>::zeros((p_total, p_total));
+        if let Some(rows) = blocks[0][a].s_psi_psi_penalty_components.as_ref() {
+            if let Some(pairs) = rows.get(j) {
+                for (idx, component) in pairs {
+                    s.scaled_add(lambdas[*idx], &component.to_dense());
+                }
+            }
+        }
+        s
+    };
+
+    for a in 0..psi.len() {
+        for j in 0..psi.len() {
+            let mut psi_plus = psi.clone();
+            psi_plus[j] += h;
+            let mut psi_minus = psi.clone();
+            psi_minus[j] -= h;
+            let fd =
+                (analytic_first_at(&psi_plus, a) - analytic_first_at(&psi_minus, a)) / (2.0 * h);
+            let analytic = analytic_second(a, j);
+            assert_matrix_derivativefd(
+                &fd,
+                &analytic,
+                3e-4,
+                &format!("CTN response penalty d2G_x/dkappa axes ({a},{j})"),
+            );
+        }
+    }
 }
 
 #[test]
@@ -213,22 +500,22 @@ pub(crate) fn tensor_psi_row_chunks_are_window_consistent() {
     );
 }
 
-pub(crate) fn assert_shape_penalty_component(
+pub(crate) fn assert_covariate_penalty_component(
     penalty: &PenaltyMatrix,
-    p_resp: usize,
+    expected_left: &Array2<f64>,
     expected_right: &Array2<f64>,
 ) {
     let PenaltyMatrix::KroneckerFactored { left, right } = penalty else {
         panic!("expected KroneckerFactored penalty component");
     };
     assert_eq!(right, expected_right);
-    assert_eq!(left.nrows(), p_resp);
-    assert_eq!(left.ncols(), p_resp);
-    for r in 0..p_resp {
-        for c in 0..p_resp {
-            let expected = if r == c && r > 0 { 1.0 } else { 0.0 };
-            assert_eq!(left[[r, c]], expected);
-        }
+    assert_eq!(left.dim(), expected_left.dim());
+    for ((r, c), &value) in left.indexed_iter() {
+        let want = expected_left[[r, c]];
+        assert!(
+            (value - want).abs() <= 1e-12 * (1.0 + want.abs()),
+            "covariate penalty left factor [{r},{c}] = {value} != expected G_y {want}"
+        );
     }
 }
 
@@ -350,7 +637,7 @@ fn toy_family_and_derivatives_with_penalty_mode(
     .expect("toy transformation family");
     let derivative_blocks =
         vec![build_tensor_psi_derivatives(&family, &cov_derivs).expect("tensor psi derivs")];
-    // Positive γ across the response axis with mild covariate variation so
+    // Positive alpha across the response axis with mild covariate variation so
     // h' = (M ⊗_row B_cov)·β stays strictly positive on every row (M-splines
     // are non-negative; the toy covariate design is positive-valued).
     let mut beta_vec = Vec::with_capacity(p_total);
@@ -375,7 +662,10 @@ fn toy_family_and_derivatives_with_penalty_mode(
         beta,
         eta: Array1::zeros(h_prime.len()),
     };
-    let spec = family.block_spec();
+    let rho0 = family
+        .penalty_scale_log_lambdas()
+        .expect("toy smoothing seed");
+    let spec = family.block_spec(&rho0).expect("toy coefficient block");
     (family, derivative_blocks, state, spec)
 }
 
@@ -391,20 +681,67 @@ pub(crate) fn toy_family_and_derivatives(
 }
 
 #[test]
+pub(crate) fn direct_alpha_ctn_exposes_exact_factored_monotonicity_cone() {
+    let (family, _, state, spec) = toy_family_and_derivatives(&array![0.15, -0.10]);
+    let constraints = family
+        .block_linear_constraints(std::slice::from_ref(&state), 0, &spec)
+        .expect("CTN monotonicity constraints build")
+        .expect("direct-alpha CTN must constrain its shape rows");
+    let gam_problem::ConstraintSet::KhatriRaoCone(cone) = constraints else {
+        panic!("direct-alpha CTN must keep the large cone factored");
+    };
+
+    let p_resp = family.response_val_basis.ncols();
+    let p_cov = family.covariate_design.ncols();
+    assert_eq!(cone.p_left(), p_resp);
+    assert_eq!(cone.coupled_rows(), &(1..p_resp).collect::<Vec<_>>());
+    assert_eq!(cone.ncols(), spec.design.ncols());
+    assert_eq!(cone.nrows(), family.n_obs() * (p_resp - 1));
+    assert_eq!(cone.factor().nrows(), family.n_obs());
+    assert_eq!(cone.factor().ncols(), p_cov);
+    assert!(
+        cone.values(state.beta.view())
+            .expect("feasible toy alpha values")
+            .iter()
+            .all(|value| *value > 0.0),
+        "the production warm-start shape field must be strictly feasible"
+    );
+
+    let mut location_only = Array1::<f64>::zeros(spec.design.ncols());
+    location_only[0] = -100.0;
+    assert!(
+        cone.values(location_only.view())
+            .expect("unconstrained location values")
+            .iter()
+            .all(|value| *value == 0.0),
+        "response row zero is the unconstrained location field"
+    );
+
+    let mut invalid_shape = Array1::<f64>::zeros(spec.design.ncols());
+    invalid_shape[p_cov] = -1.0;
+    assert!(
+        cone.values(invalid_shape.view())
+            .expect("invalid shape values")
+            .iter()
+            .any(|value| *value < 0.0),
+        "a negative realized shape field must violate the cone"
+    );
+}
+
+#[test]
 pub(crate) fn ctn_row_quantity_cache_matches_direct_formulas() {
     let psi = array![0.15, -0.10];
     let (family, _, state, _) = toy_family_and_derivatives(&psi);
     let row = family
         .row_quantities(&state.beta)
         .expect("toy row quantities");
-    // SCOP-CTN forward: h = X_val · γ²-affine + offset + ε(y−median),
-    // h' = X_deriv · γ²-affine + ε.
-    let direct_h = family.x_val_kron.scop_affine_squared_forward(&state.beta)
+    // Direct-alpha SCOP-CTN is affine in the coefficient block.
+    let direct_h = family.x_val_kron.forward_mul(&state.beta)
         + family.offset.as_ref()
         + family.response_floor_offset.as_ref();
     let direct_h_prime = family
         .x_deriv_kron
-        .scop_affine_squared_forward(&state.beta)
+        .forward_mul(&state.beta)
         .mapv(|hp| hp + TRANSFORMATION_MONOTONICITY_EPS);
     let weights = family.weights.as_ref();
 
@@ -436,21 +773,21 @@ pub(crate) fn ctn_row_quantity_cache_matches_direct_formulas() {
         .expect("toy covariate rows");
     let mut h_lower = Array1::<f64>::zeros(cov.nrows());
     let mut h_upper = Array1::<f64>::zeros(cov.nrows());
-    let mut gamma = vec![0.0; p_resp];
+    let mut alpha = vec![0.0; p_resp];
     for i in 0..cov.nrows() {
         let cov_row = cov.row(i);
         for k in 0..p_resp {
-            gamma[k] = beta_mat.row(k).dot(&cov_row);
+            alpha[k] = beta_mat.row(k).dot(&cov_row);
         }
-        let mut lower = family.response_lower_basis[0] * gamma[0]
+        let mut lower = family.response_lower_basis[0] * alpha[0]
             + family.offset[i]
             + family.response_lower_floor_offset;
-        let mut upper = family.response_upper_basis[0] * gamma[0]
+        let mut upper = family.response_upper_basis[0] * alpha[0]
             + family.offset[i]
             + family.response_upper_floor_offset;
         for k in 1..p_resp {
-            lower += family.response_lower_basis[k] * gamma[k] * gamma[k];
-            upper += family.response_upper_basis[k] * gamma[k] * gamma[k];
+            lower += family.response_lower_basis[k] * alpha[k];
+            upper += family.response_upper_basis[k] * alpha[k];
         }
         h_lower[i] = lower;
         h_upper[i] = upper;
@@ -504,26 +841,29 @@ pub(crate) fn transformation_normal_pit_score_uses_finite_support_normalizer() {
         .expect("positive-tail PIT score");
     assert!(positive_tail.is_finite());
 
-    // Extrapolation past the upper endpoint is *not* an error: the PIT
-    // mapping clamps `h` to `[lower, upper]` so `u → 1`, and the
-    // `clip_eps` clamp on the standard-normal quantile call yields the
-    // upper-tail extreme finite value (`≈ Φ⁻¹(1 - clip_eps)`). At
-    // large-scale shape, an honest test sample at-or-just-beyond the
-    // training response support routinely lands here from boundary
-    // roundoff alone, so failing closed would ship a hard prediction
-    // error on every CTN bootstrap pass.
+    // Direct-α cutover (gam#2306): extrapolation meaningfully past an endpoint
+    // is a typed refusal, not a clamped tail quantile. `h = 2.1` sits 0.1 above
+    // `upper = 2.0` on a support of width 4.0 — orders of magnitude past the
+    // boundary-roundoff floor — so it is outside the certified positivity
+    // domain and must be refused, naming the value and the domain.
     let above_upper = transformation_normal_pit_score(2.1, -2.0, 2.0, 1.0e-12)
-        .expect("extrapolation above upper endpoint should clamp, not error");
-    assert!(above_upper.is_finite());
-    assert!(above_upper > 0.0, "h>upper must produce upper-tail PIT");
+        .expect_err("extrapolation above upper endpoint must refuse, not clamp");
+    assert!(above_upper.contains("certified"));
+    assert!(above_upper.contains("outside the fitted domain"));
     let below_lower = transformation_normal_pit_score(-2.1, -2.0, 2.0, 1.0e-12)
-        .expect("extrapolation below lower endpoint should clamp, not error");
-    assert!(below_lower.is_finite());
-    assert!(below_lower < 0.0, "h<lower must produce lower-tail PIT");
+        .expect_err("extrapolation below lower endpoint must refuse, not clamp");
+    assert!(below_lower.contains("certified"));
+    assert!(below_lower.contains("outside the fitted domain"));
+
+    // A sub-floor roundoff excursion at the endpoint is still tolerated (snapped
+    // to the boundary), since honest training-boundary rows land there.
+    let roundoff = transformation_normal_pit_score(2.0 + 8.0 * f64::EPSILON, -2.0, 2.0, 1.0e-12)
+        .expect("boundary roundoff must snap to the endpoint, not refuse");
+    assert!(roundoff.is_finite() && roundoff > 0.0);
 
     // Genuinely-malformed input (NaN h) must still be rejected by the
-    // early `is_finite()` guard — the soft-clamp is for legitimate
-    // numerical extrapolation, not for non-finite values.
+    // early `is_finite()` guard — the roundoff tolerance is for legitimate
+    // numerical noise at the boundary, not for non-finite values.
     let nan_err = transformation_normal_pit_score(f64::NAN, -2.0, 2.0, 1.0e-12)
         .expect_err("NaN h must still be rejected");
     assert!(nan_err.contains("finite"));
@@ -596,7 +936,7 @@ pub(crate) fn transformation_normal_uses_compact_gaussian_outer_seeding() {
 }
 
 #[test]
-pub(crate) fn max_feasible_step_size_is_unconstrained_for_scop_derivative() {
+pub(crate) fn max_feasible_step_size_delegates_to_the_factored_cone() {
     let psi = array![0.15, -0.10];
     let (family, _, state, _) = toy_family_and_derivatives(&psi);
     let p_total = state.beta.len();
@@ -620,7 +960,7 @@ pub(crate) fn max_feasible_step_size_is_unconstrained_for_scop_derivative() {
 
 #[test]
 pub(crate) fn warm_start_absorbs_offset_into_affine_seed() {
-    // The SCOP squared-γ warm start is built directly in β-space: choose a
+    // The direct-alpha warm start is built directly in coefficient space: choose a
     // positive constant shape seed for h', subtract its induced value
     // contribution, then solve the unconstrained location row. The fixed
     // monotonicity floor is part of h, so the value target includes
@@ -693,7 +1033,7 @@ pub(crate) fn kronecker_dense_fast_paths_match_dense_materialization() {
         [0.7, 0.1, 0.6],
         [-0.2, 0.9, 0.5],
     ];
-    let weights = array![0.7, 1.4, 0.9, 1.2];
+    let weights = array![0.7, 0.0, 0.9, 1.2];
     let v = array![0.6, -0.3, 0.5, 0.8];
     let kron = KroneckerDesign::new_khatri_rao(
         &left,
@@ -709,6 +1049,10 @@ pub(crate) fn kronecker_dense_fast_paths_match_dense_materialization() {
     let got_gram = kron
         .weighted_gram(&weights, &ResourcePolicy::default_library())
         .unwrap();
+    let got_diagonal_mean = kron
+        .weighted_gram_diagonal_mean(&weights, &ResourcePolicy::default_library())
+        .unwrap();
+    let expected_diagonal_mean = matrix_diag_mean_abs(&expected_gram);
 
     let transpose_err = (&got_transpose - &expected_transpose)
         .iter()
@@ -723,6 +1067,10 @@ pub(crate) fn kronecker_dense_fast_paths_match_dense_materialization() {
     assert!(
         gram_err < 1e-10,
         "Kronecker weighted Gram fast path mismatch: max_abs={gram_err}"
+    );
+    assert!(
+        (got_diagonal_mean - expected_diagonal_mean).abs() < 1e-12,
+        "Kronecker weighted Gram diagonal mean mismatch: got={got_diagonal_mean}, expected={expected_diagonal_mean}"
     );
 }
 
@@ -791,7 +1139,13 @@ pub(crate) fn transformation_normal_joint_psi_second_order_terms_match_fd() {
     let specs = vec![spec];
 
     let analytic = family
-        .exact_newton_joint_psisecond_order_terms(&states, &specs, &derivative_blocks, 0, 1)
+        .exact_newton_joint_psisecond_order_terms(
+            &states,
+            &specs,
+            &test_design_hyper_layout(&derivative_blocks),
+            0,
+            1,
+        )
         .expect("analytic psi second-order terms")
         .expect("psi second-order terms should be present");
 
@@ -801,7 +1155,12 @@ pub(crate) fn transformation_normal_joint_psi_second_order_terms_match_fd() {
         let states_eval = vec![state_eval];
         let specs_eval = vec![spec_eval];
         f_eval
-            .exact_newton_joint_psi_terms(&states_eval, &specs_eval, &deriv_eval, 0)
+            .exact_newton_joint_psi_terms(
+                &states_eval,
+                &specs_eval,
+                &test_design_hyper_layout(&deriv_eval),
+                0,
+            )
             .expect("first-order psi terms")
             .expect("first-order terms should be present")
     };
@@ -864,7 +1223,12 @@ pub(crate) fn transformation_normal_joint_psi_first_order_matches_normalized_log
     let specs = vec![spec];
 
     let analytic = family
-        .exact_newton_joint_psi_terms(&states, &specs, &derivative_blocks, 0)
+        .exact_newton_joint_psi_terms(
+            &states,
+            &specs,
+            &test_design_hyper_layout(&derivative_blocks),
+            0,
+        )
         .expect("analytic psi first-order terms")
         .expect("first-order terms should be present");
 
@@ -905,7 +1269,7 @@ pub(crate) fn transformation_normal_joint_psi_first_order_matches_normalized_log
             .exact_newton_joint_psi_terms(
                 std::slice::from_ref(&state_eval),
                 &specs,
-                &derivative_blocks,
+                &test_design_hyper_layout(&derivative_blocks),
                 0,
             )
             .expect("first-order psi terms at shifted beta")
@@ -983,7 +1347,12 @@ pub(crate) fn ctn_psi_workspace_first_order_matches_per_axis_path_bit_equivalent
     for psi_index in 0..n_psi {
         per_axis.push(
             family
-                .exact_newton_joint_psi_terms(&states, &specs, &derivative_blocks, psi_index)
+                .exact_newton_joint_psi_terms(
+                    &states,
+                    &specs,
+                    &test_design_hyper_layout(&derivative_blocks),
+                    psi_index,
+                )
                 .expect("per-axis ψ terms")
                 .expect("per-axis ψ terms must be present"),
         );
@@ -991,7 +1360,11 @@ pub(crate) fn ctn_psi_workspace_first_order_matches_per_axis_path_bit_equivalent
 
     // All-axes pass via the workspace.
     let workspace = family
-        .exact_newton_joint_psi_workspace(&states, &specs, &derivative_blocks)
+        .exact_newton_joint_psi_workspace(
+            &states,
+            &specs,
+            &test_design_hyper_layout(&derivative_blocks),
+        )
         .expect("CTN ψ workspace constructor")
         .expect("CTN ψ workspace must be present");
     let mut shared_factor = Array2::<f64>::zeros((state.beta.len(), 3));
@@ -1177,7 +1550,11 @@ pub(crate) fn ctn_psi_workspace_second_order_matches_per_pair_path() {
     let n_psi = derivative_blocks[0].len();
 
     let workspace = family
-        .exact_newton_joint_psi_workspace(&states, &specs, &derivative_blocks)
+        .exact_newton_joint_psi_workspace(
+            &states,
+            &specs,
+            &test_design_hyper_layout(&derivative_blocks),
+        )
         .expect("CTN ψ workspace constructor")
         .expect("CTN ψ workspace must be present");
     let mut shared_factor = Array2::<f64>::zeros((state.beta.len(), 3));
@@ -1194,7 +1571,7 @@ pub(crate) fn ctn_psi_workspace_second_order_matches_per_pair_path() {
                 .exact_newton_joint_psisecond_order_terms(
                     &states,
                     &specs,
-                    &derivative_blocks,
+                    &test_design_hyper_layout(&derivative_blocks),
                     psi_i,
                     psi_j,
                 )
@@ -1261,7 +1638,13 @@ pub(crate) fn transformation_normal_joint_psi_second_order_terms_are_operator_ba
     let specs = vec![spec];
 
     let terms = family
-        .exact_newton_joint_psisecond_order_terms(&states, &specs, &derivative_blocks, 0, 1)
+        .exact_newton_joint_psisecond_order_terms(
+            &states,
+            &specs,
+            &test_design_hyper_layout(&derivative_blocks),
+            0,
+            1,
+        )
         .expect("analytic psi second-order terms")
         .expect("psi second-order terms should be present");
 
@@ -1350,7 +1733,7 @@ pub(crate) fn transformation_normal_joint_psihessian_directional_derivative_matc
         .exact_newton_joint_psihessian_directional_derivative(
             std::slice::from_ref(&state),
             &specs,
-            &derivative_blocks,
+            &test_design_hyper_layout(&derivative_blocks),
             0,
             &direction,
         )
@@ -1364,7 +1747,7 @@ pub(crate) fn transformation_normal_joint_psihessian_directional_derivative_matc
             .exact_newton_joint_psi_terms(
                 std::slice::from_ref(&shifted_state),
                 &specs,
-                &derivative_blocks,
+                &test_design_hyper_layout(&derivative_blocks),
                 0,
             )
             .expect("first-order psi terms at shifted beta")
@@ -1383,7 +1766,11 @@ pub(crate) fn transformation_normal_joint_psihessian_directional_derivative_matc
     );
 
     let workspace = family
-        .exact_newton_joint_psi_workspace(&[state.clone()], &specs, &derivative_blocks)
+        .exact_newton_joint_psi_workspace(
+            &[state.clone()],
+            &specs,
+            &test_design_hyper_layout(&derivative_blocks),
+        )
         .expect("CTN psi workspace constructor")
         .expect("CTN psi workspace must be present");
     let drift_op = workspace
@@ -1559,6 +1946,38 @@ pub(crate) fn ctn_joint_hessian_workspace_matvec_matches_dense() {
 }
 
 #[test]
+pub(crate) fn ctn_direct_hessian_matvec_honors_outer_subsample_weights() {
+    let psi = array![0.15, -0.10];
+    let (family, _, state, _) = toy_family_and_derivatives(&psi);
+    let masked = family
+        .with_outer_subsample(&array![0.0, 2.5, 0.0, 1.5])
+        .expect("non-binary outer subsample weights");
+    let row_quantities = masked
+        .row_quantities(&state.beta)
+        .expect("masked row quantities");
+    let (_, dense) = masked
+        .scop_gradient_and_negative_hessian(&state.beta, &row_quantities)
+        .expect("masked dense Hessian");
+
+    let probe = toy_probe_vector(state.beta.len(), 607);
+    let want = dense.dot(&probe);
+    let mut got = Array1::<f64>::zeros(probe.len());
+    masked
+        .scop_hessian_matvec_into(&state.beta, &row_quantities, &probe, &mut got)
+        .expect("masked direct Hessian matvec");
+
+    for i in 0..want.len() {
+        let tolerance = 1e-11 * want[i].abs().max(1.0) + 1e-12;
+        assert!(
+            (want[i] - got[i]).abs() <= tolerance,
+            "masked direct Hessian matvec mismatch at {i}: dense={:.6e}, direct={:.6e}, tolerance={tolerance:.6e}",
+            want[i],
+            got[i]
+        );
+    }
+}
+
+#[test]
 pub(crate) fn ctn_joint_hessian_workspace_matvec_into_primes_dense_cache() {
     let psi = array![0.15, -0.10];
     let (family, _, state, _) = toy_family_and_derivatives(&psi);
@@ -1571,6 +1990,11 @@ pub(crate) fn ctn_joint_hessian_workspace_matvec_into_primes_dense_cache() {
     )
     .expect("workspace build");
     assert!(workspace.dense_hessian_cache_enabled());
+    assert_eq!(
+        workspace.hessian_source_preference_for_intent(MaterializationIntent::InnerSolve),
+        JointHessianSourcePreference::Dense,
+        "a CTN Hessian that will be cached densely must expose that matrix to the inner spectral mode solver"
+    );
     assert!(workspace.dense_hessian_cache.get().is_none());
 
     let dense = family
@@ -2225,162 +2649,374 @@ pub(crate) fn ctn_exact_newton_joint_gradient_evaluation_matches_evaluate() {
     }
 }
 
-/// Pairwise oracle for Phase-2 outer-HVP cross-checking.
-///
-/// Builds the toy CTN fixture (n=4, p_resp=2, p_cov=2, ψ_dim=2), calls the
-/// existing pairwise body `exact_newton_joint_psisecond_order_terms(i, j)`
-/// for every (i, j) pair, computes the directional contraction
-/// `Σ_j v_j · pair(i, j)` for a fixed direction `v`, and writes the full
-/// likelihood-only result to `/tmp/ctn_pairwise_oracle.json`.
-///
-/// Independent verification path for the SCOP CTN HVP work. The old Python
-/// scripts used the pre-SCOP linear tensor likelihood and were removed so
-/// they cannot be mistaken for ground truth.
-///
-/// Run via:
-///     cargo test --release ctn_pairwise_oracle_dumps_json -- --nocapture
+// ---------------------------------------------------------------------------
+// SPEC-5 response-direction function-space penalty (#2306)
+// ---------------------------------------------------------------------------
+
+/// Deterministic well-spread response sample for the response-basis penalty
+/// tests. A monotone spread over [-2, 2] gives well-separated I-spline knots.
+fn spec5_penalty_response() -> Array1<f64> {
+    Array1::from_iter((0..200).map(|i| (i as f64) / 199.0 * 4.0 - 2.0))
+}
+
+/// The realized response-direction penalty is the EXACT function-space
+/// I-spline roughness Gram embedded with an unpenalized location row/column —
+/// never a coefficient-difference operator. This is the concrete #2306
+/// cutover: `build_response_basis` must emit `ispline_function_penalties`, not
+/// `create_difference_penalty_matrix`.
 #[test]
-pub(crate) fn ctn_pairwise_oracle_dumps_json() {
-    let psi = array![0.15, -0.10];
-    let v = array![0.4, -0.7];
+pub(crate) fn ctn_response_penalty_is_exact_ispline_function_roughness() {
+    let config = TransformationNormalConfig::default();
+    let response = spec5_penalty_response();
+    let (val_basis, _deriv, penalties, knots, _transform) =
+        build_response_basis(&response, &config).expect("response basis builds");
+    assert!(
+        !penalties.is_empty(),
+        "response basis must carry at least the primary roughness penalty"
+    );
+    let p_resp = val_basis.ncols();
+    let p_shape = p_resp - 1;
+    let order = config.response_penalty_order;
 
-    let (family, derivative_blocks, state, spec) = toy_family_and_derivatives(&psi);
-    let block_states = vec![state.clone()];
-    let specs = vec![spec.clone()];
-    let beta = state.beta.clone();
+    let expected = ispline_function_penalties(knots.view(), config.response_degree, order, false)
+        .expect("exact I-spline function roughness")
+        .roughness;
+    assert_eq!(expected.dim(), (p_shape, p_shape));
 
-    let psi_dim = psi.len();
-    let p_total = beta.len();
-    let n_obs = family.weights.as_ref().len();
-
-    eprintln!("[oracle] toy CTN: n={n_obs}, p_resp=2, p_cov=2, p_total={p_total}, ψ_dim={psi_dim}");
-
-    // The CTN psi-psi second-order kernel can return the dense block
-    // either eagerly (`hessian_psi_psi`, p_total×p_total) or lazily
-    // (`hessian_psi_psi_operator`, materialized via `to_dense`). The
-    // oracle dump records the dense numbers, so materialize on demand.
-    let dense_pair_hessian = |terms: &ExactNewtonJointPsiSecondOrderTerms| -> Array2<f64> {
-        if terms.hessian_psi_psi.nrows() > 0 {
-            terms.hessian_psi_psi.clone()
-        } else {
-            terms
-                .hessian_psi_psi_operator
-                .as_ref()
-                .expect("CTN psi-psi must expose either dense Hessian or operator")
-                .to_dense()
-        }
-    };
-
-    // Per-pair pairwise body — likelihood pieces only (no penalty/logdet).
-    let mut pair_records = Vec::new();
-    for i in 0..psi_dim {
-        for j in 0..psi_dim {
-            let terms = family
-                .exact_newton_joint_psisecond_order_terms(
-                    &block_states,
-                    &specs,
-                    &derivative_blocks,
-                    i,
-                    j,
-                )
-                .expect("pairwise call ok")
-                .expect("pairwise returns Some for valid i,j");
-            let g_inf = terms
-                .score_psi_psi
-                .iter()
-                .fold(0.0f64, |m, x| m.max(x.abs()));
-            let b_dense = dense_pair_hessian(&terms);
-            let b_inf = b_dense.iter().fold(0.0f64, |m, x| m.max(x.abs()));
-            eprintln!(
-                "[oracle] pair (i={i}, j={j}): a={:.10}, ‖g‖∞={:.6e}, ‖b_mat‖∞={:.6e}",
-                terms.objective_psi_psi, g_inf, b_inf,
+    let primary = &penalties[0];
+    assert_eq!(primary.dim(), (p_resp, p_resp));
+    // Location row/column is unpenalized.
+    for j in 0..p_resp {
+        assert!(
+            primary[[0, j]].abs() < 1e-15 && primary[[j, 0]].abs() < 1e-15,
+            "location row/column must be unpenalized at index {j}"
+        );
+    }
+    // Shape block equals the exact function-space roughness bitwise-close.
+    let block = primary.slice(s![1.., 1..]);
+    for r in 0..p_shape {
+        for c in 0..p_shape {
+            assert!(
+                (block[[r, c]] - expected[[r, c]]).abs()
+                    <= 1e-12 * expected[[r, c]].abs().max(1.0),
+                "shape block ({r},{c}) = {:.6e} but exact function roughness = {:.6e}",
+                block[[r, c]],
+                expected[[r, c]],
             );
-            pair_records.push(serde_json::json!({
-                "i": i,
-                "j": j,
-                "a": terms.objective_psi_psi,
-                "g": terms.score_psi_psi.to_vec(),
-                "b_mat": b_dense.iter().copied().collect::<Vec<f64>>(),
-                "b_mat_shape": [b_dense.nrows(), b_dense.ncols()],
-            }));
         }
     }
 
-    // Directional contraction: Σ_j v_j · pair(i, j) for each free axis i.
-    let mut a_dir = Array1::<f64>::zeros(psi_dim);
-    let mut g_dir = Array2::<f64>::zeros((psi_dim, p_total));
-    let mut b_dir = vec![Array2::<f64>::zeros((p_total, p_total)); psi_dim];
-    for i in 0..psi_dim {
-        for j in 0..psi_dim {
-            let terms = family
-                .exact_newton_joint_psisecond_order_terms(
-                    &block_states,
-                    &specs,
-                    &derivative_blocks,
-                    i,
-                    j,
-                )
-                .expect("pairwise call ok")
-                .expect("pairwise returns Some for valid i,j");
-            a_dir[i] += v[j] * terms.objective_psi_psi;
-            let mut g_row = g_dir.slice_mut(s![i, ..]);
-            g_row.scaled_add(v[j], &terms.score_psi_psi);
-            b_dir[i].scaled_add(v[j], &dense_pair_hessian(&terms));
+    // Discriminator: the retired coefficient-difference operator is a DIFFERENT
+    // matrix, so the cutover genuinely changed the penalized metric.
+    let difference =
+        gam_terms::basis::create_difference_penalty_matrix(p_shape, order, None).unwrap();
+    let mut max_rel = 0.0_f64;
+    for r in 0..p_shape {
+        for c in 0..p_shape {
+            let scale = expected[[r, c]].abs().max(difference[[r, c]].abs()).max(1e-9);
+            max_rel = max_rel.max((expected[[r, c]] - difference[[r, c]]).abs() / scale);
         }
     }
+    assert!(
+        max_rel > 0.1,
+        "function-space roughness must differ materially from the difference operator (max rel {max_rel:.3e})"
+    );
+}
 
-    eprintln!("[oracle] directional contraction Σ_j v_j · pair(i, j):");
-    for i in 0..psi_dim {
-        eprintln!(
-            "[oracle]   i={i}: a_dir={:.10}, ‖g_dir‖∞={:.6e}, ‖b_dir‖∞={:.6e}",
-            a_dir[i],
-            g_dir.row(i).iter().fold(0.0f64, |m, x| m.max(x.abs())),
-            b_dir[i].iter().fold(0.0f64, |m, x| m.max(x.abs())),
+/// The response-direction penalty is the roughness of the represented
+/// I-spline value function: `βᵀ S β = ∫ (dᵐ/dyᵐ Σ_k β_k I_k(y))² dy`.
+/// Matching this quadrature (and NOT the scale-free difference operator)
+/// proves the penalty is a scale/knot-width-aware function-space metric.
+#[test]
+pub(crate) fn ctn_response_penalty_matches_direct_function_roughness_quadrature() {
+    let config = TransformationNormalConfig::default();
+    let response = spec5_penalty_response();
+    let (val_basis, _deriv, penalties, knots, _transform) =
+        build_response_basis(&response, &config).expect("response basis builds");
+    let p_resp = val_basis.ncols();
+    let p_shape = p_resp - 1;
+    let order = config.response_penalty_order;
+
+    // Deterministic shape coefficients, location coefficient left at zero.
+    let beta_shape = toy_probe_vector(p_shape, 0x5C0F_u64.wrapping_add(order as u64));
+    let mut beta = Array1::<f64>::zeros(p_resp);
+    beta.slice_mut(s![1..]).assign(&beta_shape);
+
+    let quad_form = beta.dot(&penalties[0].dot(&beta));
+    assert!(quad_form > 0.0, "roughness of a nontrivial shape must be positive");
+
+    // Direct Simpson quadrature of the m-th derivative squared over the full
+    // knot support.
+    let lower = *knots.first().unwrap();
+    let upper = *knots.last().unwrap();
+    let panels = 40_000usize; // even -> composite Simpson
+    let step = (upper - lower) / panels as f64;
+    let grid = Array1::from_iter((0..=panels).map(|i| lower + step * i as f64));
+    let deriv_basis =
+        create_ispline_derivative_dense(grid.view(), &knots, config.response_degree, order)
+            .expect("m-th derivative basis on quadrature grid");
+    assert_eq!(deriv_basis.dim(), (panels + 1, p_shape));
+    let fm = deriv_basis.dot(&beta_shape);
+    let mut integral = fm[0] * fm[0] + fm[panels] * fm[panels];
+    for i in 1..panels {
+        let weight = if i % 2 == 1 { 4.0 } else { 2.0 };
+        integral += weight * fm[i] * fm[i];
+    }
+    integral *= step / 3.0;
+
+    let rel = (quad_form - integral).abs() / quad_form.abs();
+    assert!(
+        rel < 2e-4,
+        "penalty quadratic form {quad_form:.8e} must match direct function roughness {integral:.8e} (rel {rel:.3e})"
+    );
+
+    // The scale-free difference operator does NOT reproduce the function-space
+    // roughness — this is exactly why the difference operator was wrong.
+    let difference =
+        gam_terms::basis::create_difference_penalty_matrix(p_shape, order, None).unwrap();
+    let difference_form = beta_shape.dot(&difference.dot(&beta_shape));
+    let diff_rel = (difference_form - integral).abs() / integral.abs();
+    assert!(
+        diff_rel > 0.1,
+        "difference operator quadratic form {difference_form:.8e} must NOT match the function roughness {integral:.8e} (rel {diff_rel:.3e})"
+    );
+}
+
+/// The assembled covariate-direction tensor penalty is the exact SPEC-5
+/// function-measure roughness `½ βᵀ (G_y ⊗ S_x) β` with `G_y = Vᵀ W V` the
+/// response value-basis mass Gram — NOT the retired identity shape-row factor
+/// (`diag(0,1,…,1) ⊗ S_x`), which is coefficient geometry (gam#2306). This
+/// pins three discriminating properties: the left factor equals `G_y`, a
+/// centering field in `null(S_x)` stays exactly unpenalized (free intercept),
+/// and a genuine covariate main-effect of the location field IS smoothed — the
+/// behavior the identity shape-row factor dropped.
+#[test]
+pub(crate) fn ctn_covariate_penalty_is_response_mass_gram_function_roughness() {
+    let response = array![-1.0, -0.2, 0.6, 1.3];
+    let (val_basis, deriv_basis, knots, transform, p_resp) = toy_response_basis(&response);
+    let weights = Array1::from_elem(response.len(), 1.0);
+    let offset = Array1::zeros(response.len());
+    let cov_design = array![[1.0, 0.2], [1.0, -0.1], [1.0, 0.4], [1.0, -0.3]];
+    let p_cov = cov_design.ncols();
+
+    // Rank-1 covariate roughness with a known null vector [1, 1]: `S_x v = 0`,
+    // so any covariate coefficient row proportional to [1, 1] carries no
+    // roughness while [1, 0] does.
+    let s_cov = array![[1.0, -1.0], [-1.0, 1.0]];
+
+    let expected_g_resp =
+        weighted_function_gram(val_basis.view(), weights.view(), p_resp, "response")
+            .expect("response mass gram");
+
+    let family = TransformationNormalFamily::from_prebuilt_response_basis(
+        &response,
+        val_basis,
+        deriv_basis,
+        vec![],
+        knots,
+        toy_scop_ctn_config().response_degree,
+        transform,
+        &weights,
+        &offset,
+        DesignMatrix::Dense(DenseDesignMatrix::from(cov_design)),
+        vec![PenaltyMatrix::Dense(s_cov.clone())],
+        &toy_scop_ctn_config(),
+        None,
+    )
+    .expect("toy transformation family");
+
+    // Covariate penalties are assembled first; index 0 is `G_y ⊗ S_x`.
+    let PenaltyMatrix::KroneckerFactored { left, right } = &family.tensor_penalties[0] else {
+        panic!("covariate-direction penalty must be Kronecker-factored");
+    };
+    assert_eq!(right, &s_cov, "right factor must be the covariate roughness Gram");
+    assert_eq!(left.dim(), (p_resp, p_resp));
+    for ((r, c), &value) in left.indexed_iter() {
+        let want = expected_g_resp[[r, c]];
+        assert!(
+            (value - want).abs() <= 1e-12 * (1.0 + want.abs()),
+            "left factor [{r},{c}] = {value} must equal G_y {want}"
         );
     }
 
-    let directional_records: Vec<_> = (0..psi_dim)
-        .map(|i| {
-            serde_json::json!({
-                "i": i,
-                "a_dir": a_dir[i],
-                "g_dir": g_dir.row(i).to_vec(),
-                "b_dir": b_dir[i].iter().copied().collect::<Vec<f64>>(),
-                "b_dir_shape": [p_total, p_total],
-            })
-        })
-        .collect();
+    // Discriminator: G_y is materially different from the retired identity
+    // shape-row factor diag(0, 1, …, 1) — the cutover genuinely changed the
+    // penalized metric.
+    let mut max_gap = 0.0_f64;
+    for r in 0..p_resp {
+        for c in 0..p_resp {
+            let old: f64 = if r == c && r > 0 { 1.0 } else { 0.0 };
+            let scale = expected_g_resp[[r, c]].abs().max(old.abs()).max(1e-9);
+            max_gap = max_gap.max((expected_g_resp[[r, c]] - old).abs() / scale);
+        }
+    }
+    assert!(
+        max_gap > 0.1,
+        "G_y must differ materially from the identity shape-row factor (max rel {max_gap:.3e})"
+    );
 
-    let blob = serde_json::json!({
-        "config": {
-            "n": n_obs,
-            "p_resp": 2,
-            "p_cov": 2,
-            "p_total": p_total,
-            "psi_dim": psi_dim,
-            "beta": beta.to_vec(),
-            "psi": psi.to_vec(),
-            "v": v.to_vec(),
-        },
-        "pairwise": pair_records,
-        "directional_contraction": directional_records,
-        "note": "Likelihood-only pieces from exact_newton_joint_psisecond_order_terms. \
-                 Penalty/logdet contributions are added by the unified evaluator's \
-                 outer_hessian_entry. Cross-check this against sympy-shadow's symbolic \
-                 derivation of the same likelihood quantities at the same toy config.",
-    });
+    let penalty_dense = family.tensor_penalties[0].to_dense();
+    let quad_form = |a_rows: &[[f64; 2]]| -> f64 {
+        let mut beta = Array1::<f64>::zeros(p_resp * p_cov);
+        for (k, row) in a_rows.iter().enumerate() {
+            for (a, &value) in row.iter().enumerate() {
+                beta[k * p_cov + a] = value;
+            }
+        }
+        beta.dot(&penalty_dense.dot(&beta))
+    };
 
-    let path = "/tmp/ctn_pairwise_oracle.json";
-    std::fs::write(
-        path,
-        serde_json::to_string_pretty(&blob).expect("serialize ok"),
-    )
-    .expect("write ok");
-    eprintln!("[oracle] wrote {path}");
+    // A location field whose covariate coefficients lie in null(S_x) (∝ [1,1])
+    // is a null-roughness direction: the free intercept stays unpenalized.
+    let mut null_location = vec![[0.0, 0.0]; p_resp];
+    null_location[0] = [1.0, 1.0];
+    assert!(
+        quad_form(&null_location).abs() < 1e-12,
+        "a centering field in null(S_x) must carry zero covariate roughness"
+    );
 
-    // Sanity assertions: nothing NaN, directional contraction is consistent
-    // with element-wise summation.
-    assert!(a_dir.iter().all(|x| x.is_finite()));
-    assert!(g_dir.iter().all(|x| x.is_finite()));
-    assert!(b_dir.iter().all(|m| m.iter().all(|x| x.is_finite())));
+    // A genuine covariate main-effect of the location field (∉ null(S_x)) IS
+    // penalized now — exactly the term the identity shape-row factor dropped.
+    let mut main_effect = vec![[0.0, 0.0]; p_resp];
+    main_effect[0] = [1.0, 0.0];
+    let expected_main = expected_g_resp[[0, 0]] * 1.0; // [1,0] S_x [1,0]ᵀ = 1
+    let got_main = quad_form(&main_effect);
+    assert!(
+        (got_main - expected_main).abs() <= 1e-12 * (1.0 + expected_main.abs()),
+        "location main-effect roughness {got_main} must equal G_y[0,0]·(vᵀS_x v) {expected_main}"
+    );
+    assert!(
+        got_main > 1e-6,
+        "location main-effect must be smoothed (was dropped by the identity shape-row factor)"
+    );
+}
+
+/// SPEC-5 basis-change invariance of the covariate-direction penalty: the
+/// penalized roughness of a fixed transformation `h` is invariant to the choice
+/// of covariate design basis. Under a reparameterization `Ψ' = Ψ T` (T
+/// invertible), the same function has covariate coefficients `A' = A T⁻ᵀ` and
+/// the roughness Gram transforms covariantly to `S_x' = Tᵀ S_x T`, so the
+/// assembled `βᵀ (G_y ⊗ S_x) β` is unchanged. An identity coefficient factor
+/// would NOT be basis-covariant — this pins the penalty as a genuine
+/// function-space quantity (gam#2306).
+#[test]
+pub(crate) fn ctn_covariate_penalty_is_basis_change_invariant() {
+    let response = array![-1.0, -0.2, 0.6, 1.3];
+    let weights = Array1::from_elem(response.len(), 1.0);
+    let offset = Array1::zeros(response.len());
+
+    // Base covariate design Ψ and an invertible reparameterization T (det 1).
+    let psi_design = array![[1.0, 0.2], [1.0, -0.1], [1.0, 0.4], [1.0, -0.3]];
+    let p_cov = psi_design.ncols();
+    let t = array![[1.0, 0.5], [0.0, 1.0]];
+    // T⁻ᵀ for T = [[1, 0.5], [0, 1]] is [[1, 0], [-0.5, 1]].
+    let t_inv_t = array![[1.0, 0.0], [-0.5, 1.0]];
+    let psi_reparam = psi_design.dot(&t);
+    let s_cov = array![[2.0, -1.0], [-1.0, 2.0]];
+    let s_cov_reparam = t.t().dot(&s_cov).dot(&t);
+
+    let build = |cov: Array2<f64>, pen: Array2<f64>| -> (PenaltyMatrix, usize) {
+        let (val_basis, deriv_basis, knots, transform, p_resp) = toy_response_basis(&response);
+        let family = TransformationNormalFamily::from_prebuilt_response_basis(
+            &response,
+            val_basis,
+            deriv_basis,
+            vec![],
+            knots,
+            toy_scop_ctn_config().response_degree,
+            transform,
+            &weights,
+            &offset,
+            DesignMatrix::Dense(DenseDesignMatrix::from(cov)),
+            vec![PenaltyMatrix::Dense(pen)],
+            &toy_scop_ctn_config(),
+            None,
+        )
+        .expect("toy transformation family");
+        (family.tensor_penalties[0].clone(), p_resp)
+    };
+
+    let (penalty_base, p_resp) = build(psi_design.clone(), s_cov.clone());
+    let (penalty_reparam, p_resp_b) = build(psi_reparam, s_cov_reparam);
+    assert_eq!(p_resp, p_resp_b);
+
+    // A fixed transformation as a coefficient matrix A (p_resp × p_cov) in the
+    // base basis, and its reparameterized coefficients A' = A T⁻ᵀ.
+    let a_flat = toy_probe_vector(p_resp * p_cov, 0xB6C1_u64);
+    let a = a_flat
+        .clone()
+        .into_shape_with_order((p_resp, p_cov))
+        .expect("reshape A");
+    let a_reparam = a.dot(&t_inv_t);
+
+    let beta_base = a_flat;
+    let beta_reparam = a_reparam
+        .into_shape_with_order(p_resp * p_cov)
+        .expect("flatten A'");
+
+    let base_dense = penalty_base.to_dense();
+    let reparam_dense = penalty_reparam.to_dense();
+    let roughness_base = beta_base.dot(&base_dense.dot(&beta_base));
+    let roughness_reparam = beta_reparam.dot(&reparam_dense.dot(&beta_reparam));
+
+    assert!(
+        roughness_base > 1e-6,
+        "probe transformation must carry nontrivial covariate roughness"
+    );
+    let rel = (roughness_base - roughness_reparam).abs() / roughness_base.abs();
+    assert!(
+        rel <= 1e-10,
+        "covariate roughness must be basis-change invariant: base {roughness_base:.8e} vs reparam {roughness_reparam:.8e} (rel {rel:.3e})"
+    );
+}
+
+/// Unsupported response-direction derivative orders are hard errors, not
+/// silently skipped no-ops (the retired `if order==0 || order>=p {return Ok}`
+/// path). Order 0 is the value function; an order above the I-spline value
+/// degree has an identically-zero derivative and carries no roughness.
+#[test]
+pub(crate) fn ctn_response_penalty_rejects_unsupported_derivative_order() {
+    let response = spec5_penalty_response();
+
+    // response_degree = 1 -> value_degree = 2; order 3 is unsupported.
+    let too_high = TransformationNormalConfig {
+        response_degree: 1,
+        response_penalty_order: 3,
+        response_extra_penalty_orders: vec![],
+        ..TransformationNormalConfig::default()
+    };
+    let err = build_response_basis(&response, &too_high)
+        .expect_err("derivative order above the value degree must be rejected");
+    assert!(
+        err.contains("exceeds the I-spline value degree"),
+        "unexpected too-high-order error: {err}"
+    );
+
+    // Order 0 is not a roughness penalty.
+    let zero_order = TransformationNormalConfig {
+        response_penalty_order: 0,
+        response_extra_penalty_orders: vec![],
+        ..TransformationNormalConfig::default()
+    };
+    let err0 = build_response_basis(&response, &zero_order)
+        .expect_err("derivative order 0 must be rejected");
+    assert!(
+        err0.contains("derivative order must be >= 1"),
+        "unexpected zero-order error: {err0}"
+    );
+
+    // An unsupported order supplied only through the EXTRA orders list is also
+    // rejected (no silent skip on the secondary path).
+    let extra_bad = TransformationNormalConfig {
+        response_degree: 1,
+        response_penalty_order: 1,
+        response_extra_penalty_orders: vec![3],
+        ..TransformationNormalConfig::default()
+    };
+    let err_extra = build_response_basis(&response, &extra_bad)
+        .expect_err("unsupported extra derivative order must be rejected");
+    assert!(
+        err_extra.contains("exceeds the I-spline value degree"),
+        "unexpected extra-order error: {err_extra}"
+    );
 }

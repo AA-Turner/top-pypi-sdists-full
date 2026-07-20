@@ -33,6 +33,7 @@ pub mod fisher_rao;
 pub mod gauge;
 pub mod identifiability_audit;
 pub mod joint_penalty;
+mod constraint_set;
 mod linear_constraints;
 pub mod log_strength;
 pub mod monotone_root_error;
@@ -68,7 +69,7 @@ pub use block_role::BlockRole;
 pub use block_spec::{
     AdditiveBlockJacobian, BlockEffectiveJacobian, BlockGeometryDirectionalDerivative,
     BlockWorkingSet, FamilyChannelHessian, FamilyLinearizationState, GaugeComposedJacobian,
-    ParameterBlockSpec, ParameterBlockState, RowScaledJacobian, TensorChannelHessian,
+    ParameterBlockSpec, ParameterBlockState, RowScaledJacobian,
 };
 pub use coefficient_prior_mean::{CoefficientPriorMean, PriorMeanError};
 pub use custom_family_blockwise::{
@@ -99,6 +100,9 @@ pub use identifiability_audit::{
     AliasedPair, BlockIdentity, DroppedColumn, IdentifiabilityAudit, MapUniquenessError,
 };
 pub use joint_penalty::{JointPenaltyBundle, JointPenaltyError, JointPenaltySpec};
+pub use constraint_set::{
+    ConstraintRowId, ConstraintSet, KhatriRaoConeConstraints, PlacedConstraintBlock,
+};
 pub use linear_constraints::LinearInequalityConstraints;
 pub use log_strength::{
     IndexedLogStrengthDomainError, LOG_STRENGTH_MAX, LOG_STRENGTH_MIN, LogStrengthDomainError,
@@ -110,17 +114,19 @@ pub use penalty_coordinate::PenaltyCoordinate;
 pub use penalty_matrix::PenaltyMatrix;
 pub use pseudo_logdet::PseudoLogdetMode;
 pub use psi_design_contract::{
-    CustomFamilyBlockPsiDerivative, CustomFamilyPsiDerivativeOperator,
-    JointHessianSourcePreference, MaterializablePsiDerivativeOperator, MaterializationIntent,
-    SharedDerivativeBlocks,
+    CustomFamilyBlockPsiDerivative, CustomFamilyHyperAxis, CustomFamilyHyperLayout,
+    CustomFamilyPsiDerivativeOperator, JointHessianSourcePreference,
+    MaterializablePsiDerivativeOperator, MaterializationIntent, SharedCustomFamilyHyperLayout,
 };
 pub use psi_terms::{
     ExactNewtonJointPsiSecondOrderContracted, ExactNewtonJointPsiSecondOrderTerms,
     ExactNewtonJointPsiTerms, ExactNewtonJointPsiWorkspace,
 };
-pub use row_metric::{MetricProvenance, RowMetric, WeightField, pack_probe_factors};
+pub use row_metric::{
+    FisherFactorKind, MetricProvenance, RowMetric, WeightField, pack_probe_factors,
+};
 pub use schedule::{GumbelTemperatureSchedule, ScheduleKind, SearchStrategy};
-pub use seeding::{SeedConfig, SeedRiskProfile, clamp_seed_rho_to_bounds, normalize_seed_bounds};
+pub use seeding::{OrderedRhoBounds, SeedConfig, SeedRiskProfile};
 pub use solver_contract::{
     DeclaredHessianForm, Derivative, EfsEval, FixedPointCertificateEval,
     FixedPointCoordinateCertificate, HessianMaterialization, HessianOperator, HessianValue,
@@ -975,16 +981,25 @@ pub struct HyperCoord {
     pub tk_x_fixed: Option<Array2<f64>>,
 }
 
+#[derive(Clone)]
 pub struct HyperCoordPair {
     pub a: f64,
     pub g: Array1<f64>,
     pub b_mat: Array2<f64>,
-    pub b_operator: Option<Box<dyn HyperOperator>>,
+    pub b_operator: Option<Arc<dyn HyperOperator>>,
     pub ld_s: f64,
 }
 
+/// Fallible result of computing one second-order fixed-β coordinate pair.
+///
+/// Pair assembly may call an immutable family workspace whose shape and
+/// numerical validation are deliberately error-capable. Keeping that failure
+/// in the callback contract lets dense and operator Hessian consumers stop
+/// with the original evidence instead of converting it into a panic.
+pub type HyperCoordPairResult = Result<HyperCoordPair, String>;
+
 /// Shared-ownership callback computing a second-order fixed-β
-/// [`HyperCoordPair`] for a coordinate pair `(i, j)`.
+/// [`HyperCoordPairResult`] for a coordinate pair `(i, j)`.
 ///
 /// `Arc` (not `Box`) so the same callback can be cloned into a derived
 /// `InnerSolution` — notably the tangent-projected solution built under active
@@ -993,7 +1008,7 @@ pub struct HyperCoordPair {
 /// are p-space; every consumer contracts them through the (possibly
 /// tangent-wrapped) Hessian operator, which applies the `ZᵀMZ` / `Z H_T⁻¹ Zᵀ`
 /// projection internally, so a clone-through is mathematically exact.
-pub type HyperCoordPairFn = Arc<dyn Fn(usize, usize) -> HyperCoordPair + Send + Sync>;
+pub type HyperCoordPairFn = Arc<dyn Fn(usize, usize) -> HyperCoordPairResult + Send + Sync>;
 
 impl HyperCoordPair {
     pub fn zero() -> Self {
@@ -1045,7 +1060,7 @@ impl DriftDerivResult {
 }
 
 pub type FixedDriftDerivFn =
-    Box<dyn Fn(usize, &Array1<f64>) -> Option<DriftDerivResult> + Send + Sync>;
+    Box<dyn Fn(usize, &Array1<f64>) -> Result<Option<DriftDerivResult>, String> + Send + Sync>;
 
 /// Shared-ownership form of [`FixedDriftDerivFn`] used for `InnerSolution`
 /// storage, so the same `M_i[u] = D_β B_i[u]` callback can be cloned into a
@@ -1055,7 +1070,7 @@ pub type FixedDriftDerivFn =
 /// (tangent-wrapped) Hessian operator's `trace_logdet_*`, so the clone-through
 /// is exact under projection.
 pub type SharedFixedDriftDerivFn =
-    Arc<dyn Fn(usize, &Array1<f64>) -> Option<DriftDerivResult> + Send + Sync>;
+    Arc<dyn Fn(usize, &Array1<f64>) -> Result<Option<DriftDerivResult>, String> + Send + Sync>;
 
 pub struct ContractedPsiSecondOrder {
     pub objective: Array1<f64>,

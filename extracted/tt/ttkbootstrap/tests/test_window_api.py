@@ -1,0 +1,459 @@
+"""Headless tests for the 2.0 Window/Toplevel API normalization (PR B).
+
+Covers the parts that are checkable without a real display:
+- deprecated raw-Tk kwarg spellings normalize to snake_case (with a warning),
+- the combined/edge-relative geometry string construction,
+- the positioning math (center + clamp),
+- the unified icon/`iconphoto` semantics (including the old `Toplevel`
+  `iconphoto=None` crash),
+- the consistent `style` property and the aqua `overrideredirect` guard.
+"""
+import warnings
+
+import pytest
+
+import ttkbootstrap as ttk
+from ttkbootstrap.internal import positioning
+from ttkbootstrap.style import Style
+from ttkbootstrap.style._compat import normalize_window_kwargs
+from ttkbootstrap.window import App, Toplevel, Window, _BaseWindow
+
+
+# --------------------------------------------------------------------------
+# kwarg normalization
+# --------------------------------------------------------------------------
+
+def test_normalize_window_kwargs_maps_and_warns():
+    kwargs = {"hdpi": False, "overrideredirect": True, "master": "x"}
+    with pytest.warns(DeprecationWarning):
+        out = normalize_window_kwargs(kwargs)
+    assert out == {"high_dpi": False, "override_redirect": True}
+    # only the legacy names are consumed; unrelated kwargs are left in place
+    assert kwargs == {"master": "x"}
+
+
+def test_normalize_window_kwargs_noop_when_absent():
+    kwargs = {"background": "red"}
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        out = normalize_window_kwargs(kwargs)
+    assert out == {}
+    assert kwargs == {"background": "red"}
+
+
+def test_toplevel_accepts_legacy_windowtype_with_warning(root):
+    with pytest.warns(DeprecationWarning):
+        top = ttk.Toplevel(title="legacy", windowtype="dialog")
+    top.destroy()
+
+
+def test_toplevel_new_names_are_warning_free(root):
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        top = ttk.Toplevel(title="modern", window_type="dialog", iconify=True)
+    top.destroy()
+
+
+# --------------------------------------------------------------------------
+# geometry string construction
+# --------------------------------------------------------------------------
+
+class _GeoRecorder(_BaseWindow):
+    """Minimal stand-in that records geometry strings without a real window."""
+
+    def __init__(self):
+        self.calls = []
+
+    def geometry(self, value=None):
+        self.calls.append(value)
+
+
+def test_apply_geometry_size_and_position_combined():
+    rec = _GeoRecorder()
+    rec._apply_geometry((800, 600), (100, 120))
+    assert rec.calls == ["800x600+100+120"]
+
+
+def test_apply_geometry_negative_position_is_edge_relative():
+    rec = _GeoRecorder()
+    rec._apply_geometry(None, (-10, -20))
+    assert rec.calls == ["-10-20"]
+
+
+def test_apply_geometry_size_only():
+    rec = _GeoRecorder()
+    rec._apply_geometry((640, 480), None)
+    assert rec.calls == ["640x480"]
+
+
+def test_apply_geometry_nothing_is_a_noop():
+    rec = _GeoRecorder()
+    rec._apply_geometry(None, None)
+    assert rec.calls == []
+
+
+# --------------------------------------------------------------------------
+# positioning math
+# --------------------------------------------------------------------------
+
+def test_center_on_screen_is_within_bounds(root):
+    # The window must land fully inside its target monitor. On a multi-monitor
+    # layout that monitor can have a negative origin (a display left of/above the
+    # primary), so asserting `x >= 0` is wrong — resolve the same monitor the
+    # function centers on and assert against its bounds.
+    x, y = positioning.center_on_screen(root)
+    w_width, w_height = positioning._window_size(root)
+    monitor = positioning._monitor_at_point(
+        root.winfo_pointerx(), root.winfo_pointery()
+    )
+    if monitor:
+        mx, my, mw, mh = monitor
+    else:
+        mx, my = 0, 0
+        mw, mh = root.winfo_screenwidth(), root.winfo_screenheight()
+    # `max(0, ...)` keeps the bound valid even if the window is larger than the
+    # monitor, in which case the function pins it to the monitor's top-left.
+    assert mx <= x <= mx + max(0, mw - w_width)
+    assert my <= y <= my + max(0, mh - w_height)
+
+
+def test_center_on_parent_offsets_from_parent_origin(root):
+    top = ttk.Toplevel(title="child", size=(200, 100))
+    top.update_idletasks()
+    x, y = positioning.center_on_parent(top, root)
+    # centered coordinates never sit above/left of the parent's own origin
+    assert x >= root.winfo_rootx()
+    assert y >= root.winfo_rooty()
+    top.destroy()
+
+
+def test_ensure_on_screen_clamps_far_offscreen(root):
+    x, y = positioning.ensure_on_screen(root, 100000, 100000)
+    assert x < root.winfo_screenwidth()
+    assert y < root.winfo_screenheight()
+
+
+def test_below_widget_drops_below_left_aligned(root):
+    # A target with room beneath it: the popup's top-left sits at the target's
+    # bottom-left (standard dropdown placement).
+    target = ttk.Frame(root, width=120, height=24)
+    target.place(x=10, y=10)
+    target.update_idletasks()
+    popup = ttk.Toplevel(size=(200, 100))
+    popup.update_idletasks()
+    x, y = positioning.below_widget(popup, target)
+    assert x == target.winfo_rootx()
+    assert y >= target.winfo_rooty() + target.winfo_height() - 1
+    popup.destroy()
+    target.destroy()
+
+
+def test_below_widget_flips_above_when_no_room_below(root):
+    # A target pinned near the bottom of its monitor: the popup flips to sit
+    # above the target rather than overflowing the screen bottom.
+    top = ttk.Toplevel(size=(300, 40))
+    screen_h = top.winfo_screenheight()
+    top.geometry(f"300x40+200+{screen_h - 60}")
+    target = ttk.Frame(top, width=120, height=24)
+    target.pack(padx=4, pady=4)
+    top.update_idletasks()
+    top.update()
+
+    popup = ttk.Toplevel(size=(200, 220))
+    popup.update_idletasks()
+    x, y = positioning.below_widget(popup, target)
+    # Placed above: the popup's bottom edge is at/above the target's top edge.
+    assert y + 220 <= target.winfo_rooty() + 2
+    popup.destroy()
+    target.destroy()
+    top.destroy()
+
+
+# --------------------------------------------------------------------------
+# icon semantics
+# --------------------------------------------------------------------------
+
+def test_toplevel_iconphoto_none_does_not_crash(root):
+    # Pre-2.0 this raised: iconphoto=None fell into PhotoImage(file=None).
+    top = ttk.Toplevel(title="noicon", iconphoto=None)
+    top.destroy()
+
+
+def test_toplevel_bad_iconphoto_path_warns_not_prints(root):
+    with pytest.warns(UserWarning):
+        top = ttk.Toplevel(title="badicon", iconphoto="/no/such/file.png")
+    top.destroy()
+
+
+def test_app_default_icon_uses_default_flag_on_win32(root):
+    # Regression: dialogs/pickers showed the Tk feather because the win32 app
+    # icon was applied via `wm_iconbitmap(path)` (no `-default`), so child
+    # toplevels did not inherit it. It must be applied with `default=` so it
+    # becomes the app-wide default for every future toplevel.
+    from ttkbootstrap.window import _APP_ICON_ICO, _DEFAULT_ICON_DATA
+    if not _APP_ICON_ICO.is_file():
+        pytest.skip("packaged .ico not present")
+    top = ttk.Toplevel(title="iconspy")
+    top.winsys = "win32"  # exercise the win32 branch regardless of host OS
+    recorded = {}
+    top.wm_iconbitmap = lambda bitmap=None, default=None: recorded.update(
+        bitmap=bitmap, default=default
+    )
+    top._apply_default_icon(_DEFAULT_ICON_DATA)
+    assert recorded.get("default") == str(_APP_ICON_ICO)
+    assert recorded.get("bitmap") is None  # not the per-window positional form
+    top.destroy()
+
+
+def test_toplevel_explicit_ico_is_per_window_not_app_wide(root):
+    # Regression: a secondary Toplevel's own .ico must apply to that window
+    # only, not become the app-wide default (which would re-skin App + every
+    # sibling toplevel). Only the root App's icon is app-wide (default=).
+    top = ttk.Toplevel(title="own-icon")
+    top.winsys = "win32"  # exercise the win32 branch regardless of host OS
+    recorded = {}
+    top.wm_iconbitmap = lambda bitmap=None, default=None: recorded.update(
+        bitmap=bitmap, default=default
+    )
+    top._setup_icon("C:/some/custom.ico", default_data=None)
+    assert recorded.get("default") is None                  # NOT app-wide
+    assert recorded.get("bitmap") == "C:/some/custom.ico"   # this window only
+    top.destroy()
+
+
+# --------------------------------------------------------------------------
+# style property + aqua guard
+# --------------------------------------------------------------------------
+
+def test_style_property_returns_singleton_for_both(root):
+    top = ttk.Toplevel(title="s")
+    assert root.style is Style.get_instance()
+    assert top.style is Style.get_instance()
+    top.destroy()
+
+
+def test_overrideredirect_noop_on_aqua(root):
+    top = ttk.Toplevel(title="aqua")
+    top.winsys = "aqua"  # simulate macOS
+    assert top.overrideredirect(True) is None
+    # the request was ignored: the window is still managed
+    assert not top.overrideredirect()
+    top.destroy()
+
+
+# --------------------------------------------------------------------------
+# aqua native window-style for borderless popups (tooltip titlebar fix)
+# --------------------------------------------------------------------------
+
+class _RecordingTk:
+    """Records ``call(...)`` args; the helper touches nothing else on ``tk``."""
+    def __init__(self):
+        self.calls = []
+
+    def call(self, *args):
+        self.calls.append(args)
+        return ""
+
+
+def _capture_mac_style(top, window_type):
+    # tkapp.call is read-only, so swap the whole tk handle for the duration of
+    # the helper (restored before destroy so teardown still works).
+    real_tk, rec = top.tk, _RecordingTk()
+    top.tk = rec
+    try:
+        top._apply_mac_window_style(window_type)
+    finally:
+        top.tk = real_tk
+    return rec.calls
+
+
+def test_apply_mac_window_style_borderless_types(root):
+    # On aqua the borderless types map to a native window class so the popup
+    # isn't drawn with a titlebar. Simulate aqua and capture the Tk call.
+    from ttkbootstrap.window import _AQUA_WINDOW_STYLES
+    top = ttk.Toplevel(title="aqua")
+    top.winsys = "aqua"
+    calls = _capture_mac_style(top, "tooltip")
+    assert calls == [("::tk::unsupported::MacWindowStyle", "style", top,
+                      *_AQUA_WINDOW_STYLES["tooltip"])]
+    top.destroy()
+
+
+def test_apply_mac_window_style_noop_off_aqua(root):
+    # Off aqua the native call must never fire (window_type stays x11-only).
+    top = ttk.Toplevel(title="x11")
+    top.winsys = "x11"
+    assert _capture_mac_style(top, "tooltip") == []
+    top.destroy()
+
+
+def test_apply_mac_window_style_ignores_unknown_type(root):
+    # A type with no native equivalent (e.g. "dialog") keeps default chrome.
+    top = ttk.Toplevel(title="aqua")
+    top.winsys = "aqua"
+    assert _capture_mac_style(top, "dialog") == []
+    top.destroy()
+
+
+# --------------------------------------------------------------------------
+# packaged app icon (built by tools/make_app_ico.py)
+# --------------------------------------------------------------------------
+
+def test_app_ico_is_packed_with_expected_sizes():
+    """The committed .ico must exist and carry every advertised size, so a stale
+    or un-regenerated asset is caught rather than shipping a broken icon."""
+    from PIL import Image
+    from ttkbootstrap.window import _APP_ICON_ICO
+
+    assert _APP_ICON_ICO.is_file(), "run tools/make_app_ico.py to build the .ico"
+    with Image.open(_APP_ICON_ICO) as im:
+        packed = {s[0] for s in im.ico.sizes()}
+    assert {16, 24, 32, 48, 64, 128, 256} <= packed
+
+
+def test_default_icon_falls_back_when_asset_missing(root, monkeypatch):
+    """If the packaged icon files are missing, the default brand icon still
+    applies via the embedded base64 fallback (icon is always set)."""
+    import ttkbootstrap.window as win
+    from pathlib import Path
+
+    monkeypatch.setattr(win, "_APP_ICON_ICO", Path("does-not-exist.ico"))
+    monkeypatch.setattr(win, "_APP_ICON_PNG", Path("does-not-exist.png"))
+    top = ttk.Toplevel(title="fallback")
+    top._apply_default_icon(win._DEFAULT_ICON_DATA)
+    assert top._icon is not None  # base64 fallback produced a PhotoImage
+    top.destroy()
+
+
+# --------------------------------------------------------------------------
+# Slice 2: App/Window and theme/themename naming aliases
+# --------------------------------------------------------------------------
+
+def test_app_is_canonical_and_window_is_a_permanent_alias():
+    # App is the real class; Window is the same object, not a subclass -- so
+    # repr/type().__name__/tracebacks read "App" while Window(...) keeps working.
+    assert App is Window
+    assert App.__name__ == "App"
+    assert ttk.App is App and ttk.Window is App
+
+
+def test_window_alias_isinstance_and_type_name(root):
+    # The shared session root is created as ttk.Window(); it must be an App and
+    # report App as its type name (the disambiguation payoff).
+    assert isinstance(root, App)
+    assert isinstance(root, Window)
+    assert type(root).__name__ == "App"
+
+
+def test_style_accepts_theme_and_themename_alias(root):
+    # Both spellings reach the singleton and switch the theme; the fixture
+    # restores the active theme on teardown.
+    ttk.Style(themename="pydata-light")
+    assert root.style.theme.name == "pydata-light"
+    ttk.Style(theme="pydata-dark")
+    assert root.style.theme.name == "pydata-dark"
+
+
+def test_style_prefers_theme_when_both_given(root):
+    # theme is canonical, so it wins when both are passed.
+    ttk.Style(theme="pydata-dark", themename="pydata-light")
+    assert root.style.theme.name == "pydata-dark"
+
+
+def test_window_kwargs_are_warning_free_for_new_names():
+    # theme/themename are permanent aliases -- neither may emit a warning. Verify
+    # at the signature level (a second live root can't be constructed here).
+    import inspect
+    params = inspect.signature(App.__init__).parameters
+    assert "theme" in params and "themename" in params
+    # theme is the second positional; themename is keyword-only.
+    assert params["theme"].kind is inspect.Parameter.POSITIONAL_OR_KEYWORD
+    assert params["themename"].kind is inspect.Parameter.KEYWORD_ONLY
+
+
+# --------------------------------------------------------------------------
+# on_close lifecycle handler
+# --------------------------------------------------------------------------
+
+def _fire_close(win):
+    """Invoke the WM_DELETE_WINDOW handler the way the window manager would."""
+    cmd = win.tk.call("wm", "protocol", win._w, "WM_DELETE_WINDOW")
+    win.tk.call(cmd)
+
+
+def test_on_close_runs_callback_then_destroys(root):
+    top = ttk.Toplevel(title="closes")
+    calls = []
+    top.on_close(lambda: calls.append(1))
+    _fire_close(top)
+    assert calls == [1]
+    assert not top.winfo_exists()  # auto-destroyed, no manual destroy() needed
+
+
+def test_on_close_returns_callback_for_decorator_use(root):
+    top = ttk.Toplevel(title="deco")
+    cb = lambda: None
+    assert top.on_close(cb) is cb
+    top.destroy()
+
+
+def test_on_close_veto_keeps_window_open(root):
+    top = ttk.Toplevel(title="veto")
+    calls = []
+
+    def veto():
+        calls.append(1)
+        return False
+
+    top.on_close(veto)
+    _fire_close(top)
+    assert calls == [1]
+    assert top.winfo_exists()  # returning False cancels the close
+    top.destroy()
+
+
+def test_on_close_constructor_kwarg(root):
+    calls = []
+    top = ttk.Toplevel(title="kw", on_close=lambda: calls.append(1))
+    _fire_close(top)
+    assert calls == [1]
+    assert not top.winfo_exists()
+
+
+def test_on_close_tolerates_callback_self_destroy(root):
+    top = ttk.Toplevel(title="selfdestruct")
+    top.on_close(lambda: top.destroy())
+    _fire_close(top)  # the auto-destroy must not raise on an already-dead window
+    assert not top.winfo_exists()
+
+
+def test_on_close_replaces_previous_handler(root):
+    top = ttk.Toplevel(title="replace")
+    order = []
+
+    def first():
+        order.append("first")
+        return False  # veto so the window survives for the second handler
+
+    top.on_close(first)
+    _fire_close(top)
+    assert order == ["first"] and top.winfo_exists()
+
+    top.on_close(lambda: order.append("second"))
+    _fire_close(top)
+    assert order == ["first", "second"] and not top.winfo_exists()
+
+
+def test_on_close_on_app_root_veto(root):
+    # `root` is the shared App fixture, so only exercise the veto path (which
+    # keeps it alive); this covers on_close on App as well as Toplevel.
+    calls = []
+
+    def veto():
+        calls.append(1)
+        return False
+
+    root.on_close(veto)
+    _fire_close(root)
+    assert calls == [1] and root.winfo_exists()
+    root.protocol("WM_DELETE_WINDOW", "")  # reset so the shared root is untouched

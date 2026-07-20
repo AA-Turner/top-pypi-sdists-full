@@ -53,6 +53,9 @@ cdef class SSLEngine:
     cdef incoming_bio_produce(self, Py_ssize_t nbytes):
         raise NotImplementedError()
 
+    cdef incoming_bio_write(self, data):
+        raise NotImplementedError()
+
     cdef bint sendfile_available(self) noexcept:
         return False
 
@@ -62,10 +65,13 @@ cdef class SSLEngine:
     cdef int renegotiate(self) except -1:
         raise NotImplementedError()
 
-    cdef int outgoing_bio_reset(self) except -1:
+    cdef outgoing_bio_reset(self):
         raise NotImplementedError()
 
     cdef Py_ssize_t outgoing_bio_pending(self) except -1:
+        raise NotImplementedError()
+
+    cdef bytes outgoing_bio_read(self):
         raise NotImplementedError()
 
     cdef Py_ssize_t outgoing_bio_get_data(self, char** pp) except -1:

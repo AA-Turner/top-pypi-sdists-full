@@ -15,10 +15,12 @@ from dataclasses import dataclass, field
 import json
 from pathlib import Path
 from typing import Any
+from unittest.mock import AsyncMock, patch
 
 from jsonschema import Draft202012Validator
 import pytest
 
+from ouroboros.bigbang.ambiguity import AmbiguityScore, ComponentScore, ScoreBreakdown
 from ouroboros.bigbang.interview import (
     INITIAL_CONTEXT_SUMMARY_QUESTION,
     InterviewRound,
@@ -117,6 +119,14 @@ class _StubInterviewEngine:
         # Always return the same canonical state object.
         return Result.ok(self.initial_state)
 
+    async def complete_interview(
+        self,
+        state: InterviewState,
+    ) -> Result[InterviewState, MCPServerError]:
+        state.status = InterviewStatus.COMPLETED
+        state.mark_updated()
+        return Result.ok(state)
+
 
 async def _drain_bg_tasks(handler: InterviewHandler) -> None:
     """Flush the handler's fire-and-forget event tasks deterministically."""
@@ -129,6 +139,32 @@ def _find_event(events: list[BaseEvent], *, event_type: str) -> BaseEvent | None
         if event.type == event_type:
             return event
     return None
+
+
+def _ready_score() -> AmbiguityScore:
+    return AmbiguityScore(
+        overall_score=0.1,
+        breakdown=ScoreBreakdown(
+            goal_clarity=ComponentScore(
+                name="Goal Clarity",
+                clarity_score=0.9,
+                weight=0.4,
+                justification="clear",
+            ),
+            constraint_clarity=ComponentScore(
+                name="Constraint Clarity",
+                clarity_score=0.9,
+                weight=0.3,
+                justification="clear",
+            ),
+            success_criteria_clarity=ComponentScore(
+                name="Success Criteria Clarity",
+                clarity_score=0.9,
+                weight=0.3,
+                justification="clear",
+            ),
+        ),
+    )
 
 
 def _assert_reasoning_meta(meta: dict[str, Any], *, phase: str, session_id: str) -> None:
@@ -595,6 +631,10 @@ async def test_start_emits_response_diagnostic_event(tmp_path: Path) -> None:
     assert data["transcript_chars"] >= 0
     assert isinstance(data["ambiguity_prefix_present"], bool)
     assert data["is_length_guard"] is False
+    assert data["timings_ms"]["total"] >= 0
+    assert data["timings_ms"]["ambiguity_scoring"] is None
+    assert data["timings_ms"]["question_generation"] >= 0
+    assert data["timings_ms"]["advisory_build"] >= 0
     assert diagnostic.aggregate_id == "interview_diagnostics00001"
 
 
@@ -628,6 +668,10 @@ async def test_start_with_length_guard_question_marks_event(tmp_path: Path) -> N
     assert diagnostic is not None
     assert diagnostic.data["is_length_guard"] is True
     assert diagnostic.data["response_kind"] == "start"
+    assert diagnostic.data["timings_ms"]["total"] >= 0
+    assert diagnostic.data["timings_ms"]["ambiguity_scoring"] is None
+    assert diagnostic.data["timings_ms"]["question_generation"] >= 0
+    assert diagnostic.data["timings_ms"]["advisory_build"] is None
 
 
 @pytest.mark.asyncio
@@ -676,8 +720,55 @@ async def test_resume_pending_emits_response_diagnostic_event(tmp_path: Path) ->
     assert diagnostic.data["response_kind"] == "resume_pending"
     assert diagnostic.data["round_number"] == 1
     assert diagnostic.data["is_length_guard"] is False
+    assert diagnostic.data["timings_ms"]["total"] >= 0
+    assert diagnostic.data["timings_ms"]["ambiguity_scoring"] is None
+    assert diagnostic.data["timings_ms"]["question_generation"] is None
+    assert diagnostic.data["timings_ms"]["advisory_build"] >= 0
     # Transcript chars must include the pending question text length.
     assert diagnostic.data["transcript_chars"] >= len("What is the main goal?")
+
+
+@pytest.mark.asyncio
+async def test_resume_without_pending_question_reports_generation_timing(
+    tmp_path: Path,
+) -> None:
+    """Resume path with no pending round generates and times a new question."""
+    resumed_state = InterviewState(
+        interview_id="interview_resume00000003",
+        initial_context="ctx",
+        status=InterviewStatus.IN_PROGRESS,
+    )
+    resumed_state.rounds.append(
+        InterviewRound(
+            round_number=1,
+            question="What is the main goal?",
+            user_response="Build reports.",
+        )
+    )
+
+    event_store = _CapturingEventStore()
+    engine = _StubInterviewEngine(
+        state_dir=tmp_path,
+        initial_state=resumed_state,
+        next_question="Which users need the reports?",
+    )
+    handler = InterviewHandler(
+        interview_engine=engine,
+        event_store=event_store,
+        agent_runtime_backend=None,
+        opencode_mode=None,
+        data_dir=tmp_path,
+    )
+
+    outcome = await handler.handle({"session_id": resumed_state.interview_id})
+    assert outcome.is_ok
+    await _drain_bg_tasks(handler)
+
+    diagnostic = _find_event(event_store.events, event_type="interview.response.emitted")
+    assert diagnostic is not None
+    assert diagnostic.data["timings_ms"]["ambiguity_scoring"] is None
+    assert diagnostic.data["timings_ms"]["question_generation"] >= 0
+    assert diagnostic.data["timings_ms"]["advisory_build"] >= 0
 
 
 @pytest.mark.asyncio
@@ -781,3 +872,322 @@ async def test_answer_emits_response_diagnostic_event(tmp_path: Path) -> None:
     )
     assert diagnostic.data["ambiguity_prefix_present"] is False
     assert diagnostic.data["is_length_guard"] is False
+    assert diagnostic.data["timings_ms"]["total"] >= 0
+    assert diagnostic.data["timings_ms"]["ambiguity_scoring"] is None
+    assert diagnostic.data["timings_ms"]["question_generation"] >= 0
+    assert diagnostic.data["timings_ms"]["advisory_build"] >= 0
+
+
+@pytest.mark.asyncio
+async def test_later_answer_reports_distinct_phase_timings(tmp_path: Path) -> None:
+    """Each timed collaborator is bracketed and emitted under its own label."""
+    state = InterviewState(
+        interview_id="interview_answer00000002",
+        initial_context="ctx",
+        status=InterviewStatus.IN_PROGRESS,
+    )
+    state.rounds.extend(
+        [
+            InterviewRound(round_number=1, question="Goal?", user_response="Reports"),
+            InterviewRound(round_number=2, question="Users?", user_response="Analysts"),
+            InterviewRound(round_number=3, question="Constraint?", user_response=None),
+        ]
+    )
+
+    event_store = _CapturingEventStore()
+    engine = _StubInterviewEngine(
+        state_dir=tmp_path,
+        initial_state=state,
+        next_question="What proves success?",
+    )
+    handler = InterviewHandler(
+        interview_engine=engine,
+        event_store=event_store,
+        agent_runtime_backend=None,
+        opencode_mode=None,
+        data_dir=tmp_path,
+    )
+    active_phase = {"name": "turn"}
+    clock_reads = iter(
+        [
+            ("turn", 100.0),
+            ("turn", 101.0),
+            ("ambiguity_scoring", 101.125),
+            ("ambiguity_scoring", 102.0),
+            ("question_generation", 102.25),
+            ("question_generation", 103.0),
+            ("advisory_build", 103.5),
+            ("advisory_build", 104.0),
+        ]
+    )
+
+    def fake_perf_counter() -> float:
+        expected_phase, value = next(clock_reads)
+        assert active_phase["name"] == expected_phase
+        return value
+
+    async def score_interview_state(*_args: Any, **_kwargs: Any) -> None:
+        active_phase["name"] = "ambiguity_scoring"
+
+    async def ask_next_question(
+        _engine: _StubInterviewEngine,
+        _state: InterviewState,
+    ) -> Result[str, MCPServerError]:
+        active_phase["name"] = "question_generation"
+        return Result.ok(engine.next_question)
+
+    def attach_question_assist_requests(*_args: Any, **_kwargs: Any) -> None:
+        active_phase["name"] = "advisory_build"
+
+    handler._score_interview_state = AsyncMock(  # type: ignore[method-assign]
+        side_effect=score_interview_state
+    )
+
+    with (
+        patch.object(_StubInterviewEngine, "ask_next_question", new=ask_next_question),
+        patch(
+            "ouroboros.mcp.tools.authoring_handlers._attach_question_assist_requests",
+            side_effect=attach_question_assist_requests,
+        ),
+        patch(
+            "ouroboros.mcp.tools.authoring_handlers.time.perf_counter",
+            side_effect=fake_perf_counter,
+        ),
+    ):
+        outcome = await handler.handle(
+            {"session_id": state.interview_id, "answer": "Runs locally."}
+        )
+    assert outcome.is_ok
+    await _drain_bg_tasks(handler)
+
+    diagnostic = _find_event(event_store.events, event_type="interview.response.emitted")
+    assert diagnostic is not None
+    assert diagnostic.data["timings_ms"] == {
+        "total": 4000.0,
+        "ambiguity_scoring": 125.0,
+        "question_generation": 250.0,
+        "advisory_build": 500.0,
+    }
+    handler._score_interview_state.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_completion_event_reports_terminal_turn_timing(tmp_path: Path) -> None:
+    ready_score = _ready_score()
+    state = InterviewState(
+        interview_id="interview_complete0000001",
+        initial_context="ctx",
+        status=InterviewStatus.IN_PROGRESS,
+        ambiguity_score=ready_score.overall_score,
+        ambiguity_breakdown=ready_score.breakdown.model_dump(mode="json"),
+        completion_candidate_streak=2,
+    )
+    event_store = _CapturingEventStore()
+    engine = _StubInterviewEngine(state_dir=tmp_path, initial_state=state)
+    handler = InterviewHandler(
+        interview_engine=engine,
+        event_store=event_store,
+        agent_runtime_backend=None,
+        opencode_mode=None,
+        data_dir=tmp_path,
+    )
+
+    with patch(
+        "ouroboros.mcp.tools.authoring_handlers.time.perf_counter",
+        side_effect=(100.0, 102.5),
+    ):
+        outcome = await handler.handle({"session_id": state.interview_id, "answer": "done"})
+    assert outcome.is_ok
+    await _drain_bg_tasks(handler)
+
+    completed = _find_event(event_store.events, event_type="interview.completed")
+    assert completed is not None
+    assert completed.data["timings_ms"] == {
+        "total": 2500.0,
+        "ambiguity_scoring": None,
+        "question_generation": None,
+        "advisory_build": None,
+    }
+    assert _find_event(event_store.events, event_type="interview.response.emitted") is None
+
+
+@pytest.mark.asyncio
+async def test_completion_after_scoring_preserves_scoring_timing(tmp_path: Path) -> None:
+    state = InterviewState(
+        interview_id="interview_complete0000002",
+        initial_context="ctx",
+        status=InterviewStatus.IN_PROGRESS,
+        completion_candidate_streak=1,
+    )
+    event_store = _CapturingEventStore()
+    engine = _StubInterviewEngine(state_dir=tmp_path, initial_state=state)
+    handler = InterviewHandler(
+        interview_engine=engine,
+        event_store=event_store,
+        agent_runtime_backend=None,
+        opencode_mode=None,
+        data_dir=tmp_path,
+    )
+    handler._score_interview_state = AsyncMock(  # type: ignore[method-assign]
+        return_value=_ready_score()
+    )
+
+    with patch(
+        "ouroboros.mcp.tools.authoring_handlers.time.perf_counter",
+        side_effect=(100.0, 101.0, 101.75, 103.0),
+    ):
+        outcome = await handler.handle({"session_id": state.interview_id, "answer": "done"})
+    assert outcome.is_ok
+    await _drain_bg_tasks(handler)
+
+    completed = _find_event(event_store.events, event_type="interview.completed")
+    assert completed is not None
+    assert completed.data["timings_ms"] == {
+        "total": 3000.0,
+        "ambiguity_scoring": 750.0,
+        "question_generation": None,
+        "advisory_build": None,
+    }
+    handler._score_interview_state.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_completion_failure_closes_terminal_turn_timing(tmp_path: Path) -> None:
+    class _FailingCompletionEngine(_StubInterviewEngine):
+        async def complete_interview(
+            self,
+            state: InterviewState,
+        ) -> Result[InterviewState, MCPServerError]:
+            return Result.err(MCPServerError("completion failed"))
+
+    ready_score = _ready_score()
+    state = InterviewState(
+        interview_id="interview_complete0000003",
+        initial_context="ctx",
+        status=InterviewStatus.IN_PROGRESS,
+        ambiguity_score=ready_score.overall_score,
+        ambiguity_breakdown=ready_score.breakdown.model_dump(mode="json"),
+        completion_candidate_streak=2,
+    )
+    event_store = _CapturingEventStore()
+    engine = _FailingCompletionEngine(state_dir=tmp_path, initial_state=state)
+    handler = InterviewHandler(
+        interview_engine=engine,
+        event_store=event_store,
+        agent_runtime_backend=None,
+        opencode_mode=None,
+        data_dir=tmp_path,
+    )
+
+    with patch(
+        "ouroboros.mcp.tools.authoring_handlers.time.perf_counter",
+        side_effect=(100.0, 101.5),
+    ):
+        outcome = await handler.handle({"session_id": state.interview_id, "answer": "done"})
+    assert outcome.is_err
+    await _drain_bg_tasks(handler)
+
+    failed = _find_event(event_store.events, event_type="interview.failed")
+    assert failed is not None
+    assert failed.data["phase"] == "completion"
+    assert failed.data["timings_ms"] == {
+        "total": 1500.0,
+        "ambiguity_scoring": None,
+        "question_generation": None,
+        "advisory_build": None,
+    }
+
+
+@pytest.mark.asyncio
+async def test_advisory_failure_closes_all_started_phase_timings(tmp_path: Path) -> None:
+    state = InterviewState(
+        interview_id="interview_advisory0000001",
+        initial_context="ctx",
+        status=InterviewStatus.IN_PROGRESS,
+    )
+    state.rounds.append(
+        InterviewRound(
+            round_number=1,
+            question="What should this tool do?",
+            user_response=None,
+        )
+    )
+    event_store = _CapturingEventStore()
+    engine = _StubInterviewEngine(
+        state_dir=tmp_path,
+        initial_state=state,
+        next_question="Who uses it first?",
+    )
+    handler = InterviewHandler(
+        interview_engine=engine,
+        event_store=event_store,
+        agent_runtime_backend=None,
+        opencode_mode=None,
+        data_dir=tmp_path,
+    )
+
+    with (
+        patch(
+            "ouroboros.mcp.tools.authoring_handlers._attach_question_assist_requests",
+            side_effect=RuntimeError("advisory build failed"),
+        ),
+        patch(
+            "ouroboros.mcp.tools.authoring_handlers.time.perf_counter",
+            side_effect=(100.0, 101.0, 101.5, 102.0, 102.25, 103.0),
+        ),
+    ):
+        outcome = await handler.handle(
+            {"session_id": state.interview_id, "answer": "It creates reports."}
+        )
+    assert outcome.is_err
+    await _drain_bg_tasks(handler)
+
+    failed = _find_event(event_store.events, event_type="interview.failed")
+    assert failed is not None
+    assert failed.data["phase"] == "unexpected_error"
+    assert failed.data["timings_ms"] == {
+        "total": 3000.0,
+        "ambiguity_scoring": None,
+        "question_generation": 500.0,
+        "advisory_build": 250.0,
+    }
+    assert _find_event(event_store.events, event_type="interview.response.emitted") is None
+
+
+@pytest.mark.asyncio
+async def test_scoring_failure_closes_active_phase_timing(tmp_path: Path) -> None:
+    state = InterviewState(
+        interview_id="interview_scoring0000001",
+        initial_context="ctx",
+        status=InterviewStatus.IN_PROGRESS,
+    )
+    event_store = _CapturingEventStore()
+    engine = _StubInterviewEngine(state_dir=tmp_path, initial_state=state)
+    handler = InterviewHandler(
+        interview_engine=engine,
+        event_store=event_store,
+        agent_runtime_backend=None,
+        opencode_mode=None,
+        data_dir=tmp_path,
+    )
+    handler._score_interview_state = AsyncMock(  # type: ignore[method-assign]
+        side_effect=RuntimeError("ambiguity scoring raised")
+    )
+
+    with patch(
+        "ouroboros.mcp.tools.authoring_handlers.time.perf_counter",
+        side_effect=(100.0, 101.0, 101.5, 102.0),
+    ):
+        outcome = await handler.handle({"session_id": state.interview_id, "answer": "done"})
+    assert outcome.is_err
+    await _drain_bg_tasks(handler)
+
+    failed = _find_event(event_store.events, event_type="interview.failed")
+    assert failed is not None
+    assert failed.data["phase"] == "unexpected_error"
+    assert failed.data["timings_ms"] == {
+        "total": 2000.0,
+        "ambiguity_scoring": 500.0,
+        "question_generation": None,
+        "advisory_build": None,
+    }

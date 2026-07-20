@@ -184,7 +184,7 @@ pub struct ArrowSchurSystem {
     /// These vectors live in each row's actual chart block, so compact SAE rows
     /// and dense rows share the same factorization path. Ordinary Newton solves
     /// ignore them; only undamped evidence factors with
-    /// `tolerate_ill_conditioning` set may stiffen a gauge-explained row
+    /// evidence factorization may stiffen a gauge-explained row
     /// direction.
     pub row_gauge_deflation: Option<ArrowRowGaugeDeflation>,
     /// Exact scale-gauge quotient on the reduced shared `beta` border.
@@ -774,12 +774,39 @@ impl ArrowSchurSystem {
             op.matvec(x, y);
         } else {
             let k = self.hbb.nrows();
-            for a in 0..k {
-                let mut acc = 0.0_f64;
-                for b in 0..k {
-                    acc += self.hbb[[a, b]] * x[b];
+            // The dense `H_ββ·x` accumulate is the serial `O(k²)` GEMV left
+            // inside the per-CG-iteration cross-row matvec (`arrow_cross_row_matvec`)
+            // and the once-per-Newton-step model reduction: at the SAE wide border
+            // (k≈2048, #1017) it is ≈4M ops/call that pinned one core while the
+            // per-row work fans out. Parallelism is over independent output rows
+            // `a` — each `y[a] += Σ_b hbb[a,b]·x[b]` accumulates in the SAME order
+            // as serial, so the result is bit-identical to serial (not merely
+            // deterministic run-to-run), the #1017 gate. Same `dense_parallel`
+            // guard as `penalty_ridge_prologue_into`: only when not nested in a
+            // rayon worker (the topology race fans candidates) and above the
+            // width floor, so it never oversubscribes and small `k` avoids rayon
+            // overhead on a trivial GEMV.
+            let dense_parallel = self.hbb.dim() == (k, k)
+                && k >= SCHUR_PROLOGUE_PARALLEL_K_MIN
+                && rayon::current_thread_index().is_none();
+            if dense_parallel {
+                use rayon::prelude::*;
+                let hbb = &self.hbb;
+                y.par_iter_mut().enumerate().for_each(|(a, ya)| {
+                    let mut acc = 0.0_f64;
+                    for b in 0..k {
+                        acc += hbb[[a, b]] * x[b];
+                    }
+                    *ya += acc;
+                });
+            } else {
+                for a in 0..k {
+                    let mut acc = 0.0_f64;
+                    for b in 0..k {
+                        acc += self.hbb[[a, b]] * x[b];
+                    }
+                    y[a] += acc;
                 }
-                y[a] += acc;
             }
         }
     }
@@ -1312,11 +1339,10 @@ pub struct StreamingArrowSchur {
     /// `d_i ≪ K`, this is the per-row sparse apply that replaces the `O(K)`
     /// column-probe in the streaming reduced-Schur accumulation.
     pub(crate) htbeta_transpose_matvec: Option<RowHtbetaTransposeMatvec>,
-    /// Lift the per-row κ rejection for evidence/log-det-only solves; see
-    /// [`ArrowSolveOptions::tolerate_ill_conditioning`]. Set by [`Self::solve`]
-    /// from the options; defaults to `false` so direct callers of
-    /// [`Self::accumulate_chunk`] keep the full guard.
-    pub(crate) tolerate_ill_conditioning: bool,
+    /// Whether streaming rows are being factored for undamped evidence rather
+    /// than for a Newton step. Defaults to `false` so direct chunk callers keep
+    /// the full step-accuracy guard.
+    pub(crate) evidence_factorization: bool,
     /// SAE manifold evidence-path per-row gauge deflation, copied from the
     /// source [`ArrowSchurSystem::row_gauge_deflation`] (#1273/#1377). When
     /// present, the streaming per-row factor MUST apply the SAME spectral
@@ -1370,7 +1396,7 @@ impl StreamingArrowSchur {
             row_builder,
             htbeta_matvec: None,
             htbeta_transpose_matvec: None,
-            tolerate_ill_conditioning: false,
+            evidence_factorization: false,
             row_gauge_deflation: None,
         }
     }
@@ -1453,7 +1479,7 @@ impl StreamingArrowSchur {
                 ridge_t,
                 di,
                 row_idx,
-                self.tolerate_ill_conditioning,
+                self.evidence_factorization,
                 deflation.row(row_idx),
                 // Evidence path: opt into spectral discovery of an
                 // intrinsic-dimension-flat direction even when this row's
@@ -1462,7 +1488,7 @@ impl StreamingArrowSchur {
                 true,
             )
             .map(|result| result.factor),
-            None => factor_one_row(row, ridge_t, di, row_idx, self.tolerate_ill_conditioning),
+            None => factor_one_row(row, ridge_t, di, row_idx, self.evidence_factorization),
         }
     }
 
@@ -1670,7 +1696,7 @@ impl StreamingArrowSchur {
         ridge_beta: f64,
         options: &ArrowSolveOptions,
     ) -> Result<(f64, Array2<f64>), ArrowSchurError> {
-        self.tolerate_ill_conditioning = options.tolerate_ill_conditioning;
+        self.evidence_factorization = options.evidence_policy.factors_undamped_evidence();
         self.reset_accumulator(ridge_beta)?;
         let backend = CpuBatchedBlockSolver;
         let mut log_det_tt = 0.0_f64;
@@ -1707,19 +1733,9 @@ impl StreamingArrowSchur {
         schur: &Array2<f64>,
         options: &ArrowSolveOptions,
     ) -> Result<f64, ArrowSchurError> {
-        let rhs = Array1::<f64>::zeros(schur.nrows());
-        let trust_metric_weights = None;
-        let (delta, schur_factor, diag) =
-            solve_dense_reduced_system(schur, &rhs, options, trust_metric_weights)?;
-        if delta.len() != schur.nrows() || diag.iterations != 0 {
-            return Err(ArrowSchurError::SchurFactorFailed {
-                reason: "streaming log-det reduced solve returned incoherent diagnostics"
-                    .to_string(),
-            });
-        }
-        let schur_factor = schur_factor.ok_or_else(|| ArrowSchurError::SchurFactorFailed {
-            reason: "streaming log-det requires a dense reduced Schur factor".to_string(),
-        })?;
+        let schur_factor =
+            factor_dense_reduced_schur(schur, options.evidence_policy.reduced_schur_policy())?
+                .factor;
         let mut log_det_schur = 0.0_f64;
         for axis in 0..schur_factor.nrows() {
             log_det_schur += 2.0 * schur_factor[[axis, axis]].ln();
@@ -1744,11 +1760,8 @@ impl StreamingArrowSchur {
         ridge_beta: f64,
         options: &ArrowSolveOptions,
     ) -> Result<(Array1<f64>, Array1<f64>, Option<Array2<f64>>), ArrowSchurError> {
-        // Propagate the evidence/log-det ill-conditioning tolerance to the
-        // per-row factor calls inside `accumulate_chunk` / `back_substitute`,
-        // which take their stable public signatures. Direct callers of
-        // `accumulate_chunk` keep the conservative default (`false`, full guard).
-        self.tolerate_ill_conditioning = options.tolerate_ill_conditioning;
+        // Newton streaming factors always retain the step-accuracy guard.
+        self.evidence_factorization = false;
         self.reset_accumulator(ridge_beta)?;
         for start in (0..self.n_rows).step_by(self.chunk_size) {
             let end = (start + self.chunk_size).min(self.n_rows);
@@ -2324,6 +2337,17 @@ pub struct RowDeflationSpectrum {
     pub cond_evals: Array1<f64>,
 }
 
+/// Raw and conditioned eigenspectrum of an evidence β-Schur that underwent
+/// unit deflation. `deflated[m]` is authoritative: a conditioned eigenvalue of
+/// one is not itself evidence that the direction is a quotient null.
+#[derive(Debug, Clone)]
+pub struct BetaSchurDeflationSpectrum {
+    pub evecs: Array2<f64>,
+    pub raw_evals: Array1<f64>,
+    pub cond_evals: Array1<f64>,
+    pub deflated: Arc<[bool]>,
+}
+
 #[derive(Debug, Clone)]
 pub struct ArrowFactorCache {
     /// Per-row lower-triangular Cholesky factors of `H_tt^(i) + ridge_t·I`.
@@ -2355,6 +2379,11 @@ pub struct ArrowFactorCache {
     /// consumers must not combine `schur_factor` with [`Self::undamped_factor`]:
     /// that would mix two different bordered-arrow operators.
     pub schur_factor_is_undamped: bool,
+    /// Authoritative original-coordinate spectrum and null mask used when the
+    /// undamped evidence β-Schur was unit-deflated. The mask, rather than a
+    /// threshold re-derived from `L Lᵀ`, defines which directions contribute
+    /// `log 1 = 0` to the value and zero to every inverse/trace contraction.
+    pub beta_schur_deflation: Option<BetaSchurDeflationSpectrum>,
     /// Exact undamped joint-Hessian log-determinant produced by the dense
     /// factorization path. REML evidence consumes this directly so the Laplace
     /// normalizer cannot miss the log-det even when later cache consumers only
@@ -2550,6 +2579,21 @@ pub fn arrow_factor_max_pivot(cache: &ArrowFactorCache) -> Option<f64> {
         });
     }
     max_pivot
+}
+
+/// Spectral pseudo-inverse of the cached β-Schur operator `M = L Lᵀ`, deflated
+/// across the numerically-null curvature directions using the solver's
+/// canonical rank floor ([`SPECTRAL_DEFLATION_REL_FLOOR`]).
+///
+/// `evecs` are the orthonormal eigenvectors of `M` (columns), `inv_evals[i]`
+/// is `1/λᵢ` for a kept direction and exactly `0.0` for a deflated one, so
+/// `M⁺ = evecs · diag(inv_evals) · evecsᵀ` is the Moore–Penrose pseudo-inverse
+/// restricted to the kept subspace. Away from the ρ lower face every eigenvalue
+/// sits far above the floor, no direction deflates, and `M⁺` equals `M⁻¹` to
+/// round-off — so the deflated selected inverse reduces to the plain one.
+struct DeflatedSchurPseudoInverse {
+    evecs: Array2<f64>,
+    inv_evals: Array1<f64>,
 }
 
 impl ArrowFactorCache {
@@ -2991,6 +3035,10 @@ impl ArrowFactorCache {
                 ),
             });
         }
+        if self.beta_schur_deflation.is_some() {
+            let deflated = self.deflated_schur_pseudo_inverse()?;
+            return Ok(self.apply_deflated_pseudo_inverse(&deflated, rhs));
+        }
         let rhs_owned = match self.beta_gauge_quotient.as_ref() {
             Some(quotient) => quotient.project_complement(rhs),
             None => rhs.to_owned(),
@@ -3068,6 +3116,240 @@ impl ArrowFactorCache {
             }
         }
         Ok(out)
+    }
+
+    /// Deflation-aware selected inverse of the cached β-Schur complement — a
+    /// drop-in for [`Self::schur_inverse_apply`] that pseudo-inverts across the
+    /// numerically-null curvature directions instead of dividing by them.
+    ///
+    /// # Why this exists (the λ→0 EDF divergence)
+    ///
+    /// The REML EDF/log-det-trace term contracts `(H⁻¹)_ββ` against `λS`. At the
+    /// ρ lower face a decoder direction can be null in BOTH the data
+    /// (`J_ββ ≈ 0`) AND the penalty (`s ≈ 0`), making `S_β = J + λS` singular
+    /// along it. The plain [`Self::schur_inverse_apply`] then divides by a
+    /// ~zero pivot and returns `Inf`/`NaN` (the value stays finite — only this
+    /// `H⁻¹`-contraction blows up). This method instead forms the spectral
+    /// pseudo-inverse `M⁺` of the SAME operator `M = L Lᵀ` the plain path
+    /// inverts, dropping every eigen-direction at or below the solver's
+    /// canonical rank floor `SPECTRAL_DEFLATION_REL_FLOOR · max|λ|` (the exact
+    /// threshold [`factor_spectral_deflated_criterion_row`] and the per-row
+    /// gauge deflation already use — NOT a new epsilon and NOT a λ-smoothing
+    /// floor). A doubly-null direction (`j ≈ 0 ∧ s ≈ 0`) deflates to `0` (it is
+    /// unidentifiable, not a real DOF); a penalty-only direction survives. The
+    /// result is finite by construction.
+    ///
+    /// # Interior equivalence
+    ///
+    /// Away from the boundary every eigenvalue of `M` sits orders of magnitude
+    /// above the floor, so NO direction deflates and `M⁺ = M⁻¹` to round-off —
+    /// this returns the plain selected inverse with no silent bias. Only the
+    /// λ→0 face deflates. The exact-Newton path keeps calling the plain
+    /// [`Self::schur_inverse_apply`] and is byte-for-byte unchanged.
+    ///
+    /// # Errors
+    ///
+    /// Same dense-Schur / undamped-factor / `rhs.len() != K` contract as
+    /// [`Self::schur_inverse_apply`], plus a failed symmetric eigendecomposition
+    /// of the reconstructed `M`.
+    pub fn schur_inverse_apply_deflated(
+        &self,
+        rhs: ArrayView1<'_, f64>,
+    ) -> Result<Array1<f64>, ArrowSchurError> {
+        if rhs.len() != self.k {
+            return Err(ArrowSchurError::SchurFactorFailed {
+                reason: format!(
+                    "schur_inverse_apply_deflated: rhs length {} != K {}",
+                    rhs.len(),
+                    self.k
+                ),
+            });
+        }
+        let deflated = self.deflated_schur_pseudo_inverse()?;
+        Ok(self.apply_deflated_pseudo_inverse(&deflated, rhs))
+    }
+
+    /// Precompute the deflated spectral pseudo-inverse ONCE and return a
+    /// reusable applier — the many-RHS form of
+    /// [`Self::schur_inverse_apply_deflated`]. The EDF trace contracts
+    /// `(H⁻¹)_ββ` against one `λS⊗I` column per basis coefficient (`Σ_k M_k·r_k`
+    /// columns total); recomputing the `O(K³)` eigendecomposition per column
+    /// would multiply that cost by the border width for no reason. Each apply
+    /// through the returned closure is `O(K²)` (two dense mat-vecs through the
+    /// eigenbasis), identical in complexity to the plain
+    /// [`Self::schur_inverse_apply`] back-substitution it replaces.
+    ///
+    /// Same deflation semantics, contract, and errors as
+    /// [`Self::schur_inverse_apply_deflated`]; the closure itself is
+    /// infallible (rhs length is the caller's loop invariant — a wrong length
+    /// panics in the underlying gemv shape check rather than dividing by a
+    /// null pivot).
+    pub fn schur_deflated_applier(
+        &self,
+    ) -> Result<impl Fn(ArrayView1<'_, f64>) -> Array1<f64> + '_, ArrowSchurError> {
+        let deflated = self.deflated_schur_pseudo_inverse()?;
+        Ok(move |rhs: ArrayView1<'_, f64>| self.apply_deflated_pseudo_inverse(&deflated, rhs))
+    }
+
+    /// Deflation-aware dense principal sub-block of `(H⁻¹)_ββ` — the drop-in for
+    /// [`Self::schur_inverse_block`] used by the per-atom EDF trace. Identical
+    /// contract, but each column is solved through the spectral pseudo-inverse
+    /// (see [`Self::schur_inverse_apply_deflated`]) so a boundary atom with a
+    /// doubly-null decoder direction yields a finite block instead of `NaN`.
+    ///
+    /// The eigendecomposition of `M = L Lᵀ` is computed ONCE and reused across
+    /// all `W = block.len()` columns.
+    pub fn schur_inverse_block_deflated(
+        &self,
+        block: std::ops::Range<usize>,
+    ) -> Result<Array2<f64>, ArrowSchurError> {
+        if block.end > self.k {
+            return Err(ArrowSchurError::SchurFactorFailed {
+                reason: format!(
+                    "schur_inverse_block_deflated: block end {} exceeds K {}",
+                    block.end, self.k
+                ),
+            });
+        }
+        let deflated = self.deflated_schur_pseudo_inverse()?;
+        let w = block.len();
+        let mut out = Array2::<f64>::zeros((w, w));
+        let mut e_j = Array1::<f64>::zeros(self.k);
+        for (jc, j) in block.clone().enumerate() {
+            e_j.fill(0.0);
+            e_j[j] = 1.0;
+            let col = self.apply_deflated_pseudo_inverse(&deflated, e_j.view());
+            for (ic, i) in block.clone().enumerate() {
+                out[[ic, jc]] = col[i];
+            }
+        }
+        // (H⁻¹)_ββ is symmetric; symmetrize to clear round-off asymmetry.
+        for ic in 0..w {
+            for jc in (ic + 1)..w {
+                let avg = 0.5 * (out[[ic, jc]] + out[[jc, ic]]);
+                out[[ic, jc]] = avg;
+                out[[jc, ic]] = avg;
+            }
+        }
+        Ok(out)
+    }
+
+    /// Reconstruct the SPD operator `M = L Lᵀ` this cache inverts (the plain
+    /// [`Self::schur_inverse_apply`] solves `M x = rhs`; when a β-gauge quotient
+    /// is installed `M = P S P + Q Qᵀ`), symmetric-eigendecompose it, and deflate
+    /// every eigen-direction at or below the canonical rank floor
+    /// `SPECTRAL_DEFLATION_REL_FLOOR · max|λ|` (with the same hysteresis band the
+    /// per-row spectral deflation uses, so a direction parked at the floor does
+    /// not flicker across a ρ-walk).
+    fn deflated_schur_pseudo_inverse(&self) -> Result<DeflatedSchurPseudoInverse, ArrowSchurError> {
+        let Some(schur_factor) = self.schur_factor.as_ref() else {
+            return Err(ArrowSchurError::SchurFactorFailed {
+                reason: "schur_inverse_apply_deflated requires a dense Schur factor; \
+                         the InexactPCG mode does not form one"
+                    .to_string(),
+            });
+        };
+        if !self.schur_factor_is_undamped {
+            return Err(ArrowSchurError::SchurFactorFailed {
+                reason: "schur_inverse_apply_deflated refuses a Schur factor that was not built \
+                         from the undamped evidence row factors"
+                    .to_string(),
+            });
+        }
+        let k = self.k;
+        if let Some(spectrum) = self.beta_schur_deflation.as_ref() {
+            if spectrum.evecs.dim() != (k, k)
+                || spectrum.raw_evals.len() != k
+                || spectrum.cond_evals.len() != k
+                || spectrum.deflated.len() != k
+            {
+                return Err(ArrowSchurError::SchurFactorFailed {
+                    reason: "cached β-Schur deflation spectrum has incoherent dimensions"
+                        .to_string(),
+                });
+            }
+            let mut inv_evals = Array1::<f64>::zeros(k);
+            for eig_idx in 0..k {
+                if spectrum.deflated[eig_idx] {
+                    continue;
+                }
+                let lambda = spectrum.cond_evals[eig_idx];
+                if !(lambda.is_finite() && lambda > 0.0) {
+                    return Err(ArrowSchurError::SchurFactorFailed {
+                        reason: format!(
+                            "cached β-Schur kept eigenvalue {eig_idx} is not positive finite: {lambda:e}"
+                        ),
+                    });
+                }
+                inv_evals[eig_idx] = 1.0 / lambda;
+            }
+            return Ok(DeflatedSchurPseudoInverse {
+                evecs: spectrum.evecs.clone(),
+                inv_evals,
+            });
+        }
+        // Reconstruct `M = L Lᵀ` from the LOWER triangle only (the strict-upper
+        // entries of the stored factor are not part of the Cholesky factor and
+        // must not enter the product).
+        let mut lower = Array2::<f64>::zeros((k, k));
+        for i in 0..k {
+            for j in 0..=i {
+                lower[[i, j]] = schur_factor[[i, j]];
+            }
+        }
+        let m = lower.dot(&lower.t());
+        let (evals, evecs) =
+            m.eigh(Side::Lower)
+                .map_err(|err| ArrowSchurError::SchurFactorFailed {
+                    reason: format!(
+                        "schur_inverse_apply_deflated: symmetric eigendecomposition of the \
+                     reconstructed β-Schur operator failed: {err:?}"
+                    ),
+                })?;
+        let max_abs =
+            evals.iter().fold(
+                0.0_f64,
+                |acc, &v| {
+                    if v.is_finite() { acc.max(v.abs()) } else { acc }
+                },
+            );
+        if !(max_abs.is_finite() && max_abs > 0.0) {
+            return Err(ArrowSchurError::SchurFactorFailed {
+                reason: "schur_inverse_apply_deflated: reconstructed β-Schur operator has no \
+                         finite positive spectrum"
+                    .to_string(),
+            });
+        }
+        // No evidence deflation was performed, so every factor eigenvalue is
+        // part of the value and must remain part of the inverse. Boundary rank
+        // decisions are made once during evidence factorization and carried in
+        // `beta_schur_deflation`; inferring a new mask from the conditioned
+        // factor would desynchronize the value and its gradient.
+        let inv_evals = evals.mapv(|lambda| 1.0 / lambda);
+        Ok(DeflatedSchurPseudoInverse { evecs, inv_evals })
+    }
+
+    /// Apply a precomputed [`DeflatedSchurPseudoInverse`] to one RHS, mirroring
+    /// the β-gauge-quotient complement projection of the plain
+    /// [`Self::schur_inverse_apply`]: `P M⁺ P rhs` when a quotient is installed,
+    /// `M⁺ rhs` otherwise.
+    fn apply_deflated_pseudo_inverse(
+        &self,
+        deflated: &DeflatedSchurPseudoInverse,
+        rhs: ArrayView1<'_, f64>,
+    ) -> Array1<f64> {
+        let rhs_owned = match self.beta_gauge_quotient.as_ref() {
+            Some(quotient) => quotient.project_complement(rhs),
+            None => rhs.to_owned(),
+        };
+        // M⁺ r = Q · diag(1/λ̃) · Qᵀ r.
+        let coeffs = deflated.evecs.t().dot(&rhs_owned);
+        let scaled = &coeffs * &deflated.inv_evals;
+        let solved = deflated.evecs.dot(&scaled);
+        match self.beta_gauge_quotient.as_ref() {
+            Some(quotient) => quotient.project_complement(solved.view()),
+            None => solved,
+        }
     }
 }
 

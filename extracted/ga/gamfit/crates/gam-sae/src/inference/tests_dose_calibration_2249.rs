@@ -39,14 +39,15 @@
 #[cfg(test)]
 mod tests {
     use crate::inference::steering::{
-        TargetDoseConfig, TargetDoseRequest, steer_delta, steer_to_target_nats,
+        AppliedDoseObservation, SteerPlan, TargetDoseConfig, TargetDoseRequest, steer_delta,
+        steer_to_target_nats,
     };
     use crate::manifold::{
         SaeFisherRowMetricRequest, SaeFitAssignmentKind, SaeFitConfig, SaeFitSeedReport,
         SaeFitSeedRequest, SaeManifoldTerm, SaeMinimalSeedReport, SaeMinimalSeedRequest,
         build_sae_fit_seed, build_sae_minimal_seed,
     };
-    use gam_problem::RowMetric;
+    use gam_problem::{FisherFactorKind, RowMetric};
     use gam_terms::analytic_penalties::AnalyticPenaltyRegistry;
     use ndarray::{Array1, Array2, Array3, ArrayView1};
     use std::sync::Arc;
@@ -119,7 +120,10 @@ mod tests {
             }
         }
         let u = Array2::from_shape_vec((n, p * p), flat).expect("U shape");
-        RowMetric::output_fisher(Arc::new(u), p, p).expect("full-rank output-Fisher metric")
+        RowMetric::output_fisher(Arc::new(u), p, p)
+            .expect("full-rank output-Fisher metric")
+            .with_fisher_factor_kind(FisherFactorKind::ExactFull)
+            .expect("closed-form categorical factor is exact")
     }
 
     /// A smooth `p`-dim periodic embedding of the circle plus tiny deterministic
@@ -162,12 +166,9 @@ mod tests {
         })
         .expect("minimal seed");
         let SaeMinimalSeedReport {
-            atom_basis,
-            effective_atom_dim,
-            atom_centers,
+            geometry_plans,
             basis_values,
             basis_jacobian,
-            basis_sizes,
             decoder_coefficients,
             smooth_penalties,
             initial_logits,
@@ -182,19 +183,22 @@ mod tests {
                 (N_CIRCLE, P_OUT, 1),
                 |(_, i, _)| if i == 0 { 1.0 } else { 0.0 },
             );
-        let dummy_metric =
-            SaeFisherRowMetricRequest::from_tag(dummy_u.view(), N_CIRCLE, P_OUT, None, None)
-                .expect("placeholder metric request");
+        let dummy_metric = SaeFisherRowMetricRequest::from_tag(
+            dummy_u.view(),
+            N_CIRCLE,
+            P_OUT,
+            None,
+            Some("uncertified_approximation"),
+            None,
+        )
+        .expect("placeholder metric request");
 
         let registry = AnalyticPenaltyRegistry::new();
         let seed = build_sae_fit_seed(SaeFitSeedRequest {
             target: target.view(),
-            atom_basis: &atom_basis,
-            atom_dim: &effective_atom_dim,
-            atom_centers: &atom_centers,
+            geometry_plans: &geometry_plans,
             basis_values: basis_values.view(),
             basis_jacobian: basis_jacobian.view(),
-            basis_sizes: &basis_sizes,
             decoder_coefficients: decoder_coefficients.view(),
             smooth_penalties: smooth_penalties.view(),
             initial_logits: initial_logits.view(),
@@ -318,7 +322,9 @@ mod tests {
                 let chord: Vec<f64> = {
                     let t_mat = Array2::from_shape_vec((1, 1), vec![t_to]).unwrap();
                     let g = atom.decode_at_coords(t_mat.view()).unwrap();
-                    (0..P_OUT).map(|j| scale[j] * g[[0, j]] - z_from[j]).collect()
+                    (0..P_OUT)
+                        .map(|j| scale[j] * g[[0, j]] - z_from[j])
+                        .collect()
                 };
                 let chord_norm = chord.iter().map(|&c| c * c).sum::<f64>().sqrt();
                 if !(chord_norm > 0.0) {
@@ -421,6 +427,31 @@ mod tests {
         // Target a fraction of the unit dose so the amplitude stays in-radius.
         let target_nats = 0.5 * unit_nats;
 
+        let uncertified_metric = metric
+            .clone()
+            .with_fisher_factor_kind(FisherFactorKind::UncertifiedApproximation)
+            .expect("downgrade factor status for refusal test");
+        let error = steer_to_target_nats(
+            &term,
+            &uncertified_metric,
+            TargetDoseRequest {
+                atom_k: 0,
+                metric_row: row,
+                t_from: &[t_from],
+                t_to: &[t_to],
+                target_nats,
+                config: TargetDoseConfig::default(),
+            },
+            None,
+        )
+        .expect_err("an uncertified factor cannot solve a full-KL target without a probe");
+        assert!(matches!(
+            error,
+            crate::inference::steering::TargetDoseError::FactorNeedsAppliedDoseProbe {
+                kind: crate::inference::steering::FisherDoseKind::UncertifiedApproximation
+            }
+        ));
+
         // Probe-free closed-form seed: predicted_nats must equal the target
         // exactly (a0² · unit_nats = q*).
         let seed_plan = steer_to_target_nats(
@@ -438,9 +469,10 @@ mod tests {
         )
         .expect("closed-form seed");
         assert!(
-            (seed_plan.predicted_nats - target_nats).abs() <= 1e-9 * target_nats,
+            (seed_plan.steer.predicted_nats.expect("predicted dose") - target_nats).abs()
+                <= 1e-9 * target_nats,
             "closed-form seed dose {} must equal target {target_nats}",
-            seed_plan.predicted_nats
+            seed_plan.steer.predicted_nats.expect("predicted dose")
         );
         let expect_a0 = (target_nats / unit_nats).sqrt();
         assert!(
@@ -448,23 +480,25 @@ mod tests {
             "seed amplitude {} must be sqrt(q*/unit_nats) = {expect_a0}",
             seed_plan.seed_amplitude
         );
-        assert!(
-            !seed_plan.converged,
-            "probe-free seed is unvalidated by construction"
-        );
+        assert!(seed_plan.applied_probe.is_none());
 
         // Model-in-the-loop probe: exact categorical KL of the applied chord.
         let z_from_probe = z_from.clone();
-        let dg_probe = dg_raw.clone();
         let p_from_probe = p_from.clone();
-        let mut probe = move |a: f64| -> Result<f64, String> {
+        let mut probe = move |plan: &SteerPlan| -> Result<AppliedDoseObservation, String> {
             let z_to: Vec<f64> = z_from_probe
                 .iter()
-                .zip(dg_probe.iter())
-                .map(|(&z, &d)| z + a * d)
+                .zip(plan.delta.iter())
+                .map(|(&z, &d)| z + d)
                 .collect();
             let p_to = softmax(ArrayView1::from(&z_to));
-            Ok(kl(&p_from_probe, &p_to))
+            Ok(AppliedDoseObservation {
+                effective_delta: plan.delta.clone(),
+                exact_directional_nats: 0.5
+                    * categorical_quad_form(&p_from_probe, plan.delta.as_slice().unwrap()),
+                measured_nats: kl(&p_from_probe, &p_to),
+                certified_attainable_upper_nats: None,
+            })
         };
         let plan = steer_to_target_nats(
             &term,
@@ -481,11 +515,11 @@ mod tests {
         )
         .expect("target-dose loop with exact-KL probe");
 
-        assert!(
-            plan.converged,
-            "target-dose loop must converge on the exact-KL probe"
-        );
-        let measured = plan.measured_nats.expect("measured dose");
+        let measured = plan
+            .applied_probe
+            .as_ref()
+            .expect("applied probe")
+            .measured_nats;
         assert!(
             (measured - target_nats).abs() / target_nats <= 2.0e-2,
             "measured KL {measured} must land within 2% of target {target_nats}"

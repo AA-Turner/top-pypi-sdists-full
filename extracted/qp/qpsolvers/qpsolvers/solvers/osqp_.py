@@ -71,9 +71,9 @@ def osqp_solve_problem(
 
     Notes
     -----
-    Keyword arguments are forwarded to OSQP. For instance, we can call
-    ``osqp_solve_qp(P, q, G, h, u, eps_abs=1e-8, eps_rel=0.0)``. OSQP settings
-    include the following:
+    Keyword arguments are forwarded to either the setup or the solve function
+    of OSQP. For instance, we can call ``osqp_solve_qp(P, q, G, h, u,
+    eps_abs=1e-8, eps_rel=0.0)``. OSQP settings include the following:
 
     .. list-table::
        :widths: 30 70
@@ -98,6 +98,10 @@ def osqp_solve_problem(
        * - ``polish``
          - Perform polishing. See `Polishing
            <https://osqp.org/docs/solver/#polishing>`_.
+       * - ``raise_error``
+         - If ``True``, raise an exception if the solver does not find a
+           solution. See `Solve
+           <https://osqp.org/docs/interfaces/python.html#solve>`_.
 
     Check out the `OSQP settings
     <https://osqp.org/docs/interfaces/solver_settings.html>`_ documentation for
@@ -131,13 +135,18 @@ def osqp_solve_problem(
         u_osqp = ub if u_osqp is None else np.hstack([u_osqp, ub])
 
     kwargs["verbose"] = verbose
+    kwargs_solve = (
+        {"raise_error": kwargs.pop("raise_error")}
+        if "raise_error" in kwargs
+        else {}
+    )
     solver = OSQP()
     solver.setup(P=P, q=q, A=A_osqp, l=l_osqp, u=u_osqp, **kwargs)
     if initvals is not None:
         solver.warm_start(x=initvals)
 
     solve_start_time = time.perf_counter()
-    res = solver.solve()
+    res = solver.solve(**kwargs_solve)
     solve_end_time = time.perf_counter()
 
     solution = Solution(problem)

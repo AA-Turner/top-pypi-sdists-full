@@ -323,6 +323,8 @@ class TestRequiredArguments:
             event_store=event_store,
             job_manager=job_manager,
             store=store,
+            llm_backend="claude_code",
+            agent_runtime_backend="claude",
         )
         inner = MagicMock(spec=AutoHandler)
         inner.handle = AsyncMock(
@@ -397,6 +399,10 @@ class TestBackgroundJobPath:
         assert observer["job_id"] == "job_auto_001"
         assert observer["session_id"] == auto_session_id
         assert observer["main_session_policy"] == "start_and_on_demand_only"
+        codex_relay = observer["host_lifecycle"]["codex_parent_relay"]
+        assert codex_relay["wait_tool"] == "wait_agent"
+        assert codex_relay["keep_turn_open_while_observer_active"] is True
+        assert codex_relay["user_opt_out"] == "stop_relay_keep_durable_job_running"
         assert observer["follow_result_job_keys"] == [
             "job_id",
             "ralph_job_id",
@@ -548,6 +554,8 @@ class TestBackgroundJobPath:
             event_store=event_store,
             job_manager=job_manager,
             store=store,
+            llm_backend="claude_code",
+            agent_runtime_backend="claude",
         )
         handler._inner_auto = inner
 
@@ -859,9 +867,9 @@ class TestBackgroundJobPath:
                 break
 
         assert terminal_wait is not None
+        assert terminal_wait.meta["job_id"] == job_id
         assert terminal_wait.meta["status"] == "completed"
         assert terminal_wait.meta["session_id"] == auto_session_id
-        assert job_id in terminal_wait.text_content
 
         completed = await result_handler.handle({"job_id": job_id})
 

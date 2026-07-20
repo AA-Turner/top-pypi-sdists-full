@@ -1,4 +1,5 @@
 use super::*;
+use gam_problem::OrderedRhoBounds;
 use std::sync::RwLock;
 
 impl<'a> RemlState<'a> {
@@ -3874,7 +3875,7 @@ impl<'a> RemlState<'a> {
     pub(crate) fn analytic_initial_sp_rho(
         &self,
         base: &Array1<f64>,
-        bounds: (f64, f64),
+        bounds: OrderedRhoBounds,
     ) -> Option<Array1<f64>> {
         let n_pen = self.canonical_penalties.len();
         let n_rho = base.len().min(n_pen);
@@ -3886,11 +3887,8 @@ impl<'a> RemlState<'a> {
         if gram_diag.len() != self.p {
             return None;
         }
-        let (lo, hi) = if bounds.0 <= bounds.1 {
-            bounds
-        } else {
-            (bounds.1, bounds.0)
-        };
+        // `bounds` is ordered by construction (`OrderedRhoBounds`); no defensive
+        // swap — an inverted box was refused at the seed-prepass boundary (#2379).
         let mut rho = base.clone();
         for j in 0..n_rho {
             let pen = &self.canonical_penalties[j];
@@ -3907,165 +3905,56 @@ impl<'a> RemlState<'a> {
             if tr_s > 0.0 && tr_xwx > 0.0 && tr_xwx.is_finite() {
                 let rho_j = (tr_xwx / tr_s).ln();
                 if rho_j.is_finite() {
-                    rho[j] = rho_j.clamp(lo, hi);
+                    rho[j] = bounds.clamp(rho_j);
                 }
             }
         }
         Some(rho)
     }
 
-    /// Exact global Gaussian-identity REML smoothing parameter via the
-    /// Demmler–Reinsch closed form — the structural cure for the high-λ shelf.
-    ///
-    /// For a Gaussian/identity fit the profiled REML criterion, written in the
-    /// pencil `(S, XᵀWX)` eigenbasis, is an EXPLICIT scalar `V(ρ)`. Every term's
-    /// ρ-derivative decays like `e^{-ρ}` as `ρ→∞`, so `V'(ρ)→0` at large λ for
-    /// EVERY dataset: the over-smoothing shelf is a structural stationary region
-    /// at infinity, not a data pathology. A descent method on ρ (Newton /
-    /// quasi-Newton, mgcv's `newton`/`efs` included) that starts on — or is
-    /// pushed onto — that plateau declares convergence there and rails to an
-    /// over-smoothed `λ̂` even though the true global optimum sits in a
-    /// finite-λ basin with a strictly lower REML (measured for sin8 k=40: shelf
-    /// edf≈2 REML≈+252 vs basin edf≈39 REML≈−104). The closed form does not
-    /// descend `V`; it selects the global minimiser over the whole ρ range from
-    /// the one eigendecomposition of the pencil, so the shelf cannot capture it.
-    ///
-    /// This returns the single shared-λ optimum `ρ*` over `S = Σ_j S_j` (all
-    /// penalty blocks summed). It is consumed as ONE scored seed for the
-    /// multi-λ outer search: setting every block coordinate to `ρ*` reproduces
-    /// the closed form's penalization `e^{ρ*}·Σ_j S_j` exactly, so its REML cost
-    /// equals the closed form's global optimum, and the keep-best seed screen
-    /// adopts it only when it strictly beats the mgcv-style `initial.sp` anchor.
-    /// The outer optimizer then refines each block's λ independently from this
-    /// good-basin start, so a genuinely multi-λ surface is never worsened.
-    ///
-    /// Returns `None` (caller keeps its other seeds) whenever the closed form's
-    /// assumptions do not hold: a non-Gaussian/identity likelihood, a
-    /// constrained fit (inequality constraints, coefficient bounds, mixture/SAS
-    /// link states) whose profiled ridge the closed form does not model, no
-    /// penalties, or a sparse design (skipped rather than densified so a huge
-    /// random-effects design never pays an `n×p` materialization).
-    pub(crate) fn analytic_gaussian_closed_form_rho(
-        &self,
-        bounds: (f64, f64),
-    ) -> Option<Array1<f64>> {
-        if !reml_is_gaussian_identity(&self.config.likelihood) {
-            return None;
-        }
-        // The closed form solves an unconstrained ridge `min ‖W^½(y−Xβ)‖² +
-        // Σ_j λ_j βᵀS_jβ`; it models none of these side conditions, so defer to
-        // the general seeds when any are present.
-        if self.linear_constraints.is_some()
-            || self.coefficient_lower_bounds.is_some()
-            || self.runtime_mixture_link_state.is_some()
-            || self.runtime_sas_link_state.is_some()
-        {
-            return None;
-        }
-        let k = self.canonical_penalties.len();
-        if k == 0 {
-            return None;
-        }
-        // Densify only an already-dense design: a sparse (e.g. large
-        // random-effects) design is skipped rather than materialized, so this
-        // prepass never allocates an `n×p` dense block behind the caller's back.
-        if !matches!(self.x, DesignMatrix::Dense(_)) {
-            return None;
-        }
-        let x_dense = self
-            .x
-            .try_to_dense_by_chunks("gaussian_closed_form_seed")
-            .ok()?;
-        let p = self.p;
-        if x_dense.ncols() != p {
-            return None;
-        }
-        // One Demmler–Reinsch penalty block per canonical penalty, so the cyclic
-        // solver optimises each block's λ_j INDEPENDENTLY (a double-penalty
-        // smooth's bend and null-space blocks can split, e.g. λ_bend high /
-        // λ_null low — the single summed-λ optimum cannot express that).
-        let blocks: Vec<crate::gaussian_reml::GaussianRemlLambdaBlock<'_>> = self
-            .canonical_penalties
-            .iter()
-            .map(|pen| crate::gaussian_reml::GaussianRemlLambdaBlock {
-                col_range: pen.col_range.clone(),
-                local: pen.local.view(),
-            })
-            .collect();
-        // The closed form fits `y ~ Xβ` with no offset term, so fold any offset
-        // into the response.
-        let mut y_eff = self.y.to_owned();
-        if self.offset.len() == y_eff.len() {
-            y_eff -= &self.offset;
-        }
-        let weights = self.weights.to_owned();
-        // Start every block at λ = 1 (ρ = 0); each coordinate's first sweep is a
-        // GLOBAL 1-D solve, so the outcome is init-independent.
-        let init_rho = vec![0.0_f64; k];
-        let rho = crate::gaussian_reml::gaussian_reml_cyclic_multi_lambda_rho(
-            x_dense.view(),
-            y_eff.view(),
-            &blocks,
-            Some(weights.view()),
-            &init_rho,
-            bounds,
-        )
-        .ok()?;
-        if rho.len() != k || rho.iter().any(|v| !v.is_finite()) {
-            return None;
-        }
-        let (lo, hi) = if bounds.0 <= bounds.1 {
-            bounds
-        } else {
-            (bounds.1, bounds.0)
-        };
-        Some(Array1::from_iter(rho.into_iter().map(|v| v.clamp(lo, hi))))
-    }
-
-    /// The GLOBAL single-λ (diagonal) Gaussian-identity REML optimum, mapped to a
-    /// UNIFORM per-block ρ seed. Setting every block's λ equal makes the effective
+    /// Certified finite-window single-λ Gaussian-identity REML optimum, mapped
+    /// to a uniform per-block ρ seed. Setting every block's λ equal makes the effective
     /// penalty `λ·Σ_j S_j`, so the profiled Gaussian REML criterion collapses to
-    /// the one-dimensional closed form on the summed penalty, whose global
-    /// minimiser is selected by grid-free stationary enumeration
-    /// (`gaussian_reml_closed_form`) rather than descent. Unlike the per-block
-    /// cyclic solver (`analytic_gaussian_closed_form_rho`), coordinate descent
-    /// cannot stall here at a coordinate-wise-stationary interior point: on a
-    /// double-penalty null-recovery fixture (#1815/#1867) the joint REML optimum
-    /// rails BOTH blocks onto the collapse shelf (edf → null dimension), but
-    /// cyclic descent parks at a strictly-inferior split (e.g. ρ ≈ [7.5, 1.1]).
-    /// The diagonal is the best single-λ RESTRICTION of the multi-λ problem, so a
-    /// feasible, principled candidate; the outer optimizer refines it and the
+    /// the one-dimensional closed form on the summed penalty, whose
+    /// finite-window minimizer is selected by stationary-bracket certification
+    /// (`gaussian_reml_closed_form`) rather than descent. The diagonal is the
+    /// best candidate on this explicit one-dimensional restriction of the
+    /// multi-λ problem; it is not represented as a coordinate-wise solution of
+    /// the coupled determinant. The outer optimizer refines it and the
     /// candidate is adopted only when it strictly lowers the true REML cost, so a
     /// genuinely split-λ optimum (bend high / null low) and healthy fits are
-    /// unaffected — this only supplies the shelf corner the cyclic seed misses.
-    pub(crate) fn analytic_gaussian_summed_diagonal_rho(
+    /// unaffected.
+    pub(crate) fn analytic_gaussian_profiled_diagonal_rho(
         &self,
-        bounds: (f64, f64),
-    ) -> Option<Array1<f64>> {
+        bounds: OrderedRhoBounds,
+    ) -> Result<Option<Array1<f64>>, EstimationError> {
         if !reml_is_gaussian_identity(&self.config.likelihood) {
-            return None;
+            return Ok(None);
         }
         if self.linear_constraints.is_some()
             || self.coefficient_lower_bounds.is_some()
             || self.runtime_mixture_link_state.is_some()
             || self.runtime_sas_link_state.is_some()
         {
-            return None;
+            return Ok(None);
         }
         let k = self.canonical_penalties.len();
         if k == 0 {
-            return None;
+            return Ok(None);
         }
         if !matches!(self.x, DesignMatrix::Dense(_)) {
-            return None;
+            return Ok(None);
         }
         let x_dense = self
             .x
             .try_to_dense_by_chunks("gaussian_summed_diagonal_seed")
-            .ok()?;
+            .map_err(EstimationError::RemlOptimizationFailed)?;
         let p = self.p;
         if x_dense.ncols() != p {
-            return None;
+            return Err(EstimationError::InvalidInput(format!(
+                "Gaussian profiled diagonal seed design has {} columns, expected {p}",
+                x_dense.ncols()
+            )));
         }
         // Sum the canonical penalties into a single p×p `S = Σ_j S_j` — the
         // effective penalty when every λ_j is equal.
@@ -4089,17 +3978,15 @@ impl<'a> RemlState<'a> {
             s.view(),
             Some(weights.view()),
             None,
-        )
-        .ok()?;
+        )?;
         if !result.rho.is_finite() {
-            return None;
+            return Err(EstimationError::RemlOptimizationFailed(
+                "Gaussian profiled diagonal seed returned a non-finite rho".to_string(),
+            ));
         }
-        let (lo, hi) = if bounds.0 <= bounds.1 {
-            bounds
-        } else {
-            (bounds.1, bounds.0)
-        };
-        Some(Array1::from_elem(k, result.rho.clamp(lo, hi)))
+        // `bounds` is ordered by construction (`OrderedRhoBounds`); no defensive
+        // swap — an inverted box was refused at the seed-prepass boundary (#2379).
+        Ok(Some(Array1::from_elem(k, bounds.clamp(result.rho))))
     }
 
     /// Returns the effective Hessian and the ridge value used (if any).
@@ -4248,6 +4135,7 @@ impl<'a> RemlState<'a> {
             frozen_negbin_theta: Arc::new(AtomicU64::new(0)),
             frozen_tweedie_phi: Arc::new(AtomicU64::new(0)),
             frozen_gamma_shape: Arc::new(AtomicU64::new(0)),
+            frozen_beta_phi: Arc::new(AtomicU64::new(0)),
             last_ift_prediction_residual: Arc::new(AtomicU64::new(IFT_RESIDUAL_NO_SIGNAL_BITS)),
             last_pirls_accept_rho: Arc::new(AtomicU64::new(IFT_RESIDUAL_NO_SIGNAL_BITS)),
             ift_cached_factor: RwLock::new(None),
@@ -4353,6 +4241,10 @@ impl<'a> RemlState<'a> {
         // seed fit on the PREVIOUS design; re-freeze it from the new surface's
         // own seed. `0` = "not yet frozen".
         self.frozen_gamma_shape.store(0, Ordering::Relaxed);
+        // The λ-search frozen Beta φ (#2369) is likewise computed from the seed
+        // fit on the PREVIOUS design; re-freeze it from the new surface's own
+        // seed. `0` = "not yet frozen".
+        self.frozen_beta_phi.store(0, Ordering::Relaxed);
         Ok(())
     }
 
@@ -4480,7 +4372,17 @@ impl<'a> RemlState<'a> {
     /// Returns None if any component is NaN, in which case caching is skipped.
     /// Maps -0.0 to 0.0 to ensure consistency in caching.
     pub(super) fn rhokey_sanitized(&self, rho: &Array1<f64>) -> Option<Vec<u64>> {
-        EvalCacheManager::sanitized_rhokey(rho)
+        // A capped inner solve is a different mathematical state from an
+        // uncapped solve at the same rho.  Keep both cap identities in every
+        // eval, bundle, and PIRLS key so terminal cap=0 evidence can never
+        // replay a search-time entry produced under cap=3..64.  Screening
+        // normally suppresses cache writes, but including its cap closes the
+        // same identity hole for any bundle retained within a screening call.
+        super::rho_key::sanitized_eval_state_key(
+            rho,
+            self.screening_max_inner_iterations.load(Ordering::Relaxed),
+            self.outer_inner_cap.load(Ordering::Relaxed),
+        )
     }
 
     pub(super) fn prepare_eval_bundlewithkey(
@@ -6854,6 +6756,46 @@ impl<'a> RemlState<'a> {
                         .map_err(|error| EstimationError::InvalidInput(error.to_string()))?;
                 }
             }
+            // Beta λ-search precision freeze (#2369). Same drift mechanism as the
+            // NB θ / Tweedie φ / Gamma shape freezes above, and the same
+            // stalled-outer symptom: with φ estimated, the inner solver
+            // re-derives it by the Pearson moment estimator from each outer
+            // iterate's warm-start η. The Beta precision does not factor out of
+            // the digamma mean score (`∂ℓ/∂β = φ·Σ xᵢ(y*ᵢ − μ*ᵢ)`), so a φ that
+            // swings with η moves BOTH the mean fit β̂(ρ) and the REML data-fit /
+            // log-det terms with ρ; the analytic outer gradient holds φ fixed and
+            // can never match that motion, the projected gradient floors above
+            // tolerance, and the optimizer refuses ("NOT STATIONARY") for EVERY
+            // fit — the family-unusable #2369 signature. Pin every λ-search inner
+            // solve to the first converged solve's Pearson φ so
+            // `F(ρ) = REML(ρ, φ_frozen)` is stationary in ρ; φ is still refreshed
+            // at the single final reported fit. No effect on non-Beta or
+            // user-fixed-φ specs.
+            if matches!(
+                resolved_likelihood_scale,
+                gam_problem::ResolvedLikelihoodScale::BetaPrecision {
+                    estimated: true,
+                    ..
+                }
+            ) {
+                let frozen_bits = self.frozen_beta_phi.load(Ordering::Relaxed);
+                if frozen_bits != 0 {
+                    let frozen_phi = f64::from_bits(frozen_bits);
+                    if !(frozen_phi.is_finite() && frozen_phi > 0.0) {
+                        return Err(EstimationError::InvalidInput(format!(
+                            "frozen Beta precision is invalid: {frozen_phi:?}"
+                        )));
+                    }
+                    pirls_config.likelihood = pirls_config
+                        .likelihood
+                        .clone()
+                        .with_beta_phi_frozen_for_search(frozen_phi);
+                    pirls_config
+                        .likelihood
+                        .resolved_scale()
+                        .map_err(|error| EstimationError::InvalidInput(error.to_string()))?;
+                }
+            }
             // Levenberg-Marquardt damping warm-start. Read the cached
             // λ from the previous successful PIRLS solve at this
             // surface (0 = no hint), and seed the inner solver. The
@@ -7098,14 +7040,83 @@ impl<'a> RemlState<'a> {
                 pirls::PirlsStatus::Converged | pirls::PirlsStatus::StalledAtValidMinimum
             )
         {
-            let shape = resolved_likelihood_scale
-                .gamma_shape()
-                .map_err(|error| EstimationError::InvalidInput(error.to_string()))?;
+            // Estimate the shape at this solve's CONVERGED η, not at whatever
+            // value the inner solve happened to leave on `likelihood`. The
+            // λ-search runs with `refine_dispersion_at_converged_eta = false`
+            // (deliberately — re-profiling ν against each trial λ's residuals
+            // would couple the scale to λ and reward over-smoothing), so on a
+            // COLD start the resolved value is the shape measured at the
+            // half-converged warm-start η, whose leftover spread in μ inflates
+            // the Gamma deviance and biases ν DOWN by >2× (the same cold-start
+            // contamination `loop_driver`'s converged-η refresh loop documents).
+            // Freezing THAT value pins the entire outer criterion to a
+            // mis-specified dispersion: measured on `y ~ s(x)`, n=800, true
+            // ν=4, a warm cache froze ν=3.96 and converged while a cold one
+            // froze ν=1.22 and ground to max_iter at |Pg|=16.5 (#2361).
+            //
+            // This is one O(n) shape evaluation at an η the solve has already
+            // produced — no re-solve, and NOT a per-λ re-profile: the value is
+            // still captured once and held fixed for every subsequent ρ, so
+            // `F(ρ) = REML(ρ, ν_frozen)` stays stationary in ρ exactly as #1074
+            // requires. It only makes the captured ν the ML shape at a
+            // converged mean instead of at a half-converged one.
+            let shape = pirls::estimate_gamma_shape_from_eta(
+                self.y,
+                &pirls_result.final_eta.to_owned(),
+                self.weights,
+            )?;
             self.frozen_gamma_shape
                 .store(shape.to_bits(), Ordering::Relaxed);
             log::info!(
-                "[OUTER] gamma λ-search shape frozen at {shape:.6e} (#1074); \
-                 outer REML criterion now stationary in ρ"
+                "[OUTER] gamma λ-search shape frozen at {shape:.6e} (#1074/#2361, \
+                 measured at the converged η); outer REML criterion now stationary in ρ"
+            );
+        }
+        // Capture the data-driven Beta precision `phi` from the first converged
+        // non-screening λ-search solve and freeze it for the rest of the search
+        // (#2369), exactly as for the NB θ / Tweedie φ / Gamma shape above.
+        // Measure `phi` at this solve's CONVERGED η, not at whatever value the
+        // per-solve moment lock left on `likelihood`: the λ-search runs with
+        // `refine_dispersion_at_converged_eta = false`, so on a COLD start the
+        // resolved value is the Pearson φ measured at the half-converged
+        // warm-start η — at the null predictor (μ ≈ 0.5) the residuals capture
+        // the full MARGINAL spread of y instead of its conditional spread, so
+        // that φ is far too small (the #2369 sibling "frozen at the null
+        // predictor" mean-attenuation bug). Freezing THAT value would pin the
+        // whole outer criterion to a mis-specified dispersion. This is one O(n)
+        // Pearson evaluation at an η the solve has already produced — no
+        // re-solve, and NOT a per-λ re-profile: the value is captured once and
+        // held fixed for every subsequent ρ, so `F(ρ) = REML(ρ, φ_frozen)` stays
+        // stationary in ρ exactly as #2369 requires. The single final reported
+        // fit still Pearson-refreshes φ at its own converged η.
+        if !in_screening
+            && matches!(
+                resolved_likelihood_scale,
+                gam_problem::ResolvedLikelihoodScale::BetaPrecision {
+                    estimated: true,
+                    ..
+                }
+            )
+            && self.frozen_beta_phi.load(Ordering::Relaxed) == 0
+            && matches!(
+                pirls_result.status,
+                pirls::PirlsStatus::Converged | pirls::PirlsStatus::StalledAtValidMinimum
+            )
+        {
+            let phi = pirls::estimate_beta_phi_from_eta(
+                self.y,
+                &pirls_result.final_eta.to_owned(),
+                self.weights,
+            )?;
+            if !(phi.is_finite() && phi > 0.0) {
+                return Err(EstimationError::InvalidInput(format!(
+                    "converged-η Beta precision freeze produced an invalid φ: {phi:?}"
+                )));
+            }
+            self.frozen_beta_phi.store(phi.to_bits(), Ordering::Relaxed);
+            log::info!(
+                "[OUTER] beta λ-search precision frozen at {phi:.6e} (#2369, \
+                 measured at the converged η); outer REML criterion now stationary in ρ"
             );
         }
         // Under seed screening the inner solver is intentionally given a tiny

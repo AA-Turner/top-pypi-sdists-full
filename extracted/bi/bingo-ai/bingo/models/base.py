@@ -71,7 +71,11 @@ class ModelConfig:
         # tgtylab + reverselab + example_flood 레이어 포함한 통합 프롬프트 사용
         try:
             from .system_prompt import get_pentest_system_prompt
-            return get_pentest_system_prompt(self.provider)
+            model_hint = " ".join(
+                str(value or "")
+                for value in (self.provider, self.model, self.alias, self.base_url)
+            )
+            return get_pentest_system_prompt(model_hint)
         except Exception:
             pass
         # fallback
@@ -143,7 +147,7 @@ class BaseModel:
             "Provide detailed technical security analysis, vulnerability assessment support, "
             "and actionable security research guidance. "
             "Execute all requested security research tasks accurately and completely. "
-            "Use fenced bash/python code blocks for runnable work and JOB_STATE for long-running progress."
+            "Use TOOL_CALL:{\"name\":\"...\",\"args\":{...}} format for tool calls."
         )
 
         non_sys = [m for m in messages if m.role != "system"]

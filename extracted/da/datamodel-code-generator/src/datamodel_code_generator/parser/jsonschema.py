@@ -49,7 +49,7 @@ from datamodel_code_generator._format_types import (
 from datamodel_code_generator.deprecations import warn_deprecated
 from datamodel_code_generator.imports import IMPORT_ANY, Import
 from datamodel_code_generator.model import DataModel, DataModelFieldBase
-from datamodel_code_generator.model.base import UNDEFINED, get_module_name, sanitize_module_name
+from datamodel_code_generator.model.base import UNDEFINED, sanitize_module_name
 from datamodel_code_generator.model.enum import (
     SPECIALIZED_ENUM_TYPE_MATCH,
     Enum,
@@ -73,7 +73,13 @@ from datamodel_code_generator.parser.base import (
     title_to_class_name,
 )
 from datamodel_code_generator.parser.schema_version import get_data_formats
-from datamodel_code_generator.reference import SPECIAL_PATH_MARKER, ModelType, Reference, is_url
+from datamodel_code_generator.reference import (
+    SPECIAL_PATH_MARKER,
+    ModelType,
+    Reference,
+    get_inferred_module_name,
+    is_url,
+)
 from datamodel_code_generator.types import (
     ANY,
     DataType,
@@ -124,6 +130,10 @@ _PYTHON_UNION_BASE_TYPES = frozenset({"Union", "Optional"})
 _QUALIFIED_PYTHON_TYPE_IMPORT_ALIASES = {
     "pydantic.main.BaseModel": Import.from_full_path("pydantic.BaseModel"),
 }
+
+
+def _field_source_name(field: DataModelFieldBase) -> str | None:
+    return field.original_name if field.original_name is not None else field.name
 
 
 def _parse_python_type_annotation(type_str: str) -> ast.expr | None:
@@ -1643,7 +1653,11 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
         visited: set[str] = set()
 
         def iter_from_schema(obj: JsonSchemaObject, path: list[str]) -> Iterable[DataModelFieldBase]:
-            module_name = get_module_name(path[-1] if path else "", None, treat_dot_as_module=self.treat_dot_as_module)
+            module_name = get_inferred_module_name(
+                path[-1] if path else "",
+                treat_dot_as_module=self.treat_dot_as_module,
+                strict_dotted_module_names=self.strict_dotted_module_names,
+            )
             if obj.properties:
                 yield from self.parse_object_fields(obj, path, module_name)
             for item in obj.allOf:
@@ -1667,8 +1681,8 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
 
         deduplicated: dict[str, DataModelFieldBase] = {}
         for field in all_fields:
-            key = field.original_name or field.name
-            if key:  # pragma: no cover
+            key = _field_source_name(field)
+            if key is not None:  # pragma: no cover
                 deduplicated[key] = field.copy_deep()
         return list(deduplicated.values())
 
@@ -1930,7 +1944,7 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
         single_alias, validation_aliases = self._split_alias(alias)
         serialization_alias = (
             self.get_serialization_alias(original_field_name, field_name, class_name)
-            if original_field_name and field_name
+            if original_field_name is not None and field_name is not None
             else None
         )
         return self.data_model_field_type(
@@ -3721,7 +3735,7 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
     def _field_input_names(self, field: DataModelFieldBase) -> tuple[str, ...]:  # noqa: PLR6301
         names: list[str] = []
         for value in (field.original_name, field.alias, field.name):
-            if value and value not in names:
+            if value is not None and value not in names:
                 names.append(value)
         if field.validation_aliases:
             names.extend(alias for alias in field.validation_aliases if alias not in names)
@@ -3734,14 +3748,16 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
     ) -> dict[str, tuple[str, ...]]:
         names_by_property: dict[str, tuple[str, ...]] = {}
         for field in fields:
-            if property_name := field.original_name or field.name:
+            property_name = _field_source_name(field)
+            if property_name is not None:
                 names_by_property[property_name] = self._field_input_names(field)
 
         for base_class in base_classes:
             data_model = base_class.source if isinstance(base_class.source, DataModel) else None
             if data_model is not None:
                 for field in data_model.iter_all_fields():
-                    if property_name := field.original_name or field.name:
+                    property_name = _field_source_name(field)
+                    if property_name is not None:
                         names_by_property.setdefault(property_name, self._field_input_names(field))
                 continue
 
@@ -3981,22 +3997,26 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
                 self.parse_object_fields(
                     obj,
                     path,
-                    get_module_name(name, None, treat_dot_as_module=self.treat_dot_as_module),
+                    get_inferred_module_name(
+                        name,
+                        treat_dot_as_module=self.treat_dot_as_module,
+                        strict_dotted_module_names=self.strict_dotted_module_names,
+                    ),
                     class_name=name,
                 )
             )
         if base_classes:
             for field in fields:
                 current_type = field.data_type
-                field_name = field.original_name or field.name
-                if current_type and current_type.type == ANY and field_name:
+                field_name = _field_source_name(field)
+                if current_type and current_type.type == ANY and field_name is not None:
                     inherited_type = self._get_inherited_field_type(field_name, base_classes)
                     if inherited_type is not None:
                         new_type = inherited_type.model_copy(deep=True)
                         self._merge_type_modifiers(new_type, current_type)
                         self.generation_store.replace_field_type(field, new_type)
                 # Handle List[Any] case: inherit item type from parent if items have Any type
-                elif field_name and self._is_list_with_any_item_type(current_type):
+                elif field_name is not None and self._is_list_with_any_item_type(current_type):
                     inherited_type = self._get_inherited_field_type(field_name, base_classes)
                     if inherited_type is None or not inherited_type.is_list or not inherited_type.data_types:
                         continue
@@ -4039,12 +4059,13 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
             for field in fields:
                 if self.force_optional_for_required_fields:  # pragma: no cover
                     continue  # pragma: no cover
-                if (field.original_name or field.name) in required:
+                field_name = _field_source_name(field)
+                if field_name in required:
                     field.required = True
                     if self.apply_default_values_for_required_fields and field.has_default:
                         field.use_default_with_required = True
         if obj.required:
-            field_name_to_field = {f.original_name or f.name: f for f in fields}
+            field_name_to_field = {_field_source_name(field): field for field in fields}
             for required_ in obj.required:
                 if required_ in field_name_to_field:
                     field = field_name_to_field[required_]
@@ -4139,7 +4160,11 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
             else:
                 # Merge child properties with parent constraints before processing
                 merged_item = self._merge_properties_with_parent_constraints(all_of_item, parent_refs)
-                module_name = get_module_name(name, None, treat_dot_as_module=self.treat_dot_as_module)
+                module_name = get_inferred_module_name(
+                    name,
+                    treat_dot_as_module=self.treat_dot_as_module,
+                    strict_dotted_module_names=self.strict_dotted_module_names,
+                )
                 object_fields = self.parse_object_fields(
                     merged_item,
                     path,
@@ -4153,16 +4178,14 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
                         required.extend(all_of_item.required)
                         field_names: set[str] = set()
                         for f in object_fields:
-                            if f.original_name:
-                                field_names.add(f.original_name)
-                            elif f.name:  # pragma: no cover
-                                field_names.add(f.name)
+                            field_name = _field_source_name(f)
+                            if field_name is not None:  # pragma: no branch
+                                field_names.add(field_name)
                         existing_field_names: set[str] = set()
                         for f in fields:
-                            if f.original_name:
-                                existing_field_names.add(f.original_name)
-                            elif f.name:  # pragma: no cover
-                                existing_field_names.add(f.name)
+                            field_name = _field_source_name(f)
+                            if field_name is not None:  # pragma: no branch
+                                existing_field_names.add(field_name)
                         for required_field_name in all_of_item.required:
                             if required_field_name in field_names or required_field_name in existing_field_names:
                                 continue
@@ -4582,7 +4605,11 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
         fields = self.parse_object_fields(
             obj,
             path,
-            get_module_name(class_name, None, treat_dot_as_module=self.treat_dot_as_module),
+            get_inferred_module_name(
+                class_name,
+                treat_dot_as_module=self.treat_dot_as_module,
+                strict_dotted_module_names=self.strict_dotted_module_names,
+            ),
             class_name=class_name,
         )
         has_declared_fields = bool(fields)

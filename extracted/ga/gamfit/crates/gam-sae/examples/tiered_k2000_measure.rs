@@ -7,7 +7,7 @@
 //! fixed point with an OPEN certificate and Tier-2 runs on its residual, so we can
 //! finally report the three #2023 acceptance numbers at scale:
 //!
-//! 1. **Open certificate contents** — `certified`, `frame_residual` vs `tolerance`,
+//! 1. **Certificate contents** — `frame_residual` vs `tolerance`,
 //!    how many of the `K` blocks stayed live (settled) vs fell dead.
 //! 2. **Held-out EV (Tier-1)** — fit the linear bulk on train, transform the held-out
 //!    split through the frozen decoder, reconstruct, and score EV against the shared
@@ -150,7 +150,11 @@ fn ev_vs_mean(target: ArrayView2<'_, f32>, recon: ArrayView2<'_, f32>, mean: &Ar
             tss += dm * dm;
         }
     }
-    if tss <= 0.0 { f64::NAN } else { 1.0 - rss / tss }
+    if tss <= 0.0 {
+        f64::NAN
+    } else {
+        1.0 - rss / tss
+    }
 }
 
 fn run() -> Result<(), String> {
@@ -199,11 +203,13 @@ fn run() -> Result<(), String> {
         .filter(|&&u| u > 0.0)
         .count();
     println!(
-        "[k2000] CERTIFICATE certified={} frame_residual={:.3e} tolerance={:.3e} \
+        "[k2000] CERTIFICATE frame_residual={:.3e} tolerance={:.3e} \
          ev_residual={:.3e} gamma_residual={:.3e} routing_residual={:.3e} \
          reconstruction_residual={:.3e} accepted_births={} polar_failures={} \
          live_blocks={}/{} epochs_run={} wall={:.1}s",
-        cert.certified,
+        // A returned fit is certified BY CONSTRUCTION: non-convergence errors
+        // out before finalization, so `BlockSparseConvergence` no longer
+        // carries a `certified` flag — the residual fields ARE the evidence.
         cert.frame_residual,
         cert.tolerance,
         cert.ev_residual,
@@ -257,17 +263,17 @@ fn run() -> Result<(), String> {
     let tiered_report = fit_tiered(z_train_f64.view(), &tiered)?;
     let tiered_wall = t1.elapsed().as_secs_f64();
     let ev_composed_in = tiered_report.explained_variance;
-    let tier2_rounds = tiered_report
+    let tier2_outer_iters = tiered_report
         .tier2
         .as_ref()
-        .map(|r| r.rounds.len())
+        .map(|r| r.outer_iterations)
         .unwrap_or(0);
 
     println!(
-        "[k2000] COMPOSED in_sample_ev={:.6} tier2_rounds={} births={} refusals={} \
+        "[k2000] COMPOSED in_sample_ev={:.6} tier2_outer_iters={} births={} refusals={} \
          pc_reseed_events={} wall={:.1}s",
         ev_composed_in,
-        tier2_rounds,
+        tier2_outer_iters,
         tiered_report.ledger.n_births,
         tiered_report.ledger.n_refusals,
         tiered_report.ledger.pc_reseed_events,

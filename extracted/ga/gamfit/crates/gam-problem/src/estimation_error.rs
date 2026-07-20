@@ -400,13 +400,18 @@ pub enum EstimationError {
         row_index: usize,
     },
 
-    #[error(
-        "Hessian matrix is not positive definite (minimum eigenvalue: {min_eigenvalue:.4e}). This indicates a numerical instability."
-    )]
+    #[error("{}", hessian_not_positive_definite_message(*min_eigenvalue))]
     HessianNotPositiveDefinite { min_eigenvalue: f64 },
 
     #[error("REML smoothing optimization failed to converge: {0}")]
     RemlOptimizationFailed(String),
+
+    #[error("Fatal outer-objective evaluation failure ({context}): {source}")]
+    OuterObjectiveEvaluationFailed {
+        context: String,
+        #[source]
+        source: Box<EstimationError>,
+    },
 
     #[error(
         "Outer smoothing-parameter optimization did not certify a stationary optimum \
@@ -577,6 +582,32 @@ impl core::fmt::Debug for EstimationError {
 }
 
 impl EstimationError {
+    /// Preserve a thrown outer-objective failure across seed, solver, and
+    /// fallback-plan orchestration. Trial-domain refusals must be represented
+    /// as a finite API outcome (`+inf` / `OuterEval::infeasible`); an `Err`
+    /// means the evaluation artifact itself could not be constructed and must
+    /// never be retried as another numerical point.
+    pub fn fatal_outer_evaluation(
+        context: impl Into<String>,
+        source: EstimationError,
+    ) -> Self {
+        if matches!(
+            &source,
+            EstimationError::OuterObjectiveEvaluationFailed { .. }
+        ) {
+            source
+        } else {
+            EstimationError::OuterObjectiveEvaluationFailed {
+                context: context.into(),
+                source: Box::new(source),
+            }
+        }
+    }
+
+    pub fn is_fatal_outer_evaluation(&self) -> bool {
+        matches!(self, EstimationError::OuterObjectiveEvaluationFailed { .. })
+    }
+
     /// Classifies inner-solve failures that the outer REML loop should
     /// treat as a soft retreat (return +inf cost / infeasible outer-eval)
     /// rather than propagate as a hard error.
@@ -674,6 +705,24 @@ mod tests {
         assert!(
             !EstimationError::RemlOptimizationFailed("outer fail".to_string())
                 .is_inner_solve_retreat()
+        );
+    }
+
+    #[test]
+    fn fatal_outer_evaluation_is_typed_and_idempotent() {
+        let error = EstimationError::fatal_outer_evaluation(
+            "seed screening",
+            EstimationError::InvalidInput("frame mismatch".to_string()),
+        );
+        assert!(error.is_fatal_outer_evaluation());
+        assert!(error.to_string().contains("frame mismatch"));
+
+        let nested = EstimationError::fatal_outer_evaluation("fallback plan", error);
+        assert!(nested.is_fatal_outer_evaluation());
+        assert_eq!(
+            nested.to_string().matches("Fatal outer-objective").count(),
+            1,
+            "fatal provenance must not be re-wrapped at every orchestration layer"
         );
     }
 
@@ -808,5 +857,29 @@ mod tests {
             err,
             EstimationError::HessianNotPositiveDefinite { .. }
         ));
+    }
+}
+
+/// Honest failure text for [`EstimationError::HessianNotPositiveDefinite`].
+///
+/// A failed Cholesky with a strictly POSITIVE reported minimum eigenvalue is
+/// not an indefinite matrix — it is a positive spectrum whose condition
+/// number exceeds float precision (the pivots collapse under roundoff), or a
+/// non-finite assembly. Saying "not positive definite (minimum eigenvalue:
+/// 4.1e1)" sent debugging at the wrong defect class (#2316 triage), so the
+/// message now names the regime the eigenvalue actually indicates.
+fn hessian_not_positive_definite_message(min_eigenvalue: f64) -> String {
+    if min_eigenvalue.is_finite() && min_eigenvalue > 0.0 {
+        format!(
+            "Hessian factorization failed although the (lower-triangle) spectrum is positive \
+             (minimum eigenvalue: {min_eigenvalue:.4e}): the condition number exceeds float \
+             precision or the assembled matrix is asymmetric/non-finite outside the factored \
+             triangle. This indicates a numerical instability in the Hessian assembly or scaling."
+        )
+    } else {
+        format!(
+            "Hessian matrix is not positive definite (minimum eigenvalue: {min_eigenvalue:.4e}). \
+             This indicates a numerical instability."
+        )
     }
 }

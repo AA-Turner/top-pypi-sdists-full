@@ -1,9 +1,11 @@
 use crate::estimate::EstimationError;
-use faer::linalg::solvers::{Lblt as FaerLblt, Solve as FaerSolve};
-use faer::{Side, Unbind};
+use faer::linalg::solvers::{Lblt as FaerLblt, Solve as FaerSolve, SolveLstsq};
+use faer::Side;
 use gam_linalg::faer_ndarray::{FaerArrayView, FaerLinalgError, FaerSvd, array1_to_col_matmut};
 use gam_linalg::utils::{StableSolver, array_is_finite, boundary_hit_step_fraction};
-use gam_problem::LinearInequalityConstraints;
+use gam_problem::{
+    ConstraintRowId, ConstraintSet, KhatriRaoConeConstraints, LinearInequalityConstraints,
+};
 use ndarray::{Array1, Array2, s};
 use serde::{Deserialize, Serialize};
 use std::cell::Cell;
@@ -22,6 +24,44 @@ use std::collections::HashSet;
 /// applied; demanding tighter feasibility than this is inconsistent with the
 /// solver contract and will spuriously reject valid boundary solutions.
 pub const ACTIVE_SET_PRIMAL_FEASIBILITY_TOL: f64 = 1e-8;
+
+/// Scaled slack tolerance for membership in an active working face.
+///
+/// This is intentionally tighter than the public primal-feasibility contract:
+/// a row may be numerically feasible without being an equality at the current
+/// point. Warm-start and terminal face provenance both use this value so a QP
+/// endpoint row cannot remain active after globalization accepts an interior
+/// subsegment of the endpoint chord.
+pub const ACTIVE_SET_WORKING_FACE_TOL: f64 = 1e-10;
+
+/// Step fraction to the EXACT constraint boundary. A strictly feasible row
+/// (`slack > 0`) clips the step so the iterate lands ON the boundary — never
+/// inside the `±ACTIVE_SET_PRIMAL_FEASIBILITY_TOL` certified band. The former
+/// `slack + TOL` target deliberately overshot to the band's outer edge, which
+/// (a) returned band-edge answers from problems whose true optimum is on the
+/// boundary (`maxiter_accepts_current_boundary_solution` observed 0.1+1e-8),
+/// (b) made every downstream feasibility re-check a rounding coin flip, and
+/// (c) broke the strict-interior projection repair, whose own identity-QP
+/// landed band-edge and was then rejected by its interior margin.
+///
+/// A row already at or marginally past the boundary (`slack <= 0`, moving
+/// outward) clips to a zero step: the row is added as blocking, and the
+/// zero-progress machinery (projected-gradient tangent escape at
+/// `primal_step_norm <= tol_step`, plus the post-full-step multiplier
+/// adjudication) inspects the escape the pre-#979 code refused — the original
+/// reason the `+TOL` overshoot was introduced, now handled structurally.
+#[inline]
+fn active_set_boundary_hit_step_fraction(
+    scaled_slack: f64,
+    scaled_directional_change: f64,
+    current_step_limit: f64,
+) -> Option<f64> {
+    boundary_hit_step_fraction(
+        scaled_slack.max(0.0),
+        scaled_directional_change,
+        current_step_limit,
+    )
+}
 
 /// Stationarity tolerance for the strong-KKT acceptance gate: the projected
 /// (working-set) gradient residual ‖∇L − Aᵀλ‖∞, either absolute or relative to
@@ -207,6 +247,62 @@ fn solve_dense_system_via_pseudoinverse(
     Ok(())
 }
 
+/// Least-squares `min_z ‖A z − b‖` for `A` of shape `(p, k)` and rhs `b`
+/// (length `p`), returning `z` (length `k`) or `None` on numerical failure.
+///
+/// - Tall or square (`p ≥ k`): the rank-revealing col-pivoted QR (faer
+///   `solve_lstsq`) — the exact prior behavior, byte-for-byte.
+/// - Wide (`k > p`): the system is underdetermined. This arises on a DEGENERATE
+///   active face where more constraint rows are active than the problem has
+///   dimensions — e.g. a monotone coefficient cone plus many binding per-row
+///   derivative guards. The minimum-norm solution `z = Aᵀ (A Aᵀ)⁺ b` is taken
+///   via the SVD pseudoinverse of the square (possibly rank-deficient) Gram
+///   `A Aᵀ`, matching what a wide-capable least-squares would return.
+///
+/// Faer's `solve_lstsq` asserts `nrows ≥ ncols`, so feeding it a wide matrix
+/// panics — and here that panic would cross the Rust/Python FFI boundary,
+/// violating the typed-error contract. Routing the wide case through this helper
+/// keeps the failure typed: callers receive `None` and treat it as
+/// "not certified" (conservative), never a process abort.
+fn least_squares_min_norm_any_shape(a: &Array2<f64>, b: &Array1<f64>) -> Option<Array1<f64>> {
+    let p = a.nrows();
+    let k = a.ncols();
+    if b.len() != p {
+        return None;
+    }
+    if k == 0 {
+        return Some(Array1::zeros(0));
+    }
+    if k <= p {
+        let mut rhs = Array2::<f64>::zeros((p, 1));
+        rhs.column_mut(0).assign(b);
+        let a_view = FaerArrayView::new(a);
+        let rhs_view = FaerArrayView::new(&rhs);
+        let solved = a_view.as_ref().col_piv_qr().solve_lstsq(rhs_view.as_ref());
+        let mut z = Array1::<f64>::zeros(k);
+        for c in 0..k {
+            let value = solved[(c, 0)];
+            if !value.is_finite() {
+                return None;
+            }
+            z[c] = value;
+        }
+        Some(z)
+    } else {
+        // Underdetermined: min-norm `z = Aᵀ (A Aᵀ)⁺ b`. `A Aᵀ` is `p × p`, so it
+        // satisfies the square precondition of the SVD pseudoinverse solve, and
+        // the pseudoinverse absorbs the rank deficiency of an over-complete face.
+        let gram = a.dot(&a.t());
+        let mut y = Array1::<f64>::zeros(p);
+        solve_dense_system_via_pseudoinverse(&gram, b, &mut y).ok()?;
+        let z = a.t().dot(&y);
+        if z.iter().any(|value| !value.is_finite()) {
+            return None;
+        }
+        Some(z)
+    }
+}
+
 pub(crate) fn compute_constraint_kkt_diagnostics(
     beta: &Array1<f64>,
     gradient: &Array1<f64>,
@@ -314,6 +410,189 @@ pub(crate) fn compute_constraint_kkt_diagnostics(
     }
 }
 
+/// Lawson–Hanson nonnegative least squares onto a finitely generated cone.
+///
+/// Solves `min_{λ ≥ 0} ‖rowsᵀ λ − target‖₂` for a row block `rows` (`m × p`,
+/// original row units) and returns `(λ, projected)` with
+/// `projected = target − rowsᵀ λ`. By the Moreau decomposition `rowsᵀ λ` is
+/// the Euclidean projection of `target` onto the cone generated by the rows,
+/// so `projected` is the projection onto that cone's polar.
+///
+/// This is the existence-form dual-feasibility certificate for degenerate
+/// working faces: multipliers on a rank-deficient face are non-unique, and
+/// any single reconstruction (KKT least-squares, per-group attribution) can
+/// carry huge canceling ± components — reporting `dual ≫ 0` at a point where
+/// a different `λ ≥ 0` closes stationarity exactly (#2298 survival
+/// monotonicity faces, #979 CTN Khatri–Rao faces). NNLS answers the right
+/// question: does ANY nonnegative multiplier close stationarity?
+///
+/// Rows are unit-normalized internally so pivot ordering and tolerances are
+/// scale-invariant; the returned `λ` is in original row units. Zero rows
+/// carry `λ = 0`. Classic LH terminates after finitely many passive-set
+/// changes; a `3m + 30` outer guard bounds float pathologies and returns the
+/// best iterate — callers treat an unclosed residual as "not certified", so
+/// early return is conservative, never false-green.
+pub(crate) fn nonnegative_cone_multipliers(
+    rows: &Array2<f64>,
+    target: &Array1<f64>,
+) -> Option<(Array1<f64>, Array1<f64>)> {
+    let p = target.len();
+    let m = rows.nrows();
+    if rows.ncols() != p {
+        return None;
+    }
+    if m == 0 {
+        return Some((Array1::zeros(0), target.clone()));
+    }
+    if target.iter().any(|v| !v.is_finite()) || rows.iter().any(|v| !v.is_finite()) {
+        return None;
+    }
+    let mut norms = Array1::<f64>::zeros(m);
+    let mut unit = Array2::<f64>::zeros((m, p));
+    for i in 0..m {
+        let norm = rows.row(i).dot(&rows.row(i)).sqrt();
+        norms[i] = norm;
+        if norm > 0.0 {
+            unit.row_mut(i).assign(&(&rows.row(i) / norm));
+        }
+    }
+    let target_inf = target.iter().fold(0.0_f64, |acc, &v| acc.max(v.abs()));
+    if target_inf == 0.0 {
+        return Some((Array1::zeros(m), target.clone()));
+    }
+    // Gradient tolerance in λ-space: with unit rows, `w_i = a_î·r` is bounded
+    // by ‖r‖, so a relative band on the target scale is dimensionless.
+    let tol_w = 1e-10 * target_inf;
+    let lambda_floor = 1e-14 * target_inf;
+
+    let mut lambda_unit = Array1::<f64>::zeros(m);
+    let mut passive: Vec<usize> = Vec::new();
+    let mut in_passive = vec![false; m];
+    let mut residual = target.clone();
+    // Rows whose trial coefficient collapsed to zero at the current residual;
+    // re-eligible as soon as the residual moves. Prevents an add/drop loop on
+    // exactly degenerate geometry.
+    let mut banned = vec![false; m];
+
+    let solve_passive = |passive: &[usize]| -> Option<Array1<f64>> {
+        let k = passive.len();
+        // `design` is `p × k` (each column is a unit active row). On a degenerate
+        // over-complete face `k` can exceed `p` (more active rows than
+        // dimensions); the min-norm least-squares helper handles that wide case
+        // instead of panicking inside faer's tall-only `solve_lstsq`.
+        let mut design = Array2::<f64>::zeros((p, k));
+        for (col, &row) in passive.iter().enumerate() {
+            design.column_mut(col).assign(&unit.row(row));
+        }
+        least_squares_min_norm_any_shape(&design, target)
+    };
+
+    let max_outer = 3 * m + 30;
+    for _ in 0..max_outer {
+        // Most-ascent candidate among non-passive, non-banned rows.
+        let mut best: Option<(usize, f64)> = None;
+        for i in 0..m {
+            if in_passive[i] || banned[i] || norms[i] <= 0.0 {
+                continue;
+            }
+            let w = unit.row(i).dot(&residual);
+            if w > tol_w && best.map(|(_, bw)| w > bw).unwrap_or(true) {
+                best = Some((i, w));
+            }
+        }
+        let Some((entering, _)) = best else {
+            break;
+        };
+        passive.push(entering);
+        in_passive[entering] = true;
+
+        let mut inner_ok = false;
+        for _ in 0..(m + 2) {
+            let Some(z) = solve_passive(&passive) else {
+                return None;
+            };
+            let min_z = z.iter().copied().fold(f64::INFINITY, f64::min);
+            if min_z > lambda_floor {
+                for (pos, &row) in passive.iter().enumerate() {
+                    lambda_unit[row] = z[pos];
+                }
+                inner_ok = true;
+                break;
+            }
+            // Interpolate toward z until the first coefficient hits zero,
+            // then drop every zeroed row from the passive set.
+            let mut alpha = 1.0_f64;
+            for (pos, &row) in passive.iter().enumerate() {
+                if z[pos] <= lambda_floor {
+                    let current = lambda_unit[row];
+                    let denom = current - z[pos];
+                    if denom > 0.0 {
+                        alpha = alpha.min((current / denom).clamp(0.0, 1.0));
+                    } else {
+                        alpha = 0.0;
+                    }
+                }
+            }
+            for (pos, &row) in passive.iter().enumerate() {
+                lambda_unit[row] += alpha * (z[pos] - lambda_unit[row]);
+            }
+            let mut retained = Vec::with_capacity(passive.len());
+            for &row in &passive {
+                if lambda_unit[row] > lambda_floor {
+                    retained.push(row);
+                } else {
+                    lambda_unit[row] = 0.0;
+                    in_passive[row] = false;
+                    // The row failed at THIS residual; ban it until the
+                    // residual moves so a degenerate add/drop pair cannot
+                    // cycle within one outer round.
+                    banned[row] = true;
+                }
+            }
+            if retained.len() == passive.len() {
+                // Nothing dropped despite a non-positive trial coefficient:
+                // numerically stuck; stop refining this passive set.
+                inner_ok = true;
+                for (pos, &row) in passive.iter().enumerate() {
+                    lambda_unit[row] = z[pos].max(0.0);
+                }
+                break;
+            }
+            passive = retained;
+            if passive.is_empty() {
+                break;
+            }
+        }
+        // Refresh the residual; any movement re-enables banned rows.
+        let mut fitted = Array1::<f64>::zeros(p);
+        for &row in &passive {
+            fitted.scaled_add(lambda_unit[row], &unit.row(row));
+        }
+        let new_residual = target - &fitted;
+        let moved = new_residual
+            .iter()
+            .zip(residual.iter())
+            .any(|(a, b)| (a - b).abs() > 1e-15 * target_inf);
+        residual = new_residual;
+        if moved {
+            banned.iter_mut().for_each(|b| *b = false);
+        } else if !inner_ok {
+            break;
+        }
+    }
+
+    let mut lambda = Array1::<f64>::zeros(m);
+    for i in 0..m {
+        if norms[i] > 0.0 {
+            lambda[i] = lambda_unit[i] / norms[i];
+        }
+    }
+    if !array_is_finite(&lambda) || !array_is_finite(&residual) {
+        return None;
+    }
+    Some((lambda, residual))
+}
+
 pub fn project_stationarity_residual_on_constraint_cone(
     residual: &Array1<f64>,
     active_a: &Array2<f64>,
@@ -325,105 +604,116 @@ pub fn project_stationarity_residual_on_constraint_cone(
     if active_a.nrows() == 0 {
         return Some((residual.clone(), Array1::zeros(0)));
     }
+    if let Some(result) = moreau_projection_via_primal_qp(residual, active_a) {
+        return Some(result);
+    }
+    // The primal QP route can fail on degenerate faces (working-set cycling,
+    // multiplier-reconstruction refusals). Projection onto a finitely
+    // generated cone IS nonnegative least squares (Moreau), so the direct LH
+    // solve is an exact fallback: `projected = residual − Aᵀλ*` with
+    // `λ* = argmin_{λ≥0} ‖residual − Aᵀλ‖`. Reconstruction is exact by
+    // construction here, so no cross-check gate is needed.
+    nonnegative_cone_multipliers(active_a, residual).map(|(lambda, projected)| (projected, lambda))
+}
+
+fn moreau_projection_via_primal_qp(
+    residual: &Array1<f64>,
+    active_a: &Array2<f64>,
+) -> Option<(Array1<f64>, Array1<f64>)> {
+    let p = residual.len();
 
     let m = active_a.nrows();
-    let residual_scale = residual
-        .iter()
-        .fold(0.0_f64, |acc, &v| acc.max(v.abs()))
-        .max(1.0);
-    let row_scale = active_a
-        .iter()
-        .fold(0.0_f64, |acc, &v| acc.max(v.abs()))
-        .max(1.0);
-    let tol = 100.0 * f64::EPSILON * (p.max(m).max(1) as f64) * residual_scale * row_scale;
+    let constraints = LinearInequalityConstraints::new(active_a.clone(), Array1::<f64>::zeros(m))
+        .ok()?
+        .canonicalized()
+        .ok()?;
 
-    let mut lambda = Array1::<f64>::zeros(m);
-    let mut passive = vec![false; m];
-    let mut projected = residual.clone();
-    let max_iter = (3 * m * m).max(10);
+    // Moreau projection onto the tangent cone is the strictly convex primal
+    // QP
+    //
+    //   min_d  1/2 ||d + residual||^2    s.t. A d >= 0.
+    //
+    // The former implementation solved its dual with a second, nested
+    // Lawson-Hanson active-set method. On the issue-979 CTN faces that nested
+    // solver enumerated up to `3*m*m` passive sets, first with one dense SVD
+    // and later with one fresh QR per pivot. Route the geometry through the
+    // repository's single Bland-ordered, rank-compressed primal QP instead.
+    // Its identity Hessian is strictly positive definite, so the returned face
+    // and direction are unique and need no projected-gradient escape.
+    let identity = Array2::<f64>::eye(p);
+    let origin = Array1::<f64>::zeros(p);
+    let mut tangent_direction = Array1::<f64>::zeros(p);
+    let mut tangent_active = Vec::new();
+    let max_iterations = (p + m + 8) * 4;
+    solve_newton_direction_with_linear_constraints_impl(
+        &identity,
+        residual,
+        &origin,
+        &constraints,
+        &mut tangent_direction,
+        Some(&mut tangent_active),
+        max_iterations,
+        false,
+    )
+    .ok()?;
+    if !array_is_finite(&tangent_direction) {
+        return None;
+    }
+    let projected = -&tangent_direction;
 
-    for _ in 0..max_iter {
-        let dual = active_a.dot(&projected);
-        let entering = (0..m)
-            .filter(|&idx| !passive[idx] && dual[idx] > tol)
-            .max_by(|&left, &right| {
-                dual[left]
-                    .partial_cmp(&dual[right])
-                    .unwrap_or(std::cmp::Ordering::Equal)
-            });
-        let Some(entering) = entering else {
-            lambda.mapv_inplace(|v| if v > tol { v } else { 0.0 });
-            projected = residual - &active_a.t().dot(&lambda);
-            if !array_is_finite(&projected) || !array_is_finite(&lambda) {
+    // Reconstruct the primal QP's nonnegative KKT multipliers once on its
+    // canonical full-row-rank face: residual + d = A_active^T lambda. This is
+    // a single rectangular least-squares solve, never normal equations and
+    // never another active-set loop.
+    let mut lambda_canonical = Array1::<f64>::zeros(m);
+    if !tangent_active.is_empty() {
+        let gathered = gather_linear_constraint_rows(&constraints, &tangent_active).ok()?;
+        // `design` is `p × |tangent_active|`. The face is meant to be
+        // full-row-rank (≤ p active rows), but a degenerate iterate can present
+        // more active rows than dimensions; the min-norm helper handles that wide
+        // case rather than panicking inside faer's tall-only `solve_lstsq`.
+        let design = gathered.a.t().to_owned();
+        let solved = least_squares_min_norm_any_shape(&design, &(residual + &tangent_direction))?;
+        let scale = residual
+            .iter()
+            .fold(0.0_f64, |acc, &value| acc.max(value.abs()))
+            .max(1.0);
+        let tol = 100.0 * f64::EPSILON * (p.max(m) as f64) * scale;
+        for (position, &row) in tangent_active.iter().enumerate() {
+            let value = solved[position];
+            if !value.is_finite() || value < -tol {
                 return None;
             }
-            return Some((projected, lambda));
-        };
-        passive[entering] = true;
-
-        loop {
-            let passive_rows: Vec<usize> = (0..m).filter(|&idx| passive[idx]).collect();
-            if passive_rows.is_empty() {
-                lambda.fill(0.0);
-                projected.assign(residual);
-                break;
-            }
-
-            let mut a_passive = Array2::<f64>::zeros((passive_rows.len(), p));
-            for (pos, &row) in passive_rows.iter().enumerate() {
-                a_passive.row_mut(pos).assign(&active_a.row(row));
-            }
-            let gram = a_passive.dot(&a_passive.t());
-            let rhs = a_passive.dot(residual);
-            let mut lambda_passive = Array1::<f64>::zeros(passive_rows.len());
-            solve_dense_system_via_pseudoinverse(&gram, &rhs, &mut lambda_passive).ok()?;
-            if !array_is_finite(&lambda_passive) {
-                return None;
-            }
-
-            let all_positive = lambda_passive.iter().all(|&v| v > tol);
-            if all_positive {
-                lambda.fill(0.0);
-                for (pos, &row) in passive_rows.iter().enumerate() {
-                    lambda[row] = lambda_passive[pos];
-                }
-                projected = residual - &active_a.t().dot(&lambda);
-                break;
-            }
-
-            let mut alpha = f64::INFINITY;
-            for (pos, &row) in passive_rows.iter().enumerate() {
-                let candidate = lambda_passive[pos];
-                if candidate <= tol {
-                    let current = lambda[row];
-                    let denom = current - candidate;
-                    if denom > 0.0 {
-                        alpha = alpha.min(current / denom);
-                    }
-                }
-            }
-            if !alpha.is_finite() {
-                alpha = 0.0;
-            }
-            alpha = alpha.clamp(0.0, 1.0);
-
-            for (pos, &row) in passive_rows.iter().enumerate() {
-                lambda[row] += alpha * (lambda_passive[pos] - lambda[row]);
-                if lambda[row] <= tol {
-                    lambda[row] = 0.0;
-                    passive[row] = false;
-                }
-            }
-            if passive.iter().all(|&is_passive| !is_passive) {
-                projected.assign(residual);
-                break;
-            }
+            lambda_canonical[row] = value.max(0.0);
         }
     }
+    let reconstructed = residual - &constraints.a.t().dot(&lambda_canonical);
+    let reconstruction_error = reconstructed
+        .iter()
+        .zip(projected.iter())
+        .fold(0.0_f64, |acc, (&left, &right)| {
+            acc.max((left - right).abs())
+        });
+    let scale = residual
+        .iter()
+        .fold(0.0_f64, |acc, &value| acc.max(value.abs()))
+        .max(1.0);
+    if reconstruction_error > 1e-8 * scale || !array_is_finite(&lambda_canonical) {
+        return None;
+    }
 
-    // Exhausting the Lawson-Hanson iterations means we do not have the
-    // normal-cone projection required for a KKT certificate.
-    None
+    // `constraints` has unit rows, but this public helper historically returns
+    // multipliers in the caller's original row units. If a_i^canon = a_i/s_i,
+    // then lambda_i^original = lambda_i^canon/s_i preserves
+    // A_original^T lambda_original = A_canon^T lambda_canon.
+    let mut lambda = Array1::<f64>::zeros(m);
+    for row in 0..m {
+        let norm = active_a.row(row).dot(&active_a.row(row)).sqrt();
+        if norm > 0.0 {
+            lambda[row] = lambda_canonical[row] / norm;
+        }
+    }
+    Some((projected, lambda))
 }
 
 pub(crate) fn feasible_point_for_linear_constraints(
@@ -891,19 +1181,409 @@ pub(crate) fn solve_kkt_direction(
 #[derive(Clone, Debug)]
 pub(crate) struct CompressedActiveWorkingSet {
     pub(crate) constraints: LinearInequalityConstraints,
+    /// Original active positions collapsed into each compressed (representative)
+    /// row: `groups[g][0]` is the representative and the rest are its exactly-
+    /// parallel (positively-aligned, same-constraint-up-to-scale) dependents. The
+    /// whole group is released together when the representative's dual is negative.
     pub(crate) groups: Vec<Vec<usize>>,
-    multiplier_dependence: Vec<Vec<ActiveRowDependence>>,
     pub(crate) original_active_count: usize,
 }
 
-// Visible at `pub` (with private fields) so it can appear in the signature of
-// the `pub` cross-crate `rank_reduce_rows_pivoted_qr_with_dependence`, which the
-// gam-custom-family rank-reduction tests call directly after the #1521 crate
-// carve. The fields stay private: external callers ignore the dependence return.
+/// One dependent row of the WORKING SET expressed against its representative:
+/// `a_dep ≈ coeff · a_rep`.
+///
+/// Recorded ONLY for exactly-parallel (positively-aligned scalar-multiple)
+/// dependents; a general-position dependent is dropped from the working set with
+/// NO entry and re-enters via the next feasibility scan (it never receives a
+/// distributed/phantom multiplier).
+///
+/// `active_pos` is an ACTIVE-SET POSITION: an index into the caller's `active`
+/// slice, so the original constraint id is `active[active_pos]` (see
+/// [`compress_active_working_set`], which seeds `groups` with exactly these
+/// positions). It is NOT a constraint-row id and NOT a coefficient index. The
+/// reduced-face op reports its dependents in constraint-row space instead and
+/// therefore uses its own [`ConstraintRowDependence`] — the two must not be
+/// interchanged.
 #[derive(Clone, Copy, Debug)]
 pub struct ActiveRowDependence {
-    active_pos: usize,
-    coeff: f64,
+    pub active_pos: usize,
+    pub coeff: f64,
+}
+
+/// One tight row of a REDUCED FACE expressed against its representative:
+/// `a_dep ≈ coeff · a_rep`, with the dependent named in constraint-row space.
+///
+/// Same `(A)`-strict recording rule as [`ActiveRowDependence`], different index
+/// space: `row` is the dependent's [`ConstraintRowId`] in the reduced set's own
+/// row space. The representative is identified by the index of the owning
+/// [`ReducedFace::dependence`] slot, which is aligned with
+/// [`ReducedFace::representatives`].
+#[derive(Clone, Copy, Debug)]
+pub struct ConstraintRowDependence {
+    pub row: ConstraintRowId,
+    pub coeff: f64,
+}
+
+/// The result of reducing a tight active face to a minimal independent set — the
+/// shared output of the `ConstraintSet` reduced-face op (Dense arm =
+/// [`dense_reduced_face`]; KhatriRaoCone / BlockDiagonal arms produce the same
+/// shape). Determinism: representatives are the lowest-flat-index row per
+/// independent direction, ascending, with no float tie-break.
+///
+/// INDEX SPACE: every id here is a [`ConstraintRowId`] in the reduced set's own
+/// constraint-row space (`0..nrows()`), addressing `values()` / `bound()` /
+/// `row_norm()`. It is NOT a coefficient index; to reach β coordinates go
+/// through [`gam_problem::ConstraintSet::row_column_support`].
+#[derive(Clone, Debug)]
+pub struct ReducedFace {
+    /// Kept independent rows — the lowest-flat-index representative per direction,
+    /// ascending. Flat id space is `0..nrows` (Dense) / `slot*n + obs` (cone) /
+    /// the concatenation of the member row spaces (block-diagonal).
+    pub representatives: Vec<ConstraintRowId>,
+    /// Per-representative parallel-dependent map, index-aligned with
+    /// `representatives`. `dependence[i]` lists the exactly-parallel dependents of
+    /// `representatives[i]` (empty when it has none); general-position dependents
+    /// are absent (dropped, re-enter on the next feasibility scan).
+    pub dependence: Vec<Vec<ConstraintRowDependence>>,
+    /// The full tight set that was reduced, ascending flat ids.
+    pub tight_rows: Vec<ConstraintRowId>,
+}
+
+/// Reduce the tight active face of a Khatri–Rao monotonicity cone to its minimal
+/// independent set — the `KhatriRaoCone` arm of the `ConstraintSet` reduced-face
+/// op (gam#2306; the Dense arm is [`dense_reduced_face`]).
+///
+/// A cone row `(slot, i)` has normal `e_{k} ⊗ ψ_i` (`k = coupled_rows[slot]`),
+/// so two normals' inner product is `δ_{slot,slot'}·(ψ_iᵀ ψ_{i'})`: cross-block
+/// normals are ALWAYS orthogonal and never redundant, and redundancy occurs only
+/// WITHIN a shape block among linearly dependent covariate rows `ψ_i`. The
+/// reduction therefore decomposes into independent per-block Gram–Schmidt scans
+/// over the block's tight `ψ_i` rows — never forming the `n·|coupled|` system.
+///
+/// Contract (matches the Dense arm): FULL rank cut (every dependent row is
+/// dropped from `representatives`, parallel OR general-position); the dependence
+/// map records `(A)`-strict — ONLY exactly-parallel dependents
+/// (`|cos(ψ_dep, ψ_rep)| ≥ 1 − 1e-9`) get a [`ConstraintRowDependence`] against their
+/// single representative (`coeff = ψ_depᵀψ_rep / ‖ψ_rep‖²`, so `a_dep ≈ coeff·a_rep`);
+/// general-position drops get no entry and re-enter via the next feasibility
+/// scan. Representatives are the lowest-flat-index row per direction (ascending
+/// obs within a block), host-deterministic with no float tie-break. The rank
+/// tolerance mirrors the Dense scan (`100·ε·max(n_tight, p_cov)·max‖ψ‖`), so the
+/// two arms cut to the same numerical rank. Flat id is `slot*n + obs`, matching
+/// [`KhatriRaoConeConstraints::values`].
+pub fn khatri_rao_cone_reduced_face(
+    cone: &KhatriRaoConeConstraints,
+    beta: ndarray::ArrayView1<'_, f64>,
+    membership_tol: f64,
+) -> Result<ReducedFace, EstimationError> {
+    let psi = cone.factor();
+    let n = psi.nrows();
+    let p_cov = psi.ncols();
+    let coupled = cone.coupled_rows();
+    let values = cone.values(beta).map_err(|error| {
+        EstimationError::ParameterConstraintViolation(format!(
+            "Khatri-Rao cone reduced-face values: {error}"
+        ))
+    })?;
+
+    // ‖ψ_i‖ is shared across coupled slots (the same covariate factor).
+    let row_norms: Vec<f64> = (0..n)
+        .map(|i| {
+            let row = psi.row(i);
+            row.dot(&row).sqrt()
+        })
+        .collect();
+
+    const RANK_ALPHA: f64 = 100.0;
+    // Exactly-parallel threshold, matching the Dense scan's ±1e-9 cosine band.
+    const PARALLEL_COS_TOL: f64 = 1.0 - 1e-9;
+
+    let mut representatives: Vec<ConstraintRowId> = Vec::new();
+    let mut dependence: Vec<Vec<ConstraintRowDependence>> = Vec::new();
+    let mut tight_rows: Vec<ConstraintRowId> = Vec::new();
+
+    for slot in 0..coupled.len() {
+        // Tight obs in this block, ascending. A zero-norm ψ_i is a vacuous row
+        // (0ᵀβ ≥ 0 always holds) — never a constraint direction, never a rep.
+        let mut tight_obs: Vec<usize> = Vec::new();
+        for i in 0..n {
+            let norm_i = row_norms[i];
+            if norm_i <= 0.0 {
+                continue;
+            }
+            let scaled_slack = values[slot * n + i] / norm_i;
+            if scaled_slack <= membership_tol {
+                tight_rows.push(ConstraintRowId(slot * n + i));
+                tight_obs.push(i);
+            }
+        }
+        if tight_obs.is_empty() {
+            continue;
+        }
+
+        let max_norm = tight_obs
+            .iter()
+            .map(|&i| row_norms[i])
+            .fold(0.0_f64, f64::max);
+        let rank_tol =
+            RANK_ALPHA * f64::EPSILON * (tight_obs.len().max(p_cov).max(1) as f64) * max_norm;
+
+        let mut ortho_basis: Vec<Array1<f64>> = Vec::new();
+        // Kept representatives in THIS block: (obs, ψ_obs, index into representatives).
+        let mut kept: Vec<(usize, Array1<f64>, usize)> = Vec::new();
+        for &i in &tight_obs {
+            let psi_i = psi.row(i).to_owned();
+            let mut resid = psi_i.clone();
+            for q in &ortho_basis {
+                let proj = resid.dot(q);
+                resid.scaled_add(-proj, q);
+            }
+            let resid_norm = resid.dot(&resid).sqrt();
+            let flat = ConstraintRowId(slot * n + i);
+            if resid_norm > rank_tol {
+                ortho_basis.push(&resid / resid_norm);
+                let out_idx = representatives.len();
+                representatives.push(flat);
+                dependence.push(Vec::new());
+                kept.push((i, psi_i, out_idx));
+            } else {
+                // (A)-strict: record ONLY an exactly-parallel single-representative
+                // dependence; general-position drops carry no multiplier.
+                let mut best_abs_cos = 0.0_f64;
+                let mut best: Option<(usize, f64)> = None;
+                for (rep_obs, rep_psi, rep_out_idx) in &kept {
+                    let rep_norm = row_norms[*rep_obs];
+                    let dot = psi_i.dot(rep_psi);
+                    let cos = if rep_norm > 0.0 {
+                        dot / (row_norms[i] * rep_norm)
+                    } else {
+                        0.0
+                    };
+                    if cos.abs() > best_abs_cos {
+                        best_abs_cos = cos.abs();
+                        best = Some((*rep_out_idx, dot / (rep_norm * rep_norm)));
+                    }
+                }
+                if best_abs_cos >= PARALLEL_COS_TOL {
+                    if let Some((out_idx, coeff)) = best {
+                        dependence[out_idx].push(ConstraintRowDependence {
+                            row: flat,
+                            coeff,
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(ReducedFace {
+        representatives,
+        dependence,
+        tight_rows,
+    })
+}
+
+/// Dense arm of the reduced-face op: reduce the tight rows of an explicit
+/// `A x ≥ b` set at `beta` to a minimal independent set. Mirrors
+/// [`khatri_rao_cone_reduced_face`] exactly — ascending-index greedy MGS,
+/// `RANK_ALPHA·ε·max(n_tight,p)·max‖a‖` tolerance, (A)-strict parallel-only
+/// dependence (|cos| ≥ 1−1e-9, `coeff = a_depᵀa_rep/‖a_rep‖²`, `row` = the
+/// dependent row's flat id) — so both carriers produce the same `ReducedFace`
+/// contract. Flat id = the constraint row index. A zero-norm row is vacuous
+/// (never a direction, never a representative).
+pub fn dense_reduced_face(
+    lin: &LinearInequalityConstraints,
+    beta: ndarray::ArrayView1<'_, f64>,
+    membership_tol: f64,
+) -> Result<ReducedFace, EstimationError> {
+    let a = &lin.a;
+    let b = &lin.b;
+    let n = a.nrows();
+    let p = a.ncols();
+
+    let row_norms: Vec<f64> = (0..n)
+        .map(|i| {
+            let row = a.row(i);
+            row.dot(&row).sqrt()
+        })
+        .collect();
+
+    const RANK_ALPHA: f64 = 100.0;
+    const PARALLEL_COS_TOL: f64 = 1.0 - 1e-9;
+
+    // The scan runs in raw row indices (they address `a` / `row_norms`); the
+    // ids are wrapped into constraint-row space once, at the return boundary.
+    let mut tight: Vec<usize> = Vec::new();
+    for i in 0..n {
+        let norm_i = row_norms[i];
+        if norm_i <= 0.0 {
+            continue;
+        }
+        let scaled_slack = (a.row(i).dot(&beta) - b[i]) / norm_i;
+        if scaled_slack <= membership_tol {
+            tight.push(i);
+        }
+    }
+
+    let mut representatives: Vec<ConstraintRowId> = Vec::new();
+    let mut dependence: Vec<Vec<ConstraintRowDependence>> = Vec::new();
+    if tight.is_empty() {
+        return Ok(ReducedFace {
+            representatives,
+            dependence,
+            tight_rows: Vec::new(),
+        });
+    }
+
+    let max_norm = tight
+        .iter()
+        .map(|&i| row_norms[i])
+        .fold(0.0_f64, f64::max);
+    let rank_tol = RANK_ALPHA * f64::EPSILON * (tight.len().max(p).max(1) as f64) * max_norm;
+
+    let mut ortho_basis: Vec<Array1<f64>> = Vec::new();
+    // Kept representatives: (row, a_row, index into `representatives`).
+    let mut kept: Vec<(usize, Array1<f64>, usize)> = Vec::new();
+    for &i in &tight {
+        let a_i = a.row(i).to_owned();
+        let mut resid = a_i.clone();
+        for q in &ortho_basis {
+            let proj = resid.dot(q);
+            resid.scaled_add(-proj, q);
+        }
+        let resid_norm = resid.dot(&resid).sqrt();
+        if resid_norm > rank_tol {
+            ortho_basis.push(&resid / resid_norm);
+            let out_idx = representatives.len();
+            representatives.push(ConstraintRowId(i));
+            dependence.push(Vec::new());
+            kept.push((i, a_i, out_idx));
+        } else {
+            // (A)-strict: record ONLY an exactly-parallel single-representative
+            // dependence; a general-position drop carries no multiplier and
+            // re-enters via the next feasibility scan.
+            let mut best_abs_cos = 0.0_f64;
+            let mut best: Option<(usize, f64)> = None;
+            for (rep_row, rep_a, rep_out_idx) in &kept {
+                let rep_norm = row_norms[*rep_row];
+                let dot = a_i.dot(rep_a);
+                let cos = if rep_norm > 0.0 {
+                    dot / (row_norms[i] * rep_norm)
+                } else {
+                    0.0
+                };
+                if cos.abs() > best_abs_cos {
+                    best_abs_cos = cos.abs();
+                    best = Some((*rep_out_idx, dot / (rep_norm * rep_norm)));
+                }
+            }
+            if best_abs_cos >= PARALLEL_COS_TOL {
+                if let Some((out_idx, coeff)) = best {
+                    dependence[out_idx].push(ConstraintRowDependence {
+                        row: ConstraintRowId(i),
+                        coeff,
+                    });
+                }
+            }
+        }
+    }
+
+    Ok(ReducedFace {
+        representatives,
+        dependence,
+        tight_rows: tight.into_iter().map(ConstraintRowId).collect(),
+    })
+}
+
+/// Lift a MEMBER's constraint-row id into the JOINT block-diagonal row space.
+///
+/// Derivation: `ConstraintSet::BlockDiagonal` stacks its members' constraint
+/// ROWS in block order — `ConstraintSet::values` writes member `m`'s values into
+/// `out[off .. off + m.nrows()]`, and `bound` / `row_norm` decode a joint row by
+/// walking the same running `nrows()` sum (`block_for_row`). So the joint id of
+/// member row `local` is `local + Σ_{earlier m} m.nrows()`, which is what
+/// `row_offset` accumulates.
+///
+/// The offset is deliberately NOT `col_start`. That is the COEFFICIENT offset,
+/// and it advances by `ncols()`. Using one for the other is only invisible while
+/// every member is square (`nrows() == ncols()`); the moment a member constrains
+/// fewer rows than it has coefficients, the two sequences diverge and the ids
+/// silently name the wrong block. To go from these ids to β coordinates, use
+/// `ConstraintSet::row_column_support` — never arithmetic on the id.
+#[inline]
+fn lift_member_row(local: ConstraintRowId, row_offset: usize) -> ConstraintRowId {
+    ConstraintRowId(local.index() + row_offset)
+}
+
+/// The shared tight-face reduction op over the `ConstraintSet` carrier union.
+/// An extension trait (not an inherent method) so the numeric reduction
+/// stays in gam-solve where the solvers consume it, keeping `gam-problem` a pure
+/// data crate. All three arms produce the same `ReducedFace` contract.
+pub trait ConstraintSetReducedFace {
+    fn reduced_face(
+        &self,
+        beta: ndarray::ArrayView1<'_, f64>,
+        membership_tol: f64,
+    ) -> Result<ReducedFace, EstimationError>;
+}
+
+impl ConstraintSetReducedFace for ConstraintSet {
+    fn reduced_face(
+        &self,
+        beta: ndarray::ArrayView1<'_, f64>,
+        membership_tol: f64,
+    ) -> Result<ReducedFace, EstimationError> {
+        match self {
+            ConstraintSet::Dense(lin) => dense_reduced_face(lin, beta, membership_tol),
+            ConstraintSet::KhatriRaoCone(cone) => {
+                khatri_rao_cone_reduced_face(cone, beta, membership_tol)
+            }
+            ConstraintSet::BlockDiagonal { blocks, .. } => {
+                // Compose per inner block. TWO independent offsets are in play and
+                // they are NOT interchangeable:
+                //   * `block.col_start` slices β — COEFFICIENT space, advancing by
+                //     each member's `ncols()`;
+                //   * `row_offset` lifts the returned ids — CONSTRAINT-ROW space,
+                //     advancing by each member's `nrows()`.
+                // They coincide only when every member is a square carrier, which
+                // is why a mixed block (a constrained sub-basis alongside
+                // unconstrained intercept/covariate columns, `nrows() < ncols()`)
+                // is the case that separates them. See `lift_member_row`.
+                let mut representatives: Vec<ConstraintRowId> = Vec::new();
+                let mut dependence: Vec<Vec<ConstraintRowDependence>> = Vec::new();
+                let mut tight_rows: Vec<ConstraintRowId> = Vec::new();
+                let mut row_offset = 0usize;
+                for block in blocks {
+                    let start = block.col_start;
+                    let end = start + block.set.ncols();
+                    let beta_block = beta.slice(ndarray::s![start..end]);
+                    let sub = block.set.reduced_face(beta_block, membership_tol)?;
+                    for r in sub.representatives {
+                        representatives.push(lift_member_row(r, row_offset));
+                    }
+                    for deps in sub.dependence {
+                        dependence.push(
+                            deps.into_iter()
+                                .map(|d| ConstraintRowDependence {
+                                    row: lift_member_row(d.row, row_offset),
+                                    coeff: d.coeff,
+                                })
+                                .collect(),
+                        );
+                    }
+                    for t in sub.tight_rows {
+                        tight_rows.push(lift_member_row(t, row_offset));
+                    }
+                    row_offset += block.set.nrows();
+                }
+                Ok(ReducedFace {
+                    representatives,
+                    dependence,
+                    tight_rows,
+                })
+            }
+        }
+    }
 }
 
 impl CompressedActiveWorkingSet {
@@ -912,19 +1592,106 @@ impl CompressedActiveWorkingSet {
             || self.groups.iter().any(|group| group.len() > 1)
     }
 
-    fn reconstructed_active_multipliers(&self, lambda_system: &Array1<f64>) -> Vec<(usize, f64)> {
-        let mut multipliers = Vec::new();
-        for (group_pos, &lambda_system_value) in lambda_system.iter().enumerate() {
-            let lambda_true = -lambda_system_value;
-            if let Some(dependencies) = self.multiplier_dependence.get(group_pos) {
-                for dependency in dependencies {
-                    if dependency.coeff.abs() > f64::EPSILON {
-                        multipliers.push((dependency.active_pos, lambda_true / dependency.coeff));
-                    }
+    /// The lowest-original-index representative direction whose compressed dual is
+    /// negative beyond `tol_dual`, returned as the FULL set of original active
+    /// positions collapsed into it (the representative plus its exactly-parallel
+    /// dependents — the same constraint up to positive scale).
+    ///
+    /// Adjudicating the representative and releasing the WHOLE direction replaces
+    /// the former per-original-row reconstruction, which divided the direction's
+    /// dual by each dependent's `coeff` to synthesize a per-row multiplier and
+    /// released ONE row at a time — a phantom ±1/ε dual on a redundant tight row
+    /// (#2298/#979/#2132) and a churn source: releasing one row of an exactly-
+    /// parallel group leaves the others pinning the same direction, so the working
+    /// set oscillates. A negative representative dual means the aggregate pull along
+    /// that independent direction is wrong-signed, so the whole group is released
+    /// together; general-position dependents were never grouped (they carry no
+    /// dependence entry and re-enter via the next feasibility scan).
+    ///
+    /// `active` maps `active_pos → original constraint id` so the choice is the
+    /// deterministic lowest-original-index direction. `None` ⇒ every representative
+    /// dual is non-negative: a KKT point on the reduced face.
+    fn negative_representative_group(
+        &self,
+        lambda_system: &Array1<f64>,
+        tol_dual: f64,
+        active: &[usize],
+    ) -> Option<Vec<usize>> {
+        self.groups
+            .iter()
+            .enumerate()
+            .filter(|&(group_pos, _)| {
+                // lambda_true = -lambda_system[group_pos]; release iff < -tol_dual.
+                lambda_system
+                    .get(group_pos)
+                    .is_some_and(|&value| -value < -tol_dual)
+            })
+            .min_by_key(|&(_, group)| {
+                let first = group.first().copied().unwrap_or(usize::MAX);
+                (active.get(first).copied().unwrap_or(usize::MAX), first)
+            })
+            .map(|(_, group)| group.clone())
+    }
+
+    /// True iff the active position `pos` is ENFORCED by this compressed face —
+    /// it is a representative or an exactly-parallel dependent of one, so its
+    /// half-space is carried by the enforced equality system. A general-position
+    /// active row that was rank-reduced out of the face belongs to no group and
+    /// is therefore NOT enforced (its violation cannot be closed by the current
+    /// KKT solve, and it cannot be re-added because it is already active).
+    fn position_enforced(&self, pos: usize) -> bool {
+        self.groups.iter().any(|group| group.contains(&pos))
+    }
+
+    /// Over-complete-face adjudication (#2378). `violated` is the normal (in any
+    /// scaling) of a constraint row that is ACTIVE yet was rank-reduced out of
+    /// the enforced representative face: it is linearly dependent on the
+    /// representatives, so the ordinary add/release transitions dead-end — it
+    /// can be neither re-added (already active) nor released (not a
+    /// representative). An over-complete face is inconsistent as EQUALITIES, so
+    /// the method must adjudicate it by an active-set EXCHANGE rather than
+    /// silently truncate it: release the representative the violated row is most
+    /// positively aligned with, freeing that dependent direction so the violated
+    /// row becomes an independent representative and binds on the next
+    /// iteration. Returns the FULL representative group (representative +
+    /// exactly-parallel dependents) to release, or `None` when no positively
+    /// aligned representative exists (the caller then defers to the exit gate).
+    /// Deterministic lowest-original-index tie-break.
+    fn over_complete_release_group(
+        &self,
+        violated: ndarray::ArrayView1<'_, f64>,
+        active: &[usize],
+    ) -> Option<Vec<usize>> {
+        let v_norm = violated.dot(&violated).sqrt();
+        if !(v_norm > 0.0) {
+            return None;
+        }
+        const COS_TIE_TOL: f64 = 1e-12;
+        let mut best: Option<(f64, (usize, usize), usize)> = None;
+        for (group_pos, group) in self.groups.iter().enumerate() {
+            let rep = self.constraints.a.row(group_pos);
+            let rep_norm = rep.dot(&rep).sqrt();
+            if !(rep_norm > 0.0) {
+                continue;
+            }
+            let cos = rep.dot(&violated) / (rep_norm * v_norm);
+            if cos <= 0.0 {
+                continue;
+            }
+            let first = group.first().copied().unwrap_or(usize::MAX);
+            let key = (active.get(first).copied().unwrap_or(usize::MAX), first);
+            let take = match &best {
+                None => true,
+                Some((best_cos, best_key, _)) => {
+                    cos > best_cos + COS_TIE_TOL
+                        || ((cos - best_cos).abs() <= COS_TIE_TOL && key < *best_key)
                 }
+            };
+            if take {
+                best = Some((cos, key, group_pos));
             }
         }
-        multipliers
+        best.map(|(_, _, group_pos)| self.groups[group_pos].clone())
     }
 }
 
@@ -954,14 +1721,16 @@ pub(crate) fn compress_active_working_set(
         groups_out.push(vec![pos]);
     }
 
-    let (a_out, b_out, groups_out, multiplier_dependence) =
+    // The parallel-dependent map (4th return) is in ACTIVE-SET-POSITION space,
+    // not the constraint-row space of the `ReducedFace` op; the working-set
+    // release adjudicates whole representative groups, so it is not stored here.
+    let (a_out, b_out, groups_out, _) =
         rank_reduce_rows_pivoted_qr_with_dependence(a_out, b_out, groups_out);
 
     Ok(CompressedActiveWorkingSet {
         constraints: LinearInequalityConstraints::new(a_out, b_out)
             .expect("compressed active constraint shape invariant"),
         groups: groups_out,
-        multiplier_dependence,
         original_active_count: active.len(),
     })
 }
@@ -999,31 +1768,52 @@ pub fn rank_reduce_rows_pivoted_qr_with_dependence(
         return (a, b, groups, multiplier_dependence);
     }
 
-    let mut at_faer = faer::Mat::<f64>::zeros(p, k);
-    for i in 0..k {
-        for j in 0..p {
-            at_faer[(j, i)] = a[[i, j]];
+    // DETERMINISTIC, host-independent representative selection. The former faer
+    // `col_piv_qr` pivots by largest column norm; on an equal-norm tie
+    // (near-parallel / identical active rows — the degenerate-face case) faer's
+    // internal tie-break can differ across CPU arch / SIMD width / library
+    // version, which would record a host-dependent active face and re-introduce
+    // the nondeterministic cross-host certification the face feeds. Instead do a
+    // greedy ASCENDING-original-index independence scan: iterate rows in index
+    // order and keep row r iff its residual after projecting onto the orthonormal
+    // span of the already-kept rows exceeds the rank tolerance; otherwise record
+    // it dependent. This yields the lowest-index representative per independent
+    // direction with no float-comparison tie-break.
+    //
+    // Rank tolerance is relative to the largest row norm — the same |R00| scale
+    // (= largest column norm of Aᵀ = largest row norm of A) the pivoted QR used —
+    // so the accepted COUNT matches the prior numerical rank; only WHICH
+    // representative is chosen among tied near-parallel rows changes, and it
+    // changes deterministically. The scale carries NO absolute floor, preserving
+    // the unit-robustness of the prior tolerance (a perfectly independent system
+    // in tiny units, e.g. A = 1e-20·I, keeps full rank rather than being dropped).
+    const RANK_ALPHA: f64 = 100.0;
+    let max_row_norm = (0..k)
+        .map(|r| {
+            let row = a.row(r);
+            row.dot(&row).sqrt()
+        })
+        .fold(0.0_f64, f64::max);
+    let tol = RANK_ALPHA * f64::EPSILON * (k.max(p).max(1) as f64) * max_row_norm;
+
+    let mut ortho_basis: Vec<Array1<f64>> = Vec::new();
+    let mut kept_orig: Vec<usize> = Vec::new();
+    let mut dropped_orig: Vec<usize> = Vec::new();
+    for r in 0..k {
+        let mut resid = a.row(r).to_owned();
+        for q in &ortho_basis {
+            let proj = resid.dot(q);
+            resid.scaled_add(-proj, q);
+        }
+        let resid_norm = resid.dot(&resid).sqrt();
+        if resid_norm > tol {
+            kept_orig.push(r);
+            ortho_basis.push(&resid / resid_norm);
+        } else {
+            dropped_orig.push(r);
         }
     }
-
-    let qr = at_faer.as_ref().col_piv_qr();
-    let r_mat = qr.thin_R();
-    let diag_len = r_mat.nrows().min(r_mat.ncols());
-    let leading_diag = if diag_len > 0 {
-        r_mat[(0, 0)].abs()
-    } else {
-        0.0
-    };
-
-    // Rank tolerance relative to the leading pivot |R00| ONLY. The former
-    // absolute `max(|R00|, 1)` floor made rank detection unit-dependent: a
-    // perfectly independent system expressed in small units (A = 1e-20·I — the
-    // nonnegative orthant) had every pivot below the floor-driven tolerance and
-    // was silently declared rank zero, i.e. the constraints were DROPPED.
-    const RANK_ALPHA: f64 = 100.0;
-    let tol = RANK_ALPHA * f64::EPSILON * (k.max(p).max(1) as f64) * leading_diag;
-
-    let rank = (0..diag_len).filter(|&i| r_mat[(i, i)].abs() > tol).count();
+    let rank = kept_orig.len();
     if rank >= k {
         let multiplier_dependence = identity_multiplier_dependence(&groups);
         return (a, b, groups, multiplier_dependence);
@@ -1040,10 +1830,6 @@ pub fn rank_reduce_rows_pivoted_qr_with_dependence(
             Vec::new(),
         );
     }
-
-    let (perm_fwd, _) = qr.P().arrays();
-    let kept_orig: Vec<usize> = (0..rank).map(|j| perm_fwd[j].unbound()).collect();
-    let dropped_orig: Vec<usize> = (rank..k).map(|j| perm_fwd[j].unbound()).collect();
 
     let mut orig_to_out = std::collections::HashMap::with_capacity(rank);
     let mut a_out = Array2::<f64>::zeros((rank, p));
@@ -1067,45 +1853,60 @@ pub fn rank_reduce_rows_pivoted_qr_with_dependence(
         orig_to_out.insert(orig_idx, out_idx);
     }
 
+    // (A)-strict merge, matching the shared `dense_reduced_face` /
+    // `khatri_rao_cone_reduced_face` `ReducedFace` contract. A dropped row joins
+    // a representative's group — and receives a distributed multiplier — ONLY
+    // when it is exactly PARALLEL to that representative (the same half-space up
+    // to positive scale). A GENERAL-POSITION dependent — dependent only because
+    // more normals bind than the face dimension (e.g. three normals inside a 2-D
+    // coupled block) — is dropped outright with NO group entry and NO
+    // multiplier: it re-enters the working set via the next feasibility scan and
+    // is never conflated with a different half-space's dual (#979). The former
+    // `best_positive_align` merge folded such a row into whichever kept row it
+    // was most positively aligned with, silently truncating a general-position
+    // active row out of the enforced face and pinning the wrong vertex (#2378).
+    const PARALLEL_COS_TOL: f64 = 1.0 - 1e-9;
     for &dropped_idx in &dropped_orig {
         let dropped_row = a.row(dropped_idx);
         let dropped_norm = dropped_row.dot(&dropped_row).sqrt();
-        let mut best_positive_align = -1.0_f64;
-        let mut best_positive_target: Option<(usize, f64)> = None;
-        let mut best_abs_align = -1.0_f64;
-        let mut best_signed_target = (kept_orig[0], 1.0_f64);
+        let mut best_abs_cos = 0.0_f64;
+        let mut best_target: Option<(usize, f64)> = None;
         for &kept_idx in &kept_orig {
             let kept_row = a.row(kept_idx);
             let kept_norm = kept_row.dot(&kept_row).sqrt();
             let dot = kept_row.dot(&dropped_row);
-            let align = if kept_norm > 0.0 && dropped_norm > 0.0 {
+            let cos = if kept_norm > 0.0 && dropped_norm > 0.0 {
                 dot / (kept_norm * dropped_norm)
             } else {
-                dot
+                0.0
             };
             let coeff = if kept_norm > 0.0 {
                 dot / (kept_norm * kept_norm)
             } else {
                 0.0
             };
-            if align.abs() > best_abs_align {
-                best_abs_align = align.abs();
-                best_signed_target = (kept_idx, coeff);
-            }
-            if coeff > 0.0 && align > best_positive_align {
-                best_positive_align = align;
-                best_positive_target = Some((kept_idx, coeff));
+            if cos.abs() > best_abs_cos {
+                best_abs_cos = cos.abs();
+                best_target = Some((kept_idx, coeff));
             }
         }
-        let (best_target, coeff) = best_positive_target.unwrap_or(best_signed_target);
-        let &out_idx = orig_to_out
-            .get(&best_target)
-            .expect("merge target must be a kept row");
-        for &active_pos in &groups[dropped_idx] {
-            multiplier_dependence[out_idx].push(ActiveRowDependence { active_pos, coeff });
-        }
-        if coeff > 0.0 {
-            groups_out[out_idx].extend_from_slice(&groups[dropped_idx]);
+        // Only an exactly-parallel dependent is recorded; a general-position
+        // drop carries no phantom distributed dual. The group (whose whole-set
+        // release the working-set loop drives) additionally requires POSITIVE
+        // parallelism — same constraint up to positive scale — so an opposing
+        // (anti-parallel) tight row is never released together with it.
+        if best_abs_cos >= PARALLEL_COS_TOL {
+            if let Some((target, coeff)) = best_target {
+                let &out_idx = orig_to_out
+                    .get(&target)
+                    .expect("merge target must be a kept row");
+                for &active_pos in &groups[dropped_idx] {
+                    multiplier_dependence[out_idx].push(ActiveRowDependence { active_pos, coeff });
+                }
+                if coeff > 0.0 {
+                    groups_out[out_idx].extend_from_slice(&groups[dropped_idx]);
+                }
+            }
         }
     }
 
@@ -1249,7 +2050,30 @@ fn canonicalize_active_constraint_ids(
     Ok(canonical)
 }
 
+fn gather_linear_constraint_rows(
+    constraints: &LinearInequalityConstraints,
+    rows: &[usize],
+) -> Result<LinearInequalityConstraints, EstimationError> {
+    let p = constraints.a.ncols();
+    let mut a = Array2::<f64>::zeros((rows.len(), p));
+    let mut b = Array1::<f64>::zeros(rows.len());
+    for (out, &row) in rows.iter().enumerate() {
+        if row >= constraints.a.nrows() {
+            crate::bail_invalid_estim!(
+                "active constraint row {} out of bounds for {} rows",
+                row,
+                constraints.a.nrows()
+            );
+        }
+        a.row_mut(out).assign(&constraints.a.row(row));
+        b[out] = constraints.b[row];
+    }
+    LinearInequalityConstraints::new(a, b)
+        .map_err(|error| EstimationError::ParameterConstraintViolation(error.to_string()))
+}
+
 fn fallback_projected_gradient_direction(
+    beta: &Array1<f64>,
     x: &Array1<f64>,
     d_total: &Array1<f64>,
     gradient: &Array1<f64>,
@@ -1257,18 +2081,27 @@ fn fallback_projected_gradient_direction(
     constraints: &LinearInequalityConstraints,
 ) -> Result<Option<(Array1<f64>, Vec<usize>)>, EstimationError> {
     let p = gradient.len();
-    if x.len() != p || d_total.len() != p || constraints.a.ncols() != p {
+    if x.len() != p || d_total.len() != p || beta.len() != p || constraints.a.ncols() != p {
         crate::bail_invalid_estim!("projected-gradient fallback dimension mismatch");
     }
 
+    // Project onto the FEASIBLE tangent cone `A_active d >= 0`, not merely
+    // the equality tangent space `A_active d = 0`. A negative multiplier means
+    // descent exists by moving away from that boundary into the cone; equality
+    // projection erases exactly that direction and can mistake a wrong working
+    // face for stationarity. The strictly convex primal cone QP projects the
+    // gradient onto the nonnegative normal cone, so negating the residual is
+    // the Euclidean projection of `-gradient` onto the feasible tangent cone
+    // (Moreau).
     let tangent_direction = if working_constraints.a.nrows() == 0 {
         -gradient
     } else {
-        let identity = Array2::<f64>::eye(p);
-        let residual = &working_constraints.b - &working_constraints.a.dot(x);
-        let (direction, _) =
-            solve_kkt_direction(&identity, gradient, &working_constraints.a, Some(&residual))?;
-        direction
+        let Some((stationarity_residual, _multipliers)) =
+            project_stationarity_residual_on_constraint_cone(gradient, &working_constraints.a)
+        else {
+            return Ok(None);
+        };
+        -stationarity_residual
     };
 
     if !array_is_finite(&tangent_direction) {
@@ -1280,8 +2113,8 @@ fn fallback_projected_gradient_direction(
         .fold(0.0_f64, |acc, &value| acc.max(value.abs()));
     if step_inf <= 1e-12 {
         // The projected-gradient tangent step has collapsed to ~0: the working
-        // set holds the gradient stationary, so no descent direction remains in
-        // the working tangent space. Returning `d_total` as-is is ONLY correct
+        // set holds the gradient in its nonnegative normal cone, so no descent
+        // direction remains in the feasible tangent cone. Returning `d_total` as-is is ONLY correct
         // when the iterate `x = beta_start + d_total` is itself feasible. When
         // `x` is infeasible (an inactive row was violated by an earlier
         // `alpha`-clipped step and never repaired — the KKT solve only closes
@@ -1313,8 +2146,18 @@ fn fallback_projected_gradient_direction(
                 return Ok(None);
             };
             let repair = &projected - x;
-            let active = canonicalize_active_constraint_ids(&projected, constraints, &[])?;
-            return Ok(Some((d_total + &repair, active)));
+            let new_direction = d_total + &repair;
+            // Certify the point the caller will reconstruct (`beta + dir`), not
+            // the projection itself: the two differ by the rounding of the
+            // x/d_total cancellation, and the caller's gate is what must pass.
+            let candidate = beta + &new_direction;
+            if max_linear_constraint_violation(&candidate, constraints).0
+                > ACTIVE_SET_PRIMAL_FEASIBILITY_TOL
+            {
+                return Ok(None);
+            }
+            let active = canonicalize_active_constraint_ids(&candidate, constraints, &[])?;
+            return Ok(Some((new_direction, active)));
         }
         let active = canonicalize_active_constraint_ids(x, constraints, &[])?;
         return Ok(Some((d_total.clone(), active)));
@@ -1334,7 +2177,7 @@ fn fallback_projected_gradient_direction(
         let inv = if norm > 0.0 { 1.0 / norm } else { 0.0 };
         let slack = (constraints.a.row(i).dot(x) - constraints.b[i]) * inv;
         let ai_d = constraints.a.row(i).dot(&tangent_direction) * inv;
-        if let Some(candidate) = boundary_hit_step_fraction(slack, ai_d, alpha) {
+        if let Some(candidate) = active_set_boundary_hit_step_fraction(slack, ai_d, alpha) {
             alpha = candidate;
         }
     }
@@ -1343,7 +2186,10 @@ fn fallback_projected_gradient_direction(
     }
 
     let fallback_step = tangent_direction * alpha;
-    let new_x = x + &fallback_step;
+    let new_direction = d_total + &fallback_step;
+    // Evaluate feasibility on the caller's reconstruction `beta + dir` so the
+    // acceptance here and the caller's final gate see the same bits.
+    let new_x = beta + &new_direction;
     // Per-row-scaled feasibility, matching ACTIVE_SET_PRIMAL_FEASIBILITY_TOL.
     let (worst, _) = max_linear_constraint_violation(&new_x, constraints);
     if worst > ACTIVE_SET_PRIMAL_FEASIBILITY_TOL {
@@ -1353,7 +2199,7 @@ fn fallback_projected_gradient_direction(
         .filter(|&i| scaled_constraint_slack(&new_x, constraints, i) <= 1e-10)
         .collect::<Vec<_>>();
     let active = canonicalize_active_constraint_ids(&new_x, constraints, &active)?;
-    Ok(Some((d_total + &fallback_step, active)))
+    Ok(Some((new_direction, active)))
 }
 
 fn log_active_set_transition(
@@ -1373,29 +2219,32 @@ fn log_active_set_transition(
     );
 }
 
-/// Record the current working set; returns `false` when this exact set was
-/// already visited. Both the entering and leaving rules above are
-/// lowest-index (Bland), so a repeat cannot be a true simplex cycle — it is
-/// tolerance-band oscillation (a row added by the slack band and dropped by a
-/// noise-level negative dual, repeatedly). The caller breaks to the post-loop
-/// KKT exit gate, which inspects the iterate's full KKT residuals and either
-/// accepts via the projected-gradient fallback or returns an explicit error —
-/// never a silent acceptance, and no longer a hard seed-killing error on an
-/// otherwise numerically-converged iterate (#1025).
+/// Record the complete active-set state; returns `false` only when both the
+/// canonical row ids and the primal point are bit-identical to a prior state.
+/// A working set may legitimately recur after the primal iterate moved (leave
+/// a face, descend, then re-enter it), so row ids alone are not a cycle witness.
+/// The former row-only key sent such productive revisits to the projected-
+/// gradient escape, which is exactly the issue-979 CTN trace: the 91-row face
+/// recurred at a different coefficient point and the main QP was abandoned.
+/// An identical `(face, x)` state is a genuine tolerance-band cycle and still
+/// routes to the post-loop KKT gate. `to_bits` makes the decision deterministic
+/// and admits no approximate/wall-clock notion of repetition.
 fn record_active_working_set(
-    visited: &mut HashSet<Vec<usize>>,
+    visited: &mut HashSet<(Vec<usize>, Vec<u64>)>,
     active: &[usize],
+    x: &Array1<f64>,
     iteration: usize,
 ) -> bool {
-    let mut key = active.to_vec();
-    key.sort_unstable();
-    if visited.insert(key.clone()) {
+    let mut active_key = active.to_vec();
+    active_key.sort_unstable();
+    let point_key = x.iter().map(|value| value.to_bits()).collect::<Vec<_>>();
+    if visited.insert((active_key.clone(), point_key)) {
         return true;
     }
     log::debug!(
-        "[active-set/QP] iter={iteration} repeated working set ({} rows); \
+        "[active-set/QP] iter={iteration} repeated working set at the identical primal point ({} rows); \
          deferring to the post-loop KKT exit gate",
-        key.len()
+        active_key.len()
     );
     false
 }
@@ -1406,8 +2255,9 @@ fn solve_newton_direction_with_linear_constraints_impl(
     beta: &Array1<f64>,
     constraints: &LinearInequalityConstraints,
     direction_out: &mut Array1<f64>,
-    active_hint: Option<&mut Vec<usize>>,
+    mut active_hint: Option<&mut Vec<usize>>,
     max_iterations: usize,
+    allow_projected_gradient_fallback: bool,
 ) -> Result<(), EstimationError> {
     let p = gradient.len();
     if direction_out.len() != p {
@@ -1424,12 +2274,24 @@ fn solve_newton_direction_with_linear_constraints_impl(
         );
     }
 
-    let tol_active = 1e-10;
+    let tol_active = ACTIVE_SET_WORKING_FACE_TOL;
     let tol_step = 1e-12;
     let tol_dual = 1e-10;
     let mut x = beta.to_owned();
     let mut d_total = Array1::<f64>::zeros(p);
     let mut g_cur = gradient.to_owned();
+
+    // A warm working set describes the face at the point that produced it.
+    // Trust-region globalization may accept only a strict subsegment of that
+    // point's QP chord, in which case rows that bind at the QP endpoint are
+    // slack at the accepted iterate. Treating those stale row ids as equality
+    // constraints pins the next Newton solve to a face it has not reached and
+    // turns a full Newton step into geometric boundary chasing (#979). A row
+    // can enter the working set only if it is actually tight at this solve's
+    // primal point; the ordinary ratio test rediscovers it when reached.
+    if let Some(hint) = active_hint.as_mut() {
+        hint.retain(|&idx| idx < m && scaled_constraint_slack(&x, constraints, idx) <= tol_active);
+    }
 
     let has_active_hint = active_hint
         .as_ref()
@@ -1448,6 +2310,31 @@ fn solve_newton_direction_with_linear_constraints_impl(
             }
         }
         if feasible {
+            // Face provenance of the RETURNED point: the unconstrained optimum
+            // can land exactly on a boundary (the warm filter above may have
+            // just emptied the hint because the START was interior). Report the
+            // rows tight at the answer so the next warm start carries the face
+            // instead of an empty hint — but RANK-REDUCED to one representative
+            // per independent direction, the same contract every other return
+            // path honors via `canonicalize_active_constraint_ids`. The prior
+            // code stored the RAW tight set here, so a degenerate face leaked all
+            // K co-tight rows (e.g. K near-parallel `x >= 0` rows returned all K
+            // instead of a single representative), re-seeding the next solve with
+            // redundant rows and the phantom-dual release/re-add they drive.
+            if let Some(hint) = active_hint.as_mut() {
+                let mut tight: Vec<usize> = Vec::new();
+                for i in 0..m {
+                    if scaled_constraint_slack(&candidate, constraints, i) <= tol_active {
+                        tight.push(i);
+                    }
+                }
+                hint.clear();
+                hint.extend(canonicalize_active_constraint_ids(
+                    &candidate,
+                    constraints,
+                    &tight,
+                )?);
+            }
             return Ok(());
         }
     }
@@ -1476,10 +2363,18 @@ fn solve_newton_direction_with_linear_constraints_impl(
             log_active_set_transition("initial-boundary-add", 0, active.len(), Some(i));
         }
     }
-    let mut visited_working_sets: HashSet<Vec<usize>> = HashSet::new();
-    record_active_working_set(&mut visited_working_sets, &active, 0);
+    let mut visited_working_sets: HashSet<(Vec<usize>, Vec<u64>)> = HashSet::new();
+    record_active_working_set(&mut visited_working_sets, &active, &x, 0);
+
+    // See the operator loop's `face_minimized` doc: an unblocked full step
+    // lands on the working-face minimizer, so the following iteration must
+    // adjudicate multipliers rather than re-measure KKT-solve noise against
+    // the absolute `tol_step` (#979 noise-chatter starvation).
+    let mut face_minimized = false;
 
     for iteration in 0..max_iterations {
+        let adjudicate_face = face_minimized;
+        face_minimized = false;
         let compressed_working = compress_active_working_set(&x, constraints, &active)?;
         let mut residualw = Array1::<f64>::zeros(compressed_working.constraints.a.nrows());
         for r in 0..compressed_working.constraints.a.nrows() {
@@ -1493,7 +2388,7 @@ fn solve_newton_direction_with_linear_constraints_impl(
             Some(&residualw),
         )?;
         let step_norm = d.iter().map(|v| v * v).sum::<f64>().sqrt();
-        if step_norm <= tol_step {
+        if step_norm <= tol_step || adjudicate_face {
             // A "stationary" iterate is only a genuine KKT point if it is
             // also primal-feasible on the FULL constraint set. The
             // "blocking-add" loop further down only catches rows that
@@ -1514,42 +2409,85 @@ fn solve_newton_direction_with_linear_constraints_impl(
                     active.len(),
                     Some(worst_row),
                 );
-                if !record_active_working_set(&mut visited_working_sets, &active, iteration) {
+                if !record_active_working_set(&mut visited_working_sets, &active, &x, iteration) {
                     break;
                 }
                 continue;
             }
             if worst > ACTIVE_SET_PRIMAL_FEASIBILITY_TOL {
-                // The worst-violating row is already in the active set —
-                // the KKT step failed to restore its feasibility, typically
-                // because a previous iteration's `alpha`-clip prevented the
-                // full residual closure. Fall through to the post-loop exit
-                // gate, which inspects the iterate's full KKT residuals and
-                // either tries the projected-gradient fallback or returns
-                // an explicit error. Both are correct outcomes; silently
-                // returning the infeasible direction is not.
+                // The worst-violating row is already active. Distinguish two
+                // cases by whether it is ENFORCED by the compressed face:
+                let worst_pos = active.iter().position(|&idx| idx == worst_row);
+                let enforced = worst_pos.is_some_and(|pos| compressed_working.position_enforced(pos));
+                if !enforced {
+                    // Over-complete face (#2378): the row is active but was
+                    // rank-reduced out of the enforced representative face (it is
+                    // linearly dependent on the reps). It can be neither re-added
+                    // (already active) nor released (not a representative), so the
+                    // plain add/release loop dead-ends here. Adjudicate by an
+                    // active-set EXCHANGE — release the representative it is most
+                    // aligned with so it becomes independent and binds next
+                    // iteration — instead of truncating it.
+                    if let Some(mut group) = compressed_working
+                        .over_complete_release_group(constraints.a.row(worst_row), &active)
+                    {
+                        group.sort_unstable_by(|a, b| b.cmp(a));
+                        let mut released = None;
+                        for active_pos in group {
+                            let idx = active.remove(active_pos);
+                            is_active[idx] = false;
+                            released = Some(idx);
+                        }
+                        log_active_set_transition(
+                            "release-over-complete-face",
+                            iteration,
+                            active.len(),
+                            released,
+                        );
+                        if !record_active_working_set(
+                            &mut visited_working_sets,
+                            &active,
+                            &x,
+                            iteration,
+                        ) {
+                            break;
+                        }
+                        continue;
+                    }
+                }
+                // Enforced-but-unclosed (an `alpha`-clip prevented the full
+                // residual closure) or no positively-aligned representative to
+                // exchange: fall through to the post-loop exit gate, which
+                // inspects the iterate's full KKT residuals and either tries the
+                // projected-gradient fallback or returns an explicit error. Both
+                // are correct outcomes; silently returning the infeasible
+                // direction is not.
                 break;
             }
             if compressed_working.groups.is_empty() {
                 direction_out.assign(&d_total);
                 return Ok(());
             }
-            let remove_pos = compressed_working
-                .reconstructed_active_multipliers(&lambdaw)
-                .into_iter()
-                .filter(|&(_, lambda_true)| lambda_true < -tol_dual)
-                .min_by_key(|(active_pos, _)| (active[*active_pos], *active_pos))
-                .map(|(active_pos, _)| active_pos);
-            if let Some(active_pos) = remove_pos {
-                let idx = active.remove(active_pos);
-                is_active[idx] = false;
+            let remove_group =
+                compressed_working.negative_representative_group(&lambdaw, tol_dual, &active);
+            if let Some(mut group) = remove_group {
+                // Release the whole independent direction. Remove positions in
+                // DESCENDING order so each `active.remove` does not shift a
+                // not-yet-removed position in the same group.
+                group.sort_unstable_by(|a, b| b.cmp(a));
+                let mut released = None;
+                for active_pos in group {
+                    let idx = active.remove(active_pos);
+                    is_active[idx] = false;
+                    released = Some(idx);
+                }
                 log_active_set_transition(
-                    "remove-negative-dual",
+                    "release-negative-representative",
                     iteration,
                     active.len(),
-                    Some(idx),
+                    released,
                 );
-                if !record_active_working_set(&mut visited_working_sets, &active, iteration) {
+                if !record_active_working_set(&mut visited_working_sets, &active, &x, iteration) {
                     break;
                 }
                 continue;
@@ -1581,19 +2519,23 @@ fn solve_newton_direction_with_linear_constraints_impl(
             let inv = if norm > 0.0 { 1.0 / norm } else { 0.0 };
             let slack = (constraints.a.row(i).dot(&x) - constraints.b[i]) * inv;
             let ai_d = constraints.a.row(i).dot(&d) * inv;
-            if let Some(cand) = boundary_hit_step_fraction(slack, ai_d, alpha) {
+            if let Some(cand) = active_set_boundary_hit_step_fraction(slack, ai_d, alpha) {
                 alpha = cand;
             }
         }
 
-        ndarray::Zip::from(&mut x)
-            .and(&mut d_total)
+        ndarray::Zip::from(&mut d_total)
             .and(&d)
-            .for_each(|x_i, dt_i, &d_i| {
-                let alpha_d = alpha * d_i;
-                *x_i += alpha_d;
-                *dt_i += alpha_d;
+            .for_each(|dt_i, &d_i| {
+                *dt_i += alpha * d_i;
             });
+        // The public contract certifies `beta + d_total`, so the iterate must BE
+        // that sum bitwise. Accumulating `x` by its own `+= alpha*d` walks a
+        // different rounding path: a boundary-landing step (ratio test targets
+        // scaled slack −TOL) then certifies feasible on the loop's `x` while the
+        // caller's freshly summed candidate reads TOL + O(eps·scale) and the
+        // solve is rejected as an "infeasible iterate" (#979 CTN cycle 86).
+        x = beta + &d_total;
         g_cur = gradient + &hessian.dot(&d_total);
 
         let mut added_new_active = false;
@@ -1609,9 +2551,14 @@ fn solve_newton_direction_with_linear_constraints_impl(
                 added_new_active = true;
                 log_active_set_transition("blocking-add", iteration, active.len(), Some(i));
                 working_set_repeated =
-                    !record_active_working_set(&mut visited_working_sets, &active, iteration);
+                    !record_active_working_set(&mut visited_working_sets, &active, &x, iteration);
                 break;
             }
+        }
+        if !added_new_active {
+            // Unblocked full step onto the working-face minimizer: adjudicate
+            // multipliers next iteration instead of re-measuring solve noise.
+            face_minimized = true;
         }
         if working_set_repeated {
             break;
@@ -1647,7 +2594,6 @@ fn solve_newton_direction_with_linear_constraints_impl(
         &lambda_true,
         m,
     )?;
-    let kkt = compute_constraint_kkt_diagnostics(&x, &g_cur, constraints);
     let grad_inf = gradient_inf_norm(&g_cur);
     let stationarity_rel = working_kkt.stationarity / grad_inf.max(1.0);
     let step_inf = d_total.iter().fold(0.0_f64, |acc, &v| acc.max(v.abs()));
@@ -1670,10 +2616,41 @@ fn solve_newton_direction_with_linear_constraints_impl(
         && working_kkt.complementarity <= ACTIVE_SET_KKT_COMPLEMENTARITY_TOL
         && (working_kkt.stationarity <= ACTIVE_SET_KKT_DEGENERATE_STATIONARITY_TOL
             || stationarity_rel <= ACTIVE_SET_KKT_STATIONARITY_TOL);
+    // Existence-form KKT certificate over the rows tight at the terminal
+    // iterate. The working-set multipliers above are one particular
+    // reconstruction; on a degenerate face they can report `dual ≫ 0` while a
+    // different λ ≥ 0 closes stationarity exactly (#2298 monotonicity faces).
+    // NNLS over the tight rows has exact complementarity by construction
+    // (only tight rows enter) and exact dual feasibility, so stationarity
+    // closure of its projected residual is the entire remaining KKT question.
+    // Skip it only when the strong path already ACCEPTS (stationarity AND dual
+    // both certified): a strong-stationary point whose particular multiplier
+    // reconstruction has phantom negative duals is exactly the case this
+    // certificate exists for (#979 CTN cycle-95: stat=1.0e-8, comp=4.2e-8,
+    // dual=7.6e4 on a 41-row degenerate face — refused with the old
+    // `!kkt_strong_ok` gate although an NNLS λ ≥ 0 closes the point).
+    let strong_path_accepts =
+        kkt_strong_ok && working_kkt.dual_feasibility <= ACTIVE_SET_KKT_DUAL_FEASIBILITY_TOL;
+    let nnls_certified = worst <= ACTIVE_SET_PRIMAL_FEASIBILITY_TOL && !strong_path_accepts && {
+        let tight: Vec<usize> = (0..m)
+            .filter(|&i| scaled_constraint_slack(&x, constraints, i) <= tol_active)
+            .collect();
+        match gather_linear_constraint_rows(constraints, &tight) {
+            Ok(gathered) => nonnegative_cone_multipliers(&gathered.a, &g_cur)
+                .map(|(_, projected)| {
+                    let closure = projected.iter().fold(0.0_f64, |acc, &v| acc.max(v.abs()));
+                    closure <= ACTIVE_SET_KKT_STATIONARITY_TOL
+                        || closure / grad_inf.max(1.0) <= ACTIVE_SET_KKT_STATIONARITY_TOL
+                })
+                .unwrap_or(false),
+            Err(_) => false,
+        }
+    };
     if worst <= ACTIVE_SET_PRIMAL_FEASIBILITY_TOL
         && ((working_kkt.dual_feasibility <= ACTIVE_SET_KKT_DUAL_FEASIBILITY_TOL
-            && (kkt_strong_ok || model_descent_ok))
-            || degenerate_boundary_ok)
+            && (kkt_strong_ok || (allow_projected_gradient_fallback && model_descent_ok)))
+            || degenerate_boundary_ok
+            || nnls_certified)
     {
         if let Some(hint) = active_hint {
             hint.clear();
@@ -1686,11 +2663,25 @@ fn solve_newton_direction_with_linear_constraints_impl(
         direction_out.assign(&d_total);
         return Ok(());
     }
+    if !allow_projected_gradient_fallback {
+        return Err(EstimationError::ParameterConstraintViolation(format!(
+            "linear-constrained Newton active-set did not certify the strict-convex projection QP; max(Aβ-b violation)={worst:.3e} at row {row}; KKT[primal={:.3e}, dual={:.3e}, comp={:.3e}, stat={:.3e}, active={}/{}]",
+            working_kkt.primal_feasibility,
+            working_kkt.dual_feasibility,
+            working_kkt.complementarity,
+            working_kkt.stationarity,
+            working_kkt.n_active,
+            working_kkt.n_constraints,
+        )));
+    }
+    let kkt = compute_constraint_kkt_diagnostics(&x, &g_cur, constraints);
+    let fallback_working = gather_linear_constraint_rows(constraints, &active)?;
     if let Some((fallback_direction, fallback_active)) = fallback_projected_gradient_direction(
+        beta,
         &x,
         &d_total,
         &g_cur,
-        &compressed_working.constraints,
+        &fallback_working,
         constraints,
     )? {
         if let Some(hint) = active_hint {
@@ -1713,6 +2704,1194 @@ fn solve_newton_direction_with_linear_constraints_impl(
     )))
 }
 
+// ============================================================================
+// Operator (ConstraintSet) active-set solver — gam#2306
+//
+// The factored Khatri-Rao monotonicity cone has `n · p_shape` rows over
+// `p_resp · p_cov` coefficients; its dense materialization is gigabytes while
+// every operation the primal active-set method performs factors through the
+// `n × p_cov` covariate design. This section is the operator sibling of
+// `solve_newton_direction_with_linear_constraints_impl`: identical
+// per-row-scaled (geometric) tolerance semantics, identical KKT core
+// (`solve_kkt_direction` on the rank-reduced working set) — but every
+// full-row-set sweep (activation scan, ratio test, violation gate) runs on
+// batched constraint values, never on explicit rows. Dense inputs delegate to
+// the dense loop verbatim, so existing callers are byte-identical.
+// ============================================================================
+
+/// Batched full-row-set geometry for a [`ConstraintSet`].
+///
+/// `scaled_margin` shifts every non-vacuous row inward by that amount in
+/// scaled (geometric) units — `a_iᵀβ ≥ b_i + scaled_margin·‖a_i‖` — which is
+/// exactly the uniform interior-seed shift the dense strict projection
+/// applies. The main QP solve uses `scaled_margin = 0`.
+struct ConstraintSetOps<'a> {
+    set: &'a ConstraintSet,
+    norms: Vec<f64>,
+    bounds: Vec<f64>,
+    scaled_margin: f64,
+}
+
+impl<'a> ConstraintSetOps<'a> {
+    fn new(set: &'a ConstraintSet, scaled_margin: f64) -> Result<Self, EstimationError> {
+        let m = set.nrows();
+        let mut norms = Vec::with_capacity(m);
+        let mut bounds = Vec::with_capacity(m);
+        for row in 0..m {
+            norms.push(set.row_norm(row).map_err(|e| {
+                EstimationError::ParameterConstraintViolation(format!(
+                    "constraint-set row norm: {e}"
+                ))
+            })?);
+            bounds.push(set.bound(row).map_err(|e| {
+                EstimationError::ParameterConstraintViolation(format!(
+                    "constraint-set row bound: {e}"
+                ))
+            })?);
+        }
+        Ok(Self {
+            set,
+            norms,
+            bounds,
+            scaled_margin,
+        })
+    }
+
+    /// Operator view of only the rows that are tight at `beta`. Inactive rows
+    /// do not constrain the tangent cone, so make them vacuous by zeroing both
+    /// their cached norm and bound while retaining the original row indexing.
+    /// This avoids materializing the potentially enormous tight submatrix and
+    /// keeps returned active ids in the parent [`ConstraintSet`] coordinates.
+    fn tangent_face(set: &'a ConstraintSet, beta: &Array1<f64>) -> Result<Self, EstimationError> {
+        let mut ops = Self::new(set, 0.0)?;
+        let values = ops.values(beta)?;
+        for row in 0..ops.nrows() {
+            if ops.norms[row] <= 0.0 {
+                if ops.bounds[row] > 0.0 {
+                    crate::bail_invalid_estim!(
+                        "infeasible zero-norm constraint row {} entered tangent-face projection",
+                        row
+                    );
+                }
+                ops.bounds[row] = 0.0;
+                continue;
+            }
+            let is_tight = ops.scaled_slack(&values, row) <= ACTIVE_SET_PRIMAL_FEASIBILITY_TOL;
+            // Tangent directions are homogeneous even when the original
+            // feasible set is affine: a_i^T d >= 0 on a tight row.
+            ops.bounds[row] = 0.0;
+            if !is_tight {
+                ops.norms[row] = 0.0;
+            }
+        }
+        Ok(ops)
+    }
+
+    fn nrows(&self) -> usize {
+        self.norms.len()
+    }
+
+    fn values(&self, x: &Array1<f64>) -> Result<Array1<f64>, EstimationError> {
+        self.set.values(x.view()).map_err(|e| {
+            EstimationError::ParameterConstraintViolation(format!("constraint-set values: {e}"))
+        })
+    }
+
+    /// Signed scaled slack of one row given the batched raw values, with the
+    /// same ±∞ zero-norm semantics as [`scaled_constraint_slack`].
+    #[inline]
+    fn scaled_slack(&self, values: &Array1<f64>, row: usize) -> f64 {
+        let norm = self.norms[row];
+        if norm > 0.0 {
+            (values[row] - self.bounds[row]) / norm - self.scaled_margin
+        } else if self.bounds[row] > 0.0 {
+            f64::NEG_INFINITY
+        } else {
+            f64::INFINITY
+        }
+    }
+
+    fn max_violation(&self, values: &Array1<f64>) -> (f64, usize) {
+        let mut worst = 0.0_f64;
+        let mut worst_row = 0usize;
+        for row in 0..self.nrows() {
+            let violation = (-self.scaled_slack(values, row)).max(0.0);
+            if violation > worst {
+                worst = violation;
+                worst_row = row;
+            }
+        }
+        (worst, worst_row)
+    }
+
+    /// Gather the working rows as an explicit UNIT-normalized system (the
+    /// per-row scale the dense path reaches via up-front canonicalization),
+    /// with the margin shift folded into `b`. Zero-norm rows are rejected —
+    /// they are vacuous and must never enter a working set.
+    fn gather_unit_rows(
+        &self,
+        rows: &[usize],
+    ) -> Result<LinearInequalityConstraints, EstimationError> {
+        let mut gathered = self.set.gather_rows(rows).map_err(|e| {
+            EstimationError::ParameterConstraintViolation(format!(
+                "constraint-set working-row gather: {e}"
+            ))
+        })?;
+        for (out_row, &row) in rows.iter().enumerate() {
+            let norm = self.norms[row];
+            if norm <= 0.0 {
+                crate::bail_invalid_estim!(
+                    "vacuous zero-norm constraint row {} entered the working set",
+                    row
+                );
+            }
+            let inv = 1.0 / norm;
+            gathered.a.row_mut(out_row).mapv_inplace(|v| v * inv);
+            gathered.b[out_row] = self.bounds[row] * inv + self.scaled_margin;
+        }
+        Ok(gathered)
+    }
+
+    /// Rank-reduced compressed working set over the gathered unit rows —
+    /// the operator analogue of [`compress_active_working_set`].
+    fn compress_working(
+        &self,
+        active: &[usize],
+    ) -> Result<CompressedActiveWorkingSet, EstimationError> {
+        let gathered = self.gather_unit_rows(active)?;
+        let groups: Vec<Vec<usize>> = (0..active.len()).map(|pos| vec![pos]).collect();
+        // 4th return (parallel-dependent map) is consumed only by the shared
+        // `ReducedFace` op; whole-group release does not need it here.
+        let (a_out, b_out, groups_out, _) =
+            rank_reduce_rows_pivoted_qr_with_dependence(gathered.a, gathered.b, groups);
+        Ok(CompressedActiveWorkingSet {
+            constraints: LinearInequalityConstraints::new(a_out, b_out)
+                .expect("compressed operator working-set shape invariant"),
+            groups: groups_out,
+            original_active_count: active.len(),
+        })
+    }
+}
+
+/// Retain only candidate row ids that are genuinely tight at `beta`.
+///
+/// Active-face provenance is point-local. A constrained QP reports its full
+/// endpoint face, while trust-region globalization may accept a strict
+/// subsegment whose endpoint-only rows are still slack. This helper is the
+/// shared handoff for warm starts and terminal tangent-space evidence: it uses
+/// the carrier's exact row scaling, preserves canonical input order, and never
+/// scans rows outside the sparse candidate face.
+pub fn constraint_set_rows_tight_at_point(
+    set: &ConstraintSet,
+    beta: &Array1<f64>,
+    candidate_rows: &[usize],
+) -> Result<Vec<usize>, EstimationError> {
+    if set.ncols() != beta.len() {
+        crate::bail_invalid_estim!(
+            "active-face point dimension mismatch: set has {} columns, beta has {}",
+            set.ncols(),
+            beta.len()
+        );
+    }
+    let mut seen = HashSet::with_capacity(candidate_rows.len());
+    let mut unique = Vec::with_capacity(candidate_rows.len());
+    for &row in candidate_rows {
+        if row < set.nrows() && seen.insert(row) {
+            unique.push(row);
+        }
+    }
+    if unique.is_empty() {
+        return Ok(Vec::new());
+    }
+    let gathered = set.gather_rows(&unique).map_err(|error| {
+        EstimationError::ParameterConstraintViolation(format!(
+            "active-face candidate-row gather failed: {error}"
+        ))
+    })?;
+    let mut tight = Vec::with_capacity(unique.len());
+    for (position, &row) in unique.iter().enumerate() {
+        let constraint_row = gathered.a.row(position);
+        let norm = constraint_row.dot(&constraint_row).sqrt();
+        if norm > 0.0 {
+            let scaled_slack = (constraint_row.dot(beta) - gathered.b[position]) / norm;
+            if scaled_slack <= ACTIVE_SET_WORKING_FACE_TOL {
+                tight.push(row);
+            }
+        }
+    }
+    Ok(tight)
+}
+
+/// Project a stationarity residual onto the normal cone of an operator-carried
+/// constraint set without materializing its complete tight face.
+///
+/// `seed_active` is the QP's sparse face. The negative projected residual is a
+/// candidate feasible-tangent direction. One operator-native active-set solve
+/// discovers any omitted tight blocker with its full-set ratio test, while
+/// gathering only rows that carry necessary cone geometry.
+pub fn project_stationarity_residual_on_constraint_set(
+    residual: &Array1<f64>,
+    beta: &Array1<f64>,
+    set: &ConstraintSet,
+    seed_active: &[usize],
+) -> Option<(Array1<f64>, Vec<usize>)> {
+    let p = residual.len();
+    if beta.len() != p || set.ncols() != p {
+        return None;
+    }
+    match set {
+        ConstraintSet::KhatriRaoCone(cone) if cone.p_left() != 1 || cone.coupled_rows() != &[0] => {
+            // Each coupled response row occupies a disjoint `p_cov` slice,
+            // and the projection Hessian is identity. The global projection is
+            // therefore the exact direct sum of small row projections. Solving
+            // all response rows in one `p_left*p_cov` KKT system needlessly
+            // pays cubic global algebra at the all-tight CTN vertex.
+            let p_cov = cone.factor().ncols();
+            let n = cone.factor().nrows();
+            let mut projected = residual.clone();
+            let mut active = Vec::new();
+            for (slot, &coefficient_row) in cone.coupled_rows().iter().enumerate() {
+                let start = coefficient_row * p_cov;
+                let end = start + p_cov;
+                let local_residual = residual.slice(s![start..end]).to_owned();
+                let local_beta = beta.slice(s![start..end]).to_owned();
+                let local_set = ConstraintSet::KhatriRaoCone(cone.single_coupled_slot(slot).ok()?);
+                let row_start = slot * n;
+                let row_end = row_start + n;
+                let local_seed: Vec<usize> = seed_active
+                    .iter()
+                    .copied()
+                    .filter(|&row| row >= row_start && row < row_end)
+                    .map(|row| row - row_start)
+                    .collect();
+                let (local_projected, local_active) =
+                    project_stationarity_residual_on_constraint_set(
+                        &local_residual,
+                        &local_beta,
+                        &local_set,
+                        &local_seed,
+                    )?;
+                projected.slice_mut(s![start..end]).assign(&local_projected);
+                active.extend(local_active.into_iter().map(|row| row_start + row));
+            }
+            Some((projected, active))
+        }
+        ConstraintSet::BlockDiagonal { blocks, .. } => {
+            // The same direct-sum identity applies to explicitly placed blocks;
+            // columns outside all blocks are unconstrained and retain their
+            // original residual components.
+            let mut projected = residual.clone();
+            let mut active = Vec::new();
+            let mut row_offset = 0usize;
+            for block in blocks {
+                let width = block.set.ncols();
+                let start = block.col_start;
+                let end = start + width;
+                let local_residual = residual.slice(s![start..end]).to_owned();
+                let local_beta = beta.slice(s![start..end]).to_owned();
+                let row_end = row_offset + block.set.nrows();
+                let local_seed: Vec<usize> = seed_active
+                    .iter()
+                    .copied()
+                    .filter(|&row| row >= row_offset && row < row_end)
+                    .map(|row| row - row_offset)
+                    .collect();
+                let (local_projected, local_active) =
+                    project_stationarity_residual_on_constraint_set(
+                        &local_residual,
+                        &local_beta,
+                        &block.set,
+                        &local_seed,
+                    )?;
+                projected.slice_mut(s![start..end]).assign(&local_projected);
+                active.extend(local_active.into_iter().map(|row| row_offset + row));
+                row_offset = row_end;
+            }
+            Some((projected, active))
+        }
+        _ => project_stationarity_residual_on_constraint_set_undivided(
+            residual,
+            beta,
+            set,
+            seed_active,
+        ),
+    }
+}
+
+fn project_stationarity_residual_on_constraint_set_undivided(
+    residual: &Array1<f64>,
+    beta: &Array1<f64>,
+    set: &ConstraintSet,
+    seed_active: &[usize],
+) -> Option<(Array1<f64>, Vec<usize>)> {
+    let p = residual.len();
+    let ops = ConstraintSetOps::tangent_face(set, beta).ok()?;
+    let mut active = Vec::with_capacity(seed_active.len().min(p));
+    for &row in seed_active {
+        if row < ops.nrows() && ops.norms[row] > 0.0 && !active.contains(&row) {
+            active.push(row);
+        }
+    }
+
+    // Solve the Moreau tangent projection once in the operator-native primal
+    // active set:
+    //
+    //   min_d  1/2 ||d + residual||^2    s.t. A d >= 0.
+    //
+    // The former separator gathered one extra factored row, invoked a complete
+    // dense cone optimizer from the origin, and repeated. That nested a QP per
+    // cut and discarded its face every time. The operator solver already owns
+    // the same full-set ratio test without materializing A; carry `active`
+    // through that single solve instead. Disable its projected-gradient escape
+    // because that escape calls this projection oracle.
+    let identity = Array2::<f64>::eye(p);
+    let origin = Array1::<f64>::zeros(p);
+    let mut tangent_direction = Array1::<f64>::zeros(p);
+    let max_iterations = (p + active.len() + 8) * 4;
+    if let Err(error) = solve_newton_direction_with_constraint_set_impl(
+        &identity,
+        residual,
+        &origin,
+        &ops,
+        &mut tangent_direction,
+        Some(&mut active),
+        max_iterations,
+        false,
+    ) {
+        log::warn!(
+            "factored tangent-cone projection QP failed \
+             (p={p}, rows={}, seed_active_rows={}, residual_inf={:.6e}): {error}; \
+             attempting the direct Lawson-Hanson Moreau fallback on the final working face",
+            ops.nrows(),
+            seed_active.len(),
+            residual
+                .iter()
+                .fold(0.0_f64, |scale, value| scale.max(value.abs())),
+        );
+        return nnls_tangent_cone_projection_fallback(residual, beta, set, &active, seed_active);
+    }
+    if !array_is_finite(&tangent_direction) {
+        return nnls_tangent_cone_projection_fallback(residual, beta, set, &active, seed_active);
+    }
+    Some((-tangent_direction, active))
+}
+
+/// Exact Moreau fallback for the operator tangent-cone projection when the
+/// strict-convex primal QP refuses to certify. Degenerate faces defeat that
+/// QP's exit ritual: on the measured #979 CTN shape the projection pins a
+/// fully determined 24-row vertex in R^24 and the single-face multiplier
+/// reconstruction reports a phantom negative dual (KKT dual=1.2 with primal,
+/// complementarity, and stationarity all at round-off), so the caller fell
+/// back to the UNPROJECTED residual (1.447e3) and the convergence certificate
+/// could never fire. Projection onto a finitely generated cone IS
+/// nonnegative least squares (Moreau), so run Lawson-Hanson directly on the
+/// rows of the QP's final working face that are genuinely tight at `beta`:
+/// `projected = residual − Aᵀλ*` with `λ* = argmin_{λ≥0} ‖residual − Aᵀλ‖`.
+///
+/// Two properties make this sound as a certificate input:
+/// - Restricting the generators to a subset of the true tangent-cone rows can
+///   only ENLARGE the projected residual (the minimum runs over a smaller
+///   λ-support), so a lost row biases toward refusal, never acceptance.
+/// - Every generator is verified tight at `beta` before entering, so
+///   `projected ≈ 0` states exactly `residual = Aᵀλ*, λ* ≥ 0` over active
+///   rows — the existence form of the KKT stationarity condition.
+fn nnls_tangent_cone_projection_fallback(
+    residual: &Array1<f64>,
+    beta: &Array1<f64>,
+    set: &ConstraintSet,
+    face_rows: &[usize],
+    seed_active: &[usize],
+) -> Option<(Array1<f64>, Vec<usize>)> {
+    let mut candidates: Vec<usize> = Vec::with_capacity(face_rows.len() + seed_active.len());
+    for &row in face_rows.iter().chain(seed_active.iter()) {
+        if row < set.nrows() && !candidates.contains(&row) {
+            candidates.push(row);
+        }
+    }
+    if candidates.is_empty() {
+        // No tight generators: the local tangent cone is the whole space and
+        // the projected stationarity residual is the raw residual, exactly as
+        // the primal QP would report for an interior point.
+        return Some((residual.clone(), Vec::new()));
+    }
+    let candidate_rows = set.gather_rows(&candidates).ok()?;
+    // Same tightness band the tangent-face carrier itself uses, so the
+    // generator set matches the cone geometry the refused QP was solving.
+    let mut tight = Vec::with_capacity(candidates.len());
+    let mut tight_a = Vec::with_capacity(candidates.len());
+    for (position, &row) in candidates.iter().enumerate() {
+        let constraint_row = candidate_rows.a.row(position);
+        let norm = constraint_row.dot(&constraint_row).sqrt();
+        if norm > 0.0
+            && (constraint_row.dot(beta) - candidate_rows.b[position]) / norm
+                <= ACTIVE_SET_PRIMAL_FEASIBILITY_TOL
+        {
+            tight.push(row);
+            tight_a.push(position);
+        }
+    }
+    if tight.is_empty() {
+        return Some((residual.clone(), Vec::new()));
+    }
+    let mut generators = Array2::<f64>::zeros((tight.len(), residual.len()));
+    for (out_row, &position) in tight_a.iter().enumerate() {
+        generators
+            .row_mut(out_row)
+            .assign(&candidate_rows.a.row(position));
+    }
+    let (lambda, projected) = nonnegative_cone_multipliers(&generators, residual)?;
+    let active: Vec<usize> = tight
+        .iter()
+        .zip(lambda.iter())
+        .filter(|&(_, &multiplier)| multiplier > 0.0)
+        .map(|(&row, _)| row)
+        .collect();
+    log::info!(
+        "tangent-cone Moreau fallback certified the projection the primal QP refused: \
+         face_rows={} tight_rows={} supported_rows={} projected_inf={:.6e}",
+        face_rows.len(),
+        tight.len(),
+        active.len(),
+        projected
+            .iter()
+            .fold(0.0_f64, |scale, value| scale.max(value.abs())),
+    );
+    Some((projected, active))
+}
+
+/// First-order escape from a tolerance-band working-set cycle for an operator
+/// constraint carrier. This is the factored equivalent of
+/// [`fallback_projected_gradient_direction`]: project `-gradient` into the
+/// current face's tangent space, clip it at the first constraint boundary, and
+/// accept only a finite, descending, fully feasible direction.
+///
+/// Keep the returned face sparse. A single coefficient row at zero can make
+/// thousands of Khatri-Rao observation rows tight; rediscovering every tight
+/// row here would recreate the all-face materialization this operator path is
+/// specifically meant to avoid. The old working rows remain tight under the
+/// tangent step. If a currently omitted tight row blocks at zero step, add
+/// that separator and recompute the cone projection; this cutting-plane loop
+/// discovers only the rows needed to describe a feasible tangent direction.
+fn fallback_projected_gradient_direction_with_constraint_set(
+    beta: &Array1<f64>,
+    x: &Array1<f64>,
+    d_total: &Array1<f64>,
+    gradient: &Array1<f64>,
+    active: &[usize],
+    ops: &ConstraintSetOps<'_>,
+) -> Result<Option<(Array1<f64>, Vec<usize>)>, EstimationError> {
+    let p = gradient.len();
+    if x.len() != p || d_total.len() != p || beta.len() != p || ops.set.ncols() != p {
+        crate::bail_invalid_estim!("operator projected-gradient fallback dimension mismatch");
+    }
+
+    let values_x = ops.values(x)?;
+    let Some((stationarity_residual, mut tangent_active)) =
+        project_stationarity_residual_on_constraint_set(gradient, x, ops.set, active)
+    else {
+        return Ok(None);
+    };
+    let tangent_direction = -stationarity_residual;
+    let step_inf = tangent_direction
+        .iter()
+        .fold(0.0_f64, |acc, &value| acc.max(value.abs()));
+    if step_inf <= 1e-12 {
+        let (worst, _) = ops.max_violation(&values_x);
+        if worst > ACTIVE_SET_PRIMAL_FEASIBILITY_TOL {
+            let Some(projected) = project_point_strictly_into_feasible_constraint_set(x, ops.set)
+                .ok()
+                .filter(|candidate| {
+                    ops.values(candidate)
+                        .map(|candidate_values| {
+                            ops.max_violation(&candidate_values).0
+                                <= ACTIVE_SET_PRIMAL_FEASIBILITY_TOL
+                        })
+                        .unwrap_or(false)
+                })
+            else {
+                return Ok(None);
+            };
+            let repair = &projected - x;
+            let new_direction = d_total + &repair;
+            // Certify the caller's reconstruction `beta + dir`, not the
+            // projection itself (they differ by the x/d_total cancellation
+            // rounding, and the caller's gate is what must pass).
+            let candidate = beta + &new_direction;
+            let candidate_values = ops.values(&candidate)?;
+            if ops.max_violation(&candidate_values).0 > ACTIVE_SET_PRIMAL_FEASIBILITY_TOL {
+                return Ok(None);
+            }
+            return Ok(Some((new_direction, Vec::new())));
+        }
+        return Ok(Some((d_total.clone(), tangent_active)));
+    }
+
+    let directional_derivative = gradient.dot(&tangent_direction);
+    if !directional_derivative.is_finite() || directional_derivative >= 0.0 {
+        return Ok(None);
+    }
+    let values_direction = ops.values(&tangent_direction)?;
+    let mut alpha = 1.0_f64;
+    let mut blocking_row = None;
+    for row in 0..ops.nrows() {
+        if ops.norms[row] <= 0.0 {
+            continue;
+        }
+        let slack = ops.scaled_slack(&values_x, row);
+        let rate = values_direction[row] / ops.norms[row];
+        if let Some(candidate) = active_set_boundary_hit_step_fraction(slack, rate, alpha) {
+            alpha = candidate;
+            blocking_row = Some(row);
+        }
+    }
+    if !alpha.is_finite() || alpha <= 0.0 {
+        return Ok(None);
+    }
+    let fallback_step = tangent_direction * alpha;
+    let new_direction = d_total + &fallback_step;
+    // Evaluate feasibility on the caller's reconstruction `beta + dir` so the
+    // acceptance here and the caller's final gate see the same bits.
+    let new_x = beta + &new_direction;
+    let new_values = ops.values(&new_x)?;
+    if ops.max_violation(&new_values).0 > ACTIVE_SET_PRIMAL_FEASIBILITY_TOL {
+        return Ok(None);
+    }
+    if let Some(row) = blocking_row
+        && !tangent_active.contains(&row)
+    {
+        tangent_active.push(row);
+    }
+    tangent_active.retain(|&row| ops.scaled_slack(&new_values, row) <= 1e-10);
+    Ok(Some((new_direction, tangent_active)))
+}
+
+fn solve_newton_direction_with_constraint_set_impl(
+    hessian: &Array2<f64>,
+    gradient: &Array1<f64>,
+    beta: &Array1<f64>,
+    ops: &ConstraintSetOps<'_>,
+    direction_out: &mut Array1<f64>,
+    mut active_hint: Option<&mut Vec<usize>>,
+    max_iterations: usize,
+    allow_projected_gradient_fallback: bool,
+) -> Result<(), EstimationError> {
+    let p = gradient.len();
+    if direction_out.len() != p {
+        *direction_out = Array1::zeros(p);
+    }
+    let m = ops.nrows();
+    if ops.set.ncols() != p || beta.len() != p {
+        crate::bail_invalid_estim!(
+            "constraint-set shape mismatch: set={}x{}, p={}",
+            m,
+            ops.set.ncols(),
+            p
+        );
+    }
+
+    let tol_active = ACTIVE_SET_WORKING_FACE_TOL;
+    let tol_step = 1e-12;
+    let tol_dual = 1e-10;
+    let mut x = beta.to_owned();
+    let mut d_total = Array1::<f64>::zeros(p);
+    let mut g_cur = gradient.to_owned();
+    let mut values_x = ops.values(&x)?;
+
+    // Face provenance is point-local. If globalization accepted only part of
+    // the previous QP chord, its endpoint rows are not active at the accepted
+    // point. Retaining them as warm equalities makes the next operator solve
+    // chase a still-slack face by the same small trust fraction every cycle.
+    // Keep only rows tight at the current beta; the full-set ratio test adds
+    // any discarded row exactly when the iterate actually reaches it.
+    if let Some(hint) = active_hint.as_mut() {
+        hint.retain(|&idx| {
+            idx < m && ops.norms[idx] > 0.0 && ops.scaled_slack(&values_x, idx) <= tol_active
+        });
+    }
+
+    let has_active_hint = active_hint
+        .as_ref()
+        .map(|hint| !hint.is_empty())
+        .unwrap_or(false);
+    if !has_active_hint && solve_newton_direction_dense(hessian, gradient, direction_out).is_ok() {
+        let candidate = beta + &*direction_out;
+        let candidate_values = ops.values(&candidate)?;
+        let feasible = (0..m).all(|row| ops.scaled_slack(&candidate_values, row) >= -tol_active);
+        if feasible {
+            // Unlike the dense loop's fast path, the hint deliberately stays
+            // empty here: a factored cone can have thousands of duplicate
+            // geometrically-tight rows at a boundary landing, and eagerly
+            // reporting them all would poison the next warm start with the
+            // materialized face this operator path exists to avoid. The ratio
+            // test rediscovers the one blocking row when it matters.
+            return Ok(());
+        }
+    }
+
+    let mut active: Vec<usize> = Vec::new();
+    let mut is_active = vec![false; m];
+    if let Some(hint) = active_hint.as_ref() {
+        for &idx in hint.iter() {
+            if idx < m && !is_active[idx] && ops.norms[idx] > 0.0 {
+                active.push(idx);
+                is_active[idx] = true;
+                log_active_set_transition("warm-add", 0, active.len(), Some(idx));
+            }
+        }
+    }
+    // Do NOT eagerly classify every tight operator row as active.  A factored
+    // cone can have tens of thousands of geometrically tight rows at a low-
+    // dimensional face: for CTN, one coefficient row becoming zero makes all
+    // `n` observation rows tight although their span has dimension at most
+    // `p_cov`.  Gathering that entire face and rank-reducing it on every QP
+    // cycle turns a 144-variable solve into minutes of redundant QR work.
+    //
+    // An active-set method only needs tight rows that block the proposed
+    // direction.  Start from the warm working set (possibly empty); the ratio
+    // test below adds the first boundary row whose directional rate would
+    // leave the cone, and the negative-dual test releases rows normally.  This
+    // is the standard feasible active-set invariant and changes neither the
+    // feasible region nor the QP optimum.  Dense constraints retain their
+    // existing eager initialization in the dense solver.
+    let mut visited_working_sets: HashSet<(Vec<usize>, Vec<u64>)> = HashSet::new();
+    record_active_working_set(&mut visited_working_sets, &active, &x, 0);
+
+    // Terminal-diagnosis counters: dep-crate debug logs are filtered out by
+    // CLI consumers, so a budget-exhausted refusal must name its own churn
+    // mechanism (blocking-adds vs release cycling vs working-set repetition)
+    // in the typed error text.
+    let mut count_blocking_add = 0usize;
+    let mut count_stationary_add = 0usize;
+    let mut count_release = 0usize;
+    let mut ws_repeat_break = false;
+    let mut iterations_used = 0usize;
+    // After an UNBLOCKED full step the iterate is the working-face minimizer
+    // up to KKT-solve rounding, so the next iteration's direction is solver
+    // noise, not progress. Measuring that noise against the absolute
+    // `tol_step` starves the stationary branch (where releases and the
+    // terminal acceptance live) on large-scale problems: the CTN cycle-95
+    // witness spent 3146 of 3152 iterations re-solving noise steps with only
+    // 6 transitions. An unblocked full step must be followed by multiplier
+    // adjudication.
+    let mut face_minimized = false;
+
+    for iteration in 0..max_iterations {
+        iterations_used = iteration + 1;
+        let adjudicate_face = face_minimized;
+        face_minimized = false;
+        let compressed_working = ops.compress_working(&active)?;
+        let mut residualw = Array1::<f64>::zeros(compressed_working.constraints.a.nrows());
+        for r in 0..compressed_working.constraints.a.nrows() {
+            residualw[r] = compressed_working.constraints.b[r]
+                - compressed_working.constraints.a.row(r).dot(&x);
+        }
+        let (d, lambdaw) = solve_kkt_direction(
+            hessian,
+            &g_cur,
+            &compressed_working.constraints.a,
+            Some(&residualw),
+        )?;
+        let step_norm = d.iter().map(|v| v * v).sum::<f64>().sqrt();
+        if step_norm <= tol_step || adjudicate_face {
+            let (worst, worst_row) = ops.max_violation(&values_x);
+            if worst > ACTIVE_SET_PRIMAL_FEASIBILITY_TOL && !is_active[worst_row] {
+                active.push(worst_row);
+                is_active[worst_row] = true;
+                count_stationary_add += 1;
+                log_active_set_transition(
+                    "stationary-infeasible-add",
+                    iteration,
+                    active.len(),
+                    Some(worst_row),
+                );
+                if !record_active_working_set(&mut visited_working_sets, &active, &x, iteration) {
+                    ws_repeat_break = true;
+                    break;
+                }
+                continue;
+            }
+            if worst > ACTIVE_SET_PRIMAL_FEASIBILITY_TOL {
+                // The worst-violating row is already active. If it is not
+                // ENFORCED by the compressed face it was rank-reduced out as
+                // linearly dependent on the representatives — an over-complete
+                // face (#2378): three coupled-block normals bind but only two
+                // are independent, so the third is neither re-addable (already
+                // active) nor releasable (not a representative) and the loop
+                // dead-ends. Adjudicate it by an active-set EXCHANGE: release the
+                // representative it is most aligned with so it becomes an
+                // independent representative and binds next iteration.
+                let worst_pos = active.iter().position(|&idx| idx == worst_row);
+                let enforced =
+                    worst_pos.is_some_and(|pos| compressed_working.position_enforced(pos));
+                if !enforced {
+                    let violated_unit = ops.gather_unit_rows(&[worst_row])?;
+                    if let Some(mut group) = compressed_working
+                        .over_complete_release_group(violated_unit.a.row(0), &active)
+                    {
+                        group.sort_unstable_by(|a, b| b.cmp(a));
+                        let mut released = None;
+                        for active_pos in group {
+                            let idx = active.remove(active_pos);
+                            is_active[idx] = false;
+                            count_release += 1;
+                            released = Some(idx);
+                        }
+                        log_active_set_transition(
+                            "release-over-complete-face",
+                            iteration,
+                            active.len(),
+                            released,
+                        );
+                        if !record_active_working_set(
+                            &mut visited_working_sets,
+                            &active,
+                            &x,
+                            iteration,
+                        ) {
+                            ws_repeat_break = true;
+                            break;
+                        }
+                        continue;
+                    }
+                }
+                break;
+            }
+            if compressed_working.groups.is_empty() {
+                direction_out.assign(&d_total);
+                return Ok(());
+            }
+            let remove_group =
+                compressed_working.negative_representative_group(&lambdaw, tol_dual, &active);
+            if let Some(mut group) = remove_group {
+                // Release the whole independent direction (representative +
+                // exactly-parallel dependents). Descending removal so each
+                // `active.remove` does not shift a not-yet-removed position.
+                group.sort_unstable_by(|a, b| b.cmp(a));
+                let mut released = None;
+                for active_pos in group {
+                    let idx = active.remove(active_pos);
+                    is_active[idx] = false;
+                    count_release += 1;
+                    released = Some(idx);
+                }
+                log_active_set_transition(
+                    "release-negative-representative",
+                    iteration,
+                    active.len(),
+                    released,
+                );
+                if !record_active_working_set(&mut visited_working_sets, &active, &x, iteration) {
+                    ws_repeat_break = true;
+                    break;
+                }
+                continue;
+            }
+            if let Some(hint) = active_hint.as_mut() {
+                hint.clear();
+                let compressed = ops.compress_working(&active)?;
+                for group in &compressed.groups {
+                    if let Some(&active_pos) = group.first() {
+                        hint.push(active[active_pos]);
+                    }
+                }
+            }
+            direction_out.assign(&d_total);
+            return Ok(());
+        }
+
+        let values_d = ops.values(&d)?;
+        let mut alpha = 1.0_f64;
+        let mut blocking_row: Option<usize> = None;
+        for row in 0..m {
+            if is_active[row] || ops.norms[row] <= 0.0 {
+                continue;
+            }
+            let slack = ops.scaled_slack(&values_x, row);
+            let rate = values_d[row] / ops.norms[row];
+            if let Some(cand) = active_set_boundary_hit_step_fraction(slack, rate, alpha) {
+                alpha = cand;
+                blocking_row = Some(row);
+            }
+        }
+
+        ndarray::Zip::from(&mut d_total)
+            .and(&d)
+            .for_each(|dt_i, &d_i| {
+                *dt_i += alpha * d_i;
+            });
+        // Same bitwise-identity requirement as the dense loop: the caller
+        // certifies `beta + d_total`, so evaluate feasibility on exactly that
+        // sum (#979 CTN cycle 86: boundary-landing iterate feasible in the
+        // loop's arithmetic, 1.000e-8 > TOL in the wrapper's).
+        x = beta + &d_total;
+        g_cur = gradient + &hessian.dot(&d_total);
+        values_x = ops.values(&x)?;
+
+        let mut added_new_active = false;
+        let mut working_set_repeated = false;
+        if let Some(row) = blocking_row {
+            active.push(row);
+            is_active[row] = true;
+            added_new_active = true;
+            count_blocking_add += 1;
+            log_active_set_transition("blocking-add", iteration, active.len(), Some(row));
+            working_set_repeated =
+                !record_active_working_set(&mut visited_working_sets, &active, &x, iteration);
+        } else {
+            // Unblocked full step: the iterate is now the minimizer of the
+            // current working face — the next iteration must adjudicate
+            // multipliers instead of re-measuring KKT-solve noise.
+            face_minimized = true;
+        }
+        if working_set_repeated {
+            ws_repeat_break = true;
+            break;
+        }
+
+        // A zero-length blocking step changes only the row representation of
+        // this active face; the primal point and its quadratic gradient have not
+        // moved. A factored cone can have thousands of observation rows carrying
+        // the same low-dimensional normal geometry, so continuing the add/drop
+        // loop enumerates distinct row-ID combinations without primal progress.
+        // The issue-979 CTN witness held a 92/93-row face and performed hundreds
+        // of these swaps immediately; its row-count-derived ceiling permitted
+        // roughly 96,000.
+        //
+        // This event is exactly a normal-cone identification problem at the
+        // current x. Ask the shared factored separator for the tangent-cone
+        // projection now. It adds only geometrically necessary omitted rows and
+        // returns a full-set-feasible strict descent direction, or declines and
+        // leaves the ordinary active-set loop in control. The trigger is a
+        // mathematical no-progress event, not an iteration or wall-clock budget.
+        let primal_step_norm = alpha.abs() * step_norm;
+        if allow_projected_gradient_fallback && added_new_active && primal_step_norm <= tol_step {
+            if let Some((fallback_direction, fallback_active)) =
+                fallback_projected_gradient_direction_with_constraint_set(
+                    beta, &x, &d_total, &g_cur, &active, ops,
+                )?
+            {
+                if let Some(hint) = active_hint.as_mut() {
+                    hint.clear();
+                    hint.extend(fallback_active);
+                }
+                direction_out.assign(&fallback_direction);
+                return Ok(());
+            }
+        }
+
+        if active.is_empty() && !added_new_active {
+            if let Some(hint) = active_hint.as_mut() {
+                hint.clear();
+            }
+            direction_out.assign(&d_total);
+            return Ok(());
+        }
+    }
+
+    // Exit gate: same acceptance structure as the dense loop — primal
+    // feasibility on the full set plus working-set KKT residuals on the
+    // rank-reduced unit-row system.
+    let compressed_working = ops.compress_working(&active)?;
+    let mut residualw = Array1::<f64>::zeros(compressed_working.constraints.a.nrows());
+    for r in 0..compressed_working.constraints.a.nrows() {
+        residualw[r] =
+            compressed_working.constraints.b[r] - compressed_working.constraints.a.row(r).dot(&x);
+    }
+    let (_, lambdaw) = solve_kkt_direction(
+        hessian,
+        &g_cur,
+        &compressed_working.constraints.a,
+        Some(&residualw),
+    )?;
+    let lambda_true = lambdaw.mapv(|lam_sys| -lam_sys);
+    let (worst, row) = ops.max_violation(&values_x);
+    let working_kkt = working_set_kkt_diagnostics_from_multipliers(
+        &x,
+        &g_cur,
+        &compressed_working.constraints,
+        &lambda_true,
+        m,
+    )?;
+    let grad_inf = gradient_inf_norm(&g_cur);
+    let stationarity_rel = working_kkt.stationarity / grad_inf.max(1.0);
+    let step_inf = d_total.iter().fold(0.0_f64, |acc, &v| acc.max(v.abs()));
+    let hd_total = hessian.dot(&d_total);
+    let predicted_delta = gradient.dot(&d_total)
+        + 0.5
+            * d_total
+                .iter()
+                .zip(hd_total.iter())
+                .map(|(a, b)| a * b)
+                .sum::<f64>();
+    let kkt_strong_ok = (working_kkt.stationarity <= ACTIVE_SET_KKT_STATIONARITY_TOL
+        || stationarity_rel <= ACTIVE_SET_KKT_STATIONARITY_TOL)
+        && working_kkt.complementarity <= ACTIVE_SET_KKT_COMPLEMENTARITY_TOL;
+    let model_descent_ok =
+        predicted_delta <= -ACTIVE_SET_MODEL_DESCENT_REL_TOL * (1.0 + grad_inf * step_inf);
+    let degenerate_boundary_ok = compressed_working.is_degenerate_face()
+        && worst <= ACTIVE_SET_PRIMAL_FEASIBILITY_TOL
+        && working_kkt.primal_feasibility <= ACTIVE_SET_PRIMAL_FEASIBILITY_TOL
+        && working_kkt.complementarity <= ACTIVE_SET_KKT_COMPLEMENTARITY_TOL
+        && (working_kkt.stationarity <= ACTIVE_SET_KKT_DEGENERATE_STATIONARITY_TOL
+            || stationarity_rel <= ACTIVE_SET_KKT_STATIONARITY_TOL);
+    // Existence-form KKT certificate over the tight rows — the operator twin
+    // of the dense loop's `nnls_certified` gate (see there for the full
+    // rationale, including why it must run whenever the strong path does not
+    // ACCEPT — strong stationarity with phantom negative duals is the target
+    // case, not an exemption). Tightness is read off the batched values; only
+    // the tight rows are gathered densely, so the factored cone never
+    // materializes.
+    let strong_path_accepts =
+        kkt_strong_ok && working_kkt.dual_feasibility <= ACTIVE_SET_KKT_DUAL_FEASIBILITY_TOL;
+    let mut nnls_closure: Option<(f64, usize)> = None;
+    let nnls_certified = worst <= ACTIVE_SET_PRIMAL_FEASIBILITY_TOL && !strong_path_accepts && {
+        let tight: Vec<usize> = (0..m)
+            .filter(|&i| {
+                ops.norms[i] > 0.0 && (values_x[i] - ops.bounds[i]) / ops.norms[i] <= tol_active
+            })
+            .collect();
+        let tight_len = tight.len();
+        match ops.set.gather_rows(&tight) {
+            Ok(gathered) => nonnegative_cone_multipliers(&gathered.a, &g_cur)
+                .map(|(_, projected)| {
+                    let closure = projected.iter().fold(0.0_f64, |acc, &v| acc.max(v.abs()));
+                    nnls_closure = Some((closure, tight_len));
+                    closure <= ACTIVE_SET_KKT_STATIONARITY_TOL
+                        || closure / grad_inf.max(1.0) <= ACTIVE_SET_KKT_STATIONARITY_TOL
+                })
+                .unwrap_or(false),
+            Err(_) => false,
+        }
+    };
+    if worst <= ACTIVE_SET_PRIMAL_FEASIBILITY_TOL
+        && ((working_kkt.dual_feasibility <= ACTIVE_SET_KKT_DUAL_FEASIBILITY_TOL
+            && (kkt_strong_ok || (allow_projected_gradient_fallback && model_descent_ok)))
+            || degenerate_boundary_ok
+            || nnls_certified)
+    {
+        if let Some(hint) = active_hint.as_mut() {
+            hint.clear();
+            for group in &compressed_working.groups {
+                if let Some(&active_pos) = group.first() {
+                    hint.push(active[active_pos]);
+                }
+            }
+        }
+        direction_out.assign(&d_total);
+        return Ok(());
+    }
+    let nnls_diag = match nnls_closure {
+        Some((closure, tight_len)) => format!(
+            "nnls_closure={closure:.3e} (tol={ACTIVE_SET_KKT_STATIONARITY_TOL:.1e}) over {tight_len} tight rows"
+        ),
+        None => "nnls_closure=not-evaluated".to_string(),
+    };
+    let churn_diag = format!(
+        "iterations={iterations_used}/{max_iterations} transitions[blocking-add={count_blocking_add} stationary-add={count_stationary_add} release={count_release}] ws_repeat_break={ws_repeat_break}"
+    );
+    if !allow_projected_gradient_fallback {
+        return Err(EstimationError::ParameterConstraintViolation(format!(
+            "operator-constrained active-set did not certify the strict-convex projection QP; max scaled violation={worst:.3e} at row {row}; KKT[primal={:.3e}, dual={:.3e}, comp={:.3e}, stat={:.3e}, active={}/{}]; {nnls_diag}; {churn_diag}",
+            working_kkt.primal_feasibility,
+            working_kkt.dual_feasibility,
+            working_kkt.complementarity,
+            working_kkt.stationarity,
+            working_kkt.n_active,
+            working_kkt.n_constraints,
+        )));
+    }
+    if let Some((fallback_direction, fallback_active)) =
+        fallback_projected_gradient_direction_with_constraint_set(
+            beta, &x, &d_total, &g_cur, &active, ops,
+        )?
+    {
+        if let Some(hint) = active_hint.as_mut() {
+            hint.clear();
+            hint.extend(fallback_active);
+        }
+        direction_out.assign(&fallback_direction);
+        return Ok(());
+    }
+    Err(EstimationError::ParameterConstraintViolation(format!(
+        "operator-constrained Newton active-set failed to converge; max scaled violation={worst:.3e} at row {row}; KKT[primal={:.3e}, dual={:.3e}, comp={:.3e}, stat={:.3e}, active={}/{}]; {nnls_diag}; {churn_diag}; projected-gradient fallback declined",
+        working_kkt.primal_feasibility,
+        working_kkt.dual_feasibility,
+        working_kkt.complementarity,
+        working_kkt.stationarity,
+        working_kkt.n_active,
+        working_kkt.n_constraints,
+    )))
+}
+
+/// Strictly-interior projection onto a [`ConstraintSet`]: the operator
+/// analogue of [`project_point_strictly_into_feasible_cone`]. Dense sets
+/// delegate to the dense projection (including its anti-parallel equality
+/// lift); the factored cone is homogeneous and one-sided, so the projection
+/// is a single identity-Hessian QP against the margin-shifted rows.
+///
+/// A refusal is a typed [`EstimationError::ParameterConstraintViolation`]
+/// naming the failing condition (dimension mismatch, non-finite iterate, or
+/// the specific row whose half-margin the projection could not clear), never a
+/// bare `None`: the caller decides whether that refusal is fatal or a soft
+/// fallback, but it is never a silent one.
+pub fn project_point_strictly_into_feasible_constraint_set(
+    point: &Array1<f64>,
+    set: &ConstraintSet,
+) -> Result<Array1<f64>, EstimationError> {
+    match set {
+        ConstraintSet::Dense(dense) => {
+            // The dense arm keeps its `Option` contract (it has other callers);
+            // its refusal is retyped here so this seam carries a diagnostic
+            // rather than a bare `None`.
+            project_point_strictly_into_feasible_cone(point, dense).ok_or_else(|| {
+                EstimationError::ParameterConstraintViolation(
+                    "dense strict-interior projection could not certify a feasible point"
+                        .to_string(),
+                )
+            })
+        }
+        _ => {
+            let repair_guard = FeasibilityRepairGuard::enter().ok_or_else(|| {
+                EstimationError::ParameterConstraintViolation(format!(
+                    "strict-interior projection exceeded feasibility-repair depth {MAX_FEASIBILITY_REPAIR_DEPTH}"
+                ))
+            })?;
+            let p = point.len();
+            if set.ncols() != p {
+                return Err(EstimationError::ParameterConstraintViolation(format!(
+                    "strict-interior projection dimension mismatch: point length {p} != constraint columns {}",
+                    set.ncols()
+                )));
+            }
+            let ops = ConstraintSetOps::new(set, ACTIVE_SET_INTERIOR_SEED_MARGIN)?;
+            let identity = Array2::<f64>::eye(p);
+            // min ½‖β − point‖² ⇒ Hessian = I, gradient at `point` = 0;
+            // the margin-shifted rows carry the strict-interior shift.
+            let mut direction = Array1::<f64>::zeros(p);
+            let gradient = Array1::<f64>::zeros(p);
+            let max_iterations = (p + set.nrows() + 8) * 4;
+            solve_newton_direction_with_constraint_set_impl(
+                &identity,
+                &gradient,
+                point,
+                &ops,
+                &mut direction,
+                None,
+                max_iterations,
+                true,
+            )?;
+            let beta = point + &direction;
+            if beta.iter().any(|v| !v.is_finite()) {
+                return Err(EstimationError::ParameterConstraintViolation(
+                    "strict-interior projection produced a non-finite iterate".to_string(),
+                ));
+            }
+            // Certify against the ORIGINAL (unshifted) rows with half-margin
+            // clearance, mirroring the dense projection's exit contract.
+            const SEED_FEASIBILITY_TOL: f64 = 1e-9;
+            let unshifted = ConstraintSetOps::new(set, 0.0)?;
+            let values = unshifted.values(&beta)?;
+            let half_margin = 0.5 * ACTIVE_SET_INTERIOR_SEED_MARGIN - SEED_FEASIBILITY_TOL;
+            for row in 0..unshifted.nrows() {
+                if unshifted.norms[row] <= 0.0 {
+                    continue;
+                }
+                let slack = unshifted.scaled_slack(&values, row);
+                if slack < half_margin {
+                    return Err(EstimationError::ParameterConstraintViolation(format!(
+                        "strict-interior projection could not clear the half-margin at row {row}: \
+                         scaled slack {slack:.3e} < {half_margin:.3e}"
+                    )));
+                }
+            }
+            drop(repair_guard);
+            Ok(beta)
+        }
+    }
+}
+
+/// Operator-carrier constrained quadratic solve: minimize
+/// `½ βᵀHβ − rhsᵀβ` subject to the [`ConstraintSet`]. Dense sets take the
+/// existing dense path byte-identically; the factored cone runs the operator
+/// active-set loop. Same public feasibility contract as
+/// [`solve_quadratic_with_linear_constraints`]: the returned point is
+/// feasible to [`ACTIVE_SET_PRIMAL_FEASIBILITY_TOL`] or the solve errors.
+pub fn solve_quadratic_with_constraint_set(
+    hessian: &Array2<f64>,
+    rhs: &Array1<f64>,
+    beta_start: &Array1<f64>,
+    set: &ConstraintSet,
+    warm_active_set: Option<&[usize]>,
+) -> Result<(Array1<f64>, Vec<usize>), EstimationError> {
+    match set {
+        ConstraintSet::Dense(dense) => solve_quadratic_with_linear_constraints(
+            hessian,
+            rhs,
+            beta_start,
+            dense,
+            warm_active_set,
+        ),
+        _ => {
+            if hessian.ncols() != hessian.nrows()
+                || rhs.len() != hessian.nrows()
+                || beta_start.len() != hessian.nrows()
+                || set.ncols() != hessian.nrows()
+            {
+                crate::bail_invalid_estim!(
+                    "operator-constrained quadratic solve: system dimension mismatch"
+                );
+            }
+            let ops = ConstraintSetOps::new(set, 0.0)?;
+            let gradient = hessian.dot(beta_start) - rhs;
+            let mut delta = Array1::<f64>::zeros(beta_start.len());
+            let mut active_hint = warm_active_set.map_or_else(Vec::new, |active| active.to_vec());
+            let max_iterations = (beta_start.len() + set.nrows() + 8) * 4;
+            solve_newton_direction_with_constraint_set_impl(
+                hessian,
+                &gradient,
+                beta_start,
+                &ops,
+                &mut delta,
+                Some(&mut active_hint),
+                max_iterations,
+                true,
+            )?;
+            let candidate = beta_start + &delta;
+            let candidate_values = ops.values(&candidate)?;
+            let (worst, _) = ops.max_violation(&candidate_values);
+            if worst <= ACTIVE_SET_PRIMAL_FEASIBILITY_TOL {
+                return Ok((candidate, active_hint));
+            }
+            let repaired = project_point_strictly_into_feasible_constraint_set(&candidate, set)
+                .ok()
+                .filter(|repaired_point| {
+                    ops.values(repaired_point)
+                        .map(|values| ops.max_violation(&values).0)
+                        .map(|violation| violation <= ACTIVE_SET_PRIMAL_FEASIBILITY_TOL)
+                        .unwrap_or(false)
+                });
+            match repaired {
+                Some(feasible) => {
+                    let feasible_values = ops.values(&feasible)?;
+                    let active: Vec<usize> = (0..ops.nrows())
+                        .filter(|&row| {
+                            ops.norms[row] > 0.0
+                                && ops.scaled_slack(&feasible_values, row)
+                                    <= ACTIVE_SET_PRIMAL_FEASIBILITY_TOL
+                        })
+                        .collect();
+                    Ok((feasible, active))
+                }
+                None => Err(EstimationError::ParameterConstraintViolation(format!(
+                    "operator-constrained quadratic solve returned an infeasible iterate \
+                     (max scaled violation {worst:.3e}) and no feasible projection could be \
+                     certified onto the constraint cone",
+                ))),
+            }
+        }
+    }
+}
+
 pub(crate) fn solve_newton_direction_with_linear_constraints(
     hessian: &Array2<f64>,
     gradient: &Array1<f64>,
@@ -1730,6 +3909,7 @@ pub(crate) fn solve_newton_direction_with_linear_constraints(
         direction_out,
         active_hint,
         max_iterations,
+        true,
     )
 }
 
@@ -1809,15 +3989,88 @@ pub fn solve_quadratic_with_linear_constraints(
 #[cfg(test)]
 mod tests {
     use super::{
-        ACTIVE_SET_INTERIOR_SEED_MARGIN, LinearInequalityConstraints,
-        compute_constraint_kkt_diagnostics, project_point_strictly_into_feasible_cone,
+        ACTIVE_SET_INTERIOR_SEED_MARGIN, ACTIVE_SET_PRIMAL_FEASIBILITY_TOL, ConstraintSet,
+        ConstraintRowId, ConstraintSetOps, ConstraintSetReducedFace, LinearInequalityConstraints,
+        active_set_boundary_hit_step_fraction, compute_constraint_kkt_diagnostics,
+        constraint_set_rows_tight_at_point, fallback_projected_gradient_direction,
+        khatri_rao_cone_reduced_face,
+        fallback_projected_gradient_direction_with_constraint_set, moreau_projection_via_primal_qp,
+        nnls_tangent_cone_projection_fallback, nonnegative_cone_multipliers,
+        project_point_strictly_into_feasible_cone,
+        project_point_strictly_into_feasible_constraint_set,
         project_stationarity_residual_on_constraint_cone,
-        rank_reduce_rows_pivoted_qr_with_dependence, scaled_constraint_slack,
-        solve_newton_direction_with_linear_constraints_impl,
-        solve_quadratic_with_linear_constraints,
+        project_stationarity_residual_on_constraint_set,
+        rank_reduce_rows_pivoted_qr_with_dependence, record_active_working_set,
+        scaled_constraint_slack, solve_newton_direction_with_linear_constraints_impl,
+        solve_quadratic_with_constraint_set, solve_quadratic_with_linear_constraints,
     };
     use approx::assert_relative_eq;
+    use gam_problem::KhatriRaoConeConstraints;
     use ndarray::{Array1, Array2, array};
+
+    #[test]
+    fn working_set_cycle_detection_requires_the_same_primal_point() {
+        let mut visited = std::collections::HashSet::new();
+        let x0 = array![0.0_f64, 1.0];
+        let x1 = array![0.5_f64, 1.0];
+
+        assert!(record_active_working_set(&mut visited, &[3, 1], &x0, 0));
+        assert!(record_active_working_set(&mut visited, &[1, 3], &x1, 1));
+        assert!(!record_active_working_set(&mut visited, &[3, 1], &x1, 2));
+    }
+
+    #[test]
+    fn boundary_ratio_lands_on_the_exact_boundary_and_blocks_at_it() {
+        // Strictly feasible row: the clipped step lands ON the boundary, not
+        // TOL past it — the exit gate then re-derives the same zero slack
+        // instead of coin-flipping on band-edge rounding.
+        let alpha = active_set_boundary_hit_step_fraction(0.1, -1.0, 1.0)
+            .expect("a strictly feasible row moving toward its boundary must clip");
+        assert_relative_eq!(alpha, 0.1, epsilon = 0.0);
+        assert_relative_eq!(0.1 + alpha * -1.0, 0.0, epsilon = 0.0);
+
+        // A row at (or a rounding hair past) its boundary and moving outward
+        // clips the step to zero: it becomes blocking, and the escape is
+        // adjudicated structurally (projected-gradient tangent fallback plus
+        // post-full-step multiplier adjudication) rather than by overshooting
+        // into the certified tolerance band.
+        let blocked = active_set_boundary_hit_step_fraction(-2.5e-15, -1.0, 1.0)
+            .expect("an at-boundary outward-moving row must block");
+        assert_eq!(blocked, 0.0);
+    }
+
+    #[test]
+    fn warm_face_rows_are_point_local_for_dense_and_operator_constraints() {
+        // The previous QP endpoint was x=0, where x>=0 binds, but a trust
+        // step accepted only an interior point x=1. Reusing row 0 as an
+        // equality at x=1 would solve the wrong problem and drive x back to
+        // the stale boundary. The actual quadratic has its feasible minimizer
+        // at x=2, so both carriers must discard the slack warm row and return
+        // the unconstrained interior minimizer with an empty face.
+        let hessian = array![[1.0_f64]];
+        let rhs = array![2.0_f64];
+        let interior = array![1.0_f64];
+        let dense = LinearInequalityConstraints::new(array![[1.0]], array![0.0])
+            .expect("one-dimensional half-line");
+        let (dense_solution, dense_active) =
+            solve_quadratic_with_linear_constraints(&hessian, &rhs, &interior, &dense, Some(&[0]))
+                .expect("dense stale-face solve");
+        assert_relative_eq!(dense_solution[0], 2.0, epsilon = 1e-12);
+        assert!(dense_active.is_empty());
+
+        let factor = std::sync::Arc::new(array![[1.0_f64]]);
+        let cone = KhatriRaoConeConstraints::new(factor, vec![0], 1)
+            .expect("one-dimensional factored half-line");
+        let operator = ConstraintSet::KhatriRaoCone(cone);
+        let stale_terminal_face = constraint_set_rows_tight_at_point(&operator, &interior, &[0])
+            .expect("terminal face classification");
+        assert!(stale_terminal_face.is_empty());
+        let (operator_solution, operator_active) =
+            solve_quadratic_with_constraint_set(&hessian, &rhs, &interior, &operator, Some(&[0]))
+                .expect("operator stale-face solve");
+        assert_relative_eq!(operator_solution[0], 2.0, epsilon = 1e-12);
+        assert!(operator_active.is_empty());
+    }
 
     /// A `β = 0` seed sits on the boundary of EVERY row of a homogeneous
     /// (`b = 0`) convex/concave second-difference cone — it is the cone vertex.
@@ -1964,11 +4217,41 @@ mod tests {
             &mut direction,
             Some(&mut active_hint),
             1,
+            true,
         )
         .expect("solver should accept the current boundary solution at the iteration limit");
 
         assert_relative_eq!(direction[0], 0.1, epsilon = 1e-12);
         assert_eq!(active_hint, vec![0]);
+    }
+
+    #[test]
+    fn projected_gradient_releases_a_boundary_with_negative_multiplier() {
+        // At x=0 under x>=0, gradient=-1 points toward increasing x: the
+        // boundary multiplier from an equality-only KKT projection is negative
+        // and the correct feasible descent direction leaves the face. The old
+        // equality-tangent projection erased this direction and could falsely
+        // call the wrong active face stationary.
+        let x = array![0.0_f64];
+        let d_total = array![0.0_f64];
+        let gradient = array![-1.0_f64];
+        let constraints =
+            LinearInequalityConstraints::new(array![[1.0]], array![0.0]).expect("one-sided bound");
+
+        let (direction, active) = fallback_projected_gradient_direction(
+            &x,
+            &x,
+            &d_total,
+            &gradient,
+            &constraints,
+            &constraints,
+        )
+        .expect("fallback evaluation")
+        .expect("negative-multiplier face must have a feasible descent escape");
+
+        assert_relative_eq!(direction[0], 1.0, epsilon = 1e-12);
+        assert!(gradient.dot(&direction) < 0.0);
+        assert!(active.is_empty(), "descent moves strictly into the cone");
     }
 
     #[test]
@@ -2020,6 +4303,204 @@ mod tests {
                 );
             }
         }
+    }
+
+    /// The direct Lawson–Hanson route must agree with the primal-QP Moreau
+    /// projection wherever the latter succeeds: both compute the projection
+    /// of `residual` onto the polar of the generated cone.
+    #[test]
+    fn nnls_moreau_projection_matches_primal_qp_route() {
+        let cases: Vec<(Array2<f64>, Array1<f64>)> = vec![
+            (
+                array![
+                    [0.85258593, -0.77270261],
+                    [-1.22152485, 2.05129351],
+                    [0.22794844, 1.56987265],
+                ],
+                array![-0.50524761, -1.10104911],
+            ),
+            (array![[1.0, 0.0], [0.0, 1.0]], array![3.0, -2.0]),
+            (
+                array![[1.0, 1.0, 0.0], [1.0, -1.0, 0.0], [2.0, 2.0, 0.0]],
+                array![1.5, 0.25, -0.75],
+            ),
+        ];
+        for (rows, target) in cases {
+            let qp = moreau_projection_via_primal_qp(&target, &rows)
+                .expect("primal QP route must solve these well-posed instances");
+            let (lambda, projected) = nonnegative_cone_multipliers(&rows, &target)
+                .expect("LH route must solve the same instances");
+            for (left, right) in qp.0.iter().zip(projected.iter()) {
+                assert_relative_eq!(left, right, epsilon = 1e-8);
+            }
+            // λ ≥ 0 and exact reconstruction by construction.
+            assert!(lambda.iter().all(|&v| v >= 0.0));
+            let reconstructed = &target - &rows.t().dot(&lambda);
+            for (left, right) in reconstructed.iter().zip(projected.iter()) {
+                assert_relative_eq!(left, right, epsilon = 1e-12);
+            }
+        }
+    }
+
+    #[test]
+    fn nnls_projects_axis_cone_exactly() {
+        let rows = array![[1.0, 0.0], [0.0, 1.0]];
+        let target = array![3.0, -2.0];
+        let (lambda, projected) =
+            nonnegative_cone_multipliers(&rows, &target).expect("axis cone NNLS");
+        assert_relative_eq!(lambda[0], 3.0, epsilon = 1e-10);
+        assert_relative_eq!(lambda[1], 0.0, epsilon = 1e-10);
+        assert_relative_eq!(projected[0], 0.0, epsilon = 1e-10);
+        assert_relative_eq!(projected[1], -2.0, epsilon = 1e-10);
+    }
+
+    /// A dependent active row that is weakly aligned with every kept row
+    /// individually (`a3 = (a1 + a2)/(2ε)`, pairwise alignment ≈ ε) breaks the
+    /// single-target multiplier attribution: `λ/coeff` explodes by `1/ε` and
+    /// manufactures phantom huge duals. The existence-form certificate sees the
+    /// exact nonnegative closure `g = 1·a3` and must certify stationarity.
+    #[test]
+    fn nnls_closes_stationarity_on_weakly_aligned_dependent_face() {
+        let eps = 1e-8_f64;
+        let rows = array![[1.0, eps], [-1.0, eps], [0.0, 1.0]];
+        let target = array![0.0, 1.0];
+        let (lambda, projected) =
+            nonnegative_cone_multipliers(&rows, &target).expect("dependent-face NNLS");
+        let closure = projected.iter().fold(0.0_f64, |acc, &v| acc.max(v.abs()));
+        assert!(
+            closure <= 1e-10,
+            "λ = e3 closes stationarity exactly; got closure {closure:.3e}"
+        );
+        assert!(lambda.iter().all(|&v| v >= 0.0));
+    }
+
+    /// End-to-end: the constrained Newton solve on the same weakly-aligned
+    /// degenerate face must certify the vertex instead of chasing phantom
+    /// negative duals into a working-set cycle and refusing (#2298 survival
+    /// monotonicity faces, #979 CTN faces).
+    #[test]
+    fn degenerate_face_with_weak_alignment_certifies_instead_of_cycling() {
+        let eps = 1e-8_f64;
+        let a = array![[1.0, eps], [-1.0, eps], [0.0, 1.0]];
+        let b = array![0.0, 0.0, 0.0];
+        let constraints = LinearInequalityConstraints::new(a.clone(), b).expect("constraints");
+        let hessian = Array2::<f64>::eye(2);
+        // KKT at d* = 0 with λ = e3 ≥ 0: gradient = A^T e3 = a3.
+        let gradient = array![0.0, 1.0];
+        let beta = array![0.0, 0.0];
+        let mut direction = Array1::<f64>::zeros(2);
+        solve_newton_direction_with_linear_constraints_impl(
+            &hessian,
+            &gradient,
+            &beta,
+            &constraints,
+            &mut direction,
+            None,
+            64,
+            false,
+        )
+        .expect("the vertex is a certified KKT point; refusal is the #2298 defect");
+        let step = direction.iter().fold(0.0_f64, |acc, &v| acc.max(v.abs()));
+        assert!(
+            step <= 1e-8,
+            "optimum is the vertex itself; got |d|∞ = {step:.3e}"
+        );
+    }
+
+    /// #979 CTN plateau regression: when the operator-path primal projection
+    /// QP refuses a degenerate fully-pinned vertex (its single-face multiplier
+    /// attribution reports a phantom negative dual), the Lawson-Hanson Moreau
+    /// fallback must certify the projection instead of surrendering to the
+    /// unprojected residual — the measured 1.447e3 eternal plateau was exactly
+    /// `residual` returned raw because this fallback did not exist.
+    #[test]
+    fn nnls_fallback_certifies_pinned_degenerate_vertex_projection_979() {
+        // Four generators in R^3 (degenerate: a4 = a1 + a2), all tight at the
+        // origin. The stationarity residual is a nonnegative combination, so
+        // the projected residual is exactly zero.
+        let a = array![
+            [1.0_f64, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0],
+            [1.0, 1.0, 0.0],
+        ];
+        let b = array![0.0_f64, 0.0, 0.0, 0.0];
+        let set = ConstraintSet::Dense(
+            LinearInequalityConstraints::new(a, b).expect("degenerate vertex cone"),
+        );
+        let beta = array![0.0_f64, 0.0, 0.0];
+        let residual = array![3.0_f64, 2.0, 0.0]; // = a1 + 2·a4
+        let (projected, active) =
+            nnls_tangent_cone_projection_fallback(&residual, &beta, &set, &[0, 1, 2, 3], &[0, 1])
+                .expect("fallback must solve the degenerate vertex");
+        let closure = projected.iter().fold(0.0_f64, |acc, &v| acc.max(v.abs()));
+        assert!(
+            closure <= 1e-9,
+            "residual is in the cone; projection must close to zero, got {closure:.3e}"
+        );
+        assert!(!active.is_empty(), "a supported face must be reported");
+
+        // A component outside the cone must survive the projection exactly.
+        let outside = array![1.0_f64, 0.0, -1.0];
+        let (projected_outside, _) =
+            nnls_tangent_cone_projection_fallback(&outside, &beta, &set, &[0, 1, 2, 3], &[])
+                .expect("fallback must solve the outside-component case");
+        assert_relative_eq!(projected_outside[0], 0.0, epsilon = 1e-9);
+        assert_relative_eq!(projected_outside[1], 0.0, epsilon = 1e-9);
+        assert_relative_eq!(projected_outside[2], -1.0, epsilon = 1e-9);
+    }
+
+    /// The fallback is a KKT certificate input, so a working-set row that is
+    /// NOT tight at `beta` must never enter the generator set: a residual
+    /// aligned with a slack row must stay unprojected rather than be absorbed
+    /// by a constraint that is not active at the iterate.
+    #[test]
+    fn nnls_fallback_excludes_rows_not_tight_at_beta() {
+        let a = array![[1.0_f64, 0.0], [0.0, 1.0]];
+        let b = array![0.0_f64, -1.0]; // row 1 has slack 1 at the origin
+        let set = ConstraintSet::Dense(
+            LinearInequalityConstraints::new(a, b).expect("half-tight system"),
+        );
+        let beta = array![0.0_f64, 0.0];
+        let residual = array![0.0_f64, 1.0];
+        let (projected, active) =
+            nnls_tangent_cone_projection_fallback(&residual, &beta, &set, &[0, 1], &[])
+                .expect("fallback must solve the half-tight system");
+        assert_relative_eq!(projected[1], 1.0, epsilon = 1e-12);
+        assert!(
+            !active.contains(&1),
+            "slack row 1 must not appear in the certified face"
+        );
+    }
+
+    #[test]
+    fn cone_projection_preserves_original_multiplier_units_after_row_canonicalization() {
+        let residual = array![2.0, -1.0];
+        let unit_row = array![[1.0, 0.0]];
+        let scaled_row = array![[4.0, 0.0]];
+
+        let (projected_unit, multiplier_unit) =
+            project_stationarity_residual_on_constraint_cone(&residual, &unit_row)
+                .expect("unit-row cone projection should solve");
+        let (projected_scaled, multiplier_scaled) =
+            project_stationarity_residual_on_constraint_cone(&residual, &scaled_row)
+                .expect("scaled-row cone projection should solve");
+
+        assert_relative_eq!(projected_unit[0], 0.0, epsilon = 1e-12);
+        assert_relative_eq!(projected_unit[1], -1.0, epsilon = 1e-12);
+        assert_relative_eq!(projected_scaled[0], projected_unit[0], epsilon = 1e-12);
+        assert_relative_eq!(projected_scaled[1], projected_unit[1], epsilon = 1e-12);
+        assert_relative_eq!(multiplier_unit[0], 2.0, epsilon = 1e-12);
+        assert_relative_eq!(multiplier_scaled[0], 0.5, epsilon = 1e-12);
+
+        let reconstructed_unit = &residual - &unit_row.t().dot(&multiplier_unit);
+        let reconstructed_scaled = &residual - &scaled_row.t().dot(&multiplier_scaled);
+        assert_relative_eq!(reconstructed_unit[0], projected_unit[0], epsilon = 1e-12);
+        assert_relative_eq!(
+            reconstructed_scaled[0],
+            projected_scaled[0],
+            epsilon = 1e-12
+        );
     }
 
     // #500: the KKT primal residual must be the *geometric* distance to the
@@ -2244,6 +4725,665 @@ mod tests {
             (beta[1] + beta[3]).abs() < 1e-6,
             "equality B not pinned under ill-conditioning: β1+β3 = {:.6e}",
             beta[1] + beta[3]
+        );
+    }
+
+    // ==== gam#2306: operator (ConstraintSet) solver vs dense oracle ====
+
+    /// Small Khatri-Rao cone whose dense materialization is exact: Ψ is
+    /// 4 × 2, coefficient block is 3 × 2 (row 0 unconstrained location,
+    /// rows 1–2 coupled), so p = 6 and the cone has 8 rows.
+    fn small_cone() -> KhatriRaoConeConstraints {
+        let psi = array![[1.0_f64, 0.2], [1.0, -0.4], [1.0, 1.3], [1.0, 0.8],];
+        KhatriRaoConeConstraints::new(std::sync::Arc::new(psi), vec![1, 2], 3).expect("small cone")
+    }
+
+    /// Parallel tight rows collapse to the lowest-index representative, and the
+    /// duplicate is recorded in the dependence map with its scalar ratio.
+    #[test]
+    fn cone_reduced_face_collapses_parallel_rows_to_lowest_index() {
+        // ψ_2 = 2·ψ_0 (parallel); ψ_1 independent. p_cov=2, one coupled row.
+        let psi = array![[1.0_f64, 0.0], [0.0, 1.0], [2.0, 0.0]];
+        let cone = KhatriRaoConeConstraints::new(std::sync::Arc::new(psi), vec![1], 2)
+            .expect("parallel cone");
+        // β = 0 ⇒ every Γ = 0 ⇒ every row tight.
+        let beta = Array1::<f64>::zeros(2 * 2);
+        let face = khatri_rao_cone_reduced_face(&cone, beta.view(), 1e-8).expect("reduce");
+        assert_eq!(face.tight_rows, rows(&[0, 1, 2]));
+        // Rank 2: reps are the two independent directions at their lowest obs.
+        assert_eq!(face.representatives, rows(&[0, 1]));
+        assert_eq!(face.dependence.len(), 2);
+        // ψ_2 (flat id 2) is parallel to representative ψ_0 (rep index 0), coeff 2.
+        assert_eq!(face.dependence[0].len(), 1);
+        assert_eq!(face.dependence[0][0].row.index(), 2);
+        assert!((face.dependence[0][0].coeff - 2.0).abs() < 1e-12);
+        assert!(face.dependence[1].is_empty());
+    }
+
+    /// A full-rank tight face keeps every row and records no dependence.
+    #[test]
+    fn cone_reduced_face_full_rank_has_no_dependence() {
+        let psi = array![[1.0_f64, 0.0], [0.0, 1.0]];
+        let cone = KhatriRaoConeConstraints::new(std::sync::Arc::new(psi), vec![1], 2)
+            .expect("full-rank cone");
+        let beta = Array1::<f64>::zeros(2 * 2);
+        let face = khatri_rao_cone_reduced_face(&cone, beta.view(), 1e-8).expect("reduce");
+        assert_eq!(face.representatives, rows(&[0, 1]));
+        assert!(face.dependence.iter().all(|d| d.is_empty()));
+        assert_eq!(face.tight_rows, rows(&[0, 1]));
+    }
+
+    /// A general-position dependent (in the span but parallel to no single rep)
+    /// is dropped from the working set (full rank cut) but gets NO dependence
+    /// entry — the (A)-strict contract that avoids a phantom distributed dual.
+    #[test]
+    fn cone_reduced_face_general_combination_gets_no_dependence_entry() {
+        // ψ_2 = ψ_0 + ψ_1: in the span, but cos with each rep is 1/√2 < 1.
+        let psi = array![[1.0_f64, 0.0], [0.0, 1.0], [1.0, 1.0]];
+        let cone = KhatriRaoConeConstraints::new(std::sync::Arc::new(psi), vec![1], 2)
+            .expect("general-combo cone");
+        let beta = Array1::<f64>::zeros(2 * 2);
+        let face = khatri_rao_cone_reduced_face(&cone, beta.view(), 1e-8).expect("reduce");
+        assert_eq!(face.representatives, rows(&[0, 1])); // ψ_2 dropped
+        assert_eq!(face.tight_rows, rows(&[0, 1, 2])); // but still in the tight set
+        assert!(
+            face.dependence.iter().all(|d| d.is_empty()),
+            "a general-position drop must carry no distributed multiplier"
+        );
+    }
+
+    /// Cross-block cone rows are automatically orthogonal (e_k ⊥ e_{k'}), so each
+    /// shape block reduces independently — no cross-block dependence, and flat
+    /// ids stay in the slot*n+obs space.
+    #[test]
+    fn cone_reduced_face_reduces_each_shape_block_independently() {
+        let psi = array![[1.0_f64, 0.0], [0.0, 1.0]];
+        let cone = KhatriRaoConeConstraints::new(std::sync::Arc::new(psi), vec![1, 2], 3)
+            .expect("two-block cone");
+        let beta = Array1::<f64>::zeros(3 * 2);
+        let face = khatri_rao_cone_reduced_face(&cone, beta.view(), 1e-8).expect("reduce");
+        // Block 0 → flat 0,1; block 1 → flat 2,3 (slot*n+obs, n=2). All independent.
+        assert_eq!(face.representatives, rows(&[0, 1, 2, 3]));
+        assert!(face.dependence.iter().all(|d| d.is_empty()));
+        assert_eq!(face.tight_rows, rows(&[0, 1, 2, 3]));
+    }
+
+    /// The Dense arm of the `ConstraintSet::reduced_face` dispatcher matches the
+    /// cone arm's contract: parallel tight rows collapse to the lowest-index
+    /// representative with the scalar ratio recorded; flat id = the row index.
+    #[test]
+    fn dense_reduced_face_via_dispatcher_collapses_parallel_rows() {
+        // Row 2 = 2·row 0 (parallel); row 1 independent. b = 0 ⇒ every row tight
+        // at β = 0 (scaled slack 0).
+        let a = array![[1.0_f64, 0.0], [0.0, 1.0], [2.0, 0.0]];
+        let set = ConstraintSet::Dense(
+            LinearInequalityConstraints::new(a, Array1::<f64>::zeros(3)).expect("dense"),
+        );
+        let beta = Array1::<f64>::zeros(2);
+        let face = set.reduced_face(beta.view(), 1e-8).expect("reduce");
+        assert_eq!(face.tight_rows, rows(&[0, 1, 2]));
+        assert_eq!(face.representatives, rows(&[0, 1]));
+        assert_eq!(face.dependence[0].len(), 1);
+        assert_eq!(face.dependence[0][0].row.index(), 2);
+        assert!((face.dependence[0][0].coeff - 2.0).abs() < 1e-12);
+        assert!(face.dependence[1].is_empty());
+    }
+
+    /// Constraint-row ids for the `ReducedFace` assertions below.
+    fn rows(ids: &[usize]) -> Vec<ConstraintRowId> {
+        ids.iter().copied().map(ConstraintRowId).collect()
+    }
+
+    /// A block-diagonal set whose FIRST member constrains fewer rows than it has
+    /// coefficients — one `β₀ ≥ 0` row over a 3-wide block whose remaining two
+    /// coordinates are unconstrained (intercept / covariate columns) — followed
+    /// by a square 2×2 member at `col_start = 3`. This is the configuration that
+    /// separates the constraint-row offset (`nrows`: 1) from the coefficient
+    /// offset (`col_start`: 3); every pre-existing multi-block test used square
+    /// members, where the two coincide and nothing can be distinguished.
+    fn mixed_width_block_diagonal() -> ConstraintSet {
+        let narrow = gam_problem::PlacedConstraintBlock {
+            col_start: 0,
+            set: ConstraintSet::Dense(
+                LinearInequalityConstraints::new(
+                    array![[1.0_f64, 0.0, 0.0]],
+                    Array1::<f64>::zeros(1),
+                )
+                .expect("narrow block"),
+            ),
+        };
+        let square = gam_problem::PlacedConstraintBlock {
+            col_start: 3,
+            set: ConstraintSet::Dense(
+                LinearInequalityConstraints::new(
+                    array![[1.0_f64, 0.0], [2.0, 0.0]],
+                    Array1::<f64>::zeros(2),
+                )
+                .expect("square block"),
+            ),
+        };
+        ConstraintSet::block_diagonal(vec![narrow, square], 5).expect("block-diagonal")
+    }
+
+    /// Every id a mixed-width block-diagonal reduced face emits addresses the
+    /// JOINT CONSTRAINT-ROW space: it indexes `values()` and resolves through
+    /// `bound()` / `row_norm()` to the member row it came from, and the tight
+    /// rows really are tight there. This pins the id space that #2368 questioned
+    /// — the running-`nrows()` shift is the one consistent with the rest of the
+    /// `ConstraintSet` row API (`values` layout, `block_for_row` decoding).
+    #[test]
+    fn block_diagonal_reduced_face_row_ids_address_the_joint_constraint_row_space() {
+        let set = mixed_width_block_diagonal();
+        let beta = Array1::<f64>::zeros(5);
+        let values = set.values(beta.view()).expect("values");
+        let face = set.reduced_face(beta.view(), 1e-8).expect("reduce");
+
+        // Joint rows: block 0 contributes row 0; block 1 contributes rows 1, 2.
+        assert_eq!(set.nrows(), 3);
+        assert_eq!(face.tight_rows, rows(&[0, 1, 2]));
+        // Block 1's row 1 = 2·row 0, so it collapses onto joint representative 1.
+        assert_eq!(face.representatives, rows(&[0, 1]));
+        assert_eq!(face.dependence[1][0].row.index(), 2);
+
+        for id in &face.tight_rows {
+            let row = id.index();
+            assert!(row < set.nrows(), "id {row} outside the joint row space");
+            let norm = set.row_norm(row).expect("row norm resolves");
+            let bound = set.bound(row).expect("bound resolves");
+            assert!(
+                (values[row] - bound) / norm <= 1e-8,
+                "row {row} reported tight but has slack {}",
+                (values[row] - bound) / norm
+            );
+        }
+    }
+
+    /// The same face, read as COEFFICIENT positions, is wrong — which is exactly
+    /// why the ids are typed and why `row_column_support` exists.
+    ///
+    /// Block 1's representative is joint row 1, but it acts on β coordinate 3.
+    /// Coordinate 1 is block 0's second column: an UNCONSTRAINED coefficient
+    /// owned by a different block. A consumer that identified row ids with β
+    /// positions (to build a free/pinned mask) would pin the wrong coordinate in
+    /// the wrong block; the conversion recovers the right one.
+    #[test]
+    fn block_diagonal_reduced_face_row_ids_are_not_beta_coordinates() {
+        let set = mixed_width_block_diagonal();
+        let beta = Array1::<f64>::zeros(5);
+        let face = set.reduced_face(beta.view(), 1e-8).expect("reduce");
+
+        let block1_rep = face.representatives[1];
+        assert_eq!(block1_rep.index(), 1);
+        assert_eq!(
+            set.row_column_support(block1_rep).expect("support"),
+            vec![3],
+            "block 1's row acts on the joint column 3 (col_start 3 + local 0)"
+        );
+        // The naive identity map would have named coordinate 1, which lies in
+        // block 0's column range [0, 3) — a different block entirely.
+        assert!(block1_rep.index() < 3, "id 1 falls inside block 0's columns");
+
+        // Block 0's row is the one case where the two spaces agree; the
+        // conversion must still be the thing that says so.
+        assert_eq!(
+            set.row_column_support(face.representatives[0])
+                .expect("support"),
+            vec![0]
+        );
+    }
+
+    /// The BlockDiagonal arm composes member reductions and concatenates their
+    /// row ids in order (each member's flat ids shift by the running member row
+    /// count), so a parallel dependent in the second block reports its global id.
+    #[test]
+    fn block_diagonal_reduced_face_concatenates_member_row_ids() {
+        // Two Dense blocks over disjoint columns; each: row0 independent, row1 =
+        // 2·row0. b = 0 ⇒ all tight. Block 1's rows shift by block 0's 2 rows.
+        let make = |c0: usize| gam_problem::PlacedConstraintBlock {
+            col_start: c0,
+            set: ConstraintSet::Dense(
+                LinearInequalityConstraints::new(
+                    array![[1.0_f64, 0.0], [2.0, 0.0]],
+                    Array1::<f64>::zeros(2),
+                )
+                .expect("dense block"),
+            ),
+        };
+        let set = ConstraintSet::block_diagonal(vec![make(0), make(2)], 4).expect("block-diagonal");
+        let beta = Array1::<f64>::zeros(4);
+        let face = set.reduced_face(beta.view(), 1e-8).expect("reduce");
+        assert_eq!(face.tight_rows, rows(&[0, 1, 2, 3]));
+        assert_eq!(face.representatives, rows(&[0, 2]));
+        assert_eq!(face.dependence[0][0].row.index(), 1);
+        assert_eq!(face.dependence[1][0].row.index(), 3);
+    }
+
+    /// Deterministic PD Hessian with off-diagonal coupling so active-set
+    /// choices are not axis-trivial.
+    fn coupled_pd_hessian(p: usize) -> Array2<f64> {
+        let mut h = Array2::<f64>::eye(p) * 2.0;
+        for i in 0..p {
+            for j in 0..p {
+                if i != j {
+                    h[[i, j]] = 0.3 / (1.0 + (i as f64 - j as f64).abs());
+                }
+            }
+        }
+        h
+    }
+
+    #[test]
+    fn operator_cone_qp_matches_dense_oracle_when_constraints_bind() {
+        let cone = small_cone();
+        let set = ConstraintSet::KhatriRaoCone(cone.clone());
+        let dense = cone.to_dense().expect("dense oracle");
+        let p = set.ncols();
+        let hessian = coupled_pd_hessian(p);
+        // rhs pulls the coupled rows negative so the unconstrained optimum
+        // violates the cone and several rows must bind.
+        let rhs = array![0.5_f64, -0.3, -2.0, 1.0, -1.5, -0.7];
+        // Feasible start: coupled coefficient rows give strictly positive
+        // functionals under every Ψ row (constant 1 with small slope loads).
+        let beta_start = array![0.0_f64, 0.0, 1.0, 0.1, 1.0, 0.1];
+
+        let (beta_op, mut active_op) =
+            solve_quadratic_with_constraint_set(&hessian, &rhs, &beta_start, &set, None)
+                .expect("operator solve");
+        let (beta_dense, mut active_dense) =
+            solve_quadratic_with_linear_constraints(&hessian, &rhs, &beta_start, &dense, None)
+                .expect("dense solve");
+
+        for j in 0..p {
+            assert!(
+                (beta_op[j] - beta_dense[j]).abs() < 1e-7,
+                "operator/dense coefficient {j} mismatch: {} vs {}",
+                beta_op[j],
+                beta_dense[j]
+            );
+        }
+        // The binding face must agree GEOMETRICALLY: both carriers land on the
+        // same point (asserted above), so every reported active row must be
+        // tight there, and both must carry the same number of independent
+        // rows. Exact row-id equality is too strong — the fixture's coupled
+        // rows admit alternate representations of the same face, and which
+        // redundant row a carrier keeps is a tie-break, not semantics.
+        active_op.sort_unstable();
+        active_dense.sort_unstable();
+        let values_at_solution = set.values(beta_op.view()).expect("values at solution");
+        let tight_at_solution: Vec<usize> = (0..set.nrows())
+            .filter(|&row| {
+                let norm = set.row_norm(row).expect("norm");
+                norm > 0.0 && values_at_solution[row] / norm <= 1e-7
+            })
+            .collect();
+        for &row in active_op.iter().chain(active_dense.iter()) {
+            assert!(
+                tight_at_solution.contains(&row),
+                "reported active row {row} is not tight at the common solution \
+                 (op face {active_op:?}, dense face {active_dense:?}, tight {tight_at_solution:?})"
+            );
+        }
+        assert_eq!(
+            active_op.len(),
+            active_dense.len(),
+            "carriers disagree on the face dimension: op {active_op:?} vs dense {active_dense:?}"
+        );
+        assert!(
+            !active_op.is_empty(),
+            "fixture must actually bind at least one cone row"
+        );
+        // And the operator answer must be feasible on the full cone.
+        let values = set.values(beta_op.view()).expect("values");
+        let (worst, _) = set.max_scaled_violation(beta_op.view()).expect("violation");
+        assert!(worst <= 1e-8, "operator answer infeasible: {worst:.3e}");
+        assert_eq!(values.len(), 8);
+    }
+
+    #[test]
+    fn separable_khatri_rao_tangent_projection_matches_dense_oracle() {
+        let cone = small_cone();
+        let set = ConstraintSet::KhatriRaoCone(cone.clone());
+        let dense = cone.to_dense().expect("dense projection oracle");
+        let beta = Array1::<f64>::zeros(set.ncols());
+        let residual = array![0.4_f64, -0.2, 1.1, -0.7, -0.9, 0.8];
+
+        let (operator_projected, _) =
+            project_stationarity_residual_on_constraint_set(&residual, &beta, &set, &[])
+                .expect("separable operator projection");
+        let (dense_projected, _) =
+            project_stationarity_residual_on_constraint_cone(&residual, &dense.a)
+                .expect("dense cone projection");
+
+        for index in 0..residual.len() {
+            assert_relative_eq!(
+                operator_projected[index],
+                dense_projected[index],
+                epsilon = 1e-8
+            );
+        }
+    }
+
+    #[test]
+    fn operator_cone_qp_takes_unconstrained_path_when_interior() {
+        let cone = small_cone();
+        let set = ConstraintSet::KhatriRaoCone(cone);
+        let p = set.ncols();
+        let hessian = coupled_pd_hessian(p);
+        // rhs pushing every coupled functional UP: unconstrained optimum is
+        // strictly interior, so the operator path must equal the plain solve.
+        let rhs = array![0.2_f64, 0.1, 3.0, 0.2, 2.5, 0.1];
+        let beta_start = array![0.0_f64, 0.0, 1.0, 0.0, 1.0, 0.0];
+        let (beta_op, active_op) =
+            solve_quadratic_with_constraint_set(&hessian, &rhs, &beta_start, &set, None)
+                .expect("operator solve");
+        // Dense unconstrained oracle: H β = rhs.
+        let mut beta_unconstrained = Array1::<f64>::zeros(p);
+        super::solve_newton_direction_dense(
+            &hessian,
+            &(hessian.dot(&beta_start) - &rhs),
+            &mut beta_unconstrained,
+        )
+        .expect("unconstrained newton");
+        let beta_unconstrained = &beta_start + &beta_unconstrained;
+        for j in 0..p {
+            assert!(
+                (beta_op[j] - beta_unconstrained[j]).abs() < 1e-8,
+                "interior operator solve must match unconstrained optimum at {j}"
+            );
+        }
+        assert!(
+            active_op.is_empty(),
+            "interior optimum must have empty face"
+        );
+    }
+
+    #[test]
+    fn operator_projection_returns_strictly_interior_point() {
+        let cone = small_cone();
+        let set = ConstraintSet::KhatriRaoCone(cone);
+        // Infeasible point: coupled row 1 loaded negative everywhere.
+        let point = array![0.4_f64, -0.2, -1.0, -0.5, 0.3, 0.05];
+        let projected = project_point_strictly_into_feasible_constraint_set(&point, &set)
+            .expect("projection must succeed on a one-sided homogeneous cone");
+        let values = set.values(projected.view()).expect("values");
+        for row in 0..set.nrows() {
+            let norm = set.row_norm(row).expect("norm");
+            if norm <= 0.0 {
+                continue;
+            }
+            let slack = values[row] / norm;
+            assert!(
+                slack >= 0.5 * ACTIVE_SET_INTERIOR_SEED_MARGIN - 1e-9,
+                "projected point not strictly interior on row {row}: slack {slack:.3e}"
+            );
+        }
+        // The location coordinates (unconstrained) must be untouched by the
+        // projection objective's optimum only if already optimal; at minimum
+        // they must remain finite and close to the input (they carry no
+        // constraint rows, and the identity-Hessian QP has no incentive to
+        // move them).
+        assert!((projected[0] - point[0]).abs() < 1e-8);
+        assert!((projected[1] - point[1]).abs() < 1e-8);
+    }
+
+    /// #2378 regression, independent oracle. The operator strict-interior
+    /// projection onto an OVER-COMPLETE cone face (three of a 2-D block's four
+    /// half-spaces try to bind — rank 2) must not merely land on *a* feasible
+    /// point; it must be the correct Euclidean projection. The former loose
+    /// rank-reduction truncated the true binding extreme (row 2) out of the
+    /// enforced face and refused the fit; a regression in the over-complete-face
+    /// exchange would release the wrong representative and land on a different
+    /// feasible vertex. Both are caught by matching the dense oracle over the
+    /// same materialized rows AND by pinning which pair binds ({1,2}, not {1,3}).
+    #[test]
+    fn operator_projection_adjudicates_the_over_complete_face_2378() {
+        let cone = small_cone();
+        let set = ConstraintSet::KhatriRaoCone(cone.clone());
+        // The #2378 witness point: coupled block 1 = coords[2..4] = (-1, -0.5)
+        // is over-complete; block 2 is left feasible.
+        let point = array![0.4_f64, -0.2, -1.0, -0.5, 0.3, 0.05];
+        let projected = project_point_strictly_into_feasible_constraint_set(&point, &set)
+            .expect("operator projection must certify the over-complete-face vertex");
+
+        // Ground-truth oracle: the SAME projection over the dense materialization
+        // of the cone rows, through the independent dense arm.
+        let dense = ConstraintSet::Dense(cone.to_dense().expect("dense oracle"));
+        let dense_proj = project_point_strictly_into_feasible_constraint_set(&point, &dense)
+            .expect("dense projection oracle");
+        for j in 0..point.len() {
+            assert!(
+                (projected[j] - dense_proj[j]).abs() < 1e-7,
+                "operator projection diverged from the dense oracle at {j}: \
+                 op={:.9e} dense={:.9e}",
+                projected[j],
+                dense_proj[j]
+            );
+        }
+
+        // The correct binding pair is block-1 rows {1,2} (flat ids 1 and 2 in
+        // slot 0). Row 2 — the extreme the old code truncated — must be TIGHT,
+        // not violated. Rows are `slot*n + obs`, n = 4 Ψ rows, coupled slot 0.
+        let values = set.values(projected.view()).expect("values");
+        let scaled = |row: usize| values[row] / set.row_norm(row).expect("norm");
+        // Rows 1 and 2 bind at (near) the strict-interior margin floor…
+        for row in [1usize, 2] {
+            assert!(
+                scaled(row) < ACTIVE_SET_INTERIOR_SEED_MARGIN + 1e-7,
+                "block-1 row {row} should bind, scaled slack {:.3e}",
+                scaled(row)
+            );
+        }
+        // …while rows 0 and 3 stay strictly slacker than the binding pair.
+        for row in [0usize, 3] {
+            assert!(
+                scaled(row) > scaled(2) + 1e-9,
+                "non-binding row {row} (slack {:.3e}) must exceed the binding \
+                 row 2 (slack {:.3e})",
+                scaled(row),
+                scaled(2)
+            );
+        }
+    }
+
+    /// #2378 regression at the QP level (non-identity Hessian): the operator
+    /// active-set loop's over-complete-face exchange must reach the same
+    /// constrained minimizer as the dense oracle when a coupled block is loaded
+    /// so that three of its half-spaces contend at the optimum.
+    #[test]
+    fn operator_cone_qp_over_complete_face_matches_dense_oracle_2378() {
+        let cone = small_cone();
+        let set = ConstraintSet::KhatriRaoCone(cone.clone());
+        let dense = cone.to_dense().expect("dense oracle");
+        let p = set.ncols();
+        let hessian = coupled_pd_hessian(p);
+        // Drive block-1's unconstrained optimum deep into the infeasible corner
+        // where the extreme Ψ rows 1 and 2 both contend (the over-complete face),
+        // and pin block-2 with its own mild load.
+        let rhs = array![0.3_f64, -0.1, -2.5, -1.2, -0.4, 0.2];
+        let beta_start = array![0.0_f64, 0.0, 1.0, 0.1, 1.0, 0.1];
+
+        let (beta_op, _active_op) =
+            solve_quadratic_with_constraint_set(&hessian, &rhs, &beta_start, &set, None)
+                .expect("operator QP solve over an over-complete face");
+        let (beta_dense, _active_dense) =
+            solve_quadratic_with_linear_constraints(&hessian, &rhs, &beta_start, &dense, None)
+                .expect("dense QP oracle");
+
+        for j in 0..p {
+            assert!(
+                (beta_op[j] - beta_dense[j]).abs() < 1e-7,
+                "operator/dense coefficient {j} mismatch: {} vs {}",
+                beta_op[j],
+                beta_dense[j]
+            );
+        }
+        // The operator answer is feasible on the full factored cone.
+        let values = set.values(beta_op.view()).expect("values");
+        for row in 0..set.nrows() {
+            let norm = set.row_norm(row).expect("norm");
+            if norm > 0.0 {
+                assert!(
+                    values[row] / norm >= -ACTIVE_SET_PRIMAL_FEASIBILITY_TOL,
+                    "row {row} violated at the operator optimum: {:.3e}",
+                    values[row] / norm
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn operator_cone_does_not_materialize_a_whole_tight_face() {
+        // All 4,096 observation rows describe the same half-space.  At the
+        // cone vertex every row is tight, but one warm row completely
+        // describes the working face.  The operator solver must preserve that
+        // compact working set instead of gathering/rank-reducing all 4,096
+        // redundant rows before taking a step (the large-scale CTN cycle-2
+        // stall from #979).
+        let mut psi = Array2::<f64>::zeros((4096, 2));
+        psi.column_mut(0).fill(1.0);
+        let cone = KhatriRaoConeConstraints::new(std::sync::Arc::new(psi), vec![1], 2)
+            .expect("repeated-row cone");
+        let set = ConstraintSet::KhatriRaoCone(cone);
+        let hessian = Array2::<f64>::eye(4);
+        let rhs = array![0.3_f64, -0.2, -1.0, 0.0];
+        let beta_start = Array1::<f64>::zeros(4);
+
+        let (beta, active) =
+            solve_quadratic_with_constraint_set(&hessian, &rhs, &beta_start, &set, Some(&[0]))
+                .expect("vertex solve");
+
+        assert_eq!(
+            active,
+            vec![0],
+            "redundant tight rows entered the working set"
+        );
+        assert!(beta[2].abs() <= ACTIVE_SET_PRIMAL_FEASIBILITY_TOL);
+        assert!((beta[0] - 0.3).abs() < 1e-10);
+        assert!((beta[1] + 0.2).abs() < 1e-10);
+    }
+
+    #[test]
+    fn operator_cycle_escape_is_descending_feasible_and_sparse() {
+        // A Khatri-Rao face can have several observation rows tight at the
+        // same coefficient point even though only one row is needed to hold
+        // the current tangent face. The dense solver already takes this
+        // projected-gradient escape when tolerance-band add/drop transitions
+        // revisit a working set; the operator solver must do the same without
+        // expanding the returned hint to every currently-tight row.
+        let psi = array![[1.0_f64, 0.0], [1.0, 1.0], [1.0, 2.0]];
+        let cone = KhatriRaoConeConstraints::new(std::sync::Arc::new(psi), vec![1], 2)
+            .expect("cycle-escape cone");
+        let set = ConstraintSet::KhatriRaoCone(cone);
+        let ops = ConstraintSetOps::new(&set, 0.0).expect("operator geometry");
+        let x = Array1::<f64>::zeros(4);
+        let d_total = Array1::<f64>::zeros(4);
+        // Row 0 pins the constant coefficient of the shaped response. The
+        // remaining negative gradient points along its slope coefficient,
+        // which lies in the face tangent and moves all other rows inward.
+        let gradient = array![0.0_f64, 0.0, 0.0, -1.0];
+        let (direction, active) = fallback_projected_gradient_direction_with_constraint_set(
+            &x,
+            &x,
+            &d_total,
+            &gradient,
+            &[0],
+            &ops,
+        )
+        .expect("operator fallback evaluation")
+        .expect("a certified tangent descent direction must exist");
+
+        assert!(
+            gradient.dot(&direction) < 0.0,
+            "escape must be a strict descent direction"
+        );
+        let candidate = &x + &direction;
+        let (worst, _) = set
+            .max_scaled_violation(candidate.view())
+            .expect("full-set feasibility");
+        assert!(
+            worst <= ACTIVE_SET_PRIMAL_FEASIBILITY_TOL,
+            "escape must remain feasible on every operator row: {worst:.3e}"
+        );
+        assert_eq!(
+            active,
+            vec![0],
+            "operator escape expanded one sparse face row into all tight rows"
+        );
+    }
+
+    #[test]
+    fn operator_tangent_projection_does_not_constrain_interior_rows() {
+        let psi = array![[1.0_f64, 0.0], [1.0, 1.0], [1.0, -1.0]];
+        let cone = KhatriRaoConeConstraints::new(std::sync::Arc::new(psi), vec![1], 2)
+            .expect("interior tangent cone");
+        let set = ConstraintSet::KhatriRaoCone(cone);
+        // The shaped response row is strictly positive for every observation,
+        // so its tangent cone is the complete coefficient space. A projection
+        // against the original cone at the origin would incorrectly erase the
+        // shaped constant component of this residual.
+        let beta = array![0.0_f64, 0.0, 1.0, 0.0];
+        let residual = array![0.0_f64, 0.0, 1.0, 0.0];
+        let (projected, active) =
+            project_stationarity_residual_on_constraint_set(&residual, &beta, &set, &[])
+                .expect("interior tangent projection");
+
+        for index in 0..residual.len() {
+            assert_relative_eq!(projected[index], residual[index], epsilon = 1e-12);
+        }
+        assert!(active.is_empty(), "interior rows entered the tangent face");
+    }
+
+    #[test]
+    fn operator_tangent_projection_homogenizes_an_affine_boundary() {
+        let set = ConstraintSet::Dense(
+            LinearInequalityConstraints::new(array![[1.0_f64, 0.0]], array![2.0])
+                .expect("affine half-space"),
+        );
+        let beta = array![2.0_f64, 0.0];
+        let residual = array![1.0_f64, -1.0];
+        let (projected, active) =
+            project_stationarity_residual_on_constraint_set(&residual, &beta, &set, &[0])
+                .expect("affine-boundary tangent projection");
+
+        assert_relative_eq!(projected[0], 0.0, epsilon = 1e-12);
+        assert_relative_eq!(projected[1], -1.0, epsilon = 1e-12);
+        assert_eq!(active, vec![0]);
+    }
+
+    #[test]
+    fn operator_cycle_escape_discovers_a_zero_step_tangent_separator() {
+        // All three rows are tight at the vertex. Row 0 alone permits a pure
+        // positive-slope direction, but row 2 (`constant - slope >= 0`) blocks
+        // it at alpha=0. The operator escape must add that one separator and
+        // re-project, not give up and not materialize every tight row.
+        let psi = array![[1.0_f64, 0.0], [1.0, 1.0], [1.0, -1.0]];
+        let cone = KhatriRaoConeConstraints::new(std::sync::Arc::new(psi), vec![1], 2)
+            .expect("separator cone");
+        let set = ConstraintSet::KhatriRaoCone(cone);
+        let ops = ConstraintSetOps::new(&set, 0.0).expect("operator geometry");
+        let x = Array1::<f64>::zeros(4);
+        let d_total = Array1::<f64>::zeros(4);
+        let gradient = array![0.0_f64, 0.0, 0.0, -1.0];
+        let (direction, active) = fallback_projected_gradient_direction_with_constraint_set(
+            &x,
+            &x,
+            &d_total,
+            &gradient,
+            &[0],
+            &ops,
+        )
+        .expect("operator separator evaluation")
+        .expect("one omitted tight separator must not defeat the escape");
+
+        assert!(gradient.dot(&direction) < 0.0);
+        let candidate = &x + &direction;
+        let (worst, _) = set
+            .max_scaled_violation(candidate.view())
+            .expect("full-set feasibility");
+        assert!(worst <= ACTIVE_SET_PRIMAL_FEASIBILITY_TOL);
+        assert!(
+            active.len() <= 2,
+            "separator discovery expanded a three-row vertex: {active:?}"
         );
     }
 }

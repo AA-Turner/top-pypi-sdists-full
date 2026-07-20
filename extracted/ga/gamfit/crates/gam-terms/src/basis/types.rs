@@ -278,8 +278,8 @@ pub enum BSplineEndpointBoundaryCondition {
     Free,
     /// Pin the first derivative to zero at this endpoint.
     Clamped,
-    /// Pin the value at this endpoint to `value` (currently only `value == 0`
-    /// is accepted in the builder; non-zero anchors require an affine offset).
+    /// Hermite pin: fix the endpoint value to `value` and its first derivative
+    /// to zero.
     Anchored { value: f64 },
 }
 
@@ -298,19 +298,31 @@ impl BSplineBoundaryConditions {
             && matches!(self.right, BSplineEndpointBoundaryCondition::Free)
     }
 
-    /// Whether exactly one endpoint fixes the function's absolute level.
+    /// Whether either endpoint fixes the function's absolute level.
     ///
-    /// A one-sided anchor replaces the global intercept as the level-setting
-    /// constraint. Centering that same smooth to zero would impose a second,
-    /// incompatible level constraint and exclude every non-zero-mean anchored
-    /// function from the model space.
-    pub const fn has_one_sided_anchor(&self) -> bool {
-        let left = matches!(self.left, BSplineEndpointBoundaryCondition::Anchored { .. });
-        let right = matches!(
-            self.right,
-            BSplineEndpointBoundaryCondition::Anchored { .. }
-        );
-        left != right
+    /// An anchored endpoint (one *or* both sides) replaces the global intercept
+    /// as the level-setting constraint: the fitted function itself, not only a
+    /// centered deviation, must obey the endpoint pin. Centering that same
+    /// smooth to zero would impose a second, incompatible level constraint and
+    /// exclude every non-zero-mean anchored function from the model space, and a
+    /// free global intercept would float the whole curve off its pin. A
+    /// *two*-sided anchor fixes the level even more strongly than a one-sided
+    /// one, so it must be treated identically here — the earlier XOR (exactly
+    /// one endpoint) silently dropped both pins for the two-sided case (#2297).
+    pub const fn has_anchor(&self) -> bool {
+        matches!(self.left, BSplineEndpointBoundaryCondition::Anchored { .. })
+            || matches!(self.right, BSplineEndpointBoundaryCondition::Anchored { .. })
+    }
+
+    /// Whether either endpoint carries an inhomogeneous value constraint.
+    pub fn has_nonzero_anchor(&self) -> bool {
+        let nonzero = |condition: BSplineEndpointBoundaryCondition| {
+            matches!(
+                condition,
+                BSplineEndpointBoundaryCondition::Anchored { value } if value != 0.0
+            )
+        };
+        nonzero(self.left) || nonzero(self.right)
     }
 }
 
@@ -863,13 +875,65 @@ pub use sphere_spectral::{
     sphere_truncated_spectral_eval,
 };
 
+/// User intent and resolved numeric state for a Matérn kernel length scale.
+///
+/// `Auto` remains auto-owned after the planner resolves its data-dependent
+/// numeric seed.  This is deliberately not represented by a magic floating
+/// point value: callers can distinguish an omitted `length_scale` from an
+/// explicit value before and after center planning, and subsequent κ updates
+/// preserve that provenance.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+pub enum MaternLengthScale {
+    Auto { resolved: Option<f64> },
+    Fixed(f64),
+}
+
+impl MaternLengthScale {
+    pub const fn auto() -> Self {
+        Self::Auto { resolved: None }
+    }
+
+    pub const fn fixed(value: f64) -> Self {
+        Self::Fixed(value)
+    }
+
+    pub const fn is_fixed(self) -> bool {
+        matches!(self, Self::Fixed(_))
+    }
+
+    pub const fn resolved(self) -> Option<f64> {
+        match self {
+            Self::Auto { resolved } => resolved,
+            Self::Fixed(value) => Some(value),
+        }
+    }
+
+    /// Install a numeric value without changing who owns the scale.
+    pub fn set_resolved(&mut self, value: f64) {
+        match self {
+            Self::Auto { resolved } => *resolved = Some(value),
+            Self::Fixed(fixed) => *fixed = value,
+        }
+    }
+
+    /// Resolve an omitted scale exactly once.  Replanning a frozen or
+    /// κ-updated Auto scale must retain its current numeric value.
+    pub fn resolve_auto_once(&mut self, value: f64) {
+        if let Self::Auto { resolved } = self
+            && resolved.is_none()
+        {
+            *resolved = Some(value);
+        }
+    }
+}
+
 /// Matérn basis configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MaternBasisSpec {
     pub center_strategy: CenterStrategy,
     #[serde(default)]
     pub periodic: Option<Vec<Option<f64>>>,
-    pub length_scale: f64,
+    pub length_scale: MaternLengthScale,
     pub nu: MaternNu,
     #[serde(default)]
     pub include_intercept: bool,
@@ -890,17 +954,6 @@ pub struct MaternBasisSpec {
     /// When None, isotropic distance r = ‖x - c‖ is used.
     #[serde(default)]
     pub aniso_log_scales: Option<Vec<f64>>,
-    /// Frozen double-penalty nullspace-shrinkage decision (gam#787/#860).
-    ///
-    /// `None` (the default, and the cold-build value) = decide whether to emit
-    /// the `DoublePenaltyNullspace` candidate via the κ-dependent spectral test in
-    /// `build_nullspace_shrinkage_penalty`. `Some(b)` = force the decision (set by
-    /// the freeze step from the bootstrap-κ build, mirrored from
-    /// `MaternIdentifiability::FrozenTransform`) so the learned-penalty count stays
-    /// invariant as the κ-optimizer rebuilds the design at each trial length-scale.
-    /// Only consulted when `double_penalty` is true.
-    #[serde(default)]
-    pub nullspace_shrinkage_survived: Option<bool>,
 }
 
 /// Per-smooth identifiability policy for Matérn kernel coefficients.
@@ -920,27 +973,7 @@ pub enum MaternIdentifiability {
     /// Use this when explicit linear terms should own global trends.
     CenterLinearOrthogonal,
     /// Freeze a fit-time transform `Z` so prediction cannot drift.
-    ///
-    /// `nullspace_shrinkage_survived` freezes the double-penalty
-    /// nullspace-shrinkage decision alongside the transform (gam#787/#860). The
-    /// matern double-penalty path emits a `DoublePenaltyNullspace` candidate iff
-    /// `build_nullspace_shrinkage_penalty(&projected_kernel)` finds a near-zero
-    /// eigenvalue — but that spectral test is κ-DEPENDENT (its tolerance scales
-    /// with `λ_max`), so a near-zero eigenvalue can cross the threshold as the
-    /// κ-optimizer rebuilds the design at each trial length-scale. That flips the
-    /// learned-penalty count 6↔7 across the rebuild and the rebuilt design's ρ
-    /// dimension then disagrees with the frozen joint setup ("joint hyper rho
-    /// dimension mismatch" → every κ seed fails startup validation). Freezing the
-    /// bootstrap-κ decision here (`Some(true)` = always emit the shrinkage
-    /// candidate, `Some(false)` = never) keeps the penalty count INVARIANT across
-    /// the κ rebuild so κ actually optimizes. `None` = decide via the spectral
-    /// test (the non-frozen / cold-build behavior; also the serde back-compat
-    /// default for transforms frozen before this field existed).
-    FrozenTransform {
-        transform: Array2<f64>,
-        #[serde(default)]
-        nullspace_shrinkage_survived: Option<bool>,
-    },
+    FrozenTransform { transform: Array2<f64> },
 }
 
 /// Duchon null-space polynomial degree.
@@ -1313,6 +1346,18 @@ pub enum BasisMetadata {
         /// available evaluation count `n`. `Some(note)` records the before→after
         /// configuration; `None` means no auto-shrink occurred for this basis.
         auto_shrink_note: Option<String>,
+        /// Raw-basis particular-solution coefficients `β_p` for a *non-zero*
+        /// endpoint anchor (#2297), if any. The term carries a fixed affine
+        /// offset function `B_raw(x) · β_p` in addition to its constrained
+        /// design `B_raw(x) · Z`; the design assembler realizes that offset into
+        /// the model's linear predictor at both fit and predict time. `None`
+        /// for free / clamped / zero-anchor bases (the ordinary pure-linear
+        /// chart). Recomputed deterministically from the frozen `knots`,
+        /// `degree` and boundary conditions on every rebuild, so a saved model
+        /// replays the identical offset; it is serialized here so the assembler
+        /// need not re-derive it from the spec. This metadata is transient
+        /// (rebuilt at predict from the serialized frozen spec), not persisted.
+        anchor_offset_coeffs: Option<Array1<f64>>,
     },
     /// Natural cubic regression spline (`bs="cr"`/`"cs"`) metadata (#1074).
     ///
@@ -1329,8 +1374,8 @@ pub enum BasisMetadata {
         length_scale: f64,
         periodic: Option<Vec<Option<f64>>>,
         identifiability_transform: Option<Array2<f64>>,
-        /// Per-column standard deviations used for input standardization (d > 1).
-        input_scales: Option<Vec<f64>>,
+        /// Uniform coordinate scale used for isotropic input standardization.
+        input_scale: crate::IsotropicScale,
         /// Wood-TPRS radial reparameterization carried into prediction so the
         /// rotated radial basis at predict-time matches fit-time exactly. `None`
         /// in the lazy/streaming path which retains the original basis.
@@ -1369,7 +1414,7 @@ pub enum BasisMetadata {
     /// frozen by the global identifiability pipeline (#532 pattern).
     MeasureJet {
         centers: Array2<f64>,
-        input_scales: Option<Vec<f64>>,
+        input_scale: crate::IsotropicScale,
         length_scale: f64,
         eps_band: Vec<f64>,
         order_s: f64,
@@ -1394,18 +1439,11 @@ pub enum BasisMetadata {
         nu: MaternNu,
         include_intercept: bool,
         identifiability_transform: Option<Array2<f64>>,
-        /// Per-column standard deviations used for input standardization (d > 1).
-        input_scales: Option<Vec<f64>>,
+        /// Uniform coordinate scale used for isotropic input standardization.
+        input_scale: crate::IsotropicScale,
         /// Per-axis anisotropy log-scales η_a for geometric anisotropy.
         /// When Some, distance is r = √(Σ_a exp(2η_a) · (x_a - c_a)²).
         aniso_log_scales: Option<Vec<f64>>,
-        /// Realized double-penalty nullspace-shrinkage decision at this build
-        /// (gam#787/#860). The freeze step pins this into
-        /// `MaternIdentifiability::FrozenTransform::nullspace_shrinkage_survived`
-        /// so the κ-optimizer's per-trial rebuilds keep the learned-penalty count
-        /// invariant (otherwise the κ-dependent spectral test flips it 6↔7 → "joint
-        /// hyper rho dimension mismatch").
-        nullspace_shrinkage_survived: bool,
     },
     Duchon {
         centers: Array2<f64>,
@@ -1414,8 +1452,8 @@ pub enum BasisMetadata {
         power: f64,
         nullspace_order: DuchonNullspaceOrder,
         identifiability_transform: Option<Array2<f64>>,
-        /// Per-column standard deviations used for input standardization (d > 1).
-        input_scales: Option<Vec<f64>>,
+        /// Uniform coordinate scale used for isotropic input standardization.
+        input_scale: crate::IsotropicScale,
         /// Per-axis anisotropy log-scales η_a, stored for prediction.
         aniso_log_scales: Option<Vec<f64>>,
         /// Support points used to build the active lower-order operator
@@ -1490,34 +1528,29 @@ pub enum BasisMetadata {
 #[derive(Clone)]
 pub struct BasisBuildResult {
     pub design: DesignMatrix,
-    pub penalties: Vec<Array2<f64>>,
-    pub nullspace_dims: Vec<usize>,
-    pub penaltyinfo: Vec<PenaltyInfo>,
+    /// Fixed row-wise contribution carried by an affine basis chart.
+    ///
+    /// Ordinary bases are linear in their fitted coefficients and leave this
+    /// as `None`. An inhomogeneous boundary condition, such as a non-zero
+    /// B-spline endpoint anchor, realizes the basis as
+    /// `offset(x) + design(x) * beta`; the known `offset(x)` belongs here, not
+    /// in a fake coefficient column. Term-collection assembly sums these
+    /// channels and routes the result through the model's ordinary likelihood
+    /// offset at fit and prediction time.
+    pub affine_offset: Option<Array1<f64>>,
+    /// Canonical active penalties. Matrix, spectral metadata, operator form,
+    /// and semantic identity are one record so dropping an earlier candidate
+    /// cannot shift one channel without shifting all of them.
+    pub active_penalties: Vec<ActivePenalty>,
+    /// Candidate diagnostics excluded from the active smoothing-parameter
+    /// layout. Dropped candidates never share a positional container with
+    /// active matrices.
+    pub dropped_penalties: Vec<DroppedPenaltyInfo>,
     pub metadata: BasisMetadata,
     /// Optional factored rowwise-Kronecker representation for tensor-product
     /// bases. When present, downstream code can keep the design operator-backed
     /// instead of forcing a fully materialized `n x prod(q_j)` block.
     pub kronecker_factored: Option<KroneckerFactoredBasis>,
-    /// Per-active-penalty operator handles (parallel to `penalties`). Each
-    /// entry is `Some(op)` when the closed-form factory emitted an op-form
-    /// penalty bit-equivalent to the dense matrix, `None` for ordinary dense
-    /// penalties. Downstream consumers route through the `Some` entries to
-    /// avoid materializing dense `p x p` Grams in exact operator algebra.
-    pub ops: Vec<Option<std::sync::Arc<dyn crate::analytic_penalties::PenaltyOp>>>,
-    /// Per-active-penalty null-space eigenvector matrices (parallel to
-    /// `penalties`). Each entry is `Some(U_null)` with `U_null.ncols() ==
-    /// nullspace_dims[k]` when the active block has a non-trivial null space
-    /// (eigenvalues ≤ spectral tolerance), and `None` when the block is
-    /// already full-rank. The columns of `U_null` are the eigenvectors of
-    /// `sym_penalty` at the (near-)zero eigenvalues — i.e., an orthonormal
-    /// basis of `null(S_block)` in the block's own coordinate system.
-    ///
-    /// This is the raw spectral data that the construction pipeline uses to
-    /// absorb each smooth's penalty null space into the parametric block
-    /// (reparameterize-and-split). Without absorption the inner Newton solve
-    /// cannot converge on data whose unpenalized signal lies along a null
-    /// direction of `S` (phantom-multiplier refusal at the KKT certificate).
-    pub null_eigenvectors: Vec<Option<Array2<f64>>>,
     /// Joint-null absorption rotation for this basis, when the basis carries
     /// any penalties with a non-trivial joint null space.
     ///
@@ -1578,36 +1611,14 @@ impl std::fmt::Debug for BasisBuildResult {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("BasisBuildResult")
             .field("design", &self.design)
-            .field("penalties", &self.penalties)
-            .field("nullspace_dims", &self.nullspace_dims)
-            .field("penaltyinfo", &self.penaltyinfo)
+            .field(
+                "affine_offset_len",
+                &self.affine_offset.as_ref().map(|offset| offset.len()),
+            )
+            .field("active_penalties", &self.active_penalties)
+            .field("dropped_penalties", &self.dropped_penalties)
             .field("metadata", &self.metadata)
             .field("kronecker_factored", &self.kronecker_factored)
-            .field(
-                "ops",
-                &format_args!(
-                    "[{}]",
-                    self.ops
-                        .iter()
-                        .map(|o| if o.is_some() { "Some" } else { "None" })
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                ),
-            )
-            .field(
-                "null_eigenvectors",
-                &format_args!(
-                    "[{}]",
-                    self.null_eigenvectors
-                        .iter()
-                        .map(|u| match u {
-                            Some(m) => format!("Some({}x{})", m.nrows(), m.ncols()),
-                            None => "None".to_string(),
-                        })
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                ),
-            )
             .field("joint_null_rotation", &self.joint_null_rotation)
             .finish()
     }
@@ -1738,14 +1749,17 @@ fn default_normalization_scale() -> f64 {
     1.0
 }
 
+/// Metadata for one retained penalty coordinate.
+///
+/// This type is active-only by construction. In particular it has no
+/// `active` flag or optional drop reason: those fields allowed a metadata
+/// position to exist without a corresponding matrix and made positional
+/// indexing silently wrong after an earlier candidate was dropped.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PenaltyInfo {
+pub struct ActivePenaltyInfo {
     pub source: PenaltySource,
     pub original_index: usize,
-    pub active: bool,
     pub effective_rank: usize,
-    pub dropped_reason: Option<PenaltyDropReason>,
-    pub nullspace_dim_hint: usize,
     #[serde(default = "default_normalization_scale")]
     pub normalization_scale: f64,
     /// Kronecker factors preserved from tensor penalty construction.
@@ -1754,10 +1768,244 @@ pub struct PenaltyInfo {
     pub kronecker_factors: Option<Vec<Array2<f64>>>,
 }
 
+/// Diagnostic for one penalty candidate excluded from the optimizer layout.
+/// It is intentionally a different type from [`ActivePenaltyInfo`] so a
+/// dropped record cannot be used as an active matrix index.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DroppedPenaltyInfo {
+    pub source: PenaltySource,
+    pub original_index: usize,
+    pub reason: PenaltyDropReason,
+    #[serde(default = "default_normalization_scale")]
+    pub normalization_scale: f64,
+}
+
+/// One atomic active penalty identity.
+///
+/// Every field describes the same retained candidate. Consumers may reorder,
+/// transform, or remove a penalty only by moving the whole record, which makes
+/// matrix/role/nullity/operator skew unrepresentable.
+#[derive(Clone)]
+pub struct ActivePenalty {
+    pub matrix: Array2<f64>,
+    pub nullity: usize,
+    pub null_eigenvectors: Option<Array2<f64>>,
+    pub op: Option<std::sync::Arc<dyn crate::analytic_penalties::PenaltyOp>>,
+    pub info: ActivePenaltyInfo,
+}
+
+impl std::fmt::Debug for ActivePenalty {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ActivePenalty")
+            .field(
+                "matrix",
+                &format_args!("{}×{}", self.matrix.nrows(), self.matrix.ncols()),
+            )
+            .field("nullity", &self.nullity)
+            .field(
+                "null_eigenvectors",
+                &self
+                    .null_eigenvectors
+                    .as_ref()
+                    .map(|basis| format!("{}×{}", basis.nrows(), basis.ncols())),
+            )
+            .field("op_dim", &self.op.as_ref().map(|op| op.dim()))
+            .field("info", &self.info)
+            .finish()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct FilteredPenalties {
+    pub active: Vec<ActivePenalty>,
+    pub dropped: Vec<DroppedPenaltyInfo>,
+}
+
+/// A positive-semidefinite quadratic with a construction witness.
+///
+/// `factor` is the authoritative representation: for coefficients `β`, the
+/// penalty is `‖factor · β‖²`, hence its dense matrix is
+/// `factorᵀ factor` by construction.  The cached dense matrix exists only for
+/// consumers that require it; rank/null-space logic must use the factor and
+/// must never attempt to recover PSD provenance from signed eigenvalues of a
+/// rounded dense congruence (#2318).
+#[derive(Clone)]
+pub struct ConstructiveQuadratic {
+    factor: Array2<f64>,
+    matrix: Array2<f64>,
+}
+
+impl ConstructiveQuadratic {
+    /// Construct directly from an energy factor `A`, representing `AᵀA`.
+    pub fn from_energy_factor(
+        factor: Array2<f64>,
+        context: &str,
+    ) -> Result<Self, BasisError> {
+        if factor.iter().any(|value| !value.is_finite()) {
+            crate::bail_invalid_basis!(
+                "{context}: constructive penalty factor contains a non-finite value"
+            );
+        }
+        let matrix = fast_ata(&factor);
+        if matrix.iter().any(|value| !value.is_finite()) {
+            crate::bail_invalid_basis!(
+                "{context}: constructive penalty Gram is not representable"
+            );
+        }
+        Ok(Self { factor, matrix })
+    }
+
+    /// Checked bridge for legacy dense factories that already produce a PSD
+    /// function quadratic but do not yet expose their native energy factor.
+    ///
+    /// This is deliberately fallible and reconstructs a factor from the
+    /// canonical range spectrum. Material negative curvature is rejected; a
+    /// caller can no longer place an unchecked `Array2` in a
+    /// [`PenaltyCandidate`]. New factories should use
+    /// [`Self::from_energy_factor`] so PSD is true by construction rather than
+    /// inferred after dense assembly.
+    pub fn try_from_dense_psd(
+        dense: Array2<f64>,
+        context: &str,
+    ) -> Result<Self, BasisError> {
+        if dense.nrows() != dense.ncols() {
+            crate::bail_dim_basis!(
+                "{context}: dense penalty must be square, got {}x{}",
+                dense.nrows(),
+                dense.ncols()
+            );
+        }
+        if dense.iter().any(|value| !value.is_finite()) {
+            crate::bail_invalid_basis!("{context}: dense penalty contains a non-finite value");
+        }
+        if dense.nrows() == 0 {
+            return Self::from_energy_factor(Array2::zeros((0, 0)), context);
+        }
+        let sym = symmetrize_penalty(&dense);
+        let (evals, evecs) = FaerEigh::eigh(&sym, Side::Lower)
+            .map_err(BasisError::LinalgError)?;
+        let tolerance = spectral_tolerance(&sym, &evals);
+        if let Some(&negative) = evals.iter().find(|&&value| value < -tolerance) {
+            return Err(BasisError::IndefinitePenalty {
+                context: context.to_string(),
+                min_eigenvalue: negative,
+                tolerance,
+                guidance: "supply the native energy factor for a PSD function penalty; negative curvature is not a penalty null direction".to_string(),
+            });
+        }
+        let positive: Vec<usize> = evals
+            .iter()
+            .enumerate()
+            .filter_map(|(index, &value)| (value > tolerance).then_some(index))
+            .collect();
+        let mut factor = Array2::<f64>::zeros((positive.len(), dense.nrows()));
+        for (row, index) in positive.into_iter().enumerate() {
+            let scale = evals[index].sqrt();
+            for column in 0..dense.nrows() {
+                factor[[row, column]] = scale * evecs[[column, index]];
+            }
+        }
+        Self::from_energy_factor(factor, context)
+    }
+
+    /// The authoritative rectangular energy factor.
+    pub fn factor(&self) -> &Array2<f64> {
+        &self.factor
+    }
+
+    /// Dense materialization `AᵀA` for consumers that require a matrix.
+    pub fn dense(&self) -> &Array2<f64> {
+        &self.matrix
+    }
+
+    /// Consume this quadratic and return its dense materialization.
+    pub fn into_dense(self) -> Array2<f64> {
+        self.matrix
+    }
+
+    /// Apply a coefficient gauge to the factor, preserving PSD by
+    /// construction instead of multiplying the rounded dense Gram twice.
+    pub fn restricted(
+        &self,
+        gauge: &gam_problem::Gauge,
+        context: &str,
+    ) -> Result<Self, BasisError> {
+        Self::from_energy_factor(gauge.restrict_quadratic_factor(&self.factor), context)
+    }
+
+    /// Multiply the represented quadratic by a finite non-negative scalar.
+    pub fn scaled(&self, scale: f64, context: &str) -> Result<Self, BasisError> {
+        if !scale.is_finite() || scale < 0.0 {
+            crate::bail_invalid_basis!(
+                "{context}: constructive penalty scale must be finite and non-negative, got {scale}"
+            );
+        }
+        let root = scale.sqrt();
+        Self::from_energy_factor(self.factor.mapv(|value| value * root), context)
+    }
+
+    /// Sum PSD quadratics by vertically concatenating their energy factors.
+    pub fn sum(terms: &[Self], context: &str) -> Result<Self, BasisError> {
+        let coefficient_dim = terms
+            .first()
+            .map(|term| term.factor.ncols())
+            .unwrap_or(0);
+        if terms
+            .iter()
+            .any(|term| term.factor.ncols() != coefficient_dim)
+        {
+            crate::bail_dim_basis!(
+                "{context}: constructive penalty sum has inconsistent coefficient dimensions"
+            );
+        }
+        let rows = terms.iter().map(|term| term.factor.nrows()).sum();
+        let mut factor = Array2::<f64>::zeros((rows, coefficient_dim));
+        let mut start = 0usize;
+        for term in terms {
+            let end = start + term.factor.nrows();
+            factor.slice_mut(s![start..end, ..]).assign(&term.factor);
+            start = end;
+        }
+        Self::from_energy_factor(factor, context)
+    }
+
+    /// The exact zero quadratic on a coefficient chart of `dimension`.
+    pub fn zero(dimension: usize) -> Self {
+        Self {
+            factor: Array2::zeros((0, dimension)),
+            matrix: Array2::zeros((dimension, dimension)),
+        }
+    }
+}
+
+impl std::fmt::Debug for ConstructiveQuadratic {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ConstructiveQuadratic")
+            .field(
+                "factor",
+                &format_args!("{}×{}", self.factor.nrows(), self.factor.ncols()),
+            )
+            .field(
+                "matrix",
+                &format_args!("{}×{}", self.matrix.nrows(), self.matrix.ncols()),
+            )
+            .finish()
+    }
+}
+
+impl std::ops::Deref for ConstructiveQuadratic {
+    type Target = Array2<f64>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.matrix
+    }
+}
+
 #[derive(Clone)]
 pub struct PenaltyCandidate {
-    pub matrix: Array2<f64>,
-    pub nullspace_dim_hint: usize,
+    /// Constructive PSD quadratic. Raw dense matrices cannot inhabit a
+    /// candidate without passing through a checked constructor.
+    pub matrix: ConstructiveQuadratic,
     pub source: PenaltySource,
     pub normalization_scale: f64,
     /// Optional Kronecker factors whose product equals `matrix`.
@@ -1779,7 +2027,6 @@ impl std::fmt::Debug for PenaltyCandidate {
                 "matrix",
                 &format_args!("{}×{}", self.matrix.nrows(), self.matrix.ncols()),
             )
-            .field("nullspace_dim_hint", &self.nullspace_dim_hint)
             .field("source", &self.source)
             .field("normalization_scale", &self.normalization_scale)
             .field(

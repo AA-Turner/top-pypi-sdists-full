@@ -31,7 +31,7 @@ import math
 import os
 from pathlib import Path
 import re
-from typing import TYPE_CHECKING, Any, NamedTuple
+from typing import TYPE_CHECKING, Any, Literal, NamedTuple
 from uuid import uuid4
 
 from rich.console import Console
@@ -41,12 +41,12 @@ from rich.text import Text
 from ouroboros.backends import backend_supports_tool_envelope
 from ouroboros.config import get_llm_model_for_role
 from ouroboros.core.conductor import ConductorDirective
-from ouroboros.core.errors import OuroborosError
+from ouroboros.core.errors import ConfigError, OuroborosError
 from ouroboros.core.execution_preferences import (
     execution_preferences_from_contract,
     resolve_execution_preferences,
 )
-from ouroboros.core.seed import ac_text, ac_texts
+from ouroboros.core.seed import AcceptanceCriterionSpec, ac_text, ac_texts
 from ouroboros.core.seed_contract import SeedContract
 from ouroboros.core.seed_contract_prompt import (
     render_auto_recursion_guard,
@@ -79,6 +79,7 @@ from ouroboros.orchestrator.control_plane import (
 from ouroboros.orchestrator.events import (
     create_drift_measured_event,
     create_execution_terminal_event,
+    create_guidance_injected_event,
     create_mcp_tools_loaded_event,
     create_policy_capabilities_evaluated_event,
     create_progress_event,
@@ -86,6 +87,10 @@ from ouroboros.orchestrator.events import (
     create_session_failed_event,
     create_tool_called_event,
     create_workflow_progress_event,
+)
+from ouroboros.orchestrator.execution_guidance import (
+    ExecutionGuidanceBundle,
+    resolve_execution_guidance,
 )
 from ouroboros.orchestrator.execution_runtime_scope import (
     ExecutionNodeIdentity,
@@ -117,6 +122,7 @@ from ouroboros.orchestrator.runtime_message_projection import (
 )
 from ouroboros.orchestrator.runtime_param_negotiation import (
     announce_execution_param_degradations,
+    runtime_capabilities_for,
 )
 from ouroboros.orchestrator.session import (
     SESSION_RUNTIME_IDENTITY_PROGRESS_KEY,
@@ -309,11 +315,20 @@ def _strategy_for_seed(seed: Seed, *, fat_harness_mode: bool = False) -> Executi
     return get_strategy(seed.task_type)
 
 
+def _seed_has_investment_metadata(seed: Seed) -> bool:
+    """Return whether any AC requires per-criterion investment routing."""
+    return any(
+        isinstance(criterion, AcceptanceCriterionSpec) and criterion.investment is not None
+        for criterion in seed.acceptance_criteria
+    )
+
+
 def build_system_prompt(
     seed: Seed,
     strategy: ExecutionStrategy | None = None,
     *,
     repo_root: str | Path | None = None,
+    guidance_fragment: str = "",
 ) -> str:
     """Build system prompt from seed specification.
 
@@ -326,6 +341,9 @@ def build_system_prompt(
             deterministic context pack (stack, verify commands, layout) is
             appended so workers are not primed blind. Best-effort — a scan
             failure or a non-project directory simply omits the pack.
+        guidance_fragment: Explicit project execution guidance resolved and
+            provenance-checked by the runner. Empty preserves the historical
+            prompt byte-for-byte.
 
     Returns:
         System prompt string.
@@ -342,6 +360,17 @@ def build_system_prompt(
     conductor_directive = _render_conductor_directive(seed)
 
     prompt = f"""{strategy_fragment}
+
+{seed_contract}
+
+{guidance_fragment}
+
+{ac_tracking}
+
+{recovery_protocol}"""
+
+    if not guidance_fragment:
+        prompt = f"""{strategy_fragment}
 
 {seed_contract}
 
@@ -590,6 +619,7 @@ class OrchestratorRunner:
         mcp_tool_prefix: str = "",
         debug: bool = False,
         enable_decomposition: bool = True,
+        decomposition_mode: Literal["preflight", "bounce_only", "off"] | None = None,
         inherited_runtime_handle: RuntimeHandle | None = None,
         inherited_tools: list[str] | None = None,
         task_cwd: str | None = None,
@@ -616,6 +646,9 @@ class OrchestratorRunner:
                            conflicts (e.g., "mcp_" makes "read" become "mcp_read").
             debug: Enable verbose logging output. When False, only Live display shown.
             enable_decomposition: Enable AC decomposition into Sub-ACs.
+            decomposition_mode: Optional decomposition mode override. When omitted,
+                the runner uses ``execution.decomposition_mode`` from config.
+                ``enable_decomposition=False`` forces the effective mode to ``off``.
             inherited_runtime_handle: Optional parent Claude runtime handle for
                         delegated child executions that should fork a session.
             inherited_tools: Optional effective tool set inherited from a
@@ -730,6 +763,16 @@ class OrchestratorRunner:
         self._run_verify_commands = _execution_config.run_verify_commands
         self._verify_command_timeout_seconds = _execution_config.verify_command_timeout_seconds
         self._ac_retry_attempts = _execution_config.ac_retry_attempts
+        self._project_guidance_ids = tuple(_execution_config.project_guidance)
+        self._decomposition_mode: Literal["preflight", "bounce_only", "off"] = (
+            "off"
+            if not enable_decomposition
+            else (
+                _execution_config.decomposition_mode
+                if decomposition_mode is None
+                else decomposition_mode
+            )
+        )
         if not _model_routing_disabled:
             from ouroboros.orchestrator.model_routing import build_model_router
 
@@ -741,6 +784,7 @@ class OrchestratorRunner:
             )
         self._apply_efficiency_mode_to_router()
         self._execution_contract: dict[str, Any] | None = None
+        self._execution_guidance: ExecutionGuidanceBundle | None = None
         # Opt-in shadow-replay baseline harness (frugality-proof AC5). Read ONCE
         # here next to the router build and threaded to the parallel executor.
         # Default OFF. Enabling the flag only arms the experiment's eligibility
@@ -812,6 +856,70 @@ class OrchestratorRunner:
             log_event="orchestrator.runner.param_degraded",
         )
 
+    def _execution_guidance_delivery_mode(self) -> str:
+        bundle = self._ensure_new_run_guidance()
+        support = runtime_capabilities_for(self._adapter).system_prompt_support
+        if bundle.refs and support is ParamSupport.IGNORED:
+            raise OrchestratorError(
+                message="Runtime cannot deliver declared project execution guidance",
+                details={
+                    "runtime_backend": self._runtime_backend_contract(),
+                    "system_prompt_support": support.value,
+                    "guidance_ids": [ref.guidance_id for ref in bundle.refs],
+                },
+            )
+        return support.value
+
+    async def _record_execution_guidance_injection(
+        self,
+        *,
+        session_id: str,
+        execution_id: str,
+        injection_key: str = "start",
+    ) -> None:
+        bundle = self._ensure_new_run_guidance()
+        if not bundle.refs:
+            return
+        try:
+            prior_events = await self._event_store.replay("session", session_id)
+        except Exception as exc:
+            raise OrchestratorError(
+                message="Failed to replay declared project guidance provenance",
+                details={
+                    "session_id": session_id,
+                    "execution_id": execution_id,
+                    "cause": str(exc),
+                },
+            ) from exc
+        if isinstance(prior_events, list | tuple) and any(
+            event.type == "orchestrator.guidance.injected"
+            and event.data.get("execution_id") == execution_id
+            and event.data.get("fragment_hash") == bundle.rendered_fragment_hash
+            and event.data.get("injection_key") == injection_key
+            for event in prior_events
+        ):
+            return
+        event = create_guidance_injected_event(
+            session_id=session_id,
+            execution_id=execution_id,
+            guidance_refs=[ref.to_metadata() for ref in bundle.refs],
+            fragment_hash=bundle.rendered_fragment_hash,
+            fragment_size_bytes=bundle.rendered_fragment_size_bytes,
+            delivery_mode=self._execution_guidance_delivery_mode(),
+            injection_key=injection_key,
+        )
+        try:
+            await self._event_store.append(event)
+        except Exception as exc:
+            raise OrchestratorError(
+                message="Failed to persist declared project guidance provenance",
+                details={
+                    "session_id": session_id,
+                    "execution_id": execution_id,
+                    "cause": str(exc),
+                },
+            ) from exc
+
     async def _route_call_effort(
         self,
         *,
@@ -820,13 +928,16 @@ class OrchestratorRunner:
     ) -> dict[str, str]:
         """Lay the runner's own execute_task paths on BOTH investment contracts.
 
-        These direct paths (single-AC execution, resume) do not go through
-        ParallelACExecutor, so without this they would silently skip effort AND
-        model-tier routing. Returns the merged execute_task kwargs (empty unless
-        the runtime enforces the respective parameter).
+        These legacy direct paths do not go through ParallelACExecutor, so without
+        this they would silently skip effort AND model-tier routing. Seeds carrying
+        AC investment metadata are routed through the AC executor instead, and
+        resume fails closed until it can restore per-AC authority. Returns the
+        merged execute_task kwargs (empty unless the runtime enforces the respective
+        parameter).
 
-        It also records an ``execution.ac.effort_routed`` event (and, when a model
-        is decided, an ``execution.ac.model_routed`` event) for OBSERVABILITY — so
+        It records ``execution.ac.investment_assessed`` plus the applicable
+        ``execution.ac.effort_routed`` and ``execution.ac.model_routed`` events for
+        OBSERVABILITY — so
         a direct run's routing is visible in the event stream exactly like the
         parallel path's. These events are deliberately NOT a frugality-proof
         contribution: a direct run is a single top-level unit
@@ -838,25 +949,49 @@ class OrchestratorRunner:
         direct call has nothing to say about. ``call_site="runner"`` marks the
         origin so the two emission paths are distinguishable in the stream.
         """
-        from ouroboros.orchestrator.effort_routing import resolve_execute_effort
+        from ouroboros.orchestrator.effort_routing import assess_investment, resolve_execute_effort
         from ouroboros.orchestrator.model_routing import resolve_execute_model
 
+        investment_assessment = assess_investment(None)
         decision, kwargs = resolve_execute_effort(
             self._adapter,
             base_effort=self._reasoning_effort,
             is_decomposed_child=False,
+            investment_assessment=investment_assessment,
         )
         model_decision, model_kwargs = resolve_execute_model(
             self._adapter,
             router=self._model_router,
             is_decomposed_child=False,
+            decomposition_trustworthy=False,
         )
         # Merge the model override; kwargs carry a parameter ONLY for runtimes that
         # enforce it, so an advised runtime is never handed one.
         kwargs = {**kwargs, **model_kwargs}
-        if decision.level is not None:
-            from ouroboros.events.base import BaseEvent
+        from ouroboros.events.base import BaseEvent
 
+        try:
+            await self._event_store.append(
+                BaseEvent(
+                    type="execution.ac.investment_assessed",
+                    aggregate_type="execution",
+                    aggregate_id=execution_id or session_id or "",
+                    data={
+                        "execution_id": execution_id,
+                        "session_id": session_id,
+                        "is_decomposed_child": False,
+                        **investment_assessment.to_event_data(),
+                        "runtime_backend": getattr(self._adapter, "runtime_backend", None),
+                        "call_site": "runner",
+                    },
+                )
+            )
+        except Exception as exc:
+            log.warning(
+                "orchestrator.runner.investment_assessed.persist_failed",
+                error=str(exc),
+            )
+        if decision.level is not None:
             # Observability-only: this event must never make runtime dispatch/resume
             # depend on event-store health. _route_call_effort runs BEFORE
             # execute_task on the direct and resume paths, so a raw append would turn
@@ -876,6 +1011,7 @@ class OrchestratorRunner:
                             "effort_mode": decision.mode,
                             "base_reasoning_effort": self._reasoning_effort,
                             "runtime_backend": getattr(self._adapter, "runtime_backend", None),
+                            "investment_assessment": investment_assessment.to_event_data(),
                             "call_site": "runner",
                         },
                     )
@@ -888,8 +1024,6 @@ class OrchestratorRunner:
                     effort_mode=decision.mode,
                 )
         if model_decision.model is not None:
-            from ouroboros.events.base import BaseEvent
-
             # Same observe-only contract as the effort event above: a degraded
             # event store must degrade to a warning, never fail dispatch/resume.
             try:
@@ -902,6 +1036,8 @@ class OrchestratorRunner:
                             "execution_id": execution_id,
                             "session_id": session_id,
                             "is_decomposed_child": False,
+                            "decomposition_trustworthy": False,
+                            "child_downgrade_authorized": False,
                             "model_tier": model_decision.tier,
                             "model": model_decision.model,
                             "model_mode": model_decision.mode,
@@ -1035,7 +1171,7 @@ class OrchestratorRunner:
         )
         if not isinstance(session_starts, (list, tuple)):
             return None, (execution_id,)
-        current_identity: tuple[str, str, str, int, str, str] | None = None
+        current_identity: tuple[str, str, str, int, str, str, str] | None = None
         for event in session_starts:
             data = getattr(event, "data", None)
             if not isinstance(data, Mapping) or data.get("execution_id") != execution_id:
@@ -1756,6 +1892,112 @@ class OrchestratorRunner:
         mode = value.get("mode")
         return set(value) == {"observed", "mode"} and isinstance(mode, str) and bool(mode.strip())
 
+    def _guidance_root(self, guidance_ids: tuple[str, ...]) -> Path:
+        """Return the project root used for declared execution guidance."""
+        effective_cwd = self._effective_cwd()
+        if effective_cwd:
+            return Path(effective_cwd)
+        if not guidance_ids:
+            return Path(".")
+        raise OrchestratorError(
+            message="Cannot resolve project guidance without an execution working directory",
+            details={"guidance_ids": list(guidance_ids)},
+        )
+
+    def _resolve_guidance_bundle(
+        self,
+        guidance_ids: tuple[str, ...],
+        *,
+        expected_metadata: Mapping[str, Any] | None = None,
+    ) -> ExecutionGuidanceBundle:
+        """Resolve declared guidance and optionally enforce persisted identity."""
+        try:
+            bundle = resolve_execution_guidance(self._guidance_root(guidance_ids), guidance_ids)
+        except ConfigError as exc:
+            raise OrchestratorError(
+                message="Cannot resolve declared project execution guidance",
+                details={"cause": exc.message, **exc.details},
+            ) from exc
+
+        if expected_metadata is not None and bundle.to_metadata() != dict(expected_metadata):
+            raise OrchestratorError(
+                message="Cannot resume because declared project guidance changed",
+                details={
+                    "persisted_guidance": dict(expected_metadata),
+                    "current_guidance": bundle.to_metadata(),
+                    "hint": "Restore the original GUIDANCE.md files or start a new session.",
+                },
+            )
+        return bundle
+
+    @staticmethod
+    def _guidance_contract(bundle: ExecutionGuidanceBundle) -> dict[str, Any]:
+        return {
+            "mode": "declared" if bundle.refs else "disabled",
+            "provenance_scope": "ouroboros_declared_guidance_only",
+            **bundle.to_metadata(),
+        }
+
+    def _ensure_new_run_guidance(self) -> ExecutionGuidanceBundle:
+        if self._execution_guidance is None:
+            self._execution_guidance = self._resolve_guidance_bundle(self._project_guidance_ids)
+        return self._execution_guidance
+
+    def _restore_guidance_contract(self, raw_contract: Mapping[str, Any]) -> None:
+        """Restore persisted guidance refs without consulting the current allowlist."""
+        raw_guidance = raw_contract.get("guidance")
+        if raw_guidance is None:
+            self._execution_guidance = self._resolve_guidance_bundle(())
+            return
+        if not isinstance(raw_guidance, Mapping):
+            raise OrchestratorError(
+                message="Cannot resume with an invalid execution contract",
+                details={"invalid": "guidance"},
+            )
+
+        mode = raw_guidance.get("mode")
+        provenance_scope = raw_guidance.get("provenance_scope")
+        items = raw_guidance.get("items")
+        if (
+            mode not in {"disabled", "declared"}
+            or provenance_scope != "ouroboros_declared_guidance_only"
+            or not isinstance(items, list)
+        ):
+            raise OrchestratorError(
+                message="Cannot resume with an invalid execution contract",
+                details={"invalid": "guidance metadata"},
+            )
+
+        guidance_ids: list[str] = []
+        for item in items:
+            if not isinstance(item, Mapping):
+                raise OrchestratorError(
+                    message="Cannot resume with an invalid execution contract",
+                    details={"invalid": "guidance item"},
+                )
+            guidance_id = item.get("id")
+            if not isinstance(guidance_id, str) or not guidance_id.strip():
+                raise OrchestratorError(
+                    message="Cannot resume with an invalid execution contract",
+                    details={"invalid": "guidance id"},
+                )
+            guidance_ids.append(guidance_id.strip())
+        if (mode == "disabled") != (not guidance_ids):
+            raise OrchestratorError(
+                message="Cannot resume with an invalid execution contract",
+                details={"invalid": "guidance mode"},
+            )
+
+        expected_metadata = {
+            key: value
+            for key, value in raw_guidance.items()
+            if key not in {"mode", "provenance_scope"}
+        }
+        self._execution_guidance = self._resolve_guidance_bundle(
+            tuple(guidance_ids),
+            expected_metadata=expected_metadata,
+        )
+
     def _build_execution_contract(
         self,
         *,
@@ -1765,6 +2007,7 @@ class OrchestratorRunner:
         """Build the durable resolved inputs shared by resume and proof cohorting."""
         from ouroboros.orchestrator.model_routing import serialize_model_router
 
+        guidance_bundle = self._ensure_new_run_guidance()
         routing_contract = serialize_model_router(self._model_router)
         routing_contract["constructor_model"] = self._constructor_model_contract()
         routing_contract["runtime_execution"] = self._runtime_execution_identity_contract()
@@ -1788,6 +2031,7 @@ class OrchestratorRunner:
             "execution_preferences": self._execution_preferences.to_contract_data(),
             "model_routing": routing_contract,
             "frugality_proof": proof_contract,
+            "guidance": self._guidance_contract(guidance_bundle),
             "resume": {
                 "workspace": self._resume_workspace_identity(),
             },
@@ -2040,6 +2284,7 @@ class OrchestratorRunner:
         """
         if EXECUTION_CONTRACT_PROGRESS_KEY not in progress:
             self._validate_legacy_resume_identity(progress, seed=seed)
+            self._execution_guidance = self._resolve_guidance_bundle(())
             self._execution_contract = self._build_execution_contract(seed=seed)
             # One unavoidable recomputation migrates a legacy session. Persist the
             # resolved contract now so every later resume restores this exact policy
@@ -2072,6 +2317,8 @@ class OrchestratorRunner:
                 message="Cannot resume with an invalid execution contract",
                 details={"missing": "frugality_proof, model_routing, or resume"},
             )
+
+        self._restore_guidance_contract(raw_contract)
 
         protocol_version = raw_proof.get("protocol_version")
         persisted_project_root = raw_proof.get("project_root")
@@ -2304,7 +2551,7 @@ class OrchestratorRunner:
     @staticmethod
     def _proof_cohort_identity(
         event_data: Mapping[str, Any],
-    ) -> tuple[str, str, str, int, str, str] | None:
+    ) -> tuple[str, str, str, int, str, str, str] | None:
         """Extract the exact fail-closed identity tuple from a session start."""
         raw_seed_id = event_data.get("seed_id")
         raw_contract = event_data.get(EXECUTION_CONTRACT_PROGRESS_KEY)
@@ -2324,6 +2571,20 @@ class OrchestratorRunner:
             return None
         routing_contract = raw_contract.get("model_routing")
         if not isinstance(routing_contract, Mapping):
+            return None
+        guidance_contract = raw_contract.get("guidance")
+        if guidance_contract is None:
+            guidance_fingerprint = "legacy:no-declared-guidance"
+        elif isinstance(guidance_contract, Mapping):
+            guidance_fingerprint = guidance_contract.get("rendered_fragment_hash")
+            if (
+                guidance_contract.get("provenance_scope") != "ouroboros_declared_guidance_only"
+                or not isinstance(guidance_fingerprint, str)
+                or not guidance_fingerprint.startswith("sha256:")
+                or len(guidance_fingerprint) != 71
+            ):
+                return None
+        else:
             return None
         runtime_backend = routing_contract.get("runtime_backend")
         llm_backend = routing_contract.get("llm_backend")
@@ -2376,6 +2637,7 @@ class OrchestratorRunner:
             protocol_version,
             routing_fingerprint,
             seed_fingerprint,
+            guidance_fingerprint,
         )
 
     def _build_dependency_analyzer(self) -> DependencyAnalyzer:
@@ -3684,7 +3946,17 @@ class OrchestratorRunner:
         immediately and then start the actual runtime work asynchronously.
         """
         exec_id = execution_id or f"exec_{uuid4().hex[:12]}"
-        execution_contract = self._build_execution_contract(seed=seed)
+        self._execution_guidance = None
+        try:
+            execution_contract = await asyncio.to_thread(
+                self._build_execution_contract,
+                seed=seed,
+            )
+            self._execution_guidance_delivery_mode()
+        except OrchestratorError as exc:
+            if self._task_workspace is not None:
+                release_lock(self._task_workspace.lock_path)
+            return Result.err(exc)
         self._execution_contract = execution_contract
         session_result = await self._session_repo.create_session(
             execution_id=exec_id,
@@ -3765,6 +4037,32 @@ class OrchestratorRunner:
 
         set_console_logging(self._debug)
 
+        raw_contract = tracker.progress.get(EXECUTION_CONTRACT_PROGRESS_KEY)
+        if raw_contract is not None:
+            if not isinstance(raw_contract, Mapping):
+                self._cleanup_pre_execution_state(
+                    tracker.execution_id,
+                    tracker.session_id,
+                    session_registered=False,
+                )
+                return Result.err(
+                    OrchestratorError(
+                        message="Cannot execute with an invalid execution contract",
+                        details={"invalid": "execution_contract"},
+                    )
+                )
+            try:
+                await asyncio.to_thread(self._restore_guidance_contract, raw_contract)
+                self._execution_guidance_delivery_mode()
+            except OrchestratorError as exc:
+                self._cleanup_pre_execution_state(
+                    tracker.execution_id,
+                    tracker.session_id,
+                    session_registered=False,
+                )
+                return Result.err(exc)
+            self._execution_contract = dict(raw_contract)
+
         log.info(
             "orchestrator.runner.execute_started",
             execution_id=exec_id,
@@ -3791,7 +4089,15 @@ class OrchestratorRunner:
             # schema-valid evidence before the acceptance gate parses it.
             strategy = _strategy_for_seed(seed, fat_harness_mode=self._fat_harness_mode)
             system_prompt = build_system_prompt(
-                seed, strategy=strategy, repo_root=self._effective_cwd()
+                seed,
+                strategy=strategy,
+                repo_root=self._effective_cwd(),
+                guidance_fragment=self._ensure_new_run_guidance().rendered_fragment,
+            )
+            await self._record_execution_guidance_injection(
+                session_id=tracker.session_id,
+                execution_id=exec_id,
+                injection_key="start",
             )
             task_prompt = build_task_prompt(seed, strategy=strategy)
 
@@ -3823,10 +4129,14 @@ class OrchestratorRunner:
 
             # Check for fat-harness / parallel execution mode. Fat-harness
             # uses the AC executor even for single-AC or --sequential runs so
-            # the evidence gate is never silently bypassed.
+            # the evidence gate is never silently bypassed. Investment metadata
+            # likewise requires per-AC dispatch so direct whole-seed execution
+            # cannot discard difficulty/stakes authority.
+            has_investment_metadata = _seed_has_investment_metadata(seed)
             if (
                 self._fat_harness_mode
                 or force_sequential_levels
+                or has_investment_metadata
                 or (parallel and len(seed.acceptance_criteria) > 1)
             ):
                 parallel_kwargs: dict[str, Any] = {
@@ -3840,7 +4150,9 @@ class OrchestratorRunner:
                 }
                 if externally_satisfied_acs:
                     parallel_kwargs["externally_satisfied_acs"] = externally_satisfied_acs
-                if force_sequential_levels or (self._fat_harness_mode and not parallel):
+                if force_sequential_levels or (
+                    not parallel and (self._fat_harness_mode or has_investment_metadata)
+                ):
                     parallel_kwargs["force_sequential_levels"] = True
 
                 return await self._execute_parallel(**parallel_kwargs)
@@ -4508,6 +4820,7 @@ class OrchestratorRunner:
             event_store=self._event_store,
             console=self._console,
             enable_decomposition=self._enable_decomposition,
+            decomposition_mode=self._decomposition_mode,
             max_concurrent=effective_workers,
             max_decomposition_depth=self._max_decomposition_depth,
             inherited_runtime_handle=self._inherited_runtime_handle,
@@ -4824,11 +5137,35 @@ class OrchestratorRunner:
                 )
             )
 
+        if _seed_has_investment_metadata(seed):
+            self._cleanup_pre_execution_state(
+                tracker.execution_id,
+                session_id,
+                session_registered=False,
+            )
+            return Result.err(
+                OrchestratorError(
+                    message=(
+                        "Resume is blocked because this resume path cannot preserve "
+                        "per-AC investment authority; restart the run so each AC goes "
+                        "through the investment-aware AC executor."
+                    ),
+                    details={
+                        "session_id": session_id,
+                        "execution_id": tracker.execution_id,
+                        "investment_metadata_present": True,
+                        "resume_blocked": "investment_authority_required",
+                    },
+                )
+            )
+
         try:
-            execution_contract_changed = self._restore_execution_contract(
+            execution_contract_changed = await asyncio.to_thread(
+                self._restore_execution_contract,
                 tracker.progress,
                 seed=seed,
             )
+            self._execution_guidance_delivery_mode()
         except OrchestratorError as exc:
             self._cleanup_pre_execution_state(
                 tracker.execution_id,
@@ -4868,7 +5205,16 @@ class OrchestratorRunner:
             )
 
             # Build resume prompt
-            system_prompt = build_system_prompt(seed, repo_root=self._effective_cwd())
+            system_prompt = build_system_prompt(
+                seed,
+                repo_root=self._effective_cwd(),
+                guidance_fragment=self._ensure_new_run_guidance().rendered_fragment,
+            )
+            await self._record_execution_guidance_injection(
+                session_id=session_id,
+                execution_id=tracker.execution_id,
+                injection_key=f"resume:{tracker.messages_processed}",
+            )
             resume_prompt = f"""Continue executing the task from where you left off.
 
 {build_task_prompt(seed)}

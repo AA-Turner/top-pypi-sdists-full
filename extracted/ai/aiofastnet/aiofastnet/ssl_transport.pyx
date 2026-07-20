@@ -1061,6 +1061,15 @@ cdef class SSLTransport_Socket(SSLTransportBase):
                  waiter=None,
                  server_hostname=None,
                  server=None):
+        if not sslcontext or sslcontext is True:
+            sslcontext = create_transport_context(server_side, server_hostname)
+
+        assert SSLEngineDirect is not None, \
+            "SSLTransport_Socket can only be used with SSLEngineDirect"
+
+        assert not getattr(sslcontext, "_aiofastnet_force_fallback_ssl", False), \
+            "SSLTransport_Socket used with _aiofastnet_force_fallback_ssl enabled"
+
         SSLTransportBase.__init__(self,
                                   loop, app_protocol, sslcontext,
                                   server_side,
@@ -1359,7 +1368,7 @@ cdef class SSLTransport_Socket(SSLTransportBase):
                 self._server = None
 
 
-cdef class SSLProtocol(Protocol, asyncio.BufferedProtocol):
+cdef class SSLProtocol(Protocol):
     cdef:
         SSLTransport_Transport _ssl_transport
 
@@ -1367,7 +1376,7 @@ cdef class SSLProtocol(Protocol, asyncio.BufferedProtocol):
         self._ssl_transport = ssl_transport
 
     cpdef is_buffered_protocol(self):
-        return True
+        return False
 
     cpdef connection_made(self, transport):
         cdef SSLTransport_Transport ssl_transport = self._ssl_transport
@@ -1376,21 +1385,14 @@ cdef class SSLProtocol(Protocol, asyncio.BufferedProtocol):
         return ssl_transport.connection_made(transport)
 
     cpdef connection_lost(self, exc):
-        # Break cyclic dependency
         cdef SSLTransport_Transport ssl_transport = self._ssl_transport
         if ssl_transport is None:
             return
         self._ssl_transport = None
         return ssl_transport.connection_lost(exc)
 
-    cdef get_buffer_c(self, Py_ssize_t n, char** buf_ptr, Py_ssize_t* buf_len):
-        return self._ssl_transport.get_buffer_c(n, buf_ptr, buf_len)
-
-    cpdef get_buffer(self, Py_ssize_t n):
-        return self._ssl_transport.get_buffer(n)
-
-    cpdef buffer_updated(self, Py_ssize_t nbytes):
-        self._ssl_transport.buffer_updated(nbytes)
+    cpdef data_received(self, data):
+        self._ssl_transport.data_received(data)
 
     cpdef eof_received(self):
         self._ssl_transport.eof_received()
@@ -1405,6 +1407,20 @@ cdef class SSLProtocol(Protocol, asyncio.BufferedProtocol):
         return self._ssl_transport.get_local_write_buffer_size()
 
 
+cdef class SSLBufferedProtocol(SSLProtocol, asyncio.BufferedProtocol):
+    cpdef is_buffered_protocol(self):
+        return True
+
+    cdef get_buffer_c(self, Py_ssize_t n, char** buf_ptr, Py_ssize_t* buf_len):
+        return self._ssl_transport.get_buffer_c(n, buf_ptr, buf_len)
+
+    cpdef get_buffer(self, Py_ssize_t n):
+        return self._ssl_transport.get_buffer(n)
+
+    cpdef buffer_updated(self, Py_ssize_t nbytes):
+        self._ssl_transport.buffer_updated(nbytes)
+
+
 cdef class SSLTransport_Transport(SSLTransportBase):
     """
     Use downstream Transport to send and receive data
@@ -1412,6 +1428,7 @@ cdef class SSLTransport_Transport(SSLTransportBase):
     cdef:
         object _transport
         bint _is_aiofn_transport
+        bint _is_direct_engine
 
     def __init__(self,
                  loop, app_protocol, sslcontext,
@@ -1438,6 +1455,7 @@ cdef class SSLTransport_Transport(SSLTransportBase):
 
         self._transport = None
         self._is_aiofn_transport = False
+        self._is_direct_engine = SSLEngineDirect is not None and isinstance(self._ssl_engine, SSLEngineDirect)
 
         if call_connection_made:
             self._app_state = AppProtocolState.STATE_INIT
@@ -1445,7 +1463,10 @@ cdef class SSLTransport_Transport(SSLTransportBase):
             self._app_state = AppProtocolState.STATE_CON_MADE
 
     cpdef get_tls_protocol(self):
-        return SSLProtocol(self)
+        if self._is_direct_engine:
+            return SSLBufferedProtocol(self)
+        else:
+            return SSLProtocol(self)
 
     cdef inline connection_made(self, transport):
         """Called when the low-level connection is made.
@@ -1511,6 +1532,16 @@ cdef class SSLTransport_Transport(SSLTransportBase):
             _logger.debug("%r: buffer_updated(%d)", self, nbytes)
 
         self._ssl_engine.incoming_bio_produce(nbytes)
+        try:
+            self._incoming_bio_updated()
+        except:
+            self._handle_error("Error occurred during read")
+
+    cdef inline data_received(self, data):
+        if unlikely(self._is_debug):
+            _logger.debug("%r: data_received(%d)", self, len(data))
+
+        self._ssl_engine.incoming_bio_write(data)
         try:
             self._incoming_bio_updated()
         except:
@@ -1588,28 +1619,47 @@ cdef class SSLTransport_Transport(SSLTransportBase):
 
     cdef bint _flush_outgoing_bio(self) except -1:
         """
-        Writes raw data to socket for outgoing BIO. 
+        Writes raw data to socket from outgoing BIO. 
         Returns True if write operations can continue.
         True is also returned if memory bio is not used, is such case _flush_outgoing_bio is no-op. 
         """
+        if self._is_direct_engine:
+            self._flush_outgoing_bio_direct()
+        else:
+            self._flush_outgoing_bio_fallback()
+        return True
+
+    cdef inline _flush_outgoing_bio_direct(self):
         cdef:
             char* ptr
             long sz
 
-        sz = self._ssl_engine.outgoing_bio_get_data(&ptr)
-        if sz == 0:
-            return True
+        while True:
+            sz = self._ssl_engine.outgoing_bio_get_data(&ptr)
+            if sz == 0:
+                return
+
+            if self._is_aiofn_transport:
+                (<Transport> self._transport).write_c(ptr, sz)
+            else:
+                self._transport.write(PyBytes_FromStringAndSize(ptr, sz))
+
+            self._ssl_engine.outgoing_bio_consume(sz)
+            if unlikely(self._is_debug):
+                _logger.debug("%r: flushed %d bytes from outgoing BIO", self, sz)
+
+    cdef inline _flush_outgoing_bio_fallback(self):
+        data = self._ssl_engine.outgoing_bio_read()
+        if not data:
+            return
 
         if self._is_aiofn_transport:
-            (<Transport> self._transport).write_c(ptr, sz)
+            (<Transport>self._transport).write_nocheck(data)
         else:
-            self._transport.write(PyBytes_FromStringAndSize(ptr, sz))
+            self._transport.write(data)
 
-        self._ssl_engine.outgoing_bio_consume(sz)
         if unlikely(self._is_debug):
-            _logger.debug("%r: flushed %d bytes from outgoing BIO", self, sz)
-
-        return True
+            _logger.debug("%r: flushed %d bytes from outgoing BIO", self, len(data))
 
     cdef bint _should_retry_after_want_write(self) except -1:
         """

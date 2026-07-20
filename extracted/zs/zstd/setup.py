@@ -21,17 +21,9 @@ VERSION_STR = ".".join([str(x) for x in VERSION])
 # Package version, even external 
 PKG_VERSION = VERSION
 # Minor revision 
-PKG_VERSION += (3,)
+PKG_VERSION += ("2",)
 PKG_VERSION_STR = ".".join([str(x) for x in PKG_VERSION])
-vpath="./version"
-if not os.path.exists(vpath):
-	vdn=os.path.dirname( os.path.abspath(sys.argv[0]))
-	vpath=os.path.join(vdn,vpath)
-if os.path.exists(vpath):
-	print("use existing %s file" % vpath)
-	f = open(vpath,"r" )
-PKG_VERSION_STR = f.read().strip()
-f.close()
+
 
 def which(bin_exe):
     """
@@ -68,7 +60,7 @@ if "--legacy" in sys.argv:
 SUP_WARNINGS="ZSTD_WARNINGS" in os.environ
 if SUP_WARNINGS:
     if os.environ["ZSTD_WARNINGS"]=='0':
-        SUP_WARNINGS=False
+        SUP_WARNINS=False
     else:
         SUP_WARNINGS=True
 if "--all-warnings" in sys.argv:
@@ -127,7 +119,6 @@ if "--debug-trace" in sys.argv:
     # Support tracing for debug
     SUP_TRACE=True
     sys.argv.remove("--debug-trace")
-
 BUILD_SPEED0="ZSTD_SPEED0" in os.environ
 if "--speed0" in sys.argv:
     # speed or size choose only one
@@ -273,7 +264,7 @@ if "--libzstd-bundled" in sys.argv:
     pkgconf = False
 
 #if SUP_EXTERNAL:
-if platform.system() == "Linux" and "build_ext" in sys.argv or "build" in sys.argv or "bdist_wheel" in sys.argv or "test" in sys.argv:
+if platform.system() == "Linux" and "build_ext" in sys.argv or "build" in sys.argv or "bdist_wheel" in sys.argv:
     # You should add external library by option: --libraries zstd
     # And probably include paths by option: --include-dirs /usr/include/zstd
     # And probably library paths by option: --library-dirs /usr/lib/i386-linux-gnu
@@ -361,19 +352,24 @@ if BUILD_SPEED2:
     }
 if BUILD_SPEED3:
     COPT = {
-        'msvc': ['/Ox', ],
+        'msvc': ['/O3', ],
         'mingw32': ['-O3',],
         'unix': ['-O3',],
         'clang': ['-O3',],
         'gcc': ['-O3',],
     }
 ###
+# DVERSION - pass module version string
+# DDYNAMIC_BMI2 - disable BMI2 amd64 asembler code - can't build it, use CFLAGS with -march= bdver4, znver1/2/3, native
+# DZSTD_DISABLE_ASM=1 - disable ASM inlines
+
 
 for comp in COPT:
     if comp == 'msvc':
         COPT[comp].extend([ '/DMOD_VERSION=%s' % PKG_VERSION_STR, '/DDYNAMIC_BMI2=%d' % ENABLE_ASM_BMI2, '/DZSTD_DISABLE_ASM=%d' % DISABLE_ASM ]),
     else:
         COPT[comp].extend([ '-DMOD_VERSION=%s' % PKG_VERSION_STR, '-DDYNAMIC_BMI2=%d' % ENABLE_ASM_BMI2, '-DZSTD_DISABLE_ASM=%d' % DISABLE_ASM ]),
+
 
 if not SUP_EXTERNAL:
     for comp in COPT:
@@ -459,7 +455,9 @@ if SUP_WARNINGS:
         if comp == 'msvc':
             COPT[comp].extend(['/Wall',])
         else:
-            COPT[comp].extend(['-Wall', '-Wextra', '-Wpedantic'])
+            COPT[comp].extend(['-Wall', '-Wextra', 
+#'-Wpedantic'
+])
 
 if SUP_WERROR:
     for comp in COPT:
@@ -552,7 +550,6 @@ if not SUP_EXTERNAL:
             ]:
             zstdFiles.append('zstd/lib/'+f)
 
-# files needed always, even for external
 zstdFiles.append('src/debug.c')
 zstdFiles.append('src/util.c')
 zstdFiles.append('src/python-zstd.c')
@@ -583,8 +580,6 @@ f=open('README.rst', 'r')
 ld=f.read()
 f.close()
 
-if SUP_DEBUG:
-	print("debug: ext_libraries:%r" % (ext_libraries))
 setup(
     name='zstd',
     version=PKG_VERSION_STR,
@@ -624,6 +619,5 @@ setup(
         'Programming Language :: Python :: 3.12',
         'Programming Language :: Python :: 3.13',
         'Programming Language :: Python :: 3.14',
-        'Programming Language :: Python :: 3.15',
     ]
 )

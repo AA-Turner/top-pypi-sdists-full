@@ -5,6 +5,7 @@ use gam_problem::types::{
 };
 use gam_solve::estimate::EstimationError;
 use ndarray::{Array1, Array2};
+use rand::RngExt as _;
 
 /// THE single source of truth for the scalar dispersion the generative
 /// observation model uses for a fitted family — the value handed to
@@ -157,6 +158,16 @@ pub enum NoiseModel {
         shape: Array1<f64>,
     },
     Bernoulli,
+    /// Row-specific categorical response law.
+    ///
+    /// `probabilities[[i, j]]` is the fitted probability that observation `i`
+    /// takes `labels[j]`. This is the natural saved-response representation for
+    /// competing-risk event-window generation: label zero means no event in the
+    /// requested window and positive labels identify the persisted causes.
+    Categorical {
+        probabilities: Array2<f64>,
+        labels: Array1<f64>,
+    },
     /// Inverse-transform sampling for a conditional transformation-normal (CTM)
     /// model (issue #1613). The fitted latent transform `h(·|x_i)` is strictly
     /// increasing in `y` and `h(Y|x) ~ N(0, 1)`, so a response-scale draw is
@@ -781,6 +792,59 @@ pub fn sampleobservations<R: rand::Rng + ?Sized>(
             }
             Ok(y)
         }
+        NoiseModel::Categorical {
+            probabilities,
+            labels,
+        } => {
+            let n = spec.mean.len();
+            if probabilities.nrows() != n {
+                crate::bail_invalid_estim!(
+                    "categorical probability rows {} do not match mean length {n}",
+                    probabilities.nrows()
+                );
+            }
+            if labels.is_empty() || probabilities.ncols() != labels.len() {
+                crate::bail_invalid_estim!(
+                    "categorical label/probability width mismatch: labels={}, columns={}",
+                    labels.len(),
+                    probabilities.ncols()
+                );
+            }
+            if labels.iter().any(|label| !label.is_finite()) {
+                crate::bail_invalid_estim!("categorical labels must be finite");
+            }
+            let mut y = Array1::<f64>::zeros(n);
+            for row in 0..n {
+                let probability_row = probabilities.row(row);
+                let mut total = 0.0_f64;
+                for (category, &probability) in probability_row.iter().enumerate() {
+                    if !(probability.is_finite() && probability >= 0.0) {
+                        crate::bail_invalid_estim!(
+                            "categorical probability at row {row}, category {category} must be finite and non-negative, got {probability}"
+                        );
+                    }
+                    total += probability;
+                }
+                let tolerance = 64.0 * f64::EPSILON * labels.len().max(1) as f64;
+                if !(total.is_finite() && (total - 1.0).abs() <= tolerance) {
+                    crate::bail_invalid_estim!(
+                        "categorical probabilities at row {row} sum to {total}, expected one within {tolerance}"
+                    );
+                }
+                let uniform = rng.random::<f64>();
+                let mut cumulative = 0.0_f64;
+                let mut selected = labels.len() - 1;
+                for category in 0..labels.len() - 1 {
+                    cumulative += probability_row[category];
+                    if uniform < cumulative {
+                        selected = category;
+                        break;
+                    }
+                }
+                y[row] = labels[selected];
+            }
+            Ok(y)
+        }
         NoiseModel::TransformationNormalQuantile { grid_y, h_grid } => {
             let n = spec.mean.len();
             if h_grid.nrows() != n {
@@ -814,7 +878,146 @@ pub fn sampleobservations<R: rand::Rng + ?Sized>(
     }
 }
 
-/// Draw multiple synthetic replicates (n_draws x nobs).
+/// Draw replicate chunks in deterministic draw order without materializing the
+/// full `n_draws × nobs` matrix.
+///
+/// The same RNG is advanced exactly once per observation draw regardless of
+/// `chunk_draws`, so changing the chunk size changes only memory and sink call
+/// boundaries, never the generated values. Frontends that write a file or
+/// yield an iterator should use this API; collecting the full matrix is an
+/// explicit convenience operation implemented below.
+pub fn sampleobservation_replicate_chunks<R, F>(
+    spec: &GenerativeSpec,
+    n_draws: usize,
+    chunk_draws: usize,
+    rng: &mut R,
+    mut consume: F,
+) -> Result<(), EstimationError>
+where
+    R: rand::Rng + ?Sized,
+    F: for<'a> FnMut(usize, ndarray::ArrayView2<'a, f64>) -> Result<(), EstimationError>,
+{
+    if chunk_draws == 0 {
+        crate::bail_invalid_estim!("replicate chunk size must be strictly positive");
+    }
+    if n_draws == 0 {
+        return Ok(());
+    }
+    let n = spec.nobs();
+    let capacity = chunk_draws.min(n_draws);
+    let mut chunk = Array2::<f64>::zeros((capacity, n));
+    let mut start = 0usize;
+    while start < n_draws {
+        let len = (n_draws - start).min(capacity);
+        for local_draw in 0..len {
+            let draw = sampleobservations(spec, rng)?;
+            chunk.row_mut(local_draw).assign(&draw);
+        }
+        consume(start, chunk.slice(ndarray::s![..len, ..]))?;
+        start += len;
+    }
+    Ok(())
+}
+
+/// Derive the independent RNG seed for one globally indexed replicate.
+///
+/// SplitMix64's published integer mixer gives every `(seed, draw_index)` pair
+/// one stable stream without advancing through preceding draws. This makes a
+/// saved-model replicate stream seekable: Python/CLI consumers can request
+/// disjoint chunks, retry a chunk, or change chunk size without changing any
+/// value at a given global draw index.
+#[inline]
+fn indexed_replicate_seed(seed: u64, draw_index: u64) -> u64 {
+    let mut value =
+        seed.wrapping_add(0x9E3779B97F4A7C15_u64.wrapping_mul(draw_index.wrapping_add(1)));
+    value = (value ^ (value >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
+    value = (value ^ (value >> 27)).wrapping_mul(0x94D049BB133111EB);
+    value ^ (value >> 31)
+}
+
+/// Draw a seekable range of independently seeded replicate chunks.
+///
+/// `draw_start` is the global draw index and `n_draws` is the range length.
+/// Values are a pure function of `(spec, seed, global_draw, observation)`, so
+/// separate calls over adjacent ranges concatenate bit-for-bit to a single
+/// call over their union. The sink receives global, not range-local, starts.
+pub fn sampleobservation_seeded_replicate_chunks<F>(
+    spec: &GenerativeSpec,
+    draw_start: usize,
+    n_draws: usize,
+    chunk_draws: usize,
+    seed: u64,
+    mut consume: F,
+) -> Result<(), EstimationError>
+where
+    F: for<'a> FnMut(usize, ndarray::ArrayView2<'a, f64>) -> Result<(), EstimationError>,
+{
+    use rand::SeedableRng;
+
+    if chunk_draws == 0 {
+        crate::bail_invalid_estim!("replicate chunk size must be strictly positive");
+    }
+    let draw_end = draw_start.checked_add(n_draws).ok_or_else(|| {
+        EstimationError::InvalidInput(format!(
+            "replicate draw range overflows usize: start={draw_start}, count={n_draws}"
+        ))
+    })?;
+    if n_draws == 0 {
+        return Ok(());
+    }
+    let n = spec.nobs();
+    let capacity = chunk_draws.min(n_draws);
+    let mut chunk = Array2::<f64>::zeros((capacity, n));
+    let mut start = draw_start;
+    while start < draw_end {
+        let len = (draw_end - start).min(capacity);
+        for local_draw in 0..len {
+            let global_draw = start + local_draw;
+            let global_draw_u64 = u64::try_from(global_draw).map_err(|_| {
+                EstimationError::InvalidInput(format!(
+                    "replicate draw index {global_draw} is not representable as u64"
+                ))
+            })?;
+            let mut rng =
+                rand::rngs::StdRng::seed_from_u64(indexed_replicate_seed(seed, global_draw_u64));
+            let draw = sampleobservations(spec, &mut rng)?;
+            chunk.row_mut(local_draw).assign(&draw);
+        }
+        consume(start, chunk.slice(ndarray::s![..len, ..]))?;
+        start += len;
+    }
+    Ok(())
+}
+
+/// Collect a seekable range into an allocating `n_draws × nobs` matrix.
+pub fn sampleobservation_seeded_replicates(
+    spec: &GenerativeSpec,
+    draw_start: usize,
+    n_draws: usize,
+    seed: u64,
+) -> Result<Array2<f64>, EstimationError> {
+    let mut out = Array2::<f64>::zeros((n_draws, spec.nobs()));
+    sampleobservation_seeded_replicate_chunks(
+        spec,
+        draw_start,
+        n_draws,
+        n_draws.max(1),
+        seed,
+        |global_start, chunk| {
+            let local_start = global_start - draw_start;
+            let local_end = local_start + chunk.nrows();
+            out.slice_mut(ndarray::s![local_start..local_end, ..])
+                .assign(&chunk);
+            Ok(())
+        },
+    )?;
+    Ok(out)
+}
+
+/// Collect multiple synthetic replicates into an `n_draws × nobs` matrix.
+///
+/// This is intentionally the allocating convenience surface. Streaming
+/// consumers should call [`sampleobservation_replicate_chunks`] directly.
 pub fn sampleobservation_replicates<R: rand::Rng + ?Sized>(
     spec: &GenerativeSpec,
     n_draws: usize,
@@ -822,10 +1025,11 @@ pub fn sampleobservation_replicates<R: rand::Rng + ?Sized>(
 ) -> Result<Array2<f64>, EstimationError> {
     let n = spec.nobs();
     let mut out = Array2::<f64>::zeros((n_draws, n));
-    for d in 0..n_draws {
-        let draw = sampleobservations(spec, rng)?;
-        out.row_mut(d).assign(&draw);
-    }
+    sampleobservation_replicate_chunks(spec, n_draws, n_draws.max(1), rng, |start, chunk| {
+        let end = start + chunk.nrows();
+        out.slice_mut(ndarray::s![start..end, ..]).assign(&chunk);
+        Ok(())
+    })?;
     Ok(out)
 }
 
@@ -842,6 +1046,73 @@ pub trait CustomFamilyGenerative: CustomFamily {
 mod tests {
     use super::*;
     use crate::family_runtime::{FamilyStrategy, strategy_for_spec};
+
+    #[test]
+    fn categorical_sampler_draws_only_persisted_labels() {
+        use rand::SeedableRng;
+
+        let spec = GenerativeSpec {
+            mean: ndarray::array![1.5, 0.0],
+            noise: NoiseModel::Categorical {
+                probabilities: ndarray::array![[0.25, 0.75], [1.0, 0.0]],
+                labels: ndarray::array![0.0, 2.0],
+            },
+        };
+        let mut rng = rand::rngs::StdRng::seed_from_u64(2300);
+        let draws = sampleobservation_replicates(&spec, 2_000, &mut rng).unwrap();
+        assert!(
+            draws
+                .column(0)
+                .iter()
+                .all(|value| *value == 0.0 || *value == 2.0)
+        );
+        assert!(draws.column(1).iter().all(|value| *value == 0.0));
+        let first_mean = draws.column(0).sum() / draws.nrows() as f64;
+        assert!((first_mean - 1.5).abs() < 0.08, "mean={first_mean}");
+    }
+
+    #[test]
+    fn replicate_chunk_size_does_not_change_seeded_draw_stream() {
+        use rand::SeedableRng;
+
+        let spec = GenerativeSpec {
+            mean: ndarray::array![0.2, 0.7, 0.95],
+            noise: NoiseModel::Bernoulli,
+        };
+        let collect = |chunk_draws: usize| {
+            let mut rng = rand::rngs::StdRng::seed_from_u64(91);
+            let mut values = Vec::<f64>::new();
+            sampleobservation_replicate_chunks(&spec, 257, chunk_draws, &mut rng, |_, chunk| {
+                values.extend(chunk.iter().copied());
+                Ok(())
+            })
+            .unwrap();
+            values
+        };
+        assert_eq!(collect(1), collect(7));
+        assert_eq!(collect(7), collect(256));
+    }
+
+    #[test]
+    fn seekable_seeded_ranges_concatenate_bit_exactly() {
+        let spec = GenerativeSpec {
+            mean: ndarray::array![1.5, 4.0],
+            noise: NoiseModel::Poisson,
+        };
+        let whole = sampleobservation_seeded_replicates(&spec, 0, 257, 2300).unwrap();
+        let first = sampleobservation_seeded_replicates(&spec, 0, 91, 2300).unwrap();
+        let second = sampleobservation_seeded_replicates(&spec, 91, 166, 2300).unwrap();
+        assert_eq!(whole.slice(ndarray::s![..91, ..]), first.view());
+        assert_eq!(whole.slice(ndarray::s![91.., ..]), second.view());
+
+        let mut streamed = Vec::<f64>::new();
+        sampleobservation_seeded_replicate_chunks(&spec, 0, 257, 13, 2300, |_, chunk| {
+            streamed.extend(chunk.iter().copied());
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(streamed, whole.iter().copied().collect::<Vec<_>>());
+    }
 
     /// The CTM inverse-transform sampler (#1613) must draw `Y = h⁻¹(Z|x)`,
     /// `Z ~ N(0,1)`, from each row's monotone transform — NOT Gaussian noise on

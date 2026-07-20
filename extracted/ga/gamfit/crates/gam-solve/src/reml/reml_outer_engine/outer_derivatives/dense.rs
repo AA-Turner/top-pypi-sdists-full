@@ -581,7 +581,46 @@ pub(crate) fn compute_outer_hessian(
                 let (kk, ll) = upper_triangle_pair_from_index(pair_idx, k);
                 let pair_a = if kk == ll { rho_a_vals[kk] } else { 0.0 };
 
-                let cross_trace = if let Some(ref exact) = exact_logdet_cross_traces {
+                // Cancellation-free FUSED diagonal for a pure block-local penalty
+                // coordinate on the exact-dense-spectral path: at the
+                // over-smoothing rail the diagonal `base = tr(G_ε A_k)` and
+                // `cross = Γ-cross(Ḣ_k, Ḣ_k)` each approach ±rank(S_k) and their
+                // sum's true O(1/λ_k) tail curvature drowns in summation-order
+                // noise — the second-order instance of the #2298 rail
+                // cancellation (#2348: deep-λ H_kk came back ≈ g with the
+                // gradient's sign). `fused_logdet_hessian_diagonal_block` is
+                // value-identical to `base + cross`, reassociated per eigenpair.
+                // Gating mirrors the fused gradient: full active rank (complete
+                // eigenbasis), no projected subspace, and no drift correction on
+                // the coordinate (`Ḣ_k = A_k`, so the pure-A fusion covers the
+                // whole logdet pair).
+                let fused_diag: Option<f64> = if kk == ll
+                    && incl_logdet_h
+                    && subspace.is_none()
+                    && !upper_active_rho[kk]
+                    && a_k_matrices[kk].is_none()
+                    && solution.penalty_coords[kk].is_block_local()
+                {
+                    hop.as_exact_dense_spectral().and_then(|ds| {
+                        (ds.active_rank() == ds.dim()).then(|| {
+                            let (block, start, end) =
+                                solution.penalty_coords[kk].scaled_block_local(1.0);
+                            ds.fused_logdet_hessian_diagonal_block(
+                                &block,
+                                start,
+                                end,
+                                curvature_lambdas[kk],
+                            )
+                        })
+                    })
+                } else {
+                    None
+                };
+
+                let cross_trace = if fused_diag.is_some() {
+                    // Folded into the fused diagonal below.
+                    0.0
+                } else if let Some(ref exact) = exact_logdet_cross_traces {
                     exact[[kk, ll]]
                 } else if let Some(ref sct) = stochastic_cross_traces {
                     -sct[[kk, ll]]
@@ -599,7 +638,9 @@ pub(crate) fn compute_outer_hessian(
                 // fix is active, in which case every trace routes through the
                 // projected kernel so the outer Hessian matches the projected
                 // `½ log|U_Sᵀ H U_S|_+` cost.
-                let base = if kk == ll {
+                let base = if let Some(fused) = fused_diag {
+                    fused
+                } else if kk == ll {
                     // Pure Aₖ for the diagonal base term: the stored override when
                     // a correction made Aₖ ≠ Ḣₖ, else Ḣₖ itself (they coincide).
                     let a_kk = a_k_matrices[kk].as_ref().unwrap_or(&h_k_matrices[kk]);
@@ -675,7 +716,7 @@ pub(crate) fn compute_outer_hessian(
     if let Some(ref rho_ext_fn) = solution.rho_ext_pair_fn {
         for rho_idx in 0..k {
             for ext_idx in 0..ext_dim {
-                let pair = rho_ext_fn(rho_idx, ext_idx);
+                let pair = rho_ext_fn(rho_idx, ext_idx)?;
                 let a_ext = solution.ext_coords[ext_idx].a;
 
                 let (cross_trace, h2_trace) = if incl_logdet_h {
@@ -721,7 +762,7 @@ pub(crate) fn compute_outer_hessian(
                         &beta_ext,
                         solution.fixed_drift_deriv.as_ref(),
                         subspace,
-                    );
+                    )?;
 
                     let correction = compute_ift_correction_trace(
                         hop,
@@ -777,7 +818,7 @@ pub(crate) fn compute_outer_hessian(
         // `Par::Seq`), exactly as the rigid row-kernel all-axes sweep does. The
         // results are collected index-ordered so the subsequent trace/write loop
         // is byte-identical to the prior serial `ext_pair_fn` evaluation order.
-        let ext_pairs: Vec<gam_problem::HyperCoordPair> = {
+        let ext_pairs: Result<Vec<gam_problem::HyperCoordPair>, String> = {
             use rayon::iter::{IntoParallelIterator, ParallelIterator};
             let pair_count = ext_dim * (ext_dim + 1) / 2;
             (0..pair_count)
@@ -789,6 +830,7 @@ pub(crate) fn compute_outer_hessian(
                 })
                 .collect()
         };
+        let ext_pairs = ext_pairs?;
         let ext_pair_at = |ii: usize, jj: usize| -> usize {
             // Upper-triangle row-major index for (ii <= jj), the exact inverse of
             // `upper_triangle_pair_from_index`: row_start = ii*(2*ext_dim-ii+1)/2.
@@ -839,7 +881,7 @@ pub(crate) fn compute_outer_hessian(
                         &beta_j,
                         solution.fixed_drift_deriv.as_ref(),
                         subspace,
-                    );
+                    )?;
 
                     let correction = compute_ift_correction_trace(
                         hop,

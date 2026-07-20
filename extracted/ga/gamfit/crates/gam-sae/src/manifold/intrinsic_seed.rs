@@ -110,10 +110,7 @@ fn squared_distance(z: ArrayView2<'_, f64>, a: usize, b: usize) -> f64 {
 /// shortest edge joining two distinct components (ties by `(min_row, max_row)`) is
 /// added. This restores connectivity using the true nearest cross-component pair,
 /// so a graph that is already connected is returned untouched.
-pub(crate) fn deterministic_knn_graph(
-    z: ArrayView2<'_, f64>,
-    k: usize,
-) -> Vec<Vec<(usize, f64)>> {
+pub(crate) fn deterministic_knn_graph(z: ArrayView2<'_, f64>, k: usize) -> Vec<Vec<(usize, f64)>> {
     let n = z.nrows();
     let mut adj: Vec<Vec<(usize, f64)>> = vec![Vec::new(); n];
     if n == 0 {
@@ -122,7 +119,8 @@ pub(crate) fn deterministic_knn_graph(
     let k = k.min(n.saturating_sub(1)).max(1);
     // Undirected edge set keyed by (min, max) so the UNION symmetrization never
     // double-inserts a mutually-chosen edge.
-    let mut edges: std::collections::BTreeMap<(usize, usize), f64> = std::collections::BTreeMap::new();
+    let mut edges: std::collections::BTreeMap<(usize, usize), f64> =
+        std::collections::BTreeMap::new();
     for i in 0..n {
         let mut dists: Vec<(f64, usize)> = Vec::with_capacity(n - 1);
         for j in 0..n {
@@ -285,10 +283,7 @@ fn dijkstra(adj: &[Vec<(usize, f64)>], source: usize) -> Vec<f64> {
 
 /// Geodesic distances from every landmark to every row: row `l` is
 /// [`dijkstra`] from landmark `landmarks[l]`. Shape `(L, n)`.
-pub(crate) fn landmark_geodesics(
-    adj: &[Vec<(usize, f64)>],
-    landmarks: &[usize],
-) -> Array2<f64> {
+pub(crate) fn landmark_geodesics(adj: &[Vec<(usize, f64)>], landmarks: &[usize]) -> Array2<f64> {
     let n = adj.len();
     let l = landmarks.len();
     let mut out = Array2::<f64>::zeros((l, n));
@@ -325,15 +320,24 @@ pub fn intrinsic_geodesic_embedding(
             ));
         }
     }
-    if n < 3 {
-        // Too few rows for a geodesic graph to differ from the ambient metric.
-        // Fall back to a mean-centered raw-coordinate embedding (leading columns),
-        // which for n ≤ 2 is already the exact MDS solution.
-        for row in 0..n {
-            for col in 0..d.min(z.ncols()) {
-                out[[row, col]] = z[[row, col]];
-            }
+    if n == 1 {
+        return Ok(out);
+    }
+    if n == 2 {
+        // Two points have a unique centered one-dimensional MDS realization up
+        // to sign: place them at ± half their full ambient distance. Copying a
+        // leading raw feature (the old path) discarded separation carried by
+        // any other ambient column and was neither centered nor isometric.
+        let dist2 = squared_distance(z, 0, 1);
+        if !dist2.is_finite() {
+            return Err(
+                "intrinsic_seed: pairwise distance overflowed; rescale Z before seeding"
+                    .to_string(),
+            );
         }
+        let half_distance = 0.5 * dist2.sqrt();
+        out[[0, 0]] = -half_distance;
+        out[[1, 0]] = half_distance;
         return Ok(out);
     }
     let k = intrinsic_seed_knn(n, d).min(n - 1);
@@ -408,11 +412,7 @@ pub fn intrinsic_geodesic_embedding(
     }
     let floor = leading * MDS_EIGENVALUE_FLOOR_FRAC;
     let mut order: Vec<usize> = (0..evals.len()).collect();
-    order.sort_by(|&i, &j| {
-        evals[j]
-            .total_cmp(&evals[i])
-            .then_with(|| i.cmp(&j))
-    });
+    order.sort_by(|&i, &j| evals[j].total_cmp(&evals[i]).then_with(|| i.cmp(&j)));
     let axes: Vec<usize> = order
         .into_iter()
         .filter(|&c| evals[c] > floor)
@@ -453,9 +453,27 @@ fn min_max_normalize_into(out: &mut Array3<f64>, atom_idx: usize, axis: usize, v
     }
 }
 
+/// Number of independent intrinsic embedding functions needed to seed a chart.
+///
+/// This is deliberately distinct from the chart's latent dimension. A periodic
+/// coordinate is the phase of a two-function plane, a sphere's two coordinates
+/// need a three-function frame, and every torus coordinate needs its own
+/// two-function phase plane. Using only `latent_dim` embedding axes silently
+/// collapsed sphere latitude and every torus axis after the first to zero.
+fn intrinsic_chart_embedding_axes(kind: &SaeAtomBasisKind, latent_dim: usize) -> usize {
+    match kind {
+        SaeAtomBasisKind::Periodic => 2 + latent_dim.max(1).saturating_sub(1),
+        SaeAtomBasisKind::Sphere => 3,
+        SaeAtomBasisKind::Torus => 2 * latent_dim.max(1),
+        _ => latent_dim.max(1),
+    }
+}
+
 /// Intrinsic-metric seed with the SAME `(K_atoms, n_obs, d_max)` output contract
 /// and per-chart-kind conventions as [`super::sae_pca_seed_initial_coords`], built
-/// from a single geodesic embedding of `z` at the maximum atom dimension. Each
+/// from a single geodesic embedding of `z` wide enough for every atom's chart
+/// functions. The returned coordinate tensor still uses the maximum LATENT
+/// dimension, matching the PCA seed contract. Each
 /// atom reads its chart off the leading intrinsic axes:
 ///   * flat (Euclidean/Linear/other) — leading `d` axes, min-max normalized to
 ///     `[-0.5, 0.5]` (the flat PCA convention);
@@ -472,13 +490,26 @@ pub fn sae_intrinsic_seed_initial_coords(
     atom_dim: &[usize],
 ) -> Result<Array3<f64>, String> {
     let k_atoms = basis_kinds.len();
+    if atom_dim.len() != k_atoms {
+        return Err(format!(
+            "sae_intrinsic_seed_initial_coords: basis_kinds and atom_dim must have the same length; got {} and {}",
+            k_atoms,
+            atom_dim.len()
+        ));
+    }
     let (n_obs, _p) = z.dim();
-    let d_max = atom_dim.iter().copied().max().unwrap_or(1).max(1);
-    let mut out = Array3::<f64>::zeros((k_atoms, n_obs, d_max));
+    let latent_d_max = atom_dim.iter().copied().max().unwrap_or(1).max(1);
+    let embedding_axes = basis_kinds
+        .iter()
+        .zip(atom_dim.iter().copied())
+        .map(|(kind, d)| intrinsic_chart_embedding_axes(kind, d))
+        .max()
+        .unwrap_or(1);
+    let mut out = Array3::<f64>::zeros((k_atoms, n_obs, latent_d_max));
     if n_obs == 0 || z.ncols() == 0 || k_atoms == 0 {
         return Ok(out);
     }
-    let embed = intrinsic_geodesic_embedding(z, d_max)?;
+    let embed = intrinsic_geodesic_embedding(z, embedding_axes)?;
     let two_pi = std::f64::consts::TAU;
     for atom_idx in 0..k_atoms {
         let d = atom_dim[atom_idx];
@@ -487,7 +518,7 @@ pub fn sae_intrinsic_seed_initial_coords(
         }
         match &basis_kinds[atom_idx] {
             SaeAtomBasisKind::Periodic => {
-                if d_max >= 2 {
+                if embed.ncols() >= 2 {
                     for row in 0..n_obs {
                         let phase = embed[[row, 1]].atan2(embed[[row, 0]]) / two_pi;
                         out[[atom_idx, row, 0]] = phase - phase.floor();
@@ -509,7 +540,7 @@ pub fn sae_intrinsic_seed_initial_coords(
                     }
                 }
                 for axis in 1..d {
-                    if axis + 1 >= d_max {
+                    if axis + 1 >= embed.ncols() {
                         break;
                     }
                     let vals: Vec<f64> = (0..n_obs).map(|r| embed[[r, axis + 1]]).collect();
@@ -519,8 +550,8 @@ pub fn sae_intrinsic_seed_initial_coords(
             SaeAtomBasisKind::Sphere => {
                 for row in 0..n_obs {
                     let x = embed[[row, 0]];
-                    let y = if d_max >= 2 { embed[[row, 1]] } else { 0.0 };
-                    let zz = if d_max >= 3 { embed[[row, 2]] } else { 0.0 };
+                    let y = embed[[row, 1]];
+                    let zz = embed[[row, 2]];
                     let norm = (x * x + y * y + zz * zz).sqrt().max(1.0e-24);
                     if d >= 1 {
                         out[[atom_idx, row, 0]] = (zz / norm).clamp(-1.0, 1.0).asin();
@@ -533,7 +564,7 @@ pub fn sae_intrinsic_seed_initial_coords(
             SaeAtomBasisKind::Torus => {
                 for axis in 0..d {
                     let (ca, cb) = (2 * axis, 2 * axis + 1);
-                    if cb >= d_max {
+                    if cb >= embed.ncols() {
                         break;
                     }
                     for row in 0..n_obs {
@@ -544,7 +575,7 @@ pub fn sae_intrinsic_seed_initial_coords(
             }
             _ => {
                 for axis in 0..d {
-                    if axis >= d_max {
+                    if axis >= embed.ncols() {
                         break;
                     }
                     let vals: Vec<f64> = (0..n_obs).map(|r| embed[[r, axis]]).collect();
@@ -612,6 +643,15 @@ mod tests {
         );
     }
 
+    #[test]
+    fn two_row_embedding_preserves_full_ambient_distance() {
+        let z = Array2::from_shape_vec((2, 3), vec![4.0, -2.0, 1.0, 4.0, 4.0, 9.0]).unwrap();
+        let embed = intrinsic_geodesic_embedding(z.view(), 1).unwrap();
+        assert_eq!(embed[[0, 0]], -5.0);
+        assert_eq!(embed[[1, 0]], 5.0);
+        assert_eq!(embed[[0, 0]] + embed[[1, 0]], 0.0);
+    }
+
     /// Determinism doctrine: the embedding is bit-identical run-to-run.
     #[test]
     fn intrinsic_embedding_is_bit_identical_run_to_run() {
@@ -653,8 +693,90 @@ mod tests {
             let seed = sae_intrinsic_seed_initial_coords(z.view(), &kinds, &dims).unwrap();
             assert_eq!(seed.dim(), (k, n, d));
             for v in seed.iter() {
-                assert!(v.is_finite(), "{kind:?}: non-finite intrinsic seed coord {v}");
+                assert!(
+                    v.is_finite(),
+                    "{kind:?}: non-finite intrinsic seed coord {v}"
+                );
             }
         }
+    }
+
+    /// Chart coordinates and embedding functions are not the same dimension:
+    /// sphere latitude needs a 3-frame, and a 2-torus needs two independent
+    /// phase planes. Pin the production allocation rule so those coordinates
+    /// cannot silently collapse back to zero.
+    #[test]
+    fn intrinsic_seed_allocates_every_chart_function_2240() {
+        assert_eq!(
+            intrinsic_chart_embedding_axes(&SaeAtomBasisKind::Periodic, 1),
+            2
+        );
+        assert_eq!(
+            intrinsic_chart_embedding_axes(&SaeAtomBasisKind::Periodic, 3),
+            4
+        );
+        assert_eq!(
+            intrinsic_chart_embedding_axes(&SaeAtomBasisKind::Sphere, 2),
+            3
+        );
+        assert_eq!(
+            intrinsic_chart_embedding_axes(&SaeAtomBasisKind::Torus, 2),
+            4
+        );
+        assert_eq!(
+            intrinsic_chart_embedding_axes(&SaeAtomBasisKind::Linear, 2),
+            2
+        );
+
+        // Ten points spanning four ambient dimensions make the kNN graph
+        // complete for a four-axis embedding, so classical MDS recovers four
+        // genuine functions. Both coordinates of each chart must vary. With
+        // the old latent-dimension allocation, sphere latitude and torus axis 1
+        // were identically zero here.
+        let mut z = Array2::<f64>::zeros((10, 4));
+        for axis in 0..4 {
+            z[[2 * axis, axis]] = 1.0;
+            z[[2 * axis + 1, axis]] = -1.0;
+        }
+        z[[8, 0]] = 0.5;
+        z[[8, 1]] = -0.25;
+        z[[8, 2]] = 0.75;
+        z[[8, 3]] = 0.125;
+        z[[9, 0]] = -0.375;
+        z[[9, 1]] = 0.625;
+        z[[9, 2]] = 0.25;
+        z[[9, 3]] = -0.875;
+        let seed = sae_intrinsic_seed_initial_coords(
+            z.view(),
+            &[SaeAtomBasisKind::Sphere, SaeAtomBasisKind::Torus],
+            &[2, 2],
+        )
+        .unwrap();
+        for atom in 0..2 {
+            for axis in 0..2 {
+                let (lo, hi) = seed
+                    .slice(ndarray::s![atom, .., axis])
+                    .iter()
+                    .fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), &v| {
+                        (lo.min(v), hi.max(v))
+                    });
+                assert!(
+                    hi > lo,
+                    "intrinsic chart {atom} axis {axis} must carry a genuine coordinate"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn intrinsic_seed_rejects_misaligned_atom_metadata() {
+        let z = Array2::<f64>::zeros((3, 2));
+        let error = sae_intrinsic_seed_initial_coords(
+            z.view(),
+            &[SaeAtomBasisKind::Linear, SaeAtomBasisKind::Sphere],
+            &[2],
+        )
+        .unwrap_err();
+        assert!(error.contains("same length"));
     }
 }

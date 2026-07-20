@@ -168,6 +168,8 @@ impl PerAtomEfsResult {
             rho_uncertainty_diagnostic: None,
             converged_via: None,
             flat_noise_grad_bound: None,
+            tail_snap_reseed: None,
+            saddle_escape_reseed: None,
         }
     }
 }

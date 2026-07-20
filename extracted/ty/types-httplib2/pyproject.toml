@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-httplib2"
-version = "0.31.2.20260712"
+version = "0.32.0.20260720"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for httplib2"
@@ -15,7 +15,7 @@ This is a [type stub package](https://typing.python.org/en/latest/tutorials/exte
 for the [`httplib2`](https://github.com/httplib2/httplib2) package. It can be used by type checkers
 to check code that uses `httplib2`. This version of
 `types-httplib2` aims to provide accurate annotations for
-`httplib2==0.31.2`.
+`httplib2==0.32.0`.
 
 This package is part of the [typeshed project](https://github.com/python/typeshed).
 All fixes for types and metadata should be contributed there.
@@ -25,11 +25,11 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 2.2.0
+* [mypy](https://github.com/python/mypy/) 2.3.0
 * [pyright](https://github.com/microsoft/pyright) 1.1.411
 
 It was generated from typeshed commit
-[`8e3110c4d3cf2828734b119863c6853529bb3034`](https://github.com/python/typeshed/commit/8e3110c4d3cf2828734b119863c6853529bb3034).
+[`e4e0f7e3faccda1ea2be38c00fc43ba4a77249d0`](https://github.com/python/typeshed/commit/e4e0f7e3faccda1ea2be38c00fc43ba4a77249d0).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
@@ -50,4 +50,4 @@ packages = ['httplib2-stubs']
 include-package-data = false
 
 [tool.setuptools.package-data]
-'httplib2-stubs' = ['__init__.pyi', 'auth.pyi', 'certs.pyi', 'error.pyi', 'iri2uri.pyi', 'METADATA.toml', 'py.typed']
+'httplib2-stubs' = ['__init__.pyi', 'auth.pyi', 'certs.pyi', 'decode.pyi', 'error.pyi', 'iri2uri.pyi', 'METADATA.toml', 'py.typed']

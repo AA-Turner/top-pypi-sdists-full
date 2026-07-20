@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 # Is set during `onbuild` if `pip install pipefunc` is used
-__version__ = "0.93.0"
+__version__ = "0.93.1"
 
 if not __version__:
     try:

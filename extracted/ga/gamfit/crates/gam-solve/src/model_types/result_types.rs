@@ -26,9 +26,8 @@ pub fn dispersion_from_likelihood(
         ))
     };
     let known = |phi| Dispersion::known(phi).map_err(|err| invalid(err.to_string()));
-    let estimated_dispersion = |phi| {
-        Dispersion::estimated(phi).map_err(|err| invalid(err.to_string()))
-    };
+    let estimated_dispersion =
+        |phi| Dispersion::estimated(phi).map_err(|err| invalid(err.to_string()));
     let reciprocal = |value, is_estimated| {
         Dispersion::from_reciprocal(value, is_estimated).map_err(|err| invalid(err.to_string()))
     };
@@ -49,8 +48,7 @@ pub fn dispersion_from_likelihood(
         Scale::ProfiledGaussian => {
             let standard_deviation = profiled_gaussian_standard_deviation.ok_or_else(|| {
                 invalid(
-                    "profiled Gaussian requires an explicit fitted standard deviation"
-                        .to_string(),
+                    "profiled Gaussian requires an explicit fitted standard deviation".to_string(),
                 )
             })?;
             if !(standard_deviation.is_finite() && standard_deviation >= 0.0) {
@@ -157,8 +155,6 @@ mod per_term_edf_tests {
                 smoothing_correction: None,
                 smoothing_correction_method: None,
                 penalized_hessian: gam_problem::dispersion_cov::UnscaledPrecision::wrap(eye(36)),
-                working_weights: Array1::ones(1),
-                working_response: Array1::zeros(1),
                 reparam_qs: None,
                 dispersion: Dispersion::estimated(1.0).unwrap(),
                 beta_covariance: None,
@@ -244,8 +240,6 @@ mod per_term_edf_tests {
                 smoothing_correction: None,
                 smoothing_correction_method: None,
                 penalized_hessian: gam_problem::dispersion_cov::UnscaledPrecision::wrap(eye(p)),
-                working_weights: Array1::ones(1),
-                working_response: Array1::zeros(1),
                 reparam_qs: None,
                 dispersion: Dispersion::estimated(1.0).unwrap(),
                 beta_covariance: None,
@@ -317,8 +311,6 @@ mod per_term_edf_tests {
                 smoothing_correction: None,
                 smoothing_correction_method: None,
                 penalized_hessian: gam_problem::dispersion_cov::UnscaledPrecision::wrap(eye(p)),
-                working_weights: Array1::ones(1),
-                working_response: Array1::zeros(1),
                 reparam_qs: None,
                 dispersion: Dispersion::estimated(1.0).unwrap(),
                 beta_covariance: None,
@@ -512,8 +504,6 @@ mod per_term_edf_tests {
                 smoothing_correction: None,
                 smoothing_correction_method: None,
                 penalized_hessian: gam_problem::dispersion_cov::UnscaledPrecision::wrap(eye(p)),
-                working_weights: Array1::ones(1),
-                working_response: Array1::zeros(1),
                 reparam_qs: None,
                 dispersion: Dispersion::estimated(1.0).unwrap(),
                 beta_covariance: None,
@@ -629,6 +619,29 @@ mod per_term_edf_tests {
 /// counts as railed against its box bound.
 pub(crate) const CERTIFICATE_RAIL_MARGIN: f64 = 0.5;
 
+/// One outer smoothing coordinate certified stationary-at-asymptote: it has no
+/// interior optimum (its gradient never clears the fixed bound), but the fitted
+/// model has provably reached its rail limit to within tolerance along it
+/// (#2348 Inc 1 / #2299 layer 3, #2337 Thm 2.1). The certified facts are the
+/// per-coordinate outputs of
+/// [`crate::rho_optimizer::asymptote_certificate::assess_coordinate`].
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct RailCoordinate {
+    /// The ρ-block index of the railed coordinate.
+    pub index: usize,
+    /// Which rail (`λ → ∞` upper, `λ → 0` lower) it is approaching.
+    pub side: crate::rho_optimizer::asymptote_certificate::AsymptoteSide,
+    /// The observed pencil constant `ĉ` (window mean) confirming the tail.
+    pub tail_constant: f64,
+    /// The exact remaining criterion value-gap to the rail, `|∂V/∂ρ|`.
+    pub value_gap: f64,
+    /// The bound on remaining coefficient travel to the rail limit.
+    pub estimand_travel_bound: f64,
+    /// The pencil-constant noise floor the tail cleared to be confirmed (the
+    /// `ĉ > noise_margin` self-protection against the finite-difference floor).
+    pub noise_margin: f64,
+}
+
 /// The stationarity equation that certified an outer optimum.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum OuterStationarityCertificate {
@@ -645,6 +658,18 @@ pub enum OuterStationarityCertificate {
         bound: f64,
         covered_coordinates: usize,
     },
+    /// Stationary-at-asymptote (#2348 Inc 1): the interior (non-railed)
+    /// coordinates are gradient-stationary, and every coordinate whose gradient
+    /// stays above the fixed bound all the way to a box rail is certified on a
+    /// confirmed exponential tail whose fitted model already equals the rail
+    /// limit to within the estimand tolerance. `interior_projected_grad_norm`
+    /// is the KKT-projected gradient with the railed coordinates removed; it is
+    /// the quantity compared against `bound`.
+    AsymptoteRail {
+        interior_projected_grad_norm: f64,
+        bound: f64,
+        rails: Vec<RailCoordinate>,
+    },
 }
 
 impl OuterStationarityCertificate {
@@ -654,6 +679,13 @@ impl OuterStationarityCertificate {
             Self::FixedPoint {
                 residual_inf_norm, ..
             } => *residual_inf_norm,
+            // The load-bearing residual is the interior (non-railed) projected
+            // gradient; the railed coordinates are certified by their tails, not
+            // by a vanishing residual.
+            Self::AsymptoteRail {
+                interior_projected_grad_norm,
+                ..
+            } => *interior_projected_grad_norm,
         }
     }
 
@@ -667,17 +699,36 @@ impl OuterStationarityCertificate {
                 projected_residual_inf_norm,
                 ..
             } => *projected_residual_inf_norm,
+            Self::AsymptoteRail {
+                interior_projected_grad_norm,
+                ..
+            } => *interior_projected_grad_norm,
         }
     }
 
     pub fn bound(&self) -> f64 {
         match self {
-            Self::AnalyticGradient { bound, .. } | Self::FixedPoint { bound, .. } => *bound,
+            Self::AnalyticGradient { bound, .. }
+            | Self::FixedPoint { bound, .. }
+            | Self::AsymptoteRail { bound, .. } => *bound,
         }
     }
 
     pub fn is_fixed_point(&self) -> bool {
         matches!(self, Self::FixedPoint { .. })
+    }
+
+    /// Whether this optimum was certified stationary-at-asymptote.
+    pub fn is_asymptote_rail(&self) -> bool {
+        matches!(self, Self::AsymptoteRail { .. })
+    }
+
+    /// The certified asymptote rails, when this is an `AsymptoteRail`.
+    pub fn rails(&self) -> &[RailCoordinate] {
+        match self {
+            Self::AsymptoteRail { rails, .. } => rails,
+            _ => &[],
+        }
     }
 }
 
@@ -731,8 +782,32 @@ impl OuterCriterionCertificate {
             && self.stationarity.projected_norm() >= 0.0
             && self.stationarity.bound().is_finite()
             && self.stationarity.bound() >= 0.0
+            && self.rails_are_well_formed()
             && self.is_stationary()
             && self.curvature_admissible()
+    }
+
+    /// An `AsymptoteRail` certificate is only admissible when it carries at
+    /// least one rail and every rail's certified facts are finite (a positive
+    /// pencil constant and non-negative gaps). Non-rail certificates trivially
+    /// pass. This closes the door on a deserialized rail certificate with an
+    /// empty or non-finite `rails` list minting convergence.
+    fn rails_are_well_formed(&self) -> bool {
+        match &self.stationarity {
+            OuterStationarityCertificate::AsymptoteRail { rails, .. } => {
+                !rails.is_empty()
+                    && rails.iter().all(|rail| {
+                        rail.tail_constant.is_finite()
+                            && rail.tail_constant > 0.0
+                            && rail.value_gap.is_finite()
+                            && rail.value_gap >= 0.0
+                            && rail.estimand_travel_bound.is_finite()
+                            && rail.estimand_travel_bound >= 0.0
+                            && rail.noise_margin.is_finite()
+                    })
+            }
+            _ => true,
+        }
     }
 
     /// Whether every audited fact is clean (stationary, PSD-or-untracked
@@ -759,6 +834,34 @@ impl OuterCriterionCertificate {
             } => format!(
                 "fixed-point |r|inf={residual_inf_norm:.3e} |Pr|inf={projected_residual_inf_norm:.3e} bound={bound:.3e} covered={covered_coordinates}"
             ),
+            OuterStationarityCertificate::AsymptoteRail {
+                interior_projected_grad_norm,
+                bound,
+                rails,
+            } => {
+                let rail_summary = rails
+                    .iter()
+                    .map(|rail| {
+                        format!(
+                            "#{}{} ĉ={:.3e} gap={:.3e} travel={:.3e}",
+                            rail.index,
+                            match rail.side {
+                                crate::rho_optimizer::asymptote_certificate::AsymptoteSide::Upper =>
+                                    "↑",
+                                crate::rho_optimizer::asymptote_certificate::AsymptoteSide::Lower =>
+                                    "↓",
+                            },
+                            rail.tail_constant,
+                            rail.value_gap,
+                            rail.estimand_travel_bound,
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                format!(
+                    "asymptote-rail |Pg_interior|={interior_projected_grad_norm:.3e} bound={bound:.3e} rails=[{rail_summary}]"
+                )
+            }
         };
         format!(
             "{stationarity} hessian_psd={} railed={:?} → {}",
@@ -1123,14 +1226,16 @@ pub struct FitInference {
     /// Method that produced `smoothing_correction`. Required whenever a matrix
     /// is present; `None` means no correction was retained.
     pub smoothing_correction_method: Option<SmoothingCorrectionMethod>,
-    /// Raw penalised Hessian `H = X'W_HX + S(λ)` with NO dispersion scaling.
+    /// Penalised Hessian `H = X'W_HX + S(λ)` with NO dispersion scaling.
+    /// When [`UnifiedFitResult::geometry`] is present, this matrix shares its
+    /// exact active coefficient frame and therefore has dimension
+    /// `geometry.coefficient_gauge.reduced_total()`. Without saved geometry it
+    /// is in the saved/raw coefficient frame.
     /// Stored as [`UnscaledPrecision`] so callers that need the φ-scaled
     /// covariance `Vb` know they must pair this with [`Self::dispersion`].
     /// `#[serde(transparent)]` on the newtype keeps the on-disk encoding
     /// identical to the pre-newtype `Array2<f64>` storage.
     pub penalized_hessian: gam_problem::dispersion_cov::UnscaledPrecision,
-    pub working_weights: Array1<f64>,
-    pub working_response: Array1<f64>,
     pub reparam_qs: Option<Array2<f64>>,
     /// Dispersion/scale used to scale all coefficient covariance matrices.
     /// [`Dispersion`] is a validated newtype with no meaningful default (its
@@ -1139,9 +1244,10 @@ pub struct FitInference {
     /// nonexistent `Default` impl and silently fabricate an unvalidated scale.
     pub dispersion: Dispersion,
     /// Conditional Bayesian covariance under fixed smoothing parameters (mgcv
-    /// `Vb`): `Vb = H^{-1} * phi`, where `H = X'W_HX + S(lambda)` and `phi`
-    /// is [`dispersion`](Self::dispersion). Do not use an unscaled `H^{-1}`
-    /// for standard errors when scale is estimated.
+    /// `Vb`). In an unreduced coefficient frame, `Vb = H^{-1} * phi`. With an
+    /// active geometry gauge `β = Tθ + a`, the saved/raw covariance is
+    /// `Vb = T H_θ^{-1} Tᵀ * phi`. Do not use an unscaled `H^{-1}` for
+    /// standard errors when scale is estimated.
     pub beta_covariance: Option<gam_problem::dispersion_cov::PhiScaledCovariance>,
     /// Marginal SEs from `beta_covariance`.
     pub beta_standard_errors: Option<Array1<f64>>,
@@ -1297,18 +1403,45 @@ pub struct FittedBlock {
     pub lambdas: Array1<f64>,
 }
 
-/// Working-set geometry at convergence needed by ALO and other post-fit
-/// diagnostics. Only populated when the inner solver provides the data.
+/// Owned diagonal working-set evidence at convergence.
+///
+/// This evidence is distinct from coefficient geometry: Exact-Newton and
+/// multi-parameter fits can retain an exact coefficient gauge and penalized
+/// Hessian without having a single row-wise IRLS representation. Consumers
+/// that mathematically require row evidence (currently ALO and constrained
+/// Gaussian centering) must explicitly require this value.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct WorkingGeometry {
+    /// Score-side Fisher IRLS weights paired with `response`.
+    pub weights: Array1<f64>,
+    /// IRLS working response at convergence.
+    pub response: Array1<f64>,
+}
+
+/// Coefficient geometry retained at convergence for inference and post-fit
+/// diagnostics.
+///
+/// The saved coefficient blocks are always in the raw reporting frame. The
+/// geometry may occupy a smaller active frame; `coefficient_gauge` is the
+/// required affine map `β_saved = T θ_active + a` connecting the two.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FitGeometry {
-    /// Joint penalized Hessian `H = X'W_HX + S(λ)` at convergence.
+    /// Exact affine lift from the active geometry coordinates (the columns of
+    /// `T`) to the saved/raw coefficient blocks (the rows of `T`). This field is
+    /// intentionally required on the wire: models saved before the active-frame
+    /// schema must be regenerated rather than guessed as identity.
+    pub coefficient_gauge: gam_problem::gauge::Gauge,
+    /// Joint penalized Hessian `H = X'W_HX + S(λ)` at convergence, in the
+    /// active coordinates of `coefficient_gauge` (dimension
+    /// `coefficient_gauge.reduced_total()`).
     /// Stored as [`UnscaledPrecision`] so the dispersion-ownership invariant
     /// (this matrix is *not* φ-scaled) is enforced at the type level.
     pub penalized_hessian: gam_problem::dispersion_cov::UnscaledPrecision,
-    /// Score-side Fisher IRLS weights paired with `working_response`.
-    pub working_weights: Array1<f64>,
-    /// IRLS working response at convergence.
-    pub working_response: Array1<f64>,
+    /// Optional owned row-wise diagonal IRLS evidence. `None` is a typed
+    /// statement that the terminal solver geometry has no single diagonal
+    /// row representation; it is never represented by empty or zero-filled
+    /// placeholder vectors.
+    pub working: Option<WorkingGeometry>,
 }
 
 #[derive(Clone)]
@@ -1368,31 +1501,13 @@ impl FitConvergenceEvidence {
     }
 
     fn try_from_parts(parts: &UnifiedFitResultParts) -> Result<Self, EstimationError> {
-        // Only strict inner convergence can mint a fit. Near-stationary stalled
-        // checkpoints remain useful diagnostics, but returning one as a model
-        // would conflate a widened KKT band with convergence.
-        //
-        // ONE measurement-over-taxonomy exception (#2273):
-        // `StalledAtValidMinimum` is the classifier's 10×-KKT-band +
-        // valid-minimum-curvature verdict, and the perfect-separation Firth
-        // rescue routinely lands there with the OUTER criterion certificate —
-        // which differentiates the stationary envelope THROUGH this inner
-        // mode — certifying with a measured stationarity residual orders of
-        // magnitude inside its bound (measured: 8.3e-11 against 1.2e-3,
-        // refused solely on the status enum, so the documented Firth
-        // separation rescue produced no model at all). When the analytic
-        // certificate certifies, the inner mode is certified by evidence; a
-        // stalled mode the envelope derivative CAN'T certify still refuses,
-        // as do all other non-converged statuses unconditionally.
-        let stalled_but_analytically_certified = matches!(
-            parts.pirls_status,
-            crate::pirls::PirlsStatus::StalledAtValidMinimum
-        ) && parts
-            .artifacts
-            .criterion_certificate
-            .as_ref()
-            .is_some_and(|certificate| certificate.certifies());
-        if !parts.pirls_status.is_converged() && !stalled_but_analytically_certified {
+        // Inner and outer stationarity are independent obligations. An outer
+        // envelope certificate cannot prove that the coefficient mode is
+        // stationary, so diagnostic stalled checkpoints never mint fits.
+        // The PIRLS final-state gate promotes strict-KKT or exact-decrement
+        // evidence to `Converged` before assembly; keeping this gate strict
+        // makes live construction and deserialization enforce one contract.
+        if !parts.pirls_status.is_converged() {
             return Err(Self::assembly_error(
                 parts,
                 "outer evidence was not considered because the inner mode is uncertified"
@@ -1431,6 +1546,52 @@ impl FitConvergenceEvidence {
             outer,
         })
     }
+}
+
+/// Exact coefficient-covariance definition (#2296).
+///
+/// This is the canonical vocabulary for "which covariance was used": the
+/// conditional-on-λ̂ Bayesian `Vb`, the smoothing-parameter-corrected `Vp`
+/// (`Vb + J·Var(ρ̂)·Jᵀ`), or the frequentist sandwich `Ve`. Any surface that
+/// reports coefficient uncertainty must carry one of these values resolved
+/// from the matrices it actually consumed, never from the caller's request.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub enum CoefficientCovarianceDefinition {
+    /// Conditional Bayesian covariance with smoothing parameters fixed (`Vb`).
+    Conditional,
+    /// Bayesian covariance including smoothing-parameter uncertainty (`Vp`).
+    SmoothingCorrected,
+    /// Frequentist sandwich covariance (`Ve`).
+    FrequentistSandwich,
+}
+
+impl CoefficientCovarianceDefinition {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Conditional => "conditional",
+            Self::SmoothingCorrected => "smoothing-corrected",
+            Self::FrequentistSandwich => "frequentist-sandwich",
+        }
+    }
+}
+
+impl std::fmt::Display for CoefficientCovarianceDefinition {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+
+/// A definition-consistent coefficient-uncertainty view (#2296): standard
+/// errors and (optional) covariance from the SAME definition, tagged with
+/// that definition. Produced by
+/// [`UnifiedFitResult::display_coefficient_uncertainty`].
+#[derive(Clone, Copy, Debug)]
+pub struct DisplayCoefficientUncertainty<'a> {
+    pub definition: CoefficientCovarianceDefinition,
+    pub standard_errors: &'a Array1<f64>,
+    /// The covariance matrix of the same definition, when the fit persists
+    /// it. `None` here never falls back to another definition's matrix.
+    pub covariance: Option<&'a Array2<f64>>,
 }
 
 /// Unified fit result for all model types (standard GAM, GAMLSS, survival).
@@ -1540,6 +1701,7 @@ fn validate_likelihood_scale_estimation(
         LikelihoodScaleMetadata::ProfiledGaussian | LikelihoodScaleMetadata::Unspecified => Ok(()),
         LikelihoodScaleMetadata::FixedDispersion { phi }
         | LikelihoodScaleMetadata::EstimatedBetaPhi { phi }
+        | LikelihoodScaleMetadata::FixedBetaPhi { phi }
         | LikelihoodScaleMetadata::EstimatedTweediePhi { phi } => {
             ensure_finite_scalar_estimation("fit_result.likelihood_scale.phi", phi)?;
             if phi > 0.0 {
@@ -1583,17 +1745,38 @@ pub use gam_problem::{ensure_finite_scalar, validate_all_finite};
 
 impl FitGeometry {
     pub fn validate_numeric_finiteness(&self) -> Result<(), EstimationError> {
+        self.coefficient_gauge.validate().map_err(|reason| {
+            EstimationError::InvalidInput(format!(
+                "fit_result.geometry.coefficient_gauge is invalid: {reason}"
+            ))
+        })?;
         validate_all_finite_estimation(
             "fit_result.geometry.penalized_hessian",
             self.penalized_hessian.iter().copied(),
         )?;
+        if let Some(working) = self.working.as_ref() {
+            working.validate_numeric_finiteness()?;
+        }
+        Ok(())
+    }
+}
+
+impl WorkingGeometry {
+    pub fn validate_numeric_finiteness(&self) -> Result<(), EstimationError> {
+        if self.weights.len() != self.response.len() {
+            return Err(EstimationError::InvalidInput(format!(
+                "fit_result.geometry working vector length mismatch: weights={}, response={}",
+                self.weights.len(),
+                self.response.len(),
+            )));
+        }
         validate_all_finite_estimation(
-            "fit_result.geometry.working_weights",
-            self.working_weights.iter().copied(),
+            "fit_result.geometry.working.weights",
+            self.weights.iter().copied(),
         )?;
         validate_all_finite_estimation(
-            "fit_result.geometry.working_response",
-            self.working_response.iter().copied(),
+            "fit_result.geometry.working.response",
+            self.response.iter().copied(),
         )?;
         Ok(())
     }
@@ -1609,14 +1792,6 @@ impl FitInference {
         validate_all_finite_estimation(
             "fit_result.penalty_block_trace",
             self.penalty_block_trace.iter().copied(),
-        )?;
-        validate_all_finite_estimation(
-            "fit_result.working_weights",
-            self.working_weights.iter().copied(),
-        )?;
-        validate_all_finite_estimation(
-            "fit_result.working_response",
-            self.working_response.iter().copied(),
         )?;
         validate_all_finite_estimation(
             "fit_result.penalized_hessian",
@@ -1936,6 +2111,38 @@ impl UnifiedFitResult {
                 p
             );
         }
+        let penalized_hessian_dim = if let Some(geom) = geometry.as_ref() {
+            let gauge = &geom.coefficient_gauge;
+            if gauge.n_blocks() != blocks.len() {
+                crate::bail_invalid_estim!(
+                    "UnifiedFitResult geometry coefficient gauge block count mismatch: gauge={}, fitted blocks={}",
+                    gauge.n_blocks(),
+                    blocks.len(),
+                );
+            }
+            for (block_index, (raw_width, block)) in gauge
+                .raw_widths()
+                .into_iter()
+                .zip(blocks.iter())
+                .enumerate()
+            {
+                if raw_width != block.beta.len() {
+                    crate::bail_invalid_estim!(
+                        "UnifiedFitResult geometry coefficient gauge raw block {block_index} has width {raw_width}, expected saved beta width {}",
+                        block.beta.len(),
+                    );
+                }
+            }
+            let active_dim = gauge.reduced_total();
+            validate_dense_hessian_export(
+                "UnifiedFitResult geometry active-coordinate penalized Hessian",
+                &geom.penalized_hessian,
+                active_dim,
+            )?;
+            active_dim
+        } else {
+            p
+        };
         if let Some(inf) = inference.as_ref() {
             if !inf.edf_by_block.is_empty() && inf.edf_by_block.len() != lambdas.len() {
                 crate::bail_invalid_estim!(
@@ -1952,26 +2159,10 @@ impl UnifiedFitResult {
                     lambdas.len()
                 );
             }
-            if inf.working_weights.len() != inf.working_response.len() {
-                crate::bail_invalid_estim!(
-                    "UnifiedFitResult working vector length mismatch: working_weights={}, working_response={}",
-                    inf.working_weights.len(),
-                    inf.working_response.len()
-                );
-            }
-            if inf.penalized_hessian.nrows() != p || inf.penalized_hessian.ncols() != p {
-                crate::bail_invalid_estim!(
-                    "UnifiedFitResult penalized Hessian shape mismatch: got {}x{}, expected {}x{}",
-                    inf.penalized_hessian.nrows(),
-                    inf.penalized_hessian.ncols(),
-                    p,
-                    p
-                );
-            }
             validate_dense_hessian_export(
                 "UnifiedFitResult inference penalized Hessian",
                 &inf.penalized_hessian,
-                p,
+                penalized_hessian_dim,
             )?;
             if let Some(cov) = inf.beta_covariance.as_ref() {
                 if cov.nrows() != p || cov.ncols() != p {
@@ -2081,38 +2272,9 @@ impl UnifiedFitResult {
             }
         }
         if let Some(geom) = geometry.as_ref() {
-            if geom.penalized_hessian.nrows() != p || geom.penalized_hessian.ncols() != p {
-                crate::bail_invalid_estim!(
-                    "UnifiedFitResult geometry penalized Hessian shape mismatch: got {}x{}, expected {}x{}",
-                    geom.penalized_hessian.nrows(),
-                    geom.penalized_hessian.ncols(),
-                    p,
-                    p
-                );
-            }
-            validate_dense_hessian_export(
-                "UnifiedFitResult geometry penalized Hessian",
-                &geom.penalized_hessian,
-                p,
-            )?;
-            if geom.working_weights.len() != geom.working_response.len() {
-                crate::bail_invalid_estim!(
-                    "UnifiedFitResult geometry working vector length mismatch: working_weights={}, working_response={}",
-                    geom.working_weights.len(),
-                    geom.working_response.len()
-                );
-            }
             if let Some(inf) = inference.as_ref() {
                 if geom.penalized_hessian != inf.penalized_hessian {
                     crate::bail_invalid_estim!("UnifiedFitResult geometry penalized Hessian must match inference.penalized_hessian"
-                            .to_string(),);
-                }
-                if geom.working_weights != inf.working_weights {
-                    crate::bail_invalid_estim!("UnifiedFitResult geometry working_weights must match inference.working_weights"
-                            .to_string(),);
-                }
-                if geom.working_response != inf.working_response {
-                    crate::bail_invalid_estim!("UnifiedFitResult geometry working_response must match inference.working_response"
                             .to_string(),);
                 }
             }
@@ -2354,10 +2516,13 @@ impl UnifiedFitResult {
         Ok(sigma_ratio)
     }
 
-    /// Get the conditional Bayesian covariance matrix (`Vb`) if available.
+    /// Get the conditional Bayesian covariance matrix (`Vb`) in the saved/raw
+    /// coefficient frame, if available.
     ///
-    /// Contract: `Vb = H^{-1} * phi`, scaled by the fitted dispersion. This is
-    /// the Wood/mgcv `Vb` (Bayesian/conditional) covariance.
+    /// Contract: for an active geometry gauge `β = Tθ + a`,
+    /// `Vb_raw = T H_active^{-1} Tᵀ * phi`. For an identity gauge this
+    /// reduces to `H^{-1} * phi`. This is the Wood/mgcv `Vb`
+    /// (Bayesian/conditional) covariance.
     pub fn beta_covariance(&self) -> Option<&Array2<f64>> {
         self.covariance_conditional.as_ref()
     }
@@ -2503,6 +2668,33 @@ impl UnifiedFitResult {
             .and_then(|inf| inf.beta_standard_errors_corrected.as_ref())
     }
 
+    /// Corrected-preferred, definition-consistent coefficient uncertainty for
+    /// summary/report display surfaces (#2296).
+    ///
+    /// Returns the smoothing-corrected standard errors (with the corrected
+    /// covariance, when persisted) if the fit carries them, else the
+    /// conditional pair. Standard errors and covariance are NEVER mixed
+    /// across definitions: if the preferred definition has SEs but no matrix,
+    /// the matrix slot is `None` rather than a different definition's matrix.
+    /// The returned [`CoefficientCovarianceDefinition`] names what was
+    /// actually selected so presenters serialize result-owned provenance —
+    /// a display policy or request is never evidence of what was used.
+    pub fn display_coefficient_uncertainty(&self) -> Option<DisplayCoefficientUncertainty<'_>> {
+        if let Some(standard_errors) = self.beta_standard_errors_corrected() {
+            return Some(DisplayCoefficientUncertainty {
+                definition: CoefficientCovarianceDefinition::SmoothingCorrected,
+                standard_errors,
+                covariance: self.beta_covariance_corrected(),
+            });
+        }
+        self.beta_standard_errors()
+            .map(|standard_errors| DisplayCoefficientUncertainty {
+                definition: CoefficientCovarianceDefinition::Conditional,
+                standard_errors,
+                covariance: self.beta_covariance(),
+            })
+    }
+
     /// Get the O(n⁻¹) bias-correction vector b̂ = H⁻¹ S(λ̂) β̂ in the
     /// original coefficient basis, if available.
     pub fn bias_correction_beta(&self) -> Option<&Array1<f64>> {
@@ -2522,6 +2714,11 @@ impl UnifiedFitResult {
 
     /// Get the penalized Hessian if available.
     ///
+    /// The matrix is in the active geometry coordinate frame when
+    /// [`Self::geometry`] is present, so it may be smaller than the saved beta
+    /// vector. Pair it with `geometry.coefficient_gauge`; only an identity gauge
+    /// makes this a saved/raw-coordinate Hessian.
+    ///
     /// Boundary accessor: returns `&Array2<f64>` so out-of-scope consumers
     /// (CLI, GPU, families) keep their pre-newtype call shape. Use
     /// [`Self::penalized_hessian_unscaled`] when the caller wants the
@@ -2538,10 +2735,11 @@ impl UnifiedFitResult {
             })
     }
 
-    /// Get the penalized Hessian as the [`UnscaledPrecision`] newtype if
-    /// available. Use this when constructing newtype-aware APIs (HMC
-    /// whitening, sampling) so the dispersion convention is enforced at
-    /// the type level.
+    /// Get the active-coordinate penalized Hessian as the
+    /// [`UnscaledPrecision`] newtype if available. Use this when constructing
+    /// newtype-aware APIs (HMC whitening, sampling) so both the dispersion
+    /// convention and the accompanying `geometry.coefficient_gauge` are
+    /// handled explicitly.
     pub fn penalized_hessian_unscaled(
         &self,
     ) -> Option<&gam_problem::dispersion_cov::UnscaledPrecision> {
@@ -2564,14 +2762,21 @@ impl UnifiedFitResult {
             .and_then(|inf| inf.beta_covariance.as_ref())
     }
 
-    /// Get working weights if available.
-    pub fn working_weights(&self) -> Option<&Array1<f64>> {
-        self.inference.as_ref().map(|inf| &inf.working_weights)
+    /// Get owned row-wise diagonal working evidence if available.
+    pub fn working_geometry(&self) -> Option<&WorkingGeometry> {
+        self.geometry
+            .as_ref()
+            .and_then(|geometry| geometry.working.as_ref())
     }
 
-    /// Get working response if available.
+    /// Get working weights if single diagonal row evidence is available.
+    pub fn working_weights(&self) -> Option<&Array1<f64>> {
+        self.working_geometry().map(|working| &working.weights)
+    }
+
+    /// Get working response if single diagonal row evidence is available.
     pub fn working_response(&self) -> Option<&Array1<f64>> {
-        self.inference.as_ref().map(|inf| &inf.working_response)
+        self.working_geometry().map(|working| &working.response)
     }
 
     /// Smoothing-parameter uncertainty covariance contribution `J·Var(ρ)·Jᵀ`

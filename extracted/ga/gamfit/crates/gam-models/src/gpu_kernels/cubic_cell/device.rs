@@ -1,23 +1,10 @@
 //! Device-resident dispatcher for the cubic-cell derivative-moment substrate.
 //!
-//! Stage-1 scope:
-//!
-//! * **NonAffineFinite** cells are evaluated on the GPU by NVRTC-compiling the
-//!   384-point Gauss–Legendre kernel emitted by [`super::kernel_src`] (the
-//!   `cubic_deriv_moments_d{degree}` specialization). One warp processes one
-//!   cell; results land in the same row-major `[n_cells, max_degree+1]` host
-//!   buffer the host substrate produces.
-//! * **Affine** and **AffineTail** cells stay on CPU for Stage-1: the device
-//!   kernel already contains closed-form branches for them, but Stage-1 keeps
-//!   the dispatcher conservative and bit-equal to the CPU parity reference for
-//!   those buckets. The closed-form device port lands with Stage-2.
-//!
-//! No silent fallback: cells are pre-bucketed on the host. The GPU launch is
-//! issued only on the NonAffineFinite bucket; CPU evaluation is issued only on
-//! the Affine / AffineTail buckets. Both contribute to the same host output
-//! buffer. Cells with non-OK classifier status receive zeroed rows and the
-//! corresponding [`super::CubicCellMomentStatus`] code, exactly like the host
-//! substrate.
+//! Every cell is classified exactly once by the canonical CPU predicate, then
+//! the all-branch NVRTC kernel evaluates affine, non-affine finite, and affine
+//! tail cells into one device-resident `[n_cells, max_degree+1]` buffer. There
+//! is no selected-device-to-host fallback. Invalid cells receive zeroed rows and
+//! a typed [`super::CubicCellMomentStatus`].
 
 #[cfg(target_os = "linux")]
 use crate::gpu_kernels::cubic_cell::{
@@ -37,29 +24,22 @@ use std::sync::{Arc, Mutex, OnceLock};
 #[cfg(target_os = "linux")]
 use cudarc::driver::{CudaContext, CudaModule, CudaStream};
 
-/// Linux-only: launch the Stage-1 dispatcher and return the moments
-/// buffer in device memory (`CudaSlice<f64>`). Caller may pass the
-/// returned slice directly to any kernel launch on the same default
-/// stream (e.g. `bms_flex_row_kernel`). Returns `Ok(None)` when no CUDA
-/// runtime is available (caller should fall back to the host substrate).
-/// Returns `Err` on a genuine driver / NVRTC / shape failure that the
-/// caller must surface.
+/// Linux-only: launch the device dispatcher and return the moments buffer in
+/// device memory (`CudaSlice<f64>`). The caller reaches this boundary only
+/// after selecting device execution, so backend absence and driver/NVRTC/shape
+/// failures are all typed errors; this function never substitutes host work.
 #[cfg(target_os = "linux")]
-pub(crate) fn try_device_moments_resident(
+pub(crate) fn build_device_moments_resident(
     view: &CubicCellDerivativeMomentHostView<'_>,
-) -> Result<Option<CubicCellDerivativeMomentOutput>, GpuError> {
-    let backend = match CubicCellGpuBackend::probe() {
-        Ok(b) => b,
-        Err(GpuError::DriverLibraryUnavailable { .. }) => return Ok(None),
-        Err(other) => return Err(other),
-    };
-    backend.dispatch_device_resident(view).map(Some)
+) -> Result<CubicCellDerivativeMomentOutput, GpuError> {
+    let backend = CubicCellGpuBackend::probe()?;
+    backend.dispatch_device_resident(view)
 }
 
 /// Process-wide cubic-cell GPU backend. Mirrors the
 /// `BmsFlexGpuBackend` / `SurvivalFlexGpuBackend` shape so future
 /// device-residency residencies can swap in without churn. Linux-only:
-/// non-Linux builds skip [`try_device_moments_resident`] at the call
+/// non-Linux builds skip [`build_device_moments_resident`] at the call
 /// site (`super::try_build_cubic_cell_derivative_moments`) via
 /// `#[cfg(target_os = "linux")]`, so this backend is never referenced.
 #[cfg(target_os = "linux")]
@@ -176,7 +156,7 @@ impl CubicCellGpuBackend {
         //      non-affine infinite intervals) get host status codes and a
         //      placeholder branch the kernel will reject. This mirrors the
         //      `dispatch` host-resident path's classifier behavior.
-        let mut status_host = vec![CubicCellMomentStatus::Ok as u8; n_cells];
+        let mut status_host = vec![CubicCellMomentStatus::Ok; n_cells];
         // Branch code per cell for the kernel:
         // BRANCH_AFFINE = 0, BRANCH_NONAFFINE_FIN = 1, BRANCH_AFFINE_TAIL = 2.
         // 255 marks "classifier-rejected" — the kernel's lane-0 validator
@@ -200,10 +180,6 @@ impl CubicCellGpuBackend {
             c3[i] = gpu_cell.c3;
             match classify_cell_for_gpu(gpu_cell) {
                 Ok(host_tag) => {
-                    if host_tag != view.branches[i] {
-                        status_host[i] = CubicCellMomentStatus::InvalidInterval as u8;
-                        continue;
-                    }
                     branch_code[i] = match host_tag {
                         GpuCellBranchTag::Affine => 0,
                         GpuCellBranchTag::NonAffineFinite => 1,
@@ -211,7 +187,7 @@ impl CubicCellGpuBackend {
                     };
                 }
                 Err(code) => {
-                    status_host[i] = code as u8;
+                    status_host[i] = code;
                 }
             }
         }
@@ -290,8 +266,7 @@ impl CubicCellGpuBackend {
         //   (a) merge with classifier-rejected entries it already knows
         //       (those use the classifier's specific status code, not
         //        the kernel's catch-all STATUS_INVALID),
-        //   (b) hand callers a ready-made `status: Vec<u8>` they can
-        //       branch on without a second DtoH.
+        //   (b) decode the kernel ABI bytes exactly once into typed statuses.
         let kernel_status = stream
             .clone_dtoh(&d_status)
             .gpu_ctx("cubic_cell device-resident DtoH status")?;
@@ -304,12 +279,12 @@ impl CubicCellGpuBackend {
         // STATUS_INVALID path so the device buffer is already correct).
         // Otherwise take the kernel's status verbatim.
         for i in 0..n_cells {
-            if status_host[i] == CubicCellMomentStatus::Ok as u8 {
-                status_host[i] = kernel_status[i];
+            if status_host[i] == CubicCellMomentStatus::Ok {
+                status_host[i] = CubicCellMomentStatus::from_device_code(kernel_status[i])?;
             }
         }
         drop(d_status);
-        Ok(CubicCellDerivativeMomentOutput::Device {
+        Ok(CubicCellDerivativeMomentOutput {
             d_moments,
             status: status_host,
             stride,
@@ -322,9 +297,8 @@ impl CubicCellGpuBackend {
 mod tests {
     use super::*;
     use crate::gpu_kernels::cubic_cell::{
-        CubicCellDerivativeMomentHostView, CubicCellDerivativeMomentOutput,
-        CubicCellMomentResidency, CubicCellMomentStatus, GpuCellBranchTag, GpuDenestedCubicCell,
-        try_build_cubic_cell_derivative_moments,
+        CubicCellDerivativeMomentHostView, CubicCellDerivativeMomentOutput, CubicCellMomentStatus,
+        GpuDenestedCubicCell, try_build_cubic_cell_derivative_moments,
     };
     use gam_gpu::device_runtime::GpuRuntime;
     use gam_gpu::gpu_error::GpuError;
@@ -362,9 +336,15 @@ mod tests {
         use crate::cubic_cell_kernel::{
             DenestedCubicCell, evaluate_cell_derivative_moments_uncached,
         };
-        if GpuRuntime::global().is_none() {
-            eprintln!("[cubic_cell device-residency parity] no CUDA runtime — skipping");
-            return;
+        match GpuRuntime::resolve(gam_gpu::GpuPolicy::Auto) {
+            Ok(Some(_)) => {}
+            Ok(None) => {
+                eprintln!("[cubic_cell device-residency parity] no CUDA device — skipping");
+                return;
+            }
+            Err(error) => {
+                panic!("[cubic_cell device-residency parity] CUDA probe failed: {error}")
+            }
         }
         // One cell per branch, plus a sextic NonAffineFinite stressor.
         let cpu_cells = vec![
@@ -434,40 +414,19 @@ mod tests {
                 c3: c.c3,
             })
             .collect();
-        let branches: Vec<GpuCellBranchTag> = cpu_cells
-            .iter()
-            .map(|c| {
-                if !c.left.is_finite() || !c.right.is_finite() {
-                    GpuCellBranchTag::AffineTail
-                } else if c.c2 == 0.0 && c.c3 == 0.0 {
-                    GpuCellBranchTag::Affine
-                } else {
-                    GpuCellBranchTag::NonAffineFinite
-                }
-            })
-            .collect();
-
         for &max_degree in &[9_usize, 15, 21] {
             let view = CubicCellDerivativeMomentHostView {
                 cells: &cells_gpu,
-                branches: &branches,
                 max_degree,
-                residency: CubicCellMomentResidency::Device,
             };
-            let out = try_build_cubic_cell_derivative_moments(view)
+            let CubicCellDerivativeMomentOutput {
+                d_moments,
+                status,
+                stride,
+                n_cells,
+            } = try_build_cubic_cell_derivative_moments(view)
                 .expect("device-residency dispatch must succeed with CUDA")
                 .expect("non-empty input must yield output");
-            let (d_moments, status, stride, n_cells) = match out {
-                CubicCellDerivativeMomentOutput::Device {
-                    d_moments,
-                    status,
-                    stride,
-                    n_cells,
-                } => (d_moments, status, stride, n_cells),
-                CubicCellDerivativeMomentOutput::Host { .. } => panic!(
-                    "device residency must produce CubicCellDerivativeMomentOutput::Device on a CUDA host"
-                ),
-            };
             assert_eq!(stride, max_degree + 1);
             assert_eq!(n_cells, cpu_cells.len());
             assert_eq!(status.len(), cpu_cells.len());
@@ -478,10 +437,12 @@ mod tests {
             for (i, &cpu_cell) in cpu_cells.iter().enumerate() {
                 assert_eq!(
                     status[i],
-                    CubicCellMomentStatus::Ok as u8,
-                    "cell {i} must classify Ok (status={})",
+                    CubicCellMomentStatus::Ok,
+                    "cell {i} must classify Ok (status={:?})",
                     status[i]
                 );
+                let branch = classify_cell_for_gpu(cells_gpu[i])
+                    .expect("device parity fixture cell must classify");
                 let row = &host_moments[i * stride..(i + 1) * stride];
                 let cpu_state = evaluate_cell_derivative_moments_uncached(cpu_cell, max_degree)
                     .expect("cpu reference");
@@ -520,7 +481,7 @@ mod tests {
                         abs <= 1e-12 || rel <= rel_tol,
                         "device parity drift at branch={:?} degree={max_degree} cell={i} k={k} \
                          gpu={got:.17e} cpu={want:.17e} abs={abs:.3e} rel={rel:.3e} > rel_tol={rel_tol:.3e}",
-                        branches[i]
+                        branch
                     );
                 }
             }

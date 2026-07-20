@@ -4,15 +4,13 @@ tools:
       Capture a bounded app_ui snapshot from the scoped application window.
       Start here before UI actions; use the returned snapshot_id when acting so
       stale controls can be detected. On Windows, an adapter/operator-bound
-      PID/HWND starts the visible Computer Use session and captures a bounded
-      target-window image even when raw input is disabled. If UIA itself is
-      unavailable, that exact scope can fall back to a native image with a
-      minimal non-semantic tree. Bind the
+      PID/HWND starts the visible DCC UI Control session and captures a bounded
+      target-window image even when raw input is disabled. Bind the
       DCC through DCC_MCP_APP_UI_UIA_PROCESS_ID or
       DCC_MCP_APP_UI_UIA_WINDOW_HANDLE; request scope can only narrow it. A
       locked, disconnected, or secure Windows desktop returns
       desktop_unavailable without ending the logical session. After unlock,
-      discard old ids and take a fresh snapshot to restore the banner.
+      discard old ids and take a fresh snapshot to restore the capsule.
       Coordinates belong only to this adapter host and DCC logon session;
       RDP/session or monitor topology, resolution, and DPI changes require a
       fresh snapshot. A bounded target may span monitors whose virtual-desktop
@@ -40,7 +38,7 @@ tools:
           type: boolean
           default: false
           description: >-
-            Explicitly resume native Computer Use after the user stopped it
+            Explicitly resume native DCC UI Control after the user stopped it
             with Ctrl+Alt+Esc. Agents must leave this false unless the user asks to
             resume control.
         policy:
@@ -125,13 +123,17 @@ tools:
 
   - name: act
     description: >-
-      Perform one scoped semantic or Computer Use action. Supports control ids,
+      Perform one scoped semantic or DCC UI Control action. Supports control ids,
       snapshot coordinates, pointer paths, text, and key presses where the
       selected backend supports them. Raw input is denied by default policy.
       Every Windows mutation requires an adapter/operator-bound PID/HWND so
-      the visible banner and user interruption monitor cover semantic UIA as
+      the visible capsule and user interruption monitor cover semantic UIA as
       well as raw input. Raw input additionally requires
       DCC_MCP_COMPUTER_USE_ALLOW_RAW_INPUT=true.
+      get_window_state, restore_window, show_window, and activate_window are
+      recovery operations for the same host-bound PID/HWND and do not require
+      a prior snapshot. They cannot enumerate or target another process/window;
+      restore/show/activate invalidate any prior snapshot and are audited.
       desktop_unavailable means no Windows UI input was sent; keep the logical
       session, stop issuing UI calls, and ask the user to unlock or reconnect.
       Take a fresh snapshot only after that happens. Never
@@ -172,9 +174,39 @@ tools:
             - set_text
             - toggle
             - set_checked
+            - select_option
             - focus
             - keyboard_shortcut
+            - get_window_state
+            - restore_window
+            - show_window
+            - activate_window
           description: "Action kind to perform."
+        intent:
+          type: string
+          enum:
+            - observe
+            - activate
+            - navigate
+            - ordinary_edit
+            - login_or_permission
+            - upload
+            - move_or_rename
+            - transmit_sensitive_data
+            - delete_or_overwrite
+            - install_or_execute_download
+            - financial_transaction
+            - account_or_access_change
+            - external_communication
+            - terminal_or_run_dialog
+            - credential_or_authentication
+            - windows_security_or_privacy
+            - safety_bypass
+            - password_change
+            - escape_scope
+          description: >-
+            Consequence classification hint. It can only raise the native host
+            policy tier; host UIA/target/input classification remains authoritative.
         text:
           type: string
           maxLength: 4096
@@ -254,8 +286,8 @@ tools:
 
   - name: stop_computer_use
     description: >-
-      Stop the native Computer Use session for one app_ui session id, remove
-      its visible border/banner, release the global input owner, and invalidate
+      Stop the native DCC UI Control session for one app_ui session id, remove
+      its visible corner brackets/capsule, release the global input owner, and invalidate
       the latest observation. This remains safe while the desktop is
       unavailable and does not clear a Ctrl+Alt+Esc interruption latch.
     input_schema:

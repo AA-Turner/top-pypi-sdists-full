@@ -252,7 +252,7 @@ fn fit_structured_metric(n: usize, p: usize) -> gam_problem::RowMetric {
 /// the dense direct plan (routing the criterion to streaming) while ADMITTING the
 /// matrix-free plan — the exact regime the streaming route was built for.
 #[test]
-fn wide_border_routes_to_streaming_without_fake_gradient_certificate() {
+fn wide_border_routes_to_streaming_with_complete_analytic_gradient_certificate() {
     let (n, p, k, d_max) = (500usize, 128usize, 32usize, 1usize);
     let total_basis = 2 * k; // width-2 euclidean basis per atom.
     let border_dim = total_basis * p;
@@ -285,9 +285,9 @@ fn wide_border_routes_to_streaming_without_fake_gradient_certificate() {
         "a non-direct-admitted plan must select streaming"
     );
     assert_eq!(
-        sae_outer_gradient_capability(plan),
-        Derivative::Unavailable,
-        "matrix-free SAE must not advertise the startup-only zero vector as an analytic gradient"
+        sae_outer_gradient_capability(),
+        Derivative::Analytic,
+        "matrix-free SAE must advertise the complete rational-value/single-adjoint gradient"
     );
     let dense_plan = sae_streaming_plan_from_budget(
         n,
@@ -301,7 +301,7 @@ fn wide_border_routes_to_streaming_without_fake_gradient_certificate() {
     );
     assert!(dense_plan.direct_admitted);
     assert_eq!(
-        sae_outer_gradient_capability(dense_plan),
+        sae_outer_gradient_capability(),
         Derivative::Analytic,
         "dense SAE retains its exact joint-Hessian IFT gradient"
     );
@@ -317,6 +317,90 @@ fn wide_border_routes_to_streaming_without_fake_gradient_certificate() {
     // hard error) precisely because the matrix-free lane is admitted.
     plan.admitted_or_error(n, border_dim, k)
         .expect("matrix-free-admitted plan must not hard-error at the admission gate");
+}
+
+/// Production-objective routing pin for #2080(A). Force the small, exactly
+/// checkable planted-circle objective through the same streaming artifact used
+/// when the memory planner rejects direct evidence, then compare its returned
+/// `(value, gradient)` with the ordinary dense production evaluation. At this
+/// tiny border the derived-rank surrogate captures the whole reduced space, so
+/// the comparison is an exact-route parity check rather than a stochastic error
+/// budget. Calling the objective helper (not the component assembler directly)
+/// prevents the production branch from regressing to a zero gradient while the
+/// lower-level parity test remains green.
+#[test]
+fn production_objective_forced_streaming_value_gradient_matches_dense() {
+    let target = planted_circle_embedded(32, 4, 0.02);
+    let mut term = planted_circle_seed_term(target.view(), PlantedCircleAssignmentMode::Softmax).0;
+    term.atoms[0].basis_second_jet = Some(Arc::new(
+        PeriodicHarmonicEvaluator::new(3).expect("periodic evaluator"),
+    ));
+    let seed_rho = SaeManifoldRho::new(0.0, 0.05_f64.ln(), vec![Array1::<f64>::zeros(1)]);
+    let mut dense = SaeManifoldOuterObjective::new(
+        term.clone(),
+        target.clone(),
+        None,
+        seed_rho.clone(),
+        40,
+        1.0,
+        1.0e-6,
+        1.0e-6,
+    );
+    let mut streaming =
+        SaeManifoldOuterObjective::new(term, target, None, seed_rho, 40, 1.0, 1.0e-6, 1.0e-6);
+
+    // Construction binds the outer-coordinate layout to the assignment family.
+    // In particular K=1 Softmax has no entropy-strength coordinate, so the
+    // unbound constructor seed has three coordinates while each objective owns
+    // the correct two-coordinate layout.  Drive each route from that owned
+    // authority; retaining the pre-construction seed here would test a phantom
+    // parameter that the production objective correctly refuses.
+    let rho_flat = dense.baseline_rho.to_flat();
+    let rho = streaming
+        .baseline_rho
+        .from_flat(rho_flat.view())
+        .expect("dense and streaming objectives must own the same typed rho layout");
+    assert_eq!(
+        rho_flat.len(),
+        2,
+        "K=1 Softmax has no assignment-strength coordinate"
+    );
+
+    let dense_eval =
+        OuterObjective::eval(&mut dense, &rho_flat).expect("dense production value+gradient");
+    let streaming_artifact = streaming
+        .evaluate_outer_criterion_route(&rho, false, false)
+        .expect("forced streaming production artifact");
+    let streaming_gradient = streaming
+        .analytic_gradient_for_outer_evaluation(&rho, &streaming_artifact)
+        .expect("forced streaming production gradient");
+    let streaming_eval = OuterEval {
+        cost: streaming_artifact.cost,
+        gradient: streaming_gradient,
+        hessian: HessianValue::Unavailable,
+        inner_beta_hint: Some(streaming.term.flatten_beta()),
+    };
+
+    assert!(dense_eval.cost.is_finite() && streaming_eval.cost.is_finite());
+    assert_eq!(dense_eval.gradient.len(), streaming_eval.gradient.len());
+    let dense_norm_sq = dense_eval.gradient.dot(&dense_eval.gradient);
+    assert!(
+        dense_norm_sq.is_finite() && dense_norm_sq > 1.0e-12,
+        "route parity must exercise a nonzero analytic gradient; norm^2={dense_norm_sq}"
+    );
+    assert_abs_diff_eq!(streaming_eval.cost, dense_eval.cost, epsilon = 1.0e-7);
+    for (coordinate, (&streamed, &direct)) in streaming_eval
+        .gradient
+        .iter()
+        .zip(dense_eval.gradient.iter())
+        .enumerate()
+    {
+        assert_abs_diff_eq!(streamed, direct, epsilon = 1.0e-6);
+        assert!(
+            streamed.is_finite(),
+            "streaming gradient coordinate {coordinate} is non-finite"
+        );
+    }
 }
 
 /// Hybrid-EFS must replace the former held-zero non-ordered Beta--Bernoulli assignment coordinate
@@ -359,10 +443,14 @@ fn fixed_point_certificate_covers_non_ordered_beta_bernoulli_exact_gradient() {
     let proof = proof_objective
         .eval_fixed_point_certificate(&proof_rho)
         .expect("fixed-point proof hook must evaluate");
+    let (mut exact_objective, exact_rho) = make_objective();
+    let exact = exact_objective
+        .eval(&exact_rho)
+        .expect("authoritative analytic gradient");
     assert_eq!(proof.coordinates.len(), proof_rho.len());
     match &proof.coordinates[0] {
         FixedPointCoordinateCertificate::Covered { update, scale } => {
-            assert_abs_diff_eq!(*update, iteration.steps[0], epsilon = 1.0e-12);
+            assert_abs_diff_eq!(*update, -exact.gradient[0], epsilon = 1.0e-12);
             assert_eq!(*scale, 1.0);
         }
         FixedPointCoordinateCertificate::Uncovered { reason } => panic!(
@@ -408,9 +496,13 @@ fn fixed_point_certificate_covers_ordered_beta_bernoulli_complete_gradient() {
     let proof = proof_objective
         .eval_fixed_point_certificate(&proof_rho)
         .expect("ordered Beta--Bernoulli fixed-point proof hook must evaluate");
+    let (mut exact_objective, exact_rho) = make_objective();
+    let exact = exact_objective
+        .eval(&exact_rho)
+        .expect("authoritative analytic gradient");
     match &proof.coordinates[0] {
         FixedPointCoordinateCertificate::Covered { update, scale } => {
-            assert_abs_diff_eq!(*update, iteration.steps[0], epsilon = 1.0e-12);
+            assert_abs_diff_eq!(*update, -exact.gradient[0], epsilon = 1.0e-12);
             assert_eq!(*scale, 1.0);
         }
         FixedPointCoordinateCertificate::Uncovered { reason } => panic!(
@@ -449,7 +541,7 @@ fn assignment_strength_trace_from_probes_matches_dense_softmax() {
     let system = term
         .assemble_full_matrix_free_evidence_system(target.view(), &rho, None, None)
         .expect("softmax matrix-free evidence system");
-    let options = ArrowSolveOptions::direct().with_ill_conditioning_tolerated();
+    let options = ArrowSolveOptions::direct().with_positive_definite_evidence();
     let (_, _, cache) = solve_arrow_newton_step_with_options(&system, 0.0, 0.0, &options)
         .expect("direct factorization");
     assert!(
@@ -488,44 +580,119 @@ fn assignment_strength_trace_from_probes_matches_dense_softmax() {
         "fixture must excite a nonzero assignment-strength trace"
     );
     assert_abs_diff_eq!(matrix_free, dense, epsilon = 1.0e-9);
+}
 
-    // Decisive #2230 seam: combine that trace with the matrix-free theta-adjoint
-    // and exact-stationarity IFT response, then compare the COMPLETE sparse
-    // gradient against the dense production component assembler. This catches a
-    // partial implementation that wires only 0.5 tr(B^-1 dB/drho) while silently
-    // dropping -0.5 Gamma^T A^-1 dg/drho.
+/// #2080(A) massive-K completion: the COMPLETE matrix-free outer ρ-gradient
+/// (all coordinates — sparse assignment strength, per-atom smoothness, per-atom
+/// ARD, plus the single-adjoint IFT correction on each) must equal the dense
+/// complete gradient bit-close. The matrix-free assembler routes its three trace
+/// channels through the `(z, S⁻¹z)` probe bundle AND its single adjoint solve
+/// `a = A⁺Γ` through `solve_exact_stationarity_matrix_free` (reduced-Schur CG),
+/// with `DeflatedArrowSolver::plain` for the cheap per-row coordinate-block
+/// subtractions — the K≥4096 route. Full-basis probes with an exact reduced-Schur
+/// inverse make the bundle identity exact, so any gap is a matrix-free-adjoint or
+/// channel defect, not stochastic-CG noise. This is the all-coordinate analogue of
+/// `assignment_strength_trace_from_probes_matches_dense_softmax` (which pins only
+/// the sparse coordinate) and the massive-K analogue of
+/// `streaming_cache_outer_gradient_matches_dense_cache`.
+#[test]
+fn complete_matrix_free_outer_gradient_matches_dense_softmax() {
+    let (n, p, k) = (24usize, 2usize, 2usize);
+    let term = build_softmax_term(n, p, k);
+    let rho = SaeManifoldRho::new(
+        0.7_f64.ln(),
+        0.8_f64.ln(),
+        vec![Array1::from_elem(1, 1.2_f64.ln()); k],
+    );
+    // A deterministic residual around this term's own nonzero reconstruction
+    // keeps the fixture on the positive-rank Laplace branch (same rationale as
+    // the sibling sparse-coordinate test).
+    let fitted = term
+        .try_fitted_for_rho(&rho)
+        .expect("softmax positive-rank fixture reconstruction");
+    let target = Array2::<f64>::from_shape_fn((n, p), |(row, col)| {
+        fitted[[row, col]] + 1.0e-3 * ((row + 2 * col) as f64 * 0.17).sin()
+    });
+
+    let system = term
+        .assemble_full_matrix_free_evidence_system(target.view(), &rho, None, None)
+        .expect("softmax matrix-free evidence system");
+    let options = ArrowSolveOptions::direct().with_positive_definite_evidence();
+    let (_, _, cache) = solve_arrow_newton_step_with_options(&system, 0.0, 0.0, &options)
+        .expect("direct factorization");
+    assert!(
+        cache.deflated_row_directions.iter().all(Vec::is_empty),
+        "the probe identity is defined on the plain undeflated fixture"
+    );
+
+    // Exact full-basis reduced-Schur inverse probe bundle (no CG error).
+    let border_dim = cache.k;
+    let sqrt_dim = (border_dim as f64).sqrt();
+    let probes = (0..border_dim)
+        .map(|column| {
+            let mut probe = Array1::<f64>::zeros(border_dim);
+            probe[column] = sqrt_dim;
+            probe
+        })
+        .collect::<Vec<_>>();
+    let inverse_probes = probes
+        .iter()
+        .map(|probe| {
+            cache
+                .schur_inverse_apply(probe.view())
+                .expect("exact reduced-Schur inverse probe")
+        })
+        .collect::<Vec<_>>();
+
+    let plain_solver = DeflatedArrowSolver::plain(&cache);
     let loss = term.loss(target.view(), &rho).expect("softmax loss");
-    let sparse_index = rho.sparse_flat_index().expect("softmax sparse coordinate");
-    let dense_components = term
-        .analytic_outer_rho_gradient_components(target.view(), &rho, &loss, &cache, &solver)
-        .expect("dense complete outer gradient");
-    let dense_gradient = dense_components.gradient()[sparse_index];
-    let dense_coordinate_gradient = term
-        .analytic_assignment_strength_gradient_dense(target.view(), &rho, &cache, &solver)
-        .expect("dense Hybrid-EFS assignment-strength gradient");
-    let matrix_free_gradient = term
-        .analytic_assignment_strength_gradient_matrix_free(
+
+    // Dense complete gradient (all coordinates), the production reference.
+    let dense = term
+        .analytic_outer_rho_gradient_components(target.view(), &rho, &loss, &cache, &plain_solver)
+        .expect("dense complete outer gradient")
+        .gradient();
+
+    // Matrix-free complete gradient: from-probes trace channels + matrix-free
+    // single adjoint (`Some(system)`).
+    let matrix_free = term
+        .analytic_outer_rho_gradient_components_with_bundle(
             target.view(),
             &rho,
+            &loss,
             &cache,
-            &system,
-            &probes,
-            &inverse_probes,
+            &plain_solver,
+            Some((&probes, &inverse_probes)),
+            Some(&system),
         )
-        .expect("matrix-free complete assignment-strength gradient");
-    assert!(
-        dense_gradient.is_finite()
-            && dense_coordinate_gradient.is_finite()
-            && matrix_free_gradient.is_finite(),
-        "complete assignment gradients must be finite (dense={dense_gradient}, \
-         dense_coordinate={dense_coordinate_gradient}, matrix_free={matrix_free_gradient})"
+        .expect("matrix-free complete outer gradient")
+        .gradient();
+
+    assert_eq!(
+        dense.len(),
+        matrix_free.len(),
+        "matrix-free gradient has a different ρ dimension than the dense one"
     );
+    // Non-trivial: a zero gradient would make the parity check vacuous.
+    let g2: f64 = dense.iter().map(|v| v * v).sum();
     assert!(
-        dense_components.third_order_correction[sparse_index].abs() > 1.0e-12,
-        "fixture must excite a nonzero exact-stationarity IFT correction"
+        g2 > 1.0e-10 && g2.is_finite(),
+        "the dense complete gradient must be non-trivial to make parity meaningful; ‖g‖²={g2}"
     );
-    assert_abs_diff_eq!(dense_coordinate_gradient, dense_gradient, epsilon = 1.0e-10);
-    assert_abs_diff_eq!(matrix_free_gradient, dense_gradient, epsilon = 1.0e-8);
+    let mut max_abs = 0.0_f64;
+    for (i, (d, m)) in dense.iter().zip(matrix_free.iter()).enumerate() {
+        assert!(
+            d.is_finite() && m.is_finite(),
+            "gradient component {i} must be finite (dense={d}, matrix_free={m})"
+        );
+        max_abs = max_abs.max((d - m).abs());
+        assert_abs_diff_eq!(d, m, epsilon = 1.0e-8);
+    }
+    eprintln!(
+        "[complete_matrix_free_outer_gradient] max|dense-matrix_free| over {} coords = {:.3e}",
+        dense.len(),
+        max_abs
+    );
 }
 
 /// End-to-end: the whitened streaming penalized quasi-Laplace criterion (`penalized_quasi_laplace_criterion_streaming_
@@ -537,7 +704,7 @@ fn assignment_strength_trace_from_probes_matches_dense_softmax() {
 /// ("infeasible to exercise [at massive K] in a unit test"), we exercise the full
 /// streaming path here at a small, fast, memory-bounded whitened multi-atom fit.
 /// The production K=32/p=128 shape is covered upstream by
-/// `wide_border_routes_to_streaming_without_fake_gradient_certificate`, which pins that the memory
+/// `wide_border_routes_to_streaming_with_complete_analytic_gradient_certificate`, which pins that the memory
 /// planner refuses the dense direct plan and admits the matrix-free plan at that
 /// shape — the two together establish that a wide-border large-K whitened fit
 /// routes to, and runs through, the streaming lane without hard-erroring.

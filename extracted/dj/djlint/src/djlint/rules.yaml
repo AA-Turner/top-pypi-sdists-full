@@ -144,7 +144,7 @@
     message: Empty tag pair found. Consider removing.
     flags: re.DOTALL|re.I
     patterns:
-      - <((?!td|li|th|dt|dd)\w+)\s*?>\s*?<\/\1>
+      - <((?!td|li|th|dt|dd|slot)\w+)\s*?>\s*?<\/\1>
 - rule:
     name: H021
     message: Inline styles should be avoided.
@@ -247,3 +247,11 @@
     name: H037
     message: Duplicate attribute found.
     python_module: djlint.rules.H037
+- rule:
+    name: T038
+    message: Block tag has no matching end tag.
+    python_module: djlint.rules.T038
+- rule:
+    name: T039
+    message: Unclosed template tag found.
+    python_module: djlint.rules.T039

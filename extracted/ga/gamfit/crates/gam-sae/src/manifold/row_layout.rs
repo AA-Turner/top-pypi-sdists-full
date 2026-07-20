@@ -24,6 +24,48 @@ pub struct SaeRowLayout {
 }
 
 impl SaeRowLayout {
+    /// Build directly from the canonical support-sparse state. This is the
+    /// production TopK path: it never constructs K-wide gates merely to recover
+    /// the support indices that are already the fundamental state.
+    pub(crate) fn from_assignment_state(
+        state: &crate::assignment_state::SaeAssignmentState,
+    ) -> Result<Self, String> {
+        let mut coord_offsets_full = Vec::with_capacity(state.k_atoms());
+        let mut cursor = 0usize;
+        let mut coord_dims = Vec::with_capacity(state.k_atoms());
+        for atom in 0..state.k_atoms() {
+            coord_offsets_full.push(cursor);
+            let d = state.atom_coord_dim(atom);
+            coord_dims.push(d);
+            cursor += d;
+        }
+        let active_atoms = (0..state.n_obs())
+            .map(|row| {
+                state
+                    .support_indices(row)
+                    .iter()
+                    .map(|&atom| atom as usize)
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+        let mut coord_starts = Vec::with_capacity(state.n_obs());
+        for active in &active_atoms {
+            let mut row_cursor = 0usize;
+            let mut starts = Vec::with_capacity(active.len());
+            for &atom in active {
+                starts.push(row_cursor);
+                row_cursor += coord_dims[atom];
+            }
+            coord_starts.push(starts);
+        }
+        Ok(Self {
+            active_atoms,
+            coord_starts,
+            coord_offsets_full,
+            coord_dims,
+        })
+    }
+
     /// Build the exact compact layout from hard TopK gates. Every row must have
     /// exactly `support_size` entries equal to one and every other entry equal
     /// to zero; accepting approximate weights here would silently change the
@@ -98,5 +140,37 @@ impl SaeRowLayout {
                 out[full_off + axis] = delta_t_row[starts[pos] + axis];
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod support_state_tests {
+    use super::*;
+    use crate::assignment_state::{SaeAssignmentAtomSpec, SaeAssignmentState};
+
+    #[test]
+    fn direct_layout_preserves_heterogeneous_active_offsets() {
+        let state = SaeAssignmentState::from_topk_support_heterogeneous(
+            2,
+            4,
+            2,
+            vec![
+                SaeAssignmentAtomSpec::euclidean(1),
+                SaeAssignmentAtomSpec::euclidean(3),
+                SaeAssignmentAtomSpec::euclidean(2),
+                SaeAssignmentAtomSpec::euclidean(1),
+            ],
+            vec![vec![2, 0], vec![3, 1]],
+            vec![vec![1.0; 2]; 2],
+            vec![vec![0.0; 3], vec![0.0; 4]],
+        )
+        .expect("state builds");
+        let layout = SaeRowLayout::from_assignment_state(&state).expect("layout builds");
+        assert_eq!(layout.active_atoms, vec![vec![0, 2], vec![1, 3]]);
+        assert_eq!(layout.coord_starts, vec![vec![0, 1], vec![0, 3]]);
+        assert_eq!(layout.coord_dims, vec![1, 3, 2, 1]);
+        assert_eq!(layout.coord_offsets_full, vec![0, 1, 4, 6]);
+        assert_eq!(layout.row_q_active(0), 3);
+        assert_eq!(layout.row_q_active(1), 4);
     }
 }

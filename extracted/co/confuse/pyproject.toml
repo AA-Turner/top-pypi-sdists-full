@@ -1,6 +1,6 @@
 [project]
 name = "confuse"
-version = "2.2.0"
+version = "2.2.1"
 description = "Painless YAML config files"
 authors = [{ name = "Adrian Sampson", email = "adrian@radbox.org" }]
 readme = "README.rst"
@@ -18,6 +18,7 @@ classifiers = [
 ]
 dependencies = [
     "pyyaml",
+    "typing_extensions >= 4.4; python_version < '3.13'",
 ]
 
 [dependency-groups]

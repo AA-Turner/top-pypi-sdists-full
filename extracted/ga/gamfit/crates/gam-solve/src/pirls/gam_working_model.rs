@@ -4,6 +4,10 @@
 //! fixed stabilization ridge and the `GamModelFinalState` snapshot.
 
 use super::*;
+// `Unbind::unbound()` maps a faer bound sparse column index back to `usize`
+// for dense-matrix indexing (see also newton_solve.rs). Imported directly at
+// the call site rather than via the pirls prelude re-export (#2306/build).
+use faer::Unbind;
 
 // Fixed stabilization ridge for PIRLS/PLS. `penalty_term` carries this as
 // ridge * ||beta||^2 (equivalently 0.5 * ridge * ||beta||^2 in the
@@ -17,6 +21,19 @@ use super::*;
 //   envelope-theorem gradient valid:
 //     dV/dρ_k = 0.5 λ_k βᵀ S_k β + 0.5 λ_k tr(H^{-1} S_k) - 0.5 det1[k].
 pub(crate) const FIXED_STABILIZATION_RIDGE: f64 = 1e-8;
+
+fn augmented_root_represents_working_system(
+    curvature: HessianCurvatureKind,
+    firth_bias_reduction: bool,
+    stiff_penalty: bool,
+    hessian_weights: &Array1<f64>,
+) -> bool {
+    curvature == HessianCurvatureKind::Fisher
+        && (firth_bias_reduction || stiff_penalty)
+        && hessian_weights
+            .iter()
+            .all(|&weight| weight.is_finite() && weight >= 0.0)
+}
 
 pub(crate) struct GamWorkingModel<'a> {
     pub(crate) x_original: DesignMatrix,
@@ -108,6 +125,24 @@ pub(crate) struct GamWorkingModel<'a> {
     /// diagnostic build and reused thereafter; a fresh working model is built
     /// per inner solve so it refreshes naturally when the design changes.
     pub(crate) firth_design_factor: Option<Arc<FirthDesignFactor>>,
+    /// Exact `HΦ = ∇²β Φ` for the same state as the mutable Firth working
+    /// arrays.  The inner objective curvature is `H₀ - HΦ`; keeping this beside
+    /// the row-space score operands prevents the inner and outer Jeffreys
+    /// geometries from diverging.
+    pub(crate) last_firth_hessian: Option<Array2<f64>>,
+    /// Exact coefficient bits for the state represented by the mutable working
+    /// arrays (`lastz`, `lasthessian_weights`, and their derivative siblings).
+    ///
+    /// A Firth candidate screen is a full state evaluation.  Rejected LM
+    /// candidates therefore leave these scratch arrays at the rejected point
+    /// while the loop's authoritative [`WorkingState`] remains at the current
+    /// coefficient vector.  Dense Newton solves consume only `WorkingState`,
+    /// but the cancellation-safe square-root solve consumes these row-space
+    /// arrays too.  The key makes that otherwise-hidden split state explicit so
+    /// the root operands can be refreshed before use.  Exact bits are required:
+    /// a hash collision cannot be allowed to select another state's Newton
+    /// system.
+    pub(crate) working_array_beta_bits: Vec<u64>,
 }
 
 pub(crate) struct GamModelFinalState {
@@ -126,6 +161,37 @@ pub(crate) struct GamModelFinalState {
 }
 
 impl<'a> GamWorkingModel<'a> {
+    fn working_arrays_match_state(
+        &self,
+        beta: &Coefficients,
+        state: &WorkingState,
+    ) -> bool {
+        self.lasthessian_curvature == state.hessian_curvature
+            && self
+                .working_array_beta_bits
+                .iter()
+                .copied()
+                .eq(beta.as_ref().iter().map(|value| value.to_bits()))
+    }
+
+    fn refresh_firth_working_arrays_for_state(
+        &mut self,
+        beta: &Coefficients,
+        state: &WorkingState,
+        operation: &'static str,
+    ) -> Result<(), EstimationError> {
+        if !self.firth_bias_reduction || self.working_arrays_match_state(beta, state) {
+            return Ok(());
+        }
+        let refreshed = self.update_with_curvature(beta, state.hessian_curvature)?;
+        if refreshed.eta.as_ref() != state.eta.as_ref() {
+            crate::bail_invalid_estim!(
+                "PIRLS Firth {operation} refresh changed the authoritative linear predictor"
+            );
+        }
+        Ok(())
+    }
+
     pub(crate) fn new(
         x_transformed: Option<DesignMatrix>,
         x_original: DesignMatrix,
@@ -203,6 +269,8 @@ impl<'a> GamWorkingModel<'a> {
             glm_first_step_gram,
             glm_first_step_gram_consumed: false,
             firth_design_factor: None,
+            last_firth_hessian: None,
+            working_array_beta_bits: Vec::new(),
         }
     }
 
@@ -271,6 +339,174 @@ impl<'a> GamWorkingModel<'a> {
         let factor = Arc::new(factor);
         self.firth_design_factor = Some(factor.clone());
         Ok(factor)
+    }
+
+    fn write_scaled_dense_design(
+        design: &Array2<f64>,
+        weights: &Array1<f64>,
+        out: &mut Array2<f64>,
+    ) -> Result<(), EstimationError> {
+        if design.nrows() != weights.len()
+            || out.nrows() < design.nrows()
+            || out.ncols() != design.ncols()
+        {
+            crate::bail_invalid_estim!(
+                "PIRLS square-root design shape mismatch: design={}x{}, weights={}, root={}x{}",
+                design.nrows(),
+                design.ncols(),
+                weights.len(),
+                out.nrows(),
+                out.ncols()
+            );
+        }
+        for i in 0..design.nrows() {
+            let weight = weights[i];
+            if !(weight.is_finite() && weight >= 0.0) {
+                crate::bail_invalid_estim!(
+                    "Fisher square-root solve requires finite nonnegative weight, got {weight} at row {i}"
+                );
+            }
+            let scale = weight.sqrt();
+            for j in 0..design.ncols() {
+                out[[i, j]] = scale * design[[i, j]];
+            }
+        }
+        Ok(())
+    }
+
+    fn write_fisher_design_root(&self, out: &mut Array2<f64>) -> Result<(), EstimationError> {
+        if let Some(factor) = self.firth_design_factor.as_ref() {
+            return Self::write_scaled_dense_design(
+                &factor.x_dense,
+                &self.lasthessian_weights,
+                out,
+            );
+        }
+        match &self.coordinate_design {
+            WorkingCoordinateDesign::TransformedExplicit {
+                x_transformed,
+                x_csr,
+            } => {
+                if let Some(dense) = x_transformed.as_dense() {
+                    Self::write_scaled_dense_design(dense, &self.lasthessian_weights, out)
+                } else if let Some(csr) = x_csr.as_ref() {
+                    let view = csr.as_ref();
+                    for i in 0..csr.nrows() {
+                        let weight = self.lasthessian_weights[i];
+                        if !(weight.is_finite() && weight >= 0.0) {
+                            crate::bail_invalid_estim!(
+                                "Fisher square-root solve requires finite nonnegative weight, got {weight} at row {i}"
+                            );
+                        }
+                        let scale = weight.sqrt();
+                        for (&column, &value) in view
+                            .col_idx_of_row_raw(i)
+                            .iter()
+                            .zip(view.val_of_row(i).iter())
+                        {
+                            out[[i, column.unbound()]] = scale * value;
+                        }
+                    }
+                    Ok(())
+                } else {
+                    let dense = x_transformed
+                        .try_to_dense_arc("PIRLS square-root solve requires the transformed design")
+                        .map_err(EstimationError::InvalidInput)?;
+                    Self::write_scaled_dense_design(dense.as_ref(), &self.lasthessian_weights, out)
+                }
+            }
+            WorkingCoordinateDesign::TransformedImplicit { transform } => {
+                let n = self.x_original.nrows();
+                let p = self.x_original.ncols();
+                let implicit_design_reservation = gam_runtime::resource::MemoryGovernor::global()
+                    .try_reserve_dense_f64(
+                        n,
+                        p,
+                        "PIRLS implicit transformed design for square-root solve",
+                    )
+                    .map_err(|error| EstimationError::InvalidInput(error.to_string()))?;
+                let original = self
+                    .x_original
+                    .try_to_dense_arc(
+                        "PIRLS square-root solve requires the original implicit design",
+                    )
+                    .map_err(EstimationError::InvalidInput)?;
+                let transformed = fast_ab(original.as_ref(), &transform.materialize_dense());
+                let result =
+                    Self::write_scaled_dense_design(&transformed, &self.lasthessian_weights, out);
+                drop(implicit_design_reservation);
+                result
+            }
+            WorkingCoordinateDesign::OriginalSparseNative => crate::bail_invalid_estim!(
+                "dense square-root solve reached a sparse-native coordinate design"
+            ),
+        }
+    }
+
+    fn solve_fisher_direction_from_root(
+        &self,
+        beta: &Coefficients,
+        state: &WorkingState,
+        loop_lambda: f64,
+        lm_d2: &Array1<f64>,
+        firth_hessian: Option<&Array2<f64>>,
+        direction_out: &mut Array1<f64>,
+    ) -> Result<f64, EstimationError> {
+        let n = self.lasthessian_weights.len();
+        let p = state.gradient.len();
+        let penalty_rows = self.penalty.rank();
+        let rows = n
+            .checked_add(penalty_rows)
+            .and_then(|value| value.checked_add(p))
+            .ok_or_else(|| {
+                EstimationError::InvalidInput(
+                    "PIRLS square-root row count overflowed usize".to_string(),
+                )
+            })?;
+        // Peak live storage is the root, faer's QR factor, the temporary Q,
+        // and the augmented least-squares residual. Charge all four atomically.
+        let root_qr_reservation = gam_runtime::resource::MemoryGovernor::global()
+            .try_reserve_dense_f64_copies(rows, p, 4, "PIRLS Householder QR square-root solve")
+            .map_err(|error| EstimationError::InvalidInput(error.to_string()))?;
+        let mut root = Array2::<f64>::zeros((rows, p).f());
+        let mut residual = Array1::<f64>::zeros(rows);
+        self.write_fisher_design_root(&mut root)?;
+        for i in 0..n {
+            let weight = self.lasthessian_weights[i];
+            let scale = weight.sqrt();
+            residual[i] = (state.eta[i] - self.lastz[i]) * scale;
+        }
+        self.penalty.write_root_rows(&mut root, n);
+        self.penalty.write_root_residual(beta.as_ref(), &mut residual, n);
+        let diagonal_start = n + penalty_rows;
+        for j in 0..p {
+            let energy = state.ridge_used + loop_lambda * lm_d2[j];
+            if !(energy.is_finite() && energy >= 0.0) {
+                crate::bail_invalid_estim!(
+                    "PIRLS square-root LM diagonal must be finite and nonnegative, got {energy} at coefficient {j}"
+                );
+            }
+            // The exact bare-Hessian stationarity certificate calls this path
+            // with both structural ridge and transient LM damping equal to
+            // zero.  Its augmented diagonal row is then mathematically absent;
+            // leave the preallocated row and residual at zero rather than
+            // manufacturing a ridge merely to make the storage rectangular.
+            if energy == 0.0 {
+                continue;
+            }
+            let root_energy = energy.sqrt();
+            root[[diagonal_start + j, j]] = root_energy;
+            residual[diagonal_start + j] =
+                state.ridge_used * beta.as_ref()[j] / root_energy;
+        }
+        let result = solve_newton_direction_from_root_with_firth_hessian(
+            &root,
+            &residual,
+            firth_hessian,
+            direction_out,
+        );
+        drop(root_qr_reservation);
+        result
     }
 
     /// Convert the working model into its final state for outer REML consumption.
@@ -393,7 +629,9 @@ impl<'a> GamWorkingModel<'a> {
                 } else {
                     workspace.hessian_buf.fill(0.0);
                 }
-                if gam_gpu::cuda_selected() {
+                if gam_gpu::cuda_selected()
+                    .map_err(|error| EstimationError::InvalidInput(error.to_string()))?
+                {
                     // #1412: keep the n×p design `X` device-resident across the
                     // inner P-IRLS iterates. The Gram is rebuilt once per
                     // Newton/LM iterate with the SAME `X` (only `w` moves), so
@@ -435,7 +673,8 @@ impl<'a> GamWorkingModel<'a> {
                 let gpu_decision = gam_gpu::decide(
                     gam_gpu::GpuKernel::DenseXtWX,
                     gam_gpu::GpuEligibility::BackendNotCompiled,
-                );
+                )
+                .map_err(|error| EstimationError::InvalidInput(error.to_string()))?;
                 gpu_decision
                     .require_supported()
                     .map_err(EstimationError::InvalidInput)?;
@@ -771,6 +1010,11 @@ impl<'a> WorkingModel for GamWorkingModel<'a> {
         beta: &Coefficients,
         requested_curvature: HessianCurvatureKind,
     ) -> Result<WorkingState, EstimationError> {
+        // Invalidate before touching any scratch array.  A failed candidate
+        // evaluation must never leave a key that certifies partially-updated
+        // row-space operands as belonging to the prior successful state.
+        self.working_array_beta_bits.clear();
+        self.last_firth_hessian = None;
         let n = self.offset.len();
         if self.workspace.eta_buf.len() != n {
             self.workspace.eta_buf = Array1::zeros(n);
@@ -1014,17 +1258,19 @@ impl<'a> WorkingModel for GamWorkingModel<'a> {
             // #1575: the design and prior weights are constant across the inner
             // Newton iterations of this solve, so the β-independent Firth design
             // factor (Gram, identifiable basis Q, reduced design X_r, retained
-            // spectrum S_r) is built once and memoized; only the cheap per-η
-            // reduced-Fisher/hat-diagonal remainder is rebuilt here. The factor
-            // is built in the correct (transformed) coefficient basis exactly as
-            // the per-iteration diagnostics path used to.
+            // spectrum S_r) is built once and memoized. The per-η operator
+            // rebuild then shares its reduced Fisher inverse and Hadamard-Gram
+            // contractions between the working-response diagnostics and the
+            // exact Jeffreys coefficient Hessian. The factor is built in the
+            // correct (transformed) coefficient basis.
             let factor = self.ensure_firth_design_factor()?;
-            let (hat_diag, jeffreys_logdet, firth_score_shift) =
-                jeffreys_pirls_diagnostics_from_factor(
+            let (hat_diag, jeffreys_logdet, firth_score_shift, firth_hessian) =
+                jeffreys_pirls_diagnostics_and_hessian_from_factor(
                     &factor,
                     &self.link_kind,
                     self.workspace.eta_buf.view(),
                 )?;
+            self.last_firth_hessian = Some(firth_hessian);
             firth = FirthDiagnostics::Active {
                 jeffreys_logdet,
                 hat_diag: hat_diag.clone(),
@@ -1049,18 +1295,13 @@ impl<'a> WorkingModel for GamWorkingModel<'a> {
         }
 
         let z = &self.lastz;
-        // Fused single-pass: compute weighted_residual = (eta - z) * w
-        // and working_residual = eta - z simultaneously, avoiding two
-        // separate O(n) passes and an intermediate copy.
+        // Single-pass score residual: W(eta - z).
         ndarray::Zip::from(&mut self.workspace.weighted_residual)
-            .and(&mut self.workspace.working_residual)
             .and(&self.workspace.eta_buf)
             .and(z)
             .and(&self.lastweights)
-            .par_for_each(|wr, r, &eta, &zi, &wi| {
-                let residual = eta - zi;
-                *r = residual;
-                *wr = residual * wi;
+            .par_for_each(|wr, &eta, &zi, &wi| {
+                *wr = (eta - zi) * wi;
             });
         let mut gradient = self.transformed_transpose_matvec(&self.workspace.weighted_residual);
         // Score norm ||X' (weighted residual)||_2 — captured before adding the
@@ -1120,12 +1361,13 @@ impl<'a> WorkingModel for GamWorkingModel<'a> {
             &self.link_kind,
             self.priorweights,
         )?;
-        let log_likelihood = calculate_loglikelihood_omitting_constants_from_eta(
+        let log_likelihood = pirls_data_log_kernel_from_eta(
             self.y,
             &self.workspace.eta_buf,
             &self.likelihood,
             &self.link_kind,
             self.priorweights,
+            deviance,
         )?;
 
         let mut penalty_term = self.penalty.shifted_quadratic(beta.as_ref());
@@ -1139,6 +1381,9 @@ impl<'a> WorkingModel for GamWorkingModel<'a> {
 
         self.last_penalty_term = penalty_term;
         let gradient_natural_scale = score_norm + s_beta_norm + ridge_grad_norm;
+
+        self.working_array_beta_bits
+            .extend(beta.as_ref().iter().map(|value| value.to_bits()));
 
         Ok(WorkingState {
             eta: LinearPredictor::new(std::mem::replace(
@@ -1206,5 +1451,155 @@ impl<'a> WorkingModel for GamWorkingModel<'a> {
 
     fn supports_observed_information_curvature(&self) -> bool {
         self.supports_observed_hessian_curvature()
+    }
+
+    fn solve_unconstrained_direction(
+        &mut self,
+        beta: &Coefficients,
+        state: &WorkingState,
+        loop_lambda: f64,
+        lm_d2: &Array1<f64>,
+        regularized_hessian: &Array2<f64>,
+        direction_out: &mut Array1<f64>,
+    ) -> Result<(), EstimationError> {
+        // `screen_candidate` evaluates Firth candidates through the full
+        // mutable working model.  If such a candidate is rejected, the loop
+        // intentionally retains `beta`/`state`, but the model's row scratch
+        // belongs to the rejected point.  Rehydrate the exact authoritative
+        // state before constructing A and q for min ||A d + q||.  Without this
+        // state-locality repair, an LM retry combined A(candidate), q(candidate),
+        // and beta/state(current), so it was not a Newton or Fisher-scoring step
+        // for any objective.
+        self.refresh_firth_working_arrays_for_state(beta, state, "square-root operand")?;
+        let stabilizing_floor = lm_d2
+            .iter()
+            .map(|&scale| state.ridge_used + loop_lambda * scale)
+            .fold(f64::INFINITY, f64::min);
+        // Firth scoring is itself defined by the adjusted working residual.
+        // Forming X'W(eta-z*) before solving discards digits whenever the
+        // Jeffreys score cancels the ordinary score, even when the penalty is
+        // not yet large enough to trip the stiffness gate.  If the realized
+        // row curvature is PSD, the augmented least-squares root is the exact
+        // same LM system and preserves that cancellation directly.  Observed
+        // noncanonical curvature is not the curvature of the Firth working
+        // residual (even when every realized row weight happens to be
+        // positive), so it retains the assembled dense solve; Fisher fallback
+        // supplies the exact PSD-root state.
+        if augmented_root_represents_working_system(
+            state.hessian_curvature,
+            self.firth_bias_reduction,
+            self.penalty.requires_root_solve(stabilizing_floor),
+            &self.lasthessian_weights,
+        ) {
+            let firth_hessian = if self.firth_bias_reduction {
+                Some(self.last_firth_hessian.as_ref().ok_or_else(|| {
+                    EstimationError::InvalidInput(
+                        "Firth root solve is missing the state-local Jeffreys Hessian".to_string(),
+                    )
+                })?)
+            } else {
+                None
+            };
+            self.solve_fisher_direction_from_root(
+                beta,
+                state,
+                loop_lambda,
+                lm_d2,
+                firth_hessian,
+                direction_out,
+            )?;
+            Ok(())
+        } else {
+            solve_newton_direction_dense(regularized_hessian, &state.gradient, direction_out)?;
+            Ok(())
+        }
+    }
+
+    fn objective_hessian_quadratic_correction(
+        &self,
+        direction: &Array1<f64>,
+    ) -> Result<f64, EstimationError> {
+        let Some(firth_hessian) = self.last_firth_hessian.as_ref() else {
+            return Ok(0.0);
+        };
+        if firth_hessian.dim() != (direction.len(), direction.len()) {
+            crate::bail_invalid_estim!(
+                "Firth objective-curvature correction shape {}x{} does not match direction length {}",
+                firth_hessian.nrows(),
+                firth_hessian.ncols(),
+                direction.len()
+            );
+        }
+        let correction = -direction.dot(&firth_hessian.dot(direction));
+        if !correction.is_finite() {
+            crate::bail_invalid_estim!("Firth objective-curvature correction is non-finite");
+        }
+        Ok(correction)
+    }
+
+    fn exact_unconstrained_decrement_sq(
+        &mut self,
+        beta: &Coefficients,
+        state: &WorkingState,
+    ) -> Result<Option<f64>, EstimationError> {
+        self.refresh_firth_working_arrays_for_state(beta, state, "decrement")?;
+        if !augmented_root_represents_working_system(
+            state.hessian_curvature,
+            self.firth_bias_reduction,
+            self.penalty.requires_root_solve(0.0),
+            &self.lasthessian_weights,
+        ) {
+            return Ok(None);
+        }
+        let mut direction = Array1::<f64>::zeros(state.gradient.len());
+        let unit_diagonal = Array1::<f64>::ones(state.gradient.len());
+        self.solve_fisher_direction_from_root(
+            beta,
+            state,
+            0.0,
+            &unit_diagonal,
+            None,
+            &mut direction,
+        )
+        .map(Some)
+    }
+}
+
+#[cfg(test)]
+mod augmented_root_route_tests {
+    use super::*;
+
+    #[test]
+    fn firth_fisher_scoring_uses_root_before_penalty_becomes_stiff() {
+        let weights = ndarray::array![0.25, 0.1, 0.0];
+        assert!(augmented_root_represents_working_system(
+            HessianCurvatureKind::Fisher,
+            true,
+            false,
+            &weights,
+        ));
+        assert!(!augmented_root_represents_working_system(
+            HessianCurvatureKind::Fisher,
+            false,
+            false,
+            &weights,
+        ));
+    }
+
+    #[test]
+    fn root_route_requires_the_exact_psd_working_curvature() {
+        let positive = ndarray::array![0.25, 0.1];
+        assert!(!augmented_root_represents_working_system(
+            HessianCurvatureKind::Observed,
+            true,
+            true,
+            &positive,
+        ));
+        assert!(!augmented_root_represents_working_system(
+            HessianCurvatureKind::Fisher,
+            true,
+            true,
+            &ndarray::array![0.25, -0.1],
+        ));
     }
 }

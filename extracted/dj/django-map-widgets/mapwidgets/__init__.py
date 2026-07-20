@@ -1,4 +1,4 @@
-VERSION = (0, 5, 0)
+VERSION = (0, 6, 0)
 __version__ = ".".join(map(str, VERSION))
 
 from .widgets import (
@@ -6,6 +6,7 @@ from .widgets import (
     GoogleMapPointFieldStaticWidget,
     GoogleMapPointFieldWidget,
     LeafletPointFieldWidget,
+    LeafletPolygonFieldWidget,
     MapboxPointFieldStaticWidget,
     MapboxPointFieldWidget,
 )
@@ -17,4 +18,5 @@ __all__ = [
     "MapboxPointFieldWidget",
     "MapboxPointFieldStaticWidget",
     "LeafletPointFieldWidget",
+    "LeafletPolygonFieldWidget",
 ]

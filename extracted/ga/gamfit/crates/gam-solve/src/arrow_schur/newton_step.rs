@@ -32,23 +32,41 @@ pub const SCHUR_SLQ_LOGDET_LANCZOS_STEPS: usize = 64;
 pub const SCHUR_SLQ_LOGDET_SEED: u64 = 0x5121_0901_4C0D_E700;
 
 #[inline]
-fn evidence_beta_gauge_active(
-    sys: &ArrowSchurSystem,
-    ridge_t: f64,
-    ridge_beta: f64,
-    options: &ArrowSolveOptions,
-) -> bool {
-    ridge_t == 0.0
-        && ridge_beta == 0.0
-        && options.tolerate_ill_conditioning
-        && sys.beta_gauge_quotient.is_some()
-}
-
-#[inline]
 fn pin_evidence_beta_schur(sys: &ArrowSchurSystem, schur: Array2<f64>) -> Array2<f64> {
     match sys.beta_gauge_quotient.as_ref() {
         Some(quotient) => quotient.pin_reduced_schur(schur.view()),
         None => schur,
+    }
+}
+
+pub(crate) fn device_failure_as_arrow_error(
+    context: &'static str,
+    failure: crate::gpu_kernels::arrow_schur::ArrowSchurGpuFailure,
+) -> ArrowSchurError {
+    use crate::gpu_kernels::arrow_schur::ArrowSchurGpuFailure;
+
+    match failure {
+        ArrowSchurGpuFailure::RidgeBumpRequired { row, bump } => {
+            ArrowSchurError::PerRowFactorFailed {
+                row,
+                reason: format!("{context}: per-row block requires ridge bump {bump:e}"),
+            }
+        }
+        ArrowSchurGpuFailure::SchurFactorFailed { reason } => ArrowSchurError::SchurFactorFailed {
+            reason: format!("{context}: {reason}"),
+        },
+        ArrowSchurGpuFailure::Unavailable => ArrowSchurError::SchurFactorFailed {
+            reason: format!("{context}: device execution became unavailable after admission"),
+        },
+        ArrowSchurGpuFailure::GpuRequiresDenseSystem {
+            had_hbb_matvec,
+            had_htbeta_matvec,
+        } => ArrowSchurError::SchurFactorFailed {
+            reason: format!(
+                "{context}: admitted device path requires a dense system \
+                 (hbb_matvec={had_hbb_matvec}, htbeta_matvec={had_htbeta_matvec})"
+            ),
+        },
     }
 }
 
@@ -94,32 +112,29 @@ pub fn solve_arrow_newton_step_with_options(
             estimated_bytes: htbeta_estimated_bytes,
         }
     };
-    // Factor the UNDAMPED per-row blocks for the IFT predictor. When
-    // ridge_t was zero the damped and undamped factors coincide and we
-    // can alias htt_factors directly; otherwise pay a second per-row
-    // Cholesky (O(N d³), same complexity class as the Newton solve).
+    // Factor the UNDAMPED per-row blocks under the evidence policy. This is
+    // deliberately separate even at ridge zero: the Newton factors enforce
+    // step conditioning, while evidence factors may unit-deflate quotient
+    // nulls and must surface the corresponding gradient metadata.
     let htt_factors = step.htt_factors;
     let mut schur_factor = step.schur_factor;
+    let mut beta_schur_deflation = None;
     let schur_log_det_override = step.schur_log_det_override;
-    // The per-row deflated directions must describe the factors the gradient's
-    // selected-inverse actually uses. For the ridge-0 evidence cache the damped
-    // and undamped factors coincide, so the step's directions apply directly;
-    // for a damped Newton cache (ridge_t > 0, never the gradient path) re-derive
-    // them from the undamped factorization alongside its deflation count.
+    // The per-row deflated directions describe exactly the independently-built
+    // evidence factors consumed by the selected inverse.
     let (
         htt_factors_undamped,
         gauge_deflated_directions,
         deflated_row_directions,
         deflation_row_spectra,
-    ) = if ridge_t == 0.0 {
-        (
-            ArrowUndampedFactors::SameAsDamped,
-            step.gauge_deflated_directions,
-            step.deflated_row_directions,
-            step.deflation_row_spectra,
-        )
-    } else {
-        let undamped = factor_blocks_for_system(sys, 0.0, options, &backend)?;
+    ) = {
+        let undamped = factor_blocks_for_system(
+            sys,
+            0.0,
+            options.evidence_policy.factors_undamped_evidence(),
+            &backend,
+            options.gpu_policy,
+        )?;
         (
             ArrowUndampedFactors::Owned(undamped.factors),
             undamped.gauge_deflated_directions,
@@ -127,22 +142,32 @@ pub fn solve_arrow_newton_step_with_options(
             undamped.deflation_row_spectra,
         )
     };
-    let mut schur_factor_is_undamped = sys.k == 0 || (ridge_t == 0.0 && ridge_beta == 0.0);
-    let mut beta_gauge_factor_is_pinned =
-        evidence_beta_gauge_active(sys, ridge_t, ridge_beta, options);
-    if sys.k > 0 && !schur_factor_is_undamped {
+    let mut schur_factor_is_undamped = sys.k == 0;
+    let mut beta_gauge_factor_is_pinned = false;
+    // A step factor is never an evidence factor, even at ridge zero: its
+    // collapsed directions follow Newton/Tikhonov policy. Rebuild the dense
+    // undamped Schur explicitly so value, inverse, and gradients share the
+    // evidence unit-deflation convention and its exact null-space metadata.
+    if sys.k > 0 && schur_factor.is_some() {
         let evidence_htt_factors = match &htt_factors_undamped {
             ArrowUndampedFactors::SameAsDamped => &htt_factors,
             ArrowUndampedFactors::Owned(factors) => factors,
         };
         let evidence_schur = pin_evidence_beta_schur(
             sys,
-            build_dense_schur_direct(sys, evidence_htt_factors, 0.0, &backend)?,
+            build_dense_schur_direct(sys, evidence_htt_factors, 0.0, &backend, options.gpu_policy)?,
         );
-        let (evidence_schur_factor, floored_evidence_schur) =
-            factor_dense_reduced_schur(&evidence_schur, options.schur_pd_floor, true)?;
+        let DenseReducedSchurFactorization {
+            factor: evidence_schur_factor,
+            conditioned_schur: floored_evidence_schur,
+            beta_deflation: evidence_beta_deflation,
+        } = factor_dense_reduced_schur(
+            &evidence_schur,
+            options.evidence_policy.reduced_schur_policy(),
+        )?;
         drop(floored_evidence_schur);
         schur_factor = Some(evidence_schur_factor);
+        beta_schur_deflation = evidence_beta_deflation;
         schur_factor_is_undamped = true;
         beta_gauge_factor_is_pinned = sys.beta_gauge_quotient.is_some();
     }
@@ -152,6 +177,7 @@ pub fn solve_arrow_newton_step_with_options(
         htt_factors_undamped,
         schur_factor,
         schur_factor_is_undamped,
+        beta_schur_deflation,
         joint_hessian_log_det: None,
         solver_mode: options.mode,
         ridge_t,
@@ -231,7 +257,14 @@ pub fn probe_undamped_evidence_row_factors(
         // factorization remains the authority.
         return Ok(());
     }
-    factor_blocks_for_system(sys, 0.0, options, &CpuBatchedBlockSolver).map(|_| ())
+    factor_blocks_for_system(
+        sys,
+        0.0,
+        options.evidence_policy.factors_undamped_evidence(),
+        &CpuBatchedBlockSolver,
+        options.gpu_policy,
+    )
+    .map(|_| ())
 }
 
 pub(crate) fn estimated_htbeta_bytes(n: usize, d: usize, k: usize) -> Option<usize> {
@@ -288,7 +321,8 @@ pub fn solve_arrow_newton_step_core(
     // and inject it through a cloned options so the existing InexactPCG branch
     // consumes it. On any device decline the original (CPU) options are used
     // unchanged, so results are bit-identical.
-    if let Some(device_options) = maybe_inject_gpu_schur_matvec(sys, ridge_t, ridge_beta, options) {
+    if let Some(device_options) = maybe_inject_gpu_schur_matvec(sys, ridge_t, ridge_beta, options)?
+    {
         return solve_arrow_newton_step_artifacts(sys, ridge_t, ridge_beta, &device_options).map(
             |step| {
                 let mut diagnostics = step.pcg_diagnostics;
@@ -335,12 +369,12 @@ pub(crate) fn maybe_inject_gpu_schur_matvec(
     ridge_t: f64,
     ridge_beta: f64,
     options: &ArrowSolveOptions,
-) -> Option<ArrowSolveOptions> {
+) -> Result<Option<ArrowSolveOptions>, ArrowSchurError> {
     if options.mode != ArrowSolverMode::InexactPCG || options.gpu_matvec.is_some() {
-        return None;
+        return Ok(None);
     }
     if !sys.cross_row_penalties.is_empty() || options.streaming_chunk_size.is_some() {
-        return None;
+        return Ok(None);
     }
     // #1017 Phase-1 call-site re-key: the reduced-Schur matvec is `O(n · d · k)`
     // per apply and the PCG runs `cg_iters` applies over device-resident frames,
@@ -357,7 +391,7 @@ pub(crate) fn maybe_inject_gpu_schur_matvec(
     // (`DEVICE_LOOP_MIN_P`, the matvec offload floors) — never a calibrated
     // policy field — so evaluating it on the pre-probe default policy is
     // IDENTICAL to evaluating it on the probed runtime's policy. A shape it
-    // rejects therefore skips `GpuRuntime::global()` (whose first call creates
+    // rejects therefore skips runtime availability resolution (whose first call creates
     // a CUDA primary context on every GPU); an admitted shape probes exactly as
     // before.
     let cg_iters = options
@@ -370,16 +404,26 @@ pub(crate) fn maybe_inject_gpu_schur_matvec(
         sys.d,
         cg_iters,
     ) {
-        return None;
+        return Ok(None);
     }
     // Require a live device before assembling the GPU matvec backend; the
     // runtime handle itself is not needed here, only its presence.
-    gam_gpu::device_runtime::GpuRuntime::global()?;
+    if gam_gpu::device_runtime::GpuRuntime::resolve(options.gpu_policy)
+        .map_err(|error| ArrowSchurError::SchurFactorFailed {
+            reason: format!("Arrow-Schur GPU runtime resolution failed: {error}"),
+        })?
+        .is_none()
+    {
+        return Ok(None);
+    }
     let matvec =
-        crate::gpu_kernels::arrow_schur::gpu_schur_matvec_backend(sys, ridge_t, ridge_beta).ok()?;
+        crate::gpu_kernels::arrow_schur::gpu_schur_matvec_backend(sys, ridge_t, ridge_beta)
+            .map_err(|failure| {
+                device_failure_as_arrow_error("Arrow-Schur matvec build", failure)
+            })?;
     let mut device_options = options.clone();
     device_options.gpu_matvec = Some(matvec);
-    Some(device_options)
+    Ok(Some(device_options))
 }
 
 /// Admission + dispatch for the device-resident Direct Arrow-Schur point solve.
@@ -438,7 +482,7 @@ pub(crate) fn try_device_arrow_direct(
     // policy's dense-reduction flop floor, which no reachable policy can
     // calibrate below `MIN_CALIBRATABLE_GEMM_FLOPS`. A shape failing this
     // most-permissive bound is refused by EVERY policy, so it returns to the
-    // CPU dense path without `GpuRuntime::global()` (whose first call creates a
+    // CPU dense path without runtime availability resolution (whose first call creates a
     // CUDA primary context on every GPU). Shapes clearing it probe and face the
     // runtime's real (possibly calibrated) gate exactly as before.
     let n_rows = sys.rows.len();
@@ -449,7 +493,15 @@ pub(crate) fn try_device_arrow_direct(
     {
         return None;
     }
-    let runtime = gam_gpu::device_runtime::GpuRuntime::global()?;
+    let runtime = match gam_gpu::device_runtime::GpuRuntime::resolve(options.gpu_policy) {
+        Ok(Some(runtime)) => runtime,
+        Ok(None) => return None,
+        Err(error) => {
+            return Some(Err(ArrowSchurError::SchurFactorFailed {
+                reason: format!("Arrow-Schur direct runtime resolution failed: {error}"),
+            }));
+        }
+    };
     let admitted = runtime
         .policy()
         .dense_hessian_work_target_is_gpu(sys.rows.len(), sys.k);
@@ -483,10 +535,10 @@ pub(crate) fn try_device_arrow_direct(
         Err(crate::gpu_kernels::arrow_schur::ArrowSchurGpuFailure::SchurFactorFailed {
             reason,
         }) => Some(Err(ArrowSchurError::SchurFactorFailed { reason })),
-        // Unavailable (transient / below device policy) and
-        // GpuRequiresDenseSystem (matrix-free, already filtered above) both mean
-        // "device declined" — fall back to CPU transparently.
-        Err(_) => None,
+        Err(failure) => Some(Err(device_failure_as_arrow_error(
+            "Arrow-Schur direct solve after admission",
+            failure,
+        ))),
     }
 }
 
@@ -535,9 +587,6 @@ pub(crate) fn try_device_arrow_direct_sae_pcg(
     ridge_beta: f64,
     options: &ArrowSolveOptions,
     backend: &CpuBatchedBlockSolver,
-    gauge_deflated_directions: usize,
-    deflated_row_directions: &[Vec<Array1<f64>>],
-    deflation_row_spectra: &[Option<RowDeflationSpectrum>],
 ) -> Option<Result<ArrowNewtonStepArtifacts, ArrowSchurError>> {
     // #1017 device-engagement trace: emitted through the `log` crate at debug
     // level so a perf/triage run (`RUST_LOG=gam_solve=debug`) can see EXACTLY why
@@ -588,7 +637,7 @@ pub(crate) fn try_device_arrow_direct_sae_pcg(
     // Evaluated BEFORE the device probe (startup-tax ordering fix): the
     // predicate reads only associated constants — never a calibrated policy
     // field — so the pre-probe default policy decides identically to the probed
-    // runtime's policy, and a rejected shape skips `GpuRuntime::global()`
+    // runtime's policy, and a rejected shape skips availability resolution
     // (whose first call creates a CUDA primary context on every GPU) entirely.
     let cg_iters = options
         .pcg
@@ -609,9 +658,17 @@ pub(crate) fn try_device_arrow_direct_sae_pcg(
         );
         return None;
     }
-    if gam_gpu::device_runtime::GpuRuntime::global().is_none() {
-        trace_decline!("no GpuRuntime::global() (CPU-only host or probe failed)");
-        return None;
+    match gam_gpu::device_runtime::GpuRuntime::resolve(options.gpu_policy) {
+        Ok(Some(_)) => {}
+        Ok(None) => {
+            trace_decline!("typed CUDA absence under the configured policy");
+            return None;
+        }
+        Err(error) => {
+            return Some(Err(ArrowSchurError::SchurFactorFailed {
+                reason: format!("SAE direct GPU runtime resolution failed: {error}"),
+            }));
+        }
     }
     log::debug!(
         "arrow-schur device SAE Direct PCG ENGAGING device (n={}, k={}, d={}, frame={})",
@@ -686,7 +743,7 @@ pub(crate) fn try_device_arrow_direct_sae_pcg(
             //
             //   * Small k (< SCHUR_SLQ_LOGDET_MIN_DIM): the exact dense Cholesky
             //     log-determinant, bit-identical to the CPU Direct path (including
-            //     the #1026 `schur_pd_floor` handling). Cheap and reproducible.
+            //     the #1026 Newton Tikhonov handling). Cheap and reproducible.
             //
             //   * Large k (≥ SCHUR_SLQ_LOGDET_MIN_DIM): Stochastic Lanczos
             //     Quadrature (`crate::arrow_schur::slq_logdet`) on the SPD
@@ -748,13 +805,16 @@ pub(crate) fn try_device_arrow_direct_sae_pcg(
                 // per-apply host round-trip); when it declines the shape/device
                 // the byte-identical CPU resident row-factor lane is staged
                 // instead.
-                let device_matvec = crate::arrow_schur::maybe_build_evidence_gpu_matvec(
+                let device_matvec = match crate::arrow_schur::maybe_build_evidence_gpu_matvec(
                     sys,
                     ridge_t,
                     ridge_beta,
                     options,
                     (SCHUR_SLQ_LOGDET_PROBES * SCHUR_SLQ_LOGDET_LANCZOS_STEPS).max(1),
-                );
+                ) {
+                    Ok(matvec) => matvec,
+                    Err(error) => return Some(Err(error)),
+                };
                 let gpu_matvec = options.gpu_matvec.as_ref().or(device_matvec.as_ref());
                 let resident = if gpu_matvec.is_none() {
                     SaeResidentReducedSchur::build(sys, htt_factors, backend)
@@ -768,6 +828,7 @@ pub(crate) fn try_device_arrow_direct_sae_pcg(
                     backend,
                     resident.as_ref(),
                     gpu_matvec,
+                    options.evidence_policy,
                     SCHUR_SLQ_LOGDET_PROBES,
                     SCHUR_SLQ_LOGDET_LANCZOS_STEPS,
                     SCHUR_SLQ_LOGDET_SEED,
@@ -795,14 +856,15 @@ pub(crate) fn try_device_arrow_direct_sae_pcg(
                 // `solve_dense_reduced_system` (the exact CPU Direct reduce) so the
                 // emitted factor — and therefore the log-det — is bit-identical to
                 // the non-device path.
-                let schur = match build_dense_schur_direct(sys, htt_factors, ridge_beta, backend) {
+                let schur = match build_dense_schur_direct(
+                    sys,
+                    htt_factors,
+                    ridge_beta,
+                    backend,
+                    options.gpu_policy,
+                ) {
                     Ok(schur) => schur,
                     Err(err) => return Some(Err(err)),
-                };
-                let schur = if evidence_beta_gauge_active(sys, ridge_t, ridge_beta, options) {
-                    pin_evidence_beta_schur(sys, schur)
-                } else {
-                    schur
                 };
                 let factor = match solve_dense_reduced_system(&schur, rhs_beta, options, None) {
                     Ok((_cpu_delta_beta, Some(factor), _diag)) => factor,
@@ -825,9 +887,6 @@ pub(crate) fn try_device_arrow_direct_sae_pcg(
                 schur_factor,
                 schur_log_det_override,
                 pcg_diagnostics: diag,
-                gauge_deflated_directions,
-                deflated_row_directions: deflated_row_directions.to_vec(),
-                deflation_row_spectra: deflation_row_spectra.to_vec(),
             }))
         }
         // A non-PD per-row / Schur condition is a real numerical signal the LM
@@ -844,15 +903,10 @@ pub(crate) fn try_device_arrow_direct_sae_pcg(
         Err(crate::gpu_kernels::arrow_schur::ArrowSchurGpuFailure::SchurFactorFailed {
             reason,
         }) => Some(Err(ArrowSchurError::SchurFactorFailed { reason })),
-        // Unavailable / transient / framed-mismatch all mean "device declined" —
-        // fall through to the CPU dense Direct path transparently.
-        Err(other) => {
-            trace_decline!(
-                "device kernel returned {:?} — falling back to CPU dense",
-                other
-            );
-            None
-        }
+        Err(failure) => Some(Err(device_failure_as_arrow_error(
+            "SAE direct device solve after admission",
+            failure,
+        ))),
     }
 }
 
@@ -870,9 +924,10 @@ pub(crate) fn try_device_arrow_direct_sae_pcg(
 fn build_resident_base_frame_if_admitted(
     sys: &ArrowSchurSystem,
     options: &ArrowSolveOptions,
-) -> Option<crate::gpu_kernels::arrow_schur::ResidentBaseArrowFrameHandle> {
+) -> Result<Option<crate::gpu_kernels::arrow_schur::ResidentBaseArrowFrameHandle>, ArrowSchurError>
+{
     if options.mode != ArrowSolverMode::Direct {
-        return None;
+        return Ok(None);
     }
     if !sys.cross_row_penalties.is_empty()
         || options.streaming_chunk_size.is_some()
@@ -880,12 +935,12 @@ fn build_resident_base_frame_if_admitted(
         || sys.htbeta_matvec.is_some()
         || sys.penalty_op.is_some()
     {
-        return None;
+        return Ok(None);
     }
-    if matches!(gam_gpu::global_policy(), gam_gpu::GpuPolicy::Off) {
-        return None;
+    if matches!(options.gpu_policy, gam_gpu::GpuPolicy::Off) {
+        return Ok(None);
     }
-    // Same size gate as `try_device_arrow_direct`, BEFORE `GpuRuntime::global()`,
+    // Same size gate as `try_device_arrow_direct`, BEFORE runtime resolution,
     // so a below-threshold shape never creates a CUDA primary context.
     let n_rows = sys.rows.len();
     let dense_work = 2u128 * (n_rows as u128) * (sys.k as u128) * (sys.k as u128);
@@ -893,18 +948,26 @@ fn build_resident_base_frame_if_admitted(
         || sys.k < gam_gpu::GpuDispatchPolicy::DEVICE_LOOP_MIN_P
         || dense_work < gam_gpu::GpuDispatchPolicy::MIN_CALIBRATABLE_GEMM_FLOPS
     {
-        return None;
+        return Ok(None);
     }
-    let runtime = gam_gpu::device_runtime::GpuRuntime::global()?;
+    let Some(runtime) =
+        gam_gpu::device_runtime::GpuRuntime::resolve(options.gpu_policy).map_err(|error| {
+            ArrowSchurError::SchurFactorFailed {
+                reason: format!("Arrow-Schur resident-frame runtime resolution failed: {error}"),
+            }
+        })?
+    else {
+        return Ok(None);
+    };
     if !runtime
         .policy()
         .dense_hessian_work_target_is_gpu(sys.rows.len(), sys.k)
     {
-        return None;
+        return Ok(None);
     }
-    // The frame's own upload re-checks admission and rejects matrix-free systems;
-    // a decline here (transient device-unavailable) simply keeps the per-trial path.
-    crate::gpu_kernels::arrow_schur::ResidentBaseArrowFrameHandle::new(sys).ok()
+    crate::gpu_kernels::arrow_schur::ResidentBaseArrowFrameHandle::new(sys)
+        .map(Some)
+        .map_err(|failure| device_failure_as_arrow_error("resident base-frame build", failure))
 }
 
 /// #1017: build a device-resident framed SAE frame for the LM ridge ladder, or
@@ -929,27 +992,31 @@ fn build_resident_base_frame_if_admitted(
 fn build_resident_sae_frame_if_admitted(
     sys: &ArrowSchurSystem,
     options: &ArrowSolveOptions,
-) -> Option<std::sync::Arc<dyn crate::gpu_kernels::arrow_schur::SaeResidentFrame + Send + Sync>> {
+) -> Result<
+    Option<std::sync::Arc<dyn crate::gpu_kernels::arrow_schur::SaeResidentFrame + Send + Sync>>,
+    ArrowSchurError,
+> {
     if !matches!(
         options.mode,
         ArrowSolverMode::Direct | ArrowSolverMode::InexactPCG
     ) {
-        return None;
+        return Ok(None);
     }
-    let data = sys.device_sae_pcg.as_ref()?;
+    let Some(data) = sys.device_sae_pcg.as_ref() else {
+        return Ok(None);
+    };
     if data.frame.is_none() {
-        return None;
+        return Ok(None);
     }
     if !sys.cross_row_penalties.is_empty() || options.streaming_chunk_size.is_some() {
-        return None;
+        return Ok(None);
     }
     let cg_iters = options
         .pcg
         .max_iterations
         .min(options.trust_region.max_iterations);
-    // `Err(Unavailable)` is the device layer's decline signal; the per-trial
-    // re-flatten path is the caller's fallback, so decline maps to `None` here.
-    crate::gpu_kernels::arrow_schur::build_sae_resident_frame(sys, cg_iters).ok()
+    crate::gpu_kernels::arrow_schur::build_sae_resident_frame(sys, cg_iters)
+        .map_err(|failure| device_failure_as_arrow_error("resident SAE frame build", failure))
 }
 
 /// Refresh an allocation-resident SAE frame for a newly assembled nonlinear
@@ -966,7 +1033,10 @@ pub fn prepare_sae_resident_frame(
     existing: Option<
         std::sync::Arc<dyn crate::gpu_kernels::arrow_schur::SaeResidentFrame + Send + Sync>,
     >,
-) -> Option<std::sync::Arc<dyn crate::gpu_kernels::arrow_schur::SaeResidentFrame + Send + Sync>> {
+) -> Result<
+    Option<std::sync::Arc<dyn crate::gpu_kernels::arrow_schur::SaeResidentFrame + Send + Sync>>,
+    ArrowSchurError,
+> {
     if !matches!(
         options.mode,
         ArrowSolverMode::Direct | ArrowSolverMode::InexactPCG
@@ -977,11 +1047,18 @@ pub fn prepare_sae_resident_frame(
         || !sys.cross_row_penalties.is_empty()
         || options.streaming_chunk_size.is_some()
     {
-        return None;
+        return Ok(None);
     }
     if let Some(frame) = existing {
-        if frame.refresh(sys).is_ok() {
-            return Some(frame);
+        match frame.refresh(sys) {
+            Ok(()) => return Ok(Some(frame)),
+            Err(crate::gpu_kernels::arrow_schur::ArrowSchurGpuFailure::Unavailable) => {}
+            Err(failure) => {
+                return Err(device_failure_as_arrow_error(
+                    "resident SAE frame refresh",
+                    failure,
+                ));
+            }
         }
     }
     build_resident_sae_frame_if_admitted(sys, options)
@@ -1025,7 +1102,7 @@ pub fn solve_with_lm_escalation_inner(
     // re-uploading the whole system each escalation. `None` keeps the exact
     // per-trial re-upload path unchanged (Off, non-Direct, matrix-free, or below
     // the device threshold).
-    let mut resident_frame = build_resident_base_frame_if_admitted(sys, options);
+    let mut resident_frame = build_resident_base_frame_if_admitted(sys, options)?;
     // #1017: the matrix-free SAE-PCG system is exactly the shape the dense base
     // frame above declines, so it re-flattened every device operand each trial.
     // Give it a device-resident frame that reuses the ridge-independent buffers
@@ -1041,11 +1118,12 @@ pub fn solve_with_lm_escalation_inner(
         // ridge ladder. Keep that exact handle for every trial.
         std::borrow::Cow::Borrowed(options)
     } else {
-        match resident_frame
-            .is_none()
-            .then(|| build_resident_sae_frame_if_admitted(sys, options))
-            .flatten()
-        {
+        let candidate = if resident_frame.is_none() {
+            build_resident_sae_frame_if_admitted(sys, options)?
+        } else {
+            None
+        };
+        match candidate {
             Some(frame) => {
                 let mut owned = options.clone();
                 owned.sae_resident_frame = Some(frame);
@@ -1507,13 +1585,6 @@ pub(crate) struct ArrowNewtonStepArtifacts {
     /// the bit-identical Cholesky log-determinant.
     pub(crate) schur_log_det_override: Option<f64>,
     pub(crate) pcg_diagnostics: ArrowPcgDiagnostics,
-    pub(crate) gauge_deflated_directions: usize,
-    /// Per-row unit-norm deflated directions surfaced for the outer-gradient
-    /// deflation correction (see [`ArrowBlockFactorization::deflated_row_directions`]).
-    pub(crate) deflated_row_directions: Vec<Vec<Array1<f64>>>,
-    /// Per-row RAW spectra of spectrally-deflated blocks (see
-    /// [`ArrowBlockFactorization::deflation_row_spectra`]).
-    pub(crate) deflation_row_spectra: Vec<Option<RowDeflationSpectrum>>,
 }
 
 pub(crate) struct ArrowBlockFactorization {
@@ -1536,16 +1607,18 @@ pub(crate) struct ArrowBlockFactorization {
 pub(crate) fn factor_blocks_for_system<B: BatchedBlockSolver>(
     sys: &ArrowSchurSystem,
     ridge_t: f64,
-    options: &ArrowSolveOptions,
+    evidence_factorization: bool,
     backend: &B,
+    gpu_policy: gam_gpu::GpuPolicy,
 ) -> Result<ArrowBlockFactorization, ArrowSchurError> {
     let Some(deflation) = sys.row_gauge_deflation.as_ref() else {
         return Ok(ArrowBlockFactorization {
-            factors: backend.factor_blocks(
+            factors: backend.factor_blocks_with_policy(
                 &sys.rows,
                 ridge_t,
                 sys.d,
-                options.tolerate_ill_conditioning,
+                evidence_factorization,
+                gpu_policy,
             )?,
             gauge_deflated_directions: 0,
             deflated_row_directions: Vec::new(),
@@ -1580,7 +1653,7 @@ pub(crate) fn factor_blocks_for_system<B: BatchedBlockSolver>(
                         ridge_t,
                         sys.row_dims[row_idx],
                         row_idx,
-                        options.tolerate_ill_conditioning,
+                        evidence_factorization,
                         deflation.row(row_idx),
                         true,
                     )
@@ -1595,7 +1668,7 @@ pub(crate) fn factor_blocks_for_system<B: BatchedBlockSolver>(
                 ridge_t,
                 sys.row_dims[row_idx],
                 row_idx,
-                options.tolerate_ill_conditioning,
+                evidence_factorization,
                 deflation.row(row_idx),
                 true,
             )?);
@@ -1738,25 +1811,29 @@ pub(crate) fn try_mixed_precision_arrow_solve(
         }));
     }
 
-    let (schur_factor, floored_schur) =
-        factor_dense_reduced_schur(schur, options.schur_pd_floor, false)?;
+    let DenseReducedSchurFactorization {
+        factor: schur_factor,
+        conditioned_schur: floored_schur,
+        beta_deflation: _,
+    } = factor_dense_reduced_schur(
+        schur,
+        ReducedSchurPolicy::newton(options.newton_schur_tikhonov_rel_floor),
+    )?;
     if floored_schur.is_some() {
         return Ok(Some(MixedPrecisionAttempt::Fallback {
             reason: "reduced Schur required the spectral PD-floor; using the f64 dense solve"
                 .to_string(),
         }));
     }
-    if !options.tolerate_ill_conditioning {
-        let schur_kappa = cholesky_factor_kappa_estimate(&schur_factor);
-        if !schur_kappa.is_finite() || schur_kappa > safe_spd_kappa_max(schur.nrows()) {
-            return Err(ArrowSchurError::SchurFactorFailed {
-                reason: format!(
-                    "reduced Schur complement Cholesky succeeded but is ill-conditioned \
-                     (kappa_estimate={schur_kappa:e}); accumulated per-row \
-                     (H_tt)^-1 contamination would yield an inaccurate delta_beta"
-                ),
-            });
-        }
+    let schur_kappa = cholesky_factor_kappa_estimate(&schur_factor);
+    if !schur_kappa.is_finite() || schur_kappa > safe_spd_kappa_max(schur.nrows()) {
+        return Err(ArrowSchurError::SchurFactorFailed {
+            reason: format!(
+                "reduced Schur complement Cholesky succeeded but is ill-conditioned \
+                 (kappa_estimate={schur_kappa:e}); accumulated per-row \
+                 (H_tt)^-1 contamination would yield an inaccurate delta_beta"
+            ),
+        });
     }
 
     if let Some(reason) =
@@ -2181,9 +2258,6 @@ pub(crate) fn solve_arrow_newton_step_artifacts(
             schur_factor,
             schur_log_det_override: None,
             pcg_diagnostics: ArrowPcgDiagnostics::default(),
-            gauge_deflated_directions: 0,
-            deflated_row_directions: Vec::new(),
-            deflation_row_spectra: Vec::new(),
         });
     }
     let backend = CpuBatchedBlockSolver;
@@ -2191,22 +2265,26 @@ pub(crate) fn solve_arrow_newton_step_artifacts(
     // 1. BA point elimination: per-row Cholesky factors of
     // (H_tt^(i) + ridge_t · I).  `factor_blocks` reads the actual row
     // dimension from `row.htt.nrows()` so heterogeneous systems work.
-    let block_factorization = factor_blocks_for_system(sys, ridge_t, options, &backend)?;
-    let htt_factors = block_factorization.factors;
-    let gauge_deflated_directions = block_factorization.gauge_deflated_directions;
-    let deflated_row_directions = block_factorization.deflated_row_directions;
-    let deflation_row_spectra = block_factorization.deflation_row_spectra;
+    let htt_factors =
+        factor_blocks_for_system(sys, ridge_t, false, &backend, options.gpu_policy)?.factors;
 
     // 2. Reduced RHS r_β = -g_β + Σ_i H_βt^(i) (H_tt^(i))⁻¹ g_t^(i).
     let rhs_beta = reduced_rhs_beta(sys, &htt_factors, &backend);
-    let beta_gauge_active = evidence_beta_gauge_active(sys, ridge_t, ridge_beta, options);
-    let rhs_beta_evidence = if beta_gauge_active {
-        sys.beta_gauge_quotient
-            .as_ref()
-            .expect("active beta gauge quotient")
-            .project_complement(rhs_beta.view())
-    } else {
-        rhs_beta.clone()
+    // #2228 — when the caller declares a reduced-β gauge quotient, the dense
+    // Direct/SqrtBA step is solved on the Faddeev–Popov quotient
+    // `P S_β P + Q Qᵀ` (`pin_evidence_beta_schur`) with the RHS projected onto
+    // the identifiable complement `P r_β`. The pinned operator has the gauge
+    // orbit at curvature 1 (never singular), and the projected RHS has no orbit
+    // component, so Δβ solves the identifiable system exactly and carries zero
+    // orbit motion — the state stays on the chart instead of drifting along the
+    // symmetry. Only the SAE inner fit step installs this carrier; every other
+    // caller leaves `beta_gauge_quotient == None` and this stays byte-identical
+    // (the InexactPCG lane, which has no dense factor, keeps refusing an
+    // evidence gauge below and is not reached by the fit step's dense modes).
+    let beta_gauge_active = sys.beta_gauge_quotient.is_some();
+    let rhs_beta_evidence = match sys.beta_gauge_quotient.as_ref() {
+        Some(quotient) => quotient.project_complement(rhs_beta.view()),
+        None => rhs_beta.clone(),
     };
     // The Schur solve is over the reduced β vector. Latent manifold metric
     // weights live on each d-dimensional t_i block, so the induced metric for
@@ -2231,13 +2309,16 @@ pub(crate) fn solve_arrow_newton_step_artifacts(
                 ridge_beta,
                 options,
                 &backend,
-                gauge_deflated_directions,
-                &deflated_row_directions,
-                &deflation_row_spectra,
             ) {
                 return device_step;
             }
-            let schur = build_dense_schur_direct(sys, &htt_factors, ridge_beta, &backend)?;
+            let schur = build_dense_schur_direct(
+                sys,
+                &htt_factors,
+                ridge_beta,
+                &backend,
+                options.gpu_policy,
+            )?;
             let schur = if beta_gauge_active {
                 pin_evidence_beta_schur(sys, schur)
             } else {
@@ -2270,9 +2351,6 @@ pub(crate) fn solve_arrow_newton_step_artifacts(
                             schur_factor: Some(schur_factor),
                             schur_log_det_override: None,
                             pcg_diagnostics,
-                            gauge_deflated_directions,
-                            deflated_row_directions,
-                            deflation_row_spectra,
                         });
                     }
                     MixedPrecisionAttempt::Fallback { reason } => {
@@ -2290,7 +2368,13 @@ pub(crate) fn solve_arrow_newton_step_artifacts(
             (db, sf, diag)
         }
         ArrowSolverMode::SqrtBA => {
-            let schur = build_dense_schur_sqrt_ba(sys, &htt_factors, ridge_beta, &backend)?;
+            let schur = build_dense_schur_sqrt_ba(
+                sys,
+                &htt_factors,
+                ridge_beta,
+                &backend,
+                options.gpu_policy,
+            )?;
             let schur = if beta_gauge_active {
                 pin_evidence_beta_schur(sys, schur)
             } else {
@@ -2323,9 +2407,6 @@ pub(crate) fn solve_arrow_newton_step_artifacts(
                             schur_factor: Some(schur_factor),
                             schur_log_det_override: None,
                             pcg_diagnostics,
-                            gauge_deflated_directions,
-                            deflated_row_directions,
-                            deflation_row_spectra,
                         });
                     }
                     MixedPrecisionAttempt::Fallback { reason } => {
@@ -2343,12 +2424,15 @@ pub(crate) fn solve_arrow_newton_step_artifacts(
             (db, sf, diag)
         }
         ArrowSolverMode::InexactPCG => {
-            if beta_gauge_active {
-                return Err(ArrowSchurError::SchurFactorFailed {
-                    reason: "evidence beta-gauge quotient requires a dense Direct/SqrtBA factor or the dedicated matrix-free evidence operator; InexactPCG does not return an evidence factor"
-                        .to_string(),
-                });
-            }
+            // #2228 — the wide-`p` InexactPCG Newton step gauge-fixes exactly like
+            // the dense modes: the matrix-free reduced-Schur matvec applies the
+            // Faddeev–Popov pin `P S_β P + Q Qᵀ` when the system carries a β-gauge
+            // quotient (`ReducedSchurOperator::apply_into`), and the solve runs on
+            // the projected RHS `rhs_beta_evidence = P r_β`, so Δβ solves the
+            // identifiable system and carries no orbit motion. Only the CPU
+            // `steihaug_pcg_auto` lane projects today; the device
+            // `solve_sae_matrix_free_pcg` kernel does NOT yet apply the pin, so a
+            // set quotient forces the CPU path (gated below).
             if options.solve_precision.is_enabled() {
                 log::info!(
                     "arrow-Schur mixed precision fallback to f64: InexactPCG does not expose a dense Schur factor for certified f32 refinement"
@@ -2358,7 +2442,12 @@ pub(crate) fn solve_arrow_newton_step_artifacts(
             // Auto-select preconditioner level: starts with JacobiPreconditioner
             // (Diagonal / BetaBlockJacobi) and escalates to ClusterJacobi or
             // AdditiveSchwarz when K > 100 and PCG exhausts max_iterations.
-            if options.trust_region.radius == f64::INFINITY {
+            //
+            // #2228 — the device `solve_sae_matrix_free_pcg` kernel does not yet
+            // apply the Faddeev–Popov pin, so a gauge-quotiented system takes the
+            // CPU `steihaug_pcg_auto` lane (which projects through
+            // `ReducedSchurOperator`); kernel-side projection is the follow-up.
+            if options.trust_region.radius == f64::INFINITY && !beta_gauge_active {
                 if let Some(device_data) = sys.device_sae_pcg.as_ref() {
                     let max_iterations = options
                         .pcg
@@ -2395,7 +2484,7 @@ pub(crate) fn solve_arrow_newton_step_artifacts(
                             device_data.as_ref(),
                             ridge_t,
                             ridge_beta,
-                            &rhs_beta,
+                            &rhs_beta_evidence,
                             max_iterations,
                             relative_tolerance,
                         )
@@ -2405,7 +2494,7 @@ pub(crate) fn solve_arrow_newton_step_artifacts(
                             sys,
                             ridge_t,
                             ridge_beta,
-                            &rhs_beta,
+                            &rhs_beta_evidence,
                             max_iterations,
                             relative_tolerance,
                         ) {
@@ -2431,9 +2520,6 @@ pub(crate) fn solve_arrow_newton_step_artifacts(
                                 schur_factor: None,
                                 schur_log_det_override: None,
                                 pcg_diagnostics: diag,
-                                gauge_deflated_directions,
-                                deflated_row_directions,
-                                deflation_row_spectra,
                             });
                         }
                         // Non-PD per-row block → surface the matching CPU error so
@@ -2472,7 +2558,7 @@ pub(crate) fn solve_arrow_newton_step_artifacts(
                 sys,
                 &htt_factors,
                 ridge_beta,
-                &rhs_beta,
+                &rhs_beta_evidence,
                 &options.pcg,
                 &options.trust_region,
                 &backend,
@@ -2480,7 +2566,7 @@ pub(crate) fn solve_arrow_newton_step_artifacts(
                 trust_metric_weights,
                 // #1026 — the same opt-in floor the dense path uses, here gating
                 // the matrix-free unbounded-PCG curvature-floor retry.
-                options.schur_pd_floor,
+                options.newton_schur_tikhonov_rel_floor,
             )?;
             (delta, None, diag)
         }
@@ -2507,9 +2593,6 @@ pub(crate) fn solve_arrow_newton_step_artifacts(
         schur_factor,
         schur_log_det_override: None,
         pcg_diagnostics,
-        gauge_deflated_directions,
-        deflated_row_directions,
-        deflation_row_spectra,
     })
 }
 
@@ -2533,17 +2616,21 @@ impl<'a, B: BatchedBlockSolver> ArrowBlockDiagInverse<'a, B> {
         sys: &'a ArrowSchurSystem,
         ridge_t: f64,
         ridge_beta: f64,
-        schur_pd_floor: Option<f64>,
-        tolerate_ill_conditioning: bool,
+        newton_schur_tikhonov_rel_floor: Option<f64>,
         backend: &'a B,
+        gpu_policy: gam_gpu::GpuPolicy,
     ) -> Result<Self, ArrowSchurError>
     where
         B: Sync,
     {
         let htt_factors =
-            backend.factor_blocks(&sys.rows, ridge_t, sys.d, tolerate_ill_conditioning)?;
-        let schur = build_dense_schur_direct(sys, &htt_factors, ridge_beta, backend)?;
-        let (schur_factor, _) = factor_dense_reduced_schur(&schur, schur_pd_floor, false)?;
+            backend.factor_blocks_with_policy(&sys.rows, ridge_t, sys.d, false, gpu_policy)?;
+        let schur = build_dense_schur_direct(sys, &htt_factors, ridge_beta, backend, gpu_policy)?;
+        let schur_factor = factor_dense_reduced_schur(
+            &schur,
+            ReducedSchurPolicy::newton(newton_schur_tikhonov_rel_floor),
+        )?
+        .factor;
         Ok(Self {
             sys,
             backend,
@@ -2843,9 +2930,9 @@ pub(crate) fn solve_arrow_newton_step_cross_row(
         sys,
         ridge_t,
         ridge_beta,
-        options.schur_pd_floor,
-        options.tolerate_ill_conditioning,
+        options.newton_schur_tikhonov_rel_floor,
         &backend,
+        options.gpu_policy,
     )?;
 
     let n = sys.rows.len();
@@ -2968,12 +3055,6 @@ pub(crate) fn solve_arrow_newton_step_cross_row(
         schur_factor: Some(precond.schur_factor),
         schur_log_det_override: None,
         pcg_diagnostics: diag,
-        gauge_deflated_directions: 0,
-        // The cross-row-penalty CG preconditioner path does not run the SAE
-        // evidence per-row spectral/gauge deflation, so no λ̃ = 1 directions are
-        // surfaced (the outer-gradient deflation correction is a no-op here).
-        deflated_row_directions: Vec::new(),
-        deflation_row_spectra: Vec::new(),
     })
 }
 

@@ -1,4 +1,5 @@
 use super::*;
+use gam_problem::ConstraintSet;
 use opt::{BacktrackConfig, RidgeSchedule, backtracking_line_search, constants, escalate_ridge};
 use std::convert::Infallible;
 
@@ -721,6 +722,42 @@ impl SurvivalLocationScaleFamily {
             + dynamic.time_jac_exit.t().dot(&grad_time_eta_h1)
             + dynamic.time_jac_deriv.t().dot(&grad_time_eta_d);
 
+        // #2342: stable combined index-derivative sum `S1 = d1_q0 + d1_q1` for
+        // the far-tail rows whose entry (`d1_q0 = w·A′(u0)`) and exit
+        // (`d1_q1`) hazard channels are each ~1e300 and (near-)opposite. The
+        // naive coefficient contraction `d1_q1·dq_exit + d1_q0·dq_entry` sums
+        // them at a SHARED coefficient and cancels catastrophically; the
+        // regroup `S1·dq_exit + d1_q0·(dq_entry − dq_exit)` keeps every retained
+        // quantity moderate (or honestly-huge times an exact/Sterbenz zero). We
+        // compute `S1` cancellation-free (paired stacks) only where the gate
+        // fires; every other row keeps today's op order bitwise. `δu` is the
+        // Sterbenz-safe channel gap `(h1−h0)+(q1−q0)` — never `u1−u0`, which
+        // rounds to 0 in the far tail.
+        let mut paired_s1 = Array1::<f64>::zeros(n);
+        let mut use_paired = vec![false; n];
+        for i in 0..n {
+            let u0 = dynamic.h_entry[i] + dynamic.q_entry[i];
+            if self.w[i] > 0.0
+                && paired_stacks::paired_contraction_needs_regroup(&self.inverse_link, u0)
+            {
+                let u1 = dynamic.h_exit[i] + dynamic.q_exit[i];
+                let delta_u = (dynamic.h_exit[i] - dynamic.h_entry[i])
+                    + (dynamic.q_exit[i] - dynamic.q_entry[i]);
+                let w_eff = self.w[i] * mask_at(i);
+                if let Some(sums) = paired_stacks::weighted_paired_index_sums(
+                    &self.inverse_link,
+                    u0,
+                    u1,
+                    delta_u,
+                    self.y[i],
+                    w_eff,
+                ) {
+                    paired_s1[i] = sums[0];
+                    use_paired[i] = true;
+                }
+            }
+        }
+
         let mut scratch = Array1::<f64>::zeros(n);
 
         let grad_t = if let (Some(x_t_entry), Some(x_t_deriv)) = (
@@ -749,12 +786,17 @@ impl SurvivalLocationScaleFamily {
             out + x_t_deriv.transpose_vector_multiply(&scratch)
         } else {
             // combined[i] = d1_q1[i]*dq_t_exit[i] + d1_q0[i]*dq_t_entry[i] + d1_qdot[i]*dqdot_t[i]
-            ndarray::Zip::from(&mut scratch)
-                .and(&d1_q1)
-                .and(&dynamic.dq_t_exit)
-                .and(&d1_q0)
-                .and(&dynamic.dq_t_entry)
-                .for_each(|s, &a, &b, &c, &d| *s = a * b + c * d);
+            // regrouped to S1·dq_exit + d1_q0·(dq_entry − dq_exit) on the far-tail
+            // rows (#2342); byte-identical to the pre-#2342 Zip on every other row.
+            for i in 0..n {
+                let exit = dynamic.dq_t_exit[i];
+                let entry = dynamic.dq_t_entry[i];
+                scratch[i] = if use_paired[i] {
+                    paired_s1[i] * exit + d1_q0[i] * (entry - exit)
+                } else {
+                    d1_q1[i] * exit + d1_q0[i] * entry
+                };
+            }
             ndarray::Zip::from(&mut scratch)
                 .and(&d1_qdot)
                 .and(&dynamic.dqdot_t)
@@ -784,12 +826,21 @@ impl SurvivalLocationScaleFamily {
                 .for_each(|s, &a, &b| *s = a * b);
             out + x_ls_deriv.transpose_vector_multiply(&scratch)
         } else {
-            ndarray::Zip::from(&mut scratch)
-                .and(&d1_q1)
-                .and(&dynamic.dq_ls_exit)
-                .and(&d1_q0)
-                .and(&dynamic.dq_ls_entry)
-                .for_each(|s, &a, &b, &c, &d| *s = a * b + c * d);
+            // combined[i] = d1_q1[i]*dq_ls_exit[i] + d1_q0[i]*dq_ls_entry[i],
+            // regrouped to S1·dq_exit + d1_q0·(dq_entry − dq_exit) on the
+            // far-tail rows (#2342). The `else` arm is byte-identical to the
+            // pre-#2342 Zip (`a*b + c*d`, same operands/order) for every
+            // non-regrouped row. A shared (time-invariant) log-sigma channel has
+            // dq_ls_entry == dq_ls_exit, so the huge d1_q0 multiplies an exact 0.
+            for i in 0..n {
+                let exit = dynamic.dq_ls_exit[i];
+                let entry = dynamic.dq_ls_entry[i];
+                scratch[i] = if use_paired[i] {
+                    paired_s1[i] * exit + d1_q0[i] * (entry - exit)
+                } else {
+                    d1_q1[i] * exit + d1_q0[i] * entry
+                };
+            }
             ndarray::Zip::from(&mut scratch)
                 .and(&d1_qdot)
                 .and(&dynamic.dqdot_ls)
@@ -1418,13 +1469,17 @@ impl CustomFamily for SurvivalLocationScaleFamily {
         &self,
         block_states: &[ParameterBlockState],
         specs: &[ParameterBlockSpec],
-        derivative_blocks: &[Vec<CustomFamilyBlockPsiDerivative>],
+        hyper_layout: &CustomFamilyHyperLayout,
         psi_index: usize,
     ) -> Result<Option<ExactNewtonJointPsiTerms>, String> {
+        if hyper_layout.family_axis_count() != 0 {
+            return Err("SurvivalLocationScaleFamily does not declare family-owned hyper axes"
+                .to_string());
+        }
         self.exact_newton_joint_psi_terms_masked(
             block_states,
             specs,
-            derivative_blocks,
+            hyper_layout.design_derivative_blocks(),
             psi_index,
             None,
         )
@@ -1434,10 +1489,15 @@ impl CustomFamily for SurvivalLocationScaleFamily {
         &self,
         block_states: &[ParameterBlockState],
         specs: &[ParameterBlockSpec],
-        derivative_blocks: &[Vec<CustomFamilyBlockPsiDerivative>],
+        hyper_layout: &CustomFamilyHyperLayout,
         psi_i: usize,
         psi_j: usize,
     ) -> Result<Option<ExactNewtonJointPsiSecondOrderTerms>, String> {
+        if hyper_layout.family_axis_count() != 0 {
+            return Err("SurvivalLocationScaleFamily does not declare family-owned hyper axes"
+                .to_string());
+        }
+        let derivative_blocks = hyper_layout.design_derivative_blocks();
         if block_states.len() != self.expected_blocks()
             || derivative_blocks.len() != self.expected_blocks()
         {
@@ -1463,8 +1523,13 @@ impl CustomFamily for SurvivalLocationScaleFamily {
         &self,
         block_states: &[ParameterBlockState],
         specs: &[ParameterBlockSpec],
-        derivative_blocks: &[Vec<CustomFamilyBlockPsiDerivative>],
+        hyper_layout: &CustomFamilyHyperLayout,
     ) -> Result<Option<Arc<dyn ExactNewtonJointPsiWorkspace>>, String> {
+        if hyper_layout.family_axis_count() != 0 {
+            return Err("SurvivalLocationScaleFamily does not declare family-owned hyper axes"
+                .to_string());
+        }
+        let derivative_blocks = hyper_layout.design_derivative_blocks();
         if block_states.len() != self.expected_blocks()
             || specs.len() != self.expected_blocks()
             || derivative_blocks.len() != self.expected_blocks()
@@ -1481,7 +1546,7 @@ impl CustomFamily for SurvivalLocationScaleFamily {
             self.clone(),
             block_states.to_vec(),
             specs.to_vec(),
-            derivative_blocks.to_vec(),
+            hyper_layout.clone(),
         )?)))
     }
 
@@ -1489,9 +1554,14 @@ impl CustomFamily for SurvivalLocationScaleFamily {
         &self,
         block_states: &[ParameterBlockState],
         specs: &[ParameterBlockSpec],
-        derivative_blocks: &[Vec<CustomFamilyBlockPsiDerivative>],
+        hyper_layout: &CustomFamilyHyperLayout,
         options: &BlockwiseFitOptions,
     ) -> Result<Option<Arc<dyn ExactNewtonJointPsiWorkspace>>, String> {
+        if hyper_layout.family_axis_count() != 0 {
+            return Err("SurvivalLocationScaleFamily does not declare family-owned hyper axes"
+                .to_string());
+        }
+        let derivative_blocks = hyper_layout.design_derivative_blocks();
         if block_states.len() != self.expected_blocks()
             || specs.len() != self.expected_blocks()
             || derivative_blocks.len() != self.expected_blocks()
@@ -1508,7 +1578,7 @@ impl CustomFamily for SurvivalLocationScaleFamily {
             self.clone(),
             block_states.to_vec(),
             specs.to_vec(),
-            derivative_blocks.to_vec(),
+            hyper_layout.clone(),
         )?;
         if let Some(subsample) = options.outer_score_subsample.as_ref() {
             workspace.apply_outer_subsample(subsample.rows.as_ref());
@@ -1520,10 +1590,15 @@ impl CustomFamily for SurvivalLocationScaleFamily {
         &self,
         block_states: &[ParameterBlockState],
         specs: &[ParameterBlockSpec],
-        derivative_blocks: &[Vec<CustomFamilyBlockPsiDerivative>],
+        hyper_layout: &CustomFamilyHyperLayout,
         psi_index: usize,
         d_beta_flat: &Array1<f64>,
     ) -> Result<Option<Array2<f64>>, String> {
+        if hyper_layout.family_axis_count() != 0 {
+            return Err("SurvivalLocationScaleFamily does not declare family-owned hyper axes"
+                .to_string());
+        }
+        let derivative_blocks = hyper_layout.design_derivative_blocks();
         if block_states.len() != self.expected_blocks()
             || derivative_blocks.len() != self.expected_blocks()
         {
@@ -1625,14 +1700,17 @@ impl CustomFamily for SurvivalLocationScaleFamily {
         _: &[ParameterBlockState],
         block_idx: usize,
         spec: &ParameterBlockSpec,
-    ) -> Result<Option<LinearInequalityConstraints>, String> {
+    ) -> Result<Option<ConstraintSet>, String> {
         if block_idx == Self::BLOCK_LINK_WIGGLE {
             return Ok(monotone_wiggle_nonnegative_constraints(spec.design.ncols()));
         }
         if block_idx != Self::BLOCK_TIME {
             return Ok(None);
         }
-        Ok(self.time_linear_constraints.clone())
+        Ok(self
+            .time_linear_constraints
+            .clone()
+            .map(ConstraintSet::Dense))
     }
 
     fn max_feasible_step_size(
@@ -2476,7 +2554,7 @@ pub(crate) struct SurvivalExactNewtonJointPsiWorkspace {
     pub(crate) family: SurvivalLocationScaleFamily,
     pub(crate) block_states: Vec<ParameterBlockState>,
     pub(crate) specs: Vec<ParameterBlockSpec>,
-    pub(crate) derivative_blocks: Vec<Vec<CustomFamilyBlockPsiDerivative>>,
+    pub(crate) hyper_layout: CustomFamilyHyperLayout,
     pub(crate) row_mask: Option<Arc<Array1<f64>>>,
 }
 
@@ -2485,13 +2563,13 @@ impl SurvivalExactNewtonJointPsiWorkspace {
         family: SurvivalLocationScaleFamily,
         block_states: Vec<ParameterBlockState>,
         specs: Vec<ParameterBlockSpec>,
-        derivative_blocks: Vec<Vec<CustomFamilyBlockPsiDerivative>>,
+        hyper_layout: CustomFamilyHyperLayout,
     ) -> Result<Self, String> {
         Ok(Self {
             family,
             block_states,
             specs,
-            derivative_blocks,
+            hyper_layout,
             row_mask: None,
         })
     }
@@ -2519,7 +2597,7 @@ impl ExactNewtonJointPsiWorkspace for SurvivalExactNewtonJointPsiWorkspace {
         self.family.exact_newton_joint_psi_terms_masked(
             &self.block_states,
             &self.specs,
-            &self.derivative_blocks,
+            self.hyper_layout.design_derivative_blocks(),
             psi_index,
             self.row_mask.as_deref(),
         )
@@ -2530,7 +2608,7 @@ impl ExactNewtonJointPsiWorkspace for SurvivalExactNewtonJointPsiWorkspace {
         psi_i: usize,
         psi_j: usize,
     ) -> Result<Option<ExactNewtonJointPsiSecondOrderTerms>, String> {
-        let psi_dim = self.derivative_blocks.iter().map(Vec::len).sum::<usize>();
+        let psi_dim = self.hyper_layout.design_axis_count();
         if psi_i >= psi_dim || psi_j >= psi_dim {
             return Ok(None);
         }
@@ -2556,7 +2634,7 @@ impl ExactNewtonJointPsiWorkspace for SurvivalExactNewtonJointPsiWorkspace {
             }
             .into());
         }
-        let psi_dim = self.derivative_blocks.iter().map(Vec::len).sum::<usize>();
+        let psi_dim = self.hyper_layout.design_axis_count();
         if psi_index >= psi_dim {
             return Ok(None);
         }
@@ -2565,7 +2643,7 @@ impl ExactNewtonJointPsiWorkspace for SurvivalExactNewtonJointPsiWorkspace {
             .exact_newton_joint_psihessian_directional_derivative(
                 &self.block_states,
                 &self.specs,
-                &self.derivative_blocks,
+                &self.hyper_layout,
                 psi_index,
                 d_beta_flat,
             )?

@@ -178,7 +178,9 @@ pub struct AtomTopologyPersistence {
     pub h0: Vec<PersistenceBar>,
     /// The measured H₁ bars.
     pub h1: Vec<PersistenceBar>,
-    /// The measured H₂ bars. Empty unless the raced topology is sphere/torus.
+    /// The measured H₂ bars. Empty unless the raced topology makes a closed-
+    /// surface H₂ claim (sphere, torus, projective plane, or Klein bottle; the
+    /// non-orientable cases use the same F2 coefficient field as the reducer).
     pub h2: Vec<PersistenceBar>,
     /// The certificate flag: the measured topology disagrees with the raced
     /// type's expected Betti signature. Fed to the probe planner.
@@ -225,9 +227,21 @@ fn expected_betti_signature(
             b1: 2,
             b2: Some(1),
         }),
+        // Closed non-orientable surfaces are evaluated over F2, where the
+        // fundamental class survives in H2.
+        SaeAtomBasisKind::KleinBottle => Some(BettiSignature {
+            b0: 1,
+            b1: 2,
+            b2: Some(1),
+        }),
         SaeAtomBasisKind::Sphere => Some(BettiSignature {
             b0: 1,
             b1: 0,
+            b2: Some(1),
+        }),
+        SaeAtomBasisKind::ProjectivePlane => Some(BettiSignature {
+            b0: 1,
+            b1: 1,
             b2: Some(1),
         }),
         SaeAtomBasisKind::Linear
@@ -1156,7 +1170,7 @@ pub fn atom_topology_persistence(
         }
         weights[i] = support_weights[i];
     }
-    let finite_set_components = if matches!(atom.basis_kind, SaeAtomBasisKind::FiniteSet) {
+    let finite_set_components = if matches!(atom.basis_kind(), SaeAtomBasisKind::FiniteSet) {
         Some(atom.basis_size())
     } else {
         None
@@ -1164,7 +1178,7 @@ pub fn atom_topology_persistence(
     topology_persistence_verdict_impl(
         points.view(),
         Some(weights.view()),
-        &atom.basis_kind,
+        atom.basis_kind(),
         finite_set_components,
     )
 }

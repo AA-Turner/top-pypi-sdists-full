@@ -130,7 +130,7 @@ pre-commit-install = { cmd = "pre-commit install", help = "Install pre-commit ho
 dashboard = "uv run --project carbonserver uvicorn main:app --reload"
 dashboard-ci = "uv run --project carbonserver uvicorn main:app --host 0.0.0.0 --port 8008"
 docker = "docker-compose up -d"
-test-api-unit = "uv run --project carbonserver --extra dev python -m pytest -vv carbonserver/tests/api/routers && uv run --project carbonserver --extra dev python -m pytest -vv carbonserver/tests/api/service/ && uv run --project carbonserver --extra dev python -m pytest -vv carbonserver/tests/api/usecase/"
+test-api-unit = "uv run --project carbonserver --extra dev python -m pytest -vv carbonserver/tests/api/routers && uv run --project carbonserver --extra dev python -m pytest -vv carbonserver/tests/api/service/ && uv run --project carbonserver --extra dev python -m pytest -vv carbonserver/tests/api/usecase/ && uv run --project carbonserver --extra dev python -m pytest -vv carbonserver/tests/api/repository/"
 test-api-integ = "uv run --project carbonserver --extra dev python -m pytest -vv carbonserver/tests/api/integration/"
 setup-db = "cd carbonserver && uv run --project carbonserver python -m alembic -c carbonserver/database/alembic.ini upgrade head"
 downgrade-db = "cd carbonserver && uv run --project carbonserver python -m alembic -c carbonserver/database/alembic.ini downgrade base"
@@ -151,7 +151,7 @@ docs-check-drift = "python scripts/check-docs-drift.py"
 carbonboard = "python codecarbon/viz/carbonboard.py"
 
 [tool.bumpver]
-current_version = "3.2.8"
+current_version = "3.2.9"
 version_pattern = "MAJOR.MINOR.PATCH[_TAGNUM]"
 
 [tool.bumpver.file_patterns]

@@ -858,6 +858,16 @@ pub(crate) fn finalize_survival_location_scale_fit(
     } else {
         None
     };
+    let finalization_gauge = survival_location_scale_finalization_gauge(
+        &prepared.time_transform.gauge,
+        beta_threshold_active.len(),
+        beta_threshold.len(),
+        prepared.threshold_fixed_cols,
+        beta_log_sigma_active.len(),
+        beta_log_sigma.len(),
+        prepared.log_sigma_fixed_cols,
+        beta_link_wiggle.as_ref().map(|b| b.len()),
+    )?;
     let lambdas = fit.lambdas.clone();
     let lambdas_time = lambdas.slice(s![0..prepared.k_time]).to_owned();
     let lambdas_threshold = lambdas
@@ -887,48 +897,31 @@ pub(crate) fn finalize_survival_location_scale_fit(
     let covariance_conditional = fit
         .covariance_conditional
         .as_ref()
-        .map(|cov_reduced| {
-            lift_conditional_covariance(
-                cov_reduced,
-                &prepared.time_transform.gauge,
-                beta_threshold_active.len(),
-                beta_threshold.len(),
-                prepared.threshold_fixed_cols,
-                beta_log_sigma_active.len(),
-                beta_log_sigma.len(),
-                prepared.log_sigma_fixed_cols,
-                beta_link_wiggle.as_ref().map_or(0, |b| b.len()),
-            )
-        })
+        .map(|cov_reduced| lift_conditional_covariance(cov_reduced, &finalization_gauge))
         .transpose()?;
     let geometry = fit
         .geometry
         .as_ref()
-        .and_then(|geom| {
-            if prepared.threshold_fixed_cols > 0 || prepared.log_sigma_fixed_cols > 0 {
-                None
-            } else {
-                Some(
-                    lift_conditional_covariance(
-                        &geom.penalized_hessian,
-                        &prepared.time_transform.gauge,
-                        beta_threshold_active.len(),
-                        beta_threshold.len(),
-                        prepared.threshold_fixed_cols,
-                        beta_log_sigma_active.len(),
-                        beta_log_sigma.len(),
-                        prepared.log_sigma_fixed_cols,
-                        beta_link_wiggle.as_ref().map_or(0, |b| b.len()),
+        .map(|geom| {
+            // Precision is a quadratic form on the active tangent space. It
+            // cannot be pushed into a larger raw frame by the covariance
+            // congruence `T H T'`: rectangular gauges have no raw inverse, and
+            // that product is not a precision. Retain the exact active Hessian
+            // and compose the inner and finalization sections so saved ALO can
+            // pull each raw row Jacobian back as `J_active = J_raw T`.
+            let coefficient_gauge = geom
+                .coefficient_gauge
+                .left_compose(&finalization_gauge)
+                .map_err(|reason| {
+                    format!(
+                        "survival location-scale coefficient-gauge finalization failed: {reason}"
                     )
-                    .map(|penalized_hessian| FitGeometry {
-                        // Boundary adapter: wrap the lifted raw Hessian as
-                        // `UnscaledPrecision` for the newtype storage.
-                        penalized_hessian: penalized_hessian.into(),
-                        working_weights: geom.working_weights.clone(),
-                        working_response: geom.working_response.clone(),
-                    }),
-                )
-            }
+                })?;
+            Ok::<_, String>(FitGeometry {
+                coefficient_gauge,
+                penalized_hessian: geom.penalized_hessian.clone(),
+                working: geom.working.clone(),
+            })
         })
         .transpose()?;
     survival_fit_from_parts(SurvivalLocationScaleFitResultParts {
@@ -947,8 +940,16 @@ pub(crate) fn finalize_survival_location_scale_fit(
         stable_penalty_term: fit.stable_penalty_term,
         penalized_objective: fit.penalized_objective,
         used_device: false,
-        outer_iterations: fit.outer_iterations,
+        outer_iterations: fit.convergence_evidence().outer_iterations(),
         outer_gradient_norm: fit.outer_gradient_norm,
+        criterion_certificate: fit
+            .convergence_evidence()
+            .outer_certificate()
+            .cloned(),
+        // A `UnifiedFitResult` can only exist after its checked constructor has
+        // consumed converged inner and outer evidence. Finalization is a pure
+        // coefficient-gauge transformation, so convergence is derived from the
+        // sealed source fit rather than a second status decision.
         outer_converged: true,
         covariance_conditional,
         geometry,
@@ -1077,6 +1078,8 @@ pub(crate) fn validate_time_block(
         });
     }
     structural_time_coefficient_lower_bounds_with_monotone_time_wiggle(
+        &b.design_entry,
+        &b.design_exit,
         &b.design_derivative_exit,
         &b.derivative_offset_exit,
         derivative_guard,

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ImageIO"
-version = "2.37.3"
+version = "2.37.4"
 authors = [
     {name = "ImageIO contributors"}
 ]
@@ -123,7 +123,6 @@ all-plugins-pypy = [
     "imageio-ffmpeg",
     "pillow-heif",
     "psutil",
-    "tifffile",
 ]
 full = [
     "astropy",
@@ -149,7 +148,7 @@ zip-safe = false
 packages = ["imageio", "imageio.core", "imageio.plugins", "imageio.config"]
 
 [tool.setuptools.dynamic]
-readme = {file = ["README.md"]}
+readme = {file = ["README.md"], content-type = "text/markdown"}
 
 [tool.setuptools.package-data]
 imageio = ["py.typed", "**/*.pyi", "*.pyi"]

@@ -50,6 +50,30 @@ pub struct InnerProgressFeedback {
     /// iter's inner Newton may need extra margin even when the
     /// previous solve converged in few iters.
     pub accept_rho: Arc<AtomicU64>,
+    /// #2349 — one-shot "re-evaluate COLD" pulse raised by the outer
+    /// cost-stall guard when it grants a STUCK-stall escape.
+    ///
+    /// A stuck stall means the outer objective has flatlined over the
+    /// no-improvement window while the projected gradient is still far above
+    /// the certified-stationary band — i.e. genuine feasible descent remains,
+    /// but the optimizer cannot see it. On a near-separating profiled fit the
+    /// cause is warm-start value HYSTERESIS: successive trial-ρ inner solves
+    /// are warm-started from the previous iterate's coefficient mode, and on a
+    /// near-flat inner ridge (vanishing softmax Fisher curvature at the simplex
+    /// boundary) two warm starts converge to different ridge points whose
+    /// Laplace `½log|H(β)|` — hence the profiled objective — differ by more
+    /// than the outer descent resolution. The optimizer's step-acceptance then
+    /// cannot distinguish real descent from that hysteresis and the loop grinds
+    /// to `max_iter` at a non-stationary point.
+    ///
+    /// Uncapping the inner cycle budget alone does NOT fix this (a fully
+    /// converged warm solve still lands on the warm-biased ridge point), so the
+    /// escape additionally asks the next outer evaluation(s) to re-solve the
+    /// inner problem COLD — trajectory-independent — restoring a consistent
+    /// objective surface the optimizer can descend. `false` = no pending
+    /// request. Only the custom-family joint path consumes it today; every
+    /// other path leaves it inert.
+    pub force_cold: Arc<AtomicBool>,
 }
 
 impl InnerProgressFeedback {
@@ -148,12 +172,28 @@ pub(crate) fn effective_seed_budget(
     let requested_budget = requested_budget.max(1);
     match (solver, risk_profile) {
         (Solver::Efs | Solver::HybridEfs, _) => 1,
-        (Solver::Arc, gam_problem::SeedRiskProfile::Survival) => 1,
-        (
-            Solver::Arc,
-            gam_problem::SeedRiskProfile::Gaussian
-            | gam_problem::SeedRiskProfile::GeneralizedLinear,
-        ) => 1,
+        // #2376: the ARC parsimonious profiles (GeneralizedLinear + Survival)
+        // must keep the caller's requested budget so the #1373/#1575 promoted
+        // heavy interior seed at slot 1 stays reachable. Flooring these to 1
+        // made the multi-start await gate's `seed_budget > 1` unsatisfiable,
+        // silently disabling the under-penalized-overshoot guard on EVERY ARC
+        // binomial/survival fit (a coupled-constants regression: the #1689/#1757
+        // ARC single-seed floor overwrote the #1373 guard). The single-seed
+        // speed win for the common well-penalized case is NOT surrendered — it
+        // is reclaimed at RUNTIME by `parsimony_second_seed_is_redundant`, which
+        // breaks the multi-start after slot 0 whenever slot 0 converged to a
+        // curvature-pinned, well-penalized (ρ ≥ 0) optimum. Only the genuinely
+        // under-penalized / flat-valley / non-converged slot-0 outcomes — the
+        // exact regime the heavy seed exists to correct — pay for the second
+        // seed. `requested_budget == 1` still yields 1 (the caller asked for a
+        // single start), so this only re-enables parsimony when a budget was
+        // actually requested.
+        (Solver::Arc, profile) if profile.uses_parsimonious_keep_best() => requested_budget,
+        // ARC Gaussian keeps the #1689/#1757 single-seed floor: its analytic
+        // initial.sp seed lands the correct profiled-scale basin, so a second
+        // full outer solve is redundant. (GaussianLocationScale is not floored
+        // here — it falls through to the requested budget, as before.)
+        (Solver::Arc, gam_problem::SeedRiskProfile::Gaussian) => 1,
         _ => requested_budget,
     }
 }
@@ -203,9 +243,9 @@ pub(crate) fn rank_seeds_with_screening(
     config: &OuterConfig,
     context: &str,
     seeds: &[Array1<f64>],
-) -> Vec<Array1<f64>> {
+) -> Result<Vec<Array1<f64>>, EstimationError> {
     let Some(screening_cap) = config.screening_cap.as_ref() else {
-        return seeds.to_vec();
+        return Ok(seeds.to_vec());
     };
 
     let initial_cap = config.seed_config.screen_max_inner_iterations.max(1);
@@ -287,9 +327,9 @@ pub(crate) fn rank_seeds_with_screening(
                     );
                     Ok(cost)
                 }
-                Err(_) => {
+                Err(error) => {
                     log::info!(
-                        "[STAGE] {context}: seed-screen stage={} seed={}/{} cap={} elapsed={:.3}s rejected (error)",
+                        "[STAGE] {context}: seed-screen stage={} seed={}/{} cap={} elapsed={:.3}s fatal evaluator error",
                         stage,
                         idx + 1,
                         seeds.len(),
@@ -300,7 +340,7 @@ pub(crate) fn rank_seeds_with_screening(
                         },
                         seed_elapsed,
                     );
-                    Err(())
+                    Err(error)
                 }
             }
         },
@@ -340,13 +380,13 @@ pub(crate) fn rank_seeds_with_screening(
         },
     );
 
+    screening_cap.store(previous_cap, Ordering::Relaxed);
+    obj.reset();
+    let cascade_result = cascade_result?;
     let rejected = cascade_result.rejected;
     let final_cap_used = cascade_result.final_cap;
     let stages_consumed = cascade_result.stages_consumed;
     let ranked = cascade_result.ranked_indices;
-
-    screening_cap.store(previous_cap, Ordering::Relaxed);
-    obj.reset();
     log::info!(
         "[OUTER] {context}: seed screening cascade complete elapsed={:.3}s stages_used={} final_cap={} ranked={}/{}",
         cascade_start.elapsed().as_secs_f64(),
@@ -368,7 +408,7 @@ pub(crate) fn rank_seeds_with_screening(
             rejected,
             stages_consumed,
         );
-        return seeds.to_vec();
+        return Ok(seeds.to_vec());
     }
 
     let mut ordered = Vec::with_capacity(seeds.len());
@@ -537,7 +577,7 @@ pub(crate) fn rank_seeds_with_screening(
         rejected,
     );
 
-    ordered
+    Ok(ordered)
 }
 
 /// ρ margin (in log-λ units) within which a smoothing coordinate counts as

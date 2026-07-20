@@ -142,7 +142,7 @@ pub(crate) use std::collections::HashMap;
 
 pub(crate) use std::sync::{Arc, Mutex};
 
-pub(crate) use gam_linalg::faer_ndarray::FaerEigh;
+pub(crate) use gam_linalg::faer_ndarray::{FaerEigh, FaerSvd};
 
 use crate::model_types::{ActiveLinearConstraintBlock, KktResidualSubspace, ProjectedKktResidual};
 pub(crate) use gam_linalg::matrix::{
@@ -151,7 +151,7 @@ pub(crate) use gam_linalg::matrix::{
 pub use gam_problem::{
     ContractedPsiSecondOrderFn, DenseMatrixHyperOperator, DriftDerivResult, EvalMode,
     FixedDriftDerivFn, HyperCoord, HyperCoordDrift, HyperCoordPair, HyperCoordPairFn,
-    HyperOperator, ProjectedFactorCache, ProjectedFactorKey, PseudoLogdetMode,
+    HyperCoordPairResult, HyperOperator, ProjectedFactorCache, ProjectedFactorKey, PseudoLogdetMode,
     SharedFixedDriftDerivFn,
 };
 

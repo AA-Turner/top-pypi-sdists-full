@@ -499,13 +499,13 @@ def generate_report(
             country_lower = country.lower().replace(" ", "_")
             plot_dir = dir_outlook / "plots" / model / country_lower
 
-            yt = list(plot_dir.glob(f"yield_table_*_{model}.png"))
+            yt = list(plot_dir.rglob(f"yield_table_*_{model}.png"))
             if yt:
                 _subsection(f"{country.title().replace('_', ' ')} — {model}")
                 _add_image(yt[0], caption="Yield forecast summary",
                            description=_DESC["yield_table"])
 
-            ci = list(plot_dir.glob(f"yield_ci_*_{model}.png"))
+            ci = list(plot_dir.rglob(f"yield_ci_*_{model}.png"))
             if ci:
                 _add_image(ci[0], caption="Predicted yield with confidence intervals",
                            description=_DESC["yield_ci"])
@@ -557,7 +557,7 @@ def generate_report(
             if plot_dir.exists():
                 for stage_dir in sorted(plot_dir.iterdir()):
                     if stage_dir.is_dir():
-                        scatters = sorted(stage_dir.glob(f"scatter_*_{model}*.png"))
+                        scatters = sorted(stage_dir.rglob(f"scatter_*_{model}*.png"))
                         for s in scatters:
                             stage_scatters.append((stage_dir.name.replace("_", " "), s))
             if stage_scatters:
@@ -566,22 +566,22 @@ def generate_report(
                                description=_DESC["scatter"])
             else:
                 # Fallback: non-staged scatter in top-level dir
-                scatter = list(plot_dir.glob(f"scatter_*_{model}.png"))
+                scatter = list(plot_dir.rglob(f"scatter_*_{model}.png"))
                 if scatter:
                     _add_image(scatter[0], caption="Observed vs Predicted yield",
                                description=_DESC["scatter"])
 
-            mape_box = list(plot_dir.glob(f"mape_box_region_*_{model}.png"))
+            mape_box = list(plot_dir.rglob(f"mape_box_region_*_{model}.png"))
             if mape_box:
                 _add_image(mape_box[0], caption="MAPE distribution by region",
                            description=_DESC["mape_box_region"])
 
-            mape_year = list(plot_dir.glob(f"mape_year_*_{model}.png"))
+            mape_year = list(plot_dir.rglob(f"mape_year_*_{model}.png"))
             if mape_year:
                 _add_image(mape_year[0], caption="MAPE by year",
                            description=_DESC["mape_year"])
 
-            combined = list(plot_dir.glob(f"combined_*_{model}.png"))
+            combined = list(plot_dir.rglob(f"combined_*_{model}.png"))
             if combined:
                 _add_image(combined[0], caption="Predicted yield map with MAPE by region",
                            description=_DESC["combined"])
@@ -598,8 +598,8 @@ def generate_report(
     for model in models:
         for country in countries:
             country_lower = country.lower().replace(" ", "_")
-            prog_dir = dir_outlook / "plots" / model / country_lower / "progression"
-            if prog_dir.exists() and list(prog_dir.glob("*.png")):
+            prog_dir = dir_outlook / "plots" / model / country_lower
+            if prog_dir.exists() and list(prog_dir.rglob("*_progression_*.png")):
                 has_progression = True
                 break
         if has_progression:
@@ -612,7 +612,7 @@ def generate_report(
         for model in models:
             for country in countries:
                 country_lower = country.lower().replace(" ", "_")
-                prog_dir = dir_outlook / "plots" / model / country_lower / "progression"
+                prog_dir = dir_outlook / "plots" / model / country_lower
                 if not prog_dir.exists():
                     continue
 
@@ -623,7 +623,7 @@ def generate_report(
                     ("r2", "R² progression across growing season"),
                     ("rmse", "RMSE progression across growing season"),
                 ]:
-                    imgs = _find_images(prog_dir, f"{metric}_progression_*.png")
+                    imgs = sorted(prog_dir.rglob(f"{metric}_progression_*.png"))
                     for img in imgs[:1]:
                         _add_image(img, caption=caption)
 

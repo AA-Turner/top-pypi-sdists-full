@@ -109,6 +109,12 @@ class OfflineQueryInputs(_message.Message):
         sql_input: _Optional[str] = ...,
     ) -> None: ...
 
+class OfflineQueryWriteTo(_message.Message):
+    __slots__ = ("uri",)
+    URI_FIELD_NUMBER: _ClassVar[int]
+    uri: str
+    def __init__(self, uri: _Optional[str] = ...) -> None: ...
+
 class ResourceRequests(_message.Message):
     __slots__ = ("cpu", "memory", "ephemeral_volume_size", "ephemeral_storage", "resource_group")
     CPU_FIELD_NUMBER: _ClassVar[int]
@@ -167,6 +173,7 @@ class OfflineQueryRequest(_message.Message):
         "resources",
         "unload_resolvers",
         "use_metaplanner",
+        "write_to",
     )
     class PlannerOptionsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -231,6 +238,7 @@ class OfflineQueryRequest(_message.Message):
     RESOURCES_FIELD_NUMBER: _ClassVar[int]
     UNLOAD_RESOLVERS_FIELD_NUMBER: _ClassVar[int]
     USE_METAPLANNER_FIELD_NUMBER: _ClassVar[int]
+    WRITE_TO_FIELD_NUMBER: _ClassVar[int]
     inputs: OfflineQueryInputs
     outputs: _containers.RepeatedScalarFieldContainer[str]
     required_outputs: _containers.RepeatedScalarFieldContainer[str]
@@ -266,6 +274,7 @@ class OfflineQueryRequest(_message.Message):
     resources: ResourceRequests
     unload_resolvers: _containers.RepeatedCompositeFieldContainer[UnloadResolverSpec]
     use_metaplanner: bool
+    write_to: OfflineQueryWriteTo
     def __init__(
         self,
         inputs: _Optional[_Union[OfflineQueryInputs, _Mapping]] = ...,
@@ -303,6 +312,7 @@ class OfflineQueryRequest(_message.Message):
         resources: _Optional[_Union[ResourceRequests, _Mapping]] = ...,
         unload_resolvers: _Optional[_Iterable[_Union[UnloadResolverSpec, _Mapping]]] = ...,
         use_metaplanner: bool = ...,
+        write_to: _Optional[_Union[OfflineQueryWriteTo, _Mapping]] = ...,
     ) -> None: ...
 
 class UnloadResolverSpec(_message.Message):

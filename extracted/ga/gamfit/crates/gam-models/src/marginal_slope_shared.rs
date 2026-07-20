@@ -32,7 +32,8 @@
 use crate::cubic_cell_kernel::{self, DenestedPartitionCell, LocalSpanCubic};
 use crate::custom_family::{CustomFamilyBlockPsiDerivative, ParameterBlockSpec};
 use crate::outer_subsample::{OuterScoreSubsample, WeightedOuterRow};
-use gam_math::jet_partitions::MultiDirJet;
+use gam_math::jet_scalar::{JetScalar, OneSeed, Order2, TwoSeed};
+use gam_math::nested_dual::JetField;
 use ndarray::{Array1, Array2, Axis};
 use std::ops::Range;
 use std::sync::Arc;
@@ -114,114 +115,117 @@ pub fn probit_frailty_scale(gaussian_frailty_sd: Option<f64>) -> f64 {
     }
 }
 
-pub(crate) fn probit_frailty_scale_multi_dir_jet(
-    gaussian_frailty_sd: Option<f64>,
-    missing_sigma_message: &str,
-    n_dirs: usize,
-    first_masks: &[usize],
-    second_masks: &[usize],
-) -> Result<MultiDirJet, String> {
-    let sigma = gaussian_frailty_sd.ok_or_else(|| missing_sigma_message.to_string())?;
-    let jet = crate::survival::lognormal_kernel::ProbitFrailtyScaleJet::from_log_sigma(sigma.ln());
-    let mut coeffs = Vec::with_capacity(1 + first_masks.len() + second_masks.len());
-    coeffs.push((0usize, jet.s));
-    coeffs.extend(first_masks.iter().copied().map(|mask| (mask, jet.ds)));
-    coeffs.extend(second_masks.iter().copied().map(|mask| (mask, jet.d2s)));
-    Ok(MultiDirJet::with_coeffs(n_dirs, &coeffs))
-}
-
-/// Per-sweep scale jets for the shared directional obj/grad/hess kernel.
-///
-/// Every marginal-slope family forms its exact-Newton primary terms by
-/// differentiating the same row negative-log directional jet
-/// (`row_neglog_directional_with_scale_jet`) along unit primary directions.
-/// The sweep appends one unit direction for the gradient pass and two for the
-/// Hessian pass on top of a fixed *leading* prefix of directions, scaling the
-/// frailty kernel with an order-matched [`MultiDirJet`] each time. The `obj`
-/// slot is `Some` only when the caller also wants the zeroth-order objective
-/// (the prefix-only evaluation); psi-Hessian directional sweeps leave it `None`.
-#[derive(Clone)]
-pub(crate) struct DirectionalScaleJets {
-    pub(crate) obj: Option<MultiDirJet>,
-    pub(crate) grad: MultiDirJet,
-    pub(crate) hess: MultiDirJet,
-}
-
-/// Output of [`directional_obj_grad_hess`]: the (optional) zeroth-order
-/// objective, the full primary gradient, and the symmetric primary Hessian.
+/// One auxiliary-parameter channel's objective, full primary gradient, and
+/// symmetric primary Hessian.
 pub(crate) struct DirectionalPrimaryTerms {
     pub(crate) objective: f64,
     pub(crate) grad: Array1<f64>,
     pub(crate) hess: Array2<f64>,
 }
 
-/// Shared exact-Newton primary directional sweep for the marginal-slope
-/// families (Bernoulli, survival, latent survival).
+fn order2_primary_terms<const K: usize>(channel: Order2<K>) -> DirectionalPrimaryTerms {
+    let gradient = channel.g();
+    let hessian = channel.h();
+    DirectionalPrimaryTerms {
+        objective: channel.value(),
+        grad: Array1::from_vec(gradient.to_vec()),
+        hess: Array2::from_shape_fn((K, K), |(row, column)| hessian[row][column]),
+    }
+}
+
+/// Differentiate a generic order-two primary program once with respect to one
+/// auxiliary scalar parameter.
 ///
-/// Given a fixed `leading` prefix of directions and a family-specific row jet
-/// evaluator `eval`, this builds the objective (when requested), the gradient
-/// `g_a = D[leading, e_a] φ`, and the symmetric Hessian
-/// `H_ab = D[leading, e_a, e_b] φ`, where `e_a` is the `a`-th unit primary
-/// direction (length `primary_dim`) and `D[..]` is the mixed directional
-/// derivative the row jet returns. `eval(dirs, scale)` must return the highest
-/// mixed-partial coefficient of the row negative-log jet for the supplied
-/// directions and scale jet — exactly what each family's
-/// `row_neglog_directional_with_scale_jet` produces.
-///
-/// Centralizing the sweep removes the per-family duplication of the
-/// obj/grad/hess loop nest, which is the single most drift-prone piece of the
-/// exact-Newton stack: a stray index or a missing symmetric assignment in one
-/// copy silently destabilizes only that family's optimizer.
-pub(crate) fn directional_obj_grad_hess<Eval>(
-    primary_dim: usize,
-    leading: &[&Array1<f64>],
-    scales: &DirectionalScaleJets,
+/// The primary variables carry their ordinary value/gradient/Hessian seeds in
+/// the [`OneSeed::base`] channel while `parameter` carries only the auxiliary
+/// derivative in [`OneSeed::eps`]. The resulting epsilon `Order2` therefore is
+/// the auxiliary derivative of the objective, its complete primary gradient,
+/// and its complete primary Hessian. This replaces the old
+/// `1 + K + K(K+1)/2` separate bitmask-jet evaluations with one evaluation of
+/// the same row expression.
+pub(crate) fn first_parameter_order2_terms<const K: usize, Eval>(
+    primaries: [f64; K],
+    parameter: f64,
+    parameter_first: f64,
     eval: Eval,
 ) -> Result<DirectionalPrimaryTerms, String>
 where
-    Eval: Fn(&[&Array1<f64>], &MultiDirJet) -> Result<f64, String>,
+    Eval: FnOnce(&[OneSeed<K>; K], &OneSeed<K>) -> Result<OneSeed<K>, String>,
 {
-    let objective = if let Some(scale_obj) = scales.obj.as_ref() {
-        eval(leading, scale_obj)?
-    } else {
-        0.0
+    let zero = <Order2<K> as JetScalar<K>>::constant(0.0);
+    let variables = std::array::from_fn(|axis| OneSeed {
+        base: <Order2<K> as JetScalar<K>>::variable(primaries[axis], axis),
+        eps: zero,
+    });
+    let parameter_jet = OneSeed {
+        base: <Order2<K> as JetScalar<K>>::constant(parameter),
+        eps: <Order2<K> as JetScalar<K>>::constant(parameter_first),
     };
+    eval(&variables, &parameter_jet).map(|output| order2_primary_terms(output.eps))
+}
 
-    let unit = |a: usize| -> Array1<f64> {
-        let mut da = Array1::<f64>::zeros(primary_dim);
-        da[a] = 1.0;
-        da
+/// Differentiate a generic order-two primary program once to second order in
+/// one auxiliary scalar parameter.
+///
+/// Both nilpotent directions represent the same external coordinate. Seeding
+/// `eps_del` with the parameter's own second derivative supplies the complete
+/// chain rule, and the output `eps_del` channel contains the second auxiliary
+/// derivative of `(objective, primary gradient, primary Hessian)`.
+pub(crate) fn second_parameter_order2_terms<const K: usize, Eval>(
+    primaries: [f64; K],
+    parameter: f64,
+    parameter_first: f64,
+    parameter_second: f64,
+    eval: Eval,
+) -> Result<DirectionalPrimaryTerms, String>
+where
+    Eval: FnOnce(&[TwoSeed<K>; K], &TwoSeed<K>) -> Result<TwoSeed<K>, String>,
+{
+    let zero = <Order2<K> as JetScalar<K>>::constant(0.0);
+    let variables = std::array::from_fn(|axis| TwoSeed {
+        base: <Order2<K> as JetScalar<K>>::variable(primaries[axis], axis),
+        eps: zero,
+        del: zero,
+        eps_del: zero,
+    });
+    let parameter_jet = TwoSeed {
+        base: <Order2<K> as JetScalar<K>>::constant(parameter),
+        eps: <Order2<K> as JetScalar<K>>::constant(parameter_first),
+        del: <Order2<K> as JetScalar<K>>::constant(parameter_first),
+        eps_del: <Order2<K> as JetScalar<K>>::constant(parameter_second),
     };
+    eval(&variables, &parameter_jet).map(|output| order2_primary_terms(output.eps_del))
+}
 
-    let units: Vec<Array1<f64>> = (0..primary_dim).map(unit).collect();
-
-    let mut grad = Array1::<f64>::zeros(primary_dim);
-    let mut dirs: Vec<&Array1<f64>> = Vec::with_capacity(leading.len() + 2);
-    for a in 0..primary_dim {
-        dirs.clear();
-        dirs.extend_from_slice(leading);
-        dirs.push(&units[a]);
-        grad[a] = eval(&dirs, &scales.grad)?;
-    }
-
-    let mut hess = Array2::<f64>::zeros((primary_dim, primary_dim));
-    for a in 0..primary_dim {
-        for b in a..primary_dim {
-            dirs.clear();
-            dirs.extend_from_slice(leading);
-            dirs.push(&units[a]);
-            dirs.push(&units[b]);
-            let value = eval(&dirs, &scales.hess)?;
-            hess[[a, b]] = value;
-            hess[[b, a]] = value;
-        }
-    }
-
-    Ok(DirectionalPrimaryTerms {
-        objective,
-        grad,
-        hess,
-    })
+/// Differentiate an order-two primary program once in an auxiliary parameter
+/// and once along a primary-space direction, in one [`TwoSeed`] evaluation.
+/// The mixed `eps_del` `Order2` supplies the directional derivative of the
+/// auxiliary objective/gradient/Hessian without rebuilding the row program for
+/// every unit primary axis.
+pub(crate) fn first_parameter_directional_order2_terms<const K: usize, Eval>(
+    primaries: [f64; K],
+    direction: &[f64; K],
+    parameter: f64,
+    parameter_first: f64,
+    eval: Eval,
+) -> Result<DirectionalPrimaryTerms, String>
+where
+    Eval: FnOnce(&[TwoSeed<K>; K], &TwoSeed<K>) -> Result<TwoSeed<K>, String>,
+{
+    let zero = <Order2<K> as JetScalar<K>>::constant(0.0);
+    let variables = std::array::from_fn(|axis| TwoSeed {
+        base: <Order2<K> as JetScalar<K>>::variable(primaries[axis], axis),
+        eps: zero,
+        del: <Order2<K> as JetScalar<K>>::constant(direction[axis]),
+        eps_del: zero,
+    });
+    let parameter_jet = TwoSeed {
+        base: <Order2<K> as JetScalar<K>>::constant(parameter),
+        eps: <Order2<K> as JetScalar<K>>::constant(parameter_first),
+        del: zero,
+        eps_del: zero,
+    };
+    eval(&variables, &parameter_jet).map(|output| order2_primary_terms(output.eps_del))
 }
 
 fn zero_local_span_cubic() -> LocalSpanCubic {
@@ -258,14 +262,14 @@ pub(crate) fn build_denested_partition_cells(
         &link_breaks,
         |z| {
             if let (Some(runtime), Some(beta)) = (score_warp, beta_h) {
-                runtime.local_cubic_at(beta, z)
+                runtime.local_cubic_at(beta.view(), z)
             } else {
                 Ok(zero_local_span_cubic())
             }
         },
         |u| {
             if let (Some(runtime), Some(beta)) = (link_dev, beta_w) {
-                runtime.local_cubic_at(beta, u)
+                runtime.local_cubic_at(beta.view(), u)
             } else {
                 Ok(zero_local_span_cubic())
             }
@@ -309,12 +313,12 @@ pub(crate) fn observed_denested_cell_partials(
     let zero_link_span = zero_local_span_cubic();
     let u_obs = a + b * z_obs;
     let score_span_obs = if let (Some(runtime), Some(beta_h)) = (score_warp, beta_h) {
-        runtime.local_cubic_at(beta_h, z_obs)?
+        runtime.local_cubic_at(beta_h.view(), z_obs)?
     } else {
         zero_score_span
     };
     let link_span_obs = if let (Some(runtime), Some(beta_w)) = (link_dev, beta_w) {
-        runtime.local_cubic_at(beta_w, u_obs)?
+        runtime.local_cubic_at(beta_w.view(), u_obs)?
     } else {
         zero_link_span
     };
@@ -406,27 +410,6 @@ pub(crate) fn psi_derivative_location(
         cursor += block.len();
     }
     None
-}
-
-pub(crate) fn is_sigma_aux_index(
-    gaussian_frailty_sd: Option<f64>,
-    derivative_blocks: &[Vec<CustomFamilyBlockPsiDerivative>],
-    psi_index: usize,
-) -> bool {
-    let total = derivative_blocks.iter().map(Vec::len).sum::<usize>();
-    if gaussian_frailty_sd.is_none() || total == 0 || psi_index != total - 1 {
-        return false;
-    }
-    let Some((block_idx, local_idx)) = psi_derivative_location(derivative_blocks, psi_index) else {
-        return false;
-    };
-    let deriv = &derivative_blocks[block_idx][local_idx];
-    deriv.penalty_index.is_none()
-        && deriv.x_psi.is_empty()
-        && deriv.s_psi.is_empty()
-        && deriv.s_psi_components.is_none()
-        && deriv.x_psi_psi.is_none()
-        && deriv.s_psi_psi.is_none()
 }
 
 /// Predicate used by every marginal-slope family's persistent-warm-start
@@ -1772,246 +1755,6 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    // ---------------------------------------------------------------------
-    // Parity guard for the shared exact-Newton directional sweep.
-    //
-    // `directional_obj_grad_hess` is the single engine that both the
-    // Bernoulli and survival marginal-slope families now route their
-    // exact-Newton obj/grad/hess and psi-Hessian directional sweeps
-    // through (replacing three hand-rolled, drift-prone loop nests). The
-    // test below reconstructs the *reference* loop nest those families used
-    // to carry inline and asserts the shared engine reproduces it
-    // bit-for-bit on randomized fixtures across both sweep shapes
-    // (objective present / suppressed, leading-prefix lengths 1 and 2).
-    //
-    // The synthetic `eval` mirrors the contract of every family's
-    // `row_neglog_directional_with_scale_jet`: it builds one linear
-    // `MultiDirJet` per supplied direction at a distinct base, multiplies
-    // them together, scales by the per-sweep scale jet, composes through a
-    // smooth nonlinearity, and returns the highest mixed-partial
-    // coefficient. That makes the appended unit directions genuinely
-    // interact (so a transposed Hessian index or a missing symmetric
-    // assignment is caught) and makes the scale jet load-bearing (so a
-    // mis-wired obj/grad/hess scale is caught).
-
-    use gam_math::jet_partitions::MultiDirJet;
-
-    /// Deterministic LCG so the fixture is reproducible without pulling in
-    /// an RNG dependency.
-    struct Lcg(u64);
-    impl Lcg {
-        fn next_f64(&mut self) -> f64 {
-            self.0 = self.0.wrapping_mul(6364136223846793005).wrapping_add(1);
-            ((self.0 >> 11) as f64) / ((1u64 << 53) as f64) * 2.0 - 1.0
-        }
-    }
-
-    /// Synthetic row-jet evaluator with the exact contract
-    /// `directional_obj_grad_hess` expects: given `dirs` (the leading prefix
-    /// plus appended unit directions) and a `scale` jet of matching order,
-    /// return the top mixed-partial coefficient of a smooth multilinear
-    /// functional of the directions.
-    fn synthetic_row_eval(
-        bases: &[f64],
-        weight: f64,
-        dirs: &[&Array1<f64>],
-        scale: &MultiDirJet,
-    ) -> Result<f64, String> {
-        let k = dirs.len();
-        if k > 4 {
-            return Err(format!("synthetic eval expects 0..=4 directions, got {k}"));
-        }
-        if scale.coeffs.len() != (1usize << k) {
-            return Err(format!(
-                "synthetic eval scale jet dimension mismatch: coeffs={}, dirs={k}",
-                scale.coeffs.len()
-            ));
-        }
-        let primary_dim = bases.len();
-        // One linear jet per direction, each at a distinct base coordinate,
-        // mixing the direction's components across the primary dimensions so
-        // every Hessian entry is exercised.
-        let first = |dir: &Array1<f64>| -> Vec<f64> {
-            (0..k).map(|j| dir[j % primary_dim]).collect::<Vec<f64>>()
-        };
-        let mut product = MultiDirJet::constant(k, 1.0);
-        for (slot, dir) in dirs.iter().enumerate() {
-            let base = bases[slot % primary_dim] + 0.25 * slot as f64;
-            let comps: Vec<f64> = (0..primary_dim)
-                .map(|p| dir[p] * (1.0 + 0.5 * p as f64))
-                .collect();
-            let lin = MultiDirJet::linear(k, base, &first(&Array1::from(comps)));
-            product = product.mul(&lin);
-        }
-        let scaled = product.mul(scale);
-        // Smooth nonlinearity φ(x) = weight·ln(1 + x²) composed through the
-        // jet — derivs[0..=4] evaluated at the zeroth-order coefficient.
-        let x = scaled.coeff(0);
-        let denom = 1.0 + x * x;
-        let d1 = weight * (2.0 * x) / denom;
-        let d2 = weight * (2.0 * (1.0 - x * x)) / (denom * denom);
-        let d3 = weight * (-4.0 * x * (3.0 - x * x)) / (denom * denom * denom);
-        let d4 = weight * (-12.0 * (1.0 - 6.0 * x * x + x * x * x * x))
-            / (denom * denom * denom * denom);
-        let phi = weight * denom.ln();
-        Ok(scaled
-            .compose_unary([phi, d1, d2, d3, d4])
-            .coeff((1usize << k) - 1))
-    }
-
-    /// Hand-rolled reference sweep — the exact obj/grad/hess loop nest the
-    /// families carried inline before the unification onto
-    /// `directional_obj_grad_hess`. Kept here purely as the parity oracle.
-    fn reference_obj_grad_hess<Eval>(
-        primary_dim: usize,
-        leading: &[&Array1<f64>],
-        scales: &DirectionalScaleJets,
-        eval: Eval,
-    ) -> Result<(f64, Array1<f64>, Array2<f64>), String>
-    where
-        Eval: Fn(&[&Array1<f64>], &MultiDirJet) -> Result<f64, String>,
-    {
-        let unit = |a: usize| -> Array1<f64> {
-            let mut da = Array1::<f64>::zeros(primary_dim);
-            da[a] = 1.0;
-            da
-        };
-        let objective = if let Some(scale_obj) = scales.obj.as_ref() {
-            eval(leading, scale_obj)?
-        } else {
-            0.0
-        };
-        let mut grad = Array1::<f64>::zeros(primary_dim);
-        for a in 0..primary_dim {
-            let da = unit(a);
-            let mut dirs: Vec<&Array1<f64>> = leading.to_vec();
-            dirs.push(&da);
-            grad[a] = eval(&dirs, &scales.grad)?;
-        }
-        let mut hess = Array2::<f64>::zeros((primary_dim, primary_dim));
-        for a in 0..primary_dim {
-            let da = unit(a);
-            for b in a..primary_dim {
-                let db = unit(b);
-                let mut dirs: Vec<&Array1<f64>> = leading.to_vec();
-                dirs.push(&da);
-                dirs.push(&db);
-                let value = eval(&dirs, &scales.hess)?;
-                hess[[a, b]] = value;
-                hess[[b, a]] = value;
-            }
-        }
-        Ok((objective, grad, hess))
-    }
-
-    /// Build a scale jet of the requested order with random first/second
-    /// mixed coefficients on the supplied masks — mirrors the structure of
-    /// each family's `sigma_scale_jet` (a base plus first-order entries on
-    /// the leading log-sigma slots and a second-order entry on the pair).
-    fn random_scale_jet(
-        rng: &mut Lcg,
-        n_dirs: usize,
-        first_masks: &[usize],
-        second_masks: &[usize],
-    ) -> MultiDirJet {
-        let mut coeffs: Vec<(usize, f64)> = vec![(0usize, 1.0 + 0.1 * rng.next_f64())];
-        for &m in first_masks {
-            coeffs.push((1usize << m, rng.next_f64()));
-        }
-        for &m in second_masks {
-            coeffs.push(((1usize << m) | 1usize, rng.next_f64()));
-        }
-        MultiDirJet::with_coeffs(n_dirs, &coeffs)
-    }
-
-    #[test]
-    fn directional_obj_grad_hess_matches_reference_loop_nest() {
-        let primary_dim = 4usize;
-        let mut rng = Lcg(0x5EED_1234_ABCD_0001);
-        // Sweep both family shapes: first-order log-sigma (leading=[zero],
-        // obj present), second-order (leading=[zero,zero], obj present), and
-        // the psi-Hessian directional (leading=[zero,row_dir], obj absent).
-        for trial in 0..32 {
-            let bases: Vec<f64> = (0..primary_dim).map(|_| rng.next_f64()).collect();
-            let weight = 0.5 + 0.5 * (rng.next_f64() + 1.0);
-            let eval = |dirs: &[&Array1<f64>], scale: &MultiDirJet| {
-                synthetic_row_eval(&bases, weight, dirs, scale)
-            };
-
-            let zero = Array1::<f64>::zeros(primary_dim);
-            let row_dir: Array1<f64> =
-                Array1::from((0..primary_dim).map(|_| rng.next_f64()).collect::<Vec<_>>());
-
-            let cases: Vec<(Vec<&Array1<f64>>, DirectionalScaleJets)> = vec![
-                (
-                    vec![&zero],
-                    DirectionalScaleJets {
-                        obj: Some(random_scale_jet(&mut rng, 1, &[], &[])),
-                        grad: random_scale_jet(&mut rng, 2, &[0], &[]),
-                        hess: random_scale_jet(&mut rng, 3, &[0], &[]),
-                    },
-                ),
-                (
-                    vec![&zero, &zero],
-                    DirectionalScaleJets {
-                        obj: Some(random_scale_jet(&mut rng, 2, &[0, 1], &[])),
-                        grad: random_scale_jet(&mut rng, 3, &[0, 1], &[]),
-                        hess: random_scale_jet(&mut rng, 4, &[0, 1], &[]),
-                    },
-                ),
-                (
-                    vec![&zero, &row_dir],
-                    DirectionalScaleJets {
-                        obj: None,
-                        grad: random_scale_jet(&mut rng, 3, &[0], &[]),
-                        hess: random_scale_jet(&mut rng, 4, &[0], &[]),
-                    },
-                ),
-            ];
-
-            for (leading, scales) in &cases {
-                let shared =
-                    directional_obj_grad_hess(primary_dim, leading, scales, eval).expect("shared");
-                let (ref_obj, ref_grad, ref_hess) =
-                    reference_obj_grad_hess(primary_dim, leading, scales, eval).expect("reference");
-
-                assert_eq!(
-                    shared.objective, ref_obj,
-                    "trial {trial}: objective drift {} vs {}",
-                    shared.objective, ref_obj
-                );
-                for a in 0..primary_dim {
-                    assert_eq!(
-                        shared.grad[a], ref_grad[a],
-                        "trial {trial}: grad[{a}] drift {} vs {}",
-                        shared.grad[a], ref_grad[a]
-                    );
-                    for b in 0..primary_dim {
-                        assert_eq!(
-                            shared.hess[[a, b]],
-                            ref_hess[[a, b]],
-                            "trial {trial}: hess[{a},{b}] drift {} vs {}",
-                            shared.hess[[a, b]],
-                            ref_hess[[a, b]]
-                        );
-                    }
-                }
-                // The Hessian the engine returns must be exactly symmetric —
-                // a transposed write in the upper-triangle loop is the classic
-                // exact-Newton drift bug.
-                for a in 0..primary_dim {
-                    for b in 0..primary_dim {
-                        assert_eq!(
-                            shared.hess[[a, b]],
-                            shared.hess[[b, a]],
-                            "trial {trial}: hess asymmetric at ({a},{b})"
-                        );
-                    }
-                }
-            }
-        }
-    }
 
     #[test]
     fn auto_outer_score_subsample_skips_small_problems() {
