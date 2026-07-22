@@ -33,9 +33,13 @@ from airbyte_ops_mcp.prod_db_access.queries import (
     query_connector_rollouts_for_connector,
     query_connector_versions,
     query_new_connector_releases,
+    query_org_connector_pins,
+    query_org_pin_stats,
     query_raw_pins_for_version,
     query_versions_with_pins,
 )
+from airbyte_ops_mcp.registry._constants import PROD_METADATA_SERVICE_BUCKET_NAME
+from airbyte_ops_mcp.registry.yank import get_yank_marker, list_yanked_versions
 from airbyte_ops_mcp.tier_cache import resolve_workspace
 from airbyte_ops_mcp.version_summaries import (
     PopulationSummary,
@@ -61,6 +65,8 @@ from airbyte_ops_webapp.models import (
     ScopeType,
     TierPopulationFactors,
     VersionPinRow,
+    YankedVersionRow,
+    YankMarkerDetail,
     build_version_override_payload,
     version_override_tool_name,
 )
@@ -488,6 +494,95 @@ class OpsMcpAdapter:
         Does not join `connector_rollout`, so each version appears exactly once.
         """
         return query_versions_with_pins()
+
+    def list_org_pin_stats(
+        self,
+        organization_id: str,
+    ) -> list[dict[str, object]]:
+        """Return connector versions pinned anywhere under an organization.
+
+        One aggregate row per pinned version, matching pins at the org,
+        workspace, and actor scope levels within the organization.
+        """
+        return query_org_pin_stats(organization_id)
+
+    def list_org_connector_pins(
+        self,
+        organization_id: str,
+        *,
+        pinned_version_id: str | None = None,
+    ) -> list[dict[str, object]]:
+        """Return the individual pins discovered under an organization.
+
+        One row per `scoped_configuration` pin; pass `pinned_version_id` to
+        restrict to a single pinned version.
+        """
+        return query_org_connector_pins(
+            organization_id,
+            pinned_version_id=pinned_version_id,
+        )
+
+    def list_yanked_versions(self) -> tuple[YankedVersionRow, ...]:
+        """Return every yanked connector version from the prod registry bucket.
+
+        Reads `version-yank.yml` markers from the coral prod GCS registry via
+        `airbyte_ops_mcp.registry.yank.list_yanked_versions`, then resolves each
+        connector's canonical name to its actor-definition UUID so rows are
+        click-navigable. Connectors that cannot be resolved keep an empty
+        `connector_id`.
+        """
+        return tuple(
+            YankedVersionRow(
+                connector_id=self._resolve_connector_id(marker.connector_name),
+                connector_name=marker.connector_name,
+                docker_image_tag=marker.version,
+                yanked_at=marker.yanked_at,
+                reason=marker.reason,
+                approval_url=marker.approval_url,
+            )
+            for marker in list_yanked_versions(PROD_METADATA_SERVICE_BUCKET_NAME)
+        )
+
+    def get_yank_marker(
+        self,
+        connector_name: str,
+        version: str,
+    ) -> YankMarkerDetail | None:
+        """Return the active yank marker for one version, or `None` if not yanked.
+
+        Reads the version's `version-yank.yml` marker from the coral prod GCS
+        registry via `airbyte_ops_mcp.registry.yank.get_yank_marker`, resolving
+        the connector's canonical name to its actor-definition UUID so the
+        detail stays associated with the selected connector.
+        """
+        marker = get_yank_marker(
+            connector_name,
+            version,
+            PROD_METADATA_SERVICE_BUCKET_NAME,
+        )
+        if marker is None:
+            return None
+        return YankMarkerDetail(
+            connector_id=self._resolve_connector_id(connector_name),
+            connector_name=marker.connector_name,
+            docker_image_tag=marker.version,
+            yanked_at=marker.yanked_at,
+            reason=marker.reason,
+            approval_url=marker.approval_url,
+            raw=marker.raw,
+        )
+
+    @staticmethod
+    def _resolve_connector_id(connector_name: str) -> str:
+        """Resolve a connector's canonical name to its definition UUID.
+
+        Returns an empty string when the connector is absent from the cloud
+        registry (e.g. fully removed), leaving the yanked row non-navigable.
+        """
+        try:
+            return resolve_canonical_name_to_definition_id(connector_name)
+        except PyAirbyteInputError:
+            return ""
 
     @staticmethod
     def _pin_row_from_db(row: dict[str, object]) -> VersionPinRow:

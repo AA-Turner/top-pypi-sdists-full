@@ -16,18 +16,15 @@ class VisaSessionSim(object):
 
 	def __init__(self, resource_name: str, settings, direct_session=None):
 		self.reusing_session = direct_session is not None
+		self._data_chunk_size: int | None = None
 		# noinspection PyTypeChecker
-		self._data_chunk_size: int = None
-		# noinspection PyTypeChecker
-		self._lock: threading.RLock = None
+		self._lock: threading.RLock = None  # ty: ignore[invalid-assignment]
 		self._active = True
 
 		# Event handlers
-		# noinspection PyTypeChecker
-		self.on_read_chunk_handler: Callable = None
+		self.on_read_chunk_handler: Callable | None = None
 		"""If assigned a handler, the VisaSession sends it event on each read chunk transfer."""
-		# noinspection PyTypeChecker
-		self.on_write_chunk_handler: Callable = None
+		self.on_write_chunk_handler: Callable | None = None
 		"""If assigned a handler, the VisaSession sends it event on each write chunk transfer."""
 		self.io_events_include_data: bool = False
 		"""If true, the VisaSession events sent to on_read_chunk_handler and on_write_chunk_handler contain transferred data."""
@@ -60,7 +57,7 @@ class VisaSessionSim(object):
 			self.assign_lock(threading.RLock())
 
 		if self.reusing_session:
-			self.resource_name = direct_session.resource_name
+			self.resource_name = direct_session.resource_name  # ty: ignore[unresolved-attribute]
 
 	def assign_lock(self, lock: threading.RLock) -> None:
 		"""Assigns the provided thread lock. The lock is only used by the parent class Instrument."""
@@ -70,8 +67,8 @@ class VisaSessionSim(object):
 		"""Returns the current RLock object."""
 		return self._lock
 
-	def _update_cmd_vals_cache(self, cmd: str, param: AnyStr = None) -> None:
-		"""Parses out the parameter from the command and stores/updates them in the cache"""
+	def _update_cmd_vals_cache(self, cmd: str, param: AnyStr | None = None) -> None:
+		"""Parses out the parameter from the command and stores/updates them in the cache."""
 		aux = cmd.split(' ', 1)
 		if len(aux) < 2:
 			return
@@ -79,24 +76,24 @@ class VisaSessionSim(object):
 		param = aux[1].strip()
 		self._cmd_vals_cache[headers] = param
 
-	def _update_cmd_vals_cache_split(self, cmd: str, param: AnyStr) -> None:
-		"""Stores/updates cmd and param in the cache"""
+	def _update_cmd_vals_cache_split(self, cmd: str, param: str | bytes) -> None:
+		"""Stores/updates cmd and param in the cache."""
 		headers = cmd.strip().lower()
 		self._cmd_vals_cache[headers] = param
 
-	def _get_cmd_cached_value(self, cmd: str) -> str | None:
-		"""Returns cached parameter to the corresponding command
-		Returns None of the command is not found in the cache"""
+	def _get_cmd_cached_value(self, cmd: str) -> str | bytes | None:
+		"""Returns cached parameter to the corresponding command.
+		Returns None of the command is not found in the cache."""
 		aux = cmd.split('?', 1)
 		headers = aux[0].strip().lower()
 		return self._cmd_vals_cache.get(headers, None)
 
 	def get_last_sent_cmd(self) -> str:
-		"""Returns the last commands sent to the instrument"""
+		"""Returns the last commands sent to the instrument."""
 		return self._last_cmd
 
 	def is_rsnrp_session(self) -> bool:
-		"""Returns True, if the current session is a NRP-Z session"""
+		"""Returns True, if the current session is a NRP-Z session."""
 		return False
 
 	def query_syst_error(self) -> str | None:
@@ -145,14 +142,18 @@ class VisaSessionSim(object):
 		The length of the string is not limited. The response is then trimmed for trailing LF."""
 		self._last_cmd = query
 		cached = self._get_cmd_cached_value(query)
-		return 'Simulating' if cached is None else cached
+		if cached is None:
+			return 'Simulating'
+		if isinstance(cached, bytes):
+			return cached.decode(self.encoding)
+		return cached
 
-	def write_with_opc(self, cmd: str, timeout: int = None) -> None:
+	def write_with_opc(self, cmd: str, timeout: int | None = None) -> None:
 		"""Sends command with OPC-sync.
 		If you do not provide timeout, the method uses current opc_timeout."""
 		self.write(cmd)
 
-	def query_str_with_opc(self, query: str, timeout: int = None, context: str = 'Query string with OPC') -> str:
+	def query_str_with_opc(self, query: str, timeout: int | None = None, context: str = 'Query string with OPC') -> str:
 		"""Query string with OPC synchronization.
 		The response is trimmed for any trailing LF.
 		If you do not provide timeout, the method uses current opc_timeout."""
@@ -195,7 +196,7 @@ class VisaSessionSim(object):
 			stream.write(cached)
 			self.cached_to_stream = True
 
-	def query_bin_block_with_opc(self, query: str, stream: StreamWriter, exc_if_not_bin: bool = True, timeout: int = None) -> None:
+	def query_bin_block_with_opc(self, query: str, stream: StreamWriter, exc_if_not_bin: bool = True, timeout: int | None = None) -> None:
 		"""Query binary data block with OPC and returns it as byte data."""
 		self.query_bin_block(query, stream)
 

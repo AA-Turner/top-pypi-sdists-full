@@ -38,18 +38,20 @@ _PYDATA_ANNOTS_TYPING = {
     "Tuple",
     *({"Union"} if sys.version_info < (3, 14) else set()),
 }
-_PYDATA_ANNOTS_TYPES = {
-    *("AsyncGeneratorType", "BuiltinFunctionType", "BuiltinMethodType"),
-    *("CellType", "ClassMethodDescriptorType", "CoroutineType"),
-    *("FrameType", "FunctionType"),
-    *("GeneratorType", "GetSetDescriptorType"),
-    "LambdaType",
-    *("MemberDescriptorType", "MethodDescriptorType", "MethodType", "MethodWrapperType"),
-    "NoneType",
-    "WrapperDescriptorType",
-    # documented as ``py:class`` since the Python 3.13 docs
-    *({"EllipsisType", "NotImplementedType"} if sys.version_info < (3, 13) else set()),
-}
+# The types module documents these as ``py:data`` through 3.12 and as ``py:class`` from 3.13 on.
+_PYDATA_ANNOTS_TYPES = (
+    {
+        *("AsyncGeneratorType", "BuiltinFunctionType", "BuiltinMethodType"),
+        *("CellType", "ClassMethodDescriptorType", "CoroutineType"),
+        *("EllipsisType", "FrameType", "FunctionType"),
+        *("GeneratorType", "GetSetDescriptorType"),
+        "LambdaType",
+        *("MemberDescriptorType", "MethodDescriptorType", "MethodType", "MethodWrapperType"),
+        *("NoneType", "NotImplementedType", "WrapperDescriptorType"),
+    }
+    if sys.version_info < (3, 13)
+    else set()
+)
 _PYDATA_ANNOTATIONS = {
     *(("typing", n) for n in _PYDATA_ANNOTS_TYPING),
     *(("types", n) for n in _PYDATA_ANNOTS_TYPES),
@@ -71,7 +73,7 @@ class MyTypeAliasForwardRef(TypeAliasForwardRef):
     crossref: bool = False
 
     def __or__(self, value: Any) -> Any:  # ty: ignore[invalid-method-override]
-        return Union[self, value]  # noqa: UP007
+        return Union[self, value]  # ruff:ignore[non-pep604-annotation-union]
 
 
 def format_annotation(annotation: Any, config: Config, *, short_literals: bool = False) -> str:
@@ -119,7 +121,7 @@ def format_annotation(annotation: Any, config: Config, *, short_literals: bool =
         rendered = None
 
 
-def _format_node(  # noqa: C901, PLR0911, PLR0912, PLR0915, PLR0914
+def _format_node(  # ruff:ignore[complex-structure, too-many-return-statements, too-many-branches, too-many-statements, too-many-locals]
     annotation: Any,
     config: Config,
     *,
@@ -147,7 +149,7 @@ def _format_node(  # noqa: C901, PLR0911, PLR0912, PLR0915, PLR0914
     if isinstance(annotation, tuple):
         parts = []
         for item in annotation:
-            parts.append((yield item))  # noqa: PERF401  # yield is illegal inside a comprehension
+            parts.append((yield item))  # ruff:ignore[manual-list-comprehension]  # yield is illegal inside a comprehension
         if not parts:
             return "()"
         if len(parts) == 1:
@@ -222,7 +224,7 @@ def _format_node(  # noqa: C901, PLR0911, PLR0912, PLR0915, PLR0914
     elif full_name == "typing.Optional":  # pragma: <3.14 cover
         args = tuple(x for x in args if x is not type(None))
     elif full_name in {"typing.Union", "types.UnionType"} and type(None) in args:  # pragma: <3.14 cover
-        if len(args) == 2:  # noqa: PLR2004
+        if len(args) == 2:  # ruff:ignore[magic-value-comparison]
             full_name = "typing.Optional"
             role = "data"
             args = tuple(x for x in args if x is not type(None))
@@ -236,7 +238,7 @@ def _format_node(  # noqa: C901, PLR0911, PLR0912, PLR0915, PLR0914
     elif full_name in {"typing.Callable", "collections.abc.Callable"} and args and args[0] is not ...:
         fmt = []
         for arg in args:
-            fmt.append((yield arg))  # noqa: PERF401  # yield is illegal inside a comprehension
+            fmt.append((yield arg))  # ruff:ignore[manual-list-comprehension]  # yield is illegal inside a comprehension
         formatted_args = f"\\[\\[{', '.join(fmt[:-1])}], {fmt[-1]}]"
     elif full_name == "typing.Literal":
         literal_parts = [_format_literal_arg(arg, config) for arg in args]
@@ -248,7 +250,7 @@ def _format_node(  # noqa: C901, PLR0911, PLR0912, PLR0915, PLR0914
             return f":py:{'class' if sys.version_info >= (3, 14) else 'data'}:`{prefix}typing.Union`"
         union_parts = []
         for arg in args:
-            union_parts.append((yield arg))  # noqa: PERF401  # yield is illegal inside a comprehension
+            union_parts.append((yield arg))  # ruff:ignore[manual-list-comprehension]  # yield is illegal inside a comprehension
         return " | ".join(union_parts)
 
     if args and not formatted_args:
@@ -259,7 +261,7 @@ def _format_node(  # noqa: C901, PLR0911, PLR0912, PLR0915, PLR0914
 
     escape = "\\ " if formatted_args else ""
     # B901: returning a value from a generator is intentional here — the driver reads it via StopIteration
-    return f":py:{role}:`{prefix}{full_name}`{escape}{formatted_args}"  # noqa: B901
+    return f":py:{role}:`{prefix}{full_name}`{escape}{formatted_args}"  # ruff:ignore[return-in-generator]
 
 
 def get_annotation_module(annotation: Any) -> str:
@@ -280,7 +282,7 @@ def get_annotation_module(annotation: Any) -> str:
     raise ValueError(msg)
 
 
-def get_annotation_class_name(annotation: Any, module: str) -> str:  # noqa: C901, PLR0911
+def get_annotation_class_name(annotation: Any, module: str) -> str:  # ruff:ignore[complex-structure, too-many-return-statements]
     if annotation is None:
         return "None"
     if annotation is AnyStr:
@@ -294,7 +296,7 @@ def get_annotation_class_name(annotation: Any, module: str) -> str:  # noqa: C90
     if getattr(annotation, "__qualname__", None):
         return annotation.__qualname__
     if getattr(annotation, "_name", None):  # pragma: <3.14 cover
-        return annotation._name  # noqa: SLF001
+        return annotation._name  # ruff:ignore[private-member-access]
     if module in {"typing", "typing_extensions"} and isinstance(
         getattr(annotation, "name", None), str
     ):  # pragma: <3.14 cover
@@ -305,7 +307,7 @@ def get_annotation_class_name(annotation: Any, module: str) -> str:  # noqa: C90
         if getattr(origin, "__qualname__", None):  # pragma: <3.14 cover
             return origin.__qualname__
         if getattr(origin, "_name", None):  # pragma: <3.14 cover
-            return origin._name  # noqa: SLF001
+            return origin._name  # ruff:ignore[private-member-access]
 
     annotation_cls = annotation if inspect.isclass(annotation) else type(annotation)
     return annotation_cls.__qualname__.lstrip("_")
@@ -354,7 +356,7 @@ def _format_literal_arg(arg: Any, config: Config) -> str:
 def _get_types_type(obj: Any) -> str | None:
     try:
         return _TYPES_DICT.get(obj)
-    except Exception:  # noqa: BLE001
+    except Exception:  # ruff:ignore[blind-except]
         return None
 
 

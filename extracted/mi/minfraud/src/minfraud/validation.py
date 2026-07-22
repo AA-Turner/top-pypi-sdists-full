@@ -126,6 +126,7 @@ _payment_processor = In(
         "aps_payments",
         "authorizenet",
         "balanced",
+        "banquest",
         "beanstream",
         "bluepay",
         "bluesnap",
@@ -174,6 +175,7 @@ _payment_processor = In(
         "epx",
         "eway",
         "exact",
+        "fat_zebra",
         "first_atlantic_commerce",
         "first_data",
         "fiserv",
@@ -257,6 +259,7 @@ _payment_processor = In(
         "solidtrust_pay",
         "sps_decidir",
         "stripe",
+        "summit_payments",
         "synapsefi",
         "systempay",
         "telerecargas",
@@ -276,6 +279,7 @@ _payment_processor = In(
         "windcave",
         "wirecard",
         "worldpay",
+        "yaadpay",
     ],
 )
 
@@ -361,6 +365,7 @@ validate_transaction: Schema = Schema(
             "ip_address": _ip_address,
             "session_age": All(_any_number, Range(min=0)),
             "session_id": str,
+            "tracking_token": str,
             "user_agent": str,
         },
         "email": {
@@ -403,7 +408,7 @@ def _maxmind_id(s: str | None) -> str:
     raise ValueError
 
 
-_tag = In(["chargeback", "not_fraud", "spam_or_abuse", "suspected_fraud"])
+_tag = In(["chargeback", "clear", "not_fraud", "spam_or_abuse", "suspected_fraud"])
 
 
 def _uuid(s: str) -> str:

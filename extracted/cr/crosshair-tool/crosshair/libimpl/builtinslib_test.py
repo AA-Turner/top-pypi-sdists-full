@@ -398,6 +398,65 @@ def test_int___pow___to_real_based_float():
             realize(sqrt_a == 3)
 
 
+def test_int_eq_ieee_negative_zero():
+    # Regression for the unsound `sampled_from([0, 0.0])` uniqueness bug: when an
+    # int is compared against a PreciseIeeeSymbolicFloat, the comparison must use
+    # IEEE equality. z3's structural fp equality treats +0.0 and -0.0 as distinct,
+    # which made CrossHair believe 0 and -0.0 were unequal. The int==float path
+    # promotes the int to a float and dispatches through numeric_binop/apply_smt.
+    with standalone_statespace as space:
+        with NoTracing():
+            space.extra(ModelingDirector).global_representations[
+                float
+            ] = PreciseIeeeSymbolicFloat
+            zero_int = SymbolicInt("zero_int")
+            neg_zero = PreciseIeeeSymbolicFloat(
+                z3.FPVal(-0.0, PreciseIeeeSymbolicFloat._ch_smt_sort())
+            )
+        with ResumedTracing():
+            space.add(zero_int == 0)
+            assert zero_int == neg_zero
+            assert not (zero_int != neg_zero)
+            # ... and the reflected operand order:
+            assert neg_zero == zero_int
+            assert not (neg_zero != zero_int)
+
+
+def test_apply_smt_ieee_equality():
+    # apply_smt must implement IEEE (not z3's structural) equality on floats:
+    # +0.0 == -0.0 and nan != nan. eq/ne need a special-case because z3 leaves
+    # FPRef.__eq__/__ne__ as structural equality; the ordering operators are
+    # already overloaded to the IEEE fp predicates, so they need no special-case.
+    from crosshair.libimpl.builtinslib import apply_smt
+
+    def is_true(expr):
+        return z3.is_true(z3.simplify(expr))
+
+    def is_false(expr):
+        return z3.is_false(z3.simplify(expr))
+
+    sort = PreciseIeeeSymbolicFloat._ch_smt_sort()
+    pos_zero = z3.FPVal(0.0, sort)
+    neg_zero = z3.FPVal(-0.0, sort)
+    nan = z3.fpNaN(sort)
+    one = z3.FPVal(1.0, sort)
+    with standalone_statespace as space:
+        with NoTracing():
+            # equality treats +0.0 and -0.0 as equal, and nan as unequal to itself:
+            assert is_true(apply_smt(operator.eq, pos_zero, neg_zero))
+            assert is_false(apply_smt(operator.ne, pos_zero, neg_zero))
+            assert is_false(apply_smt(operator.eq, nan, nan))
+            assert is_true(apply_smt(operator.ne, nan, nan))
+            # ordered comparisons: +0.0 and -0.0 compare equal, nan is unordered:
+            assert is_true(apply_smt(operator.le, pos_zero, neg_zero))
+            assert is_true(apply_smt(operator.ge, pos_zero, neg_zero))
+            assert is_false(apply_smt(operator.lt, pos_zero, neg_zero))
+            assert is_false(apply_smt(operator.gt, pos_zero, neg_zero))
+            for op in (operator.le, operator.ge, operator.lt, operator.gt):
+                assert is_false(apply_smt(op, nan, nan))
+                assert is_false(apply_smt(op, nan, one))
+
+
 @pytest.mark.demo
 def test_int___sub___method():
     def f(a: int) -> int:
@@ -603,6 +662,14 @@ def test_float_from_hex(space: StateSpace) -> None:
         space.add(s == "0x3.a7p10")
         v = float.fromhex(s)
     assert realize(v == 3740.0)
+
+
+def test_bytes_fromhex_uppercase(space: StateSpace) -> None:
+    s = proxy_for_type(str, "s")
+    with ResumedTracing():
+        space.add(s == "A0fF")
+        v = bytes.fromhex(s)
+        assert realize(v == b"\xa0\xff")
 
 
 def test_int_from_byte_iterator(space) -> None:
@@ -1109,6 +1176,125 @@ def test_bytes_startswith(space):
         assert symbolic.removeprefix(symbolic_empty) == symbolic
 
 
+def test_symbolic_bytes_find_inverts():
+    # The bytes search family now runs symbolically (over the shared AbcString
+    # codepoint algorithms) instead of realizing the whole value, so CrossHair
+    # can invert it: find a bytes whose b"xy" sits at index 2.
+    def f(a: bytes) -> int:
+        """post: a.find(b'xy') != 2"""
+        return a.find(b"xy")
+
+    check_states(f, POST_FAIL)
+
+
+def test_symbolic_bytes_replace_inverts():
+    def f(a: bytes) -> bytes:
+        """
+        pre: len(a) == 2
+        post: _ != b'bb'
+        """
+        return a.replace(b"a", b"b")
+
+    check_states(f, POST_FAIL)
+
+
+def test_symbolic_bytearray_count_inverts():
+    def f(a: bytearray) -> int:
+        """post: a.count(b'a') != 2"""
+        return a.count(b"a")
+
+    check_states(f, POST_FAIL)
+
+
+def test_symbolic_bytes_lower_inverts():
+    # bytes/bytearray case + whitespace transforms now run symbolically (ASCII
+    # only -- no UnicodeMaskCache), instead of realizing the whole value, so
+    # CrossHair can invert them.
+    def f(a: bytes) -> bytes:
+        """
+        pre: len(a) == 2
+        post: _ != b'hi'
+        """
+        return a.lower()
+
+    check_states(f, POST_FAIL)
+
+
+def test_symbolic_bytes_strip_inverts():
+    def f(a: bytes) -> bytes:
+        """
+        pre: len(a) == 4
+        post: _ != b'ab'
+        """
+        return a.strip()
+
+    check_states(f, POST_FAIL)
+
+
+def test_symbolic_bytearray_swapcase_inverts():
+    def f(a: bytearray) -> bytearray:
+        """
+        pre: len(a) == 2
+        post: _ != bytearray(b'aB')
+        """
+        return a.swapcase()
+
+    check_states(f, POST_FAIL)
+
+
+def test_bytes_transforms_match_cpython(space):
+    # The symbolic transforms must agree with CPython (ASCII-only case mapping;
+    # whitespace = {\\t \\n \\v \\f \\r space}).  Pin a symbolic 3-byte value and
+    # compare each op against the realized concrete result.
+    for idx, raw in enumerate((b"Ab \t", b"xYz", b"\x00A z", b"   ", b"")):
+        sym = proxy_for_type(bytes, f"s{idx}")  # fresh name: don't pile
+        with ResumedTracing():  # contradictory constraints on one space
+            space.add(len(sym) == len(raw))
+            for i, byte in enumerate(raw):
+                space.add(sym[i] == byte)
+            assert realize(sym.lower()) == raw.lower()
+            assert realize(sym.upper()) == raw.upper()
+            assert realize(sym.swapcase()) == raw.swapcase()
+            assert realize(sym.strip()) == raw.strip()
+            assert realize(sym.lstrip()) == raw.lstrip()
+            assert realize(sym.rstrip()) == raw.rstrip()
+            assert realize(sym.strip(b"ab")) == raw.strip(b"ab")
+
+
+def test_bytes_strip_rejects_int_chars(space):
+    # Unlike the search family, strip does NOT accept an int -- chars must be a
+    # bytes-like object (matching CPython bytes.strip).
+    b = proxy_for_type(bytes, "b")
+    with ResumedTracing():
+        with pytest.raises(TypeError):
+            b.strip(0)
+
+
+def test_bytes_search_accepts_int_byte_value(space):
+    # bytes/bytearray find/index/count accept a single int byte value (unlike
+    # startswith/replace); an out-of-range int is a ValueError.
+    b = proxy_for_type(bytes, "b")
+    with ResumedTracing():
+        b.find(0)  # no TypeError -- an int byte value is a valid needle
+        b.count(255)
+        with pytest.raises(ValueError):
+            b.find(256)
+        with pytest.raises(TypeError):
+            b.startswith(0)  # startswith does NOT accept an int
+
+
+def test_bytearray_remove_symbolic(space):
+    # Regression: bytearray.remove(value) searches via index(int); the shared
+    # search family must accept that int argument rather than raising TypeError.
+    ba = proxy_for_type(bytearray, "ba")
+    with ResumedTracing():
+        space.add(len(ba) == 3)
+        try:
+            ba.remove(ba[0])
+        except ValueError:
+            pass  # acceptable if the value isn't present after the mutation
+
+
 @pytest.mark.demo
 def test_str_index_method() -> None:
     def f(a: str) -> int:
@@ -1527,6 +1713,14 @@ def test_str_format_map():
         assert space.is_possible(ord("a{foo}c".format_map({"foo": s})[1]) == ord("b"))
 
 
+def test_str_format_self_keyword():
+    with standalone_statespace as space:
+        with NoTracing():
+            s = LazyIntSymbolicStr("s")
+        space.add(s.__len__() == 1)
+        assert space.is_possible(ord("a{self}c".format(self=s)[1]) == ord("b"))
+
+
 def test_str_rfind() -> None:
     with standalone_statespace, NoTracing():
         string = LazyIntSymbolicStr(list(map(ord, "ababb")))
@@ -1885,6 +2079,119 @@ def test_range_realization(space) -> None:
         assert hash(realized_range) == hash(rng)
 
 
+def test_concrete_range_getitem_symbolic_index(space):
+    rng = range(3, 103, 2)
+    i = proxy_for_type(int, "i")
+    with ResumedTracing():
+        space.add(i >= 0)
+        space.add(i < 50)
+        x = rng[i]
+    assert isinstance(x, SymbolicInt)
+    with ResumedTracing():
+        assert space.is_possible(x == 3)
+        assert space.is_possible(x == 101)
+        assert not space.is_possible(x == 4)
+        assert not space.is_possible(x == 103)
+
+
+def test_concrete_range_getitem_symbolic_negative_index(space):
+    rng = range(3, 103, 2)
+    i = proxy_for_type(int, "i")
+    with ResumedTracing():
+        space.add(i == -1)
+        x = rng[i]
+        assert space.is_possible(x == 101)
+        assert not space.is_possible(x != 101)
+
+
+def test_concrete_range_getitem_symbolic_index_out_of_bounds(space):
+    rng = range(50)
+    i = proxy_for_type(int, "i")
+    with ResumedTracing():
+        space.add(i >= 50)
+        with pytest.raises(IndexError):
+            rng[i]
+
+
+def test_concrete_range_contains_symbolic_value(space):
+    rng = range(4, 100, 3)
+    x = proxy_for_type(int, "x")
+    with ResumedTracing():
+        result = rng.__contains__(x)
+    assert isinstance(result, SymbolicBool)
+    with ResumedTracing():
+        space.add(result)
+        assert space.is_possible(x == 7)
+        assert space.is_possible(x == 97)
+        assert not space.is_possible(x == 8)
+        assert not space.is_possible(x == 1)
+        assert not space.is_possible(x == 100)
+
+
+def test_concrete_range_contains_op_symbolic_value(space):
+    rng = range(4, 100, 3)
+    x = proxy_for_type(int, "x")
+    y = proxy_for_type(int, "y")
+    with ResumedTracing():
+        space.add(x == 7)
+        space.add(y == 8)
+        assert x in rng
+        assert y not in rng
+
+
+def test_concrete_range_count_symbolic_value(space):
+    rng = range(4, 100, 3)
+    x = proxy_for_type(int, "x")
+    with ResumedTracing():
+        ct = rng.count(x)
+    assert isinstance(ct, SymbolicInt)
+    with ResumedTracing():
+        assert space.is_possible((ct == 1) & (x == 7))
+        assert not space.is_possible((ct == 1) & (x == 8))
+        assert space.is_possible((ct == 0) & (x == 8))
+
+
+def test_concrete_range_index_symbolic_value(space):
+    rng = range(4, 100, 3)
+    x = proxy_for_type(int, "x")
+    with ResumedTracing():
+        space.add(x == 10)
+        idx = rng.index(x)
+        assert space.is_possible(idx == 2)
+        assert not space.is_possible(idx != 2)
+
+
+def test_concrete_range_index_symbolic_value_not_found(space):
+    rng = range(4, 100, 3)
+    x = proxy_for_type(int, "x")
+    with ResumedTracing():
+        space.add(x == 9)
+        with pytest.raises(ValueError):
+            rng.index(x)
+
+
+def test_symbolic_range_getitem_stays_symbolic(space):
+    rng = proxy_for_type(range, "rng")
+    with ResumedTracing():
+        space.add(rng.start == 3)
+        space.add(rng.stop == 40)
+        space.add(rng.step == 2)
+        x = rng[4]
+        assert space.is_possible(x == 11)
+        assert not space.is_possible(x != 11)
+
+
+def test_range_getitem_symbolic_index_ch() -> None:
+    def f(i: int) -> int:
+        """
+        pre: 0 <= i < 25
+        post: _ != 42
+        """
+        return range(0, 100, 2)[i]
+
+    check_states(f, POST_FAIL)
+
+
 @pytest.mark.demo
 def test_list___contains___method() -> None:
     def f(a: int, b: List[int]) -> bool:
@@ -2031,6 +2338,13 @@ def test_list_equality() -> None:
         return nl
 
     check_states(f, POST_FAIL)
+
+
+def test_list_equality_mismatched_element_sorts(space) -> None:
+    a = proxy_for_type(List[int], "a")
+    b = proxy_for_type(List[float], "b")
+    for op in (lambda a, b: a == b, lambda a, b: a != b, lambda a, b: a < b):
+        op(a, b)  # must not raise
 
 
 def test_list_extend_literal_unknown() -> None:
@@ -3810,11 +4124,12 @@ def test_memoryview_cast():
 def test_memoryview_toreadonly():
     """post: _"""
     with standalone_statespace as space:
-        mv = proxy_for_type(memoryview, "mv")
+        mv = memoryview(proxy_for_type(bytearray, "mv"))
         space.add(mv.__len__() == 1)
         mv2 = mv.toreadonly()
         mv[0] = 12
         assert mv2[0] == 12
+        assert mv2[0:1].readonly
         with pytest.raises(TypeError):
             mv2[0] = 24
 
@@ -3824,7 +4139,7 @@ def test_memoryview_properties():
     with standalone_statespace as space:
         symbolic_mv = proxy_for_type(memoryview, "symbolic_mv")
         space.add(symbolic_mv.__len__() == 1)
-        concrete_mv = memoryview(bytearray(b"a"))
+        concrete_mv = memoryview(b"a" if symbolic_mv.readonly else bytearray(b"a"))
         assert symbolic_mv.contiguous == concrete_mv.contiguous
         assert symbolic_mv.c_contiguous == concrete_mv.c_contiguous
         assert symbolic_mv.f_contiguous == concrete_mv.f_contiguous
@@ -3836,6 +4151,31 @@ def test_memoryview_properties():
         assert symbolic_mv.shape == concrete_mv.shape
         assert symbolic_mv.strides == concrete_mv.strides
         assert symbolic_mv.suboffsets == concrete_mv.suboffsets
+
+
+def test_memoryview_readonly_write_raises():
+    with standalone_statespace as space:
+        mv = memoryview(proxy_for_type(bytes, "mv"))
+        space.add(mv.__len__() == 1)
+        assert mv.readonly
+        with pytest.raises(TypeError):
+            mv[0] = 12
+
+
+def test_proxied_memoryview_can_be_readonly():
+    def f(mv: memoryview) -> bool:
+        """post: not _"""
+        return mv.readonly
+
+    check_states(f, POST_FAIL)
+
+
+def test_proxied_memoryview_can_be_writable():
+    def f(mv: memoryview) -> bool:
+        """post: _"""
+        return mv.readonly
+
+    check_states(f, POST_FAIL)
 
 
 def test_chr(space):

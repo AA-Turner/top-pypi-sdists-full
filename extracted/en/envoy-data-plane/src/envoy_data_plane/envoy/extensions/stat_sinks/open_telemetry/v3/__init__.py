@@ -29,7 +29,7 @@ class SinkConfig(betterproto2.Message):
     Stats configuration proto schema for ``envoy.stat_sinks.open_telemetry`` sink.
     [#extension: envoy.stat_sinks.open_telemetry]
 
-    [#next-free-field: 10]
+    [#next-free-field: 11]
 
     Oneofs:
         - protocol_specifier:
@@ -120,6 +120,14 @@ class SinkConfig(betterproto2.Message):
     - ``envoy.extensions.stat_sinks.open_telemetry.v3.SinkConfig.DropAction``.
     - ``envoy.extensions.stat_sinks.open_telemetry.v3.SinkConfig.ConversionAction``.
     If stats are not matched, they will be directly converted to OTLP metrics as usual.
+    """
+
+    max_data_points_per_request: "typing.Annotated[int, pydantic.Field(ge=0, le=2**32 - 1)]" = betterproto2.field(
+        10, betterproto2.TYPE_UINT32
+    )
+    """
+    Maximum number of data points per request. If explicitly set to 0, there is no limit. If unset, it currently defaults to no limit.
+    When the maximum number of data points is reached, the remaining data points will be sent in subsequent requests.
     """
 
     @model_validator(mode="after")

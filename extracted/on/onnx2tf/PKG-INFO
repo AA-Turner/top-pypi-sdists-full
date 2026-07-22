@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: onnx2tf
-Version: 2.6.6
+Version: 2.6.7
 Summary: A tool for converting ONNX files to LiteRT/TFLite/TensorFlow, PyTorch native code (nn.Module), TorchScript (.pt), state_dict (.pt), Exported Program (.pt2), and Dynamo ONNX. It also supports direct conversion from LiteRT to PyTorch.
 Keywords: onnx,tensorflow,tflite,litert,keras,pytorch,deep-learning,machine-learning
 Author: Katsuya Hyodo
@@ -977,7 +977,7 @@ Optional:
   docker run --rm -it \
   -v `pwd`:/workdir \
   -w /workdir \
-  ghcr.io/pinto0309/onnx2tf:2.6.6
+  ghcr.io/pinto0309/onnx2tf:2.6.7
 
   or
 
@@ -986,7 +986,7 @@ Optional:
   docker run --rm -it \
   -v `pwd`:/workdir \
   -w /workdir \
-  docker.io/pinto0309/onnx2tf:2.6.6
+  docker.io/pinto0309/onnx2tf:2.6.7
   or
 
   # Direct execution in Docker
@@ -995,7 +995,7 @@ Optional:
   docker run --rm \
   --user $(id -u):$(id -g) \
   -v $(pwd):/work \
-  docker.io/pinto0309/onnx2tf:2.6.6 \
+  docker.io/pinto0309/onnx2tf:2.6.7 \
   onnx2tf -i /work/densenet-12.onnx -o /work/saved_model
 
   or

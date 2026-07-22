@@ -83,7 +83,7 @@ def provision(state: State) -> int | bool:
         post_process=add_tox_requires_min_version,
     )
 
-    from tox.plugin.manager import MANAGER  # noqa: PLC0415
+    from tox.plugin.manager import MANAGER  # ruff:ignore[import-outside-top-level]
 
     MANAGER.tox_add_core_config(state.conf.core, state)
 
@@ -101,7 +101,7 @@ def provision(state: State) -> int | bool:
     )
     provision_tox_env: str = state.conf.core["provision_tox_env"]
     state.conf.memory_seed_loaders[provision_tox_env].append(loader)
-    state.envs._mark_provision(bool(missing), provision_tox_env)  # noqa: SLF001
+    state.envs._mark_provision(bool(missing), provision_tox_env)  # ruff:ignore[private-member-access]
 
     if not missing:
         if remainder := getattr(state.conf.options, "remainder", []):
@@ -119,9 +119,9 @@ def provision(state: State) -> int | bool:
         msg = f"provisioning explicitly disabled within {sys.executable}, but {miss_msg}"
         if isinstance(no_provision, str):
             msg += f" and wrote to {no_provision}"
-            min_version = str(next(i.specifier for i in requires if i.name == "tox")).split("=")
+            tox_specifier = next(i.specifier for i in requires if i.name == "tox")
             requires_dict = {
-                "minversion": min_version[1] if len(min_version) >= 2 else None,  # noqa: PLR2004
+                "minversion": next((s.version for s in tox_specifier if s.operator in {">=", "=="}), None),
                 "requires": [str(i) for i in requires],
             }
             Path(no_provision).write_text(

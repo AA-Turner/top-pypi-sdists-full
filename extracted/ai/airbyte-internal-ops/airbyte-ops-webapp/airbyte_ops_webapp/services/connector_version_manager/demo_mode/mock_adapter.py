@@ -22,6 +22,8 @@ from airbyte_ops_webapp.models import (
     ScopeType,
     TierPopulationFactors,
     VersionPinRow,
+    YankedVersionRow,
+    YankMarkerDetail,
     build_version_override_payload,
     version_override_tool_name,
 )
@@ -429,6 +431,154 @@ MOCK_VERSION_PINS: dict[str, tuple[VersionPinRow, ...]] = {
     ),
 }
 
+# Org IDs below match the demo orgs returned by the org-lookup search mock
+# (`shared_components/org_search.py`), so selecting an org in the Organization
+# Pins tab returns a coherent, org-specific set of pins:
+#   * Acme         -> manual pins only, one connector across two versions
+#   * MotherDuck   -> an active rollout pin + a manual pin on the same version
+#   * Airbyte      -> an org-scoped manual pin + a breaking-change pin
+#   * Dataflow Labs-> no pins (exercises the empty state)
+_MOCK_ORG_PINS: dict[str, tuple[dict[str, object], ...]] = {
+    # Acme Corp: manual pins at workspace and actor scope on source-postgres.
+    "00000000-0000-0000-0000-000000000001": (
+        {
+            "connector_definition_id": "b5ea17b1-f170-46dc-bc31-cc744ca984c1",
+            "connector_name": "source-postgres",
+            "docker_repository": "airbyte/source-postgres",
+            "version_id": "adv_postgres_360",
+            "docker_image_tag": "3.6.0",
+            "last_published": "2026-03-11T09:40:00Z",
+            "pin_scope_type": "workspace",
+            "scope_id": "aaaaaaaa-0000-0000-0000-000000000001",
+            "scope_name": "Acme Production",
+            "origin_type": "user",
+            "set_by": "eng@acme.io",
+            "description": "Workspace pinned during regression investigation",
+            "reference_url": "https://github.com/airbytehq/airbyte/issues/0000",
+            "created_at": "2026-04-10T14:30:00Z",
+            "expires_at": "2026-05-15T00:00:00Z",
+            "rollout_id": None,
+            "rollout_state": None,
+        },
+        {
+            "connector_definition_id": "b5ea17b1-f170-46dc-bc31-cc744ca984c1",
+            "connector_name": "source-postgres",
+            "docker_repository": "airbyte/source-postgres",
+            "version_id": "adv_postgres_371",
+            "docker_image_tag": "3.7.1",
+            "last_published": "2026-04-07T15:03:00Z",
+            "pin_scope_type": "actor",
+            "scope_id": "actor-acme-0001",
+            "scope_name": "Acme Prod Postgres",
+            "origin_type": "user",
+            "set_by": "eng@acme.io",
+            "description": "Actor-level canary pin",
+            "reference_url": "https://github.com/airbytehq/airbyte/issues/1111",
+            "created_at": "2026-04-12T09:15:00Z",
+            "expires_at": "",
+            "rollout_id": None,
+            "rollout_state": None,
+        },
+    ),
+    # MotherDuck: an active rollout pin plus a manual hold on source-postgres
+    # 3.7.2 -- shows the rollout state + has_active_rollout alongside a manual pin.
+    "00000000-0000-0000-0000-000000000002": (
+        {
+            "connector_definition_id": "b5ea17b1-f170-46dc-bc31-cc744ca984c1",
+            "connector_name": "source-postgres",
+            "docker_repository": "airbyte/source-postgres",
+            "version_id": "adv_postgres_372",
+            "docker_image_tag": "3.7.2",
+            "last_published": "2026-04-21T18:21:00Z",
+            "pin_scope_type": "actor",
+            "scope_id": "actor-md-0001",
+            "scope_name": "MotherDuck Analytics Source",
+            "origin_type": "connector_rollout",
+            "set_by": None,
+            "description": "",
+            "reference_url": "",
+            "created_at": "2026-04-28T11:00:00Z",
+            "expires_at": "",
+            "rollout_id": "mock-postgres-rollout",
+            "rollout_state": "in_progress",
+        },
+        {
+            "connector_definition_id": "b5ea17b1-f170-46dc-bc31-cc744ca984c1",
+            "connector_name": "source-postgres",
+            "docker_repository": "airbyte/source-postgres",
+            "version_id": "adv_postgres_372",
+            "docker_image_tag": "3.7.2",
+            "last_published": "2026-04-21T18:21:00Z",
+            "pin_scope_type": "workspace",
+            "scope_id": "bbbbbbbb-0000-0000-0000-000000000001",
+            "scope_name": "MotherDuck Analytics",
+            "origin_type": "user",
+            "set_by": "analytics@motherduck.com",
+            "description": "Workspace held pending rollout validation",
+            "reference_url": "https://github.com/airbytehq/airbyte/issues/2020",
+            "created_at": "2026-05-01T10:00:00Z",
+            "expires_at": "2026-07-01T00:00:00Z",
+            "rollout_id": None,
+            "rollout_state": None,
+        },
+    ),
+    # Airbyte: an org-scoped manual pin and a breaking-change pin on source-github.
+    "00000000-0000-0000-0000-000000000003": (
+        {
+            "connector_definition_id": "ef69ef6e-aa7f-4af1-a01d-ef775033524e",
+            "connector_name": "source-github",
+            "docker_repository": "airbyte/source-github",
+            "version_id": "adv_github_187",
+            "docker_image_tag": "1.8.7",
+            "last_published": "2026-02-18T20:15:00Z",
+            "pin_scope_type": "organization",
+            "scope_id": "00000000-0000-0000-0000-000000000003",
+            "scope_name": "Airbyte",
+            "origin_type": "user",
+            "set_by": "admin@airbyte.io",
+            "description": "Organization-level temporary pin",
+            "reference_url": "https://github.com/airbytehq/airbyte/issues/2222",
+            "created_at": "2026-03-01T12:00:00Z",
+            "expires_at": "2026-05-30T00:00:00Z",
+            "rollout_id": None,
+            "rollout_state": None,
+        },
+        {
+            "connector_definition_id": "ef69ef6e-aa7f-4af1-a01d-ef775033524e",
+            "connector_name": "source-github",
+            "docker_repository": "airbyte/source-github",
+            "version_id": "adv_github_194",
+            "docker_image_tag": "1.9.4",
+            "last_published": "2026-04-26T14:12:00Z",
+            "pin_scope_type": "actor",
+            "scope_id": "actor-ab-0001",
+            "scope_name": "Airbyte Dogfood GitHub",
+            "origin_type": "breaking_change",
+            "set_by": None,
+            "description": "",
+            "reference_url": "",
+            "created_at": "2026-04-26T14:12:00Z",
+            "expires_at": "",
+            "rollout_id": None,
+            "rollout_state": None,
+        },
+    ),
+    # Dataflow Labs (00000000-0000-0000-0000-000000000004) intentionally omitted:
+    # selecting it exercises the "no pins under this organization" empty state.
+}
+
+_ROLLOUT_ACTIVE_STATES = frozenset(
+    {
+        "initialized",
+        "workflow_started",
+        "in_progress",
+        "paused",
+        "finalizing",
+        "errored",
+    }
+)
+
+
 MOCK_ROLLOUTS: dict[str, tuple[ConnectorRollout, ...]] = {
     "b5ea17b1-f170-46dc-bc31-cc744ca984c1": (
         ConnectorRollout(
@@ -610,6 +760,154 @@ class MockPinningAdapter(OpsMcpAdapter):
                         }
                     )
         return result
+
+    def list_org_pin_stats(
+        self,
+        organization_id: str,
+    ) -> list[dict[str, object]]:
+        """Return mock aggregate pin stats for the pins under an organization.
+
+        Aggregates the org's curated pins into one row per pinned version, with
+        per-origin and per-scope counts. Unknown orgs return an empty list.
+        """
+        time.sleep(_MOCK_DELAY_HEAVY)
+        pins = _MOCK_ORG_PINS.get(organization_id, ())
+        by_version: dict[str, list[dict[str, object]]] = {}
+        for pin in pins:
+            by_version.setdefault(str(pin["version_id"]), []).append(pin)
+
+        result: list[dict[str, object]] = []
+        for version_id, version_pins in by_version.items():
+            first = version_pins[0]
+            origins = [p["origin_type"] for p in version_pins]
+            scopes = [p["pin_scope_type"] for p in version_pins]
+            result.append(
+                {
+                    "version_id": version_id,
+                    "connector_definition_id": first["connector_definition_id"],
+                    "connector_name": first["connector_name"],
+                    "docker_repository": first["docker_repository"],
+                    "docker_image_tag": first["docker_image_tag"],
+                    "last_published": first["last_published"],
+                    "pin_count": len(version_pins),
+                    "manual_pins": sum(
+                        1
+                        for o in origins
+                        if o not in ("breaking_change", "connector_rollout")
+                    ),
+                    "rollout_pins": sum(1 for o in origins if o == "connector_rollout"),
+                    "breaking_change_pins": sum(
+                        1 for o in origins if o == "breaking_change"
+                    ),
+                    # `actor_pins` counts only custom (manual) actor-scoped pins,
+                    # excluding system origins, to match `SELECT_ORG_PIN_STATS`.
+                    "actor_pins": sum(
+                        1
+                        for p in version_pins
+                        if p["pin_scope_type"] == "actor"
+                        and p["origin_type"]
+                        not in ("breaking_change", "connector_rollout")
+                    ),
+                    "workspace_pins": sum(1 for s in scopes if s == "workspace"),
+                    "org_pins": sum(1 for s in scopes if s == "organization"),
+                    "has_active_rollout": any(
+                        str(p["rollout_state"]) in _ROLLOUT_ACTIVE_STATES
+                        for p in version_pins
+                    ),
+                }
+            )
+        return result
+
+    def list_org_connector_pins(
+        self,
+        organization_id: str,
+        *,
+        pinned_version_id: str | None = None,
+    ) -> list[dict[str, object]]:
+        """Return the mock individual pins under an org, optionally one version.
+
+        Unknown orgs return an empty list.
+        """
+        time.sleep(_MOCK_DELAY_DEFAULT)
+        result: list[dict[str, object]] = []
+        for pin in _MOCK_ORG_PINS.get(organization_id, ()):
+            if pinned_version_id and pin["version_id"] != pinned_version_id:
+                continue
+            set_by = pin["set_by"]
+            result.append(
+                {
+                    "pinned_version_id": pin["version_id"],
+                    "connector_definition_id": pin["connector_definition_id"],
+                    "connector_name": pin["connector_name"],
+                    "docker_repository": pin["docker_repository"],
+                    "pinned_version_tag": pin["docker_image_tag"],
+                    "pin_scope_type": pin["pin_scope_type"],
+                    "scope_id": pin["scope_id"],
+                    "scope_name": pin["scope_name"],
+                    "origin_type": pin["origin_type"] or None,
+                    "origin": set_by,
+                    "pinned_by_user_name": set_by,
+                    "pinned_by_user_email": set_by,
+                    "description": pin["description"],
+                    "reference_url": pin["reference_url"],
+                    "created_at": pin["created_at"],
+                    "expires_at": pin["expires_at"],
+                    "rollout_id": pin["rollout_id"],
+                    "rollout_state": pin["rollout_state"],
+                }
+            )
+        return result
+
+    def list_yanked_versions(self) -> tuple[YankedVersionRow, ...]:
+        """Return a fixed set of mock yanked versions for demos and tests."""
+        time.sleep(_MOCK_DELAY_DEFAULT)
+        return (
+            YankedVersionRow(
+                connector_id="ef69ef6e-aa7f-4af1-a01d-ef775033524e",
+                connector_name="source-github",
+                docker_image_tag="1.9.3",
+                yanked_at="2026-06-18T14:30:00Z",
+                reason="Regression in incremental sync cursor handling.",
+                approval_url="",
+            ),
+            YankedVersionRow(
+                connector_id="25c5221d-dce2-4163-ade9-739ef790f503",
+                connector_name="destination-snowflake",
+                docker_image_tag="3.2.0",
+                yanked_at="2026-05-02T09:15:00Z",
+                reason="Data corruption on schema migration.",
+                approval_url="",
+            ),
+        )
+
+    def get_yank_marker(
+        self,
+        connector_name: str,
+        version: str,
+    ) -> YankMarkerDetail | None:
+        """Return a mock yank marker for a yanked version, else `None`.
+
+        Derives the detail from `list_yanked_versions` so the mock stays
+        internally consistent, synthesizing a `raw` `version-yank.yml` body that
+        mirrors the shape written by the real yank workflow.
+        """
+        for row in self.list_yanked_versions():
+            if row.connector_name == connector_name and row.docker_image_tag == version:
+                raw_lines = ["yanked: true", f"yanked_at: '{row.yanked_at}'"]
+                if row.reason:
+                    raw_lines.append(f"reason: {row.reason}")
+                if row.approval_url:
+                    raw_lines.append(f"approval_url: {row.approval_url}")
+                return YankMarkerDetail(
+                    connector_id=row.connector_id,
+                    connector_name=row.connector_name,
+                    docker_image_tag=row.docker_image_tag,
+                    yanked_at=row.yanked_at,
+                    reason=row.reason,
+                    approval_url=row.approval_url,
+                    raw="\n".join(raw_lines) + "\n",
+                )
+        return None
 
     def list_recent_releases(
         self,

@@ -662,9 +662,7 @@ def test_no_files_are_stored_in_cache_on_diff(app, cache, testfiles):
 
     cache.assert_that_has_no_tables()
     assert app("--diff", d, "--definitions", d) == success(stdout=match_not(""))
-    cache.assert_that_has_initialized_tables()
-    assert len(cache.get_files()) == 0
-    assert len(cache.get_formatted()) == 0
+    cache.assert_that_has_no_tables()
 
 
 def test_when_cache_cant_be_modified_it_is_ignored(app, cache, testfiles):
@@ -1280,9 +1278,10 @@ def test_utf_8_bom_stdin_is_properly_handled(app):
 
 
 def test_multiprocessing_works(app, testfiles):
+    big_number_of_files = 50
     base = testfiles / "test_multiprocessing_works"
     base.mkdir()
-    for i in range(100):
+    for i in range(big_number_of_files):
         with open(base / f"testfile-{i}.cmake", "w", encoding="utf-8") as f:
             f.write("set( FOO BAR )\n")
 
@@ -1293,3 +1292,14 @@ def test_multiprocessing_works(app, testfiles):
     assert app("--workers", 2, "--check", base) == success(stdout="")
 
     assert app("--workers", 1, "--check", base) == success(stdout="")
+
+
+def test_multibyte_utf8_symbols_in_stdin(app):
+    given = """set(80_example "Tři sta třicet tři stříbrných stříkaček stříkalo přes tři sta ")
+set(81_example "Tři sta třicet tři stříbrných stříkaček stříkalo přes tři sta t")"""
+    expected = """set(80_example "Tři sta třicet tři stříbrných stříkaček stříkalo přes tři sta ")
+set(81_example
+    "Tři sta třicet tři stříbrných stříkaček stříkalo přes tři sta t"
+)
+"""
+    assert app("-", input=given) == success(stdout=expected)

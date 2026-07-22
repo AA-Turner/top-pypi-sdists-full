@@ -24,7 +24,7 @@ from subliminal import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, MutableMapping, Sequence
+    from collections.abc import Callable, MutableMapping, Sequence, Set
 
     from subliminal.utils import Parameter
 
@@ -66,7 +66,7 @@ def split_doc_args(args: str | None) -> list[str]:
     if len(split_indices) == 0:  # pragma: no cover
         return []
     next_indices = [*split_indices[1:], None]
-    parts = [args[i:j].strip() for i, j in zip(split_indices, next_indices)]
+    parts = [args[i:j].strip() for i, j in zip(split_indices, next_indices, strict=True)]
     return [p for p in parts if p.startswith(':param')]
 
 
@@ -131,11 +131,13 @@ def read_configuration(filename: str | os.PathLike) -> dict[str, dict[str, Any]]
 
     # make download options
     download_dict = toml_dict.setdefault('download', {})
-    # handle language types
+    # TODO: deprecated
+    # handle language categories
     for lt in ('hearing_impaired', 'foreign_only'):
         # if an option was defined in the config file, make it a tuple, the expected type
         if lt in download_dict and (isinstance(download_dict[lt], bool) or download_dict[lt] is None):
-            download_dict[lt] = (download_dict[lt],)
+            # The value of the tuple needs to be a string (change introduced with click==8.3)
+            download_dict[lt] = (str(download_dict[lt]),)
 
     # remove the provider and refiner lists to select, extend and ignore
     provider_lists = {
@@ -167,6 +169,124 @@ def read_configuration(filename: str | os.PathLike) -> dict[str, dict[str, Any]]
         },
         'default_map': options,
     }
+
+
+def _parse_auto_generated(param_name: str | None) -> str | None:
+    """Parse special auto-generated parameters, return None if it's a normal parameter."""
+    # Deal with None
+    if not param_name:
+        return None
+    try_split = param_name.split('__')
+    if len(try_split) != 3:
+        return None
+
+    group, plugin, key = try_split
+    # Remove leading underscore; the only possible groups are '_provider' and '_refiner'
+    group = group.removeprefix('_')
+    return f'{group}.{plugin}.{key}'
+
+
+def _format_deprecated_suffix(deprecated: bool | str) -> str:
+    """Format extra deprecations message."""
+    if isinstance(deprecated, str):
+        return f' {deprecated}'
+    return ''  # pragma: no cover
+
+
+def _check_command_params(
+    ctx: click.Context,
+    ctx_params: Sequence[click.Parameter] | Set[click.Parameter],
+    defined_params: Sequence[str] | Set[str],
+) -> None:
+    """Check the parameters of a command."""
+    valid_params = {p.name for p in ctx_params}
+    unknown_params = set(defined_params).difference(valid_params)
+
+    # Split normal parameters and special auto-generated provider/refiner parameters
+    unknown_error_params = []
+    unknown_warning_params = []
+    for param_name in unknown_params:
+        parsed = _parse_auto_generated(param_name)
+        if parsed is None:
+            unknown_error_params.append(param_name)
+        else:
+            unknown_warning_params.append(parsed)
+
+    # Raise an error if a normal parameter is undefined
+    if unknown_error_params:
+        msg = f'Invalid configuration file, the following keys are not supported: {unknown_error_params}'
+        raise click.BadParameter(msg, ctx)
+
+    # Show a warning if a special auto-generated provider/refiner parameter is undefined
+    if unknown_warning_params:
+        msg = f'Warning: Unused entries in the configuration file: {unknown_warning_params}'
+        click.echo(click.style(msg, fg='magenta'), err=True)
+
+    # Show a deprecation warning if a parameter in deprecated
+    deprecated_params = [p for p in ctx_params if p.name in defined_params and p.deprecated]
+    if deprecated_params:
+        for p in deprecated_params:
+            msg = (  # noqa: UP032
+                'DeprecationWarning: From the configuration file, the {param_type} {name!r} is deprecated.'
+                '{extra_message}'
+            ).format(
+                param_type=p.param_type_name,
+                name=p.human_readable_name,
+                extra_message=_format_deprecated_suffix(p.deprecated),
+            )
+            click.echo(click.style(msg, fg='red'), err=True)
+
+
+def _check_group_commands(
+    ctx: click.Context,
+    ctx_commands: Sequence[click.Command] | Set[click.Parameter],
+    defined_commands: Sequence[str] | Set[str],
+) -> None:  # pragma: no cover
+    """Check the commands of a group."""
+    valid_commands = {c.name for c in ctx_commands}
+    unknown_commands = set(defined_commands).difference(valid_commands)
+
+    # Raise an error if a command in undefined
+    if unknown_commands:
+        msg = f'Invalid configuration file, the following sections are not supported: {unknown_commands}'
+        raise click.UsageError(msg, ctx)
+
+    # Show a deprecation warning if a command in deprecated
+    deprecated_commands = [c for c in ctx_commands if c.name in defined_commands and c.deprecated]
+    if deprecated_commands:
+        for c in deprecated_commands:
+            msg = (  # noqa: UP032
+                'DeprecationWarning: From the configuration file, the command {name!r} is deprecated.{extra_message}'
+            ).format(
+                name=c.name,
+                extra_message=_format_deprecated_suffix(c.deprecated),
+            )
+            click.echo(click.style(msg, fg='red'), err=True)
+
+
+def check_parameters(ctx: click.Context, config: Mapping[str, Any]) -> None:
+    """Check for undefined or deprecated parameters in the configuration file."""
+    ctx_commands = dict(ctx.command.commands) if isinstance(ctx.command, click.Group) else {}
+    config_commands = {key: value for key, value in config.items() if isinstance(value, Mapping)}
+
+    # Check root params
+    defined_params = {key for key, value in config.items() if not isinstance(value, Mapping)}
+    _check_command_params(ctx, ctx.command.params, defined_params)
+
+    # Not needed because the sections/commands are parsed and filtered in read_configuration
+    # # Check root commands
+    # _check_group_commands(ctx, ctx_commands.values(), list(config_commands))
+
+    # Check commands params
+    for subcommand in config_commands:
+        ctx_subcommands = [c for c in ctx_commands.values() if c.name == subcommand]
+        if len(ctx_subcommands) != 1:  # pragma: no cover
+            continue
+        ctx_subcommand = ctx_subcommands[0]
+
+        # Check subcommand params
+        defined_params = {key for key, value in config_commands[subcommand].items() if not isinstance(value, Mapping)}
+        _check_command_params(ctx, ctx_subcommand.params, defined_params)
 
 
 providers_config = OptionGroup('Providers configuration')

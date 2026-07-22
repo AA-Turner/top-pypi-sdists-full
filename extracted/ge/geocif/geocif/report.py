@@ -145,6 +145,22 @@ def generate_report(
     dir_output=None,
 ):
     """Generate a PDF report from yield outlook outputs."""
+    # [ML] show_production_share (default True): when off, strip the
+    # production-share sentences from figure captions so the PDF doesn't
+    # reference a share that isn't shown (e.g. poppy).
+    from geocif.viz import diagnostics as _diag
+    _show_share = _diag.show_production_share_from_parser(parser)
+
+    def _desc(key):
+        d = _DESC[key]
+        if not _show_share:
+            for _s in (
+                " Regions are ordered by their share of national production.",
+                " Regions are labeled with their share of national production in parentheses.",
+            ):
+                d = d.replace(_s, "")
+        return d
+
     try:
         from reportlab.lib.pagesizes import A4
         from reportlab.lib.units import inch, cm
@@ -503,7 +519,7 @@ def generate_report(
             if yt:
                 _subsection(f"{country.title().replace('_', ' ')} — {model}")
                 _add_image(yt[0], caption="Yield forecast summary",
-                           description=_DESC["yield_table"])
+                           description=_desc("yield_table"))
 
             ci = list(plot_dir.rglob(f"yield_ci_*_{model}.png"))
             if ci:
@@ -574,7 +590,7 @@ def generate_report(
             mape_box = list(plot_dir.rglob(f"mape_box_region_*_{model}.png"))
             if mape_box:
                 _add_image(mape_box[0], caption="MAPE distribution by region",
-                           description=_DESC["mape_box_region"])
+                           description=_desc("mape_box_region"))
 
             mape_year = list(plot_dir.rglob(f"mape_year_*_{model}.png"))
             if mape_year:

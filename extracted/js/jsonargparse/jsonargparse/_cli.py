@@ -1,7 +1,8 @@
 """Simple creation of command line interfaces."""
 
 import inspect
-from typing import Any, Callable, Optional, Union
+from collections.abc import Callable
+from typing import Any
 
 from ._actions import ActionConfigFile, _ActionPrintConfig, remove_actions
 from ._core import ArgumentParser
@@ -13,9 +14,9 @@ from ._util import capture_parser, default_config_option_help
 __all__ = ["auto_cli", "auto_parser"]
 
 
-ComponentType = Union[Callable, type]
-DictComponentsType = dict[str, Union[ComponentType, "DictComponentsType"]]
-ComponentsType = Optional[Union[ComponentType, list[ComponentType], DictComponentsType]]
+ComponentType = Callable | type
+DictComponentsType = dict[str, "ComponentType | DictComponentsType"]
+ComponentsType = ComponentType | list[ComponentType] | DictComponentsType | None
 
 
 def CLI(*args, **kwargs):
@@ -25,9 +26,9 @@ def CLI(*args, **kwargs):
 
 def auto_cli(
     components: ComponentsType = None,
-    args: Optional[list[str]] = None,
+    args: list[str] | None = None,
     config_help: str = default_config_option_help,
-    set_defaults: Optional[dict[str, Any]] = None,
+    set_defaults: dict[str, Any] | None = None,
     as_positional: bool = True,
     return_instance: bool = False,
     fail_untyped: bool = True,

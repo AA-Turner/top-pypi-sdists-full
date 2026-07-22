@@ -5,6 +5,9 @@
 
 __all__ = (
     "Audience",
+    "AudienceAccessToken",
+    "AudienceBoundAccessToken",
+    "AudienceBoundJwt",
     "GcpAuthnFilterConfig",
     "TokenCacheConfig",
     "TokenHeader",
@@ -34,10 +37,76 @@ class Audience(betterproto2.Message):
     url: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
         1, betterproto2.TYPE_STRING
     )
+    """
+    The audience URL, used for fetching unbound JWT token.
+    """
+
+    access_token: "AudienceAccessToken | None" = betterproto2.field(
+        2, betterproto2.TYPE_MESSAGE, optional=True
+    )
+    """
+    If defined, the filter will fetch unbound Access Token instead of JWT.
+    It takes precedence over ``url``.
+    """
+
+    bound_jwt: "AudienceBoundJwt | None" = betterproto2.field(
+        3, betterproto2.TYPE_MESSAGE, optional=True
+    )
+    """
+    If defined, the filter will fetch bound JWT token instead of unbound.
+    It takes precedence over ``access_token`` and ``url``.
+    """
+
+    bound_access_token: "AudienceBoundAccessToken | None" = betterproto2.field(
+        4, betterproto2.TYPE_MESSAGE, optional=True
+    )
+    """
+    If defined, the filter will fetch bound Access Token instead of unbound.
+    It takes precedence over ``bound_jwt``, ``access_token`` and ``url``.
+    """
 
 
 default_message_pool.register_message(
     "envoy.extensions.filters.http.gcp_authn.v3", "Audience", Audience
+)
+
+
+@dataclass(eq=False, repr=False, config={"extra": "forbid"})
+class AudienceAccessToken(betterproto2.Message):
+    pass
+
+
+default_message_pool.register_message(
+    "envoy.extensions.filters.http.gcp_authn.v3",
+    "Audience.AccessToken",
+    AudienceAccessToken,
+)
+
+
+@dataclass(eq=False, repr=False, config={"extra": "forbid"})
+class AudienceBoundAccessToken(betterproto2.Message):
+    pass
+
+
+default_message_pool.register_message(
+    "envoy.extensions.filters.http.gcp_authn.v3",
+    "Audience.BoundAccessToken",
+    AudienceBoundAccessToken,
+)
+
+
+@dataclass(eq=False, repr=False, config={"extra": "forbid"})
+class AudienceBoundJwt(betterproto2.Message):
+    url: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        1, betterproto2.TYPE_STRING
+    )
+    """
+    The audience URL, used for fetching bound JWT token.
+    """
+
+
+default_message_pool.register_message(
+    "envoy.extensions.filters.http.gcp_authn.v3", "Audience.BoundJwt", AudienceBoundJwt
 )
 
 

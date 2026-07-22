@@ -16,7 +16,7 @@ from tango.asyncio_executor import AsyncioExecutor
 from tango.device_server import get_worker
 from tango.gevent_executor import GeventExecutor
 from tango.green import SynchronousExecutor
-from tango.server import Device, attribute, command, device_property
+from tango.server import Device, attribute, class_property, command, device_property
 from tango.test_utils import (
     ClassicAPISimpleDeviceClass,
     ClassicAPISimpleDeviceImpl,
@@ -576,60 +576,107 @@ def test_multi_with_two_devices_with_properties(server_green_mode):
         class TestDevice1(Device):
             green_mode = server_green_mode
 
-            prop1 = device_property(dtype=str)
+            cls_prop1 = class_property(dtype=str)
+            dev_prop1 = device_property(dtype=str)
 
             @command(dtype_out=str)
-            async def get_prop1(self):
-                return self.prop1
+            async def get_cls_prop1(self):
+                return self.cls_prop1
+
+            @command(dtype_out=str)
+            async def get_dev_prop1(self):
+                return self.dev_prop1
 
         class TestDevice2(Device):
             green_mode = server_green_mode
 
-            prop2 = device_property(dtype=int)
+            cls_prop2 = class_property(dtype=int)
+            dev_prop2 = device_property(dtype=int)
 
             @command(dtype_out=int)
-            async def get_prop2(self):
-                return self.prop2
+            async def get_cls_prop2(self):
+                return self.cls_prop2
+
+            @command(dtype_out=int)
+            async def get_dev_prop2(self):
+                return self.dev_prop2
 
     else:
 
         class TestDevice1(Device):
             green_mode = server_green_mode
 
-            prop1 = device_property(dtype=str)
+            cls_prop1 = class_property(dtype=str)
+            dev_prop1 = device_property(dtype=str)
 
             @command(dtype_out=str)
-            def get_prop1(self):
-                return self.prop1
+            def get_cls_prop1(self):
+                return self.cls_prop1
+
+            @command(dtype_out=str)
+            def get_dev_prop1(self):
+                return self.dev_prop1
 
         class TestDevice2(Device):
             green_mode = server_green_mode
 
-            prop2 = device_property(dtype=int)
+            cls_prop2 = class_property(dtype=int)
+            dev_prop2 = device_property(dtype=int)
 
             @command(dtype_out=int)
-            def get_prop2(self):
-                return self.prop2
+            def get_cls_prop2(self):
+                return self.cls_prop2
+
+            @command(dtype_out=int)
+            def get_dev_prop2(self):
+                return self.dev_prop2
 
     devices_info = (
         {
             "class": TestDevice1,
-            "devices": [{"name": "test/device1/1", "properties": {"prop1": "abcd"}}],
+            "class_properties": {"cls_prop1": "cls_val"},
+            "devices": [{"name": "test/device1/1", "properties": {"dev_prop1": "dev_val"}}],
         },
         {
             "class": TestDevice2,
-            "devices": [{"name": "test/device2/2", "properties": {"prop2": 5555}}],
+            "class_properties": {"cls_prop2": 4444},
+            "devices": [{"name": "test/device2/2", "properties": {"dev_prop2": 5555}}],
         },
     )
 
     with MultiDeviceTestContext(devices_info) as context:
         proxy1 = context.get_device("test/device1/1")
         proxy2 = context.get_device("test/device2/2")
-        assert proxy1.get_prop1() == "abcd"
-        assert proxy2.get_prop2() == 5555
+        assert proxy1.get_cls_prop1() == "cls_val"
+        assert proxy2.get_cls_prop2() == 4444
+        assert proxy1.get_dev_prop1() == "dev_val"
+        assert proxy2.get_dev_prop2() == 5555
 
 
-def test_multi_raises_on_invalid_file_database_properties():
+def test_single_with_properties():
+
+    class TestDevice(Device):
+        cls_prop1 = class_property(dtype=str)
+        dev_prop1 = device_property(dtype=str)
+
+        @command(dtype_out=str)
+        def get_cls_prop1(self):
+            return self.cls_prop1
+
+        @command(dtype_out=str)
+        def get_dev_prop1(self):
+            return self.dev_prop1
+
+    with DeviceTestContext(
+        TestDevice,
+        class_properties={"cls_prop1": "cls_val"},
+        properties={"dev_prop1": "dev_val"},
+    ) as proxy:
+        assert proxy.get_cls_prop1() == "cls_val"
+        assert proxy.get_dev_prop1() == "dev_val"
+
+
+def test_single_raises_on_invalid_file_database_properties():
     class TestDevice(Device):
         empty = device_property(dtype=(str,))
 

@@ -31,7 +31,13 @@ _WS_ERROR_CLOSE_CODES = frozenset({
     WS_CLOSE_RATE_LIMITED,
     WS_CLOSE_MODEL_UNAVAILABLE,
 })
-from kugelaudio.models import AudioChunk, SessionUsage, StreamConfig, WordTimestamp
+from kugelaudio.models import (
+    AudioChunk,
+    SessionUsage,
+    StreamConfig,
+    WordTimestamp,
+    clamp_cfg_scale,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +61,52 @@ _INTER_CHUNK_IDLE_S = 2.0
 def _raise_for_error(data: Dict[str, Any]) -> None:
     """Raise the appropriate KugelAudio exception for a server error frame."""
     raise classify_ws_frame(data)
+
+
+# Generation parameters changeable mid-connection via ``update_settings``
+# (KUG-1166). Identity / audio-format fields (voice_id, model_id, sample_rate,
+# output_format, dictionary_ids) are NOT in this set — they are fixed for the
+# connection's lifetime and the server rejects them in an update_settings body.
+_UPDATABLE_SETTINGS = (
+    "cfg_scale",
+    "temperature",
+    "max_new_tokens",
+    "language",
+    "normalize",
+    "speed",
+)
+
+
+def _settings_update_body(
+    *,
+    cfg_scale: Optional[float] = None,
+    temperature: Optional[float] = None,
+    speed: Optional[float] = None,
+    max_new_tokens: Optional[int] = None,
+    language: Optional[str] = None,
+    normalize: Optional[bool] = None,
+) -> Dict[str, Any]:
+    """Build an ``update_settings`` body from the provided fields (KUG-1166).
+
+    Drops fields left as ``None`` so a message updates only what it carries.
+    Raises ``ValueError`` when nothing was provided — an empty update is a
+    caller mistake, not a no-op to send.
+    """
+    body: Dict[str, Any] = {
+        "cfg_scale": cfg_scale,
+        "temperature": temperature,
+        "speed": speed,
+        "max_new_tokens": max_new_tokens,
+        "language": language,
+        "normalize": normalize,
+    }
+    body = {name: value for name, value in body.items() if value is not None}
+    if not body:
+        raise ValueError(
+            "update_settings requires at least one parameter to change "
+            f"(one of {', '.join(_UPDATABLE_SETTINGS)})"
+        )
+    return body
 
 
 class StreamingSession:
@@ -557,6 +609,89 @@ class StreamingSession:
                     setattr(self._config, key, value)
         self._config_sent = False
 
+    async def update_settings(
+        self,
+        *,
+        cfg_scale: Optional[float] = None,
+        temperature: Optional[float] = None,
+        speed: Optional[float] = None,
+        max_new_tokens: Optional[int] = None,
+        language: Optional[str] = None,
+        normalize: Optional[bool] = None,
+    ) -> Dict[str, Any]:
+        """Change generation parameters mid-connection without reconnecting (KUG-1166).
+
+        Sends an ``update_settings`` message and waits for the server's
+        ``settings_updated`` acknowledgement, returning the generation
+        parameters now in effect. Only the six parameters in this signature
+        are updatable; identity / audio-format fields (``voice_id``,
+        ``model_id``, ``sample_rate``, ``output_format``, ``dictionary_ids``)
+        are fixed for the connection — change those with :meth:`update_config`
+        after :meth:`end_session` instead.
+
+        The change applies to the **next turn**: a turn already streaming
+        keeps the settings it started with, so call this between turns.
+
+        Args:
+            cfg_scale: Classifier-free guidance scale (0.0–10.0).
+            temperature: Sampling variance (0.0–1.0).
+            speed: Playback speed multiplier (0.8–1.2).
+            max_new_tokens: Maximum tokens per generation (1–8192).
+            language: Language code for normalization (e.g. ``"de"``).
+            normalize: Enable text normalization.
+
+        Returns:
+            The generation parameters now in effect (the server's echo).
+
+        Raises:
+            ValueError: if no parameter was provided.
+            KugelAudioError: if the server rejects the update (e.g. a value
+                out of range) or stays silent past the receive timeout.
+        """
+        body = _settings_update_body(
+            cfg_scale=cfg_scale,
+            temperature=temperature,
+            speed=speed,
+            max_new_tokens=max_new_tokens,
+            language=language,
+            normalize=normalize,
+        )
+        if not self._is_started or not self._ws:
+            await self.connect()
+
+        await self._ws.send(json.dumps({"update_settings": body}))
+        effective = await self._await_settings_ack()
+
+        # Keep the local config in sync only after the server accepts the
+        # change; rejected updates must not poison later config re-sends.
+        for name, value in body.items():
+            if hasattr(self._config, name):
+                setattr(self._config, name, value)
+        return effective
+
+    async def _await_settings_ack(self) -> Dict[str, Any]:
+        """Wait for the ``settings_updated`` frame; return its ``settings``.
+
+        Frames unrelated to the ack (e.g. stray audio left over from a turn
+        that was still draining) are discarded — ``update_settings`` is
+        documented as a between-turns call.
+        """
+        while True:
+            try:
+                msg = await asyncio.wait_for(
+                    self._ws.recv(), timeout=_DEFAULT_RECV_TIMEOUT_S
+                )
+            except asyncio.TimeoutError as exc:
+                raise KugelAudioError(
+                    "Timed out waiting for settings_updated acknowledgement"
+                ) from exc
+            data = json.loads(msg)
+            if data.get("error"):
+                _raise_for_error(data)
+            if data.get("settings_updated"):
+                settings = data.get("settings")
+                return settings if isinstance(settings, dict) else {}
+
     async def close(self) -> Dict[str, Any]:
         """Close the session and the WebSocket connection.
 
@@ -642,6 +777,31 @@ class StreamingSessionSync:
         """
         return self._loop.run_until_complete(self._session.cancel_current())
 
+    def update_settings(
+        self,
+        *,
+        cfg_scale: Optional[float] = None,
+        temperature: Optional[float] = None,
+        speed: Optional[float] = None,
+        max_new_tokens: Optional[int] = None,
+        language: Optional[str] = None,
+        normalize: Optional[bool] = None,
+    ) -> Dict[str, Any]:
+        """Change generation parameters mid-connection (KUG-1166).
+
+        See :meth:`StreamingSession.update_settings` for the semantics.
+        """
+        return self._loop.run_until_complete(
+            self._session.update_settings(
+                cfg_scale=cfg_scale,
+                temperature=temperature,
+                speed=speed,
+                max_new_tokens=max_new_tokens,
+                language=language,
+                normalize=normalize,
+            )
+        )
+
     @property
     def last_word_timestamps(self) -> List[WordTimestamp]:
         """Return the most recently received word timestamps."""
@@ -709,6 +869,7 @@ class MultiContextSession:
         word_timestamps: bool = False,
         on_word_timestamps: Optional[Callable[[str, List[WordTimestamp]], None]] = None,
     ):
+        cfg_scale = clamp_cfg_scale(cfg_scale)
         self._api_key = api_key
         self._tts_url = tts_url
         self._default_voice_id = default_voice_id
@@ -978,6 +1139,66 @@ class MultiContextSession:
             if data.get("context_created") and data.get("context_id") == context_id:
                 self._contexts.add(context_id)
                 break
+
+    async def update_settings(
+        self,
+        *,
+        cfg_scale: Optional[float] = None,
+        temperature: Optional[float] = None,
+        speed: Optional[float] = None,
+        max_new_tokens: Optional[int] = None,
+        language: Optional[str] = None,
+        normalize: Optional[bool] = None,
+    ) -> Dict[str, Any]:
+        """Change the session's generation parameters mid-connection (KUG-1166).
+
+        Session-scoped (there is no ``context_id``): the update applies to
+        contexts started **after** it — a context already streaming keeps the
+        settings it began with, since generation parameters are bound when a
+        context's engine session opens. With the common one-context-per-turn
+        pattern that means the change takes effect on the next turn.
+
+        Only the six parameters in this signature are updatable; identity /
+        audio-format fields are fixed for the connection. Per-context
+        ``cfg_scale`` / ``max_new_tokens`` passed to :meth:`create_context`
+        still win for that context.
+
+        Returns:
+            The generation parameters now in effect (the server's echo).
+
+        Raises:
+            ValueError: if no parameter was provided.
+            KugelAudioError: if the server rejects the update.
+        """
+        body = _settings_update_body(
+            cfg_scale=cfg_scale,
+            temperature=temperature,
+            speed=speed,
+            max_new_tokens=max_new_tokens,
+            language=language,
+            normalize=normalize,
+        )
+        if not self._ws:
+            await self.connect()
+
+        await self._ws_send({"update_settings": body})
+        while True:
+            msg = await asyncio.wait_for(
+                self._ws.recv(), timeout=_DEFAULT_RECV_TIMEOUT_S
+            )
+            data = json.loads(msg)
+            if data.get("error"):
+                _raise_for_error(data)
+            if data.get("settings_updated"):
+                settings = data.get("settings")
+                # Mirror onto local session fields only after the server
+                # accepts the update, so rejected values do not leak into
+                # future context creation.
+                for name, value in body.items():
+                    attr = f"_{name}"
+                    if hasattr(self, attr):
+                        setattr(self, attr, value)
+                return settings if isinstance(settings, dict) else {}
 
     async def send(
         self,

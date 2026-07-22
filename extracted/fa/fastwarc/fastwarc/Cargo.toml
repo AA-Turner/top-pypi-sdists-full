@@ -8,11 +8,10 @@ name = "fastwarc"
 path = "src/lib.rs"
 crate-type = [
     "cdylib",
-    "rlib",
 ]
 
 [dependencies]
-fastwarc = "1.0.8"
+fastwarc = "1.0.9"
 pyo3 = "0.28"
 
 [dependencies.time]

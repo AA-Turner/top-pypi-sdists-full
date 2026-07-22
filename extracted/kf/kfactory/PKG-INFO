@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kfactory
-Version: 3.0.1
+Version: 3.0.2
 Summary: KLayout API implementation of gdsfactory
 Author-email: gdsfactory community <contact@gdsfactory.com>
 Classifier: Operating System :: OS Independent
@@ -77,7 +77,7 @@ Requires-Dist: kfactory[ipy]; extra == "notebooks"
 Requires-Dist: nbconvert<7.18,>=7.17.1; extra == "notebooks"
 Dynamic: license-file
 
-# KFactory 3.0.1
+# KFactory 3.0.2
 
 [![codecov](https://codecov.io/gh/gdsfactory/kfactory/graph/badge.svg?token=dArcfnQE4w)](https://codecov.io/gh/gdsfactory/kfactory)
 
@@ -128,7 +128,7 @@ This installs the development environment and sets up pre-commit hooks.
 
 Full documentation is available at [gdsfactory.github.io/kfactory](https://gdsfactory.github.io/kfactory).
 
-Upgrading from an earlier version? See the [migration guide](migration.md).
+Upgrading from an earlier version? See the [migration guide](docs/source/migration.md).
 
 ## License
 

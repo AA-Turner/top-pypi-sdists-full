@@ -268,6 +268,7 @@ class LazySparkSession:
         "EMRServerlessSparkSessionManager": "EMR_SERVERLESS_SPARK_CONNECT",
         "GlueSparkSessionManager": "GLUE_SPARK_CONNECT",
         "EmrEc2SparkSessionManager": "EMR_EC2_SPARK_CONNECT",
+        "EmrEksSparkSessionManager": "EMR_EKS_SPARK_CONNECT",
     }
 
     def get_session_info(self) -> dict | None:

@@ -27,17 +27,17 @@ class IoTransferEventArgs(object):
 		self.context: str = (context[:100] + '..') if len(context) > 100 else context
 
 		# Data to set after the object has been created.
-		self.chunk_size: int = None
+		self.chunk_size: int | None = None
 		"""Size of one chunk of data. This number does not change during the transfer."""
-		self.chunk_ix: int = None
+		self.chunk_ix: int | None = None
 		"""0-based index of the chunk."""
-		self.total_chunks: int = None
+		self.total_chunks: int | None = None
 		"""Expected number of chunks."""
-		self.resource_name: str = None
+		self.resource_name: str | None = None
 		"""Visa Resource Name of the instrument that generated the data."""
-		self.binary: bool = None
+		self.binary: bool | None = None
 		"""True: Binary data, False: string data"""
-		self.data: str | bytes = None
+		self.data: str | bytes | None = None
 		"""If the feature of transferring data over R/W event is switched ON, this field contains the whole data."""
 
 	@classmethod
@@ -76,19 +76,23 @@ class IoTransferEventArgs(object):
 			type_info = 'ascii'
 		if self.opc_sync:
 			type_info += ' (opc-synced)'
+
 		if not self.total_chunks:
-			chunk_info = f' chunk nr. {self.chunk_ix + 1}'
+			chunk_info = f" chunk nr. {(self.chunk_ix + 1) if self.chunk_ix else 'x'}"
 		elif self.total_chunks > 1:
-			chunk_info = f' chunk nr. {self.chunk_ix + 1}/{self.total_chunks}'
+			chunk_info = f" chunk nr. {(self.chunk_ix + 1) if self.chunk_ix else 'x'}/{self.total_chunks}"
 		else:
 			chunk_info = ' chunk nr. 1/1'
+
 		eot = ' (EOT)' if self.end_of_transfer else ''
+		cs_info = size_to_kb_mb_string(self.chunk_size, True) if self.chunk_size else '<N.A.>'
+		ts_info = size_to_kb_mb_string(self.total_size, True) if self.total_size else '<N.A.>'
 		if self.reading:
-			result = f'IoTransferArgs ID {self._transfer_id}: reading {type_info}, {chunk_info} {size_to_kb_mb_string(self.chunk_size, True)}, ' \
-					f'sum {size_to_kb_mb_string(self.transferred_size, True)} / {size_to_kb_mb_string(self.total_size, True) if self.total_size else "<N.A.>"}{eot}.'
+			result = f"IoTransferArgs ID {self._transfer_id}: reading {type_info}, {chunk_info} {size_to_kb_mb_string(self.chunk_size, True) if self.chunk_size else '<N.A.>'}, " \
+					f"sum {size_to_kb_mb_string(self.transferred_size, True)} / {size_to_kb_mb_string(self.total_size, True) if self.total_size else '<N.A.>'}{eot}."
 		else:
-			result = f'IoTransferArgs ID {self._transfer_id}: writing {type_info}, {chunk_info} {size_to_kb_mb_string(self.chunk_size, True)}, ' \
-						f'sum {size_to_kb_mb_string(self.transferred_size, True)} / {size_to_kb_mb_string(self.total_size, True)}{eot}.'
+			result = f"IoTransferArgs ID {self._transfer_id}: writing {type_info}, {chunk_info} {size_to_kb_mb_string(self.chunk_size, True) if self.chunk_size else '<N.A.>'}, " \
+						f"sum {size_to_kb_mb_string(self.transferred_size, True)} / {size_to_kb_mb_string(self.total_size, True) if self.total_size else '<N.A.>'}{eot}."
 		if self.context:
 			result += f' Cmd: {self.context}'
 		return result
@@ -101,5 +105,5 @@ class IoTransferEventArgs(object):
 
 	def set_end_of_transfer(self):
 		"""Sets fields to signal end of transfer."""
-		self.transferred_size = self.total_size
+		self.transferred_size = self.total_size if self.total_size else 0
 		self.end_of_transfer = True

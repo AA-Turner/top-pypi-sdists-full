@@ -609,7 +609,7 @@ default_message_pool.register_message("envoy.admin.v3", "ClusterStatus", Cluster
 @dataclass(eq=False, repr=False, config={"extra": "forbid"})
 class CommandLineOptions(betterproto2.Message):
     """
-    [#next-free-field: 43]
+    [#next-free-field: 44]
     """
 
     base_id: "typing.Annotated[int, pydantic.Field(ge=0, le=2**64 - 1)]" = (
@@ -845,6 +845,11 @@ class CommandLineOptions(betterproto2.Message):
     enable_fine_grain_logging: "bool" = betterproto2.field(34, betterproto2.TYPE_BOOL)
     """
     See :option:`--enable-fine-grain-logging` for details.
+    """
+
+    log_stacktrace_single_entry: "bool" = betterproto2.field(43, betterproto2.TYPE_BOOL)
+    """
+    See :option:`--log-stacktrace-single-entry` for details.
     """
 
     socket_path: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(

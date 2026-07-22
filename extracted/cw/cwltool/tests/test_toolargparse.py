@@ -1,4 +1,5 @@
 import argparse
+import sys
 from collections.abc import Callable
 from io import StringIO
 from pathlib import Path
@@ -6,7 +7,7 @@ from pathlib import Path
 import pytest
 
 import cwltool.executors
-from cwltool.argparser import generate_parser
+from cwltool.argparser import arg_parser, generate_parser
 from cwltool.context import LoadingContext
 from cwltool.load_tool import load_tool
 from cwltool.main import main
@@ -278,6 +279,25 @@ def test_argparser_without_doc() -> None:
     assert parser.description is None
 
 
+def test_argparser_prog_is_cwltool(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The program name is reported as ``cwltool`` when invoked as ``cwl-runner``.
+
+    Regression test for https://github.com/common-workflow-language/cwltool/issues/1535
+    """
+    monkeypatch.setattr(sys, "argv", ["/usr/local/bin/cwl-runner", "--help"])
+    assert arg_parser().prog == "cwltool"
+
+
+def test_argparser_prog_preserves_downstream_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Reusers of ``arg_parser()`` keep their own program name (not forced to ``cwltool``).
+
+    Downstream tools such as Calrissian call :func:`arg_parser` directly and rely on
+    argparse's basename default; the ``cwl-runner`` override must not leak into them.
+    """
+    monkeypatch.setattr(sys, "argv", ["/usr/local/bin/calrissian", "--help"])
+    assert arg_parser().prog == "calrissian"
+
+
 @pytest.mark.parametrize(
     "job_order,expected_values",
     [
@@ -308,3 +328,27 @@ def test_argparse_append_with_default(job_order: list[str], expected_values: lis
     cmd_line = vars(toolparser.parse_args(job_order))
     file_paths = list(cmd_line["file_paths"])
     assert expected_values == file_paths
+
+
+@pytest.mark.parametrize(
+    "cwl_file,expected_default",
+    [
+        ("tests/wf/779-boolean-default-false.cwl", False),
+        ("tests/wf/779-boolean-default-true.cwl", True),
+    ],
+)
+def test_boolean_with_default_not_required(cwl_file: str, expected_default: bool) -> None:
+    """A boolean input with a default value must not be a required CLI argument.
+
+    Regression test for https://github.com/common-workflow-language/cwltool/issues/779
+    where ``default: false`` was incorrectly treated as a required ``--a_bool`` flag.
+    """
+    loadingContext = LoadingContext()
+    tool = load_tool(get_data(cwl_file), loadingContext)
+    # input_required=True mirrors the default CLI behavior; the input must still be
+    # optional purely because it declares a default value.
+    toolparser = generate_parser(argparse.ArgumentParser(prog="test"), tool, {}, [], True)
+    # Parsing with no arguments must succeed (the flag is optional) and fall back
+    # to the declared default rather than erroring with "arguments are required".
+    cmd_line = vars(toolparser.parse_args([]))
+    assert cmd_line["a_bool"] == expected_default

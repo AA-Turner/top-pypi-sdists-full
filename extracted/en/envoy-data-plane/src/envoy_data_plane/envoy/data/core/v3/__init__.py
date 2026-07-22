@@ -41,6 +41,8 @@ class HealthCheckerType(betterproto2.Enum):
 
     THRIFT = 4
 
+    DYNAMIC_MODULE = 5
+
 
 class HealthCheckFailureType(betterproto2.Enum):
     """
@@ -89,6 +91,16 @@ class HealthCheckEjectUnhealthy(betterproto2.Message):
     )
     """
     The type of failure that caused this ejection.
+    """
+
+    http_status_code: "typing.Annotated[int, pydantic.Field(ge=0, le=2**32 - 1)]" = (
+        betterproto2.field(2, betterproto2.TYPE_UINT32)
+    )
+    """
+    HTTP status code observed on the response associated with the failure.
+    Only set when the health checker type is HTTP and the failure type is ``ACTIVE``.
+    A value of ``0`` indicates that no HTTP status code was recorded (e.g., network-level failures
+    or non-HTTP health checkers).
     """
 
 
@@ -209,6 +221,16 @@ class HealthCheckFailure(betterproto2.Message):
     first_check: "bool" = betterproto2.field(2, betterproto2.TYPE_BOOL)
     """
     Whether this event is the result of the first ever health check on a host.
+    """
+
+    http_status_code: "typing.Annotated[int, pydantic.Field(ge=0, le=2**32 - 1)]" = (
+        betterproto2.field(3, betterproto2.TYPE_UINT32)
+    )
+    """
+    HTTP status code observed on the response associated with the failure.
+    Only set when the health checker type is HTTP and the failure type is ``ACTIVE``.
+    A value of ``0`` indicates that no HTTP status code was recorded (e.g., network-level failures
+    or non-HTTP health checkers).
     """
 
 

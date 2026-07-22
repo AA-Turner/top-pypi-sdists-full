@@ -12,7 +12,7 @@ class ArgSingleList(object):
 	def __init__(self):
 		self.args = None
 
-	def compose_cmd_string(self, arg1: ArgSingle, arg2: ArgSingle = None, arg3: ArgSingle = None, arg4: ArgSingle = None, arg5: ArgSingle = None, arg6: ArgSingle = None, arg7: ArgSingle = None, arg8: ArgSingle = None, arg9: ArgSingle = None):
+	def compose_cmd_string(self, arg1: ArgSingle, arg2: ArgSingle | None = None, arg3: ArgSingle | None = None, arg4: ArgSingle | None = None, arg5: ArgSingle | None = None, arg6: ArgSingle | None = None, arg7: ArgSingle | None = None, arg8: ArgSingle | None = None, arg9: ArgSingle | None = None):
 		"""Composes the string cmd argument from the arguments list.
 		Same treatment as in the ArgStructList.compose_cmd_string().
 		The difference is in handling the value of the argument."""

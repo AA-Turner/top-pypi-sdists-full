@@ -145,7 +145,7 @@ class Responses(BaseSDK):
         :param input: Input for a response request - can be a string or array of items
         :param instructions:
         :param max_output_tokens:
-        :param max_tool_calls:
+        :param max_tool_calls: Maximum number of server-tool (e.g. `openrouter:web_search`) agent steps the model may take during a request. Defaults to 30, which is also the maximum. Ignored when `stop_server_tools_when` is set.
         :param metadata: Metadata key-value pairs for the request. Keys must be ≤64 characters and cannot contain brackets. Values must be ≤512 characters. Maximum 16 pairs allowed.
         :param modalities: Output modalities for the response. Supported values are \"text\" and \"image\".
         :param model:
@@ -162,7 +162,7 @@ class Responses(BaseSDK):
         :param safety_identifier:
         :param service_tier:
         :param session_id: A unique identifier for grouping related requests (e.g., a conversation or agent workflow). When provided, OpenRouter uses it as the sticky routing key, routing all requests in the session to the same provider to maximize prompt cache hits. Also used for observability grouping. If provided in both the request body and the x-session-id header, the body value takes precedence. Maximum of 256 characters.
-        :param stop_server_tools_when: Stop conditions for the server-tool agent loop. Any condition firing halts the loop (OR logic). When set, this overrides `max_tool_calls`.
+        :param stop_server_tools_when: Stop conditions for the server-tool agent loop. Any condition firing halts the loop (OR logic). When set, this overrides `max_tool_calls`. When a condition fires while the model is still emitting tool calls, the pending tool calls are executed and one final turn is made with tool calls disabled so the response ends with a natural-language answer instead of an unfinished tool call.
         :param stream:
         :param temperature:
         :param text: Text output configuration including format and verbosity
@@ -303,7 +303,7 @@ class Responses(BaseSDK):
         :param input: Input for a response request - can be a string or array of items
         :param instructions:
         :param max_output_tokens:
-        :param max_tool_calls:
+        :param max_tool_calls: Maximum number of server-tool (e.g. `openrouter:web_search`) agent steps the model may take during a request. Defaults to 30, which is also the maximum. Ignored when `stop_server_tools_when` is set.
         :param metadata: Metadata key-value pairs for the request. Keys must be ≤64 characters and cannot contain brackets. Values must be ≤512 characters. Maximum 16 pairs allowed.
         :param modalities: Output modalities for the response. Supported values are \"text\" and \"image\".
         :param model:
@@ -320,7 +320,7 @@ class Responses(BaseSDK):
         :param safety_identifier:
         :param service_tier:
         :param session_id: A unique identifier for grouping related requests (e.g., a conversation or agent workflow). When provided, OpenRouter uses it as the sticky routing key, routing all requests in the session to the same provider to maximize prompt cache hits. Also used for observability grouping. If provided in both the request body and the x-session-id header, the body value takes precedence. Maximum of 256 characters.
-        :param stop_server_tools_when: Stop conditions for the server-tool agent loop. Any condition firing halts the loop (OR logic). When set, this overrides `max_tool_calls`.
+        :param stop_server_tools_when: Stop conditions for the server-tool agent loop. Any condition firing halts the loop (OR logic). When set, this overrides `max_tool_calls`. When a condition fires while the model is still emitting tool calls, the pending tool calls are executed and one final turn is made with tool calls disabled so the response ends with a natural-language answer instead of an unfinished tool call.
         :param stream:
         :param temperature:
         :param text: Text output configuration including format and verbosity
@@ -464,7 +464,7 @@ class Responses(BaseSDK):
         :param input: Input for a response request - can be a string or array of items
         :param instructions:
         :param max_output_tokens:
-        :param max_tool_calls:
+        :param max_tool_calls: Maximum number of server-tool (e.g. `openrouter:web_search`) agent steps the model may take during a request. Defaults to 30, which is also the maximum. Ignored when `stop_server_tools_when` is set.
         :param metadata: Metadata key-value pairs for the request. Keys must be ≤64 characters and cannot contain brackets. Values must be ≤512 characters. Maximum 16 pairs allowed.
         :param modalities: Output modalities for the response. Supported values are \"text\" and \"image\".
         :param model:
@@ -481,7 +481,7 @@ class Responses(BaseSDK):
         :param safety_identifier:
         :param service_tier:
         :param session_id: A unique identifier for grouping related requests (e.g., a conversation or agent workflow). When provided, OpenRouter uses it as the sticky routing key, routing all requests in the session to the same provider to maximize prompt cache hits. Also used for observability grouping. If provided in both the request body and the x-session-id header, the body value takes precedence. Maximum of 256 characters.
-        :param stop_server_tools_when: Stop conditions for the server-tool agent loop. Any condition firing halts the loop (OR logic). When set, this overrides `max_tool_calls`.
+        :param stop_server_tools_when: Stop conditions for the server-tool agent loop. Any condition firing halts the loop (OR logic). When set, this overrides `max_tool_calls`. When a condition fires while the model is still emitting tool calls, the pending tool calls are executed and one final turn is made with tool calls disabled so the response ends with a natural-language answer instead of an unfinished tool call.
         :param stream:
         :param temperature:
         :param text: Text output configuration including format and verbosity
@@ -624,7 +624,7 @@ class Responses(BaseSDK):
         :param input: Input for a response request - can be a string or array of items
         :param instructions:
         :param max_output_tokens:
-        :param max_tool_calls:
+        :param max_tool_calls: Maximum number of server-tool (e.g. `openrouter:web_search`) agent steps the model may take during a request. Defaults to 30, which is also the maximum. Ignored when `stop_server_tools_when` is set.
         :param metadata: Metadata key-value pairs for the request. Keys must be ≤64 characters and cannot contain brackets. Values must be ≤512 characters. Maximum 16 pairs allowed.
         :param modalities: Output modalities for the response. Supported values are \"text\" and \"image\".
         :param model:
@@ -641,7 +641,7 @@ class Responses(BaseSDK):
         :param safety_identifier:
         :param service_tier:
         :param session_id: A unique identifier for grouping related requests (e.g., a conversation or agent workflow). When provided, OpenRouter uses it as the sticky routing key, routing all requests in the session to the same provider to maximize prompt cache hits. Also used for observability grouping. If provided in both the request body and the x-session-id header, the body value takes precedence. Maximum of 256 characters.
-        :param stop_server_tools_when: Stop conditions for the server-tool agent loop. Any condition firing halts the loop (OR logic). When set, this overrides `max_tool_calls`.
+        :param stop_server_tools_when: Stop conditions for the server-tool agent loop. Any condition firing halts the loop (OR logic). When set, this overrides `max_tool_calls`. When a condition fires while the model is still emitting tool calls, the pending tool calls are executed and one final turn is made with tool calls disabled so the response ends with a natural-language answer instead of an unfinished tool call.
         :param stream:
         :param temperature:
         :param text: Text output configuration including format and verbosity
@@ -1064,7 +1064,7 @@ class Responses(BaseSDK):
         :param input: Input for a response request - can be a string or array of items
         :param instructions:
         :param max_output_tokens:
-        :param max_tool_calls:
+        :param max_tool_calls: Maximum number of server-tool (e.g. `openrouter:web_search`) agent steps the model may take during a request. Defaults to 30, which is also the maximum. Ignored when `stop_server_tools_when` is set.
         :param metadata: Metadata key-value pairs for the request. Keys must be ≤64 characters and cannot contain brackets. Values must be ≤512 characters. Maximum 16 pairs allowed.
         :param modalities: Output modalities for the response. Supported values are \"text\" and \"image\".
         :param model:
@@ -1081,7 +1081,7 @@ class Responses(BaseSDK):
         :param safety_identifier:
         :param service_tier:
         :param session_id: A unique identifier for grouping related requests (e.g., a conversation or agent workflow). When provided, OpenRouter uses it as the sticky routing key, routing all requests in the session to the same provider to maximize prompt cache hits. Also used for observability grouping. If provided in both the request body and the x-session-id header, the body value takes precedence. Maximum of 256 characters.
-        :param stop_server_tools_when: Stop conditions for the server-tool agent loop. Any condition firing halts the loop (OR logic). When set, this overrides `max_tool_calls`.
+        :param stop_server_tools_when: Stop conditions for the server-tool agent loop. Any condition firing halts the loop (OR logic). When set, this overrides `max_tool_calls`. When a condition fires while the model is still emitting tool calls, the pending tool calls are executed and one final turn is made with tool calls disabled so the response ends with a natural-language answer instead of an unfinished tool call.
         :param stream:
         :param temperature:
         :param text: Text output configuration including format and verbosity
@@ -1222,7 +1222,7 @@ class Responses(BaseSDK):
         :param input: Input for a response request - can be a string or array of items
         :param instructions:
         :param max_output_tokens:
-        :param max_tool_calls:
+        :param max_tool_calls: Maximum number of server-tool (e.g. `openrouter:web_search`) agent steps the model may take during a request. Defaults to 30, which is also the maximum. Ignored when `stop_server_tools_when` is set.
         :param metadata: Metadata key-value pairs for the request. Keys must be ≤64 characters and cannot contain brackets. Values must be ≤512 characters. Maximum 16 pairs allowed.
         :param modalities: Output modalities for the response. Supported values are \"text\" and \"image\".
         :param model:
@@ -1239,7 +1239,7 @@ class Responses(BaseSDK):
         :param safety_identifier:
         :param service_tier:
         :param session_id: A unique identifier for grouping related requests (e.g., a conversation or agent workflow). When provided, OpenRouter uses it as the sticky routing key, routing all requests in the session to the same provider to maximize prompt cache hits. Also used for observability grouping. If provided in both the request body and the x-session-id header, the body value takes precedence. Maximum of 256 characters.
-        :param stop_server_tools_when: Stop conditions for the server-tool agent loop. Any condition firing halts the loop (OR logic). When set, this overrides `max_tool_calls`.
+        :param stop_server_tools_when: Stop conditions for the server-tool agent loop. Any condition firing halts the loop (OR logic). When set, this overrides `max_tool_calls`. When a condition fires while the model is still emitting tool calls, the pending tool calls are executed and one final turn is made with tool calls disabled so the response ends with a natural-language answer instead of an unfinished tool call.
         :param stream:
         :param temperature:
         :param text: Text output configuration including format and verbosity
@@ -1383,7 +1383,7 @@ class Responses(BaseSDK):
         :param input: Input for a response request - can be a string or array of items
         :param instructions:
         :param max_output_tokens:
-        :param max_tool_calls:
+        :param max_tool_calls: Maximum number of server-tool (e.g. `openrouter:web_search`) agent steps the model may take during a request. Defaults to 30, which is also the maximum. Ignored when `stop_server_tools_when` is set.
         :param metadata: Metadata key-value pairs for the request. Keys must be ≤64 characters and cannot contain brackets. Values must be ≤512 characters. Maximum 16 pairs allowed.
         :param modalities: Output modalities for the response. Supported values are \"text\" and \"image\".
         :param model:
@@ -1400,7 +1400,7 @@ class Responses(BaseSDK):
         :param safety_identifier:
         :param service_tier:
         :param session_id: A unique identifier for grouping related requests (e.g., a conversation or agent workflow). When provided, OpenRouter uses it as the sticky routing key, routing all requests in the session to the same provider to maximize prompt cache hits. Also used for observability grouping. If provided in both the request body and the x-session-id header, the body value takes precedence. Maximum of 256 characters.
-        :param stop_server_tools_when: Stop conditions for the server-tool agent loop. Any condition firing halts the loop (OR logic). When set, this overrides `max_tool_calls`.
+        :param stop_server_tools_when: Stop conditions for the server-tool agent loop. Any condition firing halts the loop (OR logic). When set, this overrides `max_tool_calls`. When a condition fires while the model is still emitting tool calls, the pending tool calls are executed and one final turn is made with tool calls disabled so the response ends with a natural-language answer instead of an unfinished tool call.
         :param stream:
         :param temperature:
         :param text: Text output configuration including format and verbosity
@@ -1543,7 +1543,7 @@ class Responses(BaseSDK):
         :param input: Input for a response request - can be a string or array of items
         :param instructions:
         :param max_output_tokens:
-        :param max_tool_calls:
+        :param max_tool_calls: Maximum number of server-tool (e.g. `openrouter:web_search`) agent steps the model may take during a request. Defaults to 30, which is also the maximum. Ignored when `stop_server_tools_when` is set.
         :param metadata: Metadata key-value pairs for the request. Keys must be ≤64 characters and cannot contain brackets. Values must be ≤512 characters. Maximum 16 pairs allowed.
         :param modalities: Output modalities for the response. Supported values are \"text\" and \"image\".
         :param model:
@@ -1560,7 +1560,7 @@ class Responses(BaseSDK):
         :param safety_identifier:
         :param service_tier:
         :param session_id: A unique identifier for grouping related requests (e.g., a conversation or agent workflow). When provided, OpenRouter uses it as the sticky routing key, routing all requests in the session to the same provider to maximize prompt cache hits. Also used for observability grouping. If provided in both the request body and the x-session-id header, the body value takes precedence. Maximum of 256 characters.
-        :param stop_server_tools_when: Stop conditions for the server-tool agent loop. Any condition firing halts the loop (OR logic). When set, this overrides `max_tool_calls`.
+        :param stop_server_tools_when: Stop conditions for the server-tool agent loop. Any condition firing halts the loop (OR logic). When set, this overrides `max_tool_calls`. When a condition fires while the model is still emitting tool calls, the pending tool calls are executed and one final turn is made with tool calls disabled so the response ends with a natural-language answer instead of an unfinished tool call.
         :param stream:
         :param temperature:
         :param text: Text output configuration including format and verbosity

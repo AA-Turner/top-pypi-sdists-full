@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langwatch-scenario
-Version: 0.7.31
+Version: 0.7.32
 Summary: The end-to-end agent testing library
 Author-email: LangWatch Team <support@langwatch.ai>
 License: Apache-2.0
@@ -29,7 +29,7 @@ Requires-Dist: pksuid>=1.1.2
 Requires-Dist: httpx>=0.27.0
 Requires-Dist: rx>=3.2.0
 Requires-Dist: python-dateutil>=2.9.0.post0
-Requires-Dist: pydantic-settings>=2.9.1
+Requires-Dist: pydantic-settings>=2.14.2
 Requires-Dist: langwatch<0.3,>=0.2.19
 Requires-Dist: opentelemetry-sdk>=1.20.0
 Requires-Dist: imageio-ffmpeg>=0.5.0
@@ -48,7 +48,7 @@ Requires-Dist: isort; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: pyright; extra == "dev"
-Requires-Dist: pydantic-ai-slim[openai]>=1.56.0; extra == "dev"
+Requires-Dist: pydantic-ai-slim[openai]<2.0.0,>=1.102.0; extra == "dev"
 Requires-Dist: function-schema; extra == "dev"
 Requires-Dist: pdoc3; extra == "dev"
 Requires-Dist: respx; extra == "dev"
@@ -480,7 +480,7 @@ LANGWATCH_API_KEY="your-api-key"
 
 ## Debug mode
 
-You can enable debug mode by setting the `debug` field to `True` in the `Scenario.configure` method or in the specific scenario you are running, or by passing the `--debug` flag to pytest.
+You can enable debug mode by setting the `debug` field to `True` in the `Scenario.configure` method or in the specific scenario you are running, or by passing the `--scenario-debug` flag to pytest.
 
 Debug mode allows you to see the messages in slow motion step by step, and intervene with your own inputs to debug your agent from the middle of the conversation.
 
@@ -491,7 +491,7 @@ scenario.configure(default_model="openai/gpt-4.1-mini", debug=True)
 or
 
 ```bash
-pytest -s tests/test_vegetarian_recipe_agent.py --debug
+pytest -s tests/test_vegetarian_recipe_agent.py --scenario-debug
 ```
 
 ## Cache

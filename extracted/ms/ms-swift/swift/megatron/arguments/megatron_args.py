@@ -597,6 +597,7 @@ class MegatronArguments(RLHFMegatronArgumentsMixin, MegatronTunerMixin):
 
     sequence_parallel: bool = False
     context_parallel_size: int = 1
+    cp_comm_type: Optional[Union[str, List[str]]] = None
     cp_partition_mode: Literal['zigzag', 'contiguous'] = 'zigzag'
     sequence_packing_scheduler: Optional[Literal['dp_balanced', 'default_dynamic_cp']] = None
     tp_comm_overlap: bool = False
@@ -760,7 +761,6 @@ class MegatronArguments(RLHFMegatronArgumentsMixin, MegatronTunerMixin):
 
     def _check_mcore_bridge(self):
         if self.language_model_only:
-            require_version('mcore-bridge>=1.4.3', 'Please install "mcore-bridge>=1.4.3" to use language_model_only.')
             if self.tuner_type == 'lora_llm':
                 raise ValueError('`tuner_type="lora_llm"` is not supported when `language_model_only=True`. '
                                  'Please use `tuner_type="lora"` instead.')

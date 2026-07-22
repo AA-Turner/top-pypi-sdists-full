@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import signal
+
+import pytest
+
 from plumbum import cli, local
 from plumbum.cli.switches import SwitchInfo
 from plumbum.cli.terminal import get_terminal_size
@@ -493,6 +497,60 @@ if __name__ == '__main__':
         # No traceback should be in stderr
         assert "Traceback" not in result.stderr, f"Traceback in stderr: {result.stderr}"
 
+    @pytest.mark.skipif(not hasattr(signal, "SIGPIPE"), reason="requires SIGPIPE")
+    def test_broken_pipe_at_shutdown_flush(self, tmp_path):
+        """Output still buffered when the reader is gone must not print
+        'Exception ignored ... BrokenPipeError' at interpreter shutdown."""
+        import subprocess
+        import sys
+
+        script = tmp_path / "straggler.py"
+        script.write_text(
+            f"""
+import sys, time
+sys.path.insert(0, {str(local.cwd)!r})
+from plumbum.cli import Application
+
+class App(Application):
+    def main(self):
+        print("1\\n2\\n3\\n4\\n5", flush=True)
+        time.sleep(0.5)  # let head exit
+        print("straggler")  # stays in the buffer until shutdown
+
+if __name__ == '__main__':
+    App.run()
+"""
+        )
+        result = subprocess.run(
+            f"{sys.executable} {script} | head -5",
+            shell=True,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert result.stderr == ""
+
+    @pytest.mark.skipif(not hasattr(signal, "SIGPIPE"), reason="requires SIGPIPE")
+    def test_run_keeps_sigpipe_disposition(self):
+        # SIG_DFL would make a socket send() to a closed peer kill the whole
+        # process (e.g. an rpyc server) instead of raising BrokenPipeError.
+        before = signal.getsignal(signal.SIGPIPE)
+        try:
+            _, rc = SimpleApp.run(["foo", "--bacon=2"], exit=False)
+        finally:
+            after = signal.getsignal(signal.SIGPIPE)
+            signal.signal(signal.SIGPIPE, before)
+        assert rc == 0
+        assert after == before
+
+    def test_run_handles_broken_pipe(self):
+        class BrokenApp(cli.Application):
+            def main(self):
+                raise BrokenPipeError
+
+        _, rc = BrokenApp.run(["app"], exit=False)
+        assert rc == 1
+
 
 class ExcludesApp(cli.Application):
     alpha = cli.Flag("--alpha")
@@ -554,3 +612,84 @@ class TestSwitchCombinations:
             help=None,
         )
         assert isinstance(hash(info), int)
+
+
+class AbbrevApp(cli.Application):
+    ALLOW_ABBREV = True
+
+    foo = cli.Flag("--foo")
+    foobar = cli.Flag("--foobar")
+    verbose = cli.Flag("--verbose")
+
+    def main(self, *args):
+        self.tailargs = args
+
+
+class TestAbbrev:
+    def test_exact_match_wins_over_abbreviation(self):
+        # --foo is an exact switch name; it must not be rejected as an
+        # ambiguous prefix of --foobar.
+        inst, rc = AbbrevApp.run(["app", "--foo"], exit=False)
+        assert rc == 0
+        assert inst.foo is True
+        assert inst.foobar is False
+
+    def test_ambiguous_partial_still_errors(self, capsys):
+        _, rc = AbbrevApp.run(["app", "--foob"], exit=False)
+        # --foob is unambiguous (only --foobar), should succeed
+        assert rc == 0
+        _, rc = AbbrevApp.run(["app", "--fo"], exit=False)
+        assert rc == 2
+        assert "Ambiguous partial switch" in capsys.readouterr()[0]
+
+
+class TestFlagEquals:
+    def test_flag_with_value_errors(self, capsys):
+        # A no-argument flag given --verbose=yes must not leak '=yes' into the
+        # positional args; it should raise a clear error.
+        _inst, rc = AbbrevApp.run(["app", "--verbose=yes"], exit=False)
+        assert rc == 2
+        assert "does not take an argument" in capsys.readouterr()[0]
+
+
+class BadRequiresApp(cli.Application):
+    alpha = cli.Flag("--alpha", requires=["--nope"])
+
+    def main(self):
+        pass
+
+
+class BadExcludesApp(cli.Application):
+    alpha = cli.Flag("--alpha", excludes=["--nope"])
+
+    def main(self):
+        pass
+
+
+class TestBadRequiresExcludes:
+    def test_unknown_requires_raises_switch_error(self, capsys):
+        _, rc = BadRequiresApp.run(["app", "--alpha"], exit=False)
+        assert rc == 2
+        out = capsys.readouterr()[0]
+        assert "nope" in out
+        assert "unknown switch" in out.lower()
+
+    def test_unknown_excludes_raises_switch_error(self, capsys):
+        _, rc = BadExcludesApp.run(["app", "--alpha"], exit=False)
+        assert rc == 2
+        out = capsys.readouterr()[0]
+        assert "nope" in out
+        assert "unknown switch" in out.lower()
+
+
+class TestHelpAllDoesNotCorruptSharedSwitchInfo:
+    def test_helpall_leaves_shared_switchinfo_group_unchanged(self, capsys):
+        # Regression: helpall used to mutate the shared SwitchInfo objects that
+        # live on the function objects, permanently corrupting every later
+        # --help render in the process.
+        before = cli.Application.help._switch_info.group
+        _, rc = Geet.run(["geet", "--help-all"], exit=False)
+        assert rc == 0
+        capsys.readouterr()
+        after = cli.Application.help._switch_info.group
+        assert before == after == "Meta-switches"

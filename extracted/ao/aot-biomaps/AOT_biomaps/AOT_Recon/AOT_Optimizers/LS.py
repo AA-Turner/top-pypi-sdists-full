@@ -13,8 +13,10 @@ import numpy as np
 from tqdm import trange
 from typing import Optional, Union, Tuple
 
-from AOT_biomaps.AOT_Recon.ReconTools import get_array_module, forward_projection, backward_projection, clamp_positive, check_stopping_criterion, calculate_step_size, build_preconditioner, apply_preconditioner
-from AOT_biomaps.AOT_Recon.ReconEnums import PreconditionerType, StopCriterionType
+from AOT_biomaps.AOT_Recon.ReconTools import get_array_module, forward_projection, backward_projection, check_stopping_criterion, calculate_step_size_LS
+from AOT_biomaps.AOT_Recon.ReconEnums import StopCriterionType
+from AOT_biomaps.AOT_Recon.AOT_Preconditioner.NoPreconditioner import NoPreconditioner
+from AOT_biomaps.AOT_Recon.AOT_Preconditioner.DiagPreconditioner import DiagPreconditioner
 from AOT_biomaps.AOT_Recon.AOT_SMatrix.SMatrix_SELL import SMatrix_SELL
 from AOT_biomaps.AOT_Recon.AOT_SMatrix.SMatrix_CSR import SMatrix_CSR
 from AOT_biomaps.AOT_Recon.AOT_SMatrix.SMatrix_DENSE import SMatrix_DENSE
@@ -32,15 +34,14 @@ except ImportError:
 if CUPY_AVAILABLE:
     # Fused Kernel : Update PGD + Clamp (Zero-Allocation)
     pgd_update_kernel = cp.ElementwiseKernel(
-        'float32 lam_in, float32 g, float32 alpha',
-        'float32 lam_out',
-        '''
-        float new_val = lam_in + alpha * g;
-        lam_out = new_val > 0.0f ? new_val : 0.0f;
-        ''',
-        'pgd_update_kernel'
-    )
-
+    'float32 lam_in, float32 g, float32 alpha',
+    'float32 lam_out',
+    '''
+    float new_val = lam_in + alpha * g;
+    lam_out = (new_val < 0.0f) ? 0.0f : new_val;
+    ''',
+    'pgd_update_kernel'
+)
 
 def LS(
     SMatrix : Union[SMatrix_DENSE, SMatrix_CSR, SMatrix_SELL],
@@ -49,7 +50,7 @@ def LS(
     alpha: Union[str, float] = "auto",
     eta: float = 1.9, 
     numIterations_stepCalculation: int = 20,
-    preconditioner_type: PreconditionerType = PreconditionerType.NONE,
+    preconditioner: Union[NoPreconditioner, DiagPreconditioner] = NoPreconditioner(SMatrix=None),
     stop_criterion: StopCriterionType = StopCriterionType.MAX_ITERATIONS,
     stop_threshold: float = 100.0,
     stop_window_size: int = 5,
@@ -87,7 +88,7 @@ def LS(
         alpha: Step size parameter (float or 'auto' for power method estimation of Lipschitz constant)
         eta: Parameter for the Lipschitz constant estimation (must be < 2 for convergence and > 1 for faster convergence). Useless if alpha is a float.
         numIterations_stepCalculation: Number of iterations for power method when alpha is "auto"
-        preconditioner_type: Type of preconditioner to use (default: NONE)
+        preconditioner: Preconditioner instance (default: None, which means no preconditioning)
         stop_criterion: Criterion for stopping the iterations
         stop_threshold: Threshold value for the stopping criterion (for MAX_iterations, this is ignored)
         stop_window_size: Window size (used to avoid early stop due to oscillations)
@@ -113,11 +114,12 @@ def LS(
     if SMatrix.T != y.shape[0] or SMatrix.N != y.shape[1]:
         raise ValueError(f"[AOT-biomaps] Shape of y {y.shape} does not match SMatrix dimensions (T={SMatrix.T}, N={SMatrix.N}).")
 
-    y_flat = xp.asarray(y.T.flatten().astype(xp.float32))
+    data_dtype = xp.complex64 if SMatrix.isComplexSMatrix else xp.float32
+
+    y_flat = xp.asarray(y.T.flatten().astype(data_dtype))
     lambda_flat = xp.full(ZX, 0.1, dtype=xp.float32)
     residual_buffer = xp.empty_like(y_flat)
 
-    preconditioner = build_preconditioner(SMatrix, preconditioner_type) if preconditioner_type != PreconditionerType.NONE else None
 
     # Setup save indices
     save_indices = np.unique(np.append(np.arange(0, numIterations, max(1, numIterations // max_saves)), numIterations - 1)).tolist()
@@ -127,10 +129,10 @@ def LS(
     cost_history = [] if isCostFunction else None
     window_history = []
 
+    alpha = calculate_step_size_LS(SMatrix, preconditioner, eta, numIterations_stepCalculation, show_logs) if alpha == "auto" else alpha
 
-    alpha = calculate_step_size(SMatrix, eta, numIterations_stepCalculation, show_logs) if alpha == "auto" else alpha
-    prec_str = "Diagonal Preconditioner" if preconditioner_type != PreconditionerType.NONE else "No Preconditioner"
-    description = f"[AOT-biomaps] LS ({SMatrix.matrix_type.name}) --- {prec_str} --- {'WITH' if withTumor else 'WITHOUT'} TUMOR --- {SMatrix.device.upper()}"
+    prec_str = preconditioner.get_name()
+    description = f"[AOT-biomaps] LS 4-phases ({SMatrix.matrix_type.name}) --- {prec_str} --- {'WITH' if withTumor else 'WITHOUT'} TUMOR --- {SMatrix.device.upper()}" if SMatrix.isComplexSMatrix else f"[AOT-biomaps] LS ({SMatrix.matrix_type.name}) --- {prec_str} --- {'WITH' if withTumor else 'WITHOUT'} TUMOR --- {SMatrix.device.upper()}"
     iterator = trange(numIterations, desc=description) if show_logs else range(numIterations)
 
     for it in iterator:
@@ -139,12 +141,12 @@ def LS(
         xp.subtract(y_flat, q_flat, out=residual_buffer)
  
         if isCostFunction:
-            cost_history.append(0.5 * float(xp.vdot(residual_buffer, residual_buffer)))
+            cost_history.append(0.5 * float(xp.vdot(residual_buffer, residual_buffer).real)) if SMatrix.isComplexSMatrix else cost_history.append(0.5 * float(xp.vdot(residual_buffer, residual_buffer)))
 
-        # Apply preconditioner to gradient (if asked): g = M^-1 * g with g = A^T * (y - A * λ) 
-        g_flat = apply_preconditioner(backward_projection(SMatrix, y_flat - q_flat), preconditioner, SMatrix) if preconditioner is not None else backward_projection(SMatrix, y_flat - q_flat)
+        g_flat = preconditioner.apply_inverse(backward_projection(SMatrix, y_flat - q_flat))
+        g_flat = g_flat.astype(xp.float32) if not SMatrix.isComplexSMatrix else xp.real(g_flat).astype(xp.float32) 
 
-        # Update: λ = λ + α * (M^-1 * g)
+        # Update: λ = P_{[0, upper_bound]}(λ + α * g_flat)
         if is_gpu:
             pgd_update_kernel(lambda_flat, g_flat, float(alpha), lambda_flat)
         else:

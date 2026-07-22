@@ -12,7 +12,12 @@ from typing import List
 
 import flask_sock
 
+from abstra_internals.contracts_generated import (
+    AbstraLibApiEditorStatusMessage,
+    AbstraLibApiEditorStatusMessageUpdate,
+)
 from abstra_internals.controllers.editor_update import EditorUpdateController
+from abstra_internals.utils.packages import RUNNING_ABSTRA_VERSION
 
 
 class EditorStatusEventController:
@@ -21,7 +26,16 @@ class EditorStatusEventController:
 
     @classmethod
     def build_payload(cls) -> str:
-        return json.dumps({"update": EditorUpdateController.state()})
+        update = EditorUpdateController.state()
+        message = AbstraLibApiEditorStatusMessage(
+            version=RUNNING_ABSTRA_VERSION,
+            update=AbstraLibApiEditorStatusMessageUpdate(
+                available=update["available"],
+                label=update["label"],
+                restarts=update["restarts"],
+            ),
+        )
+        return json.dumps(message.to_dict())
 
     @classmethod
     def register(cls, listener: flask_sock.Server):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: subliminal
-Version: 2.6.0
+Version: 2.7.0
 Summary: Subtitles, faster than your thoughts
 Project-URL: homepage, https://github.com/Diaoul/subliminal
 Project-URL: repository, https://github.com/Diaoul/subliminal
@@ -16,7 +16,6 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -24,7 +23,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Multimedia :: Video
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: babelfish>=0.6.1
 Requires-Dist: beautifulsoup4>=4.4.0
 Requires-Dist: chardet>=5.0
@@ -56,7 +55,6 @@ Requires-Dist: rarfile>=2.7; extra == 'rar'
 Provides-Extra: tests
 Requires-Dist: colorama; extra == 'tests'
 Requires-Dist: coverage[toml]>=7; extra == 'tests'
-Requires-Dist: importlib-metadata>=4.6; (python_version < '3.10') and extra == 'tests'
 Requires-Dist: pytest-cov; extra == 'tests'
 Requires-Dist: pytest-xdist; extra == 'tests'
 Requires-Dist: pytest>=6.0; extra == 'tests'

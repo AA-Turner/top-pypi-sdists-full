@@ -3,12 +3,13 @@
 import socket
 import re
 from contextlib import contextmanager
-from typing import Any
+from typing import Any, Iterator
 
 from .InstrumentErrors import RsInstrException
 
 # noinspection PyPackageRequirements
 import pyvisa
+import pyvisa.constants
 
 
 class SocketIo:
@@ -44,7 +45,7 @@ class SocketIo:
 	@property
 	def read_termination(self) -> str:
 		"""Read termination character"""
-		return self._read_termination
+		return self._read_termination  # ty: ignore[invalid-return-type]
 
 	@read_termination.setter
 	def read_termination(self, value: str | bool) -> None:
@@ -108,12 +109,11 @@ class SocketIo:
 		"""Puts the instrument into remote state."""
 		self.write("&GTR")
 
-	# noinspection PyUnusedLocal,PyTypeChecker
+	# noinspection PyUnusedLocal
 	@contextmanager
-	def ignore_warning(self, filter_value: int) -> None:
+	def ignore_warning(self, filter_value: int) -> Iterator[None]:
 		"""Context property with no effect for the socket connection"""
 		try:
-			# noinspection PyTypeChecker
 			yield None
 		finally:
 			# Code to release resource, e.g.:

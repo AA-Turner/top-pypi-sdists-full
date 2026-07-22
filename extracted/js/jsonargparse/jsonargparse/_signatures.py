@@ -2,19 +2,23 @@
 
 import dataclasses
 import inspect
+import os
 import re
 from argparse import SUPPRESS, ArgumentParser
-from typing import Any, Callable, Optional, Union
+from collections.abc import Callable
+from typing import Any, Optional, Union
 
 from ._actions import _ActionConfigLoad
 from ._common import (
     LoggerProperty,
     get_generic_origin,
+    get_parsing_setting,
     get_unaliased_type,
     is_final_class,
     is_subclass,
     is_subclasses_disabled,
 )
+from ._deprecated import deprecation_warning, renamed_parameter_warning
 from ._instantiation import get_class_instantiator
 from ._namespace import Namespace, get_value_and_parent
 from ._optionals import attrs_support, get_doc_short_description, is_attrs_class, is_pydantic_model
@@ -39,14 +43,15 @@ inspect_empty = inspect._empty
 class SignatureArguments(LoggerProperty):
     """Methods to add arguments based on signatures to an :class:`ArgumentParser` instance."""
 
+    @renamed_parameter_warning({"theclass": "class_type"})
     def add_class_arguments(
         self,
-        theclass: type,
-        nested_key: Optional[str] = None,
+        class_type: type,
+        nested_key: str | None = None,
         as_group: bool = True,
         as_positional: bool = False,
-        default: Optional[Union[dict, Namespace, type]] = None,
-        skip: Optional[set[Union[str, int]]] = None,
+        default: dict | Namespace | type | None = None,
+        skip: set[str | int] | None = None,
         instantiate: bool = True,
         fail_untyped: bool = True,
         sub_configs: bool = False,
@@ -57,7 +62,7 @@ class SignatureArguments(LoggerProperty):
         Note: Keyword arguments without at least one valid type are ignored.
 
         Args:
-            theclass: Class from which to add arguments.
+            class_type: Class from which to add arguments.
             nested_key: Key for nested namespace.
             as_group: Whether arguments should be added to a new argument group.
             as_positional: Whether to add required parameters as positional arguments.
@@ -75,9 +80,9 @@ class SignatureArguments(LoggerProperty):
             ValueError: When not given a class.
             ValueError: When there are required parameters without at least one valid type.
         """
-        unaliased_class_type = get_unaliased_type(theclass)
+        unaliased_class_type = get_unaliased_type(class_type)
         if not inspect.isclass(get_generic_origin(unaliased_class_type)):
-            raise ValueError(f"Expected 'theclass' parameter to be a class type, got: {theclass}")
+            raise ValueError(f"Expected 'class_type' parameter to be a class type, got: {class_type}")
         if not (
             isinstance(default, (NoneType, dict, Namespace))
             or (isinstance(default, _LazyInitBaseClass) and isinstance(default, unaliased_class_type))
@@ -98,7 +103,7 @@ class SignatureArguments(LoggerProperty):
         )
 
         added_args = self._add_signature_arguments(
-            theclass,
+            class_type,
             None,
             nested_key,
             as_group,
@@ -124,19 +129,20 @@ class SignatureArguments(LoggerProperty):
                 if skip_not_added:
                     skip.update(skip_not_added)  # skip init=False
             if defaults:
-                defaults = {prefix + k: v for k, v in defaults.items() if k not in skip}
+                defaults = {prefix + k: v for k, v in defaults.items() if k not in skip}  # type: ignore[union-attr]
                 self.set_defaults(**defaults)  # type: ignore[attr-defined]
 
         return added_args
 
+    @renamed_parameter_warning({"theclass": "class_type", "themethod": "method_name"})
     def add_method_arguments(
         self,
-        theclass: type,
-        themethod: str,
-        nested_key: Optional[str] = None,
+        class_type: type,
+        method_name: str,
+        nested_key: str | None = None,
         as_group: bool = True,
         as_positional: bool = False,
-        skip: Optional[set[Union[str, int]]] = None,
+        skip: set[str | int] | None = None,
         fail_untyped: bool = True,
         sub_configs: bool = False,
     ) -> list[str]:
@@ -145,8 +151,8 @@ class SignatureArguments(LoggerProperty):
         Note: Keyword arguments without at least one valid type are ignored.
 
         Args:
-            theclass: Class which includes the method.
-            themethod: Name of the method for which to add arguments.
+            class_type: Class which includes the method.
+            method_name: Name of the method for which to add arguments.
             nested_key: Key for nested namespace.
             as_group: Whether arguments should be added to a new argument group.
             as_positional: Whether to add required parameters as positional arguments.
@@ -161,15 +167,15 @@ class SignatureArguments(LoggerProperty):
             ValueError: When not given a class or the name of a method of the class.
             ValueError: When there are required parameters without at least one valid type.
         """
-        unaliased_type = get_unaliased_type(theclass)
+        unaliased_type = get_unaliased_type(class_type)
         if not inspect.isclass(get_generic_origin(unaliased_type)):
-            raise ValueError('Expected "theclass" argument to be a class object.')
-        if not hasattr(unaliased_type, themethod) or not callable(getattr(unaliased_type, themethod)):
-            raise ValueError('Expected "themethod" argument to be a callable member of the class.')
+            raise ValueError('Expected "class_type" argument to be a class object.')
+        if not hasattr(unaliased_type, method_name) or not callable(getattr(unaliased_type, method_name)):
+            raise ValueError('Expected "method_name" argument to be a callable member of the class.')
 
         return self._add_signature_arguments(
-            theclass,
-            themethod,
+            class_type,
+            method_name,
             nested_key,
             as_group,
             as_positional,
@@ -181,10 +187,10 @@ class SignatureArguments(LoggerProperty):
     def add_function_arguments(
         self,
         function: Callable,
-        nested_key: Optional[str] = None,
+        nested_key: str | None = None,
         as_group: bool = True,
         as_positional: bool = False,
-        skip: Optional[set[Union[str, int]]] = None,
+        skip: set[str | int] | None = None,
         fail_untyped: bool = True,
         sub_configs: bool = False,
     ) -> list[str]:
@@ -231,15 +237,15 @@ class SignatureArguments(LoggerProperty):
         self,
         function_or_class,
         method_name,
-        nested_key: Optional[str],
+        nested_key: str | None,
         as_group: bool = True,
         as_positional: bool = False,
-        skip: Optional[set[Union[str, int]]] = None,
+        skip: set[str | int] | None = None,
         fail_untyped: bool = True,
         sub_configs: bool = False,
         instantiate: bool = True,
-        linked_targets: Optional[set[str]] = None,
-        help: Optional[str] = None,
+        linked_targets: set[str] | None = None,
+        help: str | None = None,
     ) -> list[str]:
         """Adds arguments from parameters of objects based on signatures and docstrings.
 
@@ -317,15 +323,15 @@ class SignatureArguments(LoggerProperty):
     def _add_signature_parameter(
         self,
         container,
-        nested_key: Optional[str],
+        nested_key: str | None,
         param,
         added_args: list[str],
-        skip: Optional[set[str]] = None,
+        skip: set[str] | None = None,
         fail_untyped: bool = True,
         as_positional: bool = False,
         sub_configs: bool = False,
         instantiate: bool = True,
-        linked_targets: Optional[set[str]] = None,
+        linked_targets: set[str] | None = None,
         default: Any = inspect_empty,
         **kwargs,
     ):
@@ -336,7 +342,15 @@ class SignatureArguments(LoggerProperty):
             default = param.default
             if default == inspect_empty:
                 if is_optional(annotation):
-                    default = None
+                    if os.environ.get("JSONARGPARSE_DEPRECATION_WARNINGS", "").lower() == "all":
+                        deprecation_warning(
+                            "signature_optional_parameter_without_default",
+                            "Optional type parameters without a default are currently not required. "
+                            "In v5 they will be required.",
+                            stacklevel=4,
+                        )
+                    unset_sentinel = get_parsing_setting("unset_sentinel")
+                    default = unset_sentinel if unset_sentinel is not None else None
                 elif get_typehint_origin(annotation) in not_required_types:
                     default = SUPPRESS
         # Determine argument characteristics based on parameter kind and default value
@@ -355,6 +369,14 @@ class SignatureArguments(LoggerProperty):
         src = get_parameter_origins(param.component, param.parent)
         skip_message = f'Skipping parameter "{name}" from "{src}" because of: '
         if not fail_untyped and annotation == inspect_empty:
+            if is_required and os.environ.get("JSONARGPARSE_DEPRECATION_WARNINGS", "").lower() == "all":
+                deprecation_warning(
+                    "fail_untyped_false_required_parameter",
+                    "With fail_untyped=False, required parameters without a type annotation are currently "
+                    "set to optional with default None. In v5 the type will be set to Any but the parameter "
+                    "will remain required.",
+                    stacklevel=4,
+                )
             annotation = Any
             default = None if is_required else default
             is_required = False
@@ -448,10 +470,10 @@ class SignatureArguments(LoggerProperty):
 
     def add_subclass_arguments(
         self,
-        baseclass: Union[type, tuple[type, ...]],
+        baseclass: type | tuple[type, ...],
         nested_key: str,
         as_group: bool = True,
-        skip: Optional[set[str]] = None,
+        skip: set[str] | None = None,
         instantiate: bool = True,
         required: bool = False,
         metavar: str = "CONFIG | CLASS_PATH_OR_NAME | .INIT_ARG_NAME VALUE",
@@ -483,7 +505,7 @@ class SignatureArguments(LoggerProperty):
             ValueError: When given an invalid base class.
         """
         if type(baseclass) is not tuple:
-            baseclass = (baseclass,)  # type: ignore[assignment]
+            baseclass = (baseclass,)
         assert isinstance(baseclass, tuple)
         if not baseclass or not all(ActionTypeHint.is_subclass_typehint(c, also_lists=True) for c in baseclass):
             raise ValueError(f"Expected 'baseclass' to be a subclass type or a tuple of subclass types: {baseclass}")
@@ -541,7 +563,7 @@ class SignatureArguments(LoggerProperty):
                     doc_group = str(obj[0])
                 else:
                     doc_group = str(obj)
-            name = get_object_name(obj) if nested_key is None else nested_key
+            name = obj.__name__ if nested_key is None else nested_key
             group = self.add_argument_group(strip_title(doc_group), name=name)
             if config_load and nested_key is not None:
                 group.add_argument("--" + nested_key, action=_ActionConfigLoad(basetype=config_load_type))
@@ -550,12 +572,6 @@ class SignatureArguments(LoggerProperty):
                 group.group_class = obj
                 group.instantiate_class = group_instantiate_class
         return group
-
-
-def get_object_name(obj) -> str:
-    if hasattr(obj, "__name__"):
-        return obj.__name__
-    return str(obj).split(".")[-1].replace("[", "_").replace("]", "")
 
 
 def group_instantiate_class(group, cfg):

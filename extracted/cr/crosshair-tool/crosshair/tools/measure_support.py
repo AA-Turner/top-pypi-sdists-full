@@ -24,10 +24,17 @@ CLI (emits the JSON that ``generate_treemap.py`` renders):
 
 ``--tiers`` selects among {builtin-methods, functions, stdlib-methods}; the docs
 map is ``--tiers builtin-methods,functions`` (no stdlib class methods).
+
+The catalog is huge (~22k ops) but a weighted treemap only draws the few hundred
+whose usage clears its ``--min-weight``.  Pass the same usage JSON to skip the
+long tail up front and measure only what will be shown:
+    python -m crosshair.tools.measure_support measure \\
+        --weights usage.json --min-weight 1 --json out.json
 """
 
 import argparse
 import contextlib
+import copy
 import importlib
 import importlib.util
 import json
@@ -65,23 +72,22 @@ from crosshair.inputgen import (  # shared surface + valid-input generation
     NOT_VALUE_FUNCTION,
     RECV,
     SKIP_DUNDERS,
-    TYPES,
     _ann,
     _candidate_sigs,
     _func_candidate_sigs,
-    _module_classes,
     _resolve_arg,
     call_expr,
     catalog,
     func_call,
-    func_surface,
     is_deterministic,
     op_call,
+    receiver_name,
     surface,
     tuple_strategy,
 )
 from crosshair.options import AnalysisOptionSet
 from crosshair.statespace import MessageType
+from crosshair.tools.demo_overrides import demo_overrides, demo_sources
 
 _DEVNULL = open(os.devnull, "w")
 
@@ -89,7 +95,7 @@ _DEVNULL = open(os.devnull, "w")
 # ---------------------------------------------------------------------------
 # measuring an op: fuzz an input, run forward, then ask CrossHair to invert it
 # ---------------------------------------------------------------------------
-PRE = "from typing import *\nimport collections, datetime, itertools, json, math, random, re, time\n\n"
+PRE = "from typing import *\nimport builtins, collections, datetime, itertools, json, math, random, re, time\n\n"
 HOLDOUT_OPTS = AnalysisOptionSet(
     per_condition_timeout=8, max_uninteresting_iterations=200_000
 )
@@ -128,6 +134,34 @@ def _load(src: str, lib: str, inject: Optional[Dict[str, Any]] = None) -> Callab
     return mod.f
 
 
+def _noise(x: Any) -> int:
+    """A penalty for how hard ``x`` reads in a generated demo, scored on its repr:
+    literal non-ASCII codepoints cost the most, backslash escapes (``\\x``, ``\\u``,
+    ``\\U``) next, with the repr length as a mild tiebreak.  A plain ``'abc'`` or a
+    small int scores near zero; astral-plane and control-char noise scores high."""
+    try:
+        r = repr(x)
+    except Exception:
+        return 10**9
+    return sum(100 for ch in r if ord(ch) > 0x7E) + r.count("\\") * 10 + len(r)
+
+
+def _pair_noise(pair: Tuple[Any, Any]) -> int:
+    """Total demo-readability penalty for a ``(input_tuple, output)`` sample -- the
+    sum over every value that a pinned demo would render literally."""
+    inp, out = pair
+    return sum(_noise(x) for x in inp) + _noise(out)
+
+
+def _is_echo(t: Sequence[Any], v: Any, i: int) -> bool:
+    """True when output ``v`` equals input argument ``i`` -- an identity-in-that-arg
+    op (``list.copy``, an already-stripped ``str.strip``, ...)."""
+    try:
+        return bool(v == t[i])
+    except Exception:
+        return False
+
+
 def _fuzz_valid(
     args: Sequence[Tuple[str, Any]],
     n: int,
@@ -135,12 +169,12 @@ def _fuzz_valid(
     record: Callable[[tuple], Optional[Tuple[Any, Any]]],
     seedkey: Optional[str] = None,
 ) -> Optional[Tuple[Any, Any]]:
-    """Drive Hypothesis over a size-n input tuple and return the last (input,
-    target) pair ``record`` keeps -- a developed (not Hypothesis's first minimal)
-    example.  ``record(t)`` returns the pair to store, or None to assume() the
-    example away (an exception, or a degenerate/non-mutating call).  ``seedkey``
-    selects a CUSTOM_INPUTS override (shared with the differential path) when one
-    is registered for this op."""
+    """Drive Hypothesis over a size-n input tuple and return a developed (not
+    Hypothesis's first minimal) (input, target) pair ``record`` keeps, preferring
+    the most readable one.  ``record(t)`` returns the pair to store, or None to
+    assume() the example away (an exception, or a degenerate/non-mutating call).
+    ``seedkey`` selects a CUSTOM_INPUTS override (shared with the differential path)
+    when one is registered for this op."""
     strat = tuple_strategy(seedkey, [spec for _, spec in args], n)
     found = []
 
@@ -163,7 +197,10 @@ def _fuzz_valid(
         run()
     except Exception:
         return None
-    return found[-1] if found else None
+    if not found:
+        return None
+    # least-noisy sample; ties keep the later (developed) one
+    return min(enumerate(found), key=lambda iv: (_pair_noise(iv[1]), -iv[0]))[1]
 
 
 def fuzz_valid(
@@ -255,9 +292,9 @@ def _invert_one(
         elif scope and j == 0:  # mutated receiver: fresh param, pinned via pre
             sig.append(f"{name}: {ann}")
             pres.append(f"pre: {name} == _pin_{name}")
-            inject[f"_pin_{name}"] = t[j]
+            inject[f"_pin_{name}"] = copy.deepcopy(t[j])
         else:  # pinned argument: a concrete global referenced by the expression
-            inject[name] = t[j]
+            inject[name] = copy.deepcopy(t[j])
     target = f"post[{scope}]: {scope} != _V" if scope else "post: _ != _V"
     doc = "\n    ".join(pres + [target])
     body = (
@@ -285,6 +322,42 @@ def _invert_one(
     if not states or states <= {MessageType.CONFIRMED}:
         return "unsat"
     return "unknown"
+
+
+def _upgrade_echo_witness(
+    header: str,
+    params: Sequence[Tuple[str, str, Any]],
+    expr: str,
+    fwd: Callable,
+    free_i: int,
+    scope: Optional[str],
+    size: int,
+    lib: str,
+    seedkey: str,
+) -> Optional[Tuple[Sequence[Any], Any]]:
+    """A non-echo (transforming) witness for argument ``free_i`` at ``size`` that
+    still inverts, or None (a genuinely identity-in-that-arg op yields none)."""
+    specs = [(name, spec) for name, _ann, spec in params]
+
+    def non_echo(t: tuple) -> Optional[Tuple[Any, Any]]:
+        pre = copy.deepcopy(t)  # value-returning mutators mutate t; store the PRE input
+        try:
+            v = fwd(*t)
+        except Exception:
+            return None
+        if v is None or _is_echo(pre, v, free_i):
+            return None
+        return (pre, v)
+
+    for bump in range(4):
+        seed = hash(seedkey) % 1000 + size + 101 * (bump + 1)
+        sample = _fuzz_valid(specs, size, seed, non_echo, seedkey)
+        if sample is None:
+            continue
+        t, v = sample
+        if _invert_one(header, params, expr, free_i, t, v, scope, lib) == "sat":
+            return (t, v)
+    return None
 
 
 def _sweep(
@@ -390,25 +463,58 @@ def _sweep(
     ]
     if not measurable:
         return ("?" if defer_on_norun else "red", "couldn't run", None)
-    # worst = smallest ok_max; ties -> highest index (a non-receiver arg makes the
-    # more interesting demo than re-deriving the receiver).  Unsupported/never-
-    # inverted args (ok_max None) sort worst -> red.
-    worst = min(measurable, key=lambda e: (e[1] if e[1] is not None else -1, -e[0]))
+
+    # worst = smallest ok_max; then non-echo (a paste-solvable arg loses the tie);
+    # then highest index.  Unsupported/never-inverted args (ok_max None) sort worst.
+    def _sort_key(e):
+        i, ok_max, _err, _unsup, ex_t, ex_v = e
+        echo = ex_t is not None and _is_echo(ex_t, ex_v, i)
+        return (ok_max if ok_max is not None else -1, echo, -i)
+
+    worst = min(measurable, key=_sort_key)
     wi, w_ok, _, w_unsup, w_t, w_v = worst
-    # Demo the worst arg's inversion.  If it never inverted (a red), there's no
-    # successful witness -- fall back to a forward sample so the cell still links
-    # to a runnable contract (CrossHair failing to satisfy it IS the "struggles
-    # here" demonstration).
+    w_echo = w_t is not None and _is_echo(w_t, w_v, wi)
+    # swap an echo witness for a transforming one that still inverts (demo only, the
+    # color is already set); the mutation path never echoes
+    if w_echo and not mut:
+        upgraded = _upgrade_echo_witness(
+            header, params, expr, fwd, wi, scope, w_ok, lib, seedkey
+        )
+        if upgraded is not None:
+            w_t, w_v = upgraded
+            w_echo = False
+    # A successful inversion (``w_t`` set) demos a case CrossHair SOLVES; with none,
+    # fall back to a forward sample -- a runnable contract CrossHair can't satisfy
+    # (its failure IS the "struggles here" demonstration).  These read very
+    # differently to a user clicking through, so the demo docstring says which.
+    witnessed = w_t is not None
     if w_t is None:
         _, w_t, w_v = samples[-1]
-    demo = _pinned_demo(header, params, expr, wi, w_t, w_v, scope)
+
+    def demo(note: str = "") -> Optional[str]:
+        return _pinned_demo(header, params, expr, wi, w_t, w_v, scope, note)
+
+    # ``[echo]`` marks a paste-solvable demo (identity in the inverted argument)
+    tag = " [echo]" if w_echo else ""
     if w_unsup:
-        return ("red", "unsupported: can't accept a symbolic argument here", demo)
+        return (
+            "red",
+            "unsupported: can't accept a symbolic argument here" + tag,
+            demo(
+                "CrossHair can't reason about a symbolic value in this position, "
+                "so it can only try fixed guesses here."
+            ),
+        )
     if w_ok is not None and w_ok >= SIZES[-1]:
-        return ("green", "handled at every size", demo)
+        return ("green", "handled at every size" + tag, demo())
     if w_ok is None or w_ok <= SIZES[0]:
-        return ("red", "only the trivial case", demo)
-    return ("yellow", f"slows down past size {w_ok}", demo)
+        note = (
+            "CrossHair can solve this small case, but struggles as the inputs grow."
+            if witnessed
+            else "CrossHair is unlikely to find a solution to this within its time budget."
+        )
+        return ("red", "only the trivial case" + tag, demo(note))
+    return ("yellow", f"slows down past size {w_ok}" + tag, demo())
 
 
 def _repr_ok(x: Any) -> bool:
@@ -428,11 +534,15 @@ def _pinned_demo(
     t: Optional[Sequence[Any]],
     V: Any,
     scope: Optional[str],
+    note: str = "",
 ) -> Optional[str]:
     """A runnable crosshair-web source inverting ONLY ``params[free_i]`` -- the
     other arguments are pinned by ``pre`` to their values in ``t`` (so the demo
     shows real backward reasoning, not a degenerate set-an-arg-to-the-output).
-    None if any pinned value or the target won't round-trip through repr."""
+    ``note`` is an optional plain-English line prepended to the docstring to tell
+    the reader what to expect (a red demo may be a small case CrossHair solves, or
+    one it can't -- see :func:`_sweep`).  None if any pinned value or the target
+    won't round-trip through repr."""
     if V is None or t is None:
         return None
     if not _repr_ok(V):
@@ -445,7 +555,8 @@ def _pinned_demo(
                 return None
             pres.append(f"pre: {name} == {t[j]!r}")
     target = f"post[{scope}]: {scope} != {V!r}" if scope else f"post: _ != {V!r}"
-    doc = "\n    ".join(pres + [target])
+    lines = ([note, ""] if note else []) + pres + [target]
+    doc = "\n    ".join(lines)
     return (
         f"{header}from typing import *\n\n"
         f"def f({', '.join(sig)}):\n"
@@ -482,11 +593,12 @@ def _synth_candidates(
     cands = []
     for sig in _candidate_sigs(typ, method, module):
         argnames = [n for n, _, _ in sig]
-        expr = call_expr(method, argnames)
+        recv = receiver_name(argnames)
+        expr = call_expr(method, argnames, recv)
         if expr is None:  # operator form needs an arg the sig doesn't supply
             continue
         try:
-            params = [("a", recv_ann, _ann(recv_ann))] + [
+            params = [(recv, recv_ann, _ann(recv_ann))] + [
                 (n, ann, _resolve_arg(n, ann, lits, module, method))
                 for n, ann, lits in sig
             ]
@@ -644,7 +756,8 @@ def measure_func(module: str, func: str) -> Optional[Tuple[str, str, Optional[st
     black = _diff_black(seedkey, func_call(module, func))  # forward-soundness first
     if black:
         return black
-    deferred = None
+    header = f"import {module}\n"
+    drivable = []  # (params, expr) for each candidate whose arguments resolve
     for sig in cands:
         argnames = [n for n, _, _ in sig]
         expr = f"{module}.{func}({', '.join(argnames)})"
@@ -655,19 +768,34 @@ def measure_func(module: str, func: str) -> Optional[Tuple[str, str, Optional[st
             ]
         except Exception:
             continue
-        # zero-arg funcs are still measurable: invert the RETURN (CrossHair models
-        # some, e.g. time.time(), as a symbolic value), so we don't skip them.
-        # (A decoder's real-encoded input, aliased pairs, etc. now come from the
-        # catalog's CUSTOM_INPUTS, keyed by seedkey inside _sweep -- no per-arg
-        # override here.)
+        drivable.append((params, expr))
+    if not drivable:  # every candidate raised while resolving arguments
+        return ("?", "no signature: no resolvable arguments", None)
+    # zero-arg funcs are still measurable: invert the RETURN (CrossHair models
+    # some, e.g. time.time(), as a symbolic value), so we don't skip them.
+    # (A decoder's real-encoded input, aliased pairs, etc. now come from the
+    # catalog's CUSTOM_INPUTS, keyed by seedkey inside _sweep -- no per-arg
+    # override here.)
+    deferred = None
+    for params, expr in drivable:
         color, verdict, demo = _sweep(
-            params, expr, f"import {module}\n", module, seedkey, defer_on_norun=True
+            params, expr, header, module, seedkey, defer_on_norun=True
         )
         if color != "?":
             return (color, verdict, demo)
         deferred = (color, verdict, None)
-    # every candidate raised while resolving arguments -> no drivable call at all
-    return deferred or ("?", "no signature: no resolvable arguments", None)
+    # value path found nothing (the func returns None) -> measure it as an in-place
+    # mutator, for EVERY func rather than a hardcoded list.  fuzz_valid_mut only
+    # keeps an input whose call actually changes its first argument, so a non-mutator
+    # just yields no sample and keeps deferring (mirrors measure_op).
+    for params, expr in drivable:
+        color, verdict, demo = _sweep(
+            params, expr, header, module, seedkey, defer_on_norun=True, mut=True
+        )
+        if color != "?":
+            return (color, (verdict + " [mut]").strip(), demo)
+        deferred = (color, verdict, None)
+    return deferred
 
 
 # ---------------------------------------------------------------------------
@@ -707,13 +835,58 @@ def _resolve_type(op: Any) -> Optional[type]:
         return None
 
 
+def _demo_solves(source: str, lib: str) -> bool:
+    """Does CrossHair actually solve this curated demo here (find a POST_FAIL
+    counterexample) under the measurement budget?  Any load/analysis failure ->
+    False -> fall back to the generated demo.  Cheap: one analysis, run only for the
+    handful of green/yellow/red ops that carry an override."""
+    try:
+        fn = _load(source, lib)
+        states = {m.state for m in run_checkables(analyze_function(fn, HOLDOUT_OPTS))}
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except BaseException:
+        return False
+    return MessageType.POST_FAIL in states
+
+
+def _with_override(op: Any, res: Any) -> Any:
+    """Swap the auto-generated demo for a curated one (:mod:`demo_overrides`, best
+    candidate first).  Changes ONLY the demo link, never the measured color/verdict.
+
+    Curated demos are harvested from ``@pytest.mark.demo`` tests, which assert
+    ``check_states(f, POST_FAIL)`` in CI -- so every one is *winnable* by
+    construction.  We use them for green/yellow AND red cells: showing a case
+    CrossHair CAN handle is a fine illustration even when the op is hard in general
+    (a red cell's own generated demo often shows a solvable small case too), and we
+    re-confirm the demo still solves under the measurement budget.
+
+    BLACK is the exception -- it's unsound, and its whole point is to exhibit a
+    wrong answer.  A winnable demo would HIDE that bug, so a black cell keeps its
+    generated demo (the forward wrong-answer repro / false-confirmation), which a
+    CI-passing test could never show.  "?" cells have no demo to improve."""
+    if not res:
+        return res
+    color, verdict, _example = res
+    if color not in ("green", "yellow", "red"):
+        return res
+    for source in demo_sources(op.seedkey):
+        if _demo_solves(source, op.module):
+            return (color, verdict, source)
+    return res
+
+
 def _measure_task(key: str) -> Tuple[str, str, Any]:
     """Measure ONE catalogued op, looked up by its key.  The catalog already
     settled the up-front classification, so we honor it here instead of
     re-deriving it: an op that is out of scope, a probe hazard, or reaches for I/O
     is rendered as an explained grey cell and is NEVER run concretely (that's what
     kept the concrete sweep from doing real I/O).  Only a cleanly drivable op is
-    handed to the symbolic measurement."""
+    handed to the symbolic measurement.
+
+    A cleanly measured cell then gets its demo link upgraded to a curated one when
+    one is registered and stays consistent with the measured color (:func:`_with_override`).
+    """
     op = _CATALOG[key]
     if op.out_of_scope:
         res: Any = ("?", f"out of scope: {op.out_of_scope}", None)
@@ -734,7 +907,7 @@ def _measure_task(key: str) -> Tuple[str, str, Any]:
         )
     else:
         res = _safe(lambda: measure_func(op.module, op.name))
-    return (op.key, op.seedkey, res)
+    return (op.key, op.seedkey, _safe(lambda: _with_override(op, res)) or res)
 
 
 # A single op can wedge a worker in native code (CrossHair's own per-condition
@@ -908,6 +1081,11 @@ def _measure_cmd(
 ) -> None:
     tally = {"green": 0, "yellow": 0, "red": 0, "black": 0, "?": 0, "skip": 0}
     out = {}
+    # Track which curated demo overrides actually landed as a cell's demo, and why
+    # the rest were dropped -- so a harvested demo silently going unused is visible.
+    overrides = demo_overrides()
+    ov_used: Dict[str, str] = {}  # seedkey -> color
+    ov_drop: Dict[str, str] = {}  # seedkey -> reason
     print(f"{'op':{label_w}s} {'result':6s}  verdict")
     print("-" * (label_w + 30))
     done = 0
@@ -924,6 +1102,19 @@ def _measure_cmd(
             if example:  # runnable crosshair-web source for this op
                 rec["example"] = example
             out[key] = rec
+        if label in overrides:  # label is the op seedkey for a measured cell
+            if example is not None and example in demo_sources(label):
+                ov_used[label] = color
+            else:
+                ov_drop[label] = (
+                    "black cell (kept the wrong-answer repro)"
+                    if color == "black"
+                    else (
+                        'unmeasured "?" cell'
+                        if color == "?"
+                        else "curated demo did not solve within budget"
+                    )
+                )
         print(
             f"{label:{label_w}s} {color:6s}  {verdict}  [{done}/{len(tasks)}]",
             flush=True,  # long runs are block-buffered otherwise -> looks hung
@@ -933,7 +1124,33 @@ def _measure_cmd(
         f"green={tally['green']} yellow={tally['yellow']} red={tally['red']} "
         f"black={tally['black']} defer(?)={tally['?']} skipped={tally['skip']}"
     )
+    _report_overrides(ov_used, ov_drop)
     _emit(args, out)
+
+
+def _report_overrides(used: Dict[str, str], dropped: Dict[str, str]) -> None:
+    """Summarize curated demo-override usage for this run: how many landed as a
+    cell's demo vs. were discarded (grouped by why), plus any harvested override
+    that matches no operation in the catalog at all (a permanently-dead demo,
+    usually a stale/renamed op -- worth fixing)."""
+    exercised = len(used) + len(dropped)
+    catalog_seedkeys = {op.seedkey for op in _CATALOG.values()}
+    dead = sorted(k for k in demo_overrides() if k not in catalog_seedkeys)
+    print(
+        f"demo overrides: {len(demo_overrides())} harvested, "
+        f"{exercised} exercised this run"
+    )
+    if exercised:
+        n_used, n_drop = len(used), len(dropped)
+        print(f"  used:      {n_used:3d}/{exercised} ({100 * n_used // exercised}%)")
+        print(f"  discarded: {n_drop:3d}/{exercised} ({100 * n_drop // exercised}%)")
+        by_reason: Dict[str, List[str]] = {}
+        for seedkey, reason in sorted(dropped.items()):
+            by_reason.setdefault(reason, []).append(seedkey)
+        for reason, seedkeys in by_reason.items():
+            print(f"    {reason} ({len(seedkeys)}): {', '.join(seedkeys)}")
+    if dead:
+        print(f"  no matching op in catalog ({len(dead)}): {', '.join(dead)}")
 
 
 # The ONE surface -- built once at import from crosshair.inputgen.catalog and
@@ -969,6 +1186,18 @@ def cmd_measure(args: argparse.Namespace) -> None:
         raise SystemExit(f"unknown --tiers {sorted(bad)}; pick from {_ALL_TIERS}")
     modules = set(args.modules.split(",")) if args.modules else None
     types = set(args.types.split(",")) if args.types else None
+    # Optional usage prefilter: only measure ops the weighted treemap would draw.
+    # The catalog is ~22k ops but a weighted map draws only the few hundred whose
+    # usage clears --min-weight, so measuring the rest is wasted work.  Mirror
+    # generate_treemap.render_weighted's cutoff EXACTLY (same weights file, metric,
+    # and raw >= min_weight test) so the measured set can't drift from the drawn one.
+    used = None
+    if args.weights_path:
+        weights = json.loads(Path(args.weights_path).read_text())
+        used = (
+            lambda k: float((weights.get(k) or {}).get(args.metric, 0.0))
+            >= args.min_weight
+        )  # noqa: E731
     tasks = []
     for op in _CATALOG.values():
         if _tier(op) not in tiers:
@@ -981,7 +1210,15 @@ def cmd_measure(args: argparse.Namespace) -> None:
             and op.owner not in types
         ):
             continue
+        if used is not None and not used(op.key):
+            continue
         tasks.append(op.key)
+    if used is not None:
+        print(
+            f"usage prefilter (--weights {args.weights_path} --metric {args.metric} "
+            f"--min-weight {args.min_weight}): measuring {len(tasks)} of "
+            f"{len(_CATALOG)} catalog ops"
+        )
     _measure_cmd(args, tasks, _measure_task, 44)
 
 
@@ -1009,6 +1246,27 @@ def main() -> None:
         "functions and stdlib methods, chiefly for per-module re-measurement",
     )
     m.add_argument("--types", help="comma-separated builtin type filter (e.g. str,int)")
+    m.add_argument(
+        "--weights",
+        dest="weights_path",
+        help="usage JSON from mine_usage; measure ONLY the ops the weighted "
+        "treemap would draw (usage >= --min-weight), skipping the long tail. "
+        "Pass the same --weights/--metric/--min-weight you'll give generate_treemap.",
+    )
+    m.add_argument(
+        "--metric",
+        default="packages",
+        choices=["packages", "sites"],
+        help="usage metric for the --weights prefilter (default: packages)",
+    )
+    m.add_argument(
+        "--min-weight",
+        type=float,
+        default=1.0,
+        dest="min_weight",
+        help="with --weights, drop ops whose usage is below this (default 1.0 = "
+        "<1 package); must match generate_treemap's --min-weight",
+    )
     m.add_argument("--json", dest="json_path")
     m.add_argument(
         "--jobs",

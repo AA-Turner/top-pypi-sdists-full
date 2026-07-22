@@ -47,6 +47,7 @@ setup(
             "boto3_models/athena/2017-05-18/*.json",
             "boto3_models/emr-serverless/2021-07-13/*.json",
             "boto3_models/emr/2009-03-31/*.json",
+            "boto3_models/emr-containers/2020-10-01/*.json",
             "test/*",
         ],
     },

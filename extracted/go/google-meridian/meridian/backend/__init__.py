@@ -223,6 +223,20 @@ def _jax_cast(x: Any, dtype: Any) -> "_jax.Array":
   return jax_ops.asarray(x, dtype=dtype)
 
 
+def _jax_vectorized_map(fn: Any, elems: Any) -> Any:
+  """JAX implementation for vectorized_map."""
+  import jax  # pylint: disable=redefined-outer-name
+
+  return jax.vmap(fn)(elems)
+
+
+def _tf_vectorized_map(fn: Any, elems: Any) -> Any:
+  """TensorFlow implementation for vectorized_map."""
+  import tensorflow as tf
+
+  return tf.vectorized_map(fn, elems)
+
+
 def _jax_divide_no_nan(x, y):
   """JAX implementation for divide_no_nan."""
   import jax.numpy as jnp
@@ -1046,6 +1060,7 @@ if _BACKEND == config.Backend.JAX:
   bijectors = tfp_jax.bijectors
   experimental = tfp_jax.experimental
   mcmc = tfp_jax.mcmc
+  util = tfp_jax.util
   _convert_to_tensor = _jax_convert_to_tensor
 
   # Standardized Public API
@@ -1069,6 +1084,7 @@ if _BACKEND == config.Backend.JAX:
   expand_dims = _ops.expand_dims
   fill = _jax_fill
   function = _jax_function_wrapper
+  vectorized_map = _jax_vectorized_map
   gather = _jax_gather
   get_indices_where = _jax_get_indices_where
   get_seed_data = _jax_get_seed_data
@@ -1230,6 +1246,7 @@ elif _BACKEND == config.Backend.TENSORFLOW:
   bijectors = tfp.bijectors
   experimental = tfp.experimental
   mcmc = tfp.mcmc
+  util = tfp.util
   _convert_to_tensor = _ops.convert_to_tensor
 
   # Standardized Public API
@@ -1253,6 +1270,7 @@ elif _BACKEND == config.Backend.TENSORFLOW:
   expand_dims = _ops.expand_dims
   fill = _tf_fill
   function = _tf_function_wrapper
+  vectorized_map = _tf_vectorized_map
   gather = _tf_gather
   get_indices_where = _tf_get_indices_where
   get_seed_data = _tf_get_seed_data
@@ -1456,8 +1474,8 @@ class _JaxRNGHandler(_BaseRNGHandler):
       return _JaxRNGHandler(None)
 
     self._key, subkey_for_new_handler = random.split(self._key)
-    new_seed_tensor = random.stateless_randint(
-        key=subkey_for_new_handler,
+    new_seed_tensor = random.stateless_randint(  # pyrefly: ignore[missing-argument]
+        key=subkey_for_new_handler,  # pyrefly: ignore[unexpected-keyword]
         shape=(),
         minval=0,
         maxval=_MAX_INT32,

@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import ast
+import re
 import textwrap
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Set, Tuple, Union
 
 from frida_bindgen_core import Procedure, Type
+from frida_bindgen_core.naming import to_pascal_case
 
 from .model import (
     Enumeration,
@@ -29,6 +32,19 @@ FACADE_INTERFACE_AIO = (ASSETS_DIR / "facade_interface_aio.py").read_text(encodi
 
 def read_asset(name: str) -> str:
     return (ASSETS_DIR / name).read_text(encoding="utf-8")
+
+
+FACADE_TYPING_IMPORTS = (
+    "from typing import (Any, Callable, Dict, List, Literal, Mapping, NotRequired, Optional, Tuple, TypedDict, "
+    "Sequence, Union, ParamSpec, TypeVar, cast, overload)"
+)
+
+
+def generate_facade_preludes(model: Model) -> List[str]:
+    lines = []
+    for asset in model.customizations.facade_preludes:
+        lines += ["", read_asset(asset).strip(), ""]
+    return lines
 
 
 FACADE_RUNTIME = """
@@ -70,10 +86,18 @@ def _to_envp(value):
     return value
 
 
-def _make_options(cls, values):
+def _make_options(cls, values, selectors):
     options = cls()
     for name, value in values.items():
-        setattr(options, name, value)
+        if value is None:
+            continue
+        select = selectors.get(name)
+        if select is None:
+            setattr(options, name, value)
+        else:
+            add = getattr(options, select)
+            for element in value:
+                add(element)
     return options
 
 
@@ -156,14 +180,22 @@ def _to_envp(value):
     return value
 
 
-def _make_options(cls, values):
+def _make_options(cls, values, selectors):
     options = cls()
     for name, value in values.items():
-        setattr(options, name, value)
+        if value is None:
+            continue
+        select = selectors.get(name)
+        if select is None:
+            setattr(options, name, value)
+        else:
+            add = getattr(options, select)
+            for element in value:
+                add(element)
     return options
 
 
-_current_cancellable = contextvars.ContextVar("frida_current_cancellable", default=None)
+_current_cancellable: contextvars.ContextVar = contextvars.ContextVar("frida_current_cancellable", default=None)
 
 
 def _dispatch(loop, callback, *args):
@@ -212,16 +244,20 @@ def generate_all(model: Model) -> Dict[str, str]:
 def generate_py(model: Model) -> str:
     lines = [
         "from . import _frida",
+        "import dataclasses",
         "import fnmatch",
+        "import functools",
         "import inspect",
         "import time",
         "import json",
         "import sys",
         "import threading",
         "import traceback",
+        FACADE_TYPING_IMPORTS,
         "",
         "",
         *generate_py_exception_reexports(model),
+        *generate_facade_preludes(model),
         "",
         FACADE_RUNTIME.strip(),
         "",
@@ -246,6 +282,9 @@ def generate_py(model: Model) -> str:
     lines.append("")
     lines.append("")
     lines.append("from . import aio")
+    for asset in model.customizations.facade_epilogues:
+        lines.append("")
+        lines.append(read_asset(asset).strip())
     lines.append("")
     lines.append("core = sys.modules[__name__]")
     lines.append('sys.modules[__name__ + ".core"] = core')
@@ -278,14 +317,18 @@ def generate_aio(model: Model) -> str:
         "import asyncio",
         "import contextvars",
         "import time",
+        "import dataclasses",
         "import fnmatch",
+        "import functools",
         "import inspect",
         "import json",
         "import sys",
         "import traceback",
+        FACADE_TYPING_IMPORTS,
         "",
         "",
         *generate_py_exception_reexports(model),
+        *generate_facade_preludes(model),
         "",
         AIO_RUNTIME.strip(),
         "",
@@ -334,6 +377,8 @@ def generate_aio_class(otype: ObjectType, model: Model) -> str:
     if not members:
         members.append("    pass")
 
+    members = apply_signal_overloads(members, otype, model)
+
     return f"class {otype.py_name}:\n" + "\n\n".join(members)
 
 
@@ -357,7 +402,7 @@ def generate_aio_method(method: Method, model: Model) -> Optional[str]:
 
 def generate_facade_bool_property(method: Method) -> str:
     return f"""    @property
-    def {method.name}(self):
+    def {method.name}(self) -> bool:
         return self._impl.{method.name}()"""
 
 
@@ -371,7 +416,9 @@ def generate_aio_async_method(method: Method, model: Model) -> Optional[str]:
     if method.return_value is not None:
         call = wrap_result(call, method.return_value.type, model)
 
-    return f"""    async def {method.name}({signature}):
+    ret = "None" if method.return_value is None else pyi_type(method.return_value.type, model)
+
+    return f"""    async def {method.name}({signature}) -> {ret}:
         return {call}"""
 
 
@@ -392,7 +439,9 @@ def generate_custom_facade_method(
     body = textwrap.indent(logic.strip(), " " * 8)
     keyword = "async def" if awaitable else "def"
 
-    return f"""    {keyword} {method.name}({signature}):
+    ret = "None" if method.return_value is None else pyi_type(method.return_value.type, model)
+
+    return f"""    {keyword} {method.name}({signature}) -> {ret}:
 {body}
         return {call}"""
 
@@ -424,6 +473,8 @@ def generate_py_class(otype: ObjectType, model: Model) -> str:
         members.append(repr_member)
     if not members:
         members.append("    pass")
+
+    members = apply_signal_overloads(members, otype, model)
 
     return f"class {otype.py_name}:\n" + "\n\n".join(members)
 
@@ -460,11 +511,52 @@ def generate_facade_init(otype: ObjectType) -> str:
 
 
 def generate_facade_signals() -> str:
-    return """    def on(self, signal, callback):
+    return """    def on(self, signal: str, callback: Callable[..., Any]) -> None:
         self._impl.on(signal, _make_signal_handler(callback))
 
-    def off(self, signal, callback):
+    def off(self, signal: str, callback: Callable[..., Any]) -> None:
         self._impl.off(signal, callback)"""
+
+
+def facade_prelude_names(model: Model) -> Set[str]:
+    names = set()
+    for asset in model.customizations.facade_preludes:
+        for node in ast.parse(read_asset(asset)).body:
+            if isinstance(node, ast.ClassDef):
+                names.add(node.name)
+            elif isinstance(node, ast.Assign):
+                names.update(t.id for t in node.targets if isinstance(t, ast.Name))
+    return names
+
+
+def signal_callback_alias(otype: ObjectType, signal) -> str:
+    return f"{otype.py_name}{to_pascal_case(signal.name.replace('-', '_'))}Callback"
+
+
+def signal_overload_block(otype: ObjectType, model: Model, name: str) -> Optional[str]:
+    aliases = facade_prelude_names(model)
+    lines = []
+    for signal in otype.signals:
+        alias = signal_callback_alias(otype, signal)
+        if alias in aliases:
+            lines.append("    @overload")
+            lines.append(f'    def {name}(self, signal: Literal["{signal.name}"], callback: {alias}) -> None: ...')
+    return "\n".join(lines) if len(lines) > 2 else None
+
+
+def apply_signal_overloads(members: List[str], otype: ObjectType, model: Model) -> List[str]:
+    result = []
+    for member in members:
+        for name in ("on", "off"):
+            block = signal_overload_block(otype, model, name)
+            if block is None:
+                continue
+            pattern = re.compile(rf"^    (?:async )?def {name}\(self, signal", re.MULTILINE)
+            match = pattern.search(member)
+            if match is not None:
+                member = member[: match.start()] + block + "\n" + member[match.start() :]
+        result.append(member)
+    return result
 
 
 def facade_repr_property_names(otype: ObjectType) -> List[str]:
@@ -500,8 +592,9 @@ def generate_py_property(method: Method, model: Model) -> Optional[str]:
         return None
 
     access = wrap_result(f"self._impl.{name}", method.return_value.type, model)
+    ret = pyi_type(method.return_value.type, model)
     prop = f"""    @property
-    def {name}(self):
+    def {name}(self) -> {ret}:
         return {access}"""
 
     set_method = next((m for m in method.object_type.methods if m.name == f"set_{name}"), None)
@@ -509,7 +602,7 @@ def generate_py_property(method: Method, model: Model) -> Optional[str]:
         prop += f"""
 
     @{name}.setter
-    def {name}(self, value):
+    def {name}(self, value: {ret}) -> None:
         self._impl.{name} = _unwrap(value)"""
 
     return prop
@@ -536,15 +629,24 @@ def generate_py_sync_method(method: Method, model: Model) -> Optional[str]:
 
     signature = ["self"]
     for param in method.input_parameters:
-        signature.append(f"{param.name}=None" if param.nullable else param.name)
+        signature.append(facade_param(param, model))
     names = ", ".join(param.name for param in method.input_parameters)
 
     call = f"self._impl.{method.name}({names})"
     if method.return_value is not None:
         call = wrap_result(call, method.return_value.type, model)
 
-    return f"""    def {method.name}({", ".join(signature)}):
+    ret = "None" if method.return_value is None else pyi_type(method.return_value.type, model)
+
+    return f"""    def {method.name}({", ".join(signature)}) -> {ret}:
         return {call}"""
+
+
+def facade_param(param, model: Model) -> str:
+    annotation = pyi_type(param.type, model)
+    if param.nullable:
+        return f"{param.name}: Optional[{annotation}] = None"
+    return f"{param.name}: {annotation}"
 
 
 def generate_py_async_method(method: Method, model: Model) -> Optional[str]:
@@ -560,7 +662,9 @@ def generate_py_async_method(method: Method, model: Model) -> Optional[str]:
     if method.return_value is not None:
         call = wrap_result(call, method.return_value.type, model)
 
-    return f"""    def {method.name}({signature}):
+    ret = "None" if method.return_value is None else pyi_type(method.return_value.type, model)
+
+    return f"""    def {method.name}({signature}) -> {ret}:
         return {call}"""
 
 
@@ -575,12 +679,12 @@ def build_facade_async_parts(method: Method, model: Model) -> Optional[Tuple[str
         options = resolve_options_type(param.type, model)
         if options is not None:
             signature.append("**kwargs")
-            args.append(f"_make_options(_frida.{options.py_name}, kwargs)")
+            args.append(f"_make_options(_frida.{options.py_name}, kwargs, {build_option_selectors(options)})")
         elif resolve_input_object_type(param.type, model) is not None:
-            signature.append(f"{param.name}=None")
+            signature.append(f"{param.name}: Optional[{pyi_type(param.type, model)}] = None")
             args.append(f"_unwrap({param.name})")
         else:
-            signature.append(param.name)
+            signature.append(facade_param(param, model))
             args.append(param.name)
 
     if method.return_value is not None:
@@ -588,6 +692,17 @@ def build_facade_async_parts(method: Method, model: Model) -> Optional[Tuple[str
             return None
 
     return ", ".join(signature), "".join(arg + ", " for arg in args)
+
+
+def build_option_selectors(options: ObjectType) -> str:
+    selectors = {}
+    otype = options
+    while otype is not None:
+        for method in otype.methods:
+            if method.is_select_method:
+                selectors[method.select_plural_noun] = method.name
+        otype = otype.parent
+    return repr(selectors)
 
 
 def wrap_result(call: str, type: Type, model: Model) -> str:
@@ -618,6 +733,11 @@ def generate_extension_pyi(model: Model) -> str:
         lines += generate_pyi_class(otype, model)
 
     lines.append("")
+    lines.append("")
+    for fn in module_functions(model):
+        lines.append(f"def {fn.py_name}() -> Any: ...")
+    lines.append("def _complete_request(request: Any, result: Any, error: Any) -> None: ...")
+    lines.append("")
 
     return "\n".join(lines)
 
@@ -643,8 +763,13 @@ def generate_pyi_class(otype: ObjectType, model: Model) -> List[str]:
         name = property_name_from_accessor(method)
         if name is None or property_getter_marshal(method) is None:
             continue
+        typing = pyi_type(method.return_value.type, model)
         body.append("    @property")
-        body.append(f"    def {name}(self) -> {pyi_type(method.return_value.type, model)}: ...")
+        body.append(f"    def {name}(self) -> {typing}: ...")
+        set_method = next((m for m in otype.methods if m.name == f"set_{name}"), None)
+        if set_method is not None and property_setter_supported(set_method):
+            body.append(f"    @{name}.setter")
+            body.append(f"    def {name}(self, value: {typing}) -> None: ...")
 
     for method in otype.methods:
         stub = pyi_method(method, model)

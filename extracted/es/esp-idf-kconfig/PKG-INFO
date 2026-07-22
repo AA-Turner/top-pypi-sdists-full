@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: esp-idf-kconfig
-Version: 3.11.1
+Version: 3.12.0
 Summary: Kconfig tooling for esp-idf
 Author: Espressif Systems
 License: 
@@ -227,7 +227,7 @@ Classifier: Operating System :: MacOS :: MacOS X
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: rich
+Requires-Dist: esp-pylib[cli]>=1.1.0
 Requires-Dist: pyparsing
 Requires-Dist: textual>=1.0.0
 Provides-Extra: dev

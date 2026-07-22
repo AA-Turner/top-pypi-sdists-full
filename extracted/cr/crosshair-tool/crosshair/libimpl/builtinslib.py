@@ -669,6 +669,11 @@ def apply_smt(op: BinFn, x: z3.ExprRef, y: z3.ExprRef) -> z3.ExprRef:
     # TODO: we should investigate using the op override mechanism to
     # dispatch to the right SMT operations.
     space = context_statespace()
+    if op in (ops.eq, ops.ne) and z3.is_fp(x) and z3.is_fp(y):
+        # On floats, z3's `==`/`!=` are structural, not IEEE: +0.0 and -0.0
+        # compare unequal, and NaN compares equal to itself.
+        smt_eq = fpEQ(x, y)
+        return smt_eq if op is ops.eq else z3.Not(smt_eq)
     if op in _ARITHMETIC_OPS:
         if op in (ops.truediv, ops.floordiv, ops.mod):
             iszero = (fpEQ(y, 0.0)) if isinstance(y, z3.FPRef) else (y == 0)
@@ -1576,26 +1581,9 @@ class PreciseIeeeSymbolicFloat(SymbolicFloat):
             return z3.FPVal(literal, cls._ch_smt_sort())
         return None
 
-    def __eq__(self, other):
-        with NoTracing():
-            coerced = type(self)._coerce_to_smt_sort(other)
-            if coerced is None:
-                return False
-            return SymbolicBool(fpEQ(self.var, coerced))
-
-    # __hash__ has to be explicitly reassigned because we define __eq__
-    __hash__ = SymbolicFloat.__hash__
-
     def __bool__(self):
         with NoTracing():
             return not SymbolicBool(z3.fpIsZero(self.var))
-
-    def __ne__(self, other):
-        with NoTracing():
-            coerced = type(self)._coerce_to_smt_sort(other)
-            if coerced is None:
-                return True
-            return SymbolicBool(z3.Not(fpEQ(self.var, coerced)))
 
     def __int__(self):
         with NoTracing():
@@ -2345,8 +2333,11 @@ class SymbolicArrayBasedUniformTuple(SymbolicSequence):
             if self is other:
                 return True
             self_arr, self_len = self.var
-            if isinstance(other, SymbolicArrayBasedUniformTuple):
-                # TODO: Can these be HeapRefs? If so, we're only doing identity checks:
+            if (
+                isinstance(other, SymbolicArrayBasedUniformTuple)
+                and self.item_smt_sort is not HeapRef
+                and self_arr.sort() == other._arr().sort()
+            ):
                 return SymbolicBool(
                     z3.And(self_len == other._len(), self_arr == other._arr())
                 )
@@ -2519,6 +2510,16 @@ class SymbolicRange:
                             raise ValueError
                 self.start, self.stop, self.step = a, b, c
 
+    @classmethod
+    def _ch_create_from_literal(cls, val: object) -> Optional["SymbolicRange"]:
+        if not isinstance(val, range):
+            return None
+        ret = cls.__new__(cls)
+        ret.start = val.start
+        ret.stop = val.stop
+        ret.step = val.step
+        return ret
+
     def __ch_realize__(self):
         start, stop, step = self.start, self.stop, self.step
         return range(realize(start), realize(stop), realize(step))
@@ -2528,7 +2529,50 @@ class SymbolicRange:
 
     def __getitem__(self, idx_or_slice):
         # TODO: compose ranges (Python does this; e.g. `range(10)[:5] == range(5)`)
-        return realize(self).__getitem__(idx_or_slice)
+        with NoTracing():
+            if isinstance(idx_or_slice, slice):
+                return realize(self).__getitem__(idx_or_slice)
+            i = idx_or_slice
+            if not isinstance(i, (int, SymbolicIntable)):
+                index_method = getattr(type(i), "__index__", None)
+                if index_method is None:
+                    raise TypeError(
+                        "range indices must be integers or slices, not "
+                        + name_of_type(type(i))
+                    )
+                with ResumedTracing():
+                    i = index_method(i)
+        length = self.__len__()
+        i = i + (i < 0) * length
+        if any([i < 0, i >= length]):
+            raise IndexError("range object index out of range")
+        return self.start + self.step * i
+
+    def __contains__(self, value):
+        if not isinstance(value, int):
+            return any([item == value for item in self])
+        start, stop, step = self.start, self.stop, self.step
+        if step > 0:
+            return all([start <= value, value < stop, (value - start) % step == 0])
+        else:
+            return all([stop < value, value <= start, (value - start) % step == 0])
+
+    def count(self, value):
+        if isinstance(value, int):
+            return self.__contains__(value).__int__()
+        return sum([item == value for item in self])
+
+    def index(self, value):
+        if isinstance(value, int):
+            if value in self:
+                return (value - self.start) // self.step
+        else:
+            idx = 0
+            for item in self:
+                if item == value:
+                    return idx
+                idx += 1
+        raise ValueError("value is not in range")
 
     def __iter__(self):
         start, stop, step = self.start, self.stop, self.step
@@ -3381,12 +3425,6 @@ class AnySymbolicStr(AbcString):
         else:
             return (fillchar * smaller_half) + self + (fillchar * larger_half)
 
-    def count(self, substr, start=None, end=None):
-        sliced = self[start:end]
-        if substr == "":
-            return len(sliced) + 1
-        return len(sliced.split(substr)) - 1
-
     def encode(self, encoding="utf-8", errors="strict"):
         return codecs.encode(self, encoding, errors)
 
@@ -3394,12 +3432,6 @@ class AnySymbolicStr(AbcString):
         if not isinstance(tabsize, int):
             raise TypeError
         return self.replace("\t", " " * tabsize)
-
-    def index(self, substr, start=None, end=None):
-        idx = self.find(substr, start, end)
-        if idx == -1:
-            raise ValueError
-        return idx
 
     def _chars_in_maskfn(self, maskfn: z3.ExprRef, ret_if_empty=False):
         # Holds common logic behind the str.is* methods
@@ -3597,42 +3629,6 @@ class AnySymbolicStr(AbcString):
             return [token] + self[idx + 1 :].splitlines(keepends)
         return [self]
 
-    def removeprefix(self, prefix):
-        if not isinstance(prefix, str):
-            raise TypeError
-        if self.startswith(prefix):
-            return self[len(prefix) :]
-        return self
-
-    def removesuffix(self, suffix):
-        if not isinstance(suffix, str):
-            raise TypeError
-        if len(suffix) > 0 and self.endswith(suffix):
-            return self[: -len(suffix)]
-        return self
-
-    def replace(self, old, new, count=-1):
-        if not isinstance(old, str) or not isinstance(new, str):
-            raise TypeError
-        if count == 0:
-            return self
-        if self == "":
-            return new if old == "" else self
-        elif old == "":
-            return new + self[:1] + self[1:].replace(old, new, count - 1)
-
-        prefix, match, suffix = self.partition(old)
-        if not match:
-            return self
-        return prefix + new + suffix.replace(old, new, count - 1)
-
-    def rindex(self, substr, start=None, end=None):
-        result = self.rfind(substr, start, end)
-        if result == -1:
-            raise ValueError
-        else:
-            return result
-
     def rjust(self, width, fillchar=" "):
         if not isinstance(fillchar, str):
             raise TypeError
@@ -3640,7 +3636,10 @@ class AnySymbolicStr(AbcString):
             raise TypeError
         if len(fillchar) != 1:
             raise TypeError
-        return fillchar * max(0, width - len(self)) + self
+        mylen = self.__len__()
+        if mylen >= width:
+            return self
+        return fillchar * (width - mylen) + self
 
     def _split_whitespace_default(self, maxsplit: int) -> List:
         if not isinstance(maxsplit, Integral):
@@ -3853,26 +3852,6 @@ class AnySymbolicStr(AbcString):
             return "0" * fill_length + self
 
 
-def _unfindable_range(start: Optional[int], end: Optional[int], mylen: int) -> bool:
-    """
-    Emulates some preliminary checks that CPython makes before searching
-    for substrings within some bounds. (in e.g. str.find, str.startswith, etc)
-    """
-    if start is None or start == 0 or start <= -mylen:
-        return False
-
-    # At this point, we know that `start` is defined and points to an index after 0
-    if end is None or end >= mylen:
-        return start > mylen
-
-    # At this point, we know that `end` is defined and points to an index before the end of the string
-    if start < 0:
-        start += mylen
-    if end < 0:
-        end += mylen
-    return end < start
-
-
 class LazyIntSymbolicStr(AnySymbolicStr, CrossHairValue):
     """
     A symbolic string that lazily generates SymbolicInt-based characters as needed.
@@ -4004,124 +3983,19 @@ class LazyIntSymbolicStr(AnySymbolicStr, CrossHairValue):
 
     __rmul__ = __mul__
 
-    def partition(self, substr):
-        if not isinstance(substr, str):
+    # Hooks for the shared symbolic algorithms in AbcString (find/partition/...):
+    @property
+    def _ch_codepoints(self):
+        return self._codepoints
+
+    def _ch_make(self, codepoints):
+        with NoTracing():
+            return LazyIntSymbolicStr(codepoints)
+
+    def _ch_operand_points(self, operand):
+        if not isinstance(operand, str):
             raise TypeError
-        if len(substr) == 0:
-            raise ValueError
-        mypoints = self._codepoints
-        subpoints = [ord(ch) for ch in substr]
-        if not subpoints:
-            raise ValueError
-        substrlen = len(subpoints)
-        for start in range(1 + len(mypoints) - substrlen):
-            # We perform the comparison via `all()` because these are usually concrete lists,
-            # and any() will defer all the character comparisons into a single SMT query.
-            my_candidate = mypoints[start : start + substrlen]
-            if not all(a == b for a, b in zip(my_candidate, subpoints)):
-                continue
-            prefix_points = mypoints[:start]
-            suffix_points = mypoints[start + substrlen :]
-            with NoTracing():
-                return (
-                    LazyIntSymbolicStr(prefix_points),
-                    substr,
-                    LazyIntSymbolicStr(suffix_points),
-                )
-        return (self, "", "")
-
-    def endswith(self, substr, start=None, end=None):
-        if isinstance(substr, tuple):
-            return any(self.endswith(s, start, end) for s in substr)
-        if not isinstance(substr, str):
-            raise TypeError
-        substrlen = len(substr)
-        if start is None and end is None:
-            matchable = self
-        else:
-            matchable = self[start:end]
-        if substrlen == 0:
-            return not _unfindable_range(start, end, len(self))
-        else:
-            return matchable[-substrlen:] == substr
-
-    def startswith(self, substr, start=None, end=None):
-        if isinstance(substr, tuple):
-            return any(self.startswith(s, start, end) for s in substr)
-        if not isinstance(substr, str):
-            raise TypeError
-        if start is None and end is None:
-            matchable = self
-        else:
-            # Wacky special case: the empty string is findable off the left
-            # side but not the right!
-            if _unfindable_range(start, end, len(self)):
-                return False
-            matchable = self[start:end]
-        return matchable[: len(substr)] == substr
-
-    def rpartition(self, substr):
-        if not isinstance(substr, str):
-            raise TypeError
-        if len(substr) == 0:
-            raise ValueError
-        mypoints = self._codepoints
-        subpoints = [ord(ch) for ch in substr]
-        if not subpoints:
-            raise ValueError
-        substrlen = len(subpoints)
-        start = len(mypoints) - len(subpoints)
-        for start in range(start, -1, -1):
-            if mypoints[start : start + substrlen] == subpoints:
-                prefix_points = mypoints[:start]
-                suffix_points = mypoints[start + substrlen :]
-                with NoTracing():
-                    return (
-                        LazyIntSymbolicStr(prefix_points),
-                        substr,
-                        LazyIntSymbolicStr(suffix_points),
-                    )
-        return ("", "", self)
-
-    def _find(self, substr, start=None, end=None, from_right=False):
-        if not isinstance(substr, str):
-            raise TypeError
-        mylen = len(self)
-        if start is None:
-            start = 0
-        elif start < 0:
-            start += mylen
-        if end is None:
-            end = mylen
-        elif end < 0:
-            end += mylen
-        matchstr = self[start:end] if start != 0 or end is not mylen else self
-        if len(substr) == 0:
-            # An oddity of CPython. We can find the empty string when over-slicing
-            # off the left side of the string, but not off the right:
-            # ''.find('', 3, 4) == -1
-            # ''.find('', -4, -3) == 0
-            if matchstr == "" and start > min(mylen, max(end, 0)):
-                return -1
-            else:
-                if from_right:
-                    return max(min(end, mylen), 0)
-                else:
-                    return max(start, 0)
-        else:
-            if from_right:
-                prefix, match, _ = LazyIntSymbolicStr.rpartition(matchstr, substr)
-            else:
-                prefix, match, _ = LazyIntSymbolicStr.partition(matchstr, substr)
-            if match == "":
-                return -1
-            return start + len(prefix)
-
-    def find(self, substr, start=None, end=None):
-        return self._find(substr, start, end, from_right=False)
-
-    def rfind(self, substr, start=None, end=None):
-        return self._find(substr, start, end, from_right=True)
+        return [ord(ch) for ch in operand]
 
 
 def buffer_to_byte_seq(obj: object) -> Optional[Sequence[int]]:
@@ -4152,6 +4026,9 @@ _ORD_OF_ZERO_PLUS_TEN = ord("0") + 10
 _ORD_OF_LOWERCASE_A_MINUS_TEN = ord("a") - 10
 _ORD_OF_LOWERCASE_A = ord("a")
 _ORD_OF_LOWERCASE_F = ord("f")
+_ORD_OF_UPPERCASE_A_MINUS_TEN = ord("A") - 10
+_ORD_OF_UPPERCASE_A = ord("A")
+_ORD_OF_UPPERCASE_F = ord("F")
 
 
 def make_hex_digit(value: int) -> int:
@@ -4167,6 +4044,8 @@ def parse_hex_digit(char_ordinal: int) -> Optional[int]:
         return char_ordinal - _ORD_OF_ZERO
     if all([_ORD_OF_LOWERCASE_A <= char_ordinal, char_ordinal <= _ORD_OF_LOWERCASE_F]):
         return char_ordinal - _ORD_OF_LOWERCASE_A_MINUS_TEN
+    if all([_ORD_OF_UPPERCASE_A <= char_ordinal, char_ordinal <= _ORD_OF_UPPERCASE_F]):
+        return char_ordinal - _ORD_OF_UPPERCASE_A_MINUS_TEN
     return None
 
 
@@ -4192,6 +4071,89 @@ class BytesLike(Buffer, AbcString, CrossHairValue):
         if len(self) != len(other):
             return False
         return list(self) == list(other)
+
+    def _ch_operand_points(self, operand):
+        # Hook for AbcString's shared algorithms: a bytes needle/separator must
+        # be a bytes-like buffer (not a plain int sequence), and its elements
+        # are already its byte values.
+        with NoTracing():
+            byte_seq = buffer_to_byte_seq(operand)
+            if byte_seq is None or byte_seq is operand:
+                raise TypeError
+            return byte_seq
+
+    def _ch_search_operand_points(self, operand):
+        # find/index/rindex/count also accept a single int byte value.
+        if isinstance(operand, Integral):
+            if any((operand < 0, operand > 255)):
+                raise ValueError("byte must be in range(0, 256)")
+            return [operand]
+        return self._ch_operand_points(operand)
+
+    # ---- ASCII case / whitespace transforms ------------------------------
+    # Unlike str (whose case mapping needs the full Unicode tables, via
+    # UnicodeMaskCache), bytes/bytearray only case-map ASCII: A-Z (0x41-0x5A)
+    # <-> a-z (0x61-0x7A).  So these stay symbolic with plain byte arithmetic,
+    # overriding AbcString's realizing ``self.data.<op>()`` versions and
+    # building the result through the _ch_make hook (bytes -> bytes,
+    # bytearray -> bytearray).
+    def _ch_swap_ascii_case(self, byte, do_lower, do_upper):
+        # Branch-free per byte (see AGENTS.md: avoid forking the state space).
+        # An if/elif on the symbolic byte would fork on *every* character, so
+        # instead fold the case shift into one SMT expression: ``&`` (not the
+        # short-circuiting ``and``) keeps it a single symbolic bool, and
+        # ``0x20 * <bool>`` turns it into the 0/+-0x20 delta with no branch.
+        # (``do_lower``/``do_upper`` are concrete per-op flags, so branching on
+        # them is a normal Python choice, not a state-space fork.)
+        delta = 0
+        if do_lower:
+            delta = delta + 0x20 * ((0x41 <= byte) & (byte <= 0x5A))
+        if do_upper:
+            delta = delta - 0x20 * ((0x61 <= byte) & (byte <= 0x7A))
+        return byte + delta
+
+    def lower(self):
+        return self._ch_make(
+            [self._ch_swap_ascii_case(b, True, False) for b in self._ch_codepoints]
+        )
+
+    def upper(self):
+        return self._ch_make(
+            [self._ch_swap_ascii_case(b, False, True) for b in self._ch_codepoints]
+        )
+
+    def swapcase(self):
+        return self._ch_make(
+            [self._ch_swap_ascii_case(b, True, True) for b in self._ch_codepoints]
+        )
+
+    def _ch_strip_targets(self, chars):
+        # None means "ASCII whitespace"; otherwise chars must be a bytes-like
+        # object (a plain int is rejected, matching CPython bytes.strip).
+        return None if chars is None else self._ch_operand_points(chars)
+
+    def _ch_is_stripped(self, byte, targets):
+        if targets is None:
+            return is_ascii_space_ord(byte)
+        return any(byte == t for t in targets)
+
+    def lstrip(self, chars=None):
+        targets = self._ch_strip_targets(chars)
+        for idx, byte in enumerate(self._ch_codepoints):
+            if not self._ch_is_stripped(byte, targets):
+                return self[idx:]
+        return self[:0]
+
+    def rstrip(self, chars=None):
+        targets = self._ch_strip_targets(chars)
+        if len(self) == 0:
+            return self[:0]
+        if self._ch_is_stripped(self[-1], targets):
+            return self[:-1].rstrip(chars)
+        return self._ch_make(self._ch_codepoints)
+
+    def strip(self, chars=None):
+        return self.lstrip(chars).rstrip(chars)
 
     if version_info >= (3, 12):
 
@@ -4300,6 +4262,14 @@ class SymbolicBytes(BytesLike):
     # those cases.
 
     data = property(_bytes_data_prop)
+
+    @property
+    def _ch_codepoints(self):
+        return self.inner
+
+    def _ch_make(self, codepoints):
+        with NoTracing():
+            return SymbolicBytes(codepoints)
 
     def __ch_realize__(self):
         return bytes(tracing_iter(self.inner))
@@ -4440,6 +4410,14 @@ class SymbolicByteArray(BytesLike, ShellMutableSequence):  # type: ignore
     __hash__ = None  # type: ignore
     data = property(_bytes_data_prop)
 
+    @property
+    def _ch_codepoints(self):
+        return self.inner
+
+    def _ch_make(self, codepoints):
+        with NoTracing():
+            return SymbolicByteArray(codepoints)
+
     def _smt_for_unification(self, other_value: Any) -> Optional[z3.ExprRef]:
         """See :func:`~crosshair.core.smt_for_unification`."""
         return smt_for_unification(self.inner, other_value)
@@ -4533,13 +4511,15 @@ class SymbolicMemoryView(BytesLike):
         sliced = self._sliced
         obj, start, stop = self.obj, sliced.start, sliced.stop
         self.obj = obj
-        return memoryview(realize(obj))[realize(start) : realize(stop)]
+        ret = memoryview(realize(obj))[realize(start) : realize(stop)]
+        return ret.toreadonly() if self.readonly else ret
 
     def __ch_deep_realize__(self, memo):
         sliced = self._sliced
         obj, start, stop = self.obj, sliced.start, sliced.stop
         self.obj = obj
-        return memoryview(deep_realize(obj, memo))[realize(start) : realize(stop)]
+        ret = memoryview(deep_realize(obj, memo))[realize(start) : realize(stop)]
+        return ret.toreadonly() if self.readonly else ret
 
     def __ch_pytype__(self):
         return memoryview
@@ -4573,14 +4553,14 @@ class SymbolicMemoryView(BytesLike):
     def __getitem__(self, key):
         if isinstance(key, slice):
             newslice = self._sliced[key]
-            if isinstance(newslice, SliceView):
-                with NoTracing():
+            with NoTracing():
+                if isinstance(newslice, SliceView):
                     ret = SymbolicMemoryView(self.obj)
                     ret._sliced = newslice
+                    ret.readonly = self.readonly
                     return ret
-            else:
-                # Give up when there's a step in the slice:
-                return realize(self).__getitem__(key)
+            # Give up when there's a step in the slice:
+            return realize(self).__getitem__(key)
         else:
             return self._sliced[key]
 
@@ -4615,6 +4595,12 @@ class SymbolicMemoryView(BytesLike):
 
     def cast(self, *a):
         return realize(self).cast(*map(realize, a))
+
+
+def make_memoryview(creator: SymbolicFactory) -> SymbolicMemoryView:
+    if creator.space.smt_fork(desc=f"{creator.varname}_readonly"):
+        return SymbolicMemoryView(creator(bytes))
+    return SymbolicMemoryView(creator(bytearray))
 
 
 _PYTYPE_TO_WRAPPER_TYPE = {
@@ -5324,7 +5310,8 @@ def _bytearray_join(self, itr) -> bytes:
     return _join(self, itr, self_type=bytearray, item_type=Buffer)
 
 
-def _str_format(self, *a, **kw) -> Union[AnySymbolicStr, str]:
+def _str_format(self, /, *a, **kw) -> Union[AnySymbolicStr, str]:
+    # positional-only: str.format takes a "self" keyword field ("{self}".format(self=x))
     template = realize(self)
     return string.Formatter().format(template, *a, **kw)
 
@@ -5447,7 +5434,7 @@ def make_registrations():
     # Text: (elsewhere - identical to str)
     register_type(bytes, make_byte_string)
     register_type(bytearray, lambda p: SymbolicByteArray(p(bytes)))
-    register_type(memoryview, lambda p: SymbolicMemoryView(p(bytearray)))
+    register_type(memoryview, make_memoryview)
     # AnyStr,  (it's a type var)
 
     register_type(typing.BinaryIO, lambda p: io.BytesIO(p(bytes)))
@@ -5592,6 +5579,16 @@ def make_registrations():
     # TODO: dict.update (concrete w/ symbolic argument), __getitem__, & more?
     register_patch(dict.get, _dict_get)
     register_patch(dict.values, with_checked_self(dict, "values"))
+
+    # Patches on range
+    register_patch(
+        range.__contains__, with_symbolic_self(SymbolicRange, range.__contains__)
+    )
+    register_patch(
+        range.__getitem__, with_symbolic_self(SymbolicRange, range.__getitem__)
+    )
+    register_patch(range.count, with_symbolic_self(SymbolicRange, range.count))
+    register_patch(range.index, with_symbolic_self(SymbolicRange, range.index))
 
     # Patches on set/frozenset
     register_patch(set.__repr__, _set_repr)

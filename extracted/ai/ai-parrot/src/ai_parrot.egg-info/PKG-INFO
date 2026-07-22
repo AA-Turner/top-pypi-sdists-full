@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ai-parrot
-Version: 0.25.21
+Version: 0.25.24
 Summary: Framework for building AI agents for Navigator
 Author-email: Jesus Lara <jesuslara@phenobarbital.info>
 License-Expression: MIT
@@ -33,6 +33,7 @@ Requires-Dist: beautifulsoup4>=4.12
 Requires-Dist: nh3>=0.2.14
 Requires-Dist: python-datamodel>=0.10.17
 Requires-Dist: backoff==2.2.1
+Requires-Dist: tenacity>=8.2
 Requires-Dist: typing-extensions<5,>=4.14.1
 Requires-Dist: pydantic==2.12.5
 Requires-Dist: PyYAML>=6.0.2
@@ -66,6 +67,7 @@ Requires-Dist: pandas>=2.0.0
 Requires-Dist: sqlglot>=20.0
 Requires-Dist: numexpr==2.10.2
 Requires-Dist: faiss-cpu>=1.9.0
+Requires-Dist: navigator-eventbus>=0.1.0
 Provides-Extra: notify-all
 Requires-Dist: async-notify[all]>=1.4.2; extra == "notify-all"
 Provides-Extra: db
@@ -256,8 +258,7 @@ Provides-Extra: integrations
 Requires-Dist: querysource>=4.1.11; extra == "integrations"
 Requires-Dist: async-notify[all]>=1.5.2; extra == "integrations"
 Provides-Extra: grpc
-Requires-Dist: grpcio>=1.74.0; extra == "grpc"
-Requires-Dist: grpcio-tools>=1.74.0; extra == "grpc"
+Requires-Dist: navigator-eventbus[grpc]; extra == "grpc"
 Provides-Extra: eda
 Requires-Dist: sweetviz==2.1.4; extra == "eda"
 Provides-Extra: security
@@ -302,6 +303,7 @@ Requires-Dist: pytest-benchmark>=4.0; extra == "dev"
 Requires-Dist: ruff>=0.4; extra == "dev"
 Provides-Extra: remote-tools
 Requires-Dist: kubernetes_asyncio>=29.0.0; extra == "remote-tools"
+Requires-Dist: aiodocker>=0.24.0; extra == "remote-tools"
 Provides-Extra: visualizations
 Requires-Dist: ai-parrot-visualizations[all]; extra == "visualizations"
 Provides-Extra: all

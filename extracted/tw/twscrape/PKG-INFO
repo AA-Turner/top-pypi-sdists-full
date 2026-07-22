@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: twscrape
-Version: 0.19.1
+Version: 0.19.2
 Summary: Twitter GraphQL and Search API implementation with SNScrape data models
 Project-URL: repository, https://github.com/vladkens/twscrape
 Author-email: vladkens <v.pronsky@gmail.com>
@@ -41,7 +41,7 @@ Description-Content-Type: text/markdown
 twscrape is an async Python library and CLI for X/Twitter Search and GraphQL endpoints. It runs on your own account pool, keeps sessions in SQLite, rotates accounts when an endpoint is rate-limited, and returns either parsed SNScrape-style models or raw API responses.
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/vladkens/twscrape/v0.19.1/.github/example.png" alt="example of cli usage" height="400px">
+  <img src="https://raw.githubusercontent.com/vladkens/twscrape/v0.19.2/.github/example.png" alt="example of cli usage" height="400px">
 </div>
 
 ## Install
@@ -72,7 +72,7 @@ TWS_HTTP_BACKEND=curl twscrape user_by_login xdevelopers
 
 <p align="center">
   <a href="https://www.swiftproxy.net/?ref=twscrape">
-    <img src="https://raw.githubusercontent.com/vladkens/twscrape/v0.19.1/.github/swiftproxy.png" alt="Swiftproxy residential proxies" width="460">
+    <img src="https://raw.githubusercontent.com/vladkens/twscrape/v0.19.2/.github/swiftproxy.png" alt="Swiftproxy residential proxies" width="460">
   </a>
 </p>
 
@@ -138,6 +138,14 @@ if __name__ == "__main__":
 async for tweet in api.search("open source lang:en", limit=100):
     print(tweet.id, tweet.rawContent)
 ```
+
+Configure what happens when no account is immediately available:
+
+```python
+api = API(raise_when_no_account=True, wait_timeout=30, wait_interval=1)
+```
+
+`wait_timeout` limits how long to wait for a locked account, `wait_interval` controls how often the pool checks again, and `raise_when_no_account` raises `NoAccountError` instead of ending the operation. By default, twscrape waits indefinitely while active accounts are locked.
 
 Search defaults to the Latest tab. Pass `kv={"product": "Top"}` or `kv={"product": "Media"}` to use another search product:
 

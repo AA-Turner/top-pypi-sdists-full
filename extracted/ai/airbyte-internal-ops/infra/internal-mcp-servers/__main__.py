@@ -105,6 +105,19 @@ Shared container so the Ops Webapp can adopt it too; consumed as env
 SLACK_BOT_TOKEN_HITL_SECRET_ID = "slack-bot-token-hitl"
 """Shared Slack bot token created by the `agent-message-bus` bootstrap."""
 
+ZENDESK_API_TOKEN_SECRET_ID = "internal-ops-zendesk-api-token"
+"""Zendesk Support API token used by the Ops MCP `get_zendesk_ticket` tool.
+
+Consumed as env `ZENDESK_API_TOKEN`. Paired with the non-secret
+`ZENDESK_SUBDOMAIN` / `ZENDESK_EMAIL` literals for API-token Basic auth. Created
+during bootstrap; see `BOOTSTRAP.md`."""
+
+# Non-secret Zendesk connection settings for the ticket-retrieval tool. The
+# subdomain and agent email are not sensitive, so they are plain Cloud Run
+# literals (overridable via Pulumi config); only the API token is a secret.
+ZENDESK_SUBDOMAIN = config.get("zendesk-subdomain") or "airbyte1416"
+ZENDESK_EMAIL = config.get("zendesk-email") or ""
+
 # Secrets wired into the Ops MCP prod + preview services (beyond the OIDC
 # client secret every MCP service receives). Kept in one place so the runtime
 # `secretAccessor` grants and the Cloud Run env wiring stay in sync.
@@ -113,6 +126,7 @@ OPS_MCP_BACKEND_SECRET_IDS = [
     ORB_API_KEY_SECRET_ID,
     MOTHERDUCK_ADMIN_TOKEN_SECRET_ID,
     SLACK_BOT_TOKEN_HITL_SECRET_ID,
+    ZENDESK_API_TOKEN_SECRET_ID,
 ]
 
 OPS_MCP_CONTAINER_IMAGE = (
@@ -731,15 +745,19 @@ def main() -> None:
     secrets = define_secrets()
     service_account = define_service_account(api_services)
     # The runtime-SA `secretAccessor` grants for the Ops MCP backend secrets
-    # (GitHub PAT, Orb key, MotherDuck token, shared Slack token) are manual
-    # bootstrap steps -- same as the OAuth client secret and the ops-webapp
-    # secrets -- because the deployer identity holds `roles/editor` and cannot
+    # (GitHub PAT, Orb key, MotherDuck token, shared Slack token, Zendesk API
+    # token) are manual bootstrap steps -- same as the OAuth client secret and
+    # the ops-webapp secrets -- because the deployer identity holds
+    # `roles/editor` and cannot
     # `setIamPolicy` on secret containers it did not create. See `BOOTSTRAP.md`.
     ops_mcp_backend_envs = [
         _secret_env("GITHUB_TOKEN", GITHUB_TOKEN_SECRET_ID),
         _secret_env("ORB_API_KEY", ORB_API_KEY_SECRET_ID),
         _secret_env("MOTHERDUCK_ADMIN_TOKEN", MOTHERDUCK_ADMIN_TOKEN_SECRET_ID),
         _secret_env("SLACK_BOT_TOKEN_HITL", SLACK_BOT_TOKEN_HITL_SECRET_ID),
+        _env("ZENDESK_SUBDOMAIN", ZENDESK_SUBDOMAIN),
+        _env("ZENDESK_EMAIL", ZENDESK_EMAIL),
+        _secret_env("ZENDESK_API_TOKEN", ZENDESK_API_TOKEN_SECRET_ID),
     ]
     # MCP services
     mcp_common = {

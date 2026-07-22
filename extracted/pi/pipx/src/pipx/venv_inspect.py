@@ -57,9 +57,20 @@ class VenvMetadata(NamedTuple):
     python_version: str
 
 
+def _distribution_name(dist: metadata.Distribution) -> str | None:
+    try:
+        return dist.name
+    except KeyError:  # Python 3.15+ raises instead of returning None when the metadata has no Name
+        return None
+
+
 def get_distributions_by_name(paths: list[str]) -> dict[str, metadata.Distribution]:
     metadata.MetadataPathFinder().invalidate_caches()
-    return {canonicalize_name(name): dist for dist in metadata.distributions(path=paths) if (name := dist.name)}
+    return {
+        canonicalize_name(name): dist
+        for dist in metadata.distributions(path=paths)
+        if (name := _distribution_name(dist))
+    }
 
 
 def get_package_dependencies(dist: metadata.Distribution, extras: set[str], env: dict[str, str]) -> list[Requirement]:
@@ -103,7 +114,7 @@ def list_not_required_packages(venv_python: Path) -> set[str]:
     installed: set[str] = set()
     required: set[str] = set()
     for dist in distributions:
-        if (name := dist.metadata["Name"]) is not None:
+        if (name := _distribution_name(dist)) is not None:
             installed.add(canonicalize_name(name))
         required |= get_required_dependency_names(dist, venv_env)
     return installed - required
@@ -339,7 +350,7 @@ def _get_man_section_from_data_files_target(target_dir: str) -> str | None:
     return parts[-1]
 
 
-def _dfs_package_resources(  # noqa: PLR0913  # threads three resource accumulators plus the visited set through recursion
+def _dfs_package_resources(  # ruff:ignore[too-many-arguments]  # threads three resource accumulators plus the visited set through recursion
     dist: metadata.Distribution,
     package_req: Requirement,
     venv_inspect_info: VenvInspectInformation,
@@ -464,7 +475,7 @@ def fetch_info_in_venv(venv_python_path: Path) -> tuple[list[str], dict[str, str
     )
 
 
-def inspect_venv(  # noqa: PLR0914  # aggregates apps, man pages, and completions for root and deps into one VenvMetadata
+def inspect_venv(  # ruff:ignore[too-many-locals]  # aggregates apps, man pages, and completions for root and deps into one VenvMetadata
     root_package_name: str,
     root_package_extras: set[str],
     venv_bin_path: Path,

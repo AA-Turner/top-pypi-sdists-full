@@ -23,7 +23,7 @@ class CaresDnsResolverConfig(betterproto2.Message):
     [#extension: envoy.network.dns_resolver.cares]
 
     Configuration for c-ares DNS resolver.
-    [#next-free-field: 12]
+    [#next-free-field: 13]
     """
 
     resolvers: "list[_____config__core__v3__.Address]" = betterproto2.field(
@@ -161,6 +161,23 @@ class CaresDnsResolverConfig(betterproto2.Message):
     for periodic refresh instead.
 
     Default is false.
+    """
+
+    qcache_max_ttl: "int | None" = betterproto2.field(
+        12,
+        betterproto2.TYPE_MESSAGE,
+        unwrap=lambda: ______google__protobuf__.UInt32Value,
+        optional=True,
+    )
+    """
+    The maximum duration (in seconds) for which DNS responses will be cached by c-ares.
+
+    If set to a non-zero value, the query cache is enabled and will respect the
+    TTL provided in the DNS response, up to this maximum limit.
+
+    .. note::
+      While the underlying c-ares library defaults to 1 hour, Envoy's default
+      for this field is 0, which disables the query cache entirely.
     """
 
 

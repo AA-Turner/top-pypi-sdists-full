@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pygraphviz
-Version: 2.0
+Version: 2.0.1
 Summary: Python interface to Graphviz
 Author: Manos Renieris
 Author-email: Aric Hagberg <aric.hagberg@gmail.com>, Dan Schult <dschult@colgate.edu>

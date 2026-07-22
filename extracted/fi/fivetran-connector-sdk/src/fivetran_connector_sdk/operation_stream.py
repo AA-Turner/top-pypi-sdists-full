@@ -171,7 +171,7 @@ class _OperationStream:
         self._buffer_size_bytes = 0
         if os.environ.get("ConnectorSdkEnableExtendInUpdateResponse", "false") == "true":
             response = connector_sdk_pb2.UpdateResponse()
-            response.records.records.extend(batch_to_flush)
+            response.structured_records.structured_records.extend(batch_to_flush)
             return response
         else:
-            return connector_sdk_pb2.UpdateResponse(records=connector_sdk_pb2.Records(records=batch_to_flush))
+            return connector_sdk_pb2.UpdateResponse(structured_records=connector_sdk_pb2.StructuredRecords(structured_records=batch_to_flush))

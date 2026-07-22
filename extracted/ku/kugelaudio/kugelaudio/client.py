@@ -57,6 +57,7 @@ from kugelaudio.models import (
     VoiceListResponse,
     VoiceReference,
     WordTimestamp,
+    clamp_cfg_scale,
 )
 
 logger = logging.getLogger(__name__)
@@ -722,7 +723,7 @@ class TTSResource:
             text: Text to synthesize
             model_id: Model to use ('kugel-1-turbo' or 'kugel-1')
             voice_id: Voice ID to use
-            cfg_scale: CFG scale for generation
+            cfg_scale: Classifier-free guidance scale. Clamped to [1.2, 2.5].
             max_new_tokens: Maximum tokens to generate
             sample_rate: Output sample rate (24000)
             output_format: Optional combined codec+rate token (e.g. 'ulaw_8000',
@@ -802,7 +803,7 @@ class TTSResource:
             text: Text to synthesize
             model_id: Model to use ('kugel-1-turbo' or 'kugel-1')
             voice_id: Voice ID to use
-            cfg_scale: CFG scale for generation
+            cfg_scale: Classifier-free guidance scale. Clamped to [1.2, 2.5].
             max_new_tokens: Maximum tokens to generate
             sample_rate: Output sample rate
             output_format: Optional combined codec+rate token (e.g. 'ulaw_8000',
@@ -1104,7 +1105,7 @@ class TTSResource:
             text: Text to synthesize
             model_id: Model to use ('kugel-1-turbo' or 'kugel-1')
             voice_id: Voice ID to use
-            cfg_scale: CFG scale for generation
+            cfg_scale: Classifier-free guidance scale. Clamped to [1.2, 2.5].
             max_new_tokens: Maximum tokens to generate
             sample_rate: Output sample rate
             reuse_connection: If True (default), reuse WebSocket connection
@@ -1139,6 +1140,7 @@ class TTSResource:
                 "websockets is required for streaming. Install with: pip install websockets"
             )
 
+        cfg_scale = clamp_cfg_scale(cfg_scale)
         _warn_if_no_language(language, normalize)
 
         request_data = {
@@ -1300,7 +1302,7 @@ class TTSResource:
         Args:
             voice_id: Voice ID to use
             model_id: Model to use (e.g., "kugel-1-turbo")
-            cfg_scale: CFG scale for generation
+            cfg_scale: Classifier-free guidance scale. Clamped to [1.2, 2.5].
             max_new_tokens: Maximum tokens per generation
             sample_rate: Output sample rate
             flush_timeout_ms: Auto-flush timeout in milliseconds
@@ -1375,7 +1377,7 @@ class TTSResource:
         Args:
             voice_id: Voice ID to use
             model_id: Model to use (e.g., "kugel-1-turbo")
-            cfg_scale: CFG scale for generation
+            cfg_scale: Classifier-free guidance scale. Clamped to [1.2, 2.5].
             max_new_tokens: Maximum tokens per generation
             sample_rate: Output sample rate
             flush_timeout_ms: Auto-flush timeout in milliseconds
@@ -1443,7 +1445,7 @@ class TTSResource:
             default_voice_id: Default voice ID for new contexts
             model_id: Model to use (e.g., "kugel-1-turbo")
             sample_rate: Output sample rate (default 24000)
-            cfg_scale: CFG scale for generation (default 2.0)
+            cfg_scale: Classifier-free guidance scale. Clamped to [1.2, 2.5] (default 2.0).
             max_new_tokens: Maximum tokens to generate (default 2048)
             normalize: Enable text normalization (default True)
             language: ISO 639-1 language code for normalization (e.g., 'de', 'en').
@@ -1473,6 +1475,8 @@ class TTSResource:
                     play_audio("character", chunk)
         """
         from kugelaudio.streaming import MultiContextSession
+
+        cfg_scale = clamp_cfg_scale(cfg_scale)
 
         return MultiContextSession(
             api_key=self._client._api_key,
@@ -1511,7 +1515,7 @@ class TTSResource:
             text: Text to synthesize
             model_id: Model to use ('kugel-1-turbo' or 'kugel-1')
             voice_id: Voice ID to use
-            cfg_scale: CFG scale for generation
+            cfg_scale: Classifier-free guidance scale. Clamped to [1.2, 2.5].
             max_new_tokens: Maximum tokens to generate
             sample_rate: Output sample rate
             output_format: Optional combined codec+rate token (e.g. 'ulaw_8000',

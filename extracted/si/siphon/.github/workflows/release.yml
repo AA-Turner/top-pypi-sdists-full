@@ -10,11 +10,11 @@ jobs:
     name: Build Release Packages
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
 
     - name: Set up Python
       id: setup
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v7
       with:
         python-version: 3.x
 
@@ -27,7 +27,7 @@ jobs:
       run: python -m build
 
     - name: Save built packages as artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: packages-${{ runner.os }}-${{ steps.setup.outputs.python-version }}
         path: dist/
@@ -45,12 +45,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Download packages
-      uses: actions/download-artifact@v4
-
-    - name: Consolidate packages for upload
-      run: |
-        mkdir dist
-        cp packages-*/* dist/
+      uses: actions/download-artifact@v8
+      with:
+        path: dist/
+        pattern: packages-*
+        merge-multiple: 'true'
 
     - name: Publish Package
-      uses: pypa/gh-action-pypi-publish@v1.12.2
+      uses: pypa/gh-action-pypi-publish@v1.14.1

@@ -46,7 +46,7 @@ from airbyte_ops_mcp.connector_metadata import (
     load_raw_connector_metadata_from_github,
 )
 from airbyte_ops_mcp.github_api import GitHubAPIError, resolve_default_github_token
-from airbyte_ops_mcp.mcp.github_actions import (
+from airbyte_ops_mcp.mcp.github_ops import (
     check_ci_workflow_status,
     trigger_ci_workflow,
 )

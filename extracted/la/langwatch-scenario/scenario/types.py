@@ -1,5 +1,8 @@
+from __future__ import annotations
+
+import warnings
 from enum import Enum
-from pydantic import BaseModel, SkipValidation
+from pydantic import BaseModel, ConfigDict, SkipValidation, field_validator, model_validator
 from typing import (
     TYPE_CHECKING,
     Annotated,
@@ -26,6 +29,7 @@ from openai.types.chat import (
 # Prevent circular imports + Pydantic breaking
 if TYPE_CHECKING:
     from scenario.scenario_executor import ScenarioState
+    from .voice.recording import VoiceRecording, VoiceEvent, LatencyMetrics
 
     ScenarioStateType = ScenarioState
 else:
@@ -103,15 +107,29 @@ class JudgmentRequest(BaseModel):
     Attributes:
         criteria: Optional list of criteria to evaluate. When provided, overrides
                  the judge agent's configured criteria for this evaluation.
-        context: Optional additional context for the judge, such as filesystem
-                 state, command outputs, or structured observations from custom
-                 assertion steps. Included in the judge's evaluation prompt under
-                 <additional_context>. Useful when the conversation messages
+        additional_context: Optional additional context for the judge, such as
+                 filesystem state, command outputs, or structured observations from
+                 custom assertion steps. Included in the judge's evaluation prompt
+                 under <additional_context>. Useful when the conversation messages
                  contain raw tool-call JSON that is hard for the judge to parse.
+        context: Deprecated. Use ``additional_context`` instead.
     """
 
     criteria: Optional[List[str]] = None
+    additional_context: Optional[str] = None
+    # Deprecated backward-compat alias — populated by the validator below.
     context: Optional[str] = None
+
+    @model_validator(mode="after")
+    def _migrate_context_alias(self) -> "JudgmentRequest":
+        if self.context is not None and self.additional_context is None:
+            warnings.warn(
+                "JudgmentRequest.context is deprecated; use additional_context instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            self.additional_context = self.context
+        return self
 
 
 class AgentInput(BaseModel):
@@ -243,6 +261,10 @@ class ScenarioResult(BaseModel):
         ```
     """
 
+    # VoiceRecording / VoiceEvent / LatencyMetrics are plain (non-pydantic)
+    # dataclasses, so pydantic needs arbitrary_types_allowed to carry them.
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     success: bool
     # Prevent issues with slightly inconsistent message types for example when comming from Gemini right at the result level
     messages: Annotated[List[ChatCompletionMessageParamWithTrace], SkipValidation]
@@ -254,9 +276,66 @@ class ScenarioResult(BaseModel):
 
     # Voice-specific output (populated only when a VoiceAgentAdapter
     # participated in the scenario — see §4.6). All None for text-only runs.
-    audio: Optional[Any] = None  # scenario.voice.VoiceRecording
-    timeline: Optional[List[Any]] = None  # List[scenario.voice.VoiceEvent]
-    latency: Optional[Any] = None  # scenario.voice.LatencyMetrics
+    #
+    # These annotations are strings (``from __future__ import annotations``),
+    # so pydantic does not resolve the voice types at model-build time — this
+    # is what avoids the circular import (types -> voice.recording ->
+    # voice.__init__ -> voice.adapter -> types). Runtime type-safety is
+    # enforced instead by the ``_validate_voice_fields`` validator below,
+    # which lazily imports the concrete dataclasses and isinstance-checks
+    # them. A plain dict/str passed as ``audio`` therefore raises
+    # ``ValidationError`` (AC E4).
+    audio: Optional["VoiceRecording"] = None
+    timeline: Optional[List["VoiceEvent"]] = None
+    latency: Optional["LatencyMetrics"] = None
+
+    # ``mode="before"`` so these run PRIOR to pydantic's structural coercion.
+    # With ``arbitrary_types_allowed`` + a dataclass field type, pydantic will
+    # otherwise happily coerce a plain ``dict`` into the dataclass (all voice
+    # dataclasses have all-default fields), so the isinstance schema check
+    # would pass on ``{}``. AC E4 requires wrong-shape values (dict/str) to be
+    # rejected — so we reject anything that is not already an instance of the
+    # expected type here, before coercion can mask it.
+    @field_validator("audio", mode="before")
+    @classmethod
+    def _validate_audio(cls, v: Any) -> Any:
+        if v is None:
+            return v
+        from .voice.recording import VoiceRecording
+
+        if not isinstance(v, VoiceRecording):
+            raise ValueError(
+                f"audio must be a VoiceRecording, got {type(v).__name__}"
+            )
+        return v
+
+    @field_validator("timeline", mode="before")
+    @classmethod
+    def _validate_timeline(cls, v: Any) -> Any:
+        if v is None:
+            return v
+        from .voice.recording import VoiceEvent
+
+        if not isinstance(v, list) or not all(
+            isinstance(e, VoiceEvent) for e in v
+        ):
+            raise ValueError(
+                "timeline must be a list of VoiceEvent instances"
+            )
+        return v
+
+    @field_validator("latency", mode="before")
+    @classmethod
+    def _validate_latency(cls, v: Any) -> Any:
+        if v is None:
+            return v
+        from .voice.recording import LatencyMetrics
+
+        if not isinstance(v, LatencyMetrics):
+            raise ValueError(
+                f"latency must be a LatencyMetrics, got {type(v).__name__}"
+            )
+        return v
 
     def __repr__(self) -> str:
         """

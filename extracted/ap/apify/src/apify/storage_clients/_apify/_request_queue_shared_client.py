@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from collections import deque
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from logging import getLogger
 from typing import TYPE_CHECKING, Any, Final
 
@@ -11,13 +11,19 @@ from cachetools import LRUCache
 from crawlee.storage_clients.models import AddRequestsResponse, ProcessedRequest, RequestQueueMetadata
 
 from ._models import ApifyRequestQueueMetadata, CachedRequest, RequestQueueHead
-from ._utils import unique_key_to_request_id
-from apify import Request
+from ._utils import (
+    resolve_awaited_in_flight,
+    settle_pending_addition,
+    to_crawlee_request,
+    unique_key_to_request_id,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Coroutine, Sequence
 
-    from apify_client.clients import RequestQueueClientAsync
+    from apify_client._resource_clients import RequestQueueClientAsync
+
+    from apify import Request
 
 logger = getLogger(__name__)
 
@@ -65,10 +71,23 @@ class ApifyRequestQueueSharedClient:
         """The Apify API client for communication with Apify platform."""
 
         self._queue_head = deque[str]()
-        """Local cache of request IDs from the queue head for efficient fetching."""
+        """Local cache of request IDs from the request queue head for efficient fetching."""
 
         self._requests_cache: LRUCache[str, CachedRequest] = LRUCache(maxsize=cache_size)
         """LRU cache storing request objects, keyed by request ID."""
+
+        self._requests_being_added: dict[str, asyncio.Future[bool]] = {}
+        """In-flight `add_batch_of_requests` markers, keyed by request ID.
+
+        Coordinates only concurrent `add_batch_of_requests` calls sharing this one client instance (e.g. several
+        producer coroutines adding requests in the same process). It does not coordinate separate client instances
+        or processes, which each keep their own markers; deduplication across clients still relies on the platform.
+
+        Each future resolves once the platform call that is adding the request settles: `True` if the request was
+        committed, `False` otherwise. A concurrent call adding the same request awaits the future instead of
+        re-sending it, which avoids a duplicate platform write while still avoiding false success when the original
+        add fails.
+        """
 
         self._queue_has_locked_requests: bool | None = None
         """Whether the queue contains requests currently locked by other clients."""
@@ -86,9 +105,13 @@ class ApifyRequestQueueSharedClient:
         forefront: bool = False,
     ) -> AddRequestsResponse:
         """Specific implementation of this method for the RQ shared access mode."""
+        loop = asyncio.get_running_loop()
         # Do not try to add previously added requests to avoid pointless expensive calls to API
         new_requests: list[Request] = []
         already_present_requests: list[ProcessedRequest] = []
+        # Requests a concurrent `add_batch_of_requests` call is already sending. We await its outcome instead of
+        # re-sending them, as (request, that call's in-flight future) pairs.
+        awaited_in_flight: list[tuple[Request, asyncio.Future[bool]]] = []
 
         for request in requests:
             request_id = unique_key_to_request_id(request.unique_key)
@@ -105,46 +128,69 @@ class ApifyRequestQueueSharedClient:
                     )
                 )
 
+            elif request_id in self._requests_being_added:
+                # A concurrent call is already adding this request; await its outcome rather than re-sending it.
+                awaited_in_flight.append((request, self._requests_being_added[request_id]))
+
             else:
-                # Add new request to the cache.
-                processed_request = ProcessedRequest(
-                    id=request_id,
-                    unique_key=request.unique_key,
-                    was_already_present=True,
-                    was_already_handled=request.was_already_handled,
-                )
-                self._cache_request(
-                    request_id,
-                    processed_request,
-                )
+                # Register an in-flight marker so a concurrent call dedupes against it; caching is deferred
+                # until the platform confirms the request was accepted (see below).
                 new_requests.append(request)
+                self._requests_being_added[request_id] = loop.create_future()
 
         if new_requests:
             # Prepare requests for API by converting to dictionaries.
-            requests_dict = [
-                request.model_dump(
-                    by_alias=True,
+            requests_dict = [request.model_dump(by_alias=True) for request in new_requests]
+
+            committed_request_ids: set[str] = set()
+            try:
+                # Send requests to API.
+                batch_response = await self._api_client.batch_add_requests(
+                    requests=requests_dict,
+                    forefront=forefront,
                 )
-                for request in new_requests
-            ]
 
-            # Send requests to API.
-            api_response = AddRequestsResponse.model_validate(
-                await self._api_client.batch_add_requests(requests=requests_dict, forefront=forefront)
-            )
+                batch_response_dict = batch_response.model_dump(by_alias=True)
+                api_response = AddRequestsResponse.model_validate(batch_response_dict)
 
-            # Add the locally known already present processed requests based on the local cache.
-            api_response.processed_requests.extend(already_present_requests)
+                # Commit only the requests the platform actually accepted to the local dedup cache. Caching after
+                # the call succeeds (not before) keeps a failed call from poisoning the cache and silently
+                # deduplicating a later retry of the same request.
+                unprocessed_unique_keys = {request.unique_key for request in api_response.unprocessed_requests}
+                for request in new_requests:
+                    if request.unique_key in unprocessed_unique_keys:
+                        continue
+                    request_id = unique_key_to_request_id(request.unique_key)
+                    self._cache_request(
+                        request_id,
+                        ProcessedRequest(
+                            id=request_id,
+                            unique_key=request.unique_key,
+                            was_already_present=True,
+                            was_already_handled=request.was_already_handled,
+                        ),
+                    )
+                    committed_request_ids.add(request_id)
 
-            # Remove unprocessed requests from the cache
-            for unprocessed_request in api_response.unprocessed_requests:
-                unprocessed_request_id = unique_key_to_request_id(unprocessed_request.unique_key)
-                self._requests_cache.pop(unprocessed_request_id, None)
+                # Add the locally known already present processed requests based on the local cache.
+                api_response.processed_requests.extend(already_present_requests)
+            finally:
+                # Release the in-flight markers we registered. Committed requests tell concurrent callers the
+                # request reached the platform; everything else (unprocessed, API error, cancellation) tells them
+                # it did not, so they retry instead of reporting false success.
+                for request in new_requests:
+                    request_id = unique_key_to_request_id(request.unique_key)
+                    settle_pending_addition(
+                        self._requests_being_added, request_id, committed=request_id in committed_request_ids
+                    )
 
         else:
             api_response = AddRequestsResponse.model_validate(
                 {'unprocessedRequests': [], 'processedRequests': already_present_requests}
             )
+
+        # Fold in requests a concurrent call was already adding.
+        await resolve_awaited_in_flight(awaited_in_flight, api_response)
 
         logger.debug(
             f'Tried to add new requests: {len(new_requests)}, '
@@ -177,7 +223,7 @@ class ApifyRequestQueueSharedClient:
             if not self._queue_head:
                 return None
 
-            # Get the next request ID from the queue head
+            # Get the next request ID from the request queue head
             next_request_id = self._queue_head.popleft()
 
         request = await self._get_or_hydrate_request(next_request_id)
@@ -198,7 +244,9 @@ class ApifyRequestQueueSharedClient:
             )
             return None
 
-        # Use get request to ensure we have the full request object.
+        # `_get_or_hydrate_request` may return a request from the queue-head cache, which is populated by
+        # `list_and_lock_head` and only holds a partial request (no user data, no headers). Re-fetch it by id to
+        # guarantee the caller gets the full request object.
         request = await self._get_request_by_id(next_request_id)
         if request is None:
             logger.debug(
@@ -214,7 +262,7 @@ class ApifyRequestQueueSharedClient:
         request_id = unique_key_to_request_id(request.unique_key)
         # Set the handled_at timestamp if not already set
         if request.handled_at is None:
-            request.handled_at = datetime.now(tz=timezone.utc)
+            request.handled_at = datetime.now(tz=UTC)
 
         if cached_request := self._requests_cache.get(request_id):
             cached_request.was_already_handled = request.was_already_handled
@@ -260,9 +308,9 @@ class ApifyRequestQueueSharedClient:
                 processed_request = await self._update_request(request, forefront=forefront)
                 processed_request.unique_key = request.unique_key
 
-                # If the request was previously handled, decrement our handled count since
-                # we're putting it back for processing.
-                if request.was_already_handled and not processed_request.was_already_handled:
+                # The platform reports the request's state before this update via `was_already_handled`. If it was
+                # handled, this update moved it from handled back to pending, so mirror that in the local metadata.
+                if processed_request.was_already_handled:
                     self.metadata.handled_request_count -= 1
                     self.metadata.pending_request_count += 1
 
@@ -290,8 +338,18 @@ class ApifyRequestQueueSharedClient:
         # Check _list_head.
         # Without the lock the `is_empty` is prone to falsely report True with some low probability race condition.
         async with self._fetch_lock:
-            head = await self._list_head(limit=1)
-            return len(head.items) == 0 and not self._queue_has_locked_requests
+            return await self._is_empty()
+
+    async def is_finished(self) -> bool:
+        """Specific implementation of this method for the RQ shared access mode."""
+        async with self._fetch_lock:
+            # Order of operations is important here, because affects on `_queue_has_locked_requests`.
+            return await self._is_empty() and not self._queue_has_locked_requests
+
+    async def _is_empty(self) -> bool:
+        """Check whether anything is available to fetch. Lock-free core of `is_empty`, caller must hold the lock."""
+        head = await self._list_head(limit=1)
+        return len(head.items) == 0
 
     async def _get_metadata_estimate(self) -> RequestQueueMetadata:
         """Try to get cached metadata first. If multiple clients, fuse with global metadata.
@@ -312,7 +370,7 @@ class ApifyRequestQueueSharedClient:
         if response is None:
             return None
 
-        return Request.model_validate(response)
+        return to_crawlee_request(response)
 
     async def _ensure_head_is_non_empty(self) -> None:
         """Ensure that the queue head has requests if they are available in the queue."""
@@ -388,7 +446,7 @@ class ApifyRequestQueueSharedClient:
         )
 
         return ProcessedRequest.model_validate(
-            {'uniqueKey': request.unique_key} | response,
+            {'uniqueKey': request.unique_key} | response.model_dump(by_alias=True),
         )
 
     async def _list_head(
@@ -431,19 +489,19 @@ class ApifyRequestQueueSharedClient:
             self._should_check_for_forefront_requests = False
 
         # Otherwise fetch from API
-        response = await self._api_client.list_and_lock_head(
-            lock_secs=int(self._DEFAULT_LOCK_TIME.total_seconds()),
+        locked_queue_head = await self._api_client.list_and_lock_head(
+            lock_duration=self._DEFAULT_LOCK_TIME,
             limit=limit,
         )
 
         # Update the queue head cache
-        self._queue_has_locked_requests = response.get('queueHasLockedRequests', False)
+        self._queue_has_locked_requests = locked_queue_head.queue_has_locked_requests
         # Check if there is another client working with the RequestQueue
-        self.metadata.had_multiple_clients = response.get('hadMultipleClients', False)
+        self.metadata.had_multiple_clients = locked_queue_head.had_multiple_clients
 
-        for request_data in response.get('items', []):
-            request = Request.model_validate(request_data)
-            request_id = request_data.get('id')
+        for request_data in locked_queue_head.items:
+            request = to_crawlee_request(request_data)
+            request_id = request_data.id
 
             # Skip requests without ID or unique key
             if not request.unique_key or not request_id:
@@ -473,7 +531,7 @@ class ApifyRequestQueueSharedClient:
             # After adding new requests to the forefront, any existing leftover locked request is kept in the end.
             self._queue_head.append(leftover_id)
 
-        return RequestQueueHead.model_validate(response)
+        return RequestQueueHead.from_client_locked_head(locked_queue_head)
 
     def _cache_request(
         self,

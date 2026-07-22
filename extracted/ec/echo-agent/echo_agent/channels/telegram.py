@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import os
 import time
+from pathlib import Path
 from typing import Any
 
 import aiohttp
@@ -21,6 +24,42 @@ _MAX_TEXT = 4096
 _RECONNECT_BACKOFFS = [2, 5, 10, 30, 60]
 
 
+def _offset_path(data_dir: Path, bot_id: str) -> Path:
+    return data_dir / f"{bot_id}.offset.json"
+
+
+def _load_offset(data_dir: Path, bot_id: str) -> int:
+    """Read the persisted long-poll offset for this bot.
+
+    Returns 0 for any non-happy path — no saved state, unreadable file, or
+    structurally wrong JSON (e.g. a top-level list instead of an object). The
+    file is keyed by ``bot_id`` (the filename), so a different bot naturally
+    reads a different file and a token rotation on the *same* bot keeps its
+    offset; there is no token check to get wrong."""
+    path = _offset_path(data_dir, bot_id)
+    if not path.exists():
+        return 0
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return int(data["offset"])
+    except (OSError, ValueError, TypeError, KeyError) as e:
+        logger.debug("telegram: failed to load offset, starting from 0: {}", e)
+        return 0
+
+
+def _save_offset(data_dir: Path, bot_id: str, offset: int) -> None:
+    """Persist the offset atomically: write to a temp file then ``os.replace``
+    so a crash mid-write leaves the previous good file intact rather than a
+    truncated one."""
+    path = _offset_path(data_dir, bot_id)
+    tmp = path.with_name(f"{path.name}.tmp")
+    try:
+        tmp.write_text(json.dumps({"offset": offset}), encoding="utf-8")
+        os.replace(tmp, path)
+    except OSError as e:
+        logger.warning("telegram: failed to save offset: {}", e)
+
+
 class TelegramChannel(BaseChannel):
     name = "telegram"
     supports_edit = True
@@ -36,6 +75,8 @@ class TelegramChannel(BaseChannel):
         self._group_policy = config.group_policy
         self._bot_id: str = ""
         self._bot_username: str = ""
+        data_dir = config.data_dir or os.path.expanduser("~/.echo-agent/data/telegram")
+        self._data_dir = Path(data_dir)
 
     async def start(self) -> None:
         connector = None
@@ -48,6 +89,20 @@ class TelegramChannel(BaseChannel):
             self._bot_id = str(me.get("id", ""))
             self._bot_username = me.get("username", "")
             logger.info("Telegram bot: @{}", self._bot_username)
+        # Restore the persisted long-poll offset so a restart does not re-pull
+        # (and re-answer) updates the previous process already acknowledged. The
+        # offset file is keyed by bot_id, so if getMe failed (network hiccup) we
+        # have no key: skip persistence for this process and start from 0 —
+        # Telegram will re-deliver the last unacked window, favouring re-answer
+        # over silent loss.
+        if self._bot_id:
+            try:
+                self._data_dir.mkdir(parents=True, exist_ok=True)
+            except OSError as e:
+                logger.warning("telegram: cannot create offset dir {}: {}", self._data_dir, e)
+            self._offset = _load_offset(self._data_dir, self._bot_id)
+        else:
+            logger.warning("telegram: getMe failed, offset persistence disabled this run")
         self._running = True
         self.bus.subscribe_outbound(self.name, self.send)
         self._poll_task = asyncio.create_task(self._poll_loop())
@@ -191,6 +246,12 @@ class TelegramChannel(BaseChannel):
                 for update in updates:
                     self._offset = update["update_id"] + 1
                     await self._process_update(update)
+                # Persist once per batch (not per update) to bound disk I/O;
+                # the offset advances even if a single update fails to process,
+                # matching Telegram's long-poll semantics (fetching offset N acks
+                # everything below it upstream).
+                if self._bot_id:
+                    _save_offset(self._data_dir, self._bot_id, self._offset)
             except asyncio.CancelledError:
                 break
             except Exception as e:

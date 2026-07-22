@@ -1,9 +1,12 @@
+import datetime
+
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
-from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Mapping, Optional as _Optional, Union as _Union
+from collections.abc import Iterable as _Iterable, Mapping as _Mapping
+from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
@@ -79,7 +82,7 @@ class ConfigurationFormResponse(_message.Message):
     def __init__(self, schema_selection_supported: bool = ..., table_selection_supported: bool = ..., fields: _Optional[_Iterable[_Union[FormField, _Mapping]]] = ..., tests: _Optional[_Iterable[_Union[ConfigurationTest, _Mapping]]] = ...) -> None: ...
 
 class FormField(_message.Message):
-    __slots__ = ("name", "label", "required", "description", "text_field", "dropdown_field", "toggle_field", "conditional_fields", "default_value", "placeholder")
+    __slots__ = ("name", "label", "required", "description", "text_field", "dropdown_field", "toggle_field", "conditional_fields", "upload_field", "descriptive_dropdown_fields", "default_value", "placeholder")
     NAME_FIELD_NUMBER: _ClassVar[int]
     LABEL_FIELD_NUMBER: _ClassVar[int]
     REQUIRED_FIELD_NUMBER: _ClassVar[int]
@@ -88,6 +91,8 @@ class FormField(_message.Message):
     DROPDOWN_FIELD_FIELD_NUMBER: _ClassVar[int]
     TOGGLE_FIELD_FIELD_NUMBER: _ClassVar[int]
     CONDITIONAL_FIELDS_FIELD_NUMBER: _ClassVar[int]
+    UPLOAD_FIELD_FIELD_NUMBER: _ClassVar[int]
+    DESCRIPTIVE_DROPDOWN_FIELDS_FIELD_NUMBER: _ClassVar[int]
     DEFAULT_VALUE_FIELD_NUMBER: _ClassVar[int]
     PLACEHOLDER_FIELD_NUMBER: _ClassVar[int]
     name: str
@@ -98,9 +103,35 @@ class FormField(_message.Message):
     dropdown_field: DropdownField
     toggle_field: ToggleField
     conditional_fields: ConditionalFields
+    upload_field: UploadField
+    descriptive_dropdown_fields: DescriptiveDropDownFields
     default_value: str
     placeholder: str
-    def __init__(self, name: _Optional[str] = ..., label: _Optional[str] = ..., required: bool = ..., description: _Optional[str] = ..., text_field: _Optional[_Union[TextField, str]] = ..., dropdown_field: _Optional[_Union[DropdownField, _Mapping]] = ..., toggle_field: _Optional[_Union[ToggleField, _Mapping]] = ..., conditional_fields: _Optional[_Union[ConditionalFields, _Mapping]] = ..., default_value: _Optional[str] = ..., placeholder: _Optional[str] = ...) -> None: ...
+    def __init__(self, name: _Optional[str] = ..., label: _Optional[str] = ..., required: bool = ..., description: _Optional[str] = ..., text_field: _Optional[_Union[TextField, str]] = ..., dropdown_field: _Optional[_Union[DropdownField, _Mapping]] = ..., toggle_field: _Optional[_Union[ToggleField, _Mapping]] = ..., conditional_fields: _Optional[_Union[ConditionalFields, _Mapping]] = ..., upload_field: _Optional[_Union[UploadField, _Mapping]] = ..., descriptive_dropdown_fields: _Optional[_Union[DescriptiveDropDownFields, _Mapping]] = ..., default_value: _Optional[str] = ..., placeholder: _Optional[str] = ...) -> None: ...
+
+class DescriptiveDropDownFields(_message.Message):
+    __slots__ = ("descriptive_dropdown_field",)
+    DESCRIPTIVE_DROPDOWN_FIELD_FIELD_NUMBER: _ClassVar[int]
+    descriptive_dropdown_field: _containers.RepeatedCompositeFieldContainer[DescriptiveDropDownField]
+    def __init__(self, descriptive_dropdown_field: _Optional[_Iterable[_Union[DescriptiveDropDownField, _Mapping]]] = ...) -> None: ...
+
+class DescriptiveDropDownField(_message.Message):
+    __slots__ = ("value", "label", "description")
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    LABEL_FIELD_NUMBER: _ClassVar[int]
+    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+    value: str
+    label: str
+    description: str
+    def __init__(self, value: _Optional[str] = ..., label: _Optional[str] = ..., description: _Optional[str] = ...) -> None: ...
+
+class UploadField(_message.Message):
+    __slots__ = ("allowed_file_type", "max_file_size_bytes")
+    ALLOWED_FILE_TYPE_FIELD_NUMBER: _ClassVar[int]
+    MAX_FILE_SIZE_BYTES_FIELD_NUMBER: _ClassVar[int]
+    allowed_file_type: _containers.RepeatedScalarFieldContainer[str]
+    max_file_size_bytes: int
+    def __init__(self, allowed_file_type: _Optional[_Iterable[str]] = ..., max_file_size_bytes: _Optional[int] = ...) -> None: ...
 
 class ConditionalFields(_message.Message):
     __slots__ = ("condition", "fields")
@@ -233,7 +264,7 @@ class ValueType(_message.Message):
     json: str
     xml: str
     naive_time: _timestamp_pb2.Timestamp
-    def __init__(self, null: bool = ..., bool: bool = ..., short: _Optional[int] = ..., int: _Optional[int] = ..., long: _Optional[int] = ..., float: _Optional[float] = ..., double: _Optional[float] = ..., naive_date: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., naive_datetime: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., utc_datetime: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., decimal: _Optional[str] = ..., binary: _Optional[bytes] = ..., string: _Optional[str] = ..., json: _Optional[str] = ..., xml: _Optional[str] = ..., naive_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
+    def __init__(self, null: bool = ..., bool: bool = ..., short: _Optional[int] = ..., int: _Optional[int] = ..., long: _Optional[int] = ..., float: _Optional[float] = ..., double: _Optional[float] = ..., naive_date: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., naive_datetime: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., utc_datetime: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., decimal: _Optional[str] = ..., binary: _Optional[bytes] = ..., string: _Optional[str] = ..., json: _Optional[str] = ..., xml: _Optional[str] = ..., naive_time: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
 
 class Table(_message.Message):
     __slots__ = ("name", "columns")

@@ -6,7 +6,7 @@ import threading
 import time
 from collections.abc import Callable
 from enum import IntEnum, StrEnum
-from typing import Any, ClassVar
+from typing import Any, ClassVar, NotRequired, TypedDict, Unpack
 
 from typing_extensions import deprecated
 
@@ -28,11 +28,14 @@ from .security import (
 
 MIN_AUTH_RESPONSE = 20
 MIN_MSG_LENGTH = 56
+MESSAGE_TYPE_INDEX = 9  # offset of the message-type byte in the 10-byte header
 MIN_V2_FACTUAL_MSG_LENGTH = 6
 RESPONSE_TIMEOUT = 12  # main loop socket recv timeout, 12 * 10s = 120s
 SOCKET_TIMEOUT = 10  # socket connection default timeout
-QUERY_TIMEOUT = 2  # query response in 1s, 0xAC have more queries, set to 2s
-
+# fix https://github.com/wuwentao/midea_ac_lan/issues/658#issuecomment-4555804288
+QUERY_TIMEOUT = (
+    5  # default is 1s, 0xAC have more queries, set to 2s, latest: increase to 5s
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -64,43 +67,59 @@ class MessageResult(IntEnum):
     ERROR = 99
 
 
+class MideaDeviceInitKwargs(TypedDict):
+    """Connection/identity kwargs forwarded by device subclasses to MideaDevice.
+
+    Every device subclass's ``__init__`` accepts these via ``**kwargs`` and
+    forwards them unchanged to ``MideaDevice.__init__``. Keeping them in one
+    place means adding a field here (e.g. ``mac``, ``serial_number``) is
+    enough for every subclass to accept and forward it, with no per-subclass
+    signature changes required.
+    """
+
+    name: str
+    device_id: int
+    ip_address: str
+    port: int
+    token: str
+    key: str
+    device_protocol: ProtocolVersion
+    model: str
+    subtype: int
+    mac: NotRequired[str | None]
+    serial_number: NotRequired[str | None]
+
+
 class MideaDevice(threading.Thread):
     """Midea device."""
 
     def __init__(
         self,
-        name: str,
-        device_id: int,
+        *,
         device_type: DeviceType,
-        ip_address: str,
-        port: int,
-        token: str,
-        key: str,
-        device_protocol: ProtocolVersion,
-        model: str,
-        subtype: int,
         attributes: dict,
+        **kwargs: Unpack[MideaDeviceInitKwargs],
     ) -> None:
         """Midea device initialization."""
         threading.Thread.__init__(self)
         self._attributes = attributes or {}
         self._socket: socket.socket | None = None
-        self._ip_address = ip_address
-        self._port = port
+        self._ip_address = kwargs["ip_address"]
+        self._port = kwargs["port"]
         self._security = LocalSecurity()
-        self._token = bytes.fromhex(token)
-        self._key = bytes.fromhex(key)
+        self._token = bytes.fromhex(kwargs["token"])
+        self._key = bytes.fromhex(kwargs["key"])
         self._buffer = b""
-        self._device_name = name
-        self._device_id = device_id
+        self._device_name = kwargs["name"]
+        self._device_id = kwargs["device_id"]
         self._device_type = device_type
-        self._device_protocol_version = device_protocol
-        self._model = model
-        self._subtype = subtype
+        self._device_protocol_version = kwargs["device_protocol"]
+        self._model = kwargs["model"]
+        self._subtype = kwargs["subtype"]
         self._message_protocol_version: int = 0
         self._updates: list[Callable[[dict[str, Any]], None]] = []
         self._unsupported_protocol: list[str] = []
-        self._is_run = False
+        self._is_run: bool = False
         self._available = False
         self._appliance_query = True
         self._refresh_interval = 30
@@ -109,6 +128,11 @@ class MideaDevice(threading.Thread):
         self._previous_refresh = 0.0
         self._previous_heartbeat = 0.0
         self.name = self._device_name
+        self.set_mac(kwargs.get("mac"))
+        # Discovery may report a fixed-width serial padded with NUL bytes or an
+        # empty ``apc_sn`` attribute; normalize these to None (mirrors set_mac).
+        sn = kwargs.get("serial_number")
+        self._serial_number = (sn.strip("\x00").strip() or None) if sn else None
 
     _fahrenheit_default: ClassVar[bool] = False
 
@@ -184,6 +208,16 @@ class MideaDevice(threading.Thread):
         """Device subtype."""
         return self._subtype
 
+    @property
+    def mac(self) -> str | None:
+        """Device MAC address."""
+        return self._mac
+
+    @property
+    def serial_number(self) -> str | None:
+        """Device serial number."""
+        return self._serial_number
+
     @staticmethod
     def fetch_v2_message(msg: bytes) -> tuple[list, bytes]:
         """Fetch V2 message."""
@@ -223,15 +257,12 @@ class MideaDevice(threading.Thread):
             connected = True
         except TimeoutError:
             _LOGGER.debug("[%s] Connection timed out", self._device_id)
-            self._socket = None
         except OSError:  # refresh_status exception
             _LOGGER.debug("[%s] Connection error", self._device_id)
-            self._socket = None
         except AuthException:  # authenticate exception
             _LOGGER.debug("[%s] Authentication failed", self._device_id)
         except SocketException:  # refresh_status exception
             _LOGGER.debug("[%s] Connect socket exception", self._device_id)
-            self._socket = None
         except NoSupportedProtocol:  # refresh_status exception
             _LOGGER.debug("[%s] No supported query protocol", self._device_id)
         except Exception as e:
@@ -240,7 +271,11 @@ class MideaDevice(threading.Thread):
                 self._device_id,
                 exc_info=e,
             )
-            self._socket = None
+        finally:
+            # Any failure path leaves connected False; release the socket once
+            # here instead of repeating close_socket() in every handler.
+            if not connected:
+                self.close_socket()
         # enable/disable device in init connection
         if check_protocol:
             self.set_available(connected)
@@ -436,7 +471,18 @@ class MideaDevice(threading.Thread):
 
     def pre_process_message(self, msg: bytearray) -> bool:
         """Pre process message."""
-        if msg[9] == MessageType.query_appliance:
+        if len(msg) <= MESSAGE_TYPE_INDEX:
+            # Some devices answer a query with a payload shorter than the
+            # header (observed: a 4-byte `01000000` from a 0xFA tower fan).
+            # Indexing blindly raises IndexError, which aborts the whole status
+            # parse and leaves every entity stuck at its last value.
+            _LOGGER.debug(
+                "[%s] Ignoring short message: %s",
+                self._device_id,
+                msg.hex(),
+            )
+            return False
+        if msg[MESSAGE_TYPE_INDEX] == MessageType.query_appliance:
             message = MessageApplianceResponse(msg)
             self._appliance_query = False
             _LOGGER.debug("[%s] Appliance query Received: %s", self._device_id, message)
@@ -613,6 +659,16 @@ class MideaDevice(threading.Thread):
             self._is_run = False
             self.close_socket()
 
+    def _should_run(self) -> bool:
+        """Return whether the service loop should keep running.
+
+        ``_is_run`` is flipped to False from another thread by ``close()``.
+        Reading it through this method (instead of the bare attribute) keeps
+        the loop-exit checks reachable to static analysis, which would
+        otherwise narrow the attribute to True inside the loop.
+        """
+        return self._is_run
+
     def close_socket(self) -> None:
         """Close socket."""
         self._unsupported_protocol = []
@@ -620,6 +676,15 @@ class MideaDevice(threading.Thread):
         if self._socket:
             try:
                 self._socket.shutdown(socket.SHUT_RDWR)
+            except OSError as e:
+                # shutdown() raises ENOTCONN if the peer already went away;
+                # that's fine, we still close() below.
+                _LOGGER.debug(
+                    "[%s] Error while shutting down socket: %s",
+                    self._device_id,
+                    e,
+                )
+            try:
                 self._socket.close()
                 _LOGGER.debug("[%s] Socket closed", self._device_id)
             except OSError as e:
@@ -633,6 +698,10 @@ class MideaDevice(threading.Thread):
             _LOGGER.debug("[%s] Update IP address to %s", self._device_id, ip_address)
             self._ip_address = ip_address
             self.close_socket()
+
+    def set_mac(self, mac: str | None) -> None:
+        """Set MAC."""
+        self._mac = mac or None
 
     def set_refresh_interval(self, refresh_interval: int) -> None:
         """Set refresh interval."""
@@ -652,9 +721,12 @@ class MideaDevice(threading.Thread):
         """Connect loop until device online."""
         # connect loop until online
         connection_retries = 0
-        while self._socket is None:
+        while self._socket is None and self._is_run:
             _LOGGER.debug("[%s] Socket is None, try to connect", self._device_id)
-            if self.connect(check_protocol=True) is False:
+            # Re-check _should_run(): close() may have requested shutdown after
+            # the while guard was evaluated, so skip opening a socket / network
+            # I/O once teardown is in progress.
+            if self._should_run() and self.connect(check_protocol=True) is False:
                 self.close_socket()
                 connection_retries += 1
                 # Sleep time with exponential backoff, maximum 600 seconds
@@ -665,7 +737,10 @@ class MideaDevice(threading.Thread):
                     sleep_time,
                 )
                 # sleep and reconnect loop until device online
-                time.sleep(sleep_time)
+                for _ in range(sleep_time):
+                    if not self._should_run():
+                        break
+                    time.sleep(1)
 
     def run(self) -> None:
         """Run loop brief description.
@@ -697,6 +772,8 @@ class MideaDevice(threading.Thread):
         while self._is_run:
             # connect loop until device online
             self._connect_loop()
+            if not self._should_run():
+                break
             # socket recv msg timeout counter
             timeout_counter = 0
             start = time.time()

@@ -184,8 +184,8 @@ fn search_loaded_only_false_returns_executable_next_step() {
 #[test]
 fn search_and_describe_surface_safety_and_execution_metadata() {
     let mut action = sphere_action(true);
-    action.action_name = "app_ui__act".into();
-    action.skill_name = "app-ui".into();
+    action.action_name = "ui_control__act".into();
+    action.skill_name = "ui-control".into();
     action.annotations.read_only_hint = Some(false);
     action.annotations.destructive_hint = Some(false);
     action.annotations.idempotent_hint = Some(false);
@@ -193,7 +193,7 @@ fn search_and_describe_surface_safety_and_execution_metadata() {
     let (svc, _) = build_service(vec![action]);
 
     let search = svc.search(&SearchRequest {
-        query: Some("app_ui".into()),
+        query: Some("ui_control".into()),
         ..Default::default()
     });
     let hit = &search.hits[0];
@@ -212,6 +212,21 @@ fn search_and_describe_surface_safety_and_execution_metadata() {
     assert_eq!(desc.annotations["readOnlyHint"], false);
     assert_eq!(desc.metadata.as_ref().unwrap()["dcc"]["execution"], "sync");
     assert_eq!(desc.metadata.as_ref().unwrap()["dcc"]["risk"], "mutation");
+}
+
+#[test]
+fn timeout_hinted_sync_action_uses_async_rest_dispatch() {
+    let mut action = sphere_action(true);
+    action.timeout_hint_secs = Some(5);
+
+    assert!(super::should_dispatch_async(None, &action));
+}
+
+#[test]
+fn short_sync_action_keeps_sync_rest_dispatch() {
+    let action = sphere_action(true);
+
+    assert!(!super::should_dispatch_async(None, &action));
 }
 
 #[test]

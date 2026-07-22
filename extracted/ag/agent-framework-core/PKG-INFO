@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agent-framework-core
-Version: 1.11.0
+Version: 1.12.0
 Summary: Microsoft Agent Framework for building AI Agents with Python. This is the core package that has all the core abstractions and implementations.
 Author-email: Microsoft <af-support@microsoft.com>
 Requires-Python: >=3.10
@@ -25,6 +25,7 @@ Requires-Dist: agent-framework-a2a ; extra == "all"
 Requires-Dist: agent-framework-ag-ui ; extra == "all"
 Requires-Dist: agent-framework-anthropic ; extra == "all"
 Requires-Dist: agent-framework-azure-ai-search ; extra == "all"
+Requires-Dist: agent-framework-azure-contentunderstanding ; extra == "all"
 Requires-Dist: agent-framework-azure-cosmos ; extra == "all"
 Requires-Dist: agent-framework-azurefunctions ; extra == "all"
 Requires-Dist: agent-framework-bedrock ; extra == "all"
@@ -35,16 +36,21 @@ Requires-Dist: agent-framework-declarative ; extra == "all"
 Requires-Dist: agent-framework-devui ; extra == "all"
 Requires-Dist: agent-framework-durabletask ; extra == "all"
 Requires-Dist: agent-framework-foundry ; extra == "all"
+Requires-Dist: agent-framework-foundry-hosting ; extra == "all"
 Requires-Dist: agent-framework-foundry-local ; extra == "all"
+Requires-Dist: agent-framework-gemini ; extra == "all"
 Requires-Dist: agent-framework-github-copilot ; extra == "all" and ( python_version >= '3.11')
 Requires-Dist: agent-framework-hyperlight ; extra == "all" and ( ((sys_platform == 'linux' and platform_machine == 'x86_64') or (sys_platform == 'win32' and platform_machine == 'AMD64')) and python_version < '3.14')
 Requires-Dist: agent-framework-lab ; extra == "all"
 Requires-Dist: agent-framework-mem0 ; extra == "all"
+Requires-Dist: agent-framework-mistral ; extra == "all"
+Requires-Dist: agent-framework-monty ; extra == "all"
 Requires-Dist: agent-framework-ollama ; extra == "all"
 Requires-Dist: agent-framework-openai ; extra == "all"
 Requires-Dist: agent-framework-orchestrations ; extra == "all"
 Requires-Dist: agent-framework-purview ; extra == "all"
 Requires-Dist: agent-framework-redis ; extra == "all"
+Requires-Dist: agent-framework-tools ; extra == "all"
 Project-URL: homepage, https://aka.ms/agent-framework
 Project-URL: issues, https://github.com/microsoft/agent-framework/issues
 Project-URL: release_notes, https://github.com/microsoft/agent-framework/releases?q=tag%3Apython-1&expanded=true
@@ -67,7 +73,7 @@ Highlights
 
 ```bash
 pip install agent-framework-core
-# Optional: Add Azure AI Foundry integration
+# Optional: Add Microsoft Foundry integration
 pip install agent-framework-foundry
 # Optional: Add OpenAI integration
 pip install agent-framework-openai

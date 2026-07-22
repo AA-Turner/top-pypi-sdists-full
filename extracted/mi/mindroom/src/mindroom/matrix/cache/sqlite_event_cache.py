@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import sqlite3
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -15,6 +16,7 @@ from mindroom.logging_config import get_logger
 
 from . import sqlite_event_cache_events, sqlite_event_cache_threads
 from .event_batching import group_lookup_events_by_room
+from .event_cache import EventCacheBackendUnavailableError
 from .event_normalization import normalize_event_source_for_cache
 from .sqlite_agent_message_snapshot import load_sqlite_agent_message_snapshot
 from .sqlite_cache_maintenance import (
@@ -51,7 +53,16 @@ _EVENT_CACHE_TABLES = (
 _REQUIRED_EVENT_CACHE_TABLES = frozenset(_EVENT_CACHE_TABLES)
 _DEFAULT_PRINCIPAL_ID = "__mindroom_default_principal__"
 _PRINCIPAL_PURGE_LOCK_SCOPE = "__mindroom_principal_purge__"
+_DEFAULT_BUSY_TIMEOUT = "PRAGMA busy_timeout=5000"
+_FAIL_FAST_BUSY_TIMEOUT = "PRAGMA busy_timeout=0"
 _T = TypeVar("_T")
+
+
+def _is_sqlite_lock_contention(exc: sqlite3.OperationalError) -> bool:
+    """Return whether SQLite rejected an operation because another writer owns the database."""
+    error_name = getattr(exc, "sqlite_errorname", None)
+    return isinstance(error_name, str) and error_name.startswith(("SQLITE_BUSY", "SQLITE_LOCKED"))
+
 
 logger = get_logger(__name__)
 
@@ -86,6 +97,15 @@ async def _rollback_sqlite_connection_best_effort(db: aiosqlite.Connection, *, o
         )
 
 
+async def _begin_immediate_read(db: aiosqlite.Connection) -> None:
+    """Reserve the writer without waiting, then restore the normal write timeout."""
+    await db.execute(_FAIL_FAST_BUSY_TIMEOUT)
+    try:
+        await db.execute("BEGIN IMMEDIATE")
+    finally:
+        await db.execute(_DEFAULT_BUSY_TIMEOUT)
+
+
 async def _initialize_event_cache_db(
     db_path: Path,
 ) -> tuple[aiosqlite.Connection, CacheMaintenanceReport, str]:
@@ -94,7 +114,7 @@ async def _initialize_event_cache_db(
     db = await aiosqlite.connect(db_path)
     try:
         await db.execute("PRAGMA journal_mode=WAL")
-        await db.execute("PRAGMA busy_timeout=5000")
+        await db.execute(_DEFAULT_BUSY_TIMEOUT)
         await db.execute("BEGIN IMMEDIATE")
         (
             migrated_from_schema_version,
@@ -402,6 +422,7 @@ class _SqliteEventCacheRuntime:
         self._pending_principal_purges: set[str] = set()
         self._departed_rooms: set[tuple[str, str]] = set()
         self._room_departure_epochs: dict[tuple[str, str], int] = {}
+        self._read_contention_count = 0
 
     @property
     def db_path(self) -> Path:
@@ -437,6 +458,15 @@ class _SqliteEventCacheRuntime:
     def certification_generation(self) -> str | None:
         """Return the durable generation bound to certified sync checkpoints."""
         return self._certification_generation
+
+    @property
+    def read_contention_count(self) -> int:
+        """Return the number of reads rejected because another writer owned storage."""
+        return self._read_contention_count
+
+    def record_read_contention(self) -> None:
+        """Record one fail-closed read miss caused by SQLite lock contention."""
+        self._read_contention_count += 1
 
     def disable(self, reason: str) -> None:
         """Disable the advisory cache for the rest of the runtime."""
@@ -598,6 +628,7 @@ class SqliteEventCache:
             self._runtime.is_initialized
             and not self._runtime.is_disabled
             and not self._runtime.is_principal_disabled(self.principal_id)
+            and not self._runtime.has_pending_principal_purge(self.principal_id)
         )
 
     @property
@@ -628,6 +659,7 @@ class SqliteEventCache:
                 self.principal_id,
             ),
             "cache_sqlite_departed_room_count": len(self._runtime.departed_room_ids(self.principal_id)),
+            "cache_sqlite_read_contention_count": self._runtime.read_contention_count,
             "cache_certification_generation_present": self.cache_generation is not None,
         }
         if self._runtime.disabled_reason is not None:
@@ -690,7 +722,7 @@ class SqliteEventCache:
                 return disabled_result
             pending_principal_purge = self._runtime.has_pending_principal_purge(self.principal_id)
             try:
-                await db.execute("BEGIN IMMEDIATE")
+                await _begin_immediate_read(db)
                 if pending_principal_purge:
                     await sqlite_event_cache_events.purge_principal_locked(
                         db,
@@ -705,6 +737,16 @@ class SqliteEventCache:
                     )
                     result = disabled_result if membership_state != "joined" else await reader(db)
                 await db.commit()
+            except sqlite3.OperationalError as exc:
+                await _rollback_sqlite_connection_best_effort(db, operation=operation)
+                if _is_sqlite_lock_contention(exc):
+                    self._runtime.record_read_contention()
+                    logger.debug(
+                        "SQLite event cache read skipped because another writer owns storage",
+                        operation=operation,
+                    )
+                    return disabled_result
+                raise
             except BaseException:
                 await _rollback_sqlite_connection_best_effort(db, operation=operation)
                 raise
@@ -1067,32 +1109,46 @@ class SqliteEventCache:
 
     async def mark_thread_stale(self, room_id: str, thread_id: str, *, reason: str) -> None:
         """Persist one durable thread invalidation marker."""
-        await self._write_operation(
-            room_id,
-            operation="mark_thread_stale",
-            disabled_result=None,
-            writer=lambda db: sqlite_event_cache_threads.mark_thread_stale_locked(
-                db,
-                principal_id=self.principal_id,
-                room_id=room_id,
-                thread_id=thread_id,
-                reason=reason,
-            ),
-        )
+        try:
+            await self._write_operation(
+                room_id,
+                operation="mark_thread_stale",
+                disabled_result=None,
+                writer=lambda db: sqlite_event_cache_threads.mark_thread_stale_locked(
+                    db,
+                    principal_id=self.principal_id,
+                    room_id=room_id,
+                    thread_id=thread_id,
+                    reason=reason,
+                ),
+            )
+        except sqlite3.OperationalError as exc:
+            if not _is_sqlite_lock_contention(exc):
+                raise
+            self._runtime.record_pending_principal_purge(self.principal_id)
+            msg = "SQLite event cache unavailable while marking thread stale"
+            raise EventCacheBackendUnavailableError(msg) from exc
 
     async def mark_room_threads_stale(self, room_id: str, *, reason: str) -> None:
         """Persist a durable invalidate-and-refetch marker for every cached thread in one room."""
-        await self._write_operation(
-            room_id,
-            operation="mark_room_threads_stale",
-            disabled_result=None,
-            writer=lambda db: sqlite_event_cache_threads.mark_room_stale_locked(
-                db,
-                principal_id=self.principal_id,
-                room_id=room_id,
-                reason=reason,
-            ),
-        )
+        try:
+            await self._write_operation(
+                room_id,
+                operation="mark_room_threads_stale",
+                disabled_result=None,
+                writer=lambda db: sqlite_event_cache_threads.mark_room_stale_locked(
+                    db,
+                    principal_id=self.principal_id,
+                    room_id=room_id,
+                    reason=reason,
+                ),
+            )
+        except sqlite3.OperationalError as exc:
+            if not _is_sqlite_lock_contention(exc):
+                raise
+            self._runtime.record_pending_principal_purge(self.principal_id)
+            msg = "SQLite event cache unavailable while marking room stale"
+            raise EventCacheBackendUnavailableError(msg) from exc
 
     async def append_event(self, room_id: str, thread_id: str, event: dict[str, Any]) -> bool:
         """Append one event when the thread already has cached data."""
@@ -1210,9 +1266,6 @@ class SqliteEventCache:
         """Remove a departure fence only after any pending purge commits."""
         if self.room_departure_epoch(room_id) != expected_departure_epoch:
             return
-        if not self.durable_writes_available:
-            return
-
         if self._runtime.has_pending_room_purge(self.principal_id, room_id):
             await self._write_operation(
                 room_id,
@@ -1221,6 +1274,8 @@ class SqliteEventCache:
                 writer=_noop_write,
                 allow_departed=True,
             )
+        if not self.durable_writes_available:
+            return
         if self._runtime.has_pending_room_purge(self.principal_id, room_id):
             return
 

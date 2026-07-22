@@ -9,7 +9,7 @@ from airbyte_ops_mcp.github_actions import (
 )
 from airbyte_ops_mcp.github_api import PRHeadInfo
 from airbyte_ops_mcp.human_in_the_loop import dispatch_escalation
-from airbyte_ops_mcp.mcp.github_actions import trigger_ci_workflow
+from airbyte_ops_mcp.mcp.github_ops import trigger_ci_workflow
 
 
 @pytest.mark.unit
@@ -34,8 +34,8 @@ def test_resolve_default_workflow_branch_uses_override(
 
 
 @pytest.mark.unit
-@patch("airbyte_ops_mcp.mcp.github_actions.trigger_workflow_dispatch")
-@patch("airbyte_ops_mcp.mcp.github_actions.resolve_ci_trigger_github_token")
+@patch("airbyte_ops_mcp.mcp.github_ops.trigger_workflow_dispatch")
+@patch("airbyte_ops_mcp.mcp.github_ops.resolve_ci_trigger_github_token")
 def test_trigger_ci_workflow_uses_branch_override_when_ref_omitted(
     mock_token: MagicMock,
     mock_dispatch: MagicMock,
@@ -61,8 +61,8 @@ def test_trigger_ci_workflow_uses_branch_override_when_ref_omitted(
 
 
 @pytest.mark.unit
-@patch("airbyte_ops_mcp.mcp.github_actions.trigger_workflow_dispatch")
-@patch("airbyte_ops_mcp.mcp.github_actions.resolve_ci_trigger_github_token")
+@patch("airbyte_ops_mcp.mcp.github_ops.trigger_workflow_dispatch")
+@patch("airbyte_ops_mcp.mcp.github_ops.resolve_ci_trigger_github_token")
 def test_trigger_ci_workflow_explicit_ref_beats_branch_override(
     mock_token: MagicMock,
     mock_dispatch: MagicMock,
@@ -87,9 +87,9 @@ def test_trigger_ci_workflow_explicit_ref_beats_branch_override(
 
 
 @pytest.mark.unit
-@patch("airbyte_ops_mcp.mcp.github_actions.trigger_workflow_dispatch")
-@patch("airbyte_ops_mcp.mcp.github_actions.get_pr_head_ref")
-@patch("airbyte_ops_mcp.mcp.github_actions.resolve_ci_trigger_github_token")
+@patch("airbyte_ops_mcp.mcp.github_ops.trigger_workflow_dispatch")
+@patch("airbyte_ops_mcp.mcp.github_ops.get_pr_head_ref")
+@patch("airbyte_ops_mcp.mcp.github_ops.resolve_ci_trigger_github_token")
 def test_trigger_ci_workflow_pr_ref_beats_branch_override(
     mock_token: MagicMock,
     mock_get_pr_head_ref: MagicMock,

@@ -6,7 +6,17 @@ from pydantic import Field as FieldInfo
 
 from .._models import BaseModel
 
-__all__ = ["ConnectionGetByIDResponse"]
+__all__ = ["ConnectionGetByIDResponse", "LastSyncRun"]
+
+
+class LastSyncRun(BaseModel):
+    status: str
+
+    completed_at: Optional[str] = FieldInfo(alias="completedAt", default=None)
+
+    error: Optional[str] = None
+
+    started_at: Optional[str] = FieldInfo(alias="startedAt", default=None)
 
 
 class ConnectionGetByIDResponse(BaseModel):
@@ -23,5 +33,7 @@ class ConnectionGetByIDResponse(BaseModel):
     email: Optional[str] = None
 
     expires_at: Optional[str] = FieldInfo(alias="expiresAt", default=None)
+
+    last_sync_run: Optional[LastSyncRun] = FieldInfo(alias="lastSyncRun", default=None)
 
     metadata: Optional[Dict[str, object]] = None

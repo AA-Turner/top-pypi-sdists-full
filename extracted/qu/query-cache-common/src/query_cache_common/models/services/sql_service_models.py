@@ -49,6 +49,7 @@ class SubmitEnrichedSQLRequest(BaseSerDeModel):
     clone_chain_depth_limit: t.Optional[int] = None
     dbt_node_state: t.Optional[shared_models.DbtNodeState] = None
     default_schema: t.Optional[str] = None
+    compare_unrendered_code: bool = False
 
 
 @proto_dataclass(sql_service_pb2.QueryHashMatchMetadataInfo)

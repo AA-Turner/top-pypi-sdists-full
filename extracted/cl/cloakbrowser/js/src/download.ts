@@ -312,7 +312,9 @@ function showWelcome(pro = false): void {
       `  Running free tier (v${freeMajor}). ` +
         `Pro = latest binary (v${PRO_MAJOR}) + newest anti-bot patches.`,
     );
-    console.error("  Try Pro free for 7 days → https://cloakbrowser.dev");
+    console.error(
+      "  Get Pro for the latest binary + newest patches → https://cloakbrowser.dev",
+    );
   }
   console.error("  Star us if CloakBrowser helps your project!");
   console.error();

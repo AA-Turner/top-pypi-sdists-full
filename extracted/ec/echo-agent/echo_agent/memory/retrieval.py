@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 from echo_agent.memory.types import MemoryEntry, MemoryType, Episode
 from echo_agent.memory.forgetting import ForgettingCurve
 from echo_agent.memory.text import tokenize as _tokenize_shared
+from echo_agent.memory.eligibility import Audience, is_eligible
 
 _RRF_K = 60
 
@@ -52,8 +53,13 @@ class HybridRetriever:
         visibility_fn: Callable[["MemoryEntry", str], bool] | None = None,
         episode_search_fn: Callable[[str, str, int], Awaitable[list[Episode]]] | None = None,
         episode_candidate_limit: int = 10,
+        is_unresolved_fn: Callable[[str], bool] | None = None,
+        min_similarity: float = 0.25,
     ):
         self._entries_fn = entries_fn
+        # No detector wired ⇒ never treat anything as unresolved, so eligibility
+        # filtering can't false-kill live entries when the caller omits it.
+        self._is_unresolved_fn = is_unresolved_fn or (lambda _id: False)
         self._vector_index = vector_index
         self._forgetting = forgetting or ForgettingCurve()
         self._embed_fn = embed_fn
@@ -73,10 +79,18 @@ class HybridRetriever:
         # rather than stalling the reply.
         self._embed_timeout = max(0.1, float(embed_timeout))
         self._embed_timeout_warned = False
+        # Vector similarity floor. _vector_search returns (eid, score) but the
+        # score was previously discarded (only rank was used), so any low-score
+        # vector hit that entered the candidate pool still burned a rank slot and
+        # contributed an RRF term — polluting the real candidates. Hits below
+        # this floor are dropped before rank enumeration. BM25 side has no floor
+        # (BM25 scores are a different scale). Tunable via memory.rrf_min_similarity.
+        self._min_similarity = float(min_similarity)
 
     async def retrieve(
         self, query: str, limit: int = 8,
-        session_key: str = "", mem_type: MemoryType | None = None,
+        memory_scope: str = "", episode_session_key: str = "",
+        mem_type: MemoryType | None = None,
         episodes: list[Episode] | None = None,
     ) -> list[tuple[MemoryEntry | Episode, float]]:
         """混合检索管线：BM25 + 向量相似度 + RRF 融合。
@@ -84,17 +98,27 @@ class HybridRetriever:
         Args:
             query: 检索查询文本
             limit: 返回结果数量上限
-            session_key: 会话标识，用于记忆可见性过滤
+            memory_scope: 记忆可见性作用域，用于语义可见性过滤
+            episode_session_key: 会话键，用于 episode 候选查询
             mem_type: 可选的记忆类型过滤
             episodes: 可选的 Episode 列表，参与统一排序
         Returns:
             按 RRF 分数降序排列的 (记忆条目|Episode, 分数) 列表
         """
         entries = self._entries_fn()
-        if session_key and self._visibility_fn is not None:
-            entries = [e for e in entries if self._visibility_fn(e, session_key)]
+        if memory_scope and self._visibility_fn is not None:
+            entries = [e for e in entries if self._visibility_fn(e, memory_scope)]
         if mem_type is not None:
             entries = [e for e in entries if e.type == mem_type]
+
+        # Unified recall-eligibility gate, applied BEFORE BM25/vector ranking so
+        # superseded/archived/unresolved entries never occupy a rank slot (which
+        # would understate the RRF score of the real top candidate). This is the
+        # authoritative filter; the fusion-loop check below is a second line.
+        entries = [
+            e for e in entries
+            if is_eligible(e, Audience.RETRIEVAL, is_unresolved_fn=self._is_unresolved_fn)
+        ]
 
         # Episodic candidates: use what the caller passed, else assemble them by
         # relevance via the injected search fn (semantic + LIKE fallback). This
@@ -104,7 +128,7 @@ class HybridRetriever:
         if episodes is None and mem_type is None and self._episode_search_fn is not None:
             try:
                 episodes = await self._episode_search_fn(
-                    query, session_key, self._episode_candidate_limit
+                    query, episode_session_key, self._episode_candidate_limit
                 )
             except Exception as e:
                 logger.debug("Episodic candidate search failed: {}", e)
@@ -135,13 +159,16 @@ class HybridRetriever:
         # BEFORE enumerating so surviving candidates get contiguous ranks. If
         # we enumerated first and filtered after, a discarded hit would burn a
         # rank slot and understate the RRF score of the real top candidate.
+        # Also drop hits below self._min_similarity: a low-similarity vector
+        # match must not occupy a rank slot or contribute an RRF term.
         vec_rank_map: dict[str, int] = {}
         if self._vector_index and self._embed_fn:
             vec_results = await self._vector_search(query, pool)
             candidate_ids = {c.id for c in candidates}
             vec_rank_map = {
                 eid: rank for rank, eid in enumerate(
-                    eid for eid, _ in vec_results if eid in candidate_ids
+                    eid for eid, score in vec_results
+                    if eid in candidate_ids and score >= self._min_similarity
                 )
             }
 
@@ -151,7 +178,9 @@ class HybridRetriever:
         scored: list[tuple[MemoryEntry | Episode, float]] = []
         for cid in all_ids:
             candidate = entry_map.get(cid)
-            if candidate is None or candidate.is_superseded:
+            if candidate is None or not is_eligible(
+                candidate, Audience.RETRIEVAL, is_unresolved_fn=self._is_unresolved_fn
+            ):
                 continue
             rrf = 0.0
             if cid in bm25_rank_map:

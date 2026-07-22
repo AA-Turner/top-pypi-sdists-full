@@ -9,10 +9,10 @@ from pyodata.exceptions import PyODataException
 @pytest.fixture
 def complex_type_property_declarations():
     return {
-        'TestString': (Types.parse_type_name('Edm.String'), "'FooBar'", "'FooBar'", 'FooBar'),
+        'TestString': (Types.parse_type_name('Edm.String'), 'FooBar', "'FooBar'", 'FooBar'),
         'TestBoolean': (Types.parse_type_name('Edm.Boolean'), False, 'false', False),
         'TestInt64': (Types.parse_type_name('Edm.Int64'), '123L', '123L', 123),
-        'TestDateTime': (Types.parse_type_name('Edm.DateTime'), "/Date(2147483647000)/", "datetime'2038-01-19T3:14:7'",
+        'TestDateTime': (Types.parse_type_name('Edm.DateTime'), "/Date(2147483647000)/", "datetime'2038-01-19T03:14:07'",
                          datetime.datetime(2038, 1, 19, hour=3, minute=14, second=7, tzinfo=datetime.timezone.utc))
     }
 

@@ -10,9 +10,6 @@ on:
       - v[0-9]+.[0-9]+.[0-9]+
   pull_request:
 
-permissions:
-  contents: write
-
 concurrency:
   group: ${{ github.workflow}}-${{ github.head_ref }}
   cancel-in-progress: true
@@ -27,17 +24,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['3.10', 3.11, 3.12]
+        python-version: [3.11, 3.12, 3.13]
         check-links: [false]
         include:
-          - python-version: 3.13
+          - python-version: 3.14
             check-links: true
     outputs:
       doc-version: ${{ steps.build-docs.outputs.doc-version }}
 
     steps:
     - name: Checkout source
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
       with:
         fetch-depth: 150
 
@@ -68,12 +65,14 @@ jobs:
     runs-on: ubuntu-latest
     env:
       DOC_VERSION: dev
+    permissions:
+      contents: write
 
     steps:
     - name: Download doc build
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       with:
-        name: Linux-3.11-docs
+        name: Linux-3.14-docs
         path: ./docs/build/html
 
     # This overrides the version "dev" with the proper version if we're building off a
@@ -85,7 +84,7 @@ jobs:
     - name: Upload to GitHub Pages
       uses: peaceiris/actions-gh-pages@v4
       with:
-        deploy_key: ${{ secrets.GHPAGES_DEPLOY_KEY }}
+        github_token: ${{ secrets.GITHUB_TOKEN }}
         publish_dir: ./docs/build/html
         exclude_assets: '.buildinfo,_static/jquery-*.js,_static/underscore-*.js'
         destination_dir: ./${{ env.DOC_VERSION }}

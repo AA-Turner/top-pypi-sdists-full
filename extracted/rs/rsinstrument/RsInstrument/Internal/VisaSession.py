@@ -1,14 +1,16 @@
 """Visa Session is an extension of the pure VISA providing higher level of methods regardless of the session kind."""
 
 import time
+import warnings
 from enum import Enum, Flag
-from typing import List, Tuple, Callable, AnyStr
+from typing import List, Tuple, Callable, AnyStr, cast
 import os.path
 import re
 import threading
 
 # noinspection PyPackageRequirements
 import pyvisa
+import pyvisa.constants
 from pyvisa.errors import StatusCode, VisaIOError
 
 from .VisaPluginSocketIo import ResourceManager, SocketIo
@@ -70,10 +72,10 @@ class VisaSession(object):
 
 	def __init__(self, resource_name: str, settings: InstrumentSettings, direct_session=None):
 		self.reusing_session = direct_session is not None
-		# noinspection PyTypeChecker
-		self._data_chunk_size: int = None
+		self._data_chunk_size: int = settings.io_segment_size  # Just a default value, it is assigned later
 		self._std_bin_block_header_max_len: int = 999999999
-		self._lock = None
+		# noinspection PyTypeChecker
+		self._lock: threading.RLock = None  # ty: ignore[invalid-assignment]
 		self._flush_with_tout_tolerance: None | bool = None
 		self.disable_opc_query: bool = settings.disable_opc_query
 		self.last_status = None
@@ -93,11 +95,9 @@ class VisaSession(object):
 		self.cached_to_stream = False
 
 		# Event handlers
-		# noinspection PyTypeChecker
-		self.on_read_chunk_handler: Callable = None
+		self.on_read_chunk_handler: Callable | None = None
 		"""If assigned a handler, the VisaSession sends it event on each read chunk transfer."""
-		# noinspection PyTypeChecker
-		self.on_write_chunk_handler: Callable = None
+		self.on_write_chunk_handler: Callable | None = None
 		"""If assigned a handler, the VisaSession sends it event on each write chunk transfer."""
 		self.io_events_include_data: bool = False
 		"""If true, the VisaSession events sent to on_read_chunk_handler and on_write_chunk_handler contain transferred data."""
@@ -105,7 +105,7 @@ class VisaSession(object):
 		if self.reusing_session:
 			# Reuse the session
 			self._session = VisaSession.get_and_check_direct_session(direct_session)
-			self.resource_name = self._session.resource_name
+			self.resource_name = cast(str, self._session.resource_name)
 		else:
 			# Create new session
 			# Check resource_name for the trailing (SelectVisa=..)
@@ -148,6 +148,7 @@ class VisaSession(object):
 
 		elif self._session.interface_type == pyvisa.constants.InterfaceType.usb:
 			# Check whether it is not the NRP-Z
+			# noinspection PyTypeChecker
 			intf_type = self._session.get_visa_attribute(pyvisa.constants.VI_ATTR_INTF_TYPE)
 			if intf_type == pyvisa.constants.InterfaceType.rsnrp:
 				self._interface_type = SessionKind.rs_nrp
@@ -255,7 +256,7 @@ class VisaSession(object):
 
 	# noinspection SpellCheckingInspection
 	@classmethod
-	def get_resource_manager(cls, visa_select: str) -> pyvisa.ResourceManager:
+	def get_resource_manager(cls, visa_select: str | None) -> pyvisa.ResourceManager:
 		"""Returns resource manager for the desired VISA implementation"""
 		operating_system = platform.system().lower()
 		vsl = None if visa_select is None else visa_select.lower()
@@ -307,6 +308,7 @@ class VisaSession(object):
 		if hasattr(self._rm, 'VisaManufacturerName'):
 			return self._rm.VisaManufacturerName
 		try:
+			# noinspection PyTypeChecker
 			return self._rm.visalib.get_attribute(self._rm.session, pyvisa.constants.VI_ATTR_RSRC_MANF_NAME)[0]
 		except TypeError:
 			return self._rm.visalib.__class__.__name__
@@ -326,12 +328,14 @@ class VisaSession(object):
 		"""Returns the current RLock object."""
 		return self._lock
 
-	def lock_resource(self, timeout: int, requested_key: str | bytes = None) -> bytes | str | None:
-		"""Locks the instrument to prevent it from communicating with other clients."""
+	def lock_resource(self, timeout: int, requested_key: str | bytes | None = None) -> bytes | str | None:
+		"""Locks the instrument to prevent it from communicating with other clients. Returns new shared access key if requested_key is None, otherwise, same value as the requested_key"""
 		if requested_key is None:
 			self._session.lock_excl(timeout)
 			return None
 		else:
+			if isinstance(requested_key, bytes):
+				requested_key = requested_key.decode(self.encoding)
 			return self._session.lock(timeout, requested_key)
 
 	def unlock_resource(self) -> None:
@@ -359,7 +363,7 @@ class VisaSession(object):
 		self._data_chunk_size = int(chunk_size)
 		self._session.chunk_size = int(chunk_size)
 
-	def _resolve_opc_timeout(self, timeout: int) -> int:
+	def _resolve_opc_timeout(self, timeout: int | None) -> int:
 		"""Resolves entered timeout value - if the input value is less than 1, it is replaced with opc_timeout."""
 		if timeout is None or timeout < 1:
 			return self.opc_timeout
@@ -435,6 +439,7 @@ class VisaSession(object):
 			elapsed = self._polling_delay(start)
 			if elapsed > timeout_secs:
 				self._narrow_down_opc_tout_error(command, is_query, timeout)
+			# noinspection PyTypeChecker
 			if end_mask & stb:
 				break
 		return stb
@@ -615,7 +620,15 @@ class VisaSession(object):
 
 	def _read_stb(self) -> StatusByte:
 		"""Calls viReadStb and returns the result."""
-		return StatusByte(self._session.read_stb())
+		try:
+			return StatusByte(self._session.read_stb())
+		except NotImplementedError:
+			warnings.warn(
+				"VISA backend does not implement read_stb(); returning StatusByte(0). "
+				"STB-based OPC synchronization will not work for this session.",
+				stacklevel=2,
+			)
+			return StatusByte(0)
 
 	def clear_before_read(self) -> None:
 		"""Clears IO buffers and the ESR register before reading/writing responses synchronized with *OPC."""
@@ -720,7 +733,13 @@ class VisaSession(object):
 			except Exception:
 				pass
 		else:
-			self._session.clear()
+			try:
+				self._session.clear()
+			except NotImplementedError:
+				warnings.warn(
+					"VISA backend does not implement clear(); skipping viClear.",
+					stacklevel=2,
+				)
 
 	def is_connection_active(self) -> bool:
 		"""Returns true, if the VISA connection is active and the communication with the instrument still works.
@@ -741,7 +760,7 @@ class VisaSession(object):
 		except Exception:
 			return False
 
-	def _write_and_wait_for_opc(self, command: str, is_query: bool, timeout: int) -> StatusByte:
+	def _write_and_wait_for_opc(self, command: str, is_query: bool, timeout: int | None) -> StatusByte:
 		"""Internal method to synchronize a command with OPC timeout.
 		Timeout value 0 means the OPC timeout is used."""
 		timeout = self._resolve_opc_timeout(timeout)
@@ -820,7 +839,7 @@ class VisaSession(object):
 			cmd_bytes += self._term_char.encode(self.encoding)
 		self.write_raw_bytes(cmd_bytes)
 
-	def _read_unknown_len(self, stream: StreamWriter, allow_chunk_events: bool, prepend_data: AnyStr = None) -> None:
+	def _read_unknown_len(self, stream: StreamWriter, allow_chunk_events: bool, prepend_data: AnyStr | None = None) -> None:
 		"""Reads data of unknown length to the provided WriteStream.
 		The read is performed in an incremental chunk steps to optimize memory use (for NRP-Z session it is set to fixed self._data_chunk_size):
 			- The first read is performed with the fixed size of 1024 bytes
@@ -872,16 +891,17 @@ class VisaSession(object):
 		"""Returns True, if the last status signaled that more data is available"""
 		return self.last_status == pyvisa.constants.StatusCode.success_max_count_read
 
-	def _read_str_no_events(self) -> str | None:
+	def _read_str_no_events(self) -> str:
 		"""Reads response from the instrument. The response is then trimmed for trailing LF. \n
 		Sending of any read events is blocked."""
 		if self.read_delay > 0:
 			time.sleep(self.read_delay / 1000)
 		stream = StreamWriter.as_string_var()
 		self._read_unknown_len(stream, False)
+		# noinspection PyTypeChecker
 		return stream.content
 
-	def _query_str_no_events(self, query: str, allow_tout_error_narrow_down: bool = True) -> str | None:
+	def _query_str_no_events(self, query: str, allow_tout_error_narrow_down: bool = True) -> str:
 		"""Queries the instrument and reads the response as string.
 		The length of the string is not limited. The response is then trimmed for trailing LF.
 		Sending of any read events is blocked. Use this method for all the service VisaSession queries."""
@@ -911,11 +931,13 @@ class VisaSession(object):
 			response = self._read_str_timed(timeout, False)
 		except pyvisa.VisaIOError:
 			self._narrow_down_io_tout_error(f"Query with timeout {timeout} ms '{query.rstrip(self._term_char)}' - ", timeout)
+		# noinspection PyTypeChecker
 		return response
 
 	def _read_str_timed(self, timeout: int, suppress_read_tout: bool = False) -> str | None:
 		"""Reads response from the instrument with a VISA timeout temporarily set for the read.
 		The VISA timeout is set back to the previous value before the method finishes even if an exception occurs.
+		if suppress_read_tout is set to True, the method in case of timeout returns None and does not raise the exception.
 		Sending of any read events is blocked."""
 		old_visa_tout = self.visa_timeout
 		if suppress_read_tout:
@@ -940,12 +962,13 @@ class VisaSession(object):
 			finally:
 				self.visa_timeout = old_visa_tout
 
-	def read_str(self) -> str | None:
-		"""Reads response from the instrument. The response is then trimmed for trailing LF."""
+	def read_str(self) -> str:
+		"""Reads response from the instrument as ASCII stream. The response is then trimmed for trailing LF."""
 		if self.read_delay > 0:
 			time.sleep(self.read_delay / 1000)
 		stream = StreamWriter.as_string_var()
 		self._read_unknown_len(stream, True)
+		# noinspection PyTypeChecker
 		return stream.content
 
 	def query_str(self, query: str) -> str:
@@ -974,13 +997,13 @@ class VisaSession(object):
 			self.visa_timeout = old_tout
 		return response
 
-	def write_with_opc(self, command: str, timeout: int = None) -> None:
+	def write_with_opc(self, command: str, timeout: int | None = None) -> None:
 		"""Sends command with OPC-sync.
 		If you do not provide timeout, the method uses current opc_timeout."""
 		self._write_and_wait_for_opc(command, False, timeout)
 
 	# noinspection PyTypeChecker
-	def query_str_with_opc(self, query: str, timeout: int = None, context: str = 'Query string with OPC') -> str:
+	def query_str_with_opc(self, query: str, timeout: int | None = None, context: str = 'Query string with OPC') -> str:
 		"""Query string with OPC synchronization.
 		The response is trimmed for any trailing LF.
 		If you do not provide timeout, the method uses current opc_timeout."""
@@ -1279,7 +1302,7 @@ class VisaSession(object):
 			self._narrow_down_io_tout_error(f"Query bin block '{query.rstrip(self._term_char)}' - ")
 		return
 
-	def query_bin_block_with_opc(self, query: str, stream: StreamWriter, exc_if_not_bin: bool = True, timeout: int = None) -> None:
+	def query_bin_block_with_opc(self, query: str, stream: StreamWriter, exc_if_not_bin: bool = True, timeout: int | None = None) -> None:
 		"""Query binary data block with OPC and returns it as byte data.
 		:param query: [str] query to send to the instrument
 		:param stream: [StreamWriter] target for the read data. Can be string, bytes, or a file
@@ -1363,11 +1386,11 @@ class EventArgsChunk:
 			binary: bool,
 			chunk_ix: int,
 			chunk_size: int,
-			total_size: int,
+			total_size: int | None,
 			transferred_size: int,
 			end_of_transfer: bool,
 			total_chunks: int | None,
-			data: AnyStr = None):
+			data: str | bytes | None = None):
 
 		self.binary = binary
 		self.chunk_ix = chunk_ix

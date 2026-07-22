@@ -29,7 +29,7 @@ class Operations:
         _validate_table_name(table)
         columns = _get_columns(table)
         mapped_data = _map_data_to_columns(data, columns)
-        record = connector_sdk_pb2.Record(
+        record = connector_sdk_pb2.StructuredRecord(
             schema_name=None,
             table_name=table,
             type=UPSERT_TYPE,
@@ -52,7 +52,7 @@ class Operations:
         _validate_table_name(table)
         columns = _get_columns(table)
         mapped_data = _map_data_to_columns(modified, columns)
-        record = connector_sdk_pb2.Record(
+        record = connector_sdk_pb2.StructuredRecord(
             schema_name=None,
             table_name=table,
             type=UPDATE_TYPE,
@@ -76,7 +76,7 @@ class Operations:
             None
         """
         _validate_table_name(table)
-        record = connector_sdk_pb2.Record(
+        record = connector_sdk_pb2.StructuredRecord(
             schema_name=None,
             table_name=table,
             type=TRUNCATE_TYPE,
@@ -98,7 +98,7 @@ class Operations:
         _validate_table_name(table)
         columns = _get_columns(table)
         mapped_data = _map_data_to_columns(keys, columns)
-        record = connector_sdk_pb2.Record(
+        record = connector_sdk_pb2.StructuredRecord(
             schema_name=None,
             table_name=table,
             type=DELETE_TYPE,

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: siphon
-Version: 0.10.0
+Version: 0.11.0
 Summary: A collection of Python utilities for interacting with the Unidata technology stack.
 Maintainer-email: Siphon Developers <support-python@unidata.ucar.edu>
 License: BSD-3-Clause
@@ -12,23 +12,22 @@ Project-URL: Source Code, https://github.com/Unidata/siphon
 Keywords: meteorology,weather
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Atmospheric Science
 Classifier: Intended Audience :: Science/Research
 Classifier: Operating System :: OS Independent
 Classifier: License :: OSI Approved :: BSD License
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: AUTHORS.txt
-Requires-Dist: beautifulsoup4>=4.9.1
-Requires-Dist: numpy>=1.22.0
-Requires-Dist: pandas>=1.4.3
-Requires-Dist: protobuf>=3.20.0
+Requires-Dist: numpy>=1.25.0
+Requires-Dist: pandas>=2.1.0
+Requires-Dist: protobuf>=4.24.3
 Requires-Dist: requests>=2.30.0
 Provides-Extra: doc
 Requires-Dist: sphinx>=3.0; extra == "doc"
@@ -39,15 +38,16 @@ Requires-Dist: siphon[examples]; extra == "doc"
 Provides-Extra: examples
 Requires-Dist: matplotlib>=3.5; extra == "examples"
 Requires-Dist: cartopy>=0.21; extra == "examples"
-Requires-Dist: netCDF4; extra == "examples"
 Requires-Dist: metpy; extra == "examples"
+Requires-Dist: siphon[extras]; extra == "examples"
 Provides-Extra: test
 Requires-Dist: pytest>=7.0; extra == "test"
-Requires-Dist: netCDF4>=1.5.8; extra == "test"
 Requires-Dist: vcrpy>=4.3.1; extra == "test"
 Requires-Dist: siphon[extras]; extra == "test"
 Provides-Extra: extras
+Requires-Dist: netCDF4>=1.6.4; extra == "extras"
 Requires-Dist: xarray>=2022.6.0; extra == "extras"
+Dynamic: license-file
 
 Siphon
 ======
@@ -100,7 +100,7 @@ still evolving (we won't break things just for fun, but many things are still ch
 work through design issues). Also, for a version `0.x.y`, we change `x` when we
 release new features, and `y` when we make a release with only bug fixes.
 
-We support Python >= 3.7.
+We support Python >= 3.11.
 
 Important Links
 ---------------
@@ -115,11 +115,10 @@ Important Links
 Dependencies
 ------------
 
-- requests>=1.2
-- numpy>=1.8
-- protobuf>=3.0.0a3
-- beautifulsoup4>=4.6
-- pandas
+- numpy>=1.25.0
+- pandas>=2.1.0
+- protobuf>=4.24.3
+- requests>=2.30.0
 
 Developer Dependencies
 ----------------------

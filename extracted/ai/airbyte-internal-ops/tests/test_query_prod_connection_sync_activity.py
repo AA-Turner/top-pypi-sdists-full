@@ -10,7 +10,7 @@ from unittest.mock import patch
 import pytest
 from airbyte.exceptions import PyAirbyteInputError
 
-from airbyte_ops_mcp.mcp.prod_db_queries import (
+from airbyte_ops_mcp.mcp.prod_db_ops import (
     StatusFilter,
     _validate_sync_activity_scope,
     _validate_sync_activity_window,
@@ -127,14 +127,14 @@ def test_query_prod_connection_sync_activity_delegates_to_prod_db() -> None:
     with ExitStack() as stack:
         prod_query = stack.enter_context(
             patch(
-                "airbyte_ops_mcp.mcp.prod_db_queries"
+                "airbyte_ops_mcp.mcp.prod_db_ops"
                 ".query_connection_sync_activity_from_prod",
                 return_value=raw_rows,
             )
         )
         enrich = stack.enter_context(
             patch(
-                "airbyte_ops_mcp.mcp.prod_db_queries.enrich_rows_by_org",
+                "airbyte_ops_mcp.mcp.prod_db_ops.enrich_rows_by_org",
                 side_effect=lambda rows: [
                     {**r, "customer_tier": "TIER_2"} for r in rows
                 ],

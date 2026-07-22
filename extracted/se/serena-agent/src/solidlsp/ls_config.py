@@ -42,6 +42,13 @@ class FilenameMatcher:
         """
         self._file_extensions = list(self._initial_file_extensions)
 
+    @property
+    def file_extensions(self) -> list[str]:
+        """The file extensions currently registered with this matcher, including any added via
+        :meth:`add_extensions`. Returned as a copy.
+        """
+        return list(self._file_extensions)
+
     def add_extensions(self, *file_extensions: str) -> None:
         """
         Add further file extensions to this matcher (idempotent).
@@ -448,7 +455,8 @@ class Language(str, Enum):
             case self.DART:
                 return FilenameMatcher(".dart")
             case self.PHP | self.PHP_PHPACTOR | self.PHP_PHPANTOM:
-                return FilenameMatcher(".php")
+                # .phtml is a standard (yet outdated) extension for PHP sources
+                return FilenameMatcher(".php", ".phtml")
             case self.R:
                 return FilenameMatcher(".R", ".r", ".Rmd", ".Rnw")
             case self.PERL:
@@ -902,7 +910,10 @@ class LanguageServerConfig:
     trace_lsp_communication: bool = False
     start_independent_lsp_process: bool = True
     ignored_paths: list[str] = field(default_factory=list)
-    """Paths, dirs or glob-like patterns. The matching will follow the same logic as for .gitignore entries"""
+    """
+    list of ordered ignore patterns (same syntax as .gitignore; only forward slashes) to be used by the language server
+    for filtering out files and folders from indexing and analysis.
+    """
     encoding: str = "utf-8"
     """File encoding to use when reading source files"""
 

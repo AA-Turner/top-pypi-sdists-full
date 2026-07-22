@@ -1,5 +1,4 @@
 import inspect
-from typing import Union
 
 from ._common import (
     ClassType,
@@ -7,6 +6,7 @@ from ._common import (
     InstantiatorsDictType,
     applied_instantiation_links,
     class_instantiators,
+    get_parsing_setting,
     is_subclass,
     parser_context,
 )
@@ -20,7 +20,7 @@ _global_class_instantiators: InstantiatorsDictType = {}
 class InstantiateMethod:
     def instantiate(
         self,
-        cfg: Namespace,
+        namespace: Namespace,
         instantiate_groups: bool = True,
     ) -> Namespace:
         """Instantiates all signature components in a configuration namespace.
@@ -49,8 +49,8 @@ class InstantiateMethod:
           determined by argument links applied on instantiation.
 
         Args:
-            cfg: The configuration object to use. Must have been produced by
-                one of the ``parse_*`` methods and not modified in a way that
+            namespace: The configuration object to use. Must have been produced
+                by one of the ``parse_*`` methods and not modified in a way that
                 breaks the structure expected by the parser.
             instantiate_groups: Whether class groups should be instantiated.
 
@@ -64,7 +64,7 @@ class InstantiateMethod:
         from ._subcommands import get_subcommand
         from ._typehints import ActionTypeHint
 
-        components: list[Union[ActionTypeHint, _ActionConfigLoad, ArgumentGroup]] = []
+        components: list[ActionTypeHint | _ActionConfigLoad | ArgumentGroup] = []
         for action in filter_non_parsing_actions(self._actions):  # type: ignore[attr-defined]
             if isinstance(action, ActionTypeHint):
                 components.append(action)
@@ -84,7 +84,8 @@ class InstantiateMethod:
         order = ActionLink.instantiation_order(self)
         components = ActionLink.reorder(order, components)
 
-        cfg = cfg.clone(with_meta=False)
+        cfg = namespace.clone(with_meta=False)
+        unset_sentinel = get_parsing_setting("unset_sentinel")
         for component in components:
             ActionLink.apply_instantiation_links(self, cfg, target=component.dest)
             if isinstance(component, ActionTypeHint):
@@ -93,7 +94,7 @@ class InstantiateMethod:
                 except (KeyError, AttributeError):
                     pass
                 else:
-                    if value is not None:
+                    if value is not unset_sentinel:
                         with parser_context(
                             parent_parser=self,
                             nested_links=ActionLink.get_nested_links(self, component),
@@ -101,7 +102,7 @@ class InstantiateMethod:
                             applied_instantiation_links=cfg.get("__applied_instantiation_links__"),
                         ):
                             parent[key] = component.instantiate_classes(value)
-            else:
+            elif hasattr(component, "instantiate_class"):
                 with parser_context(
                     load_value_mode=self.parser_mode,  # type: ignore[attr-defined]
                     class_instantiators=get_class_instantiators(self),

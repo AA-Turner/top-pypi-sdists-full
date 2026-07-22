@@ -29,7 +29,17 @@ jobs:
                 python-version: ${{ matrix.python-version }}
 
             - name: Install Hatch
-              run: pip install --upgrade hatch
+              # On 3.8/3.9, pip resolves the last hatch that still supports them (1.14.x),
+              # which is incompatible with virtualenv 21.x (the 21.0 refactor dropped
+              # `propose_interpreters`), so `hatch run` fails to build the test env. Pin
+              # virtualenv<21 there; 3.10+ get a newer hatch that works with 21.x.
+              shell: bash
+              run: |
+                if [[ "${{ matrix.python-version }}" == "3.8" || "${{ matrix.python-version }}" == "3.9" ]]; then
+                  pip install --upgrade hatch "virtualenv<21"
+                else
+                  pip install --upgrade hatch
+                fi
 
             - name: Run tests
               run: hatch run test:cov

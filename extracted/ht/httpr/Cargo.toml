@@ -2,7 +2,7 @@
 name = "httpr"
 # Version is set dynamically by CI from git tags (e.g., v1.2.3 -> 1.2.3).
 # Do not edit manually. See .github/actions/set-version/ for details.
-version = "0.4.8"
+version = "0.5.2"
 edition = "2021"
 description = "Fast HTTP client for python"
 authors = ["thomasht86"]
@@ -15,7 +15,7 @@ name = "httpr"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = { version = "0.27.0", features = [
+pyo3 = { version = "0.29.0", features = [
     "extension-module",
     "abi3-py39",
     "indexmap",
@@ -24,7 +24,7 @@ pyo3 = { version = "0.27.0", features = [
 ] }
 anyhow = "1.0.95"
 tracing = { version = "0.1.41", features = ["log-always"] }
-pyo3-log = "0.13.2"
+pyo3-log = "0.13.4"
 reqwest = { version = "0.12", default-features = false, features = [
     "cookies",
     "json",
@@ -44,7 +44,7 @@ tokio = { version = "1.43.0", features = ["full"] }
 tokio-util = { version = "0.7.13", features = ["codec"] } # for multipart
 html2text = "0.13.6"
 bytes = "1.10.0"
-pythonize = "0.27.0"
+pythonize = "0.29.0"
 serde_json = "1.0.138"
 serde_cbor_2 = "0.13"
 webpki-root-certs = "0.26.8"

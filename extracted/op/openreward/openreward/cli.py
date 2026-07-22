@@ -311,6 +311,56 @@ def command_whoami(fmt: str) -> None:
 
 
 # ---------------------------------------------------------------------------
+# usage command
+# ---------------------------------------------------------------------------
+
+
+def _usd(amount: str) -> str:
+    """Render a numeric(18,6) string as money. JSON output keeps full precision."""
+    return f"${float(amount):,.2f}"
+
+
+def command_usage(days: int, service: str | None, daily: bool, fmt: str) -> None:
+    api_key = _require_api_key()
+
+    query: dict = {"days": days, "granularity": "daily" if daily else "total"}
+    if service:
+        query["service"] = service
+    result = _api_request("/v1/billing/api-usage", api_key, query=query)
+
+    if fmt != "table":
+        _output_object(result, fmt)
+        return
+
+    since = result["since"][:10]
+    until = result["until"][:10]
+    print(f"Usage {since} to {until}\n")
+
+    rows = result["byService"]
+    if not rows:
+        print("  No API usage in this period.")
+        return
+
+    print(f"  {'SERVICE':<10}{'REQUESTS':>12}{'COST':>12}{'PENDING':>10}")
+    for r in rows:
+        pending = f"{r['pendingRequests']:,}" if r["pendingRequests"] else "-"
+        print(f"  {r['service']:<10}{r['requests']:>12,}{_usd(r['cost']):>12}{pending:>10}")
+
+    totals = result["totals"]
+    print(f"  {'-' * 44}")
+    print(f"  {'TOTAL':<10}{totals['requests']:>12,}{_usd(totals['cost']):>12}")
+
+    if totals["pendingRequests"]:
+        print(_dim(f"\n  {totals['pendingRequests']:,} requests are metered but not yet"
+                   " billed; their cost is not included above."))
+
+    if result.get("daily"):
+        print("\n  By day:")
+        for d in result["daily"]:
+            print(f"    {d['date']}  {d['service']:<8}{d['requests']:>10,}{_usd(d['cost']):>12}")
+
+
+# ---------------------------------------------------------------------------
 # GitHub auth helper
 # ---------------------------------------------------------------------------
 
@@ -1426,6 +1476,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="Show the current authenticated user",
     )
     whoami_parser.set_defaults(func=lambda args: command_whoami(args.output))
+
+    # --- usage ---
+    usage_parser = subparsers.add_parser(
+        "usage",
+        parents=[_output_parent],
+        help="Show your metered search/fetch API usage",
+    )
+    usage_parser.add_argument("--days", type=int, default=30, help="Days to report (default: 30, max: 90)")
+    usage_parser.add_argument("--service", default=None, choices=["search", "fetch"], help="Filter to one service")
+    usage_parser.add_argument("--daily", action="store_true", default=False, help="Break down by day")
+    usage_parser.set_defaults(
+        func=lambda args: command_usage(args.days, args.service, args.daily, args.output)
+    )
 
     # --- init ---
     init_parser = subparsers.add_parser(

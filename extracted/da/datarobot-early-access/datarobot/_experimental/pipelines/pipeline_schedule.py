@@ -20,6 +20,7 @@ from datarobot._experimental.pipelines.enums import PipelineScheduleStatus
 from datarobot.enums import enum_to_list
 from datarobot.models.api_object import APIObject
 from datarobot.utils import rawdict
+from datarobot.utils.pagination import unpaginate
 
 TPipelineSchedule = TypeVar("TPipelineSchedule", bound="PipelineSchedule")
 
@@ -152,28 +153,22 @@ class PipelineSchedule(APIObject):
     def list(
         cls: Type[TPipelineSchedule],
         pipeline_id: str,
-        offset: int = 0,
-        limit: int = 50,
     ) -> List[TPipelineSchedule]:
         """List schedules for a pipeline (across all versions).
+
+        Transparently follows pagination and returns the complete result set.
 
         Parameters
         ----------
         pipeline_id : str
             The pipeline ID.
-        offset : int, optional
-            Pagination offset. Default 0.
-        limit : int, optional
-            Maximum number of results. Default 50.
 
         Returns
         -------
         schedules : list of PipelineSchedule
         """
         path = cls._schedules_path(pipeline_id)
-        params: Dict[str, int] = {"offset": offset, "limit": limit}
-        response = cls._client.get(path, params=params)
-        return [cls.from_server_data(item) for item in response.json().get("data", [])]
+        return [cls.from_server_data(item) for item in unpaginate(path, None, cls._client)]
 
     @classmethod
     def get(

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pre-commit-uv
-Version: 4.2.2
+Version: 4.3.0
 Summary: Run pre-commit with uv
 Project-URL: Bug Tracker, https://github.com/tox-dev/pre-commit-uv/issues
 Project-URL: Source Code, https://github.com/tox-dev/pre-commit-uv
@@ -36,6 +36,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Requires-Python: >=3.10
 Requires-Dist: pre-commit>=4.3
 Requires-Dist: uv>=0.9.1

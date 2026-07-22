@@ -50,9 +50,6 @@ from crosshair.auditwall import SideEffectDetected, enabled_auditwall
 # ---------------------------------------------------------------------------
 # the operation surface: builtin types + their methods
 # ---------------------------------------------------------------------------
-TYPES = [int, float, bool, str, bytes, bytearray, list, tuple, dict, set, frozenset]
-
-
 OP_DUNDERS = [
     "__add__",
     "__sub__",
@@ -98,6 +95,17 @@ OP_DUNDERS = [
 ]
 
 
+def _is_namedtuple(typ: type) -> bool:
+    """A typing.NamedTuple / collections.namedtuple class: a tuple subclass carrying
+    the namedtuple protocol (``_fields`` tuple + the ``_make`` builder)."""
+    return (
+        isinstance(typ, type)
+        and issubclass(typ, tuple)
+        and isinstance(getattr(typ, "_fields", None), tuple)
+        and callable(getattr(typ, "_make", None))
+    )
+
+
 def surface(typ: type) -> List[str]:
     # Public methods only: drop every underscore-prefixed name -- both dunders (the
     # operators we want are re-added from OP_DUNDERS below) and single-underscore
@@ -106,6 +114,15 @@ def surface(typ: type) -> List[str]:
     methods = [
         n for n in dir(typ) if not n.startswith("_") and callable(getattr(typ, n, None))
     ]
+    # namedtuple's PUBLIC api is underscore-prefixed by design (_make/_replace/_asdict),
+    # so the private-name filter above drops it; add it back for namedtuple classes
+    # (e.g. urllib.parse.SplitResult._replace / ._asdict).
+    if _is_namedtuple(typ):
+        methods += [
+            n
+            for n in ("_make", "_replace", "_asdict")
+            if callable(getattr(typ, n, None))
+        ]
     return sorted(methods) + [n for n in OP_DUNDERS if hasattr(typ, n)]
 
 
@@ -171,23 +188,33 @@ SKIP_DUNDERS = {
 }
 
 
-def call_expr(method: str, argnames: Sequence[str]) -> Optional[str]:
-    """The source expression invoking ``method`` on receiver ``a`` with the given
-    argument names, or None when an operator form needs an argument the signature
-    doesn't supply."""
+def receiver_name(argnames: Sequence[str]) -> str:
+    """A receiver identifier that won't collide with any argument name (some
+    typeshed signatures name a parameter ``a``, which would otherwise duplicate
+    the synthesized receiver)."""
+    recv = "a"
+    while recv in argnames:
+        recv = "_" + recv
+    return recv
+
+
+def call_expr(method: str, argnames: Sequence[str], recv: str = "a") -> Optional[str]:
+    """The source expression invoking ``method`` on receiver ``recv`` with the
+    given argument names, or None when an operator form needs an argument the
+    signature doesn't supply."""
     if method in _BINOP:
-        return f"a {_BINOP[method]} {argnames[0]}" if argnames else None
+        return f"{recv} {_BINOP[method]} {argnames[0]}" if argnames else None
     if method == "__divmod__":
-        return f"divmod(a, {argnames[0]})" if argnames else None
+        return f"divmod({recv}, {argnames[0]})" if argnames else None
     if method in _UNARY and not argnames:
-        return _UNARY[method].format(a="a")
+        return _UNARY[method].format(a=recv)
     if method in _CALLOP and not argnames:
-        return _CALLOP[method].format(a="a")
+        return _CALLOP[method].format(a=recv)
     if method == "__contains__":
-        return f"{argnames[0]} in a" if argnames else None
+        return f"{argnames[0]} in {recv}" if argnames else None
     if method == "__getitem__":
-        return f"a[{argnames[0]}]" if argnames else None
-    return f"a.{method}({', '.join(argnames)})"
+        return f"{recv}[{argnames[0]}]" if argnames else None
+    return f"{recv}.{method}({', '.join(argnames)})"
 
 
 ANN_NS = vars(typing) | {
@@ -601,10 +628,15 @@ def _class_chain(cls_name: str, module: str = "builtins") -> List[Any]:
     return chain
 
 
-# receiver annotation + TypeVar bindings.  Every container is mono-element, so we
-# bind all of typeshed's element TypeVar names (_T/_T_co/_KT/_VT) -- as used by
-# the ABC bases methods are inherited from -- to the receiver's element type.
-def _elem(t: str) -> Dict[str, str]:
+# The generatable type for every unconstrained "object-like" slot: a bare
+# object/Any parameter, an unbound element TypeVar, or a generic container's element
+# type.
+GENERIC = "int"  # TODO: Something like "Union[int, float, str]" (requires speeding up pinning)
+
+
+# receiver annotation + TypeVar bindings.  Bind all of typeshed's element TypeVar
+# names (_T/_T_co/_KT/_VT) to the container's element type.
+def _elem(t: str = GENERIC) -> Dict[str, str]:
     return {"_T": t, "_S": t, "_T_co": t, "_KT": t, "_VT": t}
 
 
@@ -615,19 +647,59 @@ RECV = {
     str: ("str", _elem("str")),
     bytes: ("bytes", _elem("int")),
     bytearray: ("bytearray", _elem("int")),
-    list: ("List[int]", _elem("int")),
-    tuple: ("Tuple[int, ...]", _elem("int")),
-    dict: ("Dict[int, int]", _elem("int")),
-    set: ("Set[int]", _elem("int")),
-    frozenset: ("FrozenSet[int]", _elem("int")),
+    list: (f"List[{GENERIC}]", _elem()),
+    tuple: (f"Tuple[{GENERIC}, ...]", _elem()),
+    dict: (f"Dict[{GENERIC}, {GENERIC}]", _elem()),
+    set: (f"Set[{GENERIC}]", _elem()),
+    frozenset: (f"FrozenSet[{GENERIC}]", _elem()),
 }
+
+
+def _extend_recv() -> None:
+    """Register the non-builtin-value receiver types that have both a symbolic
+    proxy and a concrete construction strategy, so their methods are drivable.
+    The generic containers bind their element TypeVars like the builtins above."""
+    import array
+    import collections
+    import datetime
+    import decimal
+    import fractions
+    import random
+    import re
+
+    RECV.update(
+        {
+            complex: ("complex", {}),
+            memoryview: ("memoryview", {}),
+            range: ("range", {}),
+            datetime.date: ("datetime.date", {}),
+            datetime.datetime: ("datetime.datetime", {}),
+            datetime.time: ("datetime.time", {}),
+            datetime.timedelta: ("datetime.timedelta", {}),
+            datetime.timezone: ("datetime.timezone", {}),
+            decimal.Decimal: ("decimal.Decimal", {}),
+            fractions.Fraction: ("fractions.Fraction", {}),
+            random.Random: ("random.Random", {}),
+            re.Match: ("re.Match", {}),
+            re.Pattern: ("re.Pattern", {}),
+            array.array: ("array.array", {}),
+            collections.deque: ("collections.deque", _elem()),
+            collections.OrderedDict: ("collections.OrderedDict", _elem()),
+            collections.Counter: ("collections.Counter", _elem()),
+            collections.ChainMap: ("collections.ChainMap", _elem()),
+            collections.defaultdict: ("collections.defaultdict", _elem()),
+        }
+    )
+
+
+_extend_recv()
 
 
 # typeshed leaf names -> a fuzzable annotation.  Beyond the concrete builtins,
 # this maps the common stdlib type-vocabulary the probe surfaced: numeric
 # protocols (math/statistics), generic element TypeVars (free functions have no
-# receiver to bind them, so they default to int -- for builtin methods RECV binds
-# win since _map_ann checks `binds` first), and str/buffer families.  Over-broad
+# receiver to bind them, so they default to GENERIC -- for builtin methods RECV
+# binds win since _map_ann checks `binds` first), and str/buffer families.  Over-broad
 # mappings are safe: the fuzz-validation step drops any candidate whose call
 # doesn't actually run.
 _NAME_MAP = {
@@ -648,8 +720,8 @@ _NAME_MAP = {
     "LiteralString": "str",
     "ReadableBuffer": "bytes",
     "memoryview": "bytes",
-    "object": "int",
-    "Any": "int",
+    "object": GENERIC,
+    "Any": GENERIC,
     # numeric protocols / numeric TypeVars
     "_SupportsFloatOrIndex": "float",
     "SupportsFloat": "float",
@@ -673,18 +745,18 @@ _NAME_MAP = {
     "_MultiplicableT2": "int",
     "_SupportsProdNoDefaultT": "int",
     "_SupportsSumNoDefaultT": "int",
-    # generic element TypeVars (default for unbound free-function type params)
-    "_T": "int",
-    "_S": "int",
-    "_U": "int",
-    "_T1": "int",
-    "_T2": "int",
-    "_KT": "int",
-    "_VT": "int",
-    "_K": "int",
-    "_V": "int",
-    "_T_co": "int",
-    "_T_contra": "int",
+    # generic element TypeVars (the unbound-free-function default)
+    "_T": GENERIC,
+    "_S": GENERIC,
+    "_U": GENERIC,
+    "_T1": GENERIC,
+    "_T2": GENERIC,
+    "_KT": GENERIC,
+    "_VT": GENERIC,
+    "_K": GENERIC,
+    "_V": GENERIC,
+    "_T_co": GENERIC,
+    "_T_contra": GENERIC,
     # string / buffer / path families
     "AnyStr": "str",
     "StrOrLiteralStr": "str",
@@ -702,13 +774,24 @@ class _Unsupported(Exception):
     pass
 
 
+def normalize(name: str, binds: Dict[str, str]) -> Optional[str]:
+    """Map a typeshed leaf type NAME to a generatable annotation string, or None.
+
+    The returned string serves as both the parameter annotation and (re-eval'd via
+    :func:`_ann`) the fuzz strategy.  ``binds`` (Self / receiver / element TypeVars)
+    take precedence over the default table.
+    """
+    if name in binds:
+        return binds[name]
+    return _NAME_MAP.get(name)
+
+
 def _map_ann(node: Any, binds: Dict[str, str]) -> str:
     """typeshed annotation AST -> a fuzzable annotation string (or raise)."""
     if isinstance(node, _ast.Name):
-        if node.id in binds:
-            return binds[node.id]
-        if node.id in _NAME_MAP:
-            return _NAME_MAP[node.id]
+        got = normalize(node.id, binds)
+        if got is not None:
+            return got
         raise _Unsupported(node.id)
     if isinstance(node, _ast.Attribute):  # typing.SupportsIndex -> SupportsIndex
         return _map_ann(_ast.Name(id=node.attr), binds)
@@ -763,23 +846,38 @@ def _map_ann(node: Any, binds: Dict[str, str]) -> str:
             return "Tuple[" + ", ".join(_map_ann(e, binds) for e in inner) + "]"
         if base in ("dict", "Dict", "SupportsKeysAndGetItem"):
             return f"Dict[{_map_ann(elts[0], binds)}, {_map_ann(elts[1], binds)}]"
-        if (
-            base == "Literal"
-        ):  # map to the underlying value's type (e.g. Literal[-1,0,1] -> int)
+        if base == "Literal":
+            # Emit the Literal verbatim for constant kinds we can render
+            # (int/str/bytes/bool); enum / qualified members fall back to the
+            # underlying scalar type.
+            rendered: Optional[List[str]] = []
             for e in elts:
-                c = (
-                    e.operand if isinstance(e, _ast.UnaryOp) else e
-                )  # Literal[-1] -> UnaryOp
+                neg = isinstance(e, _ast.UnaryOp) and isinstance(e.op, _ast.USub)
+                c = e.operand if isinstance(e, _ast.UnaryOp) else e  # Literal[-1]
+                if isinstance(c, _ast.Constant) and type(c.value) in (
+                    int,
+                    str,
+                    bytes,
+                    bool,
+                ):
+                    r = repr(c.value)
+                    rendered.append(f"-{r}" if neg else r)  # type: ignore[union-attr]
+                else:
+                    rendered = None
+                    break
+            if rendered:
+                return f"Literal[{', '.join(rendered)}]"
+            for e in elts:  # fall back: map to the underlying scalar type
+                c = e.operand if isinstance(e, _ast.UnaryOp) else e
                 if isinstance(c, _ast.Constant) and c.value is not None:
                     return _map_ann(_ast.Name(id=type(c.value).__name__), binds)
             raise _Unsupported("Literal")
         # a subscripted scalar protocol/TypeVar (SupportsAbs[_T], PathLike[AnyStr],
         # _SupportsInversion[_T_co], ...): the element type doesn't change how we
         # fuzz it, so fall back to the base name's scalar mapping.
-        if base in binds:
-            return binds[base]
-        if base in _NAME_MAP:
-            return _NAME_MAP[base]
+        got = normalize(base, binds)
+        if got is not None:
+            return got
         raise _Unsupported(base)
     raise _Unsupported(type(node).__name__)
 
@@ -840,6 +938,17 @@ def _overload_sigs(
     return out
 
 
+# The reflexive comparison dunders: a user reads these as "compare two of the
+# SAME type".  typeshed types the comparand of ==/!= as bare ``object`` (and some
+# ordering dunders as ``object``/``Any`` too), which _NAME_MAP resolves to ``int``
+# -- so e.g. str.__eq__ would be measured as str-vs-int: a vacuous always-False
+# compare that CrossHair "solves" for any input, yielding a meaningless green cell
+# with an unreadable astral-plane demo.  For these methods we bind the generic
+# comparand annotation to the receiver's own type instead (a no-op where typeshed
+# already types the arg concretely, e.g. str.__lt__(value: str)).
+_REFLEXIVE_CMP = frozenset({"__eq__", "__ne__", "__lt__", "__le__", "__gt__", "__ge__"})
+
+
 @functools.lru_cache(maxsize=None)
 def _candidate_sigs(
     typ: type, method: str, module: str = "builtins"
@@ -851,6 +960,8 @@ def _candidate_sigs(
     instance (ipaddress ``subnet_of(other: Self)``, ...) become drivable."""
     recv_ann, recv_binds = RECV.get(typ, (f"{module}.{typ.__name__}", {}))
     binds = {"Self": recv_ann, **recv_binds}
+    if method in _REFLEXIVE_CMP:  # measure ==/!=/ordering against the SAME type
+        binds = {**binds, "object": recv_ann, "Any": recv_ann}
     return _overload_sigs(
         _method_overloads(typ, method, module), binds, module, ("self",)
     )
@@ -1102,11 +1213,10 @@ def _roundtrip(
 def _getattr_inputs(specs: List[Any], n: int) -> "st.SearchStrategy[tuple]":
     """``getattr(o, name, ...)`` where ``name`` is a real (data) attribute of ``o``
     -- so it exercises actual attribute access instead of raising AttributeError on
-    a fuzzed string.  Preserves the op's arity (any trailing ``default`` fuzzes
+    a fuzzed string.  ``o`` is drawn from its own annotation-derived strategy
+    (``specs[0]``).  Preserves the op's arity (any trailing ``default`` fuzzes
     normally)."""
-    objs = st.one_of(
-        st.integers(), st.floats(allow_nan=False), st.complex_numbers(allow_nan=False)
-    )
+    objs = _arg_strategy(specs[0], n) if specs else st.integers()
 
     def with_name(o: Any) -> "st.SearchStrategy[tuple]":
         names = [
@@ -1131,6 +1241,96 @@ def _aliased_pair(specs: List[Any], n: int) -> "st.SearchStrategy[tuple]":
         st.lists(st.integers(), min_size=1, max_size=n),
     )
     return vals.map(lambda x: (x, x))
+
+
+# correlated vs plain draws in the blend below: ~80% correlated, ~20% plain
+_CORRELATION_WEIGHT = 4
+
+
+def _blend_with_plain(
+    correlated: "st.SearchStrategy[tuple]", specs: List[Any], n: int
+) -> "st.SearchStrategy[tuple]":
+    """Draw mostly from ``correlated``, occasionally from plain independent
+    fuzzing."""
+    plain = st.tuples(*[_arg_strategy(s, n) for s in specs])
+    return st.one_of(*([correlated] * _CORRELATION_WEIGHT + [plain]))
+
+
+def _substring_of(a: Any) -> "st.SearchStrategy[Any]":
+    """A (usually non-empty) substring of ``a``.  Slicing keeps ``a``'s type, so
+    this serves str, bytes, and bytearray alike (``a[:0]`` is the matching empty
+    ``''``/``b''``)."""
+    if not a:
+        return st.just(a[:0])
+    return st.integers(0, len(a) - 1).flatmap(
+        lambda start: st.integers(start + 1, len(a)).map(lambda end: a[start:end])
+    )
+
+
+def _needle_inputs(specs: List[Any], n: int) -> "st.SearchStrategy[tuple]":
+    """Draw the receiver, then a substring of it for the first argument, so a
+    search/replace op's needle actually occurs (``str``/``bytes`` ``replace``/
+    ``count``/``find``/``index``/...)."""
+    recv = _arg_strategy(specs[0], n)
+
+    def build(a: str) -> "st.SearchStrategy[tuple]":
+        rest = [_arg_strategy(s, n) for s in specs[2:]]
+        return st.tuples(st.just(a), _substring_of(a), *rest)
+
+    return _blend_with_plain(recv.flatmap(build), specs, n)
+
+
+def _pad_to_width_inputs(specs: List[Any], n: int) -> "st.SearchStrategy[tuple]":
+    """Draw a width greater than the receiver length, so a justify/fill op actually
+    pads (``str``/``bytes`` ``ljust``/``rjust``/``center``/``zfill``)."""
+    recv = _arg_strategy(specs[0], n)
+
+    def build(a: Any) -> "st.SearchStrategy[tuple]":
+        width = st.integers(len(a) + 1, len(a) + max(n, 1) + 2)
+        rest = [_arg_strategy(s, n) for s in specs[2:]]
+        return st.tuples(st.just(a), width, *rest)
+
+    return _blend_with_plain(recv.flatmap(build), specs, n)
+
+
+_STRIPPABLE_WS = " \t\n\r\v\f"
+
+
+def _whitespace_like(sample: Any, cap: int = 3) -> "st.SearchStrategy[Any]":
+    """A short run of whitespace of the same kind as ``sample`` (a str, or the
+    corresponding bytes)."""
+    if isinstance(sample, (bytes, bytearray)):
+        ws = _STRIPPABLE_WS.encode()
+        return st.lists(st.sampled_from(ws), min_size=1, max_size=cap).map(bytes)
+    return st.text(alphabet=_STRIPPABLE_WS, min_size=1, max_size=cap)
+
+
+def _surrounded_inputs(specs: List[Any], n: int) -> "st.SearchStrategy[tuple]":
+    """Surround the receiver with real whitespace so a trim op actually strips
+    (``str``/``bytes`` ``strip``/``lstrip``/``rstrip``); any explicit ``chars``
+    argument is drawn from the same whitespace."""
+    core = _arg_strategy(specs[0], max(n, 1))
+
+    def build(core_val: Any) -> "st.SearchStrategy[tuple]":
+        pad = _whitespace_like(core_val)
+        rest = [_whitespace_like(core_val) for _ in specs[1:]]
+
+        def assemble(parts: tuple) -> tuple:
+            left, right, *chars = parts
+            padded = left + core_val + right
+            if isinstance(core_val, bytearray):  # + promotes bytearray to bytes
+                padded = bytearray(padded)
+            return (padded, *chars)
+
+        return st.tuples(pad, pad, *rest).map(assemble)
+
+    return _blend_with_plain(core.flatmap(build), specs, n)
+
+
+# method groups sharing a correlated strategy across str/bytes/bytearray
+_NEEDLE_METHODS = ("replace", "count", "find", "rfind", "index", "rindex")
+_PAD_METHODS = ("ljust", "rjust", "center", "zfill")
+_TRIM_METHODS = ("strip", "lstrip", "rstrip")
 
 
 CUSTOM_INPUTS: Dict[str, Callable[[List[Any], int], "st.SearchStrategy[tuple]"]] = {
@@ -1158,6 +1358,15 @@ CUSTOM_INPUTS: Dict[str, Callable[[List[Any], int], "st.SearchStrategy[tuple]"]]
     "gzip.decompress": _roundtrip("gzip", "compress", "bytes"),
     "bz2.decompress": _roundtrip("bz2", "compress", "bytes"),
 }
+
+# register each method group's strategy across all three receiver types
+for _receiver_type in ("str", "bytes", "bytearray"):
+    for _method in _NEEDLE_METHODS:
+        CUSTOM_INPUTS[f"{_receiver_type}.{_method}"] = _needle_inputs
+    for _method in _PAD_METHODS:
+        CUSTOM_INPUTS[f"{_receiver_type}.{_method}"] = _pad_to_width_inputs
+    for _method in _TRIM_METHODS:
+        CUSTOM_INPUTS[f"{_receiver_type}.{_method}"] = _surrounded_inputs
 
 
 # subscript / index / pop-style ops whose int argument is an INDEX (or, for
@@ -1219,8 +1428,10 @@ def _func_candidate_sigs(
 
 def _module_classes(module: str) -> List[type]:
     """Public classes DEFINED in ``module`` (typeshed ClassDef present + a runtime
-    ``type`` of the same name, instantiable-ish), excluding the builtin ``TYPES``
-    (covered by the type surface) and private names.  Mirrors ``_module_funcs``."""
+    ``type`` of the same name, instantiable-ish), excluding private names.  Mirrors
+    ``_module_funcs``.  For ``builtins`` this yields the core value types (int, str,
+    list, ...) alongside the rest (range, slice, the exception classes, ...) --
+    catalog() drives them all through the one loop, no separate curated type list."""
     try:
         mod = importlib.import_module(module)
     except Exception:
@@ -1230,7 +1441,7 @@ def _module_classes(module: str) -> List[type]:
         if name.startswith("_") or not isinstance(ni.ast, _ast.ClassDef):
             continue
         obj = getattr(mod, name, None)
-        if isinstance(obj, type) and obj not in TYPES and obj.__name__ == name:
+        if isinstance(obj, type) and obj.__name__ == name:
             out.append(obj)
     return sorted(out, key=lambda t: t.__name__)
 
@@ -1242,7 +1453,13 @@ def _sig_for(fn: Any) -> Optional[Tuple[str, Any, str, Any]]:
     """('method', typ, name, sigs) | ('func', module, name, sigs) | None."""
     objcls = getattr(fn, "__objclass__", None)
     if objcls in RECV and getattr(fn, "__name__", None):
-        return ("method", objcls, fn.__name__, _candidate_sigs(objcls, fn.__name__))
+        module = getattr(objcls, "__module__", "builtins")
+        return (
+            "method",
+            objcls,
+            fn.__name__,
+            _candidate_sigs(objcls, fn.__name__, module),
+        )
     mod, name = getattr(fn, "__module__", None), getattr(fn, "__name__", None)
     if mod and name:
         return ("func", mod, name, _func_candidate_sigs(mod, name))
@@ -1266,8 +1483,9 @@ def _specs_for(fn: Any) -> Optional[List[Any]]:
     sig = primary_sig(info[3])
     if kind == "method":
         typ, name = info[1], info[2]
+        module = getattr(typ, "__module__", "builtins")
         return [_ann(RECV[typ][0])] + [
-            _resolve_arg(n, ann, lits, "builtins", name) for n, ann, lits in sig
+            _resolve_arg(n, ann, lits, module, name) for n, ann, lits in sig
         ]
     mod, name = info[1], info[2]
     return [_resolve_arg(n, ann, lits, mod, name) for n, ann, lits in sig]
@@ -1343,10 +1561,11 @@ def op_call(
     if not sigs:
         return None
     argnames = [n for n, _, _ in primary_sig(sigs)]
-    expr = call_expr(method, argnames)
+    recv = receiver_name(argnames)
+    expr = call_expr(method, argnames, recv)
     if expr is None:  # operator form needs an arg the signature doesn't supply
         return None
-    return (getattr(typ, method), expr, ["a"] + argnames, {})
+    return (getattr(typ, method), expr, [recv] + argnames, {})
 
 
 def func_call(
@@ -1760,6 +1979,96 @@ SIDE_EFFECT_OVERRIDES: Dict[str, str] = {
     "ossaudiodev.open": "opens the audio device for writing (I/O)",
     "pydoc.pipepager": "pipes text to a pager subprocess (I/O)",
     "pydoc.tempfilepager": "writes text to a temp file and launches a pager (I/O)",
+    # --- method forms and posix twins the single-input probe misses.  The live
+    # sweep (test_uncategorized_ops_probe_cleanly) probes each op with ONE fuzzed
+    # input, which errors before the I/O call fires -- but measure_support's real
+    # fuzzer eventually drives a VALID input that reaches it, so these must be
+    # named by hand (same reason as the exec/credential block above).  They only
+    # differ from already-listed entries by owner: a bound METHOD seedkey
+    # (module.Class.method) rather than the module function, or the ``posix``
+    # alias of an ``os`` entry. ---
+    "venv.EnvBuilder.create": "writes a virtual environment (I/O)",  # method of venv.create
+    "posix.mknod": "creates a filesystem node (I/O)",
+    "posix.mkfifo": "creates a filesystem node (I/O)",
+    "posix.setuid": "changes process credentials",
+    "posix.setgid": "changes process credentials",
+    "posix.seteuid": "changes process credentials",
+    "posix.setegid": "changes process credentials",
+    "posix.setreuid": "changes process credentials",
+    "posix.setregid": "changes process credentials",
+    "posix.setresuid": "changes process credentials",
+    "posix.setresgid": "changes process credentials",
+    "posix.initgroups": "changes process credentials",
+    "posix.setpriority": "changes process scheduling priority",
+    "posix.chroot": "changes the process root directory (I/O)",
+    "posix.unshare": "unshares OS namespaces",
+    "zipapp.create_archive": "writes an application archive (I/O)",
+    "pydoc.writedocs": "writes HTML documentation files (I/O)",
+    # webbrowser.open* dispatch to a concrete browser class per-platform; each
+    # bound method launches a browser, so name every class's open/open_new/open_new_tab.
+    "webbrowser.BackgroundBrowser.open": "launches a web browser (I/O)",
+    "webbrowser.BackgroundBrowser.open_new": "launches a web browser (I/O)",
+    "webbrowser.BackgroundBrowser.open_new_tab": "launches a web browser (I/O)",
+    "webbrowser.BaseBrowser.open": "launches a web browser (I/O)",
+    "webbrowser.BaseBrowser.open_new": "launches a web browser (I/O)",
+    "webbrowser.BaseBrowser.open_new_tab": "launches a web browser (I/O)",
+    "webbrowser.Chrome.open": "launches a web browser (I/O)",
+    "webbrowser.Chrome.open_new": "launches a web browser (I/O)",
+    "webbrowser.Chrome.open_new_tab": "launches a web browser (I/O)",
+    "webbrowser.Elinks.open": "launches a web browser (I/O)",
+    "webbrowser.Elinks.open_new": "launches a web browser (I/O)",
+    "webbrowser.Elinks.open_new_tab": "launches a web browser (I/O)",
+    "webbrowser.GenericBrowser.open": "launches a web browser (I/O)",
+    "webbrowser.GenericBrowser.open_new": "launches a web browser (I/O)",
+    "webbrowser.GenericBrowser.open_new_tab": "launches a web browser (I/O)",
+    "webbrowser.Konqueror.open": "launches a web browser (I/O)",
+    "webbrowser.Konqueror.open_new": "launches a web browser (I/O)",
+    "webbrowser.Konqueror.open_new_tab": "launches a web browser (I/O)",
+    "webbrowser.Mozilla.open": "launches a web browser (I/O)",
+    "webbrowser.Mozilla.open_new": "launches a web browser (I/O)",
+    "webbrowser.Mozilla.open_new_tab": "launches a web browser (I/O)",
+    "webbrowser.Opera.open": "launches a web browser (I/O)",
+    "webbrowser.Opera.open_new": "launches a web browser (I/O)",
+    "webbrowser.Opera.open_new_tab": "launches a web browser (I/O)",
+    "webbrowser.UnixBrowser.open": "launches a web browser (I/O)",
+    "webbrowser.UnixBrowser.open_new": "launches a web browser (I/O)",
+    "webbrowser.UnixBrowser.open_new_tab": "launches a web browser (I/O)",
+    # logging emitters have module-function forms (logging.info, ...) already
+    # listed; the bound methods on Logger/LoggerAdapter/RootLogger write too.
+    "logging.Logger.critical": "writes a log record (I/O)",
+    "logging.Logger.debug": "writes a log record (I/O)",
+    "logging.Logger.error": "writes a log record (I/O)",
+    "logging.Logger.exception": "writes a log record (I/O)",
+    "logging.Logger.info": "writes a log record (I/O)",
+    "logging.Logger.log": "writes a log record (I/O)",
+    "logging.Logger.warn": "writes a log record (I/O)",
+    "logging.Logger.warning": "writes a log record (I/O)",
+    "logging.LoggerAdapter.critical": "writes a log record (I/O)",
+    "logging.LoggerAdapter.debug": "writes a log record (I/O)",
+    "logging.LoggerAdapter.error": "writes a log record (I/O)",
+    "logging.LoggerAdapter.exception": "writes a log record (I/O)",
+    "logging.LoggerAdapter.info": "writes a log record (I/O)",
+    "logging.LoggerAdapter.log": "writes a log record (I/O)",
+    "logging.LoggerAdapter.warn": "writes a log record (I/O)",
+    "logging.LoggerAdapter.warning": "writes a log record (I/O)",
+    "logging.RootLogger.critical": "writes a log record (I/O)",
+    "logging.RootLogger.debug": "writes a log record (I/O)",
+    "logging.RootLogger.error": "writes a log record (I/O)",
+    "logging.RootLogger.exception": "writes a log record (I/O)",
+    "logging.RootLogger.info": "writes a log record (I/O)",
+    "logging.RootLogger.log": "writes a log record (I/O)",
+    "logging.RootLogger.warn": "writes a log record (I/O)",
+    "logging.RootLogger.warning": "writes a log record (I/O)",
+    # exec-arbitrary-code + remaining I/O ops the single-input probe misses (a valid
+    # input reaches them in the full fuzz; hand-named like the block above):
+    "doctest.DocFileCase.debug": "executes example code under sys.settrace (I/O)",
+    "doctest.DocTestCase.debug": "executes example code under sys.settrace (I/O)",
+    "doctest.SkipDocTestCase.debug": "executes example code under sys.settrace (I/O)",
+    "cProfile.Profile.run": "executes a code string under the profiler (exec)",
+    "profile.Profile.run": "executes a code string under the profiler (exec)",
+    "gettext.bindtextdomain": "binds a message-catalog directory (I/O + global state)",
+    "os.copy_file_range": "copies between file descriptors (I/O)",
+    "posix.copy_file_range": "copies between file descriptors (I/O)",
 }
 
 # Ops that MUTATE GLOBAL INTERPRETER / PROCESS STATE -- what the side-effect probe
@@ -2464,46 +2773,38 @@ def documented_stdlib_modules() -> FrozenSet[str]:
 # express, with that reason in a comment.
 CATALOG_MODULE_DENYLIST: FrozenSet[str] = frozenset()
 
-# Documented submodules that carry drivable free functions but are not top-level
-# importable names (so they are absent from documented_stdlib_modules, which is
-# top-level only).  ``os.path`` is the platform path module (it re-exports the
-# genericpath functions); its undocumented impl modules posixpath / ntpath /
-# genericpath are intentionally not named.
-_CATALOG_EXTRA_FUNC_MODULES: Tuple[str, ...] = ("os.path", "urllib.parse")
+# Documented submodules that carry drivable ops but are not top-level importable
+# names (so they are absent from documented_stdlib_modules, which is top-level only
+# and gets intersected with sys.stdlib_module_names).  Folded into catalog_modules()
+# so they contribute BOTH free functions AND class methods, exactly like a top-level
+# module -- no func-only special case (that split is what left urllib.parse's
+# SplitResult/ParseResult methods uncatalogued).  Assumed present and importable on
+# every runtime, so unlike the documented set they get no live-presence intersection.
+# ``os.path`` is the platform path module (it re-exports the genericpath functions);
+# its undocumented impl modules posixpath / ntpath / genericpath are not named.
+_CATALOG_SUBMODULES: Tuple[str, ...] = ("os.path", "urllib.parse")
 
 
 def catalog_modules() -> Tuple[str, ...]:
     """Sorted stdlib modules the catalog enumerates: :func:`documented_stdlib_modules`
-    minus :data:`CATALOG_MODULE_DENYLIST`.  The single source for both the
-    free-function and the class-method surface."""
-    return tuple(sorted(documented_stdlib_modules() - CATALOG_MODULE_DENYLIST))
+    plus the curated dotted :data:`_CATALOG_SUBMODULES`, minus
+    :data:`CATALOG_MODULE_DENYLIST`.  The single source for both the free-function
+    and the class-method surface."""
+    return tuple(
+        sorted(
+            (documented_stdlib_modules() | set(_CATALOG_SUBMODULES))
+            - CATALOG_MODULE_DENYLIST
+        )
+    )
 
 
-# Free-function modules: the documented surface plus the extra dotted submodules
-# (builtins' free functions -- len/abs/... -- ride in via the surface).  The method
-# surface EXCLUDES builtins: its methods come from catalog()'s ``types`` arg (the
-# TYPES surface / the fast CI gate), so enumerating builtins' classes here too would
-# double-cover it.
-CATALOG_FUNC_MODULES: Tuple[str, ...] = catalog_modules() + _CATALOG_EXTRA_FUNC_MODULES
-CATALOG_METHOD_MODULES: Tuple[str, ...] = tuple(
-    m for m in catalog_modules() if m != "builtins"
-)
-
-
-def catalog(
-    *,
-    types: Sequence[type] = tuple(TYPES),
-    method_modules: Sequence[str] = CATALOG_METHOD_MODULES,
-    func_modules: Sequence[str] = CATALOG_FUNC_MODULES,
-    probe: Any = False,
-) -> Iterator[Operation]:
-    """Yield one :class:`Operation` per catalogued op -- the single surface both
-    the support map and the differential fuzz test draw from.  Defaults enumerate
-    the whole canonical surface; pass narrower lists to scope it.
-
-    ``types`` is the builtin type surface (methods over ``builtins``);
-    ``method_modules`` adds methods of the public classes each stdlib module
-    defines; ``func_modules`` adds module-level free functions.
+def catalog(*, probe: Any = False) -> Iterator[Operation]:
+    """Yield one :class:`Operation` per catalogued op -- the single surface both the
+    support map and the differential fuzz test draw from.  ONE uniform loop over
+    :func:`catalog_modules` (``builtins`` included, no special case): each module
+    contributes its public classes' methods (:func:`_module_classes`, which yields
+    the builtin value types int/str/list/... alongside range/slice/exceptions/...)
+    and its module-level free functions (:func:`func_surface`).
 
     ``probe`` selects the LIVE side-effect probe per drivable op (static
     classification -- skip / out_of_scope / hardcoded hazard -- always applies):
@@ -2514,13 +2815,9 @@ def catalog(
       * ``"isolated"`` -- each op in a killable subprocess (safe on ANY surface;
                           a blocking op is tagged :data:`HANG`).  Slower; forks,
                           so run it from a clean process."""
-    for typ in types:
-        for meth in surface(typ):
-            yield _method_op("builtins", typ, meth, probe)
-    for module in method_modules:
+    for module in catalog_modules():
         for typ in _module_classes(module):
             for meth in surface(typ):
                 yield _method_op(module, typ, meth, probe)
-    for module in func_modules:
         for name in func_surface(module):
             yield _func_op(module, name, probe)

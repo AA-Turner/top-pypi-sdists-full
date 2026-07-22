@@ -116,26 +116,22 @@ class Pipelines:
     def list(
         cls,
         mode: Optional[PipelineMode] = None,
-        offset: int = 0,
-        limit: int = 50,
     ) -> List[Dict[str, Any]]:
         """List all pipelines.
+
+        Transparently follows pagination and returns the complete result set.
 
         Parameters
         ----------
         mode : str, optional
             Filter by mode ('draft' or 'locked').
-        offset : int, optional
-            Pagination offset. Default 0.
-        limit : int, optional
-            Maximum number of results. Default 50.
 
         Returns
         -------
         pipelines : list of dict
             Each dict contains pipeline_id, name, mode, status, etc.
         """
-        results = Pipeline.list(mode=mode, offset=offset, limit=limit)
+        results = Pipeline.list(mode=mode)
         return [
             {
                 "pipeline_id": p.pipeline_id,
@@ -181,6 +177,9 @@ class Pipelines:
                     "version": v.version,
                     "status": v.status,
                     "task_names": v.task_names,
+                    "python_version": v.python_version,
+                    "resource_bundle": v.resource_bundle,
+                    "error_detail": v.error_detail,
                     "created_at": v.created_at,
                 }
                 for v in p.versions
@@ -284,10 +283,10 @@ class Pipelines:
     def list_versions(
         cls,
         pipeline_id: str,
-        offset: int = 0,
-        limit: int = 50,
     ) -> List[Dict[str, Any]]:
         """List all versions of a pipeline.
+
+        Transparently follows pagination and returns the complete result set.
 
         Parameters
         ----------
@@ -299,12 +298,15 @@ class Pipelines:
         versions : list of dict
         """
         p = Pipeline.get(pipeline_id)
-        versions = p.list_versions(offset=offset, limit=limit)
+        versions = p.list_versions()
         return [
             {
                 "version": v.version,
                 "status": v.status,
                 "task_names": v.task_names,
+                "python_version": v.python_version,
+                "resource_bundle": v.resource_bundle,
+                "error_detail": v.error_detail,
                 "created_at": v.created_at,
             }
             for v in versions
@@ -427,7 +429,7 @@ class Pipelines:
         cls,
         pipeline_id: str,
         data: Any,
-        version_id: Optional[int] = None,
+        version: Optional[int] = None,
     ) -> str:
         """Create an input parameter set for a pipeline.
 
@@ -438,7 +440,7 @@ class Pipelines:
         data : dict or str
             Input data. If a dict, used directly as payload.
             If a string, treated as a file path and loaded.
-        version_id : int, optional
+        version : int, optional
             The version number. If None, creates a mutable draft input.
 
         Returns
@@ -480,7 +482,7 @@ class Pipelines:
         inp = PipelineInput.create(
             pipeline_id=pipeline_id,
             payload=payload,
-            version_id=version_id,
+            version_id=version,
         )
         return inp.input_id
 
@@ -488,17 +490,17 @@ class Pipelines:
     def list_inputs(
         cls,
         pipeline_id: str,
-        version_id: Optional[int] = None,
-        offset: int = 0,
-        limit: int = 50,
+        version: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
         """List input sets for a pipeline.
+
+        Transparently follows pagination and returns the complete result set.
 
         Parameters
         ----------
         pipeline_id : str
             The pipeline ID.
-        version_id : int, optional
+        version : int, optional
             Filter to a specific version.
 
         Returns
@@ -507,9 +509,7 @@ class Pipelines:
         """
         results = PipelineInput.list(
             pipeline_id=pipeline_id,
-            version_id=version_id,
-            offset=offset,
-            limit=limit,
+            version_id=version,
         )
         return [
             {
@@ -527,7 +527,7 @@ class Pipelines:
         cls,
         pipeline_id: str,
         input_id: str,
-        version_id: Optional[int] = None,
+        version: Optional[int] = None,
     ) -> Dict[str, Any]:
         """Get an input set by ID.
 
@@ -537,6 +537,8 @@ class Pipelines:
             The pipeline ID.
         input_id : str
             The input set ID.
+        version : int, optional
+            The version number, if this is a locked input.
 
         Returns
         -------
@@ -545,7 +547,7 @@ class Pipelines:
         inp = PipelineInput.get(
             pipeline_id=pipeline_id,
             input_id=input_id,
-            version_id=version_id,
+            version_id=version,
         )
         return {
             "input_id": inp.input_id,
@@ -559,7 +561,7 @@ class Pipelines:
         cls,
         pipeline_id: str,
         input_id: str,
-        version_id: Optional[int] = None,
+        version: Optional[int] = None,
     ) -> None:
         """Delete an input set.
 
@@ -569,11 +571,13 @@ class Pipelines:
             The pipeline ID.
         input_id : str
             The input set ID.
+        version : int, optional
+            The version number, if this is a locked input.
         """
         inp = PipelineInput.get(
             pipeline_id=pipeline_id,
             input_id=input_id,
-            version_id=version_id,
+            version_id=version,
         )
         inp.delete()
 
@@ -650,10 +654,10 @@ class Pipelines:
         cls,
         pipeline_id: str,
         version: Optional[int] = None,
-        offset: int = 0,
-        limit: int = 50,
     ) -> List[Dict[str, Any]]:
         """List dispatches (runs) for a pipeline.
+
+        Transparently follows pagination and returns the complete result set.
 
         Parameters
         ----------
@@ -669,8 +673,6 @@ class Pipelines:
         results = PipelineDispatch.list(
             pipeline_id=pipeline_id,
             version_id=version,
-            offset=offset,
-            limit=limit,
         )
         return [
             {
@@ -782,7 +784,10 @@ class Pipelines:
         -------
         tasks : list of dict
             Each dict contains task_id, name, status, started_at,
-            completed_at, and error_detail.
+            completed_at, error_detail, node_id, and graph_node_id. In a
+            fan-out pipeline (the same ``@task`` at multiple graph nodes)
+            several rows share one ``task_id`` but have distinct ``node_id``\\s;
+            pass a ``node_id`` to the per-task getters to address one of them.
         """
         results = PipelineTaskExecution.list(pipeline_id=pipeline_id, dispatch_id=dispatch_id)
         return [
@@ -793,6 +798,8 @@ class Pipelines:
                 "started_at": tk.started_at,
                 "completed_at": tk.completed_at,
                 "error_detail": tk.error_detail,
+                "node_id": tk.node_id,
+                "graph_node_id": tk.graph_node_id,
             }
             for tk in results
         ]
@@ -803,6 +810,7 @@ class Pipelines:
         pipeline_id: str,
         dispatch_id: str,
         task_id: int,
+        node_id: Optional[int] = None,
     ) -> Dict[str, Any]:
         """Get the execution record for a single task in a dispatch.
 
@@ -814,6 +822,12 @@ class Pipelines:
             The dispatch ID.
         task_id : int
             The public sequential task number.
+        node_id : int, optional
+            The ``node_id`` of a specific fan-out invocation (from
+            :meth:`list_tasks`). Required when the same ``@task`` ran at
+            multiple graph nodes -- omitting it then raises a 409 ``ClientError``
+            listing the candidate node ids. May be omitted for single-execution
+            tasks.
 
         Returns
         -------
@@ -823,6 +837,7 @@ class Pipelines:
             pipeline_id=pipeline_id,
             dispatch_id=dispatch_id,
             task_id=task_id,
+            node_id=node_id,
         )
         return {
             "task_id": tk.task_id,
@@ -831,6 +846,8 @@ class Pipelines:
             "started_at": tk.started_at,
             "completed_at": tk.completed_at,
             "error_detail": tk.error_detail,
+            "node_id": tk.node_id,
+            "graph_node_id": tk.graph_node_id,
         }
 
     @classmethod
@@ -839,6 +856,7 @@ class Pipelines:
         pipeline_id: str,
         dispatch_id: str,
         task_id: int,
+        node_id: Optional[int] = None,
     ) -> Dict[str, Any]:
         """Get a completed task's result (presigned URL + JSON preview).
 
@@ -850,6 +868,12 @@ class Pipelines:
             The dispatch ID.
         task_id : int
             The public sequential task number.
+        node_id : int, optional
+            The ``node_id`` of a specific fan-out invocation (from
+            :meth:`list_tasks`). Required when the same ``@task`` ran at
+            multiple graph nodes -- omitting it then raises a 409 ``ClientError``
+            listing the candidate node ids. May be omitted for single-execution
+            tasks.
 
         Returns
         -------
@@ -861,6 +885,7 @@ class Pipelines:
             pipeline_id=pipeline_id,
             dispatch_id=dispatch_id,
             task_id=task_id,
+            node_id=node_id,
         )
         return {
             "url": r.url,
@@ -879,6 +904,7 @@ class Pipelines:
         task_id: int,
         tail_lines: Optional[int] = None,
         verbosity: str = "user",
+        node_id: Optional[int] = None,
     ) -> str:
         """Read the live K8s pod logs for a task execution.
 
@@ -895,6 +921,12 @@ class Pipelines:
         verbosity : str, optional
             'user' (default) hides the electron runner's own structured JSON log
             lines; 'all' returns every line unfiltered.
+        node_id : int, optional
+            The ``node_id`` of a specific fan-out invocation (from
+            :meth:`list_tasks`). Required when the same ``@task`` ran at
+            multiple graph nodes -- omitting it then raises a 409 ``ClientError``
+            listing the candidate node ids. May be omitted for single-execution
+            tasks.
 
         Returns
         -------
@@ -906,6 +938,7 @@ class Pipelines:
             task_id=task_id,
             tail_lines=tail_lines,
             verbosity=verbosity,
+            node_id=node_id,
         )
         return logs.logs
 
@@ -917,6 +950,7 @@ class Pipelines:
         task_id: int,
         stream: str = "stdout",
         verbosity: str = "user",
+        node_id: Optional[int] = None,
     ) -> Dict[str, Any]:
         """Read a task's durable (S3-uploaded) stdout/stderr log content.
 
@@ -933,6 +967,12 @@ class Pipelines:
         verbosity : str, optional
             'user' (default) hides the electron runner's own structured JSON log
             lines; 'all' returns every line unfiltered.
+        node_id : int, optional
+            The ``node_id`` of a specific fan-out invocation (from
+            :meth:`list_tasks`). Required when the same ``@task`` ran at
+            multiple graph nodes -- omitting it then raises a 409 ``ClientError``
+            listing the candidate node ids. May be omitted for single-execution
+            tasks.
 
         Returns
         -------
@@ -946,6 +986,7 @@ class Pipelines:
             task_id=task_id,
             stream=stream,
             verbosity=verbosity,
+            node_id=node_id,
         )
         return {
             "content": log.content,
@@ -963,7 +1004,7 @@ class Pipelines:
     def create_schedule(
         cls,
         pipeline_id: str,
-        version_id: int,
+        version: int,
         cron_expression: str,
         input_id: str,
         image_id: str,
@@ -976,7 +1017,7 @@ class Pipelines:
         ----------
         pipeline_id : str
             The pipeline ID.
-        version_id : int
+        version : int
             The locked version number.
         cron_expression : str
             Cron expression (e.g., '0 9 * * *').
@@ -1003,7 +1044,7 @@ class Pipelines:
 
             schedule = dr.Pipelines.create_schedule(
                 pipeline_id=pipeline_id,
-                version_id=1,
+                version=1,
                 cron_expression="0 9 * * MON-FRI",
                 input_id=input_id,
                 image_id=image_id,
@@ -1014,7 +1055,7 @@ class Pipelines:
         """
         s = PipelineSchedule.create(
             pipeline_id=pipeline_id,
-            version_id=version_id,
+            version_id=version,
             cron_expression=cron_expression,
             pipeline_input_id=input_id,
             image_id=image_id,
@@ -1035,10 +1076,10 @@ class Pipelines:
     def list_schedules(
         cls,
         pipeline_id: str,
-        offset: int = 0,
-        limit: int = 50,
     ) -> List[Dict[str, Any]]:
         """List schedules for a pipeline (across all versions).
+
+        Transparently follows pagination and returns the complete result set.
 
         Parameters
         ----------
@@ -1051,8 +1092,6 @@ class Pipelines:
         """
         results = PipelineSchedule.list(
             pipeline_id=pipeline_id,
-            offset=offset,
-            limit=limit,
         )
         return [
             {
@@ -1143,16 +1182,16 @@ class Pipelines:
     @classmethod
     def list_images(
         cls,
-        offset: int = 0,
-        limit: int = 50,
     ) -> List[Dict[str, Any]]:
         """List execution images.
+
+        Transparently follows pagination and returns the complete result set.
 
         Returns
         -------
         images : list of dict
         """
-        results = PipelineImage.list(offset=offset, limit=limit)
+        results = PipelineImage.list()
         return [
             {
                 "image_id": i.image_id,

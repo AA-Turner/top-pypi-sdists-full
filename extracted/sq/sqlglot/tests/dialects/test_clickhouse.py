@@ -22,6 +22,11 @@ class TestClickhouse(Validator):
             "CAST(CASE WHEN notEmpty(report_task_id) THEN report_task_id ELSE '-1' END AS String)",
         )
 
+        self.validate_identity(
+            r"SELECT $$a\$b$$",
+            r"SELECT 'a\\$b'",
+        )
+
         expr = quote_identifiers(self.parse_one("{start_date:String}"), dialect="clickhouse")
         self.assertEqual(expr.sql("clickhouse"), "{start_date: String}")
 
@@ -954,6 +959,11 @@ ORDER BY (
         self.validate_identity(ctas_alias)
 
     def test_ddl(self):
+        self.validate_identity(
+            "CREATE TABLE t (`projection` Int8)",
+            'CREATE TABLE t ("projection" Int8)',
+        )
+
         db_table_expr = exp.Table(this=None, db=exp.to_identifier("foo"), catalog=None)
         create_with_cluster = exp.Create(
             this=db_table_expr,
@@ -1819,6 +1829,21 @@ LIFETIME(MIN 0 MAX 0)""",
                 "doris": "DATE_TRUNC(x, 'WEEK')",
                 "presto": "DATE_TRUNC('WEEK', x)",
                 "spark": "DATE_TRUNC('WEEK', x)",
+            },
+        )
+
+        # camelCase dateTrunc is emitted by this dialect, so it must parse back
+        self.validate_all(
+            "dateTrunc('MONTH', x)",
+            read={
+                "clickhouse": "dateTrunc('MONTH', x)",
+            },
+            write={
+                "clickhouse": "dateTrunc('MONTH', x)",
+                "databricks": "TRUNC(x, 'MONTH')",
+                "duckdb": "DATE_TRUNC('MONTH', x)",
+                "presto": "DATE_TRUNC('MONTH', x)",
+                "spark": "TRUNC(x, 'MONTH')",
             },
         )
 

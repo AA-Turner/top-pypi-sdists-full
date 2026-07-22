@@ -323,7 +323,7 @@ class TestPresto(Validator):
                 "duckdb": "STRPTIME(x, '%Y-%m-%d %H:%M:%S')",
                 "presto": "DATE_PARSE(x, '%Y-%m-%d %T')",
                 "hive": "CAST(x AS TIMESTAMP)",
-                "spark": "TO_TIMESTAMP(x, 'yyyy-MM-dd HH:mm:ss')",
+                "spark": "TO_TIMESTAMP(x, 'yyyy-M-d HH:mm:ss')",
             },
         )
         self.validate_all(
@@ -332,7 +332,7 @@ class TestPresto(Validator):
                 "duckdb": "STRPTIME(x, '%Y-%m-%d')",
                 "presto": "DATE_PARSE(x, '%Y-%m-%d')",
                 "hive": "CAST(x AS TIMESTAMP)",
-                "spark": "TO_TIMESTAMP(x, 'yyyy-MM-dd')",
+                "spark": "TO_TIMESTAMP(x, 'yyyy-M-d')",
             },
         )
         self.validate_all(
@@ -347,7 +347,7 @@ class TestPresto(Validator):
                 "duckdb": "STRPTIME(SUBSTRING(x, 1, 10), '%Y-%m-%d')",
                 "presto": "DATE_PARSE(SUBSTR(x, 1, 10), '%Y-%m-%d')",
                 "hive": "CAST(SUBSTRING(x, 1, 10) AS TIMESTAMP)",
-                "spark": "TO_TIMESTAMP(SUBSTRING(x, 1, 10), 'yyyy-MM-dd')",
+                "spark": "TO_TIMESTAMP(SUBSTRING(x, 1, 10), 'yyyy-M-d')",
             },
         )
         self.validate_all(
@@ -356,7 +356,7 @@ class TestPresto(Validator):
                 "duckdb": "STRPTIME(SUBSTRING(x, 1, 10), '%Y-%m-%d')",
                 "presto": "DATE_PARSE(SUBSTR(x, 1, 10), '%Y-%m-%d')",
                 "hive": "CAST(SUBSTRING(x, 1, 10) AS TIMESTAMP)",
-                "spark": "TO_TIMESTAMP(SUBSTRING(x, 1, 10), 'yyyy-MM-dd')",
+                "spark": "TO_TIMESTAMP(SUBSTRING(x, 1, 10), 'yyyy-M-d')",
             },
         )
         self.validate_all(
@@ -708,6 +708,47 @@ class TestPresto(Validator):
                 dialect="presto"
             ),
             "LOWER(TO_HEX(MD5(TO_UTF8(CONCAT(CAST(x AS VARCHAR), CAST('s' AS VARCHAR))))))",
+        )
+
+        self.assertEqual(
+            exp.func("sha2", exp.cast("x", "text"), exp.Literal.number(256)).sql(dialect="presto"),
+            "LOWER(TO_HEX(SHA256(TO_UTF8(CAST(x AS VARCHAR)))))",
+        )
+
+        # native SHA256/SHA512 take and return VARBINARY, so they parse as
+        # SHA2Digest and round-trip untouched, mirroring MD5 -> MD5Digest
+        self.validate_all(
+            "SELECT SHA256(x)",
+            write={
+                "presto": "SELECT SHA256(x)",
+                "trino": "SELECT SHA256(x)",
+                "duckdb": "SELECT UNHEX(SHA256(x))",
+                "bigquery": "SELECT SHA256(x)",
+            },
+        )
+        self.validate_all(
+            "SELECT SHA512(x)",
+            write={
+                "presto": "SELECT SHA512(x)",
+                "trino": "SELECT SHA512(x)",
+                "bigquery": "SELECT SHA512(x)",
+            },
+        )
+
+        # string-semantics SHA2 renders hex output like md5_sql does for MD5
+        self.validate_all(
+            "SELECT LOWER(TO_HEX(SHA256(x)))",
+            read={
+                "spark": "SELECT SHA2(x, 256)",
+                "snowflake": "SELECT SHA2(x, 256)",
+            },
+        )
+        self.validate_all(
+            "SELECT LOWER(TO_HEX(SHA512(x)))",
+            read={
+                "spark": "SELECT SHA2(x, 512)",
+                "snowflake": "SELECT SHA2(x, 512)",
+            },
         )
 
         with self.assertLogs(helper_logger):
@@ -1071,8 +1112,8 @@ class TestPresto(Validator):
         self.validate_all(
             "WITH RECURSIVE t(n) AS (VALUES (1) UNION ALL SELECT n+1 FROM t WHERE n < 100 ) SELECT SUM(n) FROM t",
             write={
-                "presto": "WITH RECURSIVE t(n) AS (VALUES (1) UNION ALL SELECT n + 1 FROM t WHERE n < 100) SELECT SUM(n) FROM t",
-                "spark": "WITH RECURSIVE t(n) AS (VALUES (1) UNION ALL SELECT n + 1 FROM t WHERE n < 100) SELECT SUM(n) FROM t",
+                "presto": "WITH RECURSIVE t(n) AS (SELECT * FROM (VALUES (1)) AS _values UNION ALL SELECT n + 1 FROM t WHERE n < 100) SELECT SUM(n) FROM t",
+                "spark": "WITH RECURSIVE t(n) AS (SELECT * FROM VALUES (1) AS _values UNION ALL SELECT n + 1 FROM t WHERE n < 100) SELECT SUM(n) FROM t",
             },
         )
 

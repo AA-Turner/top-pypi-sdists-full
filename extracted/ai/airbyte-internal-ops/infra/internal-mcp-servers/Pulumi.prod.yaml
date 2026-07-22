@@ -13,3 +13,7 @@ config:
   internal-mcp-servers:dns-zone-name: internal-airbyte-ai
   internal-mcp-servers:oauth-issuer: https://cloud.airbyte.com/auth/realms/airbyte
   internal-mcp-servers:ops-mcp-oauth-client-id: airbyte-ops-mcp-client
+  # Non-secret Zendesk settings for the Ops MCP get_zendesk_ticket tool. The API
+  # token itself is a Secret Manager secret (internal-ops-zendesk-api-token).
+  internal-mcp-servers:zendesk-subdomain: airbyte1416
+  internal-mcp-servers:zendesk-email: aj@airbyte.io

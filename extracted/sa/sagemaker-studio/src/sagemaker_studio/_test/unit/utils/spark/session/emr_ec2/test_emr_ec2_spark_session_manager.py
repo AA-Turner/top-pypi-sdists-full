@@ -252,16 +252,17 @@ class TestCreate:
     )
     def test_create_starts_session(self, mock_channel_builder, mock_spark_session, manager):
         manager._lazy_init = MagicMock()
-        manager._start_session = MagicMock(return_value="sess-1")
-        manager._wait_for_idle = MagicMock()
-        manager._get_spark_connect_url = MagicMock(
+        manager._build_session_params = MagicMock(return_value=("user-1", {"key": "val"}))
+        manager._start_session = MagicMock(
             return_value=(
+                "sess-1",
                 "sc://host:443/;use_ssl=true",
-                {"AuthToken": "tok", "AuthTokenExpirationTime": None},
+                {"AuthToken": "tok", "AuthTokenExpirationTime": None, "Credentials": {}},
             )
         )
         manager.cluster_id = _TEST_CLUSTER_ID
         manager._emr_client = MagicMock()
+        manager.emr_session_id = "sess-1"
 
         builder = MagicMock()
         mock_spark_session.builder.channelBuilder.return_value = builder
@@ -272,8 +273,8 @@ class TestCreate:
 
         assert session == "mock_spark"
         assert manager.emr_session_id == "sess-1"
-        manager._start_session.assert_called_once()
-        manager._wait_for_idle.assert_called_once_with("sess-1")
+        manager._build_session_params.assert_called_once()
+        manager._start_session.assert_called_once_with("user-1", {"key": "val"})
         mock_channel_builder.assert_called_once()
         builder.getOrCreate.assert_called_once()
 
@@ -500,8 +501,13 @@ class TestStartSession:
         mock_emr = MagicMock()
         mock_emr.start_session.return_value = {"Id": "sess-1", "State": "STARTING"}
         manager._emr_client = mock_emr
+        manager._wait_for_idle = MagicMock()
+        manager._get_spark_connect_url = MagicMock(
+            return_value=("sc://host:443/;use_ssl=true", {"AuthToken": "tok"})
+        )
+        manager._user_msg = MagicMock()
 
-        session_id = manager._start_session()
+        session_id, url, resp = manager._start_session("test-user", {"spark.test.key": "test_val"})
 
         assert session_id == "sess-1"
         call_kwargs = mock_emr.start_session.call_args[1]
@@ -544,7 +550,7 @@ class TestStartSession:
         mock_emr.start_session.return_value = {"Id": "sess-2", "State": "STARTING"}
         manager._emr_client = mock_emr
 
-        manager._start_session()
+        manager._build_session_params()
 
         # Verify user configs were passed to build_spark_configs
         mock_build.assert_called_once()

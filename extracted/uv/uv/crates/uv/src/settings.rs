@@ -34,8 +34,8 @@ use uv_cli::{
 };
 use uv_client::Connectivity;
 use uv_configuration::{
-    BuildIsolation, BuildOptions, Concurrency, DependencyGroups, DryRun, EditableMode, EnvFile,
-    ExcludeDependency, ExportFormat, ExtrasSpecification, GitLfsSetting, HashCheckingMode,
+    BuildIsolation, BuildOptions, Concurrency, DependencyGroups, DevMode, DryRun, EditableMode,
+    EnvFile, ExcludeDependency, ExportFormat, ExtrasSpecification, GitLfsSetting, HashCheckingMode,
     IndexStrategy, InstallOptions, KeyringProviderType, NoBinary, NoBuild, NoSources, Override,
     PackageOverride, PipCompileFormat, ProjectBuildBackend, ProxyUrl, Reinstall, RequiredVersion,
     TargetTriple, TrustedHost, TrustedPublishing, Upgrade, VersionControlSystem,
@@ -128,6 +128,11 @@ impl GlobalSettings {
                     .combine(workspace.and_then(|workspace| workspace.globals.concurrent_installs))
                     .map(NonZeroUsize::get)
                     .unwrap_or_else(Concurrency::threads),
+                environment
+                    .concurrency
+                    .cache_reads
+                    .map(NonZeroUsize::get)
+                    .unwrap_or(Concurrency::DEFAULT_CACHE_READS),
             ),
             show_settings: args.show_settings,
             preview: resolve_preview(args, workspace, environment),
@@ -789,7 +794,7 @@ impl RunSettings {
         let show_resolution = show_resolution || environment.show_resolution.value == Some(true);
         let no_env_file = no_env_file || environment.no_env_file.value == Some(true);
 
-        let malware_settings = MalwareCheckSettings::from(&environment);
+        let malware_settings = MalwareCheckSettings::resolve(filesystem.as_ref(), &environment);
 
         Self {
             lock_check: resolve_lock_check(locked),
@@ -804,9 +809,7 @@ impl RunSettings {
                 flag(all_extras, no_all_extras, "all-extras").unwrap_or_default(),
             ),
             groups: DependencyGroups::from_args(
-                dev.into(),
-                no_dev.into(),
-                only_dev,
+                DevMode::from_args(dev.into(), no_dev.into(), only_dev),
                 group,
                 if no_group.is_empty() {
                     environment.no_group.clone().unwrap_or_default()
@@ -1846,6 +1849,7 @@ impl SyncSettings {
             .map(|fs| fs.install_mirrors.clone())
             .unwrap_or_default();
 
+        let malware_settings = MalwareCheckSettings::resolve(filesystem.as_ref(), &environment);
         let settings = ResolverInstallerSettings::combine(
             resolver_installer_options(installer, build),
             filesystem,
@@ -1923,8 +1927,6 @@ impl SyncSettings {
         let no_install_local = no_install_local.is_enabled();
         let only_install_local = only_install_local.is_enabled();
 
-        let malware_settings = MalwareCheckSettings::from(&environment);
-
         Self {
             output_format,
             lock_check: resolve_lock_check(locked),
@@ -1942,9 +1944,7 @@ impl SyncSettings {
                 flag(all_extras, no_all_extras, "all-extras").unwrap_or_default(),
             ),
             groups: DependencyGroups::from_args(
-                dev.into(),
-                no_dev.into(),
-                only_dev,
+                DevMode::from_args(dev.into(), no_dev.into(), only_dev),
                 group,
                 if no_group.is_empty() {
                     environment.no_group.clone().unwrap_or_default()
@@ -2100,6 +2100,7 @@ pub(crate) struct MetadataSettings {
     pub(crate) frozen: Option<FrozenSource>,
     pub(crate) dry_run: DryRun,
     pub(crate) sync: bool,
+    pub(crate) active: bool,
     pub(crate) python: Option<String>,
     pub(crate) install_mirrors: PythonInstallMirrors,
     pub(crate) refresh: Refresh,
@@ -2123,6 +2124,7 @@ impl MetadataSettings {
             build,
             refresh,
             sync,
+            active,
             python,
         } = *args;
 
@@ -2138,7 +2140,7 @@ impl MetadataSettings {
         // Check for conflicts between locked and frozen.
         check_conflicts(locked, frozen);
 
-        let malware_settings = MalwareCheckSettings::from(&environment);
+        let malware_settings = MalwareCheckSettings::resolve(filesystem.as_ref(), &environment);
 
         Self {
             script,
@@ -2146,6 +2148,7 @@ impl MetadataSettings {
             frozen: resolve_frozen(frozen),
             dry_run: DryRun::from_args(dry_run),
             sync,
+            active,
             python: python.and_then(Maybe::into_option),
             refresh: Refresh::from(refresh),
             settings: ResolverSettings::combine(
@@ -2397,7 +2400,7 @@ impl AddSettings {
         let no_install_local = no_install_local.is_enabled();
         let only_install_local = only_install_local.is_enabled();
 
-        let malware_settings = MalwareCheckSettings::from(&environment);
+        let malware_settings = MalwareCheckSettings::resolve(filesystem.as_ref(), &environment);
 
         Self {
             lock_check: resolve_lock_check(locked),
@@ -2528,7 +2531,7 @@ impl RemoveSettings {
         // Check for conflicts between no_sync and frozen.
         check_conflicts(no_sync, frozen);
 
-        let malware_settings = MalwareCheckSettings::from(&environment);
+        let malware_settings = MalwareCheckSettings::resolve(filesystem.as_ref(), &environment);
 
         Self {
             lock_check: resolve_lock_check(locked),
@@ -2615,7 +2618,7 @@ impl VersionSettings {
         // Check for conflicts between no_sync and frozen.
         check_conflicts(no_sync, frozen);
 
-        let malware_settings = MalwareCheckSettings::from(&environment);
+        let malware_settings = MalwareCheckSettings::resolve(filesystem.as_ref(), &environment);
 
         Self {
             value,
@@ -2719,9 +2722,7 @@ impl TreeSettings {
 
         Self {
             groups: DependencyGroups::from_args(
-                dev.into(),
-                no_dev.into(),
-                only_dev,
+                DevMode::from_args(dev.into(), no_dev.into(), only_dev),
                 group,
                 if no_group.is_empty() {
                     environment.no_group.clone().unwrap_or_default()
@@ -2884,9 +2885,7 @@ impl ExportSettings {
                 flag(all_extras, no_all_extras, "all-extras").unwrap_or_default(),
             ),
             groups: DependencyGroups::from_args(
-                dev.into(),
-                no_dev.into(),
-                only_dev,
+                DevMode::from_args(dev.into(), no_dev.into(), only_dev),
                 group,
                 if no_group.is_empty() {
                     environment.no_group.clone().unwrap_or_default()
@@ -3056,13 +3055,12 @@ impl CheckSettings {
             Some(environment.dev),
             Some(environment.no_dev),
         );
+        let malware_settings = MalwareCheckSettings::resolve(filesystem.as_ref(), &environment);
         let settings = ResolverInstallerSettings::combine(
             resolver_installer_options(installer, build),
             filesystem,
             &environment,
         );
-        let malware_settings = MalwareCheckSettings::from(&environment);
-
         Self {
             ty_path: environment.ty_path,
             script,
@@ -3074,9 +3072,7 @@ impl CheckSettings {
                 flag(all_extras, no_all_extras, "all-extras").unwrap_or_default(),
             ),
             groups: DependencyGroups::from_args(
-                dev.into(),
-                no_dev.into(),
-                only_dev,
+                DevMode::from_args(dev.into(), no_dev.into(), only_dev),
                 group,
                 if no_group.is_empty() {
                     environment.no_group.clone().unwrap_or_default()
@@ -3181,9 +3177,7 @@ impl AuditSettings {
                 true,
             ),
             groups: DependencyGroups::from_args(
-                only_group.is_empty() && !only_dev,
-                no_dev,
-                only_dev,
+                DevMode::from_args(only_group.is_empty() && !only_dev, no_dev, only_dev),
                 vec![],
                 if no_group.is_empty() {
                     environment.no_group.clone().unwrap_or_default()

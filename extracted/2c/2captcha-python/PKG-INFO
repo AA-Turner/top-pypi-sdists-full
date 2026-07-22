@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: 2captcha-python
-Version: 2.0.9
+Version: 2.1.0
 Summary: Python module for easy integration with 2Captcha API
 Home-page: https://github.com/2captcha/2captcha-python/
 Author: 2Captcha
@@ -413,7 +413,7 @@ result = solver.coordinates('path/to/captcha.jpg', param1=..., ...)
 This method can be used to solve a captcha that asks to rotate an object. It is mostly used to bypass FunCaptcha. Returns the rotation angle.
 
 ```python
-result = solver.rotate('path/to/captcha.jpg', param1=..., ...)
+result = solver.rotate('path/to/captcha.jpg' or 'base64', param1=..., ...)
 ```
 
 ### MTCaptcha

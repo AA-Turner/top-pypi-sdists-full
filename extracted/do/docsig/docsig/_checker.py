@@ -6,15 +6,15 @@ Run docstring and signature checks for a single function.
 """
 
 import contextlib as _contextlib
+import re as _re
 import typing as _t
 
 import astroid as _ast
 
 from ._config import Config as _Config
 from ._diagnostic import Collector as _Collector
-from ._diagnostic import Diagnostic as _Diagnostic
 from ._diagnostic import FunctionResult as _FunctionResult
-from ._module import Function as _Function
+from ._scope import Function as _Function
 from ._stub import UNNAMED as _UNNAMED
 from ._stub import VALID_DESCRIPTION as _VALID_DESCRIPTION
 from ._stub import Param as _Param
@@ -25,6 +25,7 @@ from ._utils import almost_equal as _almost_equal
 from ._utils import sentence_tokenizer as _sentence_tokenizer
 from .messages import E as _E
 from .messages import Message as _Message
+from .messages import Messages as _Messages
 
 _MIN_MATCH = 0.8
 _MAX_MATCH = 1.0
@@ -34,20 +35,29 @@ _VALID_ENDINGS = (
     "!",
     "?",
 )
+_LIST_ITEM = _re.compile(r"(?:[-*+]|#\.|\d+\.)(?:\s|$)")
 
 
 def _last_prose_char(text: str) -> tuple[str | None, bool]:
     # return the last character of non-code-block prose and whether the
-    # text ends inside a code block (a line ending with ::)
+    # text ends where a sentence terminator is not expected (inside a
+    # code block or directive, or on a list item)
     in_block = False
     last_char = None
+    para_start = None
     for line in text.strip().split("\n"):
         stripped_ln = line.strip()
         if in_block:
-            if stripped_ln and line[:1] not in (" ", "\t"):
+            if stripped_ln and line[:1] != " ":
                 in_block = False
+                para_start = None
             else:
                 continue
+        if not stripped_ln:
+            para_start = None
+            continue
+        if para_start is None:
+            para_start = stripped_ln
         if stripped_ln.startswith(".."):
             # a directive or comment, e.g. `.. versionchanged:: 2.0`,
             # is not prose, and its indented content belongs to it
@@ -55,9 +65,21 @@ def _last_prose_char(text: str) -> tuple[str | None, bool]:
             continue
         if stripped_ln.endswith("::"):
             in_block = True
-        if stripped_ln:
-            last_char = stripped_ln[-1]
-    return last_char, in_block
+        last_char = stripped_ln[-1]
+    ends_on_list_item = para_start is not None and bool(
+        _LIST_ITEM.match(para_start),
+    )
+    return last_char, in_block or ends_on_list_item
+
+
+def check_function(func: _Function, config: _Config) -> _FunctionResult:
+    """Run configured checks for one function and return the result.
+
+    :param func: Function under check.
+    :param config: Configuration object.
+    :return: Collected diagnostics for the function.
+    """
+    return FunctionChecker(func, config).run()
 
 
 class FunctionChecker:  # pylint: disable=too-few-public-methods
@@ -73,22 +95,20 @@ class FunctionChecker:  # pylint: disable=too-few-public-methods
     def __init__(self, func: _Function, config: _Config) -> None:
         self._func = func
         self._config = config
-        self._diagnostics: list[_Diagnostic] = []
+        disabled = _Messages(self._func.messages)
         if config.target:
-            self._func.messages.extend(
-                i for i in _E.all if i not in config.target
-            )
+            disabled.extend(i for i in _E.all if i not in config.target)
 
         self._name = self._func.name
         if (
-            self._func.parent is not None
-            and hasattr(self._func.parent, "name")
-            and self._func.parent.name
-            and not isinstance(self._func.parent, _ast.nodes.Module)
+            self._func.frame is not None
+            and hasattr(self._func.frame, "name")
+            and self._func.frame.name
+            and not isinstance(self._func.frame, _ast.nodes.Module)
         ):
-            self._name = f"{self._func.parent.name}.{self._name}"
+            self._name = f"{self._func.frame.name}.{self._name}"
 
-        self._collector = _Collector(func, self._name, self._func.lineno)
+        self._collector = _Collector(self._name, self._func.lineno, disabled)
 
     def run(self) -> _FunctionResult:
         """Run the function checks and return the result.
@@ -242,8 +262,8 @@ class FunctionChecker:  # pylint: disable=too-few-public-methods
         doc_description = doc.description
         if doc_description is None and doc.name is not None:
             self._add(_E[301])
-        elif doc_description is not None and not doc_description.startswith(
-            " ",
+        elif doc_description is not None and self._description_syntax_error(
+            doc_description,
         ):
             # syntax-error-in-description
             self._add(_E[302])
@@ -268,16 +288,52 @@ class FunctionChecker:  # pylint: disable=too-few-public-methods
             # description is not capitalized
             self._add(_E[305])
         # description-missing-period
-        # a description that ends inside an RST code block (introduced
-        # by a line ending with ::) does not need a sentence terminator
+        # a description that ends inside an RST code block or directive,
+        # or on a list item, does not need a sentence terminator
         if doc_description:
-            last_char, in_block = _last_prose_char(doc_description)
+            last_char, exempt = _last_prose_char(doc_description)
             if (
-                not in_block
+                not exempt
                 and last_char is not None
                 and last_char not in _VALID_ENDINGS
             ):
                 self._add(_E[306])
+
+    @staticmethod
+    def _description_syntax_error(description: str) -> bool:
+        # a field body may start on the line after the field name, so a
+        # newline followed by an indented body is well formed; within
+        # that body a deeper indent directly after a body line is not
+        # valid rst ("unexpected indentation") unless the line above
+        # opens a literal block or is a list item
+        if description.startswith(" "):
+            return False
+
+        if not description.startswith("\n"):
+            return True
+
+        prev_indent: int | None = None
+        prev_text = ""
+        seen = False
+        for line in description.splitlines()[1:]:
+            stripped_ln = line.strip()
+            if not stripped_ln:
+                prev_indent = None
+                continue
+
+            seen = True
+            indent = len(line) - len(line.lstrip())
+            if (
+                prev_indent is not None
+                and indent > prev_indent
+                and not prev_text.endswith("::")
+                and not _LIST_ITEM.match(prev_text)
+            ):
+                return True
+
+            prev_indent, prev_text = indent, stripped_ln
+
+        return not seen
 
     def _sig4xx_parameters(self, doc: _Param, sig: _Param) -> None:
         # freeze result as it is a property and PyCharm complains

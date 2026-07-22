@@ -329,6 +329,10 @@ class TilerFactory(BaseFactory):
 
     render_func: Callable[..., tuple[bytes, str]] = render_image
 
+    get_renders: Callable[[BaseReader], dict[str, dict[str, Any]]] = field(
+        default=lambda obj: {}
+    )
+
     # Add/Remove some endpoints
     add_preview: bool = True
     add_part: bool = True
@@ -576,7 +580,7 @@ class TilerFactory(BaseFactory):
             summary="Retrieve a list of available raster tilesets for the specified dataset.",
             operation_id=f"{self.operation_prefix}getTileSetList",
         )
-        async def tileset_list(
+        def tileset_list(
             request: Request,
             src_path=Depends(self.path_dependency),
             reader_params=Depends(self.reader_dependency),
@@ -697,7 +701,7 @@ class TilerFactory(BaseFactory):
             summary="Retrieve the raster tileset metadata for the specified dataset and tiling scheme (tile matrix set).",
             operation_id=f"{self.operation_prefix}getTileSet",
         )
-        async def tileset(
+        def tileset(
             request: Request,
             tileMatrixSetId: Annotated[
                 Literal[tuple(self.supported_tms.list())],
@@ -708,6 +712,14 @@ class TilerFactory(BaseFactory):
             src_path=Depends(self.path_dependency),
             reader_params=Depends(self.reader_dependency),
             env=Depends(self.environment_dependency),
+            minzoom: Annotated[
+                int | None,
+                Query(description="Overwrite default minzoom."),
+            ] = None,
+            maxzoom: Annotated[
+                int | None,
+                Query(description="Overwrite default maxzoom."),
+            ] = None,
             f: Annotated[
                 Literal["html", "json"] | None,
                 Query(
@@ -722,8 +734,8 @@ class TilerFactory(BaseFactory):
                     src_path, tms=tms, **reader_params.as_dict()
                 ) as src_dst:
                     bounds = src_dst.get_geographic_bounds(tms.rasterio_geographic_crs)
-                    minzoom = src_dst.minzoom
-                    maxzoom = src_dst.maxzoom
+                    minzoom = minzoom if minzoom is not None else src_dst.minzoom
+                    maxzoom = maxzoom if maxzoom is not None else src_dst.maxzoom
 
                     collection_bbox = {
                         "lowerLeft": [bounds[0], bounds[1]],
@@ -1007,7 +1019,7 @@ class TilerFactory(BaseFactory):
                 with self.reader(
                     src_path, tms=tms, **reader_params.as_dict()
                 ) as src_dst:
-                    return {
+                    body = {
                         "bounds": src_dst.get_geographic_bounds(
                             tms.rasterio_geographic_crs
                         ),
@@ -1016,6 +1028,16 @@ class TilerFactory(BaseFactory):
                         "tiles": [tiles_url],
                         "attribution": os.environ.get("TITILER_DEFAULT_ATTRIBUTION"),
                     }
+
+                    # Custom TiTiler tilejson fields
+                    body["raster_layers"] = self.get_renders(src_dst)
+
+                    info = src_dst.info()
+                    body["band_descriptions"] = getattr(info, "band_descriptions", None)
+                    body["data_type"] = getattr(info, "dtype", None)
+                    body["minmax"] = getattr(info, "minmax", None)
+
+            return body
 
     def map_viewer(self):  # noqa: C901
         """Register /map.html endpoint."""
@@ -1463,6 +1485,10 @@ class MultiBaseTilerFactory(TilerFactory):
 
     # Assets dependency
     assets_dependency: type[DefaultDependency] = AssetsParams
+
+    get_renders: Callable[[MultiBaseReader], dict[str, dict[str, Any]]] = field(  # type: ignore
+        default=lambda obj: {}
+    )
 
     # Overwrite the `/info` endpoint to return the list of assets when no assets is passed.
     def info(self):

@@ -1,17 +1,17 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.34.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-06-18T13:29:50.455218                                                            #
+# Generated on 2026-07-21T20:55:40.874542                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import typing
 import metaflow
+import typing
 if typing.TYPE_CHECKING:
+    import metaflow.mf_extensions.outerbounds.plugins.fast_bakery.fast_bakery
     import metaflow.exception
     import typing
-    import metaflow.mf_extensions.outerbounds.plugins.fast_bakery.fast_bakery
 
 from .....exception import MetaflowException as MetaflowException
 from .fast_bakery import FastBakery as FastBakery

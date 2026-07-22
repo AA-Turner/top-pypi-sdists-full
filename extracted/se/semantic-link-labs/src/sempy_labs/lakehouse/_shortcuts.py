@@ -15,6 +15,13 @@ import sempy_labs._icons as icons
 from uuid import UUID
 from sempy.fabric.exceptions import FabricHTTPException
 
+SHORTCUT_CONFLICT_POLICIES = (
+    "Abort",
+    "GenerateUniqueName",
+    "CreateOrOverwrite",
+    "OverwriteOnly",
+)
+
 
 @log
 def create_shortcut_onelake(
@@ -90,18 +97,18 @@ def create_shortcut_onelake(
             f"{icons.red_dot} The 'source_item_type' parameter must be 'Lakehouse', 'Warehouse', 'MirroredDatabase', 'SQLDatabase', or 'KQLDatabase'"
         )
 
-    (source_workspace_name, source_workspace_id) = resolve_workspace_name_and_id(
+    source_workspace_name, source_workspace_id = resolve_workspace_name_and_id(
         source_workspace
     )
 
-    (source_item_name, source_item_id) = resolve_item_name_and_id(
+    source_item_name, source_item_id = resolve_item_name_and_id(
         item=source_item, type=source_item_type, workspace=source_workspace_id
     )
 
-    (destination_workspace_name, destination_workspace_id) = (
+    destination_workspace_name, destination_workspace_id = (
         resolve_workspace_name_and_id(destination_workspace)
     )
-    (destination_lakehouse_name, destination_lakehouse_id) = (
+    destination_lakehouse_name, destination_lakehouse_id = (
         resolve_lakehouse_name_and_id(
             lakehouse=destination_lakehouse, workspace=destination_workspace_id
         )
@@ -149,9 +156,9 @@ def create_shortcut_onelake(
     url = f"/v1/workspaces/{destination_workspace_id}/items/{destination_lakehouse_id}/shortcuts"
 
     if shortcut_conflict_policy:
-        if shortcut_conflict_policy not in ["Abort", "GenerateUniqueName"]:
+        if shortcut_conflict_policy not in SHORTCUT_CONFLICT_POLICIES:
             raise ValueError(
-                f"{icons.red_dot} The 'shortcut_conflict_policy' parameter must be either 'Abort' or 'GenerateUniqueName'."
+                f"{icons.red_dot} The 'shortcut_conflict_policy' parameter must be one of the following strings: {SHORTCUT_CONFLICT_POLICIES}."
             )
         url += f"?shortcutConflictPolicy={shortcut_conflict_policy}"
 
@@ -206,8 +213,8 @@ def create_shortcut(
 
     sourceTitle = source_titles[source]
 
-    (workspace_name, workspace_id) = resolve_workspace_name_and_id(workspace)
-    (lakehouse_name, lakehouse_id) = resolve_lakehouse_name_and_id(
+    workspace_name, workspace_id = resolve_workspace_name_and_id(workspace)
+    lakehouse_name, lakehouse_id = resolve_lakehouse_name_and_id(
         lakehouse=lakehouse, workspace=workspace_id
     )
 
@@ -267,8 +274,8 @@ def delete_shortcut(
         or if no lakehouse attached, resolves to the workspace of the notebook.
     """
 
-    (workspace_name, workspace_id) = resolve_workspace_name_and_id(workspace)
-    (lakehouse_name, lakehouse_id) = resolve_lakehouse_name_and_id(
+    workspace_name, workspace_id = resolve_workspace_name_and_id(workspace)
+    lakehouse_name, lakehouse_id = resolve_lakehouse_name_and_id(
         lakehouse=lakehouse, workspace=workspace_id
     )
 
@@ -300,7 +307,7 @@ def reset_shortcut_cache(workspace: Optional[str | UUID] = None):
         or if no lakehouse attached, resolves to the workspace of the notebook.
     """
 
-    (workspace_name, workspace_id) = resolve_workspace_name_and_id(workspace)
+    workspace_name, workspace_id = resolve_workspace_name_and_id(workspace)
 
     _base_api(
         request=f"/v1/workspaces/{workspace_id}/onelake/resetShortcutCache",
@@ -344,7 +351,7 @@ def list_shortcuts(
     """
 
     workspace_id = resolve_workspace_id(workspace)
-    (lakehouse_name, lakehouse_id) = resolve_lakehouse_name_and_id(
+    lakehouse_name, lakehouse_id = resolve_lakehouse_name_and_id(
         lakehouse=lakehouse, workspace=workspace_id
     )
 

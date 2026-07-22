@@ -51,6 +51,7 @@ from ._discovery import (
     _import_name,
     _is_git_ignored,
     _resolve_repo_root,
+    _resolve_repo_root_with_rule,
     _src_pkg_dir,
     _tests_root,
 )
@@ -78,6 +79,7 @@ def audit_project(
     json_out: bool = False,
     rules: set[str] | None = None,
     severity: str = "error",
+    resolved_via: str | None = None,
 ) -> int:
     """Audit `<distribution>` against the project-structure checklist.
 
@@ -97,15 +99,26 @@ def audit_project(
         - ``"warning"``: print E + W findings; exit 1 iff ≥1 E.
         - ``"info"``: print everything; exit 1 iff ≥1 E.
         W and I findings never fail CI on their own.
+    resolved_via : str, optional
+        Which resolution rule produced ``repo`` when the CALLER already
+        resolved it (``"explicit"`` / ``"cwd"`` / ``"registry"`` — see
+        ``.._target_tree.resolve_target_tree``). Overrides the label this
+        function would infer, so the resolved-tree banner reports the
+        rule that actually picked the tree. When omitted, the label
+        comes from the internal resolution (``explicit`` for a passed
+        ``repo``, else ``cwd`` / ``import`` / ``proj-guess``).
 
     Returns
     -------
     int
         Exit code: 0 = no E-level violations, 1 = ≥1 E violation, 2 = could not locate.
     """
-    repo_root = _resolve_repo_root(distribution, repo)
+    repo_root, _rule = _resolve_repo_root_with_rule(distribution, repo)
+    via = resolved_via or _rule
     violations: list[Violation] = []
 
+    from ._resolved_tree import resolved_context, surface_resolved_tree
+    resolved_ctx = resolved_context(repo_root)
     if repo_root is None:
         if json_out:
             import json as _json
@@ -115,6 +128,8 @@ def audit_project(
                     {
                         "distribution": distribution,
                         "repo": None,
+                        **resolved_ctx,
+                        "resolved_via": via,
                         "violations": [],
                     },
                     indent=2,
@@ -127,6 +142,8 @@ def audit_project(
             err=True,
         )
         return 2
+
+    surface_resolved_tree(distribution, resolved_ctx, json_out, via=via)
 
     # Category-aware skip — see `should_skip_audit` in _ecosystem._core.
     try:
@@ -145,169 +162,9 @@ def audit_project(
     category = info.get("category", "library")
     skip_mirror = category in _MIRROR_EXEMPT_CATEGORIES
 
-    _check_top_level(repo_root, violations)
-    if not skip_mirror:
-        _check_mirror(repo_root, distribution, violations)
-        _check_placeholder_tests(repo_root, violations)
-        _check_empty_test_dirs(repo_root, distribution, violations)
-    _check_tests_subdir_convention(repo_root, distribution, violations)
-    # hook-bypass: line-limit
-    # RP-2xx: research projects mirror scripts/ ↔ tests/scripts/ instead of
-    # src/<pkg>/ ↔ tests/<pkg>/. Fired only when `research` is in the
-    # project-types; the PS package-publish rules drop for pure-research
-    # (no `pip` ⇒ applies("PS-*") is False). See _check_research_mirror.
-    from .._config import load_config as _load_cfg_for_research
+    from ._run_checks import run_checks
 
-    if "research" in _load_cfg_for_research(repo_root).project_types:
-        from ._check_research_mirror import check_research_mirror
-
-        check_research_mirror(repo_root, violations)
-    _check_docs_structure(repo_root, violations)
-    src_pkg = _src_pkg_dir(repo_root, distribution)
-    if src_pkg is not None:
-        from ._check_flat_layout import check_flat_layout, check_topical_clutter
-
-        check_flat_layout(src_pkg, Violation, violations)
-        check_topical_clutter(src_pkg, Violation, violations)
-    from ._check_readme_badges import check_coverage_badge
-
-    check_coverage_badge(repo_root, Violation, violations)
-    from ._check_readme_badge_position import check_badge_position
-
-    check_badge_position(repo_root, Violation, violations)
-    from ._check_readme_sections import check_readme_sections
-
-    check_readme_sections(repo_root, Violation, violations)
-    from ._check_sphinx_html import check_sphinx_html
-
-    check_sphinx_html(repo_root, Violation, violations)
-    from ._check_env_example import check_env_example
-
-    check_env_example(repo_root, Violation, violations)
-    from ._check_examples import check_examples_conventions
-
-    check_examples_conventions(repo_root, Violation, violations)
-    from ._check_readme_structure import check_readme_structure
-
-    check_readme_structure(repo_root, Violation, violations)
-    check_codecov_target(repo_root, Violation, violations)
-    # hook-bypass: line-limit
-    # PS-HOOK-001: a `language: system` pre-commit hook invoking a Python tool
-    # is a $PATH lottery — it resolves to whichever venv is active at commit
-    # time. figrecipe's testmon hook ran ZERO tests fleet-wide while blocking
-    # every Python commit; davinci-resolve-mcp's took >14 min per commit.
-    from ._check_precommit_hooks import check_ps_hook_001_precommit_system_hooks
-
-    check_ps_hook_001_precommit_system_hooks(repo_root, Violation, violations)
-    from ._check_dev_extras_complete import check_dev_extras_complete
-
-    check_dev_extras_complete(repo_root, Violation, violations)
-    # hook-bypass: line-limit
-    from ._check_optional_deps_guarded import check_ps148_optional_deps_guarded
-
-    check_ps148_optional_deps_guarded(repo_root, distribution, Violation, violations)
-    # PS-214/215: all-or-nothing extras + dead install-remedy strings.
-    # See scitex-writer PR #322 (reference incident: editor = [] extra +
-    # "pip install scitex-writer[editor]" remedy that installs nothing).
-    from ._check_empty_extras import check_ps214_empty_extras
-
-    check_ps214_empty_extras(repo_root, Violation, violations)
-    # hook-bypass: line-limit
-    from ._check_install_remedy_strings import check_ps215_broken_install_remedy
-
-    check_ps215_broken_install_remedy(repo_root, distribution, Violation, violations)
-    # hook-bypass: line-limit
-    from ._check_console_script_core_deps import (
-        check_ps213_console_script_core_deps,
-    )
-
-    check_ps213_console_script_core_deps(repo_root, distribution, Violation, violations)
-    # hook-bypass: line-limit
-    from ._check_hard_dep_overreach import check_ps149_hard_dep_overreach
-
-    check_ps149_hard_dep_overreach(repo_root, distribution, Violation, violations)
-    from ._check_umbrella_dep_and_integration import (
-        check_ps139_umbrella_dep,
-        check_ps140_integration_gate,
-    )
-
-    check_ps139_umbrella_dep(repo_root, Violation, violations)
-    check_ps140_integration_gate(repo_root, distribution, Violation, violations)
-    from ._check_ecosystem_boundary import check_ps183_ecosystem_boundary
-
-    check_ps183_ecosystem_boundary(repo_root, distribution, Violation, violations)
-    from ._check_audit_pin import check_audit_pin
-
-    check_audit_pin(repo_root, Violation, violations)
-    from ._check_workflows_naming import check_ps164_workflow_naming
-
-    check_ps164_workflow_naming(repo_root, Violation, violations)
-    # hook-bypass: line-limit
-    from ._check_secret_env_prefix import check_ps168_secret_env_prefix
-
-    check_ps168_secret_env_prefix(repo_root, distribution, Violation, violations)
-    # hook-bypass: line-limit
-    from ._check_workflow_presence import check_ps165_workflow_presence
-    from ._check_readme_badge_labels import check_ps166_readme_badge_labels
-
-    check_ps165_workflow_presence(repo_root, Violation, violations)
-    check_ps166_readme_badge_labels(repo_root, Violation, violations)
-    from ._check_readme_badge_layout import (  # hook-bypass: line-limit
-        check_ps167_readme_badge_layout,
-    )
-
-    check_ps167_readme_badge_layout(repo_root, Violation, violations)
-    from ._check_local_state import (
-        check_ps145_cross_package_read,
-        check_ps146_pip_install_side_effect,
-        check_ps147_eval_form_completion,
-    )
-
-    check_ps145_cross_package_read(repo_root, distribution, Violation, violations)
-    check_ps146_pip_install_side_effect(repo_root, Violation, violations)
-    check_ps147_eval_form_completion(repo_root, Violation, violations)
-    # PS-182: rolled-own local-state path resolver (git-root/project-scope
-    # precedence re-implemented instead of using scitex_config...local_state).
-    from ._check_path_resolver import check_ps182_rolled_own_path_resolver
-
-    check_ps182_rolled_own_path_resolver(repo_root, Violation, violations)
-    # PS-PATH / PS-CLEW / PS-AGENT — paper-scitex-clew MVP lint set.
-    # Artifact-gated (only fire when PATH.yaml / clew.add_claim /
-    # scripts/agent/ are present); safe to run on every project type.
-    # See PR #97 and operator directive 2026-06-01.
-    from ._check_path_yaml import (  # hook-bypass: line-limit
-        check_ps_path_001_outer_wrapper,
-        check_ps_path_002_bare_string_leaf,
-    )
-    from ._check_clew_claims import (  # hook-bypass: line-limit
-        check_ps_agent_001_agent_script_no_claims_json,
-        check_ps_clew_001_add_claim_without_self_verify,
-    )
-
-    check_ps_path_001_outer_wrapper(repo_root, Violation, violations)
-    check_ps_path_002_bare_string_leaf(repo_root, Violation, violations)
-    check_ps_clew_001_add_claim_without_self_verify(repo_root, Violation, violations)
-    check_ps_agent_001_agent_script_no_claims_json(repo_root, Violation, violations)
-    # hook-bypass: line-limit
-    # PS-173: ADR format — only fires when docs/adr/ exists (presence is
-    # recommended, not mandated). Scope = all project kinds.
-    from ._check_adr import check_ps173_adr_format
-
-    check_ps173_adr_format(repo_root, violations)
-    # PS-180: runtime/ separation discipline — only fires when
-    # src/<pkg>/runtime/ exists on disk AND no .gitignore covers it.
-    # Scope = all project kinds with a src/ layout.
-    from ._check_runtime_separation import check_runtime_separation
-
-    check_runtime_separation(repo_root, Violation, violations)
-    if not skip_mirror:
-        from ._check_smoke_e2e_layers import (
-            check_ps211_smoke_layer,
-            check_ps212_e2e_layer,
-        )
-
-        check_ps211_smoke_layer(repo_root, Violation, violations)
-        check_ps212_e2e_layer(repo_root, Violation, violations)
+    run_checks(repo_root, distribution, violations, skip_mirror=skip_mirror)
 
     if rules:
         violations = [v for v in violations if v.rule in rules]
@@ -373,6 +230,8 @@ def audit_project(
                 {
                     "distribution": distribution,
                     "repo": str(repo_root),
+                    **resolved_ctx,
+                    "resolved_via": via,
                     "violations": [
                         {
                             "rule": v.rule,

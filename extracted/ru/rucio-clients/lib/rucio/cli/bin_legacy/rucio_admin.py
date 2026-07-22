@@ -1403,14 +1403,10 @@ def get_parser():
     oparser.add_argument('-u', '--user', dest='username', default=None, help='username')
     oparser.add_argument('-pwd', '--password', dest='password', default=None, help='password')
     # Options for defining the OIDC scope# Options for defining remaining OIDC parameters
-    oparser.add_argument('--oidc-user', dest='oidc_username', default=None, help='OIDC username')
-    oparser.add_argument('--oidc-password', dest='oidc_password', default=None, help='OIDC password')
     oparser.add_argument('--oidc-scope', dest='oidc_scope', default='openid profile', help='Defines which (OIDC) information user will share with Rucio. '
                          + 'Rucio requires at least -sc="openid profile". To request refresh token for Rucio, scope must include "openid offline_access" and '
                          + 'there must be no active access token saved on the side of the currently used Rucio Client.')
     oparser.add_argument('--oidc-audience', dest='oidc_audience', default=None, help='Defines which audience are tokens requested for.')
-    oparser.add_argument('--oidc-auto', dest='oidc_auto', default=False, action='store_true', help='If not specified, username and password credentials are not required and users will be given a URL '
-                         + 'to use in their browser. If specified, the users explicitly trust Rucio with their IdP credentials.')
     oparser.add_argument('--oidc-polling', dest='oidc_polling', default=False, action='store_true', help='If not specified, user will be asked to enter a code returned by the browser to the command line. '
                          + 'If --polling is set, Rucio Client should get the token without any further interaction of the user. This option is active only if --auto is *not* specified.')
     oparser.add_argument('--oidc-refresh-lifetime', dest='oidc_refresh_lifetime', default=None, help='Max lifetime in hours for this an access token will be refreshed by asynchronous Rucio daemon. '
@@ -1727,7 +1723,7 @@ def get_parser():
                                                                '\n')
     identity_add_parser.set_defaults(which='identity_add')
     identity_add_parser.add_argument('--account', dest='account', action='store', help='Account name', required=True)
-    identity_add_parser.add_argument('--type', dest='authtype', action='store', choices=['X509', 'GSS', 'USERPASS', 'SSH', 'SAML', 'OIDC'], help='Authentication type [X509|GSS|USERPASS|SSH|SAML|OIDC]', required=True)
+    identity_add_parser.add_argument('--type', dest='authtype', action='store', choices=['X509', 'GSS', 'USERPASS', 'SSH', 'OIDC'], help='Authentication type [X509|GSS|USERPASS|SSH|OIDC]', required=True)
     identity_add_parser.add_argument('--id', dest='identity', action='store', help='Identity', required=True)
     identity_add_parser.add_argument('--email', dest='email', action='store', help='Email address associated with the identity', required=True)
     identity_add_parser.add_argument('--password', dest='password', action='store', help='Password if authtype is USERPASS', required=False)
@@ -1747,7 +1743,7 @@ def get_parser():
                                                                   '\n')
     identity_delete_parser.set_defaults(which='identity_delete')
     identity_delete_parser.add_argument('--account', dest='account', action='store', help='Account name', required=True)
-    identity_delete_parser.add_argument('--type', dest='authtype', action='store', choices=['X509', 'GSS', 'USERPASS', 'SSH', 'SAML', 'OIDC'], help='Authentication type [X509|GSS|USERPASS|SSH|SAML|OIDC]', required=True)
+    identity_delete_parser.add_argument('--type', dest='authtype', action='store', choices=['X509', 'GSS', 'USERPASS', 'SSH', 'OIDC'], help='Authentication type [X509|GSS|USERPASS|SSH|OIDC]', required=True)
     identity_delete_parser.add_argument('--id', dest='identity', action='store', help='Identity', required=True)
 
     # The RSE subparser
@@ -1985,7 +1981,7 @@ def get_parser():
                                                               '"""""""""""""\n'
                                                               '::\n'
                                                               '\n'
-                                                              '    $ rucio-admin rse add-protocol --hostname jdoes.test.org --scheme gsiftp --prefix \'/atlasdatadisk/rucio/\' --port 8443 JDOE_DATADISK\n'
+                                                              '    $ rucio-admin rse add-protocol --hostname jdoes.test.org --scheme https --prefix \'/atlasdatadisk/rucio/\' --port 8443 JDOE_DATADISK\n'
                                                               '\n'
                                                               'Note: no printed stdout.\n'
                                                               'Note: examples of optional parameters::\n'
@@ -2019,7 +2015,7 @@ def get_parser():
                                                               '"""""""""""""\n'
                                                               '::\n'
                                                               '\n'
-                                                              '   $ rucio-admin rse delete-protocol  --scheme gsiftp JDOE_DATADISK\n'
+                                                              '   $ rucio-admin rse delete-protocol  --scheme https JDOE_DATADISK\n'
                                                               '\n'
                                                               'Note: no printed stdout.\n'
                                                               '\n')

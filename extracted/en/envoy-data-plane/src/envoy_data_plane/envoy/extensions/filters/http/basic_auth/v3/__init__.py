@@ -37,6 +37,8 @@ class BasicAuth(betterproto2.Message):
         inline_string: |-
           user1:{SHA}hashed_user1_password
           user2:{SHA}hashed_user2_password
+
+    [#next-free-field: 6]
     """
 
     users: "_____config__core__v3__.DataSource | None" = betterproto2.field(
@@ -65,6 +67,33 @@ class BasicAuth(betterproto2.Message):
     This field specifies the request header to load the basic credential from.
 
     If it is not specified, the filter loads the credential from  the "Authorization" header.
+    """
+
+    allow_missing: "bool" = betterproto2.field(4, betterproto2.TYPE_BOOL)
+    """
+    If set to true, requests without Basic credentials (missing ``Authorization`` header, or
+    ``Authorization`` header with a non-``Basic`` scheme such as ``Bearer``) are allowed to pass through
+    without authentication. Requests that present ``Basic`` credentials are still fully validated.
+
+    This is useful when combining BasicAuth with other authentication methods (e.g. JWT) to
+    achieve OR semantics: a request is accepted if any one configured auth method succeeds.
+    When ``allow_missing`` is ``true`` on all auth filters, pair it with an RBAC filter that checks
+    the dynamic metadata emitted by this filter (see ``emit_dynamic_metadata``) to ensure at
+    least one method authenticated the request. Requires ``emit_dynamic_metadata`` to be set to
+    ``true``.
+    """
+
+    emit_dynamic_metadata: "bool" = betterproto2.field(5, betterproto2.TYPE_BOOL)
+    """
+    If set to ``true``, the filter emits dynamic metadata on successful authentication with key
+    ``username`` set to the authenticated username. The metadata is emitted under the namespace
+    corresponding to the name of this basic_auth filter as configured in the ``http_filters``
+    chain (e.g. if the filter is configured with name ``envoy.filters.http.basic_auth``, that is
+    the namespace that will be used).
+
+    This is typically enabled together with ``allow_missing`` when combining BasicAuth with
+    other authentication methods (e.g. JWT) and using a downstream RBAC filter to enforce
+    OR semantics.
     """
 
 

@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling>=1.13.0", "hatch-vcs>=0.3.0"]
+requires = ["hatchling>=1.30.1", "hatch-vcs>=0.5.0"]
 build-backend = "hatchling.build"
 
 [project]
@@ -27,10 +27,10 @@ classifiers = [
     "Topic :: Scientific/Engineering",
 ]
 dependencies = [
-    "pybammsolvers>=0.8.0,<0.9.0",
+    "pybammsolvers>=0.9.0,<0.10.0",
     "black",
-    "numpy",
-    "scipy>=1.11.4",
+    "numpy>=2.0.0",
+    "scipy>=1.11.4,!=1.18.0", # 1.18.0 breaks pickling/deepcopy of interpolators, fixed in 1.18.1 (scipy#25489)
     "xarray>=2022.6.0",
     "anytree>=2.8.0",
     "sympy>=1.12",
@@ -59,8 +59,10 @@ plot = [
     "matplotlib>=3.6.0",
 ]
 cite = ["pybtex>=0.25.0"]
+# For diffsl export integration tests
+pydiffsol = ["pydiffsol>=0.5.2"]
 # Battery Parameter eXchange format
-bpx = ["bpx>=1.1.0,<1.2.0"]
+bpx = ["bpx>=1.1.1,<1.2.0"]
 # Low-overhead progress bars
 tqdm = ["tqdm"]
 jax = ["jax>=0.7.0, <0.9.0; python_version >= '3.11' and (sys_platform != 'darwin' or platform_machine != 'x86_64')"]
@@ -148,6 +150,18 @@ version.fallback-version = "0.0.0"
 build.targets.sdist.include = ["src/pybamm", "CITATION.cff"]
 build.hooks.vcs.version-file = "src/pybamm/_version.py"
 
+# Monorepo tag scoping: PyBaMM releases are tagged `pybamm-v<CalVer>` (e.g.
+# pybamm-v27.1.0.0). Scope git-describe to that namespace so pybammsolvers tags
+# (`pybammsolvers-v*`) and legacy bare solver tags (`v0.x`) never drive PyBaMM's
+# version. See docs/superpowers/specs/2026-06-11-pybamm-monorepo-design.md.
+[tool.hatch.version.raw-options]
+# The git root is the monorepo root, two levels up from this package's
+# pyproject. Without this, setuptools_scm looks for .git in packages/pybamm/,
+# fails, and falls back to 0.0.0.
+root = "../.."
+git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "pybamm-v*"]
+tag_regex = '^pybamm-v(?P<version>[0-9].*)$'
+
 [tool.repo-review]
 ignore = [
     "MY",     # ignore all MyPy setting checks (MY101, MY103, MY104, MY105, MY106)
@@ -162,57 +176,9 @@ ignore = [
     "NOX202", # ignore noxfile has a shebang line
 ]
 
-[tool.ruff]
-extend-include = ["*.ipynb"]
-extend-exclude = ["__init__.py"]
-
-[tool.ruff.lint]
-extend-select = [
-    "B", # flake8-bugbear
-    "I", # isort
-    # "ARG",         # flake8-unused-arguments
-    # "C4",          # flake8-comprehensions
-    # "ICN",         # flake8-import-conventions
-    # "ISC",         # flake8-implicit-str-concat
-    # "PGH",         # pygrep-hooks
-    # "PIE",         # flake8-pie
-    # "PL",          # pylint
-    # "PT",          # flake8-pytest-style
-    # "PTH",         # flake8-use-pathlib
-    # "RET",         # flake8-return
-    "RUF", # Ruff-specific
-    # "SIM",         # flake8-simplify
-    # "T20",         # flake8-print
-    "UP",     # pyupgrade
-    "YTT",    # flake8-2020
-    "TID252", # relative-imports
-    "S101",   # to identify use of assert statement
-    "PT027",  # remove unittest style assertion
-    "PT009",  # Use pytest.raises instead of unittest-style
-]
-ignore = [
-    "E741",    # Ambiguous variable name
-    "RUF012",  # Mutable class attributes should be annotated with `typing.ClassVar`
-    "SIM108",  # Use ternary operator
-    "ARG001",  # Unused function argument:
-    "ARG002",  # Unused method arguments
-    "PLR2004", # Magic value used in comparison
-    "PLR0915", # Too many statements
-    "PLR0913", # Too many arguments
-    "PLR0912", # Too many branches
-    "RET504",  # Unnecessary assignment
-    "RET505",  # Unnecessary `else`
-    "RET506",  # Unnecessary `elif`
-    "B018",    # Found useless expression
-    "RUF002",  # Docstring contains ambiguous
-]
-
-[tool.ruff.lint.per-file-ignores]
-"tests/*" = ["T20", "S101"]
-"docs/*" = ["T20"]
-"examples/*" = ["T20"]
-"**.ipynb" = ["E402", "E703"]
-"docs/source/examples/notebooks/models/lithium-plating.ipynb" = ["F821"]
+# NOTE: The shared [tool.ruff] config was hoisted to the repo-root pyproject.toml
+# so it governs the whole monorepo (including root-level docs/ and examples/).
+# See the workspace root pyproject.toml.
 
 [tool.pytest.ini_options]
 minversion = "9.0"

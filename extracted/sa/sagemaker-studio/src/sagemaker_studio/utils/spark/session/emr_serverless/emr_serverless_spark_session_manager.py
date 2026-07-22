@@ -309,11 +309,6 @@ class EMRServerlessSparkSessionManager(SparkSessionManager):
         except (IndexError, ValueError):
             return False
 
-    @staticmethod
-    def _user_msg(msg):
-        """Print a user-facing progress message (visible in notebook cell output)."""
-        print(msg, flush=True)
-
     def _ensure_application_started(self, application_id, timeout=120, poll_interval=2):
         """Ensure the EMR Serverless application is in STARTED state before creating a session.
 

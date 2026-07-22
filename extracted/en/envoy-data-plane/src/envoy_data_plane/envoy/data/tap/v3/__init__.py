@@ -493,6 +493,7 @@ class TraceWrapper(betterproto2.Message):
 
     Wrapper for all fully buffered and streamed tap traces that Envoy emits. This is required for
     sending traces over gRPC APIs or more easily persisting binary messages to files.
+    [#next-free-field: 6]
 
     Oneofs:
         - trace:
@@ -526,6 +527,29 @@ class TraceWrapper(betterproto2.Message):
     A socket streamed tap trace segment.
     """
 
+    configured_sample_rate: "___type__v3__.FractionalPercent | None" = (
+        betterproto2.field(5, betterproto2.TYPE_MESSAGE, optional=True)
+    )
+    """
+    The configured sample rate at the time this trace was admitted, sourced from the
+    :ref:`default_value
+    <envoy_v3_api_field_config.core.v3.RuntimeFractionalPercent.default_value>` of
+    :ref:`tap_enabled <envoy_v3_api_field_config.tap.v3.TapConfig.tap_enabled>`. For
+    buffered output (where each ``TraceWrapper`` carries a complete trace) the rate is
+    always present when sampling is configured. For streamed output (where a trace is
+    split across multiple ``TraceWrapper`` segments) the rate is set on the first
+    emitted segment only; subsequent segments belonging to the same trace can be
+    joined to it via the ``trace_id`` carried on each inner segment message. Absent
+    when sampling is unconfigured.
+
+    .. note::
+
+      When :ref:`runtime_key
+      <envoy_v3_api_field_config.core.v3.RuntimeFractionalPercent.runtime_key>` is
+      configured and an active runtime override is in effect, the effective sampling
+      rate that admitted the trace may differ from the recorded configured value.
+    """
+
     @model_validator(mode="after")
     def check_oneof(cls, values):
         return cls._validate_field_groups(values)
@@ -536,3 +560,4 @@ default_message_pool.register_message("envoy.data.tap.v3", "TraceWrapper", Trace
 
 from .....google import protobuf as ____google__protobuf__
 from ....config.core import v3 as ___config__core__v3__
+from ....type import v3 as ___type__v3__

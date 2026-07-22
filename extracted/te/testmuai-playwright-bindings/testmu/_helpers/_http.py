@@ -18,6 +18,17 @@ def create_session(**kwargs) -> aiohttp.ClientSession:
     """Create an aiohttp session with LT Basic auth + tracking headers."""
     headers = kwargs.pop("headers", {})
 
+    # Negotiate only the codecs backed by stdlib zlib. Left to itself, aiohttp
+    # advertises `br` whenever a brotli module happens to be importable, and the
+    # endpoints below sit behind a CDN that honours it — so decoding a response
+    # silently depends on a native package nobody declared. aiohttp >=3.13 drives
+    # it via Decompressor.process(data, max_length), a 2-arg form that only
+    # exists in Brotli >=1.1.0; a runtime carrying an older Brotli therefore
+    # fails EVERY compressed response with "Can not decode content-encoding: br",
+    # which aiohttp raises as a bogus 400. zlib ships with CPython and cannot
+    # skew this way.
+    headers.setdefault("Accept-Encoding", "gzip, deflate")
+
     username = os.getenv("LT_USERNAME", "")
     access_key = os.getenv("LT_ACCESS_KEY", "")
     if username and access_key:

@@ -26,7 +26,8 @@ class Events:
 	def before_write_handler(self) -> Callable:
 		"""Returns the handler of before_write events. \n
 		:return: current ``before_write_handler``"""
-		return self._core.io.before_write_handler
+		# noinspection PyTypeChecker
+		return self._core.io.before_write_handler  # ty: ignore[invalid-return-type]
 
 	@before_write_handler.setter
 	def before_write_handler(self, handler: Callable) -> None:
@@ -40,7 +41,8 @@ class Events:
 	def on_write_handler(self) -> Callable:
 		"""Returns the handler of on_write events. \n
 		:return: current ``on_write_handler``"""
-		return self._core.io.on_write_handler
+		# noinspection PyTypeChecker
+		return self._core.io.on_write_handler  # ty: ignore[invalid-return-type]
 
 	@on_write_handler.setter
 	def on_write_handler(self, handler: Callable) -> None:
@@ -55,7 +57,8 @@ class Events:
 	def on_read_handler(self) -> Callable:
 		"""Returns the handler of on_read events. \n
 		:return: current ``on_read_handler``"""
-		return self._core.io.on_read_handler
+		# noinspection PyTypeChecker
+		return self._core.io.on_read_handler  # ty: ignore[invalid-return-type]
 
 	@on_read_handler.setter
 	def on_read_handler(self, handler: Callable) -> None:
@@ -70,7 +73,8 @@ class Events:
 	def before_query_handler(self) -> Callable:
 		"""Returns the handler of before_query events. \n
 		:return: current ``before_query_handler``"""
-		return self._core.io.before_query_handler
+		# noinspection PyTypeChecker
+		return self._core.io.before_query_handler  # ty: ignore[invalid-return-type]
 
 	@before_query_handler.setter
 	def before_query_handler(self, handler: Callable) -> None:

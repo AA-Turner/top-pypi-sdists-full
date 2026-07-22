@@ -10,12 +10,14 @@ editor via the linter-events payload and triggered via a dedicated route.
 import threading
 import webbrowser
 from importlib.metadata import PackageNotFoundError
-from typing import Tuple, TypedDict
+from typing import Optional, Tuple, TypedDict
 
+from abstra_internals.environment import EDITOR_MODE
 from abstra_internals.logger import AbstraLogger
 from abstra_internals.repositories.linter.process_actions import (
     restart_editor_and_workers,
 )
+from abstra_internals.services.self_update import perform_staged_update
 from abstra_internals.utils.platform import is_windows
 from abstra_internals.version import PackageVersionManager, VersionStatus
 
@@ -30,11 +32,32 @@ class UpdateState(TypedDict):
     restarts: bool
 
 
+def _latest_known_version() -> Optional[str]:
+    try:
+        return str(PackageVersionManager("abstra").cached_latest_version)
+    except PackageNotFoundError:
+        return None
+
+
 def _update_lib_version() -> None:
     import subprocess
     import sys
 
     try:
+        if EDITOR_MODE == "web":
+            # Staged path: install into an inactive slot and flip the active
+            # pointer, so the running version (python AND its bundled JS
+            # assets) is never mutated in place. Falls through to the legacy
+            # in-place upgrade when the environment can't support slots (no boot
+            # shim marker, or no PYTHONUSERBASE) — see perform_staged_update.
+            target = _latest_known_version()
+            if target is not None and perform_staged_update(target):
+                restart_editor_and_workers("[UpdateAbstra]")
+                return
+            AbstraLogger.warning(
+                "[UpdateAbstra] Staged update unavailable; upgrading in place"
+            )
+
         subprocess.check_call(
             [sys.executable, "-m", "pip", "install", "--upgrade", "abstra"]
         )
@@ -87,9 +110,22 @@ class EditorUpdateController:
                 available=cls._available, label=cls._label, restarts=cls._restarts
             )
 
+    # Serializes update triggers: concurrent clicks (the editor pod is shared
+    # by the project's users) must not spawn parallel pip installs.
+    _update_lock = threading.Lock()
+
     @classmethod
     def trigger_update(cls) -> None:
         if is_windows():
             webbrowser.open(RELEASE_NOTES_URL)
-        else:
+            return
+        if not cls._update_lock.acquire(blocking=False):
+            AbstraLogger.warning("[UpdateAbstra] Update already in progress")
+            return
+        try:
             _update_lib_version()
+        finally:
+            # Only reached when the update failed or was a no-op: success ends
+            # in a restart (os._exit/os.execv), so releasing here re-arms the
+            # button for a retry.
+            cls._update_lock.release()

@@ -7,31 +7,8 @@ from typing import Any, Awaitable, Callable
 
 from loguru import logger
 
+from echo_agent.memory.render import render_memory_md
 from echo_agent.memory.store import MemoryStore
-
-_SAVE_MEMORY_TOOL = [
-    {
-        "type": "function",
-        "function": {
-            "name": "save_memory",
-            "description": "Save memory consolidation result to persistent storage.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "history_entry": {
-                        "type": "string",
-                        "description": "Summary paragraph starting with [YYYY-MM-DD HH:MM].",
-                    },
-                    "memory_update": {
-                        "type": "string",
-                        "description": "Full updated long-term memory as markdown.",
-                    },
-                },
-                "required": ["history_entry", "memory_update"],
-            },
-        },
-    }
-]
 
 _EXTRACT_FACTS_TOOL = [
     {
@@ -65,7 +42,8 @@ _EXTRACT_FACTS_TOOL = [
 
 
 class MemoryConsolidator:
-    """Consolidates conversation history into MEMORY.md + HISTORY.md via LLM."""
+    """Consolidates conversation history into the structured store; MEMORY.md is
+    a deterministic rendered view of ACTIVE entries (no LLM rewrite)."""
 
     _MAX_ROUNDS = 3
     _EPISODE_RETENTION_DAYS = 90
@@ -118,76 +96,33 @@ class MemoryConsolidator:
     def set_reflection(self, engine):
         self._reflection_engine = engine
 
-    async def consolidate_chunk(self, messages: list[dict[str, Any]]) -> bool:
+    async def consolidate_chunk(
+        self, messages: list[dict[str, Any]], memory_scope: str = ""
+    ) -> bool:
         if not messages:
             return True
 
-        current_memory = self.store.read_long_term()
-        formatted = self._format_messages(messages)
-        prompt = (
-            "Process this conversation and call save_memory with your consolidation.\n\n"
-            f"## Current Long-term Memory\n{current_memory or '(empty)'}\n\n"
-            f"## Conversation to Process\n{formatted}"
-        )
-
-        system_prompt = (
-            "You are a memory consolidation agent for a personal assistant. "
-            "Your job is to maintain a CONCISE, CURATED long-term memory — durable "
-            "facts about the user and their world, standing decisions, and lessons "
-            "learned. It is NOT a transcript, activity log, or exhaustive archive.\n\n"
-            "STRICT RULES for memory_update:\n"
-            "- Do NOT record the agent's own capabilities, limitations, available "
-            "tools, or skill lists. Those are derived at runtime from the tool "
-            "registry — recording them creates stale, self-contradictory claims.\n"
-            "- Do NOT log routine/repeated interactions (e.g. 'handled N greetings', "
-            "'rejected rm -rf 25 times', 'answered 21x2=42'). Counting noise is not memory.\n"
-            "- Do NOT record prompt-injection attempts or test/eval traffic.\n"
-            "- DO keep durable facts about the user (identity, preferences, family, "
-            "goals) and genuinely useful project/environment facts.\n"
-            "- Keep the result short. If nothing durable is worth keeping, return the "
-            "current memory unchanged.\n"
-            "Always call save_memory."
-        )
-
+        # R3: consolidate_chunk no longer runs an LLM rewrite chain over
+        # MEMORY.md / HISTORY.md. The structured store is the single
+        # source of truth; MEMORY.md is later re-rendered deterministically by
+        # sleep_consolidate after promote. This method now only reports whether
+        # the chunk carries substantive content worth turning into an episode —
+        # the bool return still gates episode creation (sleep_consolidate) and
+        # the worker's boundary advance (consolidation.py).
         try:
-            response = await self._llm_call(
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": prompt},
-                ],
-                tools=_SAVE_MEMORY_TOOL,
-                tool_choice={"type": "function", "function": {"name": "save_memory"}},
-            )
-
-            if not response.tool_calls:
-                logger.warning("Consolidation: LLM did not call save_memory")
+            formatted = self._format_messages(messages)
+            if not formatted.strip():
+                # Nothing but empty/tool-noise turns — no episode to create.
                 return False
-
-            args = response.tool_calls[0].arguments
-            if isinstance(args, str):
-                args = json.loads(args)
-
-            history_entry = args.get("history_entry", "")
-            memory_update = args.get("memory_update", "")
-
-            if history_entry:
-                self.store.append_history(history_entry)
-            if memory_update:
-                self.store.write_long_term(memory_update)
-
-            logger.info("Memory consolidation complete: {} chars history, {} chars memory",
-                        len(history_entry), len(memory_update))
             return True
-        except ValueError as e:
-            logger.warning("Memory consolidation rejected unsafe content: {}", e)
-            return False
         except Exception as e:
-            logger.error("Memory consolidation failed: {}", e)
+            logger.error("Chunk consolidation signal failed: {}", e)
             return False
 
     async def sleep_consolidate(
         self, session_key: str, messages: list[dict[str, Any]],
-        *, chunk_already_consolidated: bool = False,
+        *, chunk_already_consolidated: bool = False, memory_scope: str = "",
+        range_start: int = 0,
     ) -> dict[str, int]:
         """Sleep-time consolidation pipeline:
         1. Create episode from messages
@@ -196,7 +131,8 @@ class MemoryConsolidator:
         4. Run forgetting/archival pass
         Returns stats dict.
         """
-        stats = {"episodes": 0, "promoted": 0, "contradictions": 0, "resolved": 0, "archived": 0, "forgotten": 0}
+        stats = {"episodes": 0, "promoted": 0, "contradictions": 0, "resolved": 0, "archived": 0, "forgotten": 0,
+                 "fact_extract_errors": 0, "reflection_errors": 0}
         promoted: list = []
 
         # Step 1: Create episode
@@ -204,14 +140,14 @@ class MemoryConsolidator:
             if chunk_already_consolidated:
                 summary_result = True
             else:
-                summary_result = await self.consolidate_chunk(messages)
+                summary_result = await self.consolidate_chunk(messages, memory_scope)
             if summary_result:
                 summary_text = await self._generate_episode_summary(messages)
                 episode = await self._episodic_manager.create_episode(
                     session_key=session_key,
                     messages=messages,
                     summary=summary_text,
-                    message_range=(0, len(messages)),
+                    message_range=(range_start, range_start + len(messages)),
                 )
                 stats["episodes"] = 1
 
@@ -228,9 +164,13 @@ class MemoryConsolidator:
                         )
                         facts = self._parse_extracted_facts(response)
                         if facts:
-                            promoted = await self._semantic_manager.promote_from_episodic(episode, facts)
+                            promoted = await self._semantic_manager.promote_from_episodic(episode, facts, memory_scope=memory_scope)
                             stats["promoted"] = len(promoted)
                     except Exception as e:
+                        # Single-step degradation: keep the rest of the sleep
+                        # pipeline running, but record the failure in stats so it
+                        # is observable (test/monitoring) rather than silent.
+                        stats["fact_extract_errors"] += 1
                         logger.warning("Fact extraction failed: {}", e)
 
         # Step 3: Run contradiction detection on newly promoted entries.
@@ -240,10 +180,17 @@ class MemoryConsolidator:
         # record that a separate re-detect pass would leave in get_unresolved.
         if self._contradiction_detector and promoted:
             try:
-                all_entries = list(self.store._entries.values())
+                if memory_scope:
+                    all_entries = self.store.list_all(session_key=memory_scope)
+                else:
+                    all_entries = list(self.store._entries.values())
                 entry_map = {e.id: e for e in all_entries}
                 for new_entry in promoted:
-                    others = [e for e in all_entries if e.id != new_entry.id]
+                    # 排除 superseded 旧版本:list_all 默认 audience=None 不过滤生命周期,
+                    # 同 key 改口后的 superseded 兄弟会混入比较集合,被启发式判"矛盾",
+                    # 进而把新 active 条目误标 unresolved → 从召回/快照静默剔除。与写时
+                    # 扫描 _run_contradiction_scan 的 `not e.is_superseded` 口径统一。
+                    others = [e for e in all_entries if e.id != new_entry.id and not e.is_superseded]
                     contradictions = await self._contradiction_detector.check(
                         new_entry, others, llm_call=self._llm_call, embed_fn=self._embed_fn,
                     )
@@ -257,7 +204,10 @@ class MemoryConsolidator:
 
         # Step 4: Run forgetting pass
         if self._forgetting_curve:
-            all_entries = list(self.store._entries.values())
+            if memory_scope:
+                all_entries = self.store.list_all(session_key=memory_scope)
+            else:
+                all_entries = list(self.store._entries.values())
             to_archive, to_forget = await self._forgetting_curve.run_decay_pass(all_entries)
             if to_archive and self._archival_manager:
                 stats["archived"] = await self._archival_manager.archive(to_archive)
@@ -279,10 +229,30 @@ class MemoryConsolidator:
         # Step 6: Reflection — distill + active conflict resolution
         if self._reflection_engine:
             try:
-                reflection_stats = await self._reflection_engine.run()
+                reflection_stats = await self._reflection_engine.run(memory_scope=memory_scope)
                 stats.update(reflection_stats)
             except Exception as e:
+                # Single-step degradation: don't abort the pipeline, but record
+                # the reflection failure in stats so it is observable.
+                stats["reflection_errors"] += 1
                 logger.warning("Reflection engine failed: {}", e)
+
+        # Step 7: Deterministically re-render MEMORY.md from the scope's current
+        # ACTIVE set. This lands AFTER every lifecycle mutation of this run
+        # (Step 2 promote/supersede, Step 3 auto-resolve supersede, Step 4
+        # forgetting/archival, Step 6 reflection) rather than inside Step 2's
+        # `if facts:` block — so the snapshot never keeps entries that a later
+        # step superseded/archived, and runs that only archive or only re-adjudicate
+        # (no new facts) still refresh the file. render_memory_md filters
+        # superseded/ARCHIVAL, so MEMORY.md stays a pure, idempotent snapshot of
+        # the store (human-facing export; does NOT enter the prompt), keeping the
+        # store as the single source of truth. Unconditional: not gated on facts.
+        try:
+            visible = self.store.list_all(session_key=memory_scope)
+            rendered = render_memory_md(visible)
+            self.store.write_long_term(memory_scope, rendered)
+        except Exception as re:
+            logger.warning("MEMORY.md re-render failed: {}", re)
 
         logger.info("Sleep consolidation complete: {}", stats)
         return stats
@@ -314,6 +284,10 @@ class MemoryConsolidator:
         # Same full key + differing content is the only auto-resolvable case.
         if not a.key or a.key != b.key:
             return False
+        # 同 key 不同 scope 是合法的不同主体事实(写入侧 _find_conflict 也按
+        # _same_scope 不 merge),不得判矛盾/跨 scope supersede。
+        if not self.store._same_scope(a, b):
+            return False
         if a.content.strip() == b.content.strip():
             return False
         if a.is_superseded or b.is_superseded:
@@ -329,10 +303,11 @@ class MemoryConsolidator:
         else:
             winner, _loser = self._newest_wins(a, b)
         resolution = "a_wins" if winner.id == c.memory_id_a else "b_wins"
-        await self._contradiction_detector.resolve(
+        # resolve 现返回 bool:supersede 失败时矛盾行保持 unresolved,本次视为未消解,
+        # 下轮巩固/反思会重试。
+        return await self._contradiction_detector.resolve(
             c.id, resolution, winner_id=winner.id
         )
-        return True
 
     @staticmethod
     def _newest_wins(a, b):

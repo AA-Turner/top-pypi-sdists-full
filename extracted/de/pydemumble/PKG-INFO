@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pydemumble
-Version: 0.1.2
+Version: 0.1.3
 Summary: A Python wrapper library for demumble; demumble is a tool to demangle C++, Rust, and Swift symbol names.
 Author-Email: Fish Wang <fishw@asu.edu>
 Classifier: License :: OSI Approved :: BSD License

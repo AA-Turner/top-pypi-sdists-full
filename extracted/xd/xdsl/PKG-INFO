@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xdsl
-Version: 0.68.0
+Version: 0.69.0
 Summary: xDSL
 Author-email: Mathieu Fehr <mathieu.fehr@ed.ac.uk>
 License: Apache License v2.0 with LLVM Exceptions
@@ -31,7 +31,7 @@ Requires-Dist: marimo<0.24,>=0.23; extra == "dev"
 Requires-Dist: nbconvert<8,>=7.7.2; extra == "dev"
 Requires-Dist: nbval<0.12; extra == "dev"
 Requires-Dist: prek~=0.4.0; extra == "dev"
-Requires-Dist: pyright==1.1.410; extra == "dev"
+Requires-Dist: pyright==1.1.411; extra == "dev"
 Requires-Dist: pytest<9.2; extra == "dev"
 Requires-Dist: pytest-asyncio; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
@@ -43,7 +43,7 @@ Provides-Extra: gui
 Requires-Dist: pyclip==0.7; extra == "gui"
 Requires-Dist: textual<9,>=8; extra == "gui"
 Provides-Extra: heir
-Requires-Dist: heir-py==2026.6.5.dev0; extra == "heir"
+Requires-Dist: heir-py==2026.7.1; extra == "heir"
 Provides-Extra: llvm
 Requires-Dist: llvmlite~=0.47.0; extra == "llvm"
 Dynamic: license-file
@@ -149,7 +149,7 @@ compilers construction, like a database compiler.
 There also exists a small documentation showing how to connect xDSL with MLIR
 for users interested in that use case.
 
-- [Tutorial notebooks](https://docs.xdsl.dev/marimo)
+- [Tutorial notebooks](https://docs.xdsl.dev/notebooks)
 - [Connecting xDSL with MLIR](docs/guides/mlir_interoperation.md)
 
 We provide a [Makefile](https://github.com/xdslproject/xdsl/blob/main/Makefile)

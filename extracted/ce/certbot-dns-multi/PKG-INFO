@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: certbot-dns-multi
-Version: 5.2.2
+Version: 5.3.1
 Summary: Certbot DNS plugin supporting multiple providers, using github.com/go-acme/lego
 License: MIT
 Requires-Python: >=3.9
@@ -36,6 +36,8 @@ sudo snap install certbot-dns-multi
 sudo snap set certbot trust-plugin-with-root=ok
 sudo snap connect certbot:plugin certbot-dns-multi
 ```
+
+We previously published `armhf` snaps, but new snap releases are now published only for `amd64` and `arm64`.
 
 ### via `pip`
 

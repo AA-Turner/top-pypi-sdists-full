@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastmcp-extensions
-Version: 0.10.2
+Version: 0.10.3
 Summary: Unofficial extension library for FastMCP 2.0 with patterns, practices, and utilities
 Project-URL: Homepage, https://github.com/airbytehq/fastmcp-extensions
 Project-URL: Repository, https://github.com/airbytehq/fastmcp-extensions

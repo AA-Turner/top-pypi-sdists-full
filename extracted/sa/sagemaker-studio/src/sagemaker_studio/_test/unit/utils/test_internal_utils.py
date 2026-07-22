@@ -592,13 +592,13 @@ class TestResolveConnectionIdFromNotebook(unittest.TestCase):
 
     @patch("sagemaker_studio.utils._internal.InternalUtils._get_field_from_environment")
     @patch("sagemaker_studio.utils._internal.InternalUtils._get_domain_id")
-    def test_get_notebook_wip_success(self, mock_get_domain_id, mock_get_field):
-        """Should use get_notebook_wip and return connection ID from metadata."""
+    def test_get_notebook_success(self, mock_get_domain_id, mock_get_field):
+        """Should use get_notebook and return connection ID from metadata."""
         mock_get_domain_id.return_value = "domain-123"
         mock_get_field.return_value = "notebook-456"
 
         mock_dz_client = Mock()
-        mock_dz_client.get_notebook_wip.return_value = {
+        mock_dz_client.get_notebook.return_value = {
             "metadata": {"defaultSparkConnectionId": "conn-abc"}
         }
 
@@ -610,34 +610,6 @@ class TestResolveConnectionIdFromNotebook(unittest.TestCase):
             result = self.utils._resolve_connection_id_from_notebook(Mock())
 
         self.assertEqual(result, "conn-abc")
-        mock_dz_client.get_notebook_wip.assert_called_once_with(
-            domainIdentifier="domain-123",
-            identifier="notebook-456",
-        )
-        mock_dz_client.get_notebook.assert_not_called()
-
-    @patch("sagemaker_studio.utils._internal.InternalUtils._get_field_from_environment")
-    @patch("sagemaker_studio.utils._internal.InternalUtils._get_domain_id")
-    def test_falls_back_to_get_notebook_on_wip_failure(self, mock_get_domain_id, mock_get_field):
-        """Should fall back to get_notebook when get_notebook_wip raises an exception."""
-        mock_get_domain_id.return_value = "domain-123"
-        mock_get_field.return_value = "notebook-456"
-
-        mock_dz_client = Mock()
-        mock_dz_client.get_notebook_wip.side_effect = Exception("WIP API not available")
-        mock_dz_client.get_notebook.return_value = {
-            "metadata": {"defaultSparkConnectionId": "conn-fallback"}
-        }
-
-        with patch("sagemaker_studio.sagemaker_studio_api.SageMakerStudioAPI") as MockAPI:
-            mock_api_instance = Mock()
-            mock_api_instance.datazone_api = mock_dz_client
-            MockAPI.return_value = mock_api_instance
-
-            result = self.utils._resolve_connection_id_from_notebook(Mock())
-
-        self.assertEqual(result, "conn-fallback")
-        mock_dz_client.get_notebook_wip.assert_called_once()
         mock_dz_client.get_notebook.assert_called_once_with(
             domainIdentifier="domain-123",
             identifier="notebook-456",
@@ -651,7 +623,7 @@ class TestResolveConnectionIdFromNotebook(unittest.TestCase):
         mock_get_field.return_value = "notebook-456"
 
         mock_dz_client = Mock()
-        mock_dz_client.get_notebook_wip.return_value = {"metadata": {}}
+        mock_dz_client.get_notebook.return_value = {"metadata": {}}
 
         with patch("sagemaker_studio.sagemaker_studio_api.SageMakerStudioAPI") as MockAPI:
             mock_api_instance = Mock()
@@ -670,7 +642,7 @@ class TestResolveConnectionIdFromNotebook(unittest.TestCase):
         mock_get_field.return_value = "notebook-456"
 
         mock_dz_client = Mock()
-        mock_dz_client.get_notebook_wip.return_value = {"metadata": None}
+        mock_dz_client.get_notebook.return_value = {"metadata": None}
 
         with patch("sagemaker_studio.sagemaker_studio_api.SageMakerStudioAPI") as MockAPI:
             mock_api_instance = Mock()

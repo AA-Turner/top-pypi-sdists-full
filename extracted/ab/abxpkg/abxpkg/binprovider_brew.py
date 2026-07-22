@@ -43,6 +43,16 @@ class BrewProvider(BinProvider):
     _log_emoji = "🍺"
     INSTALLER_BIN: BinName = "brew"
     INSTALLER_BINPROVIDERS: ClassVar[tuple[BinProviderName, ...] | None] = ("env",)
+    # These variables control Homebrew itself. They belong on subprocesses
+    # executed by this provider, but must not leak into a combined dependency
+    # environment where `brew` may be a host binary selected by EnvProvider.
+    EXEC_ONLY_ENV_KEYS: ClassVar[frozenset[str]] = frozenset(
+        {
+            "HOMEBREW_PREFIX",
+            "HOMEBREW_CELLAR",
+            "HOMEBREW_NO_INSTALL_CLEANUP",
+        },
+    )
 
     PATH: PATHStr = f"{DEFAULT_LINUX_DIR}:{NEW_MACOS_DIR}:{OLD_MACOS_DIR}"  # Seeded with common brew bin roots; setup_PATH() lazily normalizes it to the resolved brew/runtime bin dirs.
     postinstall_scripts: bool | None = Field(
@@ -80,6 +90,10 @@ class BrewProvider(BinProvider):
         return {
             "HOMEBREW_PREFIX": str(self.install_root),
             "HOMEBREW_CELLAR": str(self.install_root / "Cellar"),
+            # `brew install` may otherwise run a periodic full cleanup and
+            # remove dependencies belonging to unrelated host formulae. A
+            # provider install must not mutate packages outside its target.
+            "HOMEBREW_NO_INSTALL_CLEANUP": "1",
         }
 
     def supports_min_release_age(self, action, no_cache: bool = False) -> bool:
@@ -87,6 +101,16 @@ class BrewProvider(BinProvider):
 
     def supports_postinstall_disable(self, action, no_cache: bool = False) -> bool:
         return action == "install"
+
+    def _exec_bin_abspath(self, bin_abspath: Path) -> Path:
+        installer = self._INSTALLER_BINARY
+        if (
+            installer is not None
+            and installer.loaded_abspath == bin_abspath
+            and installer.loaded_binprovider is not None
+        ):
+            return installer.loaded_binprovider._exec_bin_abspath(bin_abspath)
+        return super()._exec_bin_abspath(bin_abspath)
 
     def _brew_prefixes(self, no_cache: bool = False) -> list[Path]:
         """Collect candidate Homebrew prefixes from the installer binary and current PATH."""
@@ -298,8 +322,6 @@ class BrewProvider(BinProvider):
         installer_bin = self.INSTALLER_BINARY(no_cache=no_cache).loaded_abspath
         assert installer_bin
 
-        # print(f'[*] {self.__class__.__name__}: Installing {bin_name}: {self.INSTALLER_BIN} install {install_args}')
-
         assert postinstall_scripts is not None
         if (
             not _LAST_UPDATE_CHECK
@@ -389,13 +411,9 @@ class BrewProvider(BinProvider):
         Used to detect the case where ``brew install`` reports the package
         is already installed but the on-disk binary is broken (e.g. its
         dynamic-link dependencies got purged by a separate uninstall).
-        Looks up the binary in brew's PATH first, falling back to a bare
-        ``shutil.which`` so it works during the initial install before
-        ``setup_PATH`` populates ``self.PATH``.
         """
-        from shutil import which as shutil_which
-
-        candidate = bin_abspath(bin_name, PATH=self.PATH) or shutil_which(bin_name)
+        self.setup_PATH(no_cache=True)
+        candidate = bin_abspath(bin_name, PATH=self.PATH)
         if not candidate:
             # No binary on disk to test — defer the call (the post-install
             # load() will still validate the install via the version probe).
@@ -593,40 +611,6 @@ class BrewProvider(BinProvider):
             except Exception:
                 pass
 
-        # This code works but there's no need, the method above is much faster:
-
-        # # try checking filesystem or using brew list to get the Cellar bin path (faster than brew info)
-        # for package in (self.get_install_args(str(bin_name)) or [str(bin_name)]):
-        #     try:
-        #         paths = self.exec(bin_name=self._require_installer_bin(), cmd=[
-        #             'list',
-        #             '--formulae',
-        #             package,
-        #         ], timeout=self.version_timeout, quiet=True).stdout.strip().split('\n')
-        #         # /opt/homebrew/Cellar/curl/8.10.1/bin/curl
-        #         # /opt/homebrew/Cellar/curl/8.10.1/bin/curl-config
-        #         # /opt/homebrew/Cellar/curl/8.10.1/include/curl/ (12 files)
-        #         return [line for line in paths if '/Cellar/' in line and line.endswith(f'/bin/{bin_name}')][0].strip()
-        #     except Exception:
-        #         pass
-
-        # # fallback to using brew info to get the Cellar bin path
-        # for package in (self.get_install_args(str(bin_name)) or [str(bin_name)]):
-        #     try:
-        #         info_lines = self.exec(bin_name=self._require_installer_bin(), cmd=[
-        #             'info',
-        #             '--quiet',
-        #             package,
-        #         ], timeout=self.version_timeout, quiet=True).stdout.strip().split('\n')
-        #         # /opt/homebrew/Cellar/curl/8.10.0 (530 files, 4MB)
-        #         cellar_path = [line for line in info_lines if '/Cellar/' in line][0].rsplit(' (', 1)[0]
-        #         abspath = bin_abspath(bin_name, PATH=f'{cellar_path}/bin')
-        #         if abspath:
-        #             return abspath
-        #     except Exception:
-        #         pass
-        # return None
-
     def default_version_handler(
         self,
         bin_name: BinName,
@@ -635,8 +619,6 @@ class BrewProvider(BinProvider):
         no_cache: bool = False,
         **context,
     ) -> SemVer | None:
-        # print(f'[*] {self.__class__.__name__}: Getting version for {bin_name}...')
-
         # shortcut: if we already have the Cellar abspath, extract the version from it
         if abspath and "/Cellar/" in str(abspath):
             # /opt/homebrew/Cellar/curl/8.10.1/bin/curl -> 8.10.1

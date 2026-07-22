@@ -13,6 +13,10 @@ from .utils import parse_proxy, utc
 TOKEN = "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA"
 
 
+def has_required_cookies(cookies: dict[str, str]) -> bool:
+    return all(cookies.get(name) for name in ("auth_token", "ct0"))
+
+
 @dataclass
 class Account(JSONTrait):
     username: str
@@ -51,11 +55,13 @@ class Account(JSONTrait):
         rs["last_used"] = rs["last_used"].isoformat() if rs["last_used"] else None
         return rs
 
-    def make_client(self, proxy: str | None = None) -> HttpClient:
+    def resolve_proxy(self, proxy: str | None = None) -> str | None:
         proxies = [proxy, os.getenv("TWS_PROXY"), self.proxy]
         proxies = [x for x in proxies if x is not None]
-        proxy = parse_proxy(proxies[0]) if proxies else None
+        return parse_proxy(proxies[0]) if proxies else None
 
+    def make_client(self, proxy: str | None = None) -> HttpClient:
+        proxy = self.resolve_proxy(proxy)
         headers = {**self.headers}
         headers["user-agent"] = self.user_agent
         headers["content-type"] = "application/json"

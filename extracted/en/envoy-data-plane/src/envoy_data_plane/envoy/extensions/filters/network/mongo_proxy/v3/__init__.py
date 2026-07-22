@@ -24,7 +24,7 @@ class MongoProxy(betterproto2.Message):
     MongoDB :ref:`configuration overview <config_network_filters_mongo_proxy>`.
     [#extension: envoy.filters.network.mongo_proxy]
 
-    [#next-free-field: 6]
+    [#next-free-field: 7]
     """
 
     stat_prefix: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
@@ -69,10 +69,21 @@ class MongoProxy(betterproto2.Message):
     queries, and metrics for those are emitted under a dedicated "query" namespace.
     """
 
+    max_bson_depth: "int | None" = betterproto2.field(
+        6,
+        betterproto2.TYPE_MESSAGE,
+        unwrap=lambda: ______google__protobuf__.UInt32Value,
+        optional=True,
+    )
+    """
+    The maximum depth of a BSON document that Envoy will parse. Defaults to 100.
+    """
+
 
 default_message_pool.register_message(
     "envoy.extensions.filters.network.mongo_proxy.v3", "MongoProxy", MongoProxy
 )
 
 
+from .......google import protobuf as ______google__protobuf__
 from ....common.fault import v3 as ___common__fault__v3__

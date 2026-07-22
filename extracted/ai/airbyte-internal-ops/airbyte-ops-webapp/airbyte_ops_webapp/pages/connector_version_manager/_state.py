@@ -29,6 +29,7 @@ from airbyte_ops_webapp.models import ScopeType
 from airbyte_ops_webapp.pages.shared_components.org_lookup_modal import (
     OrgLookupModalState,
 )
+from airbyte_ops_webapp.pages.shared_components.org_search import OrgSearchRow
 from airbyte_ops_webapp.state import OpsPageState
 
 
@@ -206,6 +207,12 @@ class ConnectorVersionContextResult(CompoundContextResult):
     version_pins_offset: int = 0
     selected_version_id: str = ""
     selected_version_tag: str = ""
+    selected_version_yanked: bool = False
+    selected_version_yank_yanked_at: str = ""
+    selected_version_yank_yanked_at_display: str = ""
+    selected_version_yank_reason: str = ""
+    selected_version_yank_approval_url: str = ""
+    selected_version_yank_raw: str = ""
 
 
 class VersionPinsResult(BaseModel):
@@ -263,10 +270,36 @@ class ConnectorVersionManagerPageState(OpsPageState, OrgLookupModalState):
     progressive_rollout_rows: list[dict[str, object]] = Field(default_factory=list)
     pinned_version_rows: list[dict[str, object]] = Field(default_factory=list)
     pin_origin_filter: str = "all"
+    yanked_version_rows: list[dict[str, object]] = Field(default_factory=list)
     recent_release_rows_loaded: bool = False
     progressive_rollout_rows_loaded: bool = False
     pinned_version_rows_loaded: bool = False
+    yanked_version_rows_loaded: bool = False
     selector_tab: str = "active-rollouts"
+
+    # Organization Pins tab (namespaced so it never contaminates the
+    # connector-centric tabs). `org_pin_context_id` gates everything below it:
+    # when it is empty the tab shows only the org selector, and clearing or
+    # switching orgs resets the dependent rows/selection.
+    org_pin_context_id: str = ""
+    org_pin_context_label: str = ""
+    # Namespaced org-lookup-modal keys for this tab, kept separate from the
+    # shared `org_search_*` keys that the pin-context-pane modal uses so the two
+    # modals on this page can't share open/query/results/selection state.
+    org_pin_search_modal_open: bool = False
+    org_pin_search_query: str = ""
+    org_pin_search_results: list[OrgSearchRow] = Field(default_factory=list)
+    org_pin_search_error: str = ""
+    org_pin_search_selected_id: str = ""
+    org_pin_search_selected_label: str = ""
+    org_pin_version_rows: list[dict[str, object]] = Field(default_factory=list)
+    org_pin_version_rows_loaded: bool = False
+    org_pin_error: str = ""
+    org_pin_selected_version_id: str = ""
+    org_pin_selected_version_tag: str = ""
+    org_pin_rows: list[dict[str, object]] = Field(default_factory=list)
+    org_pin_rows_loaded: bool = False
+    org_pin_rows_error: str = ""
 
     # Selected connector + resolved scope context
     selected_connector_id: str = ""
@@ -321,8 +354,17 @@ class ConnectorVersionManagerPageState(OpsPageState, OrgLookupModalState):
 
     # Yank version state
     yank_modal_open: bool = False
+    unyank_modal_open: bool = False
     yank_reason: str = ""
     yank_reference_url: str = ""
+
+    # Selected-version yank detail (populated by load_connector_version_context)
+    selected_version_yanked: bool = False
+    selected_version_yank_yanked_at: str = ""
+    selected_version_yank_yanked_at_display: str = ""
+    selected_version_yank_reason: str = ""
+    selected_version_yank_approval_url: str = ""
+    selected_version_yank_raw: str = ""
 
     # Version pin detail state
     context_loading: bool = False

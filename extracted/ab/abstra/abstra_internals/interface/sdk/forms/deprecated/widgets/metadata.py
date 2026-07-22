@@ -1078,7 +1078,7 @@ metadata = {
     },
     "cnpj-input": {
         "name": "CNPJ Input",
-        "description": "CNPJ number input with validation and masking.",
+        "description": "CNPJ input with validation and masking. Accepts both the numeric and the alphanumeric CNPJ formats.",
         "type": "cnpj-input",
         "events": [
             {

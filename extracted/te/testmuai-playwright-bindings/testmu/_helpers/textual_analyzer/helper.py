@@ -53,6 +53,7 @@ async def textual_analyzer(
     needs_unit_conversion: bool = False,
     operator: str = "contains",
     transforms: list[str] | None = None,
+    condition: str | None = None,
 ):
     """Execute a recorded textual_visual extraction, healing on locator drift.
 
@@ -68,7 +69,7 @@ async def textual_analyzer(
     # Drift — regenerate the whole extraction.
     _log.info("[textual_analyzer] %d/%d locators not visible -> heal (query=%r)",
               len(stale), len(locators), query[:60])
-    outcome = await run_heal(page, query, expected_value, needs_unit_conversion)
+    outcome = await run_heal(page, query, expected_value, needs_unit_conversion, condition)
     if outcome is None:
         raise TextualAnalyzerHealFailed(
             f"textual_analyzer could not heal extraction for query={query!r}; "

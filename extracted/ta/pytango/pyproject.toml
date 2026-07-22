@@ -28,7 +28,7 @@ changelog = "https://gitlab.com/tango-controls/pytango/-/releases"
 
 [project]
 name = "pytango"
-version = "10.3.0"
+version = "10.3.1"
 description = "Python bindings for the cppTango library; part of the Tango Distributed Control System toolkit"
 readme = "README.rst"
 requires-python = ">=3.10"

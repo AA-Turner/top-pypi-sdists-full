@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kugelaudio
-Version: 1.6.0
+Version: 1.7.0
 Summary: Official Python SDK for KugelAudio TTS API
 Project-URL: Homepage, https://kugelaudio.com
 Project-URL: Documentation, https://docs.kugelaudio.com
@@ -27,7 +27,7 @@ Requires-Dist: pytest-asyncio>=0.21.0; extra == 'dev'
 Requires-Dist: pytest>=7.0.0; extra == 'dev'
 Provides-Extra: livekit
 Requires-Dist: aiohttp>=3.8.0; extra == 'livekit'
-Requires-Dist: livekit-agents>=1.0.0; extra == 'livekit'
+Requires-Dist: livekit-agents>=1.1.0; extra == 'livekit'
 Provides-Extra: pipecat
 Requires-Dist: aiohttp>=3.8.0; extra == 'pipecat'
 Requires-Dist: pipecat-ai>=0.0.62; (python_version >= '3.11') and extra == 'pipecat'
@@ -36,6 +36,14 @@ Requires-Dist: flask>=3.0.0; extra == 'tools'
 Requires-Dist: numpy>=1.26.0; extra == 'tools'
 Requires-Dist: python-dotenv>=1.0.0; extra == 'tools'
 Requires-Dist: soundfile>=0.12.0; extra == 'tools'
+Provides-Extra: turn-detection
+Requires-Dist: huggingface-hub<2,>=1.23.0; (python_version >= '3.11') and extra == 'turn-detection'
+Requires-Dist: jinja2<4,>=3.1.6; (python_version >= '3.11') and extra == 'turn-detection'
+Requires-Dist: numpy<3,>=1.26.0; (python_version >= '3.11') and extra == 'turn-detection'
+Requires-Dist: onnxruntime<2,>=1.24.3; (python_version >= '3.11') and extra == 'turn-detection'
+Requires-Dist: pydantic<3,>=2.13.4; (python_version >= '3.11') and extra == 'turn-detection'
+Requires-Dist: torch<3,>=2.13.0; (python_version >= '3.11') and extra == 'turn-detection'
+Requires-Dist: transformers<6,>=5.13.0; (python_version >= '3.11') and extra == 'turn-detection'
 Description-Content-Type: text/markdown
 
 # KugelAudio Python SDK
@@ -71,6 +79,221 @@ audio = client.tts.generate(
 # Save to file
 audio.save("output.wav")
 ```
+
+## Local CPU Turn Detection
+
+The optional turn-detection runtime downloads the private, version-pinned ONNX
+bundle from Hugging Face, verifies every declared SHA-256 checksum, and then
+runs fully locally on CPU. ONNX Runtime performs model inference; the extra also
+loads the CPU PyTorch runtime to reproduce the native numerical environment used
+for the published quality gates. It requires Python 3.11 or newer.
+
+```bash
+pip install "kugelaudio[turn-detection]"
+hf auth login  # required while the model repository is private
+```
+
+Load one model per process and create cheap state for each conversation:
+
+```python
+from kugelaudio.turn import TurnDecisionReason, TurnDetector
+
+detector = TurnDetector.from_pretrained(cpu_threads=4)
+turn = detector.create_session("en")
+
+# Feed the current user's audio and interim ASR transcript continuously.
+turn.push_pcm16(pcm_chunk, sample_rate=16_000)
+turn.update_transcript("I think we should probably")
+
+# Call with the current duration whenever VAD reports real silence.
+decision = turn.observe_silence(duration_ms=200)
+
+if decision.reason is TurnDecisionReason.MODEL_ACTION_DELAY:
+    # The model predicts completion, but the measured policy is still waiting.
+    decision = turn.observe_silence(duration_ms=600)
+
+if decision.end_turn:
+    start_assistant_response()
+    turn.reset_turn()
+```
+
+For a latency-first application, commit a confident completion immediately
+when the first 200 ms score returns while retaining the calibrated threshold
+and incomplete-turn timeout:
+
+```python
+turn = detector.create_session("en", action_delay_ms=200, timeout_ms=10_000)
+```
+
+The incomplete-turn fallback defaults to ten seconds. Pass a different
+`timeout_ms` only when the surrounding product has a stricter wait budget.
+
+When VAD detects speech before the endpoint action, cancel the pending decision:
+
+```python
+turn.speech_resumed()
+```
+
+Important input and lifecycle rules:
+
+- Audio must be mono 16 kHz. `push_audio` accepts normalized `float32`; use
+  `push_pcm16` for explicit little-endian signed PCM16 conversion.
+- The transcript must be the current interim user transcript. Do not wait for a
+  post-endpoint final transcript.
+- Each silence episode is scored once from an audio/transcript snapshot. Later
+  interim or final transcript revisions do not discard or repeat that inference;
+  resumed speech opens a new episode with the latest transcript.
+- Call `observe_silence` with monotonically increasing durations for one silence
+  span. Call `speech_resumed` before starting a new span.
+- Only `P(complete)` can trigger a model endpoint. `incomplete`, `backchannel`,
+  and `wait` keep listening until speech resumes or the measured timeout fires.
+- One `TurnDetector` owns the roughly 1.55 GiB model runtime. Share it across
+  sessions instead of loading one copy per conversation.
+- No network is used after the immutable model revision is cached. Pass
+  `local_files_only=True` to enforce offline startup.
+
+The default policies cover `de`, `en`, `es`, `it`, and `nl`. Unsupported
+languages, missing private-repository access, corrupt bundles, wrong sample
+rates, and invalid session ordering raise typed `TurnDetectionError`
+subclasses instead of silently falling back.
+
+### LiveKit Agents
+
+Install both optional integrations and LiveKit's VAD plugin:
+
+```bash
+pip install "kugelaudio[livekit,turn-detection]" "livekit-agents[silero]"
+```
+
+`KugelTurnBridge` keeps LiveKit's normal STT pipeline intact while teeing its
+audio into KugelTurn. Configure LiveKit for manual endpointing so two detectors
+cannot commit the same user turn:
+
+```python
+import logging
+from collections.abc import AsyncIterable
+
+from livekit import rtc
+from livekit.agents import Agent, AgentSession, ModelSettings
+from livekit.plugins import silero
+
+from kugelaudio.livekit import KugelTurnBridge
+from kugelaudio.turn import TurnDetector
+
+logger = logging.getLogger(__name__)
+detector = TurnDetector.from_pretrained(cpu_threads=4)  # once per worker
+
+
+def observe_decision(decision):
+    logger.info(
+        "turn decision",
+        extra={
+            "reason": decision.reason.value,
+            "end_turn": decision.end_turn,
+            "silence_ms": decision.silence_ms,
+            "inference_ms": decision.inference_ms,
+            "probabilities": decision.probabilities,
+        },
+    )
+
+
+bridge = KugelTurnBridge(
+    detector,
+    language="en",
+    vad_silence_ms=200,
+    action_delay_ms=200,  # omit to use the calibrated language delay
+    timeout_ms=10_000,
+    on_decision=observe_decision,
+)
+
+
+class VoiceAgent(Agent):
+    def stt_node(
+        self,
+        audio: AsyncIterable[rtc.AudioFrame],
+        model_settings: ModelSettings,
+    ):
+        return bridge.stt_node(self, audio, model_settings)
+
+
+session = AgentSession(
+    turn_detection="manual",
+    vad=silero.VAD.load(min_silence_duration=0.2),
+    stt=stt,
+    llm=llm,
+    tts=tts,
+)
+
+try:
+    await session.start(agent=VoiceAgent(instructions="..."), room=ctx.room)
+finally:
+    await bridge.aclose()
+```
+
+On LiveKit Agents 1.5+, the equivalent non-deprecated configuration is
+`turn_handling=TurnHandlingOptions(turn_detection="manual")`. The bridge
+resamples mono LiveKit input to 16 kHz, accumulates interim/final transcripts,
+runs ONNX inference outside the event loop, cancels pending decisions when
+speech resumes, and calls `commit_user_turn()` when the measured policy ends.
+
+Keep `vad_silence_ms` equal to LiveKit's `min_silence_duration` in milliseconds.
+The validated configuration is 200 ms.
+
+`on_decision` runs for the first model score and each meaningful policy-state
+change, including the final `model_complete` or `timeout`. Its `TurnDecision`
+contains the transcript, threshold, four class probabilities, silence duration,
+and `inference_ms` when a new model score was computed. Keep the callback
+non-blocking; enqueue network or storage work instead of performing it inline.
+
+### Pipecat
+
+Install the Pipecat and turn-detection extras:
+
+```bash
+pip install "kugelaudio[pipecat,turn-detection]"
+```
+
+Use `KugelTurnStopStrategy` as the sole Pipecat user-turn stop strategy:
+
+```python
+from pipecat.audio.vad.silero import SileroVADAnalyzer
+from pipecat.audio.vad.vad_analyzer import VADParams
+from pipecat.processors.aggregators.llm_response_universal import (
+    LLMContextAggregatorPair,
+    LLMUserAggregatorParams,
+)
+from pipecat.turns.user_turn_strategies import UserTurnStrategies
+
+from kugelaudio.pipecat import KugelTurnStopStrategy
+from kugelaudio.turn import TurnDetector
+
+detector = TurnDetector.from_pretrained(cpu_threads=4)  # once per process
+turn_strategy = KugelTurnStopStrategy(
+    detector,
+    language="en",
+    vad_silence_ms=200,
+    action_delay_ms=200,  # omit to use the calibrated language delay
+    timeout_ms=10_000,
+)
+
+user_aggregator, assistant_aggregator = LLMContextAggregatorPair(
+    context,
+    user_params=LLMUserAggregatorParams(
+        vad_analyzer=SileroVADAnalyzer(
+            params=VADParams(stop_secs=0.2),
+        ),
+        user_turn_strategies=UserTurnStrategies(
+            stop=[turn_strategy],
+        ),
+    ),
+)
+```
+
+The strategy supports Pipecat 0.0.101+ and 1.x turn-management APIs. It consumes
+native `InputAudioRawFrame`, transcription, and VAD frames, explicitly rejects
+multichannel input, resamples mono PCM to 16 kHz, and emits Pipecat's standard
+`on_user_turn_stopped` event. For Pipecat 0.x releases whose VAD stop frame does
+not carry its own duration, keep `vad_silence_ms` equal to `VADParams.stop_secs`.
 
 ## Client Configuration
 
@@ -201,7 +424,7 @@ audio = client.tts.generate(
     text="Hello, this is a test of the KugelAudio text-to-speech system.",
     model_id="kugel-1-turbo",  # 'kugel-1-turbo' (fast) or 'kugel-1' (quality)
     voice_id=123,              # Optional: specific voice ID
-    cfg_scale=2.0,             # Guidance scale (1.0-5.0)
+    cfg_scale=2.0,             # Guidance scale (1.2-2.5)
     max_new_tokens=2048,       # Maximum tokens to generate
     sample_rate=24000,         # Output sample rate
     output_format=None,        # Optional: 'pcm_24000', 'ulaw_8000', 'alaw_8000', ...

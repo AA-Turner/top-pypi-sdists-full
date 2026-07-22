@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-ninja-jwt
-Version: 5.4.4
+Version: 5.4.5
 Summary: Django Ninja JWT - JSON Web Token for Django-Ninja
 Author-email: Ezeudoh Tochukwu <tochukwu.ezeudoh@gmail.com>
 Requires-Python: >=3.7

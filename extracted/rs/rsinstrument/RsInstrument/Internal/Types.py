@@ -126,7 +126,7 @@ class DataType(Enum):
 		elif self == DataType.FloatExt:
 			return 0.0
 		elif self == DataType.Enum:
-			return enm(0)
+			return enm(0)  # ty: ignore[call-non-callable]
 		elif self == DataType.EnumExt:
-			return enm(0)
+			return enm(0)  # ty: ignore[call-non-callable]
 		return None

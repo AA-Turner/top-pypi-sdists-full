@@ -227,6 +227,7 @@ _BQ_CREDENTIALS_BASE64_NAME = "BQ_CREDENTIALS_BASE64"
 _BQ_CREDENTIALS_PATH_NAME = "BQ_CREDENTIALS_PATH"
 _BQ_TEMP_PROJECT_NAME = "BQ_TEMP_PROJECT"
 _BQ_TEMP_DATASET_NAME = "BQ_TEMP_DATASET"
+_BQ_UNLOAD_PATH_NAME = "BQ_UNLOAD_PATH"
 
 
 class BigQuerySourceImpl(BaseSQLSource):
@@ -243,6 +244,7 @@ class BigQuerySourceImpl(BaseSQLSource):
         credentials_path: Optional[str] = None,
         temp_project: Optional[str] = None,
         temp_dataset: Optional[str] = None,
+        unload_path: Optional[str] = None,
         engine_args: Optional[Dict[str, Any]] = None,
         integration_variable_override: Optional[Mapping[str, str]] = None,
         permission_tags: list[str] | None = None,
@@ -278,9 +280,15 @@ class BigQuerySourceImpl(BaseSQLSource):
         self.temp_dataset = temp_dataset or load_integration_variable(
             integration_name=name, name=_BQ_TEMP_DATASET_NAME, override=integration_variable_override
         )
+        self.unload_path = unload_path or load_integration_variable(
+            integration_name=name, name=_BQ_UNLOAD_PATH_NAME, override=integration_variable_override
+        )
         BaseSQLSource.__init__(
             self, name=name, engine_args=engine_args, async_engine_args={}, permission_tags=permission_tags
         )
+
+    def resolve_unload_path(self, query_execution_parameters: QueryExecutionParameters) -> str | None:
+        return self.unload_path or query_execution_parameters.bigquery.bigquery_unload_path
 
     @functools.cached_property
     def bigquery_read_client(self):
@@ -662,6 +670,7 @@ class BigQuerySourceImpl(BaseSQLSource):
                 create_integration_variable(_BQ_CREDENTIALS_PATH_NAME, self.name, self.credentials_path),
                 create_integration_variable(_BQ_TEMP_PROJECT_NAME, self.name, self.temp_project),
                 create_integration_variable(_BQ_TEMP_DATASET_NAME, self.name, self.temp_dataset),
+                create_integration_variable(_BQ_UNLOAD_PATH_NAME, self.name, self.unload_path),
             ]
             if v is not None
         }

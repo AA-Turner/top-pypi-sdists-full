@@ -18,6 +18,7 @@ from AOT_biomaps.AOT_Recon.ReconTools import check_gpu_available
 # Check for CuPy availability
 try:
     import cupy as cp
+    import cupyx
     CUPY_AVAILABLE = True
 except ImportError:
     cp = None
@@ -351,11 +352,14 @@ class SMatrix_SELL(SMatrix):
         cp_dtype = self._get_cp_dtype()
 
         if check_gpu_available(self):
-            # 1. Cast and ensure contiguity
             e_gpu = cp.asarray(e, dtype=cp_dtype)
-            e_gpu = cp.ascontiguousarray(e_gpu.view(cp.float32)) if self.isComplexSMatrix else cp.ascontiguousarray(e_gpu)
-            e_gpu_permuted = e_gpu[self.row_perm_gpu]
-            c_gpu = cp.zeros(self.Z * self.X, dtype=cp.float32)
+            e_gpu = e_gpu[self.row_perm_gpu]
+            e_gpu = cp.ascontiguousarray(e_gpu)
+
+            if self.isComplexSMatrix:
+                c_gpu = cp.zeros(self.Z * self.X, dtype=cp.complex64)
+            else:
+                c_gpu = cp.zeros(self.Z * self.X, dtype=cp.float32)
 
             bp_kernel_name = "backward_projection_kernel__SELL__COMPLEX" if self.isComplexSMatrix else "backward_projection_kernel__SELL__REAL"
             bp_kernel = self.sparse_mod.get_function(bp_kernel_name)
@@ -365,8 +369,8 @@ class SMatrix_SELL(SMatrix):
             bp_kernel(
                 grid=(blocks, 1), block=(threads, 1, 1),
                 args=[self.sell_values_gpu, self.sell_colinds_gpu, self.slice_ptr_gpu,
-                      self.slice_len_gpu, e_gpu_permuted.data.ptr, c_gpu.data.ptr,
-                      np.int32(self.N * self.T), np.int32(self.slice_height)]
+                    self.slice_len_gpu, e_gpu.data.ptr, c_gpu.data.ptr,
+                    np.int32(self.N * self.T), np.int32(self.slice_height)]
             )
             cp.cuda.Stream.null.synchronize()
             return c_gpu
@@ -543,3 +547,47 @@ class SMatrix_SELL(SMatrix):
         if CUPY_AVAILABLE:
             cp._default_memory_pool.free_all_blocks()
             cp.cuda.Stream.null.synchronize()
+
+    def compute_hessian_diagonal(self):
+        """
+        Compute diag(A^H A).
+        """
+
+        ZX = self.Z * self.X
+
+        if check_gpu_available(self):
+            diag = cp.zeros(ZX, dtype=cp.float32)
+            valid = self.sell_values_gpu != 0
+            cupyx.scatter_add(diag, self.sell_colinds_gpu[valid].astype(cp.int32), cp.abs(self.sell_values_gpu[valid]) ** 2)
+            return diag
+        else:
+            diag = np.zeros(ZX, dtype=np.float32)
+            valid = self.sell_values != 0
+            np.add.at(diag, self.sell_colinds[valid].astype(np.int64), np.abs(self.sell_values[valid]) ** 2)
+            return diag
+    
+    def normalize_matrix(self):
+        """
+        Normalizes the SELL matrix by its maximum absolute value.
+        Restores the system conditioning for Primal-Dual solvers.
+        """
+        max_val = 0.0
+        
+        if check_gpu_available(self) and self.sell_values_gpu is not None:
+            max_val = float(cp.max(cp.abs(self.sell_values_gpu)))
+            if max_val > 0:
+                self.sell_values_gpu /= max_val
+                if self.sell_values is not None:
+                    self.sell_values /= max_val
+        elif self.sell_values is not None:
+            max_val = float(np.max(np.abs(self.sell_values)))
+            if max_val > 0:
+                self.sell_values /= max_val
+        else:
+            warnings.warn("[AOT-biomaps] SELL Matrix not allocated, normalization impossible.")
+            return
+
+        print(f"[AOT-biomaps] SELL Matrix normalized (Original absolute max: {max_val:.2e})")
+        
+        # Critical update of the normalization factors (preconditioners)
+        self.compute_norm_factor()

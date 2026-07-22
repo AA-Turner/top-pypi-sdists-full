@@ -507,7 +507,7 @@ extern "C"{
         const long long* __restrict__ slice_ptr,
         const int* __restrict__ slice_len,
         const float2* __restrict__ e_flat,
-        float* __restrict__ c_flat,
+        float2* __restrict__ c_flat, 
         int num_rows, int slice_height
     ) {
         int row = blockIdx.x * blockDim.x + threadIdx.x;
@@ -520,20 +520,16 @@ extern "C"{
         int row_in_slice = row % slice_height;
         long long base = slice_ptr[slice_id];
         int len = slice_len[slice_id];
-
         long long pos = base + (long long)row_in_slice;
 
         for (int j = 0; j < len; ++j) {
             float2 v = sell_values[pos + (long long)j * slice_height];
             if (v.x != 0.0f || v.y != 0.0f) {
                 unsigned int col = sell_colinds[pos + (long long)j * slice_height];
-                
-                // Real part of the complex product (v_conj * e)
-                // v_conj = (v.x, -v.y)
-                // product = (v.x*e.x + v.y*e.y) + i(...)
-                float real_part = v.x * e.x + v.y * e.y;
-                
-                atomicAdd(&c_flat[col], real_part);
+                float2 v_conj = make_float2(v.x, -v.y);  
+                float2 prod = complex_multiply(v_conj, e); 
+                atomicAdd(&c_flat[col].x, prod.x);  
+                atomicAdd(&c_flat[col].y, prod.y); 
             }
         }
     }

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apify_client
-Version: 3.0.6
+Version: 3.1.0
 Summary: Apify API client for Python
 Project-URL: Apify Homepage, https://apify.com
 Project-URL: Homepage, https://docs.apify.com/api/client/python/
@@ -228,6 +228,8 @@ Requires-Dist: colorama>=0.4.0
 Requires-Dist: impit~=0.13.0
 Requires-Dist: more-itertools>=10.0.0
 Requires-Dist: pydantic[email]>=2.11.0
+Provides-Extra: brotli
+Requires-Dist: brotli>=1.0.9; extra == 'brotli'
 Description-Content-Type: text/markdown
 
 <h1 align="center">Apify API client for Python</h1>
@@ -280,6 +282,14 @@ Description-Content-Type: text/markdown
 
     or any other Python package manager that consumes PyPI.
 
+    The client compresses request bodies with `gzip` by default (no extra dependencies required). To opt in to
+    `brotli` (better compression ratio), install the optional extra and pass `compression='brotli'`:
+
+    ```bash
+    pip install "apify-client[brotli]"
+    # or
+    uv add "apify-client[brotli]"
+    ```
 
 - From [conda-forge](https://anaconda.org/conda-forge/apify-client), it can be installed with [conda](https://docs.conda.io/en/latest/):
 
@@ -303,6 +313,8 @@ client = ApifyClient('MY-APIFY-TOKEN')
 run = client.actor('apify/hello-world').call(
     run_input={'message': 'Hello, Apify!'},
 )
+if run is None:
+    raise RuntimeError('Actor run was not found.')
 
 # Iterate items from the run's default dataset.
 for item in client.dataset(run.default_dataset_id).iterate_items():
@@ -323,6 +335,8 @@ async def main() -> None:
     run = await client.actor('apify/hello-world').call(
         run_input={'message': 'Hello, Apify!'},
     )
+    if run is None:
+        raise RuntimeError('Actor run was not found.')
 
     # Iterate items from the run's default dataset.
     async for item in client.dataset(run.default_dataset_id).iterate_items():
@@ -382,7 +396,7 @@ record = store.get_record('greeting')
 ### Iterate dataset items with automatic pagination
 
 ```python
-for item in client.dataset('DATASET-ID').iterate_items(fields='title,url'):
+for item in client.dataset('DATASET-ID').iterate_items(fields=['title', 'url']):
     process(item)
 ```
 

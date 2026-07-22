@@ -1048,6 +1048,7 @@ def BigQuerySource(
     *,
     name: str,
     engine_args: Optional[Dict[str, Any]] = ...,
+    unload_path: str | None = ...,
     permission_tags: list[str] | None = ...,
 ) -> BaseSQLSourceProtocol:
     """If you have only one BigQuery integration, there's no need to provide
@@ -1065,6 +1066,8 @@ def BigQuerySource(
     engine_args
         Additional arguments to use when constructing the SQLAlchemy engine. These arguments will be
         merged with any default arguments from the named integration.
+    unload_path
+        GCS path to use for unload-based BigQuery execution.
 
     Returns
     -------
@@ -1090,6 +1093,7 @@ def BigQuerySource(
     engine_args: Optional[Dict[str, Any]] = ...,
     temp_project: Optional[str] = ...,
     temp_dataset: Optional[str] = ...,
+    unload_path: Optional[str] = ...,
     permission_tags: list[str] | None = ...,
 ) -> BaseSQLSourceProtocol:
     """You can also configure the integration directly using environment
@@ -1116,6 +1120,8 @@ def BigQuerySource(
         The BigQuery project to use for temporary tables.
     temp_dataset
         The BigQuery dataset to use for temporary tables.
+    unload_path
+        GCS path to use for unload-based BigQuery execution.
 
     Returns
     -------
@@ -1146,6 +1152,7 @@ def BigQuerySource(
     engine_args: Optional[Dict[str, Any]] = None,
     temp_project: Optional[str] = None,
     temp_dataset: Optional[str] = None,
+    unload_path: Optional[str] = None,
     permission_tags: list[str] | None = None,
 ) -> BaseSQLSourceProtocol:
     """Create a BigQuery data source. SQL-based data sources
@@ -1166,6 +1173,7 @@ def BigQuerySource(
         credentials_path=credentials_path,
         temp_project=temp_project,
         temp_dataset=temp_dataset,
+        unload_path=unload_path,
         engine_args=engine_args,
         permission_tags=permission_tags,
     )

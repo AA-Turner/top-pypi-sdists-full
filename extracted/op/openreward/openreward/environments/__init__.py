@@ -1,16 +1,18 @@
 from ._sandbox_tools import download_text, upload_text
-from .environment import Environment, tool
+from .environment import Environment, terminal, tool
 from .toolset import Toolset
 from .types import (Blocks, CreateSession, ImageBlock, JSONObject, JSONValue,
                     ListToolsOutput, RunToolError, RunToolOutput,
-                    RunToolSuccess, Split, TextBlock, ToolCall, ToolOutput,
-                    ToolSpec)
+                    RunToolSuccess, Split, TerminalToolSpec, TextBlock,
+                    ToolCall, ToolOutput, ToolSpec)
 from .server import Server
 
 __all__ = [
     "Environment",
     "Server",
+    "terminal",
     "tool",
+    "TerminalToolSpec",
     "Toolset",
     "Blocks",
     "CreateSession",

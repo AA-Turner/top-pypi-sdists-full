@@ -105,7 +105,7 @@ def parse_token_to_key_and_value(token: str) -> Tuple[str, str]:
 	token = token.strip()
 	if not token:
 		# noinspection PyTypeChecker
-		return None, None
+		return None, None  # ty: ignore[invalid-return-type]
 	if '=' in token:
 		data = token.split('=')
 		name = data[0].strip()
@@ -113,7 +113,7 @@ def parse_token_to_key_and_value(token: str) -> Tuple[str, str]:
 		return name, value
 
 	# noinspection PyTypeChecker
-	return token.strip(), None
+	return token.strip(), None  # ty: ignore[invalid-return-type]
 
 
 def size_to_kb_mb_gb_string(data_size: int, as_additional_info: bool = False, allow_gb: bool = True) -> str:
@@ -121,9 +121,7 @@ def size_to_kb_mb_gb_string(data_size: int, as_additional_info: bool = False, al
 	depending on the data_size range. \n
 		:param data_size: data size in bytes to convert
 		:param allow_gb: allow also Gigabytes size
-		:param as_additional_info:
-		if True, the dynamic data appear in round bracket after the number in bytes. e.g. '12345678 bytes (11.7 MB)'
-		if False, only the dynamic data is returned e.g. '11.7 MB' """
+		:param as_additional_info: if True, the dynamic data appear in round bracket after the number in bytes, e.g. '12345678 bytes (11.7 MB)'. If False, only the dynamic data is returned, e.g. '11.7 MB' """
 	size_abs = data_size
 	if data_size < 0:
 		size_abs = - data_size
@@ -148,9 +146,7 @@ def size_to_kb_mb_gb_string(data_size: int, as_additional_info: bool = False, al
 def size_to_kb_mb_string(data_size: int, as_additional_info: bool = False) -> str:
 	"""Returns human-readable string with kilobytes or megabytes depending on the data_size range. \n
 		:param data_size: data size in bytes to convert
-		:param as_additional_info:
-		if True, the dynamic data appear in round bracket after the number in bytes. e.g. '12345678 bytes (11.7 MB)'
-		if False, only the dynamic data is returned e.g. '11.7 MB' """
+		:param as_additional_info: if True, the dynamic data appear in round bracket after the number in bytes, e.g. '12345678 bytes (11.7 MB)'. If False, only the dynamic data is returned, e.g. '11.7 MB' """
 	return size_to_kb_mb_gb_string(data_size, as_additional_info, False)
 
 

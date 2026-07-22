@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gersemi
-Version: 0.27.7
+Version: 0.28.0
 Summary: A formatter to make your CMake code the real treasure
 Author-email: Blank Spruce <blankspruce@protonmail.com>
 License: MPL-2.0
@@ -22,11 +22,7 @@ Classifier: Topic :: Software Development :: Quality Assurance
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: ignore-python<0.4,>=0.3
-Requires-Dist: platformdirs
 Requires-Dist: pyyaml<7,>=5
-Provides-Extra: color
-Requires-Dist: colorama>=0.4; extra == "color"
 Dynamic: license-file
 
 # gersemi
@@ -65,6 +61,9 @@ positional arguments:
                         CMakeLists.txt, CMakeLists.txt.in and files with
                         .cmake/.cmake.in extension are automatically discovered. If only
                         `-` is provided, input is taken from stdin instead.
+                        If --definitions is used it has to be separated with another
+                        option or `--`, for example:
+                        gersemi --definitions def1.cmake def2.cmake -- src1.cmake
 
 modes:
   -c, --check           Check if files require reformatting. Return 0 when there's
@@ -149,8 +148,7 @@ control configuration:
   -q, --quiet, --no-quiet
                         Skip printing non-error messages to stderr.
                         [default: don't skip, same as --no-quiet]
-  --color, --no-color   If --diff is selected showed diff is colorized. Colorama has to
-                        be installed for this option to work.
+  --color, --no-color   If --diff is selected showed diff is colorized.
                         [default: don't colorize diff, same as --no-color]
   -w, --workers (INTEGER | max)
                         Explicit number of workers or 'max' for maximum possible number
@@ -197,7 +195,7 @@ You can use gersemi with a pre-commit hook by adding the following to `.pre-comm
 ```yaml
 repos:
 - repo: https://github.com/BlankSpruce/gersemi-pre-commit
-  rev: 0.27.7
+  rev: 0.28.0
   hooks:
   - id: gersemi
 ```
@@ -213,7 +211,7 @@ If you want to use extensions with pre-commit list them with [`additional_depend
 ```yaml
 repos:
 - repo: https://github.com/BlankSpruce/gersemi-pre-commit
-  rev: 0.27.7
+  rev: 0.28.0
   hooks:
   - id: gersemi
     additional_dependencies:
@@ -840,6 +838,57 @@ endfunction()
 movie_prologue()
     set(MOVIE_SETTING "Jury room on a hot summer day")
 movie_epilogue()
+```
+
+</details>
+
+#### Inline argument hints
+
+In case you want format group of arguments in particular way you can introduce bracket comment with hint how to format that group. It will affect arguments from that bracket argument until next keyword or end of command invocation. The following hints are supported:
+- Same as hints used in custom command definitions:
+  - `[[gersemi: pairs]]`
+  - `[[gersemi: command_line]]`
+  - `[[gersemi: sort]]`
+  - `[[gersemi: unique]]`
+  - `[[gersemi: sort+unique]]`
+- `[[gersemi: as_command=<name_of_command>]]` to format list of arguments in the same way as another command.
+
+<details>
+<summary>Example:</summary>
+
+```cmake
+set(MY_SOURCES
+    #[[gersemi: sort+unique]]
+    a.h
+    b.h
+    c.h
+    d_____________________________________________.h
+    CACHE INTERNAL # CACHE is the next keyword after inline hint
+    "Short docstring"
+    FORCE
+)
+
+set(install_args
+    #[[gersemi: as_command=install]]
+    TARGETS
+        long_arg______________________________________________________________
+    EXPORT
+        long_arg______________________________________________________________
+    PUBLIC_HEADER
+        DESTINATION
+            long_arg____________________________________________________________
+        PERMISSIONS OWNER_READ
+        CONFIGURATIONS Debug
+        COMPONENT
+            long_arg____________________________________________________________
+        NAMELINK_COMPONENT
+            long_arg____________________________________________________________
+        OPTIONAL
+        EXCLUDE_FROM_ALL
+        NAMELINK_ONLY
+    INCLUDES DESTINATION
+        long_arg____________________________________________________________
+)
 ```
 
 </details>

@@ -122,6 +122,218 @@ def test_ops_recent_releases_use_30_days_with_no_limit(
     assert releases[0].connector_name == "source-github"
 
 
+def test_mock_adapter_list_yanked_versions() -> None:
+    adapter = MockPinningAdapter()
+
+    yanked = adapter.list_yanked_versions()
+
+    assert [(y.connector_name, y.docker_image_tag) for y in yanked] == [
+        ("source-github", "1.9.3"),
+        ("destination-snowflake", "3.2.0"),
+    ]
+    assert yanked[0].connector_id == "ef69ef6e-aa7f-4af1-a01d-ef775033524e"
+
+
+@pytest.mark.parametrize(
+    "connector_name, version, expect_marker",
+    [
+        pytest.param("source-github", "1.9.3", True, id="yanked-github"),
+        pytest.param("destination-snowflake", "3.2.0", True, id="yanked-snowflake"),
+        pytest.param("source-github", "1.9.4", False, id="not-yanked"),
+    ],
+)
+def test_mock_adapter_get_yank_marker(
+    connector_name: str,
+    version: str,
+    expect_marker: bool,
+) -> None:
+    adapter = MockPinningAdapter()
+
+    marker = adapter.get_yank_marker(connector_name, version)
+
+    if not expect_marker:
+        assert marker is None
+        return
+    assert marker is not None
+    assert marker.connector_name == connector_name
+    assert marker.docker_image_tag == version
+    assert marker.yanked_at
+    # Raw marker text mirrors the version-yank.yml shape.
+    assert "yanked: true" in marker.raw
+    assert f"yanked_at: '{marker.yanked_at}'" in marker.raw
+
+
+def test_mock_yanked_versions_are_not_active_rollout_versions() -> None:
+    """Yanked mock versions must be mutually exclusive from rollout RC versions.
+
+    Guards the demo guarantee that clicking a yanked version shows Version Yank
+    Detail but not the Rollout Status detail (which gates on `rc == selected`).
+    """
+    adapter = MockPinningAdapter()
+
+    rollout_rc_versions = {
+        (rollout.connector_id, rollout.rc_docker_image_tag)
+        for rollouts in adapter.rollouts.values()
+        for rollout in rollouts
+    }
+    yanked_versions = {
+        (row.connector_id, row.docker_image_tag)
+        for row in adapter.list_yanked_versions()
+    }
+
+    assert yanked_versions.isdisjoint(rollout_rc_versions)
+
+
+@pytest.mark.parametrize(
+    "version_tag, expect_yanked",
+    [
+        pytest.param("1.9.3", True, id="yanked-version"),
+        pytest.param("1.9.4", False, id="non-yanked-version"),
+    ],
+)
+def test_load_connector_version_context_sets_yank_detail(
+    monkeypatch: pytest.MonkeyPatch,
+    version_tag: str,
+    expect_yanked: bool,
+) -> None:
+    adapter = MockPinningAdapter()
+    connector = adapter.search_connectors("source-github")[0]
+    monkeypatch.setenv(state_module.MOCK_ONLY_ENV_VAR, "1")
+    monkeypatch.setattr(mock_session_module, "_oauth_authenticated", True)
+    monkeypatch.setattr(tools_module, "get_adapter", lambda *_args: adapter)
+
+    result = tools_module.load_connector_version_context(
+        connector_id=connector.id,
+        version_tag=version_tag,
+    )
+
+    assert result.selected_version_yanked is expect_yanked
+    if expect_yanked:
+        assert result.selected_version_yank_yanked_at
+        assert result.selected_version_yank_yanked_at_display
+        assert "yanked: true" in result.selected_version_yank_raw
+    else:
+        assert result.selected_version_yank_raw == ""
+        assert result.selected_version_yank_yanked_at == ""
+
+
+def test_unyank_connector_version_mock_mode(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(state_module.MOCK_ONLY_ENV_VAR, "1")
+
+    result = tools_module.unyank_connector_version("source-github", "1.9.3")
+
+    assert result.rollout_action_success is True
+    assert "unyank" in result.rollout_action_result.lower()
+
+
+def test_unyank_connector_version_dispatches_workflow(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv(state_module.MOCK_ONLY_ENV_VAR, raising=False)
+    captured: dict[str, object] = {}
+
+    def fake_dispatch(**kwargs: object) -> object:
+        captured.update(kwargs)
+        return SimpleNamespace(run_url="https://run", workflow_url="https://wf")
+
+    monkeypatch.setattr(
+        tools_module, "resolve_ci_trigger_github_token", lambda: "token"
+    )
+    monkeypatch.setattr(tools_module, "trigger_workflow_dispatch", fake_dispatch)
+
+    result = tools_module.unyank_connector_version("source-github", "1.9.3")
+
+    assert result.rollout_action_success is True
+    assert captured["inputs"] == {
+        "connector-name": "source-github",
+        "version": "1.9.3",
+        "store": tools_module.YANK_STORE,
+        "unyank": "true",
+    }
+
+
+def test_ops_adapter_list_yanked_versions_resolves_connector_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from airbyte_ops_mcp.registry.yank import YankedVersion as CoreYankedVersion
+
+    def fake_list_yanked_versions(bucket_name: str) -> list[CoreYankedVersion]:
+        return [
+            CoreYankedVersion(
+                connector_name="source-github",
+                version="1.9.3",
+                yanked_at="2026-06-18T14:30:00Z",
+                reason="bad release",
+            ),
+            CoreYankedVersion(connector_name="source-missing", version="0.0.1"),
+        ]
+
+    def fake_resolve(name: str) -> str:
+        if name == "source-missing":
+            raise PyAirbyteInputError(message="not found")
+        return "github-definition-id"
+
+    monkeypatch.setattr(
+        adapter_module, "list_yanked_versions", fake_list_yanked_versions
+    )
+    monkeypatch.setattr(
+        adapter_module,
+        "resolve_canonical_name_to_definition_id",
+        fake_resolve,
+    )
+    adapter = OpsMcpAdapter()
+
+    yanked = adapter.list_yanked_versions()
+
+    assert yanked[0].connector_id == "github-definition-id"
+    assert yanked[0].reason == "bad release"
+    assert yanked[1].connector_id == ""
+
+
+def test_yanked_version_rows_adds_display_date(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        helpers_module, "get_adapter", lambda *_args: MockPinningAdapter()
+    )
+
+    rows = helpers_module.yanked_version_rows()
+
+    assert rows[0]["connector_name"] == "source-github"
+    assert rows[0]["yanked_at_display"] == "2026-06-18 (Thu)"
+
+
+def test_yanked_version_rows_empty_when_query_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FailingYankAdapter(MockPinningAdapter):
+        def list_yanked_versions(self) -> object:
+            raise RuntimeError("gcs unavailable")
+
+    monkeypatch.setattr(
+        helpers_module, "get_adapter", lambda *_args: FailingYankAdapter()
+    )
+
+    assert helpers_module.yanked_version_rows() == []
+
+
+def test_load_yanked_versions_tab_returns_rows(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        helpers_module, "get_adapter", lambda *_args: MockPinningAdapter()
+    )
+
+    result = tools_module.load_yanked_versions_tab()
+
+    assert [row["connector_name"] for row in result.rows] == [
+        "source-github",
+        "destination-snowflake",
+    ]
+
+
 def test_ops_progressive_rollouts_use_no_limit(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -481,7 +693,14 @@ def test_connector_version_manager_tool_calls_have_error_handlers(
         "load_pinned_versions_tab",
         "load_pinned_versions_tab",
         "load_connector_version_context",
+        # Yanked versions tab (lazy load + row-click context branches)
+        "load_yanked_versions_tab",
         "load_connector_version_context",
+        "load_connector_version_context",
+        # Organization Pins tab: org search + two-step aggregate/detail loaders
+        "search_orgs_workspaces",
+        "load_org_pin_versions",
+        "load_org_pins",
         # Rollout actions: advance, promote next stage, promote GA, cancel
         "advance_rollout",
         "load_connector_context",
@@ -493,6 +712,9 @@ def test_connector_version_manager_tool_calls_have_error_handlers(
         "load_connector_context",
         # Yank action (shown only when no active rollout)
         "yank_connector_version",
+        "load_connector_context",
+        # Unyank action (shown when the selected version is yanked)
+        "unyank_connector_version",
         "load_connector_context",
         # Pin actions
         "resolve_scope_guid",
@@ -1621,3 +1843,135 @@ def test_build_rollout_summary_started_zero_eligible_reads_full_coverage() -> No
     t2 = {c["tier_value"]: c for c in summary["tier_cards"]}["TIER_2"]
     assert t2["pinned_summary"] == "0 of 0 eligible (100%)"
     assert t2["failed_summary"] == "0 of 0 pinned (0%)"
+
+
+# Demo org IDs wired into the mock org-pin universe (mock_adapter._MOCK_ORG_PINS)
+# and the org-lookup search mock (shared_components/org_search.py).
+_ORG_ACME = "00000000-0000-0000-0000-000000000001"
+_ORG_MOTHERDUCK = "00000000-0000-0000-0000-000000000002"
+_ORG_AIRBYTE = "00000000-0000-0000-0000-000000000003"
+_ORG_DATAFLOW = "00000000-0000-0000-0000-000000000004"
+
+
+def test_org_pin_version_rows_maps_display_keys(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`org_pin_version_rows` adds the table's `_display` keys per version."""
+    monkeypatch.setattr(
+        helpers_module, "get_adapter", lambda *_args: MockPinningAdapter()
+    )
+
+    rows = helpers_module.org_pin_version_rows(_ORG_ACME)
+
+    assert rows
+    for row in rows:
+        assert row["connector_id"] == row["connector_definition_id"]
+        assert row["connector_name"]
+        assert row["has_active_rollout_display"] in ("Yes", "")
+        assert row["custom_pin_count_display"] == (
+            row["actor_pins_display"]
+            + row["workspace_pins_display"]
+            + row["org_pins_display"]
+        )
+
+
+def test_org_pin_version_rows_are_org_specific(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Different orgs return different versions; unknown orgs return nothing."""
+    monkeypatch.setattr(
+        helpers_module, "get_adapter", lambda *_args: MockPinningAdapter()
+    )
+
+    acme = helpers_module.org_pin_version_rows(_ORG_ACME)
+    motherduck = helpers_module.org_pin_version_rows(_ORG_MOTHERDUCK)
+
+    acme_versions = {row["version_id"] for row in acme}
+    motherduck_versions = {row["version_id"] for row in motherduck}
+    assert acme_versions
+    assert motherduck_versions
+    assert acme_versions != motherduck_versions
+
+    # Dataflow Labs has no pins -> empty result (exercises the empty state).
+    assert helpers_module.org_pin_version_rows(_ORG_DATAFLOW) == []
+
+
+def test_org_pin_version_rows_flags_active_rollout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """MotherDuck's rollout-backed version reports an active rollout; Acme's don't."""
+    monkeypatch.setattr(
+        helpers_module, "get_adapter", lambda *_args: MockPinningAdapter()
+    )
+
+    motherduck = helpers_module.org_pin_version_rows(_ORG_MOTHERDUCK)
+    assert any(row["has_active_rollout_display"] == "Yes" for row in motherduck)
+
+    acme = helpers_module.org_pin_version_rows(_ORG_ACME)
+    assert all(row["has_active_rollout_display"] == "" for row in acme)
+
+
+def test_org_pin_version_rows_empty_when_no_org() -> None:
+    """No organization selected yields no rows (the tab's first step is empty)."""
+    assert helpers_module.org_pin_version_rows("") == []
+    assert helpers_module.org_pin_version_rows("   ") == []
+
+
+def test_org_connector_pin_rows_classifies_pin_type(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`org_connector_pin_rows` labels each pin as Manual/Rollout/Breaking Change."""
+    monkeypatch.setattr(
+        helpers_module, "get_adapter", lambda *_args: MockPinningAdapter()
+    )
+
+    rows = helpers_module.org_connector_pin_rows(_ORG_ACME)
+
+    assert rows
+    for row in rows:
+        assert row["scope_display"] == str(row["pin_scope_type"]).title()
+        pin_type = row["pin_type_display"]
+        assert pin_type == "Manual" or pin_type.startswith(
+            ("Rollout", "Breaking Change")
+        )
+    assert any(row["pin_type_display"] == "Manual" for row in rows)
+
+
+def test_org_connector_pin_rows_cover_all_pin_categories(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Across demo orgs the mock exercises manual, rollout, and breaking-change."""
+    monkeypatch.setattr(
+        helpers_module, "get_adapter", lambda *_args: MockPinningAdapter()
+    )
+
+    motherduck = helpers_module.org_connector_pin_rows(_ORG_MOTHERDUCK)
+    airbyte = helpers_module.org_connector_pin_rows(_ORG_AIRBYTE)
+
+    assert any(str(row["pin_type_display"]).startswith("Rollout") for row in motherduck)
+    assert any(
+        str(row["pin_type_display"]).startswith("Breaking Change") for row in airbyte
+    )
+    # An org-scoped pin is present for Airbyte (org/workspace/actor coverage).
+    assert any(row["pin_scope_type"] == "organization" for row in airbyte)
+
+
+def test_org_connector_pin_rows_version_filter(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`pinned_version_id` narrows the detail rows to a single version."""
+    monkeypatch.setattr(
+        helpers_module, "get_adapter", lambda *_args: MockPinningAdapter()
+    )
+
+    all_rows = helpers_module.org_connector_pin_rows(_ORG_ACME)
+    version_id = str(all_rows[0]["pinned_version_id"])
+    filtered = helpers_module.org_connector_pin_rows(_ORG_ACME, version_id)
+
+    assert filtered
+    assert {row["pinned_version_id"] for row in filtered} == {version_id}
+    assert len(filtered) < len(all_rows)
+
+
+def test_org_connector_pin_rows_empty_when_no_org() -> None:
+    assert helpers_module.org_connector_pin_rows("") == []

@@ -13,7 +13,9 @@ from apify_client._models import Run, RunResponse
 from apify_client._resource_clients._resource_client import ResourceClient, ResourceClientAsync
 from apify_client._status_message_watcher import StatusMessageWatcher, StatusMessageWatcherAsync
 from apify_client._streamed_log import StreamedLog, StreamedLogAsync
-from apify_client._utils import encode_key_value_store_record_value, response_to_dict, to_safe_id, to_seconds
+from apify_client._utils.encoding import encode_key_value_store_record_value
+from apify_client._utils.http import response_to_dict, to_safe_id
+from apify_client._utils.time import to_seconds
 
 if TYPE_CHECKING:
     import logging
@@ -146,7 +148,7 @@ class RunClient(ResourceClient):
 
         Returns:
             The Actor run data. If the status on the object is not one of the terminal statuses (SUCCEEDED, FAILED,
-                TIMED_OUT, ABORTED), then the run has not yet finished.
+                TIMED-OUT, ABORTED), then the run has not yet finished.
         """
         response = self._wait_for_finish(
             url=self._build_url(),
@@ -216,7 +218,7 @@ class RunClient(ResourceClient):
     ) -> Run:
         """Resurrect a finished Actor run.
 
-        Only finished runs, i.e. runs with status FINISHED, FAILED, ABORTED and TIMED-OUT can be resurrected.
+        Only finished runs, i.e. runs with status SUCCEEDED, FAILED, ABORTED and TIMED-OUT can be resurrected.
         Run status will be updated to RUNNING and its container will be restarted with the same default storages.
 
         https://docs.apify.com/api/v2#/reference/actor-runs/resurrect-run/resurrect-run
@@ -287,6 +289,7 @@ class RunClient(ResourceClient):
         """
         return self._client_registry.dataset_client(
             resource_path='dataset',
+            params=self._default_params,
             **self._base_client_kwargs,
         )
 
@@ -300,6 +303,7 @@ class RunClient(ResourceClient):
         """
         return self._client_registry.key_value_store_client(
             resource_path='key-value-store',
+            params=self._default_params,
             **self._base_client_kwargs,
         )
 
@@ -313,6 +317,7 @@ class RunClient(ResourceClient):
         """
         return self._client_registry.request_queue_client(
             resource_path='request-queue',
+            params=self._default_params,
             **self._base_client_kwargs,
         )
 
@@ -326,6 +331,7 @@ class RunClient(ResourceClient):
         """
         return self._client_registry.log_client(
             resource_path='log',
+            params=self._default_params,
             **self._base_client_kwargs,
         )
 
@@ -564,7 +570,7 @@ class RunClientAsync(ResourceClientAsync):
 
         Returns:
             The Actor run data. If the status on the object is not one of the terminal statuses (SUCCEEDED, FAILED,
-                TIMED_OUT, ABORTED), then the run has not yet finished.
+                TIMED-OUT, ABORTED), then the run has not yet finished.
         """
         response = await self._wait_for_finish(
             url=self._build_url(),
@@ -643,7 +649,7 @@ class RunClientAsync(ResourceClientAsync):
     ) -> Run:
         """Resurrect a finished Actor run.
 
-        Only finished runs, i.e. runs with status FINISHED, FAILED, ABORTED and TIMED-OUT can be resurrected.
+        Only finished runs, i.e. runs with status SUCCEEDED, FAILED, ABORTED and TIMED-OUT can be resurrected.
         Run status will be updated to RUNNING and its container will be restarted with the same default storages.
 
         https://docs.apify.com/api/v2#/reference/actor-runs/resurrect-run/resurrect-run
@@ -714,6 +720,7 @@ class RunClientAsync(ResourceClientAsync):
         """
         return self._client_registry.dataset_client(
             resource_path='dataset',
+            params=self._default_params,
             **self._base_client_kwargs,
         )
 
@@ -727,6 +734,7 @@ class RunClientAsync(ResourceClientAsync):
         """
         return self._client_registry.key_value_store_client(
             resource_path='key-value-store',
+            params=self._default_params,
             **self._base_client_kwargs,
         )
 
@@ -740,6 +748,7 @@ class RunClientAsync(ResourceClientAsync):
         """
         return self._client_registry.request_queue_client(
             resource_path='request-queue',
+            params=self._default_params,
             **self._base_client_kwargs,
         )
 
@@ -753,6 +762,7 @@ class RunClientAsync(ResourceClientAsync):
         """
         return self._client_registry.log_client(
             resource_path='log',
+            params=self._default_params,
             **self._base_client_kwargs,
         )
 

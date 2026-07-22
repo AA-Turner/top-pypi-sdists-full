@@ -20,18 +20,24 @@ __all__ = [
     'AlarmDimensionArgsDict',
     'AlarmEvaluationCriteriaArgs',
     'AlarmEvaluationCriteriaArgsDict',
+    'AlarmEvaluationWindowArgs',
+    'AlarmEvaluationWindowArgsDict',
+    'AlarmMetricArgs',
+    'AlarmMetricArgsDict',
     'AlarmMetricDataQueryArgs',
     'AlarmMetricDataQueryArgsDict',
     'AlarmMetricStatArgs',
     'AlarmMetricStatArgsDict',
-    'AlarmMetricArgs',
-    'AlarmMetricArgsDict',
     'AlarmPromQlCriteriaArgs',
     'AlarmPromQlCriteriaArgsDict',
+    'AlarmWallClockWindowArgs',
+    'AlarmWallClockWindowArgsDict',
     'LogAlarmScheduleConfigurationArgs',
     'LogAlarmScheduleConfigurationArgsDict',
     'LogAlarmScheduledQueryConfigurationArgs',
     'LogAlarmScheduledQueryConfigurationArgsDict',
+    'LogAlarmTagArgs',
+    'LogAlarmTagArgsDict',
     'MetricStreamFilterArgs',
     'MetricStreamFilterArgsDict',
     'MetricStreamStatisticsConfigurationArgs',
@@ -40,10 +46,10 @@ __all__ = [
     'MetricStreamStatisticsMetricArgsDict',
     'MuteTargetsPropertiesArgs',
     'MuteTargetsPropertiesArgsDict',
-    'RulePropertiesSchedulePropertiesArgs',
-    'RulePropertiesSchedulePropertiesArgsDict',
     'RulePropertiesArgs',
     'RulePropertiesArgsDict',
+    'RulePropertiesSchedulePropertiesArgs',
+    'RulePropertiesSchedulePropertiesArgsDict',
 ]
 
 class AlarmDimensionArgsDict(TypedDict):
@@ -102,7 +108,7 @@ class AlarmEvaluationCriteriaArgsDict(TypedDict):
     """
     The evaluation criteria for an alarm. This is a union type that currently supports ``PromQLCriteria``.
     """
-    prom_ql_criteria: NotRequired[pulumi.Input['AlarmPromQlCriteriaArgsDict']]
+    prom_ql_criteria: NotRequired[pulumi.Input[Optional['AlarmPromQlCriteriaArgsDict']]]
     """
     The PromQL criteria for the alarm evaluation.
     """
@@ -110,7 +116,7 @@ class AlarmEvaluationCriteriaArgsDict(TypedDict):
 @pulumi.input_type
 class AlarmEvaluationCriteriaArgs:
     def __init__(__self__, *,
-                 prom_ql_criteria: Optional[pulumi.Input['AlarmPromQlCriteriaArgs']] = None):
+                 prom_ql_criteria: pulumi.Input[Optional['AlarmPromQlCriteriaArgs']] = None):
         """
         The evaluation criteria for an alarm. This is a union type that currently supports ``PromQLCriteria``.
 
@@ -121,49 +127,172 @@ class AlarmEvaluationCriteriaArgs:
 
     @_builtins.property
     @pulumi.getter(name="promQlCriteria")
-    def prom_ql_criteria(self) -> Optional[pulumi.Input['AlarmPromQlCriteriaArgs']]:
+    def prom_ql_criteria(self) -> pulumi.Input[Optional['AlarmPromQlCriteriaArgs']]:
         """
         The PromQL criteria for the alarm evaluation.
         """
         return pulumi.get(self, "prom_ql_criteria")
 
     @prom_ql_criteria.setter
-    def prom_ql_criteria(self, value: Optional[pulumi.Input['AlarmPromQlCriteriaArgs']]):
+    def prom_ql_criteria(self, value: pulumi.Input[Optional['AlarmPromQlCriteriaArgs']]):
         pulumi.set(self, "prom_ql_criteria", value)
+
+
+class AlarmEvaluationWindowArgsDict(TypedDict):
+    sliding_window: NotRequired[Any]
+    """
+    Configuration for sliding evaluation window (default behavior).
+    """
+    wall_clock_window: NotRequired[pulumi.Input[Optional['AlarmWallClockWindowArgsDict']]]
+    """
+    Configuration for wall clock based evaluation window.
+    """
+
+@pulumi.input_type
+class AlarmEvaluationWindowArgs:
+    def __init__(__self__, *,
+                 sliding_window: Optional[Any] = None,
+                 wall_clock_window: pulumi.Input[Optional['AlarmWallClockWindowArgs']] = None):
+        """
+        :param Any sliding_window: Configuration for sliding evaluation window (default behavior).
+        :param pulumi.Input['AlarmWallClockWindowArgs'] wall_clock_window: Configuration for wall clock based evaluation window.
+        """
+        if sliding_window is not None:
+            pulumi.set(__self__, "sliding_window", sliding_window)
+        if wall_clock_window is not None:
+            pulumi.set(__self__, "wall_clock_window", wall_clock_window)
+
+    @_builtins.property
+    @pulumi.getter(name="slidingWindow")
+    def sliding_window(self) -> Optional[Any]:
+        """
+        Configuration for sliding evaluation window (default behavior).
+        """
+        return pulumi.get(self, "sliding_window")
+
+    @sliding_window.setter
+    def sliding_window(self, value: Optional[Any]):
+        pulumi.set(self, "sliding_window", value)
+
+    @_builtins.property
+    @pulumi.getter(name="wallClockWindow")
+    def wall_clock_window(self) -> pulumi.Input[Optional['AlarmWallClockWindowArgs']]:
+        """
+        Configuration for wall clock based evaluation window.
+        """
+        return pulumi.get(self, "wall_clock_window")
+
+    @wall_clock_window.setter
+    def wall_clock_window(self, value: pulumi.Input[Optional['AlarmWallClockWindowArgs']]):
+        pulumi.set(self, "wall_clock_window", value)
+
+
+class AlarmMetricArgsDict(TypedDict):
+    """
+    The ``Metric`` property type represents a specific metric. ``Metric`` is a property of the [MetricStat](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-metricstat.html) property type.
+    """
+    dimensions: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AlarmDimensionArgsDict']]]]]
+    """
+    The metric dimensions that you want to be used for the metric that the alarm will watch.
+    """
+    metric_name: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    The name of the metric that you want the alarm to watch. This is a required field.
+    """
+    namespace: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    The namespace of the metric that the alarm will watch.
+    """
+
+@pulumi.input_type
+class AlarmMetricArgs:
+    def __init__(__self__, *,
+                 dimensions: pulumi.Input[Optional[Sequence[pulumi.Input['AlarmDimensionArgs']]]] = None,
+                 metric_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 namespace: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        The ``Metric`` property type represents a specific metric. ``Metric`` is a property of the [MetricStat](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-metricstat.html) property type.
+
+        :param pulumi.Input[Sequence[pulumi.Input['AlarmDimensionArgs']]] dimensions: The metric dimensions that you want to be used for the metric that the alarm will watch.
+        :param pulumi.Input[_builtins.str] metric_name: The name of the metric that you want the alarm to watch. This is a required field.
+        :param pulumi.Input[_builtins.str] namespace: The namespace of the metric that the alarm will watch.
+        """
+        if dimensions is not None:
+            pulumi.set(__self__, "dimensions", dimensions)
+        if metric_name is not None:
+            pulumi.set(__self__, "metric_name", metric_name)
+        if namespace is not None:
+            pulumi.set(__self__, "namespace", namespace)
+
+    @_builtins.property
+    @pulumi.getter
+    def dimensions(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['AlarmDimensionArgs']]]]:
+        """
+        The metric dimensions that you want to be used for the metric that the alarm will watch.
+        """
+        return pulumi.get(self, "dimensions")
+
+    @dimensions.setter
+    def dimensions(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['AlarmDimensionArgs']]]]):
+        pulumi.set(self, "dimensions", value)
+
+    @_builtins.property
+    @pulumi.getter(name="metricName")
+    def metric_name(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The name of the metric that you want the alarm to watch. This is a required field.
+        """
+        return pulumi.get(self, "metric_name")
+
+    @metric_name.setter
+    def metric_name(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "metric_name", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def namespace(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The namespace of the metric that the alarm will watch.
+        """
+        return pulumi.get(self, "namespace")
+
+    @namespace.setter
+    def namespace(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "namespace", value)
 
 
 class AlarmMetricDataQueryArgsDict(TypedDict):
     """
-    The ``MetricDataQuery`` property type specifies the metric data to return, and whether this call is just retrieving a batch set of data for one metric, or is performing a math expression on metric data. 
+    The ``MetricDataQuery`` property type specifies the metric data to return, and whether this call is just retrieving a batch set of data for one metric, or is performing a math expression on metric data.
      Any expression used must return a single time series. For more information, see [Metric Math Syntax and Functions](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/using-metric-math.html#metric-math-syntax) in the *User Guide*.
     """
     id: pulumi.Input[_builtins.str]
     """
     A short name used to tie this object to the results in the response. This name must be unique within a single call to ``GetMetricData``. If you are performing math expressions on this set of data, this name represents that data and can serve as a variable in the mathematical expression. The valid characters are letters, numbers, and underscore. The first character must be a lowercase letter.
     """
-    account_id: NotRequired[pulumi.Input[_builtins.str]]
+    account_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
     The ID of the account where the metrics are located, if this is a cross-account alarm.
     """
-    expression: NotRequired[pulumi.Input[_builtins.str]]
+    expression: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
     The math expression to be performed on the returned data, if this object is performing a math expression. This expression can use the ``Id`` of the other metrics to refer to those metrics, and can also use the ``Id`` of other expressions to use the result of those expressions. For more information about metric math expressions, see [Metric Math Syntax and Functions](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/using-metric-math.html#metric-math-syntax) in the *User Guide*.
      Within each MetricDataQuery object, you must specify either ``Expression`` or ``MetricStat`` but not both.
     """
-    label: NotRequired[pulumi.Input[_builtins.str]]
+    label: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
     A human-readable label for this metric or expression. This is especially useful if this is an expression, so that you know what the value represents. If the metric or expression is shown in a CW dashboard widget, the label is shown. If ``Label`` is omitted, CW generates a default.
     """
-    metric_stat: NotRequired[pulumi.Input['AlarmMetricStatArgsDict']]
+    metric_stat: NotRequired[pulumi.Input[Optional['AlarmMetricStatArgsDict']]]
     """
     The metric to be returned, along with statistics, period, and units. Use this parameter only if this object is retrieving a metric and not performing a math expression on returned data.
      Within one MetricDataQuery object, you must specify either ``Expression`` or ``MetricStat`` but not both.
     """
-    period: NotRequired[pulumi.Input[_builtins.int]]
+    period: NotRequired[pulumi.Input[Optional[_builtins.int]]]
     """
     The granularity, in seconds, of the returned data points. For metrics with regular resolution, a period can be as short as one minute (60 seconds) and must be a multiple of 60. For high-resolution metrics that are collected at intervals of less than one minute, the period can be 1, 5, 10, 20, 30, 60, or any multiple of 60. High-resolution metrics are those metrics stored by a ``PutMetricData`` operation that includes a ``StorageResolution of 1 second``.
     """
-    return_data: NotRequired[pulumi.Input[_builtins.bool]]
+    return_data: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     """
     This option indicates whether to return the timestamps and raw data values of this metric.
      When you create an alarm based on a metric math expression, specify ``True`` for this value for only the one math expression that the alarm is based on. You must specify ``False`` for ``ReturnData`` for all the other metrics and expressions used in the alarm.
@@ -174,14 +303,14 @@ class AlarmMetricDataQueryArgsDict(TypedDict):
 class AlarmMetricDataQueryArgs:
     def __init__(__self__, *,
                  id: pulumi.Input[_builtins.str],
-                 account_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 expression: Optional[pulumi.Input[_builtins.str]] = None,
-                 label: Optional[pulumi.Input[_builtins.str]] = None,
-                 metric_stat: Optional[pulumi.Input['AlarmMetricStatArgs']] = None,
-                 period: Optional[pulumi.Input[_builtins.int]] = None,
-                 return_data: Optional[pulumi.Input[_builtins.bool]] = None):
+                 account_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 expression: pulumi.Input[Optional[_builtins.str]] = None,
+                 label: pulumi.Input[Optional[_builtins.str]] = None,
+                 metric_stat: pulumi.Input[Optional['AlarmMetricStatArgs']] = None,
+                 period: pulumi.Input[Optional[_builtins.int]] = None,
+                 return_data: pulumi.Input[Optional[_builtins.bool]] = None):
         """
-        The ``MetricDataQuery`` property type specifies the metric data to return, and whether this call is just retrieving a batch set of data for one metric, or is performing a math expression on metric data. 
+        The ``MetricDataQuery`` property type specifies the metric data to return, and whether this call is just retrieving a batch set of data for one metric, or is performing a math expression on metric data.
          Any expression used must return a single time series. For more information, see [Metric Math Syntax and Functions](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/using-metric-math.html#metric-math-syntax) in the *User Guide*.
 
         :param pulumi.Input[_builtins.str] id: A short name used to tie this object to the results in the response. This name must be unique within a single call to ``GetMetricData``. If you are performing math expressions on this set of data, this name represents that data and can serve as a variable in the mathematical expression. The valid characters are letters, numbers, and underscore. The first character must be a lowercase letter.
@@ -224,19 +353,19 @@ class AlarmMetricDataQueryArgs:
 
     @_builtins.property
     @pulumi.getter(name="accountId")
-    def account_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def account_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The ID of the account where the metrics are located, if this is a cross-account alarm.
         """
         return pulumi.get(self, "account_id")
 
     @account_id.setter
-    def account_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def account_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "account_id", value)
 
     @_builtins.property
     @pulumi.getter
-    def expression(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def expression(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The math expression to be performed on the returned data, if this object is performing a math expression. This expression can use the ``Id`` of the other metrics to refer to those metrics, and can also use the ``Id`` of other expressions to use the result of those expressions. For more information about metric math expressions, see [Metric Math Syntax and Functions](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/using-metric-math.html#metric-math-syntax) in the *User Guide*.
          Within each MetricDataQuery object, you must specify either ``Expression`` or ``MetricStat`` but not both.
@@ -244,24 +373,24 @@ class AlarmMetricDataQueryArgs:
         return pulumi.get(self, "expression")
 
     @expression.setter
-    def expression(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def expression(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "expression", value)
 
     @_builtins.property
     @pulumi.getter
-    def label(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def label(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         A human-readable label for this metric or expression. This is especially useful if this is an expression, so that you know what the value represents. If the metric or expression is shown in a CW dashboard widget, the label is shown. If ``Label`` is omitted, CW generates a default.
         """
         return pulumi.get(self, "label")
 
     @label.setter
-    def label(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def label(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "label", value)
 
     @_builtins.property
     @pulumi.getter(name="metricStat")
-    def metric_stat(self) -> Optional[pulumi.Input['AlarmMetricStatArgs']]:
+    def metric_stat(self) -> pulumi.Input[Optional['AlarmMetricStatArgs']]:
         """
         The metric to be returned, along with statistics, period, and units. Use this parameter only if this object is retrieving a metric and not performing a math expression on returned data.
          Within one MetricDataQuery object, you must specify either ``Expression`` or ``MetricStat`` but not both.
@@ -269,24 +398,24 @@ class AlarmMetricDataQueryArgs:
         return pulumi.get(self, "metric_stat")
 
     @metric_stat.setter
-    def metric_stat(self, value: Optional[pulumi.Input['AlarmMetricStatArgs']]):
+    def metric_stat(self, value: pulumi.Input[Optional['AlarmMetricStatArgs']]):
         pulumi.set(self, "metric_stat", value)
 
     @_builtins.property
     @pulumi.getter
-    def period(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def period(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         The granularity, in seconds, of the returned data points. For metrics with regular resolution, a period can be as short as one minute (60 seconds) and must be a multiple of 60. For high-resolution metrics that are collected at intervals of less than one minute, the period can be 1, 5, 10, 20, 30, 60, or any multiple of 60. High-resolution metrics are those metrics stored by a ``PutMetricData`` operation that includes a ``StorageResolution of 1 second``.
         """
         return pulumi.get(self, "period")
 
     @period.setter
-    def period(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def period(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "period", value)
 
     @_builtins.property
     @pulumi.getter(name="returnData")
-    def return_data(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def return_data(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         This option indicates whether to return the timestamps and raw data values of this metric.
          When you create an alarm based on a metric math expression, specify ``True`` for this value for only the one math expression that the alarm is based on. You must specify ``False`` for ``ReturnData`` for all the other metrics and expressions used in the alarm.
@@ -295,7 +424,7 @@ class AlarmMetricDataQueryArgs:
         return pulumi.get(self, "return_data")
 
     @return_data.setter
-    def return_data(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def return_data(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "return_data", value)
 
 
@@ -320,9 +449,9 @@ class AlarmMetricStatArgsDict(TypedDict):
     """
     The statistic to return. It can include any CW statistic or extended statistic. For a list of valid values, see the table in [Statistics](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cloudwatch_concepts.html#Statistic) in the *User Guide*.
     """
-    unit: NotRequired[pulumi.Input[_builtins.str]]
+    unit: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
-    The unit to use for the returned data points. 
+    The unit to use for the returned data points.
      Valid values are: Seconds, Microseconds, Milliseconds, Bytes, Kilobytes, Megabytes, Gigabytes, Terabytes, Bits, Kilobits, Megabits, Gigabits, Terabits, Percent, Count, Bytes/Second, Kilobytes/Second, Megabytes/Second, Gigabytes/Second, Terabytes/Second, Bits/Second, Kilobits/Second, Megabits/Second, Gigabits/Second, Terabits/Second, Count/Second, or None.
     """
 
@@ -332,7 +461,7 @@ class AlarmMetricStatArgs:
                  metric: pulumi.Input['AlarmMetricArgs'],
                  period: pulumi.Input[_builtins.int],
                  stat: pulumi.Input[_builtins.str],
-                 unit: Optional[pulumi.Input[_builtins.str]] = None):
+                 unit: pulumi.Input[Optional[_builtins.str]] = None):
         """
         This structure defines the metric to be returned, along with the statistics, period, and units.
          ``MetricStat`` is a property of the [MetricDataQuery](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-metricdataquery.html) property type.
@@ -344,7 +473,7 @@ class AlarmMetricStatArgs:
                  +  Start time between 15 and 63 days ago - Use a multiple of 300 seconds (5 minutes).
                  +  Start time greater than 63 days ago - Use a multiple of 3600 seconds (1 hour).
         :param pulumi.Input[_builtins.str] stat: The statistic to return. It can include any CW statistic or extended statistic. For a list of valid values, see the table in [Statistics](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cloudwatch_concepts.html#Statistic) in the *User Guide*.
-        :param pulumi.Input[_builtins.str] unit: The unit to use for the returned data points. 
+        :param pulumi.Input[_builtins.str] unit: The unit to use for the returned data points.
                 Valid values are: Seconds, Microseconds, Milliseconds, Bytes, Kilobytes, Megabytes, Gigabytes, Terabytes, Bits, Kilobits, Megabits, Gigabits, Terabits, Percent, Count, Bytes/Second, Kilobytes/Second, Megabytes/Second, Gigabytes/Second, Terabytes/Second, Bits/Second, Kilobits/Second, Megabits/Second, Gigabits/Second, Terabits/Second, Count/Second, or None.
         """
         pulumi.set(__self__, "metric", metric)
@@ -395,105 +524,31 @@ class AlarmMetricStatArgs:
 
     @_builtins.property
     @pulumi.getter
-    def unit(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def unit(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        The unit to use for the returned data points. 
+        The unit to use for the returned data points.
          Valid values are: Seconds, Microseconds, Milliseconds, Bytes, Kilobytes, Megabytes, Gigabytes, Terabytes, Bits, Kilobits, Megabits, Gigabits, Terabits, Percent, Count, Bytes/Second, Kilobytes/Second, Megabytes/Second, Gigabytes/Second, Terabytes/Second, Bits/Second, Kilobits/Second, Megabits/Second, Gigabits/Second, Terabits/Second, Count/Second, or None.
         """
         return pulumi.get(self, "unit")
 
     @unit.setter
-    def unit(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def unit(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "unit", value)
-
-
-class AlarmMetricArgsDict(TypedDict):
-    """
-    The ``Metric`` property type represents a specific metric. ``Metric`` is a property of the [MetricStat](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-metricstat.html) property type.
-    """
-    dimensions: NotRequired[pulumi.Input[Sequence[pulumi.Input['AlarmDimensionArgsDict']]]]
-    """
-    The metric dimensions that you want to be used for the metric that the alarm will watch.
-    """
-    metric_name: NotRequired[pulumi.Input[_builtins.str]]
-    """
-    The name of the metric that you want the alarm to watch. This is a required field.
-    """
-    namespace: NotRequired[pulumi.Input[_builtins.str]]
-    """
-    The namespace of the metric that the alarm will watch.
-    """
-
-@pulumi.input_type
-class AlarmMetricArgs:
-    def __init__(__self__, *,
-                 dimensions: Optional[pulumi.Input[Sequence[pulumi.Input['AlarmDimensionArgs']]]] = None,
-                 metric_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 namespace: Optional[pulumi.Input[_builtins.str]] = None):
-        """
-        The ``Metric`` property type represents a specific metric. ``Metric`` is a property of the [MetricStat](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-metricstat.html) property type.
-
-        :param pulumi.Input[Sequence[pulumi.Input['AlarmDimensionArgs']]] dimensions: The metric dimensions that you want to be used for the metric that the alarm will watch.
-        :param pulumi.Input[_builtins.str] metric_name: The name of the metric that you want the alarm to watch. This is a required field.
-        :param pulumi.Input[_builtins.str] namespace: The namespace of the metric that the alarm will watch.
-        """
-        if dimensions is not None:
-            pulumi.set(__self__, "dimensions", dimensions)
-        if metric_name is not None:
-            pulumi.set(__self__, "metric_name", metric_name)
-        if namespace is not None:
-            pulumi.set(__self__, "namespace", namespace)
-
-    @_builtins.property
-    @pulumi.getter
-    def dimensions(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['AlarmDimensionArgs']]]]:
-        """
-        The metric dimensions that you want to be used for the metric that the alarm will watch.
-        """
-        return pulumi.get(self, "dimensions")
-
-    @dimensions.setter
-    def dimensions(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['AlarmDimensionArgs']]]]):
-        pulumi.set(self, "dimensions", value)
-
-    @_builtins.property
-    @pulumi.getter(name="metricName")
-    def metric_name(self) -> Optional[pulumi.Input[_builtins.str]]:
-        """
-        The name of the metric that you want the alarm to watch. This is a required field.
-        """
-        return pulumi.get(self, "metric_name")
-
-    @metric_name.setter
-    def metric_name(self, value: Optional[pulumi.Input[_builtins.str]]):
-        pulumi.set(self, "metric_name", value)
-
-    @_builtins.property
-    @pulumi.getter
-    def namespace(self) -> Optional[pulumi.Input[_builtins.str]]:
-        """
-        The namespace of the metric that the alarm will watch.
-        """
-        return pulumi.get(self, "namespace")
-
-    @namespace.setter
-    def namespace(self, value: Optional[pulumi.Input[_builtins.str]]):
-        pulumi.set(self, "namespace", value)
 
 
 class AlarmPromQlCriteriaArgsDict(TypedDict):
     """
     Contains the configuration that determines how a PromQL alarm evaluates its contributors, including the query to run and the durations that define when contributors transition between states.
     """
-    pending_period: NotRequired[pulumi.Input[_builtins.int]]
+    pending_period: NotRequired[pulumi.Input[Optional[_builtins.int]]]
     """
     The duration, in seconds, that a contributor must be continuously breaching before it transitions to the ``ALARM`` state.
     """
-    query: NotRequired[pulumi.Input[_builtins.str]]
+    query: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
     The PromQL query that the alarm evaluates. The query must return a result of vector type. Each entry in the vector result represents an alarm contributor.
     """
-    recovery_period: NotRequired[pulumi.Input[_builtins.int]]
+    recovery_period: NotRequired[pulumi.Input[Optional[_builtins.int]]]
     """
     The duration, in seconds, that a contributor must continuously not be breaching before it transitions back to the ``OK`` state.
     """
@@ -501,9 +556,9 @@ class AlarmPromQlCriteriaArgsDict(TypedDict):
 @pulumi.input_type
 class AlarmPromQlCriteriaArgs:
     def __init__(__self__, *,
-                 pending_period: Optional[pulumi.Input[_builtins.int]] = None,
-                 query: Optional[pulumi.Input[_builtins.str]] = None,
-                 recovery_period: Optional[pulumi.Input[_builtins.int]] = None):
+                 pending_period: pulumi.Input[Optional[_builtins.int]] = None,
+                 query: pulumi.Input[Optional[_builtins.str]] = None,
+                 recovery_period: pulumi.Input[Optional[_builtins.int]] = None):
         """
         Contains the configuration that determines how a PromQL alarm evaluates its contributors, including the query to run and the durations that define when contributors transition between states.
 
@@ -520,39 +575,68 @@ class AlarmPromQlCriteriaArgs:
 
     @_builtins.property
     @pulumi.getter(name="pendingPeriod")
-    def pending_period(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def pending_period(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         The duration, in seconds, that a contributor must be continuously breaching before it transitions to the ``ALARM`` state.
         """
         return pulumi.get(self, "pending_period")
 
     @pending_period.setter
-    def pending_period(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def pending_period(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "pending_period", value)
 
     @_builtins.property
     @pulumi.getter
-    def query(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def query(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The PromQL query that the alarm evaluates. The query must return a result of vector type. Each entry in the vector result represents an alarm contributor.
         """
         return pulumi.get(self, "query")
 
     @query.setter
-    def query(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def query(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "query", value)
 
     @_builtins.property
     @pulumi.getter(name="recoveryPeriod")
-    def recovery_period(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def recovery_period(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         The duration, in seconds, that a contributor must continuously not be breaching before it transitions back to the ``OK`` state.
         """
         return pulumi.get(self, "recovery_period")
 
     @recovery_period.setter
-    def recovery_period(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def recovery_period(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "recovery_period", value)
+
+
+class AlarmWallClockWindowArgsDict(TypedDict):
+    timezone: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    The timezone for wall clock evaluation, in IANA time zone format (e.g., America/New_York, UTC).
+    """
+
+@pulumi.input_type
+class AlarmWallClockWindowArgs:
+    def __init__(__self__, *,
+                 timezone: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] timezone: The timezone for wall clock evaluation, in IANA time zone format (e.g., America/New_York, UTC).
+        """
+        if timezone is not None:
+            pulumi.set(__self__, "timezone", timezone)
+
+    @_builtins.property
+    @pulumi.getter
+    def timezone(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The timezone for wall clock evaluation, in IANA time zone format (e.g., America/New_York, UTC).
+        """
+        return pulumi.get(self, "timezone")
+
+    @timezone.setter
+    def timezone(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "timezone", value)
 
 
 class LogAlarmScheduleConfigurationArgsDict(TypedDict):
@@ -563,33 +647,32 @@ class LogAlarmScheduleConfigurationArgsDict(TypedDict):
     """
     The expression that defines when the scheduled query runs, e.g. rate(1 minute).
     """
-    end_time_offset: NotRequired[pulumi.Input[_builtins.int]]
+    start_time_offset: pulumi.Input[_builtins.int]
     """
-    The number of seconds into the past to end the query window.
+    The number of seconds into the past to start the query window. Must be a positive value and cannot exceed 2592000 seconds (30 days).
     """
-    start_time_offset: NotRequired[pulumi.Input[_builtins.int]]
+    end_time_offset: NotRequired[pulumi.Input[Optional[_builtins.int]]]
     """
-    The number of seconds into the past to start the query window.
+    The number of seconds into the past to end the query window. Must be a non-negative value and cannot exceed 2592000 seconds (30 days).
     """
 
 @pulumi.input_type
 class LogAlarmScheduleConfigurationArgs:
     def __init__(__self__, *,
                  schedule_expression: pulumi.Input[_builtins.str],
-                 end_time_offset: Optional[pulumi.Input[_builtins.int]] = None,
-                 start_time_offset: Optional[pulumi.Input[_builtins.int]] = None):
+                 start_time_offset: pulumi.Input[_builtins.int],
+                 end_time_offset: pulumi.Input[Optional[_builtins.int]] = None):
         """
         The schedule configuration for the scheduled query.
 
         :param pulumi.Input[_builtins.str] schedule_expression: The expression that defines when the scheduled query runs, e.g. rate(1 minute).
-        :param pulumi.Input[_builtins.int] end_time_offset: The number of seconds into the past to end the query window.
-        :param pulumi.Input[_builtins.int] start_time_offset: The number of seconds into the past to start the query window.
+        :param pulumi.Input[_builtins.int] start_time_offset: The number of seconds into the past to start the query window. Must be a positive value and cannot exceed 2592000 seconds (30 days).
+        :param pulumi.Input[_builtins.int] end_time_offset: The number of seconds into the past to end the query window. Must be a non-negative value and cannot exceed 2592000 seconds (30 days).
         """
         pulumi.set(__self__, "schedule_expression", schedule_expression)
+        pulumi.set(__self__, "start_time_offset", start_time_offset)
         if end_time_offset is not None:
             pulumi.set(__self__, "end_time_offset", end_time_offset)
-        if start_time_offset is not None:
-            pulumi.set(__self__, "start_time_offset", start_time_offset)
 
     @_builtins.property
     @pulumi.getter(name="scheduleExpression")
@@ -604,28 +687,28 @@ class LogAlarmScheduleConfigurationArgs:
         pulumi.set(self, "schedule_expression", value)
 
     @_builtins.property
-    @pulumi.getter(name="endTimeOffset")
-    def end_time_offset(self) -> Optional[pulumi.Input[_builtins.int]]:
-        """
-        The number of seconds into the past to end the query window.
-        """
-        return pulumi.get(self, "end_time_offset")
-
-    @end_time_offset.setter
-    def end_time_offset(self, value: Optional[pulumi.Input[_builtins.int]]):
-        pulumi.set(self, "end_time_offset", value)
-
-    @_builtins.property
     @pulumi.getter(name="startTimeOffset")
-    def start_time_offset(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def start_time_offset(self) -> pulumi.Input[_builtins.int]:
         """
-        The number of seconds into the past to start the query window.
+        The number of seconds into the past to start the query window. Must be a positive value and cannot exceed 2592000 seconds (30 days).
         """
         return pulumi.get(self, "start_time_offset")
 
     @start_time_offset.setter
-    def start_time_offset(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def start_time_offset(self, value: pulumi.Input[_builtins.int]):
         pulumi.set(self, "start_time_offset", value)
+
+    @_builtins.property
+    @pulumi.getter(name="endTimeOffset")
+    def end_time_offset(self) -> pulumi.Input[Optional[_builtins.int]]:
+        """
+        The number of seconds into the past to end the query window. Must be a non-negative value and cannot exceed 2592000 seconds (30 days).
+        """
+        return pulumi.get(self, "end_time_offset")
+
+    @end_time_offset.setter
+    def end_time_offset(self, value: pulumi.Input[Optional[_builtins.int]]):
+        pulumi.set(self, "end_time_offset", value)
 
 
 class LogAlarmScheduledQueryConfigurationArgsDict(TypedDict):
@@ -635,10 +718,6 @@ class LogAlarmScheduledQueryConfigurationArgsDict(TypedDict):
     aggregation_expression: pulumi.Input[_builtins.str]
     """
     The aggregation expression for the scheduled query, e.g. count(*) or avg(latency) by host.
-    """
-    log_group_identifiers: pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]
-    """
-    The log groups to query.
     """
     query_string: pulumi.Input[_builtins.str]
     """
@@ -652,29 +731,42 @@ class LogAlarmScheduledQueryConfigurationArgsDict(TypedDict):
     """
     The ARN of the IAM role that grants permissions to execute the scheduled query.
     """
+    log_group_identifiers: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
+    """
+    The log groups to query.
+    """
+    tags: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['LogAlarmTagArgsDict']]]]]
+    """
+    A list of key-value pairs to associate with the scheduled query that backs the log alarm.
+    """
 
 @pulumi.input_type
 class LogAlarmScheduledQueryConfigurationArgs:
     def __init__(__self__, *,
                  aggregation_expression: pulumi.Input[_builtins.str],
-                 log_group_identifiers: pulumi.Input[Sequence[pulumi.Input[_builtins.str]]],
                  query_string: pulumi.Input[_builtins.str],
                  schedule_configuration: pulumi.Input['LogAlarmScheduleConfigurationArgs'],
-                 scheduled_query_role_arn: pulumi.Input[_builtins.str]):
+                 scheduled_query_role_arn: pulumi.Input[_builtins.str],
+                 log_group_identifiers: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 tags: pulumi.Input[Optional[Sequence[pulumi.Input['LogAlarmTagArgs']]]] = None):
         """
         The scheduled query configuration for the log alarm.
 
         :param pulumi.Input[_builtins.str] aggregation_expression: The aggregation expression for the scheduled query, e.g. count(*) or avg(latency) by host.
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] log_group_identifiers: The log groups to query.
         :param pulumi.Input[_builtins.str] query_string: The query string to execute against the specified log groups.
         :param pulumi.Input['LogAlarmScheduleConfigurationArgs'] schedule_configuration: The schedule configuration.
         :param pulumi.Input[_builtins.str] scheduled_query_role_arn: The ARN of the IAM role that grants permissions to execute the scheduled query.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] log_group_identifiers: The log groups to query.
+        :param pulumi.Input[Sequence[pulumi.Input['LogAlarmTagArgs']]] tags: A list of key-value pairs to associate with the scheduled query that backs the log alarm.
         """
         pulumi.set(__self__, "aggregation_expression", aggregation_expression)
-        pulumi.set(__self__, "log_group_identifiers", log_group_identifiers)
         pulumi.set(__self__, "query_string", query_string)
         pulumi.set(__self__, "schedule_configuration", schedule_configuration)
         pulumi.set(__self__, "scheduled_query_role_arn", scheduled_query_role_arn)
+        if log_group_identifiers is not None:
+            pulumi.set(__self__, "log_group_identifiers", log_group_identifiers)
+        if tags is not None:
+            pulumi.set(__self__, "tags", tags)
 
     @_builtins.property
     @pulumi.getter(name="aggregationExpression")
@@ -687,18 +779,6 @@ class LogAlarmScheduledQueryConfigurationArgs:
     @aggregation_expression.setter
     def aggregation_expression(self, value: pulumi.Input[_builtins.str]):
         pulumi.set(self, "aggregation_expression", value)
-
-    @_builtins.property
-    @pulumi.getter(name="logGroupIdentifiers")
-    def log_group_identifiers(self) -> pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]:
-        """
-        The log groups to query.
-        """
-        return pulumi.get(self, "log_group_identifiers")
-
-    @log_group_identifiers.setter
-    def log_group_identifiers(self, value: pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]):
-        pulumi.set(self, "log_group_identifiers", value)
 
     @_builtins.property
     @pulumi.getter(name="queryString")
@@ -736,6 +816,82 @@ class LogAlarmScheduledQueryConfigurationArgs:
     def scheduled_query_role_arn(self, value: pulumi.Input[_builtins.str]):
         pulumi.set(self, "scheduled_query_role_arn", value)
 
+    @_builtins.property
+    @pulumi.getter(name="logGroupIdentifiers")
+    def log_group_identifiers(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
+        """
+        The log groups to query.
+        """
+        return pulumi.get(self, "log_group_identifiers")
+
+    @log_group_identifiers.setter
+    def log_group_identifiers(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "log_group_identifiers", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def tags(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['LogAlarmTagArgs']]]]:
+        """
+        A list of key-value pairs to associate with the scheduled query that backs the log alarm.
+        """
+        return pulumi.get(self, "tags")
+
+    @tags.setter
+    def tags(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['LogAlarmTagArgs']]]]):
+        pulumi.set(self, "tags", value)
+
+
+class LogAlarmTagArgsDict(TypedDict):
+    """
+    Metadata that you can assign to a log alarm. Tags can help you organize and categorize your resources.
+    """
+    key: pulumi.Input[_builtins.str]
+    """
+    A unique identifier for the tag. The combination of tag keys and values can help you organize and categorize your resources.
+    """
+    value: pulumi.Input[_builtins.str]
+    """
+    The value for the specified tag key.
+    """
+
+@pulumi.input_type
+class LogAlarmTagArgs:
+    def __init__(__self__, *,
+                 key: pulumi.Input[_builtins.str],
+                 value: pulumi.Input[_builtins.str]):
+        """
+        Metadata that you can assign to a log alarm. Tags can help you organize and categorize your resources.
+
+        :param pulumi.Input[_builtins.str] key: A unique identifier for the tag. The combination of tag keys and values can help you organize and categorize your resources.
+        :param pulumi.Input[_builtins.str] value: The value for the specified tag key.
+        """
+        pulumi.set(__self__, "key", key)
+        pulumi.set(__self__, "value", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def key(self) -> pulumi.Input[_builtins.str]:
+        """
+        A unique identifier for the tag. The combination of tag keys and values can help you organize and categorize your resources.
+        """
+        return pulumi.get(self, "key")
+
+    @key.setter
+    def key(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "key", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def value(self) -> pulumi.Input[_builtins.str]:
+        """
+        The value for the specified tag key.
+        """
+        return pulumi.get(self, "value")
+
+    @value.setter
+    def value(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "value", value)
+
 
 class MetricStreamFilterArgsDict(TypedDict):
     """
@@ -745,7 +901,7 @@ class MetricStreamFilterArgsDict(TypedDict):
     """
     Only metrics with Namespace matching this value will be streamed.
     """
-    metric_names: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
+    metric_names: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     """
     Only metrics with MetricNames matching these values will be streamed. Must be set together with Namespace.
     """
@@ -754,7 +910,7 @@ class MetricStreamFilterArgsDict(TypedDict):
 class MetricStreamFilterArgs:
     def __init__(__self__, *,
                  namespace: pulumi.Input[_builtins.str],
-                 metric_names: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None):
+                 metric_names: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None):
         """
         This structure defines the metrics that will be streamed.
 
@@ -779,14 +935,14 @@ class MetricStreamFilterArgs:
 
     @_builtins.property
     @pulumi.getter(name="metricNames")
-    def metric_names(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+    def metric_names(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         Only metrics with MetricNames matching these values will be streamed. Must be set together with Namespace.
         """
         return pulumi.get(self, "metric_names")
 
     @metric_names.setter
-    def metric_names(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+    def metric_names(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "metric_names", value)
 
 
@@ -927,6 +1083,39 @@ class MuteTargetsPropertiesArgs:
         pulumi.set(self, "alarm_names", value)
 
 
+class RulePropertiesArgsDict(TypedDict):
+    """
+    The rule for the mute
+    """
+    schedule: pulumi.Input['RulePropertiesSchedulePropertiesArgsDict']
+    """
+    Schedule for the mute to be active
+    """
+
+@pulumi.input_type
+class RulePropertiesArgs:
+    def __init__(__self__, *,
+                 schedule: pulumi.Input['RulePropertiesSchedulePropertiesArgs']):
+        """
+        The rule for the mute
+
+        :param pulumi.Input['RulePropertiesSchedulePropertiesArgs'] schedule: Schedule for the mute to be active
+        """
+        pulumi.set(__self__, "schedule", schedule)
+
+    @_builtins.property
+    @pulumi.getter
+    def schedule(self) -> pulumi.Input['RulePropertiesSchedulePropertiesArgs']:
+        """
+        Schedule for the mute to be active
+        """
+        return pulumi.get(self, "schedule")
+
+    @schedule.setter
+    def schedule(self, value: pulumi.Input['RulePropertiesSchedulePropertiesArgs']):
+        pulumi.set(self, "schedule", value)
+
+
 class RulePropertiesSchedulePropertiesArgsDict(TypedDict):
     """
     Schedule for the mute to be active
@@ -939,7 +1128,7 @@ class RulePropertiesSchedulePropertiesArgsDict(TypedDict):
     """
     The expression of the schedule
     """
-    timezone: NotRequired[pulumi.Input[_builtins.str]]
+    timezone: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
     The timezone of the schedule
     """
@@ -949,7 +1138,7 @@ class RulePropertiesSchedulePropertiesArgs:
     def __init__(__self__, *,
                  duration: pulumi.Input[_builtins.str],
                  expression: pulumi.Input[_builtins.str],
-                 timezone: Optional[pulumi.Input[_builtins.str]] = None):
+                 timezone: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Schedule for the mute to be active
 
@@ -988,47 +1177,14 @@ class RulePropertiesSchedulePropertiesArgs:
 
     @_builtins.property
     @pulumi.getter
-    def timezone(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def timezone(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         The timezone of the schedule
         """
         return pulumi.get(self, "timezone")
 
     @timezone.setter
-    def timezone(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def timezone(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "timezone", value)
-
-
-class RulePropertiesArgsDict(TypedDict):
-    """
-    The rule for the mute
-    """
-    schedule: pulumi.Input['RulePropertiesSchedulePropertiesArgsDict']
-    """
-    Schedule for the mute to be active
-    """
-
-@pulumi.input_type
-class RulePropertiesArgs:
-    def __init__(__self__, *,
-                 schedule: pulumi.Input['RulePropertiesSchedulePropertiesArgs']):
-        """
-        The rule for the mute
-
-        :param pulumi.Input['RulePropertiesSchedulePropertiesArgs'] schedule: Schedule for the mute to be active
-        """
-        pulumi.set(__self__, "schedule", schedule)
-
-    @_builtins.property
-    @pulumi.getter
-    def schedule(self) -> pulumi.Input['RulePropertiesSchedulePropertiesArgs']:
-        """
-        Schedule for the mute to be active
-        """
-        return pulumi.get(self, "schedule")
-
-    @schedule.setter
-    def schedule(self, value: pulumi.Input['RulePropertiesSchedulePropertiesArgs']):
-        pulumi.set(self, "schedule", value)
 
 

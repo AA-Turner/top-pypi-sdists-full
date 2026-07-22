@@ -85,6 +85,12 @@ import litellm
 import langwatch
 import langwatch.telemetry.context
 from langwatch.telemetry.tracing import LangWatchTrace
+from scenario._tracing.sdk_metadata import (
+    ATTR_SCENARIO_SDK_NAME,
+    ATTR_SCENARIO_SDK_VERSION,
+    SCENARIO_SDK_NAME,
+    SCENARIO_SDK_VERSION,
+)
 
 
 def _extract_text_content(content: object) -> str:
@@ -455,10 +461,16 @@ class ScenarioExecutor:
         ).__enter__()
 
         if self._trace.root_span is not None:
-            self._trace.root_span.set_attributes({
+            attrs = {
                 "langwatch.origin": "simulation",
+                ATTR_SCENARIO_SDK_NAME: SCENARIO_SDK_NAME,
+                ATTR_SCENARIO_SDK_VERSION: SCENARIO_SDK_VERSION,
                 "scenario.run_id": self._scenario_run_id,
-            })
+            }
+            for role, tier_value in getattr(self, '_modality_resolutions', {}).items():
+                attrs[f"scenario.modality.{role}.resolved"] = tier_value
+                attrs[f"scenario.modality.{role}.tier"] = tier_value
+            self._trace.root_span.set_attributes(attrs)
 
         self._pending_agents_on_turn = set(self.agents)
         self._pending_roles_on_turn = [
@@ -549,7 +561,7 @@ class ScenarioExecutor:
         ]
         agent_time = sum(agent_times)
 
-        return ScenarioResult(
+        result = ScenarioResult(
             success=False,
             messages=self._state.messages,
             reasoning=error_message
@@ -557,6 +569,19 @@ class ScenarioExecutor:
             total_time=time.time() - self._total_start_time,
             agent_time=agent_time,
         )
+        # Harvest voice output so max-turns exits (both the mid-script L519
+        # route and the end-of-script-without-conclusion L687 route) carry
+        # result.audio/timeline/latency for voice runs (AC E1).
+        # Guard: if harvest itself raises, log and return the max-turns result
+        # unmodified so the caller always gets a valid ScenarioResult.
+        try:
+            result = self._attach_voice_output(result)
+        except Exception:
+            logger.warning(
+                "voice harvest failed on max-turns path; returning result without voice fields",
+                exc_info=True,
+            )
+        return result
 
     async def run(self) -> ScenarioResult:
         """
@@ -574,6 +599,26 @@ class ScenarioExecutor:
 
         # Connect all voice adapters before script runs; disconnect in finally.
         await self._voice_connect_all()
+
+        # Resolve modality per role and store for span stamping.
+        from .voice.modality_resolver import resolve_modality
+        from .user_simulator_agent import UserSimulatorAgent
+        from .judge_agent import JudgeAgent
+
+        self._modality_resolutions: dict = {}  # role -> tier value string
+        for agent in self.agents:
+            if isinstance(agent, UserSimulatorAgent):
+                decl = getattr(agent, 'modality', None)
+                tier, _mod_warnings = resolve_modality(declaration=decl, model_id=getattr(agent, 'model', '') or '')
+                for w in _mod_warnings:
+                    logger.warning(w)
+                self._modality_resolutions['simulator'] = tier.value
+            elif isinstance(agent, JudgeAgent):
+                decl = getattr(agent, 'modality', None)
+                tier, _mod_warnings = resolve_modality(declaration=decl, model_id=getattr(agent, 'model', '') or '')
+                for w in _mod_warnings:
+                    logger.warning(w)
+                self._modality_resolutions['judge'] = tier.value
 
         try:
             self._emit_run_started_event(scenario_run_id)
@@ -605,7 +650,13 @@ class ScenarioExecutor:
                         if result.success
                         else ScenarioRunFinishedEventStatus.FAILED
                     )
-                    result = self._attach_voice_output(result)
+                    try:
+                        result = self._attach_voice_output(result)
+                    except Exception:
+                        logger.warning(
+                            "voice harvest failed on script-result path; returning result without voice fields",
+                            exc_info=True,
+                        )
                     self._emit_run_finished_event(scenario_run_id, result, status)
                     return result
 
@@ -620,6 +671,18 @@ class ScenarioExecutor:
                     total_time=time.time() - self._total_start_time,
                     agent_time=0,
                 )
+                # Harvest voice output before emitting/raising so the
+                # check-failure (AssertionError in a script step) exit carries
+                # result.audio/timeline/latency for voice runs (AC E2b).
+                # Guard: if harvest itself raises, log and continue so the
+                # original AssertionError is not masked.
+                try:
+                    error_result = self._attach_voice_output(error_result)
+                except Exception:
+                    logger.warning(
+                        "voice harvest failed on check-failure path; preserving original error",
+                        exc_info=True,
+                    )
                 self._emit_run_finished_event(
                     scenario_run_id,
                     error_result,
@@ -650,7 +713,13 @@ class ScenarioExecutor:
                     total_time=time.time() - self._total_start_time,
                     agent_time=agent_time,
                 )
-                result = self._attach_voice_output(result)
+                try:
+                    result = self._attach_voice_output(result)
+                except Exception:
+                    logger.warning(
+                        "voice harvest failed on checkpoint-results path; returning result without voice fields",
+                        exc_info=True,
+                    )
 
                 status = (
                     ScenarioRunFinishedEventStatus.SUCCESS
@@ -690,6 +759,18 @@ class ScenarioExecutor:
                 total_time=time.time() - self._total_start_time,
                 agent_time=0,
             )
+            # Harvest voice output before emitting/raising so the generic
+            # exception exit carries result.audio/timeline/latency for voice
+            # runs (AC E2).
+            # Guard: if harvest itself raises, log and continue so the
+            # original exception is not masked.
+            try:
+                error_result = self._attach_voice_output(error_result)
+            except Exception:
+                logger.warning(
+                    "voice harvest failed on except-Exception path; preserving original error",
+                    exc_info=True,
+                )
             self._emit_run_finished_event(
                 scenario_run_id, error_result, ScenarioRunFinishedEventStatus.ERROR
             )
@@ -724,9 +805,69 @@ class ScenarioExecutor:
 
             self._on_audio_chunk = _playback_and_forward
 
+        # Phase 1: static validation against adapter ClassVars (before connect)
+        from .voice.modality_resolver import ModalityNegotiationError, validate_modality_setup, resolve_modality
         for agent in self.agents:
             if isinstance(agent, VoiceAgentAdapter):
-                await agent.connect()
+                model_id = getattr(agent, 'model', None) or getattr(agent, '_model', '') or ''
+                if model_id:
+                    tier, _mod_warnings = resolve_modality(declaration=None, model_id=model_id)
+                    for w in _mod_warnings:
+                        logger.warning(w)
+                    validate_modality_setup(
+                        tier=tier,
+                        adapter_input_formats=list(agent.capabilities.input_formats),
+                        adapter_name=type(agent).__name__,
+                    )
+
+        # Phase 2: connect with live-transport failure catching
+        from .voice.adapters._stub import PendingTransportError
+        from .voice._telemetry import voice_span
+        for agent in self.agents:
+            if isinstance(agent, VoiceAgentAdapter):
+                caps = getattr(agent, "capabilities", None)
+                role = getattr(agent, "role", None)
+                connect_attrs = {
+                    "voice.adapter.class": type(agent).__name__,
+                    "voice.adapter.role": getattr(role, "value", None),
+                    "voice.adapter.capabilities.native_vad": getattr(
+                        caps, "native_vad", None
+                    ),
+                    "voice.adapter.capabilities.streaming_transcripts": getattr(
+                        caps, "streaming_transcripts", None
+                    ),
+                    "voice.adapter.capabilities.dtmf": getattr(caps, "dtmf", None),
+                }
+                try:
+                    # Wrap ``connect()`` itself so the span records the ORIGINAL
+                    # transport error before the ModalityNegotiationError re-wrap
+                    # below. Adapters stamp vendor attrs (e.g. EL agent_id) onto
+                    # this span from inside their own connect().
+                    with voice_span("voice.adapter.connect", connect_attrs):
+                        await agent.connect()
+                except PendingTransportError as e:
+                    raise ModalityNegotiationError(
+                        f"Live transport {type(agent).__name__!r} cannot honor "
+                        f"required modality — connect failed: {e}. "
+                        f"Negotiated requirement: audio-in (pcm16/24000)"
+                    ) from e
+
+        # Phase 3: validate script step requirements against connected adapter capabilities
+        from .voice.capabilities import UnsupportedCapabilityError
+        for step in self.script:
+            if getattr(step, '_requires_streaming_transcripts', False):
+                for agent in self.agents:
+                    if isinstance(agent, VoiceAgentAdapter):
+                        if not agent.capabilities.streaming_transcripts:
+                            raise UnsupportedCapabilityError(
+                                type(agent).__name__,
+                                "streaming_transcripts",
+                                hint=(
+                                    "interrupt(after_words=N) needs incremental transcripts. "
+                                    "Use interrupt(content) without after_words on this adapter — "
+                                    "the executor fires barge-in at the agent's first audio chunk."
+                                ),
+                            )
 
     def _attach_voice_output(self, result: ScenarioResult) -> ScenarioResult:
         """Populate result.audio/timeline/latency if any voice adapter ran."""
@@ -771,12 +912,20 @@ class ScenarioExecutor:
         are logged but do not mask the primary scenario result.
         """
         from .voice.adapter import VoiceAgentAdapter
+        from .voice._telemetry import voice_span
 
         for agent in self.agents:
             if not isinstance(agent, VoiceAgentAdapter):
                 continue
             try:
-                await agent.disconnect()
+                # Wrap the disconnect() call so the span's OK/ERROR status is set
+                # BEFORE the executor's outer swallow below discards the error.
+                # Adapters stamp vendor attrs (e.g. EL pump counters) from inside.
+                with voice_span(
+                    "voice.adapter.disconnect",
+                    {"voice.adapter.class": type(agent).__name__},
+                ):
+                    await agent.disconnect()
             except Exception:
                 logger.warning(
                     "voice adapter %s disconnect failed",
@@ -1189,8 +1338,23 @@ class ScenarioExecutor:
             #    the bot's buffered outbound audio on transports that honor
             #    it (Twilio ``clear``, OpenAI Realtime ``response.cancel``).
             if adapter.capabilities.interruption:
+                from .voice._telemetry import voice_span
+
                 try:
-                    await adapter.interrupt()
+                    # ``voice.adapter.interrupt`` — the executor-owned base span
+                    # (mirrors ``_voice_connect_all`` / ``_voice_disconnect_all``).
+                    # Rule for executor-owned spans: executor-invoked + no shared
+                    # base body to instrument. connect/disconnect are abstract;
+                    # interrupt() is concrete (default raises UnsupportedCapability)
+                    # but wholesale-overridden with no super(), so the call-site is
+                    # the one seam. Adapters stamp vendor outcome attrs onto it from
+                    # inside their own interrupt(); the span's OK/ERROR status is set
+                    # BEFORE the swallow below discards a transport error.
+                    with voice_span(
+                        "voice.adapter.interrupt",
+                        {"voice.adapter.class": type(adapter).__name__},
+                    ):
+                        await adapter.interrupt()
                     native_interrupt_fired = True
                 except Exception:
                     # Best-effort native cancel — adapters' interrupt() may
@@ -1417,10 +1581,11 @@ class ScenarioExecutor:
     async def judge(
         self,
         criteria: Optional[List[str]] = None,
+        additional_context: Optional[str] = None,
     ) -> Optional[ScenarioResult]:
         return await self._script_call_agent(
             AgentRole.JUDGE,
-            judgment_request=JudgmentRequest(criteria=criteria),
+            judgment_request=JudgmentRequest(criteria=criteria, additional_context=additional_context),
         )
 
     async def proceed(

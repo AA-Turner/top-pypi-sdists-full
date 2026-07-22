@@ -24,7 +24,7 @@ class UpstreamReverseConnectionSocketInterface(betterproto2.Message):
     [#extension: envoy.bootstrap.reverse_tunnel.upstream_socket_interface]
 
     Configuration for the upstream reverse connection socket interface.
-    [#next-free-field: 6]
+    [#next-free-field: 7]
     """
 
     stat_prefix: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
@@ -75,6 +75,14 @@ class UpstreamReverseConnectionSocketInterface(betterproto2.Message):
     Defaults to ``false`` for backwards compatibility.
     """
 
+    access_log: "list[_____config__accesslog__v3__.AccessLog]" = betterproto2.field(
+        6, betterproto2.TYPE_MESSAGE, repeated=True
+    )
+    """
+    Access logs emitted for reverse tunnel lifecycle events. Entries are generated for tunnel setup,
+    socket handoff, tunnel close, and post-handoff HTTP/2 keepalive timeout observations.
+    """
+
 
 default_message_pool.register_message(
     "envoy.extensions.bootstrap.reverse_tunnel.upstream_socket_interface.v3",
@@ -84,4 +92,5 @@ default_message_pool.register_message(
 
 
 from .......google import protobuf as ______google__protobuf__
+from ......config.accesslog import v3 as _____config__accesslog__v3__
 from ......config.core import v3 as _____config__core__v3__

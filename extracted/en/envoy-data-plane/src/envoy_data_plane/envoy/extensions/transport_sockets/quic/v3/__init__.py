@@ -43,6 +43,17 @@ class QuicDownstreamTransport(betterproto2.Message):
     Default to true.
     """
 
+    enable_resumption: "bool | None" = betterproto2.field(
+        3,
+        betterproto2.TYPE_MESSAGE,
+        unwrap=lambda: _____google__protobuf__.BoolValue,
+        optional=True,
+    )
+    """
+    If false, TLS session tickets are not issued and accepted by QUIC.
+    Default to true.
+    """
+
 
 default_message_pool.register_message(
     "envoy.extensions.transport_sockets.quic.v3",

@@ -31,6 +31,9 @@ def discover_tools(
     workflow_engine: Any = None,
     knowledge_index: Any = None,
     approval: Any = None,
+    clarify_manager: Any = None,
+    memory_invalidate_fn: Any = None,
+    memory_service: Any = None,
 ) -> list[Tool]:
     ws = str(workspace)
     restrict = config.tools.restrict_to_workspace
@@ -87,14 +90,15 @@ def discover_tools(
 
     if task_manager:
         from echo_agent.agent.tools.task import TaskTool
-        tools.append(TaskTool(manager=task_manager))
+        tools.append(TaskTool(manager=task_manager, workflow_engine=workflow_engine))
 
     if workflow_engine:
         from echo_agent.agent.tools.workflow import WorkflowTool
         tools.append(WorkflowTool(engine=workflow_engine))
 
     from echo_agent.agent.tools.clarify import ClarifyTool
-    tools.append(ClarifyTool(bus=bus))
+    if clarify_manager is not None:
+        tools.append(ClarifyTool(manager=clarify_manager))
 
     from echo_agent.agent.tools.notify import NotifyTool
     tools.append(NotifyTool(bus=bus))
@@ -148,7 +152,21 @@ def discover_tools(
 
     if memory_store:
         from echo_agent.agent.tools.memory import MemoryTool
-        tools.append(MemoryTool(store=memory_store, contradiction_detector=contradiction_detector))
+        # R1 Task8:优先用调用方注入的 loop 单例 service;缺省(独立调 discover_tools
+        # 的旧用法/测试)才就近构造一个最小 service 兜底,保持向后兼容。
+        service = memory_service
+        if service is None:
+            from echo_agent.memory.service import MemoryService
+            service = MemoryService(
+                memory_store,
+                invalidate_fn=memory_invalidate_fn,
+                flush_fn=getattr(memory_store, "flush_pending_embeds", None),
+                allow_env_writes=config.memory.allow_model_environment_writes,
+            )
+        tools.append(MemoryTool(
+            service=service,
+            contradiction_detector=contradiction_detector,
+        ))
 
     if knowledge_index:
         from echo_agent.agent.tools.knowledge import KnowledgeIndexTool, KnowledgeSearchTool

@@ -12,8 +12,10 @@ import numpy as np
 from tqdm import trange
 from typing import Optional, Union, Tuple
 
-from AOT_biomaps.AOT_Recon.ReconTools import get_array_module, forward_projection, backward_projection, get_potential_function, check_stopping_criterion, calculate_step_size, build_preconditioner
-from AOT_biomaps.AOT_Recon.ReconEnums import PotentialType, PotentialShapeType, StopCriterionType, PreconditionerType
+from AOT_biomaps.AOT_Recon.ReconTools import get_array_module, forward_projection, backward_projection, get_potential_function, check_stopping_criterion, calculate_step_size_FISTA
+from AOT_biomaps.AOT_Recon.ReconEnums import PotentialType, PotentialShapeType, StopCriterionType
+from AOT_biomaps.AOT_Recon.AOT_Preconditioner.NoPreconditioner import NoPreconditioner
+from AOT_biomaps.AOT_Recon.AOT_Preconditioner.DiagPreconditioner import DiagPreconditioner
 from AOT_biomaps.AOT_Recon.AOT_SMatrix.SMatrix_SELL import SMatrix_SELL
 from AOT_biomaps.AOT_Recon.AOT_SMatrix.SMatrix_CSR import SMatrix_CSR
 from AOT_biomaps.AOT_Recon.AOT_SMatrix.SMatrix_DENSE import SMatrix_DENSE
@@ -55,7 +57,7 @@ def FISTA(
     potential_type: PotentialType = PotentialType.QUADRATIC,
     potential_shape: PotentialShapeType = PotentialShapeType.CROSS,
     potential_radius: int = 2,
-    preconditioner_type: PreconditionerType = PreconditionerType.DIAGONAL,
+    preconditioner: Union[NoPreconditioner, DiagPreconditioner] = NoPreconditioner(SMatrix=None),
     stop_criterion: StopCriterionType = StopCriterionType.MAX_ITERATIONS,
     stop_threshold: float = 100.0,
     stop_window_size: int = 5,
@@ -101,7 +103,7 @@ def FISTA(
         potential_type: Type of potential function to use
         potential_shape: Neighborhood shape (PotentialShapeType enum)
         potential_radius: Neighborhood radius in pixels
-        preconditioner_type: Type of preconditioner to use (PreconditionerType enum)  
+        preconditioner: Preconditioner instance (see PreconditionerEnums for available types)
         stop_criterion: Criterion for stopping the iterations (StopCriterionType enum)
         stop_threshold: Threshold value for the stopping criterion (for MAX_iterations, this is ignored)
         stop_window_size: Window size (used to avoid early stop due to oscillations)
@@ -136,23 +138,8 @@ def FISTA(
     
     residual_buffer = xp.empty_like(y_flat)
 
-    if alpha == "auto":
-        eta_val = eta if eta is not None else 1.0
-        alpha_data = calculate_step_size(SMatrix, eta_val, numIterations_stepCalculation, show_logs=False)
-        L_A = eta_val / alpha_data
-        L_prior = 8.0 * beta * (potential_radius ** 2) if potential_type != PotentialType.NONE else 0.0
-        alpha_val = eta_val / (L_A + L_prior)
-    else:
-        alpha_val = alpha
-
-    if preconditioner_type != PreconditionerType.NONE:
-        if show_logs: print(f"[AOT-biomaps] preconditionning calculation : {preconditioner_type.name}...")
-        preconditioner = build_preconditioner(SMatrix, preconditioner_type)
-        preconditioner /= xp.max(preconditioner)
-        alpha_vec = alpha_val / (preconditioner + 1e-8)
-        alpha_vec = alpha_vec.astype(xp.float32)
-    else:
-        alpha_vec = xp.full(ZX, alpha_val, dtype=xp.float32)
+    alpha_val = calculate_step_size_FISTA(SMatrix, preconditioner, eta, potential_type, beta, potential_radius, numIterations_stepCalculation, show_logs) if alpha == "auto" else alpha
+    alpha_vec = xp.full(ZX, alpha_val, dtype=xp.float32)
 
     save_indices = np.unique(np.append(np.arange(0, numIterations, max(1, numIterations // max_saves)), numIterations - 1)).tolist()
 
@@ -161,7 +148,7 @@ def FISTA(
     cost_history = [] if isCostFunction else None
     window_history = []
 
-    prec_str = "Precond" if preconditioner_type != PreconditionerType.NONE else "NoPrecond"
+    prec_str = preconditioner.get_name()
     description = f"[AOT-biomaps] FISTA-{prec_str} ({SMatrix.matrix_type.name}) with {potential_type.name} β={beta} ---- {'WITH' if withTumor else 'WITHOUT'} TUMOR"
     iterator = trange(numIterations, desc=description) if show_logs else range(numIterations)
 

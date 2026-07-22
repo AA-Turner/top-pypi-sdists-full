@@ -129,6 +129,8 @@ class Edition(betterproto2.Enum):
 
     _2024 = 1001
 
+    _2026 = 1002
+
     UNSTABLE = 9999
     """
     A placeholder edition for developing and testing unscheduled features.
@@ -164,6 +166,7 @@ class Edition(betterproto2.Enum):
             999: "EDITION_PROTO3",
             1000: "EDITION_2023",
             1001: "EDITION_2024",
+            1002: "EDITION_2026",
             9999: "EDITION_UNSTABLE",
             1: "EDITION_1_TEST_ONLY",
             2: "EDITION_2_TEST_ONLY",
@@ -182,6 +185,7 @@ class Edition(betterproto2.Enum):
             "EDITION_PROTO3": 999,
             "EDITION_2023": 1000,
             "EDITION_2024": 1001,
+            "EDITION_2026": 1002,
             "EDITION_UNSTABLE": 9999,
             "EDITION_1_TEST_ONLY": 1,
             "EDITION_2_TEST_ONLY": 2,
@@ -211,6 +215,8 @@ class FeatureSetEnforceNamingStyle(betterproto2.Enum):
     STYLE2024 = 1
 
     STYLE_LEGACY = 2
+
+    STYLE2026 = 3
 
 
 class FeatureSetEnumType(betterproto2.Enum):
@@ -579,10 +585,15 @@ class MethodOptionsIdempotencyLevel(betterproto2.Enum):
 
 class NullValue(betterproto2.Enum):
     """
-    `NullValue` is a singleton enumeration to represent the null value for the
-    `Value` type union.
+    Represents a JSON `null`.
 
-    The JSON representation for `NullValue` is JSON `null`.
+    `NullValue` is a sentinel, using an enum with only one value to represent
+    the null value for the `Value` type union.
+
+    A field of type `NullValue` with any value other than `0` is considered
+    invalid. Most ProtoJSON serializers will emit a Value with a `null_value` set
+    as a JSON `null` regardless of the integer value, and so will round trip to
+    a `0` value.
     """
 
     NULL_VALUE = 0
@@ -613,127 +624,73 @@ class Any(betterproto2.Message):
     `Any` contains an arbitrary serialized protocol buffer message along with a
     URL that describes the type of the serialized message.
 
-    Protobuf library provides support to pack/unpack Any values in the form
-    of utility functions or additional generated methods of the Any type.
+    In its binary encoding, an `Any` is an ordinary message; but in other wire
+    forms like JSON, it has a special encoding. The format of the type URL is
+    described on the `type_url` field.
 
-    Example 1: Pack and unpack a message in C++.
+    Protobuf APIs provide utilities to interact with `Any` values:
 
-        Foo foo = ...;
-        Any any;
-        any.PackFrom(foo);
-        ...
-        if (any.UnpackTo(&foo)) {
-          ...
-        }
+    - A 'pack' operation accepts a message and constructs a generic `Any` wrapper
+      around it.
+    - An 'unpack' operation reads the content of an `Any` message, either into an
+      existing message or a new one. Unpack operations must check the type of the
+      value they unpack against the declared `type_url`.
+    - An 'is' operation decides whether an `Any` contains a message of the given
+      type, i.e. whether it can 'unpack' that type.
 
-    Example 2: Pack and unpack a message in Java.
+    The JSON format representation of an `Any` follows one of these cases:
 
-        Foo foo = ...;
-        Any any = Any.pack(foo);
-        ...
-        if (any.is(Foo.class)) {
-          foo = any.unpack(Foo.class);
-        }
-        // or ...
-        if (any.isSameTypeAs(Foo.getDefaultInstance())) {
-          foo = any.unpack(Foo.getDefaultInstance());
-        }
+    - For types without special-cased JSON encodings, the JSON format
+      representation of the `Any` is the same as that of the message, with an
+      additional `@type` field which contains the type URL.
+    - For types with special-cased JSON encodings (typically called 'well-known'
+      types, listed in https://protobuf.dev/programming-guides/json/#any), the
+      JSON format representation has a key `@type` which contains the type URL
+      and a key `value` which contains the JSON-serialized value.
 
-     Example 3: Pack and unpack a message in Python.
-
-        foo = Foo(...)
-        any = Any()
-        any.Pack(foo)
-        ...
-        if any.Is(Foo.DESCRIPTOR):
-          any.Unpack(foo)
-          ...
-
-     Example 4: Pack and unpack a message in Go
-
-         foo := &pb.Foo{...}
-         any, err := anypb.New(foo)
-         if err != nil {
-           ...
-         }
-         ...
-         foo := &pb.Foo{}
-         if err := any.UnmarshalTo(foo); err != nil {
-           ...
-         }
-
-    The pack methods provided by protobuf library will by default use
-    'type.googleapis.com/full.type.name' as the type URL and the unpack
-    methods only use the fully qualified type name after the last '/'
-    in the type URL, for example "foo.bar.com/x/y.z" will yield type
-    name "y.z".
-
-    JSON
-    ====
-    The JSON representation of an `Any` value uses the regular
-    representation of the deserialized, embedded message, with an
-    additional field `@type` which contains the type URL. Example:
-
-        package google.profile;
-        message Person {
-          string first_name = 1;
-          string last_name = 2;
-        }
-
-        {
-          "@type": "type.googleapis.com/google.profile.Person",
-          "firstName": <string>,
-          "lastName": <string>
-        }
-
-    If the embedded message type is well-known and has a custom JSON
-    representation, that representation will be embedded adding a field
-    `value` which holds the custom JSON in addition to the `@type`
-    field. Example (for message [google.protobuf.Duration][]):
-
-        {
-          "@type": "type.googleapis.com/google.protobuf.Duration",
-          "value": "1.212s"
-        }
+    The text format representation of an `Any` is like a message with one field
+    whose name is the type URL in brackets. For example, an `Any` containing a
+    `foo.Bar` message may be written `[type.googleapis.com/foo.Bar] { a: 2 }`.
     """
 
     type_url: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
         1, betterproto2.TYPE_STRING
     )
     """
-    A URL/resource name that uniquely identifies the type of the serialized
-    protocol buffer message. This string must contain at least
-    one "/" character. The last segment of the URL's path must represent
-    the fully qualified name of the type (as in
-    `path/google.protobuf.Duration`). The name should be in a canonical form
-    (e.g., leading "." is not accepted).
+    Identifies the type of the serialized Protobuf message with a URI reference
+    consisting of a prefix ending in a slash and the fully-qualified type name.
 
-    In practice, teams usually precompile into the binary all types that they
-    expect it to use in the context of Any. However, for URLs which use the
-    scheme `http`, `https`, or no scheme, one can optionally set up a type
-    server that maps type URLs to message definitions as follows:
+    Example: type.googleapis.com/google.protobuf.StringValue
 
-    * If no scheme is provided, `https` is assumed.
-    * An HTTP GET on the URL must yield a [google.protobuf.Type][]
-      value in binary format, or produce an error.
-    * Applications are allowed to cache lookup results based on the
-      URL, or have them precompiled into a binary to avoid any
-      lookup. Therefore, binary compatibility needs to be preserved
-      on changes to types. (Use versioned type names to manage
-      breaking changes.)
+    This string must contain at least one `/` character, and the content after
+    the last `/` must be the fully-qualified name of the type in canonical
+    form, without a leading dot. Do not write a scheme on these URI references
+    so that clients do not attempt to contact them.
 
-    Note: this functionality is not currently available in the official
-    protobuf release, and it is not used for type URLs beginning with
-    type.googleapis.com. As of May 2023, there are no widely used type server
-    implementations and no plans to implement one.
+    The prefix is arbitrary and Protobuf implementations are expected to
+    simply strip off everything up to and including the last `/` to identify
+    the type. `type.googleapis.com/` is a common default prefix that some
+    legacy implementations require. This prefix does not indicate the origin of
+    the type, and URIs containing it are not expected to respond to any
+    requests.
 
-    Schemes other than `http`, `https` (or the empty scheme) might be
-    used with implementation specific semantics.
+    All type URL strings must be legal URI references with the additional
+    restriction (for the text format) that the content of the reference
+    must consist only of alphanumeric characters, percent-encoded escapes, and
+    characters in the following set (not including the outer backticks):
+    `/-.~_!$&()*+,;=`. Despite our allowing percent encodings, implementations
+    should not unescape them to prevent confusion with existing parsers. For
+    example, `type.googleapis.com%2FFoo` should be rejected.
+
+    In the original design of `Any`, the possibility of launching a type
+    resolution service at these type URLs was considered but Protobuf never
+    implemented one and considers contacting these URLs to be problematic and
+    a potential security issue. Do not attempt to contact type URLs.
     """
 
     value: "bytes" = betterproto2.field(2, betterproto2.TYPE_BYTES)
     """
-    Must be a valid serialized protocol buffer of the above specified type.
+    Holds a Protobuf serialization of the type described by type_url.
     """
 
     @classmethod
@@ -1974,6 +1931,14 @@ class FieldOptionsFeatureSupport(betterproto2.Message):
     not be able to override it.
     """
 
+    removal_error: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        5, betterproto2.TYPE_STRING
+    )
+    """
+    The removal error text if this feature is used after the edition it was
+    removed in.
+    """
+
 
 default_message_pool.register_message(
     "google.protobuf", "FieldOptions.FeatureSupport", FieldOptionsFeatureSupport
@@ -2537,9 +2502,7 @@ default_message_pool.register_message("google.protobuf", "Int64Value", Int64Valu
 @dataclass(eq=False, repr=False, config={"extra": "forbid"})
 class ListValue(betterproto2.Message):
     """
-    `ListValue` is a wrapper around a repeated field of values.
-
-    The JSON representation for `ListValue` is JSON array.
+    Represents a JSON array.
     """
 
     values: "list[Value]" = betterproto2.field(
@@ -3092,14 +3055,19 @@ default_message_pool.register_message("google.protobuf", "StringValue", StringVa
 @dataclass(eq=False, repr=False, config={"extra": "forbid"})
 class Struct(betterproto2.Message):
     """
-    `Struct` represents a structured data value, consisting of fields
-    which map to dynamically typed values. In some languages, `Struct`
-    might be supported by a native representation. For example, in
-    scripting languages like JS a struct is represented as an
-    object. The details of that representation are described together
-    with the proto support for the language.
+    Represents a JSON object.
 
-    The JSON representation for `Struct` is JSON object.
+    An unordered key-value map, intending to perfectly capture the semantics of a
+    JSON object. This enables parsing any arbitrary JSON payload as a message
+    field in ProtoJSON format.
+
+    This follows RFC 8259 guidelines for interoperable JSON: notably this type
+    cannot represent large Int64 values or `NaN`/`Infinity` numbers,
+    since the JSON format generally does not support those values in its number
+    type.
+
+    If you do not intend to parse arbitrary JSON into your message, a custom
+    typed message should be preferred instead of using this type.
     """
 
     fields: "dict[str, Value]" = betterproto2.field(
@@ -3222,8 +3190,8 @@ class Timestamp(betterproto2.Message):
     {hour}, {min}, and {sec} are zero-padded to two digits each. The fractional
     seconds, which can go up to 9 digits (i.e. up to 1 nanosecond resolution),
     are optional. The "Z" suffix indicates the timezone ("UTC"); the timezone
-    is required. A proto3 JSON serializer should always use UTC (as indicated by
-    "Z") when printing the Timestamp type and a proto3 JSON parser should be
+    is required. A ProtoJSON serializer should always use UTC (as indicated by
+    "Z") when printing the Timestamp type and a ProtoJSON parser should be
     able to accept both UTC and other timezones (as indicated by an offset).
 
     For example, "2017-01-15T01:30:15.01Z" encodes 15.01 seconds past
@@ -3246,7 +3214,7 @@ class Timestamp(betterproto2.Message):
     )
     """
     Represents seconds of UTC time since Unix epoch 1970-01-01T00:00:00Z. Must
-    be between -315576000000 and 315576000000 inclusive (which corresponds to
+    be between -62135596800 and 253402300799 inclusive (which corresponds to
     0001-01-01T00:00:00Z to 9999-12-31T23:59:59Z).
     """
 
@@ -3500,12 +3468,12 @@ default_message_pool.register_message(
 @dataclass(eq=False, repr=False, config={"extra": "forbid"})
 class Value(betterproto2.Message):
     """
+    Represents a JSON value.
+
     `Value` represents a dynamically typed value which can be either
     null, a number, a string, a boolean, a recursive struct value, or a
     list of values. A producer of value is expected to set one of these
-    variants. Absence of any variant indicates an error.
-
-    The JSON representation for `Value` is JSON value.
+    variants. Absence of any variant is an invalid state.
 
     Oneofs:
         - kind: The kind of value.
@@ -3515,42 +3483,45 @@ class Value(betterproto2.Message):
         1, betterproto2.TYPE_ENUM, optional=True, group="kind"
     )
     """
-    Represents a null value.
+    Represents a JSON `null`.
     """
 
     number_value: "float | None" = betterproto2.field(
         2, betterproto2.TYPE_DOUBLE, optional=True, group="kind"
     )
     """
-    Represents a double value.
+    Represents a JSON number. Must not be `NaN`, `Infinity` or
+    `-Infinity`, since those are not supported in JSON. This also cannot
+    represent large Int64 values, since JSON format generally does not
+    support them in its number type.
     """
 
     string_value: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)] | None" = betterproto2.field(
         3, betterproto2.TYPE_STRING, optional=True, group="kind"
     )
     """
-    Represents a string value.
+    Represents a JSON string.
     """
 
     bool_value: "bool | None" = betterproto2.field(
         4, betterproto2.TYPE_BOOL, optional=True, group="kind"
     )
     """
-    Represents a boolean value.
+    Represents a JSON boolean (`true` or `false` literal in JSON).
     """
 
     struct_value: "Struct | None" = betterproto2.field(
         5, betterproto2.TYPE_MESSAGE, optional=True, group="kind"
     )
     """
-    Represents a structured value.
+    Represents a JSON object.
     """
 
     list_value: "ListValue | None" = betterproto2.field(
         6, betterproto2.TYPE_MESSAGE, optional=True, group="kind"
     )
     """
-    Represents a repeated `Value`.
+    Represents a JSON array.
     """
 
     @model_validator(mode="after")

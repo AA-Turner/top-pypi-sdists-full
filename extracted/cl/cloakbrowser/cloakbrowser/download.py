@@ -118,7 +118,9 @@ def _show_welcome(pro: bool = False) -> None:
             f"  Running free tier (v{free_major}). "
             f"Pro = latest binary (v{PRO_MAJOR}) + newest anti-bot patches.\n"
         )
-        sys.stderr.write("  Try Pro free for 7 days → https://cloakbrowser.dev\n")
+        sys.stderr.write(
+            "  Get Pro for the latest binary + newest patches → https://cloakbrowser.dev\n"
+        )
     sys.stderr.write("  Star us if CloakBrowser helps your project!\n")
     sys.stderr.write("\n")
     try:

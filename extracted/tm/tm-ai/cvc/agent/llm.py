@@ -46,6 +46,26 @@ _MAX_TRANSIENT_RETRIES = max(1, int(os.environ.get("CVC_STREAM_RETRIES", "3")))
 _TRANSIENT_RETRY_BASE_DELAY = 1.0  # seconds, doubles each retry
 _JITTER_MAX = 1.0  # max random jitter added to each retry delay
 
+# v3.5.8 — connection-level retry for anthropic-compat providers (MiniMax, etc.)
+# On Windows, the first connect to api.minimax.io frequently raises a
+# ConnectError / RemoteProtocolError because the OS-level cert store and
+# proxy resolution differs from macOS/Linux. Without this guard the user
+# sees a raw exception and "MiniMax M3 is not working". We retry the
+# _transport_ layer (handshake + first byte) only, never mid-stream, so
+# partial answers cannot be corrupted.
+_CONN_RETRYABLE_EXC = (
+    httpx.ConnectError,
+    httpx.ConnectTimeout,
+    httpx.ReadTimeout,
+    httpx.WriteTimeout,
+    httpx.PoolTimeout,
+    httpx.RemoteProtocolError,
+    httpx.NetworkError,
+    ConnectionError,
+    OSError,
+)
+_MAX_CONN_RETRIES = 2  # extra attempts after the first; total budget 3 POSTs
+
 _TIMEOUT = httpx.Timeout(
     connect=_CONNECT_TIMEOUT,
     read=_READ_TIMEOUT,
@@ -112,6 +132,99 @@ class StreamEvent:
     completion_tokens: int = 0
     cache_read_tokens: int = 0
     _provider_meta: dict[str, Any] = field(default_factory=dict)
+
+
+def _friendly_anthropic_error(
+    exc: "httpx.HTTPStatusError",
+    provider: str,
+    model: str,
+) -> str | None:
+    """Translate anthropic-compat HTTP error responses into one-liners.
+
+    MiniMax / Kimi / DeepSeek all speak the Anthropic Messages API. When
+    they 4xx, the body is JSON like ``{"type":"error","error":{"type":
+    "authentication_error","message":"…"}}`` — useless to the user. We
+    translate the common cases (auth, permission, not_found, rate_limit,
+    bad_request) into plain English, prefixed with the provider name so
+    the user knows which provider is misbehaving.
+
+    Returns None if the error doesn't match a known case — in which case
+    the caller re-raises the original ``HTTPStatusError`` with full
+    context.
+    """
+    try:
+        status = exc.response.status_code
+        body_text = (exc.response.text or "").strip()
+        try:
+            payload = exc.response.json()
+        except Exception:
+            payload = {}
+    except Exception:
+        return None
+
+    err_type = ""
+    err_msg = ""
+    if isinstance(payload, dict):
+        err = payload.get("error") or {}
+        if isinstance(err, dict):
+            err_type = (err.get("type") or "").strip()
+            err_msg = (err.get("message") or "").strip()
+
+    # Status 401 — bad/missing API key. Most common case.
+    if status == 401:
+        return (
+            f"{provider}: authentication failed (401). "
+            f"Check that your API key is valid for {provider} and "
+            f"has access to {model}. "
+            f"Set it via 'cvc setup', $env:{provider.upper().replace('-', '_')}_API_KEY, "
+            f"or ~/.cvc/config.yaml."
+        )
+    # Status 403 — account-level block (insufficient credits, region block, etc.)
+    if status == 403:
+        return (
+            f"{provider}: access denied (403). "
+            f"Your {provider} account may be out of credits, "
+            f"region-restricted, or not authorized to use {model}. "
+            f"Reason from server: {err_msg or 'no detail'}"
+        )
+    # Status 404 — wrong model name or wrong base URL.
+    if status == 404:
+        return (
+            f"{provider}: model or endpoint not found (404). "
+            f"Either {model!r} is not a real model on {provider}, "
+            f"or your base URL is wrong. "
+            f"Try 'cvc setup --provider {provider}' to confirm. "
+            f"Server said: {err_msg or 'not found'}"
+        )
+    # Status 429 — rate-limited. Already handled by the higher-level
+    # _TRANSIENT_STATUS_CODES path, but if it leaks through, be friendly.
+    if status == 429:
+        return (
+            f"{provider}: rate-limited (429). "
+            f"Wait a few seconds and retry. {err_msg}"
+        )
+    # Status 400 — invalid request. The Anthropic shape usually has a
+    # 'type' that pinpoints the field. Surface the type + truncated msg.
+    if status == 400:
+        if err_type:
+            return (
+                f"{provider}: rejected the request (400, "
+                f"{err_type}). {err_msg[:200]}"
+            )
+        return (
+            f"{provider}: bad request (400). "
+            f"The request body was rejected. {err_msg[:200]}"
+        )
+    # 402 — Anthropic uses this for billing-required endpoints
+    # (rare for anthropic-compat providers, but worth catching).
+    if status == 402:
+        return (
+            f"{provider}: payment required (402). "
+            f"Add credits at your {provider} dashboard."
+        )
+    # 5xx — server-side problem. Don't translate; let the higher-level
+    # retry path take care of it.
+    return None
 
 
 class AgentLLM:
@@ -742,8 +855,18 @@ class AgentLLM:
                 })
             body["tools"] = anthropic_tools
 
-        resp = await self._client.post(self._api_messages_path, json=body)
-        resp.raise_for_status()
+        resp = await self._chat_anthropic_post_with_retry(body)
+        # v3.5.8 — translate anthropic-compat HTTP errors into user-facing
+        # one-liners instead of raw JSON dumps. MiniMax returns the same
+        # status codes and error body shape as Anthropic, so this covers
+        # both native Anthropic and MiniMax / Kimi / DeepSeek endpoints.
+        try:
+            resp.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            friendly = _friendly_anthropic_error(exc, self.provider, self.model)
+            if friendly is not None:
+                raise RuntimeError(friendly) from exc
+            raise
         data = resp.json()
 
         # Parse response
@@ -768,6 +891,50 @@ class AgentLLM:
             completion_tokens=usage.get("output_tokens", 0),
             cache_read_tokens=usage.get("cache_read_input_tokens", 0),
         )
+
+    async def _chat_anthropic_post_with_retry(self, body: dict) -> httpx.Response:
+        """POST to the anthropic-compat endpoint with transport-level retry.
+
+        Retries only the connection / handshake layer (see _CONN_RETRYABLE_EXC).
+        Does not retry on HTTP 4xx / 5xx (those go through existing higher-level
+        paths). Handles Windows-specific cold-connect failures to
+        api.minimax.io without duplicating a request once the server has
+        already read the body.
+        """
+        last_exc: BaseException | None = None
+        for attempt in range(_MAX_CONN_RETRIES + 1):
+            try:
+                resp = await self._client.post(self._api_messages_path, json=body)
+                if attempt > 0:
+                    logger.info(
+                        "anthropic-compat POST succeeded on retry %d/%d "
+                        "(provider=%s, model=%s)",
+                        attempt, _MAX_CONN_RETRIES, self.provider, self.model,
+                    )
+                return resp
+            except _CONN_RETRYABLE_EXC as exc:
+                last_exc = exc
+                if attempt >= _MAX_CONN_RETRIES:
+                    break
+                backoff = _TRANSIENT_RETRY_BASE_DELAY * (2 ** attempt)
+                jitter = random.uniform(0, _JITTER_MAX)
+                delay = backoff + jitter
+                logger.warning(
+                    "anthropic-compat POST transport error (provider=%s, "
+                    "model=%s, attempt %d/%d): %s — retrying in %.2fs",
+                    self.provider, self.model, attempt + 1,
+                    _MAX_CONN_RETRIES + 1, type(exc).__name__, delay,
+                )
+                await asyncio.sleep(delay)
+            except Exception:
+                raise
+        assert last_exc is not None
+        raise ConnectionError(
+            f"MiniMax/anthropic-compat POST failed after "
+            f"{_MAX_CONN_RETRIES + 1} attempts (provider={self.provider}, "
+            f"model={self.model}, url={self._api_url}{self._api_messages_path}). "
+            f"Last error: {type(last_exc).__name__}: {last_exc}"
+        ) from last_exc
 
     def _to_anthropic_message(self, msg: dict) -> dict:
         """Convert a message to Anthropic format."""
@@ -2133,8 +2300,42 @@ class AgentLLM:
         completion_tokens = 0
         cache_read = 0
 
-        async with self._client.stream("POST", self._api_messages_path, json=body) as resp:
-            resp.raise_for_status()
+        # Connect-time retry (v3.5.8). Retries only the handshake and
+        # first byte — never mid-stream, so partial answers cannot be
+        # corrupted. See _CONN_RETRYABLE_EXC for the exception list.
+        stream_resp_cm = None
+        for attempt in range(_MAX_CONN_RETRIES + 1):
+            try:
+                stream_resp_cm = self._client.stream("POST", self._api_messages_path, json=body)
+                break
+            except _CONN_RETRYABLE_EXC as exc:
+                last_exc = exc
+                if attempt >= _MAX_CONN_RETRIES:
+                    raise ConnectionError(
+                        f"MiniMax/anthropic-compat STREAM failed to open "
+                        f"after {_MAX_CONN_RETRIES + 1} attempts "
+                        f"(provider={self.provider}, model={self.model}, "
+                        f"url={self._api_url}{self._api_messages_path}). "
+                        f"Last error: {type(exc).__name__}: {exc}"
+                    ) from exc
+                backoff = _TRANSIENT_RETRY_BASE_DELAY * (2 ** attempt)
+                jitter = random.uniform(0, _JITTER_MAX)
+                delay = backoff + jitter
+                logger.warning(
+                    "anthropic-compat STREAM open failed (provider=%s, "
+                    "model=%s, attempt %d/%d): %s — retrying in %.2fs",
+                    self.provider, self.model, attempt + 1,
+                    _MAX_CONN_RETRIES + 1, type(exc).__name__, delay,
+                )
+                await asyncio.sleep(delay)
+        async with stream_resp_cm as resp:
+            try:
+                resp.raise_for_status()
+            except httpx.HTTPStatusError as exc:
+                friendly = _friendly_anthropic_error(exc, self.provider, self.model)
+                if friendly is not None:
+                    raise RuntimeError(friendly) from exc
+                raise
             async for line in resp.aiter_lines():
                 if not line.startswith("data: "):
                     continue

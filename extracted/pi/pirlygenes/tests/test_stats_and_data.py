@@ -29,6 +29,16 @@ from pirlygenes.load_dataset import get_data
 # ---------- schema ----------
 
 
+def test_data_bundle_excludes_delegated_reference_expression_shards():
+    from pirlygenes import data_bundle
+
+    assert not any(
+        path == "cancer-reference-expression"
+        or path.startswith("cancer-reference-expression/")
+        for path in data_bundle.DOWNLOADABLE_PATHS
+    )
+
+
 def test_reference_columns_starts_with_legacy_order():
     legacy = (
         "Ensembl_Gene_ID",
@@ -463,6 +473,38 @@ def test_round_stat_columns_only_touches_known_columns():
 # ---------- data inventory + CLI ----------
 
 
+def test_inventory_preserves_oncorefs_canonical_source_cohort_labels(
+    tmp_path, monkeypatch,
+):
+    storage = "TREEHOUSE_POLYA_25_01_TCGA_SAMPLES"
+    canonical = "TREEHOUSE_POLYA_25_01_TCGA_SARC_HISTOLOGY"
+    pd.DataFrame(
+        {
+            "Ensembl_Gene_ID": ["E1", "E1", "E1"],
+            "cancer_code": ["SARC_DDLPS", "SARC_WDLPS", "SARC_PLEOLPS"],
+            "source_cohort": [canonical, canonical, storage],
+            "source_project": ["Treehouse"] * 3,
+            "n_samples": [48, 5, 4],
+            "processing_pipeline": ["treehouse_polya"] * 3,
+            "tumor_origin": ["primary"] * 3,
+        }
+    ).to_csv(tmp_path / "sarc.csv", index=False)
+    monkeypatch.setattr(data_inventory, "_active_reference_dir", lambda: tmp_path)
+    monkeypatch.setattr(
+        data_inventory,
+        "_SUMMARY_CACHE",
+        tmp_path / "inventory_summary.json",
+    )
+    monkeypatch.setattr(data_inventory, "load_registry", lambda: [])
+
+    snapshot = data_inventory.summarize_inventory(progress=False)
+    cohort_for = {row.cancer_code: row.source_cohort for row in snapshot.cohort_rows}
+
+    assert cohort_for["SARC_DDLPS"] == canonical
+    assert cohort_for["SARC_WDLPS"] == canonical
+    assert cohort_for["SARC_PLEOLPS"] == storage
+
+
 def test_summarize_inventory_smoke():
     snapshot = data_inventory.summarize_inventory()
     assert snapshot.total_rows > 0
@@ -472,6 +514,46 @@ def test_summarize_inventory_smoke():
     cohort_codes = {row.cancer_code for row in snapshot.cohort_rows}
     assert "BL" in cohort_codes
     assert "MM" in cohort_codes
+
+
+def test_inventory_keys_match_public_reference_manifest():
+    from pirlygenes.expression import available_cancer_expression_references
+
+    snapshot = data_inventory.summarize_inventory(progress=False)
+    inventory_keys = {
+        (row.cancer_code, row.source_cohort) for row in snapshot.cohort_rows
+    }
+    manifest = available_cancer_expression_references()
+    manifest_keys = set(
+        manifest[["cancer_code", "source_cohort"]]
+        .astype(str)
+        .itertuples(index=False, name=None)
+    )
+
+    assert inventory_keys == manifest_keys
+    ess = {
+        row.cancer_code: row
+        for row in snapshot.cohort_rows
+        if row.cancer_code in {"SARC_ESS_HG", "SARC_ESS_LG"}
+    }
+    assert ess["SARC_ESS_HG"].n_rows is None
+    assert ess["SARC_ESS_HG"].n_samples == 4
+    assert ess["SARC_ESS_LG"].n_rows is None
+    assert ess["SARC_ESS_LG"].n_samples == 9
+
+
+def test_inventory_cache_signature_tracks_owner_data_version(tmp_path):
+    shard = tmp_path / "reference.csv.gz"
+    shard.write_bytes(b"fixture")
+
+    before = data_inventory._shard_signature(
+        [shard], owner_data_version="5.23.7"
+    )
+    after = data_inventory._shard_signature(
+        [shard], owner_data_version="5.23.8"
+    )
+
+    assert before != after
 
 
 def test_render_inventory_contains_expected_lines():

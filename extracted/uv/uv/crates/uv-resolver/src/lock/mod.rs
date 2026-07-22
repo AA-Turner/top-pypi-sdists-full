@@ -13,8 +13,6 @@ use owo_colors::OwoColorize;
 use petgraph::graph::NodeIndex;
 use petgraph::visit::EdgeRef;
 use rustc_hash::{FxBuildHasher, FxHashMap, FxHashSet};
-use serde::Serializer;
-use toml_edit::{Array, ArrayOfTables, InlineTable, Item, Table, Value, value};
 use tracing::{debug, instrument, trace};
 use url::Url;
 
@@ -48,20 +46,22 @@ use uv_pep508::{
 use uv_platform_tags::{
     AbiTag, IncompatibleTag, LanguageTag, PlatformTag, TagCompatibility, TagPriority, Tags,
 };
+use uv_preview::PreviewFeature;
 use uv_pypi_types::{
-    ConflictKind, Conflicts, HashAlgorithm, HashDigest, HashDigests, Hashes, ParsedArchiveUrl,
+    Conflicts, HashAlgorithm, HashDigest, HashDigests, Hashes, ParsedArchiveUrl,
     ParsedGitDirectoryUrl, ParsedGitPathUrl, PyProjectToml,
 };
 use uv_redacted::{DisplaySafeUrl, DisplaySafeUrlError};
 use uv_small_str::SmallString;
 use uv_types::{BuildContext, HashStrategy};
+use uv_warnings::warn_user_once;
 use uv_workspace::{Editability, WorkspaceMember};
 
 use crate::fork_strategy::ForkStrategy;
 pub(crate) use crate::lock::export::PylockTomlPackage;
 pub use crate::lock::export::RequirementsTxtExport;
 pub use crate::lock::export::{
-    Metadata, PylockToml, PylockTomlError, PylockTomlErrorKind, cyclonedx_json,
+    Metadata, PylockToml, PylockTomlError, PylockTomlErrorKind, PythonReport, cyclonedx_json,
 };
 pub use crate::lock::installable::Installable;
 pub use crate::lock::map::PackageMap;
@@ -76,6 +76,7 @@ use crate::{
 pub(crate) mod export;
 mod installable;
 mod map;
+mod serialize;
 mod tree;
 
 /// The current version of the lockfile format.
@@ -400,11 +401,15 @@ impl<'lock> DependencySelection<'lock> {
 }
 
 impl Lock {
-    /// Initialize a [`Lock`] from a [`ResolverOutput`].
+    /// Initialize a [`Lock`] from a [`ResolverOutput`], applying any index-specific hash
+    /// requirements to registry artifacts.
+    ///
+    /// Returns an error if an artifact does not advertise its index's required algorithm.
     pub fn from_resolution(
         resolution: &ResolverOutput,
         root: &Path,
         supported_environments: Vec<MarkerTree>,
+        index_locations: &IndexLocations,
     ) -> Result<Self, LockError> {
         let mut packages = BTreeMap::new();
         let requires_python = resolution.requires_python.clone();
@@ -454,7 +459,8 @@ impl Lock {
                 vec![]
             };
 
-            let mut package = Package::from_annotated_dist(dist, fork_markers, root)?;
+            let mut package =
+                Package::from_annotated_dist(dist, fork_markers, root, index_locations)?;
             let mut wheel_marker = dist.marker;
             if let Some(supported_environments_marker) = supported_environments_marker {
                 wheel_marker.and(supported_environments_marker);
@@ -818,6 +824,41 @@ impl Lock {
     /// Returns the [`Package`] entries in this lock.
     pub fn packages(&self) -> &[Package] {
         &self.packages
+    }
+
+    /// Return whether every registry artifact in the lockfile has a hash using its index's
+    /// required algorithm, if any.
+    pub fn satisfies_hash_algorithms(
+        &self,
+        root: &Path,
+        index_locations: &IndexLocations,
+    ) -> Result<bool, LockError> {
+        for package in &self.packages {
+            let Some(index) = package.index(root)? else {
+                continue;
+            };
+            let Some(algorithm) = index_locations.hash_algorithm_for(&index) else {
+                continue;
+            };
+            warn_index_hash_algorithm_preview();
+
+            let mismatched =
+                |hash: Option<&Hash>| hash.is_none_or(|hash| hash.0.algorithm != algorithm);
+
+            if package.sdist.iter().any(|sdist| mismatched(sdist.hash()))
+                || package.wheels.iter().any(|wheel| {
+                    mismatched(wheel.hash.as_ref())
+                        || wheel
+                            .zstd
+                            .as_ref()
+                            .is_some_and(|zstd| mismatched(zstd.hash.as_ref()))
+                })
+            {
+                return Ok(false);
+            }
+        }
+
+        Ok(true)
     }
 
     /// Returns the supported Python version range for the lockfile, if present.
@@ -1391,356 +1432,7 @@ impl Lock {
 
     /// Returns the TOML representation of this lockfile.
     pub fn to_toml(&self) -> Result<String, toml_edit::ser::Error> {
-        // Catch a lockfile where the union of fork markers doesn't cover the supported
-        // environments.
-        debug_assert!(self.check_marker_coverage().is_ok());
-
-        // We construct a TOML document manually instead of going through Serde to enable
-        // the use of inline tables.
-        let mut doc = toml_edit::DocumentMut::new();
-        doc.insert("version", value(i64::from(self.version)));
-
-        if self.revision > 0 {
-            doc.insert("revision", value(i64::from(self.revision)));
-        }
-
-        doc.insert("requires-python", value(self.requires_python.to_string()));
-
-        if !self.fork_markers.is_empty() {
-            let fork_markers = each_element_on_its_line_array(
-                simplified_universal_markers(&self.fork_markers, &self.requires_python).into_iter(),
-            );
-            if !fork_markers.is_empty() {
-                doc.insert("resolution-markers", value(fork_markers));
-            }
-        }
-
-        // The simplified marker space covered by this resolution.
-        let simplified_environment =
-            SimplifiedMarkerTree::new(&self.requires_python, self.fork_markers_union())
-                .as_simplified_marker_tree();
-
-        if !self.supported_environments.is_empty() {
-            let supported_environments = each_element_on_its_line_array(
-                self.supported_environments
-                    .iter()
-                    .copied()
-                    .map(|marker| SimplifiedMarkerTree::new(&self.requires_python, marker))
-                    .filter_map(SimplifiedMarkerTree::try_to_string),
-            );
-            doc.insert("supported-markers", value(supported_environments));
-        }
-
-        if !self.required_environments.is_empty() {
-            let required_environments = each_element_on_its_line_array(
-                self.required_environments
-                    .iter()
-                    .copied()
-                    .map(|marker| SimplifiedMarkerTree::new(&self.requires_python, marker))
-                    .filter_map(SimplifiedMarkerTree::try_to_string),
-            );
-            doc.insert("required-markers", value(required_environments));
-        }
-
-        if !self.conflicts.is_empty() {
-            let mut list = Array::new();
-            for set in self.conflicts.iter() {
-                list.push(each_element_on_its_line_array(set.iter().map(|item| {
-                    let mut table = InlineTable::new();
-                    table.insert("package", Value::from(item.package().to_string()));
-                    match item.kind() {
-                        ConflictKind::Project => {}
-                        ConflictKind::Extra(extra) => {
-                            table.insert("extra", Value::from(extra.to_string()));
-                        }
-                        ConflictKind::Group(group) => {
-                            table.insert("group", Value::from(group.to_string()));
-                        }
-                    }
-                    table
-                })));
-            }
-            doc.insert("conflicts", value(list));
-        }
-
-        // Write the settings that were used to generate the resolution.
-        // This enables us to invalidate the lockfile if the user changes
-        // their settings.
-        {
-            let mut options_table = Table::new();
-
-            if self.options.resolution_mode != ResolutionMode::default() {
-                options_table.insert(
-                    "resolution-mode",
-                    value(self.options.resolution_mode.to_string()),
-                );
-            }
-            if self.options.prerelease_mode != PrereleaseMode::default() {
-                options_table.insert(
-                    "prerelease-mode",
-                    value(self.options.prerelease_mode.to_string()),
-                );
-            }
-            if self.options.fork_strategy != ForkStrategy::default() {
-                options_table.insert(
-                    "fork-strategy",
-                    value(self.options.fork_strategy.to_string()),
-                );
-            }
-            let exclude_newer = &self.options.exclude_newer;
-            if !exclude_newer.is_empty() {
-                // Always serialize global exclude-newer as a string
-                if let Some(global) = &exclude_newer.global {
-                    if let Some(span) = global.span() {
-                        // When a relative span is present, write a no-op timestamp to avoid
-                        // merge conflicts in the lockfile. In a future version of uv, we'll drop
-                        // this field entirely but it's retained for backwards compatibility for now.
-                        let mut noop = value(ExcludeNewerValue::PLACEHOLDER);
-                        if let Item::Value(ref mut v) = noop {
-                            v.decor_mut().set_suffix(" # This has no effect and is included for backwards compatibility when using relative exclude-newer values.");
-                        }
-                        options_table.insert("exclude-newer", noop);
-                        options_table.insert("exclude-newer-span", value(span.to_string()));
-                    } else {
-                        options_table.insert("exclude-newer", value(global.to_string()));
-                    }
-                }
-
-                // Serialize package-specific exclusions as a separate field
-                if !exclude_newer.package.is_empty() {
-                    let mut package_table = toml_edit::Table::new();
-                    for (name, setting) in &exclude_newer.package {
-                        match setting {
-                            ExcludeNewerOverride::Enabled(exclude_newer_value) => {
-                                if let Some(span) = exclude_newer_value.span() {
-                                    // When a relative span is present, write a no-op timestamp
-                                    // for backwards compatibility. This matches treatment for
-                                    // the global `exclude-newer`.
-                                    let mut inline = toml_edit::InlineTable::new();
-                                    inline
-                                        .insert("timestamp", ExcludeNewerValue::PLACEHOLDER.into());
-                                    inline.insert("span", span.to_string().into());
-                                    package_table.insert(name.as_ref(), Item::Value(inline.into()));
-                                } else {
-                                    // Serialize as simple string
-                                    package_table.insert(
-                                        name.as_ref(),
-                                        value(exclude_newer_value.to_string()),
-                                    );
-                                }
-                            }
-                            ExcludeNewerOverride::Disabled => {
-                                package_table.insert(name.as_ref(), value(false));
-                            }
-                        }
-                    }
-                    options_table.insert("exclude-newer-package", Item::Table(package_table));
-                }
-            }
-
-            if !options_table.is_empty() {
-                doc.insert("options", Item::Table(options_table));
-            }
-        }
-
-        // Write the manifest that was used to generate the resolution.
-        {
-            let mut manifest_table = Table::new();
-
-            if !self.manifest.members.is_empty() {
-                manifest_table.insert(
-                    "members",
-                    value(each_element_on_its_line_array(
-                        self.manifest
-                            .members
-                            .iter()
-                            .map(std::string::ToString::to_string),
-                    )),
-                );
-            }
-
-            if !self.manifest.requirements.is_empty() {
-                let requirements = self
-                    .manifest
-                    .requirements
-                    .iter()
-                    .map(|requirement| {
-                        serde::Serialize::serialize(
-                            &requirement,
-                            toml_edit::ser::ValueSerializer::new(),
-                        )
-                    })
-                    .collect::<Result<Vec<_>, _>>()?;
-                let requirements = match requirements.as_slice() {
-                    [] => Array::new(),
-                    [requirement] => Array::from_iter([requirement]),
-                    requirements => each_element_on_its_line_array(requirements.iter()),
-                };
-                manifest_table.insert("requirements", value(requirements));
-            }
-
-            if !self.manifest.constraints.is_empty() {
-                let constraints = self
-                    .manifest
-                    .constraints
-                    .iter()
-                    .map(|requirement| {
-                        serde::Serialize::serialize(
-                            &requirement,
-                            toml_edit::ser::ValueSerializer::new(),
-                        )
-                    })
-                    .collect::<Result<Vec<_>, _>>()?;
-                let constraints = match constraints.as_slice() {
-                    [] => Array::new(),
-                    [requirement] => Array::from_iter([requirement]),
-                    constraints => each_element_on_its_line_array(constraints.iter()),
-                };
-                manifest_table.insert("constraints", value(constraints));
-            }
-
-            if !self.manifest.overrides.is_empty() {
-                let overrides = self
-                    .manifest
-                    .overrides
-                    .iter()
-                    .map(|requirement| {
-                        serde::Serialize::serialize(
-                            &requirement,
-                            toml_edit::ser::ValueSerializer::new(),
-                        )
-                    })
-                    .collect::<Result<Vec<_>, _>>()?;
-                let overrides = match overrides.as_slice() {
-                    [] => Array::new(),
-                    [requirement] => Array::from_iter([requirement]),
-                    overrides => each_element_on_its_line_array(overrides.iter()),
-                };
-                manifest_table.insert("overrides", value(overrides));
-            }
-
-            if !self.manifest.excludes.is_empty() {
-                let excludes = self
-                    .manifest
-                    .excludes
-                    .iter()
-                    .map(|name| {
-                        serde::Serialize::serialize(&name, toml_edit::ser::ValueSerializer::new())
-                    })
-                    .collect::<Result<Vec<_>, _>>()?;
-                let excludes = match excludes.as_slice() {
-                    [] => Array::new(),
-                    [name] => Array::from_iter([name]),
-                    excludes => each_element_on_its_line_array(excludes.iter()),
-                };
-                manifest_table.insert("excludes", value(excludes));
-            }
-
-            if !self.manifest.build_constraints.is_empty() {
-                let build_constraints = self
-                    .manifest
-                    .build_constraints
-                    .iter()
-                    .map(|requirement| {
-                        serde::Serialize::serialize(
-                            &requirement,
-                            toml_edit::ser::ValueSerializer::new(),
-                        )
-                    })
-                    .collect::<Result<Vec<_>, _>>()?;
-                let build_constraints = match build_constraints.as_slice() {
-                    [] => Array::new(),
-                    [requirement] => Array::from_iter([requirement]),
-                    build_constraints => each_element_on_its_line_array(build_constraints.iter()),
-                };
-                manifest_table.insert("build-constraints", value(build_constraints));
-            }
-
-            if !self.manifest.dependency_groups.is_empty() {
-                let mut dependency_groups = Table::new();
-                for (extra, requirements) in &self.manifest.dependency_groups {
-                    let requirements = requirements
-                        .iter()
-                        .map(|requirement| {
-                            serde::Serialize::serialize(
-                                &requirement,
-                                toml_edit::ser::ValueSerializer::new(),
-                            )
-                        })
-                        .collect::<Result<Vec<_>, _>>()?;
-                    let requirements = match requirements.as_slice() {
-                        [] => Array::new(),
-                        [requirement] => Array::from_iter([requirement]),
-                        requirements => each_element_on_its_line_array(requirements.iter()),
-                    };
-                    if !requirements.is_empty() {
-                        dependency_groups.insert(extra.as_ref(), value(requirements));
-                    }
-                }
-                if !dependency_groups.is_empty() {
-                    manifest_table.insert("dependency-groups", Item::Table(dependency_groups));
-                }
-            }
-
-            if !self.manifest.dependency_metadata.is_empty() {
-                let mut tables = ArrayOfTables::new();
-                for metadata in &self.manifest.dependency_metadata {
-                    let mut table = Table::new();
-                    table.insert("name", value(metadata.name.to_string()));
-                    if let Some(version) = metadata.version.as_ref() {
-                        table.insert("version", value(version.to_string()));
-                    }
-                    if !metadata.requires_dist.is_empty() {
-                        table.insert(
-                            "requires-dist",
-                            value(serde::Serialize::serialize(
-                                &metadata.requires_dist,
-                                toml_edit::ser::ValueSerializer::new(),
-                            )?),
-                        );
-                    }
-                    if let Some(requires_python) = metadata.requires_python.as_ref() {
-                        table.insert("requires-python", value(requires_python.to_string()));
-                    }
-                    if !metadata.provides_extra.is_empty() {
-                        table.insert(
-                            "provides-extras",
-                            value(serde::Serialize::serialize(
-                                &metadata.provides_extra,
-                                toml_edit::ser::ValueSerializer::new(),
-                            )?),
-                        );
-                    }
-                    tables.push(table);
-                }
-                manifest_table.insert("dependency-metadata", Item::ArrayOfTables(tables));
-            }
-
-            if !manifest_table.is_empty() {
-                doc.insert("manifest", Item::Table(manifest_table));
-            }
-        }
-
-        // Count the number of packages for each package name. When
-        // there's only one package for a particular package name (the
-        // overwhelmingly common case), we can omit some data (like source and
-        // version) on dependency edges since it is strictly redundant.
-        let mut dist_count_by_name: FxHashMap<PackageName, u64> = FxHashMap::default();
-        for dist in &self.packages {
-            *dist_count_by_name.entry(dist.id.name.clone()).or_default() += 1;
-        }
-
-        let mut packages = ArrayOfTables::new();
-        for dist in &self.packages {
-            packages.push(dist.to_toml(
-                &self.requires_python,
-                simplified_environment,
-                &dist_count_by_name,
-            )?);
-        }
-
-        doc.insert("package", Item::ArrayOfTables(packages));
-        Ok(doc.to_string())
+        serialize::to_toml(self)
     }
 
     /// Returns the package with the given name. If there are multiple
@@ -3162,10 +2854,11 @@ impl Package {
         annotated_dist: &AnnotatedDist,
         fork_markers: Vec<UniversalMarker>,
         root: &Path,
+        index_locations: &IndexLocations,
     ) -> Result<Self, LockError> {
         let id = PackageId::from_annotated_dist(annotated_dist, root)?;
-        let sdist = SourceDist::from_annotated_dist(&id, annotated_dist)?;
-        let wheels = Wheel::from_annotated_dist(annotated_dist)?;
+        let sdist = SourceDist::from_annotated_dist(&id, annotated_dist, index_locations)?;
+        let wheels = Wheel::from_annotated_dist(annotated_dist, index_locations)?;
         let requires_dist = if id.source.is_immutable() {
             BTreeSet::default()
         } else {
@@ -3815,150 +3508,6 @@ impl Package {
         Ok(Some(sdist))
     }
 
-    fn to_toml(
-        &self,
-        requires_python: &RequiresPython,
-        simplified_environment: MarkerTree,
-        dist_count_by_name: &FxHashMap<PackageName, u64>,
-    ) -> Result<Table, toml_edit::ser::Error> {
-        let mut table = Table::new();
-
-        self.id.to_toml(None, &mut table);
-
-        if !self.fork_markers.is_empty() {
-            let fork_markers = each_element_on_its_line_array(
-                simplified_universal_markers(&self.fork_markers, requires_python).into_iter(),
-            );
-            if !fork_markers.is_empty() {
-                table.insert("resolution-markers", value(fork_markers));
-            }
-        }
-
-        if !self.dependencies.is_empty() {
-            let deps = each_element_on_its_line_array(self.dependencies.iter().map(|dep| {
-                dep.to_toml(simplified_environment, dist_count_by_name)
-                    .into_inline_table()
-            }));
-            table.insert("dependencies", value(deps));
-        }
-
-        if !self.optional_dependencies.is_empty() {
-            let mut optional_deps = Table::new();
-            for (extra, deps) in &self.optional_dependencies {
-                let deps = each_element_on_its_line_array(deps.iter().map(|dep| {
-                    dep.to_toml(simplified_environment, dist_count_by_name)
-                        .into_inline_table()
-                }));
-                if !deps.is_empty() {
-                    optional_deps.insert(extra.as_ref(), value(deps));
-                }
-            }
-            if !optional_deps.is_empty() {
-                table.insert("optional-dependencies", Item::Table(optional_deps));
-            }
-        }
-
-        if !self.dependency_groups.is_empty() {
-            let mut dependency_groups = Table::new();
-            for (extra, deps) in &self.dependency_groups {
-                let deps = each_element_on_its_line_array(deps.iter().map(|dep| {
-                    dep.to_toml(simplified_environment, dist_count_by_name)
-                        .into_inline_table()
-                }));
-                if !deps.is_empty() {
-                    dependency_groups.insert(extra.as_ref(), value(deps));
-                }
-            }
-            if !dependency_groups.is_empty() {
-                table.insert("dev-dependencies", Item::Table(dependency_groups));
-            }
-        }
-
-        if let Some(ref sdist) = self.sdist {
-            table.insert("sdist", value(sdist.to_toml()?));
-        }
-
-        if !self.wheels.is_empty() {
-            let wheels = each_element_on_its_line_array(
-                self.wheels
-                    .iter()
-                    .map(Wheel::to_toml)
-                    .collect::<Result<Vec<_>, _>>()?
-                    .into_iter(),
-            );
-            table.insert("wheels", value(wheels));
-        }
-
-        // Write the package metadata, if non-empty.
-        {
-            let mut metadata_table = Table::new();
-
-            if !self.metadata.requires_dist.is_empty() {
-                let requires_dist = self
-                    .metadata
-                    .requires_dist
-                    .iter()
-                    .map(|requirement| {
-                        serde::Serialize::serialize(
-                            &requirement,
-                            toml_edit::ser::ValueSerializer::new(),
-                        )
-                    })
-                    .collect::<Result<Vec<_>, _>>()?;
-                let requires_dist = match requires_dist.as_slice() {
-                    [] => Array::new(),
-                    [requirement] => Array::from_iter([requirement]),
-                    requires_dist => each_element_on_its_line_array(requires_dist.iter()),
-                };
-                metadata_table.insert("requires-dist", value(requires_dist));
-            }
-
-            if !self.metadata.dependency_groups.is_empty() {
-                let mut dependency_groups = Table::new();
-                for (extra, deps) in &self.metadata.dependency_groups {
-                    let deps = deps
-                        .iter()
-                        .map(|requirement| {
-                            serde::Serialize::serialize(
-                                &requirement,
-                                toml_edit::ser::ValueSerializer::new(),
-                            )
-                        })
-                        .collect::<Result<Vec<_>, _>>()?;
-                    let deps = match deps.as_slice() {
-                        [] => Array::new(),
-                        [requirement] => Array::from_iter([requirement]),
-                        deps => each_element_on_its_line_array(deps.iter()),
-                    };
-                    dependency_groups.insert(extra.as_ref(), value(deps));
-                }
-                if !dependency_groups.is_empty() {
-                    metadata_table.insert("requires-dev", Item::Table(dependency_groups));
-                }
-            }
-
-            if !self.metadata.provides_extra.is_empty() {
-                let provides_extras = self
-                    .metadata
-                    .provides_extra
-                    .iter()
-                    .map(|extra| {
-                        serde::Serialize::serialize(&extra, toml_edit::ser::ValueSerializer::new())
-                    })
-                    .collect::<Result<Vec<_>, _>>()?;
-                // This is just a list of names, so linebreaking it is excessive.
-                let provides_extras = Array::from_iter(provides_extras);
-                metadata_table.insert("provides-extras", value(provides_extras));
-            }
-
-            if !metadata_table.is_empty() {
-                table.insert("metadata", Item::Table(metadata_table));
-            }
-        }
-
-        Ok(table)
-    }
-
     fn find_best_wheel(&self, tag_policy: TagPolicy<'_>) -> Option<usize> {
         type WheelPriority<'lock> = (TagPriority, Option<&'lock BuildTag>);
 
@@ -4274,23 +3823,6 @@ impl PackageId {
             version,
             source,
         })
-    }
-
-    /// Writes this package ID inline into the table given.
-    ///
-    /// When a map is given, and if the package name in this ID is unambiguous
-    /// (i.e., it has a count of 1 in the map), then the `version` and `source`
-    /// fields are omitted. In all other cases, including when a map is not
-    /// given, the `version` and `source` fields are written.
-    fn to_toml(&self, dist_count_by_name: Option<&FxHashMap<PackageName, u64>>, table: &mut Table) {
-        let count = dist_count_by_name.and_then(|map| map.get(&self.name).copied());
-        table.insert("name", value(self.name.to_string()));
-        if count.is_none_or(|count| count > 1) {
-            if let Some(version) = &self.version {
-                table.insert("version", value(version.to_string()));
-            }
-            self.source.to_toml(table);
-        }
     }
 }
 
@@ -4655,54 +4187,6 @@ impl Source {
         }
     }
 
-    fn to_toml(&self, table: &mut Table) {
-        let mut source_table = InlineTable::new();
-        match self {
-            Self::Registry(source) => match source {
-                RegistrySource::Url(url) => {
-                    source_table.insert("registry", Value::from(url.as_ref()));
-                }
-                RegistrySource::Path(path) => {
-                    source_table.insert(
-                        "registry",
-                        Value::from(PortablePath::from(path).to_string()),
-                    );
-                }
-            },
-            Self::Git(url, _) => {
-                source_table.insert("git", Value::from(url.as_ref()));
-            }
-            Self::Direct(url, DirectSource { subdirectory }) => {
-                source_table.insert("url", Value::from(url.as_ref()));
-                if let Some(ref subdirectory) = *subdirectory {
-                    source_table.insert(
-                        "subdirectory",
-                        Value::from(PortablePath::from(subdirectory).to_string()),
-                    );
-                }
-            }
-            Self::Path(path) => {
-                source_table.insert("path", Value::from(PortablePath::from(path).to_string()));
-            }
-            Self::Directory(path) => {
-                source_table.insert(
-                    "directory",
-                    Value::from(PortablePath::from(path).to_string()),
-                );
-            }
-            Self::Editable(path) => {
-                source_table.insert(
-                    "editable",
-                    Value::from(PortablePath::from(path).to_string()),
-                );
-            }
-            Self::Virtual(path) => {
-                source_table.insert("virtual", Value::from(PortablePath::from(path).to_string()));
-            }
-        }
-        table.insert("source", value(source_table));
-    }
-
     /// Check if a package is local by examining its source.
     fn is_local(&self) -> bool {
         matches!(
@@ -5056,6 +4540,7 @@ impl SourceDist {
     fn from_annotated_dist(
         id: &PackageId,
         annotated_dist: &AnnotatedDist,
+        index_locations: &IndexLocations,
     ) -> Result<Option<Self>, LockError> {
         match annotated_dist.dist {
             // We pass empty installed packages for locking.
@@ -5065,6 +4550,7 @@ impl SourceDist {
                 dist,
                 annotated_dist.hashes.as_slice(),
                 annotated_dist.index(),
+                index_locations,
             ),
         }
     }
@@ -5074,16 +4560,19 @@ impl SourceDist {
         dist: &Dist,
         hashes: &[HashDigest],
         index: Option<&IndexUrl>,
+        index_locations: &IndexLocations,
     ) -> Result<Option<Self>, LockError> {
         match *dist {
             Dist::Built(BuiltDist::Registry(ref built_dist)) => {
                 let Some(sdist) = built_dist.sdist.as_ref() else {
                     return Ok(None);
                 };
-                Self::from_registry_dist(sdist, index)
+                Self::from_registry_dist(sdist, index, index_locations)
             }
             Dist::Built(_) => Ok(None),
-            Dist::Source(ref source_dist) => Self::from_source_dist(id, source_dist, hashes, index),
+            Dist::Source(ref source_dist) => {
+                Self::from_source_dist(id, source_dist, hashes, index, index_locations)
+            }
         }
     }
 
@@ -5092,10 +4581,11 @@ impl SourceDist {
         source_dist: &uv_distribution_types::SourceDist,
         hashes: &[HashDigest],
         index: Option<&IndexUrl>,
+        index_locations: &IndexLocations,
     ) -> Result<Option<Self>, LockError> {
         match *source_dist {
             uv_distribution_types::SourceDist::Registry(ref reg_dist) => {
-                Self::from_registry_dist(reg_dist, index)
+                Self::from_registry_dist(reg_dist, index, index_locations)
             }
             uv_distribution_types::SourceDist::DirectUrl(_) => {
                 Self::from_direct_dist(id, hashes).map(Some)
@@ -5114,6 +4604,7 @@ impl SourceDist {
     fn from_registry_dist(
         reg_dist: &RegistrySourceDist,
         index: Option<&IndexUrl>,
+        index_locations: &IndexLocations,
     ) -> Result<Option<Self>, LockError> {
         // Reject distributions from registries that don't match the index URL, as can occur with
         // `--find-links`.
@@ -5121,12 +4612,18 @@ impl SourceDist {
             return Ok(None);
         }
 
+        let hash = select_registry_hash(
+            &reg_dist.file.hashes,
+            &reg_dist.index,
+            index_locations,
+            reg_dist.file.filename.as_ref(),
+        )?;
+
         match &reg_dist.index {
             IndexUrl::Pypi(_) | IndexUrl::Url(_) => {
                 let url = normalize_file_location(&reg_dist.file.url)
                     .map_err(LockErrorKind::InvalidUrl)
                     .map_err(LockError::from)?;
-                let hash = reg_dist.file.hashes.iter().max().cloned().map(Hash::from);
                 let size = reg_dist.file.size;
                 let upload_time = reg_dist
                     .file
@@ -5161,7 +4658,6 @@ impl SourceDist {
                         try_relative_to_if(&reg_dist_path, index_path, !path.was_given_absolute())
                             .map_err(LockErrorKind::DistributionRelativePath)?
                             .into_boxed_path();
-                    let hash = reg_dist.file.hashes.iter().max().cloned().map(Hash::from);
                     let size = reg_dist.file.size;
                     let upload_time = reg_dist
                         .file
@@ -5181,7 +4677,6 @@ impl SourceDist {
                     let url = normalize_file_location(&reg_dist.file.url)
                         .map_err(LockErrorKind::InvalidUrl)
                         .map_err(LockError::from)?;
-                    let hash = reg_dist.file.hashes.iter().max().cloned().map(Hash::from);
                     let size = reg_dist.file.size;
                     let upload_time = reg_dist
                         .file
@@ -5274,35 +4769,6 @@ enum SourceDistWire {
         #[serde(flatten)]
         metadata: SourceDistMetadata,
     },
-}
-
-impl SourceDist {
-    /// Returns the TOML representation of this source distribution.
-    fn to_toml(&self) -> Result<InlineTable, toml_edit::ser::Error> {
-        let mut table = InlineTable::new();
-        match self {
-            Self::Metadata { .. } => {}
-            Self::Url { url, .. } => {
-                table.insert("url", Value::from(url.as_ref()));
-            }
-            Self::Path { path, .. } => {
-                table.insert("path", Value::from(PortablePath::from(path).to_string()));
-            }
-        }
-        if let Some(hash) = self.hash() {
-            table.insert("hash", Value::from(hash.to_string()));
-        }
-        if let Some(size) = self.size() {
-            table.insert(
-                "size",
-                toml_edit::ser::ValueSerializer::new().serialize_u64(size)?,
-            );
-        }
-        if let Some(upload_time) = self.upload_time() {
-            table.insert("upload-time", Value::from(upload_time.to_string()));
-        }
-        Ok(table)
-    }
 }
 
 impl From<SourceDistWire> for SourceDist {
@@ -5444,7 +4910,10 @@ struct Wheel {
 }
 
 impl Wheel {
-    fn from_annotated_dist(annotated_dist: &AnnotatedDist) -> Result<Vec<Self>, LockError> {
+    fn from_annotated_dist(
+        annotated_dist: &AnnotatedDist,
+        index_locations: &IndexLocations,
+    ) -> Result<Vec<Self>, LockError> {
         match annotated_dist.dist {
             // We pass empty installed packages for locking.
             ResolvedDist::Installed { .. } => unreachable!(),
@@ -5452,6 +4921,7 @@ impl Wheel {
                 dist,
                 annotated_dist.hashes.as_slice(),
                 annotated_dist.index(),
+                index_locations,
             ),
         }
     }
@@ -5460,9 +4930,12 @@ impl Wheel {
         dist: &Dist,
         hashes: &[HashDigest],
         index: Option<&IndexUrl>,
+        index_locations: &IndexLocations,
     ) -> Result<Vec<Self>, LockError> {
         match *dist {
-            Dist::Built(ref built_dist) => Self::from_built_dist(built_dist, hashes, index),
+            Dist::Built(ref built_dist) => {
+                Self::from_built_dist(built_dist, hashes, index, index_locations)
+            }
             Dist::Source(uv_distribution_types::SourceDist::Registry(ref source_dist)) => {
                 source_dist
                     .wheels
@@ -5472,7 +4945,7 @@ impl Wheel {
                         // `--find-links`.
                         index.is_some_and(|index| *index == wheel.index)
                     })
-                    .map(Self::from_registry_wheel)
+                    .map(|wheel| Self::from_registry_wheel(wheel, index_locations))
                     .collect()
             }
             Dist::Source(_) => Ok(vec![]),
@@ -5483,9 +4956,12 @@ impl Wheel {
         built_dist: &BuiltDist,
         hashes: &[HashDigest],
         index: Option<&IndexUrl>,
+        index_locations: &IndexLocations,
     ) -> Result<Vec<Self>, LockError> {
         match *built_dist {
-            BuiltDist::Registry(ref reg_dist) => Self::from_registry_dist(reg_dist, index),
+            BuiltDist::Registry(ref reg_dist) => {
+                Self::from_registry_dist(reg_dist, index, index_locations)
+            }
             BuiltDist::DirectUrl(ref direct_dist) => {
                 Ok(vec![Self::from_direct_dist(direct_dist, hashes)])
             }
@@ -5499,6 +4975,7 @@ impl Wheel {
     fn from_registry_dist(
         reg_dist: &RegistryBuiltDist,
         index: Option<&IndexUrl>,
+        index_locations: &IndexLocations,
     ) -> Result<Vec<Self>, LockError> {
         reg_dist
             .wheels
@@ -5508,11 +4985,14 @@ impl Wheel {
                 // `--find-links`.
                 index.is_some_and(|index| *index == wheel.index)
             })
-            .map(Self::from_registry_wheel)
+            .map(|wheel| Self::from_registry_wheel(wheel, index_locations))
             .collect()
     }
 
-    fn from_registry_wheel(wheel: &RegistryBuiltWheel) -> Result<Self, LockError> {
+    fn from_registry_wheel(
+        wheel: &RegistryBuiltWheel,
+        index_locations: &IndexLocations,
+    ) -> Result<Self, LockError> {
         let url = match &wheel.index {
             IndexUrl::Pypi(_) | IndexUrl::Url(_) => {
                 let url = normalize_file_location(&wheel.file.url)
@@ -5544,7 +5024,12 @@ impl Wheel {
             }
         };
         let filename = wheel.filename.clone();
-        let hash = wheel.file.hashes.iter().max().cloned().map(Hash::from);
+        let hash = select_registry_hash(
+            &wheel.file.hashes,
+            &wheel.index,
+            index_locations,
+            wheel.file.filename.as_ref(),
+        )?;
         let size = wheel.file.size;
         let upload_time = wheel
             .file
@@ -5552,10 +5037,19 @@ impl Wheel {
             .map(Timestamp::from_millisecond)
             .transpose()
             .map_err(LockErrorKind::InvalidTimestamp)?;
-        let zstd = wheel.file.zstd.as_ref().map(|zstd| ZstdWheel {
-            hash: zstd.hashes.iter().max().cloned().map(Hash::from),
-            size: zstd.size,
-        });
+        let zstd = if let Some(zstd) = wheel.file.zstd.as_ref() {
+            Some(ZstdWheel {
+                hash: select_registry_hash(
+                    &zstd.hashes,
+                    &wheel.index,
+                    index_locations,
+                    wheel.file.filename.as_ref(),
+                )?,
+                size: zstd.size,
+            })
+        } else {
+            None
+        };
         Ok(Self {
             url,
             hash,
@@ -5759,50 +5253,6 @@ enum WheelWireSource {
     },
 }
 
-impl Wheel {
-    /// Returns the TOML representation of this wheel.
-    fn to_toml(&self) -> Result<InlineTable, toml_edit::ser::Error> {
-        let mut table = InlineTable::new();
-        match &self.url {
-            WheelWireSource::Url { url } => {
-                table.insert("url", Value::from(url.as_ref()));
-            }
-            WheelWireSource::Path { path } => {
-                table.insert("path", Value::from(PortablePath::from(path).to_string()));
-            }
-            WheelWireSource::Filename { filename } => {
-                table.insert("filename", Value::from(filename.to_string()));
-            }
-        }
-        if let Some(ref hash) = self.hash {
-            table.insert("hash", Value::from(hash.to_string()));
-        }
-        if let Some(size) = self.size {
-            table.insert(
-                "size",
-                toml_edit::ser::ValueSerializer::new().serialize_u64(size)?,
-            );
-        }
-        if let Some(upload_time) = self.upload_time {
-            table.insert("upload-time", Value::from(upload_time.to_string()));
-        }
-        if let Some(zstd) = &self.zstd {
-            let mut inner = InlineTable::new();
-            if let Some(ref hash) = zstd.hash {
-                inner.insert("hash", Value::from(hash.to_string()));
-            }
-            if let Some(size) = zstd.size {
-                inner.insert(
-                    "size",
-                    toml_edit::ser::ValueSerializer::new().serialize_u64(size)?,
-                );
-            }
-            table.insert("zstd", Value::from(inner));
-        }
-        Ok(table)
-    }
-}
-
 impl TryFrom<WheelWire> for Wheel {
     type Error = String;
 
@@ -5905,36 +5355,6 @@ impl Dependency {
         ))
     }
 
-    /// Returns the TOML representation of this dependency.
-    fn to_toml(
-        &self,
-        simplified_environment: MarkerTree,
-        dist_count_by_name: &FxHashMap<PackageName, u64>,
-    ) -> Table {
-        let mut table = Table::new();
-        self.package_id
-            .to_toml(Some(dist_count_by_name), &mut table);
-        if !self.extra.is_empty() {
-            let extra_array = self
-                .extra
-                .iter()
-                .map(ToString::to_string)
-                .collect::<Array>();
-            table.insert("extra", value(extra_array));
-        }
-        // Avoid restating the resolution's environment on every dependency edge.
-        if let Some(marker) = self
-            .simplified_marker
-            .as_simplified_marker_tree()
-            .restrict(simplified_environment)
-            .try_to_string()
-        {
-            table.insert("marker", value(marker));
-        }
-
-        table
-    }
-
     /// Returns the package name of this dependency.
     pub fn package_name(&self) -> &PackageName {
         &self.package_id.name
@@ -6017,6 +5437,47 @@ struct Hash(HashDigest);
 impl From<HashDigest> for Hash {
     fn from(hd: HashDigest) -> Self {
         Self(hd)
+    }
+}
+
+/// Select the configured hash algorithm for a registry artifact, preserving the default hash
+/// selection when the index has no requirement.
+///
+/// Returns an error if the required algorithm is not advertised.
+fn select_registry_hash(
+    hashes: &HashDigests,
+    index: &IndexUrl,
+    index_locations: &IndexLocations,
+    filename: &str,
+) -> Result<Option<Hash>, LockError> {
+    let Some(algorithm) = index_locations.hash_algorithm_for(index) else {
+        return Ok(hashes.iter().max().cloned().map(Hash::from));
+    };
+    warn_index_hash_algorithm_preview();
+
+    hashes
+        .iter()
+        .find(|hash| hash.algorithm == algorithm)
+        .cloned()
+        .map(Hash::from)
+        .map(Some)
+        .ok_or_else(|| {
+            LockErrorKind::MissingHashAlgorithm {
+                index: index.clone(),
+                filename: filename.to_string(),
+                algorithm,
+            }
+            .into()
+        })
+}
+
+/// Warn if an index-specific hash algorithm is used without its preview feature enabled.
+fn warn_index_hash_algorithm_preview() {
+    if !uv_preview::is_enabled(PreviewFeature::IndexHashAlgorithm) {
+        warn_user_once!(
+            "Setting `hash-algorithm` on configured indexes is experimental and may change without warning. Pass `--preview-features {}` to disable this warning.",
+            PreviewFeature::IndexHashAlgorithm
+        );
     }
 }
 
@@ -6838,6 +6299,16 @@ enum LockErrorKind {
         /// Whether a hash was expected.
         expected: bool,
     },
+    /// An error that occurs when an index requires a hash algorithm that an artifact does not
+    /// advertise.
+    #[error(
+        "The index `{index}` requires `{algorithm}` hashes, but `{filename}` does not provide one"
+    )]
+    MissingHashAlgorithm {
+        index: IndexUrl,
+        filename: String,
+        algorithm: HashAlgorithm,
+    },
     /// An error that occurs when a package is included with an extra name,
     /// but no corresponding base package (i.e., without the extra) exists.
     #[error("Found package `{id}` with extra `{extra}` but no base package", id = id.cyan(), extra = extra.cyan())]
@@ -7128,33 +6599,6 @@ impl Display for HashParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         Display::fmt(self.0, f)
     }
-}
-
-/// Format an array so that each element is on its own line and has a trailing comma.
-///
-/// Example:
-///
-/// ```toml
-/// dependencies = [
-///     { name = "idna" },
-///     { name = "sniffio" },
-/// ]
-/// ```
-fn each_element_on_its_line_array(elements: impl Iterator<Item = impl Into<Value>>) -> Array {
-    let mut array = elements
-        .map(|item| {
-            let mut value = item.into();
-            // Each dependency is on its own line and indented.
-            value.decor_mut().set_prefix("\n    ");
-            value
-        })
-        .collect::<Array>();
-    // With a trailing comma, inserting another entry doesn't change the preceding line,
-    // reducing the diff noise.
-    array.set_trailing_comma(true);
-    // The line break between the last element's comma and the closing square bracket.
-    array.set_trailing("\n");
-    array
 }
 
 /// Return the PEP 508 marker space covered by the resolution.

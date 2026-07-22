@@ -48,6 +48,24 @@ class ToolSpec:
     input_schema: Optional[JSONObject]
 
 @dataclass
+class TerminalToolSpec:
+    """The environment's terminal tool, as reported by ``/tools``.
+
+    Environments that declare a ``@terminal`` tool keep it out of the tool list
+    the model sees: the assistant's plain message ends the rollout and its text
+    is passed to this tool as the single argument ``arg``. See
+    :meth:`AsyncSession.call_terminal_tool`.
+
+    ``arg`` is None for a terminal tool that takes no arguments — the message
+    ends the rollout but is not passed on, and the tool grades from environment
+    state instead.
+    """
+    name: str
+    arg: Optional[str] = None
+    description: str = ""
+
+
+@dataclass
 class TextBlock:
     text: str
     detail: Optional[JSONObject] = None

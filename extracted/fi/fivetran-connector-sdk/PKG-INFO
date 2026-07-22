@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fivetran_connector_sdk
-Version: 2.10.2
+Version: 2.10.3
 Summary: Build custom connectors on Fivetran platform
 Author-email: Fivetran <developers@fivetran.com>
 Project-URL: Homepage, https://fivetran.com/docs/connectors/connector-sdk
@@ -13,7 +13,7 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 Requires-Dist: grpcio==1.80.0
 Requires-Dist: grpcio-tools==1.80.0
-Requires-Dist: requests==2.33.1
+Requires-Dist: requests==2.34.2
 Requires-Dist: pipreqs-fivetran==1.1.2
 Requires-Dist: prompt-toolkit==3.0.52
 Requires-Dist: pathspec==1.1.1

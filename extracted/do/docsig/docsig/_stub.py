@@ -11,6 +11,7 @@ import inspect as _inspect
 import re as _re
 import typing as _t
 from collections import Counter as _Counter
+from dataclasses import dataclass as _dataclass
 from enum import Enum as _Enum
 
 import astroid as _ast
@@ -24,6 +25,19 @@ UNNAMED = "-1000"
 # an example of valid parameter description
 VALID_DESCRIPTION = " A valid description."
 
+# annotations meaning the function never returns a value, treated the
+# same as ``-> None`` for documentation purposes
+_NO_RETURN = ("NoReturn", "Never")
+
+#: a word in a param field after the leading keyword: a (possibly
+#: starred) name or type expression, in which ``. , | [ ]`` join word
+#: characters so types such as ``list[str]``, ``t.Any``, ``int|str``,
+#: and the split words of ``dict[str, int]`` hold together; a trailing
+#: ``,`` or bracket belongs to a bracketed type, while a trailing ``.``
+#: or ``|`` stays outside the word so it is still read as a bad
+#: closing token
+_FIELD_WORD = r"(?:\\?\*){0,2}\w+(?:[.,|\[\]]+\w+)*[,\[\]]*"
+
 
 class RetType(_Enum):
     """Possible kinds of return annotation."""
@@ -32,6 +46,19 @@ class RetType(_Enum):
     SOME = 2
     UNTYPED = 3
 
+    @staticmethod
+    def _annotates_none(returns: _ast.nodes.NodeNG | None) -> bool:
+        if isinstance(returns, _ast.nodes.Const):
+            return returns.value is None
+
+        if isinstance(returns, _ast.nodes.Name):
+            return returns.name in _NO_RETURN
+
+        if isinstance(returns, _ast.nodes.Attribute):
+            return returns.attrname in _NO_RETURN
+
+        return False
+
     @classmethod
     def from_ast(cls, returns: _ast.nodes.NodeNG | None) -> RetType:
         """Build return type from the function's return AST node.
@@ -39,31 +66,17 @@ class RetType(_Enum):
         :param returns: Return annotation AST node or None.
         :return: RetType.NONE, RetType.SOME, or RetType.UNTYPED.
         """
-        if isinstance(returns, _ast.nodes.Const) and returns.value is None:
+        if cls._annotates_none(returns):
             return cls.NONE
 
-        # NoReturn / Never mean the function never returns a value, so
-        # treat them the same as -> None for documentation purposes
-        _no_return = {"NoReturn", "Never"}
-        if isinstance(returns, _ast.nodes.Name) and returns.name in _no_return:
-            return cls.NONE
-
-        if (
-            isinstance(returns, _ast.nodes.Attribute)
-            and returns.attrname in _no_return
-        ):
-            return cls.NONE
-
-        if isinstance(
-            returns,
-            (
-                _ast.nodes.Const,
-                _ast.nodes.Name,
-                _ast.nodes.Attribute,
-                _ast.nodes.Subscript,
-                _ast.nodes.BinOp,
-            ),
-        ):
+        annotation_nodes = (
+            _ast.nodes.Const,
+            _ast.nodes.Name,
+            _ast.nodes.Attribute,
+            _ast.nodes.Subscript,
+            _ast.nodes.BinOp,
+        )
+        if isinstance(returns, annotation_nodes):
             return cls.SOME
 
         return cls.UNTYPED
@@ -93,8 +106,12 @@ class DocType(_Enum):
         return cls.UNKNOWN
 
 
+@_dataclass(frozen=True, eq=False)
 class Param:
     """Single parameter from a docstring or function signature.
+
+    Two params are equal if they share a (non-None) name, or if both
+    are ``**kwargs``, which match regardless of how they are named.
 
     :param kind: The type of the parameter.
     :param name: Parameter name.
@@ -103,64 +120,22 @@ class Param:
     :param closing_token: Token after the name (colon by default).
     """
 
-    # pylint: disable-next=too-many-arguments,too-many-positional-arguments
-    def __init__(
-        self,
-        kind: DocType = DocType.PARAM,
-        name: str | None = None,
-        description: str | None = None,
-        indent: int = 0,
-        closing_token: str = ":",
-    ) -> None:
-        self._kind = kind
-        self._name = name
-        self._description = description
-        self._indent = indent
-        self._closing_token = closing_token
+    kind: DocType = DocType.PARAM
+    name: str | None = None
+    description: str | None = None
+    indent: int = 0
+    closing_token: str = ":"
 
     def __eq__(self, other: object) -> bool:
-        iseq = False
-        if isinstance(other, Param):
-            args = self, other
-            iseq = all(i.kind == DocType.KWARG for i in args) or (
-                self.name == other.name
-                and all(i.name is not None for i in args)
-            )
-
-        return iseq
-
-    def __ne__(self, other: object) -> bool:
-        return not self.__eq__(other)
+        return isinstance(other, Param) and (
+            self.kind == other.kind == DocType.KWARG
+            or (self.name is not None and self.name == other.name)
+        )
 
     @property
     def isprotected(self) -> bool:
         """True if the parameter name starts with an underscore."""
         return str(self.name).startswith("_")
-
-    @property
-    def kind(self) -> DocType:
-        """Type of the param."""
-        return self._kind
-
-    @property
-    def name(self) -> str | None:
-        """Name of the param."""
-        return self._name
-
-    @property
-    def description(self) -> str | None:
-        """Description of param."""
-        return self._description
-
-    @property
-    def indent(self) -> int:
-        """Number of spaces in the indent."""
-        return self._indent
-
-    @property
-    def closing_token(self) -> str:
-        """Token used to terminate the param name definition."""
-        return self._closing_token
 
 
 # single return from a docstring or function signature
@@ -260,29 +235,41 @@ class Signature(_Stub):
         cls,
         node: _ast.nodes.FunctionDef,
         ignore: _Ignore,
+        skip_bound_arg: bool = False,
     ) -> Signature:
         """Build Signature from a function or class AST node.
 
         :param node: AST node (function, class, or module).
         :param ignore: Configuration object for what to ignore.
+        :param skip_bound_arg: Drop the first positional argument (self
+            or cls) without mutating the AST node.
         :return: Signature with args and return type.
         """
         rettype = RetType.from_ast(node.returns)
         returns = _Return(rettype == RetType.SOME, rettype)
         signature = cls(returns, ignore)
-        # noinspection PyUnresolvedReferences
-        for i in [
-            a if isinstance(a, Param) else Param(name=a.name)
-            for a in [
-                *node.args.posonlyargs,
-                *node.args.args,
-                Param(DocType.ARG, name=node.args.vararg),
-                *node.args.kwonlyargs,
-                Param(DocType.KWARG, name=node.args.kwarg),
-            ]
-            if a is not None and a.name
-        ]:
-            signature.args.append(i)
+        posonlyargs = list(node.args.posonlyargs)
+        if node.args.args is not None:
+            args = list(node.args.args)
+            if skip_bound_arg:
+                if posonlyargs:
+                    posonlyargs = posonlyargs[1:]
+                elif args:
+                    args = args[1:]
+
+            # noinspection PyUnresolvedReferences
+            for i in [
+                a if isinstance(a, Param) else Param(name=a.name)
+                for a in [
+                    *posonlyargs,
+                    *args,
+                    Param(DocType.ARG, name=node.args.vararg),
+                    *node.args.kwonlyargs,
+                    Param(DocType.KWARG, name=node.args.kwarg),
+                ]
+                if a is not None and a.name
+            ]:
+                signature.args.append(i)
 
         return signature
 
@@ -339,8 +326,8 @@ class Docstring(_Stub):
             return "numpy"
 
         if _re.search(
-            r"^(Args|Arguments|Parameters|Returns|Yields|Raises|"
-            r"Attributes|Example|Examples):\s*$",
+            r"^(Args|Arguments|Keyword Args|Keyword Arguments|Parameters|"
+            r"Returns|Yields|Raises|Attributes|Example|Examples):\s*$",
             string,
             _re.MULTILINE,
         ):
@@ -393,8 +380,8 @@ class Docstring(_Stub):
         # noinspection RegExpSingleCharAlternation
         for match in _re.findall(
             r"^[ \t]*:((?:\\?\*){0,2}[\w]+"
-            r"(?:\s+(?:\\?\*){0,2}[\w]+|"
-            r"\s\|\s(?:\\?\*){0,2}[\w]+)*)"
+            rf"(?:\s+{_FIELD_WORD}|"
+            rf"\s\|\s{_FIELD_WORD})*)"
             r"([^\w\s\\*])"
             r"((?:.|\n)*?)(?=\n[ \t]*:|\Z)",
             string,

@@ -28,6 +28,7 @@ from dbos._error import DBOSNonExistentWorkflowError
 from dbos._schemas.system_database import SystemSchema
 from tests import client_collateral
 from tests.client_collateral import event_test, retrieve_test, send_test
+from tests.conftest import set_workflow_status, wait_for_client_listener
 
 
 class Person(TypedDict):
@@ -375,7 +376,7 @@ def test_client_send_idempotent(
 
 
 def reexecute_workflow_by_id(dbos: DBOS, wfid: str) -> "WorkflowHandle[Any]":
-    dbos._sys_db.update_workflow_outcome(wfid, "PENDING")
+    set_workflow_status(dbos._sys_db, wfid, "PENDING")
     return dbos._execute_workflow_id(wfid)
 
 
@@ -421,6 +422,109 @@ def test_client_get_event_prompt_delivery(client: DBOSClient, dbos: DBOS) -> Non
     # stays far below the 60s timeout a reader blocked on a notification that
     # never arrives would consume.
     assert elapsed < 30, f"client.get_event took {elapsed:.1f}s"
+
+
+@pytest.mark.asyncio
+async def test_client_get_event_async_prompt_delivery(
+    client: DBOSClient, dbos: DBOS
+) -> None:
+    """get_event_async on the client takes the same no-listener path as the sync
+    version: nothing ever signals its in-memory event, so the database re-check is
+    the only delivery mechanism. Every other get_event_async test runs in-process
+    with a listener, exercising only the notification branch."""
+
+    @DBOS.workflow()
+    def delayed_event_workflow(key: str, value: str) -> None:
+        DBOS.sleep(2.0)
+        DBOS.set_event(key, value)
+
+    key = "prompt_key_async"
+    value = "prompt_value_async"
+    wfid = str(uuid.uuid4())
+    with SetWorkflowID(wfid):
+        handle = DBOS.start_workflow(delayed_event_workflow, key, value)
+
+    start = time.time()
+    assert await client.get_event_async(wfid, key, 60) == value
+    elapsed = time.time() - start
+    handle.get_result()
+
+    # Same bound as the sync test: a broken re-check waits out the full 60s timeout.
+    assert elapsed < 30, f"client.get_event_async took {elapsed:.1f}s"
+
+
+def test_client_no_listener_by_default(client: DBOSClient) -> None:
+    assert client._notification_listener_thread is None
+
+
+def test_client_listen_notify_get_event(
+    config: DBOSConfig, dbos: DBOS, skip_with_sqlite: None
+) -> None:
+    """With use_listen_notify=True the client runs a listener thread, so waits stop
+    polling the database and rely on notifications: the fallback re-check is 60s, so
+    only a delivered NOTIFY can return the value within the bound asserted below."""
+    assert config["system_database_url"] is not None
+    client = DBOSClient(
+        system_database_url=config["system_database_url"],
+        use_listen_notify=True,
+    )
+    try:
+        listener = client._notification_listener_thread
+        assert listener is not None and listener.is_alive()
+
+        @DBOS.workflow()
+        def listen_notify_event_workflow(key: str, value: str) -> None:
+            DBOS.sleep(2.0)
+            DBOS.set_event(key, value)
+
+        key = "listen_notify_key"
+        value = "listen_notify_value"
+        # A live thread does not mean its LISTENs landed; subscribe before the
+        # workflow can fire the notification, or it is dropped and this waits 60s.
+        wait_for_client_listener(client)
+        wfid = str(uuid.uuid4())
+        with SetWorkflowID(wfid):
+            handle = DBOS.start_workflow(listen_notify_event_workflow, key, value)
+
+        start = time.time()
+        assert client.get_event(wfid, key, 60) == value
+        elapsed = time.time() - start
+        handle.get_result()
+
+        # The event is set ~2s in. Without a working notification the wait would
+        # run out the full 60s timeout, since the re-check no longer polls.
+        assert elapsed < 30, f"client.get_event took {elapsed:.1f}s"
+    finally:
+        client.destroy()
+    assert not listener.is_alive()
+
+
+@pytest.mark.asyncio
+async def test_client_get_event_async_does_not_pin_a_thread_per_wait(
+    client: DBOSClient, dbos: DBOS
+) -> None:
+    """get_event_async awaits its event rather than parking the whole wait in a worker
+    thread, so waits are no longer capped by the default executor's thread count.
+    Holding a thread each, more waits than the executor has workers can only run in
+    batches, and the wall time is a multiple of the timeout instead of equal to it."""
+
+    # These keys are never set, so every wait runs its full timeout.
+    waiters = 64  # comfortably over the executor's min(32, cpu + 4) workers
+    timeout = 5.0
+    ids = [str(uuid.uuid4()) for _ in range(waiters)]
+
+    start = time.time()
+    results = await asyncio.gather(
+        *(client.get_event_async(wfid, "k", timeout) for wfid in ids)
+    )
+    elapsed = time.time() - start
+
+    assert results == [None] * waiters
+    # Awaiting: all 64 time out together at ~timeout. Thread-per-wait: two batches, ~2x.
+    assert elapsed < timeout * 1.5, (
+        f"{waiters} concurrent get_event_async took {elapsed:.1f}s "
+        f"for a {timeout:.0f}s timeout -- waits are not running concurrently"
+    )
 
 
 def test_client_get_event_finished(client: DBOSClient, dbos: DBOS) -> None:
@@ -524,7 +628,13 @@ def test_client_fork(dbos: DBOS, client: DBOSClient) -> None:
     input = 5
     handle: WorkflowHandle[int] = client.enqueue(options, input)
     assert handle.get_result() == input * 2
-    assert len(client.list_workflow_steps(handle.workflow_id)) == 2
+    steps = client.list_workflow_steps(handle.workflow_id)
+    assert len(steps) == 2
+    assert all(s["output"] == input for s in steps)
+    # load_output=False skips deserializing outputs
+    steps = client.list_workflow_steps(handle.workflow_id, load_output=False)
+    assert len(steps) == 2
+    assert all(s["output"] is None for s in steps)
 
     fork_id = str(uuid.uuid4())
     with SetWorkflowID(fork_id):
@@ -554,7 +664,15 @@ async def test_client_fork_async(dbos: DBOS, client: DBOSClient) -> None:
     input = 5
     handle: WorkflowHandleAsync[int] = await client.enqueue_async(options, input)
     assert await handle.get_result() == input * 2
-    assert len(await client.list_workflow_steps_async(handle.workflow_id)) == 2
+    steps = await client.list_workflow_steps_async(handle.workflow_id)
+    assert len(steps) == 2
+    assert all(s["output"] == input for s in steps)
+    # load_output=False skips deserializing outputs
+    steps = await client.list_workflow_steps_async(
+        handle.workflow_id, load_output=False
+    )
+    assert len(steps) == 2
+    assert all(s["output"] is None for s in steps)
 
     forked_handle: WorkflowHandleAsync[int] = await client.fork_workflow_async(
         handle.workflow_id, 1

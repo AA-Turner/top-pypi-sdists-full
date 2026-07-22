@@ -167,16 +167,17 @@ from chalk.client.models import (
     BulkOnlineQueryResult,
     BulkUploadFeaturesResult,
     CreateBranchResponse,
+    DeployedModelVersion,
     DownloadModelArtifactResult,
-    GetRegisteredModelResponse,
-    GetRegisteredModelVersionResponse,
     JobQueueItem,
 )
 from chalk.client.models import ListDatasetsResponse as ListDatasetsResponseDataclass
 from chalk.client.models import ManualTriggerScheduledQueryResponse as ManualTriggerScheduledQueryResponseDataclass
 from chalk.client.models import (
     ModelArtifactSpec,
+    ModelNamespaceResponse,
     ModelUploadUrlResponse,
+    ModelVersionResponse,
     NamedQueryMetadata,
     OfflineQueryInfo,
     OfflineQueryProfileSummary,
@@ -185,6 +186,7 @@ from chalk.client.models import (
     OnlineQuery,
     OnlineQueryResponse,
     RedeployResponse,
+    RegisteredModelVersion,
     RegisterModelArtifactResponse,
     RegisterModelResponse,
     RegisterModelVersionResponse,
@@ -879,6 +881,24 @@ class StubRefresher:
 
     def get_remote_call_metadata(self) -> List[tuple[str, str]]:
         return self._stub.get_remote_call_metadata()
+
+
+def _model_artifact_spec_from_proto(artifact: Any) -> ModelArtifactSpec:
+    spec = artifact.spec
+    return ModelArtifactSpec(
+        # type/encoding are unset (0) for image-only models, which have no serialized artifact.
+        model_type=model_type_from_proto(spec.model_type) if spec.model_type else None,
+        model_class=model_class_from_proto(spec.model_class),
+        model_encoding=model_encoding_from_proto(spec.model_encoding) if spec.model_encoding else None,
+        model_files=[f.name for f in spec.model_files],
+        additional_files=[f.name for f in spec.additional_files],
+        input_schema=ModelSerializer.convert_schema_from_protobuf(spec.model_signature.inputs),
+        output_schema=ModelSerializer.convert_schema_from_protobuf(spec.model_signature.outputs),
+        metadata=ModelSerializer.convert_metadata_from_protobuf(artifact.metadata),
+        input_features=list(spec.input_features),
+        output_features=list(spec.output_features),
+        dependencies=list(spec.python_dependencies),
+    )
 
 
 class ChalkGRPCClient:
@@ -2931,109 +2951,97 @@ class ChalkGRPCClient:
         self,
         name: str,
         version: Optional[int] = None,
-    ) -> Union[GetRegisteredModelResponse, GetRegisteredModelVersionResponse]:
+    ) -> Union[ModelNamespaceResponse, ModelVersionResponse]:
+        """Retrieve a model from the Chalk model registry.
+
+        .. deprecated::
+            Use `get_model_namespace` for namespace-level info or `get_model_version`
+            to retrieve a version (only a version exposes ``.remote()``).
         """
-        Retrieve a registered model from the Chalk model registry.
+        if version is None:
+            warnings.warn(
+                "`get_model` is deprecated. Use `get_model_namespace` for namespace-level info.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            return self.get_model_namespace(name)
+        warnings.warn(
+            "`get_model` is deprecated. Use `get_model_version` to retrieve a model version.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.get_model_version(name, version)
 
-        Parameters
-        ----------
-        name : str
-            Name of the model to retrieve
-        version : int, optional
-            Specific version number to retrieve. If not provided, returns
-            information about all versions of the model
+    def get_model_namespace(self, name: str) -> ModelNamespaceResponse:
+        """Retrieve namespace-level info for a model.
 
-        Returns
-        -------
-        GetRegisteredModelResponse
-            Model information including metadata, versions, and configuration details
-
-        Examples
-        --------
-        Get model by name:
-
-        >>> from chalk.client import ChalkClient
-        >>> client = ChalkClient()
-        >>> model = client.get_model(name="RiskScoreModel")
-        >>> print(f"Latest version: {model.latest_version}")
-        >>> print(f"Available versions: {model.versions}")
-
-        Get specific model version:
-
-        >>> model_v1 = client.get_model(name="RiskScoreModel", version=1)
-        >>> print(f"Performance: {model_v1.metadata['training_metrics']}")
+        Returns a `ModelNamespaceResponse`. This does not expose ``.remote()`` —
+        use `get_model_version` to invoke a deployed model.
         """
+        try:
+            model_resp: GetModelResponse = self._stub_refresher.call_model_stub(
+                lambda x: x.GetModel(GetModelRequest(model_name=name))
+            )
+        except grpc.RpcError as e:
+            raise RuntimeError(f"Could not get model. {e.details()}")
+        m = model_resp.model
+        return ModelNamespaceResponse(
+            model_id=m.id,
+            model_name=m.model_name,
+            description=m.description,
+            metadata=ModelSerializer.convert_metadata_from_protobuf(m.metadata),
+            created_by=m.created_by,
+            created_at=m.created_at.ToDatetime(),
+            updated_at=m.updated_at.ToDatetime(),
+            archived_at=m.archived_at.ToDatetime(),
+            latest_model_version=m.latest_model_version,
+        )
 
-        if version is not None:
-            try:
-                model_version_resp: GetModelVersionResponse = self._stub_refresher.call_model_stub(
-                    lambda x: x.GetModelVersion(
-                        GetModelVersionRequest(
-                            model_name=name,
-                            version=version,
-                        )
-                    )
-                )
+    def get_model_version(self, name: str, version: Optional[int] = None) -> ModelVersionResponse:
+        """Retrieve a single model version. `version=None` resolves the model's latest version.
 
-                model_artifact = ModelArtifactSpec(
-                    model_type=model_type_from_proto(model_version_resp.model_version.model_artifact.spec.model_type),
-                    model_class=model_class_from_proto(
-                        model_version_resp.model_version.model_artifact.spec.model_class
-                    ),
-                    model_encoding=model_encoding_from_proto(
-                        model_version_resp.model_version.model_artifact.spec.model_encoding
-                    ),
-                    model_files=[
-                        file.name for file in model_version_resp.model_version.model_artifact.spec.model_files
-                    ],
-                    additional_files=[
-                        file.name for file in model_version_resp.model_version.model_artifact.spec.additional_files
-                    ],
-                    input_schema=ModelSerializer.convert_schema_from_protobuf(
-                        model_version_resp.model_version.model_artifact.spec.model_signature.inputs
-                    ),
-                    output_schema=ModelSerializer.convert_schema_from_protobuf(
-                        model_version_resp.model_version.model_artifact.spec.model_signature.outputs
-                    ),
-                    metadata=ModelSerializer.convert_metadata_from_protobuf(
-                        model_version_resp.model_version.model_artifact.metadata
-                    ),
-                    input_features=list(model_version_resp.model_version.model_artifact.spec.input_features),
-                    output_features=list(model_version_resp.model_version.model_artifact.spec.output_features),
-                    dependencies=list(model_version_resp.model_version.model_artifact.spec.python_dependencies),
-                )
+        Returns a `DeployedModelVersion` if the version has a scaling
+        group, otherwise a `RegisteredModelVersion`.
 
-                return GetRegisteredModelVersionResponse(
-                    model_id=model_version_resp.model_version.id,
-                    model_name=model_version_resp.model_version.model_name,
-                    created_by=model_version_resp.model_version.created_by,
-                    created_at=model_version_resp.model_version.created_at.ToDatetime(),
-                    model_artifact=model_artifact,
-                )
-            except grpc.RpcError as e:
-                raise RuntimeError(f"Could not register model version. {e.details()}")
-        else:
-            try:
+        ``.remote()`` is available on a DeployedModelVersion.
+        """
+        from chalk.client._model_remote import ModelNotDeployedError, resolve_scaling_group_web_url
+
+        try:
+            if version is None:
                 model_resp: GetModelResponse = self._stub_refresher.call_model_stub(
-                    lambda x: x.GetModel(
-                        GetModelRequest(
-                            model_name=name,
-                        )
-                    )
+                    lambda x: x.GetModel(GetModelRequest(model_name=name))
                 )
-                return GetRegisteredModelResponse(
-                    model_id=model_resp.model.id,
-                    model_name=model_resp.model.model_name,
-                    description=model_resp.model.description,
-                    metadata=ModelSerializer.convert_metadata_from_protobuf(model_resp.model.metadata),
-                    created_by=model_resp.model.created_by,
-                    created_at=model_resp.model.created_at.ToDatetime(),
-                    updated_at=model_resp.model.updated_at.ToDatetime(),
-                    archived_at=model_resp.model.archived_at.ToDatetime(),
-                    latest_model_version=model_resp.model.latest_model_version,
-                )
-            except grpc.RpcError as e:
-                raise RuntimeError(f"Could not register model version. {e.details()}")
+                version = model_resp.model.latest_model_version.version
+                if not version:
+                    raise RuntimeError(f"Model {name!r} has no published versions.")
+            model_version_resp: GetModelVersionResponse = self._stub_refresher.call_model_stub(
+                lambda x: x.GetModelVersion(GetModelVersionRequest(model_name=name, version=version))
+            )
+        except grpc.RpcError as e:
+            raise RuntimeError(f"Could not get model version. {e.details()}")
+
+        mv = model_version_resp.model_version
+        artifact = _model_artifact_spec_from_proto(mv.model_artifact)
+        input_features = list(mv.model_artifact.spec.input_features)
+        if not input_features and isinstance(artifact.input_schema, dict):
+            # Image-only models declare their inputs via the schema, not input_features.
+            input_features = list(artifact.input_schema.keys())
+        common: Dict[str, Any] = dict(
+            model_id=mv.id,
+            model_name=mv.model_name,
+            version=mv.version,
+            created_by=mv.created_by,
+            created_at=mv.created_at.ToDatetime(),
+            model_artifact=artifact,
+            input_features=input_features,
+            output_features=list(mv.model_artifact.spec.output_features),
+        )
+        try:
+            web_url = resolve_scaling_group_web_url(self, name, version=mv.version)
+        except ModelNotDeployedError:
+            return RegisteredModelVersion(**common)
+        return DeployedModelVersion(_client=self, _web_url=web_url, **common)
 
     def register_model_namespace(
         self,
@@ -3101,29 +3109,14 @@ class ChalkGRPCClient:
     def delete_model_namespace(
         self,
         name: str,
-    ) -> GetRegisteredModelResponse:
-        """
-        Delete a model namespace (and all of its versions) from the Chalk model registry.
+    ) -> ModelNamespaceResponse:
+        """Delete a model namespace (and all its versions) from the registry.
 
-        The underlying model artifact data for those versions is permanently
-        deleted from storage (any artifact not still referenced by another
-        version).
+        Artifact data for those versions is permanently deleted from storage
+        (unless still referenced by another version). Returns the archived namespace.
 
-        Parameters
-        ----------
-        name : str
-            Name of the model namespace to delete
-
-        Returns
-        -------
-        GetRegisteredModelResponse
-            The archived model
-
-        Examples
-        --------
         >>> from chalk.client import ChalkClient
-        >>> client = ChalkClient()
-        >>> client.delete_model_namespace(name="RiskModel")
+        >>> ChalkClient().delete_model_namespace(name="RiskModel")
         """
 
         try:
@@ -3134,7 +3127,7 @@ class ChalkGRPCClient:
                     )
                 )
             )
-            return GetRegisteredModelResponse(
+            return ModelNamespaceResponse(
                 model_id=resp.model.id,
                 model_name=resp.model.model_name,
                 description=resp.model.description,
@@ -3152,30 +3145,14 @@ class ChalkGRPCClient:
         self,
         name: str,
         version: int,
-    ) -> GetRegisteredModelVersionResponse:
-        """
-        Delete a single model version from the Chalk model registry.
+    ) -> RegisteredModelVersion:
+        """Delete a single model version from the registry.
 
-        The underlying model artifact data is permanently deleted from storage
-        (unless the artifact is still referenced by another version).
+        Artifact data is permanently deleted from storage (unless still referenced
+        by another version). Returns the archived version (not callable).
 
-        Parameters
-        ----------
-        name : str
-            Name of the model the version belongs to
-        version : int
-            Version number to delete
-
-        Returns
-        -------
-        GetRegisteredModelVersionResponse
-            The archived model version
-
-        Examples
-        --------
         >>> from chalk.client import ChalkClient
-        >>> client = ChalkClient()
-        >>> client.delete_model_version(name="RiskModel", version=1)
+        >>> ChalkClient().delete_model_version(name="RiskModel", version=1)
         """
 
         try:
@@ -3189,31 +3166,16 @@ class ChalkGRPCClient:
                     )
                 )
             )
-
-            model_artifact = ModelArtifactSpec(
-                model_type=model_type_from_proto(resp.model_version.model_artifact.spec.model_type),
-                model_class=model_class_from_proto(resp.model_version.model_artifact.spec.model_class),
-                model_encoding=model_encoding_from_proto(resp.model_version.model_artifact.spec.model_encoding),
-                model_files=[file.name for file in resp.model_version.model_artifact.spec.model_files],
-                additional_files=[file.name for file in resp.model_version.model_artifact.spec.additional_files],
-                input_schema=ModelSerializer.convert_schema_from_protobuf(
-                    resp.model_version.model_artifact.spec.model_signature.inputs
-                ),
-                output_schema=ModelSerializer.convert_schema_from_protobuf(
-                    resp.model_version.model_artifact.spec.model_signature.outputs
-                ),
-                metadata=ModelSerializer.convert_metadata_from_protobuf(resp.model_version.model_artifact.metadata),
-                input_features=list(resp.model_version.model_artifact.spec.input_features),
-                output_features=list(resp.model_version.model_artifact.spec.output_features),
-                dependencies=list(resp.model_version.model_artifact.spec.python_dependencies),
-            )
-
-            return GetRegisteredModelVersionResponse(
-                model_id=resp.model_version.id,
-                model_name=resp.model_version.model_name,
-                created_by=resp.model_version.created_by,
-                created_at=resp.model_version.created_at.ToDatetime(),
-                model_artifact=model_artifact,
+            mv = resp.model_version
+            return RegisteredModelVersion(
+                model_id=mv.id,
+                model_name=mv.model_name,
+                version=mv.version,
+                created_by=mv.created_by,
+                created_at=mv.created_at.ToDatetime(),
+                model_artifact=_model_artifact_spec_from_proto(mv.model_artifact),
+                input_features=list(mv.model_artifact.spec.input_features),
+                output_features=list(mv.model_artifact.spec.output_features),
             )
         except grpc.RpcError as e:
             raise RuntimeError(f"Could not delete model version. {e.details()}")
@@ -3505,8 +3467,14 @@ class ChalkGRPCClient:
                 chalk_client=self,
             )
             return volume_name
+        except ImportError:
+            chalk_logger.info("Volume upload skipped: chalkcompute is not installed")
+            return None
         except Exception as e:
-            from chalkcompute import VolumeError  # pyright: ignore[reportMissingImports]
+            try:
+                from chalkcompute import VolumeError  # pyright: ignore[reportMissingImports]
+            except ImportError:
+                raise e
 
             if isinstance(e, VolumeError):
                 cause = e.__cause__

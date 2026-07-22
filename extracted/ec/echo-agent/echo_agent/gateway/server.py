@@ -224,10 +224,12 @@ class GatewayServer:
         if self._a2a_config and self._a2a_config.enabled and self._agent_loop:
             from echo_agent.a2a.server import A2AServer
             from echo_agent.a2a.models import AgentCard
+            from echo_agent import __version__
             card = AgentCard(
                 name=self._a2a_config.agent_name,
                 description=self._a2a_config.agent_description,
                 url=f"http://{self._config.host}:{self._config.port}",
+                version=__version__,
                 capabilities=self._a2a_config.capabilities,
             )
             a2a = A2AServer(
@@ -472,6 +474,7 @@ class GatewayServer:
         text = body.get("text", "")
         media_urls = body.get("media_urls", [])
         wait = bool(body.get("wait", False))
+        is_group = bool(body.get("is_group", False))
         timeout_seconds = max(1, min(int(body.get("timeout_seconds", 180)), 600))
 
         if not text and not media_urls:
@@ -540,6 +543,7 @@ class GatewayServer:
                 chat_id=chat_id,
                 content=content_blocks,
                 session_key_override=session_key,
+                is_group=is_group,
                 metadata={
                     "gateway": True,
                     "platform": platform,
@@ -760,6 +764,7 @@ class GatewayServer:
 
                             text = data.get("text", "")
                             attachments = data.get("attachments") or []
+                            is_group = bool(data.get("is_group", False))
                             if not text and not attachments:
                                 continue
 
@@ -781,6 +786,7 @@ class GatewayServer:
                                     chat_id=chat_id,
                                     content=content_blocks,
                                     session_key_override=session_key,
+                                    is_group=is_group,
                                 )
                                 event.metadata["gateway"] = True
                                 event.metadata["platform"] = platform
@@ -793,6 +799,43 @@ class GatewayServer:
                                 })
                             finally:
                                 clear_session_vars(tokens)
+
+                        if msg_type == "interrupt":
+                            # Cooperative stop of the session's running turn.
+                            # Routed as an internal control command that the loop
+                            # intercepts BEFORE the session lock (the running turn
+                            # holds that lock), so the inference loop can poll the
+                            # flag and converge cleanly. is_control bypasses the
+                            # rate limiter, mirroring the clarify-cancel escape
+                            # valve — same reasoning: a user who just flooded the
+                            # session is exactly who needs the stop to land.
+                            if not session_key:
+                                await websocket.send_json({"type": "error", "error": "authenticate first"})
+                                continue
+                            interrupt_event = InboundEvent.text_message(
+                                channel=f"gateway:{platform}",
+                                sender_id=user_id,
+                                chat_id=chat_id,
+                                text="/__interrupt__",
+                                session_key_override=session_key,
+                                is_control=True,
+                            )
+                            # The client echoes the target turn's event_id (learned
+                            # from that turn's `accepted` frame). Stamp it so the
+                            # loop only stops that turn — a stop frame delayed past
+                            # the turn's end can't clip the next one. Absent for
+                            # older clients → stop whatever is running.
+                            target_id = data.get("event_id")
+                            if target_id:
+                                interrupt_event.metadata["_interrupt_target_event_id"] = str(target_id)
+                            # Only ACK if the interrupt actually entered the bus. A full queue
+                            # or a stopped bus returns False; claiming "accepted" then
+                            # would tell the user the turn was stopped when the stop
+                            # frame was silently dropped. Mirror the normal-send path.
+                            if not await self._bus.publish_inbound(interrupt_event):
+                                await websocket.send_json({"type": "error", "error": "server overloaded"})
+                                continue
+                            await websocket.send_json({"type": "accepted"})
 
                         if msg_type == "ping":
                             await websocket.send_json({"type": "pong"})
@@ -821,6 +864,27 @@ class GatewayServer:
             # connection's teardown must not delete the later one's slot.
             if delivery_key and self._ws_clients.get(delivery_key) is websocket:
                 del self._ws_clients[delivery_key]
+            # Escape valve: a disconnect (/quit, Ctrl+C, dropped socket) must wake
+            # any clarify blocked on this session so the agent does not stay parked
+            # in wait_for_answer until the 24h registry backstop. Route it through
+            # the bus as an internal control command that the loop intercepts
+            # before the session lock. Best-effort — never let this break teardown.
+            if session_key:
+                try:
+                    cancel_event = InboundEvent.text_message(
+                        channel=f"gateway:{platform}",
+                        sender_id=user_id,
+                        chat_id=chat_id,
+                        text="/__clarify_cancel__",
+                        session_key_override=session_key,
+                        # Trusted internal producer: bypass the rate limiter so a
+                        # user who just flooded the session can't get this escape
+                        # valve dropped, leaving the agent parked until the 24h backstop.
+                        is_control=True,
+                    )
+                    await self._bus.publish_inbound(cancel_event)
+                except Exception as e:
+                    logger.warning("Clarify cancel on ws disconnect failed: {}", e)
 
         return websocket
 

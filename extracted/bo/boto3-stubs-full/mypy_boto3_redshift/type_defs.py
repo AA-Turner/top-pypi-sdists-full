@@ -142,6 +142,8 @@ __all__ = (
     "CreateHsmConfigurationMessageTypeDef",
     "CreateHsmConfigurationResultTypeDef",
     "CreateIntegrationMessageTypeDef",
+    "CreateQev2IdcApplicationMessageTypeDef",
+    "CreateQev2IdcApplicationResultTypeDef",
     "CreateRedshiftIdcApplicationMessageTypeDef",
     "CreateRedshiftIdcApplicationResultTypeDef",
     "CreateScheduledActionMessageTypeDef",
@@ -175,6 +177,7 @@ __all__ = (
     "DeleteHsmClientCertificateMessageTypeDef",
     "DeleteHsmConfigurationMessageTypeDef",
     "DeleteIntegrationMessageTypeDef",
+    "DeleteQev2IdcApplicationMessageTypeDef",
     "DeleteRedshiftIdcApplicationMessageTypeDef",
     "DeleteResourcePolicyMessageTypeDef",
     "DeleteScheduledActionMessageTypeDef",
@@ -248,6 +251,9 @@ __all__ = (
     "DescribeOrderableClusterOptionsMessageTypeDef",
     "DescribePartnersInputMessageTypeDef",
     "DescribePartnersOutputMessageTypeDef",
+    "DescribeQev2IdcApplicationsMessagePaginateTypeDef",
+    "DescribeQev2IdcApplicationsMessageTypeDef",
+    "DescribeQev2IdcApplicationsResultTypeDef",
     "DescribeRedshiftIdcApplicationsMessagePaginateTypeDef",
     "DescribeRedshiftIdcApplicationsMessageTypeDef",
     "DescribeRedshiftIdcApplicationsResultTypeDef",
@@ -355,6 +361,8 @@ __all__ = (
     "ModifyEventSubscriptionResultTypeDef",
     "ModifyIntegrationMessageTypeDef",
     "ModifyLakehouseConfigurationMessageTypeDef",
+    "ModifyQev2IdcApplicationMessageTypeDef",
+    "ModifyQev2IdcApplicationResultTypeDef",
     "ModifyRedshiftIdcApplicationMessageTypeDef",
     "ModifyRedshiftIdcApplicationResultTypeDef",
     "ModifyScheduledActionMessageTypeDef",
@@ -384,6 +392,7 @@ __all__ = (
     "PurchaseReservedNodeOfferingResultTypeDef",
     "PutResourcePolicyMessageTypeDef",
     "PutResourcePolicyResultTypeDef",
+    "Qev2IdcApplicationTypeDef",
     "ReadWriteAccessTypeDef",
     "RebootClusterMessageTypeDef",
     "RebootClusterResultTypeDef",
@@ -808,6 +817,10 @@ class DeleteIntegrationMessageTypeDef(TypedDict):
     IntegrationArn: str
 
 
+class DeleteQev2IdcApplicationMessageTypeDef(TypedDict):
+    Qev2IdcApplicationArn: str
+
+
 class DeleteRedshiftIdcApplicationMessageTypeDef(TypedDict):
     RedshiftIdcApplicationArn: str
 
@@ -1040,6 +1053,12 @@ class PartnerIntegrationInfoTypeDef(TypedDict):
     StatusMessage: NotRequired[str]
     CreatedAt: NotRequired[datetime]
     UpdatedAt: NotRequired[datetime]
+
+
+class DescribeQev2IdcApplicationsMessageTypeDef(TypedDict):
+    Qev2IdcApplicationArn: NotRequired[str]
+    MaxRecords: NotRequired[int]
+    Marker: NotRequired[str]
 
 
 class DescribeRedshiftIdcApplicationsMessageTypeDef(TypedDict):
@@ -1350,6 +1369,11 @@ class ModifyLakehouseConfigurationMessageTypeDef(TypedDict):
     LakehouseIdcRegistration: NotRequired[LakehouseIdcRegistrationType]
     LakehouseIdcApplicationArn: NotRequired[str]
     DryRun: NotRequired[bool]
+
+
+class ModifyQev2IdcApplicationMessageTypeDef(TypedDict):
+    Qev2IdcApplicationArn: str
+    IdcDisplayName: NotRequired[str]
 
 
 class ModifySnapshotCopyRetentionPeriodMessageTypeDef(TypedDict):
@@ -1938,6 +1962,13 @@ class CreateIntegrationMessageTypeDef(TypedDict):
     Description: NotRequired[str]
 
 
+class CreateQev2IdcApplicationMessageTypeDef(TypedDict):
+    IdcInstanceArn: str
+    Qev2IdcApplicationName: str
+    IdcDisplayName: str
+    Tags: NotRequired[Sequence[TagTypeDef]]
+
+
 class CreateSnapshotCopyGrantMessageTypeDef(TypedDict):
     SnapshotCopyGrantName: str
     KmsKeyId: NotRequired[str]
@@ -2006,6 +2037,16 @@ class HsmConfigurationTypeDef(TypedDict):
 class IPRangeTypeDef(TypedDict):
     Status: NotRequired[str]
     CIDRIP: NotRequired[str]
+    Tags: NotRequired[list[TagTypeDef]]
+
+
+class Qev2IdcApplicationTypeDef(TypedDict):
+    IdcInstanceArn: NotRequired[str]
+    Qev2IdcApplicationName: NotRequired[str]
+    Qev2IdcApplicationArn: NotRequired[str]
+    IdcManagedApplicationArn: NotRequired[str]
+    IdcOnboardStatus: NotRequired[str]
+    IdcDisplayName: NotRequired[str]
     Tags: NotRequired[list[TagTypeDef]]
 
 
@@ -2291,6 +2332,11 @@ class DescribeInboundIntegrationsMessagePaginateTypeDef(TypedDict):
 class DescribeOrderableClusterOptionsMessagePaginateTypeDef(TypedDict):
     ClusterVersion: NotRequired[str]
     NodeType: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class DescribeQev2IdcApplicationsMessagePaginateTypeDef(TypedDict):
+    Qev2IdcApplicationArn: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -2752,6 +2798,22 @@ class ClusterSecurityGroupTypeDef(TypedDict):
     EC2SecurityGroups: NotRequired[list[EC2SecurityGroupTypeDef]]
     IPRanges: NotRequired[list[IPRangeTypeDef]]
     Tags: NotRequired[list[TagTypeDef]]
+
+
+class CreateQev2IdcApplicationResultTypeDef(TypedDict):
+    Qev2IdcApplication: Qev2IdcApplicationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribeQev2IdcApplicationsResultTypeDef(TypedDict):
+    Qev2IdcApplications: list[Qev2IdcApplicationTypeDef]
+    Marker: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ModifyQev2IdcApplicationResultTypeDef(TypedDict):
+    Qev2IdcApplication: Qev2IdcApplicationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class CreateSnapshotCopyGrantResultTypeDef(TypedDict):

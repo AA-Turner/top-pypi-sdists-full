@@ -3,7 +3,8 @@
 import re
 import threading
 from enum import Enum
-from typing import Callable, Dict, AnyStr
+from multiprocessing.synchronize import RLock
+from typing import Callable, Dict
 from datetime import datetime, timedelta
 from pyvisa import VisaIOError
 
@@ -36,24 +37,23 @@ class Instrument(object):
 		self._simulating: bool = simulate
 		self._settings = settings
 		self._direct_session = direct_session
-		self.logger: ScpiLogger | None = None
+		# noinspection PyTypeChecker
+		self.logger: ScpiLogger = None  # ty: ignore[invalid-assignment]
+		"""The logger is set to None only during the session init. Once the object is usable, it is always a valid ScpiLogger."""
 		self._last_exc_log: str | None = None
 		self._start_time: datetime | None = None
 		self.__session = None
 		self._global_repcaps: Dict[str, RepeatedCapability] = {}
 		self._linker = InternalLinker()
-		# noinspection PyTypeChecker
-		self.on_write_handler: Callable = None
-		# noinspection PyTypeChecker
-		self.on_read_handler: Callable = None
+		self.on_write_handler: Callable | None = None
+		self.on_read_handler: Callable | None = None
 		self._io_events_include_data: bool = False
-		self._lock = None
-		self._before_query_handler = None
-		self._before_write_handler = None
 		# noinspection PyTypeChecker
-		self.total_execution_time: timedelta = None
-		# noinspection PyTypeChecker
-		self.total_time_startpoint: datetime = None
+		self._lock: RLock = None  # ty: ignore[invalid-assignment]
+		self._before_query_handler: Callable | None = None
+		self._before_write_handler: Callable | None = None
+		self.total_execution_time: timedelta = timedelta()
+		self.total_time_startpoint: datetime = datetime.now()
 		self.reset_time_statistics()
 		self.called_from_driver: bool = True
 
@@ -63,8 +63,7 @@ class Instrument(object):
 		# Changeable settings
 		self.resource_name: str = resource_name
 		self._idn_string: str = ''
-		# noinspection PyTypeChecker
-		self._instr_options: Options = None  # Internal private property for the lazy property self.instr_options - see the getter for self.instr_options. Initialized by the first access
+		self._instr_options: Options | None = None  # Internal private property for the lazy property self.instr_options - see the getter for self.instr_options. Initialized by the first access
 		self.query_instr_status: bool = True
 		self.opc_query_after_write: bool = False
 		self.bin_float_numbers_format = self._settings.bin_float_numbers_format
@@ -122,10 +121,11 @@ class Instrument(object):
 			self._log_info('Session init', f"Device{dir_str} '{self.resource_name}' IDN: {self.idn_string}", "@INIT_SESSION")
 
 		except RsInstrException as e:
+			# Log init error
 			if not self.logger:
 				self._assure_logger_exists()
 				self._log_start_segment(direct_start_time)
-			self._log_error('Session init error', e.args[0], self._start_time, datetime.now())
+			self._log_error('Session init error', e.args[0], "@INIT_SESSION", self._start_time, datetime.now())
 			raise
 
 		finally:
@@ -264,7 +264,7 @@ class Instrument(object):
 		"""Clears the existing thread lock, making the current session thread-independent from others that might share the current thread lock."""
 		self.assign_lock(threading.RLock())
 
-	def lock_resource(self, timeout: int, requested_key: str | bytes = None) -> bytes | str | None:
+	def lock_resource(self, timeout: int, requested_key: str | bytes | None = None) -> bytes | str | None:
 		"""Locks the instrument to prevent it from communicating with other clients."""
 		return self._session.lock_resource(timeout, requested_key)
 
@@ -272,7 +272,7 @@ class Instrument(object):
 		"""Unlocks the instrument to other clients."""
 		self._session.unlock_resource()
 
-	def _log_start_segment(self, direct_start_time: datetime = None):
+	def _log_start_segment(self, direct_start_time: datetime | None = None):
 		"""Sets start time for the log entry to be able to calculate the duration. You can enter a direct start time."""
 		self._last_error_log = None
 		if direct_start_time:
@@ -296,12 +296,14 @@ class Instrument(object):
 		self._last_exc_log = None
 		self.logger.info_bin(self._start_time, datetime.now(), log_string_info, log_data, cmd)
 
-	def _log_info_var_stream(self, log_string_info: str, binary: bool, content: AnyStr, cmd: str | None) -> None:
+	def _log_info_var_stream(self, log_string_info: str, binary: bool, content: str | bytes, cmd: str | None) -> None:
 		"""Logs a stream entry - must be variable only, but can be binary or ascii."""
 		self._last_exc_log = None
 		if binary:
+			# noinspection PyTypeChecker
 			self.logger.info_bin(self._start_time, datetime.now(), log_string_info, content, cmd)
 		else:
+			# noinspection PyTypeChecker
 			self.logger.info(self._start_time, datetime.now(), log_string_info, content, cmd)
 
 	def _log_status_check_ok(self, start_time: datetime, end_time: datetime) -> None:
@@ -309,11 +311,11 @@ class Instrument(object):
 		self._last_exc_log = None
 		self.logger.info(start_time, end_time, 'Status check', 'OK', '*STB?')
 
-	def _log_error(self, log_string_info: str, log_string: str, cmd: str | None, start_time: datetime = None, end_time: datetime = None) -> None:
+	def _log_error(self, log_string_info: str, log_string: str, cmd: str | None, start_time: datetime | None = None, end_time: datetime | None = None) -> None:
 		"""Logs an ASCII error entry."""
 		self.logger.error(start_time, end_time, log_string_info, log_string, cmd)
 
-	def _log_exception(self, e: Exception, cmd: str | None, context: str = None, start_time: datetime = None, end_time: datetime = None) -> None:
+	def _log_exception(self, e: Exception, cmd: str | None, context: str, start_time: datetime | None = None, end_time: datetime | None = None) -> None:
 		"""Logs an ASCII error entry taken from the exception message."""
 		if start_time is None:
 			start_time = self._start_time
@@ -362,13 +364,13 @@ class Instrument(object):
 		self._session.encoding = value
 		self.logger.encoding = value
 
-	def set_link_handler(self, link_name: str, handler: Callable) -> Callable:
+	def set_link_handler(self, link_name: str, handler: Callable) -> Callable | None:
 		"""Adds / Updates link handler for the entered link_name.
 		Handler API: handler(event_args: ArgLinkedEventArgs)
 		Returns the previous registered handler, or None if no handler was registered before."""
 		return self._linker.set_handler(link_name, handler)
 
-	def del_link_handler(self, link_name: str) -> Callable:
+	def del_link_handler(self, link_name: str) -> Callable | None:
 		"""Deletes link handler for the link_name.
 		Returns the deleted handler, or None if none existed."""
 		return self._linker.del_handler(link_name)
@@ -394,7 +396,8 @@ class Instrument(object):
 		"""Public getter for the lazy property instr_options"""
 		if self._instr_options is None:
 			self._query_options_and_parse(self.instr_options_parse_mode)
-		return self._instr_options
+		# noinspection PyTypeChecker
+		return self._instr_options  # ty: ignore[invalid-return-type]
 
 	@property
 	def opc_timeout(self) -> int:
@@ -688,6 +691,7 @@ class Instrument(object):
 				call_syst_error = self._session.error_in_error_queue() if self.stb_in_error_check else True
 				if call_syst_error:
 					errors = self.query_all_syst_errors(enable_log=False)
+					# noinspection PyTypeChecker
 					assert_no_instrument_status_errors(self.resource_name, errors)
 				end_time = datetime.now()
 				if log_ok_result:
@@ -771,7 +775,7 @@ class Instrument(object):
 			finally:
 				self._log_end_segment()
 
-	def write_with_opc(self, cmd: str, timeout: int = None, block_callback: bool = False, log_info: str = 'Write with OPC') -> None:
+	def write_with_opc(self, cmd: str, timeout: int | None = None, block_callback: bool = False, log_info: str = 'Write with OPC') -> None:
 		"""Writes a OPC-synced command.
 		Also performs error checking if the property self.query_instr_status is set to True.
 		If you do not provide timeout, the method uses current opc_timeout."""
@@ -803,7 +807,7 @@ class Instrument(object):
 			cmd += f' {param}'.rstrip()
 			self.write(cmd, log_info='Write structure')
 
-	def write_struct_with_opc(self, cmd: str, struct: object, timeout: int = None) -> None:
+	def write_struct_with_opc(self, cmd: str, struct: object, timeout: int | None = None) -> None:
 		"""Writes OPC-synced command to the instrument with the parameter composed of the entered structure.
 		If you do not provide timeout, the method uses current opc_timeout."""
 		with self._lock:
@@ -854,7 +858,7 @@ class Instrument(object):
 			return response
 
 	# noinspection PyTypeChecker
-	def query_str_with_opc(self, query: str, timeout: int = None, block_callback: bool = False, log_info: str = 'Query with OPC') -> str:
+	def query_str_with_opc(self, query: str, timeout: int | None = None, block_callback: bool = False, log_info: str = 'Query with OPC') -> str:
 		"""Sends a OPC-synced query.
 		Also performs error checking if the self.query_instr_status is true.
 		The response is trimmed of any trailing LF characters and has no length limit.
@@ -887,6 +891,7 @@ class Instrument(object):
 				self._session.read_all_bytes(stream)
 				self.end_send_read_event()
 				content = stream.content
+				# noinspection PyTypeChecker
 				self._log_info_var_stream(f'{log_info}, received', stream.binary, content, None)
 				self.check_status()
 			except RsInstrException as e:
@@ -894,6 +899,7 @@ class Instrument(object):
 				raise
 			finally:
 				self._log_end_segment()
+			# noinspection PyTypeChecker
 			return content
 
 	# noinspection PyTypeChecker
@@ -921,7 +927,7 @@ class Instrument(object):
 				return content
 
 	# noinspection PyTypeChecker
-	def query_bin_block_with_opc(self, query: str, timeout: int = None, log_info: str = 'Query binary block with OPC') -> bytes:
+	def query_bin_block_with_opc(self, query: str, timeout: int | None = None, log_info: str = 'Query binary block with OPC') -> bytes:
 		"""Sends a OPC-synced query and returns data as bytes.
 		If you do not provide timeout, the method uses current opc_timeout."""
 		with self._lock:
@@ -968,7 +974,7 @@ class Instrument(object):
 				finally:
 					self._log_end_segment()
 
-	def query_bin_block_to_file_with_opc(self, query: str, file_path: str, append: bool = False, timeout: int = None, log_info='Query binary block to file with OPC') -> None:
+	def query_bin_block_to_file_with_opc(self, query: str, file_path: str, append: bool = False, timeout: int | None = None, log_info='Query binary block to file with OPC') -> None:
 		"""Sends a OPC-synced query and writes the returned data to the provided file.
 		If append is False, any existing file content is discarded.
 		If append is True, the new content is added to the end of the existing file, or if the file does not exit, it is created.
@@ -1002,7 +1008,7 @@ class Instrument(object):
 				return 0
 			return Conv.str_to_int(string)
 
-	def query_int_with_opc(self, query: str, timeout: int = None) -> int:
+	def query_int_with_opc(self, query: str, timeout: int | None = None) -> int:
 		"""Sends a OPC-synced query and reads response from the instrument as integer number.
 		If you do not provide timeout, the method uses current opc_timeout."""
 		with self._lock:
@@ -1019,7 +1025,7 @@ class Instrument(object):
 				return 0.0
 			return Conv.str_to_float(string)
 
-	def query_float_with_opc(self, query: str, timeout: int = None) -> float:
+	def query_float_with_opc(self, query: str, timeout: int | None = None) -> float:
 		"""Sends a OPC-synced query and reads response from the instrument as float number.
 		If you do not provide timeout, the method uses current opc_timeout."""
 		with self._lock:
@@ -1036,7 +1042,7 @@ class Instrument(object):
 				return False
 			return Conv.str_to_bool(string)
 
-	def query_bool_with_opc(self, query: str, timeout: int = None) -> bool:
+	def query_bool_with_opc(self, query: str, timeout: int | None = None) -> bool:
 		"""Sends a OPC-synced query and reads response from the instrument as boolean value.
 		If you do not provide timeout, the method uses current opc_timeout."""
 		with self._lock:
@@ -1058,7 +1064,7 @@ class Instrument(object):
 			response = Conv.str_to_str_list(string, remove_blank_response)
 			return response
 
-	def query_str_list_with_opc(self, query: str, timeout: int = None, remove_blank_response: bool = False) -> List[str]:
+	def query_str_list_with_opc(self, query: str, timeout: int | None = None, remove_blank_response: bool = False) -> List[str]:
 		"""Sends a OPC-synced query and reads response from the instrument as csv-list.
 		If you do not provide timeout, the method uses current opc_timeout.
 		Meaning of the 'remove_blank_response':
@@ -1081,7 +1087,7 @@ class Instrument(object):
 			response = Conv.str_to_bool_list(string)
 			return response
 
-	def query_bool_list_with_opc(self, query: str, timeout: int = None) -> List[bool]:
+	def query_bool_list_with_opc(self, query: str, timeout: int | None = None) -> List[bool]:
 		"""Sends a OPC-synced query and reads response from the instrument as csv-list of booleans.
 		Blank or empty response is returned as an empty list.
 		If you do not provide timeout, the method uses current opc_timeout."""
@@ -1205,7 +1211,7 @@ class Instrument(object):
 				self._log_end_segment()
 
 	# noinspection PyTypeChecker
-	def query_bin_or_ascii_float_list_with_opc(self, query: str, timeout: int = None, log_info: str = 'Query binary or ascii float list with OPC') -> List[float]:
+	def query_bin_or_ascii_float_list_with_opc(self, query: str, timeout: int | None = None, log_info: str = 'Query binary or ascii float list with OPC') -> List[float]:
 		"""Sends a OPC-synced query and reads a list of floating-point numbers that can be read in ASCII format or in binary format.
 		- For ASCII format, the list numbers are decoded as comma-separated values.
 		- For Binary Format, the numbers are decoded based on the property BinFloatFormat, usually float 32-bit (FORM REAL,32).
@@ -1248,7 +1254,7 @@ class Instrument(object):
 			response = self._linker.cut_from_response_string(suppressed, string, query)
 			return Conv.str_to_float_list(response)
 
-	def query_bin_or_ascii_float_list_suppressed_with_opc(self, query: str, suppressed: ArgSingleSuppressed, timeout: int = None) -> List[float]:
+	def query_bin_or_ascii_float_list_suppressed_with_opc(self, query: str, suppressed: ArgSingleSuppressed, timeout: int | None = None) -> List[float]:
 		"""Queries string of unknown size from instrument, and returns the part without the suppressed argument as list of floats.
 		If you do not provide timeout, the method uses current opc_timeout.
 		The current implementation allows for the rest of the string to be only ASCII format."""
@@ -1291,7 +1297,7 @@ class Instrument(object):
 				self._log_end_segment()
 
 	# noinspection PyTypeChecker
-	def query_bin_or_ascii_int_list_with_opc(self, query: str, timeout: int = None, log_info: str = 'Query binary or ascii integer list with OPC') -> List[int]:
+	def query_bin_or_ascii_int_list_with_opc(self, query: str, timeout: int | None = None, log_info: str = 'Query binary or ascii integer list with OPC') -> List[int]:
 		"""Sends a OPC-synced query and reads a list of integer numbers that can be read in ASCII format or in binary format.
 		- For ASCII format, the list numbers are decoded as comma-separated values.
 		- For Binary Format, the numbers are decoded based on the property BinIntFormat, usually int 32-bit (FORM REAL,32).
@@ -1334,7 +1340,7 @@ class Instrument(object):
 			response = self._linker.cut_from_response_string(suppressed, response, query)
 			return Conv.str_to_int_list(response)
 
-	def query_bin_or_ascii_int_list_suppressed_with_opc(self, query: str, suppressed: ArgSingleSuppressed, timeout: int = None) -> List[int]:
+	def query_bin_or_ascii_int_list_suppressed_with_opc(self, query: str, suppressed: ArgSingleSuppressed, timeout: int | None = None) -> List[int]:
 		"""Queries string of unknown size from instrument, and returns the part without the suppressed argument as list of integers.
 		If you do not provide timeout, the method uses current opc_timeout.
 		The current implementation allows for the rest of the string to be only ASCII format."""
@@ -1357,7 +1363,7 @@ class Instrument(object):
 			self._linker.invoke_struct_intern_links(struct, struct_list.args, query)
 			return struct
 
-	def query_struct_with_opc(self, query: str, struct: object, timeout: int = None) -> object:
+	def query_struct_with_opc(self, query: str, struct: object, timeout: int | None = None) -> object:
 		"""Queries string of from instrument, and parses it based on the provided structure object.
 		THe method returns the copy of the entered object that it had modified."""
 		with self._lock:
@@ -1378,7 +1384,7 @@ class Instrument(object):
 			response = self._linker.cut_from_response_string(suppressed, string, query)
 			return response
 
-	def query_str_suppressed_with_opc(self, query: str, suppressed: ArgSingleSuppressed, timeout: int = None) -> str:
+	def query_str_suppressed_with_opc(self, query: str, suppressed: ArgSingleSuppressed, timeout: int | None = None) -> str:
 		"""Queries string of unknown size from instrument, and returns the part without the suppressed argument."""
 		with self._lock:
 			string = self.query_str_with_opc(query, timeout, log_info='Query string suppressed with OPC')
@@ -1387,7 +1393,7 @@ class Instrument(object):
 			response = self._linker.cut_from_response_string(suppressed, string, query)
 			return response
 
-	def self_test(self, timeout: int = None) -> Tuple[int, str]:
+	def self_test(self, timeout: int | None = None) -> Tuple[int, str]:
 		"""Performs instrument's selftest (*TST?).
 		Returns tuple (code:int, message: str). . Code 0 means the self-test passed.
 		You can define the custom timeout in milliseconds. If you do not define it, the default selftest timeout is used (usually 60 secs)."""
@@ -1482,14 +1488,15 @@ class Instrument(object):
 	def send_write_str_event(self, cmd: str, opc_sync: bool) -> None:
 		"""Creates and sends write string event. The transfer is marked as done (end_of_transfer = True)."""
 		args = IoTransferEventArgs.write_str(opc_sync, len(cmd), cmd)
-		args.transferred_size = args.total_size
+		# noinspection PyTypeChecker
+		args.transferred_size = args.total_size  # ty: ignore[invalid-assignment]
 		args.chunk_ix = 0
 		args.end_of_transfer = True
 		args = self.event_args_append_instr_info(args)
 		if self._io_events_include_data:
 			args.data = cmd
 		# noinspection PyCallingNonCallable
-		self.on_write_handler(args)
+		self.on_write_handler(args)  # ty: ignore[call-non-callable]
 
 	def start_send_read_event(self, query: str, opc_sync: bool) -> None:
 		"""Registers VisaSession.on_read_chunk_handler() which then generates events with each chunk transfer.
@@ -1508,7 +1515,7 @@ class Instrument(object):
 			args.data = visa_args.data
 			args.binary = visa_args.binary
 			# noinspection PyCallingNonCallable
-			self.on_read_handler(args)
+			self.on_read_handler(args)  # ty: ignore[call-non-callable]
 
 		args = IoTransferEventArgs.read_chunk(opc_sync, query)
 		args = self.event_args_append_instr_info(args)
@@ -1536,7 +1543,7 @@ class Instrument(object):
 			args.data = visa_args.data
 			args.binary = visa_args.binary
 			# noinspection PyCallingNonCallable
-			self.on_write_handler(args)
+			self.on_write_handler(args)  # ty: ignore[call-non-callable]
 
 		args = IoTransferEventArgs.write_bin(cmd)
 		args = self.event_args_append_instr_info(args)
@@ -1558,7 +1565,7 @@ class Instrument(object):
 			self._before_query_handler(self, query)
 
 	@property
-	def before_write_handler(self) -> Callable:
+	def before_write_handler(self) -> Callable | None:
 		"""Returns the handler of before_write events. \n
 		:return: current before_write_handler"""
 		return self._before_write_handler
@@ -1572,7 +1579,7 @@ class Instrument(object):
 		self._before_write_handler = handler
 
 	@property
-	def before_query_handler(self) -> Callable:
+	def before_query_handler(self) -> Callable | None:
 		"""Returns the handler of before_query events. \n
 		:return: current before_query_handler"""
 		return self._before_query_handler

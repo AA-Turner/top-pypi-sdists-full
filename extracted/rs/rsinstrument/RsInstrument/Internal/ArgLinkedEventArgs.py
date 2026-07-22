@@ -4,7 +4,7 @@
 class ArgLinkedEventArgs(object):
 	"""Contains event data for suppressed argument."""
 
-	def __init__(self, link_name: str, arg_name: str, value: object = None, context: str = '', timestamp: float | None = None):
+	def __init__(self, link_name: str, arg_name: str, value: object | None = None, context: str = '', timestamp: float | None = None):
 		self.link_name = link_name
 		self.arg_name = arg_name
 		self.value = value
@@ -15,5 +15,6 @@ class ArgLinkedEventArgs(object):
 		result = f"ArgLinkedEventArgs '{self.link_name}'"
 		if self.arg_name:
 			result += f"argument name '{self.arg_name}'"
+		# noinspection PyStringConversionWithoutDunderMethod
 		result += f"value: {self.value}"
 		return result

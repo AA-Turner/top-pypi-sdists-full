@@ -142,7 +142,7 @@ def read_checklist(label: str, options: List[AbstraOption], **kwargs) -> List[st
 
 
 def read_cnpj(label: str, **kwargs) -> str:
-    """CNPJ number input with validation and masking.
+    """CNPJ input with validation and masking. Accepts both the numeric and the alphanumeric CNPJ formats.
 
     Position Args:
             label (str): The label to display to the user

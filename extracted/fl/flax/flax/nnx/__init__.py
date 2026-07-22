@@ -76,6 +76,7 @@ from .graphlib import split_context as split_context
 from .graphlib import MergeContext as MergeContext
 from .graphlib import merge_context as merge_context
 from .graphlib import variables as variables
+from .graphlib import with_vars as with_vars
 from .graphlib import vars_as as vars_as
 from .graphlib import as_pure as as_pure
 from .graphlib import pure as pure
@@ -180,6 +181,7 @@ from .training.optimizer import OptVariable as OptVariable
 from .training.optimizer import Optimizer as Optimizer
 from .training.optimizer import ModelAndOptimizer as ModelAndOptimizer
 from .training.optimizer import OptState as OptState
+from .training.ema import EMA as EMA
 from .transforms.autodiff import DiffState as DiffState
 from .transforms.autodiff import grad as grad
 from .transforms.autodiff import value_and_grad as value_and_grad

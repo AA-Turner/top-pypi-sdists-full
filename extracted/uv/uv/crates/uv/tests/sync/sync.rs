@@ -10676,14 +10676,14 @@ fn sync_derivation_chain() -> Result<()> {
           [stderr]
           Traceback (most recent call last):
             File "<string>", line 14, in <module>
-            File "[CACHE_DIR]/builds-v0/[TMP]/build_meta.py", line 325, in get_requires_for_build_wheel
+            File "[CACHE_DIR]/builds-v0/[TMP]/[PYTHON-LIB]/site-packages/setuptools/build_meta.py", line 325, in get_requires_for_build_wheel
               return self._get_build_requires(config_settings, requirements=['wheel'])
                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-            File "[CACHE_DIR]/builds-v0/[TMP]/build_meta.py", line 295, in _get_build_requires
+            File "[CACHE_DIR]/builds-v0/[TMP]/[PYTHON-LIB]/site-packages/setuptools/build_meta.py", line 295, in _get_build_requires
               self.run_setup()
-            File "[CACHE_DIR]/builds-v0/[TMP]/build_meta.py", line 487, in run_setup
+            File "[CACHE_DIR]/builds-v0/[TMP]/[PYTHON-LIB]/site-packages/setuptools/build_meta.py", line 487, in run_setup
               super().run_setup(setup_script=setup_script)
-            File "[CACHE_DIR]/builds-v0/[TMP]/build_meta.py", line 311, in run_setup
+            File "[CACHE_DIR]/builds-v0/[TMP]/[PYTHON-LIB]/site-packages/setuptools/build_meta.py", line 311, in run_setup
               exec(code, locals())
             File "<string>", line 5, in <module>
             File "[CACHE_DIR]/[TMP]/src/ez_setup/__init__.py", line 170
@@ -10740,14 +10740,14 @@ fn sync_derivation_chain_extra() -> Result<()> {
           [stderr]
           Traceback (most recent call last):
             File "<string>", line 14, in <module>
-            File "[CACHE_DIR]/builds-v0/[TMP]/build_meta.py", line 325, in get_requires_for_build_wheel
+            File "[CACHE_DIR]/builds-v0/[TMP]/[PYTHON-LIB]/site-packages/setuptools/build_meta.py", line 325, in get_requires_for_build_wheel
               return self._get_build_requires(config_settings, requirements=['wheel'])
                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-            File "[CACHE_DIR]/builds-v0/[TMP]/build_meta.py", line 295, in _get_build_requires
+            File "[CACHE_DIR]/builds-v0/[TMP]/[PYTHON-LIB]/site-packages/setuptools/build_meta.py", line 295, in _get_build_requires
               self.run_setup()
-            File "[CACHE_DIR]/builds-v0/[TMP]/build_meta.py", line 487, in run_setup
+            File "[CACHE_DIR]/builds-v0/[TMP]/[PYTHON-LIB]/site-packages/setuptools/build_meta.py", line 487, in run_setup
               super().run_setup(setup_script=setup_script)
-            File "[CACHE_DIR]/builds-v0/[TMP]/build_meta.py", line 311, in run_setup
+            File "[CACHE_DIR]/builds-v0/[TMP]/[PYTHON-LIB]/site-packages/setuptools/build_meta.py", line 311, in run_setup
               exec(code, locals())
             File "<string>", line 5, in <module>
             File "[CACHE_DIR]/[TMP]/src/ez_setup/__init__.py", line 170
@@ -10806,14 +10806,14 @@ fn sync_derivation_chain_group() -> Result<()> {
           [stderr]
           Traceback (most recent call last):
             File "<string>", line 14, in <module>
-            File "[CACHE_DIR]/builds-v0/[TMP]/build_meta.py", line 325, in get_requires_for_build_wheel
+            File "[CACHE_DIR]/builds-v0/[TMP]/[PYTHON-LIB]/site-packages/setuptools/build_meta.py", line 325, in get_requires_for_build_wheel
               return self._get_build_requires(config_settings, requirements=['wheel'])
                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-            File "[CACHE_DIR]/builds-v0/[TMP]/build_meta.py", line 295, in _get_build_requires
+            File "[CACHE_DIR]/builds-v0/[TMP]/[PYTHON-LIB]/site-packages/setuptools/build_meta.py", line 295, in _get_build_requires
               self.run_setup()
-            File "[CACHE_DIR]/builds-v0/[TMP]/build_meta.py", line 487, in run_setup
+            File "[CACHE_DIR]/builds-v0/[TMP]/[PYTHON-LIB]/site-packages/setuptools/build_meta.py", line 487, in run_setup
               super().run_setup(setup_script=setup_script)
-            File "[CACHE_DIR]/builds-v0/[TMP]/build_meta.py", line 311, in run_setup
+            File "[CACHE_DIR]/builds-v0/[TMP]/[PYTHON-LIB]/site-packages/setuptools/build_meta.py", line 311, in run_setup
               exec(code, locals())
             File "<string>", line 5, in <module>
             File "[CACHE_DIR]/[TMP]/src/ez_setup/__init__.py", line 170
@@ -17189,21 +17189,24 @@ fn sync_reinstalls_on_version_change() -> Result<()> {
 #[tokio::test]
 async fn sync_malware_detected() {
     let context = uv_test::test_context!("3.12");
+    let server = MockServer::start().await;
 
     let pyproject_toml = context.temp_dir.child("pyproject.toml");
     pyproject_toml
-        .write_str(indoc! {r#"
+        .write_str(&formatdoc! {r#"
         [project]
         name = "project"
         version = "0.1.0"
         requires-python = ">=3.12"
         dependencies = ["iniconfig==2.0.0"]
-    "#})
+
+        [tool.uv.audit]
+        malware-check = true
+        malware-check-url = "{}"
+    "#, server.uri()})
         .unwrap();
 
     context.lock().assert().success();
-
-    let server = MockServer::start().await;
 
     Mock::given(method("POST"))
         .and(path("/v1/querybatch"))
@@ -17225,8 +17228,8 @@ async fn sync_malware_detected() {
     uv_snapshot!(context.filters(), context
         .sync()
         .arg("--preview-features").arg("malware-check")
-        .env(EnvVars::UV_MALWARE_CHECK, "1")
-        .env(EnvVars::UV_MALWARE_CHECK_URL, server.uri()), @"
+        .env_remove(EnvVars::UV_MALWARE_CHECK)
+        .env_remove(EnvVars::UV_MALWARE_CHECK_URL), @"
     success: false
     exit_code: 2
     ----- stdout -----
@@ -17385,6 +17388,10 @@ async fn sync_malware_check_skips_non_mal() {
         version = "0.1.0"
         requires-python = ">=3.12"
         dependencies = ["iniconfig==2.0.0"]
+
+        [tool.uv.audit]
+        malware-check = false
+        malware-check-url = "https://example.com"
     "#})
         .unwrap();
 
@@ -17432,8 +17439,8 @@ async fn sync_malware_check_skips_non_mal() {
     ");
 }
 
-/// Ensure that `UV_MALWARE_CHECK=0` keeps the malware check disabled even when the preview
-/// feature is enabled.
+/// Ensure that `UV_MALWARE_CHECK=0` keeps the malware check disabled even when enabled in user
+/// configuration.
 #[tokio::test]
 async fn sync_malware_check_disabled() {
     let context = uv_test::test_context!("3.12");
@@ -17451,10 +17458,17 @@ async fn sync_malware_check_disabled() {
 
     context.lock().assert().success();
 
+    let user_config_dir = context.user_config_dir.child("uv");
+    user_config_dir.create_dir_all().unwrap();
+    user_config_dir
+        .child("uv.toml")
+        .write_str("[audit]\nmalware-check = true")
+        .unwrap();
+
     let server = MockServer::start().await;
 
-    // Even though the preview feature is enabled, the check is explicitly disabled via env
-    // var so no request should be made. (No mocks are mounted, so any request would fail.)
+    // The check is explicitly disabled via env var, so no request should be made. (No mocks are
+    // mounted, so any request would fail.)
 
     uv_snapshot!(context.filters(), context
         .sync()

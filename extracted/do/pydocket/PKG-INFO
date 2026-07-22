@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydocket
-Version: 0.23.0
+Version: 0.23.1
 Summary: A distributed background task system for Python functions
 Project-URL: Homepage, https://docket.lol/
 Project-URL: Documentation, https://docket.lol/en/latest/

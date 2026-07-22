@@ -116,3 +116,4 @@ class DbtNodeState(BaseSerDeModel):
     node_macros_hash: t.Optional[str] = None
     node_contract_hash: t.Optional[str] = None
     node_persisted_descriptions_hash: t.Optional[str] = None
+    project_id: t.Optional[str] = None

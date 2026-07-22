@@ -38,17 +38,21 @@ Or register as a LiveKit plugin:
 
 from __future__ import annotations
 
+from importlib.util import find_spec
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from kugelaudio.livekit.tts import TTS as TTS, ChunkedStream as ChunkedStream, SynthesizeStream as SynthesizeStream
+    from kugelaudio.livekit.tts import (
+        TTS as TTS,
+        ChunkedStream as ChunkedStream,
+        SynthesizeStream as SynthesizeStream,
+    )
     from kugelaudio.livekit.models import TTSModels as TTSModels
+    from kugelaudio.livekit.turn import KugelTurnBridge as KugelTurnBridge
 
-try:
-    from livekit.agents import Plugin
-    _LIVEKIT_AVAILABLE = True
-except ImportError:
-    _LIVEKIT_AVAILABLE = False
+_LIVEKIT_AVAILABLE = (
+    find_spec("livekit") is not None and find_spec("livekit.agents") is not None
+)
 
 
 def _check_livekit_installed() -> None:
@@ -66,14 +70,33 @@ def __getattr__(name: str):
     if name in ("TTS", "ChunkedStream", "SynthesizeStream"):
         _check_livekit_installed()
         from kugelaudio.livekit.tts import TTS, ChunkedStream, SynthesizeStream
-        return {"TTS": TTS, "ChunkedStream": ChunkedStream, "SynthesizeStream": SynthesizeStream}[name]
-    
+
+        return {
+            "TTS": TTS,
+            "ChunkedStream": ChunkedStream,
+            "SynthesizeStream": SynthesizeStream,
+        }[name]
+
     if name == "TTSModels":
         from kugelaudio.livekit.models import TTSModels
+
         return TTSModels
-    
+
+    if name == "KugelTurnBridge":
+        _check_livekit_installed()
+        try:
+            from kugelaudio.livekit.turn import KugelTurnBridge
+        except ImportError as exc:
+            raise ImportError(
+                "Kugel turn detection requires both kugelaudio[livekit] and "
+                "kugelaudio[turn-detection]"
+            ) from exc
+
+        return KugelTurnBridge
+
     if name == "SUPPORTED_LANGUAGES":
         from kugelaudio.livekit.tts import SUPPORTED_LANGUAGES
+
         return SUPPORTED_LANGUAGES
 
     if name in (
@@ -85,17 +108,20 @@ def __getattr__(name: str):
         "SUPPORTED_SAMPLE_RATES",
     ):
         from kugelaudio.livekit import models
+
         return getattr(models, name)
-    
+
     if name == "register_plugin":
         _check_livekit_installed()
         from kugelaudio.livekit._plugin import register_plugin
+
         return register_plugin
-    
+
     if name == "__version__":
         from kugelaudio import __version__
+
         return __version__
-    
+
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
@@ -104,6 +130,7 @@ __all__ = [
     "ChunkedStream",
     "SynthesizeStream",
     "TTSModels",
+    "KugelTurnBridge",
     "DEFAULT_MODEL",
     "DEFAULT_SAMPLE_RATE",
     "DEFAULT_VOICE_ID",

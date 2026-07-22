@@ -54,16 +54,13 @@ class PatchProductUnitDto(BaseModel):
     patch_security_champion_id: Optional[PatchSecurityChampionIdDto] = Field(default=None, alias="patchSecurityChampionId")
     __properties: ClassVar[List[str]] = ["name", "description", "workspaceId", "type", "environment", "businessImpact", "attachRepositoryIds", "attachRepositoryGroupIds", "attachIntegrationIds", "attachNestedProductUnitIds", "attachRepositoryNameSubstrings", "attachRepositoryDirectories", "detachRepositoryIds", "detachRepositoryGroupIds", "detachIntegrationIds", "detachNestedProductUnitIds", "detachRepositoryNameSubstrings", "detachRepositoryDirectories", "patchSecurityChampionId"]
 
-    @field_validator('name')
+    @field_validator('name', mode="before")
     def name_validate_regular_expression(cls, value):
         """Validates the regular expression"""
         if value is None:
             return value
 
-        if not isinstance(value, str):
-            value = str(value)
-
-        if not re.match(r"^[\w\s!@#$%\^&*()={}:;<>+\'-\/]{1,60}$", value):
+        if isinstance(value, str) and not re.match(r"^[\w\s!@#$%\^&*()={}:;<>+\'-\/]{1,60}$", value):
             raise ValueError(r"must validate the regular expression /^[\w\s!@#$%\^&*()={}:;<>+'-\/]{1,60}$/")
         return value
 

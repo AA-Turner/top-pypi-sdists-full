@@ -9,7 +9,8 @@ from pydantic import BaseModel, ValidationError
 
 from openreward.log_utils import get_logger as _get_logger
 from .types import (Blocks, JSONObject, ListToolsOutput, RunToolError,
-                    RunToolOutput, RunToolSuccess, Split, ToolOutput, ToolSpec)
+                    RunToolOutput, RunToolSuccess, Split, TerminalToolSpec,
+                    ToolOutput, ToolSpec)
 from .utils import run_user_callable
 
 T = TypeVar("T")
@@ -33,6 +34,92 @@ def tool(fn: Optional[Callable[..., Any]] = None, *, shared: bool = True) -> Cal
     setattr(fn, "_env_tool", True)
     setattr(fn, "_env_tool_shared", True)
     return fn
+
+
+def terminal(fn: Callable[..., Any]) -> Callable[..., Any]:
+    """Mark a tool as the environment's *terminal* tool.
+
+    A terminal tool is hidden from the tool list the model sees. Instead, the
+    harness treats the assistant's first plain (non-tool-call) message as the
+    end of the rollout and routes its text into this tool — see
+    :meth:`Environment.call_terminal_tool`.
+
+    Applied on top of :func:`tool`, which is still required (the two are
+    order-independent)::
+
+        class Answer(BaseModel):
+            answer: str
+
+        @terminal
+        @tool
+        async def submit(self, args: Answer) -> ToolOutput: ...
+
+    An environment (including its declared toolsets) may define at most one
+    terminal tool, and that tool takes either a Pydantic model with a single
+    field — which receives the message — or no arguments at all, in which case
+    it grades from environment state and the message is dropped. Two fields is
+    an error, as is a missing ``@tool``; both are enforced in
+    :meth:`Environment.list_tools`.
+    """
+    setattr(fn, "_env_tool_terminal", True)
+    return fn
+
+
+def _terminal_arg(name: str, fn: Callable[..., Any]) -> Optional[str]:
+    """Return the single input field name of a terminal tool, or None.
+
+    None means the tool takes no arguments: the assistant's message still ends
+    the rollout, but the tool grades from environment state and the message
+    itself is dropped. More than one field is an error — there is only one
+    thing to pass in.
+    """
+    _, hints, params = _introspect_tool(fn)
+    if not params:
+        return None
+    mdl: Any = hints.get(params[0].name)
+    fields = list(getattr(mdl, "model_fields", {}) or {})
+    if len(fields) > 1:
+        raise ValueError(
+            f"Terminal tool {name!r} must accept at most one argument (the message), "
+            f"but its input model {getattr(mdl, '__name__', mdl)!r} declares "
+            f"{len(fields)} fields: {fields}."
+        )
+    return fields[0] if fields else None
+
+
+def _find_terminal_tool(owner: Any, found: Optional[TerminalToolSpec] = None) -> Optional[TerminalToolSpec]:
+    """Scan a class or instance for a ``@terminal`` tool.
+
+    ``found`` carries any terminal tool discovered on a previously scanned
+    owner so that duplicates across an environment and its toolsets are
+    reported rather than silently resolved.
+    """
+    for name in dir(owner):
+        fn = getattr(owner, name, None)
+        if fn is None or not getattr(fn, "_env_tool_terminal", False):
+            continue
+        if not getattr(fn, "_env_tool", False):
+            raise ValueError(
+                f"@terminal tool {name!r} is missing @tool. @terminal marks an "
+                f"existing tool as terminal; it does not declare one. Add @tool "
+                f"above it."
+            )
+        if not Environment._is_tool(fn):
+            raise ValueError(
+                f"@terminal tool {name!r} is not a valid tool. It must take a single "
+                f"Pydantic model argument and return ToolOutput."
+            )
+        if found is not None:
+            raise ValueError(
+                f"Multiple @terminal tools defined: {found.name!r} and {name!r}. "
+                f"An environment may have at most one terminal tool."
+            )
+        found = TerminalToolSpec(
+            name=name,
+            arg=_terminal_arg(name, fn),
+            description=(fn.__doc__ or "").strip(),
+        )
+    return found
 
 
 def _introspect_tool(fn: Callable[..., Any]) -> tuple[Any, dict, list]:
@@ -194,10 +281,18 @@ class Environment(ABC):
         out: list[ToolSpec] = []
         env_tool_names: set[str] = set()
 
+        # The terminal tool (if any) is discovered but deliberately left out of
+        # `out` — the model must not be able to call it directly.
+        term = _find_terminal_tool(cls)
+        for toolset_cls in cls.toolsets or ():
+            term = _find_terminal_tool(toolset_cls, term)
+
         # Discover shared tools from the class itself
         for name in dir(cls):
             fn = getattr(cls, name)
             if not cls._is_tool(fn) or not getattr(fn, "_env_tool_shared", True):
+                continue
+            if term is not None and name == term.name:
                 continue
             _, hints, params = _introspect_tool(fn)
             schema = None
@@ -214,6 +309,8 @@ class Environment(ABC):
                     fn = getattr(toolset_cls, name)
                     if not cls._is_tool(fn) or not getattr(fn, "_env_tool_shared", True):
                         continue
+                    if term is not None and name == term.name:
+                        continue
 
                     if name in env_tool_names:
                         raise ValueError(
@@ -228,7 +325,37 @@ class Environment(ABC):
                         schema = mdl.model_json_schema() if hasattr(mdl, "model_json_schema") else mdl.schema()  # type: ignore[attr-defined]
                     out.append(ToolSpec(name=name, description=(fn.__doc__ or "").strip(), input_schema=schema))
 
-        return ListToolsOutput(tools=out)
+        return ListToolsOutput(tools=out, terminal_tool=term)
+
+    @classmethod
+    def terminal_tool(cls) -> Optional[TerminalToolSpec]:
+        """The environment's ``@terminal`` tool, or None if it has none."""
+        return cls.list_tools().terminal_tool
+
+    @classmethod
+    def is_assistant_message_final(cls) -> bool:
+        """True when a plain assistant message ends the rollout.
+
+        That is the case exactly when the environment defines a ``@terminal``
+        tool: rather than calling a submit-style tool, the model just writes its
+        answer, and the harness feeds that text to the terminal tool via
+        :meth:`call_terminal_tool`.
+        """
+        return cls.list_tools().terminal_tool is not None
+
+    async def call_terminal_tool(self, message: str = "") -> RunToolOutput:
+        """Call the ``@terminal`` tool with *message* as its single argument.
+
+        A terminal tool that takes no arguments is called with none, and
+        *message* is ignored.
+        """
+        term = self.list_tools().terminal_tool
+        if term is None:
+            raise ValueError(
+                f"Environment {self.name()!r} has no @terminal tool; "
+                f"nothing to invoke. Decorate a tool with @terminal first."
+            )
+        return await self._call_tool(term.name, {} if term.arg is None else {term.arg: message})
 
     def list_task_tools(self) -> ListToolsOutput:
         """Override to return task-specific tools based on self.task_spec.

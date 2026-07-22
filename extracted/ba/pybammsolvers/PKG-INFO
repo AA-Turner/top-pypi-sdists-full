@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: pybammsolvers
-Version: 0.8.2
+Version: 0.9.0
 Summary: Python interface for the IDAKLU solver
 License-File: LICENSE
 Requires-Python: <3.15,>=3.10
 Requires-Dist: casadi==3.7.2
-Requires-Dist: numpy
+Requires-Dist: numpy>=2.0.0
 Provides-Extra: dev
 Requires-Dist: nox[uv]; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
@@ -27,7 +27,7 @@ Standalone repository for the C/C++ solvers used in PyBaMM
 From PyPI:
 
 ```bash
-pip install pybammsolvers 
+pip install pybammsolvers
 ```
 
 And from conda-forge (`>=v0.7.0` only):
@@ -52,6 +52,9 @@ The build backend is [scikit-build-core](https://scikit-build-core.readthedocs.i
 build-time dependencies (`scikit-build-core`, `pybind11`, `cmake`, `ninja`) are
 resolved automatically via PEP 517 isolation when running `pip install`.
 
+SUNDIALS and SuiteSparse are compiled automatically from the bundled git
+submodules during the build, so initialise the submodules first.
+
 #### Nox (Recommended)
 
 Nox can be used to do a quick build:
@@ -71,7 +74,6 @@ Mac dependencies can be installed using brew
 brew install libomp
 brew reinstall gcc
 git submodule update --init --recursive
-python install_KLU_Sundials.py
 pip install .
 ```
 
@@ -83,7 +85,6 @@ be performed with the following commands:
 ```bash
 sudo apt-get install libopenblas-dev gcc gfortran make g++ build-essential
 git submodule update --init --recursive
-python install_KLU_Sundials.py
 pip install .
 ```
 
@@ -109,6 +110,20 @@ CI):
 nox -s dev-rebuild
 ```
 
+#### Building a wheel or sdist
+
+Build distributions with an isolated PEP 517 frontend, which installs the build
+backend itself:
+
+```bash
+python -m build        # or: pipx run build
+```
+
+`uv build` does **not** work here: the workspace marks `pybammsolvers` as
+`no-build-isolation-package` (so the editable auto-rebuild can find the build
+tools in the project venv), and uv then does not install the build backend into
+its own build environment. The release CI uses `python -m build` for this reason.
+
 ### Testing
 
 The project includes comprehensive test suites:
@@ -121,21 +136,6 @@ Test pybammsolvers functionality in isolation:
 nox -s unit            # Run all unit tests
 nox -s integration     # Run all integration tests
 ```
-
-#### PyBaMM Integration Tests
-
-Verify compatibility with PyBaMM:
-
-```bash
-nox -s pybamm-tests                    # Clone/update PyBaMM and run all tests
-nox -s pybamm-tests -- --unit-only     # Run only unit tests
-nox -s pybamm-tests -- --integration-only  # Run only integration tests
-nox -s pybamm-tests -- --no-update     # Skip git pull (use current version)
-nox -s pybamm-tests -- --pybamm-dir ./custom/path  # Use existing PyBaMM clone
-nox -s pybamm-tests -- --branch main  # Use specific branch/tag
-```
-
-The integration tests ensure that changes to pybammsolvers don't break PyBaMM functionality.
 
 ### Benchmarks
 

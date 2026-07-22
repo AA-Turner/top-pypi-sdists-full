@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: setuptools-scm
-Version: 10.2.0
+Version: 10.2.1
 Summary: the blessed package to manage your versions by scm tags
 Author-email: Ronny Pfannschmidt <opensource@ronnypfannschmidt.de>
 License: MIT
@@ -30,7 +30,7 @@ Requires-Dist: setuptools
 Requires-Dist: tomli>=1; python_version < "3.11"
 Requires-Dist: typing-extensions>=4.1; python_version < "3.11"
 Provides-Extra: rich
-Requires-Dist: rich; extra == "rich"
+Requires-Dist: rich>=13; extra == "rich"
 Provides-Extra: simple
 Provides-Extra: toml
 Dynamic: license-file
@@ -94,11 +94,12 @@ dynamic = ["version"]
 
     Starting with setuptools-scm 8.1+, if `setuptools_scm` (or `setuptools-scm`) is
     present in your `build-system.requires`, the `[tool.setuptools_scm]` section
-    becomes optional! You can now enable setuptools-scm with just:
+    becomes optional! (In 9.2+, this requires the `simple` extra.) You can now
+    enable setuptools-scm with just:
 
     ```toml title="pyproject.toml"
     [build-system]
-    requires = ["setuptools>=80", "setuptools-scm>=8"]
+    requires = ["setuptools>=80", "setuptools-scm[simple]>=9.2"]
     build-backend = "setuptools.build_meta"
 
     [project]

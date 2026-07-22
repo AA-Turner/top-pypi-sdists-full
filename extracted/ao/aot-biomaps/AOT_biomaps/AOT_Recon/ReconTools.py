@@ -15,7 +15,7 @@ from scipy.signal.windows import hann
 import warnings
 from tqdm import trange
 
-
+from AOT_biomaps.AOT_Recon.ReconEnums import PotentialShapeType, PotentialType, StopCriterionType
 # Optional cupy imports for GPU acceleration
 try:
     import cupy as cp
@@ -24,7 +24,6 @@ try:
 except ImportError:
     CUPY_AVAILABLE = False
 
-from AOT_biomaps.AOT_Recon.ReconEnums import PotentialShapeType, PotentialType, PreconditionerType, StopCriterionType
 
 # =============================================================================
 # BASIC ARRAY OPERATIONS
@@ -69,76 +68,154 @@ def mse(SMatrix, lambda_true, lambda_pred):
 # ALGORITHM FUNCTIONS
 # =============================================================================
 
-def calculate_step_size_reg(SMatrix, gamma, num_subsets, num_iters, show_logs):
+def estimate_lipschitz_constant(SMatrix, preconditioner, num_iters=20):
     """
-    Calculate step sizes tau and sigma for PDHG when alpha or sigma is "auto" in the regularized case.
-    Args:
-        - SMatrix: The system matrix, used to estimate the Lipschitz constant.
-        - gamma: Regularization parameter
-        - num_subsets: Number of subsets used in the algorithm (affects the effective Lipschitz constant)
-        - num_iters: Number of iterations to use for the power method estimation of the Lipschitz constant
-        - show_logs: If True, prints the estimated Lipschitz constant and chosen step sizes
-    """
-    L_estimate = estimate_operator_norm(SMatrix, num_iters=num_iters)
-    L_grad = 8.0  # L_grad = 8.0 is the exact squared operator norm of the 2D finite difference matrix
-    L_total = (L_estimate**2) + L_grad
-    # Calculate Chambolle-Pock step sizes
-    tau_val = float(0.99 / (np.sqrt(L_total) * gamma))
-    sigma_q_val = float((0.99 * gamma / np.sqrt(L_total)) * num_subsets)
-    sigma_p_val = float(0.99 * gamma / np.sqrt(L_total))
-    if show_logs:
-        print(f"[AOT-biomaps] Estimated Lipschitz: {L_estimate:.2e} | tau: {tau_val:.2e} | sigma_q: {sigma_q_val:.2e} | sigma_p: {sigma_p_val:.2e}")
-        
-    return tau_val, sigma_q_val, sigma_p_val
-
-def calculate_step_size(SMatrix, eta, num_iters, show_logs):
-    """
-    Calculate the step size for the optimization algorithm if alpha is "auto".
-    Args :
-        SMatrix: The system matrix, used to estimate the Lipschitz constant.
-        eta: Parameter for the step size calculation when alpha is "auto". Must be > 1 for convergence and < 2 for optimal convergence.
-        num_iters: Number of iterations to use for the power method estimation of the Lipschitz constant
-        show_logs: If True, prints the estimated Lipschitz constant and chosen alpha.
-    """
-    if eta is None:
-        print("Warning: eta not set. Defaulting to 1.9.")
-        eta = 1.9
-    if not (1.0 < eta < 2.0):
-        print(f"[AOT-biomaps] Warning: eta={eta} is outside (1.0, 2.0). Convergence might be suboptimal.")
-    L_estimate = estimate_operator_norm(SMatrix, num_iters=num_iters)
-    alpha = eta / (L_estimate**2) if L_estimate > 0 else 1.0
-    if show_logs:
-        print(f"[AOT-biomaps] Estimated Lipschitz constant: {L_estimate:.2e}, using step size alpha: {alpha:.2e}")
-    return alpha
-
-def estimate_operator_norm(SMatrix, num_iters: int = 15) -> float:
-    """
-    Estimate the spectral norm (largest singular value) of the forward operator A using power iteration.
-     - SMatrix: The system matrix with forward_projection and backward_projection methods.
-     - num_iters: Number of power iterations to perform (default 15).
+    Estimate the Lipschitz constant of the gradient.
+    Without preconditioner: L = λmax(AᴴA)
+    With preconditioner: L = λmax(P⁻¹AᴴA)
     """
     xp = get_array_module(SMatrix)
 
-    v = xp.random.rand(SMatrix.Z * SMatrix.X).astype(xp.float32)
-    v /= xp.linalg.norm(v) + 1e-12
+    v = xp.random.randn(SMatrix.Z * SMatrix.X).astype(xp.float32)
+    v /= xp.linalg.norm(v)
 
-    eig = 0.0
+    eps = 1e-12
 
-    for _ in range(num_iters):
+    for i in range(num_iters):
         Av = forward_projection(SMatrix, v)
-        AtAv = backward_projection(SMatrix, Av)
+        if float(xp.sum(xp.abs(Av))) < eps:
+            raise RuntimeError("[AOT-biomaps] Forward projection returned all zeros.")
+        
+        w = backward_projection(SMatrix, Av)
+        w = xp.real(w).astype(xp.float32) if SMatrix.isComplexSMatrix else w.astype(xp.float32)
+        w = preconditioner.apply_inverse(w)
+        norm = xp.linalg.norm(w)
+        
+        if norm < eps:
+            raise RuntimeError("[AOT-biomaps] Power iteration collapsed to zero.")
 
-        eig = float(xp.vdot(v, AtAv))
+        v = w / norm
 
-        norm = xp.linalg.norm(AtAv)
-        if norm > 1e-12:
-            v = AtAv / norm
+    # Rayleigh quotient
+    Av = forward_projection(SMatrix, v)
+    w = backward_projection(SMatrix, Av)
 
-    return float(xp.sqrt(eig))
+    w = xp.real(w).astype(xp.float32) if SMatrix.isComplexSMatrix else w.astype(xp.float32)
+    w = preconditioner.apply_inverse(w)
+    L = float(xp.vdot(v, w).real)
 
-# =============================================================================
-# POTENTIAL FUNCTIONS
-# =============================================================================
+    return max(L, 0.0)
+
+def calculate_step_size_LS(SMatrix, preconditioner, eta, num_iters, show_logs):
+    """
+    Compute the gradient descent step size in the LS algorithm.
+    Args:
+        - SMatrix : System matrix.
+        - preconditioner : Preconditioner object implementing apply_inverse().
+        - eta : Relaxation parameter (typically 1.8-1.99).
+        - num_iters : Number of power iterations.
+        - show_logs : Print information.
+    """
+    if eta is None:
+        print("[AOT-biomaps] Warning: eta not set. Defaulting to 1.9.")
+        eta = 1.9
+
+    if not (1.0 < eta < 2.0):
+        print(f"[AOT-biomaps] Warning: eta={eta} is outside (1,2).")
+
+    L = estimate_lipschitz_constant(SMatrix, preconditioner=preconditioner, num_iters=num_iters)
+
+    alpha = eta / L if L > 0 else 1.0
+
+    if show_logs:
+        print(f"[AOT-biomaps] Using step size alpha = {alpha:.3e}")
+
+    return alpha
+
+def calculate_step_size_PGC(SMatrix, preconditioner, eta, num_iters, show_logs):
+    """
+    Compute the gradient descent step size in the PGC algorithm.
+    Args:
+        - SMatrix : System matrix.
+        - preconditioner : Preconditioner object implementing apply_inverse(). Need to be set to NoPreconditioner for PGC.
+        - eta : Relaxation parameter (typically 1.8-1.99).
+        - num_iters : Number of power iterations.
+        - show_logs : Print information.
+    """
+    if eta is None:
+        print("[AOT-biomaps] Warning: eta not set. Defaulting to 1.9.")
+        eta = 1.9
+
+    if not (1.0 < eta < 2.0):
+        print(f"[AOT-biomaps] Warning: eta={eta} is outside (1,2).")
+    
+    L = estimate_lipschitz_constant(SMatrix, preconditioner=preconditioner, num_iters=num_iters)
+
+    alpha = eta / L if L > 0 else 1.0
+
+    if show_logs:
+        print(f"[AOT-biomaps] Using step size alpha = {alpha:.3e}")
+
+    return alpha
+
+def calculate_step_size_FISTA(SMatrix, preconditioner, eta, potential_type, beta, potential_radius, num_iters, show_logs):
+    """
+    Compute the gradient descent step size in the FISTA algorithm.
+    Args:
+        - SMatrix : System matrix.
+        - preconditioner : Preconditioner object implementing apply_inverse().
+        - eta : Relaxation parameter (typically 1.8-1.99).
+        - potential_type : Type of potential for regularization.
+        - beta : Regularization parameter for the potential.
+        - potential_radius : Neighborhood radius for the potential.
+        - num_iters : Number of power iterations.
+        - show_logs : Print information.
+    """
+    if eta is None:
+        print("[AOT-biomaps] Warning: eta not set. Defaulting to 1.9.")
+        eta = 1.9
+
+    # λmax(AᴴA) or λmax(P⁻¹AᴴA)    
+    L = estimate_lipschitz_constant(SMatrix, preconditioner=preconditioner, num_iters=num_iters)
+
+    L_data = eta / L
+    L_prior = 8.0 * beta * (potential_radius ** 2) if potential_type != PotentialType.NONE else 0.0
+    alpha = eta / (L_data + L_prior)
+
+    if show_logs:
+        print(f"[AOT-biomaps] Using step size alpha = {alpha:.3e}")
+    
+    return alpha
+
+
+def calculate_step_size_PDHG(SMatrix, preconditioner, gamma, num_subsets, num_iters, show_logs):
+    """
+    Calculate the PDHG step sizes (tau, sigma_q, sigma_p).
+    Args:
+        - SMatrix: System matrix.
+        - preconditioner: Preconditioner object.
+        - gamma: Scaling parameter.
+        - num_subsets: Number of subsets (for SPDHG).
+        - num_iters: Number of power iterations.
+        - show_logs: Print estimated constants.
+    """
+    # λmax(AᴴA) or λmax(P⁻¹AᴴA)
+    L_data = estimate_lipschitz_constant(SMatrix, preconditioner=preconditioner, num_iters=num_iters)
+
+    # ||∇||²
+    L_grad = 8.0
+
+    # ||K||² = ||A||² + ||∇||²
+    L_total = L_data + L_grad
+
+    tau_val = float(0.99 / (gamma * np.sqrt(L_total)))
+    sigma_q_val = float(0.99 * gamma * num_subsets / np.sqrt(L_total))
+    sigma_p_val = float(0.99 * gamma / np.sqrt(L_total))
+
+    if show_logs:
+            print(f"[AOT-biomaps] {L_data:.2e} | L_total: {L_total:.2e} | tau: {tau_val:.2e} | sigma_q: {sigma_q_val:.2e} | sigma_p: {sigma_p_val:.2e}")
+
+    return tau_val, sigma_q_val, sigma_p_val
 
 # =====================================================================
 # GPU KERNELS (CuPy) - Zero Allocation & Gather Paradigm
@@ -861,112 +938,3 @@ def filter_radon(f, N, filter_type, Fc):
     FILTER = FILTER * np.exp(-2 * (np.abs(f) / Fc)**10)
 
     return FILTER
-
-# =============================================================================
-# PRECONDITIONERS
-# =============================================================================
-
-def _compute_diagonal_preconditioner(SMatrix):
-    """
-    Compute diagonal preconditioner: M = diag(A^T * 1)
-    
-    The diagonal preconditioner is computed as the sum of absolute values of each column
-    of the system matrix A, which equals A^T * 1.
-    
-    This is commonly used in iterative reconstruction to normalize the sensitivity.
-    
-    Args:
-        SMatrix: SMatrix instance (DENSE, CSR, or SELL) - must be allocated
-        
-    Returns:
-        preconditioner: Diagonal vector (Z*X,) with A^T * 1 values, clamped to avoid zeros
-        
-    Compatible with: All SMatrix types (DENSE, CSR, SELL) and all devices (CPU, GPU)
-    """
-    xp = get_array_module(SMatrix)
-    
-    # Compute A^T * 1 (column sums)
-    ones = xp.ones(SMatrix.N * SMatrix.T, dtype=xp.float32)
-    
-    if check_gpu_available(SMatrix):
-        # Use GPU backprojection
-        if hasattr(SMatrix, 'backward_projection'):
-            preconditioner = SMatrix.backward_projection(ones)
-        else:
-            # Fallback: use CPU and convert
-            preconditioner_cpu = SMatrix.backward_projection(cp.asnumpy(ones))
-            preconditioner = cp.asarray(preconditioner_cpu)
-    else:
-        # Use CPU backprojection
-        preconditioner = SMatrix.backward_projection(ones)
-    
-    # Ensure preconditioner is on correct device
-    if check_gpu_available(SMatrix):
-        preconditioner = cp.asarray(preconditioner)
-    else:
-        preconditioner = np.asarray(preconditioner)
-    
-    # Clamp to avoid division by zero
-    preconditioner = xp.maximum(preconditioner, 1e-10)
-
-    return preconditioner
-
-def _apply_diagonal_preconditioner(U, preconditioner, SMatrix):
-    """
-    Apply diagonal preconditioner to a vector: U -> M^-1 * U
-    
-    Args:
-        U: Vector to precondition (Z*X,)
-        preconditioner: Diagonal preconditioner (Z*X,)
-        SMatrix: SMatrix instance (for device information)
-        
-    Returns:
-        Preconditioned vector on the same device as input
-        
-    Compatible with: All SMatrix types and all devices (CPU, GPU)
-    """
-    xp = get_array_module(SMatrix)
-    
-    # Ensure arrays are on the same device
-    U = xp.asarray(U)
-    preconditioner = xp.asarray(preconditioner)
-    
-    # Apply diagonal preconditioning: element-wise multiplication
-    return U / preconditioner
-
-def build_preconditioner(SMatrix, preconditioner_type):
-    """
-    Build preconditioner based on type.
-    
-    Args:
-        SMatrix: SMatrix instance (must be allocated)
-        preconditioner_type: PreconditionerType enum value
-        
-    Returns:
-        preconditioner or None if NONE
-        
-    Compatible with: All SMatrix types and all devices (CPU, GPU)
-    """    
-    if preconditioner_type == PreconditionerType.NONE:
-        return None
-    elif preconditioner_type == PreconditionerType.DIAGONAL:
-        return _compute_diagonal_preconditioner(SMatrix)
-    else:
-        raise ValueError(f"[AOT-biomaps] Unknown preconditioner type: {preconditioner_type}")
-
-def apply_preconditioner(U, preconditioner, SMatrix):
-    """
-    Apply the specified preconditioner to vector U.
-    
-    Args:
-        U: Vector to precondition (Z*X,)
-        preconditioner: The preconditioner (Z*X,) or None if no preconditioning
-        SMatrix: SMatrix instance (for device information)
-        
-    Returns:
-        Preconditioned vector on the same device as input
-    """
-    if preconditioner is None:
-        return U
-    else:
-        return _apply_diagonal_preconditioner(U, preconditioner, SMatrix)

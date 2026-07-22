@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openreward
-Version: 0.1.138
+Version: 0.1.141
 Summary: Python SDK for the OpenReward platform.
 Author-email: GR Inc <hello@gr.inc>
 License-Expression: MIT

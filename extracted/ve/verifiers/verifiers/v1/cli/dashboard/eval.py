@@ -14,6 +14,7 @@ from rich.text import Text
 
 from verifiers.v1.cli.dashboard.base import live_view
 from verifiers.v1.cli.output import output_path
+from verifiers.v1.utils.interrupt import cleaning_up
 from verifiers.v1.configs.eval import EvalConfig
 from verifiers.v1.rollout import Phase, Rollout
 from verifiers.v1.trace import Trace
@@ -39,6 +40,8 @@ _LABEL_WIDTH = len("timeouts")
 
 _STYLE = {
     "pending": "dim",
+    "boot": "orange3",
+    "build": "dark_orange",
     "setup": "yellow",
     "running": "cyan",
     "finalize": "magenta",
@@ -48,6 +51,8 @@ _STYLE = {
 }
 _MARK_LABEL = {
     "pending": "pending",
+    "boot": "boot",
+    "build": "build",
     "setup": "setup",
     "running": "rollout",
     "finalize": "finalize",
@@ -108,6 +113,22 @@ def _aligned(rows: list[list[str]]) -> list[str]:
         )
         for row in rows
     ]
+
+
+def _interrupt_footer() -> Group | None:
+    """The graceful-shutdown notice under the rollouts once Ctrl-C has begun teardown — the
+    on-screen echo of the warning (console logging is silenced in rich mode); a further Ctrl-C
+    is ignored while it shows. Sits beside the `--push` line, mirroring its placement."""
+    if not cleaning_up():
+        return None
+    return Group(
+        Rule(style="dim"),
+        Text(
+            "interrupted — cleaning up, tearing down containers/sandboxes. "
+            "please wait; a further ctrl-c is ignored.",
+            style="yellow",
+        ),
+    )
 
 
 def _warning(config: EvalConfig) -> Text | None:
@@ -279,6 +300,7 @@ def _breakdown(done: list[Trace]) -> Table | None:
     have_cost = have_cached = have_reasoning = have_judge = False
     phase_secs: dict[str, float] = {}
     phase_count: dict[str, int] = {}
+    model_secs = harness_secs = 0.0
     for trace in done:
         prompt, completion, cached, reasoning, _ = _tokens(trace)
         total_in += prompt
@@ -300,11 +322,13 @@ def _breakdown(done: list[Trace]) -> Table | None:
             if judge.cost is not None:
                 total_judge_cost += judge.cost
             have_judge = True
-        for phase in ("setup", "generation", "finalize", "scoring"):
+        for phase in ("boot", "setup", "generation", "finalize", "scoring"):
             span = getattr(trace.timing, phase)
             if span.end:  # phase was timed for this rollout
                 phase_secs[phase] = phase_secs.get(phase, 0.0) + span.duration
                 phase_count[phase] = phase_count.get(phase, 0) + 1
+        model_secs += trace.timing.generation.model.duration
+        harness_secs += trace.timing.generation.harness.duration
     if (
         total_in
         or total_out
@@ -332,11 +356,18 @@ def _breakdown(done: list[Trace]) -> Table | None:
                 cost += f" + {format_cost_usd(total_judge_cost)} judge"
             usage.append(cost)
         grid.add_row("usage", "  ·  ".join(usage))
-    time_segments = [
-        f"{phase} {format_time(phase_secs[phase] / phase_count[phase])}"
-        for phase in ("setup", "generation", "finalize", "scoring")
-        if phase_count.get(phase)
-    ]
+    time_segments = []
+    for phase in ("boot", "setup", "generation", "finalize", "scoring"):
+        count = phase_count.get(phase)
+        if not count:
+            continue
+        segment = f"{phase} {format_time(phase_secs[phase] / count)}"
+        if phase == "generation":
+            segment += (
+                f" (model {format_time(model_secs / count)}"
+                f" + harness {format_time(harness_secs / count)})"
+            )
+        time_segments.append(segment)
     if time_segments:
         grid.add_row("time", "  ·  ".join(time_segments))
     return grid if grid.row_count else None
@@ -344,17 +375,14 @@ def _breakdown(done: list[Trace]) -> Table | None:
 
 def _tokens(trace: Trace) -> tuple[int, int, int | None, int | None, int]:
     """Input/output tokens summed across all branches: per branch, output is every assistant
-    (completion) token generated across its turns and input is its last turn's prompt — the full
-    final context the model saw. A rollout yields one training sample per branch (a linear trace
-    is a single branch; compaction and subagents add more), so the totals sum them — matching
-    `Trace.num_input_tokens` / `Trace.num_output_tokens`. (Output can exceed the final context —
-    reasoning tokens count toward completions but aren't re-fed — so it's not derived by
-    subtraction.)
+    (completion) token generated across its turns and input is the fed-in tokens counted once
+    (system + user + tool) — the final sequence minus everything the model generated. A rollout
+    yields one training sample per branch (a linear trace is a single branch; compaction and
+    subagents add more), so the totals sum them — matching `Trace.num_input_tokens` /
+    `Trace.num_output_tokens`, whose sum is `num_total_tokens`.
 
-    Both counts read token ids when present and fall back to provider-reported usage when the
-    endpoint returns no token ids (e.g. plain OpenAI completions), so the counts aren't shown as
-    0/0. Returns the branch count from the same derived view so each dashboard tick materializes
-    it once."""
+    Both counts come from provider-reported usage. Returns the branch count from the same derived
+    view so each dashboard tick materializes it once."""
     usage = trace.usage
     cached = usage.cached_input_tokens if usage else None
     reasoning = usage.reasoning_tokens if usage else None
@@ -366,11 +394,12 @@ def _tokens(trace: Trace) -> tuple[int, int, int | None, int | None, int]:
 
 
 def _started(rollout: Rollout) -> float:
-    # Sort key: when a rollout began (its setup start). A still-pending rollout has no trace
-    # yet, so it sorts last (+inf) — behind everything already in flight, in task order.
-    return (
-        rollout.trace.timing.setup.start if rollout.trace is not None else float("inf")
-    )
+    # Sort key: when a rollout began (its boot start; setup for pre-boot-span traces on
+    # resume). A still-pending rollout has no trace yet, so it sorts last (+inf) — behind
+    # everything already in flight, in task order.
+    if rollout.trace is None:
+        return float("inf")
+    return rollout.trace.timing.boot.start or rollout.trace.timing.setup.start
 
 
 def _groups(rollouts: list[Rollout]) -> list[list[Rollout]]:
@@ -428,19 +457,23 @@ def Rows(groups: list[list[Rollout]], now: float, runtime_type: str) -> Table:
                         stop = f"{stop} (truncated)".strip()
             else:
                 state, result, stop = rollout.phase, "", ""
-            descriptor = (
-                rollout.runtime.descriptor if rollout.runtime is not None else None
-            )
-            runtime = f"{runtime_type}({descriptor})" if descriptor else runtime_type
+                # A boot stuck on a first-use platform image build reads differently from a
+                # normal boot — it can sit here for ~10 minutes (prime runtime only).
+                if state == Phase.BOOT and (
+                    getattr(t.runtime, "image_cached", None) is False
+                ):
+                    state = "build"
+            runtime_id = t.runtime.id if t.runtime is not None else None
+            runtime = f"{runtime_type}({runtime_id})" if runtime_id else runtime_type
             turns = t.num_turns
-            start = t.timing.setup.start
+            start = t.timing.boot.start or t.timing.setup.start
             end = (
                 t.timing.scoring.end
                 or t.timing.finalize.end
                 or t.timing.generation.end
-                # a rollout that errored in setup has only setup.end — freeze there once done,
-                # else (still running) the timer would grow off `now` forever
-                or (t.timing.setup.end if t.is_completed else 0)
+                # a rollout that errored in boot/setup has only that span's end — freeze there
+                # once done, else (still running) the timer would grow off `now` forever
+                or ((t.timing.setup.end or t.timing.boot.end) if t.is_completed else 0)
                 or now
             )
             prompt, completion, cached, reasoning, nbranches = _tokens(t)
@@ -561,11 +594,11 @@ def _render(
     now = time.time()
     warning = _warning(config)
     header = Group(warning, Text(""), Overview(config)) if warning else Overview(config)
-    # The --push status line appears under the rollouts once the upload starts (None during the run
-    # / when off). Measure the fixed top (header + progress + rule) and the footer so the rollout
-    # rows fill what's left; page through them (timer / arrows) when they'd overflow (else rich
-    # truncates).
-    footer = _push_footer(push)
+    # The --push status line (and, on Ctrl-C, the cleanup notice) appear under the rollouts. Measure
+    # the fixed top (header + progress + rule) and the footer so the rollout rows fill what's left;
+    # page through them (timer / arrows) when they'd overflow (else rich truncates).
+    footers = [f for f in (_push_footer(push), _interrupt_footer()) if f is not None]
+    footer = Group(*footers) if footers else None
     top = Group(header, Progress(rollouts, start), Rule(style="dim"))
     reserved = len(_CONSOLE.render_lines(top))
     if footer is not None:

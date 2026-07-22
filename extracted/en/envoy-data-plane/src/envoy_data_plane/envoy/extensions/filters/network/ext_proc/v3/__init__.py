@@ -55,6 +55,19 @@ class MetadataOptions(betterproto2.Message):
     the external processing server.
     """
 
+    receiving_namespaces: "MetadataOptionsMetadataNamespaces | None" = (
+        betterproto2.field(2, betterproto2.TYPE_MESSAGE, optional=True)
+    )
+    """
+    Describes which typed or untyped dynamic metadata namespaces to receive
+    from the external processing server.
+    Since the server returns untyped dynamic metadata, this configuration acts
+    as a allowlist. Only metadata namespaces explicitly listed here will be
+    ingested by Envoy from the server's response.
+    Receiving of typed metadata is not supported.
+    Set to empty or leave unset to disallow writing any received dynamic metadata.
+    """
+
 
 default_message_pool.register_message(
     "envoy.extensions.filters.network.ext_proc.v3", "MetadataOptions", MetadataOptions

@@ -4,6 +4,10 @@
 set -e
 
 # --- Environment sanitization ---
+# UV_NO_CONFIG ignores uv config *files* only (uv.toml/pyproject), not env vars
+# or CLI flags. We select the index ourselves via probe_pypi_index + an explicit
+# --default-index flag, so a stray uv.toml can't override or slow the install;
+# users who want a specific source use ECHO_PYPI_INDEX / UV_DEFAULT_INDEX.
 unset PYTHONPATH PYTHONHOME
 export UV_NO_CONFIG=1
 
@@ -26,6 +30,23 @@ PYTHON_VERSION="3.11"
 NODE_VERSION="22"
 BRANCH="master"
 RUN_SETUP=true
+# Mirror probing: measure real latency to candidate PyPI indexes and use the
+# fastest one, instead of guessing by GeoIP/locale. Disable with --no-mirror-probe.
+MIRROR_PROBE=true
+DEPS_TIMEOUT="${ECHO_DEPS_TIMEOUT:-600}"
+# Candidate mirrors raced by probe_pypi_index (label|url). The official PyPI is
+# always kept as the extra fallback index so a mirror missing a package still
+# resolves. Users can skip probing entirely by exporting UV_DEFAULT_INDEX /
+# UV_INDEX_URL or ECHO_PYPI_INDEX before running.
+PYPI_OFFICIAL="https://pypi.org/simple"
+PYPI_MIRRORS=(
+    "tsinghua|https://pypi.tuna.tsinghua.edu.cn/simple"
+    "aliyun|https://mirrors.aliyun.com/pypi/simple"
+    "ustc|https://mirrors.ustc.edu.cn/pypi/simple"
+    "official|https://pypi.org/simple"
+)
+# Resolved by probe_pypi_index(); empty means "use uv defaults / user config".
+PYPI_INDEX=""
 HAS_NODE=false
 DASHBOARD_BUILT=false
 
@@ -52,17 +73,23 @@ while [[ $# -gt 0 ]]; do
         --branch) BRANCH="$2"; shift 2 ;;
         --dir) INSTALL_DIR="$2"; shift 2 ;;
         --echo-home) ECHO_HOME="$2"; shift 2 ;;
+        --no-mirror-probe) MIRROR_PROBE=false; shift ;;
         -h|--help)
             echo "Echo Agent Installer"
             echo ""
             echo "Usage: install.sh [OPTIONS]"
             echo ""
             echo "Options:"
-            echo "  --skip-setup      Skip interactive setup wizard"
-            echo "  --branch NAME     Git branch to install (default: master)"
-            echo "  --dir PATH        Installation directory (default: ~/.echo-agent/echo-agent)"
-            echo "  --echo-home PATH  Echo home directory (default: ~/.echo-agent)"
-            echo "  -h, --help        Show this help"
+            echo "  --skip-setup       Skip interactive setup wizard"
+            echo "  --branch NAME      Git branch to install (default: master)"
+            echo "  --dir PATH         Installation directory (default: ~/.echo-agent/echo-agent)"
+            echo "  --echo-home PATH   Echo home directory (default: ~/.echo-agent)"
+            echo "  --no-mirror-probe  Skip PyPI mirror speed test; use uv defaults"
+            echo "  -h, --help         Show this help"
+            echo ""
+            echo "Environment:"
+            echo "  ECHO_PYPI_INDEX    Force a specific PyPI index URL (skips probing)"
+            echo "  ECHO_DEPS_TIMEOUT  Dependency install timeout in seconds (default: 600)"
             exit 0
             ;;
         *)
@@ -446,15 +473,220 @@ setup_venv() {
     log_success "Virtual environment ready"
 }
 
+# Measure round-trip latency to each candidate index and keep the fastest that
+# actually responds. We test real network quality rather than guessing location
+# from GeoIP/locale, so VPNs, corporate links and offline mirrors all behave
+# correctly. Sets PYPI_INDEX; leaves it empty if nothing responds.
+probe_pypi_index() {
+    # Honor an explicit user choice and skip probing entirely.
+    if [ -n "$ECHO_PYPI_INDEX" ]; then
+        PYPI_INDEX="$ECHO_PYPI_INDEX"
+        log_success "Using PyPI index from ECHO_PYPI_INDEX: $PYPI_INDEX"
+        return 0
+    fi
+    if [ -n "${UV_DEFAULT_INDEX:-}" ] || [ -n "${UV_INDEX_URL:-}" ]; then
+        log_info "Respecting UV_DEFAULT_INDEX/UV_INDEX_URL from environment; skipping mirror probe."
+        return 0
+    fi
+    if [ "$MIRROR_PROBE" != true ]; then
+        log_info "Mirror probe disabled; using uv default index."
+        return 0
+    fi
+
+    log_info "Probing PyPI mirrors for the fastest one..."
+    local best_label="" best_url="" best_time="999"
+    local entry label url t
+    for entry in "${PYPI_MIRRORS[@]}"; do
+        label="${entry%%|*}"
+        url="${entry#*|}"
+        # -o /dev/null: discard body; %{time_total}: full request time in seconds.
+        # -f makes HTTP 4xx/5xx a failure and -L follows redirects; gate on curl's
+        # exit status, since %{time_total} is printed even when the request fails
+        # (a fast failure would otherwise look like the fastest mirror).
+        if ! t="$(curl -fsSL -o /dev/null -w '%{time_total}' --connect-timeout 3 --max-time 5 \
+             "${url}/pip/" 2>/dev/null)"; then
+            log_warn "  $label: unreachable"
+            continue
+        fi
+        log_info "  $label: ${t}s"
+        # Numeric compare via awk (times are floats like 0.83).
+        if awk "BEGIN{exit !($t < $best_time)}"; then
+            best_time="$t"; best_label="$label"; best_url="$url"
+        fi
+    done
+
+    if [ -n "$best_url" ]; then
+        PYPI_INDEX="$best_url"
+        log_success "Fastest index: $best_label (${best_time}s) -> $PYPI_INDEX"
+    else
+        log_warn "No PyPI index responded; using uv default. Install may be slow."
+    fi
+}
+
 install_deps() {
     cd "$INSTALL_DIR"
     export VIRTUAL_ENV="$INSTALL_DIR/venv"
-    log_info "Installing Echo Agent dependencies..."
-    if ! run_with_timeout 300 "$UV_CMD" pip install -e ".[all]"; then
-        log_warn "Full install failed, falling back to base install."
-        run_with_timeout 300 "$UV_CMD" pip install -e "."
+
+    probe_pypi_index
+
+    # Build index args: chosen mirror as an --index (higher priority), official
+    # PyPI kept as --default-index for fallback. uv always treats the
+    # default-index as LOWEST priority and stops at the first index that has a
+    # package (first-index strategy), so the mirror must be an --index to
+    # actually be preferred; a --default-index mirror would be bypassed by the
+    # official index on nearly every public package.
+    local index_args=()
+    if [ -n "$PYPI_INDEX" ] && [ "$PYPI_INDEX" != "$PYPI_OFFICIAL" ]; then
+        index_args+=(--index "$PYPI_INDEX" --default-index "$PYPI_OFFICIAL")
     fi
-    log_success "Dependencies installed"
+
+    log_info "Installing Echo Agent dependencies (full)..."
+    if run_with_timeout "$DEPS_TIMEOUT" "$UV_CMD" pip install "${index_args[@]}" -e ".[all]"; then
+        log_success "Dependencies installed (full)"
+        return 0
+    fi
+
+    # Full extras are large (playwright, faiss-cpu, pymupdf, ...) and may time
+    # out on slow links. Fall back to the essential LLM SDKs so the setup wizard
+    # can still verify a model, rather than dropping to a base install with no
+    # provider SDK at all.
+    log_warn "Full install failed or timed out. Falling back to essential LLM providers..."
+    if run_with_timeout "$DEPS_TIMEOUT" "$UV_CMD" pip install "${index_args[@]}" -e ".[openai,anthropic,gemini]"; then
+        log_warn "Installed a REDUCED set (openai, anthropic, gemini)."
+        log_warn "Some features (browser, documents, vector, TUI) are unavailable."
+        log_info "To complete later, run:"
+        log_info "  cd $INSTALL_DIR && $UV_CMD pip install --python \"$INSTALL_DIR/venv/bin/python\" -e \".[all]\""
+        return 0
+    fi
+
+    log_warn "Provider install failed too. Falling back to BASE install (no LLM SDK)."
+    log_warn "The setup wizard's model verification will fail until you install a provider:"
+    log_warn "  cd $INSTALL_DIR && $UV_CMD pip install --python \"$INSTALL_DIR/venv/bin/python\" -e \".[openai]\"   # or .[all]"
+    run_with_timeout "$DEPS_TIMEOUT" "$UV_CMD" pip install "${index_args[@]}" -e "."
+    log_success "Dependencies installed (base only)"
+}
+
+# Warm the local embedding model into a STABLE cache so first-run memory vector
+# search is an offline cache hit instead of a live download racing the runtime's
+# per-message budget. Prefetch runs with a generous budget and lets fastembed
+# fall back from the (often unreachable) HF mirror to its GCS source. This is
+# best-effort: a failure here never aborts the install — the runtime still works
+# in keyword-only mode and retries the download later with backoff.
+EMBED_MODEL="${ECHO_EMBED_MODEL:-BAAI/bge-small-zh-v1.5}"
+EMBED_CACHE_DIR="${ECHO_EMBED_CACHE_DIR:-$ECHO_HOME/models/fastembed}"
+EMBED_PREFETCH_TIMEOUT="${ECHO_EMBED_PREFETCH_TIMEOUT:-900}"
+
+# Release-hosted model package (self-owned mirrors, tried before HF/GCS).
+# NOTE: tags differ in case between the two forges (Gitee v1.1.0 / GitHub V1.1.0).
+EMBED_PKG_NAME="bge-small-zh-v1.5-fastembed.tar.gz"
+EMBED_PKG_SHA256="d095c530b22f384d4d19a79c5862b65e8fff104af64ce9bb9e89690c186d418f"
+EMBED_PKG_URLS=(
+    "https://gitee.com/fuyuxiang/echo-agent/releases/download/v1.1.0/$EMBED_PKG_NAME"
+    "https://github.com/fuyuxiang/echo-agent/releases/download/V1.1.0/$EMBED_PKG_NAME"
+)
+# The directory fastembed expects inside the cache (== tar top-level dir).
+EMBED_PKG_DIR="fast-bge-small-zh-v1.5"
+
+# Try to populate the fastembed cache from our own release mirrors (Gitee first
+# for CN networks, then GitHub). Success means the later prefetch step is a pure
+# offline cache hit. Best-effort: any failure returns non-zero and the caller
+# falls through to the existing HF/GCS prefetch path.
+fetch_embedding_model_from_release() {
+    # Only the default model is packaged on the releases; a custom
+    # ECHO_EMBED_MODEL must use the HF/GCS path.
+    if [ "$EMBED_MODEL" != "BAAI/bge-small-zh-v1.5" ]; then
+        return 1
+    fi
+    # Cache already materialized (marker: the onnx weights file)?
+    if [ -f "$EMBED_CACHE_DIR/$EMBED_PKG_DIR/model_optimized.onnx" ]; then
+        log_info "Embedding model already cached; skipping release download."
+        return 0
+    fi
+    if ! command -v curl >/dev/null 2>&1; then
+        return 1
+    fi
+
+    mkdir -p "$EMBED_CACHE_DIR"
+    local tmp_tar="$EMBED_CACHE_DIR/.$EMBED_PKG_NAME.part"
+    local url actual
+    for url in "${EMBED_PKG_URLS[@]}"; do
+        log_info "Downloading embedding model from release: $url"
+        if ! curl -fsSL --retry 2 --connect-timeout 15 --max-time 600 \
+                -o "$tmp_tar" "$url"; then
+            log_warn "Download failed from $url; trying next source."
+            rm -f "$tmp_tar"
+            continue
+        fi
+        actual=$(shasum -a 256 "$tmp_tar" 2>/dev/null | awk '{print $1}')
+        [ -n "$actual" ] || actual=$(sha256sum "$tmp_tar" 2>/dev/null | awk '{print $1}')
+        if [ "$actual" != "$EMBED_PKG_SHA256" ]; then
+            log_warn "sha256 mismatch from $url (got ${actual:-none}); trying next source."
+            rm -f "$tmp_tar"
+            continue
+        fi
+        if tar -xzf "$tmp_tar" -C "$EMBED_CACHE_DIR"; then
+            rm -f "$tmp_tar"
+            log_success "Embedding model fetched from release mirror (offline-ready)."
+            return 0
+        fi
+        log_warn "Extraction failed for $url; trying next source."
+        rm -f "$tmp_tar"
+    done
+    return 1
+}
+
+prefetch_embedding_model() {
+    local venv_python="$INSTALL_DIR/venv/bin/python"
+    if [ ! -x "$venv_python" ]; then
+        log_warn "Skipping embedding model prefetch (venv python not found)."
+        return 0
+    fi
+    if [ -z "$EMBED_MODEL" ]; then
+        log_info "Embedding model prefetch disabled (ECHO_EMBED_MODEL empty)."
+        return 0
+    fi
+
+    # Our own release mirrors first; on success the fastembed load below is an
+    # offline cache hit and doubles as the verification step.
+    fetch_embedding_model_from_release || true
+
+    log_info "Prefetching local embedding model '$EMBED_MODEL' into $EMBED_CACHE_DIR ..."
+    mkdir -p "$EMBED_CACHE_DIR"
+
+    # Tight HF timeouts so a dead mirror fails fast and fastembed reaches its GCS
+    # fallback within the budget. HF_ENDPOINT respects an operator override.
+    # Bounded by run_with_timeout as a hard ceiling; the trap is disarmed so a
+    # non-zero exit here is swallowed rather than failing the whole install.
+    trap - ERR
+    HF_HUB_DOWNLOAD_TIMEOUT="${HF_HUB_DOWNLOAD_TIMEOUT:-15}" \
+    HF_HUB_ETAG_TIMEOUT="${HF_HUB_ETAG_TIMEOUT:-15}" \
+    HF_ENDPOINT="${HF_ENDPOINT:-https://hf-mirror.com}" \
+    FASTEMBED_CACHE_PATH="$EMBED_CACHE_DIR" \
+    run_with_timeout "$EMBED_PREFETCH_TIMEOUT" "$venv_python" - "$EMBED_MODEL" "$EMBED_CACHE_DIR" <<'PYEOF'
+import sys
+model_name, cache_dir = sys.argv[1], sys.argv[2]
+try:
+    from fastembed import TextEmbedding
+    emb = TextEmbedding(model_name=model_name, cache_dir=cache_dir)
+    # Force a real inference so the ONNX weights are materialized, not just metadata.
+    next(iter(emb.embed(["预热"])), None)
+    print("ok")
+except Exception as e:  # noqa: BLE001 - best-effort prefetch, never fatal
+    print(f"prefetch failed: {e}", file=sys.stderr)
+    sys.exit(1)
+PYEOF
+    local rc=$?
+    trap 'on_error $LINENO' ERR
+
+    if [ "$rc" -eq 0 ]; then
+        log_success "Embedding model cached (offline-ready)."
+    else
+        log_warn "Embedding model prefetch failed or timed out (rc=$rc)."
+        log_warn "Memory vector search starts in keyword-only mode and retries the"
+        log_warn "download at runtime. To retry now:"
+        log_warn "  FASTEMBED_CACHE_PATH='$EMBED_CACHE_DIR' $INSTALL_DIR/venv/bin/python -c \"from fastembed import TextEmbedding; TextEmbedding(model_name='$EMBED_MODEL', cache_dir='$EMBED_CACHE_DIR')\""
+    fi
+    return 0
 }
 
 build_dashboard() {
@@ -729,6 +961,7 @@ main() {
     clone_repo
     setup_venv
     install_deps
+    prefetch_embedding_model
     check_node
     build_dashboard
     setup_path

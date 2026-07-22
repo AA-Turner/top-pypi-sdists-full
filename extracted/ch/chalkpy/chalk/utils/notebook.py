@@ -79,6 +79,25 @@ def is_notebook() -> bool:
     return _is_notebook()
 
 
+_is_chalk_notebook_kernel: bool = env_var_bool("CHALK_NOTEBOOK_KERNEL")
+"""Set by Chalk's hosted notebook kernel (chalk_nb_server). That kernel is a real
+ipykernel — so `is_notebook()` is True — but it forwards only a subset of the
+Jupyter protocol to its frontend: no ipywidgets comms and no `clear_output`."""
+
+
+def is_chalk_notebook_kernel() -> bool:
+    """Whether this process is Chalk's hosted notebook kernel."""
+    return _is_chalk_notebook_kernel
+
+
+def notebook_supports_ipywidgets() -> bool:
+    """Whether the notebook frontend can render ipywidgets and live-updating
+    (spinner) output. Chalk's hosted notebook cannot: widgets degrade to their
+    `repr` text and each spinner frame accumulates as a new output line, so
+    callers should fall back to static prints there."""
+    return is_notebook() and not _is_chalk_notebook_kernel
+
+
 notebook_features_loaded: ContextVar[bool] = ContextVar("notebook_features_loaded", default=False)
 
 

@@ -1,53 +1,41 @@
 from __future__ import annotations
 
-import ipaddress
 import json
 import re
 from dataclasses import dataclass, field
+from logging import getLogger
 from re import Pattern
 from typing import TYPE_CHECKING, Any
-from urllib.parse import urljoin, urlparse
 
 import impit
 from yarl import URL
 
-from apify_shared.consts import ApifyEnvVars
-from crawlee.proxy_configuration import ProxyConfiguration as CrawleeProxyConfiguration
-from crawlee.proxy_configuration import ProxyInfo as CrawleeProxyInfo
-from crawlee.proxy_configuration import _NewUrlFunction
+from crawlee.proxy_configuration import (
+    ProxyConfiguration as CrawleeProxyConfiguration,
+)
+from crawlee.proxy_configuration import (
+    ProxyInfo as CrawleeProxyInfo,
+)
+from crawlee.proxy_configuration import (
+    _NewUrlFunction,
+)
 
 from apify._configuration import Configuration
+from apify._consts import ApifyEnvVars
 from apify._utils import docs_group
-from apify.log import logger
 
 if TYPE_CHECKING:
     from apify_client import ApifyClientAsync
 
     from apify import Request
 
+logger = getLogger(__name__)
+
 APIFY_PROXY_VALUE_REGEX = re.compile(r'^[\w._~]+$')
 COUNTRY_CODE_REGEX = re.compile(r'^[A-Z]{2}$')
 # ISO 3166-2 subdivision codes are 1-3 uppercase alphanumeric characters, e.g. 'CA', 'NSW', '9' (Wien, AT-9)
 SUBDIVISION_CODE_REGEX = re.compile(r'^[A-Z0-9]{1,3}$')
 SESSION_ID_MAX_LENGTH = 50
-
-
-def is_url(url: str) -> bool:
-    """Check if the given string is a valid URL."""
-    try:
-        parsed_url = urlparse(urljoin(url, '/'))
-        has_all_parts = all([parsed_url.scheme, parsed_url.netloc, parsed_url.path])
-        is_domain = '.' in parsed_url.netloc
-        is_localhost = parsed_url.netloc == 'localhost'
-        try:
-            ipaddress.ip_address(parsed_url.netloc)
-            is_ip_address = True
-        except Exception:
-            is_ip_address = False
-
-        return has_all_parts and any([is_domain, is_localhost, is_ip_address])
-    except Exception:
-        return False
 
 
 def _check(
@@ -171,7 +159,7 @@ class ProxyConfiguration(CrawleeProxyConfiguration):
             logger.warning(
                 'Some Apify proxy features may work incorrectly. Please consider setting up Apify properties '
                 'instead of `proxy_urls`.\n'
-                'See https://sdk.apify.com/docs/guides/proxy-management#apify-proxy-configuration'
+                'See https://docs.apify.com/sdk/python/docs/concepts/proxy-management'
             )
 
         self._uses_apify_proxy = not (proxy_urls or new_url_function or tiered_proxy_urls)
@@ -242,7 +230,8 @@ class ProxyConfiguration(CrawleeProxyConfiguration):
             proxy_tier: allows forcing the proxy tier to be used.
 
         Returns:
-            Dictionary that represents information about the proxy and its configuration.
+            A `ProxyInfo` instance with information about the proxy and its configuration, or `None` if no proxy
+            is available.
         """
         if session_id is not None:
             _check(session_id, label='session_id', max_length=SESSION_ID_MAX_LENGTH, pattern=APIFY_PROXY_VALUE_REGEX)
@@ -286,9 +275,8 @@ class ProxyConfiguration(CrawleeProxyConfiguration):
 
         if token and self._apify_client:
             user_info = await self._apify_client.user().get()
-            if user_info:
-                password = user_info['proxy']['password']
-                self._password = password
+            if user_info and (proxy := getattr(user_info, 'proxy', None)):
+                self._password = proxy.password
 
     async def _check_access(self) -> None:
         proxy_status_url = f'{self._configuration.proxy_status_url}/?format=json'

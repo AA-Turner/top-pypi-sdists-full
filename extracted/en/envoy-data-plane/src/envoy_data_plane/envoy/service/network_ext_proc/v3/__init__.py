@@ -156,7 +156,7 @@ class ProcessingResponse(betterproto2.Message):
     ProcessingResponse contains the response from the external processing server to Envoy.
     Each response corresponds to a ProcessingRequest and indicates how the network
     traffic should be handled.
-    [#next-free-field: 6]
+    [#next-free-field: 7]
     """
 
     read_data: "Data | None" = betterproto2.field(
@@ -212,6 +212,27 @@ class ProcessingResponse(betterproto2.Message):
 
     The metadata is not automatically propagated from request to response.
     The external processor must include any needed metadata in its response.
+    """
+
+    close_stream_to_ext_proc_server: "bool" = betterproto2.field(
+        6, betterproto2.TYPE_BOOL
+    )
+    """
+    If set to true, Envoy will close the gRPC stream to the external processor
+    after applying this response. Subsequent data will bypass the ext_proc filter
+    as if it were configured in SKIP mode.
+
+    .. note::
+      This should only be used when there is a strong protocol guarantee
+      that no additional data chunks are in-flight on the wire. Because Envoy
+      immediately drains its local buffer when forwarding bytes to the external
+      processor, if Envoy has already dispatched subsequent data chunks before this
+      stream is closed, those in-flight bytes will be permanently lost and not
+      injected back into the filter chain.
+
+    This feature is primarily designed for tightly-coupled synchronous protocols,
+    such as reading the ClientHello during a TLS handshake, where the sender
+    naturally halts transmission while awaiting the receiver's response.
     """
 
 

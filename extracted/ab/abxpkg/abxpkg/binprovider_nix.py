@@ -34,12 +34,22 @@ logger = get_logger(__name__)
 # ``ABXPKG_NIX_ROOT`` nor ``ABXPKG_LIB_DIR`` is set.
 DEFAULT_NIX_PROFILE = Path("~/.nix-profile").expanduser()
 DEFAULT_NIX_BIN_DIR = Path("/nix/var/nix/profiles/default/bin")
+NIXPKGS_SOURCE = "https://channels.nixos.org/nixpkgs-unstable/nixexprs.tar.xz"
 
 
 class NixProvider(BinProvider):
     name: BinProviderName = "nix"
     _log_emoji = "❄️"
     INSTALLER_BIN: BinName = "nix"
+
+    @staticmethod
+    def _systemctl_abspath() -> str | None:
+        systemctl = EnvProvider().load("systemctl", no_cache=True)
+        return (
+            str(systemctl.loaded_abspath)
+            if systemctl and systemctl.loaded_abspath
+            else None
+        )
 
     PATH: PATHStr = (
         ""  # Starts empty; setup_PATH() lazily replaces it with install_root/bin only.
@@ -228,12 +238,16 @@ class NixProvider(BinProvider):
         # kicks in if env's nix is missing/broken.
         installer = self.INSTALLER_BINARY(no_cache=bool(context.get("no_cache", False)))
         assert installer and installer.loaded_abspath
-        # ``nix search`` against a flake (e.g. ``nixpkgs#``) evaluates
+        # ``nix search`` against a flake evaluates
         # the entire flake via the daemon and runs OOM on small CI
         # runners (rc=-9 / SIGKILL on the GitHub-hosted x86_64 hosts).
-        # Direct ``nix eval nixpkgs#<bin_name>`` only evaluates the
+        # Direct ``nix eval <source>#<bin_name>`` only evaluates the
         # single requested attribute path, so it's bounded in memory
         # and finishes in ~seconds even on the cold flake-fetch run.
+        # Use the same explicit official channel archive as installs instead of
+        # the host's mutable ``nixpkgs`` registry alias. Determinate runners can
+        # redirect that alias through FlakeHub, making resolution depend on
+        # ambient runner state and an unrelated service.
         # Filter env exactly like ``default_install_handler`` does
         # (drop GH/GITHUB tokens + NIX_REMOTE).
         env = {
@@ -252,7 +266,7 @@ class NixProvider(BinProvider):
                 "p: { pname = p.pname or p.name or null; "
                 "version = p.version or null; "
                 "description = (p.meta or {}).description or null; }",
-                f"nixpkgs#{bin_name}",
+                f"{NIXPKGS_SOURCE}#{bin_name}",
             ],
             env=env,
             quiet=True,
@@ -293,7 +307,11 @@ class NixProvider(BinProvider):
                 name=pname,
                 description=f"{version_str} - {description}".strip(" -"),
                 binproviders=[self],
-                overrides={self.name: {"install_args": [f"nixpkgs#{bin_name}"]}},
+                overrides={
+                    self.name: {
+                        "install_args": [f"{NIXPKGS_SOURCE}#{bin_name}"],
+                    },
+                },
             ),
         ]
 
@@ -318,7 +336,7 @@ class NixProvider(BinProvider):
         ):
             cmd_install_args = [
                 "-f",
-                "https://channels.nixos.org/nixpkgs-unstable/nixexprs.tar.xz",
+                NIXPKGS_SOURCE,
                 *cmd_install_args,
             ]
         installer_bin = self.INSTALLER_BINARY(no_cache=no_cache).loaded_abspath
@@ -394,14 +412,7 @@ class NixProvider(BinProvider):
             timeout=timeout,
         )
         proc_output = format_subprocess_output(proc.stdout, proc.stderr)
-        systemctl_bin = next(
-            (
-                str(path)
-                for path in (Path("/usr/bin/systemctl"), Path("/bin/systemctl"))
-                if path.is_file()
-            ),
-            None,
-        )
+        systemctl_bin = self._systemctl_abspath()
         if (
             proc.returncode != 0
             and os.uname().sysname == "Linux"
@@ -547,14 +558,7 @@ class NixProvider(BinProvider):
             timeout=timeout,
         )
         proc_output = format_subprocess_output(proc.stdout, proc.stderr)
-        systemctl_bin = next(
-            (
-                str(path)
-                for path in (Path("/usr/bin/systemctl"), Path("/bin/systemctl"))
-                if path.is_file()
-            ),
-            None,
-        )
+        systemctl_bin = self._systemctl_abspath()
         if (
             proc.returncode != 0
             and os.uname().sysname == "Linux"
@@ -700,14 +704,7 @@ class NixProvider(BinProvider):
             timeout=timeout,
         )
         proc_output = format_subprocess_output(proc.stdout, proc.stderr)
-        systemctl_bin = next(
-            (
-                str(path)
-                for path in (Path("/usr/bin/systemctl"), Path("/bin/systemctl"))
-                if path.is_file()
-            ),
-            None,
-        )
+        systemctl_bin = self._systemctl_abspath()
         if (
             proc.returncode not in (0, 1)
             and os.uname().sysname == "Linux"

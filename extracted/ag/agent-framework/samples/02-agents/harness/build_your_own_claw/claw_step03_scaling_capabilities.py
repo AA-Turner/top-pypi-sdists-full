@@ -1,14 +1,13 @@
 # /// script
 # requires-python = ">=3.10"
 # dependencies = [
-#     "agent-framework",
+#     "agent-framework-foundry",
 #     "agent-framework-tools",
 #     "agent-framework-monty",
 #     "mcp",
 #     "httpx",
 #     "textual>=6.2.1",
 #     "rich>=13.7.1",
-#     "azure-identity",
 #     "python-dotenv",
 # ]
 # ///
@@ -72,8 +71,8 @@ from agent_framework import (
     tool,
 )
 from agent_framework.foundry import FoundryChatClient
-from agent_framework_monty import MontyCodeActProvider
-from agent_framework_tools.shell import LocalShellTool, ShellPolicy
+from agent_framework.monty import MontyCodeActProvider
+from agent_framework.tools import LocalShellTool, ShellPolicy
 from azure.identity import AzureCliCredential, get_bearer_token_provider
 from dotenv import load_dotenv
 from mcp.client.session import ClientSession
@@ -155,6 +154,8 @@ def get_stock_price(
         "currency": "USD",
         "as_of": datetime.now(timezone.utc).isoformat(),
     }
+
+
 # </get_stock_price>
 
 
@@ -174,6 +175,8 @@ def place_trade(
     verb = "Sold" if action == "sell" else "Bought"
     confirmation = f"TRADE-{uuid.uuid4().hex[:8].upper()}"
     return f"{verb} {quantity} share(s) of {symbol.upper()}. Confirmation: {confirmation}."
+
+
 # </place_trade>
 
 
@@ -226,6 +229,8 @@ async def _connect_foundry_toolbox(stack: AsyncExitStack, url: str) -> ClientSes
     session = await stack.enter_async_context(ClientSession(read, write))
     await session.initialize()
     return session
+
+
 # </skills>
 
 
@@ -246,6 +251,8 @@ def _build_research_agent(client: FoundryChatClient) -> Any:
             "with no preamble."
         ),
     )
+
+
 # </background>
 
 
@@ -273,6 +280,8 @@ def _build_shell() -> LocalShellTool:
         ),
         timeout=15,
     )
+
+
 # </shell>
 
 

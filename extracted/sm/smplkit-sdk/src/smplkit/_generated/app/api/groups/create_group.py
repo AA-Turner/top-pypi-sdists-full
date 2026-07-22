@@ -83,7 +83,7 @@ def sync_detailed(
 ) -> Response[ErrorResponse | GroupResponse]:
     """Create Group
 
-     Create an Environment Access Group. The caller provides the group id (a snake-case key, unique
+     Create an Environment Access Group. The caller provides the group id (a kebab-case key, unique
     within the account) in the request body. The id is immutable thereafter. Returns `409` if a group
     with that id already exists, or `422` if `managed_environments` is not exactly `['*']` or a subset
     of the account's standard environment keys.
@@ -120,7 +120,7 @@ def sync(
 ) -> ErrorResponse | GroupResponse | None:
     """Create Group
 
-     Create an Environment Access Group. The caller provides the group id (a snake-case key, unique
+     Create an Environment Access Group. The caller provides the group id (a kebab-case key, unique
     within the account) in the request body. The id is immutable thereafter. Returns `409` if a group
     with that id already exists, or `422` if `managed_environments` is not exactly `['*']` or a subset
     of the account's standard environment keys.
@@ -152,7 +152,7 @@ async def asyncio_detailed(
 ) -> Response[ErrorResponse | GroupResponse]:
     """Create Group
 
-     Create an Environment Access Group. The caller provides the group id (a snake-case key, unique
+     Create an Environment Access Group. The caller provides the group id (a kebab-case key, unique
     within the account) in the request body. The id is immutable thereafter. Returns `409` if a group
     with that id already exists, or `422` if `managed_environments` is not exactly `['*']` or a subset
     of the account's standard environment keys.
@@ -187,7 +187,7 @@ async def asyncio(
 ) -> ErrorResponse | GroupResponse | None:
     """Create Group
 
-     Create an Environment Access Group. The caller provides the group id (a snake-case key, unique
+     Create an Environment Access Group. The caller provides the group id (a kebab-case key, unique
     within the account) in the request body. The id is immutable thereafter. Returns `409` if a group
     with that id already exists, or `422` if `managed_environments` is not exactly `['*']` or a subset
     of the account's standard environment keys.

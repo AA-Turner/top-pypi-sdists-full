@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import collections.abc
+import contextlib
 import html
 import inspect
 import itertools
@@ -111,12 +112,12 @@ from chalk.client.models import (
     FeatureStatisticsResponse,
     GetIncrementalProgressResponse,
     GetOfflineQueryJobResponse,
-    GetRegisteredModelResponse,
-    GetRegisteredModelVersionResponse,
     IngestDatasetRequest,
     JobQueueItem,
     ListDatasetsResponse,
     ManualTriggerScheduledQueryResponse,
+    ModelNamespaceResponse,
+    ModelVersionResponse,
     MultiUploadFeaturesRequest,
     MultiUploadFeaturesResponse,
     NamedQueryMetadata,
@@ -147,6 +148,7 @@ from chalk.client.models import (
     PlanQueryResponse,
     QueryMeta,
     RedeployResponse,
+    RegisteredModelVersion,
     RegisterModelResponse,
     RegisterModelVersionResponse,
     ResolverReplayResponse,
@@ -812,6 +814,19 @@ def render_fqn(name: str) -> str:
         name = f"{base_name}[{time_str}]"
 
     return name
+
+
+@contextlib.contextmanager
+def _console_status_or_static_line(console: Any, message: str):
+    """`rich`'s Jupyter spinner animates via ipywidgets and `clear_output`;
+    frontends without those (Chalk's hosted notebook) accumulate one output
+    line per spinner frame, so print a single static line there instead."""
+    if notebook.is_notebook() and not notebook.notebook_supports_ipywidgets():
+        console.print(message)
+        yield
+    else:
+        with console.status(message, spinner="dots"):
+            yield
 
 
 def _repr_html_table(headers: Sequence[str], rows: Sequence[Sequence[Any]]) -> str:
@@ -1994,7 +2009,7 @@ https://docs.chalk.ai/cli/apply
         return errors
 
     def _display_feature_search(self, features: dict[str, Any]):
-        if not notebook.is_notebook():
+        if not notebook.notebook_supports_ipywidgets():
             return
         from IPython.core.display_functions import display
         from ipywidgets import widgets
@@ -2101,7 +2116,7 @@ https://docs.chalk.ai/cli/apply
 
         console = Console()
 
-        with console.status(f"Loading features from `{branch or self._branch}`", spinner="dots"):
+        with _console_status_or_static_line(console, f"Loading features from `{branch or self._branch}`"):
             result = self._grpc_client._get_python_codegen(branch=branch)  # type: ignore
 
         if result.errors:
@@ -2181,11 +2196,17 @@ https://docs.chalk.ai/cli/apply
 
         caller_frame.f_globals.update(features_raw)
         notebook.notebook_features_loaded.set(True)
-        try:
-            self._display_feature_search(features_processed)
-        except Exception:
-            for _, table in features_processed.items():
-                console.print(table)
+        if notebook.notebook_supports_ipywidgets():
+            try:
+                self._display_feature_search(features_processed)
+            except Exception:
+                for table in features_processed.values():
+                    console.print(table)
+        else:
+            # No interactive feature search without widget support; keep the
+            # output compact instead of dumping every feature-set table.
+            names = ", ".join(sorted(features_processed))
+            console.print(f"Loaded {len(features_processed)} feature set(s)" + (f": {names}" if names else ""))
 
     def query(
         self,
@@ -4531,6 +4552,9 @@ https://docs.chalk.ai/cli/apply
     def _display_button_to_change_branch(self, branch_name: str):
         if not notebook.is_notebook():
             return
+        if not notebook.notebook_supports_ipywidgets():
+            print(f'Call client.set_branch("{branch_name}") to switch this client to the new branch.')
+            return
         try:
             from IPython.core.display_functions import display
             from ipywidgets import widgets
@@ -4588,7 +4612,7 @@ https://docs.chalk.ai/cli/apply
                 from rich.console import Console
 
                 console = Console()
-                with console.status(f"Creating branch `{branch_name}`", spinner="dots"):
+                with _console_status_or_static_line(console, f"Creating branch `{branch_name}`"):
                     resp = self._grpc_client._create_branch(  # type: ignore
                         branch_name=branch_name,
                         source_branch_name=source_branch_name,
@@ -6258,8 +6282,36 @@ https://docs.chalk.ai/cli/apply
         name: str,
         version: Optional[int] = None,
         environment: Optional[EnvironmentId] = None,
-    ) -> Union[GetRegisteredModelResponse, GetRegisteredModelVersionResponse]:
-        return self._get_grpc_client(environment=environment).get_model(name=name, version=version)
+    ) -> Union[ModelNamespaceResponse, ModelVersionResponse]:
+        client = self._get_grpc_client(environment=environment)
+        if version is None:
+            warnings.warn(
+                "`get_model` is deprecated. Use `get_model_namespace` for namespace-level info.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            return client.get_model_namespace(name=name)
+        warnings.warn(
+            "`get_model` is deprecated. Use `get_model_version` to retrieve a version and call `.remote()`.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return client.get_model_version(name=name, version=version)
+
+    def get_model_namespace(
+        self,
+        name: str,
+        environment: Optional[EnvironmentId] = None,
+    ) -> ModelNamespaceResponse:
+        return self._get_grpc_client(environment=environment).get_model_namespace(name=name)
+
+    def get_model_version(
+        self,
+        name: str,
+        version: Optional[int] = None,
+        environment: Optional[EnvironmentId] = None,
+    ) -> ModelVersionResponse:
+        return self._get_grpc_client(environment=environment).get_model_version(name=name, version=version)
 
     def register_model_namespace(
         self,
@@ -6319,7 +6371,7 @@ https://docs.chalk.ai/cli/apply
         self,
         name: str,
         environment: Optional[EnvironmentId] = None,
-    ) -> GetRegisteredModelResponse:
+    ) -> ModelNamespaceResponse:
         return self._get_grpc_client(environment=environment).delete_model_namespace(name=name)
 
     def delete_model_version(
@@ -6327,7 +6379,7 @@ https://docs.chalk.ai/cli/apply
         name: str,
         version: int,
         environment: Optional[EnvironmentId] = None,
-    ) -> GetRegisteredModelVersionResponse:
+    ) -> RegisteredModelVersion:
         return self._get_grpc_client(environment=environment).delete_model_version(name=name, version=version)
 
     def deploy_model_version_to_scaling_group(

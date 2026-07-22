@@ -17,6 +17,10 @@ from prefab_ui.components import (
 from prefab_ui.components.control_flow import If
 from prefab_ui.rx import STATE
 
+from airbyte_ops_webapp.pages.shared_components.agents_callout import (
+    AgentsCalloutContent,
+    render_agents_callout,
+)
 from airbyte_ops_webapp.pages.shared_components.auth import render_auth_status
 from airbyte_ops_webapp.theme import (
     AIRBYTE_LOGO_CLASS,
@@ -39,6 +43,7 @@ def render_page_hero(
     title: str,
     description: str,
     show_auth_controls: bool = False,
+    agents_callout: AgentsCalloutContent | None = None,
 ) -> None:
     with (
         AbHeroCard(),
@@ -54,12 +59,15 @@ def render_page_hero(
             H1(title)
             Text(description)
         with Column(align="end", gap=2, css_class="airbyte-hero-actions"):
-            Svg(
-                _airbyte_logo_svg(),
-                width="160px",
-                height="64px",
-                cssClass=AIRBYTE_LOGO_CLASS,
-            )
+            with Row(align="center", gap=3):
+                Svg(
+                    _airbyte_logo_svg(),
+                    width="160px",
+                    height="64px",
+                    cssClass=AIRBYTE_LOGO_CLASS,
+                )
+                if agents_callout is not None:
+                    render_agents_callout(agents_callout)
             Badge(
                 "Internal Operations",
                 css_class="w-fit bg-[#D763EC] text-white",

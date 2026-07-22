@@ -26,7 +26,7 @@ from typing import (
     cast,
 )
 
-from dbos._outcome import NoResult, Outcome, Pending
+from dbos._outcome import DeferredResult, NoResult, Outcome, Pending
 from dbos._utils import GlobalParams, retriable_postgres_exception
 
 from ._app_db import ApplicationDatabase, TransactionResultInternal
@@ -113,6 +113,22 @@ F = TypeVar("F", bound=Callable[..., Any])
 
 TEMP_SEND_WF_NAME = "<temp>.temp_send_workflow"
 DEFAULT_POLLING_INTERVAL = 1.0
+
+
+def _deferred_workflow_result(dbos: "DBOS", workflow_id: str) -> DeferredResult[Any]:
+    """Wait for a workflow's result, deferred so the Outcome layer picks the mode:
+    a sync (Immediate) caller blocks in-thread, but an async (Pending) workflow
+    awaits on the event loop instead of pinning a thread-pool worker in a blocking
+    poll. Pinning could otherwise starve the shared executor and deadlock recovery
+    when many async parents wait on directly-invoked children."""
+    return DeferredResult(
+        lambda: dbos._sys_db.await_workflow_result(
+            workflow_id, polling_interval=DEFAULT_POLLING_INTERVAL
+        ),
+        lambda: dbos._sys_db.await_workflow_result_async(
+            workflow_id, polling_interval=DEFAULT_POLLING_INTERVAL
+        ),
+    )
 
 
 class WorkflowHandleFuture(Generic[R]):
@@ -654,6 +670,7 @@ def _serialize_exception_for_persistence(
 def _get_wf_invoke_func(
     dbos: "DBOS",
     status: WorkflowStatusInternal,
+    release_active: Callable[[], None] = lambda: None,
 ) -> Callable[[Callable[[], R]], R]:
     def persist(func: Callable[[], R]) -> R:
         if (
@@ -679,6 +696,11 @@ def _get_wf_invoke_func(
             serval, _serialization = serialize_value_as(
                 output, status["serialization"], dbos._serializer
             )
+            # Release the active-workflow-ID entry before the outcome becomes
+            # durable: once it is visible, a resume can re-dispatch this
+            # workflow to this executor, and a stale entry would send that
+            # dispatch down the non-owner path to wait forever.
+            release_active()
             dbos._sys_db.update_workflow_outcome(
                 status["workflow_uuid"],
                 WorkflowStatusString.SUCCESS.value,
@@ -695,11 +717,13 @@ def _get_wf_invoke_func(
             )
             return r
         except DBOSWorkflowCancelledError as error:
+            release_active()
             raise DBOSAwaitedWorkflowCancelledError(status["workflow_uuid"])
         except Exception as error:
             error_str = _serialize_exception_for_persistence(
                 error, status["serialization"], dbos._serializer
             )
+            release_active()
             dbos._sys_db.update_workflow_outcome(
                 status["workflow_uuid"],
                 WorkflowStatusString.ERROR.value,
@@ -811,9 +835,21 @@ def _execute_workflow_wthread(
                 status.get("queue_name"),
                 status.get("queue_partition_key"),
             )
+            # release_active is called both by persist (before the outcome
+            # write) and by the finally below. The guard makes the second call
+            # a no-op: between the two, a resumed execution of this workflow
+            # may have re-acquired the ID, and its entry must not be removed.
+            released = False
+
+            def release_active() -> None:
+                nonlocal released
+                if not released:
+                    released = True
+                    dbos._active_workflows_set.release(status["workflow_uuid"])
+
             try:
                 if owned:
-                    return _get_wf_invoke_func(dbos, status)(
+                    return _get_wf_invoke_func(dbos, status, release_active)(
                         functools.partial(func, *args, **kwargs)
                     )
                 else:
@@ -829,7 +865,7 @@ def _execute_workflow_wthread(
                 raise
             finally:
                 if owned:
-                    dbos._active_workflows_set.release(status["workflow_uuid"])
+                    release_active()
 
 
 async def _execute_workflow_async(
@@ -856,21 +892,33 @@ async def _execute_workflow_async(
                 status.get("queue_name"),
                 status.get("queue_partition_key"),
             )
+            # release_active is called both by persist (before the outcome
+            # write) and by the finally below. The guard makes the second call
+            # a no-op: between the two, a resumed execution of this workflow
+            # may have re-acquired the ID, and its entry must not be removed.
+            released = False
+
+            def release_active() -> None:
+                nonlocal released
+                if not released:
+                    released = True
+                    dbos._active_workflows_set.release(status["workflow_uuid"])
+
             try:
                 if owned:
                     result = Pending[R](functools.partial(func, *args, **kwargs)).then(
-                        _get_wf_invoke_func(dbos, status)
+                        _get_wf_invoke_func(dbos, status, release_active)
                     )
                     return await result()
                 else:
-
-                    def fn() -> Any:
-                        return dbos._sys_db.await_workflow_result(
+                    # Wait on the event loop rather than pinning a to_thread worker in a blocking poll.
+                    return cast(
+                        R,
+                        await dbos._sys_db.await_workflow_result_async(
                             status["workflow_uuid"],
                             polling_interval=DEFAULT_POLLING_INTERVAL,
-                        )
-
-                    return await asyncio.to_thread(fn)
+                        ),
+                    )
             except Exception as e:
                 dbos.logger.error(
                     f"Exception encountered in asynchronous workflow:", exc_info=e
@@ -878,7 +926,7 @@ async def _execute_workflow_async(
                 raise
             finally:
                 if owned:
-                    dbos._active_workflows_set.release(status["workflow_uuid"])
+                    release_active()
 
 
 def execute_workflow_by_id(
@@ -1352,8 +1400,8 @@ def workflow_wrapper(
         # Holds the initialized status so the invoke step can be built once the workflow is cleared to execute.
         init_status: dict[str, WorkflowStatusInternal] = {}
 
-        def check_and_init() -> Union[NoResult, R]:
-            """Initialize the workflow row, returning its recorded result to skip an already-completed workflow's body or NoResult to run it."""
+        def check_and_init() -> Union[NoResult, "DeferredResult[R]", R]:
+            """Initialize the workflow row, returning a deferred wait for an existing workflow's result to skip re-running its body, or NoResult to run it."""
             nonlocal workflow_id
             workflow_id = child_wfid
 
@@ -1368,13 +1416,7 @@ def workflow_wrapper(
                         r["error"], r["serialization"], dbos._sys_db.serializer
                     )
                 elif r and r["child_workflow_id"]:
-                    return cast(
-                        R,
-                        dbos._sys_db.await_workflow_result(
-                            r["child_workflow_id"],
-                            polling_interval=DEFAULT_POLLING_INTERVAL,
-                        ),
-                    )
+                    return _deferred_workflow_result(dbos, r["child_workflow_id"])
 
             status, should_execute = _init_workflow(
                 dbos,
@@ -1410,17 +1452,11 @@ def workflow_wrapper(
             if should_execute:
                 init_status["status"] = status
                 return NoResult()
-            # Already completed: return the recorded result without re-running the body.
+            # Already completed or running elsewhere: wait for its result instead of re-running the body.
             dbos.logger.debug(
                 f"Workflow {status['workflow_uuid']} already run with status {status['status']}"
             )
-            return cast(
-                R,
-                dbos._sys_db.await_workflow_result(
-                    status["workflow_uuid"],
-                    polling_interval=DEFAULT_POLLING_INTERVAL,
-                ),
-            )
+            return _deferred_workflow_result(dbos, status["workflow_uuid"])
 
         def get_wf_invoke() -> Callable[[Callable[[], R]], R]:
             return _get_wf_invoke_func(dbos, init_status["status"])

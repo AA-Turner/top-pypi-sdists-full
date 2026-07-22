@@ -383,14 +383,20 @@ def build_binary(binary_name: str, options: CliOptions, *, dry_run: bool) -> Bin
         version_timeout=options.version_timeout,
     )
     explicit_abspath = Path(binary_name).expanduser()
+    inferred_overrides: dict[str, Any] | None = None
     if explicit_abspath.is_absolute():
         for provider in providers:
             if type(provider) is EnvProvider:
-                provider.PATH = provider._merge_PATH(
-                    explicit_abspath.parent,
-                    PATH=provider.PATH,
-                    prepend=True,
-                )
+                if provider._is_managed_by_other_provider(explicit_abspath):
+                    inferred_overrides = {
+                        "env": {"abspath": str(explicit_abspath)},
+                    }
+                else:
+                    provider.PATH = provider._merge_PATH(
+                        explicit_abspath.parent,
+                        PATH=provider.PATH,
+                        prepend=True,
+                    )
 
     binary_kwargs: dict[str, Any] = {
         "name": binary_name,
@@ -406,7 +412,7 @@ def build_binary(binary_name: str, options: CliOptions, *, dry_run: bool) -> Bin
         ("min_version", options.min_version),
         ("postinstall_scripts", options.postinstall_scripts),
         ("min_release_age", options.min_release_age),
-        ("overrides", options.overrides),
+        ("overrides", merge_binary_overrides(inferred_overrides, options.overrides)),
     ):
         if value is not None:
             binary_kwargs[key] = value
@@ -796,7 +802,7 @@ def list_cached_binaries(
 
 
 def version_report(options: CliOptions):
-    from . import ALL_PROVIDER_NAMES
+    from . import ALL_PROVIDER_NAMES, EnvProvider
     from .binprovider import DEFAULT_ENV_PATH, BinProvider
 
     highlighter = ReprHighlighter()
@@ -811,6 +817,18 @@ def version_report(options: CliOptions):
     )
     install_timeout = all_providers[0].install_timeout if all_providers else 120
     version_timeout = all_providers[0].version_timeout if all_providers else 10
+    env_provider = cast(
+        EnvProvider,
+        build_providers(
+            ["env"],
+            dry_run=False,
+            install_root=options.install_root,
+            bin_dir=options.bin_dir,
+            euid=options.euid,
+            install_timeout=options.install_timeout,
+            version_timeout=options.version_timeout,
+        )[0],
+    )
 
     def render_env_value(value: Any) -> str:
         if isinstance(value, Path):
@@ -869,21 +887,34 @@ def version_report(options: CliOptions):
         install_timeout=options.install_timeout,
         version_timeout=options.version_timeout,
     ):
-        try:
-            provider.setup_PATH(no_cache=options.no_cache)
-        except Exception:
-            pass
+        upstream_binaries = provider.depends_on_binaries()
+        installed_binaries = provider.installed_binaries()
         emoji = (
             type(provider).__private_attributes__["_log_emoji"].default
             or BinProvider.__private_attributes__["_log_emoji"].default
         )
-        installer_binary = None
         try:
-            installer_binary = provider.INSTALLER_BINARY(no_cache=options.no_cache)
+            installer_binary = env_provider.load(
+                provider.INSTALLER_BIN,
+                no_cache=options.no_cache,
+            )
         except Exception:
             installer_binary = None
-
-        status = "✅" if provider.is_valid else "❌"
+        installer_binary = installer_binary or next(
+            (
+                binary
+                for binary in upstream_binaries
+                if binary.name == provider.INSTALLER_BIN
+            ),
+            None,
+        )
+        if (
+            installer_binary is None
+            and provider._INSTALLER_BINARY is not None
+            and provider._INSTALLER_BINARY.is_valid
+        ):
+            installer_binary = provider._INSTALLER_BINARY
+        status = "✅" if installer_binary is not None or provider.is_valid else "❌"
         yield ""
         heading = Text()
         heading.append(f"{emoji} ", style="bold")
@@ -960,7 +991,7 @@ def version_report(options: CliOptions):
                 ),
                 binary.name,
             )
-            for binary in provider.depends_on_binaries()
+            for binary in upstream_binaries
             if binary.loaded_abspath is not None and binary.loaded_version is not None
         ]
         installed_binary_lines = [
@@ -974,7 +1005,7 @@ def version_report(options: CliOptions):
                 ),
                 binary.name,
             )
-            for binary in provider.installed_binaries()
+            for binary in installed_binaries
             if binary.loaded_abspath is not None and binary.loaded_version is not None
         ]
 
@@ -1262,6 +1293,8 @@ def _deps_from_config_specs(
     options: CliOptions,
 ) -> list[Any]:
     deps: list[Any] = []
+    values = {key: str(value) for key, value in os.environ.items()}
+    values["ABXPKG_LIB_DIR"] = str(options.lib_dir)
     for raw_spec_group in raw_specs:
         for raw_spec in str(raw_spec_group or "").split(","):
             spec = raw_spec.strip()
@@ -1276,8 +1309,6 @@ def _deps_from_config_specs(
             for part in (selector or "dependencies").split("."):
                 selected = selected[part]
 
-            values = {key: str(value) for key, value in os.environ.items()}
-            values["ABXPKG_LIB_DIR"] = str(options.lib_dir)
             properties = root.get("properties") if isinstance(root, dict) else None
             if isinstance(properties, dict):
                 for key, prop in properties.items():
@@ -1288,10 +1319,18 @@ def _deps_from_config_specs(
                     ):
                         values[str(key)] = str(prop["default"])
 
-            expanded = _expand_dependency_value(selected, values)
-            if isinstance(expanded, list):
-                deps.extend(expanded)
-            else:
+            selected_items = selected if isinstance(selected, list) else [selected]
+            for selected_item in selected_items:
+                expanded = _expand_dependency_value(selected_item, values)
+                if isinstance(selected_item, dict) and isinstance(expanded, dict):
+                    template_name = str(selected_item.get("name") or "").strip()
+                    template_match = re.fullmatch(
+                        r"\{([A-Za-z_][A-Za-z0-9_]*)\}",
+                        template_name,
+                    )
+                    if template_match:
+                        expanded = dict(expanded)
+                        expanded["_abxpkg_env_key"] = template_match.group(1)
                 deps.append(expanded)
     return deps
 
@@ -1305,6 +1344,8 @@ def build_deps_from_exec_env(
     explicit_provider_selection: bool,
     base_env: dict[str, str],
 ) -> dict[str, str]:
+    from . import EnvProvider
+
     env = dict(base_env)
     for dep in deps:
         if isinstance(dep, str):
@@ -1327,17 +1368,56 @@ def build_deps_from_exec_env(
         else:
             continue
 
-        binary, exec_env_providers = resolve_runtime_binary(
+        binary, _ = resolve_runtime_binary(
             dep_name,
             options=dep_options,
             install_before_run=install_before_run,
             update_before_run=update_before_run,
         )
+        projected_abspath = binary.loaded_abspath
+        env_provider: EnvProvider | None = None
+        if projected_abspath is not None:
+            projection_provider = cast(
+                EnvProvider,
+                build_providers(
+                    ["env"],
+                    dry_run=False,
+                    install_root=None,
+                    bin_dir=None,
+                    euid=options.euid,
+                    install_timeout=options.install_timeout,
+                    version_timeout=options.version_timeout,
+                )[0],
+            )
+            projection_provider.setup_PATH()
+            projected_abspath = projection_provider._link_loaded_binary(
+                Path(dep_name).name,
+                projected_abspath,
+            )
+            if binary.loaded_version is not None and binary.loaded_sha256 is not None:
+                assert binary.loaded_binprovider is not None
+                projection_provider.write_cached_binary(
+                    Path(dep_name).name,
+                    projected_abspath,
+                    binary.loaded_version,
+                    binary.loaded_sha256,
+                    resolved_provider_name=binary.loaded_binprovider.name,
+                    resolved_provider=binary.loaded_binprovider,
+                    cache_kind="projection",
+                )
+            env_provider = projection_provider
+        env_key = dep.get("_abxpkg_env_key") if isinstance(dep, dict) else None
+        if env_key and projected_abspath:
+            env[str(env_key)] = str(projected_abspath)
         env = build_runtime_exec_env(
             binary,
-            exec_env_providers,
             base_env=env,
+            include_exec_only_env=False,
         )
+        if env_provider is not None:
+            from .config import build_exec_env as build_provider_exec_env
+
+            env = build_provider_exec_env(providers=[env_provider], base_env=env)
     return env
 
 
@@ -1502,6 +1582,7 @@ def build_runtime_exec_env(
     runtime_binproviders: Iterable[BinProvider] = (),
     *,
     base_env: dict[str, str] | None = None,
+    include_exec_only_env: bool = True,
 ) -> dict[str, str]:
     from .config import build_exec_env as build_provider_exec_env
 
@@ -1522,6 +1603,7 @@ def build_runtime_exec_env(
             *other_runtime_binproviders,
         ],
         base_env=env,
+        include_exec_only_env=include_exec_only_env,
     )
 
 
@@ -1714,7 +1796,7 @@ def build_command_exec_env(
         )
 
     for binary_name in names:
-        binary, runtime_binproviders = resolve_runtime_binary(
+        binary, _ = resolve_runtime_binary(
             binary_name,
             options=options,
             install_before_run=install_before_run,
@@ -1722,7 +1804,6 @@ def build_command_exec_env(
         )
         env = build_runtime_exec_env(
             binary,
-            runtime_binproviders,
             base_env=env,
         )
     return env
@@ -2129,7 +2210,7 @@ def _run_command_impl(
         install_before_run = True
 
     try:
-        binary, resolved_runtime_binproviders = resolve_runtime_binary(
+        binary, _ = resolve_runtime_binary(
             binary_name,
             options=binary_options,
             install_before_run=install_before_run,
@@ -2140,7 +2221,7 @@ def _run_command_impl(
         ctx.exit(1)
         return
     if not script_mode:
-        runtime_binproviders = resolved_runtime_binproviders
+        runtime_binproviders = []
     else:
         runtime_binproviders = [*runtime_binproviders]
 
@@ -2340,12 +2421,16 @@ def env_command(
             explicit_provider_selection=explicit_provider_selection,
             base_env=base_env,
         )
-    final_env = build_command_exec_env(
-        binary_names,
-        options=options,
-        install_before_run=install_before_run,
-        update_before_run=update_before_run,
-        base_env=base_env,
+    final_env = (
+        build_command_exec_env(
+            binary_names,
+            options=options,
+            install_before_run=install_before_run,
+            update_before_run=update_before_run,
+            base_env=base_env,
+        )
+        if binary_names or not deps_from
+        else base_env
     )
     if json_output:
         _echo(json.dumps(render_env_delta_values(render_base_env, final_env), indent=2))

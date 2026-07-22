@@ -19,8 +19,11 @@ from petl.test.helpers import ieq
 
 def _get_test_xls():
     try:
-        import pkg_resources
-        return pkg_resources.resource_filename('petl', 'test/resources/test.xls')
+        try:
+            from importlib.resources import files
+        except ImportError:  # Python < 3.9
+            from importlib_resources import files
+        return str(files('petl') / 'test/resources/test.xls')
     except:
         return None
 

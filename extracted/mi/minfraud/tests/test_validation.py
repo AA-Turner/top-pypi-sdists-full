@@ -291,6 +291,9 @@ class TestDevice(ValidationBase, unittest.TestCase):
                 {"device": {"ip_address": "4.4.4.4", "session_age": invalid}},
             )
 
+    def test_tracking_token(self) -> None:
+        self.check_transaction_str_type("device", "tracking_token")
+
 
 class TestEmail(ValidationBase, unittest.TestCase):
     def test_address(self) -> None:
@@ -467,7 +470,13 @@ class TestReport(ValidationBase):
             self.check_report_str_type(key)
 
     def test_tag(self) -> None:
-        for good in ("chargeback", "not_fraud", "spam_or_abuse", "suspected_fraud"):
+        for good in (
+            "chargeback",
+            "clear",
+            "not_fraud",
+            "spam_or_abuse",
+            "suspected_fraud",
+        ):
             self.check_report({"tag": good})
         for bad in ("risky_business", "", None):
             self.check_invalid_report({"tag": bad})

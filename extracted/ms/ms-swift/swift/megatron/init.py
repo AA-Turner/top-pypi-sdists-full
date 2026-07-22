@@ -1,13 +1,11 @@
 # Copyright (c) ModelScope Contributors. All rights reserved.
 import concurrent.futures
-import importlib.metadata
 import logging
 import os
 import torch
 import torch.distributed as dist
 from contextlib import contextmanager
 from copy import copy, deepcopy
-from packaging import version
 from tqdm import tqdm
 from transformers.modeling_utils import custom_object_save
 from transformers.utils import is_torch_npu_available
@@ -117,7 +115,7 @@ def _patch_unified_memory():
 
 
 def _patch_mcore_bridge():
-    require_version('mcore-bridge>=1.4.0', 'please install mcore-bridge via `pip install mcore-bridge -U`')
+    require_version('mcore-bridge>=1.5.0', 'please install mcore-bridge via `pip install mcore-bridge -U`')
     import mcore_bridge
     from mcore_bridge import GPTBridge
     logger.info(f'mcore_bridge.__version__: {mcore_bridge.__version__}')
@@ -210,6 +208,9 @@ def init_megatron_env():
     logging_level = logging.root.level
     _patch_unified_memory()
     _patch_mcore_bridge()
+    if is_torch_npu_available():
+        from swift.model.npu_patcher import patch_mindspeed_fla_gdn_implementation
+        patch_mindspeed_fla_gdn_implementation()
     _patch__batched_p2p_ops()
     logging.root.setLevel(logging_level)  # revert logger level
     try:

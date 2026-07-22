@@ -567,12 +567,18 @@ class _Store(_Group):
         body: dict = {"ns": ns, "id": id}
         return self._c.request("POST", "/api/store/doc-get", endpoint="store.doc-get", body=body)
 
-    def doc_put(self, *, ns: str, id: str, body: str, meta: str | None = None) -> CallResult:
-        """STORE: index a text document for full-text keyword search..."""
-        body: dict = {"ns": ns, "id": id, "body": body}
+    def doc_put(self, *, ns: str, id: str, body: str, meta: str | None = None, redact: bool | None = None) -> CallResult:
+        """STORE: index a text document for full-text keyword search.
+
+        Pass redact=True to strip secrets (keys/tokens/JWTs/private keys, see
+        text.redact) from body before it is stored.
+        """
+        payload: dict = {"ns": ns, "id": id, "body": body}
         if meta is not None:
-            body["meta"] = meta
-        return self._c.request("POST", "/api/store/doc-put", endpoint="store.doc-put", body=body)
+            payload["meta"] = meta
+        if redact is not None:
+            payload["redact"] = redact
+        return self._c.request("POST", "/api/store/doc-put", endpoint="store.doc-put", body=payload)
 
     def doc_search(self, *, ns: str, query: str, limit: int | None = None) -> CallResult:
         """STORE: full-text keyword search over documents you stored..."""
@@ -2032,6 +2038,39 @@ class _Weather(_Group):
         """Historical daily weather (ERA5) for a coordinate + date range (start, end YYYY-MM-DD, <=366d)."""
         return self._c.request("GET", "/api/weather/history", endpoint="weather.history", query={"lat": lat, "lon": lon, "start": start, "end": end})
 
+    def current(self, *, lat: float, lon: float, units: Optional[str] = None) -> CallResult:
+        """Current weather conditions for any coordinate worldwide (Open-Meteo; global, not just US).
+
+        Optional units='metric' (default) or 'imperial'.
+        """
+        q: dict[str, Any] = {"lat": lat, "lon": lon}
+        if units is not None:
+            q["units"] = units
+        return self._c.request("GET", "/api/weather/current", endpoint="weather.current", query=q)
+
+    def forecast_global(
+        self,
+        *,
+        lat: float,
+        lon: float,
+        days: Optional[int] = None,
+        hourly: Optional[bool] = None,
+        units: Optional[str] = None,
+    ) -> CallResult:
+        """Global weather forecast up to 16 days for any coordinate (Open-Meteo).
+
+        Optional days (1-16, default 7), hourly=True for hour-by-hour,
+        units='metric' (default) or 'imperial'.
+        """
+        q: dict[str, Any] = {"lat": lat, "lon": lon}
+        if days is not None:
+            q["days"] = days
+        if hourly is not None:
+            q["hourly"] = hourly
+        if units is not None:
+            q["units"] = units
+        return self._c.request("GET", "/api/weather/forecast-global", endpoint="weather.forecast-global", query=q)
+
 
 class _Dns(_Group):
     def lookup(
@@ -2202,6 +2241,33 @@ class _Papers(_Group):
         if sources is not None:
             query["sources"] = sources
         return self._c.request("GET", "/api/papers/search", endpoint="papers.search", query=query)
+
+    def citations(
+        self,
+        *,
+        id: str,
+        view: Optional[str] = None,
+        page: Optional[int] = None,
+        limit: Optional[int] = None,
+        sort: Optional[str] = None,
+    ) -> CallResult:
+        """Citation graph for a scholarly work via OpenAlex.
+
+        `id` = DOI (10.xxxx/..., doi.org URL) or OpenAlex work id (W...).
+        view='citing' (default; works that cite it) or 'referenced' (works it
+        references); page (1-200), limit (1-50, default 10), sort='recent'
+        (default) or 'citations'.
+        """
+        query: dict[str, Any] = {"id": id}
+        if view is not None:
+            query["view"] = view
+        if page is not None:
+            query["page"] = page
+        if limit is not None:
+            query["limit"] = limit
+        if sort is not None:
+            query["sort"] = sort
+        return self._c.request("GET", "/api/papers/citations", endpoint="papers.citations", query=query)
 
 
 class _Geo(_Group):
@@ -3883,6 +3949,14 @@ class _Phone(_Group):
             q["defaultRegion"] = default_region
         return self._c.request("GET", "/api/phone/normalize", endpoint="phone.normalize", query=q)
 
+
+class _Text(_Group):
+    def redact(self, *, text: str) -> CallResult:
+        """Deterministically redact secrets (keys, tokens, JWTs, private keys,
+        URL credentials, api_key/password assignments) from text → in-place
+        [redacted:<kind>] markers + per-kind counts. Pure compute, nothing
+        stored. Pairs with store.doc_put(redact=True)."""
+        return self._c.request("POST", "/api/text/redact", endpoint="text.redact", body={"text": text})
 
 
 class _Bio(_Group):
@@ -6898,6 +6972,7 @@ class TwoS:
         self.countdown = _Countdown(self)
         self.image = _Image(self)
         self.phone = _Phone(self)
+        self.text = _Text(self)
         self.bio = _Bio(self)
         self.space = _Space(self)
         self.vehicle = _Vehicle(self)

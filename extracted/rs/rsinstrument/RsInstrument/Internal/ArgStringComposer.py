@@ -28,7 +28,8 @@ class SingleComposer:
 		assert arg.data_type.is_scalar, f"StructArgComposer.from_scalar_arg() - argument '{arg.name}' must be scalar. Data type: '{arg.data_type}'"
 		if arg.value is None:
 			return ''
-		return arg.conv_to_scpi_string.get_value(arg.value)
+		# noinspection PyUnresolvedReferences
+		return arg.conv_to_scpi_string.get_value(arg.value)  # ty: ignore[unresolved-attribute]
 
 	@staticmethod
 	def from_list_arg(arg: ArgSingle, start_ix=0, items_count=-1) -> str:
@@ -43,13 +44,16 @@ class SingleComposer:
 		if arg.value is None:
 			return ''
 		if start_ix == 0 and items_count < 0:
-			return arg.conv_to_scpi_string.get_value(arg.value)
+			# noinspection PyUnresolvedReferences
+			return arg.conv_to_scpi_string.get_value(arg.value)  # ty: ignore[unresolved-attribute]
 		elif items_count < 0:
-			return arg.conv_to_scpi_string.get_value(arg.value[start_ix])
+			# noinspection PyUnresolvedReferences
+			return arg.conv_to_scpi_string.get_value(arg.value[start_ix])  # ty: ignore[unresolved-attribute]
 		elif items_count == 0:
 			return ''
 		elif items_count > 0:
-			return arg.conv_to_scpi_string.get_value(arg.value[start_ix: start_ix + items_count])
+			# noinspection PyUnresolvedReferences
+			return arg.conv_to_scpi_string.get_value(arg.value[start_ix: start_ix + items_count])  # ty: ignore[unresolved-attribute]
 
 		return ''
 

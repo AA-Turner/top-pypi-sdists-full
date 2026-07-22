@@ -102,7 +102,7 @@ class StreamReader:
 		return self._binary
 
 	# noinspection PyTypeChecker
-	def read(self, chunk_size: int = None) -> AnyStr:
+	def read(self, chunk_size: int | None = None) -> AnyStr:
 		"""Read chunk from the data and moves the data pointer behind it.
 		If the remaining length is smaller than the chunk_size, the method returns the remaining length only.
 		:param chunk_size: chunk to read. If not set, the method reads the entire data."""
@@ -114,10 +114,12 @@ class StreamReader:
 		self._read_len += chunk_size
 		if self._source == Type.Variable:
 			self._start_ptr += chunk_size
-			return self._data[self._start_ptr - chunk_size: self._start_ptr]
+			# noinspection PyUnresolvedReferences
+			return self._data[self._start_ptr - chunk_size: self._start_ptr]  # ty: ignore[invalid-return-type, not-subscriptable]
 		elif self._source == Type.File:
 			self._start_ptr += chunk_size
-			return self._data.read(chunk_size)
+			# noinspection PyUnresolvedReferences
+			return self._data.read(chunk_size)  # ty: ignore[unresolved-attribute]
 		return ''
 
 	@property
@@ -125,17 +127,19 @@ class StreamReader:
 		"""Returns number of bytes read from the stream since its creation."""
 		return self._read_len
 
-	def read_as_binary(self, encoding: str, chunk_size: int = None) -> bytes:
+	def read_as_binary(self, encoding: str, chunk_size: int | None = None) -> bytes:
 		"""Same as read(), but always returns the data in binary format.
 		Practically works exactly as read() for binary streams.
 		For string streams, the method converts the returned data using the provided encoding to bytes()."""
 		if self._binary:
 			return self.read(chunk_size)
 		else:
+			# noinspection PyUnresolvedReferences
 			return self.read(chunk_size).encode(encoding)
 
 	def close(self):
 		"""Closes the StreamReader. You can not use its instance afterward."""
 		if self._source == Type.File and self._data:
-			self._data.close()
+			# noinspection PyUnresolvedReferences
+			self._data.close()  # ty: ignore[unresolved-attribute]
 		self._data = None

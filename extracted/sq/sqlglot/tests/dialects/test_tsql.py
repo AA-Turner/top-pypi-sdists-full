@@ -33,6 +33,11 @@ class TestTSQL(Validator):
             "EXEC MyProc @id = 7, @name = 'Lochristi'",
             "EXECUTE MyProc @id = 7, @name = 'Lochristi'",
         )
+        self.validate_identity("EXECUTE @return_status = dbo.MyProc @a, @b")
+        self.validate_identity(
+            "EXEC @RC = dbo.MyProc @id = 7",
+            "EXECUTE @RC = dbo.MyProc @id = 7",
+        )
         self.validate_identity("SELECT TRIM('     test    ') AS Result")
         self.validate_identity("SELECT TRIM('.,! ' FROM '     #     test    .') AS Result")
         self.validate_identity("SELECT * FROM t TABLESAMPLE (10 PERCENT)")
@@ -1749,21 +1754,21 @@ WHERE
         self.validate_all(
             "CONVERT(DATE, x, 121)",
             write={
-                "spark": "TO_DATE(x, 'yyyy-MM-dd HH:mm:ss.SSSSSS')",
+                "spark": "TO_DATE(x, 'yyyy-M-d HH:mm:ss.SSSSSS')",
                 "tsql": "CONVERT(DATE, x, 121)",
             },
         )
         self.validate_all(
             "CONVERT(DATETIME, x, 121)",
             write={
-                "spark": "TO_TIMESTAMP(x, 'yyyy-MM-dd HH:mm:ss.SSSSSS')",
+                "spark": "TO_TIMESTAMP(x, 'yyyy-M-d HH:mm:ss.SSSSSS')",
                 "tsql": "CONVERT(DATETIME, x, 121)",
             },
         )
         self.validate_all(
             "CONVERT(DATETIME2, x, 121)",
             write={
-                "spark": "TO_TIMESTAMP(x, 'yyyy-MM-dd HH:mm:ss.SSSSSS')",
+                "spark": "TO_TIMESTAMP(x, 'yyyy-M-d HH:mm:ss.SSSSSS')",
                 "tsql": "CONVERT(DATETIME2, x, 121)",
             },
         )

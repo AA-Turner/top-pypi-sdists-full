@@ -16,6 +16,7 @@ __all__ = (
 )
 
 import typing
+import warnings
 
 import betterproto2
 import pydantic
@@ -62,7 +63,7 @@ class Config(betterproto2.Message):
       leading to a denial of service in Envoy, or can overwhelm any configured
       stat sinks by sending too many unique metrics.
 
-    [#next-free-field: 6]
+    [#next-free-field: 7]
     """
 
     stat_prefix: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
@@ -70,6 +71,15 @@ class Config(betterproto2.Message):
     )
     """
     The stat prefix for the generated stats.
+    Deprecated: please use ``stats_scope.prefix`` instead.
+    It will override ``stats_scope.prefix`` if non-empty.
+    """
+
+    stats_scope: "____type__v3__.Scope | None" = betterproto2.field(
+        6, betterproto2.TYPE_MESSAGE, optional=True
+    )
+    """
+    Configuration for stats scope limits and sharing.
     """
 
     histograms: "list[ConfigHistogram]" = betterproto2.field(
@@ -92,6 +102,11 @@ class Config(betterproto2.Message):
     """
     The gauges this logger will emit.
     """
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        if self.is_set("stat_prefix"):
+            warnings.warn("Config.stat_prefix is deprecated", DeprecationWarning)
 
 
 default_message_pool.register_message(
@@ -357,3 +372,4 @@ default_message_pool.register_message(
 from ......google import protobuf as _____google__protobuf__
 from ......xds.type.matcher import v3 as _____xds__type__matcher__v3__
 from .....data.accesslog import v3 as ____data__accesslog__v3__
+from .....type import v3 as ____type__v3__

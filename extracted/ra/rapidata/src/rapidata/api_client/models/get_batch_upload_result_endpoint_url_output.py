@@ -16,7 +16,7 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from rapidata.api_client.models.batch_upload_url_status import BatchUploadUrlStatus
 from pydantic import ValidationError
@@ -32,7 +32,9 @@ class GetBatchUploadResultEndpointUrlOutput(LazyValidatedModel):
     file_name: Optional[StrictStr] = Field(default=None, alias="fileName")
     status: BatchUploadUrlStatus
     error_message: Optional[StrictStr] = Field(default=None, alias="errorMessage")
-    __properties: ClassVar[List[str]] = ["url", "fileName", "status", "errorMessage"]
+    stage: Optional[StrictStr] = None
+    upstream_http_status: Optional[StrictInt] = Field(default=None, alias="upstreamHttpStatus")
+    __properties: ClassVar[List[str]] = ["url", "fileName", "status", "errorMessage", "stage", "upstreamHttpStatus"]
 
     # model_config is inherited from LazyValidatedModel
 
@@ -79,6 +81,16 @@ class GetBatchUploadResultEndpointUrlOutput(LazyValidatedModel):
         if self.error_message is None and "error_message" in self.model_fields_set:
             _dict['errorMessage'] = None
 
+        # set to None if stage (nullable) is None
+        # and model_fields_set contains the field
+        if self.stage is None and "stage" in self.model_fields_set:
+            _dict['stage'] = None
+
+        # set to None if upstream_http_status (nullable) is None
+        # and model_fields_set contains the field
+        if self.upstream_http_status is None and "upstream_http_status" in self.model_fields_set:
+            _dict['upstreamHttpStatus'] = None
+
         return _dict
 
     @classmethod
@@ -94,7 +106,9 @@ class GetBatchUploadResultEndpointUrlOutput(LazyValidatedModel):
             "url": obj.get("url"),
             "fileName": obj.get("fileName"),
             "status": obj.get("status"),
-            "errorMessage": obj.get("errorMessage")
+            "errorMessage": obj.get("errorMessage"),
+            "stage": obj.get("stage"),
+            "upstreamHttpStatus": obj.get("upstreamHttpStatus")
         }
         try:
             _obj = cls.model_validate(_data)

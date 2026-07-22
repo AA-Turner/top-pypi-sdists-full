@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_boto3_emr_containers.type_defs import CancelJobRunRequestTypeDef
+    from types_boto3_emr_containers.type_defs import IAMConfigurationTypeDef
 
-    data: CancelJobRunRequestTypeDef = ...
+    data: IAMConfigurationTypeDef = ...
     ```
 """
 
@@ -38,6 +38,7 @@ else:
 
 
 __all__ = (
+    "AuthenticationConfigurationTypeDef",
     "AuthorizationConfigurationTypeDef",
     "CancelJobRunRequestTypeDef",
     "CancelJobRunResponseTypeDef",
@@ -66,6 +67,8 @@ __all__ = (
     "DeleteJobTemplateResponseTypeDef",
     "DeleteManagedEndpointRequestTypeDef",
     "DeleteManagedEndpointResponseTypeDef",
+    "DeleteSecurityConfigurationRequestTypeDef",
+    "DeleteSecurityConfigurationResponseTypeDef",
     "DeleteVirtualClusterRequestTypeDef",
     "DeleteVirtualClusterResponseTypeDef",
     "DescribeJobRunRequestTypeDef",
@@ -84,6 +87,8 @@ __all__ = (
     "EndpointTypeDef",
     "GetManagedEndpointSessionCredentialsRequestTypeDef",
     "GetManagedEndpointSessionCredentialsResponseTypeDef",
+    "IAMConfigurationTypeDef",
+    "IdentityCenterConfigurationTypeDef",
     "InTransitEncryptionConfigurationTypeDef",
     "JobDriverOutputTypeDef",
     "JobDriverTypeDef",
@@ -145,6 +150,18 @@ __all__ = (
     "UntagResourceRequestTypeDef",
     "VirtualClusterTypeDef",
 )
+
+
+class IAMConfigurationTypeDef(TypedDict):
+    systemRole: NotRequired[str]
+
+
+class IdentityCenterConfigurationTypeDef(TypedDict):
+    enableIdentityCenter: NotRequired[bool]
+    identityCenterApplicationAssignmentRequired: NotRequired[bool]
+    identityCenterInstanceARN: NotRequired[str]
+    emrIdentityCenterApplicationARN: NotRequired[str]
+
 
 CancelJobRunRequestTypeDef = TypedDict(
     "CancelJobRunRequestTypeDef",
@@ -216,6 +233,12 @@ DeleteManagedEndpointRequestTypeDef = TypedDict(
     {
         "id": str,
         "virtualClusterId": str,
+    },
+)
+DeleteSecurityConfigurationRequestTypeDef = TypedDict(
+    "DeleteSecurityConfigurationRequestTypeDef",
+    {
+        "id": str,
     },
 )
 DeleteVirtualClusterRequestTypeDef = TypedDict(
@@ -355,6 +378,11 @@ class UntagResourceRequestTypeDef(TypedDict):
     tagKeys: Sequence[str]
 
 
+class AuthenticationConfigurationTypeDef(TypedDict):
+    identityCenterConfiguration: NotRequired[IdentityCenterConfigurationTypeDef]
+    iamConfiguration: NotRequired[IAMConfigurationTypeDef]
+
+
 CancelJobRunResponseTypeDef = TypedDict(
     "CancelJobRunResponseTypeDef",
     {
@@ -413,6 +441,13 @@ DeleteManagedEndpointResponseTypeDef = TypedDict(
     {
         "id": str,
         "virtualClusterId": str,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+DeleteSecurityConfigurationResponseTypeDef = TypedDict(
+    "DeleteSecurityConfigurationResponseTypeDef",
+    {
+        "id": str,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -801,6 +836,7 @@ class ListVirtualClustersResponseTypeDef(TypedDict):
 
 class SecurityConfigurationDataTypeDef(TypedDict):
     authorizationConfiguration: NotRequired[AuthorizationConfigurationTypeDef]
+    authenticationConfiguration: NotRequired[AuthenticationConfigurationTypeDef]
 
 
 class DescribeManagedEndpointResponseTypeDef(TypedDict):

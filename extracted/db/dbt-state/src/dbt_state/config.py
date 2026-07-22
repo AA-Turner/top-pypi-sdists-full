@@ -211,6 +211,7 @@ class RunCacheConfig:
     )
     org_id: t.Optional[str] = None
     run_hooks_on_no_op: bool = False
+    compare_unrendered_code: bool = False
     emit_reused_status: bool = False
     snowflake_get_view_ddl_override: t.Optional[str] = None
     snowflake_metadata_warehouse: t.Optional[str] = None
@@ -218,6 +219,7 @@ class RunCacheConfig:
         default=CacheMode.READ_WRITE, metadata={"parser": _parse_cache_mode}
     )
     disable_telemetry: bool = field(default_factory=lambda: DISABLE_TELEMETRY)
+    dbt_project_id: t.Optional[str] = None
 
     @classmethod
     def from_runtime_config(cls, config: RuntimeConfig) -> RunCacheConfig:
@@ -373,11 +375,16 @@ class RunCacheConfig:
                     "Please ensure it's formatted correctly. For more information, see: https://docs.getdbt.com/docs/platform/configure-cloud-cli#configure-the-dbt-cli"
                 ) from e
 
+            project_details = _get_active_dbt_project_details(runtime_config, cloud_yml)
+            if project_details:
+                active_project_host, active_project_id = project_details
+                config["dbt_project_id"] = active_project_id
+
             # check for user personal access tokens
             if (
                 (projects := cloud_yml.get("projects", []))
                 and isinstance(projects, list)
-                and (project_details := _get_active_dbt_project_details(runtime_config, cloud_yml))
+                and project_details
             ):
                 # scrape credentials from the active project
                 # If no projects match, we dont fallback to any default, it's the same as no credentials being present at all
@@ -528,6 +535,16 @@ class RunCacheConfig:
             value = self._get_node_config_value(node_config, "run_hooks_on_no_op")
         if value is None:
             return self.run_hooks_on_no_op
+        if not isinstance(value, str):
+            value = str(value)
+        return str_to_bool(value)
+
+    def resolve_compare_unrendered_code(
+        self, node_config: t.Union[ModelConfig, SnapshotConfig, TestConfig]
+    ) -> bool:
+        value = self._get_node_config_state_value(node_config, "compare_unrendered_code")
+        if value is None:
+            return self.compare_unrendered_code
         if not isinstance(value, str):
             value = str(value)
         return str_to_bool(value)

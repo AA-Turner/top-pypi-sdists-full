@@ -22,6 +22,18 @@ from typing import (
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
+class MaterializedFeatureViewObservationSamplingStrategy(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    MATERIALIZED_FEATURE_VIEW_OBSERVATION_SAMPLING_STRATEGY_UNSPECIFIED: _ClassVar[
+        MaterializedFeatureViewObservationSamplingStrategy
+    ]
+    MATERIALIZED_FEATURE_VIEW_OBSERVATION_SAMPLING_STRATEGY_ANY: _ClassVar[
+        MaterializedFeatureViewObservationSamplingStrategy
+    ]
+    MATERIALIZED_FEATURE_VIEW_OBSERVATION_SAMPLING_STRATEGY_LAST_OBSERVED: _ClassVar[
+        MaterializedFeatureViewObservationSamplingStrategy
+    ]
+
 class CacheStrategy(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     CACHE_STRATEGY_UNSPECIFIED: _ClassVar[CacheStrategy]
@@ -93,6 +105,11 @@ class WindowMode(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     WINDOW_MODE_TUMBLING: _ClassVar[WindowMode]
     WINDOW_MODE_CDC: _ClassVar[WindowMode]
 
+MATERIALIZED_FEATURE_VIEW_OBSERVATION_SAMPLING_STRATEGY_UNSPECIFIED: MaterializedFeatureViewObservationSamplingStrategy
+MATERIALIZED_FEATURE_VIEW_OBSERVATION_SAMPLING_STRATEGY_ANY: MaterializedFeatureViewObservationSamplingStrategy
+MATERIALIZED_FEATURE_VIEW_OBSERVATION_SAMPLING_STRATEGY_LAST_OBSERVED: (
+    MaterializedFeatureViewObservationSamplingStrategy
+)
 CACHE_STRATEGY_UNSPECIFIED: CacheStrategy
 CACHE_STRATEGY_ALL: CacheStrategy
 CACHE_STRATEGY_NO_NULLS: CacheStrategy
@@ -210,6 +227,7 @@ class MaterializedFeatureView(_message.Message):
         "lower_bound",
         "lookback_retention_period",
         "source_file_reference",
+        "observation_sampling_strategy",
     )
     NAMESPACES_FIELD_NUMBER: _ClassVar[int]
     TIME_RESOLUTION_FIELD_NUMBER: _ClassVar[int]
@@ -217,12 +235,14 @@ class MaterializedFeatureView(_message.Message):
     LOWER_BOUND_FIELD_NUMBER: _ClassVar[int]
     LOOKBACK_RETENTION_PERIOD_FIELD_NUMBER: _ClassVar[int]
     SOURCE_FILE_REFERENCE_FIELD_NUMBER: _ClassVar[int]
+    OBSERVATION_SAMPLING_STRATEGY_FIELD_NUMBER: _ClassVar[int]
     namespaces: _containers.RepeatedScalarFieldContainer[str]
     time_resolution: _duration_pb2.Duration
     update_cadence: str
     lower_bound: _timestamp_pb2.Timestamp
     lookback_retention_period: _duration_pb2.Duration
     source_file_reference: SourceFileReference
+    observation_sampling_strategy: MaterializedFeatureViewObservationSamplingStrategy
     def __init__(
         self,
         namespaces: _Optional[_Iterable[str]] = ...,
@@ -231,6 +251,7 @@ class MaterializedFeatureView(_message.Message):
         lower_bound: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         lookback_retention_period: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
         source_file_reference: _Optional[_Union[SourceFileReference, _Mapping]] = ...,
+        observation_sampling_strategy: _Optional[_Union[MaterializedFeatureViewObservationSamplingStrategy, str]] = ...,
     ) -> None: ...
 
 class OverlayGraph(_message.Message):

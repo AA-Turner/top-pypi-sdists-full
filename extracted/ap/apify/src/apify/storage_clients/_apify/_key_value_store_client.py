@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import warnings
 from logging import getLogger
 from typing import TYPE_CHECKING, Any
 
@@ -11,12 +10,12 @@ from crawlee.storage_clients._base import KeyValueStoreClient
 from crawlee.storage_clients.models import KeyValueStoreRecord, KeyValueStoreRecordMetadata
 
 from ._api_client_creation import create_storage_api_client
-from ._models import ApifyKeyValueStoreMetadata, KeyValueStoreListKeysPage
+from ._models import ApifyKeyValueStoreMetadata
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
-    from apify_client.clients import KeyValueStoreClientAsync
+    from apify_client._resource_clients import KeyValueStoreClientAsync
 
     from apify import Configuration
 
@@ -30,7 +29,6 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
         self,
         *,
         api_client: KeyValueStoreClientAsync,
-        api_public_base_url: str,
         lock: asyncio.Lock,
     ) -> None:
         """Initialize a new instance.
@@ -43,18 +41,21 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
         self._lock = lock
         """A lock to ensure that only one operation is performed at a time."""
 
-        if api_public_base_url:
-            # Remove in version 4.0, https://github.com/apify/apify-sdk-python/issues/635
-            warnings.warn(
-                'api_public_base_url argument is deprecated and will be removed in version 4.0.0',
-                DeprecationWarning,
-                stacklevel=2,
-            )
-
     @override
     async def get_metadata(self) -> ApifyKeyValueStoreMetadata:
         metadata = await self._api_client.get()
-        return ApifyKeyValueStoreMetadata.model_validate(metadata)
+
+        if metadata is None:
+            raise ValueError('Failed to retrieve key-value store metadata.')
+
+        return ApifyKeyValueStoreMetadata(
+            id=metadata.id,
+            name=metadata.name,
+            created_at=metadata.created_at,
+            modified_at=metadata.modified_at,
+            accessed_at=metadata.accessed_at,
+            url_signing_secret_key=metadata.url_signing_secret_key,
+        )
 
     @classmethod
     async def open(
@@ -98,7 +99,6 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
         )
         return cls(
             api_client=api_client,
-            api_public_base_url='',  # Remove in version 4.0, https://github.com/apify/apify-sdk-python/issues/635
             lock=asyncio.Lock(),
         )
 
@@ -143,11 +143,9 @@ class ApifyKeyValueStoreClient(KeyValueStoreClient):
         count = 0
 
         while True:
-            response = await self._api_client.list_keys(exclusive_start_key=exclusive_start_key)
-            list_key_page = KeyValueStoreListKeysPage.model_validate(response)
+            list_key_page = await self._api_client.list_keys(exclusive_start_key=exclusive_start_key)
 
             for item in list_key_page.items:
-                # Convert KeyValueStoreKeyInfo to KeyValueStoreRecordMetadata
                 record_metadata = KeyValueStoreRecordMetadata(
                     key=item.key,
                     size=item.size,

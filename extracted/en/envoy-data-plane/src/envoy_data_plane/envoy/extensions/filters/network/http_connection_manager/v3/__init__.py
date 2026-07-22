@@ -288,7 +288,7 @@ class HttpConnectionManager(betterproto2.Message):
     HTTP connection manager :ref:`configuration overview <config_http_conn_man>`.
     [#extension: envoy.filters.network.http_connection_manager]
 
-    [#next-free-field: 62]
+    [#next-free-field: 63]
 
     Oneofs:
         - route_specifier:
@@ -580,6 +580,22 @@ class HttpConnectionManager(betterproto2.Message):
     <envoy_v3_api_field_config.core.v3.HttpProtocolOptions.max_connection_duration>`
     is reached, or during general server draining. The default grace period is
     5000 milliseconds (5 seconds) if this option is not specified.
+    """
+
+    drain_timeout_jitter: "_____type__v3__.Percent | None" = betterproto2.field(
+        62, betterproto2.TYPE_MESSAGE, optional=True
+    )
+    """
+    Percentage-based jitter for ``drain_timeout``. If set, the actual drain grace period
+    is extended by a random duration up to ``drain_timeout * jitter / 100`` per connection.
+    This staggers the final GOAWAY (and connection close) across time so that connections
+    entering the drain state simultaneously do not all complete draining at the same instant,
+    mitigating thundering-herd reconnects. If not set, no jitter is added.
+
+    This is analogous to
+    :ref:`max_connection_duration_jitter
+    <envoy_v3_api_field_config.core.v3.HttpProtocolOptions.max_connection_duration_jitter>`,
+    but applied to the drain grace timer rather than the connection duration timer.
     """
 
     delayed_close_timeout: "datetime.timedelta | None" = betterproto2.field(

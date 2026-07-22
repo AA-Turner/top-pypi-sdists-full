@@ -64,11 +64,11 @@ def _find_left_knot_indices(
   # Handle edge cases for times at or after the last knot
   left_knot_indices[times >= knot_locations[-1]] = n_knots - 1
 
-  return left_knot_indices
+  return left_knot_indices  # pyrefly: ignore[bad-return]
 
 
 def l1_distance_weights(
-    n_times: int, knot_locations: np.ndarray[int, np.dtype[int]]
+    n_times: int, knot_locations: np.ndarray[int, np.dtype[int]]  # pyrefly: ignore[bad-specialization]
 ) -> np.ndarray:
   """Computes weights at knots for every time period.
 
@@ -101,17 +101,17 @@ def l1_distance_weights(
     raise ValueError('Number of knots must be greater than 1.')
   if len(knot_locations) != len(np.unique(knot_locations)):
     raise ValueError('`knot_locations` must be unique.')
-  if np.any(knot_locations < 0):
+  if np.any(knot_locations < 0):  # pyrefly: ignore[unsupported-operation]
     raise ValueError('knot_locations must be positive.')
-  if np.any(knot_locations >= n_times):
+  if np.any(knot_locations >= n_times):  # pyrefly: ignore[unsupported-operation]
     raise ValueError('knot_locations must be less than `n_times`.')
 
   times = np.arange(n_times)
-  time_minus_knot = abs(knot_locations[:, np.newaxis] - times[np.newaxis, :])
+  time_minus_knot = abs(knot_locations[:, np.newaxis] - times[np.newaxis, :])  # pyrefly: ignore[unsupported-operation]
 
   w = np.zeros(time_minus_knot.shape, dtype=backend.np_float_dtype)
   left_knot_indices = _find_left_knot_indices(
-      times=times, knot_locations=knot_locations
+      times=times, knot_locations=knot_locations  # pyrefly: ignore[bad-argument-type]
   )
 
   for t in times:
@@ -156,8 +156,8 @@ class KnotInfo:
   """
 
   n_knots: int
-  knot_locations: np.ndarray[int, np.dtype[int]]
-  weights: np.ndarray[int, np.dtype[float]]
+  knot_locations: np.ndarray[int, np.dtype[int]]  # pyrefly: ignore[bad-specialization]
+  weights: np.ndarray[int, np.dtype[float]]  # pyrefly: ignore[bad-specialization]
 
 
 def get_knot_info(
@@ -230,7 +230,7 @@ def get_knot_info(
       )
     n_knots = len(knots)
     # np.unique also sorts
-    knot_locations = np.unique(knots)
+    knot_locations = np.unique(knots)  # pyrefly: ignore[no-matching-overload]
   elif isinstance(knots, Collection):
     raise ValueError('Knots cannot be empty.')
   else:
@@ -243,12 +243,12 @@ def get_knot_info(
   else:
     weights = l1_distance_weights(n_times, knot_locations)
 
-  return KnotInfo(n_knots, knot_locations, weights)
+  return KnotInfo(n_knots, knot_locations, weights)  # pyrefly: ignore[bad-argument-type]
 
 
 @dataclasses.dataclass(frozen=True)
 class AKSResult:
-  knots: np.ndarray[int, np.dtype[int]]
+  knots: np.ndarray[int, np.dtype[int]]  # pyrefly: ignore[bad-specialization]
   model: linear_model.OLS
 
 
@@ -266,6 +266,9 @@ class AKS:
       base_penalty: np.ndarray | None = None,
       min_internal_knots: int = 1,
       max_internal_knots: int | None = None,
+      required_knots: Collection[int] | None = None,
+      excluded_knots: Collection[int] | None = None,
+      restrict_to_right_of_required_knots: bool = False,
   ) -> AKSResult:
     """Calculates the optimal number of knots for Meridian model using Automatic knot selection with A-spline.
 
@@ -277,9 +280,30 @@ class AKS:
         value is calculated as the number of initial knots minus the total count
         of all treatment and control variables. Otherwise, the user-provided
         value will be used.
+      required_knots: An optional collection of user-defined knot locations that
+        must be included in the final model.
+      excluded_knots: An optional collection of user-defined knot locations that
+        must not be included in the final model. If None, the second to the last
+        time point will be excluded to ensure that the algorithm has sufficient
+        degrees of freedom to function.
+      restrict_to_right_of_required_knots: If True, candidate knots strictly to
+        the left of the maximum required knot are removed from the candidate
+        pool, leaving only the required knots and those to the right of them.
 
     Returns:
       Selected knots and the corresponding B-spline model.
+
+    Raises:
+      ValueError: If the same knot is both required and excluded.
+      ValueError: If the required knots are not legitimate knot locations (note
+        that if `excluded_knots` is None, the last internal knot is excluded by
+        default, so requiring it without explicitly setting `excluded_knots`
+        will raise this error).
+      ValueError: If the number of required knots exceeds `max_internal_knots`.
+      ValueError: If `restrict_to_right_of_required_knots` is True but
+        `required_knots` is empty or None.
+      ValueError: If the allowed range of internal knots does not contain any of
+        the available knot lengths.
     """
     if base_penalty is None:
       base_penalty = self._BASE_PENALTY
@@ -292,14 +316,60 @@ class AKS:
         np.repeat([range(n_times)], n_geos, axis=0), (n_geos * n_times,)
     )
 
-    knots = self._calculate_initial_knots(x)
+    excluded_knots_arr = (
+        np.unique(excluded_knots)
+        if excluded_knots is not None and len(excluded_knots) > 0
+        else None
+    )
+    required_knots_arr = (
+        np.unique(required_knots)
+        if required_knots is not None and len(required_knots) > 0
+        else None
+    )
+
+    if (
+        excluded_knots_arr is not None
+        and required_knots_arr is not None
+        and np.isin(excluded_knots_arr, required_knots_arr).any()
+    ):
+      raise ValueError('The same knot cannot be both required and excluded.')
+
+    knots = self._calculate_initial_knots(x, excluded_knots_arr)
     max_internal_knots = self._calculate_and_validate_max_internal_knots(
         knots, min_internal_knots, max_internal_knots
     )
     geo_scaling_factor = 1 / np.sqrt(len(self._data.geo))
     penalty = geo_scaling_factor * base_penalty
 
-    aspline = self.aspline(x=x, y=y, knots=knots, penalty=penalty)
+    if required_knots_arr is not None:
+      if not np.all(np.isin(required_knots_arr, knots)):
+        raise ValueError(
+            'The required knots are not legitimate knot locations.'
+        )
+      if len(required_knots_arr) > max_internal_knots:
+        raise ValueError(
+            'The number of required knots exceeds `max_internal_knots`.'
+        )
+
+      if restrict_to_right_of_required_knots:
+        max_req_knot = np.max(required_knots_arr)
+        # Keep only required knots or those strictly to the right
+        mask = np.isin(knots, required_knots_arr) | (knots > max_req_knot)
+        knots = knots[mask]
+      aspline = self.aspline(
+          x=x,
+          y=y,
+          knots=knots,
+          penalty=penalty,
+          required_knots=required_knots_arr,
+      )
+    else:
+      if restrict_to_right_of_required_knots:
+        raise ValueError(
+            '`restrict_to_right_of_required_knots` can only be True if'
+            ' `required_knots` are provided and not empty.'
+        )
+      aspline = self.aspline(x=x, y=y, knots=knots, penalty=penalty)
     # Ensure defined knot range covers at least one of the available knot sets.
     available_knots_lengths = np.unique(
         np.fromiter(
@@ -343,16 +413,17 @@ class AKS:
   def _calculate_initial_knots(
       self,
       x: np.ndarray,
+      excluded_knots: np.ndarray | None = None,
   ) -> np.ndarray:
     """Calculates initial knots based on unique x values.
 
     Args:
       x: A flattened array of indexed time coordinates, repeated n_geos times.
         e.g. [0, 1, 2, 3, ..., 0, 1, 2, 3, ...].
+      excluded_knots: Array of knots to exclude from initial knots.
 
     Returns:
-      A tuple containing:
-        - The calculated knots.
+      The calculated knots.
     """
     x_vals_unique = np.unique(x)
     min_x_data, max_x_data = x_vals_unique.min(), x_vals_unique.max()
@@ -360,11 +431,23 @@ class AKS:
         (x_vals_unique > min_x_data) & (x_vals_unique < max_x_data)
     ]
     knots = np.sort(np.unique(knots))
-    # Drop one knot from the set of all knots because the algorithm requires one
-    # fewer degree of freedom than the total number of knots to function.
-    # Dropping the final knot is a natural and practical choice because it
-    # often has minimal impact on the overall model fit.
-    return knots[:-1]
+    # If `excluded_knots` is None, drop one knot from the set of all knots
+    # because the algorithm requires one fewer degree of freedom than the total
+    # number of knots to function. Dropping the final knot is a natural and
+    # practical choice because it often has minimal impact on the overall model
+    # fit.
+    if excluded_knots is None:
+      excluded_knots = (
+          np.array([knots[-1]]) if len(knots) > 0 else np.array([], dtype=int)
+      )
+
+    if not np.all(np.isin(excluded_knots, knots)):
+      raise ValueError(
+          'The excluded knots are not legitimate knot locations.'
+      )
+    is_included = ~np.isin(knots, excluded_knots)
+    knots = knots[is_included]
+    return knots
 
   def _calculate_and_validate_max_internal_knots(
       self,
@@ -415,6 +498,7 @@ class AKS:
       y: np.ndarray,
       knots: np.ndarray,
       penalty: np.ndarray,
+      required_knots: np.ndarray | None = None,
       max_iterations: int = 1000,
       epsilon: float = 1e-5,
       tol: float = 1e-6,
@@ -423,12 +507,13 @@ class AKS:
 
     Args:
       x: A flattened array of indexed time coordinates, repeated n_geos times.
-        e.g. [0, 1, 2, 3, ..., 0, 1, 2, 3, ...].
+        E.g., [0, 1, 2, 3, ..., 0, 1, 2, 3, ...].
       y: The flattened array of KPI values that have been population-scaled and
         mean-centered by geo.
       knots: Internal knots used for spline regression.
       penalty: A vector of positive penalty values. The adaptive spline
         regression is performed for every value of penalty.
+      required_knots: Array of required internal knots.
       max_iterations: Maximum number of iterations in the main loop.
       epsilon: Value of the constant in the adaptive ridge procedure (see
         Frommlet, F., Nuel, G. (2016) An Adaptive Ridge Procedure for L0
@@ -455,8 +540,7 @@ class AKS:
       )
 
     xmat = self._get_bspline_matrix(x, knots)
-    nrow = xmat.shape[0]
-    ncol = xmat.shape[1]
+    nrow, ncol = xmat.shape
 
     xx = xmat.T.dot(xmat)
     xy = xmat.T.dot(y)
@@ -476,16 +560,30 @@ class AKS:
         for _ in range(2)
     ]
     par = np.ones(ncol, dtype=backend.np_float_dtype)
+
+    is_required = np.isin(knots, required_knots)  # pyrefly: ignore[bad-argument-type]
+    # Setting weight to 1.0 penalizes the required knots according to
+    # non-adpative ridge regression.
+    w[is_required] = 1.0
+
     index_penalty = 0
     for _ in range(max_iterations):
       par = self._weighted_ridge_solver(
-          xx_rot, xy, self._DEGREE, penalty[index_penalty], w, old_par=par
+          xx_rot, xy, self._DEGREE, penalty[index_penalty], w, old_par=par  # pyrefly: ignore[bad-argument-type]
       )
-      par_diff = np.diff(par, n=self._DEGREE + 1)
+      par_diff = np.diff(par, n=self._DEGREE + 1)  # pyrefly: ignore[no-matching-overload]
 
       w = 1 / (par_diff**2 + epsilon**2)
+      # Override the adaptive weight to 1.0 for required knots. This prevents
+      # the weight from approaching infinity (which would drop the knot), while
+      # maintaining a standard Ridge penalty to prevent the spline from
+      # overfitting.
+      w[is_required] = 1.0
+
       sel = w * par_diff**2
-      converge = max(abs(old_sel - sel)) < tol
+      sel[is_required] = 1.0
+
+      converge = np.max(abs(old_sel - sel)) < tol
       if converge:
         sel_ls[index_penalty] = sel
         knots_sel[index_penalty] = knots[sel > 0.99]
@@ -497,13 +595,13 @@ class AKS:
         coefs = np.zeros(ncol, dtype=backend.np_float_dtype)
         idx = np.concatenate([sel > 0.99, np.repeat(True, self._DEGREE + 1)])
         coefs[idx] = bs_model.params
-        par_ls[index_penalty] = coefs
+        par_ls[index_penalty] = coefs  # pyrefly: ignore[unsupported-operation]
 
-        loglik[index_penalty] = sum(bs_model.resid**2 / sigma0sq) / 2
-        dim[index_penalty] = len(knots_sel[index_penalty]) + self._DEGREE + 1
-        aic[index_penalty] = 2 * dim[index_penalty] + 2 * loglik[index_penalty]
+        loglik[index_penalty] = np.sum(bs_model.resid**2 / sigma0sq) / 2
+        dim[index_penalty] = len(knots_sel[index_penalty]) + self._DEGREE + 1  # pyrefly: ignore[bad-argument-type, unsupported-operation]
+        aic[index_penalty] = 2 * dim[index_penalty] + 2 * loglik[index_penalty]  # pyrefly: ignore[unsupported-operation]
         bic[index_penalty] = (
-            np.log(nrow) * dim[index_penalty] + 2 * loglik[index_penalty]
+            np.log(nrow) * dim[index_penalty] + 2 * loglik[index_penalty]  # pyrefly: ignore[unsupported-operation]
         )
         ebic[index_penalty] = bic[index_penalty] + 2 * np.log(
             backend.np_float_dtype(math.comb(ncol, design_mat.shape[1]))
@@ -513,7 +611,7 @@ class AKS:
         break
       old_sel = sel
 
-    sel_mat = np.round(np.stack(sel_ls, axis=-1), 1)
+    sel_mat = np.round(np.stack(sel_ls, axis=-1), 1)  # pyrefly: ignore[no-matching-overload]
     return {
         constants.SELECTION_COEFS: sel_ls,
         constants.KNOTS_SELECTED: knots_sel,
@@ -763,7 +861,7 @@ class AKS:
           diff=degree + 1,
       )
       index = old_par != 0
-      rel_error = max(abs(par - old_par)[index] / abs(old_par)[index])
+      rel_error = np.max(abs(par - old_par)[index] / abs(old_par)[index])
       if rel_error < tol:
         break
       old_par = par

@@ -28,14 +28,14 @@ class InternalLinker(object):
 			return 'Linker, no handlers'
 		return f"Linker, {get_plural_string('handler', len(self._handlers))}: {','.join(self._handlers)}"
 
-	def set_handler(self, link_name: str, handler: Callable) -> Callable:
+	def set_handler(self, link_name: str, handler: Callable) -> Callable | None:
 		"""Adds / Updates handler for the link_name.
 		Returns the previous registered handler, or None if no handler was registered before."""
 		previous = None if link_name not in self._handlers else self._handlers[link_name]
 		self._handlers[link_name] = handler
 		return previous
 
-	def del_handler(self, link_name: str) -> Callable:
+	def del_handler(self, link_name: str) -> Callable | None:
 		"""Deletes handler for the link_name.
 		Returns the deleted handler, or None if none existed."""
 		current = None if link_name not in self._handlers else self._handlers[link_name]

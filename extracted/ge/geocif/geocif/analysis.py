@@ -1008,7 +1008,8 @@ class Geoanalysis:
                 if True:
                     #
                     #                 """ % of total area """
-                    if idx == 0:
+                    from geocif.viz import diagnostics as _diag
+                    if idx == 0 and _diag.is_production_share_shown():
                         fname = f"perc_area_{self.country}_{self.crop}_{model}.png"
                         col = "% of total Area (ha)"
                         plot.plot_map(
@@ -1092,27 +1093,28 @@ class Geoanalysis:
                         country_key = country.lower().replace(" ", "_")
                         dir_country = dir_maps / country_key / str(year)
 
-                        df_country = df_model[df_model["Country"] == country_key]
-                        fname = f"perc_area_{country_key}_{self.crop}_{model}.png"
-                        col = "% of total Area (ha)"
-                        plot.plot_map(
-                            self.dg,  # dataframe containing adm1 name and polygon
-                            df_country,  # dataframe containing information that will be mapped
-                            merge_col="Country Region",  # Column on which to merge
-                            name_country=[country],  # Plot global map
-                            name_col=col,  # Which column to plot
-                            dir_out=dir_country,  # Output directory
-                            fname=fname,  # Output file name
-                            label=f"% of Total Area (ha)\n{self.crop.title()}",
-                            vmin=df_country[col].min(),
-                            vmax=df_country[col].max(),
-                            cmap=pal.scientific.sequential.Bamako_20_r,
-                            series="sequential",
+                        if _diag.is_production_share_shown():
+                            df_country = df_model[df_model["Country"] == country_key]
+                            fname = f"perc_area_{country_key}_{self.crop}_{model}.png"
+                            col = "% of total Area (ha)"
+                            plot.plot_map(
+                                self.dg,  # dataframe containing adm1 name and polygon
+                                df_country,  # dataframe containing information that will be mapped
+                                merge_col="Country Region",  # Column on which to merge
+                                name_country=[country],  # Plot global map
+                                name_col=col,  # Which column to plot
+                                dir_out=dir_country,  # Output directory
+                                fname=fname,  # Output file name
+                                label=f"% of Total Area (ha)\n{self.crop.title()}",
+                                vmin=df_country[col].min(),
+                                vmax=df_country[col].max(),
+                                cmap=pal.scientific.sequential.Bamako_20_r,
+                                series="sequential",
 
-                            annotate_regions=self.annotate_regions,
-                            annotate_region_column=annotate_region_column,
-                            loc_legend="lower left",
-                        )
+                                annotate_regions=self.annotate_regions,
+                                annotate_region_column=annotate_region_column,
+                                loc_legend="lower left",
+                            )
 
                         df_country = df_harvest_year[df_harvest_year["Country"] == country_key]
                         # Use this country's own latest stage for the label
@@ -1495,7 +1497,9 @@ class RegionalMapper(Geoanalysis):
         self.clean_data()
         if not self.df_regional.empty and not self.df_regional_by_year.empty:
             self.crop = self.df_regional["Crop"].iloc[0].lower()
-            self.plot_heatmap()
+            from geocif.viz import diagnostics as _diag
+            if _diag.is_production_share_shown():
+                self.plot_heatmap()
             self.plot_kde()
             self.plot_mape_map()
             self.plot_mape_by_year()
@@ -1686,6 +1690,11 @@ class RegionalMapper(Geoanalysis):
 
 def run(path_config_files=[Path("../config/geocif.txt")]):
     logger, parser = log.setup_logger_parser(path_config_files)
+
+    # Honor [ML] show_production_share (default True): suppress production-share
+    # choropleths/heatmap for projects where the region share is misleading.
+    from geocif.viz import diagnostics as _diag
+    _diag.set_show_production_share(_diag.show_production_share_from_parser(parser))
 
     obj = Geoanalysis(path_config_files, logger, parser)
     obj.get_config_data()

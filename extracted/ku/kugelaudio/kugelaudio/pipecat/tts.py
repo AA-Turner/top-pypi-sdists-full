@@ -51,6 +51,7 @@ from pipecat.services.tts_service import TTSService
 
 from kugelaudio import KugelAudio
 from kugelaudio.client import _parse_api_key, _resolve_region_url
+from kugelaudio.models import clamp_cfg_scale
 from kugelaudio.exceptions import (
     ConnectionError as KugelAudioConnectionError,
     KugelAudioError,
@@ -223,7 +224,7 @@ class KugelAudioTTSService(TTSService):
             voice_id: Voice ID to use for synthesis.
             sample_rate: Output sample rate in Hz. Supported rates: 24000 (native),
                 22050, 16000, 8000. Lower rates use server-side resampling.
-            cfg_scale: CFG scale for generation quality. Defaults to 2.0.
+            cfg_scale: Classifier-free guidance scale. Clamped to [1.2, 2.5]. Defaults to 2.0.
             max_new_tokens: Maximum tokens to generate. Defaults to 2048.
             language: ISO 639-1 language code (e.g., 'en', 'de'). Setting this
                 skips server-side auto-detection and saves ~60-150ms per request.
@@ -264,6 +265,8 @@ class KugelAudioTTSService(TTSService):
                 f"Unsupported sample rate: {sample_rate}. "
                 f"Supported rates: {SUPPORTED_SAMPLE_RATES}"
             )
+
+        cfg_scale = clamp_cfg_scale(cfg_scale)
 
         clean_key, detected_region = _parse_api_key(kugelaudio_api_key)
 

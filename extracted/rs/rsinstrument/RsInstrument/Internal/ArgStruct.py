@@ -12,7 +12,7 @@ class ArgStruct(object):
 	or to parse the output structure to the string parameter for writing.
 	Contains reference to the value in the owning structure."""
 
-	def __init__(self, name: str, data_type: DataType, enum_type=None, is_optional=False, is_open_list=False, repetition=1, intern_link: str = None):
+	def __init__(self, name: str, data_type: DataType, enum_type=None, is_optional=False, is_open_list=False, repetition=1, intern_link: str | None = None):
 		self.argument_ix = None
 		self.name = name
 		self.data_type = data_type
@@ -25,82 +25,82 @@ class ArgStruct(object):
 		self.conv_to_scpi_string = ConverterToScpiString(self.data_type, self.enum_type)
 
 	@classmethod
-	def scalar_int(cls, name: str, intern_link: str = None):
+	def scalar_int(cls, name: str, intern_link: str | None = None):
 		"""Describes mandatory scalar integer argument."""
 		return cls(name, DataType.Integer, None, False, False, 1, intern_link)
 
 	@classmethod
-	def scalar_int_ext(cls, name: str, intern_link: str = None):
+	def scalar_int_ext(cls, name: str, intern_link: str | None = None):
 		"""Describes mandatory scalar extended integer argument."""
 		return cls(name, DataType.IntegerExt, None, False, False, 1, intern_link)
 
 	@classmethod
-	def scalar_str(cls, name: str, intern_link: str = None):
+	def scalar_str(cls, name: str, intern_link: str | None = None):
 		"""Describes mandatory scalar string argument."""
 		return cls(name, DataType.String, None, False, False, 1, intern_link)
 
 	@classmethod
-	def scalar_raw_str(cls, name: str, intern_link: str = None):
+	def scalar_raw_str(cls, name: str, intern_link: str | None = None):
 		"""Describes mandatory scalar raw string argument."""
 		return cls(name, DataType.RawString, None, False, False, 1, intern_link)
 
 	@classmethod
-	def scalar_bool(cls, name: str, intern_link: str = None):
+	def scalar_bool(cls, name: str, intern_link: str | None = None):
 		"""Describes mandatory scalar boolean argument."""
 		return cls(name, DataType.Boolean, None, False, False, 1, intern_link)
 
 	@classmethod
-	def scalar_float(cls, name: str, intern_link: str = None):
+	def scalar_float(cls, name: str, intern_link: str | None = None):
 		"""Describes mandatory scalar float argument."""
 		return cls(name, DataType.Float, None, False, False, 1, intern_link)
 
 	@classmethod
-	def scalar_float_ext(cls, name: str, intern_link: str = None):
+	def scalar_float_ext(cls, name: str, intern_link: str | None = None):
 		"""Describes mandatory scalar extended float argument."""
 		return cls(name, DataType.FloatExt, None, False, False, 1, intern_link)
 
 	@classmethod
-	def scalar_enum(cls, name: str, enum_type, intern_link: str = None):
+	def scalar_enum(cls, name: str, enum_type, intern_link: str | None = None):
 		"""Describes mandatory scalar float argument."""
 		return cls(name, DataType.Enum, enum_type, False, False, 1, intern_link)
 
 	@classmethod
-	def scalar_str_optional(cls, name: str, intern_link: str = None):
+	def scalar_str_optional(cls, name: str, intern_link: str | None = None):
 		"""Describes optional scalar string argument."""
 		return cls(name, DataType.String, None, True, False, 1, intern_link)
 
 	@classmethod
-	def scalar_raw_str_optional(cls, name: str, intern_link: str = None):
+	def scalar_raw_str_optional(cls, name: str, intern_link: str | None = None):
 		"""Describes optional scalar raw string argument."""
 		return cls(name, DataType.RawString, None, True, False, 1, intern_link)
 
 	@classmethod
-	def scalar_bool_optional(cls, name: str, intern_link: str = None):
+	def scalar_bool_optional(cls, name: str, intern_link: str | None = None):
 		"""Describes optional scalar boolean argument."""
 		return cls(name, DataType.Boolean, None, True, False, 1, intern_link)
 
 	@classmethod
-	def scalar_int_optional(cls, name: str, intern_link: str = None):
+	def scalar_int_optional(cls, name: str, intern_link: str | None = None):
 		"""Describes optional scalar integer argument."""
 		return cls(name, DataType.Integer, None, True, False, 1, intern_link)
 
 	@classmethod
-	def scalar_int_ext_optional(cls, name: str, intern_link: str = None):
+	def scalar_int_ext_optional(cls, name: str, intern_link: str | None = None):
 		"""Describes optional scalar extended integer argument."""
 		return cls(name, DataType.IntegerExt, None, True, False, 1, intern_link)
 
 	@classmethod
-	def scalar_float_optional(cls, name: str, intern_link: str = None):
+	def scalar_float_optional(cls, name: str, intern_link: str | None = None):
 		"""Describes optional scalar float argument."""
 		return cls(name, DataType.Float, None, True, False, 1, intern_link)
 
 	@classmethod
-	def scalar_float_ext_optional(cls, name: str, intern_link: str = None):
+	def scalar_float_ext_optional(cls, name: str, intern_link: str | None = None):
 		"""Describes optional scalar extended float argument."""
 		return cls(name, DataType.FloatExt, None, True, False, 1, intern_link)
 
 	@classmethod
-	def scalar_enum_optional(cls, name: str, enum_type, intern_link: str = None):
+	def scalar_enum_optional(cls, name: str, enum_type, intern_link: str | None = None):
 		"""Describes optional scalar float argument."""
 		return cls(name, DataType.Enum, enum_type, True, False, 1, intern_link)
 

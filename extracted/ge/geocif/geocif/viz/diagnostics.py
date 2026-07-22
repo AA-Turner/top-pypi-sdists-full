@@ -147,6 +147,44 @@ def yield_table(
     return True
 
 
+# ---------------------------------------------------------------------------
+# Production-share DISPLAY toggle.
+#
+# Process-wide switch for whether a region's production share (its "(X.Y%)"
+# label suffix, "% of Production" column, "% of national production" caption,
+# etc.) is SHOWN on figures/reports. Set once per run by the driver via
+# ``set_show_production_share(...)`` and read by every display site. Ordering
+# regions by production (``_sort_by_production``) is deliberately NOT affected
+# — only the displayed value is hidden. Defaults to True so any project that
+# doesn't set the flag keeps its current output byte-for-byte.
+#
+# Rationale: for crops whose area statistics don't match the model's region
+# scheme (e.g. Afghanistan poppy, where "Southern" isn't split into the newer
+# "South-Western" region), the share is misleading and is suppressed via
+# ``[ML] show_production_share = False`` in that project's geocif.txt.
+# ---------------------------------------------------------------------------
+_SHOW_PRODUCTION_SHARE = True
+
+
+def show_production_share_from_parser(parser) -> bool:
+    """Read ``[ML] show_production_share`` (default True) from a config parser."""
+    try:
+        return parser.getboolean("ML", "show_production_share", fallback=True)
+    except Exception:
+        return True
+
+
+def set_show_production_share(flag: bool) -> None:
+    """Set the process-wide production-share display toggle (call once per run)."""
+    global _SHOW_PRODUCTION_SHARE
+    _SHOW_PRODUCTION_SHARE = bool(flag)
+
+
+def is_production_share_shown() -> bool:
+    """Whether production share should be displayed on figures/reports."""
+    return _SHOW_PRODUCTION_SHARE
+
+
 def _sort_by_production(region_names, prod_pct, ascending: bool = True):
     """Return the order indices that sort ``region_names`` by production share.
     Returns None if ``prod_pct`` is empty (caller should skip ordering)."""
@@ -158,7 +196,14 @@ def _sort_by_production(region_names, prod_pct, ascending: bool = True):
 
 
 def _label_with_pct(region_names, prod_pct):
-    """Append ``(X.Y%)`` production-share suffix to each region label."""
+    """Append ``(X.Y%)`` production-share suffix to each region label.
+
+    Returns plain region names (no suffix) when production-share display is
+    disabled via ``set_show_production_share(False)`` — callers keep any
+    production-based ordering, they just don't show the value.
+    """
+    if not _SHOW_PRODUCTION_SHARE:
+        return list(region_names)
     return [f"{r} ({prod_pct.get(r, 0):.1f}%)" for r in region_names]
 
 

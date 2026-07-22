@@ -8,7 +8,10 @@ use std::thread::JoinHandle;
 
 use crate::ComputerUseError;
 #[cfg(not(windows))]
-use crate::{ComputerUseAction, ComputerUseErrorCode, ComputerUseObservation, ComputerUseResult};
+use crate::{
+    ComputerUseAction, ComputerUseErrorCode, ComputerUseObservation, ComputerUseResult,
+    PreInputFence,
+};
 
 #[cfg(windows)]
 mod windows;
@@ -125,13 +128,15 @@ pub(crate) enum ScopedWindowOperation {
 #[cfg(windows)]
 pub(crate) use windows::{
     ThreadDpiAwareness, clear_user_interrupt, desktop_interactive, flush_pending_input_releases,
-    perform_action, prepare_target_for_input, prepare_target_window, scoped_window_state,
-    start_control_banner, synchronize_desktop_events, transition_scoped_window, user_interrupted,
-    validate_target_policy, window_dpi,
+    perform_action, prepare_control_session_target, prepare_target_for_input,
+    prepare_target_window, scoped_window_state, start_control_banner, synchronize_desktop_events,
+    transition_scoped_window, user_interrupted, validate_target_policy, window_dpi,
 };
 
 #[cfg(all(test, windows))]
-pub(crate) use windows::{TestIsolationGuard, acquire_test_isolation_guard};
+pub(crate) use windows::{
+    TestIsolationGuard, acquire_test_isolation_guard, input_owner_is_busy_for_test,
+};
 
 #[cfg(not(windows))]
 pub(crate) struct ThreadDpiAwareness;
@@ -145,6 +150,17 @@ impl ThreadDpiAwareness {
 
 #[cfg(not(windows))]
 pub(crate) fn prepare_target_window(_window_handle: u64) -> ComputerUseResult<()> {
+    Err(ComputerUseError::new(
+        ComputerUseErrorCode::BackendUnavailable,
+        "native DCC MCP Computer Use is currently available on Windows",
+    ))
+}
+
+#[cfg(not(windows))]
+pub(crate) fn prepare_control_session_target(
+    _window_handle: u64,
+    _expected_process_id: u32,
+) -> ComputerUseResult<()> {
     Err(ComputerUseError::new(
         ComputerUseErrorCode::BackendUnavailable,
         "native DCC MCP Computer Use is currently available on Windows",
@@ -228,6 +244,7 @@ pub(crate) fn perform_action(
     _interrupted: &Arc<AtomicBool>,
     _desktop_state: &Arc<AtomicU64>,
     _desktop_barrier: &Arc<DesktopEventBarrier>,
+    _pre_input_fence: Option<&mut PreInputFence<'_>>,
 ) -> ComputerUseResult<()> {
     Err(ComputerUseError::new(
         ComputerUseErrorCode::BackendUnavailable,

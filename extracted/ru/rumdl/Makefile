@@ -1,4 +1,4 @@
-.PHONY: build test clean fmt check doc build-python build-wheel dev-install setup-mise dev-setup dev-verify update-dependencies update-rust-version build-static-linux-x64 build-static-linux-arm64 build-static-all docker-binaries docker-binaries-release docker-binfmt docker-builder docker-build docker-verify docker-push schema check-schema sync-code-block-tools check-code-block-tools test-code-block-tools check-versions benchmark benchmark-run benchmark-chart lint-actions lint-actions-all fuzz fuzz-long check-links docs-check docs-smoke sync-rule-docs check-rule-docs release-patch release-minor release-major test-idempotency test-doc fuzz-all audit msrv-check smoke-wasi
+.PHONY: build test clean fmt check doc build-python build-wheel dev-install setup-mise dev-setup dev-verify update-dependencies update-rust-version build-static-linux-x64 build-static-linux-arm64 build-static-all docker-binaries docker-binaries-release docker-binfmt docker-builder docker-build docker-verify docker-push schema check-schema sync-code-block-tools check-code-block-tools test-code-block-tools check-versions benchmark benchmark-run benchmark-chart lint-actions lint-actions-all fuzz fuzz-long check-links docs-check docs-smoke sync-rule-docs check-rule-docs release-patch release-minor release-major test-idempotency test-doc fuzz-all audit msrv-check smoke-wasi parity
 
 # Development environment setup
 setup-mise:
@@ -305,24 +305,47 @@ test-idempotency:
 		-E 'test(/rules::(formatter_proptest|idempotency_pipeline|idempotency_corpus)::/)'
 
 # Fuzz testing (requires nightly Rust)
+#
+# cargo-fuzz defaults --target to the triple cargo-fuzz ITSELF was built for,
+# not the host being built on. CI installs a prebuilt musl-static cargo-fuzz,
+# which made every run default to x86_64-unknown-linux-musl and die with
+# "sanitizer is incompatible with statically linked libc" before fuzzing a
+# single input. Pinning the target to this host's own triple keeps that
+# explicit and works unchanged on macOS and Linux.
+FUZZ_TARGET ?= $(shell rustc -vV | sed -n 's/^host: //p')
+
 fuzz:
 	@echo "Running fuzz test for fix idempotency (30 seconds)..."
-	cargo +nightly fuzz run fuzz_fix_idempotency -- -max_total_time=30
+	cargo +nightly fuzz run --target $(FUZZ_TARGET) fuzz_fix_idempotency -- -max_total_time=30
 
 fuzz-long:
 	@echo "Running extended fuzz test (5 minutes)..."
-	cargo +nightly fuzz run fuzz_fix_idempotency -- -max_total_time=300
+	cargo +nightly fuzz run --target $(FUZZ_TARGET) fuzz_fix_idempotency -- -max_total_time=300
 
 # Fuzz every target for a bounded time. Used by the scheduled fuzz workflow so
 # the fix/lint/config/context paths get adversarial coverage on a cadence, not
 # just fuzz_fix_idempotency on demand.
 FUZZ_TIME ?= 120
 fuzz-all:
-	@echo "Fuzzing all targets ($(FUZZ_TIME)s each)..."
+	@echo "Fuzzing all targets ($(FUZZ_TIME)s each) for $(FUZZ_TARGET)..."
+	@test -n "$(FUZZ_TARGET)" || { echo "FUZZ_TARGET is empty; could not detect host triple"; exit 1; }
 	@for t in $$(cargo +nightly fuzz list); do \
 		echo "=== fuzzing $$t ==="; \
-		cargo +nightly fuzz run $$t -- -max_total_time=$(FUZZ_TIME) || exit 1; \
+		cargo +nightly fuzz run --target $(FUZZ_TARGET) $$t -- -max_total_time=$(FUZZ_TIME) || exit 1; \
 	done
+
+# Measure how closely rumdl and markdownlint agree over markdownlint's own test
+# corpus (cloned and pinned by the script). Reports agreed / rumdl-only /
+# markdownlint-only finding counts for the rules both tools implement, so parity
+# is a tracked number rather than something noticed by hand. Needs a release
+# rumdl binary and markdownlint-cli2 (via npx). Pass MIN_AGREEMENT=N to fail
+# below a floor, or ARGS='--json' for machine-readable output.
+MIN_AGREEMENT ?=
+parity: build
+	@python3 scripts/parity.py \
+		--rumdl target/release/rumdl \
+		$(if $(MIN_AGREEMENT),--min-agreement $(MIN_AGREEMENT),) \
+		$(ARGS)
 
 # Audit dependencies for known vulnerabilities (RUSTSEC advisories). Reads
 # Cargo.lock only; installs cargo-audit if missing.

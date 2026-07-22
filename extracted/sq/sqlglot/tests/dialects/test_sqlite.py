@@ -8,6 +8,14 @@ class TestSQLite(Validator):
     dialect = "sqlite"
 
     def test_sqlite(self):
+        # Range operators (IN/LIKE) are left-associative and can be chained.
+        self.validate_identity("SELECT 1 IN (0) IN (1)")
+        self.validate_identity("SELECT 1 LIKE 2 LIKE 3")
+        # A leading NOT binds to the first term only and is parenthesized so the
+        # chain does not re-associate (exp.In has no inline NOT to render).
+        self.validate_identity("SELECT 1 NOT IN (0) IN (0, 1)", "SELECT (NOT 1 IN (0)) IN (0, 1)")
+        self.validate_identity("SELECT x NOT IN (1) IS TRUE", "SELECT (NOT x IN (1)) IS TRUE")
+        self.validate_identity("SELECT 0 NOT IN (1) NOT IN (2)", "SELECT NOT (NOT 0 IN (1)) IN (2)")
         self.validate_identity("WITH xyz(x) AS (SELECT 1) SELECT x FROM xyz")
         self.validate_identity("SELECT * FROM t AS t INDEXED BY s.i")
         self.validate_identity("SELECT * FROM t INDEXED BY s.i")
@@ -19,6 +27,12 @@ class TestSQLite(Validator):
         self.validate_identity("UNHEX(a, b)")
         self.validate_identity("SELECT DATE()")
         self.validate_identity("SELECT DATE('now', 'start of month', '+1 month', '-1 day')")
+        self.validate_all(
+            "SELECT DATE(d, '1 DAY') FROM t",
+            read={
+                "duckdb": "SELECT DATE_ADD(d, INTERVAL 1 DAY) FROM t",
+            },
+        )
         self.validate_identity("SELECT DATETIME(1092941466, 'unixepoch')")
         self.validate_identity("SELECT DATETIME(1092941466, 'auto')")
         self.validate_identity("SELECT DATETIME(1092941466, 'unixepoch', 'localtime')")

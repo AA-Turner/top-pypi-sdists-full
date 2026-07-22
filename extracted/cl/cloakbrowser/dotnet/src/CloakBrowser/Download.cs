@@ -132,7 +132,7 @@ public static class Download
             var freeMajor = Config.GetChromiumVersion().Split('.')[0];
             sb.Append($"  Running free tier (v{freeMajor}). " +
                       $"Pro = latest binary (v{ProMajor}) + newest anti-bot patches.\n");
-            sb.Append("  Try Pro free for 7 days -> https://cloakbrowser.dev\n");
+            sb.Append("  Get Pro for the latest binary + newest patches -> https://cloakbrowser.dev\n");
         }
         sb.Append("  Star us if CloakBrowser helps your project!\n");
         sb.Append('\n');

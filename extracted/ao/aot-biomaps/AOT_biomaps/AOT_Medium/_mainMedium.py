@@ -1,4 +1,4 @@
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 import os
 import numpy as np
 import warnings
@@ -13,7 +13,7 @@ except ImportError:
     KWAVE_AVAILABLE = False
 
 
-class Medium:
+class Medium(ABC):
     
     def __init__(self, params):
         self.params = params

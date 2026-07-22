@@ -32,7 +32,7 @@ from fastmcp_extensions.cli import (
 )
 
 from airbyte_ops_mcp.cli._base import App, app
-from airbyte_ops_mcp.mcp.github_actions import get_docker_image_info
+from airbyte_ops_mcp.mcp.github_ops import get_docker_image_info
 
 # Create the dockerhub sub-app
 dockerhub_app = App(name="dockerhub", help="DockerHub image operations.")

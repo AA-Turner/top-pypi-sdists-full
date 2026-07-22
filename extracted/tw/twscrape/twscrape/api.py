@@ -27,24 +27,24 @@ from .utils import encode_params, find_obj, get_by_path
 
 # GQL_OPS_CODEGEN
 OP_AboutAccountQuery = "TzOG2twZEfhr9KmClvVVqA/AboutAccountQuery"
-OP_BlueVerifiedFollowers = "zhpogrf30JrKmTss81AY8w/BlueVerifiedFollowers"
-OP_Bookmarks = "tUVliYsHyxrQIT4HXUWNdA/Bookmarks"
+OP_BlueVerifiedFollowers = "94iKIFXsW369GcGrPaEBcA/BlueVerifiedFollowers"
+OP_Bookmarks = "LoLaMO4GuHLEPJOhH9kjAw/Bookmarks"
 OP_CommunityQuery = "-ElI1vg3dYbttVMhBhGdLw/CommunityQuery"
-OP_CommunityTweetsTimeline = "cW_FuuYQWRl5R6U5UhS7yA/CommunityTweetsTimeline"
-OP_Followers = "4yeuNabfz3qFlfncCAy8Yw/Followers"
-OP_Following = "eNoXdfXv5rU75RBzlmfuPA/Following"
-OP_GenericTimelineById = "VrAHfTlEBd6qq1IJlOvBqQ/GenericTimelineById"
-OP_ListLatestTweetsTimeline = "Iql5aRVyFxNZ-ORcDV_TwQ/ListLatestTweetsTimeline"
-OP_ListMembers = "kcsJubZ1BIwpdKrYfiNRtg/ListMembers"
-OP_Retweeters = "gClaCb5tCk0z2iwAis8CwA/Retweeters"
-OP_SearchTimeline = "Bcw3RzK-PatNAmbnw54hFw/SearchTimeline"
-OP_TweetDetail = "jd3V43oDY9cY7obs1YMfbQ/TweetDetail"
+OP_CommunityTweetsTimeline = "S8rty5gPlDOnHNuay5ecag/CommunityTweetsTimeline"
+OP_Followers = "18SNsfvwgu2CYIweeUVHAw/Followers"
+OP_Following = "PEIBUtChvR2i_NZCxbK3fA/Following"
+OP_GenericTimelineById = "GswYtMwzaFKSDx_SvC-f6g/GenericTimelineById"
+OP_ListLatestTweetsTimeline = "LV64djPRhnsVhGCK76s13w/ListLatestTweetsTimeline"
+OP_ListMembers = "_G-ikUlIqZSkW3Y9Qz8Htw/ListMembers"
+OP_Retweeters = "eio_KeZrPr83caqxWGNtiw/Retweeters"
+OP_SearchTimeline = "hz_94eVAtrtQo_vO3my7Rw/SearchTimeline"
+OP_TweetDetail = "rZA6K31W4E90vZKBmxXV3g/TweetDetail"
 OP_UserByRestId = "DaeC_2LfMgwCujE03HSZtw/UserByRestId"
 OP_UserByScreenName = "2qvSHpkWTMS9i0zJAwDNiA/UserByScreenName"
-OP_UserCreatorSubscriptions = "jAbD4h4pLuogg19mnAeZ4w/UserCreatorSubscriptions"
-OP_UserMedia = "DpzwOu8Idtlbfqh-Hf718Q/UserMedia"
-OP_UserTweets = "hr4gzZONlq23okjU8fIe_A/UserTweets"
-OP_UserTweetsAndReplies = "FIFgycIi-CNJcV0R-135Uw/UserTweetsAndReplies"
+OP_UserCreatorSubscriptions = "qhT9BsaNXNYh4R-e1REj7Q/UserCreatorSubscriptions"
+OP_UserMedia = "IS3w9vvPg1SJysLErvnFGg/UserMedia"
+OP_UserTweets = "6r5OLCC_wFH4CpRyXKuAmQ/UserTweets"
+OP_UserTweetsAndReplies = "klja8a2iJX_3to5RdfVlgw/UserTweetsAndReplies"
 OP_membersSliceTimeline_Query = "WSbJGJjZaVasSj9bnqSZSA/membersSliceTimeline_Query"
 OP_moderatorsSliceTimeline_Query = "GBMT3GOWy5dYsYC4XJfvow/moderatorsSliceTimeline_Query"
 # GQL_OPS_CODEGEN
@@ -106,13 +106,24 @@ class API:
         debug=False,
         proxy: str | None = None,
         raise_when_no_account=False,
+        wait_timeout: float | None = None,
+        wait_interval: float = 5.0,
     ):
         if isinstance(pool, AccountsPool):
             self.pool = pool
         elif isinstance(pool, str):
-            self.pool = AccountsPool(db_file=pool, raise_when_no_account=raise_when_no_account)
+            self.pool = AccountsPool(
+                db_file=pool,
+                raise_when_no_account=raise_when_no_account,
+                wait_timeout=wait_timeout,
+                wait_interval=wait_interval,
+            )
         else:
-            self.pool = AccountsPool(raise_when_no_account=raise_when_no_account)
+            self.pool = AccountsPool(
+                raise_when_no_account=raise_when_no_account,
+                wait_timeout=wait_timeout,
+                wait_interval=wait_interval,
+            )
 
         self.proxy = proxy
         self.debug = debug
@@ -661,9 +672,7 @@ class API:
                 yield x
 
     async def community_moderators(self, community_id: int, limit=-1, kv: KV = None):
-        async with aclosing(
-            self.community_moderators_raw(community_id, limit=limit, kv=kv)
-        ) as gen:
+        async with aclosing(self.community_moderators_raw(community_id, limit=limit, kv=kv)) as gen:
             async for rep in gen:
                 for x in parse_users(rep, limit):
                     yield x

@@ -557,7 +557,10 @@ class AgmetPlotter:
             linespacing=1.5,
         )
 
-        if self.production_pct is not None and not np.isnan(self.production_pct):
+        from geocif.viz import diagnostics as _diag
+        if (_diag.is_production_share_shown()
+                and self.production_pct is not None
+                and not np.isnan(self.production_pct)):
             fig.text(
                 0.83, 0.09,
                 f"{self.production_pct:.1f}% of national production (5 yr avg)",

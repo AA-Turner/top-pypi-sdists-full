@@ -45,6 +45,14 @@ class DrainAwareHttpConnectionManager(betterproto2.Message):
     The underlying HCM configuration to apply.
     """
 
+    enable_drain_with_goaway: "bool" = betterproto2.field(2, betterproto2.TYPE_BOOL)
+    """
+    When true, a peer-initiated GOAWAY on a reverse tunnel makes the initiator drop the draining
+    tunnel and dial a replacement, so capacity is restored before the old tunnel closes while its
+    in-flight streams finish. Default false, so the behavior is opt-in and unconfigured listeners
+    are unaffected.
+    """
+
 
 default_message_pool.register_message(
     "envoy.extensions.filters.network.reverse_tunnel.v3",
@@ -59,7 +67,7 @@ class ReverseTunnel(betterproto2.Message):
     Configuration for the reverse tunnel network filter.
     This filter handles reverse tunnel connection acceptance and rejection by processing
     HTTP requests where required identification values are provided via HTTP headers.
-    [#next-free-field: 7]
+    [#next-free-field: 9]
     """
 
     ping_interval: "datetime.timedelta | None" = betterproto2.field(
@@ -120,6 +128,22 @@ class ReverseTunnel(betterproto2.Message):
     When set, the filter validates that the upstream cluster of the initiator envoy matches this name
     via ``x-envoy-reverse-tunnel-upstream-cluster-name`` header. Connections with mismatched or missing
     cluster names are rejected with HTTP ``400 Bad Request``. When empty, no cluster name validation is performed.
+    """
+
+    use_http_upgrade: "bool" = betterproto2.field(7, betterproto2.TYPE_BOOL)
+    """
+    Accept the handshake as an HTTP/1.1 ``Upgrade`` exchange (``Upgrade: reverse-tunnel``,
+    reply ``101``) so HTTP proxies can route the handshake and splice the tunnel
+    afterward. Non-upgrade requests are rejected with ``426``. The initiator must set this
+    flag to the same value.
+    Defaults to ``false``.
+    """
+
+    skip_rebalancing: "bool" = betterproto2.field(8, betterproto2.TYPE_BOOL)
+    """
+    When true, skip worker-thread rebalancing for accepted reverse tunnel connections.
+    This avoids the cross-worker lock in pickLeastLoadedSocketManager.
+    Default: false (rebalancing enabled).
     """
 
 

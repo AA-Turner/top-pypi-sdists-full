@@ -3,8 +3,9 @@ import json
 import logging
 from itertools import chain
 from pathlib import Path
+from typing import Any, Self
 
-from typing_extensions import Self, override
+from typing_extensions import override
 
 from crawlee._consts import METADATA_FILENAME
 from crawlee._utils.file import atomic_write, infer_mime_type, json_dumps
@@ -74,11 +75,12 @@ class ApifyFileSystemKeyValueStoreClient(FileSystemKeyValueStoreClient):
             files_to_keep = {self._input_key_filename, f'{self._input_key_filename}.{METADATA_FILENAME}'}
             files_to_keep.add(METADATA_FILENAME)
 
-            for file_path in self.path_to_kvs.glob('*'):
-                if file_path.name in files_to_keep:
-                    continue
-                if file_path.is_file():
-                    await asyncio.to_thread(file_path.unlink, missing_ok=True)
+            async with asyncio.TaskGroup() as tg:
+                for file_path in self.path_to_kvs.glob('*'):
+                    if file_path.name in files_to_keep:
+                        continue
+                    if file_path.is_file():
+                        tg.create_task(asyncio.to_thread(file_path.unlink, missing_ok=True))
 
             await self._update_metadata(
                 update_accessed_at=True,
@@ -87,10 +89,32 @@ class ApifyFileSystemKeyValueStoreClient(FileSystemKeyValueStoreClient):
 
     @override
     async def get_value(self, *, key: str) -> KeyValueStoreRecord | None:
-        if key == self._input_key:
-            # Potentially point to custom input file name instead
-            key = self._input_key_filename
-        return await super().get_value(key=key)
+        return await super().get_value(key=self._resolve_input_key(key))
+
+    @override
+    async def set_value(self, *, key: str, value: Any, content_type: str | None = None) -> None:
+        await super().set_value(key=self._resolve_input_key(key), value=value, content_type=content_type)
+
+    @override
+    async def record_exists(self, *, key: str) -> bool:
+        return await super().record_exists(key=self._resolve_input_key(key))
+
+    @override
+    async def delete_value(self, *, key: str) -> None:
+        await super().delete_value(key=self._resolve_input_key(key))
+
+    @override
+    async def get_public_url(self, *, key: str) -> str:
+        return await super().get_public_url(key=self._resolve_input_key(key))
+
+    def _resolve_input_key(self, key: str) -> str:
+        """Redirect the logical input key to the actual input file name on disk.
+
+        The platform may store the Actor input under a name with an extension (e.g. `INPUT.json`) while the
+        logical key stays `INPUT`. Redirecting keeps every record operation pointed at that single file, so
+        e.g. `set_value` overwrites it instead of creating a duplicate that would later be rejected on open.
+        """
+        return self._input_key_filename if key == self._input_key else key
 
     @staticmethod
     async def _create_missing_metadata_for_input_file(key: str, record_path: Path) -> None:
@@ -98,7 +122,7 @@ class ApifyFileSystemKeyValueStoreClient(FileSystemKeyValueStoreClient):
         try:
             content = await asyncio.to_thread(record_path.read_bytes)
         except FileNotFoundError:
-            logger.warning(f'Input file disparaged on path: "{record_path}"')
+            logger.warning(f'Input file disappeared from path: "{record_path}"')
             return
 
         # Figure out the metadata from the file content

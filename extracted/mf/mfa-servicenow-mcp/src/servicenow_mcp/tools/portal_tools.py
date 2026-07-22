@@ -17,12 +17,14 @@ from pydantic import BaseModel, Field
 
 from ..auth.auth_manager import AuthManager
 from ..utils import json_fast
-from ..utils.baseline import ACTION_CONFLICT, ACTION_KEPT_DIRTY, ACTION_REFRESHED, sync_field_file
 from ..utils.config import ServerConfig
-from ..utils.download_map import map_sys_ids, max_sync_updated_on, merge_map_file
+from ..utils.download_map import map_sys_ids, max_sync_updated_on, merge_map_file, read_download_map
 from ..utils.progress import emit_progress
 from ..utils.registry import register_tool
-from ..utils.source_layout import field_filename, normalize_source_eol
+from ..utils.source_layout import FIELD_FILENAME, field_filename, normalize_source_eol
+from ..utils.sync_anchor import CONFLICT_MIRRORED, KEPT_LOCAL, REFRESHED
+from ..utils.sync_anchor import field_sha as _field_sha
+from ..utils.sync_anchor import reconcile_field, sweep_legacy_baseline
 from ..utils.workspace_roots import known_download_roots, record_download_root
 from .sn_api import (
     GenericQueryParams,
@@ -36,6 +38,22 @@ from .sn_api import (
 )
 
 logger = logging.getLogger(__name__)
+
+# filename -> field name, so a synced file resolves to the anchor key sync_tools uses.
+_FILENAME_FIELD = {v: k for k, v in FIELD_FILENAME.items()}
+
+
+def _portal_field_shas(record: Dict[str, Any], fields: tuple) -> Dict[str, str]:
+    """Per-field normalized content sha at download — the offline edit anchor read
+    by sync_tools so a freshly downloaded component attributes yours/theirs with
+    no network and no frozen snapshot (see utils/sync_anchor.py)."""
+    shas: Dict[str, str] = {}
+    for f in fields:
+        body = record.get(f)
+        if isinstance(body, str) and body.strip():
+            shas[f] = _field_sha(body)
+    return shas
+
 
 # Constants for Portal tables
 WIDGET_TABLE = "sp_widget"
@@ -943,7 +961,7 @@ def _fetch_linked_script_include_rows(
             auth_manager,
             table="sys_script_include",
             query="^".join(query_parts),
-            fields="sys_id,name,api_name,script,sys_scope,sys_updated_by,sys_updated_on",
+            fields="sys_id,name,api_name,script,sys_scope,sys_updated_by,sys_updated_on,sys_mod_count",
             page_size=page_size,
             max_records=max(20, len(chunk) * 5),
         )
@@ -1181,6 +1199,10 @@ def _download_widget_fields(
         "demo_data",
         "sys_updated_on",
         "sys_updated_by",
+        # Live-authority drift anchor recorded in _sync_meta (see sync_tools):
+        # the server's monotonic counter, so movement is judged by fact not a
+        # possibly-stale local snapshot.
+        "sys_mod_count",
     ]
     if include_widget_template:
         fields.append("template")
@@ -1855,7 +1877,41 @@ def get_widget_bundle(
         return {"error": f"Widget '{params.widget_id}' not found."}
 
     widget = _strip_metadata(response["results"][0], widget_fields)
+    # Untruncate: sn_query clips fields >50k (truncate_results), so a >50KB body
+    # (template/client_script) comes back capped — and if the caller edits and
+    # pushes it back, the tail is silently lost. Re-fetch the record raw when any
+    # body field was clipped so the bundle always carries complete source.
+    _body_fields = ["template", "script", "client_script", "css"]
+    if any(
+        isinstance(widget.get(f), str) and "(truncated, original length:" in widget[f]
+        for f in _body_fields
+    ):
+        _full = _fetch_portal_component_record(
+            config, auth_manager, WIDGET_TABLE, widget["sys_id"], _body_fields, full=True
+        )
+        for f in _body_fields:
+            if isinstance(_full.get(f), str):
+                widget[f] = _full[f]
+    # Deliberate completeness, never an opaque dump: disclose each body field's true
+    # length so the caller sees exactly what it received (not a silently clipped or
+    # blindly huge blob). If a field is very large, name the bounded read paths so a
+    # full inline body is a choice, not a surprise.
+    _oversized = [
+        f for f in _body_fields if isinstance(widget.get(f), str) and len(widget[f]) > 50000
+    ]
+    for f in _body_fields:
+        if isinstance(widget.get(f), str):
+            widget[f"_{f}_length"] = len(widget[f])
     bundle: Dict[str, Any] = {"widget": widget}
+    if _oversized:
+        bundle["large_bodies"] = {
+            "fields": _oversized,
+            "note": (
+                "Returned in full. For a bounded/chunked read use get_portal_component_code"
+                "(table='sp_widget', sys_id=..., fetch_complete=False); download_portal_sources "
+                "writes full source to disk and returns only a summary to context."
+            ),
+        }
 
     # 2. Fetch Angular Provider list (minimal info to save context)
     if params.include_providers:
@@ -1968,6 +2024,25 @@ def get_portal_component_code(
 
     # Only return requested code fields to keep context clean
     result = _strip_metadata(response["results"][0], params.fields)
+
+    # Untruncate: sn_query clips fields >50k (truncate_results). A clipped body
+    # would corrupt both the returned source AND the sha256/length/chunk-offset
+    # metadata below (fetch_complete=True would then label a capped body
+    # "complete"). Re-fetch any clipped field raw (full=True direct GET) so
+    # everything downstream sees the whole source.
+    if any(
+        isinstance(result.get(f), str) and "(truncated, original length:" in result[f]
+        for f in params.fields
+    ):
+        try:
+            _full = _fetch_portal_component_record(
+                config, auth_manager, params.table, params.sys_id, params.fields, full=True
+            )
+            for f in params.fields:
+                if isinstance(_full.get(f), str):
+                    result[f] = _full[f]
+        except ValueError:
+            pass  # keep the sn_query body rather than failing the read outright
 
     for field in params.fields:
         val = result.get(field, "")
@@ -3114,27 +3189,38 @@ def download_portal_sources(
     instance_name = _get_instance_name(config)
     g_ck = str(getattr(auth_manager, "_browser_session_token", "") or "")
 
-    # Content-aware source writes (3-way via utils/baseline.py): a local file
-    # carrying YOUR edits is never silently overwritten — kept as-is when the
-    # server is unmoved, kept + '<field>.remote' sidecar on a true conflict.
-    # Components left out-of-sync keep their PRIOR sync watermark so a later
-    # push still flags the conflict. Legacy trees (no _baseline/) keep the
-    # historical overwrite behavior and get baselines seeded.
+    # Content-aware source writes (two-copy via utils/sync_anchor.py): a local file
+    # carrying YOUR edits is never silently overwritten — kept as-is when the server
+    # is unmoved, kept + an always-fresh '<field>.remote' server mirror on a true
+    # conflict. Components left out-of-sync keep their PRIOR sync watermark so a
+    # later push still flags the conflict. Legacy trees (no sha anchor) keep the
+    # historical overwrite behavior.
     conflict_files: List[str] = []
     kept_edit_files: List[str] = []
     refreshed_files: List[str] = []
     out_of_sync_keys: Set[Tuple[str, str]] = set()
 
+    # Prior per-field content-sha anchors, read once from the on-disk _sync_meta so
+    # reconcile can tell YOUR edits from server changes with no frozen snapshot.
+    _prior_shas: Dict[Tuple[str, str], Dict[str, str]] = {}
+    for _tbl in ("sp_widget", "sp_angular_provider", "sys_script_include"):
+        for _key, _entry in read_download_map(scope_root / _tbl / "_sync_meta.json").items():
+            if isinstance(_entry, dict) and _entry.get("field_shas"):
+                _prior_shas[(_tbl, _key)] = _entry["field_shas"]
+
     def _sync_source_file(table: str, meta_key: str, fpath: Path, content: str) -> None:
-        action = sync_field_file(fpath, content, legacy_overwrite=True)
+        field = _FILENAME_FIELD.get(fpath.name, fpath.stem)
+        stored_sha = _prior_shas.get((table, meta_key), {}).get(field, "")
+        outcome, _sha = reconcile_field(fpath, content, stored_sha, legacy_overwrite=True)
+        sweep_legacy_baseline(fpath.parent)  # self-tidy any pre-anchor _baseline/
         label = f"{table}/{fpath.parent.name}/{fpath.name}"
-        if action == ACTION_CONFLICT:
+        if outcome == CONFLICT_MIRRORED:
             conflict_files.append(label)
             out_of_sync_keys.add((table, meta_key))
-        elif action == ACTION_KEPT_DIRTY:
+        elif outcome == KEPT_LOCAL:
             kept_edit_files.append(label)
             out_of_sync_keys.add((table, meta_key))
-        elif action == ACTION_REFRESHED:
+        elif outcome == REFRESHED:
             refreshed_files.append(label)
 
     _write_json_file(
@@ -3339,6 +3425,10 @@ def download_portal_sources(
                 "sys_id": str(widget.get("sys_id") or ""),
                 "sys_updated_on": str(widget.get("sys_updated_on") or ""),
                 "sys_updated_by": str(widget.get("sys_updated_by") or ""),
+                "sys_mod_count": str(widget.get("sys_mod_count") or ""),
+                "field_shas": _portal_field_shas(
+                    widget, ("template", "script", "client_script", "css", "link")
+                ),
                 "downloaded_at": _now_iso,
             }
     merge_map_file(
@@ -3410,7 +3500,7 @@ def download_portal_sources(
                 auth_manager,
                 table=ANGULAR_PROVIDER_TABLE,
                 query=f"sys_idIN{','.join(m2m_ids)}",
-                fields="sys_id,name,type,sys_scope,sys_updated_on,sys_updated_by",
+                fields="sys_id,name,type,sys_scope,sys_updated_on,sys_updated_by,sys_mod_count",
                 page_size=100,
                 max_records=1000,
             )
@@ -3446,6 +3536,8 @@ def download_portal_sources(
                             "sys_id": sys_id,
                             "sys_updated_on": str(provider.get("sys_updated_on") or ""),
                             "sys_updated_by": str(provider.get("sys_updated_by") or ""),
+                            "sys_mod_count": str(provider.get("sys_mod_count") or ""),
+                            "field_shas": _portal_field_shas(provider, ("script",)),
                             "downloaded_at": _now_iso,
                         }
                 if sys_id:
@@ -3587,6 +3679,8 @@ def download_portal_sources(
                     "sys_id": sys_id,
                     "sys_updated_on": str(row.get("sys_updated_on") or ""),
                     "sys_updated_by": str(row.get("sys_updated_by") or ""),
+                    "sys_mod_count": str(row.get("sys_mod_count") or ""),
+                    "field_shas": _portal_field_shas(row, ("script",)),
                     "downloaded_at": _now_iso,
                 }
             exported_script_includes.append(

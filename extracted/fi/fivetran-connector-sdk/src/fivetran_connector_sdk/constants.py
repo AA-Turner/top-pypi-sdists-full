@@ -1,7 +1,7 @@
 import os
 from fivetran_connector_sdk.protos import common_pb2
 
-TESTER_VERSION = "2.26.0714.001"
+TESTER_VERSION = "2.26.0720.001"
 
 WIN_OS = "windows"
 ARM_64 = "arm64"
@@ -36,6 +36,7 @@ TABLES = {}
 TESTER_FILENAME = "sdk_connector_tester.jar"
 VERSION_FILENAME = "version.txt"
 UPLOAD_FILENAME = "code.zip"
+CONFIGURATION_FORM_FILENAME = "configuration_form.pb"
 LAST_VERSION_CHECK_FILE = "_last_version_check"
 ROOT_LOCATION = ".ft_sdk_connector_tester"
 CONFIG_FILE = "_config.json"
@@ -62,7 +63,7 @@ QUEUE_SIZE = int(os.environ.get("CONNECTOR_SDK_QUEUE_SIZE", 100))
 ALWAYS_INCLUDED_FILES = [GITIGNORE_FILENAME]
 EXCLUDED_DIRS = ["__pycache__", "lib", "include", OUTPUT_FILES_DIR]
 EXCLUDED_PIPREQS_DIRS = ["bin,etc,include,lib,Lib,lib64,Scripts,share"]
-VALID_COMMANDS = ["version", "init", "debug", "deploy", "reset", "package", "help"]
+VALID_COMMANDS = ["version", "init", "debug", "deploy", "reset", "package", "configuration", "help"]
 DEPRECATED_FORCE_FLAG_WARNING = (
     "--force and -f are deprecated and will be removed in a future release."
     "Use --non-interactive instead."

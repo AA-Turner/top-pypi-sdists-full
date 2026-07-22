@@ -135,6 +135,42 @@ class ConnectorRelease:
 
 
 @dataclass(frozen=True)
+class YankedVersionRow:
+    """A connector version that has been yanked from the registry.
+
+    `connector_id` is the actor-definition UUID resolved from the connector's
+    canonical name; it is empty when the connector cannot be resolved in the
+    registry, in which case the row still renders but is not click-navigable.
+    """
+
+    connector_id: str
+    connector_name: str
+    docker_image_tag: str
+    yanked_at: str
+    reason: str
+    approval_url: str
+
+
+@dataclass(frozen=True)
+class YankMarkerDetail:
+    """Parsed contents of a single active `version-yank.yml` marker.
+
+    Returned for the currently-selected version so the Connector Version Status
+    panel can render the yank marker's structured fields plus its `raw` YAML
+    text. `connector_id` mirrors `YankedVersionRow` so the detail stays
+    associated with the resolved connector.
+    """
+
+    connector_id: str
+    connector_name: str
+    docker_image_tag: str
+    yanked_at: str
+    reason: str
+    approval_url: str
+    raw: str
+
+
+@dataclass(frozen=True)
 class ConnectorVersion:
     """Published connector version row."""
 

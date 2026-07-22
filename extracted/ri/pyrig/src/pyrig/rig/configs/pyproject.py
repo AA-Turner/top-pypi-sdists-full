@@ -6,12 +6,12 @@ from pathlib import Path
 from typing import Any, Literal
 
 from packaging.version import Version
-from pyrig_runtime.core.strings import (
-    dependency_requirement_as_module_name,
+from pyrig_runtime.core.dependencies.distribution import (
+    distribution_requirement_as_module_name,
 )
 from pyrig_runtime.rig.cli import main
 
-from pyrig.core.iterate import deep_sort_dict
+from pyrig.core.iterate import deep_sorted_dict
 from pyrig.core.resources import (
     resource_content,
 )
@@ -77,7 +77,7 @@ class PyprojectConfigFile(TOMLConfigFile):
                     dependencies=self.dependencies(),
                     additional=self.additional_dependencies(),
                 ),
-                "urls": deep_sort_dict(self.url_configs()),
+                "urls": deep_sorted_dict(self.url_configs()),
                 "scripts": {
                     PackageManager.I.project_name(): (
                         f"{main.__name__}:{main.main.__name__}"
@@ -94,7 +94,7 @@ class PyprojectConfigFile(TOMLConfigFile):
                 "requires": PackageManager.I.build_system_requires(),
                 "build-backend": PackageManager.I.build_backend(),
             },
-            "tool": deep_sort_dict(self.tool_configs()),
+            "tool": deep_sorted_dict(self.tool_configs()),
         }
 
     def url_configs(self) -> dict[str, Any]:
@@ -196,12 +196,13 @@ class PyprojectConfigFile(TOMLConfigFile):
         """
         dependencies = set(dependencies)
         normalized_dependencies = {
-            dependency_requirement_as_module_name(dep) for dep in dependencies
+            distribution_requirement_as_module_name(dep) for dep in dependencies
         }
         additional = (
             dep
             for dep in additional
-            if dependency_requirement_as_module_name(dep) not in normalized_dependencies
+            if distribution_requirement_as_module_name(dep)
+            not in normalized_dependencies
         )
         return sorted({*dependencies, *additional})
 

@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Iterable, Mapping, Optional, Sequence
+from typing import Any, Iterable, Mapping, Optional, Sequence, Union
 from gersemi.immutable import ImmutableDict, make_immutable
 from gersemi.keyword_kind import KeywordFormatter, KeywordPreprocessor
 from gersemi.keywords import KeywordMatcher, TwoWordKeywordMatcher
@@ -43,24 +43,47 @@ def argument_schemas_from_dict(schemas: Mapping) -> Mapping[Any, ArgumentSchema]
     )
 
 
-def create_schema_patch(source_schema, old_class):
-    class Impl(old_class):
-        schema = source_schema
-
-    return Impl
-
-
 @dataclass(eq=True, frozen=True)
 class StandardCommand:
     schema: ArgumentSchema
     signatures: Signatures = field(default_factory=ImmutableDict)
-    block_end: Optional[str] = None
-    canonical_name: Optional[str] = None
-    inhibit_favour_expansion: bool = False
     two_words_keywords: Iterable[TwoWordKeywordMatcher] = ()
 
 
 @dataclass(eq=True, frozen=True)
 class SpecializedCommand:
-    impl: object
+    impl: str
+
+
+@dataclass(eq=True, frozen=True)
+class Command:
+    details: Union[StandardCommand, SpecializedCommand]
+    block_end: Optional[str] = None
     canonical_name: Optional[str] = None
+    inhibit_favour_expansion: bool = False
+
+
+def preprocess_definitions(definitions):
+    return make_immutable(
+        {
+            key.strip().lower(): (
+                Command(
+                    block_end=value.get("block_end", None),
+                    canonical_name=key,
+                    inhibit_favour_expansion=value.get(
+                        "_inhibit_favour_expansion", False
+                    ),
+                    details=StandardCommand(
+                        two_words_keywords=tuple(value.get("_two_words_keywords", ())),
+                        schema=argument_schema_from_dict(value),
+                        signatures=argument_schemas_from_dict(
+                            value.get("signatures", ImmutableDict())
+                        ),
+                    )
+                    if "__impl" not in value
+                    else SpecializedCommand(impl=value.get("__impl")),
+                )
+            )
+            for key, value in definitions.items()
+        }
+    )

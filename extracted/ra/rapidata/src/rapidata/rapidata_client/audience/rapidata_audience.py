@@ -14,9 +14,11 @@ if TYPE_CHECKING:
         RapidataFilteredAudience,
     )
     from rapidata.rapidata_client.filter import RapidataFilter
+    from rapidata.rapidata_client.audience.recruiting import RecruitingMetrics
     from rapidata.rapidata_client.validation.rapids.rapids import Rapid
     from rapidata.rapidata_client.validation.rapids.box import Box
     from rapidata.rapidata_client.settings._rapidata_setting import RapidataSetting
+    from rapidata.rapidata_client.job.rapidata_job import RapidataJob
     import pandas as pd
 
 
@@ -51,6 +53,27 @@ class RapidataAudience(RapidataAudienceBase):
             )
             logger.debug("Audience '%s' has been deleted.", self)
             managed_print(f"Audience '{self}' has been deleted.")
+
+    def get_recruiting_metrics(self) -> RecruitingMetrics:
+        """Gets a snapshot of this audience's recruiting funnel.
+
+        Reports how the audience's annotators are distributed across the recruiting
+        funnel — graduated, distilling, dropped, and inactive — so you can tell a
+        healthy pool from one that is still filling up or has stalled. The counts are
+        all zero for audiences that have not recruited anyone yet.
+
+        Returns:
+            RecruitingMetrics: The current recruiting funnel of the audience.
+        """
+        with tracer.start_as_current_span("RapidataAudience.get_recruiting_metrics"):
+            from rapidata.rapidata_client.audience.recruiting import RecruitingMetrics
+
+            metrics = self._openapi_service.audience.audience_api.audience_audience_id_user_metrics_get(
+                self.id
+            )
+            return RecruitingMetrics._from_users_per_state(
+                metrics.users_per_state or {}
+            )
 
     def filter(self, filters: list[RapidataFilter]) -> RapidataFilteredAudience:
         """Derive a filtered audience from this audience.
@@ -219,7 +242,6 @@ class RapidataAudience(RapidataAudienceBase):
                 explanation,
                 settings,
             )
-            self._try_start_recruiting()
             return self
 
     def add_compare_example(
@@ -266,7 +288,6 @@ class RapidataAudience(RapidataAudienceBase):
                 explanation,
                 settings,
             )
-            self._try_start_recruiting()
             return self
 
     def add_locate_example(
@@ -310,7 +331,6 @@ class RapidataAudience(RapidataAudienceBase):
                 explanation=explanation,
                 settings=settings,
             )
-            self._try_start_recruiting()
             return self
 
     def add_draw_example(
@@ -354,7 +374,6 @@ class RapidataAudience(RapidataAudienceBase):
                 explanation=explanation,
                 settings=settings,
             )
-            self._try_start_recruiting()
             return self
 
     def add_select_words_example(
@@ -400,7 +419,6 @@ class RapidataAudience(RapidataAudienceBase):
                 explanation,
                 settings,
             )
-            self._try_start_recruiting()
             return self
 
     def get_examples(
@@ -448,35 +466,68 @@ class RapidataAudience(RapidataAudienceBase):
         with tracer.start_as_current_span("RapidataAudience._add_rapid_example"):
             logger.debug(f"Adding rapid example to audience: {self.id}")
             self._example_handler._add_rapid_example(rapid)
-            self._try_start_recruiting()
             return self
 
-    def _try_start_recruiting(self) -> None:
-        """Try to start recruiting annotators for this audience.
+    def start_recruiting(self) -> RapidataAudience:
+        """Start recruiting annotators for this audience.
 
-        This will begin the process of onboarding annotators for this audience.
-        If the recruiting has already started, it will do nothing.
+        This begins the distilling/onboarding campaign that qualifies annotators
+        against the examples added to this audience. Call it once — after all
+        qualification examples have been added and reviewed. Until it is called,
+        the audience stays in its ``Created`` status and recruits nobody, so adding
+        examples never implicitly starts recruiting.
+
+        Calling this more than once on the same instance is a no-op. A genuine
+        backend failure is raised so the caller knows recruiting did not start.
+
+        Returns:
+            RapidataAudience: The audience instance (self) for method chaining.
         """
-        from rapidata.rapidata_client.exceptions.rapidata_error import RapidataError
-
         if self._recruiting_started:
             logger.debug(f"Recruiting already started for audience: {self.id}")
+            return self
+
+        with tracer.start_as_current_span("RapidataAudience.start_recruiting"):
+            logger.debug(f"Sending request to start recruiting for audience: {self.id}")
+            self._openapi_service.audience.audience_api.audience_audience_id_recruit_post(
+                audience_id=self.id,
+            )
+            logger.info(f"Started recruiting for audience: {self.id}")
+            self._recruiting_started = True
+            return self
+
+    def _warn_if_no_graduated_annotators(self, job: RapidataJob) -> None:
+        """Warn when no annotator has graduated into this audience yet.
+
+        A job only draws responses from graduated annotators, and annotators only
+        graduate once the audience has enough qualification examples and recruiting
+        has started. Until one does, the job receives nothing, so surface it.
+        Advisory only — the job is created regardless — so a failure to read the
+        recruiting funnel must not break assignment.
+        """
+        try:
+            metrics = self.get_recruiting_metrics()
+        except Exception:
+            logger.debug(
+                "Could not read recruiting metrics for audience '%s'",
+                self.id,
+                exc_info=True,
+            )
             return
 
-        with tracer.start_as_current_span("RapidataAudience._try_start_recruiting"):
-            from rapidata.rapidata_client.api.rapidata_api_client import (
-                suppress_rapidata_error_logging,
-            )
+        if metrics.graduated > 0:
+            return
 
-            logger.debug(f"Sending request to start recruiting for audience: {self.id}")
-            with suppress_rapidata_error_logging():
-                try:
-                    self._openapi_service.audience.audience_api.audience_audience_id_recruit_post(
-                        audience_id=self.id,
-                    )
-                    logger.info(f"Started recruiting for audience: {self.id}")
-                    self._recruiting_started = True
-                except RapidataError as e:
-                    logger.debug(
-                        f"Error starting recruiting for audience: {self.id} - {e}"
-                    )
+        logger.warning(
+            "Audience '%s' (%s) has no graduated annotators yet (%d still distilling), "
+            "so job '%s' will receive 0 responses until annotators graduate into it. "
+            "Annotators only graduate once the audience has at least 3 qualification "
+            "examples and recruiting has started: if recruiting is already underway "
+            "this may just need time, otherwise add examples and call "
+            "start_recruiting(). For a task that needs no special qualification, assign "
+            'the job to the ready-to-go "global" audience instead.',
+            self._name,
+            self.id,
+            metrics.distilling,
+            job.name,
+        )

@@ -22,6 +22,7 @@ from subliminal import (
 from .commands import download
 from .helpers import (
     MutexLock,
+    check_parameters,
     options_from_providers,
     options_from_refiners,
     providers_config,
@@ -34,6 +35,9 @@ logger = logging.getLogger(__name__)
 def configure(ctx: click.Context, param: click.Parameter | None, filename: str | os.PathLike) -> None:
     """Update :class:`click.Context` based on a configuration file."""
     config = read_configuration(filename)
+
+    # Check for undefined parameters and deprecated parameters
+    check_parameters(ctx, config['default_map'])
 
     ctx.obj = config['obj']
     ctx.default_map = config['default_map']
@@ -73,21 +77,24 @@ default_config_path = dirs.user_config_path / 'subliminal.toml'
     type=click.STRING,
     nargs=2,
     metavar='USERNAME PASSWORD',
-    help='DEPRECATED: Addic7ed configuration.',
+    deprecated='Use `--provider.addic7ed.username` and `--provider.addic7ed.password` instead',
+    help='Addic7ed configuration.',
 )
 @providers_config.option(
     '--opensubtitles',
     type=click.STRING,
     nargs=2,
     metavar='USERNAME PASSWORD',
-    help='DEPRECATED: OpenSubtitles configuration.',
+    deprecated='Use `--provider.opensubtitles.username` and `--provider.opensubtitles.password` instead',
+    help='OpenSubtitles configuration.',
 )
 @providers_config.option(
     '--opensubtitlescom',
     type=click.STRING,
     nargs=2,
     metavar='USERNAME PASSWORD',
-    help='DEPRECATED: OpenSubtitlesCom configuration.',
+    deprecated='Use `--provider.opensubtitlescom.username` and `--provider.opensubtitlescom.password` instead',
+    help='OpenSubtitlesCom configuration.',
 )
 @options_from_providers
 @options_from_refiners

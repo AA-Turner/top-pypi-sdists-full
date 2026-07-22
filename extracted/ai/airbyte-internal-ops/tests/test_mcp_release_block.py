@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import requests
 
-from airbyte_ops_mcp.mcp import release_block
+from airbyte_ops_mcp.mcp import connector_qa
 
 
 class _Response:
@@ -31,10 +31,10 @@ class _Response:
 def test_check_single_connector_block_uses_explicit_ref() -> None:
     """Single connector checks fetch marker contents from the requested ref."""
     with patch(
-        "airbyte_ops_mcp.mcp.release_block.get_file_contents_at_ref",
+        "airbyte_ops_mcp.mcp.connector_qa.get_file_contents_at_ref",
         return_value="reason: broken\nyanked_version: 1.2.3\n",
     ) as get_file_contents:
-        result = release_block._check_single_connector_block(
+        result = connector_qa._check_single_connector_block(
             "source-faker",
             "token",
             "feature-branch",
@@ -61,9 +61,9 @@ def test_check_single_connector_block_uses_explicit_ref() -> None:
 def test_search_all_blocked_connectors_can_return_names_only() -> None:
     """Names-only listings avoid fetching every marker file."""
     with patch(
-        "airbyte_ops_mcp.mcp.release_block.get_file_contents_at_ref"
+        "airbyte_ops_mcp.mcp.connector_qa.get_file_contents_at_ref"
     ) as get_file_contents, patch(
-        "airbyte_ops_mcp.mcp.release_block.requests.get",
+        "airbyte_ops_mcp.mcp.connector_qa.requests.get",
         return_value=_Response(
             json_data={
                 "tree": [
@@ -77,7 +77,7 @@ def test_search_all_blocked_connectors_can_return_names_only() -> None:
             }
         ),
     ) as requests_get:
-        result = release_block._search_all_blocked_connectors(
+        result = connector_qa._search_all_blocked_connectors(
             token="token",
             ref="feature/branch",
             include_details=False,
@@ -100,7 +100,7 @@ def test_search_all_blocked_connectors_can_return_names_only() -> None:
 def test_search_all_blocked_connectors_fetches_details_when_requested() -> None:
     """Detailed listings parse marker files found in the Git tree."""
     with patch(
-        "airbyte_ops_mcp.mcp.release_block.requests.get",
+        "airbyte_ops_mcp.mcp.connector_qa.requests.get",
         return_value=_Response(
             json_data={
                 "tree": [
@@ -111,10 +111,10 @@ def test_search_all_blocked_connectors_fetches_details_when_requested() -> None:
             }
         ),
     ), patch(
-        "airbyte_ops_mcp.mcp.release_block.get_file_contents_at_ref",
+        "airbyte_ops_mcp.mcp.connector_qa.get_file_contents_at_ref",
         return_value="reason: broken\nblocked_by: aj\n",
     ) as get_file_contents:
-        result = release_block._search_all_blocked_connectors(
+        result = connector_qa._search_all_blocked_connectors(
             token="token",
             ref="master",
             include_details=True,

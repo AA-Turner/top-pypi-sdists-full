@@ -51,6 +51,20 @@ from application_sdk.observability.utils import (
 )
 from application_sdk.version import __version__ as _SDK_VERSION
 
+# Preflight gate outcome-event keys, shared with the emitter
+# (``application_sdk.execution._temporal.preflight_gate``) so a rename is a
+# single edit that keeps the emit call-site and the allowlist below in sync.
+CHECK_MATRIX_KEY = "check_matrix"
+GATE_MODE_KEY = "gate_mode"
+
+# Transformed-asset validation outcome-event key, shared with the emitter
+# (``application_sdk.app.base._warn_on_invalid_transformed_assets``) so a rename
+# is a single edit that keeps the emit call-site and the allowlist below in sync.
+# The compact per-failure matrix lands as one JSON string LogAttributes value in
+# ClickHouse (JSONExtract-able); the scalar counts sit alongside it as their own
+# attributes.
+ASSET_VALIDATION_MATRIX_KEY = "asset_validation_matrix"
+
 # SDK-side allowlist that gates which kwargs reach OTLP.  When a logger is called
 # with structured kwargs (e.g. ``_log().info("Downloaded", storage_path=key)``),
 # loguru places the kwargs on ``record["extra"]`` rather than in the message
@@ -102,6 +116,15 @@ _KNOWN_EXTRA_KEYS = frozenset(
         "reason",
         "entrypoint",
         "checks",
+        CHECK_MATRIX_KEY,
+        GATE_MODE_KEY,
+        # ── Transformed-asset validation outcome event ───────────────────
+        ASSET_VALIDATION_MATRIX_KEY,
+        "assets_total",
+        "assets_passed",
+        "assets_invalid",
+        "assets_orphaned",
+        "assets_undeserializable",
         # ── Misc SDK ─────────────────────────────────────────────────────
         "log_type",
         "app_name",
@@ -1297,9 +1320,23 @@ class AtlanLoggerAdapter(AtlanObservability[Any]):
             logging.error("Error processing log record", exc_info=True)
 
     def __del__(self):
-        """Cleanup when the logger is destroyed."""
-        if AtlanLoggerAdapter._flush_task and not AtlanLoggerAdapter._flush_task.done():
-            AtlanLoggerAdapter._flush_task.cancel()
+        """Cancel the periodic flush task when the logger is destroyed.
+
+        Guarded against interpreter teardown: during shutdown Python rebinds
+        module globals — including the ``AtlanLoggerAdapter`` class name this
+        references — to ``None``, so the attribute access raises
+        ``AttributeError`` ("'NoneType' object has no attribute '_flush_task'").
+        The event loop may likewise already be closed, making ``cancel()``
+        raise. Both are benign during GC/shutdown (there is nothing left to
+        flush) and cannot be logged (the logging stack may be gone), so they
+        are swallowed.
+        """
+        try:
+            task = AtlanLoggerAdapter._flush_task
+            if task is not None and not task.done():
+                task.cancel()
+        except Exception:  # noqa: S110, BLE001 — teardown-only; see docstring
+            pass
 
 
 # Create a singleton instance of the logger

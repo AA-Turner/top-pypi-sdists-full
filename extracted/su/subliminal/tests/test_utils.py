@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime
+import sys
 from typing import TYPE_CHECKING, Any
 from xmlrpc.client import ProtocolError
 
@@ -9,6 +10,7 @@ import requests
 
 from subliminal.exceptions import ServiceUnavailable
 from subliminal.utils import (
+    NameResolver,
     clip,
     creation_date,
     decorate_imdb_id,
@@ -20,10 +22,14 @@ from subliminal.utils import (
     matches_extended_title,
     merge_extend_and_ignore_unions,
     modification_date,
+    parse_sed_expression,
+    safely_guessit,
     sanitize,
     sanitize_id,
     sanitize_release_group,
+    split_esc,
     trim_pattern,
+    unescape_delimiter,
 )
 
 if TYPE_CHECKING:
@@ -50,6 +56,73 @@ def docstring() -> str:
             on another line.
         :return: something
         """
+
+
+def test_safely_guessit_with_valid_string() -> None:
+    result = safely_guessit('The.Big.Bang.Theory.S01E01.720p.BluRay.x264')
+    assert isinstance(result, dict)
+    assert result.get('title') == 'The Big Bang Theory'
+    assert result.get('season') == 1
+    assert result.get('episode') == 1
+    assert result.get('type') == 'episode'
+
+
+def test_safely_guessit_with_options() -> None:
+    result = safely_guessit('The.Matrix.1999.1080p', {'type': 'movie'})
+    assert isinstance(result, dict)
+    assert result.get('title') == 'The Matrix'
+    assert result.get('year') == 1999
+    assert result.get('type') == 'movie'
+
+
+def test_safely_guessit_with_none() -> None:
+    result = safely_guessit(None)
+    assert result == {}
+
+
+def test_safely_guessit_with_empty_string() -> None:
+    result = safely_guessit('')
+    assert result == {}
+
+
+@pytest.mark.skipif(sys.version_info < (3, 11), reason='not a bug in python3.10...')
+def test_safely_guessit_with_error() -> None:
+    """Regression test for https://github.com/Diaoul/subliminal/issues/1351"""
+    result = safely_guessit(
+        'ed2k://|file|ehad%20mishelanu.[wnet.co.il].avi|734373888|D26A70D1ECD306AFA3E8B9A55D681E4B|/',
+        {'type': 'movie'},
+    )
+    assert result == {}
+
+
+def test_safely_guessit_force_formatting() -> None:
+    """Regression test for https://github.com/Diaoul/subliminal/issues/1235"""
+    name = 'Adam-12 1968 Season 1 Complete x264 [i_c]/Adam-12 S01E02 Log 141 The Color TV Bandit.mkv'
+    result = safely_guessit(name)
+
+    assert 'title' in result
+    assert isinstance(result['title'], str)
+
+
+def test_safely_guessit_formatting(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that safely_guessit formats outputs correctly (force_int, force_list_str, str)."""
+
+    def mock_guessit(string: str, options: dict[str, Any] | None = None) -> dict[str, Any]:
+        return {
+            'title': 'Test Movie',
+            'alternative_title': 'Alt Title',
+            'season': 1,
+            'year': '2020',
+            'type': 'episode',
+        }
+
+    monkeypatch.setattr('subliminal.utils.guessit', mock_guessit)
+    result = safely_guessit('test_string')
+    assert result['title'] == 'Test Movie'
+    assert result['alternative_title'] == ['Alt Title']
+    assert result['season'] == 1
+    assert result['year'] == 2020
+    assert result['type'] == 'episode'
 
 
 def test_sanitize() -> None:
@@ -295,3 +368,154 @@ def test_clip(value: float, minimum: float | None, maximum: float | None, expect
 def test_trim_pattern(string: str, patterns: str | Sequence[str], sep: str, expected: tuple[str, str]) -> None:
     res = trim_pattern(string, patterns, sep=sep)
     assert res == expected
+
+
+def test_unescape_delimiter() -> None:
+    string = r'unescape_\/delim'
+    delim = '/'
+    out = unescape_delimiter(string, delim)
+
+    expected = 'unescape_/delim'
+    assert out == expected
+
+
+@pytest.mark.parametrize(
+    ('string', 'delimiter', 'expected'),
+    [
+        ('a/b/', '/', ['a', 'b', '']),
+        ('a/b', '/', ['a', 'b']),
+        (r'a\/b/c/', '/', ['a/b', 'c', '']),  # escaped delimiter is not split on
+        (r'a/b\//c', '/', ['a', 'b/', 'c']),  # escaped delimiter
+        (r'a\1/b/', '/', [r'a\1', 'b', '']),  # escaped non-delimiter is kept
+        ('a/b\\', '/', ['a', 'b']),  # trailing backslash
+        ('', '/', ['']),
+    ],
+)
+def test_split_esc(string: str, delimiter: str, expected: list[str]) -> None:
+    assert list(split_esc(string, delimiter)) == expected
+
+
+@pytest.mark.parametrize(
+    ('expr', 'expected'),
+    [
+        ('s/a/b/', ('a', 'b', '')),
+        ('s/a/b/gi', ('a', 'b', 'gi')),
+        (r's/a\/b/c/', ('a/b', 'c', '')),  # escaped delimiter inside pattern, unescaped
+        ('s|a|b|', ('a', 'b', '')),  # alternative delimiter
+        (r's/.*S(\d+)E(\d+).*/S\1E\2/', (r'.*S(\d+)E(\d+).*', r'S\1E\2', '')),
+        ('s/a/b', None),  # missing closing delimiter
+        ('s/a/b/c/d', None),  # too many segments
+        ('show.s01.e01.mkv', None),  # plain name with several dots
+        ('s.w.a.t.2017.s01e01.mkv', None),  # plain name starting with 's' and a non-alphanumeric character
+        ('My Show S01E01.mkv', None),  # plain name
+        ('sea/b/c', None),  # delimiter is alphanumeric
+        ('', None),
+    ],
+)
+def test_parse_sed_expression(expr: str, expected: tuple[str, str, str] | None) -> None:
+    assert parse_sed_expression(expr) == expected
+
+
+def test_name_resolver_static() -> None:
+    resolver = NameResolver.from_name('My Show S01E01.mkv')
+    assert resolver.mode == 'static'
+    # same name returned for every file
+    assert resolver('whatever.mkv') == 'My Show S01E01.mkv'
+    assert resolver('other.mkv') == 'My Show S01E01.mkv'
+
+
+def test_name_resolver_none() -> None:
+    resolver = NameResolver.from_name(None)
+    assert resolver('whatever.mkv') is None
+
+
+def test_name_resolver_sed() -> None:
+    resolver = NameResolver.from_name(r's/.*YP-1R-([0-9]+)x([0-9]+).*/My Little Pony S\1E\2.mkv/')
+    assert resolver.mode == 'sed'
+    assert resolver('/path/to/YP-1R-01x05-720p.mkv') == 'My Little Pony S01E05.mkv'
+    # non-matching file falls back to filepath
+    assert resolver('unrelated.mkv') == 'unrelated.mkv'
+
+
+def test_name_resolver_sed_matches_full_path() -> None:
+    # the substitution is applied to the whole path, so it can match parent directories
+    resolver = NameResolver.from_name(r's#.*Season ([0-9]+)/Episode ([0-9]+).*#My Show S\1E\2.mkv#')
+    assert resolver('/videos/My Show/Season 02/Episode 05.mkv') == 'My Show S02E05.mkv'
+    assert resolver('Episode 05.mkv') == 'Episode 05.mkv'
+
+
+def test_name_resolver_sed_flags() -> None:
+    # without g, only the first occurrence is replaced
+    assert NameResolver.from_name('s/a/X/')('aaa.mkv') == 'Xaa.mkv'
+    # g replaces all occurrences
+    assert NameResolver.from_name('s/a/X/g')('aaa.mkv') == 'XXX.mkv'
+    # i is case-insensitive
+    assert NameResolver.from_name('s/a/X/gi')('AaA.mkv') == 'XXX.mkv'
+
+
+def test_name_resolver_sed_ampersand_is_literal() -> None:
+    # unlike sed, & is a literal character (not the whole match)
+    assert NameResolver.from_name('s/[0-9]+/[&]/')('ep12.mkv') == 'ep[&].mkv'
+    # \& is not unescaped, it is passed as-is to re.sub which keeps it verbatim
+    assert NameResolver.from_name(r's/[0-9]+/\&/')('ep12.mkv') == r'ep\&.mkv'
+    # so a real-world title with & needs no escaping
+    resolver = NameResolver.from_name(r's/.*_-_([0-9]+)_.*/Panty & Stocking S01E\1.mkv/')
+    assert resolver('Garterbelt_-_07_xyz.mkv') == 'Panty & Stocking S01E07.mkv'
+    # non-matching file falls back to filepath
+    assert resolver('Garterbelt.mkv') == 'Garterbelt.mkv'
+
+
+def test_name_resolver_bad_group_reference() -> None:
+    # the pattern compiles, but the replacement references a missing group: the
+    # substitution fails at call time and the file is left untouched
+    resolver = NameResolver.from_name(r's/(a)/X\2Y/')
+    assert resolver.mode == 'sed'
+    assert resolver('aaa.mkv') == 'aaa.mkv'
+
+
+def test_name_resolver_invalid_sed_flag() -> None:
+    with pytest.raises(ValueError, match='Unsupported flag'):
+        NameResolver.from_name('s/a/b/x')
+
+
+def test_name_resolver_invalid_regex() -> None:
+    with pytest.raises(ValueError, match='Invalid regular expression'):
+        NameResolver.from_name('s/(/x/')
+
+
+def test_name_resolver_multiple_sed() -> None:
+    resolver = NameResolver.from_name(
+        [
+            r's#.*path/to/(.*)#My Little Pony/\1#',
+            r's/(.*)YP-1R-([0-9]+)x([0-9]+).*/\1My Little Pony S\2E\3.mkv/',
+        ],
+    )
+    assert resolver.mode == 'sed'
+
+    # only one match
+    assert resolver('/path/to/s01e05.mkv') == 'My Little Pony/s01e05.mkv'
+    assert resolver('YP-1R-01x05-720p.mkv') == 'My Little Pony S01E05.mkv'
+    # all matches
+    assert resolver('/path/to/YP-1R-01x05-720p.mkv') == 'My Little Pony/My Little Pony S01E05.mkv'
+    # non-matching file falls back to filepath
+    assert resolver('unrelated.mkv') == 'unrelated.mkv'
+
+
+def test_name_resolver_multiple_invalid_mixedin() -> None:
+    # Static mixed-in with sed
+    with pytest.raises(ValueError, match='A static name was found mixed-in'):
+        NameResolver.from_name(
+            [
+                r's#path/to/#My Little Pony/#',
+                'My Show S01E01.mkv',
+            ],
+        )
+
+    # Several static names
+    with pytest.raises(ValueError, match='A static name was found mixed-in'):
+        NameResolver.from_name(
+            [
+                'My Show S01E01.mkv',
+                'Other Show S02E04.mkv',
+            ],
+        )

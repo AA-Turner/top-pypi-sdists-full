@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyproject-api
-Version: 1.10.1
+Version: 1.11.0
 Summary: API to interact with the python pyproject.toml based projects
 Project-URL: Changelog, https://github.com/tox-dev/pyproject-api/releases
 Project-URL: Homepage, https://pyproject-api.readthedocs.io
@@ -24,6 +24,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: Utilities

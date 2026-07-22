@@ -1,21 +1,12 @@
-# SPDX-FileCopyrightText: 2024 Espressif Systems (Shanghai) CO LTD
+# SPDX-FileCopyrightText: 2024-2026 Espressif Systems (Shanghai) CO LTD
 # SPDX-License-Identifier: Apache-2.0
-import sys
+from esp_pylib.excepthook import install_exception_reporting
+
+from esp_kconfiglib.errors import kconfig_error_handler
 
 from .core import main
 
-
-class FatalError(RuntimeError):
-    """
-    Class for runtime errors (not caused by bugs but by user input).
-    """
-
-    pass
-
-
 if __name__ == "__main__":
-    try:
+    install_exception_reporting()
+    with kconfig_error_handler():
         main()
-    except FatalError as e:
-        print(f"A fatal error occurred: {e}", file=sys.stderr)
-        sys.exit(2)

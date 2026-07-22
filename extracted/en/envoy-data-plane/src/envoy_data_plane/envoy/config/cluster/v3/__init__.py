@@ -513,6 +513,32 @@ class CircuitBreakersThresholdsRetryBudget(betterproto2.Message):
     This parameter is optional. Defaults to 20%.
     """
 
+    budget_interval: "datetime.timedelta | None" = betterproto2.field(
+        3,
+        betterproto2.TYPE_MESSAGE,
+        unwrap=lambda: ____google__protobuf__.Duration,
+        optional=True,
+    )
+    """
+    An optional duration in which requests will be considered when calculating
+    the budget for retries. This parameter alters the way in which the retry budget
+    is calculated, overriding the default behavior when specified.
+
+    By default, when budget_interval is set to 0ms, only presently active
+    and pending requests are considered when calculating the retry budget.
+
+    When a non-zero budget_interval is specified, new requests are
+    considered for the duration of budget_interval when calculating
+    the retry budget.
+
+    For example, if 10 requests start at the same time, with a specified budget_interval
+    of 100ms, all 10 requests will be considered when calculating the retry
+    budget for the next 100ms, regardless of if they have completed.
+    All 10 requests will expire after the budget_interval duration.
+
+    This parameter is optional. Defaults to 0ms.
+    """
+
     min_retry_concurrency: "int | None" = betterproto2.field(
         2,
         betterproto2.TYPE_MESSAGE,

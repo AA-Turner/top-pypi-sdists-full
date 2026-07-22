@@ -635,7 +635,7 @@ class TestTokenManagerValidateAccessToken(TestCase):
 
     def test_should_return_none_when_no_jwk(self, requests_mocker):
         # given
-        jwks = dict()
+        jwks: dict = {}
         requests_mocker.register_uri(
             "GET", url="https://login.eveonline.com/oauth/jwks", json=jwks
         )

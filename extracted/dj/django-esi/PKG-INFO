@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-esi
-Version: 9.6.0
+Version: 9.8.0
 Summary: Django app for accessing the EVE Stable Interface (ESI).
 Keywords: eveonline
 Author-email: Alliance Auth <adarnof@gmail.com>
@@ -32,11 +32,12 @@ Requires-Dist: python-jose>=3.3
 Requires-Dist: requests>=2.26
 Requires-Dist: requests-oauthlib>=0.8
 Requires-Dist: tenacity
-Requires-Dist: myst-parser ; extra == "docs"
-Requires-Dist: sphinx ; extra == "docs"
+Requires-Dist: docutils==0.22 ; extra == "docs"
+Requires-Dist: myst-parser>=5 ; extra == "docs"
+Requires-Dist: sphinx>=9 ; extra == "docs"
 Requires-Dist: sphinx-copybutton ; extra == "docs"
-Requires-Dist: sphinx-rtd-theme>=3,<4 ; extra == "docs"
-Requires-Dist: sphinx-tabs ; extra == "docs"
+Requires-Dist: sphinx-rtd-theme>=3.1,<4 ; extra == "docs"
+Requires-Dist: sphinx-tabs>=3.5 ; extra == "docs"
 Requires-Dist: sphinxcontrib-django ; extra == "docs"
 Requires-Dist: coverage ; extra == "test"
 Requires-Dist: factory-boy ; extra == "test"

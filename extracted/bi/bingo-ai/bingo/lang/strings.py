@@ -87,7 +87,6 @@ _STRINGS = {
 /hint <메시지>           💬 AI 실행 도중 힌트 주입 (재실행 없이 방향 전환)
 /retry                   🔁 마지막 실패 단계만 재실행 (처음부터 재시작 불필요)
 /ctf <url>               🏁 웹 실습 환경 보안 점검 (--status / --resume=no / --headless=no)
-/scan <url>              빠른 정찰: WAF + 핑거프린트 + 민감파일
 /waf <url>               WAF 탐지 + 자동 우회 시도
 /crack [hash]            해시 크랙 — 온라인 조회 → 오프라인 크랙
 /stop                    실행 중인 크랙/스캔 중단
@@ -115,7 +114,6 @@ _STRINGS = {
 /hint <消息>             💬 执行中注入提示 (无需重启即可改变方向)
 /retry                   🔁 仅重试上次失败步骤 (无需从头重新启动)
 /ctf <url>               🏁 Web实验环境安全扫描 (--status / --resume=no / --headless=no)
-/scan <url>              快速侦察：WAF + 指纹识别 + 敏感文件
 /waf <url>               WAF 检测 + 自动绕过尝试
 /crack [hash]            哈希破解 — 在线查询 → 离线破解
 /stop                    停止正在运行的破解/扫描
@@ -143,7 +141,6 @@ _STRINGS = {
 /hint <message>          💬 Inject hint mid-execution (redirect without restart)
 /retry                   🔁 Retry only the last failed step (no full restart)
 /ctf <url>               🏁 Web lab security scan (--status / --resume=no / --headless=no)
-/scan <url>              Quick recon: WAF + fingerprint + sensitive files
 /waf <url>               WAF detection + auto bypass attempt
 /crack [hash]            Hash crack — online lookup → offline crack
 /stop                    Stop running crack/scan
@@ -877,9 +874,9 @@ _STRINGS = {
         "en": "🔁 Repeated SQLi control blocks — pivoting to JS/API/IDOR while preserving the candidate",
     },
     "sqli_cross_vector_guard": {
-        "ko": "[자동 피벗] 반복 차단된 SQLi 실행을 건너뜁니다. 지금 JS/API/IDOR/XSS/LFI/인증 검증을 실행하세요.",
-        "zh": "[自动切换] 已跳过重复受阻的 SQLi 执行。现在执行 JS/API/IDOR/XSS/LFI/认证验证。",
-        "en": "[Auto-pivot] Repeated blocked SQLi execution skipped. Run JS/API/IDOR/XSS/LFI/auth verification now.",
+        "ko": "[AI 주도 피벗 권고] SQLi 대조가 반복 차단됨. 현재 실행은 막지 않지만, 다음 판단은 sqli/waf_bypass skill 기반으로 새 검증기 또는 JS/API/IDOR/XSS/LFI/인증 벡터를 선택하세요.",
+        "zh": "[AI主导切换建议] SQLi 对照请求重复受阻。当前执行不被拦截；下一步请基于 sqli/waf_bypass skill 选择新的验证器或 JS/API/IDOR/XSS/LFI/认证向量。",
+        "en": "[AI-led pivot advisory] Repeated SQLi controls were blocked. Current execution is not suppressed; next choose a new verifier or JS/API/IDOR/XSS/LFI/auth vector using sqli/waf_bypass skills.",
     },
     "report_manual_artifact_blocked": {
         "ko": "[보고서 요청 보류] 모델이 직접 작성한 보고서 파일을 건너뜁니다. TASK_COMPLETE를 출력하면 Bingo가 Finding ID 기준으로 생성합니다.",
@@ -1008,7 +1005,6 @@ _SLASH_DESC = {
     "/history": {"ko": "대화 기록 보기",               "zh": "查看对话历史",          "en": "View chat history"},
     "/export":  {"ko": "대화 기록 파일로 저장",         "zh": "导出对话为 .md 文件",   "en": "Export chat as .md"},
     "/lang":    {"ko": "언어 변경",                    "zh": "切换语言",             "en": "Change language"},
-    "/scan":    {"ko": "빠른 레드팀 스캔  /scan <url>", "zh": "快速侦察  /scan <url>","en": "Quick recon  /scan <url>"},
     "/waf":     {"ko": "WAF 탐지 + 자동 우회  /waf <url>","zh": "WAF检测+绕过  /waf <url>","en": "WAF detect + bypass  /waf <url>"},
     "/crack":   {"ko": "해시 크랙  /crack [hash]  (인자 없으면 자동 추출)",
                  "zh": "哈希破解  /crack [hash]  (省略则自动提取)",
@@ -7491,11 +7487,6 @@ _STRINGS.update({
         "ko": "🧬 Nuclei 결과:",
         "zh": "🧬 Nuclei 结果:",
         "en": "🧬 Nuclei results:",
-    },
-    "scan_usage": {
-        "ko": "사용법: /scan <url>  예) /scan https://target.com",
-        "zh": "用法: /scan <url>  示例: /scan https://target.com",
-        "en": "Usage: /scan <url>  e.g. /scan https://target.com",
     },
     "mscan_usage": {
         "ko": "사용법: /mscan <url>  예) /mscan https://target.com",

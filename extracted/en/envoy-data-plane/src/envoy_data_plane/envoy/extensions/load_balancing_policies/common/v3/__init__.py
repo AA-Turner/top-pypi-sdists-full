@@ -10,13 +10,16 @@ __all__ = (
     "LocalityLbConfigZoneAwareLbConfig",
     "LocalityLbConfigZoneAwareLbConfigForceLocalZone",
     "LocalityLbConfigZoneAwareLbConfigLocalityBasis",
+    "OrcaOobReportingConfig",
     "SlowStartConfig",
 )
 
 import datetime
+import typing
 import warnings
 
 import betterproto2
+import pydantic
 from pydantic import model_validator
 from pydantic.dataclasses import dataclass
 
@@ -274,6 +277,54 @@ default_message_pool.register_message(
     "envoy.extensions.load_balancing_policies.common.v3",
     "LocalityLbConfig.ZoneAwareLbConfig.ForceLocalZone",
     LocalityLbConfigZoneAwareLbConfigForceLocalZone,
+)
+
+
+@dataclass(eq=False, repr=False, config={"extra": "forbid"})
+class OrcaOobReportingConfig(betterproto2.Message):
+    """
+    Connection overrides for the ORCA out-of-band (OOB) reporting stream, used by
+    load balancing policies that consume ORCA load reports (e.g.
+    :ref:`client_side_weighted_round_robin
+    <envoy_v3_api_msg_extensions.load_balancing_policies.client_side_weighted_round_robin.v3.ClientSideWeightedRoundRobin>`).
+    Whether and when OOB reporting runs is controlled by the embedding policy.
+    """
+
+    port_value: "typing.Annotated[int, pydantic.Field(ge=0, le=2**32 - 1)]" = (
+        betterproto2.field(1, betterproto2.TYPE_UINT32)
+    )
+    """
+    Optional alternative port for the OOB reporting connection, for example an
+    ORCA reporting sidecar listening on a dedicated port. If 0 or unset, the
+    port of the host's ORCA reporting address is used. Ignored for non-IP
+    (pipe/UDS) host addresses.
+    """
+
+    authority: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        2, betterproto2.TYPE_STRING
+    )
+    """
+    Value of the ``:authority`` header on the OOB gRPC stream. If empty, the
+    endpoint hostname is used, then the dialed address, then the cluster name.
+    """
+
+    transport_socket_match_criteria: "_____google__protobuf__.Struct | None" = (
+        betterproto2.field(3, betterproto2.TYPE_MESSAGE, optional=True)
+    )
+    """
+    Optional key/value pairs used to select a transport socket from the
+    cluster's :ref:`transport_socket_matches
+    <envoy_v3_api_field_config.cluster.v3.Cluster.transport_socket_matches>`
+    for the OOB connection. If unset, or if no match is found, the cluster's
+    default transport socket is used. ALPN ``h2`` is always forced on the OOB
+    connection regardless of this setting.
+    """
+
+
+default_message_pool.register_message(
+    "envoy.extensions.load_balancing_policies.common.v3",
+    "OrcaOobReportingConfig",
+    OrcaOobReportingConfig,
 )
 
 

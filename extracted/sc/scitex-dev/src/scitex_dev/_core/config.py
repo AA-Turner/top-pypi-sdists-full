@@ -13,6 +13,21 @@ from typing import Any
 
 from scitex_config._ecosystem import local_state
 
+from ._default_config import create_default_config as _write_default_config
+
+# Knob-state layer (skills / mcp / test-execution). Re-exported here so the
+# historical ``from scitex_dev._core.config import set_package_knob`` (and the
+# private helpers the tests import) keep resolving after the extraction.
+from ._knobs import (  # noqa: F401
+    _KNOB_KINDS,
+    _apply_knob_state,
+    _knob_state_path,
+    _load_knob_state,
+    set_package_knob,
+    set_package_test_execution,
+)
+from .test_execution import DEFAULT_MODE as _DEFAULT_TEST_EXECUTION_MODE
+
 
 @dataclass
 class HostConfig:
@@ -62,6 +77,18 @@ class PackageConfig:
     pypi_name: str
     github_repo: str | None = None
     import_name: str | None = None
+    # Per-leaf progressive-disclosure knobs, centrally managed by scitex-dev
+    # (operator directive 2026-07-20). When False, scitex-dev's aggregators
+    # treat the package's skills / MCP server as OFF for context-budget
+    # scoping — nothing is uninstalled, it is simply not surfaced.
+    skills_enabled: bool = True
+    mcp_enabled: bool = True
+    # Test-execution policy mode: "local" (allow local pytest) or
+    # "remote-required" (local pytest is an ERROR; suite must run remote).
+    # Resolved the same way as skills/mcp: ECOSYSTEM default → config.yaml →
+    # knob-state.json. The rich recipe (host + submit template + marker env)
+    # lives in the package's own config-layout — see _core.test_execution.
+    test_execution: str = "local"
 
 
 @dataclass
@@ -188,6 +215,9 @@ def _parse_package_config(data: dict[str, Any]) -> PackageConfig:
         pypi_name=data.get("pypi_name", data.get("name", "")),
         github_repo=data.get("github_repo"),
         import_name=data.get("import_name"),
+        skills_enabled=bool(data.get("skills_enabled", True)),
+        mcp_enabled=bool(data.get("mcp_enabled", True)),
+        test_execution=str(data.get("test_execution", _DEFAULT_TEST_EXECUTION_MODE)),
     )
 
 
@@ -228,6 +258,11 @@ def load_config(config_path: str | Path | None = None) -> DevConfig:
             pypi_name=info.get("pypi_name", name),
             github_repo=info.get("github_repo"),
             import_name=info.get("import_name"),
+            skills_enabled=bool(info.get("skills_enabled", True)),
+            mcp_enabled=bool(info.get("mcp_enabled", True)),
+            test_execution=str(
+                info.get("test_execution", _DEFAULT_TEST_EXECUTION_MODE)
+            ),
         )
 
     # Override with config file entries (if any)
@@ -238,6 +273,9 @@ def load_config(config_path: str | Path | None = None) -> DevConfig:
                 pkg_map[parsed.name] = parsed
 
     packages = list(pkg_map.values())
+
+    # Overlay machine-managed knob-state (CLI toggles) at highest precedence.
+    _apply_knob_state(packages)
 
     # Parse hosts
     hosts = []
@@ -331,6 +369,38 @@ def get_enabled_remotes(config: DevConfig | None = None) -> list[GitHubRemote]:
     return [r for r in config.github_remotes if r.enabled]
 
 
+def get_enabled_skills(config: DevConfig | None = None) -> list[PackageConfig]:
+    """Resolved view: packages whose skills are enabled (progressive-disclosure knob).
+
+    scitex-dev aggregators (skills index, per-agent scoping) consult this so a
+    package's skills load into context ONLY when centrally enabled.
+    """
+    if config is None:
+        config = load_config()
+    return [p for p in config.packages if p.skills_enabled]
+
+
+def get_enabled_mcp(config: DevConfig | None = None) -> list[PackageConfig]:
+    """Resolved view: packages whose MCP server is enabled (progressive-disclosure knob)."""
+    if config is None:
+        config = load_config()
+    return [p for p in config.packages if p.mcp_enabled]
+
+
+def get_test_execution_mode(name: str, config: DevConfig | None = None) -> str:
+    """Resolved test-execution MODE for package ``name`` (default ``"local"``).
+
+    Reads the fully-resolved ``PackageConfig.test_execution`` (ECOSYSTEM →
+    config.yaml → knob-state.json). Unknown packages resolve to the default.
+    """
+    if config is None:
+        config = load_config()
+    for p in config.packages:
+        if p.name == name:
+            return p.test_execution
+    return _DEFAULT_TEST_EXECUTION_MODE
+
+
 def config_to_dict(config: DevConfig, config_path: Path | None = None) -> dict:
     """Serialize a DevConfig to a plain dict for JSON responses.
 
@@ -353,6 +423,9 @@ def config_to_dict(config: DevConfig, config_path: Path | None = None) -> dict:
                 "local_path": p.local_path,
                 "pypi_name": p.pypi_name,
                 "github_repo": p.github_repo,
+                "skills_enabled": p.skills_enabled,
+                "mcp_enabled": p.mcp_enabled,
+                "test_execution": p.test_execution,
             }
             for p in config.packages
         ],
@@ -386,90 +459,8 @@ def get_config_path() -> Path:
 
 
 def create_default_config() -> Path:
-    """Create default config file if it doesn't exist.
-
-    Returns
-    -------
-    Path
-        Path to the config file.
-    """
-    config_path = _get_default_config_path()
-    config_path.parent.mkdir(parents=True, exist_ok=True)
-
-    if config_path.exists():
-        return config_path
-
-    default_config = """\
-# SciTeX Developer Configuration
-# Timestamp: 2026-02-02
-
-# Ecosystem packages to track
-packages:
-  - name: scitex
-    local_path: ~/proj/scitex-python
-    pypi_name: scitex
-    github_repo: ywatanabe1989/scitex-python
-    import_name: scitex
-  - name: figrecipe
-    local_path: ~/proj/figrecipe
-    pypi_name: figrecipe
-    github_repo: ywatanabe1989/figrecipe
-    import_name: figrecipe
-  - name: scitex-hub
-    local_path: ~/proj/scitex-hub
-    pypi_name: scitex-hub
-    github_repo: ywatanabe1989/scitex-hub
-    import_name: scitex_hub
-  - name: scitex-writer
-    local_path: ~/proj/scitex-writer
-    pypi_name: scitex-writer
-    github_repo: ywatanabe1989/scitex-writer
-    import_name: scitex_writer
-  - name: crossref-local
-    local_path: ~/proj/crossref-local
-    pypi_name: crossref-local
-    github_repo: ywatanabe1989/crossref-local
-    import_name: crossref_local
-
-# Hosts to check via SSH
-hosts:
-  - name: ywata-note-win
-    hostname: localhost
-    user: ywatanabe
-    role: dev
-    enabled: true
-  - name: nas
-    hostname: nas.local
-    user: ywatanabe
-    role: staging
-    enabled: true
-  - name: scitex-hub
-    hostname: scitex.ai
-    user: deploy
-    role: prod
-    enabled: false
-
-# GitHub remotes to check
-github_remotes:
-  - name: ywatanabe1989
-    org: ywatanabe1989
-    enabled: true
-  - name: scitex-ai
-    org: scitex-ai
-    enabled: false
-
-# PyPI accounts
-pypi_accounts:
-  - name: ywatanabe1989
-    enabled: true
-
-# Branches to track
-branches:
-  - main
-  - develop
-"""
-    config_path.write_text(default_config)
-    return config_path
+    """Create the default config file at the canonical path if it's absent."""
+    return _write_default_config(_get_default_config_path())
 
 
 # EOF

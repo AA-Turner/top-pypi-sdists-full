@@ -2,6 +2,7 @@ use clap::{Args, Parser, Subcommand};
 use liteparse::config::{LiteParseConfig, OutputFormat};
 use liteparse::conversion;
 use liteparse::extract;
+use liteparse::ocr_merge::LayoutComplexityReason;
 use liteparse::output::{json, text};
 use liteparse::parser::LiteParse;
 use liteparse::render;
@@ -572,11 +573,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 } else {
                     "SIMPLE"
                 };
+                let layout_count = |reason: LayoutComplexityReason| {
+                    is_complex
+                        .iter()
+                        .filter(|c| {
+                            c.layout
+                                .as_ref()
+                                .is_some_and(|l| l.reasons.contains(&reason))
+                        })
+                        .count()
+                };
                 eprintln!(
-                    "{} — {}/{} page(s) need OCR",
+                    "{} — {}/{} page(s) need OCR; layout: {} multi-column, {} table, {} graphics-dense",
                     verdict,
                     complex_pages,
-                    is_complex.len()
+                    is_complex.len(),
+                    layout_count(LayoutComplexityReason::MultiColumn),
+                    layout_count(LayoutComplexityReason::TableLikely),
+                    layout_count(LayoutComplexityReason::DenseGraphics),
                 );
             }
 
@@ -619,26 +633,6 @@ fn batch_output_path(
         .with_extension(out_ext)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::batch_output_path;
-    use std::path::Path;
-
-    #[test]
-    fn batch_output_path_preserves_output_dir_without_trailing_slash() {
-        let out_path = batch_output_path("docs/report.pdf", "docs", "out", "txt");
-
-        assert_eq!(out_path, Path::new("out/report.txt"));
-    }
-
-    #[test]
-    fn batch_output_path_mirrors_nested_files_without_trailing_slash() {
-        let out_path = batch_output_path("docs/nested/report.pdf", "docs", "out", "md");
-
-        assert_eq!(out_path, Path::new("out/nested/report.md"));
-    }
-}
-
 fn collect_files_inner(
     dir: &std::path::Path,
     recursive: bool,
@@ -669,4 +663,24 @@ fn collect_files_inner(
         files.push(path_str);
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::batch_output_path;
+    use std::path::Path;
+
+    #[test]
+    fn batch_output_path_preserves_output_dir_without_trailing_slash() {
+        let out_path = batch_output_path("docs/report.pdf", "docs", "out", "txt");
+
+        assert_eq!(out_path, Path::new("out/report.txt"));
+    }
+
+    #[test]
+    fn batch_output_path_mirrors_nested_files_without_trailing_slash() {
+        let out_path = batch_output_path("docs/nested/report.pdf", "docs", "out", "md");
+
+        assert_eq!(out_path, Path::new("out/nested/report.md"));
+    }
 }

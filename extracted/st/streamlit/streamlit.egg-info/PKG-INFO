@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: streamlit
-Version: 1.59.2
+Version: 1.60.0
 Summary: A faster way to build and share data apps
 Author-email: Snowflake Inc <hello@streamlit.io>
 License-Expression: Apache-2.0
@@ -30,7 +30,6 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 Requires-Dist: altair!=5.4.0,!=5.4.1,<7,>=4.0
 Requires-Dist: blinker<2,>=1.5.0
-Requires-Dist: cachetools<8,>=5.5
 Requires-Dist: click<9,>=7.0
 Requires-Dist: gitpython!=3.1.19,<4,>=3.0.7
 Requires-Dist: numpy<3,>=1.23
@@ -44,13 +43,13 @@ Requires-Dist: requests<3,>=2.27
 Requires-Dist: tenacity<10,>=8.1.0
 Requires-Dist: toml<2,>=0.10.1
 Requires-Dist: typing-extensions<5,>=4.10.0
-Requires-Dist: starlette>=0.40.0
-Requires-Dist: uvicorn>=0.30.0
-Requires-Dist: httptools>=0.6.3
-Requires-Dist: anyio>=4.0.0
-Requires-Dist: python-multipart>=0.0.10
-Requires-Dist: websockets>=12.0.0
-Requires-Dist: itsdangerous>=2.1.2
+Requires-Dist: starlette<2,>=0.40.0
+Requires-Dist: uvicorn<1,>=0.30.0
+Requires-Dist: httptools<1,>=0.6.3
+Requires-Dist: anyio<5,>=4.0.0
+Requires-Dist: python-multipart<1,>=0.0.10
+Requires-Dist: websockets<17,>=12.0.0
+Requires-Dist: itsdangerous<3,>=2.1.2
 Requires-Dist: watchdog<7,>=2.1.5; platform_system != "Darwin"
 Provides-Extra: snowflake
 Requires-Dist: snowflake-snowpark-python[modin]>=1.17.0; extra == "snowflake"
@@ -209,7 +208,16 @@ Deploy, manage and share your apps for free using our [Community Cloud](https://
 
 🎉 Thanks for your interest in helping improve Streamlit! 🎉
 
-Before contributing, please read our guidelines here: https://github.com/streamlit/streamlit/blob/develop/CONTRIBUTING.md
+We have paused accepting pull requests from outside the Streamlit maintainer team. You can still
+make a valuable contribution by [reporting bugs](https://github.com/streamlit/streamlit/issues/new?template=bug_report.yml),
+[requesting features](https://github.com/streamlit/streamlit/issues/new?template=feature_request.yml),
+[improving or upvoting existing issues](https://github.com/streamlit/streamlit/issues?q=is%3Aissue%20state%3Aopen%20sort%3Areactions-%2B1-desc),
+[commenting on open specs](https://github.com/streamlit/streamlit/issues?q=state%3Aopen%20label%3Achange%3Aspec), creating
+[custom components](https://docs.streamlit.io/develop/concepts/custom-components/components-v2),
+and contributing to [streamlit-extras](https://github.com/arnaudmiribel/streamlit-extras).
+
+Read our [contribution guide](https://github.com/streamlit/streamlit/blob/develop/CONTRIBUTING.md)
+for details.
 
 ## License
 

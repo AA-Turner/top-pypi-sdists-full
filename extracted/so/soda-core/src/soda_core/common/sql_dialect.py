@@ -362,8 +362,9 @@ class SqlDialect:
         return "(" + (",".join([self.literal(e) for e in l])) + ")"
 
     def literal_date(self, date: date):
-        date_string = date.strftime("%Y-%m-%d")
-        return f"DATE '{date_string}'"
+        # Not strftime("%Y-%m-%d"): C strftime does not zero-pad years < 1000 on glibc,
+        # producing literals like DATE '200-12-17' that Spark/Databricks reject.
+        return f"DATE '{date.isoformat()}'"
 
     def literal_datetime(self, datetime: datetime):
         return f"'{datetime.isoformat()}'"
@@ -1393,6 +1394,14 @@ class SqlDialect:
     # Very lightweight dialect-specific interpretation of dataset prefixes.
     def get_schema_prefix_index(self) -> int | None:
         return 1
+
+    def is_system_schema(self, schema_name: str) -> bool:
+        """Check if the schema is a data source internal/system schema.
+
+        Objects in system schemas are excluded from discovery. Dialects
+        override this to add their data source specific system schemas.
+        """
+        return schema_name.lower() == "information_schema"
 
     def sql_expr_timestamp_with_tz_literal(self, datetime_in_iso8601: str) -> str:
         """Convert to a SQL representation of a timestamp with timezone.

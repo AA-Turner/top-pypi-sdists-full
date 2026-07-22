@@ -1,0 +1,16 @@
+######################################################################################################
+#                                 Auto-generated Metaflow stub file                                  #
+# MF version: 2.19.34.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-07-21T20:55:40.897796                                                            #
+######################################################################################################
+
+from __future__ import annotations
+
+
+
+def stream_subprocess_output(process, stdout_destination, stderr_destination):
+    """
+    Drain and forward both subprocess output streams concurrently.
+    """
+    ...
+

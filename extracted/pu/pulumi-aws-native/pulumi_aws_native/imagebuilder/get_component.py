@@ -78,7 +78,7 @@ class GetComponentResult:
     @pulumi.getter
     def type(self) -> Optional['ComponentType']:
         """
-        The type of the component denotes whether the component is used to build the image or only to test it. 
+        The type of the component denotes whether the component is used to build the image or only to test it.
         """
         return pulumi.get(self, "type")
 
@@ -99,8 +99,7 @@ class AwaitableGetComponentResult(GetComponentResult):
 def get_component(arn: Optional[_builtins.str] = None,
                   opts: Optional[pulumi.InvokeOptions] = None) -> AwaitableGetComponentResult:
     """
-    Resource schema for AWS::ImageBuilder::Component
-
+    Resource Type definition for AWS::ImageBuilder::Component
 
     :param _builtins.str arn: The Amazon Resource Name (ARN) of the component.
     """
@@ -115,11 +114,10 @@ def get_component(arn: Optional[_builtins.str] = None,
         latest_version=pulumi.get(__ret__, 'latest_version'),
         tags=pulumi.get(__ret__, 'tags'),
         type=pulumi.get(__ret__, 'type'))
-def get_component_output(arn: Optional[pulumi.Input[_builtins.str]] = None,
+def get_component_output(arn: pulumi.Input[Optional[_builtins.str]] = None,
                          opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetComponentResult]:
     """
-    Resource schema for AWS::ImageBuilder::Component
-
+    Resource Type definition for AWS::ImageBuilder::Component
 
     :param _builtins.str arn: The Amazon Resource Name (ARN) of the component.
     """

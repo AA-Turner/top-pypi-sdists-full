@@ -3,12 +3,13 @@
 import argparse
 from collections import OrderedDict
 from collections.abc import Iterator
-from typing import Any, Optional, Union
+from typing import Any
 
 __all__ = ["Namespace"]
 
 
-meta_keys = {"__default_config__", "__path__", "__orig__"}
+subclasses_disabled_meta_key = "__subclasses_disabled__"
+meta_keys = {"__default_config__", "__path__", "__orig__", subclasses_disabled_meta_key}
 
 
 class NSKeyError(KeyError):
@@ -31,12 +32,6 @@ def split_key_leaf(key: str) -> list[str]:
 def is_meta_key(key: str) -> bool:
     leaf_key = split_key_leaf(key)[-1]
     return leaf_key in meta_keys
-
-
-def remove_meta(cfg: Union["Namespace", dict]):
-    if cfg:
-        cfg = recreate_branches(cfg, skip_keys=meta_keys)
-    return cfg
 
 
 def recreate_branches(data, skip_keys=None):
@@ -70,7 +65,7 @@ class Namespace(argparse.Namespace):
             for key, val in args[0].items() if isinstance(args[0], dict) else vars(args[0]).items():
                 self[key] = val
 
-    def _parse_key(self, key: str) -> tuple[str, Optional["Namespace"], str]:
+    def _parse_key(self, key: str) -> tuple[str, "Namespace | None", str]:
         """Parses a key for the nested namespace.
 
         Args:
@@ -224,9 +219,7 @@ class Namespace(argparse.Namespace):
         """
         return recreate_branches(self, skip_keys=None if with_meta else meta_keys)
 
-    def update(
-        self, value: Union["Namespace", Any], key: Optional[str] = None, only_unset: bool = False
-    ) -> "Namespace":
+    def update(self, value: "Namespace | Any", key: str | None = None, only_unset: bool = False) -> "Namespace":
         """Sets or replaces all items from the given nested namespace.
 
         Args:
@@ -293,6 +286,12 @@ def expand_dict(data: dict) -> Namespace:
 def dict_to_namespace(data: dict[str, Any]) -> Namespace:
     data = recreate_branches(data)
     return expand_dict(data)
+
+
+def remove_meta(cfg: Namespace | dict):
+    if cfg:
+        cfg = recreate_branches(cfg, skip_keys=meta_keys)
+    return cfg
 
 
 def get_non_meta_sorted_keys(namespace: Namespace) -> list[str]:

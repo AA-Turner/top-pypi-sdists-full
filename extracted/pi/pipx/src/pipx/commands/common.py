@@ -425,7 +425,10 @@ def _copy_launcher_targets_venv(resource_path: Path, venv_resource_path: Path) -
         try:
             if interpreter and Path(os.fsdecode(interpreter)).parent.samefile(venv_resource_path):
                 return True
-        except OSError:
+        except (OSError, ValueError):
+            # The scan reads every file in the bin directory, so a stray "#!" in a foreign binary leads here with
+            # arbitrary bytes rather than a path: os.fsdecode rejects undecodable ones under the surrogatepass
+            # codec Windows uses, and stat rejects an embedded NUL. Neither makes the copy ours.
             continue
     return False
 
@@ -450,7 +453,7 @@ def group_resource_paths(resource_paths: Iterable[tuple[str, Path]]) -> dict[str
     return grouped
 
 
-def _get_list_output(  # noqa: PLR0913  # flat rendering inputs; a wrapper struct would only add indirection
+def _get_list_output(  # ruff:ignore[too-many-arguments]  # flat rendering inputs; a wrapper struct would only add indirection
     python_version: str,
     package_version: str,
     package_name: str,
@@ -493,7 +496,7 @@ def _get_list_output(  # noqa: PLR0913  # flat rendering inputs; a wrapper struc
     return "\n".join(output)
 
 
-def package_name_from_spec(  # noqa: PLR0913  # resolver inputs are independent scalars, not a cohesive struct
+def package_name_from_spec(  # ruff:ignore[too-many-arguments]  # resolver inputs are independent scalars, not a cohesive struct
     package_spec: str,
     python: str,
     *,
@@ -531,7 +534,7 @@ def package_name_from_spec(  # noqa: PLR0913  # resolver inputs are independent 
     return package_name
 
 
-def run_post_install_actions(  # noqa: PLR0913  # post-install needs venv, both resource dirs, and the venv dir
+def run_post_install_actions(  # ruff:ignore[too-many-arguments]  # post-install needs venv, both resource dirs, and the venv dir
     venv: Venv,
     package_name: str,
     local_bin_dir: Path,

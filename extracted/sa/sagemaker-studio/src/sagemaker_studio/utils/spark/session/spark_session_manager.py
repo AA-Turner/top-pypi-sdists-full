@@ -76,6 +76,11 @@ class SparkSessionManager(ABC):
         """Get the execution role ARN from the project's IAM connection."""
         return self.project.iam_role
 
+    @staticmethod
+    def _user_msg(msg):
+        """Print a user-facing progress message (visible in notebook cell output)."""
+        print(msg, flush=True)
+
     def _get_user_id_account_id(self):
         """Return (user_id, account_id), falling back to STS if env vars are missing."""
         _utils = InternalUtils()

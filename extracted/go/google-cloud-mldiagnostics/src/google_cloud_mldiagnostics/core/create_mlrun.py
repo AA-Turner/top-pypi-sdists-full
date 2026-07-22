@@ -57,7 +57,7 @@ def initialize_mlrun(
     name: str,
     environment: str,
     on_demand_xprof: bool,
-    log_system_metrics: bool = True,
+    log_system_metrics: bool = False,
     run_group: str | None = None,
     configs: Mapping[str, Any] | None = None,
     gcs_path: str | None = None,
@@ -279,7 +279,7 @@ def initialize_mlrun(
   if on_demand_xprof:
     # LINT.IfChange(xprof_port)
     xprof_port = 9999
-    # LINT.ThenChange(//depot/google3/cloud/hosted/hypercomputecluster/clh/diagnostics/consumerservice/profilersession.go:defaultCapturePort)
+    # LINT.ThenChange(//depot/google3/cloud/hosted/hypercomputecluster/clh/diagnostics/consumerservice/utils.go:DefaultCapturePort)
     from google_cloud_mldiagnostics.core import xprof  # pylint: disable=g-import-not-at-top
 
     xprof.start_on_demand_xprof(port=xprof_port)

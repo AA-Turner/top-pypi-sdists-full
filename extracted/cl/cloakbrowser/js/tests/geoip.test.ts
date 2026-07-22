@@ -74,6 +74,42 @@ describe("maybeResolveGeoip", () => {
     expect(fetchSpy.mock.calls[0][1]).toEqual({ redirect: "follow" });
   });
 
+  it("downloads the database once under concurrent first-use launches (#458)", async () => {
+    const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), "cloak-geoip-concurrent-"));
+    tempDirs.push(cacheDir);
+    process.env.CLOAKBROWSER_CACHE_DIR = cacheDir;
+    // Short resolution budget so the post-download reader on the fake DB bails
+    // fast (the download itself is exempt from this timeout).
+    process.env.CLOAKBROWSER_GEOIP_TIMEOUT_SECONDS = "0.2";
+
+    // Slow response so all launches queue behind the first download.
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(
+      () =>
+        new Promise<Response>((resolve) =>
+          setTimeout(
+            () =>
+              resolve({
+                ok: true,
+                body: new ReadableStream({
+                  start(controller) {
+                    controller.enqueue(new Uint8Array([1, 2, 3]));
+                    controller.close();
+                  },
+                }),
+              } as Response),
+            50,
+          ),
+        ),
+    );
+
+    await Promise.all(
+      Array.from({ length: 5 }, () => resolveProxyGeo("http://203.0.113.10:8080")),
+    );
+
+    // Only one launch actually fetched the shared ~70 MB file.
+    expect(fetchSpy).toHaveBeenCalledOnce();
+  });
+
   it("no proxy + both explicit: skips the exit-IP fetch entirely", async () => {
     // With no proxy the WebRTC IP would just be the real connection IP the site
     // already sees (a no-op), so maybeResolveGeoip must not call the echo services.

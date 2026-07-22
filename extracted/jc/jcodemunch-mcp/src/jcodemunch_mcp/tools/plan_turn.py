@@ -1,6 +1,7 @@
 """Plan the next turn — recommend symbols/files based on query."""
 
 import heapq
+import threading
 import time
 from typing import Optional
 
@@ -57,10 +58,14 @@ def plan_turn(
     # Get BM25 cache
     cache = index._bm25_cache
     if "idf" not in cache:
-        cache["idf"], cache["avgdl"], cache["inverted"] = _compute_bm25(index.symbols)
-        cache["centrality"] = _compute_centrality(
-            index.symbols, index.imports, index.alias_map, getattr(index, "psr4_map", None)
-        )
+        # Single-flight: concurrent cold callers must not each build the
+        # full-corpus BM25 state (#370)
+        with getattr(index, "_bm25_lock", None) or threading.Lock():
+            if "idf" not in cache:
+                cache["idf"], cache["avgdl"], cache["inverted"] = _compute_bm25(index.symbols)
+                cache["centrality"] = _compute_centrality(
+                    index.symbols, index.imports, index.alias_map, getattr(index, "psr4_map", None)
+                )
     idf = cache["idf"]
     avgdl = cache["avgdl"]
     centrality = cache["centrality"]
@@ -257,6 +262,34 @@ def plan_turn(
     except Exception:
         pass
 
+    # --- Sub-feature: Consumption estimate + calibration (v1.108.148) ---
+    # Price the recommended route in tokens and reconcile the previous
+    # plan's estimate against what the session actually served since.
+    consumption_estimate = None
+    try:
+        from ..storage.token_tracker import (
+            _DEFAULT_TOKENS_PER_CALL,
+            avg_response_tokens_per_call,
+            record_turn_estimate,
+        )
+        expected_calls = len(recommended_symbols) + max_supplementary_reads
+        session_avg = avg_response_tokens_per_call()
+        per_call = session_avg if session_avg > 0 else _DEFAULT_TOKENS_PER_CALL
+        estimated = expected_calls * per_call
+        calibration = record_turn_estimate(estimated)
+        if expected_calls > 0:
+            consumption_estimate = {
+                "estimated_tokens": estimated,
+                "expected_calls": expected_calls,
+                "basis": "session_avg" if session_avg > 0 else "default",
+            }
+            if calibration is not None:
+                ratio = calibration["actual_vs_estimated"]
+                consumption_estimate["actual_vs_estimated"] = ratio
+                consumption_estimate["calibrated_tokens"] = int(estimated * ratio)
+    except Exception:
+        pass
+
     elapsed = (time.perf_counter() - start) * 1000
 
     result: dict = {
@@ -278,6 +311,8 @@ def plan_turn(
         result["insertion_candidates"] = insertion_candidates
     if budget_advisor is not None:
         result["budget_advisor"] = budget_advisor
+    if consumption_estimate is not None:
+        result["consumption_estimate"] = consumption_estimate
     if confidence in ("low", "none"):
         result["action"] = "STOP_AND_REPORT_GAP"
     from ..retrieval.confidence import attach_confidence as _attach_confidence

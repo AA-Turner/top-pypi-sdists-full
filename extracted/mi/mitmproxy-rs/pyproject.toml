@@ -17,9 +17,9 @@ classifiers = [
 ]
 
 dependencies = [
-    "mitmproxy_windows==0.12.10; os_name == 'nt'",
-    "mitmproxy_linux==0.12.10; sys_platform == 'linux'",
-    "mitmproxy_macos==0.12.10; sys_platform == 'darwin'",
+    "mitmproxy_windows==0.12.11; os_name == 'nt'",
+    "mitmproxy_linux==0.12.11; sys_platform == 'linux'",
+    "mitmproxy_macos==0.12.11; sys_platform == 'darwin'",
 ]
 
 [tool.black]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mujoco-usd-converter
-Version: 0.3.0
+Version: 0.4.0
 Summary: A MuJoCo to OpenUSD Data Converter
 Project-URL: Documentation, https://github.com/newton-physics/mujoco-usd-converter/#readme
 Project-URL: Repository, https://github.com/newton-physics/mujoco-usd-converter
@@ -9,8 +9,8 @@ Author: Newton Developers
 License: Apache-2.0
 License-File: LICENSE.md
 Requires-Python: <3.13,>=3.10
-Requires-Dist: mujoco<3.9,>=3.8.1
-Requires-Dist: newton-usd-schemas>=0.3.1
+Requires-Dist: mujoco<3.11,>=3.10.0
+Requires-Dist: newton-usd-schemas>=0.4.0
 Requires-Dist: numpy-stl>=3.2
 Requires-Dist: tinyobjloader>=2.0.0rc13
 Requires-Dist: usd-exchange>=2.2.2

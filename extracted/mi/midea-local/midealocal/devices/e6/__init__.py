@@ -3,10 +3,10 @@
 import json
 import logging
 from enum import StrEnum
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Unpack
 
-from midealocal.const import DeviceType, ProtocolVersion
-from midealocal.device import MideaDevice
+from midealocal.const import DeviceType
+from midealocal.device import MideaDevice, MideaDeviceInitKwargs
 
 from .message import MessageE6Response, MessageQuery, MessageSet
 
@@ -20,8 +20,8 @@ class DeviceAttributes(StrEnum):
     heating_power = "heating_power"
     heating_working = "heating_working"
     bathing_working = "bathing_working"
-    min_temperature = "temperature_min"
-    max_temperature = "temperature_max"
+    temperature_min = "temperature_min"
+    temperature_max = "temperature_max"
     heating_temperature = "heating_temperature"
     bathing_temperature = "bathing_temperature"
     heating_leaving_temperature = "heating_leaving_temperature"
@@ -43,36 +43,21 @@ class MideaE6Device(MideaDevice):
 
     def __init__(
         self,
-        name: str,
-        device_id: int,
-        ip_address: str,
-        port: int,
-        token: str,
-        key: str,
-        device_protocol: ProtocolVersion,
-        model: str,
-        subtype: int,
+        *,
         customize: str,
+        **kwargs: Unpack[MideaDeviceInitKwargs],
     ) -> None:
         """Initialize Midea E6 device."""
         super().__init__(
-            name=name,
-            device_id=device_id,
             device_type=DeviceType.E6,
-            ip_address=ip_address,
-            port=port,
-            token=token,
-            key=key,
-            device_protocol=device_protocol,
-            model=model,
-            subtype=subtype,
+            **kwargs,
             attributes={
                 DeviceAttributes.main_power: False,
                 DeviceAttributes.heating_power: True,
                 DeviceAttributes.heating_working: None,
                 DeviceAttributes.bathing_working: None,
-                DeviceAttributes.min_temperature: [30.0, 35.0],
-                DeviceAttributes.max_temperature: [80.0, 60.0],
+                DeviceAttributes.temperature_min: [30.0, 35.0],
+                DeviceAttributes.temperature_max: [80.0, 60.0],
                 DeviceAttributes.heating_temperature: 50.0,
                 DeviceAttributes.bathing_temperature: 40.0,
                 DeviceAttributes.heating_leaving_temperature: None,

@@ -384,6 +384,8 @@ class TestHive(Validator):
         )
 
     def test_time(self):
+        # A missing parse format falls back to plain CAST, instead of UNIX_TIMESTAMP(x, None)
+        self.validate_all("STR_TO_DATE(x)", write={"hive": "CAST(x AS DATE)"})
         self.validate_all(
             "(UNIX_TIMESTAMP(y) - UNIX_TIMESTAMP(x)) * 1000",
             read={
@@ -430,7 +432,7 @@ class TestHive(Validator):
         self.validate_all(
             "DATE_FORMAT('2020-01-01', 'yyyy-MM-dd HH:mm:ss')",
             write={
-                "bigquery": "FORMAT_DATE('%F %T', CAST('2020-01-01' AS DATETIME))",
+                "bigquery": "FORMAT_DATE('%Y-%m-%d %T', CAST('2020-01-01' AS DATETIME))",
                 "duckdb": "STRFTIME(CAST('2020-01-01' AS TIMESTAMP), '%Y-%m-%d %H:%M:%S')",
                 "presto": "DATE_FORMAT(CAST('2020-01-01' AS TIMESTAMP), '%Y-%m-%d %T')",
                 "hive": "DATE_FORMAT('2020-01-01', 'yyyy-MM-dd HH:mm:ss')",
@@ -487,7 +489,7 @@ class TestHive(Validator):
                 "presto": "TO_UNIXTIME(COALESCE(TRY(DATE_PARSE(CAST(x AS VARCHAR), '%Y-%m-%d %T')), PARSE_DATETIME(DATE_FORMAT(x, '%Y-%m-%d %T'), 'yyyy-MM-dd HH:mm:ss')))",
                 "hive": "UNIX_TIMESTAMP(x)",
                 "spark": "UNIX_TIMESTAMP(x)",
-                "": "STR_TO_UNIX(x, '%Y-%m-%d %H:%M:%S')",
+                "": "STR_TO_UNIX(x, '%Y-%mstrict-%dstrict %H:%M:%S')",
             },
         )
 
@@ -1023,6 +1025,9 @@ class TestHive(Validator):
                 "databricks": """WITH t AS (SELECT '{"x-y": "z"}' AS c) SELECT GET_JSON_OBJECT(c, '$["x-y"]') FROM t""",
             },
         )
+
+        self.validate_identity("""SELECT PARSE_JSON('{"key": 123}')""")
+        self.validate_identity("""SELECT TO_JSON(PARSE_JSON('{"key": 123}'))""")
 
     def test_escapes(self) -> None:
         self.validate_identity("'\n'", "'\\n'")

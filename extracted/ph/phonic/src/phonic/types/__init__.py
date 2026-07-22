@@ -159,6 +159,7 @@ if typing.TYPE_CHECKING:
     from .tool_parameter_location import ToolParameterLocation
     from .tool_parameter_type import ToolParameterType
     from .tool_project import ToolProject
+    from .tool_speech_before_tool_call import ToolSpeechBeforeToolCall
     from .tool_type import ToolType
     from .unmute_payload import UnmutePayload
     from .update_system_prompt_payload import UpdateSystemPromptPayload
@@ -318,6 +319,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ToolParameterLocation": ".tool_parameter_location",
     "ToolParameterType": ".tool_parameter_type",
     "ToolProject": ".tool_project",
+    "ToolSpeechBeforeToolCall": ".tool_speech_before_tool_call",
     "ToolType": ".tool_type",
     "UnmutePayload": ".unmute_payload",
     "UpdateSystemPromptPayload": ".update_system_prompt_payload",
@@ -501,6 +503,7 @@ __all__ = [
     "ToolParameterLocation",
     "ToolParameterType",
     "ToolProject",
+    "ToolSpeechBeforeToolCall",
     "ToolType",
     "UnmutePayload",
     "UpdateSystemPromptPayload",

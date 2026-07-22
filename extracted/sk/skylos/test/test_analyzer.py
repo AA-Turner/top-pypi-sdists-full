@@ -16,6 +16,7 @@ from skylos.analyzer import (
     proc_file,
     analyze,
     _architecture_iad_strict,
+    _go_engine_analysis_report,
     _resolve_analysis_root,
 )
 from skylos.visitors.languages.shell import SHELL_SOURCE_EXTS
@@ -267,6 +268,8 @@ class TestSkylos:
             mock_dir,
             {
                 ".py",
+                ".pyi",
+                ".pyw",
                 ".go",
                 ".ts",
                 ".tsx",
@@ -3437,6 +3440,60 @@ def test_changed_files_secret_scan_skips_symlink_targets_outside_root(tmp_path):
 
 
 class TestRepoPhantomReferences:
+    def test_resolve_analysis_root_stops_at_nested_javascript_package(
+        self, tmp_path
+    ):
+        (tmp_path / "pyproject.toml").write_text("[tool.skylos]\n", encoding="utf-8")
+        package_root = tmp_path / "benchmarks" / "typescript-case"
+        source_root = package_root / "src"
+        source_root.mkdir(parents=True)
+        (package_root / "package.json").write_text(
+            '{"name": "typescript-case", "private": true}\n',
+            encoding="utf-8",
+        )
+
+        assert _resolve_analysis_root(source_root) == package_root
+
+    def test_go_engine_report_marks_engine_checks_partial(self):
+        with patch(
+            "skylos.engines.go_runner.get_go_engine_status",
+            return_value={
+                "status": "unavailable",
+                "reason": "Go engine binary not found",
+                "configured_by": "discovery",
+            },
+        ):
+            report = _go_engine_analysis_report([Path("main.go"), Path("helper.py")])
+
+        assert report["status"] == "partial"
+        assert report["completed_checks"] == ["quality"]
+        assert report["skipped_checks"] == ["dead_code", "security"]
+
+    def test_analyze_reports_unavailable_go_engine_in_summary(self, tmp_path):
+        source = tmp_path / "main.go"
+        source.write_text("package main\n\nfunc main() {}\n", encoding="utf-8")
+
+        with (
+            patch(
+                "skylos.engines.go_runner.get_go_engine_status",
+                return_value={
+                    "status": "unavailable",
+                    "reason": "Go engine binary not found",
+                    "configured_by": "discovery",
+                },
+            ),
+            patch(
+                "skylos.visitors.languages.go.go.run_go_engine_for_module",
+                side_effect=RuntimeError("Go engine binary not found"),
+            ),
+        ):
+            result = json.loads(analyze(str(tmp_path), grep_verify=False))
+
+        report = result["analysis_summary"]["language_engines"]["go"]
+        assert report["status"] == "partial"
+        assert report["skipped_checks"] == ["dead_code", "security"]
+        assert result["analysis_summary"]["incomplete_languages"] == ["go"]
+
     def test_resolve_analysis_root_ignores_home_git_root_without_project_marker(
         self, tmp_path, monkeypatch
     ):
@@ -3675,8 +3732,16 @@ def handler(request):
         assert ai_defects == []
         assert len(suppressed) == 1
         assert suppressed[0]["reason"] == "inline ignore comment"
+        check = next(
+            item
+            for item in result["analysis_summary"]["ai_verification"]["checks"]
+            if item["id"] == "python_local_api_reference"
+        )
+        assert check["outcome"] == "pass"
+        assert check["suppressed_findings"] == 1
+        assert {reason["code"] for reason in check["reasons"]} >= {"finding_suppressed"}
 
-    def test_analyze_subtree_resolves_repo_local_modules_outside_selection(
+    def test_analyze_subtree_marks_repo_local_modules_outside_selection_incomplete(
         self, tmp_path
     ):
         (tmp_path / "pyproject.toml").write_text("[tool.skylos]\n", encoding="utf-8")
@@ -3710,8 +3775,14 @@ def handler(request):
             f for f in result.get("ai_defects", []) if f.get("rule_id") == "SKY-L012"
         ]
 
-        assert len(ai_defects) == 1
-        assert ai_defects[0]["name"] == "security.require_auth"
+        assert ai_defects == []
+        check = next(
+            item
+            for item in result["analysis_summary"]["ai_verification"]["checks"]
+            if item["id"] == "python_local_api_reference"
+        )
+        assert check["outcome"] == "incomplete"
+        assert check["reasons"] == [{"code": "local_import_outside_scan", "count": 1}]
 
     def test_analyze_flags_stale_bare_call_resembling_local_symbol(self, tmp_path):
         pkg = tmp_path / "billing"

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: surya-ocr
-Version: 0.22.0
+Version: 0.22.1
 Summary: OCR, layout, reading order, and table recognition in 90+ languages.
 Project-URL: Repository, https://github.com/datalab-to/surya
 Author-email: Vik Paruchuri <vik@datalab.to>
@@ -22,6 +22,7 @@ Requires-Dist: pydantic-settings<3,>=2.1.0
 Requires-Dist: pydantic<3,>=2.5.3
 Requires-Dist: pypdfium2<6,>=5.10.1
 Requires-Dist: python-dotenv<2,>=1.0.0
+Requires-Dist: requests<3,>=2.28.0
 Requires-Dist: torch<3,>=2.7.0
 Requires-Dist: torchvision<1,>=0.20.0
 Requires-Dist: transformers>=5.12.1

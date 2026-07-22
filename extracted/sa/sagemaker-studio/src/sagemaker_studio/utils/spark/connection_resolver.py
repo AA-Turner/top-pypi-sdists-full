@@ -95,6 +95,9 @@ def _create_session_manager(
     from sagemaker_studio.utils.spark.session.athena.athena_spark_session_manager import (
         AthenaSparkSessionManager,
     )
+    from sagemaker_studio.utils.spark.session.emr_eks.emr_eks_spark_session_manager import (
+        EmrEksSparkSessionManager,
+    )
     from sagemaker_studio.utils.spark.session.emr_serverless.emr_serverless_spark_session_manager import (
         EMRServerlessSparkSessionManager,
     )
@@ -117,12 +120,7 @@ def _create_session_manager(
             raise RuntimeError(
                 "Could not identify the Spark backend from the connection properties. "
                 "Ensure the connection has valid athenaProperties, sparkEmrProperties, "
-                "or sparkGlueProperties. Supported backends: Athena, EMR Serverless, EMR on EC2, Glue."
-            )
-        if service == "EMR_EKS":
-            raise RuntimeError(
-                f"Spark Connect is not yet supported for {service} connections. "
-                "Supported backends: Athena, EMR Serverless, EMR on EC2, Glue."
+                "or sparkGlueProperties. Supported backends: Athena, EMR Serverless, EMR on EKS, EMR on EC2, Glue."
             )
         # SPARK type is only valid for Glue (DZ creates Glue connections with type=SPARK).
         if conn_type == "SPARK" and service != "GLUE":
@@ -152,6 +150,14 @@ def _create_session_manager(
                 spark_conf=spark_conf,
             )
 
+        if service == "EMR_EKS":
+            return EmrEksSparkSessionManager(
+                connection=connection,
+                connection_name=connection_name,
+                config=config,
+                spark_conf=spark_conf,
+            )
+
         if service == "EMR_EC2":
             from sagemaker_studio.utils.spark.session.emr_ec2.emr_ec2_spark_session_manager import (
                 EmrEc2SparkSessionManager,
@@ -170,6 +176,13 @@ def _create_session_manager(
                 connection_name=connection_name,
                 config=config,
                 spark_conf=spark_conf,
+            )
+
+        if service == "UNKNOWN":
+            raise RuntimeError(
+                "Could not identify the Spark backend from the connection properties. "
+                "Ensure the connection has valid athenaProperties or sparkEmrProperties "
+                "with a recognized computeArn. Supported backends: Athena, EMR Serverless, EMR on EC2, EMR on EKS."
             )
 
         # Athena (default for SPARK_CONNECT)

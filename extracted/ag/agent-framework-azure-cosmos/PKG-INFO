@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agent-framework-azure-cosmos
-Version: 1.0.0b260521
+Version: 1.0.0b260721
 Summary: Azure Cosmos DB history provider integration for Microsoft Agent Framework.
 Author-email: Microsoft <af-support@microsoft.com>
 Requires-Python: >=3.10
@@ -148,5 +148,5 @@ portal with this partition key configuration.
 
 See `samples/03-workflows/checkpoint/cosmos_workflow_checkpointing.py` for a standalone example,
 or `samples/03-workflows/checkpoint/cosmos_workflow_checkpointing_foundry.py` for an end-to-end
-example with Azure AI Foundry agents.
+example with Microsoft Foundry agents.
 

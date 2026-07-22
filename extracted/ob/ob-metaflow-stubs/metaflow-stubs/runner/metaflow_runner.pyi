@@ -1,17 +1,17 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.34.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-06-18T13:29:50.442427                                                            #
+# Generated on 2026-07-21T20:55:40.864476                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import typing
 import metaflow
+import typing
 if typing.TYPE_CHECKING:
     import metaflow.client.core
-    import metaflow.runner.subprocess_manager
     import metaflow.runner.metaflow_runner
+    import metaflow.runner.subprocess_manager
 
 from ..client.core import Run as Run
 from ..client.core import Task as Task

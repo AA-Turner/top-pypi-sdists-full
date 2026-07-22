@@ -2,7 +2,7 @@
 
 from uuid import uuid4
 
-from aioresponses import aioresponses
+from aiointercept import aiointercept
 from yarl import URL
 
 from aiohasupervisor import SupervisorClient
@@ -13,7 +13,7 @@ from .const import SUPERVISOR_URL
 
 
 async def test_resolution_info(
-    responses: aioresponses, supervisor_client: SupervisorClient
+    responses: aiointercept, supervisor_client: SupervisorClient
 ) -> None:
     """Test resolution center info API."""
     responses.get(
@@ -27,18 +27,20 @@ async def test_resolution_info(
     assert info.issues[0].context == "system"
     assert info.issues[0].type == "no_current_backup"
     assert info.issues[0].reference is None
+    assert info.issues[0].reference_extra is None
     assert info.issues[0].uuid.hex == "7f0eac2b61c9456dab6970507a276c36"
     assert info.suggestions[0].auto is False
     assert info.suggestions[0].context == "system"
     assert info.suggestions[0].type == "create_full_backup"
     assert info.suggestions[0].reference is None
+    assert info.suggestions[0].reference_extra is None
     assert info.suggestions[0].uuid.hex == "f87d3556f02c4004a47111c072c76fac"
     assert info.unhealthy == ["supervisor"]
     assert info.unsupported == []
 
 
 async def test_resolution_check_options(
-    responses: aioresponses, supervisor_client: SupervisorClient
+    responses: aiointercept, supervisor_client: SupervisorClient
 ) -> None:
     """Test resolution center check options API."""
     responses.post(f"{SUPERVISOR_URL}/resolution/check/backups/options", status=200)
@@ -54,7 +56,7 @@ async def test_resolution_check_options(
 
 
 async def test_resolution_run_check(
-    responses: aioresponses, supervisor_client: SupervisorClient
+    responses: aiointercept, supervisor_client: SupervisorClient
 ) -> None:
     """Test resolution center run check API."""
     responses.post(f"{SUPERVISOR_URL}/resolution/check/backups/run", status=200)
@@ -65,7 +67,7 @@ async def test_resolution_run_check(
 
 
 async def test_resolution_apply_suggestion(
-    responses: aioresponses, supervisor_client: SupervisorClient
+    responses: aiointercept, supervisor_client: SupervisorClient
 ) -> None:
     """Test resolution center apply suggestion API."""
     uuid = uuid4()
@@ -77,7 +79,7 @@ async def test_resolution_apply_suggestion(
 
 
 async def test_resolution_dismiss_suggestion(
-    responses: aioresponses, supervisor_client: SupervisorClient
+    responses: aiointercept, supervisor_client: SupervisorClient
 ) -> None:
     """Test resolution center dismiss suggestion API."""
     uuid = uuid4()
@@ -89,7 +91,7 @@ async def test_resolution_dismiss_suggestion(
 
 
 async def test_resolution_dismiss_issue(
-    responses: aioresponses, supervisor_client: SupervisorClient
+    responses: aiointercept, supervisor_client: SupervisorClient
 ) -> None:
     """Test resolution center dismiss issue API."""
     uuid = uuid4()
@@ -101,7 +103,7 @@ async def test_resolution_dismiss_issue(
 
 
 async def test_resolution_suggestions_for_issue(
-    responses: aioresponses, supervisor_client: SupervisorClient
+    responses: aiointercept, supervisor_client: SupervisorClient
 ) -> None:
     """Test resolution center suggestions for issue API."""
     uuid = uuid4()
@@ -117,7 +119,7 @@ async def test_resolution_suggestions_for_issue(
 
 
 async def test_resolution_healthcheck(
-    responses: aioresponses, supervisor_client: SupervisorClient
+    responses: aiointercept, supervisor_client: SupervisorClient
 ) -> None:
     """Test resolution center healthcheck API."""
     responses.post(f"{SUPERVISOR_URL}/resolution/healthcheck", status=200)

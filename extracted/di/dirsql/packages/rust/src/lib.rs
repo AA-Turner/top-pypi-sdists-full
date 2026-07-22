@@ -16,11 +16,19 @@ pub mod db;
 #[doc(hidden)]
 pub mod differ;
 #[doc(hidden)]
+pub mod infer;
+#[doc(hidden)]
 pub mod matcher;
+#[doc(hidden)]
+pub mod parsed_vtab;
+#[doc(hidden)]
+pub mod path_table;
 #[doc(hidden)]
 pub mod persist;
 #[doc(hidden)]
 pub mod scanner;
+#[doc(hidden)]
+pub mod vtab;
 #[doc(hidden)]
 pub mod watcher;
 
@@ -58,6 +66,13 @@ pub use crate::watcher::FileEvent as RawFileEvent;
 
 pub type Row = HashMap<String, Value>;
 pub type WatchStream = UnboundedReceiver<RowEvent>;
+
+/// The baked-in default config -- a single `files` table over every file, built
+/// from the seven stat columns. A builder with no `.config()` and no
+/// programmatic tables serves this (parity with the CLI's no-`-c` default,
+/// #603); `dirsql init` writes it verbatim; the CLI serves it directly. One
+/// asset, so the SDK default, the CLI default, and `init` can never drift.
+pub const DEFAULT_CONFIG_TOML: &str = include_str!("default_config.toml");
 
 type BoxError = Box<dyn StdError + Send + Sync + 'static>;
 type OnFileFn = dyn Fn(&str) -> std::result::Result<Vec<Row>, BoxError> + Send + Sync + 'static;
@@ -112,6 +127,14 @@ pub enum DirSqlError {
         #[source]
         source: Option<BoxError>,
     },
+
+    #[error(
+        "glob capture `{{{placeholder}}}` collides with declared column `{column}`: \
+         captures no longer populate columns, so `{column}` would always be NULL. \
+         Remove `{column}` from the table's DDL, or emit its value from the on-file \
+         hook by splitting `{{path}}` yourself."
+    )]
+    CaptureColumnCollision { placeholder: String, column: String },
 
     #[error(
         "query() only accepts read-only statements; SQLite classified this statement as a write"
@@ -280,21 +303,12 @@ impl DirSQL {
             .build()
     }
 
-    /// Shortcut for `DirSQL::builder().root(root).config(root/.dirsql.toml).build()`.
-    ///
-    /// `root` is both where `.dirsql.toml` is read from and the index root.
-    pub fn from_config(root: impl Into<PathBuf>) -> Result<Self> {
-        let root = root.into();
-        DirSQL::builder()
-            .config(root.join(".dirsql.toml"))
-            .root(root)
-            .build()
-    }
-
     /// Shortcut for `DirSQL::builder().config(config_path).build()`.
     ///
     /// With no explicit `.root()`, the index roots at the process cwd, not the
-    /// config file's parent directory.
+    /// config file's parent directory. To read `<root>/.dirsql.toml`, pass it
+    /// explicitly: `DirSQL::from_config_path(root.join(".dirsql.toml"))` (the
+    /// implicit root-joining `from_config(root)` shortcut was removed in #603).
     pub fn from_config_path(config_path: impl AsRef<Path>) -> Result<Self> {
         DirSQL::builder()
             .config(config_path.as_ref().to_path_buf())
@@ -471,12 +485,7 @@ impl DirSQL {
                     events.extend(self.handle_delete(&m.table_name, &rel_path));
                 }
                 FileEvent::Created(_) | FileEvent::Modified(_) => {
-                    events.extend(self.handle_upsert(
-                        &m.table_name,
-                        &abs_path,
-                        &rel_path,
-                        &m.captures,
-                    ));
+                    events.extend(self.handle_upsert(&m.table_name, &abs_path, &rel_path));
                 }
             }
         }
@@ -497,7 +506,16 @@ impl DirSQL {
                 Ok(rows) => rows,
                 Err(e) => return vec![error_event(Some(table), rel_path, e.to_string())],
             };
+            // Wrap the delete in a transaction so it either succeeds completely
+            // or rolls back; no partial deletes.
+            let _tx = match db.conn().unchecked_transaction() {
+                Ok(tx) => tx,
+                Err(e) => return vec![error_event(Some(table), rel_path, e.to_string())],
+            };
             if let Err(e) = db.delete_rows_by_file(table, rel_path) {
+                return vec![error_event(Some(table), rel_path, e.to_string())];
+            }
+            if let Err(e) = _tx.commit() {
                 return vec![error_event(Some(table), rel_path, e.to_string())];
             }
             old_rows
@@ -506,13 +524,7 @@ impl DirSQL {
         differ::diff(table, Some(&old_rows), None, rel_path)
     }
 
-    fn handle_upsert(
-        &self,
-        table: &str,
-        abs_path: &Path,
-        rel_path: &str,
-        captures: &HashMap<String, String>,
-    ) -> Vec<RowEvent> {
+    fn handle_upsert(&self, table: &str, abs_path: &Path, rel_path: &str) -> Vec<RowEvent> {
         // The path may have vanished between the watcher event and now, or be a
         // directory (a `mkdir` under the root matches a `**/*` glob). Only
         // regular files become rows — mirror the initial scan, which skips
@@ -550,7 +562,7 @@ impl DirSQL {
                 Ok(cols) => cols,
                 Err(e) => return vec![error_event(Some(table), rel_path, e.to_string())],
             };
-            let raw_rows = merge_filesystem_facts(raw_rows, captures, &stat, &declared_columns);
+            let raw_rows = merge_filesystem_facts(raw_rows, &stat, &declared_columns);
             let mut new_rows = Vec::with_capacity(raw_rows.len());
             for raw in &raw_rows {
                 match db.normalize_row(table, raw, strict) {
@@ -564,6 +576,14 @@ impl DirSQL {
                 Err(e) => return vec![error_event(Some(table), rel_path, e.to_string())],
             };
 
+            // Wrap the delete+insert in a transaction so they commit together;
+            // a failed multi-row update rolls back completely instead of leaving
+            // partial rows.
+            let _tx = match db.conn().unchecked_transaction() {
+                Ok(tx) => tx,
+                Err(e) => return vec![error_event(Some(table), rel_path, e.to_string())],
+            };
+
             let db_result = db.delete_rows_by_file(table, rel_path).and_then(|_| {
                 for (i, row) in new_rows.iter().enumerate() {
                     db.insert_row(table, row, rel_path, i)?;
@@ -571,6 +591,10 @@ impl DirSQL {
                 Ok(())
             });
             if let Err(e) = db_result {
+                return vec![error_event(Some(table), rel_path, e.to_string())];
+            }
+
+            if let Err(e) = _tx.commit() {
                 return vec![error_event(Some(table), rel_path, e.to_string())];
             }
 
@@ -608,6 +632,8 @@ impl DirSQL {
             persist: false,
             persist_path: None,
             poll_interval: DEFAULT_POLL_INTERVAL,
+            hint_legacy_files_table: false,
+            path_table_parser: None,
         };
         let prepared = Self::prepare_resolved(resolved)?;
         Self::finish_build_with_fs(prepared, fs)
@@ -632,6 +658,8 @@ impl DirSQL {
             persist,
             persist_path,
             poll_interval,
+            hint_legacy_files_table,
+            path_table_parser,
         } = resolved;
 
         let (matcher, table_names) = compile_matcher(&tables, &ignore)?;
@@ -676,13 +704,16 @@ impl DirSQL {
             tables,
             extensions,
             matcher,
+            ignore,
             scanned_files,
+            hint_legacy_files_table,
             persist: persist_ctx.map(|ctx| PreparedPersist {
                 db: ctx.db,
                 deleted,
                 meta: ctx.expected_meta,
             }),
             poll_interval,
+            path_table_parser,
         })
     }
 
@@ -711,15 +742,24 @@ impl DirSQL {
             tables,
             extensions,
             matcher,
+            ignore,
             scanned_files,
             persist,
             poll_interval,
+            hint_legacy_files_table,
+            path_table_parser,
         } = prepared;
 
-        let (db, persist_ready) = match persist {
+        let (mut db, persist_ready) = match persist {
             Some(p) => (p.db, Some((p.deleted, p.meta))),
             None => (Db::new()?, None),
         };
+        db.set_path_table_root(root.clone());
+        db.set_hint_legacy_files_table(hint_legacy_files_table);
+        db.add_path_table_ignore(ignore);
+        if let Some(command) = path_table_parser {
+            db.set_path_table_parser(command);
+        }
 
         // Load extensions before any CREATE TABLE so a table's DDL and later
         // queries can use extension-provided functions. Loading is enabled
@@ -745,10 +785,30 @@ impl DirSQL {
             if !table_exists(&db, &table_name)? {
                 db.create_table(&table.ddl)?;
             }
+            // Reject a `{name}` glob placeholder whose name is also a declared
+            // column: captures no longer populate columns, so it would read
+            // NULL forever. The table exists here either way (freshly created
+            // or restored from cache), so its columns are knowable, and this
+            // runs before any file is ingested — a load-time failure.
+            let declared_columns = db.get_table_columns(&table_name).map_err(map_db_error)?;
+            if let Some(name) = find_capture_column_collision(&table.glob, &declared_columns) {
+                return Err(DirSqlError::CaptureColumnCollision {
+                    placeholder: name.clone(),
+                    column: name,
+                });
+            }
             on_file_map.insert(table_name.clone(), table.on_file);
             strict_map.insert(table_name.clone(), table.strict);
             ddl_map.insert(table_name, table.ddl);
         }
+
+        // Begin one transaction for the entire ingest: deleted-file cleanup,
+        // row deletes/inserts, and meta write. All drop together on any
+        // error, leaving the cache exactly as it was before the build started.
+        let _tx = db
+            .conn()
+            .unchecked_transaction()
+            .map_err(DirSqlError::sqlite)?;
 
         // Drop cached rows for files that disappeared since the last cache
         // write. Trusted files need no work: their rows already live in the
@@ -779,13 +839,9 @@ impl DirSQL {
                     message: e.to_string(),
                 })?;
 
-            // Captures are per-glob: use the captures belonging to THIS
-            // entry's table, not a first-match lookup.
-            let captures = matcher.captures_for(Path::new(&rel_path), &table_name);
             let stat_virtuals = compute_stat_virtuals(&rel_path, &abs_path);
             let declared_columns = db.get_table_columns(&table_name).map_err(map_db_error)?;
-            let raw_rows =
-                merge_filesystem_facts(raw_rows, &captures, &stat_virtuals, &declared_columns);
+            let raw_rows = merge_filesystem_facts(raw_rows, &stat_virtuals, &declared_columns);
 
             // When updating an existing file in the persistent cache, drop
             // its old rows before inserting the new ones.
@@ -795,7 +851,8 @@ impl DirSQL {
             }
             for (row_index, raw_row) in raw_rows.iter().enumerate() {
                 let row = db.normalize_row(&table_name, raw_row, strict)?;
-                db.insert_row(&table_name, &row, &rel_path, row_index)?;
+                db.insert_row(&table_name, &row, &rel_path, row_index)
+                    .map_err(map_db_error)?;
             }
 
             // Update the persistent file index after a successful parse.
@@ -815,11 +872,16 @@ impl DirSQL {
             }
         }
 
-        // Write the meta block last so a crash mid-build leaves an
-        // incompatible cache that is detected on the next startup.
+        // Write the meta block last; ingest and meta commit atomically in the
+        // single transaction opened above. A crash mid-build leaves the cache
+        // exactly as it was before the build started (detected via meta on
+        // next startup).
         if let Some((_, meta)) = persist_ready.as_ref() {
             write_meta(db.conn(), meta).map_err(DirSqlError::sqlite)?;
         }
+
+        // Commit the ingest transaction.
+        _tx.commit().map_err(DirSqlError::sqlite)?;
 
         // Canonicalize the watch root so the live watcher never sees a
         // relative path; `root` itself is left untouched.
@@ -875,6 +937,7 @@ pub struct DirSQLBuilder {
     persist: bool,
     persist_path: Option<PathBuf>,
     poll_interval: Option<Duration>,
+    path_table_parser: Option<String>,
 }
 
 impl DirSQLBuilder {
@@ -981,6 +1044,16 @@ impl DirSQLBuilder {
         self
     }
 
+    /// Attach a parser command to every path-table this index mints (the CLI's
+    /// `--on-file`): a path-table's rows and schema then come from the command's
+    /// output instead of the stat columns. Internal plumbing for the CLI flag —
+    /// no config-file or named-table interaction.
+    #[doc(hidden)]
+    pub fn path_table_parser(mut self, command: impl Into<String>) -> Self {
+        self.path_table_parser = Some(command.into());
+        self
+    }
+
     fn resolve(self) -> Result<ResolvedBuild> {
         let DirSQLBuilder {
             root: explicit_root,
@@ -992,6 +1065,7 @@ impl DirSQLBuilder {
             persist,
             persist_path,
             poll_interval,
+            path_table_parser,
         } = self;
 
         // The index root is an operational fact owned by the runner: the
@@ -1055,6 +1129,8 @@ impl DirSQLBuilder {
             }
         }
 
+        let hint_legacy_files_table = is_configless(&config_paths, &tables);
+
         Ok(ResolvedBuild {
             root,
             tables,
@@ -1063,6 +1139,8 @@ impl DirSQLBuilder {
             persist,
             persist_path,
             poll_interval: poll_interval.unwrap_or(DEFAULT_POLL_INTERVAL),
+            hint_legacy_files_table,
+            path_table_parser,
         })
     }
 
@@ -1114,6 +1192,11 @@ pub struct ResolvedBuild {
     pub persist: bool,
     pub persist_path: Option<PathBuf>,
     pub poll_interval: Duration,
+    /// Arms the missing-`files` path-table hint; see [`is_configless`].
+    pub hint_legacy_files_table: bool,
+    /// When set (the CLI's `--on-file`), every path-table is minted over this
+    /// parser command instead of the stat columns.
+    pub path_table_parser: Option<String>,
 }
 
 /// A single file discovered during [`DirSQL::prepare_resolved`]: its
@@ -1136,9 +1219,14 @@ pub struct PreparedBuild {
     /// SQLite extensions to load onto the connection before any table DDL.
     extensions: Vec<Extension>,
     matcher: TableMatcher,
+    /// The configured skip rules, carried through so path-table scans apply
+    /// the same ones declared tables do.
+    ignore: Vec<String>,
     scanned_files: Vec<ScannedFile>,
     persist: Option<PreparedPersist>,
     poll_interval: Duration,
+    hint_legacy_files_table: bool,
+    path_table_parser: Option<String>,
 }
 
 #[doc(hidden)]
@@ -1402,6 +1490,14 @@ fn relative_path(root: &Path, path: &Path) -> String {
 /// each `on-file` run; the caller resolves it from the global
 /// `[dirsql].hook-timeout` key, falling back to
 /// [`command::DEFAULT_COMMAND_TIMEOUT`].
+/// Whether this build declared no tables by any route — neither a config file
+/// nor a programmatic table. That is exactly the state in which `files` used to
+/// exist implicitly, and so the only state whose missing-`files` error earns the
+/// path-table hint. Pure so the whole truth table is unit-testable without I/O.
+fn is_configless(config_paths: &[PathBuf], tables: &[Table]) -> bool {
+    config_paths.is_empty() && tables.is_empty()
+}
+
 fn build_tables_from_config(
     cfg: &config::Config,
     config_dir: &Path,
@@ -1513,7 +1609,7 @@ fn parse_command_rows(payload: &str) -> std::result::Result<Vec<Row>, String> {
 /// Map a JSON value to a SQLite [`Value`]: `null` → `Null`; `bool` → `Integer`
 /// (0/1); an integral number → `Integer`, otherwise `Real`; `string` → `Text`;
 /// an array/object → its JSON text as `Text`.
-fn json_to_value(value: &serde_json::Value) -> Value {
+pub(crate) fn json_to_value(value: &serde_json::Value) -> Value {
     match value {
         serde_json::Value::Null => Value::Null,
         serde_json::Value::Bool(b) => Value::Integer(i64::from(*b)),
@@ -1540,7 +1636,7 @@ const STAT_CTIME: &str = "ctime";
 /// Compute the filesystem-fact columns for a given file: path-derived
 /// (`path`, `basename`, `dir`, `ext`) and stat-derived (`size`,
 /// `mtime`, `ctime`).
-fn compute_stat_virtuals(rel_path: &str, abs_path: &Path) -> Row {
+pub(crate) fn compute_stat_virtuals(rel_path: &str, abs_path: &Path) -> Row {
     // A missing/unreadable file yields all-`None` (absent columns);
     // `mtime`/`ctime` are `None` when the platform can't supply them or the
     // value predates the epoch.
@@ -1610,18 +1706,25 @@ fn stat_virtuals(
     out
 }
 
-/// Merge filesystem-fact columns (stat virtuals + glob captures) into each
-/// raw row produced by an on_file closure. Auto-injected keys are filtered
-/// to those declared in `declared_columns`, so a strict-mode table with a
-/// minimal DDL is not broken by virtuals it didn't ask for. User-provided
-/// values in `raw_rows` win over auto-injected values: an on_file that
-/// explicitly emits e.g. `path` is honored.
-fn merge_filesystem_facts(
-    raw_rows: Vec<Row>,
-    captures: &HashMap<String, String>,
-    stat: &Row,
-    declared_columns: &[String],
-) -> Vec<Row> {
+/// Returns the first `{name}` placeholder in `glob` whose name is also one of
+/// `declared_columns`. `None` when the glob has no placeholders or none of
+/// them names a declared column. Pure: the sole input is the glob string and
+/// the column list, so it is exhaustively unit-testable.
+fn find_capture_column_collision(glob: &str, declared_columns: &[String]) -> Option<String> {
+    let declared: std::collections::HashSet<&str> =
+        declared_columns.iter().map(String::as_str).collect();
+    crate::matcher::placeholder_names(glob)
+        .into_iter()
+        .find(|name| declared.contains(name.as_str()))
+}
+
+/// Merge filesystem-fact columns (stat virtuals) into each raw row produced by
+/// an on_file closure. Auto-injected keys are filtered to those declared in
+/// `declared_columns`, so a strict-mode table with a minimal DDL is not broken
+/// by virtuals it didn't ask for. User-provided values in `raw_rows` win over
+/// auto-injected values: an on_file that explicitly emits e.g. `path` is
+/// honored.
+fn merge_filesystem_facts(raw_rows: Vec<Row>, stat: &Row, declared_columns: &[String]) -> Vec<Row> {
     let declared: std::collections::HashSet<&str> =
         declared_columns.iter().map(String::as_str).collect();
 
@@ -1632,11 +1735,6 @@ fn merge_filesystem_facts(
             for (k, v) in stat {
                 if declared.contains(k.as_str()) {
                     merged.insert(k.clone(), v.clone());
-                }
-            }
-            for (k, v) in captures {
-                if declared.contains(k.as_str()) {
-                    merged.insert(k.clone(), Value::Text(v.clone()));
                 }
             }
             for (k, v) in raw {
@@ -1696,21 +1794,13 @@ impl AsyncDirSQL {
             .build_async()
     }
 
-    /// Shortcut for `DirSQL::builder().root(root).config(root/.dirsql.toml).build_async()`.
-    ///
-    /// `root` is both where `.dirsql.toml` is read from and the index root.
-    pub fn from_config(root: impl Into<PathBuf>) -> Result<Self> {
-        let root = root.into();
-        DirSQL::builder()
-            .config(root.join(".dirsql.toml"))
-            .root(root)
-            .build_async()
-    }
-
     /// Shortcut for `DirSQL::builder().config(config_path).build_async()`.
     ///
     /// With no explicit `.root()`, the index roots at the process cwd, not the
-    /// config file's parent directory.
+    /// config file's parent directory. To read `<root>/.dirsql.toml`, pass it
+    /// explicitly: `AsyncDirSQL::from_config_path(root.join(".dirsql.toml"))`
+    /// (the implicit root-joining `from_config(root)` shortcut was removed in
+    /// #603).
     pub fn from_config_path(config_path: impl AsRef<Path>) -> Result<Self> {
         DirSQL::builder()
             .config(config_path.as_ref().to_path_buf())
@@ -1985,6 +2075,7 @@ mod internal_tests {
         let dir = TempDir::new().unwrap();
         let matcher = TableMatcher::new(&[], &[]).unwrap();
         let prepared = PreparedBuild {
+            ignore: Vec::new(),
             root: dir.path().to_path_buf(),
             tables: Vec::new(),
             extensions: Vec::new(),
@@ -1996,6 +2087,8 @@ mod internal_tests {
             }],
             poll_interval: DEFAULT_POLL_INTERVAL,
             persist: None,
+            hint_legacy_files_table: false,
+            path_table_parser: None,
         };
         assert!(DirSQL::finish_build(prepared).is_err());
     }
@@ -2289,7 +2382,9 @@ mod internal_tests {
         assert!(m.is_poisoned(), "mutex should be poisoned");
     }
 
-    /// Build a tableless `DirSQL` over an empty temp dir.
+    /// Build a `DirSQL` over an *empty* temp dir with no explicit tables, so
+    /// the injected baked-in `files` table (#603) has zero rows -- effectively
+    /// tableless for these lock-poison / error-path tests.
     fn simple_db() -> (TempDir, DirSQL) {
         let dir = TempDir::new().unwrap();
         let db =
@@ -2383,7 +2478,7 @@ mod internal_tests {
         // The old-row snapshot succeeds but the delete itself fails: a
         // trigger aborts every DELETE on items.
         let (_dir, db, abs, rel) = upsert_fixture();
-        let events = db.handle_upsert("items", &abs, &rel, &HashMap::new());
+        let events = db.handle_upsert("items", &abs, &rel);
         assert_eq!(events.len(), 1, "fixture insert failed: {events:?}");
         {
             let guard = db.inner.db.lock().unwrap();
@@ -2407,7 +2502,7 @@ mod internal_tests {
     fn handle_upsert_surfaces_db_poison() {
         let (_dir, db, abs, rel) = upsert_fixture();
         poison(&db.inner.db);
-        let events = db.handle_upsert("items", &abs, &rel, &HashMap::new());
+        let events = db.handle_upsert("items", &abs, &rel);
         assert_single_lock_error(&events);
     }
 
@@ -2427,7 +2522,7 @@ mod internal_tests {
                 )
                 .unwrap();
         }
-        let events = db.handle_upsert("items", &abs, &rel, &HashMap::new());
+        let events = db.handle_upsert("items", &abs, &rel);
         assert_eq!(events.len(), 1, "expected one error event: {events:?}");
         let dbg = format!("{:?}", events[0]);
         assert!(dbg.contains("Error"), "expected an Error event: {dbg}");
@@ -2454,7 +2549,7 @@ mod internal_tests {
         )
         .unwrap();
 
-        let events = db.handle_upsert("files", &subdir, "subdir", &HashMap::new());
+        let events = db.handle_upsert("files", &subdir, "subdir");
         assert!(events.is_empty(), "a directory must not produce row events");
         assert!(
             db.query("SELECT * FROM files").unwrap().is_empty(),
@@ -2466,14 +2561,14 @@ mod internal_tests {
     fn handle_upsert_returns_empty_when_file_vanished() {
         let (dir, db, _abs, _rel) = upsert_fixture();
         let missing = dir.path().join("gone.txt");
-        let events = db.handle_upsert("items", &missing, "gone.txt", &HashMap::new());
+        let events = db.handle_upsert("items", &missing, "gone.txt");
         assert!(events.is_empty(), "vanished file must produce no events");
     }
 
     #[test]
     fn handle_upsert_returns_empty_for_unknown_table() {
         let (_dir, db, abs, rel) = upsert_fixture();
-        let events = db.handle_upsert("not_a_table", &abs, &rel, &HashMap::new());
+        let events = db.handle_upsert("not_a_table", &abs, &rel);
         assert!(events.is_empty(), "unknown table must produce no events");
     }
 
@@ -2501,7 +2596,7 @@ mod internal_tests {
         )
         .unwrap();
 
-        let events = db.handle_upsert("items", &abs, "a.txt", &HashMap::new());
+        let events = db.handle_upsert("items", &abs, "a.txt");
         assert_eq!(events.len(), 1, "expected one error event: {events:?}");
         let dbg = format!("{:?}", events[0]);
         assert!(dbg.contains("Error"), "expected an Error event: {dbg}");
@@ -2529,18 +2624,74 @@ mod internal_tests {
     }
 
     #[test]
-    fn new_builds_a_tableless_instance_and_query_runs() {
-        let dir = TempDir::new().unwrap();
-        let db = DirSQL::new(dir.path(), Vec::<Table>::new()).unwrap();
-        let rows = db.query("SELECT 1 AS n").unwrap();
-        assert_eq!(rows.len(), 1);
-        assert_eq!(rows[0]["n"], Value::Integer(1));
+    fn is_configless_only_when_config_and_tables_are_both_empty() {
+        // Pure truth table (no I/O): the missing-`files` hint is armed only
+        // when neither a config path nor a programmatic table was supplied.
+        let table = Table::new("CREATE TABLE x (a TEXT)", "*", |_| vec![Row::new()]);
+        assert!(is_configless(&[], &[]));
+        assert!(!is_configless(&[PathBuf::from("c.toml")], &[]));
+        assert!(!is_configless(&[], std::slice::from_ref(&table)));
+        assert!(!is_configless(
+            &[PathBuf::from("c.toml")],
+            std::slice::from_ref(&table)
+        ));
     }
 
     #[test]
-    fn from_config_variants_error_when_no_config_present() {
+    fn resolve_with_no_config_or_tables_yields_no_tables_and_arms_the_hint() {
+        // With no config and no programmatic tables the builder defines no
+        // named tables at all; path-tables serve filesystem queries. The
+        // missing-`files` hint is armed for exactly this state.
+        let resolved = DirSQL::builder().root("/tmp/x").resolve().unwrap();
+        assert!(
+            resolved.tables.is_empty(),
+            "expected no tables, got {:?}",
+            resolved.tables.len()
+        );
+        assert!(resolved.hint_legacy_files_table);
+    }
+
+    #[test]
+    fn path_table_parser_defaults_to_none() {
+        let resolved = DirSQL::builder().root("/tmp/x").resolve().unwrap();
+        assert!(resolved.path_table_parser.is_none());
+    }
+
+    #[test]
+    fn path_table_parser_carries_the_command_through_resolve() {
+        let resolved = DirSQL::builder()
+            .root("/tmp/x")
+            .path_table_parser("parse.py {path}")
+            .resolve()
+            .unwrap();
+        assert_eq!(
+            resolved.path_table_parser.as_deref(),
+            Some("parse.py {path}")
+        );
+    }
+
+    #[test]
+    fn resolve_with_a_programmatic_table_disarms_the_hint() {
+        let with_table = DirSQL::builder()
+            .root("/tmp/x")
+            .table(Table::new("CREATE TABLE t (a TEXT)", "*.t", |_| {
+                vec![Row::new()]
+            }))
+            .resolve()
+            .unwrap();
+        assert_eq!(with_table.tables.len(), 1);
+        assert!(with_table.tables[0].ddl.starts_with("CREATE TABLE t"));
+        assert!(
+            !with_table.hint_legacy_files_table,
+            "a user who declared tables gets the plain error"
+        );
+    }
+
+    #[test]
+    fn from_config_path_errors_when_config_missing() {
+        // `from_config_path` (the explicit constructor that stays) errors when
+        // the named file does not exist -- no silent fallback to the default.
         let dir = TempDir::new().unwrap();
-        assert!(DirSQL::from_config(dir.path()).is_err());
         let missing = dir.path().join("nope.toml");
         assert!(DirSQL::from_config_path(&missing).is_err());
     }
@@ -2653,7 +2804,7 @@ mod internal_tests {
     #[test]
     fn handle_upsert_inserts_and_diffs_rows() {
         let (_dir, db, abs, rel) = upsert_fixture();
-        let events = db.handle_upsert("items", &abs, &rel, &HashMap::new());
+        let events = db.handle_upsert("items", &abs, &rel);
         assert_eq!(events.len(), 1, "got: {events:?}");
         assert!(matches!(&events[0], RowEvent::Insert { .. }));
 
@@ -2678,7 +2829,7 @@ mod internal_tests {
             Arc::new(fake),
         )
         .unwrap();
-        let events = db.handle_upsert("items", &abs, "a.txt", &HashMap::new());
+        let events = db.handle_upsert("items", &abs, "a.txt");
         assert_eq!(events.len(), 1, "got: {events:?}");
         let dbg = format!("{:?}", events[0]);
         assert!(dbg.contains("Error"), "got: {dbg}");
@@ -2707,6 +2858,58 @@ mod internal_tests {
         assert!(db.query("SELECT * FROM a").is_ok());
         assert!(db.query("SELECT * FROM b").is_ok());
         assert_eq!(db.inner.poll_interval, Duration::from_millis(50));
+    }
+
+    #[test]
+    fn build_wires_the_index_root_as_the_path_table_root() {
+        let dir = TempDir::new().unwrap();
+        let db = DirSQL::builder().root(dir.path()).build().unwrap();
+
+        assert!(
+            db.query("SELECT path FROM './'").is_ok(),
+            "the path-table fallback must be armed on an ephemeral db"
+        );
+    }
+
+    #[test]
+    fn build_wires_the_path_table_parser_onto_the_index() {
+        // Covers the `Some(command)` arm of finish_build: the parser is stored
+        // at build time and path-tables are minted over the parsed module. Over
+        // an empty root, a parsed path-table matches no files, so schema
+        // inference has no sample and the query reports the parsed-mode
+        // "no rows" error — proof the parser branch is armed, without writing
+        // any file (which the unit-isolation gate bars) or spawning the parser.
+        let dir = TempDir::new().unwrap();
+        let db = DirSQL::builder()
+            .root(dir.path())
+            .path_table_parser("cat {path}")
+            .build()
+            .unwrap();
+
+        let err = db
+            .query("SELECT x FROM './*.json'")
+            .unwrap_err()
+            .to_string();
+        assert!(
+            err.contains("no rows"),
+            "a parsed path-table over an empty root reports the no-rows error; got: {err}"
+        );
+    }
+
+    #[test]
+    fn a_persisted_build_also_wires_the_path_table_root() {
+        let dir = TempDir::new().unwrap();
+        let cache = dir.path().join("cache.db");
+        let db = DirSQL::builder()
+            .root(dir.path())
+            .persist(Some(&cache))
+            .build()
+            .unwrap();
+
+        assert!(
+            db.query("SELECT path FROM './'").is_ok(),
+            "the persist branch must arm the fallback too"
+        );
     }
 
     #[test]
@@ -2887,9 +3090,6 @@ mod internal_tests {
 
     #[test]
     fn merge_filesystem_facts_filters_to_declared_columns() {
-        let mut captures = HashMap::new();
-        captures.insert("month".to_string(), "2024-01".to_string());
-        captures.insert("undeclared".to_string(), "drop".to_string());
         let mut stat = Row::new();
         stat.insert("path".to_string(), Value::Text("2024-01/a.txt".into()));
         stat.insert("size".to_string(), Value::Integer(9));
@@ -2897,18 +3097,74 @@ mod internal_tests {
             "name".to_string(),
             Value::Text("x".into()),
         )])];
-        let declared = vec!["name".to_string(), "month".to_string(), "path".to_string()];
-        let merged = merge_filesystem_facts(raw, &captures, &stat, &declared);
+        let declared = vec!["name".to_string(), "path".to_string()];
+        let merged = merge_filesystem_facts(raw, &stat, &declared);
         assert_eq!(merged.len(), 1);
         let row = &merged[0];
-        assert_eq!(row["month"], Value::Text("2024-01".into()));
         assert_eq!(row["path"], Value::Text("2024-01/a.txt".into()));
-        assert!(
-            !row.contains_key("undeclared"),
-            "undeclared capture dropped"
-        );
         assert!(!row.contains_key("size"), "undeclared stat dropped");
         assert_eq!(row["name"], Value::Text("x".into()));
+    }
+
+    #[test]
+    fn merge_filesystem_facts_raw_value_wins_over_stat() {
+        let mut stat = Row::new();
+        stat.insert("path".to_string(), Value::Text("auto".into()));
+        let raw = vec![Row::from_iter([(
+            "path".to_string(),
+            Value::Text("explicit".into()),
+        )])];
+        let declared = vec!["path".to_string()];
+        let merged = merge_filesystem_facts(raw, &stat, &declared);
+        assert_eq!(merged[0]["path"], Value::Text("explicit".into()));
+    }
+
+    #[test]
+    fn find_capture_column_collision_flags_a_placeholder_naming_a_column() {
+        let declared = vec!["thread_id".to_string(), "basename".to_string()];
+        assert_eq!(
+            find_capture_column_collision("_comments/{thread_id}/*.txt", &declared),
+            Some("thread_id".to_string())
+        );
+    }
+
+    #[test]
+    fn find_capture_column_collision_ignores_a_placeholder_with_no_column() {
+        let declared = vec!["path".to_string(), "basename".to_string()];
+        assert_eq!(
+            find_capture_column_collision("_comments/{thread_id}/*.txt", &declared),
+            None
+        );
+    }
+
+    #[test]
+    fn find_capture_column_collision_none_without_placeholders() {
+        let declared = vec!["thread_id".to_string()];
+        assert_eq!(
+            find_capture_column_collision("_comments/*/*.txt", &declared),
+            None
+        );
+    }
+
+    #[test]
+    fn find_capture_column_collision_returns_first_colliding_placeholder() {
+        let declared = vec!["repo".to_string(), "org".to_string()];
+        assert_eq!(
+            find_capture_column_collision("{org}/{repo}/data.json", &declared),
+            Some("org".to_string())
+        );
+    }
+
+    #[test]
+    fn capture_column_collision_error_names_placeholder_and_fix() {
+        let err = DirSqlError::CaptureColumnCollision {
+            placeholder: "thread_id".to_string(),
+            column: "thread_id".to_string(),
+        };
+        let msg = err.to_string();
+        assert!(msg.contains("thread_id"));
+        assert!(msg.contains("collides"));
+        assert!(msg.contains("on-file"));
     }
 
     #[test]
@@ -3083,12 +3339,11 @@ mod internal_tests {
         );
     }
 
-    /// The async config shortcuts fail fast (before spawning) when the
-    /// config file is missing.
+    /// The async `from_config_path` shortcut fails fast (before spawning) when
+    /// the config file is missing.
     #[test]
-    fn async_dirsql_from_config_errors_on_missing_file() {
+    fn async_dirsql_from_config_path_errors_on_missing_file() {
         let dir = TempDir::new().unwrap();
-        assert!(AsyncDirSQL::from_config(dir.path()).is_err());
         let missing = dir.path().join("no.toml");
         assert!(AsyncDirSQL::from_config_path(&missing).is_err());
     }

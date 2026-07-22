@@ -29,10 +29,14 @@ def test_registry_loads_and_has_expected_categories():
     assert "mmrf-commpass" in by_id
     assert "tcga-blca" in by_id
     assert "treehouse-polya-25-01" in by_id
+    # #346: the legacy route labeled all 95 mixed salivary samples as ADCC.
+    # oncoref#422 owns the diagnosis-split rebuild; a local build must not
+    # silently recreate the quarantined artifact.
+    assert "gse294016-adcc" not in by_id
     # TCGA cohorts in the YAML registry use the unprefixed registry
     # codes (BLCA, BRCA, ...) so they match cancer-type-registry.csv.
     # The TCGA-via-Treehouse build tags rows with source_cohort
-    # TREEHOUSE_POLYA_25_01_TCGA_SUBSET to distinguish from a future
+    # TREEHOUSE_POLYA_25_01_TCGA_SAMPLES to distinguish from a future
     # GDC-direct build under the same cancer_code.
     tcga_codes = {
         code
@@ -44,6 +48,17 @@ def test_registry_loads_and_has_expected_categories():
     assert "BLCA" in tcga_codes
     assert "BRCA" in tcga_codes
     assert not any(code.startswith("TCGA_") for code in tcga_codes)
+
+
+def test_ci_oncoref_cache_key_tracks_resolved_package_and_data_versions():
+    workflow = (
+        Path(__file__).resolve().parent.parent / ".github/workflows/tests.yml"
+    ).read_text()
+
+    assert "import oncoref; from oncoref.version import DATA_VERSION" in workflow
+    assert "oncoref.__version__" in workflow
+    assert "data-{DATA_VERSION}" in workflow
+    assert "steps.oncoref-cache-version.outputs.key" in workflow
 
 
 def test_recount3_sources_are_oncoref_owned():
@@ -256,6 +271,7 @@ def test_get_data_resolves_csv_downloadable_by_bare_name_after_fetch(monkeypatch
     # same (serial, -n 0) process — that poisoning made 28 downstream expression
     # tests KeyError in the release run.
     saved_frames = dict(ld._CACHED_DATAFRAMES)
+    ld._CACHED_DATAFRAMES.pop("pan-cancer-expression.csv", None)
 
     # Prime the path cache BEFORE the file exists — the stale-cache precondition
     # the fetch has to punch through.

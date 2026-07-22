@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: loro
-Version: 1.13.1
+Version: 1.13.2
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy

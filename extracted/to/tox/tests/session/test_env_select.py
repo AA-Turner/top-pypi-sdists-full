@@ -1,19 +1,26 @@
 from __future__ import annotations
 
 import sys
-from typing import TYPE_CHECKING
+from itertools import count
+from textwrap import dedent
+from typing import TYPE_CHECKING, Final
 
 import pytest
 
 from tox.config.cli.parse import get_options
-from tox.session.env_select import _DYNAMIC_ENV_FACTORS, CliEnv, EnvSelector  # noqa: PLC2701
+from tox.session.env_select import _DYNAMIC_ENV_FACTORS, CliEnv, EnvSelector  # ruff:ignore[import-private-name]
 from tox.session.state import State
+from tox.tox_env.python.virtual_env.package.pyproject import Pep517VenvPackager
 
 if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
+
+    from tox.config.sets import EnvConfigSet
     from tox.pytest import MonkeyPatch, ToxProjectCreator
 
 
 CURRENT_PY_ENV = f"py{sys.version_info[0]}{sys.version_info[1]}"  # e.g. py310
+_TWO_WHEEL_ENVS_INI: Final[str] = "[tox]\nenv_list = a,b\n[testenv]\npackage = wheel\n"
 
 
 @pytest.mark.parametrize(
@@ -570,3 +577,207 @@ def test_dotted_env_multiple_suggestions(tox_project: ToxProjectCreator) -> None
     outcome.assert_failed(code=-2)
     assert "py3.10-lint - did you mean py310-lint?" in outcome.out
     assert "py3.11-cov - did you mean py311-cov?" in outcome.out
+
+
+def test_pkg_env_creation_failure_is_not_masked(tox_project: ToxProjectCreator, mocker: MockerFixture) -> None:
+    """A package env whose registration fails must surface its error, not a duplicate-config cascade (#3987)."""
+    real_register_config = Pep517VenvPackager.register_config
+
+    def failing_register_config(self: Pep517VenvPackager) -> None:
+        real_register_config(self)
+        msg = "no such device"
+        raise OSError(msg)
+
+    mocker.patch.object(Pep517VenvPackager, "register_config", failing_register_config)
+    project = tox_project({
+        "tox.ini": _TWO_WHEEL_ENVS_INI,
+        "pyproject.toml": "",
+    })
+
+    with pytest.raises(OSError, match="no such device"):
+        project.run("r", "--notest")
+
+
+def test_pkg_env_creation_failure_reports_first_error(tox_project: ToxProjectCreator, mocker: MockerFixture) -> None:
+    """When several environments fail to create, the first failure in definition order is the one reported."""
+    real_register_config = Pep517VenvPackager.register_config
+    attempt = count(1)
+
+    def failing_register_config(self: Pep517VenvPackager) -> None:
+        real_register_config(self)
+        msg = f"creation failure {next(attempt)}"
+        raise OSError(msg)
+
+    mocker.patch.object(Pep517VenvPackager, "register_config", failing_register_config)
+    project = tox_project({
+        "tox.ini": _TWO_WHEEL_ENVS_INI,
+        "pyproject.toml": "",
+    })
+
+    with pytest.raises(OSError, match="creation failure 1"):
+        project.run("r", "--notest")
+
+
+def test_pkg_env_rollback_keeps_shared_env(tox_project: ToxProjectCreator) -> None:
+    """One env's failed build must not destroy a package env other envs already use."""
+    ini = """
+    [tox]
+    skip_missing_interpreters = false
+    [testenv]
+    package = wheel
+    [testenv:a]
+    package = sdist
+    [testenv:b]
+    [testenv:c]
+    wheel_build_env = b
+    [testenv:.pkg]
+    base_python = /nonexistent/python
+    """
+    project = tox_project({"tox.ini": ini, "pyproject.toml": ""})
+
+    outcome = project.run("c", "-e", "a,b,c", "-k", "env_name")
+
+    outcome.assert_success()
+    envs = outcome.state.envs
+    assert envs["a"].package_env is envs[".pkg"]
+
+
+def test_pkg_env_register_run_env_once(tox_project: ToxProjectCreator) -> None:
+    """A run env whose wheel tag matches the package env must register with it exactly once."""
+    project = tox_project({"tox.ini": _TWO_WHEEL_ENVS_INI, "pyproject.toml": ""})
+
+    outcome = project.run("l")
+
+    outcome.assert_success()
+    pkg_env = outcome.state.envs[".pkg"]
+    assert isinstance(pkg_env, Pep517VenvPackager)
+    assert [conf.name for conf in pkg_env.builds["wheel"]] == ["a", "b"]
+
+
+@pytest.mark.plugin_test
+def test_pkg_env_skip_from_plugin_hook(tox_project: ToxProjectCreator) -> None:
+    """A plugin raising Skip for a package env must mark the run env skipped, not crash."""
+
+    def plugin() -> None:  # pragma: no cover # the code is copied to a python file
+        from tox.plugin import impl  # ruff:ignore[import-outside-top-level]
+        from tox.tox_env.errors import Skip  # ruff:ignore[import-outside-top-level]
+
+        @impl
+        def tox_add_env_config(env_conf: EnvConfigSet) -> None:
+            if env_conf.name == ".pkg":
+                msg = "plugin opted out of packaging"
+                raise Skip(msg)
+
+    project = tox_project({
+        "tox.ini": "[tox]\nenv_list = a\n[testenv]\npackage = wheel\n",
+        "pyproject.toml": "",
+        "toxfile.py": plugin,
+    })
+
+    outcome = project.run("l")
+
+    outcome.assert_success()
+
+
+@pytest.mark.parametrize(
+    ("files", "expected_base", "expected_marker"),
+    [
+        pytest.param(
+            {
+                "tox.ini": dedent("""\
+                    [testenv]
+                    package = wheel
+                    package_env = mypkg
+                    set_env = MARKER=from_testenv
+                    [testenv:mypkg]
+                    package = skip
+                    [pkgenv]
+                    set_env = MARKER=from_pkgenv
+                """),
+                "pyproject.toml": "",
+            },
+            ["pkgenv"],
+            "from_pkgenv",
+            id="ini",
+        ),
+        pytest.param(
+            {
+                "tox.toml": dedent("""\
+                    [env_run_base]
+                    package = "wheel"
+                    package_env = "mypkg"
+                    set_env = { MARKER = "from_run_base" }
+                    [env.mypkg]
+                    package = "skip"
+                    [env_pkg_base]
+                    set_env = { MARKER = "from_pkg_base" }
+                """),
+                "pyproject.toml": "",
+            },
+            None,
+            "from_pkg_base",
+            id="toml",
+        ),
+    ],
+)
+def test_pkg_env_redefined_uses_pkg_base(
+    tox_project: ToxProjectCreator,
+    files: dict[str, str],
+    expected_base: list[str] | None,
+    expected_marker: str,
+) -> None:
+    """An env first built as a run env and then redefined as a package env must load the package base chain."""
+    project = tox_project(files)
+
+    outcome = project.run("c", "-e", "mypkg,py", "-k", "set_env", "base")
+
+    outcome.assert_success()
+    pkg_conf = outcome.state.conf.get_env("mypkg")
+    if expected_base is not None:
+        assert pkg_conf["base"] == expected_base
+    assert pkg_conf["set_env"].load("MARKER") == expected_marker
+
+
+@pytest.mark.parametrize(
+    "files",
+    [
+        pytest.param(
+            {
+                "tox.ini": dedent("""\
+                    [tox]
+                    env_list = mypkg, py
+                    [testenv]
+                    package = wheel
+                    package_env = mypkg
+                    [testenv:mypkg]
+                    package = skip
+                """),
+                "pyproject.toml": "",
+            },
+            id="ini",
+        ),
+        pytest.param(
+            {
+                "tox.toml": dedent("""\
+                    env_list = ["mypkg", "py"]
+                    [env_run_base]
+                    package = "wheel"
+                    package_env = "mypkg"
+                    [env.mypkg]
+                    package = "skip"
+                """),
+                "pyproject.toml": "",
+            },
+            id="toml",
+        ),
+    ],
+)
+def test_pkg_env_in_env_list_fails(tox_project: ToxProjectCreator, files: dict[str, str]) -> None:
+    """An env cannot be asked to run and serve as a package environment; the conflict is reported, not hidden."""
+    project = tox_project(files)
+
+    outcome = project.run("l")
+
+    outcome.assert_failed()
+    msg = "mypkg is listed in env_list but is used as a package environment by py; remove it from env_list or rename"
+    assert msg in outcome.out, outcome.out

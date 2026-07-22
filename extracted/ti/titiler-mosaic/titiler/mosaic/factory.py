@@ -134,6 +134,10 @@ class MosaicTilerFactory(BaseFactory):
 
     render_func: Callable[..., tuple[bytes, str]] = render_image
 
+    get_renders: Callable[[BaseBackend], dict[str, dict[str, Any]]] = field(
+        default=lambda obj: {}
+    )
+
     optional_headers: list[OptionalHeader] = field(factory=list)
 
     # Add/Remove some endpoints
@@ -276,7 +280,7 @@ class MosaicTilerFactory(BaseFactory):
             summary="Retrieve a list of available raster tilesets for the specified dataset.",
             operation_id=f"{self.operation_prefix}getTileSetList",
         )
-        async def tileset_list(
+        def tileset_list(
             request: Request,
             src_path=Depends(self.path_dependency),
             backend_params=Depends(self.backend_dependency),
@@ -403,7 +407,7 @@ class MosaicTilerFactory(BaseFactory):
             summary="Retrieve the raster tileset metadata for the specified dataset and tiling scheme (tile matrix set).",
             operation_id=f"{self.operation_prefix}getTileSet",
         )
-        async def tileset(
+        def tileset(
             request: Request,
             tileMatrixSetId: Annotated[
                 Literal[tuple(self.supported_tms.list())],
@@ -415,6 +419,14 @@ class MosaicTilerFactory(BaseFactory):
             backend_params=Depends(self.backend_dependency),
             reader_params=Depends(self.reader_dependency),
             env=Depends(self.environment_dependency),
+            minzoom: Annotated[
+                int | None,
+                Query(description="Overwrite default minzoom."),
+            ] = None,
+            maxzoom: Annotated[
+                int | None,
+                Query(description="Overwrite default maxzoom."),
+            ] = None,
             f: Annotated[
                 Literal["html", "json"] | None,
                 Query(
@@ -436,8 +448,8 @@ class MosaicTilerFactory(BaseFactory):
                     **backend_params.as_dict(),
                 ) as src_dst:
                     bounds = src_dst.get_geographic_bounds(tms.rasterio_geographic_crs)
-                    minzoom = src_dst.minzoom
-                    maxzoom = src_dst.maxzoom
+                    minzoom = minzoom if minzoom is not None else src_dst.minzoom
+                    maxzoom = maxzoom if maxzoom is not None else src_dst.maxzoom
 
                     collection_bbox = {
                         "lowerLeft": [bounds[0], bounds[1]],
@@ -761,22 +773,20 @@ class MosaicTilerFactory(BaseFactory):
                     reader_options=reader_params.as_dict(),
                     **backend_params.as_dict(),
                 ) as src_dst:
-                    bounds = src_dst.get_geographic_bounds(tms.rasterio_geographic_crs)
-                    minzoom = minzoom if minzoom is not None else src_dst.minzoom
-                    maxzoom = maxzoom if maxzoom is not None else src_dst.maxzoom
-                    center = (
-                        (bounds[0] + bounds[2]) / 2,
-                        (bounds[1] + bounds[3]) / 2,
-                        minzoom,
-                    )
-                    return {
-                        "bounds": bounds,
-                        "center": center,
-                        "minzoom": minzoom,
-                        "maxzoom": maxzoom,
+                    body = {
+                        "bounds": src_dst.get_geographic_bounds(
+                            tms.rasterio_geographic_crs
+                        ),
+                        "minzoom": minzoom if minzoom is not None else src_dst.minzoom,
+                        "maxzoom": maxzoom if maxzoom is not None else src_dst.maxzoom,
                         "tiles": [tiles_url],
                         "attribution": os.environ.get("TITILER_DEFAULT_ATTRIBUTION"),
                     }
+
+                    # Custom TiTiler tilejson fields
+                    body["raster_layers"] = self.get_renders(src_dst)
+
+            return body
 
     def map_viewer(self):  # noqa: C901
         """Register /map.html endpoint."""

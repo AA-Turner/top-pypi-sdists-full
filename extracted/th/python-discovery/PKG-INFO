@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-discovery
-Version: 1.4.4
+Version: 1.5.0
 Summary: Python interpreter discovery
 Project-URL: Changelog, https://github.com/tox-dev/python-discovery/releases
 Project-URL: Documentation, https://python-discovery.readthedocs.io
@@ -42,25 +42,13 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Utilities
 Requires-Python: >=3.8
 Requires-Dist: filelock>=3.15.4
 Requires-Dist: platformdirs<5,>=4.3.6
-Provides-Extra: docs
-Requires-Dist: furo>=2025.12.19; extra == 'docs'
-Requires-Dist: sphinx-autodoc-typehints>=3.6.3; extra == 'docs'
-Requires-Dist: sphinx>=9.1; extra == 'docs'
-Requires-Dist: sphinxcontrib-mermaid>=2; extra == 'docs'
-Requires-Dist: sphinxcontrib-towncrier>=0.4; extra == 'docs'
-Requires-Dist: towncrier>=25.8; extra == 'docs'
-Provides-Extra: testing
-Requires-Dist: covdefaults>=2.3; extra == 'testing'
-Requires-Dist: coverage>=7.5.4; extra == 'testing'
-Requires-Dist: pytest-mock>=3.14; extra == 'testing'
-Requires-Dist: pytest>=8.3.5; extra == 'testing'
-Requires-Dist: setuptools>=75.1; extra == 'testing'
 Description-Content-Type: text/markdown
 
 # [`python-discovery`](https://python-discovery.readthedocs.io/en/latest/)

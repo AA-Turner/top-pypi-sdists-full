@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langchain-google-genai
-Version: 4.2.7
+Version: 4.3.1
 Summary: An integration package connecting Google's genai package and LangChain
 Project-URL: Homepage, https://docs.langchain.com/oss/python/integrations/providers/google
 Project-URL: Documentation, https://reference.langchain.com/python/integrations/langchain_google_genai/
@@ -14,7 +14,7 @@ License-File: LICENSE
 Requires-Python: <4.0.0,>=3.10.0
 Requires-Dist: filetype<2.0.0,>=1.2.0
 Requires-Dist: google-genai<3.0.0,>=1.65.0
-Requires-Dist: langchain-core<2.0.0,>=1.4.7
+Requires-Dist: langchain-core<2.0.0,>=1.5.0
 Requires-Dist: pydantic<3.0.0,>=2.0.0
 Description-Content-Type: text/markdown
 

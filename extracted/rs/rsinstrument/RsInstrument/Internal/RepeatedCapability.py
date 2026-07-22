@@ -24,7 +24,7 @@ class RepeatedCapability(object):
 		"""Constructor with header name, group property name and the start value"""
 
 		self._enum_value = None
-		self.enum_type = start_value.__class__
+		self.enum_type: type[Enum] = type(start_value)
 		self.name = self.enum_type.__name__
 		self.header_name = header_name
 		self.method_get_name = method_get_name
@@ -64,7 +64,7 @@ class RepeatedCapability(object):
 
 	def is_default_value(self) -> bool:
 		"""Returns True, if the repcap value is enum.Default"""
-		return RepeatedCapability.clsm_is_default_value(self._enum_value, self.enum_type)
+		return RepeatedCapability.clsm_is_default_value(self._enum_value, self.enum_type)  # ty: ignore[invalid-argument-type]
 
 	@classmethod
 	def clsm_skip_header_value(cls, enum_value: Enum | int, enum_type) -> bool:
@@ -73,7 +73,7 @@ class RepeatedCapability(object):
 
 	def is_skip_header_value(self) -> bool:
 		"""Returns True, if the entered value is enum.SkipHeader."""
-		return RepeatedCapability.clsm_is_default_value(self._enum_value, self.enum_type)
+		return RepeatedCapability.clsm_is_default_value(self._enum_value, self.enum_type)  # ty: ignore[invalid-argument-type]
 
 	def set_enum_value(self, enum_value: Enum | int) -> None:
 		"""Sets new enum value. Can not be Default"""
@@ -86,7 +86,7 @@ class RepeatedCapability(object):
 
 	def get_enum_value(self) -> Enum:
 		"""Returns the actual enum value"""
-		return self._enum_value
+		return self._enum_value  # ty: ignore[invalid-return-type]
 
 	def set_to_start_value(self) -> None:
 		"""Sets back to the value you entered to the constructor"""
@@ -126,4 +126,4 @@ class RepeatedCapability(object):
 		ValueDefault throws an exception
 		0 is converted to "" (Not valid, but tolerated)
 		Positive numbers are converted to integer strings e.g. 1 => '1' """
-		return RepeatedCapability.clsm_get_cmd_string_value(self._enum_value, self.enum_type)
+		return RepeatedCapability.clsm_get_cmd_string_value(self._enum_value, self.enum_type)  # ty: ignore[invalid-argument-type]

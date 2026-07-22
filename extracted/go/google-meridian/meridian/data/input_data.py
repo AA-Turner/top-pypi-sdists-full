@@ -23,12 +23,16 @@ import dataclasses
 import functools
 import warnings
 
+from meridian import backend
 from meridian import constants
 from meridian.data import arg_builder
 from meridian.data import time_coordinates as tc
 from meridian.data import validator
 import numpy as np
 import xarray as xr
+
+
+_NUMPY_OBJECT_DTYPE = np.dtype("O")
 
 
 __all__ = [
@@ -68,19 +72,6 @@ def _check_dim_match(dim: str, arrays: Sequence[xr.DataArray | None]):
     raise ValueError(
         f"'{dim}' dimensions {lengths} of arrays {names} don't match."
     )
-
-
-def _check_coords_match(dim: str, arrays: Sequence[xr.DataArray]):
-  """Verifies that the coordinates of the appropriate arrays match."""
-  arrays = [arr for arr in arrays if arr is not None and dim in arr.coords]
-  if not arrays:
-    return
-  first_coords = arrays[0].coords[dim].values
-  for arr in arrays[1:]:
-    if not np.array_equal(arr.coords[dim].values, first_coords):
-      raise ValueError(
-          f"`{dim}` coordinates of array `{arr.name}` don't match."
-      )
 
 
 def _aggregate_spend(
@@ -289,6 +280,8 @@ class InputData:
   non_media_treatments: xr.DataArray | None = None
 
   def __post_init__(self):
+    self._coerce_object_arrays_to_float()
+    self._validate_nas()
     self._convert_geos_to_strings()
     self._validate_kpi()
     self._validate_scenarios()
@@ -300,6 +293,19 @@ class InputData:
     self._validate_geos()
     self._validate_no_negative_values()
 
+  def _coerce_object_arrays_to_float(self):
+    """Coerces object-typed DataArrays to float."""
+    for field in dataclasses.fields(self):
+      array = getattr(self, field.name)
+      if isinstance(array, xr.DataArray) and array.dtype == _NUMPY_OBJECT_DTYPE:
+        try:
+          setattr(self, field.name, array.astype(backend.np_float_dtype))
+        except (ValueError, TypeError) as e:
+          raise ValueError(
+              f"Failed to convert array '{field.name}' from object to float. "
+              f"Please ensure all values are numeric. Error: {e}"
+          ) from e
+
   def _convert_geos_to_strings(self):
     """Converts geo coordinates to strings in all relevant DataArrays."""
     for field in dataclasses.fields(self):
@@ -307,12 +313,64 @@ class InputData:
       if isinstance(array, xr.DataArray) and constants.GEO in array.dims:
         array.coords[constants.GEO] = array.coords[constants.GEO].astype(str)
 
+  def _validate_nas(self):
+    """Check for NAs in all of the DataArrays.
+
+    Since the DataArray components should already distinguish between media time
+    and time coords, there are no media times to infer so there should be no
+    NAs.
+    """
+    if self.kpi.isnull().any(axis=None):
+      raise ValueError("NA values found in the kpi data.")
+    if self.population.isnull().any(axis=None):
+      raise ValueError("NA values found in the population data.")
+    if self.controls is not None and self.controls.isnull().any(axis=None):
+      raise ValueError("NA values found in the controls data.")
+    if self.revenue_per_kpi is not None and self.revenue_per_kpi.isnull().any(
+        axis=None
+    ):
+      raise ValueError("NA values found in the revenue per kpi data.")
+    if self.media_spend is not None and self.media_spend.isnull().any(
+        axis=None
+    ):
+      raise ValueError("NA values found in the media spend data.")
+    if self.rf_spend is not None and self.rf_spend.isnull().any(axis=None):
+      raise ValueError("NA values found in the rf spend data.")
+    if (
+        self.non_media_treatments is not None
+        and self.non_media_treatments.isnull().any(axis=None)
+    ):
+      raise ValueError("NA values found in the non media treatments data.")
+
+    if self.media is not None and self.media.isnull().any(axis=None):
+      raise ValueError("NA values found in the media data.")
+
+    if self.reach is not None and self.reach.isnull().any(axis=None):
+      raise ValueError("NA values found in the reach data.")
+    if self.frequency is not None and self.frequency.isnull().any(axis=None):
+      raise ValueError("NA values found in the frequency data.")
+
+    if self.organic_media is not None and self.organic_media.isnull().any(
+        axis=None
+    ):
+      raise ValueError("NA values found in the organic media data.")
+
+    if self.organic_reach is not None and self.organic_reach.isnull().any(
+        axis=None
+    ):
+      raise ValueError("NA values found in the organic reach data.")
+    if (
+        self.organic_frequency is not None
+        and self.organic_frequency.isnull().any(axis=None)
+    ):
+      raise ValueError("NA values found in the organic frequency data.")
+
   # TODO: Combine with Analyzer._impute_and_aggregate_spend
   @functools.cached_property
   def allocated_media_spend(self) -> xr.DataArray | None:
     """Returns the allocated media spend for each geo and time."""
     if self.media_spend is not None and len(self.media_spend.shape) == 1:
-      return self._allocate_spend(self.media_spend, self.media)
+      return self._allocate_spend(self.media_spend, self.media)  # pyrefly: ignore[bad-argument-type]
     else:
       return self.media_spend
 
@@ -320,7 +378,7 @@ class InputData:
   def allocated_rf_spend(self) -> xr.DataArray | None:
     """Returns the allocated RF spend for each geo and time."""
     if self.rf_spend is not None and len(self.rf_spend.shape) == 1:
-      return self._allocate_spend(self.rf_spend, self.reach * self.frequency)
+      return self._allocate_spend(self.rf_spend, self.reach * self.frequency)  # pyrefly: ignore[unsupported-operation]
     else:
       return self.rf_spend
 
@@ -329,7 +387,7 @@ class InputData:
   ) -> np.ndarray | None:
     """Aggregates media spend by channel over the calibration period."""
     return _aggregate_spend(
-        spend=self.allocated_media_spend, calibration_period=calibration_period
+        spend=self.allocated_media_spend, calibration_period=calibration_period  # pyrefly: ignore[bad-argument-type]
     )
 
   def aggregate_rf_spend(
@@ -337,7 +395,7 @@ class InputData:
   ) -> np.ndarray | None:
     """Aggregates RF spend by channel over the calibration period."""
     return _aggregate_spend(
-        spend=self.allocated_rf_spend,
+        spend=self.allocated_rf_spend,  # pyrefly: ignore[bad-argument-type]
         calibration_period=calibration_period,
     )
 
@@ -362,7 +420,7 @@ class InputData:
     if self.media is not None:
       return self.media[constants.MEDIA_TIME]
     else:
-      return self.reach[constants.MEDIA_TIME]
+      return self.reach[constants.MEDIA_TIME]  # pyrefly: ignore[unsupported-operation]
 
   @functools.cached_property
   def media_time_coordinates(self) -> tc.TimeCoordinates:
@@ -512,7 +570,7 @@ class InputData:
           name=constants.REVENUE_PER_KPI,
       )
       if not revenue_per_kpi.equals(
-          self.revenue_per_kpi
+          self.revenue_per_kpi  # pyrefly: ignore[bad-argument-type]
       ):  # Not equal to all ones.
         warnings.warn(
             "Revenue from the `kpi` data is used when `kpi_type`=`revenue`."
@@ -680,16 +738,35 @@ class InputData:
         ],
     )
     _check_dim_match(constants.MEDIA_CHANNEL, [self.media, self.media_spend])
+    validator.check_coords_match(
+        constants.MEDIA_CHANNEL, [self.media, self.media_spend]
+    )
     _check_dim_match(
         constants.RF_CHANNEL, [self.reach, self.frequency, self.rf_spend]
     )
+    validator.check_coords_match(
+        constants.RF_CHANNEL, [self.reach, self.frequency, self.rf_spend]
+    )
     _check_dim_match(constants.ORGANIC_MEDIA_CHANNEL, [self.organic_media])
+    validator.check_coords_match(
+        constants.ORGANIC_MEDIA_CHANNEL, [self.organic_media]
+    )
     _check_dim_match(
         constants.ORGANIC_RF_CHANNEL,
         [self.organic_reach, self.organic_frequency],
     )
+    validator.check_coords_match(
+        constants.ORGANIC_RF_CHANNEL,
+        [self.organic_reach, self.organic_frequency],
+    )
     _check_dim_match(constants.NON_MEDIA_CHANNEL, [self.non_media_treatments])
+    validator.check_coords_match(
+        constants.NON_MEDIA_CHANNEL, [self.non_media_treatments]
+    )
     _check_dim_match(constants.CONTROL_VARIABLE, [self.controls])
+    validator.check_coords_match(
+        constants.CONTROL_VARIABLE, [self.controls]
+    )
 
   def _validate_media_channels(self):
     """Verifies Meridian media channel names invariants.
@@ -814,7 +891,7 @@ class InputData:
     for array in arrays_with_geos:
       self._check_unique_names(constants.GEO, array)
 
-    _check_coords_match(constants.GEO, arrays_with_geos)
+    validator.check_coords_match(constants.GEO, arrays_with_geos)
 
   def as_dataset(self) -> xr.Dataset:
     """Returns data as a single `xarray.Dataset` object."""
@@ -828,20 +905,20 @@ class InputData:
       data.append(self.revenue_per_kpi)
     if self.media is not None:
       data.append(self.media)
-      data.append(self.media_spend)
+      data.append(self.media_spend)  # pyrefly: ignore[bad-argument-type]
     if self.reach is not None:
       data.append(self.reach)
-      data.append(self.frequency)
-      data.append(self.rf_spend)
+      data.append(self.frequency)  # pyrefly: ignore[bad-argument-type]
+      data.append(self.rf_spend)  # pyrefly: ignore[bad-argument-type]
     if self.organic_media is not None:
       data.append(self.organic_media)
     if self.organic_reach is not None:
       data.append(self.organic_reach)
-      data.append(self.organic_frequency)
+      data.append(self.organic_frequency)  # pyrefly: ignore[bad-argument-type]
     if self.non_media_treatments is not None:
       data.append(self.non_media_treatments)
 
-    return xr.combine_by_coords(data)
+    return xr.combine_by_coords(data)  # pyrefly: ignore[bad-return]
 
   def get_n_top_largest_geos(self, num_geos: int) -> list[str]:
     """Finds the specified number of the largest geos by population.
@@ -909,7 +986,7 @@ class InputData:
       self,
   ) -> arg_builder.OrderedListArgumentBuilder:
     """Returns an argument builder for all *paid* channels."""
-    return arg_builder.OrderedListArgumentBuilder(self.get_all_paid_channels())
+    return arg_builder.OrderedListArgumentBuilder(self.get_all_paid_channels())  # pyrefly: ignore[bad-argument-type]
 
   def get_paid_media_channels_argument_builder(
       self,
@@ -917,7 +994,7 @@ class InputData:
     """Returns an argument builder for *paid* media channels *only*."""
     if self.media_channel is None:
       raise ValueError("There are no media channels in the input data.")
-    return arg_builder.OrderedListArgumentBuilder(self.media_channel.values)
+    return arg_builder.OrderedListArgumentBuilder(self.media_channel.values)  # pyrefly: ignore[bad-argument-type]
 
   def get_paid_rf_channels_argument_builder(
       self,
@@ -925,7 +1002,7 @@ class InputData:
     """Returns an argument builder for *paid* RF channels *only*."""
     if self.rf_channel is None:
       raise ValueError("There are no RF channels in the input data.")
-    return arg_builder.OrderedListArgumentBuilder(self.rf_channel.values)
+    return arg_builder.OrderedListArgumentBuilder(self.rf_channel.values)  # pyrefly: ignore[bad-argument-type]
 
   def get_organic_media_channels_argument_builder(
       self
@@ -934,7 +1011,7 @@ class InputData:
     if self.organic_media_channel is None:
       raise ValueError("There are no organic media channels in the input data.")
     return arg_builder.OrderedListArgumentBuilder(
-        self.organic_media_channel.values
+        self.organic_media_channel.values  # pyrefly: ignore[bad-argument-type]
         )
 
   def get_organic_rf_channels_argument_builder(
@@ -944,7 +1021,7 @@ class InputData:
     if self.organic_rf_channel is None:
       raise ValueError("There are no organic RF channels in the input data.")
     return arg_builder.OrderedListArgumentBuilder(
-        self.organic_rf_channel.values
+        self.organic_rf_channel.values  # pyrefly: ignore[bad-argument-type]
         )
 
   def get_all_channels(self) -> np.ndarray:

@@ -14,7 +14,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from airbyte_ops_mcp.github_actions import WorkflowDispatchResult
-from airbyte_ops_mcp.mcp.session_feedback import (
+from airbyte_ops_mcp.mcp.devin_ops import (
     _FOLLOWUP_HEADER,
     _build_feedback_body,
     _dispatch_triage_workflow,
@@ -154,8 +154,8 @@ def test_build_feedback_body_renders_no_playbook_without_link() -> None:
 
 
 @pytest.mark.unit
-@patch("airbyte_ops_mcp.mcp.session_feedback.trigger_workflow_dispatch")
-@patch("airbyte_ops_mcp.mcp.session_feedback.resolve_ci_trigger_github_token")
+@patch("airbyte_ops_mcp.mcp.devin_ops.trigger_workflow_dispatch")
+@patch("airbyte_ops_mcp.mcp.devin_ops.resolve_ci_trigger_github_token")
 def test_dispatch_triage_workflow_includes_playbook_and_skill(
     mock_token: MagicMock, mock_dispatch: MagicMock
 ) -> None:
@@ -204,7 +204,7 @@ def test_dispatch_triage_workflow_includes_playbook_and_skill(
         ),
     ],
 )
-@patch("airbyte_ops_mcp.mcp.session_feedback.dispatch_escalation")
+@patch("airbyte_ops_mcp.mcp.devin_ops.dispatch_escalation")
 def test_devin_session_feedback_rejects_invalid_context_ids(
     mock_dispatch: MagicMock,
     session_playbook: str,
@@ -278,7 +278,7 @@ def test_followup_tool_wrong_workspace() -> None:
 
 
 @pytest.mark.unit
-@patch("airbyte_ops_mcp.mcp.session_feedback.post_thread_reply")
+@patch("airbyte_ops_mcp.mcp.devin_ops.post_thread_reply")
 def test_followup_tool_success(mock_post: MagicMock) -> None:
     """Follow-up tool returns success=True when post succeeds."""
     mock_post.return_value = SlackPostResult(

@@ -15,6 +15,7 @@ fn add_shared_args(mut command: Command) -> Command {
         .env(EnvVars::UV_CONCURRENT_DOWNLOADS, "50")
         .env(EnvVars::UV_CONCURRENT_BUILDS, "16")
         .env(EnvVars::UV_CONCURRENT_INSTALLS, "8")
+        .env(EnvVars::UV_CONCURRENT_CACHE_READS, "2")
         .env_remove(EnvVars::UV_EXCLUDE_NEWER)
         .env_remove(EnvVars::UV_PYTHON_DOWNLOADS);
 
@@ -60,6 +61,7 @@ fn pip_compile_baseline() {
             downloads: 50,
             builds: 16,
             installs: 8,
+            cache_reads: 2,
         },
         show_settings: true,
         preview: Preview {
@@ -260,6 +262,7 @@ fn publish_resolved_settings() -> anyhow::Result<()> {
             downloads: 50,
             builds: 16,
             installs: 8,
+            cache_reads: 2,
         },
         show_settings: true,
         preview: Preview {
@@ -377,6 +380,7 @@ fn publish_resolved_settings() -> anyhow::Result<()> {
                     authenticate: Auto,
                     ignore_error_codes: None,
                     cache_control: None,
+                    hash_algorithm: None,
                     exclude_newer: None,
                 },
             ],
@@ -427,6 +431,7 @@ fn pip_install_baseline() {
             downloads: 50,
             builds: 16,
             installs: 8,
+            cache_reads: 2,
         },
         show_settings: true,
         preview: Preview {
@@ -610,6 +615,7 @@ fn lock_baseline() {
             downloads: 50,
             builds: 16,
             installs: 8,
+            cache_reads: 2,
         },
         show_settings: true,
         preview: Preview {
@@ -732,6 +738,7 @@ fn version_baseline() {
             downloads: 50,
             builds: 16,
             installs: 8,
+            cache_reads: 2,
         },
         show_settings: true,
         preview: Preview {
@@ -869,6 +876,7 @@ fn tool_install_baseline() {
             downloads: 50,
             builds: 16,
             installs: 8,
+            cache_reads: 2,
         },
         show_settings: true,
         preview: Preview {
@@ -1077,6 +1085,7 @@ fn resolve_uv_toml() -> anyhow::Result<()> {
     +                    authenticate: Auto,
     +                    ignore_error_codes: None,
     +                    cache_control: None,
+    +                    hash_algorithm: None,
     +                    exclude_newer: None,
     +                },
     +            ],
@@ -1230,6 +1239,7 @@ fn resolve_pyproject_toml() -> anyhow::Result<()> {
     +                    authenticate: Auto,
     +                    ignore_error_codes: None,
     +                    cache_control: None,
+    +                    hash_algorithm: None,
     +                    exclude_newer: None,
     +                },
     +            ],
@@ -1386,6 +1396,7 @@ fn resolve_index_url() -> anyhow::Result<()> {
     +                    authenticate: Auto,
     +                    ignore_error_codes: None,
     +                    cache_control: None,
+    +                    hash_algorithm: None,
     +                    exclude_newer: None,
     +                },
     +                Index {
@@ -1421,6 +1432,7 @@ fn resolve_index_url() -> anyhow::Result<()> {
     +                    authenticate: Auto,
     +                    ignore_error_codes: None,
     +                    cache_control: None,
+    +                    hash_algorithm: None,
     +                    exclude_newer: None,
     +                },
     +            ],
@@ -1476,6 +1488,7 @@ fn resolve_index_url() -> anyhow::Result<()> {
     +                    authenticate: Auto,
     +                    ignore_error_codes: None,
     +                    cache_control: None,
+    +                    hash_algorithm: None,
     +                    exclude_newer: None,
     +                },
     +                Index {
@@ -1564,6 +1577,7 @@ fn resolve_find_links() -> anyhow::Result<()> {
     +                    authenticate: Auto,
     +                    ignore_error_codes: None,
     +                    cache_control: None,
+    +                    hash_algorithm: None,
     +                    exclude_newer: None,
     +                },
     +            ],
@@ -1685,6 +1699,7 @@ fn resolve_top_level() -> anyhow::Result<()> {
     +                    authenticate: Auto,
     +                    ignore_error_codes: None,
     +                    cache_control: None,
+    +                    hash_algorithm: None,
     +                    exclude_newer: None,
     +                },
     +                Index {
@@ -1720,6 +1735,7 @@ fn resolve_top_level() -> anyhow::Result<()> {
     +                    authenticate: Auto,
     +                    ignore_error_codes: None,
     +                    cache_control: None,
+    +                    hash_algorithm: None,
     +                    exclude_newer: None,
     +                },
     +            ],
@@ -2132,6 +2148,7 @@ fn resolve_both() -> anyhow::Result<()> {
     +                    authenticate: Auto,
     +                    ignore_error_codes: None,
     +                    cache_control: None,
+    +                    hash_algorithm: None,
     +                    exclude_newer: None,
     +                },
     +            ],
@@ -2263,6 +2280,7 @@ fn resolve_both_special_fields() -> anyhow::Result<()> {
     +                    authenticate: Auto,
     +                    ignore_error_codes: None,
     +                    cache_control: None,
+    +                    hash_algorithm: None,
     +                    exclude_newer: None,
     +                },
     +            ],
@@ -2617,6 +2635,7 @@ fn resolve_config_file() -> anyhow::Result<()> {
     +                    authenticate: Auto,
     +                    ignore_error_codes: None,
     +                    cache_control: None,
+    +                    hash_algorithm: None,
     +                    exclude_newer: None,
     +                },
     +            ],
@@ -2915,6 +2934,7 @@ fn index_priority() -> anyhow::Result<()> {
     +                    authenticate: Auto,
     +                    ignore_error_codes: None,
     +                    cache_control: None,
+    +                    hash_algorithm: None,
     +                    exclude_newer: None,
     +                },
     +                Index {
@@ -2952,6 +2972,7 @@ fn index_priority() -> anyhow::Result<()> {
     +                    authenticate: Auto,
     +                    ignore_error_codes: None,
     +                    cache_control: None,
+    +                    hash_algorithm: None,
     +                    exclude_newer: None,
     +                },
     +            ],
@@ -3237,6 +3258,7 @@ fn preview_features() {
     +            ToolInstallLocks,
     +            WorkspaceListScripts,
     +            NoDistutilsPatch,
+    +            IndexHashAlgorithm,
     +        ],
          },
          python_preference: Managed,

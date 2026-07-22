@@ -44,6 +44,13 @@ from fast_agent.tools.filesystem_tool_args import (
 )
 from fast_agent.tools.local_shell_executor import LocalShellExecutor
 from fast_agent.tools.output_truncation import format_output_truncation_notice
+from fast_agent.tools.process_resources import (
+    ProcessResourceObservationState,
+    ProcessResourceSnapshot,
+    ProcessResourceSnapshotMetadata,
+    observe_resource_changes,
+    sample_process_resources,
+)
 from fast_agent.tools.tool_sources import SHELL_TOOL_SOURCE, set_tool_source
 from fast_agent.ui import console
 from fast_agent.ui.console_display import ConsoleDisplay
@@ -85,6 +92,7 @@ _POLL_PROCESS_ARGUMENTS = frozenset({"process_id", "wait_sec", "wake_on_output"}
 _TERMINATE_PROCESS_ARGUMENTS = frozenset({"process_id"})
 _PROCESS_OUTPUT_DEBOUNCE_SECONDS = 2.0
 _PROCESS_PROGRESS_EMIT_INTERVAL_SECONDS = 1.0
+_RESOURCE_OBSERVATION_TIMEOUT_SECONDS = 0.075
 
 
 def _text_result(message: str, *, is_error: bool) -> CallToolResult:
@@ -98,6 +106,7 @@ class ProcessResultMetadata(TypedDict, total=False):
     """Durable metadata emitted by managed-process lifecycle tools."""
 
     process_id: str
+    lifecycle: Literal["session", "persistent"]
     process_status: str
     process_yield_reason: str | None
     process_elapsed_seconds: float
@@ -112,6 +121,8 @@ class ProcessResultMetadata(TypedDict, total=False):
     poll_wake_on_output: bool
     poll_elapsed_seconds: float
     poll_deadline_overshoot_seconds: float
+    resource_snapshot: ProcessResourceSnapshotMetadata
+    resource_observation: str
 
 
 def process_result_metadata(result: CallToolResult) -> ProcessResultMetadata | None:
@@ -185,7 +196,11 @@ class _ShellRuntimeCallbacks:
 
     async def on_started(self, process_id: int | None) -> None:
         self.os_process_id = process_id
-        self.started_event.set()
+        try:
+            if self.process is not None:
+                await self.runtime._capture_process_resource_baseline(self.process)
+        finally:
+            self.started_event.set()
 
     async def on_stdout(self, text: str) -> None:
         self.runtime._record_stream_output(
@@ -277,6 +292,9 @@ class _ManagedShellProcess:
     terminated: bool = False
     buffered_result_recorded: bool = False
     active_poll: _ActiveProcessPoll | None = None
+    resource_observations: ProcessResourceObservationState = field(
+        default_factory=ProcessResourceObservationState
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -355,6 +373,7 @@ class ShellRuntime:
             process_poll_default_wait_seconds,
             self._max_process_poll_seconds,
         )
+        self._resource_observations_enabled = self.runtime_info().kind == "local"
 
         if self.enabled:
             # Detect the shell early so we can include it in the tool description
@@ -369,10 +388,11 @@ class ShellRuntime:
                         "exit. If a foreground command remains active for 10 seconds without "
                         "output or 30 seconds total, it keeps running and returns a process ID; "
                         "use poll_process to monitor it or terminate_process to stop it. Set "
-                        "`background=true` for known long-running commands. Background commands "
-                        "default to `lifecycle='session'` and are terminated when the agent "
-                        "runtime exits; use `lifecycle='persistent'` only when a command must "
-                        "remain running afterward. Do not append '&'. "
+                        "`background=true` for known long-running commands. Explicit background "
+                        "commands default to `lifecycle='persistent'` and remain running after "
+                        "the agent runtime exits; set `lifecycle='session'` for temporary "
+                        "concurrent jobs that should be terminated at shutdown. Automatically "
+                        "yielded foreground commands remain session-scoped. Do not append '&'. "
                         "`cwd` and `output_byte_limit` apply only to this command. Pipelines report "
                         "the final command's status unless you enable `pipefail`."
                     ),
@@ -391,20 +411,23 @@ class ShellRuntime:
                                 "type": "boolean",
                                 "description": (
                                     "Return promptly while the command continues running as a "
-                                    "managed process. By default it is terminated when the agent "
-                                    "runtime exits. Set lifecycle='persistent' only when it must "
-                                    "remain running afterward. Do not append '&' to the command."
+                                    "managed process. By default it remains running after the "
+                                    "agent runtime exits. Set lifecycle='session' for temporary "
+                                    "concurrent work that should be terminated at shutdown. Do "
+                                    "not append '&' to the command."
                                 ),
                             },
                             "lifecycle": {
                                 "type": "string",
                                 "enum": ["session", "persistent"],
-                                "default": "session",
+                                "default": "persistent",
                                 "description": (
-                                    "Lifetime of a background command. 'session' terminates it "
-                                    "when the agent runtime exits. 'persistent' leaves it running "
-                                    "in the execution environment after the agent exits. Applies "
-                                    "only when background=true."
+                                    "Lifetime of a background command. Omitted lifecycle defaults "
+                                    "to 'persistent' when background=true. 'session' terminates "
+                                    "the process when the agent runtime exits. 'persistent' leaves "
+                                    "it running in the execution environment after the agent "
+                                    "exits. Automatically yielded foreground commands are always "
+                                    "session-scoped."
                                 ),
                             },
                             "yield_after_idle_sec": {
@@ -872,7 +895,10 @@ class ShellRuntime:
         background = payload.get("background", False)
         if type(background) is not bool:
             raise ValueError("Error: 'background' argument must be a boolean")
-        lifecycle = payload.get("lifecycle", "session")
+        lifecycle = payload.get(
+            "lifecycle",
+            "persistent" if background else "session",
+        )
         if lifecycle not in {"session", "persistent"}:
             raise ValueError(
                 "Error: 'lifecycle' argument must be 'session' or 'persistent'"
@@ -1493,6 +1519,27 @@ class ShellRuntime:
         async with self._processes_lock:
             return self._managed_processes.get(process_id)
 
+    async def _sample_managed_process_resources(
+        self,
+        process: _ManagedShellProcess,
+    ) -> ProcessResourceSnapshot | None:
+        if not self._resource_observations_enabled:
+            return None
+        pid = process.callbacks.os_process_id if not process.task.done() else None
+        try:
+            async with asyncio.timeout(_RESOURCE_OBSERVATION_TIMEOUT_SECONDS):
+                return await sample_process_resources(process.working_directory, pid)
+        except Exception:
+            return None
+
+    async def _capture_process_resource_baseline(
+        self,
+        process: _ManagedShellProcess,
+    ) -> None:
+        snapshot = await self._sample_managed_process_resources(process)
+        if snapshot is not None:
+            observe_resource_changes(process.resource_observations, snapshot)
+
     async def _wait_for_initial_process_result(
         self,
         process: _ManagedShellProcess,
@@ -1584,6 +1631,16 @@ class ShellRuntime:
                 block.text = f"{block.text}\n{line}"
                 return
 
+    @staticmethod
+    def _append_resource_observation(
+        result: CallToolResult,
+        observation: str,
+    ) -> None:
+        for block in result.content:
+            if isinstance(block, TextContent):
+                block.text = f"{block.text}\nresource_observation: {observation}"
+                return
+
     def _managed_process_result(
         self,
         process: _ManagedShellProcess,
@@ -1598,6 +1655,8 @@ class ShellRuntime:
             sections.append(output.rstrip("\n"))
 
         elapsed = time.monotonic() - process.started_at
+        if yielded_reason == "background":
+            sections.append(f"effective_lifecycle: {process.lifecycle}")
         if not process.task.done():
             if yielded_reason == "background":
                 reason = "started in the background"
@@ -1631,6 +1690,7 @@ class ShellRuntime:
                 is_error=False,
                 metadata={
                     "process_id": process.process_id,
+                    "lifecycle": process.lifecycle,
                     "process_status": "running",
                     "process_yield_reason": yielded_reason,
                     "process_elapsed_seconds": elapsed,
@@ -1655,6 +1715,7 @@ class ShellRuntime:
                 is_error=False,
                 metadata={
                     "process_id": process.process_id,
+                    "lifecycle": process.lifecycle,
                     "process_status": status,
                     "process_elapsed_seconds": elapsed,
                     "os_process_id": process.callbacks.os_process_id,
@@ -1676,6 +1737,7 @@ class ShellRuntime:
                 is_error=True,
                 metadata={
                     "process_id": process.process_id,
+                    "lifecycle": process.lifecycle,
                     "process_status": "failed",
                     "process_elapsed_seconds": elapsed,
                     "os_process_id": process.callbacks.os_process_id,
@@ -1701,6 +1763,7 @@ class ShellRuntime:
             is_error=execution.result.exit_code != 0,
             metadata={
                 "process_id": process.process_id,
+                "lifecycle": process.lifecycle,
                 "process_status": (
                     "completed" if execution.result.exit_code == 0 else "failed"
                 ),
@@ -1778,6 +1841,9 @@ class ShellRuntime:
                         with suppress(asyncio.CancelledError):
                             await active_poll.heartbeat_task
 
+            poll_elapsed_seconds = time.monotonic() - poll_started_at
+            resource_snapshot = await self._sample_managed_process_resources(process)
+
             async with process.lock:
                 if process.task.done():
                     poll_yield_reason = "completion"
@@ -1813,13 +1879,21 @@ class ShellRuntime:
                 metadata["has_observed_output"] = output_observed
                 metadata["poll_wait_sec"] = parsed.wait_sec
                 metadata["poll_wake_on_output"] = parsed.wake_on_output
-                poll_elapsed_seconds = time.monotonic() - poll_started_at
                 metadata["poll_elapsed_seconds"] = poll_elapsed_seconds
                 if poll_yield_reason == "deadline":
                     metadata["poll_deadline_overshoot_seconds"] = max(
                         poll_elapsed_seconds - parsed.wait_sec,
                         0.0,
                     )
+                if resource_snapshot is not None:
+                    metadata["resource_snapshot"] = resource_snapshot.metadata()
+                    observation = observe_resource_changes(
+                        process.resource_observations,
+                        resource_snapshot,
+                    )
+                    if observation is not None:
+                        metadata["resource_observation"] = observation
+                        self._append_resource_observation(result, observation)
                 self._append_poll_output_activity(
                     result,
                     output_bytes=output_bytes_since_last_poll,
@@ -2053,6 +2127,24 @@ class ShellRuntime:
         async with self._processes_lock:
             processes = list(self._managed_processes.values())
             self._managed_processes.clear()
+        running = [process for process in processes if not process.task.done()]
+        if running:
+            console.console.print(
+                f"Warning: {len(running)} background process"
+                f"{'es are' if len(running) != 1 else ' is'} still running "
+                "at fast-agent shutdown:",
+                style="yellow",
+            )
+            for process in running:
+                os_pid = process.callbacks.os_process_id
+                pid_details = (
+                    f", os_pid={os_pid}" if os_pid is not None else ""
+                )
+                console.console.print(
+                    f"  {process.process_id}{pid_details}, "
+                    f"lifecycle={process.lifecycle}",
+                    style="yellow",
+                )
         for process in processes:
             if not process.task.done():
                 process.terminated = process.lifecycle == "session"
@@ -2181,7 +2273,7 @@ class ShellRuntime:
                             started_task.cancel()
                             with suppress(asyncio.CancelledError):
                                 await started_task
-                    yielded_reason = "background" if not process.task.done() else None
+                    yielded_reason = "background"
                 else:
                     yielded_reason = await self._wait_for_initial_process_result(
                         process,

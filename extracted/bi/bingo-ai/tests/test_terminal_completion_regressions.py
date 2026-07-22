@@ -1,20 +1,26 @@
 from __future__ import annotations
 
+import io
 import threading
 import json
 from pathlib import Path
 from types import SimpleNamespace
 
+from rich.console import Console
+
+from bingo.core.v7 import MissionPhase, RuntimeSessionState, RuntimeStatus
 from bingo.ui.terminal import (
     BingoTerminal,
     _codeblock_exec_limits,
     _normalize_tool_call_response,
     _repair_mixed_bash_python,
 )
-from bingo.lang.strings import get_strings
+from bingo.lang.strings import get_slash_commands, get_strings
 from bingo.tools.findings_exporter import FindingsExporter
 from bingo.tools.playwright_engine import PlaywrightEngine
 from bingo.core.execution_anchor import ExecutionAnchorEngine, _has_exec_evidence
+from bingo.core import executor_state
+from bingo.core.target_state import TargetState, canonicalize_tool_args, canonicalize_text_urls
 from bingo.core.zero_hal_v5 import ZeroHalEngine
 from bingo.models.system_prompt import (
     get_pentest_system_prompt,
@@ -24,6 +30,7 @@ from bingo.models.system_prompt import (
 )
 from bingo.models.base import Message, ModelConfig
 from bingo.orchestrator.engine import _board_value_anchored, _goal_completion_allowed
+from bingo.proxy.manager import ProxyManager, _extract_proxy_candidates, _parse_proxy_url
 from bingo.tools_ext import autoexploit_modules
 from bingo.tools_ext.builtin import security_audit
 from bingo.tools_ext.pentest_tools import (
@@ -32,19 +39,27 @@ from bingo.tools_ext.pentest_tools import (
     _boolean_probe_is_blocked,
     _boolean_probe_pair_is_eligible,
     _calibrate_boolean_oracle,
+    _canonicalize_script_target_urls,
     _check_script_target_drift,
     _classify_dbms_with_oracle,
+    _curl_base,
     _fix_bash_script,
+    _host_matches_current_target,
     _inject_real_ip_notice,
     _load_sqli_checkpoint,
+    _remember_related_domains_from_text,
     _save_sqli_checkpoint,
+    _same_target_scope,
     _inject_post_exploit_notice,
     _inject_sqli_trigger_notice,
     _inject_vuln_trigger_notice,
     execute_tool,
+    get_runtime_proxy,
+    run_bash,
     run_python,
     run_ghauri,
     run_sqlmap,
+    set_runtime_proxy,
     set_target_domain,
     sqli_autoexploit,
     ssrf_chain_exploit,
@@ -61,6 +76,12 @@ class _Console:
 
     def print(self, *args, **_kwargs) -> None:
         self.messages.append(" ".join(str(arg) for arg in args))
+
+
+def _ledger_for(terminal: BingoTerminal) -> executor_state.ActionLedger:
+    ledger = executor_state.ActionLedger.coerce(getattr(terminal, "_action_ledger", None))
+    terminal._action_ledger = ledger
+    return ledger
 
 
 def test_attack_hypothesis_is_warned_but_not_blocked() -> None:
@@ -154,6 +175,118 @@ def test_tool_call_codeblock_rendering_hides_raw_directive() -> None:
     assert "bingo action" in collapsed
 
 
+def test_plain_tool_call_payloads_are_compacted_for_logs_and_history() -> None:
+    long_script = "echo start\\n" + ("curl -sk https://example.test/a\\n" * 120)
+    text = (
+        "Run probes\n"
+        f'TOOL_CALL:{{"name":"run_bash","args":{{"script":"{long_script}"}}}}\n'
+        'TOOL_CALL:{"name":"http_get","args":{"url":"https://example.test/login","timeout":30}}\n'
+    )
+
+    compacted = BingoTerminal._compact_tool_call_payloads(text, max_calls=1)
+
+    assert "[bingo action] run_bash" in compacted
+    legacy_marker = "TOOL_CALL" + "_SUMMARY"
+    assert legacy_marker not in compacted
+    assert "script=<" in compacted
+    assert "curl -sk https://example.test/a" not in compacted
+    assert "additional deferred call" in compacted
+
+
+def test_latest_assistant_tool_history_is_compacted_without_blocking_execution() -> None:
+    response = (
+        'TOOL_CALL:{"name":"run_python","args":{"code":"'
+        + ("print(1)\\n" * 80)
+        + '"}}'
+    )
+    terminal = BingoTerminal.__new__(BingoTerminal)
+    terminal.history = [Message(role="assistant", content=response)]
+
+    terminal._compact_latest_assistant_tool_history(response)
+
+    assert "[bingo action] run_python" in terminal.history[-1].content
+    legacy_marker = "TOOL_CALL" + "_SUMMARY"
+    assert legacy_marker not in terminal.history[-1].content
+    assert "print(1)" not in terminal.history[-1].content
+
+
+def test_echoed_tool_call_summary_payload_is_compacted_again() -> None:
+    legacy_marker = "TOOL_CALL" + "_SUMMARY"
+    echoed = (
+        f"{legacy_marker}: run_python(code=import requests,re\n"
+        "BASE='https://example.test'\n"
+        "r=requests.get(BASE)\n"
+        "print(r.status_code)\n"
+        "\n"
+        "next text\n"
+        f"{legacy_marker}: http_get(url=https://example.test/)"
+    )
+
+    compacted = BingoTerminal._compact_tool_call_payloads(echoed)
+
+    assert legacy_marker not in compacted
+    assert "[bingo action] run_python(code=<code omitted>)" in compacted
+    assert "BASE='https://example.test'" not in compacted
+    assert "next text" in compacted
+    assert "[bingo action] http_get" in compacted
+
+
+def test_echoed_bingo_action_code_is_compacted_without_tool_call_marker() -> None:
+    echoed = (
+        "probe target\n"
+        "[bingo action] run_python(code=\n"
+        "import requests, re\n"
+        "r = requests.get('https://example.test/')\n"
+        "print(r.status_code)\n"
+        ")\n"
+        "next step"
+    )
+
+    compacted = BingoTerminal._compact_tool_call_payloads(echoed)
+
+    assert "[bingo action] run_python(code=<3 lines omitted>)" in compacted
+    assert "import requests" not in compacted
+    assert "print(r.status_code)" not in compacted
+    assert "next step" in compacted
+
+
+def test_auto_report_defers_task_complete_when_tool_action_is_pending() -> None:
+    response = (
+        'TOOL_CALL:{"name":"http_get","args":{"url":"https://example.test/login"}}\n'
+        "TASK_COMPLETE"
+    )
+    counts = {"confirmed": 0, "probable": 0, "potential": 0}
+
+    reason = BingoTerminal._auto_report_defer_reason(
+        response, counts, loop_count=4, trigger="task_complete"
+    )
+
+    assert "pending executable action" in reason
+
+
+def test_auto_report_defers_empty_early_completion() -> None:
+    counts = {"confirmed": 0, "probable": 0, "potential": 0}
+
+    reason = BingoTerminal._auto_report_defer_reason(
+        "Recon complete.\nTASK_COMPLETE",
+        counts,
+        loop_count=3,
+        trigger="task_complete",
+    )
+
+    assert "early reconnaissance" in reason
+
+
+def test_auto_report_allows_candidate_report_after_evidence_exists() -> None:
+    counts = {"confirmed": 0, "probable": 0, "potential": 1}
+
+    reason = BingoTerminal._auto_report_defer_reason(
+        "TASK_COMPLETE", counts, loop_count=10, trigger="task_complete"
+    )
+
+    assert reason == ""
+
+
 def test_dict_tool_call_is_normalized_before_code_execution() -> None:
     response = (
         "```python\n"
@@ -209,6 +342,285 @@ def test_domain_bound_target_allows_ip_transport_with_current_host_header() -> N
         set_target_domain("")
 
 
+def test_target_scope_allows_same_root_subdomain_pivot() -> None:
+    set_target_domain("https://www.example.co.kr/")
+    try:
+        assert _host_matches_current_target("api.example.co.kr")
+        assert _host_matches_current_target("admin.dev.example.co.kr")
+        reason = _check_script_target_drift(
+            "curl -sk 'https://api.example.co.kr/login?id=1%27%20OR%201=1--'",
+            "bash",
+        )
+        assert reason is None
+    finally:
+        set_target_domain("")
+
+
+def test_target_scope_blocks_lookalike_and_unrelated_domains() -> None:
+    set_target_domain("https://www.example.com/")
+    try:
+        assert not _host_matches_current_target("evil-example.com")
+        assert not _host_matches_current_target("example.net")
+        reason = _check_script_target_drift(
+            "curl -sk 'https://evil-example.com/login?id=1%27%20OR%201=1--'",
+            "bash",
+        )
+        assert reason is not None
+        assert "TARGET_DRIFT_BLOCKED" in reason
+    finally:
+        set_target_domain("")
+
+
+def test_target_state_canonicalizes_lookalike_absolute_url_without_leaking_source_host() -> None:
+    state = TargetState.from_target("https://moneyknock.kr")
+    assert state is not None
+
+    rewritten, notice = canonicalize_text_urls(
+        "requests.get('https://moneyknock.jp/api/otp/make_new_otp.php?x=1')",
+        state,
+        allowed_host=lambda host: host == "moneyknock.kr",
+    )
+
+    assert "https://moneyknock.kr/api/otp/make_new_otp.php?x=1" in rewritten
+    assert "moneyknock.jp" not in rewritten
+    assert "TARGET_CANONICALIZED" in notice
+    assert "moneyknock.jp" not in notice
+
+
+def test_target_state_preserves_authoritative_scheme_and_port() -> None:
+    state = TargetState.from_target("http://moneyknock.kr:8080")
+    assert state is not None
+
+    result = state.canonicalize_url("https://moneyknock.jp/api/check?x=1")
+
+    assert result.value == "http://moneyknock.kr:8080/api/check?x=1"
+    assert result.changed is True
+    assert "moneyknock.jp" not in result.note
+
+
+def test_target_state_canonicalizes_bare_lookalike_host_token() -> None:
+    state = TargetState.from_target("https://moneyknock.kr")
+    assert state is not None
+
+    rewritten, notice = canonicalize_text_urls(
+        "BASE = 'moneyknock.jp'\nurl = 'https://' + BASE + '/login'",
+        state,
+        allowed_host=lambda host: host == "moneyknock.kr",
+    )
+
+    assert "BASE = 'moneyknock.kr'" in rewritten
+    assert "moneyknock.jp" not in rewritten
+    assert "TARGET_CANONICALIZED" in notice
+    assert "moneyknock.jp" not in notice
+
+
+def test_target_state_rebuilds_malformed_file_style_url_under_target() -> None:
+    state = TargetState.from_target("https://activitynews.kr")
+    assert state is not None
+
+    rewritten, notice = canonicalize_text_urls(
+        "bad_url = 'https://activitynewsDetail.asp?seq=78'",
+        state,
+        allowed_host=lambda host: host == "activitynews.kr",
+    )
+
+    assert "https://activitynews.kr/activitynewsDetail.asp?seq=78" in rewritten
+    assert "https://activitynewsDetail.asp" not in rewritten
+    assert "TARGET_CANONICALIZED" in notice
+
+
+def test_target_state_canonicalizes_tool_url_headers_and_host_header() -> None:
+    state = TargetState.from_target("https://moneyknock.kr")
+    assert state is not None
+
+    rewritten, notice = canonicalize_tool_args(
+        {
+            "url": "https://moneyknock.jp/admin/login.php?x=1",
+            "headers": {
+                "Referer": "https://moneyknock.jp/",
+                "Origin": "https://moneyknock.jp",
+                "Host": "moneyknock.jp",
+            },
+        },
+        state,
+        allowed_host=lambda host: host == "moneyknock.kr",
+    )
+
+    assert rewritten["url"] == "https://moneyknock.kr/admin/login.php?x=1"
+    assert rewritten["headers"]["Referer"] == "https://moneyknock.kr/"
+    assert rewritten["headers"]["Origin"] == "https://moneyknock.kr"
+    assert rewritten["headers"]["Host"] == "moneyknock.kr"
+    assert "TARGET_CANONICALIZED" in notice
+    assert "moneyknock.jp" not in notice
+
+
+def test_script_target_scope_canonicalizes_lookalike_without_attack_payload() -> None:
+    set_target_domain("https://moneyknock.kr/")
+    try:
+        rewritten, notice = _canonicalize_script_target_urls(
+            "import requests\n"
+            "BASE = 'moneyknock.jp'\n"
+            "requests.get('https://moneyknock.jp/api/otp/make_new_otp.php?x=1', "
+            "headers={'Host': BASE})\n"
+        )
+
+        assert _check_script_target_drift(rewritten, "python") is None
+        assert "TARGET_CANONICALIZED" in notice
+        assert "moneyknock.kr" in rewritten
+        assert "moneyknock.jp" not in rewritten
+        assert "moneyknock.jp" not in notice
+    finally:
+        set_target_domain("")
+
+
+def test_script_target_canonicalization_preserves_set_target_origin_port() -> None:
+    set_target_domain("http://moneyknock.kr:8080/")
+    try:
+        rewritten, notice = _canonicalize_script_target_urls(
+            "curl -sk 'https://moneyknock.jp/api/check?x=1'"
+        )
+
+        assert "http://moneyknock.kr:8080/api/check?x=1" in rewritten
+        assert "moneyknock.jp" not in rewritten
+        assert "TARGET_CANONICALIZED" in notice
+    finally:
+        set_target_domain("")
+
+
+def test_malformed_file_style_script_url_is_canonicalized_before_drift_guard() -> None:
+    set_target_domain("https://www.example.kr/")
+    try:
+        rewritten, notice = _canonicalize_script_target_urls(
+            "curl -sk 'https://activitynewsDetail.asp?seq=78'"
+        )
+
+        assert "https://www.example.kr/activitynewsDetail.asp?seq=78" in rewritten
+        assert _check_script_target_drift(rewritten, "bash") is None
+        assert "TARGET_CANONICALIZED" in notice
+    finally:
+        set_target_domain("")
+
+
+def test_irrelevant_setup_line_is_normalized_not_blocked() -> None:
+    result = run_bash("pip install transformers -q\necho target-action-ok", timeout=10)
+
+    assert result["success"] is True
+    assert "SCRIPT_SETUP_NORMALIZED" in result["output"]
+    assert "target-action-ok" in result["output"]
+    assert "IRRELEVANT_CODE_BLOCKED" not in result["output"]
+
+
+def test_assistant_target_drift_response_is_rewritten_before_history() -> None:
+    set_target_domain("https://moneyknock.kr/")
+    terminal = _code_test_terminal()
+    terminal._agent_state = {"target": "https://moneyknock.kr/"}
+    terminal._current_target = "https://moneyknock.kr/"
+    terminal._get_system_message = lambda _skill: Message(role="system", content="")
+    terminal._apply_token_governor = lambda history: history
+    terminal._build_token_governor_ledger = lambda: None
+    terminal._token_governor_enabled = lambda: False
+    terminal._append_to_session_log = lambda *_args, **_kwargs: None
+    terminal._stream_response = lambda _stream: (
+        "TOOL_CALL:{\"name\":\"http_get\",\"args\":{\"url\":\"https://moneyknock.kr/\"}}"
+    )
+    model = SimpleNamespace(chat_stream=lambda _messages: iter(()))
+    bad = (
+        "目标确认为 `moneyknock.jp`。\n"
+        "TOOL_CALL:{\"name\":\"http_get\",\"args\":{\"url\":\"https://moneyknock.jp/\"}}"
+    )
+
+    try:
+        fixed = terminal._repair_assistant_target_scope_response(bad, model, "")
+
+        assert "moneyknock.kr" in fixed
+        assert "moneyknock.jp" not in fixed
+        assert "TARGET_CANONICALIZED" in fixed
+        assert not any(m.role == "assistant" and m.content == bad for m in terminal.history)
+        assert not any("moneyknock.jp" in m.content for m in terminal.history)
+    finally:
+        set_target_domain("")
+
+
+def test_terminal_target_scope_allows_scheme_and_subdomain_switch() -> None:
+    assert _same_target_scope(
+        "http://www.example.com/start",
+        "https://api.example.com/login",
+    )
+    assert not _same_target_scope(
+        "https://www.example.com/",
+        "https://example.com.evil.test/",
+    )
+
+
+def test_related_target_scope_learns_first_party_flow_domain() -> None:
+    set_target_domain("https://www.balance-cf.co.kr/")
+    try:
+        before = _check_script_target_drift(
+            "curl -sk 'https://balance-sa.ccse.co.kr/login?id=1 OR 1=1--'",
+            "bash",
+        )
+        assert before is not None
+        assert "TARGET_DRIFT_BLOCKED" in before
+
+        added = _remember_related_domains_from_text(
+            "https://www.balance-cf.co.kr/",
+            '<form method="post" action="https://balance-sa.ccse.co.kr/login">',
+        )
+        assert added == ["balance-sa.ccse.co.kr"]
+        assert _host_matches_current_target("balance-sa.ccse.co.kr")
+
+        after = _check_script_target_drift(
+            "curl -sk 'https://balance-sa.ccse.co.kr/login?id=1 OR 1=1--'",
+            "bash",
+        )
+        assert after is None
+
+        sibling = _check_script_target_drift(
+            "curl -sk 'https://other.ccse.co.kr/login?id=1 OR 1=1--'",
+            "bash",
+        )
+        assert sibling is not None
+        assert "TARGET_DRIFT_BLOCKED" in sibling
+    finally:
+        set_target_domain("")
+
+
+def test_related_target_scope_learns_window_open_safekey_domain() -> None:
+    set_target_domain("https://www.balance-cf.co.kr/")
+    try:
+        added = _remember_related_domains_from_text(
+            "https://www.balance-cf.co.kr/balance/mypage/receipt_account.do",
+            "function fnPopup(){ window.open('https://balance-sa.ccse.co.kr/safekey/main.do',"
+            "'popupChk','width=880,height=600'); }",
+        )
+        assert added == ["balance-sa.ccse.co.kr"]
+        reason = _check_script_target_drift(
+            "curl -sk 'https://balance-sa.ccse.co.kr/safekey/main.do?id=1 OR 1=1--'",
+            "bash",
+        )
+        assert reason is None
+    finally:
+        set_target_domain("")
+
+
+def test_related_target_scope_ignores_unbranded_plain_links() -> None:
+    set_target_domain("https://www.example.com/")
+    try:
+        added = _remember_related_domains_from_text(
+            "https://www.example.com/",
+            '<a href="https://facebook.com/example">SNS</a>',
+        )
+        assert added == []
+        reason = _check_script_target_drift(
+            "curl -sk 'https://facebook.com/example?id=1 OR 1=1--'",
+            "bash",
+        )
+        assert reason is not None
+        assert "TARGET_DRIFT_BLOCKED" in reason
+    finally:
+        set_target_domain("")
+
+
 def test_tool_call_blocks_direct_ip_url_without_host_header() -> None:
     set_target_domain("http://www.cheomdanhosp.co.kr/")
     try:
@@ -217,6 +629,106 @@ def test_tool_call_blocks_direct_ip_url_without_host_header() -> None:
         assert "DOMAIN_BOUND_IP_BLOCKED" in result["output"]
     finally:
         set_target_domain("")
+
+
+def test_execute_tool_canonicalizes_url_args_before_dispatch() -> None:
+    def _dummy_target_tool(url: str, headers: dict | None = None) -> dict:
+        headers = headers or {}
+        return {
+            "success": True,
+            "output": (
+                f"url={url}\n"
+                f"referer={headers.get('Referer')}\n"
+                f"origin={headers.get('Origin')}\n"
+                f"host={headers.get('Host')}"
+            ),
+        }
+
+    previous = TOOL_REGISTRY.get("dummy_target_tool")
+    TOOL_REGISTRY["dummy_target_tool"] = _dummy_target_tool
+    set_target_domain("https://moneyknock.kr/")
+    try:
+        result = execute_tool(
+            "dummy_target_tool",
+            {
+                "url": "https://moneyknock.jp/admin/login.php?x=1",
+                "headers": {
+                    "Referer": "https://moneyknock.jp/",
+                    "Origin": "https://moneyknock.jp",
+                    "Host": "moneyknock.jp",
+                },
+            },
+        )
+
+        assert result["success"] is True
+        assert "TARGET_CANONICALIZED" in result["output"]
+        assert "url=https://moneyknock.kr/admin/login.php?x=1" in result["output"]
+        assert "referer=https://moneyknock.kr/" in result["output"]
+        assert "origin=https://moneyknock.kr" in result["output"]
+        assert "host=moneyknock.kr" in result["output"]
+        assert "moneyknock.jp" not in result["output"]
+    finally:
+        set_target_domain("")
+        if previous is None:
+            TOOL_REGISTRY.pop("dummy_target_tool", None)
+        else:
+            TOOL_REGISTRY["dummy_target_tool"] = previous
+
+
+def test_http_get_repetition_uses_executor_cache_state() -> None:
+    from bingo.tools_ext import pentest_tools
+
+    calls = {"count": 0}
+
+    def _fake_http_get(url: str, **_kwargs) -> dict:
+        calls["count"] += 1
+        return {"success": True, "output": f"fresh:{calls['count']}:{url}", "exit_code": 0}
+
+    previous = TOOL_REGISTRY.get("http_get")
+    old_cache = dict(pentest_tools._TOOL_DEDUP_CACHE)
+    old_counter = dict(pentest_tools._HTTP_GET_COUNTER)
+    TOOL_REGISTRY["http_get"] = _fake_http_get
+    pentest_tools._TOOL_DEDUP_CACHE.clear()
+    pentest_tools._HTTP_GET_COUNTER.clear()
+    try:
+        first = execute_tool("http_get", {"url": "https://example.test/a"})
+        second = execute_tool("http_get", {"url": "https://example.test/a"})
+
+        assert calls["count"] == 1
+        assert "fresh:1:https://example.test/a" in first["output"]
+        assert "EXECUTOR_CACHE_HIT" in second["output"]
+        assert "HTTP_GET_REPEAT" not in second["output"]
+    finally:
+        pentest_tools._TOOL_DEDUP_CACHE.clear()
+        pentest_tools._TOOL_DEDUP_CACHE.update(old_cache)
+        pentest_tools._HTTP_GET_COUNTER.clear()
+        pentest_tools._HTTP_GET_COUNTER.update(old_counter)
+        if previous is None:
+            TOOL_REGISTRY.pop("http_get", None)
+        else:
+            TOOL_REGISTRY["http_get"] = previous
+
+
+def test_sqli_boolean_repetition_becomes_executor_state_not_block() -> None:
+    from bingo.tools_ext import pentest_tools
+
+    old_counter = dict(pentest_tools._SQLI_BOOL_CONFIRMED)
+    pentest_tools._SQLI_BOOL_CONFIRMED.clear()
+    pentest_tools._SQLI_BOOL_CONFIRMED[("https://example.test/search?id=1", "id")] = 3
+    try:
+        result = execute_tool(
+            "sqli_boolean",
+            {"url": "https://example.test/search?id=1", "param": "id"},
+        )
+
+        assert result["success"] is True
+        assert result["exit_code"] == 0
+        assert result["state_transition"] == "boolean_oracle_already_modeled"
+        assert "SQLI_BOOLEAN_STATE" in result["output"]
+        assert "SQLI_BOOL_OVERUSE" not in result["output"]
+    finally:
+        pentest_tools._SQLI_BOOL_CONFIRMED.clear()
+        pentest_tools._SQLI_BOOL_CONFIRMED.update(old_counter)
 
 
 def test_real_ip_notice_keeps_domain_as_authoritative() -> None:
@@ -637,6 +1149,7 @@ def test_quote_heavy_multiline_python_pipeline_uses_tempfile(tmp_path: Path) -> 
     repaired = _fix_bash_script(script)
 
     assert "mktemp /tmp/bingo_py_" in repaired
+    assert "mktemp /tmp/bingo_py_XXXXXX.py" not in repaired
     assert "| python3 \"${_bingo_pytmp_1}\"" in repaired
     import subprocess
     checked = subprocess.run(["bash", "-n"], input=repaired, text=True, capture_output=True)
@@ -712,6 +1225,22 @@ for m in re.findall(r'(?:api|base)[_-]?url[\"'\s:=]+[\"']([^\"']+)[\"']', html, 
     assert "SyntaxError" not in result["output"]
 
 
+def test_run_python_repairs_redundant_list_fromkeys_wrapper() -> None:
+    code = r"""
+import re
+html = '<a href="/balance/main.do">main</a>'
+hrefs = list(list(dict.fromkeys(re.findall(r'''href=["\']([^"\']+)["\']''', html, re.I)))
+print(hrefs[0])
+"""
+
+    result = run_python(code, timeout=10)
+
+    assert result["success"] is True
+    assert "/balance/main.do" in result["output"]
+    assert "PYTHON_SYNTAX_AUTO_REPAIRED" in result["output"]
+    assert "SyntaxError" not in result["output"]
+
+
 def test_run_python_precheck_rejects_unrepairable_syntax_before_execution() -> None:
     result = run_python("print('before')\nif True print('broken')\n", timeout=10)
 
@@ -782,12 +1311,26 @@ def test_direct_http_sqli_probe_is_not_transport_blocked(monkeypatch) -> None:
 def test_system_prompt_ends_with_evidence_driven_offense_contract() -> None:
     prompt = get_pentest_system_prompt("deepseek")
 
+    assert "HYBRID AI-LED MODE" in prompt
+    assert "CLAUDE CLI IDENTICAL MODE" not in prompt
+    assert "Skills are Bingo's technique memory" in prompt
+    assert "Do not flood TOOL_CALLs" in prompt
+    assert "CONFIRMED/TASK_COMPLETE/FINDINGS line is not evidence by itself" in prompt
+    assert "Preserve the exact active target host" in prompt
+    assert "WAF bypass is AI-led and skill-guided" in prompt
+    assert "SQLi is AI-led and skill-guided" in prompt
+    assert "sqli_autoexploit, WafBypassEngine, sqlmap, and ghauri are bounded verifier" in prompt
+    assert "Runtime pivot hints are advisory" in prompt
+    assert "sqli_autoexploit 우선" not in prompt
+    assert "AI MUST apply these automatically" not in prompt
     assert "EVIDENCE-DRIVEN SECURITY TESTING" in prompt
     assert (
         "Reports contain verified vulnerabilities only. Probable/potential candidates stay\n"
         "   in the verification backlog and continue to drive attacks."
     ) in prompt
-    assert prompt.rstrip().endswith("promote after deterministic extraction evidence.")
+    assert prompt.rstrip().endswith(
+        "evidence before the next branch."
+    )
     assert "sqlmap is PERMANENTLY BANNED" not in prompt
 
 
@@ -825,6 +1368,48 @@ def test_glm_custom_prompt_avoids_provider_refusal_triggers(monkeypatch) -> None
         assert phrase not in combined
 
 
+def test_runtime_confirmed_claim_is_downgraded_without_finding_evidence(tmp_path: Path) -> None:
+    exporter = FindingsExporter(target="https://example.test", output_dir=str(tmp_path))
+    response = (
+        "[CONFIRMED ✅] SQL Injection confirmed and Critical.\n"
+        "TASK_COMPLETE\n"
+        "```python\n"
+        "print('CONFIRMED marker inside code stays untouched')\n"
+        "```"
+    )
+
+    sanitized = BingoTerminal._sanitize_runtime_claims_by_evidence(response, exporter)
+
+    assert "PROBABLE" in sanitized
+    assert "Critical" not in sanitized
+    assert "Potential" in sanitized
+    assert "print('CONFIRMED marker inside code stays untouched')" in sanitized
+
+
+def test_finding_evidence_counts_use_exporter_stats() -> None:
+    exporter = SimpleNamespace(
+        stats=lambda: {
+            "confirmed": 0,
+            "probable": 1,
+            "potential": 0,
+            "potential_critical": 2,
+            "potential_high": 1,
+            "blocked": 3,
+            "quarantined": 4,
+        }
+    )
+
+    counts = BingoTerminal._finding_evidence_counts(exporter)
+
+    assert counts == {
+        "confirmed": 0,
+        "probable": 1,
+        "potential": 3,
+        "blocked": 3,
+        "quarantined": 4,
+    }
+
+
 def test_repeated_inconclusive_attack_automatically_pivots(tmp_path: Path) -> None:
     terminal = BingoTerminal.__new__(BingoTerminal)
     terminal._agent_state = {"target": "https://example.test"}
@@ -843,6 +1428,8 @@ def test_repeated_inconclusive_attack_automatically_pivots(tmp_path: Path) -> No
     assert "next=cross_vector" in second
     assert terminal._adaptive_attack_state["sqli"]["cooldown"] == 2
     assert "do not stop exploration" in second
+    assert "temporarily blocked" not in second
+    assert "Current executable tools are not suppressed" in second
 
 
 def test_boolean_oracle_rejects_block_pages_and_status_transitions() -> None:
@@ -1139,8 +1726,8 @@ def test_ssrf_chain_rejects_identical_200_responses(monkeypatch) -> None:
 
 def test_generic_http_output_is_not_meaningful_progress() -> None:
     text = "HTTP/1.1 200 OK\nendpoint found\nWAF detected\nsuccess=True"
-    assert not BingoTerminal._has_meaningful_loop_progress(text)
-    assert BingoTerminal._has_meaningful_loop_progress(
+    assert not executor_state.has_meaningful_loop_progress(text)
+    assert executor_state.has_meaningful_loop_progress(
         "Credentials extracted: username=admin password=secret"
     )
 
@@ -1151,7 +1738,7 @@ def test_discovered_endpoint_parameter_is_meaningful_progress() -> None:
         "/main/clinic/view.do -> mc_idx\n"
         "https://example.test/main/center/view.do -> mc_idx\n"
     )
-    assert BingoTerminal._has_meaningful_loop_progress(output)
+    assert executor_state.has_meaningful_loop_progress(output)
 
 
 def test_advertising_xhr_is_not_meaningful_loop_progress() -> None:
@@ -1161,13 +1748,570 @@ def test_advertising_xhr_is_not_meaningful_loop_progress() -> None:
         "found endpoint parameter\n"
     )
 
-    assert not BingoTerminal._has_meaningful_loop_progress(output)
+    assert not executor_state.has_meaningful_loop_progress(output)
 
 
 def test_high_value_api_endpoint_is_meaningful_loop_progress() -> None:
     output = "https://example.test/common/jwt -> loReqtNo\n"
 
-    assert BingoTerminal._has_meaningful_loop_progress(output)
+    assert executor_state.has_meaningful_loop_progress(output)
+
+
+def test_stack_leak_evidence_is_meaningful_progress_once() -> None:
+    output = (
+        "[stack] st=500 size=5277 title='HTTP 상태 500 – 내부 서버 오류'\n"
+        "LEAK True\n"
+        "javax.el.ELException: Cannot convert [INVALID_BINGO]\n"
+        "org.apache.jasper.JasperException\n"
+    )
+
+    assert executor_state.has_meaningful_loop_progress(output)
+    assert executor_state.meaningful_loop_progress_signature(output)
+
+
+def test_timeout_only_output_is_not_meaningful_progress() -> None:
+    output = (
+        "CPing TimeoutError timed out\n"
+        "[ERR] http://example.test:8080/ ReadTimeout\n"
+        "[TIMEOUT 120s 초과 — 프로세스 강제 종료됨]\n"
+        "Request timeout — possible WAF silent drop\n"
+    )
+
+    assert not executor_state.has_meaningful_loop_progress(output)
+
+
+def test_ledger_skip_probable_boolean_is_not_meaningful_progress() -> None:
+    output = (
+        "[ACTION_LEDGER_SKIP] family negative/no-progress already tested 3 time(s)\n"
+        "BINGO-0001 type=sqli tier=probable confirmed=False\n"
+        "Conf : probable  reason=boolean_true_false_diff\n"
+    )
+
+    assert not executor_state.has_meaningful_loop_progress(output)
+
+
+def test_confirmed_false_finding_line_is_not_meaningful_progress() -> None:
+    output = (
+        "id=BINGO-0005 type=sqli sev=HIGH tier=probable confirmed=False\n"
+        "reason=boolean_true_false_diff notes=ladder:probable:boolean_true_false_diff\n"
+    )
+
+    assert not executor_state.has_meaningful_loop_progress(output)
+
+
+def test_stack_leak_progress_signature_dedupes_payload_value() -> None:
+    first = (
+        "[STACK] 500/5516B nfe=True spring=True\n"
+        "org.apache.jasper.JasperException: java.lang.NumberFormatException: For input string: \"INVALID_BINGO\"\n"
+        "org.apache.jasper.servlet.JspServletWrapper.handleJspException(JspServletWrapper.java:599)\n"
+    )
+    second = (
+        "[STACK] 500/5522B nfe=True spring=True\n"
+        "org.apache.jasper.JasperException: java.lang.NumberFormatException: For input string: \"NOTANUM\"\n"
+        "org.apache.jasper.servlet.JspServletWrapper.handleJspException(JspServletWrapper.java:599)\n"
+    )
+
+    assert executor_state.meaningful_loop_progress_signature(first)
+    assert (
+        executor_state.meaningful_loop_progress_signature(first)
+        == executor_state.meaningful_loop_progress_signature(second)
+    )
+
+
+def test_doom_loop_cutoff_stops_after_second_no_progress_escape() -> None:
+    reason = executor_state.doom_loop_cutoff_reason(
+        no_progress_count=6,
+        escape_attempts=1,
+        loop_count=12,
+        confirmed_count=0,
+    )
+
+    assert "repeated no-progress" in reason
+
+
+def test_v7_guidance_message_uses_structured_focus_instead_of_generic_stop() -> None:
+    status = RuntimeStatus(
+        target="https://example.kr",
+        phase=MissionPhase.ENUMERATE,
+        reason="plateau reached before critical surface coverage was complete; pivot to the missing surfaces instead of retrying the same probe family",
+        report_now=False,
+        pivot_now=True,
+        next_focus=("route:/", "surface:auth", "surface:api"),
+        loop_count=6,
+        plateau_turns=2,
+        observation_count=0,
+        candidate_count=0,
+        confirmed_count=0,
+    )
+
+    message = status.guidance_message(lang="en")
+
+    assert "[V7_NEXT_FOCUS]" in message
+    assert "authoritative_target=https://example.kr" in message
+    assert "Pick exactly one focus item" in message
+    assert "route:/" in message
+
+
+def test_v7_action_contract_prefers_executor_focus_over_generic_advice() -> None:
+    status = RuntimeStatus(
+        target="https://example.kr",
+        phase=MissionPhase.VALIDATE,
+        reason="surface coverage exists but no confirmed evidence yet",
+        report_now=False,
+        pivot_now=True,
+        next_focus=("auth:session_boundary", "api:error_paths", "artifact:manifest_fetch"),
+        loop_count=7,
+        plateau_turns=1,
+        observation_count=1,
+        candidate_count=1,
+        confirmed_count=0,
+    )
+
+    contract = status.action_contract(
+        adaptive_pivot_context="[ADAPTIVE_OFFENSE_PIVOT]\nnext=cross_vector"
+    )
+
+    assert "Follow V7_MISSION next_focus" in contract
+    assert "auth:session_boundary / api:error_paths / artifact:manifest_fetch" in contract
+    assert "ADAPTIVE_OFFENSE_PIVOT" not in contract
+
+
+def test_terminal_v7_status_call_delegates_to_runtime_status_contract() -> None:
+    status = RuntimeStatus(
+        target="https://example.kr",
+        phase=MissionPhase.VALIDATE,
+        reason="surface coverage exists but no confirmed evidence yet",
+        report_now=False,
+        pivot_now=True,
+        next_focus=("auth:session_boundary", "api:error_paths", "artifact:manifest_fetch"),
+        loop_count=7,
+        plateau_turns=1,
+        observation_count=1,
+        candidate_count=1,
+        confirmed_count=0,
+    )
+
+    contract = BingoTerminal._v7_status_call(
+        status,
+        "action_contract",
+        adaptive_pivot_context="[ADAPTIVE_OFFENSE_PIVOT]\nnext=cross_vector",
+        default="fallback",
+    )
+
+    assert "Follow V7_MISSION next_focus" in contract
+    assert "auth:session_boundary / api:error_paths / artifact:manifest_fetch" in contract
+    assert BingoTerminal._v7_status_call(None, "action_contract", default="fallback") == "fallback"
+    assert BingoTerminal._v7_status_call(status, "missing_method", default="fallback") == "fallback"
+
+
+def test_v7_record_action_prefers_agent_target_and_sets_default_goal() -> None:
+    calls: dict[str, object] = {}
+
+    class _Runtime:
+        def record_action(self, tool_name: str, args: dict, *, target: str = "", goal: str = "") -> None:
+            calls["tool_name"] = tool_name
+            calls["args"] = args
+            calls["target"] = target
+            calls["goal"] = goal
+
+    terminal = BingoTerminal.__new__(BingoTerminal)
+    terminal._agent_state = {"target": "https://agent.example"}
+    terminal._current_target = "https://current.example"
+    terminal._v7_session = RuntimeSessionState(runtime=_Runtime())
+
+    terminal._v7_session.record_action(
+        "http_get",
+        {"url": "https://agent.example/"},
+        agent_state=terminal._agent_state,
+        current_target=terminal._current_target,
+    )
+
+    assert calls["tool_name"] == "http_get"
+    assert calls["target"] == "https://agent.example"
+    assert calls["goal"] == "chat security assessment"
+    assert terminal._v7_session.goal == "chat security assessment"
+
+
+def test_v7_advance_runtime_uses_current_target_fallback_and_caches_status() -> None:
+    calls: dict[str, object] = {}
+    status = RuntimeStatus(
+        target="https://current.example",
+        phase=MissionPhase.RECON,
+        reason="executor-owned mission state active",
+        report_now=False,
+        pivot_now=False,
+        next_focus=("route:/",),
+        loop_count=2,
+        plateau_turns=0,
+        observation_count=0,
+        candidate_count=0,
+        confirmed_count=0,
+    )
+
+    class _Runtime:
+        def ensure_target(self, target: str, goal: str = "") -> None:
+            calls["ensure"] = (target, goal)
+
+        def advance_loop(self, *, progress: bool, exporter=None, loop_signals=None):
+            calls["advance"] = (progress, exporter, loop_signals)
+            return status
+
+    terminal = BingoTerminal.__new__(BingoTerminal)
+    terminal._agent_state = {}
+    terminal._current_target = "https://current.example"
+    terminal._v7_session = RuntimeSessionState(runtime=_Runtime(), goal="resumed chat assessment")
+    terminal._findings_exporter = object()
+
+    result = terminal._v7_session.advance_runtime(
+        agent_state=terminal._agent_state,
+        current_target=terminal._current_target,
+        exporter=terminal._findings_exporter,
+        progress=True,
+        loop_signals="loop-signals",
+    )
+
+    assert calls["ensure"] == ("https://current.example", "resumed chat assessment")
+    assert calls["advance"] == (True, terminal._findings_exporter, "loop-signals")
+    assert result is status
+    assert terminal._v7_session.last_status is status
+
+
+def test_doom_loop_cutoff_stops_zero_confirmed_after_excessive_loops() -> None:
+    reason = executor_state.doom_loop_cutoff_reason(
+        no_progress_count=6,
+        escape_attempts=0,
+        loop_count=30,
+        confirmed_count=0,
+    )
+
+    assert "zero confirmed" in reason
+
+
+def test_doom_loop_cutoff_stops_late_ledger_skip_pressure() -> None:
+    reason = executor_state.doom_loop_cutoff_reason(
+        no_progress_count=1,
+        escape_attempts=0,
+        loop_count=20,
+        confirmed_count=0,
+        ledger_skip_count=2,
+    )
+
+    assert "action ledger exhausted" in reason
+
+
+def test_doom_loop_cutoff_stops_cumulative_ledger_skips() -> None:
+    reason = executor_state.doom_loop_cutoff_reason(
+        no_progress_count=1,
+        escape_attempts=0,
+        loop_count=24,
+        confirmed_count=0,
+        ledger_skip_total=6,
+    )
+
+    assert "cumulative action ledger skips" in reason
+
+
+def test_executor_state_counts_low_value_late_loop_reentry() -> None:
+    output = (
+        "│  [ACTION_LEDGER] sig=07a05fea family=defd973f2b attempts=1 "
+        "tool=clickjacking_autotest vector=script target=TARGET path=/main.do\n"
+        "│  [ACTION_LEDGER] status=no_progress attempts=1 timeouts=0\n"
+        "│  [ACTION_LEDGER] sig=7af47128 family=c036115079 attempts=1 "
+        "tool=run_python vector=tomcat_admin target=TARGET path=/admin/login.do\n"
+        "│  [ACTION_LEDGER] status=done attempts=1 timeouts=0\n"
+    )
+
+    assert executor_state.low_value_reentry_count(output) == 2
+
+
+def test_doom_loop_cutoff_stops_late_low_value_reentry() -> None:
+    reason = executor_state.doom_loop_cutoff_reason(
+        no_progress_count=0,
+        escape_attempts=0,
+        loop_count=24,
+        confirmed_count=0,
+        low_value_reentry_count=2,
+    )
+
+    assert "late low-value" in reason
+
+
+def test_sanitized_late_low_value_log_fixture_triggers_cutoff() -> None:
+    fixture = (
+        Path(__file__).parent
+        / "fixtures"
+        / "loop_logs"
+        / "late_low_value_reentry.log"
+    )
+    output = fixture.read_text(encoding="utf-8")
+    reason = executor_state.doom_loop_cutoff_reason(
+        no_progress_count=0,
+        escape_attempts=0,
+        loop_count=24,
+        confirmed_count=0,
+        low_value_reentry_count=executor_state.low_value_reentry_count(output),
+    )
+
+    assert "late low-value" in reason
+
+
+def test_target_scope_lock_notice_extracts_forbidden_drift_domain() -> None:
+    output = (
+        "[TARGET_DRIFT_BLOCKED] ⛔ TOOL_CALL target drift blocked! Current target: moneyknock.kr\n"
+        "  Unauthorized external URL(s): moneyknock.jp\n"
+        "  → TARGET_SCOPE_LOCK: AUTHORITATIVE_CURRENT_TARGET=moneyknock.kr\n"
+    )
+
+    notice = executor_state.target_scope_lock_notice("moneyknock.kr", output)
+
+    assert "AUTHORITATIVE_CURRENT_TARGET=moneyknock.kr" in notice
+    assert "FORBIDDEN_DRIFT_DOMAIN=moneyknock.jp" in notice
+    assert "Do not claim the forbidden domain is confirmed" in notice
+
+
+def test_doom_loop_cutoff_stops_repeated_target_drift() -> None:
+    reason = executor_state.doom_loop_cutoff_reason(
+        no_progress_count=2,
+        escape_attempts=0,
+        loop_count=10,
+        confirmed_count=0,
+        target_drift_count=1,
+        target_drift_streak=2,
+    )
+
+    assert "repeated target drift" in reason
+
+
+def test_response_pattern_detection_is_executor_state_owned() -> None:
+    sigs = ["a", "b", "a", "a", "c", "a"]
+
+    assert executor_state.repeated_response_pattern(sigs)
+
+
+def test_action_ledger_signature_groups_rewritten_ajp_probe() -> None:
+    first, first_summary = executor_state.action_ledger_signature(
+        "run_python",
+        {
+            "code": (
+                "HOST='116.127.120.142'\n"
+                "PORT=8009\n"
+                "print('AJP CPing short')\n"
+            )
+        },
+    )
+    second, second_summary = executor_state.action_ledger_signature(
+        "run_python",
+        {
+            "code": (
+                "# Ghostcat WEB-INF probe\n"
+                "sock.connect(('116.127.120.142', 8009))\n"
+                "print('cping')\n"
+            )
+        },
+    )
+
+    assert first == second
+    assert "ajp_ghostcat" in first_summary
+    assert "ajp_ghostcat" in second_summary
+
+
+def test_action_ledger_blocks_after_two_timeouts() -> None:
+    terminal = BingoTerminal.__new__(BingoTerminal)
+    terminal._action_ledger = {}
+    terminal._exec_loop_count = 10
+    ledger = _ledger_for(terminal)
+    sig, summary = executor_state.action_ledger_signature(
+        "run_python",
+        {"code": "HOST='116.127.120.142'; PORT=8009; print('AJP CPing')"},
+    )
+
+    ledger.start(sig, summary, loop_count=terminal._exec_loop_count)
+    ledger.finish(
+        sig,
+        summary,
+        output="CPing TimeoutError timed out",
+        success=False,
+        exit_code=-1,
+        loop_count=terminal._exec_loop_count,
+    )
+    assert ledger.skip_reason(sig, summary) == ""
+
+    ledger.start(sig, summary, loop_count=terminal._exec_loop_count)
+    entry = ledger.finish(
+        sig,
+        summary,
+        output="[ERR] ReadTimeout timed out",
+        success=False,
+        exit_code=-1,
+        loop_count=terminal._exec_loop_count,
+    )
+
+    assert entry["status"] == "blocked_timeout"
+    assert "timeout-exhausted" in ledger.skip_reason(sig, summary)
+
+
+def test_action_ledger_family_blocks_rewritten_timeout_probe() -> None:
+    terminal = BingoTerminal.__new__(BingoTerminal)
+    terminal._action_ledger = {}
+    terminal._exec_loop_count = 10
+    ledger = _ledger_for(terminal)
+
+    first, first_summary = executor_state.action_ledger_signature(
+        "run_python",
+        {"code": "HOST='116.127.120.142'; PORT=8009; print('AJP CPing')"},
+    )
+    second, second_summary = executor_state.action_ledger_signature(
+        "run_python",
+        {"code": "print('Ghostcat WEB-INF'); sock.connect(('116.127.120.142', 8009))"},
+    )
+    third, third_summary = executor_state.action_ledger_signature(
+        "run_python",
+        {"code": "print('AJP CPing retry'); target='116.127.120.142:8009'"},
+    )
+
+    assert first == second == third
+    ledger.start(first, first_summary, loop_count=terminal._exec_loop_count)
+    ledger.finish(
+        first,
+        first_summary,
+        output="CPing TimeoutError timed out",
+        success=False,
+        exit_code=-1,
+        loop_count=terminal._exec_loop_count,
+    )
+    ledger.start(second, second_summary, loop_count=terminal._exec_loop_count)
+    ledger.finish(
+        second,
+        second_summary,
+        output="ReadTimeout timed out",
+        success=False,
+        exit_code=-1,
+        loop_count=terminal._exec_loop_count,
+    )
+
+    reason = ledger.skip_reason(third, third_summary)
+    assert "timeout-exhausted" in reason
+    assert "family" in ledger.context()
+
+
+def test_action_ledger_family_blocks_different_no_progress_scripts() -> None:
+    terminal = BingoTerminal.__new__(BingoTerminal)
+    terminal._action_ledger = {}
+    terminal._exec_loop_count = 20
+    ledger = _ledger_for(terminal)
+    scripts = [
+        "BASE='https://example.test'; sess.get(BASE + '/balance/mypage/cust_limit.do')",
+        "BASE='https://example.test'; sess.get(BASE + '/balance/mypage/app_status.do')",
+        "BASE='https://example.test'; sess.get(BASE + '/balance/mypage/custinfo.do')",
+    ]
+
+    for script in scripts:
+        sig, summary = executor_state.action_ledger_signature("run_python", {"code": script})
+        ledger.start(sig, summary, loop_count=terminal._exec_loop_count)
+        ledger.finish(
+            sig,
+            summary,
+            output="HTTP 200 OK\nloginish=False mypageish=False\n",
+            success=True,
+            exit_code=0,
+            loop_count=terminal._exec_loop_count,
+        )
+
+    sig, summary = executor_state.action_ledger_signature(
+        "run_python",
+        {"code": "BASE='https://example.test'; sess.get(BASE + '/balance/mypage/receipt_account.do')"},
+    )
+
+    assert "negative/no-progress" in ledger.skip_reason(sig, summary)
+
+
+def test_action_ledger_done_action_is_not_rerun() -> None:
+    terminal = BingoTerminal.__new__(BingoTerminal)
+    terminal._action_ledger = {}
+    terminal._exec_loop_count = 4
+    ledger = _ledger_for(terminal)
+    sig, summary = executor_state.action_ledger_signature(
+        "run_python",
+        {
+            "code": (
+                "r=sess.get(BASE + '/balance/apply/interest.do?returntype=abc')\n"
+                "print('LEAK True')\n"
+                "print('javax.el.ELException')\n"
+            )
+        },
+    )
+
+    ledger.start(sig, summary, loop_count=terminal._exec_loop_count)
+    ledger.finish(
+        sig,
+        summary,
+        output="LEAK True\njavax.el.ELException\norg.apache.jasper.JasperException\n",
+        success=True,
+        exit_code=0,
+        loop_count=terminal._exec_loop_count,
+    )
+
+    assert "already done" in ledger.skip_reason(sig, summary)
+    assert "status=done" in ledger.context()
+
+
+def test_action_ledger_legacy_dict_is_upgraded_to_executor_owned_object() -> None:
+    terminal = BingoTerminal.__new__(BingoTerminal)
+    terminal._action_ledger = {}
+    terminal._exec_loop_count = 8
+    ledger = _ledger_for(terminal)
+
+    sig, summary = executor_state.action_ledger_signature(
+        "run_python",
+        {"code": "HOST='116.127.120.142'; PORT=8009; print('AJP CPing')"},
+    )
+
+    ledger.start(sig, summary, loop_count=terminal._exec_loop_count)
+    ledger.finish(
+        sig,
+        summary,
+        output="ReadTimeout timed out",
+        success=False,
+        exit_code=-1,
+        loop_count=terminal._exec_loop_count,
+    )
+
+    assert isinstance(terminal._action_ledger, executor_state.ActionLedger)
+    assert "status=timeout" in ledger.context()
+
+
+def test_terminal_assessment_session_bridge_syncs_legacy_compatibility_fields() -> None:
+    terminal = BingoTerminal.__new__(BingoTerminal)
+    terminal._action_ledger = {}
+    terminal._v7_session = RuntimeSessionState(runtime=SimpleNamespace())
+
+    session = terminal._assessment_session()
+
+    assert terminal._assessment_session_bridge is session
+    assert terminal._action_ledger is session.action_ledger
+    assert terminal._v7_session is session.runtime_session
+    assert isinstance(terminal._action_ledger, executor_state.ActionLedger)
+
+
+def test_repeated_progress_signature_ignores_dynamic_trace_markers() -> None:
+    first = (
+        "[HTTP_METHOD] https://example.test/login\n"
+        "[HIGH] TRACE: TRACE request echo confirmed\n"
+        "Cookie: JSESSIONID=TRACE_COOKIE_PROOF_12345; SECRET=stealme\n"
+        "X-Bingo-Trace: TRACE_HEADER_PROOF\n"
+    )
+    second = (
+        "[HTTP_METHOD] https://example.test/login\n"
+        "[HIGH] TRACE: TRACE request echo confirmed\n"
+        "Cookie: JSESSIONID=TRACE_COOKIE_PROOF_98765; SECRET=stealme\n"
+        "X-Bingo-Trace: TRACE_HEADER_PROOF_2\n"
+    )
+
+    assert executor_state.meaningful_loop_progress_signature(first)
+    assert (
+        executor_state.meaningful_loop_progress_signature(first)
+        == executor_state.meaningful_loop_progress_signature(second)
+    )
 
 
 def test_generic_homepage_script_is_not_an_xss_finding(tmp_path: Path) -> None:
@@ -2166,7 +3310,8 @@ def test_report_fallback_is_written_without_model(tmp_path: Path, monkeypatch) -
     obj._get_system_message = lambda _skill: SimpleNamespace(role="system", content="")
     obj._render_hacker_report = lambda *_args: None
     obj._converge_session_artifacts = lambda *_args, **_kwargs: None
-    obj._suggest_next_steps = lambda: None
+    next_steps_calls: list[bool] = []
+    obj._suggest_next_steps = lambda: next_steps_calls.append(True)
     original_fallback = BingoTerminal._build_fallback_report
     captured: dict[str, str] = {}
 
@@ -2184,16 +3329,141 @@ def test_report_fallback_is_written_without_model(tmp_path: Path, monkeypatch) -
     BingoTerminal._auto_generate_report(obj)
 
     reports = list(tmp_path.glob("report_*.md"))
+    html_reports = list(tmp_path.glob("report_*.html"))
     assert len(reports) == 1
+    assert len(html_reports) == 1
     report = reports[0].read_text(encoding="utf-8")
+    html_report = html_reports[0].read_text(encoding="utf-8")
     assert "# Target: https://example.test" in report
     assert "Confirmed: 0" in report
     assert "Probable/Potential: 5" in report
     assert "BINGO-1" in report
+    assert "Bingo Security Report" in html_report
+    assert "Evidence-driven assessment" in html_report
+    assert "Hybrid AI-led" in html_report
+    assert "Probable / Potential" in html_report
+    assert "BINGO-1" in html_report
     vuln_section = report.split("## Vulnerabilities Found", 1)[1].split("##", 1)[0]
     assert "BINGO-1" not in vuln_section
     assert "Verification Backlog (Unconfirmed)" in report
     assert "type=sqli\nEVIDENCE LADDER RULES" in captured["ground_truth"]
+    assert next_steps_calls == []
+
+
+def test_report_next_steps_can_be_enabled_by_env(tmp_path: Path, monkeypatch) -> None:
+    class _Config:
+        lang = "en"
+
+        @staticmethod
+        def get_active_model_config():
+            return None
+
+    class _Findings:
+        @staticmethod
+        def stats():
+            return {"confirmed": 0, "probable": 0, "potential_high": 0, "potential_critical": 0}
+
+        @staticmethod
+        def ground_truth_block():
+            return ""
+
+        @staticmethod
+        def save():
+            return None
+
+    obj = BingoTerminal.__new__(BingoTerminal)
+    obj.config = _Config()
+    obj.s = {"report_fallback_used": "fallback", "report_save_ok": "saved"}
+    obj.console = _Console()
+    obj._agent_state = {"target": "https://example.test"}
+    obj.history = []
+    obj._session_tables = []
+    obj._session_credentials = []
+    obj._session_fresh = True
+    obj._findings_exporter = _Findings()
+    obj._get_system_message = lambda _skill: SimpleNamespace(role="system", content="")
+    obj._render_hacker_report = lambda *_args: None
+    obj._converge_session_artifacts = lambda *_args, **_kwargs: None
+    next_steps_calls: list[bool] = []
+    obj._suggest_next_steps = lambda: next_steps_calls.append(True)
+    monkeypatch.setenv("BINGO_REPORTS_DIR", str(tmp_path))
+    monkeypatch.setenv("BINGO_REPORT_NEXT_STEPS", "1")
+
+    BingoTerminal._auto_generate_report(obj)
+
+    assert next_steps_calls == [True]
+
+
+def test_suggest_next_steps_is_non_interactive_by_default(monkeypatch) -> None:
+    class _Config:
+        lang = "zh"
+
+        @staticmethod
+        def get_active_model_config():
+            return SimpleNamespace(provider="test", model="test")
+
+    class _Model:
+        @staticmethod
+        def chat_stream(_messages):
+            yield SimpleNamespace(error=None, text="进展摘要: 当前未确认漏洞。\n\n")
+            yield SimpleNamespace(
+                error=None,
+                text=(
+                    "下一步选项:\n"
+                    "1. 继续解析 main.do 菜单链接\n"
+                    "2. 枚举真实 .do 参数\n"
+                    "3. 复测 SQLi/WAF oracle\n"
+                ),
+            )
+
+    from bingo.models import registry as registry_mod
+
+    monkeypatch.delenv("BINGO_INTERACTIVE_NEXT_STEPS", raising=False)
+    monkeypatch.setattr(registry_mod.ModelRegistry, "build", staticmethod(lambda _cfg: _Model()))
+
+    sent: list[str] = []
+    stream = io.StringIO()
+    obj = BingoTerminal.__new__(BingoTerminal)
+    obj.config = _Config()
+    obj.s = {
+        "progress_summary": "进展摘要",
+        "next_steps_title": "下一步选项",
+        "next_steps_prompt": "输入数字后回车",
+    }
+    obj.console = Console(file=stream, force_terminal=False, width=120, record=True)
+    obj._agent_state = {"target": "https://example.test"}
+    obj.history = [Message(role="assistant", content="recent")]
+    obj._findings_exporter = None
+    obj._get_system_message = lambda _skill: Message(role="system", content="")
+    obj._send_message = lambda text, **_kwargs: sent.append(text)
+
+    BingoTerminal._suggest_next_steps(obj)
+
+    rendered = obj.console.export_text()
+    assert "建议下一步" in rendered
+    assert "报告已生成" not in rendered
+    assert "输入数字后回车" not in rendered
+    assert sent == []
+
+
+def test_html_report_renderer_escapes_content_and_adds_cards() -> None:
+    html = BingoTerminal._build_html_report(
+        "# Target: <script>alert(1)</script>\n"
+        "## Summary\n"
+        "- **Critical** candidate BINGO-0001\n"
+        "```bash\ncurl -sk https://example.test/\n```\n",
+        target="<script>alert(1)</script>",
+        confirmed_count=0,
+        potential_count=1,
+        generated_at="2026-07-20 12:00:00",
+    )
+
+    assert "<script>alert(1)</script>" not in html
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in html
+    assert 'class="report-card"' in html
+    assert 'class="finding-id">BINGO-0001' in html
+    assert "curl -sk https://example.test/" in html
+    assert "2026-07-20 12:00:00" in html
 
 
 def test_chinese_deterministic_report_keeps_zero_confirmed_label() -> None:
@@ -2213,6 +3483,9 @@ def test_chinese_deterministic_report_keeps_zero_confirmed_label() -> None:
 def test_new_runtime_messages_have_all_languages() -> None:
     for lang in ("ko", "zh", "en"):
         strings = get_strings(lang)
+        assert "skipped" not in strings["sqli_cross_vector_guard"].lower()
+        assert "건너뜁니다" not in strings["sqli_cross_vector_guard"]
+        assert "跳过" not in strings["sqli_cross_vector_guard"]
         for key in (
             "sqli_cross_vector_guard",
             "report_manual_artifact_blocked",
@@ -2255,3 +3528,273 @@ def test_xss_reflection_output_is_candidate_not_vulnerable(monkeypatch, capsys) 
     assert "[XSS_CANDIDATE]" in result["output"]
     assert "browser_confirmed=false" in result["output"]
     assert "XSS Vulnerable" not in visible
+
+
+def test_blackbox_target_text_does_not_request_source_path_prompt() -> None:
+    text = "https://www.balance-cf.co.kr/ 绕过waf，sql渗透，管理员账号密码，webshell权限"
+
+    assert not BingoTerminal._source_path_prompt_requested(text)
+
+
+def test_whitebox_command_requests_source_path_prompt() -> None:
+    assert BingoTerminal._source_path_prompt_requested("/whitebox https://example.test")
+
+
+def test_source_code_text_requests_source_path_prompt() -> None:
+    assert BingoTerminal._source_path_prompt_requested("source code path /tmp/app")
+
+
+def test_source_path_prompt_can_be_disabled_for_blackbox_runs() -> None:
+    terminal = BingoTerminal.__new__(BingoTerminal)
+    terminal._source_path_prompt_enabled = False
+
+    assert not terminal._should_prompt_source_path(
+        "https://www.balance-cf.co.kr/ 绕过waf，sql渗透，管理员账号密码，webshell权限"
+    )
+
+
+def test_source_path_prompt_can_be_forced_by_flag() -> None:
+    terminal = BingoTerminal.__new__(BingoTerminal)
+    terminal._source_path_prompt_enabled = True
+
+    assert terminal._should_prompt_source_path(
+        "https://www.balance-cf.co.kr/ 绕过waf，sql渗透，管理员账号密码，webshell权限"
+    )
+
+
+def test_report_command_uses_auto_md_html_report_pipeline() -> None:
+    terminal = BingoTerminal.__new__(BingoTerminal)
+    terminal.s = {}
+    terminal.console = _Console()
+    called: list[bool] = []
+    warnings: list[str] = []
+    terminal._auto_generate_report = lambda: called.append(True)
+    terminal._warn = lambda msg: warnings.append(str(msg))
+
+    terminal._cmd_proof_report("")
+    terminal._cmd_proof_report("save")
+    terminal._cmd_proof_report("bad")
+
+    assert called == [True, True]
+    assert warnings
+
+
+def test_scan_slash_command_removed_from_chat_ui() -> None:
+    for lang in ("ko", "zh", "en"):
+        commands = {cmd for cmd, _desc in get_slash_commands(lang)}
+        strings = get_strings(lang)
+
+        assert "/scan" not in commands
+        assert "/scan <url>" not in strings["help_text"]
+
+
+def test_proxy_parser_accepts_common_provider_formats() -> None:
+    cases = {
+        "1.2.3.4:8080": "http://1.2.3.4:8080",
+        "http://1.2.3.4:8080": "http://1.2.3.4:8080",
+        "https://1.2.3.4:8443": "https://1.2.3.4:8443",
+        "socks5://1.2.3.4:1080": "socks5://1.2.3.4:1080",
+        "socks5h://user:pass@1.2.3.4:1080": "socks5h://user:pass@1.2.3.4:1080",
+        "user:pass@1.2.3.4:8080": "http://user:pass@1.2.3.4:8080",
+        "1.2.3.4:8080:user:pass": "http://user:pass@1.2.3.4:8080",
+        "user:pass:1.2.3.4:8080": "http://user:pass@1.2.3.4:8080",
+        "1.2.3.4 8080 user pass": "http://user:pass@1.2.3.4:8080",
+        "1.2.3.4,8080,user,pass": "http://user:pass@1.2.3.4:8080",
+        "1.2.3.4|8080|user|pass": "http://user:pass@1.2.3.4:8080",
+        "socks5 1.2.3.4 1080 user pass": "socks5://user:pass@1.2.3.4:1080",
+        "http,1.2.3.4,8080,user,pass": "http://user:pass@1.2.3.4:8080",
+        "http://user:p@ss@1.2.3.4:8080": "http://user:p%40ss@1.2.3.4:8080",
+        "http://user:pa:ss@1.2.3.4:8080": "http://user:pa%3Ass@1.2.3.4:8080",
+    }
+
+    for raw, expected in cases.items():
+        entry = _parse_proxy_url(raw)
+
+        assert entry is not None, raw
+        assert entry.url == expected
+
+
+def test_proxy_api_json_extraction_accepts_nested_provider_objects() -> None:
+    candidates = _extract_proxy_candidates(
+        {
+            "data": [
+                {"ip": "1.2.3.4", "port": 8080, "protocols": ["socks5"]},
+                {"host": "proxy.example.com", "port": "3128", "protocol": "http"},
+                {"proxy": "user:pass@5.6.7.8:9000"},
+            ]
+        }
+    )
+
+    parsed = [_parse_proxy_url(item).url for item in candidates if _parse_proxy_url(item)]
+
+    assert "socks5://1.2.3.4:8080" in parsed
+    assert "http://proxy.example.com:3128" in parsed
+    assert "http://user:pass@5.6.7.8:9000" in parsed
+
+
+def test_proxy_command_add_syncs_runtime_execution_layer() -> None:
+    set_runtime_proxy("")
+    terminal = BingoTerminal.__new__(BingoTerminal)
+    terminal.s = {}
+    terminal.config = SimpleNamespace(lang="en")
+    terminal.console = _Console()
+    terminal._proxy = ProxyManager()
+    terminal._proxy.save_config = lambda *_args, **_kwargs: True  # type: ignore[method-assign]
+    terminal._success = lambda msg: terminal.console.print(msg)
+    terminal._warn = lambda msg: terminal.console.print(msg)
+
+    terminal._cmd_proxy("add 1.2.3.4:8080:user:pass")
+
+    assert get_runtime_proxy() == "http://user:pass@1.2.3.4:8080"
+    assert "--proxy" in _curl_base(5)
+    set_runtime_proxy("")
+
+
+def test_proxy_off_clears_runtime_execution_layer() -> None:
+    set_runtime_proxy("")
+    terminal = BingoTerminal.__new__(BingoTerminal)
+    terminal.s = {}
+    terminal.config = SimpleNamespace(lang="en")
+    terminal.console = _Console()
+    terminal._proxy = ProxyManager()
+    terminal._proxy.save_config = lambda *_args, **_kwargs: True  # type: ignore[method-assign]
+    terminal._success = lambda msg: terminal.console.print(msg)
+    terminal._warn = lambda msg: terminal.console.print(msg)
+
+    terminal._cmd_proxy("add 1.2.3.4:8080")
+    assert get_runtime_proxy() == "http://1.2.3.4:8080"
+
+    terminal._cmd_proxy("off")
+
+    assert get_runtime_proxy() == ""
+
+
+def test_runtime_proxy_env_reaches_bash_tool() -> None:
+    proxy_url = "http://127.0.0.1:1"
+    set_runtime_proxy(proxy_url)
+    try:
+        result = run_bash("printf '%s' \"$BINGO_PROXY_URL\"", timeout=5)
+    finally:
+        set_runtime_proxy("")
+
+    assert result["success"] is True
+    assert result["output"] == proxy_url
+
+
+def test_run_python_drops_runtime_proxy_when_preflight_fails() -> None:
+    set_runtime_proxy("http://127.0.0.1:1")
+    try:
+        result = run_python(
+            "import os\nprint('BINGO=' + os.environ.get('BINGO_PROXY_URL', ''))",
+            timeout=5,
+        )
+    finally:
+        set_runtime_proxy("")
+
+    assert result["success"] is True
+    assert "BINGO=\n" in result["output"]
+
+
+def test_runtime_artifact_and_admin_enum_are_confirmed_findings(tmp_path: Path) -> None:
+    exporter = FindingsExporter(target="https://example.kr", output_dir=str(tmp_path))
+    output = """
+=== INFO DISCLOSURE CONFIRM ===
+/composer.json -> 200 195B ct= application/json { "require": { "phpmailer/phpmailer": "^6.0" } }
+/composer.lock -> 200 29162B ct=  { "_readme": [ "This file locks the dependencies of your project" ] }
+/vendor/composer/installed.json -> 200 26502B ct= application/json [ { "name": "guzzlehttp/guzzle", "version": "6.3.3" } ]
+PKG guzzlehttp/guzzle 6.3.3
+=== ADMIN ENUM + account check ===
+ENUM no_such_user_xyz -> 200 123B not_registered <script>alert("등록되지 않은 정보입니다.");</script>
+ENUM jcorp -> 200 123B bad_password <script>alert("비밀번호가 맞지 않습니다.");</script>
+"""
+
+    finding = exporter.process(output, code_snippet="requests.get(TARGET + '/composer.lock')")
+
+    assert finding is not None
+    by_reason = {item.reason_code: item for item in exporter.findings}
+    assert by_reason["public_dependency_artifact"].confirmed is True
+    assert by_reason["admin_username_enumeration"].confirmed is True
+    assert exporter.stats()["confirmed"] == 2
+
+
+def test_stack_trace_disclosure_counts_as_meaningful_progress(tmp_path: Path) -> None:
+    exporter = FindingsExporter(target="https://example.kr", output_dir=str(tmp_path))
+    output = (
+        "OPEN /api/otp/make_new_otp.php -> 200 516B application/json [] "
+        "Fatal error: Uncaught TypeError: Argument 1 passed to "
+        "App\\Service::checkDupPhone() must be of the type string, null given, "
+        "called in /srv/www/api/otp/make_new_otp.php on line 12"
+    )
+
+    finding = exporter.process(output, code_snippet="requests.get(TARGET + '/api/otp/make_new_otp.php')")
+
+    assert finding is not None
+    assert finding.vuln_type == "info_disclosure"
+    assert finding.reason_code == "stack_trace_disclosure"
+    assert finding.confirmed is True
+    assert executor_state.has_meaningful_loop_progress(output)
+
+
+def test_action_ledger_uses_canonical_target_not_model_drift() -> None:
+    set_target_domain("https://moneyknock.kr")
+    try:
+        args = {
+            "code": (
+                "import requests\n"
+                "requests.get('https://moneyknock.jp/admin/login.php', timeout=5)\n"
+            )
+        }
+
+        canonical = executor_state.canonical_action_args("run_python", args)
+        _sig, summary = executor_state.action_ledger_signature("run_python", canonical)
+    finally:
+        set_target_domain("")
+
+    assert "moneyknock.kr" in summary
+    assert "moneyknock.jp" not in summary
+
+
+def test_executor_action_ledger_identity_canonicalizes_before_signature() -> None:
+    set_target_domain("https://moneyknock.kr")
+    try:
+        args = {
+            "code": (
+                "import requests\n"
+                "requests.get('https://moneyknock.jp/admin/login.php', timeout=5)\n"
+            )
+        }
+
+        canonical, _sig, summary = executor_state.action_ledger_identity(
+            "run_python",
+            args,
+        )
+    finally:
+        set_target_domain("")
+
+    assert "moneyknock.kr" in str(canonical.get("code", ""))
+    assert "moneyknock.jp" not in str(canonical.get("code", ""))
+    assert "moneyknock.kr" in summary
+
+
+def test_action_ledger_separates_proxy_endpoint_from_target_identity() -> None:
+    code = (
+        "PROXIES={'http':'socks5://127.0.0.1:9050','https':'socks5://127.0.0.1:9050'}\n"
+        "import requests\n"
+        "requests.get('https://example.kr/admin/login.php', proxies=PROXIES, timeout=5)\n"
+    )
+
+    _sig, summary = executor_state.action_ledger_signature("run_python", {"code": code})
+
+    assert "example.kr" in summary
+    assert "127.0.0.1:9050" not in summary
+
+
+def test_confirmed_evidence_plateau_reports_instead_of_reentering_low_value_loop() -> None:
+    reason = executor_state.doom_loop_cutoff_reason(
+        no_progress_count=4,
+        escape_attempts=0,
+        loop_count=10,
+        confirmed_count=1,
+    )
+
+    assert reason == "confirmed evidence plateau; report current findings"

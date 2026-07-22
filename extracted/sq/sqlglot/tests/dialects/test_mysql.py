@@ -822,7 +822,8 @@ class TestMySQL(Validator):
             write={
                 "exasol": "SELECT DAYS_BETWEEN(x, y)",
                 "mysql": "SELECT DATEDIFF(x, y)",
-                "presto": "SELECT DATE_DIFF('DAY', y, x)",
+                "postgres": "SELECT (CAST(x AS DATE) - CAST(y AS DATE))",
+                "presto": "SELECT DATE_DIFF('DAY', DATE_TRUNC('DAY', y), DATE_TRUNC('DAY', x))",
                 "redshift": "SELECT DATEDIFF(DAY, y, x)",
             },
         )

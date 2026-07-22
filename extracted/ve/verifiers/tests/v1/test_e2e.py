@@ -6,8 +6,8 @@ import pytest
 @pytest.mark.e2e
 async def test_single_turn(run_v1, harness, harness_runtime, tmp_path):
     """Single-turn (echo a short phrase back)."""
-    if harness == "codex":
-        pytest.skip("codex is a coding agent, not reliable on a no-op echo chat task")
+    if harness in {"codex", "claude-code"}:
+        pytest.skip("coding agents are not reliable on a no-op echo chat task")
     (trace,) = await run_v1(
         "echo-v1",
         harness=harness,
@@ -18,6 +18,12 @@ async def test_single_turn(run_v1, harness, harness_runtime, tmp_path):
     assert trace.errors == []
     assert trace.num_turns == 1
     assert trace.reward == 1.0
+    # Every sampled turn has one per-call record, linked to its assistant node.
+    sampled = [i for i, n in enumerate(trace.nodes) if n.sampled]
+    assert [c.node for c in trace.calls if c.error is None] == sampled
+    for call in trace.calls:
+        assert call.model and call.sampling is not None
+        assert call.time.duration > 0
 
 
 @pytest.mark.e2e
@@ -74,6 +80,11 @@ async def test_tool(run_v1, harness_runtime, tool_runtime, tmp_path):
     assert trace.errors == []
     assert trace.num_turns >= 2  # tool call + answer
     assert trace.reward == 1.0
+    # The interception server captured the advertised tools onto the trace (for tool-use SFT):
+    # the null harness offered the task's MCP tool as `echo_back`, schema included.
+    assert trace.tools is not None
+    (echo_tool,) = [t for t in trace.tools if t.name == "echo_back"]
+    assert "message" in echo_tool.parameters.get("properties", {})
 
 
 @pytest.mark.e2e
@@ -140,7 +151,8 @@ async def test_tool_response_image(run_v1, tmp_path):
         "tool-response-image-v1",
         harness="null",
         harness_overrides={"runtime": {"type": "subprocess"}},
-        model="qwen/qwen3-vl-8b-instruct",
+        model="openai/gpt-5.6-luna",
+        reasoning_effort="none",
         output_dir=tmp_path,
         max_turns=4,
     )

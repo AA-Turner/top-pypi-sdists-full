@@ -13,6 +13,10 @@ __all__ = (
     "OAuth2Credentials",
     "OAuth2CredentialsCookieNames",
     "OAuth2PerRoute",
+    "OAuth2TokenForwarding",
+    "PostLogoutRedirectUri",
+    "PrivateKeyJwtConfig",
+    "PrivateKeyJwtConfigSigningAlgorithm",
 )
 
 import datetime
@@ -59,6 +63,50 @@ class OAuth2ConfigAuthType(betterproto2.Enum):
     The client certificate must be configured in the cluster used by ``token_endpoint`` via
     transport socket configuration.
     This implements OAuth 2.0 Mutual-TLS Client Authentication as defined in RFC 8705.
+    """
+
+    PRIVATE_KEY_JWT = 3
+    """
+    The client authenticates using a signed JWT assertion (RFC 7523).
+    The ``token_secret`` in credentials must contain the PEM-encoded private key used to sign the assertion.
+    The JWT assertion is sent as ``client_assertion`` in the token request body along with
+    ``client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer``.
+    """
+
+
+class PrivateKeyJwtConfigSigningAlgorithm(betterproto2.Enum):
+    """
+    Supported JWT signing algorithms for the client assertion.
+    """
+
+    RS256 = 0
+    """
+    ``RSASSA-PKCS1-v1_5`` using SHA-256.
+    """
+
+    RS384 = 1
+    """
+    ``RSASSA-PKCS1-v1_5`` using SHA-384.
+    """
+
+    RS512 = 2
+    """
+    ``RSASSA-PKCS1-v1_5`` using SHA-512.
+    """
+
+    ES256 = 3
+    """
+    ECDSA using P-256 and SHA-256.
+    """
+
+    ES384 = 4
+    """
+    ECDSA using P-384 and SHA-384.
+    """
+
+    ES512 = 5
+    """
+    ECDSA using P-521 and SHA-512.
     """
 
 
@@ -199,7 +247,7 @@ class OAuth2Config(betterproto2.Message):
     """
     OAuth config
 
-    [#next-free-field: 28]
+    [#next-free-field: 34]
     """
 
     token_endpoint: "_____config__core__v3__.HttpUri | None" = betterproto2.field(
@@ -233,6 +281,19 @@ class OAuth2Config(betterproto2.Message):
     For more information, see https://openid.net/specs/openid-connect-rpinitiated-1_0.html
 
     If configured, the OAuth2 filter will redirect users to this endpoint when they access the signout_path.
+    """
+
+    post_logout_redirect_uri: "PostLogoutRedirectUri | None" = betterproto2.field(
+        33, betterproto2.TYPE_MESSAGE, optional=True
+    )
+    """
+    Optional control for the ``post_logout_redirect_uri`` parameter sent to the ``end_session_endpoint`` when a user
+    accesses the ``signout_path``.
+    This field should be set only if ``openid`` is in the ``auth_scopes``, the ``end_session_endpoint`` is configured,
+    and the authorization server supports the OpenID Connect RP-Initiated Logout specification.
+
+    If unset, Envoy preserves the historical behavior and sends ``<scheme>://<host>/``, constructed from the inbound
+    request, as ``post_logout_redirect_uri``.
     """
 
     credentials: "OAuth2Credentials | None" = betterproto2.field(
@@ -270,6 +331,23 @@ class OAuth2Config(betterproto2.Message):
     forward_bearer_token: "bool" = betterproto2.field(7, betterproto2.TYPE_BOOL)
     """
     Forward the OAuth token as a Bearer to upstream web service.
+    """
+
+    forward_id_token: "OAuth2TokenForwarding | None" = betterproto2.field(
+        31, betterproto2.TYPE_MESSAGE, optional=True
+    )
+    """
+    Forward the OIDC ID token to the upstream.
+
+    If the configured header is ``Authorization``, Envoy forwards the ID token using the
+    ``Bearer`` prefix. For any other header, Envoy forwards the raw token value.
+    If not specified, the ID token will not be forwarded.
+
+    This can not be configured with :ref:`forward_bearer_token
+    <envoy_v3_api_field_extensions.filters.http.oauth2.v3.OAuth2Config.forward_bearer_token>`
+    or :ref:`preserve_authorization_header
+    <envoy_v3_api_field_extensions.filters.http.oauth2.v3.OAuth2Config.preserve_authorization_header>`
+    when the header is ``Authorization``.
     """
 
     preserve_authorization_header: "bool" = betterproto2.field(
@@ -453,6 +531,72 @@ class OAuth2Config(betterproto2.Message):
     This matcher takes precedence over deny_redirect_matcher.
     """
 
+    original_request_uri: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        28, betterproto2.TYPE_STRING
+    )
+    """
+    Optional base URI (scheme + host, e.g. ``https://app.example.com``) used to build the
+    original request URI that is encoded into the OAuth2 ``state`` parameter.
+    This URI will be used later to redirect users on a successful OAuth.
+
+    This is useful when Envoy sits behind a gateway or load balancer that terminates the
+    user-facing hostname: In that case, the post-authentication redirect derived from ``state`` would
+    send the user to an internal host they didn't request.
+
+    Supports request header formatting tokens.
+
+    Example:
+
+       original_request_uri: "%REQ(x-forwarded-proto?:scheme)%://%REQ(x-forwarded-host?:authority)%"
+
+    If not set, defaults to ``<:scheme>://<:authority>`` of the incoming request.
+    """
+
+    allowed_redirect_domains: "list[typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]]" = betterproto2.field(
+        29, betterproto2.TYPE_STRING, repeated=True
+    )
+    """
+    Optional list of domains that are allowed as
+    1. redirect_uri: which is what the IdP calls after OAuth
+    2. original_request_uri: the one extracted from the state of an OAuth callback (where should the request go after OAuth)
+
+    This mitigates:
+    - injecting a malicious x-forwarded-host or any header that is used to template the redirect urls
+    - open redirect attacks where an attacker crafts a ``state`` value pointing to an untrusted host.
+
+    Each entry is matched against the host (with any port stripped) extracted from the
+    formatted ``redirect_uri``, the formatted ``original_request_uri``, and the URL decoded from
+    the ``state`` parameter on callback. Matching is case-insensitive and supports two forms:
+
+    * Exact match, e.g. ``example.com`` matches only ``example.com``.
+    * Wildcard subdomain match using a leading ``*.``, e.g. ``*.example.com`` matches
+      ``foo.example.com`` and ``bar.baz.example.com`` but not ``example.com`` itself.
+
+    IPv6 literals must be configured without surrounding brackets (e.g. ``::1``, not ``[::1]``).
+
+    If this list is empty (the default), all hosts are allowed and no validation is performed.
+    """
+
+    use_access_token_expiry_for_id_token_cookie: "bool" = betterproto2.field(
+        30, betterproto2.TYPE_BOOL
+    )
+    """
+    If set to true, the expiration time for the ID token cookie will always be derived from the
+    ``expires_in`` field of the access token response rather than from the ``exp`` claim in the
+    ID token JWT. This is useful when the access token response advertises a longer lifetime than
+    the ID token and you want the ID token cookie to remain valid for that full duration.
+    Default is false (use the ID token's own ``exp`` claim when available).
+    """
+
+    private_key_jwt_config: "PrivateKeyJwtConfig | None" = betterproto2.field(
+        32, betterproto2.TYPE_MESSAGE, optional=True
+    )
+    """
+    Configuration for ``PRIVATE_KEY_JWT`` client authentication.
+    Only used when :ref:`auth_type <envoy_v3_api_field_extensions.filters.http.oauth2.v3.OAuth2Config.auth_type>`
+    is set to ``PRIVATE_KEY_JWT``.
+    """
+
 
 default_message_pool.register_message(
     "envoy.extensions.filters.http.oauth2.v3", "OAuth2Config", OAuth2Config
@@ -482,6 +626,8 @@ class OAuth2Credentials(betterproto2.Message):
     The secret used to retrieve the access token. This value will be URL encoded when sent to the OAuth server.
     This field is required unless :ref:`auth_type <envoy_v3_api_field_extensions.filters.http.oauth2.v3.OAuth2Config.auth_type>`
     is set to ``TLS_CLIENT_AUTH``, in which case authentication is done via the client certificate.
+    When ``auth_type`` is ``PRIVATE_KEY_JWT``, this field must contain the PEM-encoded private key
+    used to sign the JWT client assertion.
     """
 
     hmac_secret: "____transport_sockets__tls__v3__.SdsSecretConfig | None" = (
@@ -605,6 +751,107 @@ class OAuth2PerRoute(betterproto2.Message):
 
 default_message_pool.register_message(
     "envoy.extensions.filters.http.oauth2.v3", "OAuth2PerRoute", OAuth2PerRoute
+)
+
+
+@dataclass(eq=False, repr=False, config={"extra": "forbid"})
+class OAuth2TokenForwarding(betterproto2.Message):
+    """
+    Defines how an OAuth token is forwarded upstream.
+    """
+
+    header: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        1, betterproto2.TYPE_STRING
+    )
+    """
+    The upstream request header that will carry the token.
+    Pseudo-headers (names starting with ``:``) and the ``Host`` header are not allowed.
+    """
+
+
+default_message_pool.register_message(
+    "envoy.extensions.filters.http.oauth2.v3",
+    "OAuth2TokenForwarding",
+    OAuth2TokenForwarding,
+)
+
+
+@dataclass(eq=False, repr=False, config={"extra": "forbid"})
+class PostLogoutRedirectUri(betterproto2.Message):
+    """
+    Configuration for the ``post_logout_redirect_uri`` parameter used in OpenID Connect
+    `RP-Initiated Logout requests <https://openid.net/specs/openid-connect-rpinitiated-1_0.html>`_.
+    This configuration is ignored if ``end_session_endpoint`` is not set.
+
+    Oneofs:
+        - config:
+    """
+
+    disabled: "bool | None" = betterproto2.field(
+        1, betterproto2.TYPE_BOOL, optional=True, group="config"
+    )
+    """
+    Do not include the ``post_logout_redirect_uri`` parameter in requests to the
+    configured ``end_session_endpoint``.
+    """
+
+    uri: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)] | None" = betterproto2.field(
+        2, betterproto2.TYPE_STRING, optional=True, group="config"
+    )
+    """
+    URI to send as the ``post_logout_redirect_uri`` parameter. Supports header formatting
+    tokens, and will be percent-encoded automatically when building the logout URL.
+
+    The URI should be registered with the authorization server.
+    """
+
+    @model_validator(mode="after")
+    def check_oneof(cls, values):
+        return cls._validate_field_groups(values)
+
+
+default_message_pool.register_message(
+    "envoy.extensions.filters.http.oauth2.v3",
+    "PostLogoutRedirectUri",
+    PostLogoutRedirectUri,
+)
+
+
+@dataclass(eq=False, repr=False, config={"extra": "forbid"})
+class PrivateKeyJwtConfig(betterproto2.Message):
+    """
+    Configuration for ``PRIVATE_KEY_JWT`` client authentication (RFC 7523).
+    """
+
+    signing_algorithm: "PrivateKeyJwtConfigSigningAlgorithm" = betterproto2.field(
+        1,
+        betterproto2.TYPE_ENUM,
+        default_factory=lambda: PrivateKeyJwtConfigSigningAlgorithm(0),
+    )
+    """
+    The signing algorithm to use for the JWT assertion.
+    The private key provided in ``token_secret`` must match the algorithm family: an RSA key for
+    the ``RS*`` algorithms, or an EC key for the ``ES*`` algorithms.
+    Default: ``RS256``.
+    """
+
+    assertion_lifetime: "datetime.timedelta | None" = betterproto2.field(
+        2,
+        betterproto2.TYPE_MESSAGE,
+        unwrap=lambda: ______google__protobuf__.Duration,
+        optional=True,
+    )
+    """
+    The lifetime of the JWT assertion. After this duration, the assertion expires.
+    The value is truncated to whole seconds, so it must be at least ``1s`` when set.
+    Default: ``60s``.
+    """
+
+
+default_message_pool.register_message(
+    "envoy.extensions.filters.http.oauth2.v3",
+    "PrivateKeyJwtConfig",
+    PrivateKeyJwtConfig,
 )
 
 

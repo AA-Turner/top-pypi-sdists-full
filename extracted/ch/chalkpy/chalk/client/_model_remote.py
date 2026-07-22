@@ -15,8 +15,6 @@ if TYPE_CHECKING:
     from chalk.client.client_grpc import ChalkGRPCClient
 
 logger = logging.getLogger(__name__)
-
-# chalk-remote-call-backed scaling groups always route to "handler".
 DEFAULT_HANDLER = "handler"
 
 
@@ -26,6 +24,27 @@ class ModelRemoteError(RuntimeError):
 
 class ModelNotDeployedError(ModelRemoteError):
     """Model/scaling group exists but has no reachable ingress."""
+
+
+def bind_inputs(
+    input_features: Sequence[str],
+    args: Sequence[Any],
+    kwargs: Mapping[str, Any],
+) -> "dict[str, list[Any]]":
+    """Bind one row of positional/keyword args to ``input_features`` -> ``{feature: [value]}``."""
+    if len(args) > len(input_features):
+        raise ValueError(f"Expected at most {len(input_features)} positional args, got {len(args)}")
+    bound: dict[str, Any] = dict(zip(input_features, args))
+    for key, value in kwargs.items():
+        if key not in input_features:
+            raise ValueError(f"Unknown input feature {key!r}; expected one of {list(input_features)}")
+        if key in bound:
+            raise ValueError(f"Input feature {key!r} given both positionally and by keyword")
+        bound[key] = value
+    missing = [f for f in input_features if f not in bound]
+    if missing:
+        raise ValueError(f"Missing input features: {missing}")
+    return {f: [bound[f]] for f in input_features}
 
 
 def _grpc_target_from_url(web_url: str) -> Tuple[str, bool]:
@@ -143,13 +162,17 @@ def call_model_scaling_group(
     *,
     version: Optional[int] = None,
     handler: str = DEFAULT_HANDLER,
+    web_url: Optional[str] = None,
 ) -> "pa.RecordBatch":
     """Invoke a deployed model by calling its scaling group ingress directly.
 
     ``inputs`` is a column mapping or pyarrow batch/table whose column order
     matches the model's input schema.
+
+    ``web_url`` possibly passed from DeployedModelVersion.remote() to skip re-resolution.
     """
-    web_url = resolve_scaling_group_web_url(client, model_name, version=version)
+    if web_url is None:
+        web_url = resolve_scaling_group_web_url(client, model_name, version=version)
     target, use_tls = _grpc_target_from_url(web_url)
     metadata = client._get_remote_call_metadata()  # pyright: ignore[reportPrivateUsage]
     feather_bytes = _encode_inputs(inputs)

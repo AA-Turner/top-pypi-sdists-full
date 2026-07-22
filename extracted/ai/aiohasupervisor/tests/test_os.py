@@ -2,7 +2,7 @@
 
 from pathlib import PurePath
 
-from aioresponses import aioresponses
+from aiointercept import aiointercept
 import pytest
 from yarl import URL
 
@@ -22,7 +22,7 @@ from .const import SUPERVISOR_URL
 
 
 async def test_os_info(
-    responses: aioresponses, supervisor_client: SupervisorClient
+    responses: aiointercept, supervisor_client: SupervisorClient
 ) -> None:
     """Test OS info API."""
     responses.get(
@@ -33,6 +33,7 @@ async def test_os_info(
     info = await supervisor_client.os.info()
     assert info.version == "13.0"
     assert info.version_latest == "13.1"
+    assert info.version_pending is None
     assert info.update_available is True
     assert info.boot_slots["A"].state == "inactive"
     assert info.boot_slots["B"].state == "booted"
@@ -42,7 +43,7 @@ async def test_os_info(
 
 @pytest.mark.parametrize("options", [None, OSUpdate(version="13.0")])
 async def test_os_update(
-    responses: aioresponses,
+    responses: aiointercept,
     supervisor_client: SupervisorClient,
     options: OSUpdate | None,
 ) -> None:
@@ -53,7 +54,7 @@ async def test_os_update(
 
 
 async def test_os_swap_info(
-    responses: aioresponses, supervisor_client: SupervisorClient
+    responses: aiointercept, supervisor_client: SupervisorClient
 ) -> None:
     """Test OS config swap API."""
     responses.get(
@@ -67,7 +68,7 @@ async def test_os_swap_info(
 
 
 async def test_os_set_swap_options(
-    responses: aioresponses, supervisor_client: SupervisorClient
+    responses: aiointercept, supervisor_client: SupervisorClient
 ) -> None:
     """Test OS set swap options API."""
     responses.post(f"{SUPERVISOR_URL}/os/config/swap", status=200)
@@ -83,7 +84,7 @@ async def test_os_set_swap_options(
 
 
 async def test_os_config_sync(
-    responses: aioresponses, supervisor_client: SupervisorClient
+    responses: aiointercept, supervisor_client: SupervisorClient
 ) -> None:
     """Test OS config sync API."""
     responses.post(f"{SUPERVISOR_URL}/os/config/sync", status=200)
@@ -94,7 +95,7 @@ async def test_os_config_sync(
 
 
 async def test_os_migrate_data(
-    responses: aioresponses, supervisor_client: SupervisorClient
+    responses: aiointercept, supervisor_client: SupervisorClient
 ) -> None:
     """Test OS migrate data API."""
     responses.post(f"{SUPERVISOR_URL}/os/datadisk/move", status=200)
@@ -108,7 +109,7 @@ async def test_os_migrate_data(
 
 
 async def test_os_list_data_disks(
-    responses: aioresponses, supervisor_client: SupervisorClient
+    responses: aiointercept, supervisor_client: SupervisorClient
 ) -> None:
     """Test OS datadisk list API."""
     responses.get(
@@ -125,7 +126,7 @@ async def test_os_list_data_disks(
 
 
 async def test_os_wipe_data(
-    responses: aioresponses, supervisor_client: SupervisorClient
+    responses: aiointercept, supervisor_client: SupervisorClient
 ) -> None:
     """Test OS wipe data API."""
     responses.post(f"{SUPERVISOR_URL}/os/datadisk/wipe", status=200)
@@ -136,7 +137,7 @@ async def test_os_wipe_data(
 
 
 async def test_os_set_boot_slot(
-    responses: aioresponses, supervisor_client: SupervisorClient
+    responses: aiointercept, supervisor_client: SupervisorClient
 ) -> None:
     """Test OS set boot slot API."""
     responses.post(f"{SUPERVISOR_URL}/os/boot-slot", status=200)
@@ -152,7 +153,7 @@ async def test_os_set_boot_slot(
 
 
 async def test_os_green_info(
-    responses: aioresponses, supervisor_client: SupervisorClient
+    responses: aiointercept, supervisor_client: SupervisorClient
 ) -> None:
     """Test OS green board info API."""
     responses.get(
@@ -167,7 +168,7 @@ async def test_os_green_info(
 
 
 async def test_os_green_options(
-    responses: aioresponses, supervisor_client: SupervisorClient
+    responses: aiointercept, supervisor_client: SupervisorClient
 ) -> None:
     """Test OS green board options API."""
     responses.post(f"{SUPERVISOR_URL}/os/boards/green", status=200)
@@ -181,7 +182,7 @@ async def test_os_green_options(
 
 
 async def test_os_yellow_info(
-    responses: aioresponses, supervisor_client: SupervisorClient
+    responses: aiointercept, supervisor_client: SupervisorClient
 ) -> None:
     """Test OS yellow board info API."""
     responses.get(
@@ -196,7 +197,7 @@ async def test_os_yellow_info(
 
 
 async def test_os_yellow_options(
-    responses: aioresponses, supervisor_client: SupervisorClient
+    responses: aiointercept, supervisor_client: SupervisorClient
 ) -> None:
     """Test OS yellow board options API."""
     responses.post(f"{SUPERVISOR_URL}/os/boards/yellow", status=200)
@@ -212,7 +213,7 @@ async def test_os_yellow_options(
 
 
 async def test_os_raspberry_pi_firmware_info(
-    responses: aioresponses, supervisor_client: SupervisorClient
+    responses: aiointercept, supervisor_client: SupervisorClient
 ) -> None:
     """Test Raspberry Pi firmware info API."""
     responses.get(
@@ -230,7 +231,7 @@ async def test_os_raspberry_pi_firmware_info(
 
 
 async def test_os_update_raspberry_pi_firmware(
-    responses: aioresponses, supervisor_client: SupervisorClient
+    responses: aiointercept, supervisor_client: SupervisorClient
 ) -> None:
     """Test Raspberry Pi firmware update API."""
     responses.post(

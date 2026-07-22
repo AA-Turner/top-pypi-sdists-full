@@ -152,6 +152,10 @@ class CallAnalysis:
 HeapRef = z3.DeclareSort("HeapRef")
 SnapshotRef = NewType("SnapshotRef", int)
 
+# Returned by StateSpace.smt_fanout on the branch where no supplied expression
+# holds (only reachable when called with none_of_the_above_weight > 0).
+NONE_OF_THE_ABOVE = object()
+
 _PREVENT_FORKS = contextvars.ContextVar("in_no_fork", default=False)
 if CROSSHAIR_EXTRA_ASSERTS:
 
@@ -691,10 +695,7 @@ class ModelValueNode(WorstResultNode):
     condition_value: object = None
 
     def __init__(self, rand: random.Random, expr: z3.ExprRef, solver: z3.Solver):
-        if not solver_is_sat(solver):
-            debug("Solver unexpectedly unsat; solver state:", solver.sexpr())
-            raise CrossHairInternal("Unexpected unsat from solver")
-
+        # The caller (find_model_value) guarantees the solver is satisfiable here.
         self.condition_value = solver.model().evaluate(expr, model_completion=True)
         self._stats_key = f"realize_{expr}" if z3.is_const(expr) else None
         WorstResultNode.__init__(self, rand, expr == self.condition_value, solver)
@@ -882,6 +883,8 @@ class StateSpace:
         with NoTracing():
             if hasattr(expr, "var"):
                 expr = expr.var
+            if isinstance(expr, bool):
+                return expr
             debug("is possible?", expr)
         return solver_is_sat(self.solver, expr)
 
@@ -1016,10 +1019,65 @@ class StateSpace:
         else:
             raise exc
 
+    def _raise_unexpected_realization_unsat(
+        self, expr: z3.ExprRef, culprit: Optional[z3.ExprRef]
+    ) -> NoReturn:
+        details = [
+            f"realizing {expr}",
+            f"is_detached={self.is_detached}",
+            f"iteration={self._root.iteration}",
+        ]
+        if culprit is not None:
+            details.append(f"culprit_add={culprit}")
+        message = (
+            "Unexpected unsat from solver ("
+            + "; ".join(details)
+            + ")\n"
+            + self._realization_unsat_debug()
+        )
+        if in_debug():
+            debug(message)
+        raise CrossHairInternal(message)
+
+    def _realization_unsat_debug(self) -> str:
+        """Diagnose an unexpected realization-time unsat: report whether a
+        fresh, identically-configured solver agrees the current assertions are
+        unsat (and, if so, the minimal contradicting subset), which
+        distinguishes a genuine contradiction in the accumulated constraints
+        from a corrupted incremental-solver state."""
+        lines: List[str] = []
+        try:
+            assertions = list(self.solver.assertions())
+        except Exception as exc:
+            return f"  (could not read solver assertions: {exc!r})"
+        lines.append(f"  assertion count: {len(assertions)}")
+        try:
+            fresh = make_default_solver()
+            fresh.set(unsat_core=True)
+            by_name: Dict[str, z3.ExprRef] = {}
+            for i, assertion in enumerate(assertions):
+                lit = z3.Bool(f"__ch_track_{i}")
+                by_name[lit.decl().name()] = assertion
+                fresh.assert_and_track(assertion, lit)
+            result = fresh.check()
+            lines.append(f"  fresh same-config solver.check(): {result}")
+            if result == z3.unsat:
+                lines.append("  minimal unsat core:")
+                for lit in fresh.unsat_core():
+                    lines.append(f"    {by_name.get(lit.decl().name(), lit)}")
+        except Exception as exc:
+            lines.append(f"  (fresh-solver diagnosis failed: {exc!r})")
+        lines.append("  assertions:")
+        for assertion in assertions:
+            lines.append(f"    {assertion}")
+        return "\n".join(lines)
+
     def find_model_value(self, expr: z3.ExprRef, choice_conformity=1.0) -> Any:
         with NoTracing():
             while True:
                 if isinstance(self._search_position, NodeStem):
+                    if not solver_is_sat(self.solver):
+                        self._raise_unexpected_realization_unsat(expr, None)
                     self._search_position = self.grow_into(
                         ModelValueNode(self._random, expr, self.solver)
                     )
@@ -1039,8 +1097,15 @@ class StateSpace:
                 )
                 self.choices_made.append(node)
                 self._search_position = next_node
+                constraint = (
+                    expr == node.condition_value
+                    if chosen
+                    else expr != node.condition_value
+                )
+                self.solver.add(constraint)
+                if self.is_detached and not solver_is_sat(self.solver):
+                    self._raise_unexpected_realization_unsat(expr, constraint)
                 if chosen:
-                    self.solver.add(expr == node.condition_value)
                     ret = model_value_to_python(node.condition_value)
                     if (
                         in_debug()
@@ -1051,8 +1116,6 @@ class StateSpace:
                         debug("SMT realized symbolic:", expr, "==", repr(ret))
                         debug("Realized at", ch_stack())
                     return ret
-                else:
-                    self.solver.add(expr != node.condition_value)
 
     def current_snapshot(self) -> SnapshotRef:
         return SnapshotRef(len(self.heaps) - 1)
@@ -1122,9 +1185,19 @@ class StateSpace:
         weights: Optional[Sequence[float]] = None,
         none_of_the_above_weight: float = 0.0,
     ):
-        """Performs a weighted binary search over the given SMT expressions."""
+        """Performs a weighted binary search over the given SMT expressions.
+
+        With ``none_of_the_above_weight > 0`` the expressions need not be
+        exhaustive: the remaining case (no expression holds) becomes a weighted
+        branch that returns ``NONE_OF_THE_ABOVE``.
+        """
         exprs = [e for (e, _) in exprs_and_results]
-        final_weights = [1.0] * len(exprs) if weights is None else weights
+        results = [r for (_, r) in exprs_and_results]
+        final_weights = list([1.0] * len(exprs) if weights is None else weights)
+        if none_of_the_above_weight > 0:
+            exprs = exprs + [z3Not(z3Or(*exprs))]
+            results = results + [NONE_OF_THE_ABOVE]
+            final_weights = final_weights + [none_of_the_above_weight]
         if CROSSHAIR_EXTRA_ASSERTS:
             if len(final_weights) != len(exprs):
                 raise CrossHairInternal("inconsistent smt_fanout exprs and weights")
@@ -1142,7 +1215,7 @@ class StateSpace:
         def attempt(start: int, end: int):
             size = end - start
             if size == 1:
-                return exprs_and_results[start][1]
+                return results[start]
             mid = (start + end) // 2
             left_exprs = exprs[start:mid]
             left_weight = sum(final_weights[start:mid])

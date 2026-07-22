@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agent-framework-ollama
-Version: 1.0.0b260709
+Version: 1.0.0b260721
 Summary: Ollama integration for Microsoft Agent Framework.
 Author: Microsoft
 Author-email: Microsoft <af-support@microsoft.com>

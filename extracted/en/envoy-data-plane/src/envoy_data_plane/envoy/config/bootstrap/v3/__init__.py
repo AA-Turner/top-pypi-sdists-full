@@ -5,6 +5,8 @@
 
 __all__ = (
     "Admin",
+    "ApiListenerManager",
+    "ApiListenerManagerThreadingModel",
     "Bootstrap",
     "BootstrapApplicationLogConfig",
     "BootstrapApplicationLogConfigLogFormat",
@@ -18,12 +20,14 @@ __all__ = (
     "CustomInlineHeaderInlineHeaderType",
     "FatalAction",
     "LayeredRuntime",
+    "ListenerManager",
     "MemoryAllocatorManager",
     "Runtime",
     "RuntimeLayer",
     "RuntimeLayerAdminLayer",
     "RuntimeLayerDiskLayer",
     "RuntimeLayerRtdsLayer",
+    "ValidationListenerManager",
     "Watchdog",
     "WatchdogWatchdogAction",
     "WatchdogWatchdogActionWatchdogEvent",
@@ -43,6 +47,18 @@ from .....message_pool import default_message_pool
 
 _COMPILER_VERSION = "0.9.0"
 betterproto2.check_compiler_version(_COMPILER_VERSION)
+
+
+class ApiListenerManagerThreadingModel(betterproto2.Enum):
+    MAIN_THREAD_ONLY = 0
+    """
+    Handle HTTP requests on the main Envoy thread which also processes platform-raised events and runs xDS clients.
+    """
+
+    STANDALONE_WORKER_THREAD = 1
+    """
+    Handle HTTP requests on a standalone worker thread.
+    """
 
 
 class CustomInlineHeaderInlineHeaderType(betterproto2.Enum):
@@ -163,6 +179,29 @@ default_message_pool.register_message("envoy.config.bootstrap.v3", "Admin", Admi
 
 
 @dataclass(eq=False, repr=False, config={"extra": "forbid"})
+class ApiListenerManager(betterproto2.Message):
+    """
+    A placeholder proto so that users can explicitly configure the API
+    Listener Manager via the bootstrap's :ref:`listener_manager <envoy_v3_api_field_config.bootstrap.v3.Bootstrap.listener_manager>`.
+    [#not-implemented-hide:]
+    """
+
+    threading_model: "ApiListenerManagerThreadingModel" = betterproto2.field(
+        1,
+        betterproto2.TYPE_ENUM,
+        default_factory=lambda: ApiListenerManagerThreadingModel(0),
+    )
+    """
+    Default to MainThreadOnly.
+    """
+
+
+default_message_pool.register_message(
+    "envoy.config.bootstrap.v3", "ApiListenerManager", ApiListenerManager
+)
+
+
+@dataclass(eq=False, repr=False, config={"extra": "forbid"})
 class Bootstrap(betterproto2.Message):
     """
     [#protodoc-title: Bootstrap]
@@ -171,7 +210,7 @@ class Bootstrap(betterproto2.Message):
     <config_overview_bootstrap>` for more detail.
 
     Bootstrap :ref:`configuration overview <config_overview_bootstrap>`.
-    [#next-free-field: 43]
+    [#next-free-field: 44]
 
     Oneofs:
         - stats_flush:
@@ -618,6 +657,19 @@ class Bootstrap(betterproto2.Message):
     Memory releasing is only supported for `tcmalloc allocator <https://github.com/google/tcmalloc>`_.
     """
 
+    enable_worker_cpu_affinity: "bool" = betterproto2.field(43, betterproto2.TYPE_BOOL)
+    """
+    When enabled, Envoy pins each worker thread to a distinct CPU from the process affinity mask,
+    worker ``i`` to the ``i-th`` CPU in ascending order. This improves CPU cache and ``NUMA``
+    locality for high concurrency deployments on bare metal. It is available on Linux only and is
+    ignored on other platforms. Pinning requires a worker count no greater than the number of CPUs
+    in the process affinity mask. When the worker count exceeds the available CPUs no worker is
+    pinned. Pinning is applied once when the workers start, so a later change to the process
+    affinity mask does not re-pin.
+
+    Defaults to ``false``.
+    """
+
     def __post_init__(self) -> None:
         super().__post_init__()
         if self.is_set("watchdog"):
@@ -1030,6 +1082,22 @@ default_message_pool.register_message(
 
 
 @dataclass(eq=False, repr=False, config={"extra": "forbid"})
+class ListenerManager(betterproto2.Message):
+    """
+    A placeholder proto so that users can explicitly configure the standard
+    Listener Manager via the bootstrap's :ref:`listener_manager <envoy_v3_api_field_config.bootstrap.v3.Bootstrap.listener_manager>`.
+    [#not-implemented-hide:]
+    """
+
+    pass
+
+
+default_message_pool.register_message(
+    "envoy.config.bootstrap.v3", "ListenerManager", ListenerManager
+)
+
+
+@dataclass(eq=False, repr=False, config={"extra": "forbid"})
 class MemoryAllocatorManager(betterproto2.Message):
     """
     [#next-free-field: 6]
@@ -1281,6 +1349,22 @@ class RuntimeLayerRtdsLayer(betterproto2.Message):
 
 default_message_pool.register_message(
     "envoy.config.bootstrap.v3", "RuntimeLayer.RtdsLayer", RuntimeLayerRtdsLayer
+)
+
+
+@dataclass(eq=False, repr=False, config={"extra": "forbid"})
+class ValidationListenerManager(betterproto2.Message):
+    """
+    A placeholder proto so that users can explicitly configure the standard
+    Validation Listener Manager via the bootstrap's :ref:`listener_manager <envoy_v3_api_field_config.bootstrap.v3.Bootstrap.listener_manager>`.
+    [#not-implemented-hide:]
+    """
+
+    pass
+
+
+default_message_pool.register_message(
+    "envoy.config.bootstrap.v3", "ValidationListenerManager", ValidationListenerManager
 )
 
 

@@ -3,16 +3,20 @@ import re
 import ast
 import json
 import sys
+import stat
 import time
 import atexit
 import socket
+import shutil
 import threading
 import platform
+import traceback
 import subprocess
 import requests as rq
 import pathspec
+from tqdm import tqdm
 
-from typing import Optional, Tuple
+from typing import Callable, Optional, Tuple
 from zipfile import ZipFile, ZIP_DEFLATED
 
 from fivetran_connector_sdk.protos import common_pb2
@@ -59,6 +63,9 @@ from fivetran_connector_sdk.constants import (
     SOURCE_NAMING_VALUE,
     FIVETRAN_NAMING_VALUE,
     REDACTED_VALUE,
+    VERSION_FILENAME,
+    TESTER_VERSION,
+    CONFIGURATION_FORM_FILENAME,
     RECOMMEND_STABLE_VERSION_MESSAGE,
 )
 
@@ -839,18 +846,19 @@ def prompt_pyproject_continue_or_abort(prompt_message: str):
         sys.exit(1)
 
 
-def package_project(project_path: str, deploy_key: str) -> str:
+def package_project(project_path: str, deploy_key: str, configuration_form_method: Optional[Callable] = None) -> str:
     """Packages the project for deployment.
 
     Args:
         project_path (str): The path to the project directory.
         deploy_key (str): The deployment key.
+        configuration_form_method: Optional callable returning a ConfigurationForm instance.
 
     Returns:
         str: The uploaded package ID.
     """
     # Create a new package for both new and existing connections.
-    package_file_path = create_package(project_path)
+    package_file_path = create_package(project_path, configuration_form_method)
     try:
         uploaded_package_id = upload_package(
             package_file_path,
@@ -1066,19 +1074,47 @@ def create_connection(deploy_key: str, group_id: str, config: dict, hd_agent_id:
     return response
 
 
-def create_package(project_path: str) -> str:
+def create_package(project_path: str, configuration_form_method: Optional[Callable] = None) -> str:
     """Creates a package file for the given project path.
 
     Args:
         project_path (str): The path to the project directory.
+        configuration_form_method: Optional callable returning a ConfigurationForm instance.
 
     Returns:
         str: The path to the packaged zip file.
     """
     print_library_log("packaging project for upload", log_icon=Logging.LogIcon.STEP)
-    zip_file_path = zip_folder(project_path)
+    extra_files = _generate_configuration_form_bytes(configuration_form_method)
+    zip_file_path = zip_folder(project_path, extra_files=extra_files)
     print_library_log("project packaged for upload", log_icon=Logging.LogIcon.SUCCESS)
     return zip_file_path
+
+
+def _generate_configuration_form_bytes(configuration_form_method: Optional[Callable] = None) -> dict:
+    """Generates the serialized ConfigurationFormResponse bytes for bundling into the package.
+
+    Returns a dict of {filename: bytes} to be written into the zip, with an empty
+    file sentinel if no configuration_form is defined.
+
+    Args:
+        configuration_form_method: Optional callable returning a ConfigurationForm instance.
+
+    Returns:
+        dict: {CONFIGURATION_FORM_FILENAME: bytes}.
+    """
+    if not configuration_form_method:
+        return {CONFIGURATION_FORM_FILENAME: b''}
+    if Logging.LOG_LEVEL is None:
+        Logging.LOG_LEVEL = Logging.Level.INFO
+    try:
+        return {CONFIGURATION_FORM_FILENAME: configuration_form_method()._to_proto().SerializeToString()}
+    except Exception as e:
+        print_library_log(
+            f"failed to package configuration form response: {e}",
+            Logging.Level.SEVERE
+        )
+        sys.exit(1)
 
 
 def load_gitignore(directory_path: str) -> list[str]:
@@ -1211,11 +1247,56 @@ def transform_gitignore_patterns(patterns: list[str], directory_rel_path: str) -
     return transformed
 
 
-def zip_folder(project_path: str) -> str:
+def _collect_zip_contents(zipf, project_path, extra_files, skip_tracker):
+    connector_file_exists = False
+    custom_drivers_exists = False
+    custom_driver_installation_script_exists = False
+    configuration_form_pb_exists = False
+
+    for root, files in dir_walker(project_path, skip_tracker=skip_tracker):
+        if os.path.basename(root) == DRIVERS:
+            custom_drivers_exists = True
+        if INSTALLATION_SCRIPT in files:
+            custom_driver_installation_script_exists = True
+        for file in files:
+            if file == ROOT_FILENAME:
+                connector_file_exists = True
+            file_path = os.path.join(root, file)
+            arcname = os.path.relpath(file_path, project_path)
+            zipf.write(file_path, arcname)
+
+    for arcname, data in (extra_files or {}).items():
+        if arcname == CONFIGURATION_FORM_FILENAME:
+            configuration_form_pb_exists = True
+        zipf.writestr(arcname, data)
+
+    return connector_file_exists, custom_drivers_exists, custom_driver_installation_script_exists, configuration_form_pb_exists
+
+
+def _validate_zip_contents(connector_file_exists, custom_drivers_exists, custom_driver_installation_script_exists, configuration_form_pb_exists):
+    if not connector_file_exists:
+        print_library_log(
+            "connector.py not found in the project root\n      this file is required to start a sync and must be named in lowercase",
+            Logging.Level.SEVERE)
+        sys.exit(1)
+
+    if custom_drivers_exists and not custom_driver_installation_script_exists:
+        print_library_log(INSTALLATION_SCRIPT_MISSING_MESSAGE, Logging.Level.SEVERE)
+        sys.exit(1)
+
+    if not configuration_form_pb_exists:
+        print_library_log(
+            f"{CONFIGURATION_FORM_FILENAME} not found in the package",
+            Logging.Level.SEVERE)
+        sys.exit(1)
+
+
+def zip_folder(project_path: str, extra_files: dict = None) -> str:
     """Zips the folder at the given project path.
 
     Args:
         project_path (str): The path to the project.
+        extra_files (dict): Optional mapping of {arcname: bytes} for in-memory files to include.
 
     Returns:
         str: The path to the zip file.
@@ -1227,33 +1308,13 @@ def zip_folder(project_path: str) -> str:
     upload_filename = f"{project_name}.zip" if project_name else UPLOAD_FILENAME
     upload_filepath = os.path.join(project_path, OUTPUT_FILES_DIR, upload_filename)
     os.makedirs(os.path.dirname(upload_filepath), exist_ok=True)
-    connector_file_exists = False
-    custom_drivers_exists = False
-    custom_driver_installation_script_exists = False
     skip_tracker = {'has_skipped': False}
 
     with ZipFile(upload_filepath, 'w', ZIP_DEFLATED) as zipf:
-        for root, files in dir_walker(project_path, skip_tracker=skip_tracker):
-            if os.path.basename(root) == DRIVERS:
-                custom_drivers_exists = True
-            if INSTALLATION_SCRIPT in files:
-                custom_driver_installation_script_exists = True
-            for file in files:
-                if file == ROOT_FILENAME:
-                    connector_file_exists = True
-                file_path = os.path.join(root, file)
-                arcname = os.path.relpath(file_path, project_path)
-                zipf.write(file_path, arcname)
+        connector_file_exists, custom_drivers_exists, custom_driver_installation_script_exists, configuration_form_pb_exists = \
+            _collect_zip_contents(zipf, project_path, extra_files, skip_tracker)
 
-    if not connector_file_exists:
-        print_library_log(
-            "connector.py not found in the project root\n      this file is required to start a sync and must be named in lowercase",
-            Logging.Level.SEVERE)
-        sys.exit(1)
-
-    if custom_drivers_exists and not custom_driver_installation_script_exists:
-        print_library_log(INSTALLATION_SCRIPT_MISSING_MESSAGE, Logging.Level.SEVERE)
-        sys.exit(1)
+    _validate_zip_contents(connector_file_exists, custom_drivers_exists, custom_driver_installation_script_exists, configuration_form_pb_exists)
 
     if skip_tracker['has_skipped']:
         print_library_log("ignored files based on .gitignore patterns during packaging")
@@ -1665,9 +1726,30 @@ def redact_configuration_values(configuration: dict) -> dict:
     return redacted
 
 
-def _build_tester_command(java_exe_str: str, root_dir: str, working_dir: str, port: int,
-                          state_json: str, configuration_json: str, naming: str = None) -> list:
-    """Builds the command list for running the tester.
+def _build_tester_command(java_exe_str: str, root_dir: str, working_dir: str, port: int) -> list:
+    """Builds the base command list for running the tester.
+
+    Args:
+        java_exe_str (str): The path to the Java executable.
+        root_dir (str): The root directory.
+        working_dir (str): The working directory for test output.
+        port (int): The port number to use for the tester.
+
+    Returns:
+        list: The base command list for subprocess execution.
+    """
+    return [java_exe_str,
+            "-jar",
+            os.path.join(root_dir, TESTER_FILENAME),
+            "--connector-sdk=true",
+            f"--port={port}",
+            f"--working-dir={working_dir}",
+            "--tester-type=source"]
+
+
+def _build_debug_tester_command(java_exe_str: str, root_dir: str, working_dir: str, port: int,
+                                 state_json: str, configuration_json: str, naming: str = None) -> list:
+    """Builds the command list for running the tester in debug mode.
 
     Args:
         java_exe_str (str): The path to the Java executable.
@@ -1681,18 +1763,76 @@ def _build_tester_command(java_exe_str: str, root_dir: str, working_dir: str, po
     Returns:
         list: The command list for subprocess execution.
     """
-    cmd = [java_exe_str,
-           "-jar",
-           os.path.join(root_dir, TESTER_FILENAME),
-           "--connector-sdk=true",
-           f"--port={port}",
-           f"--working-dir={working_dir}",
-           "--tester-type=source",
-           f"--state={state_json}",
-           f"--naming={naming or (FIVETRAN_NAMING_VALUE + UNDERSCORE_NAMING)}",
-           f"--configuration={configuration_json}"]
-
+    cmd = _build_tester_command(java_exe_str, root_dir, working_dir, port)
+    cmd += [f"--state={state_json}",
+            f"--naming={naming or (FIVETRAN_NAMING_VALUE + UNDERSCORE_NAMING)}",
+            f"--configuration={configuration_json}"]
     return cmd
+
+
+def ensure_tester_installed() -> tuple:
+    """Ensures the connector tester is downloaded and up to date.
+
+    Returns:
+        tuple: (java_exe path, tester_root_dir path)
+    """
+    os_arch_suffix = get_os_arch_suffix()
+    tester_root_dir = tester_root_dir_helper()
+    java_exe = java_exe_helper(tester_root_dir, os_arch_suffix)
+    version_file = os.path.join(tester_root_dir, VERSION_FILENAME)
+
+    if _should_install_tester(version_file, tester_root_dir):
+        os.makedirs(tester_root_dir, exist_ok=True)
+        download_filename = f"sdk-connector-tester-{os_arch_suffix}-{TESTER_VERSION}.zip"
+        download_filepath = os.path.join(tester_root_dir, download_filename)
+        _download_tester(download_filename, download_filepath)
+        _extract_tester(download_filepath, tester_root_dir, java_exe)
+
+    return java_exe, tester_root_dir
+
+def _should_install_tester(version_file: str, tester_root_dir: str) -> bool:
+    if not os.path.isfile(version_file):
+        return True
+
+    with open(version_file, 'r', encoding=UTF_8) as fi:
+        current_version = fi.readline()
+    if current_version == TESTER_VERSION:
+        return False
+
+    shutil.rmtree(tester_root_dir)
+    return True
+
+def _download_tester(download_filename: str, download_filepath: str):
+    try:
+        print_library_log(f"downloading connector tester version: {TESTER_VERSION}", log_icon=Logging.LogIcon.STEP)
+        download_url = f"https://github.com/fivetran/fivetran_sdk_tools/releases/download/{TESTER_VERSION}/{download_filename}"
+        with rq.get(download_url, stream=True) as r:
+            if not r.ok:
+                raise RuntimeError(
+                    f"failed to download connector tester error: {r.status_code} url:{download_url}")
+
+            total_size = int(r.headers.get('content-length', 0))
+            with open(download_filepath, 'wb') as fo:
+                with tqdm(total=total_size or None, unit='B', unit_scale=True, desc="downloading tester", leave=False, file=sys.stdout) as pbar:
+                    for chunk in r.iter_content(chunk_size=8192):
+                        if chunk:
+                            fo.write(chunk)
+                            pbar.update(len(chunk))
+    except RuntimeError:
+        raise RuntimeError(
+            f"failed to download connector tester\ntraceback:\n{traceback.format_exc()}")
+
+def _extract_tester(download_filepath: str, tester_root_dir: str, java_exe: str):
+    try:
+        with ZipFile(download_filepath, 'r') as z_object:
+            z_object.extractall(path=tester_root_dir)
+        delete_file_if_exists(download_filepath)
+        st = os.stat(java_exe)
+        os.chmod(java_exe, st.st_mode | stat.S_IEXEC)
+        print_library_log("tester download complete", log_icon=Logging.LogIcon.SUCCESS)
+    except Exception:
+        shutil.rmtree(tester_root_dir)
+        raise RuntimeError(f"failed to download connector tester\ntraceback:\n{traceback.format_exc()}")
 
 
 def run_tester(java_exe_str: str, root_dir: str, project_path: str, port: int, state_json: str, configuration: dict, naming: str = None):
@@ -1716,21 +1856,51 @@ def run_tester(java_exe_str: str, root_dir: str, project_path: str, port: int, s
     except FileExistsError:
         pass
 
-    cmd = _build_tester_command(java_exe_str, root_dir, working_dir, port, state_json, json.dumps(configuration), naming)
-
+    cmd = _build_debug_tester_command(java_exe_str, root_dir, working_dir, port, state_json, json.dumps(configuration), naming)
+    configuration_redacted = redact_configuration_values(configuration)
+    redacted_cmd = _build_debug_tester_command(java_exe_str, root_dir, working_dir, port, state_json, json.dumps(configuration_redacted), naming)
     popen = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding='utf-8')
     for line in process_stream(popen.stderr):
         yield _maybe_colorize_jar_output(line)
-
     for line in process_stream(popen.stdout):
         yield _maybe_colorize_jar_output(line)
     popen.stdout.close()
     return_code = popen.wait()
-    if return_code == 1:
-        # Build redacted command for error reporting
-        configuration_redacted = redact_configuration_values(configuration)
-        redacted_cmd = _build_tester_command(java_exe_str, root_dir, working_dir, port, state_json, json.dumps(configuration_redacted), naming)
+    if return_code != 0:
         raise subprocess.CalledProcessError(return_code, redacted_cmd)
+
+
+def run_configuration_tester(java_exe_str: str, root_dir: str, project_path: str, port: int,
+                              run_tests: bool):
+    """Runs the connector tester in configuration mode.
+
+    Runs the tester with stdin/stdout/stderr inherited from the terminal so that
+    interactive prompts are visible and user input works correctly.
+
+    Args:
+        java_exe_str (str): The path to the Java executable.
+        root_dir (str): The root directory.
+        project_path (str): The path to the project.
+        port (int): The port number to use for the tester.
+        run_tests (bool): If True, run setup tests instead of collecting configuration.
+    """
+    cmd = _build_configuration_tester_command(
+        java_exe_str, root_dir, project_path, port, run_tests
+    )
+    return_code = subprocess.run(cmd).returncode
+    if return_code != 0:
+        raise subprocess.CalledProcessError(return_code, cmd)
+
+
+def _build_configuration_tester_command(java_exe_str: str, root_dir: str, working_dir: str,
+                                         port: int, run_tests: bool) -> list:
+    """Builds the command list for running the tester in configuration mode."""
+    cmd = _build_tester_command(java_exe_str, root_dir, working_dir, port)
+    cmd.append("configuration")
+    if run_tests:
+        cmd.append("--test")
+    return cmd
+
 
 def _maybe_colorize_jar_output(line: str) -> str:
     if not constants.DEBUGGING:

@@ -15,7 +15,8 @@
 """Data structures for the Model Quality Checks results."""
 
 import abc
-from collections.abc import Mapping
+import collections
+from collections.abc import Mapping, Sequence
 import dataclasses
 import enum
 import functools
@@ -876,6 +877,13 @@ PPS_SET = MODEL_LEVEL_SET | frozenset([PriorPosteriorShiftCheckResult])
 ROI_SET = PPS_SET | frozenset([ROIConsistencyCheckResult])
 
 
+_CALIBRATION_CHECK_RESULTS = (
+    ImplausibleROICheckResult,
+    HighVarianceCheckResult,
+    PotentialBiasCheckResult,
+)
+
+
 # ==============================================================================
 # Review Summary
 # ==============================================================================
@@ -888,7 +896,7 @@ class ReviewSummary:
     summary_message: A summary message of all checks.
     results: A list of all check results.
     health_score: The health score of the model.
-  """
+  """  # fmt: skip
 
   overall_status: Status
   summary_message: str
@@ -950,9 +958,10 @@ class ReviewSummary:
   def _gen_model_health_card(self) -> str:
     """Generates the HTML model health card (as sanitized content str)."""
     html_template = self._template_env.get_template("summary.html.jinja")
+    cards = [self._create_health_card_html()]
     return html_template.render(
         title=summary_text.MODEL_HEALTH_CARD_TITLE,
-        cards=[self._create_health_card_html()],
+        cards=cards,
     )
 
   def _create_health_card_html(self) -> str:
@@ -996,8 +1005,8 @@ class ReviewSummary:
     if isinstance(result, PriorPosteriorShiftCheckResult) or isinstance(
         result, ROIConsistencyCheckResult
     ):
-      check_data[constants.TOTAL_CHANNELS] = len(result.channel_results)
-      check_data[constants.PASSED_CHANNELS] = sum(
+      check_data[constants.TOTAL_CHANNELS] = len(result.channel_results)  # pyrefly: ignore[unsupported-operation]
+      check_data[constants.PASSED_CHANNELS] = sum(  # pyrefly: ignore[unsupported-operation]
           1 for r in result.channel_results if r.case.status == Status.PASS
       )
 

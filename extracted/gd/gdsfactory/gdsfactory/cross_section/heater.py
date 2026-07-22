@@ -45,8 +45,6 @@ def strip_heater_metal_undercut(
         sections: cross_section sections.
         kwargs: cross_section settings.
 
-    .. code::
-
               |<-------heater_width--------->|
                ______________________________
               |                              |
@@ -63,15 +61,15 @@ def strip_heater_metal_undercut(
                                                      |              |
                                                      |              |
 
-    .. plot::
-        :include-source:
-
+    Example:
+        ```python
         import gdsfactory as gf
 
         xs = gf.cross_section.strip_heater_metal_undercut(width=0.5, heater_width=2, trench_width=4, trench_gap=4)
         p = gf.path.arc(radius=10, angle=45)
         c = p.extrude(xs)
         c.plot()
+        ```
     """
     trench_offset = trench_gap + trench_width / 2 + width / 2
     section_list: list[Section] = list(sections or [])
@@ -117,15 +115,15 @@ def strip_heater_metal(
         insets: for the heater.
         kwargs: cross_section settings.
 
-    .. plot::
-        :include-source:
-
+    Example:
+        ```python
         import gdsfactory as gf
 
         xs = gf.cross_section.strip_heater_metal(width=0.5, heater_width=2)
         p = gf.path.arc(radius=10, angle=45)
         c = p.extrude(xs)
         c.plot()
+        ```
     """
     section_list: list[Section] = list(sections or [])
     section_list += [
@@ -169,8 +167,6 @@ def strip_heater_doped(
         sections: cross_section sections.
         kwargs: cross_section settings.
 
-    .. code::
-
                                   |<------width------>|
           ____________             ___________________               ______________
          |            |           |     undoped Si    |             |              |
@@ -179,15 +175,15 @@ def strip_heater_doped(
                                                                      <------------>
                                                         heater_gap     heater_width
 
-    .. plot::
-        :include-source:
-
+    Example:
+        ```python
         import gdsfactory as gf
 
         xs = gf.cross_section.strip_heater_doped(width=0.5, heater_width=2, heater_gap=0.5)
         p = gf.path.arc(radius=10, angle=45)
         c = p.extrude(xs)
         c.plot()
+        ```
     """
     heater_offset = width / 2 + heater_gap + heater_width / 2
 
@@ -242,8 +238,6 @@ def rib_heater_doped(
 
     dimensions from https://doi.org/10.1364/OE.27.010456
 
-    .. code::
-
                                     |<------width------>|
                                      ____________________  heater_gap           slab_gap
                                     |                   |<----------->|             <-->
@@ -256,15 +250,15 @@ def rib_heater_doped(
         <------------------------------------------------------------------------------>
                                         slab_width
 
-    .. plot::
-        :include-source:
-
+    Example:
+        ```python
         import gdsfactory as gf
 
         xs = gf.cross_section.rib_heater_doped(width=0.5, heater_width=2, heater_gap=0.5, layer_heater='NPP')
         p = gf.path.arc(radius=10, angle=45)
         c = p.extrude(xs)
         c.plot()
+        ```
     """
     heater_offset = width / 2 + heater_gap + heater_width / 2
 
@@ -352,8 +346,7 @@ def rib_heater_doped_via_stack(
         sections: list of sections to add to the cross_section.
         kwargs: cross_section settings.
 
-    .. code::
-
+    ```text
                                    |<----width------>|
        slab_gap                     __________________ via_stack_gap     via_stack width
        <-->                        |                 |<------------>|<--------------->
@@ -367,16 +360,17 @@ def rib_heater_doped_via_stack(
                                                                     heater_width
        <------------------------------------------------------------------------------>
                                        slab_width
+    ```
 
-    .. plot::
-        :include-source:
-
+    Example:
+        ```python
         import gdsfactory as gf
 
         xs = gf.cross_section.rib_heater_doped_via_stack(width=0.5, heater_width=2, heater_gap=0.5, layer_heater='NPP')
         p = gf.path.arc(radius=10, angle=45)
         c = p.extrude(xs)
         c.plot()
+        ```
     """
     if with_bot_heater and with_top_heater:
         slab_width = width + 2 * heater_gap + 2 * heater_width + 2 * slab_gap

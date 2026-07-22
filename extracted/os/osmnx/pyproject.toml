@@ -1,6 +1,6 @@
 [build-system]
 build-backend = "uv_build"
-requires = ["uv_build"]
+requires = ["uv_build==0.11.*"]
 
 [project]
 authors = [{ name = "Geoff Boeing", email = "boeing@usc.edu" }]
@@ -39,7 +39,7 @@ maintainers = [{ name = "OSMnx contributors" }]
 name = "osmnx"
 readme = "README.md"
 requires-python = ">=3.11" # match classifiers above and mypy version below
-version = "2.1.0"
+version = "2.1.1"
 
 [project.optional-dependencies]
 all = ["osmnx[entropy,neighbors,raster,visualization]"]
@@ -51,7 +51,7 @@ visualization = ["matplotlib>=3.6"]
 [dependency-groups]
 docs = ["furo>=2023", "sphinx>=9", "sphinx-autodoc-typehints>=2"]
 examples = ["folium>=0.12", "jupyterlab>=3.0", "mapclassify>=2.5", "igraph>=0.11"]
-lint = ["pip>=25", "prek>=0.2", "twine>=6", "validate-pyproject[all]>=0.24"]
+lint = ["pip>=25", "prek>=0.2", "twine>=6"]
 test = ["lxml>=6", "pytest>=9", "pytest-cov>=6", "pytest-xdist>=3", "typeguard>=4"]
 
 [project.urls]
@@ -75,7 +75,7 @@ warn_unreachable = true
 checks = ["all", "ES01", "EX01", "GL08", "PR04", "SA01"]
 
 [tool.pytest.ini_options]
-addopts = ["-ra", "--verbose", "--maxfail=1", "--numprocesses=3", "--dist=loadgroup"]
+addopts = ["-ra", "--verbose", "--maxfail=1"]
 cache_dir = "~/.cache/pytest"
 filterwarnings = ["error", "ignore::UserWarning"]
 log_level = "INFO"
@@ -108,7 +108,7 @@ convention = "numpy"
 max-args = 8
 
 [tool.uv]
-required-version = "==0.10.*" # match version in environments/docker/Dockerfile
+required-version = "==0.11.*" # match version above and in Dockerfile
 
 [tool.uv.build-backend]
 module-root = ""

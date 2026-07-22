@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agent-framework-github-copilot
-Version: 1.0.0rc3
+Version: 1.0.0rc4
 Summary: GitHub Copilot integration for Microsoft Agent Framework.
 Author-email: Microsoft <af-support@microsoft.com>
 Requires-Python: >=3.10

@@ -1,6 +1,7 @@
 """Unit tests for GeoIP-based timezone/locale detection."""
 
 from unittest.mock import MagicMock, patch
+import threading
 import time
 
 import pytest
@@ -77,7 +78,7 @@ def test_resolve_geo_raises_when_geoip2_missing():
         from importlib import reload
         import cloakbrowser.geoip as geoip_mod
         reload(geoip_mod)
-        with pytest.raises(ImportError, match="pip install cloakbrowser"):
+        with pytest.raises(ImportError, match=r"pip install 'cloakbrowser\[geoip\]'"):
             geoip_mod.resolve_proxy_geo("http://10.50.96.5:8888")
         # Restore
         reload(geoip_mod)
@@ -233,3 +234,71 @@ def test_private_ip_rfc1918():
 def test_private_ip_public():
     assert _is_private_ip("8.8.8.8") is False
     assert _is_private_ip("64.176.168.43") is False
+
+
+# ---------------------------------------------------------------------------
+# GeoIP DB download: atomic replace + concurrency guard (issue #458)
+# ---------------------------------------------------------------------------
+
+
+def test_download_overwrites_existing_db(tmp_path):
+    """os.replace must overwrite a pre-existing DB (Windows rename would fail)."""
+    from cloakbrowser import geoip
+
+    dest = tmp_path / "GeoLite2-City.mmdb"
+    dest.write_bytes(b"old")
+
+    def fake_stream(*_a, **_k):
+        class _Resp:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+            def raise_for_status(self):
+                pass
+
+            headers = {"content-length": "3"}
+
+            def iter_bytes(self, chunk_size=0):
+                yield b"new"
+
+        return _Resp()
+
+    with patch("httpx.stream", fake_stream):
+        geoip._download_geoip_db(dest)
+
+    assert dest.read_bytes() == b"new"
+
+
+def test_ensure_db_downloads_once_under_concurrency(tmp_path):
+    """Concurrent first-use launches must trigger only one download."""
+    from cloakbrowser import geoip
+
+    dest = tmp_path / "GeoLite2-City.mmdb"
+    calls = []
+    barrier = threading.Barrier(5)
+
+    def fake_download(path):
+        calls.append(path)
+        time.sleep(0.05)  # hold the lock so others queue behind it
+        path.write_bytes(b"db")
+
+    with patch.object(geoip, "_get_geoip_dir", return_value=tmp_path), patch.object(
+        geoip, "_download_geoip_db", side_effect=fake_download
+    ):
+        results = []
+
+        def worker():
+            barrier.wait()
+            results.append(geoip._ensure_geoip_db())
+
+        threads = [threading.Thread(target=worker) for _ in range(5)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+    assert len(calls) == 1  # only one thread actually downloaded
+    assert all(r == dest for r in results)

@@ -35,6 +35,7 @@ def value_to_scpi_string(data, data_type: DataType) -> str:
 		return list_to_csv_str(data)
 	elif data_type == DataType.Boolean:
 		assert type(data) is bool, f"Expected command parameter boolean, actual data type: {type(data)}. Value: {data}"
+		# noinspection PyTypeChecker
 		return value_to_str(data)
 
 	# For integer and float, allow them to be mixed
@@ -61,7 +62,7 @@ class ConverterToScpiString:
 	Provides method get_value(arg_value) -> str
 	"""
 
-	def __init__(self, data_type: DataType, enum_type: Enum = None):
+	def __init__(self, data_type: DataType, enum_type: Enum | None = None):
 		self.enum_type = enum_type
 		self.data_type = data_type
 		self.element_type = self.data_type.element_type

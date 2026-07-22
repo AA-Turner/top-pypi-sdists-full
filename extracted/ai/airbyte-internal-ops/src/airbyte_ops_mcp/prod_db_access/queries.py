@@ -46,6 +46,8 @@ from airbyte_ops_mcp.prod_db_access.sql import (
     SELECT_DESTINATION_VERSION_ACTOR_HEALTH,
     SELECT_FAILED_SYNC_ATTEMPTS_FOR_CONNECTOR,
     SELECT_NEW_CONNECTOR_RELEASES,
+    SELECT_ORG_CONNECTOR_PINS,
+    SELECT_ORG_PIN_STATS,
     SELECT_ORG_WORKSPACES,
     SELECT_ORGANIZATION_AGENTIC_FLAGS,
     SELECT_RAW_PINS_FOR_VERSION,
@@ -1188,5 +1190,73 @@ def query_versions_with_pins(
         SELECT_VERSIONS_WITH_PINS,
         parameters=None,
         query_name="SELECT_VERSIONS_WITH_PINS",
+        gsm_client=gsm_client,
+    )
+
+
+def query_org_pin_stats(
+    organization_id: str,
+    *,
+    connector_definition_id: str | None = None,
+    limit: int = 1000,
+    gsm_client: secretmanager.SecretManagerServiceClient | None = None,
+) -> list[dict[str, Any]]:
+    """Query connector versions pinned anywhere under an organization.
+
+    Aggregates every `connector_version` pin whose scope belongs to the
+    organization — the org itself, one of its workspaces, or an actor within
+    one of those workspaces — into one row per pinned version with the
+    per-scope breakdown (`actor_pins`, `workspace_pins`, `org_pins`),
+    `manual_pins` / `rollout_pins` / `breaking_change_pins`, and a
+    `has_active_rollout` flag.
+
+    Pass `connector_definition_id` to restrict to a single connector. Results
+    are ordered by `pin_count` DESC, then version `created_at` DESC.
+    """
+    return _run_sql_query(
+        SELECT_ORG_PIN_STATS,
+        parameters={
+            "organization_id": organization_id,
+            "connector_definition_id": connector_definition_id,
+            "limit": limit,
+        },
+        query_name="SELECT_ORG_PIN_STATS",
+        gsm_client=gsm_client,
+    )
+
+
+def query_org_connector_pins(
+    organization_id: str,
+    *,
+    connector_definition_id: str | None = None,
+    pinned_version_id: str | None = None,
+    limit: int = 1000,
+    gsm_client: secretmanager.SecretManagerServiceClient | None = None,
+) -> list[dict[str, Any]]:
+    """Return the individual `scoped_configuration` pins under an organization.
+
+    Unlike `query_org_pin_stats` (one aggregate row per version), this returns
+    one row per pin — resolving the pinned connector + version, the scope's
+    display name, the manual author's email, and — for rollout-origin pins —
+    the backing `connector_rollout` id and state.
+
+    Optional filters:
+
+    - `connector_definition_id`: restrict to a single connector definition.
+    - `pinned_version_id`: restrict to pins targeting one version (the
+      post-selection filter for the organization pins tab).
+
+    Filtering by pin origin (manual / rollout / breaking-change) is done by the
+    caller in Python on the returned rows via their `origin_type`, not in SQL.
+    """
+    return _run_sql_query(
+        SELECT_ORG_CONNECTOR_PINS,
+        parameters={
+            "organization_id": organization_id,
+            "connector_definition_id": connector_definition_id,
+            "pinned_version_id": pinned_version_id,
+            "limit": limit,
+        },
+        query_name="SELECT_ORG_CONNECTOR_PINS",
         gsm_client=gsm_client,
     )

@@ -28,17 +28,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['3.10', 3.13]
+        python-version: [3.11, 3.14]
         os: [macOS, Windows]
         include:
-          - python-version: 3.11
-            os: Windows
           - python-version: 3.12
             os: macOS
+          - python-version: 3.13
+            os: Windows
 
     steps:
     - name: Checkout source
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
       with:
         fetch-depth: 150
         fetch-tags: true
@@ -65,13 +65,13 @@ jobs:
     timeout-minutes: 2
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Download coverage artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
 
       - name: Upload coverage
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           name: Conda
           fail_ci_if_error: true

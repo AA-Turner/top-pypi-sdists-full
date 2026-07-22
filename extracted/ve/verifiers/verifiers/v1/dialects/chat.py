@@ -20,6 +20,7 @@ from verifiers.v1.types import (
     Message,
     Messages,
     Response,
+    Sampling,
     SamplingConfig,
     SystemMessage,
     Tool,
@@ -29,6 +30,16 @@ from verifiers.v1.types import (
     UserMessage,
     content_to_parts,
 )
+
+
+class ModdedChatCompletion(ChatCompletion):
+    """The OpenAI SDK closes `service_tier` to a fixed `Literal`, but providers return tiers
+    outside it (e.g. Prime's `provisioned`), which makes `model_validate` reject an otherwise
+    valid completion. Widen the field to a plain string — we don't consume it — so parsing stays
+    lenient about the label instead of dropping it."""
+
+    service_tier: str | None = None
+
 
 FINISH_REASONS = frozenset({"stop", "length", "tool_calls"})
 
@@ -96,6 +107,9 @@ def parse_message(raw: dict) -> Message:
 
 
 def parse_tools(raw: list[dict] | None) -> list[Tool] | None:
+    # `or None` so a tools array with no function entries (e.g. only `custom`/built-in
+    # tools) parses to None, not [] — the same contract as the anthropic/responses
+    # dialects, and what keeps an empty parse from clearing `Trace.tools`.
     if not raw:
         return None
     return [
@@ -107,11 +121,11 @@ def parse_tools(raw: list[dict] | None) -> list[Tool] | None:
         )
         for t in raw
         if t.get("type", "function") == "function"
-    ]
+    ] or None
 
 
 # --- vf -> chat wire ----------------------------------------------------------
-# `message_to_wire` (chat-only): used by `extend` (user-sim turn injection), the default harness
+# `message_to_wire` (chat-only): used by `extend` (user-sim turn injection), the bash harness
 # (a Messages prompt), and the train client (its generate request). The proxy preserves its parsed
 # native JSON independently and does not use this serializer.
 
@@ -258,30 +272,50 @@ class ChatStreamParser(StreamParser):
         if self.reasoning_details:
             self.message["reasoning_details"] = self.reasoning_details
         head = self.head or {}
-        return response_from_wire(
-            ChatCompletion.model_validate(
+        completion = {
+            "id": head.get("id", "vf-intercept"),
+            "object": "chat.completion",
+            "created": head.get("created", int(time.time())),
+            "model": head.get("model", ""),
+            "choices": [
                 {
-                    "id": head.get("id", "vf-intercept"),
-                    "object": "chat.completion",
-                    "created": head.get("created", int(time.time())),
-                    "model": head.get("model", ""),
-                    "choices": [
-                        {
-                            "index": 0,
-                            "message": self.message,
-                            "finish_reason": self.finish_reason or "stop",
-                        }
-                    ],
-                    "usage": self.usage,
+                    "index": 0,
+                    "message": self.message,
+                    "finish_reason": self.finish_reason or "stop",
                 }
-            )
-        )
+            ],
+            "usage": self.usage,
+        }
+        return response_from_wire(ModdedChatCompletion.model_validate(completion))
 
 
 class ChatDialect(Dialect[dict, ChatCompletion]):
+    sampling_fields = frozenset(
+        {
+            "temperature",
+            "top_p",
+            "top_k",
+            "min_p",
+            "max_tokens",
+            "max_completion_tokens",
+            "reasoning_effort",
+            "seed",
+            "stop",
+            "n",
+            "logprobs",
+            "top_logprobs",
+            "logit_bias",
+            "frequency_penalty",
+            "presence_penalty",
+            "repetition_penalty",
+            "response_format",
+            "tool_choice",
+            "parallel_tool_calls",
+        }
+    )
     routes = ("/v1/chat/completions",)
     upstream_path = "/chat/completions"
-    response_type = ChatCompletion
+    response_type = ModdedChatCompletion
 
     def parse_request(self, body: dict) -> tuple[Messages, list[Tool] | None]:
         messages: Messages = []
@@ -297,6 +331,14 @@ class ChatDialect(Dialect[dict, ChatCompletion]):
                 for call in message.tool_calls or []:
                     tool_names[call.id] = call.name
         return messages, parse_tools(body.get("tools"))
+
+    def parse_sampling(self, body: dict) -> Sampling:
+        settings = {k: v for k, v in body.items() if k in self.sampling_fields}
+        # Canonicalize the max-tokens alias; when both ride the wire (an eval override
+        # on top of a harness's `max_completion_tokens`), the override wins.
+        if (mct := settings.pop("max_completion_tokens", None)) is not None:
+            settings.setdefault("max_tokens", mct)
+        return Sampling.model_validate(settings)
 
     def parse_response(self, response: ChatCompletion) -> Response:
         return response_from_wire(response)

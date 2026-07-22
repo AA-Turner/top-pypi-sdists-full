@@ -18,7 +18,10 @@ from typing import Any
 from loguru import logger
 
 from echo_agent.agent.tools.base import Tool, ToolExecutionContext, ToolResult
-from echo_agent.dependencies.lazy_deps import install_authorized
+from echo_agent.dependencies.lazy_deps import (
+    INSTALL_TIMEOUT_SECONDS,
+    install_authorized_async,
+)
 from echo_agent.skills.store import SkillStore, parse_frontmatter
 
 _TIMEOUT = 60
@@ -141,7 +144,7 @@ async def _run_install_specs(specs: list[dict], timeout: int = _TIMEOUT) -> list
             if not pkg or not _SAFE_PIP_PKG.match(pkg):
                 results.append(f"[pip] skipped unsafe package: {pkg}")
                 continue
-            res = install_authorized((pkg,), source=f"tool:skill_install:{pkg}")
+            res = await install_authorized_async((pkg,), source=f"tool:skill_install:{pkg}")
             results.append(f"[pip] {pkg}: {'ok' if res['success'] else res['detail']}")
         elif kind == "brew":
             formula = spec.get("formula", "")
@@ -195,6 +198,12 @@ class SkillInstallTool(Tool):
         },
         "required": ["source", "location"],
     }
+
+    # May run one or more pip installs (each up to INSTALL_TIMEOUT_SECONDS on
+    # the serialized install executor) after fetching the source. Keep the
+    # registry's wait_for ceiling above a single install plus fetch overhead so
+    # a slow install runs to completion instead of being abandoned mid-write.
+    timeout_seconds = INSTALL_TIMEOUT_SECONDS + _TIMEOUT
 
     def __init__(self, store: SkillStore):
         self._store = store

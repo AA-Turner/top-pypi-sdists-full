@@ -23,6 +23,7 @@ import technical.indicators as ti
         (ti.cmf, [], "series", None),
         (ti.ema, [10], "series", None),
         (ti.fibonacci_retracements, [], "series", None),
+        (ti.fibonacci_retracements, ["close", 15], "series", None),
         (ti.hull_moving_average, [10], "series", None),
         (ti.ichimoku, [], "dict", None),
         (ti.laguerre, [], "series", None),
@@ -45,6 +46,7 @@ import technical.indicators as ti
         (ti.vwmacd, [], "df", ["vwmacd", "signal", "hist"]),
         (ti.williams_percent, [], "series", None),
         (ti.supertrend, [], "tuple", None),
+        (ti.rma, [14], "series", None),
     ],
 )
 def test_indicators_generic_interface(

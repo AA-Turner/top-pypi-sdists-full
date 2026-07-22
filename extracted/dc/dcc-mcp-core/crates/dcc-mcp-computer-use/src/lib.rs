@@ -1,9 +1,11 @@
 //! Scoped native computer-use sessions for one DCC application window.
 //!
 //! The crate owns OS input injection, foreground validation, a visible control
-//! banner, and the Ctrl+Alt+Esc stop token. Screenshot encoding remains in
-//! `dcc-mcp-capture`; UI semantics remain in `dcc-mcp-app-ui`.
+//! banner, and the Esc stop token. Screenshot encoding remains in
+//! `dcc-mcp-capture`; UI semantics remain in `dcc-mcp-ui-control`.
 
+mod drag_path;
+mod keyboard_policy;
 mod platform;
 pub mod ui_control_host;
 
@@ -26,6 +28,7 @@ const MAX_SCREENSHOT_PIXELS: f64 = 1_500_000.0;
 const MAX_DRAG_POINTS: usize = 256;
 const MAX_KEY_TOKENS: usize = 16;
 const MAX_TEXT_UTF16_UNITS: usize = 4_096;
+const MAX_GAME_NAVIGATION_HOLD_MS: u64 = 500;
 const CONTROL_THREAD_JOIN_TIMEOUT: Duration = Duration::from_millis(750);
 
 #[cfg(all(test, not(windows)))]
@@ -78,7 +81,8 @@ pub struct ComputerUsePoint {
 /// A single native computer-use action.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ComputerUseAction {
-    /// Action name: move, click, double_click, scroll, drag, type, keypress, or wait.
+    /// Action name: move, click, double_click, scroll, drag, type, keypress,
+    /// game_navigation, or wait.
     pub action: String,
     /// Observation id returned by the most recent screenshot.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -104,10 +108,11 @@ pub struct ComputerUseAction {
     /// Literal Unicode text for the `type` action.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub text: Option<String>,
-    /// Keys or key chords for the `keypress` action.
+    /// Keys or key chords for `keypress`, one W/A/S/D key for
+    /// `game_navigation`, or held modifiers for pointer actions.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub keys: Vec<String>,
-    /// Action duration, or wait time, in milliseconds.
+    /// Action duration, bounded game-navigation hold, or wait time, in milliseconds.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub duration_ms: Option<u64>,
 }
@@ -168,7 +173,7 @@ pub enum ComputerUseErrorCode {
     InvalidTarget,
     /// A new screenshot is required before the action.
     StaleObservation,
-    /// The user pressed the Ctrl+Alt+Esc stop chord.
+    /// The user pressed Esc while UI Control was active.
     UserInterrupted,
     /// The target could not be made the foreground window.
     FocusLost,
@@ -215,6 +220,8 @@ impl ComputerUseError {
 
 /// Result alias for native computer-use operations.
 pub type ComputerUseResult<T> = Result<T, ComputerUseError>;
+
+type PreInputFence<'a> = dyn FnMut() -> ComputerUseResult<()> + 'a;
 
 #[derive(Debug, Clone)]
 struct TargetSpec {
@@ -407,6 +414,53 @@ pub struct ComputerUseSession {
     capturer: Capturer,
 }
 
+#[cfg(any(windows, test))]
+pub(crate) struct ComputerUseRecordingFence {
+    stop_requested: Arc<AtomicBool>,
+    interrupted: Arc<AtomicBool>,
+    desktop_state: Arc<AtomicU64>,
+    target_available: Arc<AtomicBool>,
+    desktop_generation: u64,
+}
+
+#[cfg(any(windows, test))]
+impl ComputerUseRecordingFence {
+    pub(crate) fn check(&self) -> ComputerUseResult<()> {
+        if self.interrupted.load(Ordering::Acquire) || platform::user_interrupted() {
+            return Err(ComputerUseError::new(
+                ComputerUseErrorCode::UserInterrupted,
+                "the user stopped exact-window recording",
+            ));
+        }
+        if self.stop_requested.load(Ordering::Acquire) {
+            return Err(ComputerUseError::new(
+                ComputerUseErrorCode::BackendUnavailable,
+                "the owning UI Control session stopped exact-window recording",
+            ));
+        }
+        if !self.target_available.load(Ordering::Acquire) {
+            return Err(ComputerUseError::new(
+                ComputerUseErrorCode::MissingWindow,
+                "the exact target window closed while recording",
+            ));
+        }
+        let (interactive, generation) = desktop_state_snapshot(&self.desktop_state);
+        if !interactive {
+            return Err(ComputerUseError::new(
+                ComputerUseErrorCode::DesktopUnavailable,
+                "the Windows desktop became unavailable while recording",
+            ));
+        }
+        if generation != self.desktop_generation {
+            return Err(ComputerUseError::new(
+                ComputerUseErrorCode::StaleObservation,
+                "the Windows desktop changed while recording",
+            ));
+        }
+        Ok(())
+    }
+}
+
 impl std::fmt::Debug for ComputerUseSession {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ComputerUseSession")
@@ -447,14 +501,14 @@ impl ComputerUseSession {
             state: Mutex::new(SessionState::default()),
             stop_requested: Arc::new(AtomicBool::new(false)),
             generation: AtomicU64::new(0),
-            // App-UI feedback lives in separate overlay windows. Use a static
+            // UI Control feedback lives in separate overlay windows. Use a static
             // HWND capture so those excluded overlays cannot race an in-flight
             // WGC worker and can never leak into the observation.
             capturer: Capturer::new_window_static(),
         })
     }
 
-    /// Start the visible session banner and Ctrl+Alt+Esc watcher.
+    /// Start the visible session banner and Esc watcher.
     pub fn start(&self) -> ComputerUseResult<Value> {
         let _dpi_awareness = platform::ThreadDpiAwareness::enter()?;
         let mut state = self.lock_state();
@@ -468,7 +522,11 @@ impl ComputerUseSession {
         let target = self.resolve_target()?;
         self.trusted_scope.validate_target(&target)?;
         platform::validate_target_policy(target.handle, target.pid, &target.title)?;
-        platform::prepare_target_window(target.handle)?;
+        // Session ownership and the global Esc watcher must exist before any
+        // capability-bound restore/show/activate transition. A minimized or
+        // hidden exact HWND is therefore allowed to start with its cosmetic
+        // overlay hidden; screenshots still require an available target.
+        platform::prepare_control_session_target(target.handle, target.pid)?;
         let interrupted = Arc::new(AtomicBool::new(false));
         let overlay_visible = Arc::new(AtomicBool::new(false));
         let desktop_state = Arc::new(AtomicU64::new(desktop_state_value(1, true)));
@@ -595,7 +653,30 @@ impl ComputerUseSession {
 
     /// Perform one action against the most recent observation.
     pub fn perform(&self, request: &ComputerUseAction) -> ComputerUseResult<Value> {
+        self.perform_inner(request, None)
+    }
+
+    #[cfg(windows)]
+    fn perform_with_pre_input_fence(
+        &self,
+        request: &ComputerUseAction,
+        pre_input_fence: &mut PreInputFence<'_>,
+    ) -> ComputerUseResult<Value> {
+        self.perform_inner(request, Some(pre_input_fence))
+    }
+
+    fn perform_inner(
+        &self,
+        request: &ComputerUseAction,
+        pre_input_fence: Option<&mut PreInputFence<'_>>,
+    ) -> ComputerUseResult<Value> {
         validate_action_limits(request)?;
+        if request.action == "game_navigation" && pre_input_fence.is_none() {
+            return Err(ComputerUseError::new(
+                ComputerUseErrorCode::InvalidAction,
+                "game_navigation is available only through the scoped UI Control Host",
+            ));
+        }
         let _dpi_awareness = platform::ThreadDpiAwareness::enter()?;
         let mut state = self.lock_state();
         let observation =
@@ -608,6 +689,7 @@ impl ComputerUseSession {
             &self.stop_requested,
             &state.desktop_state,
             &state.desktop_barrier,
+            pre_input_fence,
         );
         action_result?;
         Ok(json!({
@@ -689,6 +771,21 @@ impl ComputerUseSession {
     /// Request a stop without waiting for an in-flight action or state lock.
     pub fn request_stop(&self) {
         self.stop_requested.store(true, Ordering::Release);
+    }
+
+    #[cfg(any(windows, test))]
+    pub(crate) fn recording_fence(&self) -> ComputerUseResult<ComputerUseRecordingFence> {
+        let mut state = self.lock_state();
+        self.ensure_running(&state)?;
+        platform::synchronize_desktop_events(&state.desktop_barrier, &self.stop_requested)?;
+        let desktop_generation = Self::refresh_desktop_state(&mut state)?;
+        Ok(ComputerUseRecordingFence {
+            stop_requested: Arc::clone(&self.stop_requested),
+            interrupted: Arc::clone(&state.interrupted),
+            desktop_state: Arc::clone(&state.desktop_state),
+            target_available: Arc::clone(&state.target_available),
+            desktop_generation,
+        })
     }
 
     /// Stop the session and remove the visible banner.
@@ -773,7 +870,7 @@ impl ComputerUseSession {
             "process_id": state.target.as_ref().map(|target| target.pid),
             "window_title": state.target.as_ref().map(|target| target.title.clone()),
             "hint": format!(
-                "DCC UI Control is controlling {} - press Ctrl+Alt+Esc to stop",
+                "DCC UI Control is controlling {} - press Esc to stop",
                 self.spec.app_name
             ),
         })
@@ -809,7 +906,7 @@ impl ComputerUseSession {
         if state.interrupted.load(Ordering::Acquire) || platform::user_interrupted() {
             return Err(ComputerUseError::new(
                 ComputerUseErrorCode::UserInterrupted,
-                "the user pressed Ctrl+Alt+Esc; no further input was sent",
+                "the user pressed Esc; no further input was sent",
             ));
         }
         if self.stop_requested.load(Ordering::Acquire) {
@@ -912,7 +1009,7 @@ fn check_action_cancellation(stop_requested: &AtomicBool) -> ComputerUseResult<(
     if platform::user_interrupted() {
         return Err(ComputerUseError::new(
             ComputerUseErrorCode::UserInterrupted,
-            "the user pressed Ctrl+Alt+Esc; input was stopped and held keys/buttons were released",
+            "the user pressed Esc; input was stopped and held keys/buttons were released",
         ));
     }
     if stop_requested.load(Ordering::Acquire) {
@@ -976,6 +1073,23 @@ fn validate_action_limits(request: &ComputerUseAction) -> ComputerUseResult<()> 
             format!("keypress exceeds the {MAX_KEY_TOKENS}-key safety limit"),
         ));
     }
+    if request.action == "game_navigation" {
+        if game_navigation_virtual_key(&request.keys).is_none() {
+            return Err(ComputerUseError::new(
+                ComputerUseErrorCode::InvalidAction,
+                "game_navigation requires exactly one unmodified W, A, S, or D key",
+            ));
+        }
+        if request
+            .duration_ms
+            .is_some_and(|duration| duration > MAX_GAME_NAVIGATION_HOLD_MS)
+        {
+            return Err(ComputerUseError::new(
+                ComputerUseErrorCode::InvalidAction,
+                "game_navigation duration_ms exceeds the 500 ms safety limit",
+            ));
+        }
+    }
     if request
         .text
         .as_deref()
@@ -996,6 +1110,19 @@ fn validate_action_limits(request: &ComputerUseAction) -> ComputerUseResult<()> 
         ));
     }
     Ok(())
+}
+
+fn game_navigation_virtual_key(keys: &[String]) -> Option<u16> {
+    let [key] = keys else {
+        return None;
+    };
+    match key.as_bytes() {
+        [b'W' | b'w'] => Some(u16::from(b'W')),
+        [b'A' | b'a'] => Some(u16::from(b'A')),
+        [b'S' | b's'] => Some(u16::from(b'S')),
+        [b'D' | b'd'] => Some(u16::from(b'D')),
+        _ => None,
+    }
 }
 
 fn target_matches(spec: &TargetSpec, info: &WindowInfo) -> bool {

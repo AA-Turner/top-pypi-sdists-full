@@ -137,9 +137,7 @@ class AlexaAPI:
         cached = getattr(login, "_alexa_api_url", None)
         if cached:
             _LOGGER.debug(
-                "%s: Returning cached url: %s",
-                hide_email(login.email),
-                cached
+                "%s: Returning cached url: %s", hide_email(login.email), cached
             )
             return cached
 
@@ -159,9 +157,7 @@ class AlexaAPI:
 
         try:
             resp = await session.get(
-                endpoints_url,
-                headers=local_headers,
-                ssl=login._ssl
+                endpoints_url, headers=local_headers, ssl=login._ssl
             )
             text = await resp.text()
             _LOGGER.debug(
@@ -176,10 +172,7 @@ class AlexaAPI:
             if resp.status == 200:
                 try:
                     data = json.loads(text)
-                    api_url = (
-                         data.get("websiteApiUrl", "")
-                        .rstrip("/")
-                    )
+                    api_url = data.get("websiteApiUrl", "").rstrip("/")
                     if api_url:
                         login._alexa_api_url = api_url
                         _LOGGER.debug(
@@ -191,7 +184,7 @@ class AlexaAPI:
                     else:
                         _LOGGER.debug(
                             "%s: Unable to extract websiteApiUrl from /api/endpoints",
-                            hide_email(login.email)
+                            hide_email(login.email),
                         )
                 except ValueError:
                     _LOGGER.debug(
@@ -516,7 +509,7 @@ class AlexaAPI:
                     for marker in (
                         "Rate exceeded",
                         "ThrottlingException",
-                        "Too many requests"
+                        "Too many requests",
                     )
                 )
                 and not getattr(login, "_rate_retry_inflight", False)
@@ -1496,6 +1489,177 @@ class AlexaAPI:
 
     @staticmethod
     @_catch_all_exceptions
+    async def get_child_mode(
+        login: AlexaLogin, serial: str, device_type: str
+    ) -> bool | None:
+        """Return whether Amazon Kids (child mode) is active for a device.
+
+        Amazon models the Amazon Kids/child state per device as the boolean
+        ``isChildDirectedDevice``.
+
+        Args:
+        login (AlexaLogin): Successfully logged in AlexaLogin
+        serial (str): The device serial number
+        device_type (str): The device type
+
+        Returns:
+        Optional[bool]: True if Amazon Kids is active, False if not,
+            None if the state could not be determined.
+
+        """
+        response = await AlexaAPI._static_request(
+            "get",
+            login,
+            "/api/device/op-mode",
+            query={"deviceType": device_type, "deviceSerialNumber": serial},
+        )
+        value, _valid = await get_json_value(response, "isChildDirectedDevice", bool)
+        return value
+
+    @staticmethod
+    @_catch_all_exceptions
+    async def disable_child_mode(
+        login: AlexaLogin, serial: str, device_type: str
+    ) -> None:
+        """Disable Amazon Kids (child mode) for a device.
+
+        Unassigns the device from any child profile, which turns Amazon Kids
+        off (``isChildDirectedDevice`` becomes False).
+
+        Args:
+        login (AlexaLogin): Successfully logged in AlexaLogin
+        serial (str): The device serial number
+        device_type (str): The device type
+
+        """
+        await AlexaAPI._static_request(
+            "post",
+            login,
+            f"/api/unassign-device-from-child/{serial}/{device_type}",
+        )
+
+    @staticmethod
+    def _parent_dashboard_subdomain(login: AlexaLogin) -> str:
+        """Return the region subdomain of the Amazon Kids parent dashboard.
+
+        Amazon serves the parental-controls dashboard from a localized
+        subdomain (e.g. ``eltern.amazon.de`` in Germany, ``parents.amazon.com``
+        elsewhere).
+        """
+        return {"amazon.de": "eltern"}.get(login.url, "parents")
+
+    @staticmethod
+    @_catch_all_exceptions
+    async def get_child_profiles(login: AlexaLogin) -> list[dict[str, Any]] | None:
+        """Return the child profiles of the Amazon household.
+
+        Each entry contains at least ``firstName``, ``age`` and ``directedId``;
+        the ``directedId`` is required to enable Amazon Kids on a device.
+
+        Args:
+        login (AlexaLogin): Successfully logged in AlexaLogin
+
+        Returns:
+        Optional[list[dict]]: The CHILD household members, or None on error.
+
+        """
+        response = await AlexaAPI._static_request(
+            "get",
+            login,
+            "/ajax/get-household-with-age",
+            sub_domain=AlexaAPI._parent_dashboard_subdomain(login),
+        )
+        members, valid = await get_json_value(response, "members", list)
+        if not valid or not members:
+            return []
+        return [member for member in members if member.get("role") == "CHILD"]
+
+    @staticmethod
+    @_catch_all_exceptions
+    async def get_device_child(
+        login: AlexaLogin, serial: str, device_type: str
+    ) -> str | None:
+        """Return the directedId of the child a device is assigned to.
+
+        Args:
+        login (AlexaLogin): Successfully logged in AlexaLogin
+        serial (str): The device serial number
+        device_type (str): The device type
+
+        Returns:
+        Optional[str]: The child directedId, or None if unassigned/unknown.
+
+        """
+        response = await AlexaAPI._static_request(
+            "get",
+            login,
+            "/ajax/get-oobe-device-data",
+            query={"deviceId": serial, "deviceTypeId": device_type},
+            sub_domain=AlexaAPI._parent_dashboard_subdomain(login),
+        )
+        value, _valid = await get_json_value(response, "childDirectedId", str)
+        return value or None
+
+    @staticmethod
+    @_catch_all_exceptions
+    async def enable_child_mode(
+        login: AlexaLogin, serial: str, device_type: str, child_directed_id: str
+    ) -> None:
+        """Enable Amazon Kids by assigning a device to a child profile.
+
+        The parent dashboard uses its own CSRF token (``ft-panda-csrf-token``),
+        which is seeded by loading the device onboarding page first; the token
+        is then echoed back in the ``x-amzn-csrf`` header.
+
+        Args:
+        login (AlexaLogin): Successfully logged in AlexaLogin
+        serial (str): The device serial number
+        device_type (str): The device type
+        child_directed_id (str): directedId of the child (see get_child_profiles)
+
+        """
+        sub_domain = AlexaAPI._parent_dashboard_subdomain(login)
+        # Seed the parent-dashboard CSRF cookie (ft-panda-csrf-token).
+        await AlexaAPI._static_request(
+            "get",
+            login,
+            f"/oobe/brownie/start/{device_type}/{serial}",
+            sub_domain=sub_domain,
+        )
+        additional_headers = {
+            "Referer": (
+                f"https://{sub_domain}.{login.url}"
+                f"/oobe/brownie/start/{device_type}/{serial}"
+            ),
+            "Origin": f"https://{sub_domain}.{login.url}",
+        }
+        try:
+            # The ft-panda-csrf-token cookie is scoped to the parent-dashboard
+            # host, so it must be read for that host (not the default one).
+            additional_headers["x-amzn-csrf"] = login._get_cookies_from_session(
+                f"{sub_domain}.{login.url}"
+            )["ft-panda-csrf-token"].value
+        except (KeyError, AttributeError):
+            _LOGGER.debug(
+                "%s: ft-panda-csrf-token not found after bootstrap; "
+                "assign may be rejected",
+                hide_email(login.email),
+            )
+        await AlexaAPI._static_request(
+            "post",
+            login,
+            "/ajax/assign-device-to-child",
+            data={
+                "deviceId": serial,
+                "deviceTypeId": device_type,
+                "childDirectedId": child_directed_id,
+            },
+            additional_headers=additional_headers,
+            sub_domain=sub_domain,
+        )
+
+    @staticmethod
+    @_catch_all_exceptions
     async def get_wake_words(login: AlexaLogin) -> list[dict[str, Any]] | None:
         """Get the wake words for the devices."""
         response = await AlexaAPI._static_request(
@@ -1633,9 +1797,7 @@ class AlexaAPI:
 
             record_key = (record.get("recordKey") or "").split("#")
             o["deviceType"] = (
-                record_key[2]
-                if len(record_key) > 2 and record_key[2]
-                else None
+                record_key[2] if len(record_key) > 2 and record_key[2] else None
             )
             o["creationTimestamp"] = record.get("timestamp")
             o["deviceSerialNumber"] = record_key[3] if len(record_key) > 3 else None
@@ -2072,8 +2234,10 @@ class AlexaAPI:
         # 🔹 Use discovered base instead of hard-coded NA
         api_base = await AlexaAPI._get_alexa_api_base(login)
         ts = int(time.time() * 1000)
-        url = URL(api_base).with_path("/api/notifications").update_query(
-            {"cached": "true", "_": str(ts)}
+        url = (
+            URL(api_base)
+            .with_path("/api/notifications")
+            .update_query({"cached": "true", "_": str(ts)})
         )
 
         headers = AlexaAPI._build_notifications_headers(login)

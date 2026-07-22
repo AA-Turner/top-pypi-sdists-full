@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-env
-Version: 1.6.0
+Version: 1.7.0
 Summary: pytest plugin that allows you to add environment variables.
 Project-URL: Homepage, https://github.com/pytest-dev/pytest-env
 Project-URL: Source, https://github.com/pytest-dev/pytest-env
@@ -40,16 +40,13 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
 Requires-Dist: pytest>=9.0.2
 Requires-Dist: python-dotenv>=1.2.2
 Requires-Dist: tomli>=2.4; python_version < '3.11'
-Provides-Extra: testing
-Requires-Dist: covdefaults>=2.3; extra == 'testing'
-Requires-Dist: coverage>=7.13.4; extra == 'testing'
-Requires-Dist: pytest-mock>=3.15.1; extra == 'testing'
 Description-Content-Type: text/markdown
 
 # pytest-env

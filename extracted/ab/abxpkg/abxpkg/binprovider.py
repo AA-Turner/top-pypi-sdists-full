@@ -6,7 +6,7 @@ import sys
 import pwd
 import json
 import inspect
-import shutil
+import shlex
 import stat
 import hashlib
 import platform
@@ -14,6 +14,9 @@ import subprocess
 import signal
 import functools
 import tempfile
+import threading
+import fcntl
+from contextlib import contextmanager
 from contextvars import ContextVar
 
 from typing import (
@@ -123,6 +126,30 @@ ACTIVE_EXEC_LOG_PREFIX: ContextVar[str | None] = ContextVar(
     "abxpkg_active_exec_log_prefix",
     default=None,
 )
+MUTATION_LOCK_CONTENDED: ContextVar[bool] = ContextVar(
+    "abxpkg_mutation_lock_contended",
+    default=False,
+)
+ENV_PROJECTED_VERSION_PATH: ContextVar[Path | None] = ContextVar(
+    "abxpkg_env_projected_version_path",
+    default=None,
+)
+_MUTATION_LOCK_STATE = threading.local()
+
+
+def mutation_locked(method):
+    """Serialize one provider root's complete mutation lifecycle."""
+
+    @functools.wraps(method)
+    def locked(self, *args, **kwargs):
+        with self.mutation_lock() as contended:
+            contention_token = MUTATION_LOCK_CONTENDED.set(contended)
+            try:
+                return method(self, *args, **kwargs)
+            finally:
+                MUTATION_LOCK_CONTENDED.reset(contention_token)
+
+    return locked
 
 
 def env_flag_is_true(name: str) -> bool:
@@ -192,7 +219,6 @@ def binprovider_cache(binprovider_method):
                 else:
                     return cached_value
             else:
-                # print('USING CACHED VALUE:', f'{self.__class__.__name__}.{method_name}({bin_name}, {kwargs}) -> {method_cache[bin_name]}')
                 return cached_value
 
         return_value = binprovider_method(self, bin_name, **kwargs)
@@ -378,7 +404,6 @@ class ShallowBinary(BaseModel):
                 return url
         return None
 
-    # @validate_call
     @log_method_call(include_result=True)
     def exec(
         self,
@@ -388,8 +413,16 @@ class ShallowBinary(BaseModel):
         quiet=False,
         **kwargs,
     ) -> subprocess.CompletedProcess:
+        execute_loaded_binary = (
+            bin_name is None
+            or str(bin_name) == self.name
+            or (
+                self.loaded_abspath is not None
+                and Path(str(bin_name)).expanduser() == self.loaded_abspath
+            )
+        )
         bin_name = str(bin_name or self.loaded_abspath or self.name)
-        if bin_name == self.name:
+        if execute_loaded_binary:
             assert self.loaded_abspath, (
                 "Binary must have a loaded_abspath, make sure to load() or install() first"
             )
@@ -399,6 +432,14 @@ class ShallowBinary(BaseModel):
         assert os.path.isdir(cwd) and os.access(cwd, os.R_OK), (
             f"cwd must be a valid, accessible directory: {cwd}"
         )
+        if (
+            execute_loaded_binary
+            and self.loaded_binprovider is not None
+            and self.loaded_abspath is not None
+        ):
+            bin_name = str(
+                self.loaded_binprovider._exec_bin_abspath(Path(self.loaded_abspath)),
+            )
         cmd = [str(bin_name), *(str(arg) for arg in cmd)]
         logger.debug("Executing binary command: %s", format_command(cmd))
         kwargs.setdefault("capture_output", True)
@@ -443,6 +484,7 @@ class BinProvider(BaseModel):
     )  # e.g.  '/opt/homebrew/bin:/opt/archivebox/bin'
     INSTALLER_BIN: BinName = "env"
     INSTALLER_BINPROVIDERS: ClassVar[tuple[BinProviderName, ...] | None] = None
+    EXEC_ONLY_ENV_KEYS: ClassVar[frozenset[str]] = frozenset()
 
     euid: int | None = None
     install_root: Path | None = None
@@ -522,12 +564,72 @@ class BinProvider(BaseModel):
         *,
         base_env: Mapping[str, str] | None = None,
         extra_env: Mapping[str, str] | None = None,
+        include_exec_only_env: bool = True,
     ) -> dict[str, str]:
         return build_exec_env(
             providers=providers,
             base_env=base_env,
             extra_env=extra_env,
+            include_exec_only_env=include_exec_only_env,
         )
+
+    def mutation_lock_path(self) -> Path | None:
+        """Return the process-shared lock protecting this managed install root."""
+        if self.install_root is None:
+            return None
+        resource = str(self.install_root.expanduser().resolve(strict=False))
+        lock_name = hashlib.sha256(resource.encode()).hexdigest()
+        return Path("/tmp/abxpkg-mutation-locks") / f"{lock_name}.lock"
+
+    @contextmanager
+    def mutation_lock(self):
+        """Lock install/update/uninstall across instances, threads, and processes."""
+        lock_path = self.mutation_lock_path()
+        if lock_path is None or self.dry_run:
+            yield False
+            return
+
+        lock_path.parent.mkdir(parents=True, exist_ok=True, mode=0o1777)
+        try:
+            lock_path.parent.chmod(0o1777)
+        except PermissionError:
+            pass
+        process_id = os.getpid()
+        state_pid = getattr(_MUTATION_LOCK_STATE, "pid", None)
+        if state_pid != process_id:
+            _MUTATION_LOCK_STATE.pid = process_id
+            _MUTATION_LOCK_STATE.held = {}
+        held = _MUTATION_LOCK_STATE.held
+        lock_key = str(lock_path)
+        if lock_key in held:
+            lock_file, depth = held[lock_key]
+            held[lock_key] = (lock_file, depth + 1)
+            try:
+                yield MUTATION_LOCK_CONTENDED.get()
+            finally:
+                lock_file, depth = held[lock_key]
+                held[lock_key] = (lock_file, depth - 1)
+            return
+
+        lock_fd = os.open(
+            lock_path,
+            os.O_RDONLY | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0),
+            0o666,
+        )
+        lock_file = os.fdopen(lock_fd)
+        contended = False
+        try:
+            fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            contended = True
+            fcntl.flock(lock_file, fcntl.LOCK_EX)
+        held[lock_key] = (lock_file, 1)
+        try:
+            yield contended
+        finally:
+            held.pop(lock_key, None)
+            fcntl.flock(lock_file, fcntl.LOCK_UN)
+            lock_file.close()
 
     @staticmethod
     def _provider_identity(provider: "BinProvider") -> tuple[str, str, str]:
@@ -754,6 +856,7 @@ class BinProvider(BaseModel):
         return fingerprints
 
     @log_method_call(include_result=True)
+    @mutation_locked
     def load_cached_binary(
         self,
         bin_name: BinName,
@@ -761,12 +864,16 @@ class BinProvider(BaseModel):
         cache: dict[str, dict[str, object]] | None = None,
         cache_context: str | None = None,
         cache_context_hash: str | None = None,
+        setup_path: bool = True,
     ) -> ShallowBinary | None:
         # Cache context includes lazily-derived provider fields like PATH.
         # Direct cache readers (list/version/installer discovery) do not pass
         # through load(), so normalize the provider before comparing context or
-        # every valid record looks stale in a fresh process.
-        self.setup_PATH()
+        # every valid record looks stale in a fresh process. Installer discovery
+        # skips setup here because setup may itself need the installer binary;
+        # its cache context is derived from the current pre-setup provider state.
+        if setup_path:
+            self.setup_PATH()
         derived_env_path = self.derived_env_path
         if derived_env_path is None:
             return None
@@ -779,7 +886,7 @@ class BinProvider(BaseModel):
         if fingerprints is None:
             return None
 
-        cache = cache if cache is not None else load_derived_cache(derived_env_path)
+        cache = load_derived_cache(derived_env_path)
         cache_context = (
             cache_context
             if cache_context is not None
@@ -987,6 +1094,7 @@ class BinProvider(BaseModel):
         return None
 
     @log_method_call()
+    @mutation_locked
     def write_cached_binary(
         self,
         bin_name: BinName,
@@ -1205,6 +1313,8 @@ class BinProvider(BaseModel):
                 loaded = self.load_cached_binary(
                     self.INSTALLER_BIN,
                     Path(cached_abspath),
+                    cache=cache,
+                    setup_path=False,
                 )
                 if loaded and loaded.loaded_abspath:
                     self._INSTALLER_BINARY = loaded
@@ -1361,13 +1471,9 @@ class BinProvider(BaseModel):
                 and os.access(manual_path, os.X_OK)
             ):
                 return True
-        return bool(
-            bin_abspath(self.INSTALLER_BIN, PATH=self.PATH)
-            or bin_abspath(self.INSTALLER_BIN),
-        )
+        return bool(bin_abspath(self.INSTALLER_BIN, PATH=self.PATH))
 
     @final
-    # @validate_call(config={'arbitrary_types_allowed': True})
     @log_method_call()
     def get_provider_with_overrides(
         self,
@@ -1395,14 +1501,6 @@ class BinProvider(BaseModel):
             self.version_timeout if version_timeout is None else version_timeout
         )
 
-        # overrides = {
-        #     'wget': {
-        #         'install_args': lambda: ['wget'],
-        #         'abspath': lambda: shutil.which('wget'),
-        #         'version': lambda: SemVer.parse(os.system('wget --version')),
-        #         'install': lambda: os.system('brew install wget'),
-        #     },
-        # }
         cache_must_reset = False
         for binname, bin_overrides in overrides.items():
             provider_field_overrides: dict[str, Any] = {}
@@ -1412,6 +1510,16 @@ class BinProvider(BaseModel):
                     provider_field_overrides[key] = value
                 else:
                     handler_overrides[key] = value
+
+            if (
+                "install_root" in provider_field_overrides
+                and "bin_dir" not in provider_field_overrides
+            ):
+                # Provider instances have already derived bin_dir from their
+                # default install_root. Re-run that derivation for a
+                # binary-specific root instead of carrying the stale path into
+                # the validated copy.
+                provider_field_overrides["bin_dir"] = None
 
             if provider_field_overrides:
                 updated_binprovider = type(self).model_validate(
@@ -1454,7 +1562,6 @@ class BinProvider(BaseModel):
 
         return updated_binprovider
 
-    # @validate_call
     @log_method_call(include_result=True)
     def _get_handler_keys(
         self,
@@ -1486,7 +1593,6 @@ class BinProvider(BaseModel):
                     break
             if handler:
                 break
-        # print('getting handler for action', bin_name, handler_type, handler_func)
         assert handler, (
             f"🚫 BinProvider(name={self.name}) has no {handler_type} handler implemented for Binary(name={bin_name})"
         )
@@ -1514,7 +1620,6 @@ class BinProvider(BaseModel):
 
         return literal_handler
 
-    # @validate_call
     @log_method_call(include_result=True)
     def _get_compatible_kwargs(
         self,
@@ -1546,12 +1651,6 @@ class BinProvider(BaseModel):
             handler_type=handler_type,  # e.g. abspath, version, install_args, install
         )
 
-        # def timeout_handler(signum, frame):
-        # raise TimeoutError(f'{self.__class__.__name__} Timeout while running {handler_type} for Binary {bin_name}')
-
-        # signal ONLY WORKS IN MAIN THREAD, not a viable solution for timeout enforcement! breaks in prod
-        # signal.signal(signal.SIGALRM, handler=timeout_handler)
-        # signal.alarm(timeout)
         try:
             if not func_takes_args_or_kwargs(handler_func):
                 # if it's a pure argless lambda/func, dont pass bin_path and other **kwargs
@@ -1570,22 +1669,20 @@ class BinProvider(BaseModel):
                 return handler_func(self, bin_name, **compatible_kwargs)
         except TimeoutError:
             raise
-        # finally:
-        #     signal.alarm(0)
 
     # DEFAULT HANDLERS, override these in subclasses as needed:
 
-    # @validate_call
     def default_abspath_handler(
         self,
         bin_name: BinName | HostBinPath,
         no_cache: bool = False,
         **context,
     ) -> "AbspathFuncReturnValue":  # aka str | Path | None
-        # If asked for the installer binary itself, resolve directly via
-        # bin_abspath (NOT via INSTALLER_BINARY, which would recurse back here).
+        # Installer dependencies are resolved by the provider's declared
+        # abxpkg chain, including EnvProvider host projection.
         if str(bin_name) == self.INSTALLER_BIN:
-            return bin_abspath(bin_name, PATH=self.PATH) or bin_abspath(bin_name)
+            installer = self.INSTALLER_BINARY(no_cache=no_cache)
+            return installer.loaded_abspath
 
         if not self.PATH:
             return None
@@ -1599,7 +1696,6 @@ class BinProvider(BaseModel):
 
         return bin_abspath(bin_name, PATH=self.PATH)
 
-    # @validate_call
     def default_version_handler(
         self,
         bin_name: BinName,
@@ -1614,17 +1710,13 @@ class BinProvider(BaseModel):
             timeout=timeout,
         )
 
-    # @validate_call
     def default_install_args_handler(
         self,
         bin_name: BinName,
         **context,
     ) -> "InstallArgsFuncReturnValue":  # aka List[str] aka InstallArgs
-        # print(f'[*] {self.__class__.__name__}: Getting install command for {bin_name}')
-        # ... install command calculation logic here
         return [bin_name]
 
-    # @validate_call
     def default_docs_url_handler(
         self,
         bin_name: BinName,
@@ -1687,7 +1779,6 @@ class BinProvider(BaseModel):
     ) -> "InstallArgsFuncReturnValue":
         return self.default_install_args_handler(bin_name, **context)
 
-    # @validate_call
     @remap_kwargs({"packages": "install_args"})
     def default_install_handler(
         self,
@@ -1708,19 +1799,8 @@ class BinProvider(BaseModel):
         install_args = install_args or self.get_install_args(bin_name)
         self.INSTALLER_BINARY(no_cache=no_cache)
 
-        # print(f'[*] {self.__class__.__name__}: Installing {bin_name}: {install_args}')
-
-        # ... override the default install logic here ...
-
-        # installer_binary = self.INSTALLER_BINARY(no_cache=no_cache); assert installer_binary; proc = self.exec(bin_name=installer_binary.loaded_abspath, cmd=['install', *install_args], timeout=self.install_timeout)
-        # if not proc.returncode == 0:
-        #     print(proc.stdout.strip())
-        #     print(proc.stderr.strip())
-        #     raise Exception(f'{self.name} Failed to install {bin_name}: {proc.stderr.strip()}\n{proc.stdout.strip()}')
-
         return f"🚫 {self.name} BinProvider does not implement any .install() method"
 
-    # @validate_call
     @remap_kwargs({"packages": "install_args"})
     def default_update_handler(
         self,
@@ -1735,7 +1815,6 @@ class BinProvider(BaseModel):
         self.INSTALLER_BINARY(no_cache=no_cache)
         return f"🚫 {self.name} BinProvider does not implement any .update() method"
 
-    # @validate_call
     @remap_kwargs({"packages": "install_args"})
     def default_uninstall_handler(
         self,
@@ -1761,6 +1840,7 @@ class BinProvider(BaseModel):
         """Default search handler. Providers without a real search backend return []."""
         return []
 
+    @mutation_locked
     @log_method_call()
     def invalidate_cache(self, bin_name: BinName) -> None:
         if self._cache:
@@ -2130,7 +2210,9 @@ class BinProvider(BaseModel):
     def _exec_bin_abspath(self, bin_abspath: Path) -> Path:
         return bin_abspath
 
-    # @validate_call
+    def _is_managed_by_other_provider(self, abspath: HostBinPath | Path) -> bool:
+        return False
+
     def exec(
         self,
         bin_name: BinName | HostBinPath,
@@ -2148,7 +2230,7 @@ class BinProvider(BaseModel):
         ):
             bin_abspath = explicit_abspath
         else:
-            bin_abspath = self.get_abspath(str(bin_name)) or shutil.which(str(bin_name))
+            bin_abspath = self.get_abspath(str(bin_name))
         assert bin_abspath, (
             f"❌ BinProvider {self.name} cannot execute bin_name {bin_name} because it could not find its abspath. (Did {self.__class__.__name__}.install({bin_name}) fail?)"
         )
@@ -2293,8 +2375,9 @@ class BinProvider(BaseModel):
 
         sudo_failure_output = None
         if current_euid != 0 and run_as_uid != current_euid:
-            sudo_abspath = shutil.which("sudo", path=sudo_env["PATH"]) or shutil.which(
-                "sudo",
+            sudo = EnvProvider().load("sudo", no_cache=True)
+            sudo_abspath = (
+                str(sudo.loaded_abspath) if sudo and sudo.loaded_abspath else None
             )
             if sudo_abspath:
                 sudo_cmd = [sudo_abspath, "-n"]
@@ -2352,7 +2435,6 @@ class BinProvider(BaseModel):
 
     @final
     @binprovider_cache
-    # @validate_call
     @log_method_call(include_result=True)
     def get_abspaths(
         self,
@@ -2373,7 +2455,6 @@ class BinProvider(BaseModel):
 
     @final
     @binprovider_cache
-    # @validate_call
     @log_method_call(include_result=True)
     def get_sha256(
         self,
@@ -2395,7 +2476,6 @@ class BinProvider(BaseModel):
 
     @final
     @binprovider_cache
-    # @validate_call
     @log_method_call(include_result=True)
     def get_abspath(
         self,
@@ -2415,12 +2495,6 @@ class BinProvider(BaseModel):
                 ),
             )
         except Exception:
-            # logger.warning(
-            #     "Provider %s failed to resolve abspath for %s: %s",
-            #     self.name,
-            #     bin_name,
-            #     err,
-            # )
             if not quiet:
                 raise
         if not abspath:
@@ -2430,7 +2504,6 @@ class BinProvider(BaseModel):
 
     @final
     @binprovider_cache
-    # @validate_call
     @log_method_call(include_result=True)
     def get_version(
         self,
@@ -2492,7 +2565,6 @@ class BinProvider(BaseModel):
 
     @final
     @binprovider_cache
-    # @validate_call
     @log_method_call(include_result=True)
     def get_install_args(
         self,
@@ -2510,12 +2582,6 @@ class BinProvider(BaseModel):
                 ),
             )
         except Exception:
-            # logger.warning(
-            #     "Provider %s failed to resolve install args for %s: %s",
-            #     self.name,
-            #     bin_name,
-            #     err,
-            # )
             if not quiet:
                 raise
 
@@ -2594,6 +2660,7 @@ class BinProvider(BaseModel):
             )
 
     @final
+    @mutation_locked
     @log_method_call(include_result=True)
     @validate_call
     def install(
@@ -2660,9 +2727,13 @@ class BinProvider(BaseModel):
             )
             postinstall_scripts = True
         installed: ShallowBinary | None = None
-        if not no_cache and not self.dry_run:
+        if (not no_cache or MUTATION_LOCK_CONTENDED.get()) and not self.dry_run:
             try:
-                installed = self.load(bin_name=bin_name, quiet=True, no_cache=False)
+                installed = self.load(
+                    bin_name=bin_name,
+                    quiet=True,
+                    no_cache=no_cache,
+                )
             except Exception:
                 installed = None
             if installed is not None and (
@@ -2857,6 +2928,7 @@ class BinProvider(BaseModel):
         return result
 
     @final
+    @mutation_locked
     @log_method_call(include_result=True)
     @validate_call
     def update(
@@ -2997,6 +3069,7 @@ class BinProvider(BaseModel):
         return result
 
     @final
+    @mutation_locked
     @log_method_call(include_result=True)
     @validate_call
     def uninstall(
@@ -3332,7 +3405,6 @@ class EnvProvider(BinProvider):
         if self.bin_dir is None and self.install_root is not None:
             self.bin_dir = self.install_root / "bin"
         if self.bin_dir is not None:
-            self.bin_dir.mkdir(parents=True, exist_ok=True)
             self.PATH = self._merge_PATH(
                 self.bin_dir,
                 PATH=self.PATH,
@@ -3418,9 +3490,17 @@ class EnvProvider(BinProvider):
             and source_path.is_symlink()
         ):
             return TypeAdapter(HostBinPath).validate_python(source_path)
-        target = source_path
         if self.bin_dir is None:
-            return TypeAdapter(HostBinPath).validate_python(target)
+            return TypeAdapter(HostBinPath).validate_python(source_path)
+        self.bin_dir.mkdir(parents=True, exist_ok=True)
+        # A caller may create a fresh lib root while an earlier abxpkg
+        # ``env/bin`` projection is first on PATH (notably the isolated CLI
+        # tests in CI). Do not stack projections: EnvProvider executes one
+        # managed link hop so host launchers retain their original argv[0],
+        # and a second env/bin hop would become argv[0] instead. Preserve the
+        # final host/package-manager symlink; only peel abxpkg env/bin links.
+        source_path = self._host_projection_target(source_path)
+        target = self._pnpm_launcher_target(source_path) or source_path
 
         link_name = Path(str(bin_name)).name
         if not link_name or link_name in {".", ".."} or "/" in str(bin_name):
@@ -3466,6 +3546,74 @@ class EnvProvider(BinProvider):
                 temp_link.unlink()
         return TypeAdapter(HostBinPath).validate_python(link_path)
 
+    @staticmethod
+    def _host_projection_target(source_path: Path) -> Path:
+        seen_projection_paths: set[Path] = set()
+        while (
+            source_path.is_symlink()
+            and source_path.parent.name == "bin"
+            and source_path.parent.parent.name == "env"
+            and source_path not in seen_projection_paths
+        ):
+            seen_projection_paths.add(source_path)
+            projected_target = source_path.readlink()
+            source_path = (
+                projected_target
+                if projected_target.is_absolute()
+                else source_path.parent / projected_target
+            ).absolute()
+        return source_path
+
+    @staticmethod
+    def _pnpm_launcher_target(source_path: Path) -> Path | None:
+        """Resolve a pnpm shell shim to the executable package script it wraps.
+
+        pnpm's generated ``node_modules/.bin`` launchers locate their package
+        relative to ``$0``. A stable EnvProvider symlink changes ``$0`` to
+        ``ABXPKG_LIB_DIR/env/bin/<name>``, which incorrectly redirects the
+        launcher into a nonexistent ``env/.pnpm`` tree. Projecting the verified
+        package script itself preserves the env/bin symlink contract without
+        copying or relocating pnpm's runtime tree.
+        """
+        launcher_path = source_path.resolve(strict=False)
+        try:
+            with launcher_path.open("rb") as launcher_file:
+                launcher_bytes = launcher_file.read(64 * 1024)
+        except OSError:
+            return None
+        if not launcher_bytes.startswith(b"#!/bin/sh"):
+            return None
+        try:
+            launcher_text = launcher_bytes.decode("utf-8")
+        except UnicodeError:
+            return None
+
+        relative_prefix = "$basedir/../.pnpm/"
+        for line in reversed(launcher_text.splitlines()):
+            if relative_prefix not in line:
+                continue
+            try:
+                tokens = shlex.split(line)
+            except ValueError:
+                continue
+            for token in tokens:
+                if not token.startswith(relative_prefix):
+                    continue
+                relative_target = token.removeprefix("$basedir/")
+                package_store = (launcher_path.parent.parent / ".pnpm").resolve(
+                    strict=False,
+                )
+                target = (launcher_path.parent / relative_target).resolve(
+                    strict=False,
+                )
+                if (
+                    target.is_relative_to(package_store)
+                    and target.is_file()
+                    and os.access(target, os.X_OK)
+                ):
+                    return target
+        return None
+
     def _exec_bin_abspath(self, bin_abspath: Path) -> Path:
         # EnvProvider exposes stable managed links under ABXPKG_LIB_DIR/env/bin so
         # PATHs and cached Binary metadata stay portable. Executing those links
@@ -3474,10 +3622,44 @@ class EnvProvider(BinProvider):
         # Dereference only the managed link itself: run the binary EnvProvider
         # discovered, but do not chase any further symlink chain owned by the OS
         # or package manager.
-        if not bin_abspath.is_symlink():
+        projected_version_path = ENV_PROJECTED_VERSION_PATH.get()
+        if (
+            projected_version_path is not None
+            and bin_abspath.absolute() == projected_version_path
+        ):
+            return bin_abspath
+        if (
+            self.bin_dir is None
+            or bin_abspath.parent != self.bin_dir
+            or not bin_abspath.is_symlink()
+        ):
             return bin_abspath
         linked_to = bin_abspath.readlink()
         return linked_to if linked_to.is_absolute() else bin_abspath.parent / linked_to
+
+    def _get_projected_version(
+        self,
+        bin_name: BinName,
+        projected_abspath: HostBinPath,
+    ) -> SemVer | None:
+        if str(bin_name) == "brew":
+            return self.get_version(
+                bin_name,
+                abspath=projected_abspath,
+                quiet=True,
+                no_cache=True,
+            )
+        projected_path = Path(projected_abspath).absolute()
+        token = ENV_PROJECTED_VERSION_PATH.set(projected_path)
+        try:
+            return self.get_version(
+                bin_name,
+                abspath=projected_abspath,
+                quiet=True,
+                no_cache=True,
+            )
+        finally:
+            ENV_PROJECTED_VERSION_PATH.reset(token)
 
     def _is_managed_by_other_provider(
         self,
@@ -3486,11 +3668,15 @@ class EnvProvider(BinProvider):
         if self.install_root is None:
             return False
 
+        absolute_abspath = Path(abspath).expanduser().absolute()
+        if self._projection_cache_record(absolute_abspath) is not None:
+            return False
+
         lib_dir = self.install_root.parent
         if not lib_dir.is_dir():
             return False
 
-        resolved_abspath = Path(abspath).expanduser().resolve(strict=False)
+        resolved_abspath = absolute_abspath.resolve(strict=False)
         for provider_root in lib_dir.iterdir():
             if not provider_root.is_dir() or provider_root == self.install_root:
                 continue
@@ -3501,6 +3687,69 @@ class EnvProvider(BinProvider):
             return True
 
         return False
+
+    def _projection_cache_record(
+        self,
+        abspath: HostBinPath | Path,
+        bin_name: BinName | None = None,
+    ) -> dict[str, Any] | None:
+        absolute_abspath = Path(abspath).expanduser().absolute()
+        if self.bin_dir is None or absolute_abspath.parent != self.bin_dir:
+            return None
+        derived_env_path = self.derived_env_path
+        if not derived_env_path or not derived_env_path.is_file():
+            return None
+        for record in load_derived_cache(derived_env_path).values():
+            if (
+                isinstance(record, dict)
+                and record.get("provider_name") == self.name
+                and record.get("cache_kind") == "projection"
+                and record.get("abspath") == str(absolute_abspath)
+                and (bin_name is None or record.get("bin_name") == str(bin_name))
+            ):
+                return record
+        return None
+
+    def _try_load_at_abspath(
+        self,
+        bin_name: BinName,
+        installed_abspath: HostBinPath,
+        *,
+        quiet: bool = True,
+        no_cache: bool = False,
+    ) -> ShallowBinary | None:
+        projection_record = self._projection_cache_record(
+            installed_abspath,
+            bin_name,
+        )
+        result = super()._try_load_at_abspath(
+            bin_name,
+            installed_abspath,
+            quiet=quiet,
+            no_cache=no_cache,
+        )
+        if result is None or projection_record is None:
+            return result
+
+        resolved_provider = self._resolved_provider_from_cache_record(
+            projection_record,
+        )
+        if result.loaded_version is not None and result.loaded_sha256 is not None:
+            self.write_cached_binary(
+                bin_name,
+                installed_abspath,
+                result.loaded_version,
+                result.loaded_sha256,
+                resolved_provider_name=resolved_provider.name,
+                resolved_provider=resolved_provider,
+                cache_kind="projection",
+            )
+        return result.model_copy(
+            update={
+                "loaded_binprovider": resolved_provider,
+                "binproviders": [resolved_provider],
+            },
+        )
 
     def python_abspath_handler(
         self,
@@ -3530,6 +3779,47 @@ class EnvProvider(BinProvider):
     ) -> "AbspathFuncReturnValue":
         bin_name_str = str(bin_name)
 
+        explicit_path = Path(bin_name_str).expanduser()
+        if (
+            explicit_path.is_absolute()
+            and explicit_path.is_file()
+            and self._is_managed_by_other_provider(explicit_path)
+        ):
+            # An explicit path inside another abxpkg provider is already a
+            # managed binary, not a host candidate. Preserve its original
+            # location so package-manager launchers that resolve files relative
+            # to argv[0] keep working.
+            return TypeAdapter(HostBinPath).validate_python(explicit_path)
+
+        if self.bin_dir is not None:
+            projected_abspath = bin_abspath(bin_name_str, PATH=str(self.bin_dir))
+            if (
+                projected_abspath is not None
+                and self._projection_cache_record(projected_abspath, str(bin_name))
+                is not None
+            ):
+                projected_path = Path(projected_abspath)
+                with self.mutation_lock():
+                    projected_target = (
+                        projected_path.readlink()
+                        if projected_path.is_symlink()
+                        else None
+                    )
+                    if (
+                        self._get_projected_version(
+                            bin_name_str,
+                            projected_abspath,
+                        )
+                        is not None
+                    ):
+                        return projected_abspath
+                    if (
+                        projected_target is not None
+                        and projected_path.is_symlink()
+                        and projected_path.readlink() == projected_target
+                    ):
+                        projected_path.unlink()
+
         search_paths = []
         for entry in str(self.PATH or "").split(os.pathsep):
             if not entry:
@@ -3553,8 +3843,11 @@ class EnvProvider(BinProvider):
             if abspath not in candidates:
                 candidates.append(abspath)
 
-        versioned_candidates: list[tuple[SemVer, HostBinPath]] = []
         for abspath in candidates:
+            if bin_name_str == "brew":
+                abspath = TypeAdapter(HostBinPath).validate_python(
+                    self._host_projection_target(Path(abspath)),
+                )
             version = self.get_version(
                 bin_name_str,
                 abspath=abspath,
@@ -3562,11 +3855,34 @@ class EnvProvider(BinProvider):
                 no_cache=True,
             )
             if version is not None:
-                versioned_candidates.append((version, abspath))
-
-        if versioned_candidates:
-            _version, abspath = max(versioned_candidates, key=lambda item: item[0])
-            return self._link_loaded_binary(bin_name_str, abspath)
+                if self.bin_dir is None:
+                    return abspath
+                link_path = self.bin_dir / Path(bin_name_str).name
+                with self.mutation_lock():
+                    projected_abspath = self._link_loaded_binary(
+                        bin_name_str,
+                        abspath,
+                    )
+                    projected_path = Path(projected_abspath)
+                    projected_target = (
+                        link_path.readlink()
+                        if projected_path == link_path and link_path.is_symlink()
+                        else None
+                    )
+                    if (
+                        self._get_projected_version(
+                            bin_name_str,
+                            projected_abspath,
+                        )
+                        is not None
+                    ):
+                        return projected_abspath
+                    if (
+                        projected_target is not None
+                        and link_path.is_symlink()
+                        and link_path.readlink() == projected_target
+                    ):
+                        link_path.unlink()
 
         managed_abspath = None
         if self.bin_dir is not None:
@@ -3577,11 +3893,26 @@ class EnvProvider(BinProvider):
                 if managed_path.is_symlink() and managed_path.parent == self.bin_dir:
                     managed_path.unlink(missing_ok=True)
                 return None
-            return managed_abspath
-
-        if not candidates:
-            return None
-        return self._link_loaded_binary(bin_name_str, candidates[0])
+            managed_path = Path(managed_abspath)
+            with self.mutation_lock():
+                managed_target = (
+                    managed_path.readlink() if managed_path.is_symlink() else None
+                )
+                if (
+                    self._get_projected_version(
+                        bin_name_str,
+                        managed_abspath,
+                    )
+                    is not None
+                ):
+                    return managed_abspath
+                if (
+                    managed_target is not None
+                    and managed_path.is_symlink()
+                    and managed_path.readlink() == managed_target
+                ):
+                    managed_path.unlink()
+        return None
 
     def supports_min_release_age(
         self,
@@ -3642,6 +3973,7 @@ class EnvProvider(BinProvider):
         cache: dict[str, dict[str, object]] | None = None,
         cache_context: str | None = None,
         cache_context_hash: str | None = None,
+        setup_path: bool = True,
     ) -> ShallowBinary | None:
         if self._is_managed_by_other_provider(abspath):
             self.invalidate_cache(bin_name)
@@ -3667,6 +3999,7 @@ class EnvProvider(BinProvider):
             cache=cache,
             cache_context=cache_context,
             cache_context_hash=cache_context_hash,
+            setup_path=setup_path,
         )
 
     @log_method_call()
@@ -3680,7 +4013,11 @@ class EnvProvider(BinProvider):
         resolved_provider: "BinProvider | None" = None,
         cache_kind: str = "binary",
     ) -> tuple[MTimeNs, EUID] | None:
-        if self._is_managed_by_other_provider(abspath):
+        absolute_abspath = Path(abspath).expanduser().absolute()
+        is_direct_projection = (
+            self.bin_dir is not None and absolute_abspath.parent == self.bin_dir
+        )
+        if not is_direct_projection and self._is_managed_by_other_provider(abspath):
             self.invalidate_cache(bin_name)
             return None
         if logger.isEnabledFor(py_logging.DEBUG):
@@ -3902,6 +4239,7 @@ class HandlerDict(TypedDict, total=False):
     euid: int | None
     install_root: Path | None
     bin_dir: Path | None
+    alias_bin_dir: Path | None
     dry_run: bool
     postinstall_scripts: bool | None
     min_release_age: float | None

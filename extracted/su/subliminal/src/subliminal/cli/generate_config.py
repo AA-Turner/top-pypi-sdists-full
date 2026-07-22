@@ -69,11 +69,12 @@ def _add_value_to_table(
     return opt_name
 
 
-def generate_default_config(*, compact: bool = True, commented: bool = True) -> str:
+def generate_default_config(*, compact: bool = True, commented: bool = True, with_deprecated: bool = False) -> str:
     """Generate a default configuration file.
 
     :param compact: if True, generate a compact configuration without newlines between options.
     :param commented: if True, all the options are commented out.
+    :param with_deprecated: if False, do not include the deprecated options.
     :return: the default configuration as a string.
     """
     # Create TOML document
@@ -91,6 +92,8 @@ def generate_default_config(*, compact: bool = True, commented: bool = True) -> 
         if opt.name.startswith(('__', 'fake')):
             continue
         if opt.name in ['version', 'config']:
+            continue
+        if not with_deprecated and opt.deprecated:  # pragma: no cover
             continue
         # Add key=value to table
         _add_value_to_table(opt, default, commented=commented)
@@ -112,8 +115,10 @@ def generate_default_config(*, compact: bool = True, commented: bool = True) -> 
                 continue
             if not isinstance(opt, click.Option):
                 continue
-            if opt.name in existing_options:
+            if opt.name in existing_options:  # pragma: no cover
                 # Duplicated option
+                continue
+            if not with_deprecated and opt.deprecated:  # pragma: no cover
                 continue
             # Add key=value to table
             opt_name = _add_value_to_table(opt, com_table, commented=commented)
@@ -137,6 +142,8 @@ def generate_default_config(*, compact: bool = True, commented: bool = True) -> 
         provider_tables: dict[str, tomlkit.items.Table] = {}
         for opt in provider_options:
             if opt.name is None:  # pragma: no cover
+                continue
+            if not with_deprecated and opt.deprecated:  # pragma: no cover
                 continue
             _, provider, opt_name = opt.name.split('__')
             provider_table = provider_tables.setdefault(provider, tomlkit.table())

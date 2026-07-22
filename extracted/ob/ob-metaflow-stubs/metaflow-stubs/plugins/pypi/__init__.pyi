@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.34.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-06-18T13:29:50.476470                                                            #
+# Generated on 2026-07-21T20:55:40.890150                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -10,8 +10,8 @@ from __future__ import annotations
 from ... import metaflow_config as metaflow_config
 from ...exception import MetaflowException as MetaflowException
 from . import conda_decorator as conda_decorator
-from . import pypi_decorator as pypi_decorator
 from . import anaconda_decorator as anaconda_decorator
+from . import pypi_decorator as pypi_decorator
 from . import utils as utils
 from . import conda_environment as conda_environment
 from . import pypi_environment as pypi_environment

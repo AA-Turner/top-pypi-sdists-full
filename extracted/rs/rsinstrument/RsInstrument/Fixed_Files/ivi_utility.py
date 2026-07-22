@@ -1,3 +1,5 @@
+"""Module required by IVI Python driver standard."""
+
 from typing import Tuple, Collection
 from ..Internal.Core import Core
 
@@ -11,10 +13,12 @@ class ErrorQueryResult:
 
     @property
     def code(self) -> int:
+        """Code of the error - negative for errors, positive for warnings."""
         return self._code
 
     @property
     def message(self) -> str:
+        """String describing the error in the human-readable form."""
         return self._message
 
 
@@ -74,7 +78,7 @@ class IviUtility:
 
     def reset(self) -> None:
         """Resets the instrument and clears its status.
-        This is typically done by sending the *RST and *CLS SCPI Commands."""
+        This is typically done by sending the ``*RST`` and ``*CLS`` SCPI Commands."""
         self._core.io.reset()
 
     def error_query(self) -> ErrorQueryResult | None:
@@ -83,6 +87,7 @@ class IviUtility:
         err = self._core.io.query_syst_error(include_code=True, enable_log=True)
         if err is None:
             return None
+        # noinspection PyTypeChecker
         return ErrorQueryResult(err[0], err[1])
 
     def error_query_all(self) -> Collection[ErrorQueryResult]:
@@ -98,5 +103,6 @@ class IviUtility:
         """Calls error_query_all() and raises an exception if any instrument errors were detected."""
         self._core.io.check_status_always(log_ok_result=True)
 
-
-
+    def sync_from(self, source: 'IviUtility') -> None:
+        """Synchronizes this object with the source."""
+        pass

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: duplocloud-client
-Version: 0.4.3
+Version: 0.4.5
 Summary: Command line Client for interacting with Duplocloud portals.
 Author-email: Kelly <kelly@duplocloud.net>
 Maintainer-email: Kelly <kelly@duplocloud.net>
@@ -36,11 +36,9 @@ Requires-Dist: semver; extra == "build"
 Requires-Dist: GitPython; extra == "build"
 Requires-Dist: Jinja2; extra == "build"
 Provides-Extra: test
-Requires-Dist: pytest; extra == "test"
+Requires-Dist: pytest<9.1; extra == "test"
 Requires-Dist: ruff; extra == "test"
 Requires-Dist: pip-audit; extra == "test"
-Requires-Dist: pytest-black; extra == "test"
-Requires-Dist: pytest-isort; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
 Requires-Dist: pytest-dependency; extra == "test"
 Requires-Dist: pytest-order; extra == "test"

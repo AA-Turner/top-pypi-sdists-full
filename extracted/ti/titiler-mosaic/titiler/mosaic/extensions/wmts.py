@@ -18,6 +18,7 @@ from starlette.datastructures import QueryParams
 from starlette.requests import Request
 from starlette.templating import Jinja2Templates
 
+from titiler.core.dependencies import ZoomsParams
 from titiler.core.factory import FactoryExtension
 from titiler.core.resources.enums import ImageType
 from titiler.core.resources.responses import XMLResponse
@@ -45,13 +46,24 @@ class wmtsExtension(FactoryExtension):
 
     templates: Jinja2Templates = field(default=DEFAULT_TEMPLATES)
 
-    get_renders: Callable[[BaseBackend], dict[str, dict[str, Any]]] = field(
-        default=lambda obj: {}
+    # TODO: Remove in 3.0
+    get_renders: Callable[[BaseBackend], dict[str, dict[str, Any]]] | None = field(
+        default=None
     )
 
     # List of dependencies a `/tile` URL should validate
     # Note: Those dependencies should only require Query() inputs
     tile_dependencies: list[Callable] | None = field(default=None)
+
+    # TODO: Remove in 3.0
+    def __attrs_post_init__(self):
+        """Warn about deprecation of `get_renders` attribute."""
+        if self.get_renders:
+            warnings.warn(
+                "The wmtsExtension's `get_renders` attribute is deprecated. Please set it at the factory level.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
 
     def register(self, factory: MosaicTilerFactory):  # type: ignore [override] # noqa: C901
         """Register endpoint to the tiler factory."""
@@ -101,6 +113,7 @@ class wmtsExtension(FactoryExtension):
                 ),
             ] = False,
             src_path=Depends(factory.path_dependency),
+            zooms=Depends(ZoomsParams),
             backend_params=Depends(factory.backend_dependency),
             reader_params=Depends(factory.reader_dependency),
             env=Depends(factory.environment_dependency),
@@ -114,7 +127,13 @@ class wmtsExtension(FactoryExtension):
                     **backend_params.as_dict(),
                 ) as src_dst:
                     dataset_bounds = src_dst.get_geographic_bounds(self.crs)
-                    default_renders = self.get_renders(src_dst)
+
+                    # TODO: Remove in 3.0
+                    # and use factory.get_renders instead
+                    get_renders: Callable[[BaseBackend], dict[str, dict[str, Any]]] = (
+                        self.get_renders or factory.get_renders
+                    )
+                    default_renders = get_renders(src_dst)
 
                 renders: list[dict[str, Any]] = []
 
@@ -147,6 +166,8 @@ class wmtsExtension(FactoryExtension):
                     "use_epsg",
                     # Make sure tilesize is not ovewrriden from WMTS request
                     "tilesize",
+                    # tilematrixset metadata
+                    "zooms",
                     # OGC WMTS parameters to ignore
                     "service",
                     "request",
@@ -166,7 +187,9 @@ class wmtsExtension(FactoryExtension):
                 )
 
                 if check_query_params(tile_dependencies, QueryParams(qs)):
-                    renders.append({"name": "default", "query_string": qs})
+                    renders.append(
+                        {"name": "default", "query_string": qs, "tilematrixsets": zooms}
+                    )
 
                 #################################################
                 # 3. if there is no layers we raise and exception
@@ -194,7 +217,15 @@ class wmtsExtension(FactoryExtension):
                     wmts_bbox = bounds
                     if geographic_crs != WGS84_CRS:
                         bbox_crs_type = "BoundingBox"
-                        bbox_crs_uri = CRS_to_urn(geographic_crs)  # type: ignore
+                        crs_urn = CRS_to_urn(geographic_crs)
+                        if not crs_urn:
+                            warnings.warn(
+                                f"Could not resolve a URN for CRS '{geographic_crs}', falling back to WKT for the BoundingBox crs attribute",
+                                UserWarning,
+                                stacklevel=2,
+                            )
+                            crs_urn = geographic_crs.to_wkt()
+                        bbox_crs_uri = crs_urn
                         # WGS88BoundingBox is always xy ordered, but BoundingBox must match the CRS order
                         proj_crs = rio_crs_to_pyproj(geographic_crs)
                         if crs_axis_inverted(proj_crs):
@@ -206,15 +237,17 @@ class wmtsExtension(FactoryExtension):
                                 wmts_bbox[2],
                             ]
 
+                    # NOTE: Custom TiTiler Render key in form of {"tilematrixsets": {"{tms_id}": (minzoom, maxzoom)}}
+                    tilematrixsets = render.get("tilematrixsets", {})
+
                     for tms_id in factory.supported_tms.list():
                         tms = factory.supported_tms.get(tms_id)
 
-                        # NOTE: Custom TiTiler Render key in form of {"tilematrixsets": {"{tms_id}": (minzoom, maxzoom)}}
-                        zooms: tuple[int, int] = render.get("tilematrixsets", {}).get(
-                            tms_id
-                        )
                         # NOTE: If zooms are not in renders then we get them from the backend
-                        if not zooms:
+                        tms_zooms: tuple[int, int] | None = tilematrixsets.get(
+                            tms_id
+                        ) or tilematrixsets.get("*")
+                        if not tms_zooms:
                             try:
                                 with factory.backend(
                                     src_path,
@@ -223,14 +256,14 @@ class wmtsExtension(FactoryExtension):
                                     reader_options=reader_params.as_dict(),
                                     **backend_params.as_dict(),
                                 ) as src_dst:
-                                    zooms = (src_dst.minzoom, src_dst.maxzoom)
+                                    tms_zooms = (src_dst.minzoom, src_dst.maxzoom)
                             except Exception as e:  # noqa
-                                zooms = (tms.minzoom, tms.maxzoom)
+                                tms_zooms = (tms.minzoom, tms.maxzoom)
 
                         tilematrixset_limits = tms_limits(
                             tms,
                             bounds,
-                            zooms=zooms,
+                            zooms=tms_zooms,
                             geographic_crs=geographic_crs,
                         )
 

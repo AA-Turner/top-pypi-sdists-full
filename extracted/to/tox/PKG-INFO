@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tox
-Version: 4.57.0
+Version: 4.58.0
 Summary: tox is a generic virtualenv management and test command line tool
 Project-URL: Release Notes, https://tox.wiki/en/latest/changelog.html
 Project-URL: Documentation, https://tox.wiki
@@ -25,6 +25,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: Utilities

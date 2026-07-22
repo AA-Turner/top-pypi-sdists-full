@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import gzip
 import json as jsonlib
 import os
 import sys
@@ -20,11 +19,13 @@ from apify_client._consts import (
 )
 from apify_client._docs import docs_group
 from apify_client._statistics import ClientStatistics
-from apify_client._utils import to_seconds
+from apify_client._utils.time import to_seconds
+from apify_client.http_compressors._gzip import GzipHttpCompressor
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Iterator, Mapping
 
+    from apify_client.http_compressors._base import HttpCompressor
     from apify_client.types import JsonSerializable, Timeout
 
 
@@ -100,6 +101,7 @@ class HttpClientBase:
         min_delay_between_retries: timedelta = DEFAULT_MIN_DELAY_BETWEEN_RETRIES,
         statistics: ClientStatistics | None = None,
         headers: dict[str, str] | None = None,
+        http_compressor: HttpCompressor | None = None,
     ) -> None:
         """Initialize the HTTP client base.
 
@@ -113,7 +115,9 @@ class HttpClientBase:
             min_delay_between_retries: Minimum delay between retries.
             statistics: Statistics tracker for API calls. Created automatically if not provided.
             headers: Additional HTTP headers to include in all requests.
+            http_compressor: Compressor used to compress request bodies. Defaults to `GzipHttpCompressor`.
         """
+        self._http_compressor = http_compressor if http_compressor is not None else GzipHttpCompressor()
         self._timeout_short = timeout_short
         self._timeout_medium = timeout_medium
         self._timeout_long = timeout_long
@@ -139,7 +143,30 @@ class HttpClientBase:
         if token is not None:
             default_headers['Authorization'] = f'Bearer {token}'
 
-        self._headers = {**default_headers, **(headers or {})}
+        self._headers = self._merge_headers(default_headers, headers)
+
+    def set_default_authorization(self, token: str) -> None:
+        """Set the `Authorization` header from the token, unless an authorization header is already configured.
+
+        Args:
+            token: The Apify API token to set as the `Bearer` authorization.
+        """
+        if not any(key.lower() == 'authorization' for key in self._headers):
+            self._headers['Authorization'] = f'Bearer {token}'
+
+    @staticmethod
+    def _merge_headers(base: dict[str, str] | None, override: dict[str, str] | None) -> dict[str, str]:
+        """Merge two header dicts, treating header names case-insensitively.
+
+        A header from `override` replaces a same-named header in `base` regardless of the casing
+        of either name, and keeps the casing it was passed with.
+        """
+        merged = dict(base) if base else {}
+        for key, value in (override or {}).items():
+            for existing_key in [k for k in merged if k.lower() == key.lower()]:
+                del merged[existing_key]
+            merged[key] = value
+        return merged
 
     @staticmethod
     def _parse_params(params: dict[str, Any] | None) -> dict[str, Any] | None:
@@ -203,22 +230,31 @@ class HttpClientBase:
         data: str | bytes | bytearray | None = None,
         json: JsonSerializable | None = None,
     ) -> tuple[dict[str, str], dict[str, Any] | None, bytes | None]:
-        """Prepare headers, params, and body for an HTTP request. Serializes JSON and applies gzip compression."""
+        """Prepare headers, params, and body for an HTTP request.
+
+        Merges the client's default headers (including authorization) with per-request headers,
+        serializes JSON and compresses the body. Header names are treated case-insensitively and
+        per-request values win over the client defaults. For JSON bodies, a `Content-Type` header
+        is set unless the caller supplied one.
+        """
         if json is not None and data is not None:
             raise ValueError('Cannot pass both "json" and "data" parameters at the same time!')
 
-        headers = dict(headers) if headers else {}
+        headers = self._merge_headers(self._headers, headers)
 
-        # Dump JSON data to string so it can be gzipped.
+        # Dump JSON data to string so it can be compressed.
         if json is not None:
             data = jsonlib.dumps(json, ensure_ascii=False, allow_nan=False, default=str).encode('utf-8')
-            headers['Content-Type'] = 'application/json'
+            if not any(key.lower() == 'content-type' for key in headers):
+                headers['Content-Type'] = 'application/json'
 
         if isinstance(data, (str, bytes, bytearray)):
             if isinstance(data, str):
                 data = data.encode('utf-8')
-            data = gzip.compress(data)
-            headers['Content-Encoding'] = 'gzip'
+            elif isinstance(data, bytearray):
+                data = bytes(data)
+            data = self._http_compressor.compress(data)
+            headers = self._merge_headers(headers, {'Content-Encoding': self._http_compressor.content_encoding})
 
         return (headers, self._parse_params(params), data)
 
@@ -246,6 +282,10 @@ class HttpClient(HttpClientBase, ABC):
     Extend this class to create a custom synchronous HTTP client. Override the `call` method
     with your implementation. Helper methods from the base class are available for request
     preparation, URL building, and parameter parsing.
+
+    Implementations must send the client's default headers from `self._headers` with every request,
+    otherwise the `Authorization` header never reaches the API. The `_prepare_request_call` helper
+    merges them into the per-request headers automatically.
     """
 
     @abstractmethod

@@ -396,6 +396,53 @@ class TestOptimizer(unittest.TestCase):
             "SELECT `my_table`.`my_column` AS `my_column` FROM `my_db.my_table` AS `my_table`",
         )
 
+        # Alias pushdown reaches VALUES set operation operands, since the parser wraps them in
+        # selects; the union's output names come from its left branch, so this is required for
+        # the CTE's column list to propagate correctly
+        self.assertEqual(
+            optimizer.qualify.qualify(
+                parse_one("WITH t(a) AS (VALUES (1) UNION ALL SELECT 2) SELECT t.a FROM t")
+            ).sql(),
+            'WITH "t" AS (SELECT "_values"."_col_0" AS "a" FROM (VALUES (1)) AS "_values"("_col_0") UNION ALL SELECT 2 AS "a") SELECT "t"."a" AS "a" FROM "t" AS "t"',
+        )
+
+        # In the recursive branch of a recursive CTE, an unqualified column that matches one of
+        # the CTE's columns must not be expanded to the projection alias it shadows, e.g. here
+        # `n < 5` refers to t.n, not to `n + 1` (tested in Postgres and DuckDB)
+        self.assertEqual(
+            optimizer.qualify.qualify(
+                parse_one(
+                    "WITH RECURSIVE t(n) AS (SELECT 1 AS n UNION ALL SELECT n + 1 AS n FROM t WHERE n < 5) SELECT * FROM t"
+                )
+            ).sql(),
+            'WITH RECURSIVE "t"("n") AS (SELECT 1 AS "n" UNION ALL SELECT "t"."n" + 1 AS "n" FROM "t" AS "t" WHERE "t"."n" < 5) SELECT "t"."n" AS "n" FROM "t" AS "t"',
+        )
+
+        # Same, but with a parenthesized recursive part: its scope is the inner query, so the
+        # union's right arm must be unnested for the check above to kick in
+        self.assertEqual(
+            optimizer.qualify.qualify(
+                parse_one(
+                    "WITH RECURSIVE t(n) AS (SELECT 1 AS n UNION ALL (SELECT n + 1 AS n FROM t WHERE n < 5)) SELECT * FROM t"
+                )
+            ).sql(),
+            'WITH RECURSIVE "t"("n") AS (SELECT 1 AS "n" UNION ALL (SELECT "t"."n" + 1 AS "n" FROM "t" AS "t" WHERE "t"."n" < 5)) SELECT "t"."n" AS "n" FROM "t" AS "t"',
+        )
+
+        # Programmatic set operations with VALUES operands must not crash the Query-typed
+        # left/right accessors in compiled builds
+        with self.assertRaises(OptimizeError):
+            optimizer.qualify.qualify(
+                exp.select("*").from_(
+                    exp.Union(
+                        this=exp.select("a").from_("x"),
+                        expression=parse_one("VALUES (2)"),
+                        distinct=False,
+                        side="LEFT",
+                    ).subquery("s")
+                )
+            )
+
         self.assertEqual(
             optimizer.qualify.qualify(
                 parse_one(
@@ -741,6 +788,53 @@ class TestOptimizer(unittest.TestCase):
             "IN ((`produce`.`q1`, `produce`.`q2`) AS 'h1', (`produce`.`q3`, `produce`.`q4`) AS 'h2')) AS `produce`",
         )
 
+    def test_unnest_type_trace_is_memoized(self):
+        """Tracing an UNNEST's element type must not re-walk shared parts of the scope graph.
+
+        qualify resolves an unnested column's type by walking it back to a base table
+        (Resolver._get_column_type_from_scope). Each order_attrs_k joins order_attrs_{k-1}
+        back to the shared `orders` CTE, which does not hold `attrs`, so the walk cannot
+        short-circuit and revisits it through every path. Without memoization the trace is
+        called ~93k times at 12 levels; with it, ~90.
+        """
+        from sqlglot.optimizer import resolver as resolver_module
+
+        n_levels = 12
+        ctes = [
+            "order_attrs0 AS (SELECT id, [STRUCT('color' AS key, 'red' AS value)] AS attrs FROM orders)"
+        ]
+        for k in range(1, n_levels):
+            prev = f"order_attrs{k - 1}"
+            ctes.append(
+                f"order_attrs{k} AS (SELECT a.id AS id, "
+                f"array_concat(a.attrs, [STRUCT('size' AS key, 'large' AS value)]) AS attrs "
+                f"FROM {prev} AS a JOIN orders AS o ON a.id = o.id)"
+            )
+        ctes.append(
+            f"non_null_attrs AS (SELECT ARRAY(SELECT x FROM UNNEST(attrs) AS x "
+            f"WHERE NOT x.value IS NULL) AS attrs FROM order_attrs{n_levels - 1})"
+        )
+        sql = "WITH " + ", ".join(ctes) + " SELECT * FROM non_null_attrs"
+
+        original = resolver_module.Resolver._get_column_type_from_scope
+        with patch.object(
+            resolver_module.Resolver,
+            "_get_column_type_from_scope",
+            autospec=True,
+            side_effect=original,
+        ) as traced:
+            optimizer.qualify.qualify(
+                parse_one(sql, dialect="bigquery"),
+                schema={"orders": {"id": "INT64"}},
+                dialect="bigquery",
+            )
+
+        self.assertLess(
+            traced.call_count,
+            1000,
+            f"got {traced.call_count} trace calls -- memoization may be broken",
+        )
+
     def test_validate_columns(self):
         with self.assertRaisesRegex(
             OptimizeError, "Column 'foo' could not be resolved. Line: 1, Col: 10"
@@ -824,6 +918,30 @@ class TestOptimizer(unittest.TestCase):
                 schema={"my_db": {"other": {"some_view": {"v": "VARIANT"}}}},
                 dialect="snowflake",
             )
+
+    def test_qualify_columns_struct_star_expansion_types(self):
+        # Struct star expansion annotates a scope and then replaces its projections; the
+        # stale annotation caches must not prevent the new projections from being typed
+        qualified = optimizer.qualify.qualify(
+            parse_one(
+                "WITH cte AS (SELECT t.s.* FROM t UNION ALL SELECT t.s.* FROM t) SELECT cte.x FROM cte",
+                read="bigquery",
+            ),
+            schema={"t": {"s": "STRUCT<x INT64, y STRING>"}},
+            dialect="bigquery",
+        )
+
+        union = qualified.find(exp.Union)
+        assert union
+        self.assertEqual(
+            [s.type.sql("bigquery") if s.type else None for s in union.selects],
+            ["INT64", "STRING"],
+        )
+        self.assertEqual(
+            [s.type.sql("bigquery") if s.type else None for s in union.expression.selects],
+            ["INT64", "STRING"],
+        )
+        self.assertEqual(qualified.selects[0].type.sql("bigquery"), "INT64")
 
     def test_qualify_columns__with_invisible(self):
         schema = MappingSchema(self.schema, {"x": {"a"}, "y": {"b"}, "z": {"b"}})
@@ -1244,6 +1362,29 @@ SELECT :with_,WITH :expressions,CTE :this,UNION :this,SELECT :expressions,1,:exp
         )
         self.assertNotEqual(canon_cte_col_a.sql(), canon_cte_col_b.sql())
 
+        # VALUES as a set operation operand, e.g. in ASTs built programmatically; the compiled
+        # left/right accessors raise a TypeError for such non-Query operands
+        self.assertEqual(
+            qualify_then_canonicalize(exp.select("1").union("VALUES (2)")).sql(),
+            'SELECT 1 AS "1" UNION VALUES (2)',
+        )
+        by_name_union = exp.Union(
+            this=exp.select(exp.alias_("1", "c")),
+            expression=parse_one("VALUES (2)"),
+            distinct=False,
+            by_name=True,
+        )
+        self.assertEqual(
+            qualify_then_canonicalize(by_name_union).sql(),
+            'SELECT 1 AS "c" UNION ALL BY NAME VALUES (2)',
+        )
+
+        # For parsed SQL, VALUES operands are instead wrapped in selects and canonicalized
+        self.assertEqual(
+            qualify_then_canonicalize(parse_one("VALUES (1) UNION ALL SELECT 2")).sql(),
+            'SELECT "_t0"."_c0" AS "_col_0" FROM (VALUES (1)) AS "_t0"("_c0") UNION ALL SELECT 2 AS "_c1"',
+        )
+
         # UNION BY NAME: different column-name sets must produce different canonical forms
         # (two branches share no column name => NULL-padded) vs (both share "a" => unified)
         schema_ux = {"x": {"a": "INT"}, "y": {"a": "INT", "b": "INT"}}
@@ -1298,9 +1439,8 @@ SELECT :with_,WITH :expressions,CTE :this,UNION :this,SELECT :expressions,1,:exp
         self.assertEqual(canon_pg_a, canon_pg_qa)
 
         # In Snowflake (upper-folding), unquoted `a` becomes `A`, while quoted `"a"` stays
-        # lowercase — they reference *different* columns. Base-table names are preserved,
-        # and the quote state on the lowercase column is retained because dropping it
-        # would let Snowflake re-case-fold `a` back to `A` (changing semantics).
+        # lowercase — they reference *different* columns. The generated alias for the quoted
+        # column keeps its exact spelling, since folding it would re-case-fold `a` back to `A`.
         sf_schema = {"X": {"A": "INT", '"a"': "INT"}}
         canon_sf = qualify_then_canonicalize(
             parse_one('SELECT a, "a" FROM x', dialect="snowflake"),
@@ -1523,6 +1663,21 @@ SELECT :with_,WITH :expressions,CTE :this,UNION :this,SELECT :expressions,1,:exp
         sql = "UPDATE tbl1 SET col = 0"
         self.assertEqual(len(traverse_scope(parse_one(sql))), 0)
 
+        # VALUES as a set operation operand, e.g. in ASTs built programmatically (the parser
+        # wraps such operands in selects); the compiled left/right accessors raise a TypeError
+        # for these non-Query operands
+        expression = exp.select("1").union("VALUES (2)")
+        for scopes in traverse_scope(expression), list(build_scope(expression).traverse()):
+            self.assertEqual(len(scopes), 3)
+            self.assertEqual(scopes[0].expression.sql(), "SELECT 1")
+            self.assertEqual(scopes[1].expression.sql(), "VALUES (2)")
+            self.assertEqual(scopes[2].expression.sql(), "SELECT 1 UNION VALUES (2)")
+
+        self.assertEqual(
+            optimizer.qualify.qualify(exp.select("1").union("VALUES (2)")).sql(),
+            'SELECT 1 AS "1" UNION VALUES (2)',
+        )
+
         sql = "SELECT * FROM t LEFT JOIN UNNEST(a) AS a1 LEFT JOIN UNNEST(a1.a) AS a2"
         scope = build_scope(parse_one(sql, read="bigquery"))
         self.assertEqual(set(scope.selected_sources), {"t", "a1", "a2"})
@@ -1570,6 +1725,10 @@ SELECT :with_,WITH :expressions,CTE :this,UNION :this,SELECT :expressions,1,:exp
                     result.type.sql(dialect),
                     exp.DataType.build(expected, dialect=dialect).sql(dialect),
                 )
+
+        # Programmatic set operations with VALUES operands must not crash the Query-typed
+        # left/right accessors in compiled builds
+        annotate_types(exp.select("*").from_(exp.select("1").union("VALUES (2)").subquery("s")))
 
     def test_annotate_types_caches_schema_lookups(self):
         schema = MappingSchema({"t": {"a": "INT"}})
@@ -2360,6 +2519,74 @@ SELECT :with_,WITH :expressions,CTE :this,UNION :this,SELECT :expressions,1,:exp
         self.assertEqual(set(scope_t.cte_sources), {"t"})
         self.assertEqual(set(scope_y.cte_sources), {"t", "y"})
 
+    def test_pushdown_projections_keeps_recursive_cte_self_referenced_columns(self):
+        # The recursive term joins on t.link, which the outer query never
+        # selects; pruning it used to corrupt the CTE and crash merge_subqueries
+        optimized = optimizer.optimize(
+            parse_one(
+                """
+                WITH RECURSIVE t AS (
+                  SELECT id, link FROM graph WHERE id = 1
+                  UNION ALL
+                  SELECT g.id, g.link FROM graph AS g, t WHERE g.id = t.link
+                )
+                SELECT id FROM t
+                """,
+                read="postgres",
+            ),
+            schema={"graph": {"id": "INT", "link": "INT"}},
+            dialect="postgres",
+        )
+
+        cte = optimized.find(exp.CTE)
+        self.assertIn("link", {select.alias_or_name for select in cte.this.selects})
+
+    def test_pushdown_projections_prunes_non_self_referencing_ctes(self):
+        # WITH RECURSIVE flags every chained CTE as recursive, but CTEs that don't
+        # actually reference themselves are still prunable
+        optimized = optimizer.optimize(
+            parse_one(
+                """
+                WITH RECURSIVE t AS (
+                  SELECT id, link FROM graph WHERE id = 1
+                  UNION ALL
+                  SELECT g.id, g.link FROM graph AS g, t WHERE g.id = t.link
+                ), helper AS (
+                  SELECT id, link, junk FROM graph LIMIT 5
+                )
+                SELECT t.id FROM t JOIN helper ON t.id = helper.id
+                """,
+                read="postgres",
+            ),
+            schema={"graph": {"id": "INT", "link": "INT", "junk": "INT"}},
+            dialect="postgres",
+        )
+
+        t_cte, helper_cte = optimized.find_all(exp.CTE)
+        self.assertEqual({s.alias_or_name for s in t_cte.this.selects}, {"id", "link"})
+        self.assertEqual({s.alias_or_name for s in helper_cte.this.selects}, {"id"})
+
+        # A db-qualified table that shares the CTE's name is not a self-reference
+        optimized = optimizer.optimize(
+            parse_one(
+                """
+                WITH RECURSIVE t AS (
+                  SELECT id, link FROM db.t
+                  UNION ALL
+                  SELECT id, link FROM db.t
+                )
+                SELECT id FROM t
+                """,
+                read="postgres",
+            ),
+            schema={"db": {"t": {"id": "INT", "link": "INT"}}},
+            dialect="postgres",
+        )
+
+        union = optimized.find(exp.CTE).this
+        for side in (union.this, union.expression):
+            self.assertEqual({s.alias_or_name for s in side.selects}, {"id"})
+
     def test_schema_with_spaces(self):
         schema = {
             "a": {
@@ -2701,7 +2928,7 @@ SELECT :with_,WITH :expressions,CTE :this,UNION :this,SELECT :expressions,1,:exp
 
         # Databricks
         sql = _parse_and_optimize("SELECT col:A.a, col:a.A FROM t", dialect="databricks")
-        assert sql == "SELECT `t`.`col`:A.a AS `a`, `t`.`col`:a.A AS `A` FROM `t` AS `t`"
+        assert sql == "SELECT `t`.`col`:A.a AS `a`, `t`.`col`:a.A AS `a` FROM `t` AS `t`"
 
         # Clickhouse
         sql = _parse_and_optimize("SELECT col.A.a, col.a.A FROM t", dialect="clickhouse")
@@ -2715,7 +2942,7 @@ SELECT :with_,WITH :expressions,CTE :this,UNION :this,SELECT :expressions,1,:exp
         sql = _parse_and_optimize("SELECT col:A.a, col:a.A FROM t", dialect="snowflake")
         assert (
             sql
-            == '''SELECT GET_PATH("T"."COL", 'A.a') AS "a", GET_PATH("T"."COL", 'a.A') AS "A" FROM "T" AS "T"'''
+            == '''SELECT GET_PATH("T"."COL", 'A.a') AS "A", GET_PATH("T"."COL", 'a.A') AS "A" FROM "T" AS "T"'''
         )
 
         query = parse_one(

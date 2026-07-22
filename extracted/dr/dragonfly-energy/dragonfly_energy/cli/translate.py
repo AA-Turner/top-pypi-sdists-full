@@ -15,12 +15,12 @@ from ladybug.stat import STAT
 from honeybee.config import folders as hb_folders
 from honeybee_energy.simulation.parameter import SimulationParameter
 from honeybee_energy.run import HB_OS_MSG
-from honeybee_energy.writer import energyplus_idf_version, \
-    _preprocess_model_for_trace_3dplus
+from honeybee_energy.writer import energyplus_idf_version
 from honeybee_energy.config import folders
 from dragonfly.model import Model
 
 from dragonfly_energy.properties.model import ModelEnergyProperties
+from dragonfly_energy.gbxml.parameters import GBXMLParameters
 from dragonfly_energy.run import set_building_district_loads
 
 
@@ -539,14 +539,17 @@ def model_to_idf(
 @translate.command('model-to-gbxml')
 @click.argument('model-file', type=click.Path(
     exists=True, file_okay=True, dir_okay=False, resolve_path=True))
-@click.option('--multiplier/--full-geometry', ' /-fg', help='Flag to note if the '
+@click.option('--si-units/--ip-units', '-si/-ip', help='Flag to note whether '
+              'the geometry, space loads, and construction properties are reported '
+              'in IP or SI units.', default=True, show_default=True)
+@click.option('--full-geometry/--multiplier', '-fg/-m', help='Flag to note if the '
               'multipliers on each Building story will be passed along to the '
               'generated Honeybee Room objects or if full geometry objects should be '
               'written for each story in the building.', default=True, show_default=True)
 @click.option('--plenum/--no-plenum', '-p/-np', help='Flag to indicate whether '
               'ceiling/floor plenum depths assigned to Room2Ds should generate '
               'distinct 3D Rooms in the translation.', default=True, show_default=True)
-@click.option('--no-ceil-adjacency/--ceil-adjacency', ' /-a', help='Flag to indicate '
+@click.option('--ceil-adjacency/--no-ceil-adjacency', '-a/-na', help='Flag to indicate '
               'whether adjacencies should be solved between interior stories when '
               'Room2Ds perfectly match one another in their floor plate. This ensures '
               'that Surface boundary conditions are used instead of Adiabatic ones. '
@@ -558,9 +561,6 @@ def model_to_idf(
               'volumes in the resulting Model and, ultimately, yield a faster simulation '
               'time with less results to manage. Choose from: None, Zones, PlenumZones, '
               'Stories, PlenumStories.', type=str, default='None', show_default=True)
-@click.option('--osw-folder', '-osw', help='Deprecated input that is no longer used.',
-              default=None,
-              type=click.Path(file_okay=False, dir_okay=True, resolve_path=True))
 @click.option('--default-subfaces/--triangulate-subfaces', ' /-t',
               help='Flag to note whether sub-faces (including Apertures and Doors) '
               'should be triangulated if they have more than 4 sides (True) or whether '
@@ -580,11 +580,12 @@ def model_to_idf(
 @click.option('--interior-face-type', '-ift', help='Text string for the type to be '
               'used for all interior floor faces. If unspecified, the interior types '
               'will be left as they are. Choose from: InteriorFloor, Ceiling.',
-              type=str, default='', show_default=True)
+              type=str, default='InteriorFloor', show_default=True)
 @click.option('--ground-face-type', '-gft', help='Text string for the type to be '
               'used for all ground-contact floor faces. If unspecified, the ground '
-              'types will be left as they are. Choose from: UndergroundSlab, '
-              'SlabOnGrade, RaisedFloor.', type=str, default='', show_default=True)
+              'types will be left as they are. Choose from: AutoAssign, '
+              'UndergroundSlab, SlabOnGrade, RaisedFloor.',
+              type=str, default='AutoAssign', show_default=True)
 @click.option('--keep-geometry-ids/--reset-geometry-ids', ' /-gid', help='Flag to note '
               'whether a cleaned version of geometry display names should be used '
               'for the IDs that appear within the gbXML file. Using this flag will '
@@ -600,6 +601,23 @@ def model_to_idf(
               'from non-unique names will be resolved by adding integers to the ends '
               'of the new IDs that are derived from the name.',
               default=True, show_default=True)
+@click.option('--rect-geo-format', '-rg',
+              help='Text string to note how the rectangular geometry for '
+              'all Surfaces is written into the gbXML. BoundingRectangle sets the '
+              'width and height of the rectangular geometry using the bounding '
+              'rectangle around the geometry, which results in an overestimated '
+              'area for non-rectangular geo. SimpleArea will set the rectangle width '
+              'always equal to geometry area and the height always equal to one, '
+              'ensuring accurate areas and making it easy to check the geometry '
+              'area in the gbXML. SimpleAreaForNonRectOnly will report the width and '
+              'height of rectangular Face3D correctly but use simpler areas '
+              'for non-rectangular geometry.',
+              default='BoundingRectangle', show_default=True)
+@click.option('--collapsed-holes/--explicit-holes', ' /-eh',
+              help='Flag to note whether holes in Surfaces should be represented '
+              'explicitly with their own PolyLoop or the hole and boundary '
+              'should be collapsed into a single PolyLoop that winds inwards to '
+              'cut out the holes.', default=True, show_default=True)
 @click.option('--program-name', '-p', help='Optional text to set the name of the '
               'software that will appear under the programId and ProductName tags '
               'of the DocumentHistory section. This can be set things like "Ladybug '
@@ -620,9 +638,10 @@ def model_to_idf(
               'of the translation. By default it printed out to stdout', default='-',
               type=click.Path(file_okay=True, dir_okay=False, resolve_path=True))
 def model_to_gbxml_cli(
-    model_file, multiplier, plenum, no_ceil_adjacency, merge_method,
-    osw_folder, default_subfaces, triangulate_non_planar, minimal,
+    model_file, si_units, full_geometry, plenum, ceil_adjacency, merge_method,
+    default_subfaces, triangulate_non_planar, minimal,
     interior_face_type, ground_face_type, keep_geometry_ids, keep_resource_ids,
+    rect_geo_format, collapsed_holes,
     program_name, program_version, gbxml_schema_version, output_file
 ):
     """Translate a Dragonfly Model to a gbXML file.
@@ -633,18 +652,21 @@ def model_to_gbxml_cli(
             HBJSON or a HBpkl from which a Dragonfly model should be derived.
     """
     try:
-        full_geometry = not multiplier
+        ip_units = not si_units
+        multiplier = not full_geometry
         no_plenum = not plenum
-        ceil_adjacency = not no_ceil_adjacency
+        no_ceil_adjacency = not ceil_adjacency
         triangulate_subfaces = not default_subfaces
         permit_non_planar = not triangulate_non_planar
         complete_geometry = not minimal
         reset_geometry_ids = not keep_geometry_ids
         reset_resource_ids = not keep_resource_ids
+        explicit_holes = not collapsed_holes
         model_to_gbxml(
-            model_file, osw_folder, full_geometry, no_plenum, ceil_adjacency, merge_method,
+            model_file, ip_units, multiplier, no_plenum, no_ceil_adjacency, merge_method,
             triangulate_subfaces, permit_non_planar, complete_geometry,
             interior_face_type, ground_face_type, reset_geometry_ids, reset_resource_ids,
+            rect_geo_format, explicit_holes,
             program_name, program_version, gbxml_schema_version, output_file)
     except Exception as e:
         _logger.exception('Model translation failed.\n{}'.format(e))
@@ -654,34 +676,42 @@ def model_to_gbxml_cli(
 
 
 def model_to_gbxml(
-    model_file, osw_folder=None, full_geometry=False,
-    no_plenum=False, ceil_adjacency=False, merge_method='None',
+    model_file, ip_units=False, multiplier=False, no_plenum=False,
+    no_ceil_adjacency=False, merge_method='None',
     triangulate_subfaces=False, permit_non_planar=False, complete_geometry=False,
-    interior_face_type='', ground_face_type='',
+    interior_face_type='InteriorFloor', ground_face_type='AutoAssign',
     reset_geometry_ids=False, reset_resource_ids=False,
+    rect_geo_format='BoundingRectangle', explicit_holes=False,
     program_name=None, program_version=None, gbxml_schema_version=None, output_file=None,
-    multiplier=True, plenum=True, no_ceil_adjacency=True,
+    si_units=True, full_geometry=True, plenum=True, ceil_adjacency=True,
     default_subfaces=True, triangulate_non_planar=True, minimal=True,
-    keep_geometry_ids=True, keep_resource_ids=True
+    keep_geometry_ids=True, keep_resource_ids=True, collapsed_holes=True
 ):
     """Translate a Dragonfly Model to a gbXML file.
 
     Args:
         model_file: Path to either a DFJSON or DFpkl file. This can also be a
             HBJSON or a HBpkl from which a Dragonfly model should be derived.
-        osw_folder: Deprecated input that is no longer used.
-        full_geometry: Boolean to note if the multipliers on each Building story
-            will be passed along to the generated Honeybee Room objects or if
-            full geometry objects should be written for each story in the
-            building. (Default: False).
+        ip_units: A boolean to note whether the geometry, space loads, and
+            construction properties are reported in IP units (True) or SI
+            units (False). (Default: False).
+        multiplier: Boolean to note whether the multipliers on each Building
+            story are respected as integers or if full geometry objects
+            for each repeated story should be written for each story in the
+            building. Given that gbXML has no support for assigning multipliers
+            and is a non-manifold geometry schema that relies on all geometry
+            being modeled explicitly,this should almost never be set to True. However, if
+            the destination software supports a means of assigning the multipliers
+            to spaces after importing the gbXML (eg. TRACE 700), it may be useful
+            to set this to True. (Default: False).
         no_plenum: Boolean to indicate whether ceiling/floor plenum depths
-            assigned to Room2Ds should generate distinct 3D Rooms in the
+            assigned to Room2Ds should not generate distinct 3D Rooms in the
             translation. (Default: False).
-        ceil_adjacency: Boolean to indicate whether adjacencies should be solved
-            between interior stories when Room2Ds perfectly match one another
-            in their floor plate. This ensures that Surface boundary conditions
-            are used instead of Adiabatic ones. Note that this input has no
-            effect when the object-per-model is Story. (Default: False).
+        no_ceil_adjacency: Boolean to indicate whether adjacencies should not be
+            solved between stories. Given that gbXML is fundamentally a
+            non-manifold geometry schema, this parameter should almost never
+            be set to True. However, if the destination software supports simulating
+            each story as a distinct entity, this may be useful. (Default: False).
         merge_method: An optional text string to describe how the Room2Ds should
             be merged into individual Rooms during the translation. Specifying a
             value here can be an effective way to reduce the number of Room
@@ -707,12 +737,22 @@ def model_to_gbxml(
             because OpenStudio simply raises an error when it encounters non-planar
             geometry, which would hinder the ability to save gbXML files that are
             to be corrected in other software. (Default: False).
-        complete_geometry: Boolean to note whether space boundaries and shell geometry
-            should be included in the exported gbXML vs. just the minimal required
-            non-manifold geometry. (Default: False).
         interior_face_type: Text string for the type to be used for all interior
-            floor faces. If unspecified, the interior types will be left as they are.
-            Choose from: InteriorFloor, Ceiling.
+            floor/ceiling faces. (Default: InteriorFloor). Choose from the following.
+
+            * InteriorFloor
+            * Ceiling
+
+        ground_face_type: Text string for the type to be used for all ground-contact
+            floor faces. If AutoAssign, the ground types will be SlabOnGrade for floors
+            belonging to rooms with any above-ground walls and UndergroundSlab
+            for floors in rooms with all underground walls. Choose from the following.
+
+            * AutoAssign
+            * UndergroundSlab
+            * SlabOnGrade
+            * RaisedFloor
+
         ground_face_type: Text string for the type to be used for all ground-contact
             floor faces. If unspecified, the ground types will be left as they are.
             Choose from: UndergroundSlab, SlabOnGrade, RaisedFloor.
@@ -732,6 +772,26 @@ def model_to_gbxml(
             in the gbXML file. Cases of duplicate IDs resulting from non-unique
             names will be resolved by adding integers to the ends of the new
             IDs that are derived from the name. (Default: False).
+        rect_geo_format: Text string to note how the rectangular geometry for
+            all Surfaces is written into the gbXML. BoundingRectangle sets the
+            width and height of the rectangular geometry using the bounding
+            rectangle around the geometry, which results in an overestimated
+            area for non-rectangular geo. SimpleArea will set the rectangle width
+            always equal to geometry area and the height always equal to one,
+            ensuring accurate areas and making it easy to check the geometry
+            area in the gbXML. SimpleAreaForNonRectOnly will report the width and
+            height of rectangular Face3D correctly but use simpler areas
+            for non-rectangular geometry. (Default: BoundingRectangle). Choose
+            from the following.
+
+            * BoundingRectangle
+            * SimpleArea
+            * SimpleAreaForNonRectOnly
+
+        explicit_holes: Boolean to note whether holes in Surfaces should be
+            represented explicitly with their own PolyLoop or the hole and boundary
+            should be collapsed into a single PolyLoop that winds inwards to
+            cut out the holes. (Default: False).
         program_name: Optional text to set the name of the software that will
             appear under the programId and ProductName tags of the DocumentHistory
             section. This can be set things like "Ladybug Tools" or "Pollination"
@@ -748,38 +808,34 @@ def model_to_gbxml(
         output_file: Optional gbXML file to output the string of the translation.
             By default it will be returned from this method.
     """
-    # set the default folder if it's not specified
-    # check that honeybee-openstudio is installed
-    try:
-        from honeybee_openstudio.writer import model_to_gbxml
-    except ImportError as e:  # honeybee-openstudio is not installed
-        raise ImportError('{}\n{}'.format(HB_OS_MSG, e))
-    if osw_folder is not None:
-        print('--osw-folder is deprecated and no longer used.')
+    # set up gbXML translation parameters
+    gbxml_par = GBXMLParameters(ip_units=ip_units)
+    gbxml_par.geometry_format.triangulate_non_planar = True
+    if permit_non_planar:
+        gbxml_par.geometry_format.triangulate_non_planar = False
+    if complete_geometry:
+        gbxml_par.geometry_format.include_shell_geometry = True
+        gbxml_par.geometry_format.include_space_boundaries = True
+    if interior_face_type:
+        gbxml_par.name_format.interior_face_type = interior_face_type
+    if ground_face_type:
+        gbxml_par.name_format.ground_face_type = ground_face_type
+    gbxml_par.geometry_format.ignore_multipliers = multiplier
+    gbxml_par.geometry_format.exclude_plenums = no_plenum
+    gbxml_par.geometry_format.ignore_ceiling_adjacencies = no_ceil_adjacency
+    gbxml_par.geometry_format.merge_method = merge_method
+    gbxml_par.geometry_format.triangulate_openings = triangulate_subfaces
+    gbxml_par.name_format.reset_geometry_ids = reset_geometry_ids
+    gbxml_par.name_format.reset_resource_ids = reset_resource_ids
+    gbxml_par.geometry_format.rect_geo_format = rect_geo_format
+    gbxml_par.geometry_format.explicit_holes = explicit_holes
+    gbxml_par.version_format.program_name = program_name
+    gbxml_par.version_format.program_version = program_version
+    gbxml_par.version_format.gbxml_schema_version = gbxml_schema_version
 
-    # re-serialize the Dragonfly Model
+    # re-serialize the Dragonfly Model and translate it
     model = Model.from_dfjson(model_file)
-    model.convert_to_units('Meters')
-    model.tolerance = 0.01  # ensure roof calculation happens at E+ native tolerance
-
-    # convert Dragonfly Model to Honeybee
-    multiplier = not full_geometry
-    hb_models = model.to_honeybee(
-        object_per_model='District', use_multiplier=multiplier,
-        exclude_plenums=no_plenum, solve_ceiling_adjacencies=ceil_adjacency,
-        merge_method=merge_method, enforce_adj=False)
-    hb_model = hb_models[0]
-
-    # translate the model to a gbXML string
-    triangulate_non_planar = not permit_non_planar
-    gbxml_str = model_to_gbxml(
-        hb_model, triangulate_non_planar_orphaned=triangulate_non_planar,
-        triangulate_subfaces=triangulate_subfaces, full_geometry=complete_geometry,
-        interior_face_type=interior_face_type, ground_face_type=ground_face_type,
-        reset_geometry_ids=reset_geometry_ids, reset_resource_ids=reset_resource_ids,
-        program_name=program_name, program_version=program_version,
-        gbxml_schema_version=gbxml_schema_version
-    )
+    gbxml_str = model.to_gbxml(gbxml_par)
 
     # write out the gbXML file
     return process_content_to_output(gbxml_str, output_file)
@@ -792,10 +848,10 @@ def model_to_gbxml(
               'multipliers on each Building story will be passed along to the '
               'generated Honeybee Room objects or if full geometry objects should be '
               'written for each story in the building.', default=True, show_default=True)
-@click.option('--plenum/--no-plenum', '-p/-np', help='Flag to indicate whether '
+@click.option('--no-plenum/--plenum', '-np/-p', help='Flag to indicate whether '
               'ceiling/floor plenum depths assigned to Room2Ds should generate '
               'distinct 3D Rooms in the translation.', default=True, show_default=True)
-@click.option('--no-ceil-adjacency/--ceil-adjacency', ' /-a', help='Flag to indicate '
+@click.option('--ceil-adjacency/--no-ceil-adjacency', ' /-na', help='Flag to indicate '
               'whether adjacencies should be solved between interior stories when '
               'Room2Ds perfectly match one another in their floor plate. This ensures '
               'that Surface boundary conditions are used instead of Adiabatic ones. '
@@ -842,7 +898,7 @@ def model_to_gbxml(
               'of the translation. By default it printed out to stdout.', default='-',
               type=click.Path(file_okay=True, dir_okay=False, resolve_path=True))
 def model_to_trace_gbxml_cli(
-    model_file, multiplier, plenum, no_ceil_adjacency, merge_method,
+    model_file, multiplier, no_plenum, ceil_adjacency, merge_method,
     single_window, rect_sub_distance, frame_merge_distance,
     program_name, program_version, output_file
 ):
@@ -855,11 +911,11 @@ def model_to_trace_gbxml_cli(
     """
     try:
         full_geometry = not multiplier
-        no_plenum = not plenum
-        ceil_adjacency = not no_ceil_adjacency
+        plenum = not no_plenum
+        no_ceil_adjacency = not ceil_adjacency
         detailed_windows = not single_window
         model_to_trace_gbxml(
-            model_file, full_geometry, no_plenum, ceil_adjacency, merge_method,
+            model_file, full_geometry, plenum, no_ceil_adjacency, merge_method,
             detailed_windows, rect_sub_distance, frame_merge_distance,
             program_name, program_version, output_file)
     except Exception as e:
@@ -871,10 +927,10 @@ def model_to_trace_gbxml_cli(
 
 def model_to_trace_gbxml(
     model_file, full_geometry=False,
-    no_plenum=False, ceil_adjacency=False, merge_method='None',
+    plenum=False, no_ceil_adjacency=False, merge_method='None',
     detailed_windows=False, rect_sub_distance='0.15m', frame_merge_distance='0.2m',
     program_name=None, program_version=None, output_file=None,
-    multiplier=True, plenum=True, no_ceil_adjacency=True, single_window=True
+    multiplier=True, no_plenum=True, ceil_adjacency=True, single_window=True
 ):
     """Translate a Dragonfly Model to a gbXML file that is compatible with TRACE.
 
@@ -885,10 +941,10 @@ def model_to_trace_gbxml(
             will be passed along to the generated Honeybee Room objects or if
             full geometry objects should be written for each story in the
             building. (Default: False).
-        no_plenum: Boolean to indicate whether ceiling/floor plenum depths
+        plenum: Boolean to indicate whether ceiling/floor plenum depths
             assigned to Room2Ds should generate distinct 3D Rooms in the
             translation. (Default: False).
-        ceil_adjacency: Boolean to indicate whether adjacencies should be solved
+        no_ceil_adjacency: Boolean to indicate whether adjacencies should be solved
             between interior stories when Room2Ds perfectly match one another
             in their floor plate. This ensures that Surface boundary conditions
             are used instead of Adiabatic ones. Note that this input has no
@@ -937,26 +993,23 @@ def model_to_trace_gbxml(
         output_file: Optional gbXML file to output the string of the translation.
             By default it will be returned from this method.
     """
-    # re-serialize the Dragonfly Model
+    # set up TRACE 3D Plus translation par
+    gbxml_par = GBXMLParameters.for_trace_3d_plus()
+    if not full_geometry:
+        gbxml_par.geometry_format.ignore_multipliers = True
+    if plenum:
+        gbxml_par.geometry_format.exclude_plenums = False
+    if no_ceil_adjacency:
+        gbxml_par.geometry_format.ignore_ceiling_adjacencies = True
+    gbxml_par.geometry_format.merge_method = merge_method
+    if detailed_windows:
+        gbxml_par.geometry_format.opening_simplification = 'Rectangularized'
+    gbxml_par.version_format.program_name = program_name
+    gbxml_par.version_format.program_version = program_version
+
+    # serialize the model and translate it
     model = Model.from_dfjson(model_file)
-    model.convert_to_units('Meters')
-
-    # convert Dragonfly Model to Honeybee
-    multiplier = not full_geometry
-    hb_models = model.to_honeybee(
-        object_per_model='District', use_multiplier=multiplier,
-        exclude_plenums=no_plenum, solve_ceiling_adjacencies=ceil_adjacency,
-        merge_method=merge_method, enforce_adj=False)
-    hb_model = hb_models[0]
-
-    # translate the honeybee model to a TRACE-compatible gbXML string
-    single_window = not detailed_windows
-    hb_model = _preprocess_model_for_trace_3dplus(
-        hb_model, single_window=single_window, rect_sub_distance=rect_sub_distance,
-        frame_merge_distance=frame_merge_distance)
-    gbxml_str = hb_model.to_gbxml(
-        ip_units=True, program_name=program_name, program_version=program_version
-    )
+    gbxml_str = model.to_gbxml(gbxml_par)
 
     # write out the gbXML file
     return process_content_to_output(gbxml_str, output_file)
@@ -984,9 +1037,6 @@ def model_to_trace_gbxml(
               'volumes in the resulting Model and, ultimately, yield a faster simulation '
               'time with less results to manage. Choose from: None, Zones, PlenumZones, '
               'Stories, PlenumStories.', type=str, default='None', show_default=True)
-@click.option('--osw-folder', '-osw', help='Deprecated input that is no longer used.',
-              default=None,
-              type=click.Path(file_okay=False, dir_okay=True, resolve_path=True))
 @click.option('--geometry-ids/--geometry-names', ' /-gn', help='Flag to note whether a '
               'cleaned version of all geometry display names should be used instead '
               'of identifiers when translating the Model to SDD. Using this flag will '
@@ -1010,7 +1060,7 @@ def model_to_trace_gbxml(
               type=click.Path(file_okay=True, dir_okay=False, resolve_path=True))
 def model_to_sdd_cli(
     model_file, multiplier, plenum, no_ceil_adjacency, merge_method,
-    osw_folder, geometry_ids, resource_ids, output_file
+    geometry_ids, resource_ids, output_file
 ):
     """Translate a Dragonfly Model to a CBECC SDD file.
 
@@ -1027,7 +1077,7 @@ def model_to_sdd_cli(
         res_names = not resource_ids
         model_to_sdd(
             model_file, full_geometry, no_plenum, ceil_adjacency, merge_method,
-            osw_folder, geo_names, res_names, output_file)
+            geo_names, res_names, output_file)
     except Exception as e:
         _logger.exception('Model translation failed.\n{}'.format(e))
         sys.exit(1)
@@ -1038,7 +1088,7 @@ def model_to_sdd_cli(
 def model_to_sdd(
     model_file, full_geometry=False,
     no_plenum=False, ceil_adjacency=False, merge_method='None',
-    osw_folder=None, geometry_names=False, resource_names=False, output_file=None,
+    geometry_names=False, resource_names=False, output_file=None,
     multiplier=True, plenum=True, no_ceil_adjacency=True,
     geometry_ids=True, resource_ids=True
 ):
@@ -1074,7 +1124,6 @@ def model_to_sdd(
             * Stories - Rooms in the same story will be merged
             * PlenumStories - Only plenums in the same story will be merged
 
-        osw_folder: Deprecated input that is no longer used.
         geometry_names: Boolean to note whether a cleaned version of all geometry
             display names should be used instead of identifiers when translating
             the Model to OSM and IDF. Using this flag will affect all Rooms, Faces,
@@ -1101,8 +1150,6 @@ def model_to_sdd(
         from honeybee_openstudio.writer import model_to_openstudio
     except ImportError as e:  # honeybee-openstudio is not installed
         raise ImportError('{}\n{}'.format(HB_OS_MSG, e))
-    if osw_folder is not None:
-        print('--folder is deprecated and no longer used.')
 
     # re-serialize the Dragonfly Model
     model = Model.from_dfjson(model_file)

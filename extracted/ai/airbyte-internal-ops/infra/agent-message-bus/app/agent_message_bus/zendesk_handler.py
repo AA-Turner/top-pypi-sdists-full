@@ -19,14 +19,15 @@ from typing import Any
 import requests
 from pydantic import BaseModel, Field
 
-from agent_message_bus.devin_client import _get_devin_api_key
+from agent_message_bus.devin_client import _get_devin_api_key, _get_devin_org_id
 
 logger = logging.getLogger(__name__)
 
-DEVIN_API_BASE = "https://api.devin.ai/v1"
+DEVIN_API_BASE = "https://api.devin.ai/v3"
 
-# Zendesk triage playbook macro name (matches the playbook filename in ai-skills)
-ZENDESK_TRIAGE_PLAYBOOK = "zendesk_triage"
+# Zendesk triage playbook id (the `!zendesk_triage` playbook in the Devin org).
+# The v3 sessions API takes a `playbook_id`, not the v1 `playbook_name`.
+ZENDESK_TRIAGE_PLAYBOOK_ID = "playbook-cfdfef6b17c44baca369ae48c8593bc9"
 
 # Tags applied to every Devin session created by this handler, so that
 # zendesk-triage sessions are easily discoverable in the Devin UI.
@@ -208,9 +209,9 @@ def format_playbook_prompt(ticket_data: TicketData) -> str:
 def trigger_devin_playbook(prompt: str) -> DevinSessionResult:
     """Trigger a new Devin session with the zendesk_triage playbook.
 
-    Creates a new Devin session via the Devin API and sends the ticket
-    data as the initial prompt. The playbook macro is specified so
-    Devin automatically loads the triage instructions.
+    Creates a new Devin session via the Devin v3 sessions API and sends
+    the ticket data as the initial prompt. The `zendesk_triage` playbook
+    id is specified so Devin automatically loads the triage instructions.
 
     Args:
         prompt: The formatted ticket data prompt.
@@ -218,14 +219,22 @@ def trigger_devin_playbook(prompt: str) -> DevinSessionResult:
     Returns:
         A DevinSessionResult with session details or error information.
     """
-    api_key = _get_devin_api_key()
+    try:
+        api_key = _get_devin_api_key()
+        org_id = _get_devin_org_id()
+    except ValueError:
+        logger.exception("Devin API configuration missing for Zendesk triage")
+        return DevinSessionResult(
+            status="error",
+            error="Devin API is not configured",
+        )
 
     try:
         response = requests.post(
-            f"{DEVIN_API_BASE}/sessions",
+            f"{DEVIN_API_BASE}/organizations/{org_id}/sessions",
             json={
                 "prompt": prompt,
-                "playbook_name": ZENDESK_TRIAGE_PLAYBOOK,
+                "playbook_id": ZENDESK_TRIAGE_PLAYBOOK_ID,
                 "tags": SESSION_TAGS,
             },
             headers={
@@ -242,8 +251,26 @@ def trigger_devin_playbook(prompt: str) -> DevinSessionResult:
         )
 
     if response.ok:
-        data = response.json()
+        try:
+            data = response.json()
+        except ValueError:
+            logger.exception("Devin API returned a non-JSON success response")
+            return DevinSessionResult(
+                status="error",
+                error="Invalid response from Devin API",
+            )
+
         session_id = data.get("session_id", "")
+        if not session_id:
+            logger.error(
+                "Devin API success response missing session_id: %s",
+                response.text[:200],
+            )
+            return DevinSessionResult(
+                status="error",
+                error="Devin API response missing session_id",
+            )
+
         session_url = data.get("url", f"https://app.devin.ai/sessions/{session_id}")
         logger.info(
             "Created Devin session %s for Zendesk triage",

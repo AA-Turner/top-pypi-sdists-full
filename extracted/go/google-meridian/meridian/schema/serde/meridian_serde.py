@@ -58,6 +58,7 @@ from meridian.schema.serde import eda_spec as eda_spec_serde
 from meridian.schema.serde import function_registry as function_registry_utils
 from meridian.schema.serde import hyperparameters
 from meridian.schema.serde import inference_data
+from meridian.schema.serde import legacy_aks
 from meridian.schema.serde import marketing_data
 from meridian.schema.serde import serde
 import semver
@@ -65,6 +66,8 @@ import semver
 from google.protobuf import any_pb2
 
 _VERSION_INFO = semver.VersionInfo.parse(meridian.__version__)
+_LEGACY_AKS_CUTOFF_VERSION = semver.VersionInfo.parse('1.7.0')
+
 
 FunctionRegistry = function_registry_utils.FunctionRegistry
 
@@ -76,7 +79,7 @@ _file_open = open
 class MeridianSerde(serde.Serde[kernel_pb.MmmKernel, model.Meridian]):
   """Serializes and deserializes a Meridian model into an `MmmKernel` proto."""
 
-  def serialize(
+  def serialize(  # pyrefly: ignore[bad-override]
       self,
       obj: model.Meridian,
       model_id: str = '',
@@ -248,7 +251,7 @@ class MeridianSerde(serde.Serde[kernel_pb.MmmKernel, model.Meridian]):
 
     return model_convergence_proto
 
-  def deserialize(
+  def deserialize(  # pyrefly: ignore[bad-override]
       self,
       serialized: kernel_pb.MmmKernel,
       serialized_version: str = '',
@@ -361,7 +364,6 @@ class MeridianSerde(serde.Serde[kernel_pb.MmmKernel, model.Meridian]):
     meridian_kwargs = dict(
         input_data=deserialized_marketing_data,
         model_spec=deserialized_model_spec,
-        inference_data=deserialized_inference_data,
     )
 
     # For backwards compatibility, only deserialize EDA spec if it exists in the
@@ -370,7 +372,7 @@ class MeridianSerde(serde.Serde[kernel_pb.MmmKernel, model.Meridian]):
     if isinstance(
         ser_meridian, meridian_pb.MeridianModel
     ) and ser_meridian.HasField('eda_spec'):
-      meridian_kwargs['eda_spec'] = eda_spec_serde.EDASpecSerde(
+      meridian_kwargs['eda_spec'] = eda_spec_serde.EDASpecSerde(  # pyrefly: ignore[bad-assignment]
           eda_function_registry
           if eda_function_registry is not None
           else function_registry_utils.FunctionRegistry()
@@ -382,7 +384,24 @@ class MeridianSerde(serde.Serde[kernel_pb.MmmKernel, model.Meridian]):
     else:
       warnings.warn('MeridianModel does not contain an EDA spec.')
 
-    return model.Meridian(**meridian_kwargs)
+    loaded_mmm = model.Meridian(**meridian_kwargs)
+    if (
+        serialized_version <= _LEGACY_AKS_CUTOFF_VERSION
+        and loaded_mmm.model_spec.enable_aks
+    ):
+      legacy_knots = legacy_aks.get_legacy_knots(deserialized_marketing_data)
+      loaded_mmm.model_context._inject_legacy_knot_info_for_serde(  # pylint: disable=protected-access
+          legacy_knots
+      )
+
+    loaded_mmm._inference_data = (  # pylint: disable=protected-access
+        deserialized_inference_data
+        if deserialized_inference_data
+        else az.InferenceData()
+    )
+    loaded_mmm._validate_injected_inference_data()  # pylint: disable=protected-access
+
+    return loaded_mmm
 
 
 def save_meridian(
@@ -422,7 +441,7 @@ def save_meridian(
         eda_function_registry=eda_function_registry,
     )
     if file_path.endswith('.binpb'):
-      f.write(serialized_kernel.SerializeToString())
+      f.write(serialized_kernel.SerializeToString())  # pyrefly: ignore[bad-argument-type]
     elif file_path.endswith('.textproto') or file_path.endswith('.txtpb'):
       f.write(text_format.MessageToString(serialized_kernel))
     else:
@@ -463,10 +482,10 @@ def load_meridian(
 
   with _file_open(file_path, mode) as f:
     if file_path.endswith('.binpb'):
-      serialized_model = kernel_pb.MmmKernel.FromString(f.read())
+      serialized_model = kernel_pb.MmmKernel.FromString(f.read())  # pyrefly: ignore[bad-argument-type]
     elif file_path.endswith('.textproto') or file_path.endswith('.txtpb'):
       serialized_model = kernel_pb.MmmKernel()
-      text_format.Parse(f.read(), serialized_model)
+      text_format.Parse(f.read(), serialized_model)  # pyrefly: ignore[bad-specialization]
     else:
       raise ValueError(f'Unsupported file type: {file_path}')
   return MeridianSerde().deserialize(

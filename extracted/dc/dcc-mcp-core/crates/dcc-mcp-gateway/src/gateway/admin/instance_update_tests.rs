@@ -140,6 +140,8 @@ fn make_gateway_state() -> GatewayState {
         gateway_persist: false,
         gateway_idle_timeout_secs: 30,
         semantic_search_enabled: false,
+        #[cfg(feature = "admin-persist-sqlite")]
+        admin_sqlite_lane: None,
     }
 }
 
@@ -279,6 +281,7 @@ fn make_service_entry(
         scene: None,
         documents: vec![],
         pid,
+        host_pid: None,
         sentinel_path: None,
         display_name: Some(format!("{dcc_type}-test")),
         status: ServiceStatus::Available,
@@ -390,7 +393,7 @@ async fn test_admin_instance_update_checks_manifest_without_manual_cli() {
 }
 
 #[tokio::test]
-async fn test_admin_instance_update_reports_missing_download_url() {
+async fn test_admin_instance_update_requires_target_environment_before_server_download() {
     let (manifest_url, shutdown) = spawn_update_manifest(json!({
         "dcc-mcp-server": {
             "version": "999.0.0",
@@ -421,9 +424,9 @@ async fn test_admin_instance_update_reports_missing_download_url() {
     .await;
     let _ = shutdown.send(());
 
-    assert_eq!(status, StatusCode::NOT_FOUND);
-    assert_eq!(body["status"], "download_failed");
-    assert_eq!(body["error"], "download_url_not_configured");
+    assert_eq!(status, StatusCode::CONFLICT);
+    assert_eq!(body["status"], "target_environment_required");
+    assert_eq!(body["error"], "server_update_target_unproven");
     assert_eq!(body["binary_name"], "dcc-mcp-server");
     assert_eq!(body["current_version"], "0.18.0");
     assert_eq!(body["current_version_source"], "request");
@@ -468,7 +471,7 @@ async fn test_admin_instance_update_can_check_without_staging() {
 }
 
 #[tokio::test]
-async fn test_admin_instance_update_stages_server_binary() {
+async fn test_admin_instance_update_never_stages_unbound_server_binary() {
     let _guard = UPDATE_ENV_LOCK.lock();
     let data_dir = ScopedUpdateDataDir::new();
     let (manifest_url, shutdown) =
@@ -494,17 +497,18 @@ async fn test_admin_instance_update_stages_server_binary() {
     .await;
     let _ = shutdown.send(());
 
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(body["status"], "staged");
+    assert_eq!(status, StatusCode::CONFLICT);
+    assert_eq!(body["status"], "target_environment_required");
+    assert_eq!(body["error"], "server_update_target_unproven");
     assert_eq!(body["binary_name"], "dcc-mcp-server");
     assert_eq!(body["current_version"], "0.18.0");
     assert_eq!(body["current_version_source"], "request");
     assert_eq!(body["latest_version"], "999.0.0");
     assert_eq!(body["update_available"], true);
-    assert_eq!(body["requires_restart"], true);
+    assert_eq!(body["requires_restart"], false);
     assert!(
-        data_dir.pending_marker("dcc-mcp-server").exists(),
-        "staging should write the pending update marker"
+        !data_dir.pending_marker("dcc-mcp-server").exists(),
+        "Admin must not write an installation-unbound server marker"
     );
 }
 

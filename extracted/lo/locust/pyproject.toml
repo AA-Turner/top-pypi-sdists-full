@@ -8,7 +8,7 @@ description = "Developer-friendly load testing framework"
 license = { text = "MIT" }
 dynamic = ["version"]
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 authors = [{ name = "Jonatan Heyman" }, { name = "Lars Holmberg" }]
 maintainers = [
     { name = "Lars Holmberg" },
@@ -21,7 +21,6 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -41,13 +40,12 @@ dependencies = [
     "pyzmq>=25.0.0",
     "geventhttpclient>=2.3.1",
     "configargparse>=1.7.1",
-    "tomli>=1.1.0; python_version < '3.11'",
     "typing_extensions>=4.6.0; python_version < '3.12'",
     "psutil>=5.9.1",
     "Flask-Login>=0.6.3",
     "Flask-Cors>=3.0.10",
     "pywin32; sys_platform == 'win32'",
-    "gevent>=24.10.1,<26.0.0,!=25.8.1",
+    "gevent>=24.10.1",
     "python-socketio[client]>=5.13.0",
     "python-engineio>=4.12.2",
     "pytest>=8.3.3,<10",
@@ -183,7 +181,7 @@ locust = ["locust"]
 [tool.mypy]
 # missing type stubs
 ignore_missing_imports = true
-python_version = "3.10"
+python_version = "3.11"
 
 [tool.pyright]
 exclude = ["locust/test"]
@@ -224,14 +222,14 @@ run = [
 ## CI testing
 
 # Run all combinations: `hatch run test:all`
-# Run single env: `hatch run +py=3.10 test:all`
+# Run single env: `hatch run +py=3.14 test:all`
 
 [tool.hatch.envs.test]
 template = "hatch-test"
 
 [[tool.hatch.envs.test.matrix]]
 # TODO: after https://github.com/locustio/locust/issues/3465 return 3.15
-python = ["3.10", "3.11", "3.12", "3.13", "3.14"]
+python = ["3.11", "3.12", "3.13", "3.14"]
 
 
 ## Run all unit tests and advanced debugging
@@ -295,4 +293,8 @@ filterwarnings = [
     # the proper fix for this is to run python -m gevent.monkey --module pytest ... 
     # but that isn't always possible
     "ignore::gevent.monkey.MonkeyPatchWarning",
+    # "This process is multi-threaded, use of fork() may lead to deadlocks in the child." started happening in Python 3.12
+    # It could potentially be a real issue, but I dont think
+    "ignore::DeprecationWarning:gevent",
+
 ]

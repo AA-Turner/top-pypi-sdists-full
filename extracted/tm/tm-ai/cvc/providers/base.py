@@ -300,6 +300,82 @@ def _bootstrap_defaults() -> None:
 _bootstrap_defaults()
 
 
+def resolve_api_key(provider_name: str, api_key: str = "") -> str:
+    """Resolve an API key for any provider from 3 sources in priority order.
+
+    Sources checked (first non-empty wins):
+      1. The explicit ``api_key`` argument (caller-provided, e.g. CLI flag).
+      2. Environment variable — first non-empty match across the provider
+         profile's ``env_vars`` list. MiniMax advertises ``MINIMAX_API_KEY``;
+         we also accept ``MINIMAX_TOKEN`` as a friendly alias because that's
+         what many third-party docs use, plus ``MiniMax_API_KEY`` for users
+         who case-fold the brand name.
+      3. The CVC config file (``~/.cvc/config.yaml`` /
+         ``api_keys.<provider>``) — set by ``cvc setup`` or the dashboard.
+
+    Returns the resolved key, or "" if none found. Never raises.
+    Designed to be called from any path that needs a working key:
+    the CLI runtime, the gateway, the dashboard's /chat endpoint.
+
+    Why three sources? Because keys disappear. A user sets
+    ``$env:MINIMAX_API_KEY``, the terminal closes, the env var is gone —
+    but their config file still has it. Or they put it in the file but
+    run cvc from a fresh shell where the env var is unset. The agent
+    should never ask the user "where's your key?" when at least one
+    source still has it.
+    """
+    if api_key and api_key.strip():
+        return api_key.strip()
+
+    profile = get_provider(provider_name)
+    if profile is None:
+        return ""
+
+    # Build the env-var candidate list. Profile.env_vars is canonical
+    # (e.g. ["MINIMAX_API_KEY"]); we add common brand aliases that
+    # third-party docs use without confusing the source of truth.
+    candidates: list[str] = list(profile.env_vars or [])
+    if provider_name == "minimax":
+        # Friendly aliases — none of these override the profile.canonical.
+        # Searched in order; the first hit wins.
+        candidates.extend([
+            "MINIMAX_TOKEN",
+            "MiniMax_API_KEY",
+            "MINIMAX_KEY",
+        ])
+
+    import os
+    for name in candidates:
+        val = os.getenv(name, "").strip()
+        if val:
+            return val
+
+    # Source 3: cvc config file. Read-only — we never write from here.
+    # The setup flow and the dashboard write to gc.api_keys via the
+    # dedicated config path; this is just a fallback lookup.
+    try:
+        from cvc.config_store import load_global_config  # type: ignore
+        gc = load_global_config()
+        if gc is not None:
+            stored = gc.api_keys.get(provider_name, "")
+            if stored and stored.strip():
+                return stored.strip()
+            # Friendly aliases for cvc config too. If user typed the key
+            # under the brand-name alias, accept it.
+            if provider_name == "minimax":
+                for alias in ("MiniMax", "minimaxai"):
+                    alt = gc.api_keys.get(alias, "")
+                    if alt and alt.strip():
+                        return alt.strip()
+    except Exception:
+        # Config store not available (fresh install, headless mode, etc.) —
+        # that's fine, we just return "" and let the caller surface a
+        # friendly "no key found" message instead of crashing.
+        pass
+
+    return ""
+
+
 __all__ = [
     "ProviderProfile",
     "register_provider",

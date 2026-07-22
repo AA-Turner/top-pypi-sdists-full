@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xdk
-Version: 0.9.0
+Version: 0.10.0
 Summary: Python SDK for the X API
 Project-URL: Homepage, https://github.com/xdevplatform/xdk-python
 Project-URL: Repository, https://github.com/xdevplatform/xdk-python

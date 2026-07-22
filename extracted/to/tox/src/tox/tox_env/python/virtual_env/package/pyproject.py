@@ -41,7 +41,6 @@ from .util import dependencies_with_extras, dependencies_with_extras_from_marker
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterator, Sequence
 
-    from tox.config.of_type import ConfigConstantDefinition
     from tox.config.sets import EnvConfigSet
     from tox.execute.api import ExecuteStatus, Outcome
     from tox.tox_env.api import ToxEnvCreateArgs
@@ -131,6 +130,16 @@ class Pep517VenvPackager(PythonPackageToxEnv, ABC):
         self._root = value
         self._frontend_ = None  # force recreating the frontend with new root
 
+    @contextmanager
+    def root_at(self, value: Path) -> Iterator[None]:
+        """Point the builder at another source tree for the duration of one build, then restore the project root."""
+        previous = self.root
+        self.root = value
+        try:
+            yield
+        finally:
+            self.root = previous
+
     @staticmethod
     def id() -> str:
         return "virtualenv-pep-517"
@@ -146,13 +155,13 @@ class Pep517VenvPackager(PythonPackageToxEnv, ABC):
         self.conf.add_config(
             keys=["meta_dir"],
             of_type=Path,
-            default=lambda conf, name: self.env_dir / ".meta",  # noqa: ARG005
+            default=lambda conf, name: self.env_dir / ".meta",  # ruff:ignore[unused-lambda-argument]
             desc="directory where to put the project metadata files",
         )
         self.conf.add_config(
             keys=["pkg_dir"],
             of_type=Path,
-            default=lambda conf, name: self.env_dir / "dist",  # noqa: ARG005
+            default=lambda conf, name: self.env_dir / "dist",  # ruff:ignore[unused-lambda-argument]
             desc="directory where to put project packages",
         )
         for key in ("sdist", "wheel", "editable"):
@@ -160,7 +169,8 @@ class Pep517VenvPackager(PythonPackageToxEnv, ABC):
         self.conf.add_config(
             keys=["fresh_subprocess"],
             of_type=bool,
-            default=self._frontend.backend.split(".")[0] == "setuptools",
+            # lazy: building the frontend reads pyproject.toml, which must not happen during config registration
+            default=lambda conf, name: self._frontend.backend.split(".")[0] == "setuptools",  # ruff:ignore[unused-lambda-argument]
             desc="create a fresh subprocess for every backend request",
         )
 
@@ -236,15 +246,18 @@ class Pep517VenvPackager(PythonPackageToxEnv, ABC):
         if executor is not None:  # pragma: no branch
             try:
                 if executor.is_alive:
-                    self._frontend._send("_exit")  # try first on amicable shutdown  # noqa: SLF001
-            except (SystemExit, BrokenPipeError):  # pragma: no cover  # if interrupted or backend dead, ignore
+                    self._frontend._send("_exit")  # try first on amicable shutdown  # ruff:ignore[private-member-access]
+            except (SystemExit, BrokenPipeError, Fail):  # pragma: no cover  # if interrupted or backend dead, ignore
                 pass
             finally:
                 executor.close()
         for path in self._package_paths:
             if path.exists():
                 logging.debug("delete package %s", path)
-                path.unlink()
+                try:
+                    path.unlink()
+                except OSError as exception:  # e.g. still open on Windows; cleanup must reach the wheel build envs
+                    logging.warning("failed to delete package %s: %s", path, exception)
         super()._teardown()
 
     def perform_packaging(self, for_env: EnvConfigSet) -> list[Package]:
@@ -252,20 +265,7 @@ class Pep517VenvPackager(PythonPackageToxEnv, ABC):
         try:
             deps = self._load_deps(for_env)
         except BuildEditableNotSupportedError:
-            self.call_require_hooks.remove("editable")
-            targets = [e for e in self.builds.pop("editable") if e["package"] == "editable"]
-            names = ", ".join(sorted({t.env_name for t in targets if t.env_name}))
-
-            logging.error(  # noqa: TRY400
-                "package config for %s is editable, however the build backend %s does not support PEP-660, falling "
-                "back to editable-legacy - change your configuration to it",
-                names,
-                cast("Pep517VirtualEnvFrontend", self._frontend_).backend,
-            )
-            for env in targets:
-                cast("ConfigConstantDefinition[str]", env._defined["package"]).value = "editable-legacy"  # noqa: SLF001
-                self.builds["editable-legacy"].append(env)
-            self._run_state["setup"] = False  # force setup again as we need to provision wheel to get dependencies
+            self._fallback_to_editable_legacy()
             deps = self._load_deps(for_env)
         of_type: str = for_env["package"]
         if of_type == "editable-legacy":
@@ -292,7 +292,13 @@ class Pep517VenvPackager(PythonPackageToxEnv, ABC):
                 with w_env.display_context(self._has_display_suspended):
                     return w_env.perform_packaging(for_env)
             else:
-                self.setup()
+                try:
+                    self.setup()
+                except BuildEditableNotSupportedError:
+                    # deps resolved without the backend (e.g. static metadata), so the missing PEP-660 support
+                    # surfaces only at setup - fall back and re-dispatch as editable-legacy
+                    self._fallback_to_editable_legacy()
+                    return self.perform_packaging(for_env)
                 method = "build_editable" if of_type == "editable" else "build_wheel"
                 config_settings = self.conf[f"config_settings_{method}"]
                 with self._pkg_lock:
@@ -308,6 +314,21 @@ class Pep517VenvPackager(PythonPackageToxEnv, ABC):
             msg = f"cannot handle package type {of_type}"
             raise TypeError(msg)  # pragma: no cover
         return [package]
+
+    def _fallback_to_editable_legacy(self) -> None:
+        self.call_require_hooks.remove("editable")
+        targets = [e for e in self.builds.pop("editable") if e["package"] == "editable"]
+        names = ", ".join(sorted({t.env_name for t in targets if t.env_name}))
+        logging.error(
+            "package config for %s is editable, however the build backend %s does not support PEP-660, falling "
+            "back to editable-legacy - change your configuration to it",
+            names,
+            cast("Pep517VirtualEnvFrontend", self._frontend_).backend,
+        )
+        for env in targets:
+            env._defined["package"].overwrite("editable-legacy")  # ruff:ignore[private-member-access]
+            self.builds["editable-legacy"].append(env)
+        self._run_state["setup"] = False  # force setup again as we need to provision wheel to get dependencies
 
     def _build_wheel_via_sdist(self, for_env: EnvConfigSet) -> Path:
         """Build a wheel by first building an sdist, then building a wheel from it."""
@@ -326,20 +347,20 @@ class Pep517VenvPackager(PythonPackageToxEnv, ABC):
 
             # Step 3: Get wheel_build_env child and point it at extracted sdist
             child_env = cast("Pep517VenvPackager", self._wheel_build_envs[for_env["wheel_build_env"]])
-            child_env.root = sdist_source_root
-            child_env.call_require_hooks.add("wheel")
-            if child_env is self:
-                self._setup_build_requires("wheel")
-            else:
-                child_env.setup()
+            with child_env.root_at(sdist_source_root):
+                child_env.call_require_hooks.add("wheel")
+                if child_env is self:
+                    self._setup_build_requires("wheel")
+                else:
+                    child_env.setup()
 
-            # Step 4: Build the wheel
-            wheel_config: ConfigSettings = child_env.conf["config_settings_build_wheel"]
-            return child_env._frontend.build_wheel(  # noqa: SLF001
-                wheel_directory=child_env.pkg_dir,
-                metadata_directory=None,
-                config_settings=wheel_config,
-            ).wheel
+                # Step 4: Build the wheel
+                wheel_config: ConfigSettings = child_env.conf["config_settings_build_wheel"]
+                return child_env._frontend.build_wheel(  # ruff:ignore[private-member-access]
+                    wheel_directory=child_env.pkg_dir,
+                    metadata_directory=None,
+                    config_settings=wheel_config,
+                ).wheel
 
     @staticmethod
     def _find_sdist_root(extract_dir: Path) -> Path:
@@ -478,7 +499,7 @@ class Pep517VirtualEnvFrontend(Frontend):
             (f"build_{build_type}" for build_type in ["editable", "wheel", "sdist"]),
         ):  # wrap build methods in a cache wrapper
 
-            def key(*args: Any, bound_return: str = hook, **kwargs: Any) -> str:  # noqa: ARG001
+            def key(*args: Any, bound_return: str = hook, **kwargs: Any) -> str:  # ruff:ignore[unused-function-argument]
                 return bound_return
 
             setattr(self, hook, cached(into, key=key)(getattr(self, hook)))
@@ -505,7 +526,7 @@ class Pep517VirtualEnvFrontend(Frontend):
     def _send_msg(
         self,
         cmd: str,
-        result_file: Path,  # noqa: ARG002
+        result_file: Path,  # ruff:ignore[unused-method-argument]
         msg: str,
     ) -> Iterator[ToxCmdStatus]:
         try:

@@ -318,7 +318,7 @@ class PlaywrightProvider(BinProvider):
         # ``sudo`` strips most env vars by default (``env_reset`` in
         # sudoers), so simply setting ``env["PLAYWRIGHT_BROWSERS_PATH"]``
         # would be silently dropped before reaching the child. Wrap the
-        # whole command with ``/usr/bin/env KEY=VAL -- <cmd>`` instead:
+        # whole command with the abxpkg-resolved ``env KEY=VAL <cmd>`` instead:
         # ``env`` is a trusted utility that sudo executes happily, and
         # the assignments are CLI args (not env vars) so sudo's filter
         # never sees them. ``env`` then sets the vars and execs the
@@ -341,7 +341,7 @@ class PlaywrightProvider(BinProvider):
         # browser downloads in sandboxes whose egress proxy NO_PROXY
         # blocks ``cdn.playwright.dev`` / ``storage.googleapis.com``.
         # They must also survive sudo's ``env_reset``, so forward them
-        # through the ``/usr/bin/env KEY=VAL -- ...`` wrapper below.
+        # through the abxpkg-resolved ``env KEY=VAL <cmd>`` wrapper below.
         for proxy_key in ("NO_PROXY", "no_proxy"):
             proxy_value = env.get(proxy_key)
             if proxy_value:
@@ -350,12 +350,17 @@ class PlaywrightProvider(BinProvider):
         if env_assignments and needs_sudo_env_wrapper:
             resolved_bin = bin_name
             if not os.path.isabs(str(bin_name)):
-                resolved_bin = bin_abspath(str(bin_name), PATH=self.PATH) or bin_name
+                resolved_bin = bin_abspath(str(bin_name), PATH=self.PATH)
+                if resolved_bin is None:
+                    raise RuntimeError(f"abxpkg could not resolve {bin_name}")
             # POSIX ``env``: first non-assignment positional arg is the
             # utility to exec; no ``--`` separator (older coreutils
             # don't support it).
             cmd = [*env_assignments, str(resolved_bin), *cmd]
-            bin_name = "/usr/bin/env"
+            env_binary = EnvProvider().load("env", no_cache=True)
+            if not env_binary or not env_binary.loaded_abspath:
+                raise RuntimeError("abxpkg could not resolve env")
+            bin_name = env_binary.loaded_abspath
         cwd_candidates: list[Path | str | None] = [
             cwd,
             self.install_root,
@@ -773,26 +778,12 @@ class PlaywrightProvider(BinProvider):
         installer_bin = self.INSTALLER_BINARY(no_cache=no_cache).loaded_abspath
         assert installer_bin
         install_cmd = ["install", *merged_args]
-        # Retry on dpkg lock contention (apt-get may be held by a
-        # concurrent process e.g. unattended-upgrades or a prior test).
-        import time as _time
-
-        proc = None
-        for attempt in range(3):
-            proc = self.exec(
-                bin_name=installer_bin,
-                cmd=install_cmd,
-                timeout=effective_timeout,
-            )
-            if proc.returncode == 0:
-                break
-            stderr = proc.stderr or ""
-            if isinstance(stderr, bytes):
-                stderr = stderr.decode("utf-8", errors="replace")
-            if "dpkg" in stderr and "lock" in stderr and attempt < 2:
-                logger.warning("dpkg lock held, retrying in %ds...", 5 * (attempt + 1))
-                _time.sleep(5 * (attempt + 1))
-                continue
+        proc = self.exec(
+            bin_name=installer_bin,
+            cmd=install_cmd,
+            timeout=effective_timeout,
+        )
+        if proc.returncode != 0:
             self._raise_proc_error("install", bin_name, proc)
 
         # When ``playwright install --with-deps`` runs through the
@@ -808,9 +799,14 @@ class PlaywrightProvider(BinProvider):
             and self.install_root.is_dir()
             and os.geteuid() != 0
         ):
-            chown_bin = shutil.which("chown") or "/usr/sbin/chown"
+            chown_provider = EnvProvider().get_provider_with_overrides(
+                overrides={"chown": {"version": SemVer.parse("1.0.0")}},
+            )
+            chown = chown_provider.load("chown", no_cache=True)
+            if not chown or not chown.loaded_abspath:
+                raise RuntimeError("EnvProvider could not resolve chown")
             self.exec(
-                bin_name=chown_bin,
+                bin_name=chown.loaded_abspath,
                 cmd=[
                     "-R",
                     f"{os.getuid()}:{os.getgid()}",
@@ -827,7 +823,6 @@ class PlaywrightProvider(BinProvider):
             )
         if self.bin_dir is not None:
             self._refresh_symlink(bin_name, resolved)
-        assert proc is not None
         return format_subprocess_output(proc.stdout, proc.stderr)
 
     @remap_kwargs({"packages": "install_args"})

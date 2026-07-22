@@ -1,14 +1,19 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, BeforeValidator, ConfigDict, Field
+from pydantic.alias_generators import to_camel
 
+from apify_client._models import RequestQueueStats
 from crawlee.storage_clients.models import KeyValueStoreMetadata, RequestQueueMetadata
 
 from apify import Request
 from apify._utils import docs_group
+
+if TYPE_CHECKING:
+    from apify_client._models import LockedRequestQueueHead
 
 
 @docs_group('Storage data')
@@ -18,17 +23,10 @@ class ApifyKeyValueStoreMetadata(KeyValueStoreMetadata):
     Includes additional Apify-specific fields.
     """
 
-    url_signing_secret_key: Annotated[str | None, Field(alias='urlSigningSecretKey', default=None)]
+    model_config = ConfigDict(alias_generator=to_camel)
+
+    url_signing_secret_key: str | None = None
     """The secret key used for signing URLs for secure access to key-value store records."""
-
-
-@docs_group('Storage data')
-class ProlongRequestLockResponse(BaseModel):
-    """Response to prolong request lock calls."""
-
-    model_config = ConfigDict(populate_by_name=True, extra='allow')
-
-    lock_expires_at: Annotated[datetime, Field(alias='lockExpiresAt')]
 
 
 @docs_group('Storage data')
@@ -39,53 +37,48 @@ class RequestQueueHead(BaseModel):
     including metadata about the queue's state and lock information for the requests.
     """
 
-    model_config = ConfigDict(populate_by_name=True, extra='allow')
+    model_config = ConfigDict(populate_by_name=True, extra='allow', alias_generator=to_camel)
 
-    limit: Annotated[int | None, Field(alias='limit', default=None)]
+    limit: int | None = None
     """The maximum number of requests that were requested from the queue."""
 
-    had_multiple_clients: Annotated[bool, Field(alias='hadMultipleClients', default=False)]
+    had_multiple_clients: bool = False
     """Indicates whether the queue has been accessed by multiple clients (consumers)."""
 
-    queue_modified_at: Annotated[datetime, Field(alias='queueModifiedAt')]
+    queue_modified_at: datetime
     """The timestamp when the queue was last modified."""
 
-    lock_time: Annotated[timedelta | None, Field(alias='lockSecs', default=None)]
-    """The duration for which the returned requests are locked and cannot be processed by other clients."""
+    lock_time: Annotated[
+        timedelta | None,
+        Field(validation_alias=AliasChoices('lockSecs', 'lockTime'), serialization_alias='lockSecs'),
+    ] = None
+    """The duration for which the returned requests are locked and cannot be processed by other clients.
 
-    queue_has_locked_requests: Annotated[bool | None, Field(alias='queueHasLockedRequests', default=False)]
+    The platform's API names this field `lockSecs`, so it is serialized under that alias instead of the
+    `lockTime` that `to_camel` would derive from the field name.
+    """
+
+    queue_has_locked_requests: bool | None = False
     """Indicates whether the queue contains any locked requests."""
 
-    items: Annotated[list[Request], Field(alias='items', default_factory=list[Request])]
+    items: Annotated[list[Request], Field(default_factory=list[Request])]
     """The list of request objects retrieved from the beginning of the queue."""
 
+    @classmethod
+    def from_client_locked_head(cls, client_locked_head: LockedRequestQueueHead) -> RequestQueueHead:
+        """Create a `RequestQueueHead` from an Apify API client's `LockedRequestQueueHead` model.
 
-class KeyValueStoreKeyInfo(BaseModel):
-    """Model for a key-value store key info.
+        Args:
+            client_locked_head: `LockedRequestQueueHead` instance from Apify API client.
 
-    Only internal structure.
-    """
+        Returns:
+            `RequestQueueHead` instance with properly converted types.
+        """
+        # Dump to dict with mode='json' to serialize special types like AnyUrl
+        head_dict = client_locked_head.model_dump(by_alias=True, mode='json')
 
-    model_config = ConfigDict(populate_by_name=True, extra='allow')
-
-    key: Annotated[str, Field(alias='key')]
-    size: Annotated[int, Field(alias='size')]
-
-
-class KeyValueStoreListKeysPage(BaseModel):
-    """Model for listing keys in the key-value store.
-
-    Only internal structure.
-    """
-
-    model_config = ConfigDict(populate_by_name=True, extra='allow')
-
-    count: Annotated[int, Field(alias='count')]
-    limit: Annotated[int, Field(alias='limit')]
-    is_truncated: Annotated[bool, Field(alias='isTruncated')]
-    items: Annotated[list[KeyValueStoreKeyInfo], Field(alias='items', default_factory=list)]
-    exclusive_start_key: Annotated[str | None, Field(alias='exclusiveStartKey', default=None)]
-    next_exclusive_start_key: Annotated[str | None, Field(alias='nextExclusiveStartKey', default=None)]
+        # Validate and construct RequestQueueHead from the serialized dict
+        return cls.model_validate(head_dict)
 
 
 class CachedRequest(BaseModel):
@@ -93,6 +86,8 @@ class CachedRequest(BaseModel):
 
     Only internal structure.
     """
+
+    model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)
 
     id: str
     """Id of the request."""
@@ -107,25 +102,22 @@ class CachedRequest(BaseModel):
     """The expiration time of the lock on the request."""
 
 
-class RequestQueueStats(BaseModel):
-    model_config = ConfigDict(populate_by_name=True, extra='allow')
-
-    delete_count: Annotated[int, Field(alias='deleteCount', default=0)]
-    """"The number of request queue deletes."""
-
-    head_item_read_count: Annotated[int, Field(alias='headItemReadCount', default=0)]
-    """The number of request queue head reads."""
-
-    read_count: Annotated[int, Field(alias='readCount', default=0)]
-    """The number of request queue reads."""
-
-    storage_bytes: Annotated[int, Field(alias='storageBytes', default=0)]
-    """Storage size in bytes."""
-
-    write_count: Annotated[int, Field(alias='writeCount', default=0)]
-    """The number of request queue writes."""
-
-
+@docs_group('Storage data')
 class ApifyRequestQueueMetadata(RequestQueueMetadata):
-    stats: Annotated[RequestQueueStats, Field(alias='stats', default_factory=RequestQueueStats)]
-    """Additional statistics about the request queue."""
+    """Extended request queue metadata model for Apify platform.
+
+    Includes additional Apify-specific fields.
+    """
+
+    model_config = ConfigDict(alias_generator=to_camel)
+
+    stats: Annotated[
+        RequestQueueStats,
+        BeforeValidator(lambda value: RequestQueueStats() if value is None else value),
+        Field(default_factory=RequestQueueStats),
+    ]
+    """Additional statistics about the request queue.
+
+    The API may omit the stats (sending an explicit `null`), so a `None` value is coerced to a default
+    `RequestQueueStats` rather than failing validation.
+    """

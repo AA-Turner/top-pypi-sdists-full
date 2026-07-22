@@ -1,10 +1,9 @@
 # /// script
 # requires-python = ">=3.10"
 # dependencies = [
-#     "agent-framework",
+#     "agent-framework-foundry",
 #     "textual>=6.2.1",
 #     "rich>=13.7.1",
-#     "azure-identity",
 #     "python-dotenv",
 # ]
 # ///

@@ -177,6 +177,11 @@ class GetTracesRequest(google.protobuf.message.Message):
             """Natural ordering: embedded runs of digits are compared by their
             numeric value, so e.g. "item2" sorts before "item10".
             """
+            SORT_SEMVER: GetTracesRequest.OrderBy._Sort.ValueType  # 3
+            """Semantic-version ordering: values are parsed as semantic versions
+            (https://semver.org) and compared component by component, so e.g.
+            "1.9.0" sorts before "1.10.0".
+            """
 
         class Sort(_Sort, metaclass=_SortEnumTypeWrapper):
             """Sort selects which sort order is applied when ordering by a textual
@@ -195,6 +200,11 @@ class GetTracesRequest(google.protobuf.message.Message):
         SORT_NATURAL: GetTracesRequest.OrderBy.Sort.ValueType  # 2
         """Natural ordering: embedded runs of digits are compared by their
         numeric value, so e.g. "item2" sorts before "item10".
+        """
+        SORT_SEMVER: GetTracesRequest.OrderBy.Sort.ValueType  # 3
+        """Semantic-version ordering: values are parsed as semantic versions
+        (https://semver.org) and compared component by component, so e.g.
+        "1.9.0" sorts before "1.10.0".
         """
 
         KEY_FIELD_NUMBER: builtins.int

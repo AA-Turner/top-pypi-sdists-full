@@ -171,7 +171,7 @@ def schedule(
             )
             raise error("ZeroGPU quota exceeded", message)
         else:
-            if res.wait == 0:
+            if res.wait == timedelta(0):
                 message = "You have exceeded your ZeroGPU runs limit. "
             else:
                 gpu = "Pro ZeroGPU" if auth == 'pro' else ("free ZeroGPU" if auth == 'regular' else "ZeroGPU")

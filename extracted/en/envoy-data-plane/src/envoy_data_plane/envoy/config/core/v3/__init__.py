@@ -101,6 +101,7 @@ __all__ = (
     "RuntimeFractionalPercent",
     "RuntimePercent",
     "RuntimeUInt32",
+    "RuntimeUInt64",
     "SchemeHeaderTransformation",
     "SelfConfigSource",
     "SocketAddress",
@@ -3033,8 +3034,8 @@ class Http1ProtocolOptions(betterproto2.Message):
         betterproto2.field(4, betterproto2.TYPE_MESSAGE, optional=True)
     )
     """
-    Describes how the keys for response headers should be formatted. By default, all header keys
-    are lower cased.
+    Describes how the keys for headers encoded by the HTTP/1 codec should be formatted. By
+    default, all header keys are lower cased.
     """
 
     enable_trailers: "bool" = betterproto2.field(5, betterproto2.TYPE_BOOL)
@@ -3206,7 +3207,7 @@ default_message_pool.register_message(
 @dataclass(eq=False, repr=False, config={"extra": "forbid"})
 class Http2ProtocolOptions(betterproto2.Message):
     """
-    [#next-free-field: 21]
+    [#next-free-field: 23]
     """
 
     hpack_table_size: "int | None" = betterproto2.field(
@@ -3373,7 +3374,7 @@ class Http2ProtocolOptions(betterproto2.Message):
     the connection is terminated. For downstream connections the ``opened_streams`` is incremented when
     Envoy receives complete response headers from the upstream server. For upstream connections the
     ``opened_streams`` is incremented when Envoy sends the ``HEADERS`` frame for a new stream. The
-    ``http2.inbound_priority_frames_flood`` stat tracks the number of connections terminated due to
+    ``http2.inbound_window_update_frames_flood`` stat tracks the number of connections terminated due to
     flood mitigation. The default ``max_inbound_window_update_frames_per_data_frame_sent`` value is ``10``.
     Setting this to ``1`` should be enough to support HTTP/2 implementations with basic flow control,
     but more complex implementations that try to estimate available bandwidth require at least ``2``.
@@ -3546,6 +3547,40 @@ class Http2ProtocolOptions(betterproto2.Message):
     obs-text = %x80-FF
     """
 
+    stream_reset_burst: "int | None" = betterproto2.field(
+        21,
+        betterproto2.TYPE_MESSAGE,
+        unwrap=lambda: ____google__protobuf__.UInt64Value,
+        optional=True,
+    )
+    """
+    Configures the initial token count for the RST_STREAM rate limiter used by the ``nghttp2``
+    server-side connection. This uses a token-bucket algorithm where each received RST_STREAM
+    frame consumes one token, and tokens are replenished at :ref:`stream_reset_rate
+    <envoy_v3_api_field_config.core.v3.Http2ProtocolOptions.stream_reset_rate>` per second.
+    When no tokens remain, ``nghttp2`` sends GOAWAY with ``INTERNAL_ERROR`` to close the
+    connection, protecting against CVE-2023-44487 (HTTP/2 Rapid Reset). Defaults to ``1000``.
+
+    This option only applies when using ``nghttp2`` as a server. It has no effect on ``oghttp2``
+    or on client-side connections.
+    """
+
+    stream_reset_rate: "int | None" = betterproto2.field(
+        22,
+        betterproto2.TYPE_MESSAGE,
+        unwrap=lambda: ____google__protobuf__.UInt64Value,
+        optional=True,
+    )
+    """
+    Configures the token replenishment rate (tokens per second) for the RST_STREAM rate limiter
+    used by the ``nghttp2`` server-side connection. See :ref:`stream_reset_burst
+    <envoy_v3_api_field_config.core.v3.Http2ProtocolOptions.stream_reset_burst>` for details.
+    Defaults to ``33``.
+
+    This option only applies when using ``nghttp2`` as a server. It has no effect on ``oghttp2``
+    or on client-side connections.
+    """
+
     def __post_init__(self) -> None:
         super().__post_init__()
         if self.is_set("stream_error_on_invalid_http_messaging"):
@@ -3684,7 +3719,7 @@ default_message_pool.register_message(
 @dataclass(eq=False, repr=False, config={"extra": "forbid"})
 class HttpProtocolOptions(betterproto2.Message):
     """
-    [#next-free-field: 8]
+    [#next-free-field: 9]
     """
 
     idle_timeout: "datetime.timedelta | None" = betterproto2.field(
@@ -3728,6 +3763,26 @@ class HttpProtocolOptions(betterproto2.Message):
     the drain sequence will kick-in. The connection will be closed after the drain timeout period
     if there are no active streams. See :ref:`drain_timeout
     <envoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.drain_timeout>`.
+    """
+
+    max_connection_duration_jitter: "___type__v3__.Percent | None" = betterproto2.field(
+        8, betterproto2.TYPE_MESSAGE, optional=True
+    )
+    """
+    Percentage-based jitter for ``max_connection_duration``. If set, the actual connection duration
+    limit is extended by a random duration up to ``max_connection_duration * jitter / 100``.
+    This staggers connection teardowns across time and prevents a thundering-herd of reconnects
+    when many connections are established at roughly the same time.
+    This field is ignored if ``max_connection_duration`` is not set. If not set, no jitter is added.
+
+    .. note::
+      This field is currently only honored for downstream connections by the HTTP connection
+      manager. It is not yet supported for upstream cluster connections.
+
+    This is analogous to
+    :ref:`max_downstream_connection_duration_jitter_percentage
+    <envoy_v3_api_field_extensions.filters.network.tcp_proxy.v3.TcpProxy.max_downstream_connection_duration_jitter_percentage>`
+    in the TCP proxy filter.
     """
 
     max_headers_count: "int | None" = betterproto2.field(
@@ -5216,6 +5271,32 @@ default_message_pool.register_message(
 
 
 @dataclass(eq=False, repr=False, config={"extra": "forbid"})
+class RuntimeUInt64(betterproto2.Message):
+    """
+    Runtime derived uint64 with a default when not specified.
+    """
+
+    default_value: "typing.Annotated[int, pydantic.Field(ge=0, le=2**64 - 1)]" = (
+        betterproto2.field(2, betterproto2.TYPE_UINT64)
+    )
+    """
+    Default value if runtime value is not available.
+    """
+
+    runtime_key: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        3, betterproto2.TYPE_STRING
+    )
+    """
+    Runtime key to get value for comparison. This value is used if defined.
+    """
+
+
+default_message_pool.register_message(
+    "envoy.config.core.v3", "RuntimeUInt64", RuntimeUInt64
+)
+
+
+@dataclass(eq=False, repr=False, config={"extra": "forbid"})
 class SchemeHeaderTransformation(betterproto2.Message):
     """
     A message to control transformations to the :scheme header
@@ -6004,6 +6085,16 @@ class WatchedDirectory(betterproto2.Message):
     )
     """
     Directory path to watch.
+    """
+
+    watch_modify: "bool" = betterproto2.field(2, betterproto2.TYPE_BOOL)
+    """
+    If set to true, the watcher will also subscribe to file modification events
+    (``IN_MODIFY`` on Linux) in addition to move events (``IN_MOVED_TO``). This allows
+    in-place file writes to trigger reload callbacks. Use this when the writing process
+    cannot use atomic rename (e.g. certain secret managers that write certificate files
+    directly). By default, only move/rename events are watched, which is the safe choice
+    for atomic updates (e.g. Kubernetes ConfigMap symlink swaps).
     """
 
 

@@ -5,11 +5,20 @@ from typing import Any
 from urllib.parse import urlparse
 
 from . import telemetry
-from .accounts_pool import Account, AccountsPool
-from .http import ConnectError, HttpClient, HttpMethod, HttpStatusError, NetworkError, Response
+from .account import Account, has_required_cookies
+from .accounts_pool import AccountsPool
+from .http import (
+    ConnectError,
+    HttpClient,
+    HttpMethod,
+    HttpStatusError,
+    NetworkError,
+    Response,
+    format_error,
+)
 from .logger import logger
 from .utils import utc
-from .xclid import XClIdGen
+from .xclid import XClIdAccountError, XClIdGen, XClIdParseError
 
 ReqParams = dict[str, str | int] | None
 TMP_TS = utc.now().isoformat().split(".")[0].replace("T", "_").replace(":", "-")[0:16]
@@ -22,36 +31,30 @@ class AbortReqError(Exception): ...
 
 
 class XClIdGenStore:
-    items: dict[str, XClIdGen] = {}  # username -> XClIdGen
+    items: dict[str, XClIdGen] = {}
 
     @classmethod
-    async def get(cls, username: str, fresh=False) -> XClIdGen:
+    async def get(
+        cls,
+        username: str,
+        proxy: str | None = None,
+        cookies: dict[str, str] | None = None,
+        fresh=False,
+    ) -> XClIdGen:
         if username in cls.items and not fresh:
             return cls.items[username]
 
-        tries = 0
-        while tries < 3:
-            try:
-                clid_gen = await XClIdGen.create()
-                cls.items[username] = clid_gen
-                return clid_gen
-            except Exception as e:
-                tries += 1
-                logger.warning(
-                    f"XClIdGen creation attempt {tries}/3 failed: {type(e).__name__}: {e}"
-                )
-                await asyncio.sleep(1)
-
-        raise AbortReqError(
-            "Failed to create XClIdGen. See: https://github.com/vladkens/twscrape/issues/248"
-        )
+        clid_gen = await XClIdGen.create(proxy=proxy, cookies=cookies)
+        cls.items[username] = clid_gen
+        return clid_gen
 
 
 class Ctx:
-    def __init__(self, acc: Account, clt: HttpClient):
+    def __init__(self, acc: Account, clt: HttpClient, proxy: str | None = None):
         self.req_count = 0
         self.acc = acc
         self.clt = clt
+        self.proxy = proxy
 
     async def aclose(self):
         await self.clt.aclose()
@@ -63,7 +66,12 @@ class Ctx:
 
         tries = 0
         while tries < 3:
-            gen = await XClIdGenStore.get(self.acc.username, fresh=tries > 0)
+            gen = await XClIdGenStore.get(
+                self.acc.username,
+                proxy=self.proxy,
+                cookies=self.acc.cookies,
+                fresh=tries > 0,
+            )
             hdr = {"x-client-transaction-id": gen.calc(method, path)}
             rep = await self.clt.request(method, url, params=params, headers=hdr)
             if rep.status_code != 404:
@@ -157,8 +165,15 @@ class QueueClient:
             return None
 
         clt = acc.make_client(proxy=self.proxy)
-        self.ctx = Ctx(acc, clt)
+        self.ctx = Ctx(acc, clt, proxy=acc.resolve_proxy(self.proxy))
         return self.ctx
+
+    def _format_ctx_error(self, ctx: Ctx, error: Exception | str) -> str:
+        message = format_error(error) if isinstance(error, Exception) else error
+        return (
+            f"{message}; username={ctx.acc.username}; queue={self.queue}; "
+            f"backend={getattr(ctx.clt, 'backend', 'unknown')}; proxy={bool(ctx.proxy)}"
+        )
 
     async def _check_rep(self, rep: Response) -> None:
         """
@@ -264,6 +279,12 @@ class QueueClient:
             if ctx is None:
                 return None
 
+            if not has_required_cookies(ctx.acc.cookies):
+                msg = "Missing authentication cookies"
+                logger.warning(self._format_ctx_error(ctx, msg))
+                await self._close_ctx(inactive=True, msg=msg)
+                continue
+
             try:
                 source = telemetry.current_source()
                 telemetry.capture(
@@ -289,6 +310,17 @@ class QueueClient:
             except HandledError:
                 # retry with new account
                 continue
+            except XClIdAccountError as e:
+                logger.warning(self._format_ctx_error(ctx, e))
+                await self._close_ctx(utc.ts() + 60 * 15)
+                continue
+            except XClIdParseError as e:
+                logger.error(
+                    f"{self._format_ctx_error(ctx, e)}; "
+                    "Report: https://github.com/vladkens/twscrape/issues"
+                )
+                await self._close_ctx()
+                return None
             except NetworkError:
                 # http transport failed, just retry with same account
                 continue
@@ -303,7 +335,8 @@ class QueueClient:
                     msg = [
                         "Unknown error. Account timeouted for 15 minutes.",
                         "Create issue please: https://github.com/vladkens/twscrape/issues",
-                        f"If it mistake, you can unlock accounts with `twscrape reset_locks`. Err: {type(e)}: {e}",
+                        "If it mistake, you can unlock accounts with `twscrape reset_locks`. "
+                        f"Err: {self._format_ctx_error(ctx, e)}",
                     ]
 
                     logger.warning(" ".join(msg))

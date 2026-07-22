@@ -1,0 +1,190 @@
+[build-system]
+requires = [
+    "setuptools>=70.0.0",
+    "wheel",
+    # Required for the optional mypyc-compiled build (ENABLE_MYPYC=true); harmless
+    # for the default pure-Python build. Pinned to match the dev/test toolchain.
+    "mypy==1.13.0",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "matrice_inference"
+dynamic = ["version"]
+description = "Common server utilities for Matrice.ai services"
+readme = "README.md"
+authors = [{ name = "Matrice.ai", email = "dipendra@matrice.ai" }]
+license = {text = "MIT"}
+requires-python = ">=3.8"
+keywords = ["matrice", "inference", "utilities", "mypyc", "compiled"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: MacOS",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Typing :: Typed",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "pytest-asyncio>=0.21",
+    "pytest-mock>=3.0",
+    "pytest-timeout>=2.1",
+    "fakeredis>=2.20",
+    "respx>=0.20",
+    "msgpack>=1.0",
+    "ruff>=0.4",
+    "bandit[toml]>=1.7",
+    "mypy>=1.0",
+    "pre-commit>=3.0",
+    "pip-audit==2.7.3",
+    "safety==3.2.11",
+    # Runtime deps imported at module-load time by src/ (tests mock real calls but need imports to succeed)
+    "numpy==2.4.4",
+    "httpx==0.28.1",
+    # CICD-107: opencv-python pulls libxcb.so.1 + other X11 system libs that
+    # aren't in aiforeveryone/cicd-runner:v1 (or in most server-side deploys).
+    # The headless variant has the same API surface minus the GUI bits and
+    # no system-lib deps -- right choice for server-side inference / CI.
+    "opencv-python-headless==4.13.0.92",
+    "tritonclient==2.67.0",
+    "fastapi==0.135.3",
+    "uvicorn==0.44.0",
+    "pillow==12.2.0",
+]
+
+[tool.ruff]
+line-length = 120
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "W",    # pycodestyle warnings
+    "I",    # isort
+    "N",    # pep8-naming
+    "S",    # flake8-bandit (security)
+    "B",    # flake8-bugbear
+    "A",    # flake8-builtins
+    "C4",   # flake8-comprehensions
+    "UP",   # pyupgrade
+    "RUF",  # ruff-specific
+    "SIM",  # flake8-simplify
+    "TCH",  # flake8-type-checking
+    "PTH",  # flake8-use-pathlib
+    "ERA",  # eradicate (commented code)
+    "T20",  # flake8-print
+    "PIE",  # flake8-pie
+    "RET",  # flake8-return
+]
+ignore = [
+    "E501",
+    "S101",   # assert allowed in tests
+    "T201",   # print allowed (use logging in production)
+    "ERA001", # commented code sometimes useful
+    # Pre-existing issues from prod merge; cleanup tracked separately
+    "PTH100", "PTH103", "PTH107", "PTH108", "PTH109", "PTH110", "PTH112",
+    "PTH118", "PTH119", "PTH120", "PTH123", "PTH202", "PTH208",
+    "SIM102", "SIM103", "SIM105", "SIM108", "SIM110", "SIM115", "SIM117", "SIM118",
+    "A002",   # builtin shadowing in function args
+    "N803", "N806",  # naming conventions in legacy code
+    "C408",   # unnecessary dict() call
+    "RET504", # unnecessary assignment before return
+    "RUF005", "RUF006", "RUF012", "RUF013",
+    "B006", "B007", "B017", "B904",
+    "S105", "S108", "S110", "S104", "S603", "S607",
+    "TC002",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"src/matrice_inference/__init__.py" = ["E402"]
+"src/matrice_inference/server/model/triton_server.py" = ["E402"]
+"tests/**" = ["S101", "S106", "T201"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.bandit]
+exclude_dirs = ["tests", ".venv", "venv", "build", "dist"]
+skips = ["B101", "B110", "B310", "B403", "B404", "B603", "B605", "B607"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "."]
+asyncio_mode = "auto"
+# Fast suite: scoped coverage (gate stays 0 in Phase A; Phase C sets the real gate),
+# per-test timeout (thread method tolerates asyncio/mp code), and deselection of the
+# opt-in slow/integration tests (e2e, real-component, and benchmark/real-Redis tests).
+addopts = "-q --tb=short --cov=src/matrice_inference --cov-report=term-missing --cov-fail-under=0 --timeout=30 --timeout-method=thread -m 'not slow and not integration'"
+markers = [
+    "slow: benchmark / real-timing tests excluded from the fast suite (run with -m slow)",
+    "integration: multi-component / real-resource tests excluded from the fast suite (run with -m integration)",
+    "real_sleep: opt out of the autouse time.sleep/asyncio.sleep no-op patch",
+]
+
+[tool.mypy]
+warn_return_any = true
+warn_unused_configs = true
+check_untyped_defs = true
+follow_imports = "skip"
+ignore_missing_imports = true
+warn_unused_ignores = false
+show_error_codes = true
+disable_error_code = [
+    "assignment",
+    "operator",
+    "attr-defined",
+    "index",
+    "union-attr",
+    "arg-type",
+    "call-arg",
+    "var-annotated",
+    "return-value",
+    "func-returns-value",
+    "truthy-function",
+    "no-redef",
+    "type-var",
+    "type-arg",
+    "str-bytes-safe",
+    "dict-item",
+    "call-overload",
+    "annotation-unchecked",
+    "import-untyped",
+    "no-any-return",
+]
+
+[tool.coverage.run]
+source = ["src/matrice_inference"]
+relative_files = true
+omit = [
+    "src/matrice_inference/tmp/*",
+    "src/matrice_inference/__init__.py",
+    "src/matrice_inference/**/__main__.py",
+    "tests/*",
+    "**/__pycache__/*",
+    "**/*.pyi",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+fail_under = 0
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "if __name__",
+    "if __name__ == .__main__.",
+    "raise NotImplementedError",
+]

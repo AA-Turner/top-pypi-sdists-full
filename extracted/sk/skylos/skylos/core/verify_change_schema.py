@@ -8,7 +8,7 @@ from skylos.contracts import contract_finding_metadata
 from skylos.core.evidence_contract import finding_evidence_contract
 
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 AI_VIBE_CATEGORIES = {
     "hallucinated_reference",
@@ -146,18 +146,25 @@ def build_verify_change_response(
         )
     )
 
-    return {
+    coverage = _verification_coverage(analysis_result)
+    coverage = _reconcile_response_coverage(coverage, findings)
+    status = _status_for_findings(findings, coverage)
+
+    response = {
         "schema_version": SCHEMA_VERSION,
         "tool": "verify_change",
-        "status": _status_for_findings(findings),
+        "status": status,
         "target": {
             "path": _target_path_for_payload(scan_target, target_file, project_root),
             "file": _target_file_for_payload(target_file, root),
             "range": _range_for_payload(parsed_range),
         },
         "findings": findings,
-        "summary": _summary(findings),
+        "summary": _summary(findings, status, coverage),
     }
+    if coverage is not None:
+        response["coverage"] = coverage
+    return response
 
 
 def _iter_ai_findings(
@@ -202,9 +209,7 @@ def _normalize_finding(
     rule_id = str(_finding_value(finding, ("rule_id", "rule"), "UNKNOWN"))
     default_vibe, default_likelihood = _rule_defaults(rule_id)
     vibe_category = str(_finding_value(finding, ("vibe_category",), default_vibe))
-    ai_likelihood = str(
-        _finding_value(finding, ("ai_likelihood",), default_likelihood)
-    )
+    ai_likelihood = str(_finding_value(finding, ("ai_likelihood",), default_likelihood))
     confidence = _confidence(finding.get("confidence"), ai_likelihood)
     severity = str(_finding_value(finding, ("severity",), "MEDIUM")).upper()
 
@@ -347,9 +352,30 @@ def _range_for_payload(line_range: tuple[int, int] | None) -> dict[str, int] | N
     return {"start_line": start, "end_line": end}
 
 
-def _summary(findings: list[dict[str, Any]]) -> str:
+def _summary(
+    findings: list[dict[str, Any]],
+    status: str,
+    coverage: dict[str, Any] | None,
+) -> str:
     count = len(findings)
     if count == 0:
+        if status == "incomplete":
+            skipped = _skipped_reference_count(coverage)
+            if skipped == 1:
+                return "Verification incomplete: 1 reference could not be proven"
+            if skipped:
+                return (
+                    f"Verification incomplete: {skipped} references could not be proven"
+                )
+            incomplete_checks = _incomplete_check_count(coverage)
+            if incomplete_checks == 1:
+                return "Verification incomplete: 1 required check did not complete"
+            if incomplete_checks:
+                return (
+                    "Verification incomplete: "
+                    f"{incomplete_checks} required checks did not complete"
+                )
+            return "Verification incomplete: required checks did not complete"
         return "No AI-code issues found"
     if count == 1:
         issue_word = "issue"
@@ -434,10 +460,105 @@ def _validate_line_range(start: int, end: int) -> None:
         raise ValueError("line range end must be greater than or equal to start")
 
 
-def _status_for_findings(findings: list[dict[str, Any]]) -> str:
+def _status_for_findings(
+    findings: list[dict[str, Any]],
+    coverage: dict[str, Any] | None,
+) -> str:
     if findings:
         return "fail"
+    if isinstance(coverage, dict) and coverage.get("state") == "incomplete":
+        return "incomplete"
     return "pass"
+
+
+def _verification_coverage(
+    analysis_result: dict[str, Any],
+) -> dict[str, Any] | None:
+    summary = analysis_result.get("analysis_summary")
+    if not isinstance(summary, dict):
+        return None
+    coverage = summary.get("ai_verification")
+    if not isinstance(coverage, dict):
+        return None
+    return dict(coverage)
+
+
+def _reconcile_response_coverage(
+    coverage: dict[str, Any] | None,
+    findings: list[dict[str, Any]],
+) -> dict[str, Any] | None:
+    if not isinstance(coverage, dict) or findings:
+        return coverage
+    checks = coverage.get("checks")
+    if not isinstance(checks, list):
+        return coverage
+    normalized_checks = []
+    missing_evidence = False
+    for check in checks:
+        if not isinstance(check, dict):
+            normalized_checks.append(check)
+            continue
+        normalized = dict(check)
+        reasons = normalized.get("reasons")
+        normalized["reasons"] = (
+            [dict(reason) for reason in reasons if isinstance(reason, dict)]
+            if isinstance(reasons, list)
+            else []
+        )
+        if normalized.get("outcome") == "fail":
+            missing_evidence = True
+            normalized["outcome"] = "incomplete"
+            normalized["finding_count"] = 0
+            normalized["skipped_references"] = max(
+                1,
+                _optional_int(normalized.get("skipped_references")) or 0,
+            )
+            _append_coverage_reason(
+                normalized, "finding_evidence_missing_from_response"
+            )
+        normalized_checks.append(normalized)
+    if not missing_evidence:
+        return coverage
+    reconciled = dict(coverage)
+    reconciled["state"] = "incomplete"
+    reconciled["checks"] = normalized_checks
+    return reconciled
+
+
+def _append_coverage_reason(check: dict[str, Any], code: str) -> None:
+    reasons = check.setdefault("reasons", [])
+    for reason in reasons:
+        if reason.get("code") == code:
+            reason["count"] = max(1, _optional_int(reason.get("count")) or 0)
+            return
+    reasons.append({"code": code, "count": 1})
+    reasons.sort(key=lambda reason: str(reason.get("code", "")))
+
+
+def _skipped_reference_count(coverage: dict[str, Any] | None) -> int:
+    if not isinstance(coverage, dict):
+        return 0
+    checks = coverage.get("checks")
+    if not isinstance(checks, list):
+        return 0
+    total = 0
+    for check in checks:
+        if isinstance(check, dict):
+            total += max(0, _optional_int(check.get("skipped_references")) or 0)
+    return total
+
+
+def _incomplete_check_count(coverage: dict[str, Any] | None) -> int:
+    if not isinstance(coverage, dict):
+        return 0
+    checks = coverage.get("checks")
+    if not isinstance(checks, list):
+        return 0
+    return sum(
+        1
+        for check in checks
+        if isinstance(check, dict) and check.get("outcome") == "incomplete"
+    )
 
 
 def _target_path_for_payload(

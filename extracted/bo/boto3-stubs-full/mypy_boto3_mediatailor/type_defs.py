@@ -72,6 +72,8 @@ __all__ = (
     "AdsInteractionLogOutputTypeDef",
     "AdsInteractionLogTypeDef",
     "AdsInteractionLogUnionTypeDef",
+    "AdsPersonalizationConcurrencyTypeDef",
+    "AdsPersonalizationTimeoutsTypeDef",
     "AlertTypeDef",
     "AlternateMediaOutputTypeDef",
     "AlternateMediaTypeDef",
@@ -308,6 +310,19 @@ class AdsInteractionLogOutputTypeDef(TypedDict):
 class AdsInteractionLogTypeDef(TypedDict):
     PublishOptInEventTypes: NotRequired[Sequence[AdsInteractionPublishOptInEventTypeType]]
     ExcludeEventTypes: NotRequired[Sequence[AdsInteractionExcludeEventTypeType]]
+
+
+class AdsPersonalizationConcurrencyTypeDef(TypedDict):
+    MaxConcurrentAdsRequests: NotRequired[int]
+    EnableVodVastParallelization: NotRequired[bool]
+
+
+class AdsPersonalizationTimeoutsTypeDef(TypedDict):
+    AdsRequestTimeoutMilliseconds: NotRequired[int]
+    LiveMaximumAdsPersonalizationTimeMilliseconds: NotRequired[int]
+    VodMaximumAdsPersonalizationTimeMilliseconds: NotRequired[int]
+    PrefetchAdsRequestTimeoutMilliseconds: NotRequired[int]
+    PrefetchMaximumAdsPersonalizationTimeMilliseconds: NotRequired[int]
 
 
 class AlertTypeDef(TypedDict):
@@ -1143,6 +1158,8 @@ class GetPlaybackConfigurationResponseTypeDef(TypedDict):
     AdConditioningConfiguration: AdConditioningConfigurationTypeDef
     AdDecisionServerConfiguration: AdDecisionServerConfigurationOutputTypeDef
     FunctionMapping: dict[EventNameType, str]
+    AdsPersonalizationTimeouts: AdsPersonalizationTimeoutsTypeDef
+    AdsPersonalizationConcurrency: AdsPersonalizationConcurrencyTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1172,6 +1189,8 @@ class PlaybackConfigurationTypeDef(TypedDict):
     AdConditioningConfiguration: NotRequired[AdConditioningConfigurationTypeDef]
     AdDecisionServerConfiguration: NotRequired[AdDecisionServerConfigurationOutputTypeDef]
     FunctionMapping: NotRequired[dict[EventNameType, str]]
+    AdsPersonalizationTimeouts: NotRequired[AdsPersonalizationTimeoutsTypeDef]
+    AdsPersonalizationConcurrency: NotRequired[AdsPersonalizationConcurrencyTypeDef]
 
 
 class PutPlaybackConfigurationResponseTypeDef(TypedDict):
@@ -1200,6 +1219,8 @@ class PutPlaybackConfigurationResponseTypeDef(TypedDict):
     AdConditioningConfiguration: AdConditioningConfigurationTypeDef
     AdDecisionServerConfiguration: AdDecisionServerConfigurationOutputTypeDef
     FunctionMapping: dict[EventNameType, str]
+    AdsPersonalizationTimeouts: AdsPersonalizationTimeoutsTypeDef
+    AdsPersonalizationConcurrency: AdsPersonalizationConcurrencyTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1397,6 +1418,8 @@ class PutPlaybackConfigurationRequestTypeDef(TypedDict):
     AdConditioningConfiguration: NotRequired[AdConditioningConfigurationTypeDef]
     AdDecisionServerConfiguration: NotRequired[AdDecisionServerConfigurationUnionTypeDef]
     FunctionMapping: NotRequired[Mapping[EventNameType, str]]
+    AdsPersonalizationTimeouts: NotRequired[AdsPersonalizationTimeoutsTypeDef]
+    AdsPersonalizationConcurrency: NotRequired[AdsPersonalizationConcurrencyTypeDef]
 
 
 class ListPlaybackConfigurationsResponseTypeDef(TypedDict):

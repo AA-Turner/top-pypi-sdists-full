@@ -8,9 +8,13 @@
     example usage.
 
     The functions that are not available via the accessor are ``einsum``, ``einsum_path``,
-    ``matmul`` and ``get_default_dims``.
+    ``matmul``, ``get_default_dims`` and ``default_dims``.
 
 """
+
+import sys
+from collections.abc import Iterable
+from contextlib import contextmanager
 
 import numpy as np
 import xarray as xr
@@ -35,6 +39,7 @@ __all__ = [
     "solve",
     "inv",
     "pinv",
+    "default_dims",
 ]
 
 
@@ -109,6 +114,10 @@ def get_default_dims(da1_dims, d2_dims=None):
 
     You can still use ``dims`` explicitly to override those defaults.
 
+    .. note::
+        Monkeypatching ``get_default_dims`` directly works but is error-prone.
+        Consider using the :func:`default_dims` context manager instead.
+
     """
     raise MissingMonkeypatchError()
 
@@ -119,10 +128,58 @@ def _attempt_default_dims(func, da1_dims, da2_dims=None):
         aux = get_default_dims(da1_dims, da2_dims)
     except MissingMonkeypatchError:
         raise TypeError(
-            f"{func} missing required argument dims. You must monkeypatch "
-            "xarray_einstats.linalg.get_default_dims for dims=None to be supported"
+            f"{func} missing required argument dims. Use "
+            "xarray_einstats.linalg.default_dims context manager or pass dims explicitly"
         ) from None
     return aux
+
+
+@contextmanager
+def default_dims(func_or_dims):
+    """Context manager to temporarily set the default dimensions for linalg functions.
+
+    Safer alternative to monkey patching :func:`get_default_dims`,
+    as it ensures that the original function is restored even if an error occurs
+    within the context.
+
+    Parameters
+    ----------
+    func_or_dims : callable or iterable
+        If a callable is provided, it should take the same arguments as :func:`get_default_dims`
+        and return the default dimensions based on those arguments.
+        If an iterable is provided, it will be used as the default dimensions
+        regardless of the input arguments.
+
+    See Also
+    --------
+    get_default_dims
+
+    Examples
+    --------
+    Set the default dims to ``("dim", "dim2")`` for the duration of the ``with`` block:
+
+    .. code-block:: python
+
+        from xarray_einstats import linalg, tutorial
+        da = tutorial.generate_matrices_dataarray(5)
+
+        with linalg.default_dims(("dim", "dim2")):
+            linalg.inv(da)
+
+    """
+    _linalg = sys.modules[__name__]
+    original_get_default_dims = _linalg.get_default_dims
+
+    def func(*args):
+        if isinstance(func_or_dims, Iterable):
+            return func_or_dims
+        return func_or_dims(*args)
+
+    _linalg.get_default_dims = func
+    try:
+        yield
+    finally:
+        _linalg.get_default_dims = original_get_default_dims
 
 
 class PairHandler:
@@ -434,17 +491,17 @@ def matmul(da, db, dims=None, *, out_append="2", **kwargs):
     return matmul_aux
 
 
-def matrix_transpose(da, dims):
+def matrix_transpose(da, dims=None):
     """Transpose the underlying matrix without modifying the dimensions.
 
-    This convenience function uses :meth:`~xarray.DataArray.swap_dims` followed
+    This convenience function uses :meth:`~xarray.DataArray.rename` followed
     by :meth:`~xarray.DataArray.transpose` to get the equivalent of a matrix transposition.
 
     Parameters
     ----------
     da : DataArray
         Input DataArray
-    dims : list of str
+    dims : list of str, optional
         Matrix dimensions
 
     Returns
@@ -455,7 +512,22 @@ def matrix_transpose(da, dims):
     if dims is None:
         dims = _attempt_default_dims("matrix_transpose", da.dims)
     dim1, dim2 = dims
-    return da.swap_dims({dim1: dim2, dim2: dim1}).transpose(..., *dims)
+    rename_dict = {dim1: dim2, dim2: dim1}
+
+    if (
+        dim1 in da.indexes
+        and dim2 in da.indexes
+        and len(da.indexes[dim1].names) == len(da.indexes[dim2].names)
+        and len(da.indexes[dim1].names) > 1
+    ):
+        for sub_dim1, sub_dim2 in zip(da.indexes[dim1].names, da.indexes[dim2].names):
+            rename_dict[sub_dim1] = sub_dim2
+            rename_dict[sub_dim2] = sub_dim1
+
+    da_transposed = da.rename(rename_dict).transpose(..., *dims)
+
+    # Purely cosmetic change to preserve order of coordinates in the output
+    return da_transposed.assign_coords({k: da_transposed.coords[k] for k in da.coords})
 
 
 def matrix_power(da, n, dims=None, **kwargs):

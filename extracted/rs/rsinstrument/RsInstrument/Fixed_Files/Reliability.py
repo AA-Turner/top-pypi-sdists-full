@@ -72,8 +72,7 @@ class Reliability:
 		self._last_context: str = ''
 		self._last_timestamp = None
 		self._exception_on_error = False
-		# noinspection PyTypeChecker
-		self._on_update_handler: Callable = None
+		self._on_update_handler: Callable | None = None
 		self._core.set_link_handler('Reliability', self._permanent_on_update_handler)
 
 	@property
@@ -109,7 +108,7 @@ class Reliability:
 		"""If True, (default is False) the object throws an exception if the updated reliability is not 0 (non-OK)."""
 		self._exception_on_error = value
 
-	def on_update_handler(self, handler: Callable) -> None:
+	def on_update_handler(self, handler: Callable | None) -> None:
 		"""Register the handler for on_update event.
 		This handler is invoked with each update of the reliability indicator.
 		Handler API: handler(event_args: ReliabilityEventArgs)"""
@@ -117,6 +116,7 @@ class Reliability:
 
 	def _permanent_on_update_handler(self, event_args: ArgLinkedEventArgs) -> None:
 		"""Permanent on_update handler. Takes care of updating all the 'last_xxx' values and calling a user-defined updated_handler."""
+		# noinspection PyStringConversionWithoutDunderMethod
 		self._last_value = int(str(event_args.value))
 		self._last_context = event_args.context
 		self._last_timestamp = event_args.timestamp

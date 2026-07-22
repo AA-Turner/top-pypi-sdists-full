@@ -587,6 +587,142 @@ def test_function_import_entity(service):
     assert result.Sensor == 'Sensor-address'
     assert result.Value == 456.8
 
+@responses.activate
+def test_function_import_collection(service):
+    """Function call with collection return type"""
+
+    # pylint: disable=redefined-outer-name
+
+    responses.add(
+        responses.GET,
+        f'{service.url}/get_best_measurements',
+        headers={'Content-type': 'application/json'},
+        json={'d': {'results' : [{
+                'Sensor': 'sensor2',
+                'Date': "/Date(1776417069000)/",
+                'Value': '29.8d'
+                }, {
+                'Sensor': 'sensor4',
+                'Date': "/Date(1776417578000)/",
+                'Value': '30.2d'
+            }],
+        }},
+        status=200)
+
+    result = service.functions.get_best_measurements.execute()
+    assert isinstance(result, list)
+    assert len(result) == 2
+
+    assert isinstance(result[0], pyodata.v2.service.EntityProxy)
+    assert result[0].Sensor == 'sensor2'
+    assert result[0].Date == datetime.datetime(2026, 4, 17, 9, 11, 9, tzinfo=datetime.timezone.utc)
+    assert result[0].Value == 29.8
+
+    assert isinstance(result[1], pyodata.v2.service.EntityProxy)
+    assert result[1].Sensor == 'sensor4'
+    assert result[1].Date == datetime.datetime(2026, 4, 17, 9, 19, 38, tzinfo=datetime.timezone.utc)
+    assert result[1].Value == 30.2
+
+
+@responses.activate
+def test_function_import_collection_with_pagination_metadata(service):
+    """Function call with collection return type including pagination metadata
+
+    This test demonstrates that both __next and __count metadata should be preserved
+    when a FunctionImport returns a partial Collection with inline count.
+    Per OData v2 spec, this metadata is part of the Collection response format.
+    """
+
+    # pylint: disable=redefined-outer-name
+
+    responses.add(
+        responses.GET,
+        f'{service.url}/get_best_measurements?$inlinecount=allpages',
+        headers={'Content-type': 'application/json'},
+        json={'d': {'results' : [{
+                'Sensor': 'sensor2',
+                'Date': "/Date(1776417069000)/",
+                'Value': '29.8d'
+                }, {
+                'Sensor': 'sensor4',
+                'Date': "/Date(1776417578000)/",
+                'Value': '30.2d'
+            }],
+            '__count': '50',
+            '__next': f"{service.url}/get_best_measurements?$skiptoken=2"
+        }},
+        status=200)
+
+
+    result = service.functions.get_best_measurements.count(inline=True).execute()
+
+    assert isinstance(result, list)
+    assert len(result) == 2
+    assert isinstance(result[0], pyodata.v2.service.EntityProxy)
+    assert isinstance(result[1], pyodata.v2.service.EntityProxy)
+
+    assert hasattr(result, 'total_count'), \
+        "FunctionImport Collection should preserve __count like get_entities()"
+    assert result.total_count == 50
+
+    assert hasattr(result, 'next_url'), \
+        "FunctionImport Collection should preserve __next like get_entities()"
+    assert result.next_url == f"{service.url}/get_best_measurements?$skiptoken=2"
+
+
+@responses.activate
+def test_function_import_collection_empty(service):
+    """Collection FunctionImport with zero results returns an empty ListWithTotalCount"""
+
+    # pylint: disable=redefined-outer-name
+
+    responses.add(
+        responses.GET,
+        f'{service.url}/get_best_measurements',
+        headers={'Content-type': 'application/json'},
+        json={'d': {'results': []}},
+        status=200)
+
+    result = service.functions.get_best_measurements.execute()
+    assert isinstance(result, list)
+    assert len(result) == 0
+
+
+@responses.activate
+def test_function_import_collection_missing_results_key(service):
+    """Collection FunctionImport response without 'results' raises PyODataException"""
+
+    # pylint: disable=redefined-outer-name
+
+    responses.add(
+        responses.GET,
+        f'{service.url}/get_best_measurements',
+        headers={'Content-type': 'application/json'},
+        json={'d': {}},
+        status=200)
+
+    with pytest.raises(PyODataException) as ex_info:
+        service.functions.get_best_measurements.execute()
+    assert 'results' in str(ex_info.value)
+
+
+@responses.activate
+def test_function_import_collection_total_count_absent(service):
+    """total_count raises ProgramError when __count was not requested"""
+
+    # pylint: disable=redefined-outer-name
+
+    responses.add(
+        responses.GET,
+        f'{service.url}/get_best_measurements',
+        headers={'Content-type': 'application/json'},
+        json={'d': {'results': []}},
+        status=200)
+
+    result = service.functions.get_best_measurements.execute()
+    with pytest.raises(ProgramError):
+        _ = result.total_count
+
 
 @responses.activate
 def test_update_entity(service):
@@ -2294,6 +2430,40 @@ def test_partial_listing(service):
 
 
 @responses.activate
+def test_next_url_cross_origin_raises(service):
+    """__next URL pointing to a different origin must be refused before any request is dispatched."""
+    # pylint: disable=redefined-outer-name
+    cross_origin_next = "http://attacker.example.com/collect?$skiptoken=opaque"
+
+    request = service.entity_sets.Employees.get_entities().next_url(cross_origin_next)
+    with pytest.raises(PyODataException, match="cross-origin"):
+        request.execute()
+    assert len(responses.calls) == 0
+
+
+@responses.activate
+def test_next_url_same_origin_allowed(service):
+    """__next URL on the same origin (scheme + host + port) must be followed normally."""
+    # pylint: disable=redefined-outer-name
+    same_origin_next = f"{service.url}/Employees?$skiptoken=safe"
+
+    responses.add(
+        responses.GET,
+        same_origin_next,
+        json={'d': {
+            'results': [
+                {'ID': 23, 'NameFirst': 'Rob', 'NameLast': 'Ickes'}
+            ]
+        }},
+        status=200)
+
+    request = service.entity_sets.Employees.get_entities().next_url(same_origin_next)
+    result = request.execute()
+    assert len(result) == 1
+    assert result[0].ID == 23
+
+
+@responses.activate
 def test_count_with_chainable_filter_lt_operator(service):
     """Check getting $count with $filter with new filter syntax using multiple filters"""
 
@@ -2955,3 +3125,53 @@ def test_custom_with_create_entity_url_params(service):
     assert result.Key == '12345'
     assert result.Data == 'abcd'
     assert result.etag == 'W/\"J0FtZXJpY2FuIEFpcmxpbmVzJw==\"'
+
+
+@responses.activate
+def test_response_hook_is_called_before_domain_handler(schema):
+    """response_hook fires before the domain handler and receives the raw response"""
+
+    called_with = []
+
+    def hook(response):
+        called_with.append(response.status_code)
+
+    svc = pyodata.v2.service.Service(URL_ROOT, schema, requests, response_hook=hook)
+
+    path = quote("MasterEntities('1')")
+    responses.add(
+        responses.GET,
+        f"{URL_ROOT}/{path}",
+        headers={'Content-type': 'application/json'},
+        json={'d': {'Key': '1', 'Data': 'x'}},
+        status=200)
+
+    svc.entity_sets.MasterEntities.get_entity('1').execute()
+
+    assert called_with == [200]
+
+
+@responses.activate
+def test_response_hook_raising_prevents_domain_handler(schema):
+    """An exception raised in response_hook propagates and the domain result is not returned"""
+
+    def hook(response):
+        raise RuntimeError('hook blocked this')
+
+    svc = pyodata.v2.service.Service(URL_ROOT, schema, requests, response_hook=hook)
+
+    path = quote("MasterEntities('1')")
+    responses.add(
+        responses.GET,
+        f"{URL_ROOT}/{path}",
+        headers={'Content-type': 'application/json'},
+        json={'d': {'Key': '1', 'Data': 'x'}},
+        status=200)
+
+    with pytest.raises(RuntimeError, match='hook blocked this'):
+        svc.entity_sets.MasterEntities.get_entity('1').execute()
+
+
+def test_service_without_response_hook_works(service):
+    """response_hook defaults to None and does not affect normal operation"""
+    assert service.response_hook is None

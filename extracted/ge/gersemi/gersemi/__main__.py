@@ -3,7 +3,6 @@ from dataclasses import fields
 import pathlib
 import sys
 import gersemi_rust_backend
-from gersemi.__version__ import __title__, __version__
 from gersemi.configuration import (
     ControlConfiguration,
     ListExpansion,
@@ -17,26 +16,18 @@ from gersemi.configuration import (
     sanitize_list_expansion,
     workers_type,
 )
-from gersemi.configuration_reports import default_report
 from gersemi.print_config_kind import PrintConfigKind, print_config_kind
 from gersemi.return_codes import FAIL, SUCCESS
-from gersemi.runner import print_to_stderr, run
 
 FROZEN = getattr(sys, "frozen", False)
-MISSING = "(missing)"
-
-try:
-    from colorama import __version__ as colorama_version
-
-except ImportError:
-    colorama_version = MISSING
 
 
 class ShowVersion(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
+        from gersemi.__version__ import __title__, __version__
+
         frozen_suffix = " (frozen)" if FROZEN else ""
         print(f"{__title__} {__version__}{frozen_suffix}")
-        print(f"colorama {colorama_version}")
         print(f"Python {sys.version}")
         print(gersemi_rust_backend.version())
         sys.exit(SUCCESS)
@@ -231,12 +222,6 @@ def create_argparser():
         default=None,
         help=f"{control_conf_doc['quiet']} [default: don't skip, same as --no-quiet]",
     )
-
-    if colorama_version == MISSING:
-        warn_about_missing_colorama = " Warning: missing colorama."
-    else:
-        warn_about_missing_colorama = ""
-
     control_configuration_group.add_argument(
         "--color",
         "--no-color",
@@ -246,7 +231,6 @@ def create_argparser():
         default=None,
         help=f"""
         {control_conf_doc["color"]}
-        {warn_about_missing_colorama}
         [default: don't colorize diff, same as --no-color]
         """,
     )
@@ -329,6 +313,8 @@ def create_argparser():
     File or directory to format. When directory is provided then CMakeLists.txt,
     CMakeLists.txt.in and files with .cmake/.cmake.in extension are automatically discovered.
     If only `-` is provided, input is taken from stdin instead.
+    If --definitions is used it has to be separated with another option or `--`, for example:
+    gersemi --definitions def1.cmake def2.cmake -- src1.cmake
             """,
     )
 
@@ -343,7 +329,6 @@ def is_stdin_mixed_with_file_input(sources):
 
 
 def postprocess_args(args):
-    args.sources = set(args.sources)
     if args.definitions is not None:
         args.definitions = set(args.definitions)
 
@@ -355,37 +340,31 @@ def postprocess_args(args):
     if args.configuration_file is not None:
         args.configuration_file = normalize_path(args.configuration_file)
 
-    args.line_ranges = {line_range for arg in args.line_ranges for line_range in arg}
+    args.line_ranges = tuple(
+        {line_range for arg in args.line_ranges for line_range in arg}
+    )
+
+    try:
+        if pathlib.Path("-") not in args.sources:
+            args.sources = tuple(normalize_path(s) for s in set(args.sources))
+    except FileNotFoundError as e:
+        # pylint: disable=broad-exception-raised
+        raise Exception(f"Source path doesn't exist: {e.filename}") from e
 
 
 def error(text):
-    print_to_stderr(text)
+    print(text, file=sys.stderr)
     sys.exit(FAIL)
 
 
 def main():
-    if FROZEN:
-        from multiprocessing import freeze_support
-
-        freeze_support()
-
     try:
         argparser = create_argparser()
         args = argparser.parse_args()
-
-        if args.print_config == PrintConfigKind.Default.value:
-            print(default_report())
-            sys.exit(SUCCESS)
-
         postprocess_args(args)
 
-        if any(map(is_stdin_mixed_with_file_input, [args.sources, args.definitions])):
-            error("Don't mix stdin with file input")
-
-        if len(args.sources) < 1:
-            sys.exit(SUCCESS)
-
-        sys.exit(run(args))
+        app = gersemi_rust_backend.App(args)
+        sys.exit(app.run())
     except Exception as exception:  # pylint: disable=broad-exception-caught
         error(exception)
 

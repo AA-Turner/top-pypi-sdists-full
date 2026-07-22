@@ -238,6 +238,7 @@ class Config(_message.Message):
     HIDE_SIDEBAR_NAV_FIELD_NUMBER: _builtins.int
     TOOLBAR_MODE_FIELD_NUMBER: _builtins.int
     SHOW_ERROR_LINKS_FIELD_NUMBER: _builtins.int
+    DISABLE_DATA_EXPORT_FIELD_NUMBER: _builtins.int
     gather_usage_stats: _builtins.bool
     """See config option "browser.gatherUsageStats"."""
     max_cached_message_age: _builtins.int
@@ -250,6 +251,8 @@ class Config(_message.Message):
     """See config option "client.showSidebarNavigation"."""
     toolbar_mode: Global___Config.ToolbarMode.ValueType
     show_error_links: Global___Config.ShowErrorLinks.ValueType
+    disable_data_export: _builtins.bool
+    """See config option "client.disableDataExport"."""
     def __init__(
         self,
         *,
@@ -260,10 +263,11 @@ class Config(_message.Message):
         hide_sidebar_nav: _builtins.bool = ...,
         toolbar_mode: Global___Config.ToolbarMode.ValueType = ...,
         show_error_links: Global___Config.ShowErrorLinks.ValueType = ...,
+        disable_data_export: _builtins.bool = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["allow_run_on_save", b"allow_run_on_save", "gather_usage_stats", b"gather_usage_stats", "hide_sidebar_nav", b"hide_sidebar_nav", "hide_top_bar", b"hide_top_bar", "max_cached_message_age", b"max_cached_message_age", "show_error_links", b"show_error_links", "toolbar_mode", b"toolbar_mode"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["allow_run_on_save", b"allow_run_on_save", "disable_data_export", b"disable_data_export", "gather_usage_stats", b"gather_usage_stats", "hide_sidebar_nav", b"hide_sidebar_nav", "hide_top_bar", b"hide_top_bar", "max_cached_message_age", b"max_cached_message_age", "show_error_links", b"show_error_links", "toolbar_mode", b"toolbar_mode"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 

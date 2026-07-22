@@ -119,7 +119,9 @@ def parse_sentinel_url(url: str) -> SentinelConfiguration:
     All other query parameters are standard redis-py connection options
     (``max_connections``, ``socket_timeout``, ``health_check_interval``, ...)
     and apply to the data-node connections with exactly the same parsing as a
-    standalone ``redis://`` URL.
+    standalone ``redis://`` URL. On the ``rediss+sentinel`` scheme the ``ssl_*``
+    options additionally apply to the connections to the Sentinel daemons, so a
+    single private CA (``?ssl_ca_certs=...``) covers the whole topology.
 
     Raises:
         ValueError: for a missing host, malformed port, missing service name,
@@ -194,6 +196,19 @@ def parse_sentinel_url(url: str) -> SentinelConfiguration:
         for governed in ("db", "username", "password"):
             funneled.pop(governed, None)
         connection_kwargs.update(funneled)
+        if tls:
+            # The Sentinel daemons share the data nodes' TLS profile: without
+            # this, a private CA passed as ?ssl_ca_certs= (or ?ssl_cert_reqs=none
+            # for unverified setups) would apply to the master connections only,
+            # and every connection to a Sentinel daemon would fail certificate
+            # verification during discovery.
+            sentinel_kwargs.update(
+                {
+                    name: value
+                    for name, value in funneled.items()
+                    if name.startswith("ssl_")
+                }
+            )
 
     if parsed.username:
         connection_kwargs["username"] = unquote(parsed.username)
@@ -241,19 +256,26 @@ class OwnedSentinelConnectionPool(SentinelConnectionPool):
 
 
 def sentinel_connection_pool(
-    url: str, *, decode_responses: bool, socket_timeout: float | None
+    url: str,
+    *,
+    decode_responses: bool,
+    socket_timeout: float | None,
+    socket_connect_timeout: float | None,
 ) -> ConnectionPool:
     """Create a connection pool that resolves the master through Sentinel.
 
     The pool asks the listed Sentinel daemons for the current master and follows
     failover automatically, so the rest of the standalone code path (client,
     pub/sub, publish, result storage) works unchanged.  ``socket_timeout`` is
-    docket's blocking-read timeout, applied to the data-node connections.
+    docket's blocking-read timeout and ``socket_connect_timeout`` is its
+    bounded TCP connect timeout, both applied to the data-node connections.
 
     Args:
         url: The redis+sentinel:// or rediss+sentinel:// URL.
         decode_responses: If True, decode Redis responses from bytes to strings.
         socket_timeout: The read timeout for data-node connections.
+        socket_connect_timeout: The TCP connect timeout for data-node
+            connections.
 
     Returns:
         A ConnectionPool ready for use with Redis clients.
@@ -266,6 +288,7 @@ def sentinel_connection_pool(
         "db": config.db,
         "decode_responses": decode_responses,
         "socket_timeout": socket_timeout,
+        "socket_connect_timeout": socket_connect_timeout,
         "socket_keepalive": True,
         "socket_keepalive_options": SENTINEL_SOCKET_KEEPALIVE_OPTIONS,
         **config.connection_kwargs,

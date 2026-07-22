@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: parsedmarc
-Version: 10.2.2
+Version: 10.2.4
 Summary: A Python package and CLI for parsing aggregate, failure, and SMTP TLS DMARC reports
 Project-URL: Homepage, https://domainaware.github.io/parsedmarc
 Author-email: Sean Whalen <whalenster@gmail.com>
@@ -25,20 +25,19 @@ Requires-Dist: azure-monitor-ingestion>=1.0.0
 Requires-Dist: boto3>=1.16.63
 Requires-Dist: dateparser>=1.1.1
 Requires-Dist: dnspython>=2.0.0
-Requires-Dist: elasticsearch-dsl==7.4.0
-Requires-Dist: elasticsearch<7.14.0
+Requires-Dist: elasticsearch<9,>=8.18
 Requires-Dist: expiringdict>=1.1.4
+Requires-Dist: httpx>=0.25
 Requires-Dist: kafka-python>=2.3.2
 Requires-Dist: lxml>=4.4.0
 Requires-Dist: mailsuite[gmail,msgraph]>=2.2.2
 Requires-Dist: maxminddb>=2.0.0
+Requires-Dist: microsoft-kiota-abstractions>=1.8.0
 Requires-Dist: opensearch-py<=4.0.0,>=2.4.2
 Requires-Dist: publicsuffixlist>=0.10.0
 Requires-Dist: pygelf>=0.4.2
 Requires-Dist: pyyaml>=6.0.3
-Requires-Dist: requests>=2.22.0
 Requires-Dist: tqdm>=4.31.1
-Requires-Dist: urllib3>=1.25.7
 Requires-Dist: xmltodict>=0.12.0
 Provides-Extra: build
 Requires-Dist: ddgs>=9.0.0; extra == 'build'
@@ -48,6 +47,7 @@ Requires-Dist: nose; extra == 'build'
 Requires-Dist: pyright==1.1.410; extra == 'build'
 Requires-Dist: pytest; extra == 'build'
 Requires-Dist: pytest-cov; extra == 'build'
+Requires-Dist: requests>=2.22.0; extra == 'build'
 Requires-Dist: ruff; extra == 'build'
 Requires-Dist: sphinx; extra == 'build'
 Requires-Dist: sphinx-rtd-theme; extra == 'build'

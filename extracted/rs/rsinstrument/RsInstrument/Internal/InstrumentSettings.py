@@ -124,16 +124,16 @@ class InstrumentSettings(object):
 		Example: Keynames DRIVERSETUP_WRITEDELAY and WRITEDELAY are equivalent.
 		If both keynames are present, the one with DRIVERSETUP_ has priority."""
 		name = name.upper()
-		value = self._last_settings.get(f'DRIVERSETUP_{name}')
+		value = self._last_settings.get(f'DRIVERSETUP_{name}')  # ty: ignore[unresolved-attribute]
 		if value is None:
-			value = self._last_settings.get(name)
-		return value
+			value = self._last_settings.get(name)  # ty: ignore[unresolved-attribute]
+		return value  # ty: ignore[invalid-return-type]
 
 	def _get_item(self, name: str) -> str:
 		"""Returns a token value with the keyname name (case-insensitive) from the last settings dictionary.
 		If the keyname does not exist, the method returns None."""
-		value = self._last_settings.get(name.upper())
-		return value
+		value = self._last_settings.get(name.upper())  # ty: ignore[unresolved-attribute]
+		return value  # ty: ignore[invalid-return-type]
 
 	# noinspection PyMethodMayBeStatic
 	def _parse_init_settings_string(self, text: str) -> dict:

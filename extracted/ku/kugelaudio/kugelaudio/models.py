@@ -9,6 +9,16 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, Iterator, List, Optional
 
+# Accepted classifier-free guidance band. Values outside [MIN, MAX] are
+# clamped into the band (both client-side and by the server).
+MIN_CFG_SCALE = 1.2
+MAX_CFG_SCALE = 2.5
+
+
+def clamp_cfg_scale(cfg_scale: float) -> float:
+    """Clamp ``cfg_scale`` into [1.2, 2.5]."""
+    return min(MAX_CFG_SCALE, max(MIN_CFG_SCALE, cfg_scale))
+
 
 class VoiceCategory(str, Enum):
     """Voice category types."""
@@ -78,6 +88,7 @@ class Voice:
     category: Optional[VoiceCategory] = None
     sex: Optional[VoiceSex] = None
     age: Optional[VoiceAge] = None
+    quality: str = "mid"
     supported_languages: List[str] = field(default_factory=list)
     sample_text: Optional[str] = None
     avatar_url: Optional[str] = None
@@ -94,6 +105,7 @@ class Voice:
             category=VoiceCategory(data["category"]) if data.get("category") else None,
             sex=VoiceSex(data["sex"]) if data.get("sex") else None,
             age=VoiceAge(data["age"]) if data.get("age") else None,
+            quality=data.get("quality", "mid"),
             supported_languages=data.get("supported_languages") or [],
             sample_text=data.get("sample_text"),
             avatar_url=data.get("avatar_url"),
@@ -410,8 +422,10 @@ class GenerateRequest:
     speed: float = 1.0
     """Playback speed multiplier (0.8 = slower, 1.0 = normal, 1.2 = faster).
 
-    Uses pitch-preserving time-stretching (WSOLA); applies uniformly to the
-    whole request (no per-span control).  Range: [0.8, 1.2].
+    Uses pitch-preserving time-stretching (WSOLA); applies to the whole
+    request.  Wrap text in ``<prosody rate="slow|medium|fast|0.8-1.2">`` to
+    override the rate for a span (the span rate wins inside the span).
+    Range: [0.8, 1.2].
     """
     dictionary_ids: Optional[List[int]] = None
     """Per-request dictionary selection.
@@ -421,6 +435,9 @@ class GenerateRequest:
     A list of dictionary IDs: exactly those dictionaries apply — even
     inactive ones — bypassing the language filter.
     """
+
+    def __post_init__(self) -> None:
+        self.cfg_scale = clamp_cfg_scale(self.cfg_scale)
 
     def to_dict(self) -> Dict[str, Any]:
         result = {
@@ -519,8 +536,10 @@ class StreamConfig:
     speed: float = 1.0
     """Playback speed multiplier (0.8 = slower, 1.0 = normal, 1.2 = faster).
 
-    Uses pitch-preserving time-stretching (WSOLA); applies uniformly to the
-    whole request (no per-span control).  Range: [0.8, 1.2].
+    Uses pitch-preserving time-stretching (WSOLA); applies to the whole
+    request.  Wrap text in ``<prosody rate="slow|medium|fast|0.8-1.2">`` to
+    override the rate for a span (the span rate wins inside the span).
+    Range: [0.8, 1.2].
     """
     dictionary_ids: Optional[List[int]] = None
     """Per-request dictionary selection.
@@ -530,6 +549,9 @@ class StreamConfig:
     A list of dictionary IDs: exactly those dictionaries apply — even
     inactive ones — bypassing the language filter.
     """
+
+    def __post_init__(self) -> None:
+        self.cfg_scale = clamp_cfg_scale(self.cfg_scale)
 
     def to_dict(self) -> Dict[str, Any]:
         result: Dict[str, Any] = {

@@ -8,6 +8,7 @@ import sys
 import sysconfig
 from pathlib import Path
 from subprocess import PIPE, Popen
+from textwrap import dedent
 from time import sleep
 from typing import TYPE_CHECKING, Any
 
@@ -17,9 +18,12 @@ from virtualenv.discovery.py_info import PythonInfo
 
 from tox import __version__
 from tox.tox_env.api import ToxEnv
+from tox.tox_env.errors import Fail
 from tox.tox_env.info import Info
 
 if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
+
     from tox.pytest import ToxProjectCreator
 
 
@@ -89,7 +93,7 @@ def test_run_sequential_quiet(tox_project: ToxProjectCreator) -> None:
 @pytest.mark.integration
 def test_result_json_sequential(
     tox_project: ToxProjectCreator,
-    enable_pip_pypi_access: str | None,  # noqa: ARG001
+    enable_pip_pypi_access: str | None,  # ruff:ignore[unused-function-argument]
 ) -> None:
     cmd = [
         "- python -c 'import sys; print(\"magic fail\", file=sys.stderr); sys.exit(1)'",
@@ -141,7 +145,7 @@ def test_result_json_sequential(
 
     result_py = log_report["testenvs"]["py"].pop("result")
     assert result_py.pop("duration") > 0
-    assert result_py == {"success": True, "exit_code": 0}
+    assert result_py == {"success": True, "exit_code": 0, "skipped": False}
 
     py_setup = get_cmd_exit_run_id(log_report, "py", "setup")
     assert py_setup == [(0, "install_package_deps"), (0, "install_package"), (0, "freeze")]
@@ -718,7 +722,7 @@ def test_no_capture_short_flag_with_result_json_fails(tox_project: ToxProjectCre
 def test_no_capture_flag_parsed(tox_project: ToxProjectCreator) -> None:
     ini = "[testenv]\npackage=skip\ncommands=python -c 'print(\"hello\")'"
     project = tox_project({"tox.ini": ini})
-    execute_calls = project.patch_execute(lambda r: 0)  # noqa: ARG005
+    execute_calls = project.patch_execute(lambda r: 0)  # ruff:ignore[unused-lambda-argument]
     result = project.run("r", "-e", "py", "--no-capture")
     result.assert_success()
     assert execute_calls.call_count > 0
@@ -727,7 +731,7 @@ def test_no_capture_flag_parsed(tox_project: ToxProjectCreator) -> None:
 def test_no_capture_short_flag_parsed(tox_project: ToxProjectCreator) -> None:
     ini = "[testenv]\npackage=skip\ncommands=python -c 'print(\"hello\")'"
     project = tox_project({"tox.ini": ini})
-    execute_calls = project.patch_execute(lambda r: 0)  # noqa: ARG005
+    execute_calls = project.patch_execute(lambda r: 0)  # ruff:ignore[unused-lambda-argument]
     result = project.run("r", "-e", "py", "-i")
     result.assert_success()
     assert execute_calls.call_count > 0
@@ -830,3 +834,70 @@ def test_second_interrupt_stops_post_commands(tox_project: ToxProjectCreator, tm
     assert marker_post_start.exists(), "commands_post should have started"
     assert not marker_post_end.exists(), "second SIGINT should have stopped commands_post"
     assert "second interrupt received" in out
+
+
+def test_fail_fast_exit_code_is_first_failure(tox_project: ToxProjectCreator) -> None:
+    """Documented contract: the overall exit code under fail fast is the first failed environment's code."""
+    toml = dedent("""\
+        env_list = ["a", "b"]
+        [env_run_base]
+        package = "skip"
+        [env.a]
+        commands = [["python", "-c", "raise SystemExit(7)"]]
+        [env.b]
+        commands = [["python", "-c", "print('ok')"]]
+    """)
+    project = tox_project({"tox.toml": toml})
+
+    outcome = project.run("r", "--fail-fast")
+
+    outcome.assert_failed(code=7)
+
+
+def test_teardown_continues_after_failure(tox_project: ToxProjectCreator, mocker: MockerFixture) -> None:
+    """One environment's teardown failure must not leave the remaining environments' resources alive."""
+    toml = dedent("""\
+        env_list = ["a", "b"]
+        [env_run_base]
+        package = "skip"
+        [env.a]
+        depends = ["b"]
+        [env.b]
+        depends = ["a"]
+    """)
+    project = tox_project({"tox.toml": toml})
+    torn_down: list[str] = []
+    original_teardown = ToxEnv.teardown
+
+    def recording_teardown(self: ToxEnv) -> None:
+        torn_down.append(self.conf.name)
+        if self.conf.name == "a":
+            msg = "teardown boom"
+            raise Fail(msg)
+        original_teardown(self)
+
+    mocker.patch.object(ToxEnv, "teardown", recording_teardown)
+
+    outcome = project.run("r", "--notest")
+
+    outcome.assert_failed()
+    assert "circular dependency detected" in outcome.out
+    assert torn_down == ["a", "b"]
+
+
+def test_result_json_marks_skipped(tox_project: ToxProjectCreator) -> None:
+    """A consumer of the JSON report can tell a skipped environment from a passing one."""
+    toml = dedent("""\
+        env_list = ["a", "b"]
+        [env_run_base]
+        package = "skip"
+        [env.a]
+        platform = "nonexistent"
+    """)
+    project = tox_project({"tox.toml": toml})
+
+    outcome = project.run("r", "--result-json", "out.json")
+
+    outcome.assert_success()
+    result = json.loads((project.path / "out.json").read_text())["testenvs"]["a"]["result"]
+    assert result == {"success": True, "exit_code": 0, "duration": result["duration"], "skipped": True}

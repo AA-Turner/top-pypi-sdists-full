@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: darts
-Version: 0.46.0
+Version: 0.46.1
 Summary: A python library for easy manipulation and forecasting of time series.
 Maintainer-email: Unit8 SA <darts@unit8.co>
 License-Expression: Apache-2.0
@@ -42,6 +42,10 @@ Requires-Dist: statsmodels>=0.14.0
 Requires-Dist: tqdm>=4.60.0
 Requires-Dist: typing-extensions>=4.0.0
 Requires-Dist: xarray>=0.17.0
+Requires-Dist: numba<0.63; sys_platform == "darwin" and platform_machine == "x86_64"
+Requires-Dist: numba; sys_platform != "darwin" or platform_machine != "x86_64"
+Requires-Dist: llvmlite<0.46; sys_platform == "darwin" and platform_machine == "x86_64"
+Requires-Dist: llvmlite; sys_platform != "darwin" or platform_machine != "x86_64"
 Provides-Extra: torch
 Requires-Dist: torch>=2.0.0; extra == "torch"
 Requires-Dist: pytorch-lightning>=2.0.0; extra == "torch"

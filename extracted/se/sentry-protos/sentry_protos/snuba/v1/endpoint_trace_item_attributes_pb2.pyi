@@ -115,6 +115,11 @@ class TraceItemAttributeNamesRequest(google.protobuf.message.Message):
             """Natural ordering: embedded runs of digits are compared by their
             numeric value, so e.g. "item2" sorts before "item10".
             """
+            SORT_SEMVER: TraceItemAttributeNamesRequest.OrderBy._Sort.ValueType  # 3
+            """Semantic-version ordering: values are parsed as semantic versions
+            (https://semver.org) and compared component by component, so e.g.
+            "1.9.0" sorts before "1.10.0".
+            """
 
         class Sort(_Sort, metaclass=_SortEnumTypeWrapper):
             """Sort selects which sort order is applied when ordering by a textual
@@ -133,6 +138,11 @@ class TraceItemAttributeNamesRequest(google.protobuf.message.Message):
         SORT_NATURAL: TraceItemAttributeNamesRequest.OrderBy.Sort.ValueType  # 2
         """Natural ordering: embedded runs of digits are compared by their
         numeric value, so e.g. "item2" sorts before "item10".
+        """
+        SORT_SEMVER: TraceItemAttributeNamesRequest.OrderBy.Sort.ValueType  # 3
+        """Semantic-version ordering: values are parsed as semantic versions
+        (https://semver.org) and compared component by component, so e.g.
+        "1.9.0" sorts before "1.10.0".
         """
 
         COLUMN_FIELD_NUMBER: builtins.int
@@ -360,6 +370,11 @@ class TraceItemAttributeValuesRequest(google.protobuf.message.Message):
             """Natural ordering: embedded runs of digits are compared by their
             numeric value, so e.g. "item2" sorts before "item10".
             """
+            SORT_SEMVER: TraceItemAttributeValuesRequest.OrderBy._Sort.ValueType  # 3
+            """Semantic-version ordering: values are parsed as semantic versions
+            (https://semver.org) and compared component by component, so e.g.
+            "1.9.0" sorts before "1.10.0".
+            """
 
         class Sort(_Sort, metaclass=_SortEnumTypeWrapper):
             """Sort selects which sort order is applied when ordering by a textual
@@ -378,6 +393,11 @@ class TraceItemAttributeValuesRequest(google.protobuf.message.Message):
         SORT_NATURAL: TraceItemAttributeValuesRequest.OrderBy.Sort.ValueType  # 2
         """Natural ordering: embedded runs of digits are compared by their
         numeric value, so e.g. "item2" sorts before "item10".
+        """
+        SORT_SEMVER: TraceItemAttributeValuesRequest.OrderBy.Sort.ValueType  # 3
+        """Semantic-version ordering: values are parsed as semantic versions
+        (https://semver.org) and compared component by component, so e.g.
+        "1.9.0" sorts before "1.10.0".
         """
 
         COLUMN_FIELD_NUMBER: builtins.int

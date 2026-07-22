@@ -14,7 +14,7 @@ on:
   pull_request:
     paths:
       - 'src/airbyte_ops_mcp/regression_tests/**'
-      - 'src/airbyte_ops_mcp/mcp/regression_tests.py'
+      - 'src/airbyte_ops_mcp/mcp/connector_qa.py'
       - '.github/workflows/regression-tests-ci.yml'
       - '.github/workflows/connector-regression-test.yml'
 

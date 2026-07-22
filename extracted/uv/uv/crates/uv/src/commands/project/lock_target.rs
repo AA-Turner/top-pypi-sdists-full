@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use tracing::info_span;
 
 use uv_auth::CredentialsCache;
+use uv_cache::Cache;
 use uv_configuration::{DependencyGroupsWithDefaults, ExcludeDependency, NoSources};
 use uv_distribution::LoweredRequirement;
 use uv_distribution_types::{Index, IndexLocations, Requirement, RequiresPython};
@@ -14,7 +15,7 @@ use uv_resolver::{Lock, LockVersion, VERSION};
 use uv_scripts::Pep723Script;
 use uv_workspace::dependency_groups::{DependencyGroupError, FlatDependencyGroup};
 use uv_workspace::pyproject::OverrideDependency;
-use uv_workspace::{Editability, Workspace, WorkspaceMember};
+use uv_workspace::{Editability, Workspace, WorkspaceCache, WorkspaceMember};
 
 use crate::commands::project::{ProjectError, find_requires_python};
 
@@ -347,11 +348,13 @@ impl<'lock> LockTarget<'lock> {
     }
 
     /// Lower the requirements for the [`LockTarget`], relative to the target root.
-    pub(crate) fn lower(
+    pub(crate) async fn lower(
         self,
         requirements: Vec<uv_pep508::Requirement<VerbatimParsedUrl>>,
         locations: &IndexLocations,
         sources: &NoSources,
+        cache: &Cache,
+        workspace_cache: &WorkspaceCache,
         credentials_cache: &CredentialsCache,
     ) -> Result<Vec<Requirement>, uv_distribution::MetadataError> {
         match self {
@@ -372,8 +375,11 @@ impl<'lock> LockTarget<'lock> {
                     workspace,
                     locations,
                     sources,
+                    cache,
+                    workspace_cache,
                     credentials_cache,
-                )?;
+                )
+                .await?;
 
                 Ok(metadata
                     .requires_dist
@@ -402,34 +408,40 @@ impl<'lock> LockTarget<'lock> {
                     .and_then(|uv| uv.sources.as_ref())
                     .unwrap_or(&empty);
 
-                Ok(requirements
-                    .into_iter()
-                    .flat_map(|requirement| {
-                        // Check if sources should be disabled for this specific package
-                        if sources.for_package(&requirement.name) {
-                            vec![Ok(Requirement::from(requirement))].into_iter()
-                        } else {
-                            let requirement_name = requirement.name.clone();
-                            LoweredRequirement::from_non_workspace_requirement(
-                                requirement,
-                                script.path.parent().unwrap(),
-                                sources_map,
-                                indexes,
-                                locations,
-                                credentials_cache,
-                            )
-                            .map(move |requirement| match requirement {
-                                Ok(requirement) => Ok(requirement.into_inner()),
-                                Err(err) => Err(uv_distribution::MetadataError::LoweringError(
-                                    requirement_name.clone(),
-                                    Box::new(err),
-                                )),
-                            })
-                            .collect::<Vec<_>>()
-                            .into_iter()
-                        }
-                    })
-                    .collect::<Result<_, _>>()?)
+                let mut lowered = Vec::new();
+                for requirement in requirements {
+                    if sources.for_package(&requirement.name) {
+                        lowered.push(Requirement::from(requirement));
+                        continue;
+                    }
+
+                    let requirement_name = requirement.name.clone();
+                    lowered.extend(
+                        LoweredRequirement::from_non_workspace_requirement(
+                            requirement,
+                            script.path.parent().unwrap(),
+                            sources_map,
+                            indexes,
+                            locations,
+                            cache,
+                            workspace_cache,
+                            credentials_cache,
+                        )
+                        .await
+                        .map(|requirement| {
+                            requirement
+                                .map(LoweredRequirement::into_inner)
+                                .map_err(|err| {
+                                    uv_distribution::MetadataError::LoweringError(
+                                        requirement_name.clone(),
+                                        Box::new(err),
+                                    )
+                                })
+                        })
+                        .collect::<Result<Vec<_>, _>>()?,
+                    );
+                }
+                Ok(lowered)
             }
         }
     }

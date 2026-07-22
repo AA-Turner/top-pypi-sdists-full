@@ -3,7 +3,9 @@ import warnings
 from AOT_biomaps.Config import config
 
 from ._mainRecon import Recon
-from .ReconEnums import NoiseType, ReconType, OptimizerType, ProcessType, SMatrixType, PotentialType, PreconditionerType, PotentialShapeType, StopCriterionType
+from .ReconEnums import NoiseType, ReconType, OptimizerType, ProcessType, SMatrixType, PotentialType, PotentialShapeType, StopCriterionType
+from .AOT_Preconditioner.PreconditionerEnums import PreconditionerType
+from .AOT_Preconditioner import DiagPreconditioner, NoPreconditioner
 from .AOT_Optimizers import MLEM, LS, MAPEM, DEPIERRO, PDHG, PGC, PPGMLEM, LBFGS, FISTA
 from .AOT_SMatrix.SMatrix_CSR import SMatrix_CSR
 from .AOT_SMatrix.SMatrix_SELL import SMatrix_SELL
@@ -583,6 +585,15 @@ class AlgebraicRecon(Recon):
 
         self._validate_hyperparameters()
 
+        if self.preconditionerType == PreconditionerType.NONE:
+            self.preconditioner = NoPreconditioner(SMatrix=self.SMatrix)
+        elif self.preconditionerType == PreconditionerType.DIAGONAL:
+            self.preconditioner = DiagPreconditioner(SMatrix=self.SMatrix)
+        else:
+            raise ValueError(f"[AOT-biomaps] Unsupported preconditioner type: {self.preconditionerType} must be one of {list(PreconditionerType)}")
+
+        self.preconditioner.build()
+
         # Dispatch to optimizer-specific method
         if self.optimizer == OptimizerType.MLEM:
             self._run_MLEM(y=y, withTumor=withTumor, stop_criterion=stop_criterion, stop_threshold=stop_threshold, stop_window_size=stop_window_size, show_criterion=show_criterion, show_logs=show_logs)
@@ -790,7 +801,7 @@ class AlgebraicRecon(Recon):
                 alpha=self.alpha,
                 eta=self.eta,
                 numIterations_stepCalculation=self.numIterations_stepCalculation,
-                preconditioner_type=self.preconditionerType,
+                preconditioner=self.preconditioner,
                 stop_criterion=stop_criterion,
                 stop_threshold=stop_threshold,
                 stop_window_size=stop_window_size,
@@ -809,7 +820,7 @@ class AlgebraicRecon(Recon):
                 alpha=self.alpha,
                 eta=self.eta,
                 numIterations_stepCalculation=self.numIterations_stepCalculation,
-                preconditioner_type=self.preconditionerType,
+                preconditioner=self.preconditioner,
                 stop_criterion=stop_criterion,
                 stop_threshold=stop_threshold,
                 stop_window_size=stop_window_size,
@@ -1107,7 +1118,7 @@ class AlgebraicRecon(Recon):
                 num_subsets=self.numSubsets,
                 reshuffle_period=self.reshufflePeriod,
                 noise_type=self.noiseType,
-                preconditioner_type=self.preconditionerType,
+                preconditioner=self.preconditioner,
                 use_adaptive_steps=self.useAdaptiveSteps,
                 stop_criterion=stop_criterion,
                 stop_threshold=stop_threshold,
@@ -1133,7 +1144,7 @@ class AlgebraicRecon(Recon):
                 num_subsets=self.numSubsets,
                 reshuffle_period=self.reshufflePeriod,
                 noise_type=self.noiseType,
-                preconditioner_type=self.preconditionerType,
+                preconditioner=self.preconditioner,
                 use_adaptive_steps=self.useAdaptiveSteps,
                 stop_criterion=stop_criterion,
                 stop_threshold=stop_threshold,

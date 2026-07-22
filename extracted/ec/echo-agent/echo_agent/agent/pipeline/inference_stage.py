@@ -11,7 +11,13 @@ from typing import Any, TYPE_CHECKING
 
 from loguru import logger
 
-from echo_agent.agent.degraded_notice import REASON_REPEAT_BLOCKED, notice_for
+from echo_agent.agent.cognitive_emitter import should_emit_cognitive
+from echo_agent.agent.degraded_notice import (
+    REASON_LOOP_EXHAUSTED,
+    REASON_OUTPUT_TRUNCATED,
+    REASON_REPEAT_BLOCKED,
+    notice_for,
+)
 from echo_agent.agent.pipeline.tool_concurrency import (
     ToolPlan,
     extract_paths,
@@ -20,7 +26,6 @@ from echo_agent.agent.pipeline.tool_concurrency import (
 from echo_agent.agent.pipeline.types import InferenceResult, PipelineContext
 from echo_agent.agent.tools.base import ToolExecutionContext, build_idempotency_key
 from echo_agent.agent.tools.circuit_breaker import ToolCircuitBreaker
-from echo_agent.agent.planning.models import StepStatus
 from echo_agent.agent.progress_heartbeat import ActivitySnapshot, friendly_activity
 from echo_agent.bus.events import OutboundEvent
 from echo_agent.cost.budget import BudgetExceeded
@@ -51,6 +56,16 @@ class _LoopResult:
     # True when the daily cost budget halted the loop mid-task. The task is
     # NOT complete, so run() must not mark pending plan steps done.
     budget_halted: bool = False
+    # True when the final iteration had to force a conclusion (tools stripped
+    # at the iteration ceiling). The turn produced an answer, but the TASK is
+    # not done — run() must keep the plan resumable, same as budget_halted.
+    forced_convergence: bool = False
+    # True when the user cooperatively stopped the turn (Ctrl+C interrupt frame
+    # tripped a checkpoint). The turn produced only a partial answer + stop
+    # notice; the TASK is not done — run() must keep the plan resumable AND skip
+    # post-processing (planner reflection, is_complete) that assumes a finished
+    # turn.
+    interrupted: bool = False
     should_review_skills: bool = False
     should_review_memory: bool = False
     skill_iters: int = 0
@@ -116,6 +131,8 @@ class InferenceStage:
         cognitive_emitter: "CognitiveEmitter | None" = None,
         compressor: Any = None,
         memory_store: Any = None,
+        clarify_manager: Any = None,
+        interrupt_manager: Any = None,
     ):
         self._config = config
         self._bus = bus
@@ -139,6 +156,8 @@ class InferenceStage:
         self._cog = cognitive_emitter
         self._compressor = compressor
         self._memory_store = memory_store
+        self._clarify = clarify_manager
+        self._interrupt = interrupt_manager
         # Read-only tool concurrency config (Task 2 added the fields, marked
         # effective). getattr fallbacks because some test configs are MagicMock.
         _tc = getattr(getattr(config, "agent", None), "tool_concurrency", None)
@@ -148,6 +167,45 @@ class InferenceStage:
     def set_hook_registry(self, registry: Any) -> None:
         """Inject the plugin hook registry (attached after bootstrap)."""
         self._hook_registry = registry
+
+    async def _prepare_clarify(self, tool_call: Any, event: Any) -> None:
+        """Wire a clarify tool call to the follow-up machinery.
+
+        CLI channel: register a pending request, inject its id into the tool
+        arguments, and emit a clarify_request frame so the TUI can render the
+        choices. The tool then blocks on ClarifyManager.wait_for_answer.
+
+        IM channels (non-CLI): the tool cannot block (callback-style transport,
+        no long-held lock), so instead we remember the question per session via
+        register_im_pending. The tool still returns the question as text this
+        turn; _on_inbound consumes the *next* message on this session as the
+        answer. No id injection, no frame — those are CLI/TUI-only."""
+        if tool_call.name != "clarify" or self._clarify is None:
+            return
+        question = tool_call.arguments.get("question", "")
+        options = tool_call.arguments.get("options", []) or []
+        if not should_emit_cognitive(event.channel):
+            # IM path: remember the question keyed by session so the next inbound
+            # message is routed as its answer (see AgentLoop._on_inbound).
+            session_key = getattr(event, "session_key", "")
+            if session_key:
+                self._clarify.register_im_pending(
+                    session_key, question, options,
+                    user_id=getattr(event, "sender_id", ""),
+                )
+            return
+        req = self._clarify.request(
+            question, options,
+            user_id=getattr(event, "sender_id", ""),
+            session_key=getattr(event, "session_key", ""),
+        )
+        tool_call.arguments["_clarify_id"] = req.id
+        if self._cog is not None:
+            await self._cog.emit(
+                event, "clarify_request",
+                {"clarify_id": req.id, "question": question, "options": options},
+                question,
+            )
 
     async def _emit_progress(self, ctx: PipelineContext, text: str, *, tool_hint: bool = False) -> None:
         if not ctx.publish_response:
@@ -280,9 +338,12 @@ class InferenceStage:
 
         loop_result = await self._run_tool_loop(ctx, messages)
 
-        # 反思闭环：仅在多步 plan 上触发，最多重跑 1 轮
+        # 反思闭环：仅在多步 plan 上触发，最多重跑 1 轮。
+        # 用户中断的 turn 不反思也不重跑：中断意味着"现在就停"，再自动发起一轮
+        # 推理会违背用户意图，也会覆盖掉已生成的停止文案。
         if (
-            self._planner is not None
+            not loop_result.interrupted
+            and self._planner is not None
             and ctx.execution_plan is not None
             and len(ctx.execution_plan.steps) > 1
         ):
@@ -318,6 +379,10 @@ class InferenceStage:
                     total_tool_calls=loop_result.total_tool_calls + second.total_tool_calls,
                     loop_exhausted=second.loop_exhausted,
                     budget_halted=second.budget_halted,
+                    # The rerun supersedes the first pass: if IT converged
+                    # normally the turn is fine; only its own forcing counts.
+                    forced_convergence=second.forced_convergence,
+                    interrupted=second.interrupted,
                     should_review_skills=loop_result.should_review_skills or second.should_review_skills,
                     should_review_memory=loop_result.should_review_memory or second.should_review_memory,
                     skill_iters=second.skill_iters,
@@ -334,7 +399,12 @@ class InferenceStage:
             _memory_turns += 1
             if _memory_turns >= self._memory_nudge_interval:
                 should_review_memory = True
-                _memory_turns = 0
+                # NB: counter is NOT reset here. Clearing at the trigger meant a
+                # failed background review left the counter at 0, so this batch
+                # would never be reviewed again. The counter is now zeroed only
+                # after the review SUCCEEDS (ResponseStage._background_memory_review),
+                # so a failed/retried review keeps it elevated and next turn
+                # re-triggers.
 
         # Persist nudge counters back to session metadata
         session.metadata["_nudge_tool_iters_skill"] = loop_result.skill_iters
@@ -342,10 +412,12 @@ class InferenceStage:
         session.metadata["_nudge_turns_memory"] = _memory_turns
 
         # Persist plan execution state so progress is queryable and an
-        # interrupted long task can be resumed. The reflect loop above is the
-        # only execution feedback we have at turn granularity, so completing a
-        # turn without a replan request marks the plan's steps done; a
-        # should_replan turn leaves the plan running for the next turn.
+        # interrupted long task can be resumed. Honest status semantics: the
+        # only execution feedback we have is turn-granular (the reflect loop
+        # above), so the RUN status records the turn outcome — step statuses
+        # are NOT batch-faked to COMPLETED anymore. A step only ever flips
+        # status when something actually marks it (today: nothing does, so
+        # steps stay pending; the run-level status carries the truth).
         if (
             self._plan_run_store is not None
             and ctx.plan_run_id
@@ -353,17 +425,22 @@ class InferenceStage:
         ):
             try:
                 plan = ctx.execution_plan
-                if (
-                    loop_result.response_text
-                    and not loop_result.loop_exhausted
-                    and not loop_result.budget_halted
-                ):
-                    for step in plan.steps:
-                        if step.status == StepStatus.PENDING:
-                            plan.mark_step_complete(step.index, "")
-                status = "complete" if plan.is_complete else "running"
-                if loop_result.loop_exhausted or loop_result.budget_halted:
+                # forced_convergence means the loop hit its iteration ceiling
+                # and squeezed out a conclusion — the ANSWER exists but the
+                # TASK is unfinished. Treat it like exhaustion: keep the run
+                # resumable.
+                task_incomplete = (
+                    loop_result.loop_exhausted
+                    or loop_result.budget_halted
+                    or loop_result.forced_convergence
+                    or loop_result.interrupted
+                )
+                if task_incomplete:
                     status = "exhausted"
+                elif loop_result.response_text:
+                    status = "complete"
+                else:
+                    status = "running"
                 await self._plan_run_store.update(ctx.plan_run_id, plan, status=status)
             except Exception as e:
                 logger.debug("Plan run update failed: {}", e)
@@ -393,6 +470,16 @@ class InferenceStage:
         _repeat_tracker: dict[str, int] = {}
         loop_exhausted = True
         budget_halted = False
+        # Degraded-convergence controls: force_no_tools strips tools from the
+        # NEXT call (set by the truncation retry below); truncation_retried
+        # bounds that retry to once per pass. forcing_final marks the last
+        # iteration's forced-conclusion call; forced_convergence records that
+        # the pass ended that way so run() keeps the plan resumable.
+        force_no_tools = False
+        truncation_retried = False
+        forcing_final = False
+        forced_convergence = False
+        interrupted = False
 
         # Read nudge counters from session (do NOT write back — run() owns that)
         _skill_iters = session.metadata.get("_nudge_tool_iters_skill", 0)
@@ -412,12 +499,53 @@ class InferenceStage:
         on_delta = stream_publisher.on_delta if ctx.publish_response else None
 
         for iteration in range(self._max_iterations):
+            # Cooperative interrupt checkpoint. A Ctrl+C interrupt frame set this
+            # flag on a lock-free path; stop cleanly at the iteration boundary so
+            # session history, memory writes and tool side effects are never left
+            # half-applied (the reason we do NOT hard-cancel the task). Keep any
+            # text produced so far and mark the turn as user-stopped, not
+            # exhausted, so run() treats it as a real (if partial) result.
+            if (
+                self._interrupt is not None
+                and self._interrupt.is_interrupted(getattr(event, "session_key", ""))
+            ):
+                notice = "⏹ 已按你的请求停止。"
+                response_text = (
+                    f"{response_text}\n\n{notice}" if response_text.strip() else notice
+                )
+                loop_exhausted = False
+                interrupted = True
+                break
+
             # Filter out circuit-broken tools
             unavailable = self._circuit_breaker.get_unavailable_tools()
             active_tool_defs = [
                 t for t in tool_defs
                 if t.get("function", {}).get("name") not in unavailable
             ] if unavailable else tool_defs
+
+            if force_no_tools:
+                active_tool_defs = []
+            elif iteration == self._max_iterations - 1 and iteration > 0 and active_tool_defs:
+                # Final-answer forcing: the last iteration must produce a
+                # conclusion instead of yet another tool round. Without this,
+                # exhausting the loop discards the entire turn's work and the
+                # user gets a generic failure. Strip tools and tell the model
+                # to wrap up. The LOOP_EXHAUSTED notice is appended only when
+                # this forced call actually delivers content — attaching it
+                # here would pair "以上是目前的进展" with a turn that may end
+                # in a budget halt or provider error and show no progress.
+                active_tool_defs = []
+                forcing_final = True
+                forced_convergence = True
+                messages.append({
+                    "role": "user",
+                    "content": (
+                        "[系统] 已达到本轮工具调用上限,不能再调用工具。"
+                        "请基于已收集到的信息直接给出最终结论;"
+                        "如果任务尚未完成,请说明当前进展和剩余缺口。"
+                    ),
+                })
 
             llm_span = self._tracer.start_span(trace_id, f"llm_{iteration}", "llm_call", "llm_call")
 
@@ -509,11 +637,79 @@ class InferenceStage:
                 loop_exhausted = False
                 break
 
+            if response.finish_reason == "length":
+                # Output hit max_tokens. Provider-level reasoning promotion may
+                # already have recovered text into content; whatever we have is
+                # partial. Never treat this as a clean stop.
+                logger.warning(
+                    "LLM output truncated at max_tokens in iteration {} (model {}, content_len {})",
+                    iteration, route_decision.model, len(response.content or ""),
+                )
+                if response.content:
+                    # Deliver the partial answer with a truncation notice
+                    # instead of discarding it.
+                    response_text = response.content
+                    counters.degraded_notices.append(notice_for(REASON_OUTPUT_TRUNCATED))
+                    if forcing_final:
+                        counters.degraded_notices.append(notice_for(REASON_LOOP_EXHAUSTED))
+                    loop_exhausted = False
+                    break
+                if not truncation_retried and iteration + 1 < self._max_iterations:
+                    # Nothing recoverable — retry once without tools, asking
+                    # for a bounded plain-text conclusion. One extra call
+                    # salvages the whole turn's collected context. Requires a
+                    # remaining iteration: on the last one, continue would fall
+                    # off the range and the injected instruction would never
+                    # be answered, so give up below instead.
+                    truncation_retried = True
+                    force_no_tools = True
+                    messages.append({
+                        "role": "user",
+                        "content": (
+                            "[系统] 你上一次的回复超出输出长度上限且未产生任何正文。"
+                            "请不要调用工具,直接用简短的篇幅给出最终结论。"
+                        ),
+                    })
+                    continue
+                # Retry also truncated empty (or no iterations left to retry
+                # in) — give up with the truncation notice.
+                counters.degraded_notices.append(notice_for(REASON_OUTPUT_TRUNCATED))
+                loop_exhausted = False
+                break
+
             if response.content:
                 response_text = response.content
 
+            # Post-LLM interrupt checkpoint. An interrupt may have arrived DURING
+            # the (long) LLM call above. Check here — BEFORE the has_tool_calls
+            # branch — so BOTH paths are covered: a plain-text reply (the common
+            # case, which breaks just below) and a tool-call batch (discarded
+            # before it runs). Keep whatever text the model produced and mark the
+            # turn user-stopped, not exhausted. Placed before the assistant
+            # tool_calls message is appended, so pending calls are dropped cleanly
+            # with no dangling tool_calls message to corrupt the next turn.
+            if (
+                self._interrupt is not None
+                and self._interrupt.is_interrupted(getattr(event, "session_key", ""))
+            ):
+                notice = "⏹ 已按你的请求停止。"
+                response_text = (
+                    f"{response_text}\n\n{notice}" if response_text.strip() else notice
+                )
+                loop_exhausted = False
+                interrupted = True
+                break
+
             if not response.has_tool_calls:
-                if ctx.execution_plan and not ctx.execution_plan.is_complete:
+                if forcing_final:
+                    # The forced final call delivered its conclusion — now the
+                    # "以上是目前的进展" notice is truthful. Gate on actual
+                    # text so an empty forced reply doesn't claim progress
+                    # that was never shown. The plan stays NOT complete: the
+                    # model was cut off, not finished.
+                    if response_text:
+                        counters.degraded_notices.append(notice_for(REASON_LOOP_EXHAUSTED))
+                elif ctx.execution_plan and not ctx.execution_plan.is_complete:
                     ctx.execution_plan.is_complete = True
                 if ctx.activity is not None:
                     ctx.activity.set_generating()
@@ -555,6 +751,8 @@ class InferenceStage:
             total_tool_calls=counters.total_tool_calls,
             loop_exhausted=loop_exhausted,
             budget_halted=budget_halted,
+            forced_convergence=forced_convergence,
+            interrupted=interrupted,
             should_review_skills=counters.should_review_skills,
             should_review_memory=counters.should_review_memory,
             skill_iters=counters.skill_iters,
@@ -627,6 +825,24 @@ class InferenceStage:
                 continue
             d.approved = True
 
+            # Circuit-breaker probe permit. Schema filtering above uses the
+            # side-effect-free peek, so the OPEN→HALF_OPEN transition and the
+            # half_open_max probe budget are enforced HERE, on the real call
+            # path — without this acquire the recovery state machine never
+            # runs and an opened circuit can only "recover" by accident.
+            # Runs serially in Phase A so probe accounting has no races.
+            if not self._circuit_breaker.is_available(tool_call.name):
+                d.verdict = "BLOCKED"
+                d.blocked_message = (
+                    f"[Blocked] Tool '{tool_call.name}' is temporarily disabled "
+                    "(circuit open after repeated failures). Try again later or "
+                    "use a different approach."
+                )
+                d.blocked_meta = {"success": False, "circuit_open": True}
+                logger.warning("Circuit breaker blocked tool call: {}", tool_call.name)
+                decisions.append(d)
+                continue
+
             # Repeat-call guard: count BEFORE executing so identical calls don't
             # keep firing side effects. The N-th identical call is short-circuited
             # with an error message instead.
@@ -652,6 +868,7 @@ class InferenceStage:
                 execution_id=uuid.uuid4().hex[:12],
                 trace_id=trace_id,
                 session_key=event.session_key,
+                memory_scope=getattr(event, "memory_scope", ""),
                 user_id=event.sender_id,
                 attempt_index=0,
                 idempotency_key=build_idempotency_key(trace_id, tool_call.name, tool_index, tool_call.arguments),
@@ -783,6 +1000,7 @@ class InferenceStage:
                 ctx.event, tool_call.name, tool_call.arguments,
                 "running", "", tool_call_id=tool_call.id,
             )
+            await self._prepare_clarify(tool_call, ctx.event)
 
             try:
                 result = await self._tools.execute(
@@ -907,10 +1125,14 @@ class InferenceStage:
             counters.skill_iters += 1
             counters.memory_iters += 1
 
-            # Per-tool circuit breaker
+            # Per-tool circuit breaker. Only infrastructure failures (timeout/
+            # dependency/internal) count toward opening the circuit — validation
+            # and business failures are part of normal interaction; counting
+            # them lets one session's bad arguments disable the tool for every
+            # session (the breaker is process-global).
             if result.success:
                 self._circuit_breaker.record_success(tool_call.name)
-            else:
+            elif result.is_infra_failure:
                 self._circuit_breaker.record_failure(tool_call.name)
 
             if (self._nudge_interval > 0 and counters.skill_iters >= self._nudge_interval
@@ -920,7 +1142,9 @@ class InferenceStage:
             if (self._memory_nudge_interval > 0 and counters.memory_iters >= self._memory_nudge_interval
                     and self._tools.has("memory")):
                 counters.should_review_memory = True
-                counters.memory_iters = 0
+                # Counter NOT reset here — see run(): it is zeroed only after the
+                # background review succeeds, so a failed review re-triggers next
+                # turn instead of dropping this batch permanently.
 
     async def _chat_stream_with_routing(
         self,

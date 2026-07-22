@@ -86,16 +86,27 @@ MAX_TRACE_CALL_LENGTH: int = 500
 
 # The ``skills/`` subdirectory is co-located with this module inside the
 # installed wheel.  It contains the general-purpose reference skill packages
-# (app-ui, dcc-diagnostics, workflow, etc.) that are bundled with dcc-mcp-core
+# (ui-control, dcc-diagnostics, workflow, etc.) that are bundled with dcc-mcp-core
 # so users do not need to clone the repository.
 _BUNDLED_SKILLS_DIR: Path = Path(__file__).parent / "skills"
+
+# Keep bundled discovery version-owned.  On Windows an in-use wheel can be
+# overlaid during an upgrade, leaving removed package-data directories behind.
+# Those unowned directories must not become executable skills after restart.
+_BUNDLED_SKILL_NAMES: tuple[str, ...] = (
+    "dcc-diagnostics",
+    "media",
+    "qt-ui-inspector",
+    "ui-control",
+    "workflow",
+)
 
 
 def get_bundled_skills_dir() -> str:
     """Return the absolute path to the bundled skills directory.
 
     The directory contains the general-purpose skill packages shipped with
-    ``dcc-mcp-core`` (``app-ui``, ``dcc-diagnostics``, ``workflow``, etc.).
+    ``dcc-mcp-core`` (``ui-control``, ``dcc-diagnostics``, ``workflow``, etc.).
 
     Returns:
         Absolute path string.  The directory is guaranteed to exist when the
@@ -141,6 +152,14 @@ def get_bundled_skill_paths(include_bundled: bool = True) -> list[str]:
         return []
     bundled = _BUNDLED_SKILLS_DIR
     return [str(bundled)] if bundled.is_dir() else []
+
+
+def _get_bundled_skill_discovery_paths() -> list[str]:
+    """Return only bundled skill packages owned by this core version."""
+    bundled = _BUNDLED_SKILLS_DIR
+    if not bundled.is_dir():
+        return []
+    return [str(bundled / name) for name in _BUNDLED_SKILL_NAMES if (bundled / name / "SKILL.md").is_file()]
 
 
 # ---------------------------------------------------------------------------

@@ -7,7 +7,17 @@ from pydantic import Field as FieldInfo
 
 from .._models import BaseModel
 
-__all__ = ["ConnectionListResponse", "ConnectionListResponseItem"]
+__all__ = ["ConnectionListResponse", "ConnectionListResponseItem", "ConnectionListResponseItemLastSyncRun"]
+
+
+class ConnectionListResponseItemLastSyncRun(BaseModel):
+    status: str
+
+    completed_at: Optional[str] = FieldInfo(alias="completedAt", default=None)
+
+    error: Optional[str] = None
+
+    started_at: Optional[str] = FieldInfo(alias="startedAt", default=None)
 
 
 class ConnectionListResponseItem(BaseModel):
@@ -24,6 +34,8 @@ class ConnectionListResponseItem(BaseModel):
     email: Optional[str] = None
 
     expires_at: Optional[str] = FieldInfo(alias="expiresAt", default=None)
+
+    last_sync_run: Optional[ConnectionListResponseItemLastSyncRun] = FieldInfo(alias="lastSyncRun", default=None)
 
     metadata: Optional[Dict[str, object]] = None
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: returnn
-Version: 1.20260719.220143
+Version: 1.20260721.203557
 Summary: The RWTH extensible training framework for universal recurrent neural networks
 Home-page: https://github.com/rwth-i6/returnn/
 Author: Albert Zeyer

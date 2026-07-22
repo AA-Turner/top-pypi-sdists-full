@@ -32,7 +32,7 @@ from solidlsp.dependency_provider import (
 )
 from solidlsp.initialize_params import DefaultInitializeParamsBuilder, InitializeParamsBuilder
 from solidlsp.ls_config import FilenameMatcher, Language, LanguageServerConfig
-from solidlsp.ls_exceptions import SolidLSPException
+from solidlsp.ls_exceptions import InvalidTextLocationError, SolidLSPException
 from solidlsp.ls_process import LanguageServerInterface, StdioLanguageServer
 from solidlsp.ls_types import UnifiedSymbolInformation
 from solidlsp.ls_utils import FileUtils, PathUtils, TextUtils
@@ -209,17 +209,38 @@ class SymbolBody(ToStringMixin):
         return ["_lines"]
 
     def get_text(self) -> str:
+        end_line = self._end_line
+        end_col = self._end_col
+        if end_line >= len(self._lines):
+            if end_line == len(self._lines) and end_col == 0:
+                # LSP convention: a range covering whole lines through EOF sometimes ends
+                # at the start of the following, non-existent line (exactly one line past
+                # the last valid index, at column 0). That is well-defined: it means
+                # "through EOF", so treat it as ending at the end of the actual last line.
+                end_line = len(self._lines) - 1
+                end_col = len(self._lines[end_line])
+            else:
+                # Any other out-of-range end position (further past EOF, or exactly one
+                # line past EOF but not at column 0) is not the well-defined convention
+                # above; applying the same correction there would silently assume that
+                # a column meant for a nonexistent line still applies to the corrected
+                # one, which can produce a garbage body. Reject it instead of guessing.
+                raise InvalidTextLocationError(
+                    f"Symbol range end (line {self._end_line}, col {self._end_col}) is out of bounds "
+                    f"for a file with {len(self._lines)} lines"
+                )
+
         # extract relevant lines
-        symbol_body = "\n".join(self._lines[self._start_line : self._end_line + 1])
+        symbol_body = "\n".join(self._lines[self._start_line : end_line + 1])
 
         # remove leading content from the first line
         symbol_body = symbol_body[self._start_col :]
 
         # remove trailing content from the last line
-        last_line = self._lines[self._end_line]
-        trailing_length = len(last_line) - self._end_col
+        last_line = self._lines[end_line]
+        trailing_length = len(last_line) - end_col
         if trailing_length > 0:
-            symbol_body = symbol_body[: -(len(last_line) - self._end_col)]
+            symbol_body = symbol_body[: -(len(last_line) - end_col)]
 
         return symbol_body
 
@@ -303,6 +324,12 @@ class SolidLanguageServer(ABC):
     RAW_DOCUMENT_SYMBOL_CACHE_FILENAME = "raw_document_symbols.pkl"
     RAW_DOCUMENT_SYMBOL_CACHE_FILENAME_LEGACY_FALLBACK = "document_symbols_cache_v23-06-25.pkl"
     DOCUMENT_SYMBOL_CACHE_VERSION = 4
+    """
+    defines the version of the high-level document symbol format.
+    This should be incremented whenever there is a change in the way document symbols are stored.
+    For changes that affect the symbols of a particular language server implementation (subclass),
+    change :meth:`_document_symbols_cache_fingerprint` instead.
+    """
     DOCUMENT_SYMBOL_CACHE_FILENAME = "document_symbols.pkl"
 
     # Directories that should always be ignored regardless of language:
@@ -520,17 +547,8 @@ class SolidLanguageServer(ABC):
         """
         self.server.on_any_notification(self._observe_server_notification)
 
-        # Set up the pathspec matcher for the ignored paths
-        # for all absolute paths in ignored_paths, convert them to relative paths
-        processed_patterns = []
-        for pattern in set(config.ignored_paths):
-            # Normalize separators (pathspec expects forward slashes)
-            pattern = pattern.replace(os.path.sep, "/")
-            processed_patterns.append(pattern)
-        log.debug(f"Processing {len(processed_patterns)} ignored paths from the config")
-
-        # Create a pathspec matcher from the processed patterns
-        self._ignore_spec = pathspec.PathSpec.from_lines(pathspec.patterns.GitWildMatchPattern, processed_patterns)
+        # create a pathspec matcher from the given patterns
+        self._ignore_spec = pathspec.PathSpec.from_lines(pathspec.patterns.GitWildMatchPattern, config.ignored_paths)
 
         self._has_waited_for_cross_file_references = False
 
@@ -2870,13 +2888,14 @@ class SolidLanguageServer(ABC):
         Returns a fingerprint of any language server-specific aspects that result in changes
         to the high-level document symbol information.
 
-        Language servers must implement this method/change the return value
-          * whenever they change the `request_document_symbols` implementation to modify the returned content
-          * are reconfigured in a way that affects the returned contents (e.g. context-specific configuration
-            such as build flags or environment variables); configuration options can, in such cases, be
-            hashed together to produce a single fingerprint value.
+        Language servers must implement this method/change the return value if
+        the `request_document_symbols` implementation (or any of the methods called by it)
+        are changed to modify the returned content.
 
-        Whenever the value changes, the document symbols cache will be invalidated and re-populated.
+        Whenever the value changes, the high-level document symbols cache will be invalidated and re-populated.
+
+        Note: For aspects that change the values returned by the language server itself,
+        change `_raw_document_symbols_cache_fingerprint` instead.
 
         The value must be hashable and safe for inclusion in cache version tuples.
         E.g. use an integer, a string or a tuple of integers/strings.
@@ -2891,12 +2910,16 @@ class SolidLanguageServer(ABC):
         """
         Return the version for the document symbols cache.
 
-        Incorporates cache context fingerprint if provided by the language server.
+        Incorporates cache fingerprints if provided by the language server.
         """
-        fingerprint = self._document_symbols_cache_fingerprint()
-        if fingerprint is not None:
-            return (self.DOCUMENT_SYMBOL_CACHE_VERSION, fingerprint)
-        return self.DOCUMENT_SYMBOL_CACHE_VERSION
+        version: list[Hashable] = [self.DOCUMENT_SYMBOL_CACHE_VERSION]
+        high_level_fingerprint = self._document_symbols_cache_fingerprint()
+        if high_level_fingerprint is not None:
+            version.append(high_level_fingerprint)
+        raw_fingerprint = self._raw_document_symbols_cache_fingerprint()
+        if raw_fingerprint is not None:
+            version.append(raw_fingerprint)
+        return version[0] if len(version) == 1 else tuple(version)
 
     def _save_raw_document_symbols_cache(self) -> None:
         cache_file = self.cache_dir / self.RAW_DOCUMENT_SYMBOL_CACHE_FILENAME
@@ -2916,9 +2939,32 @@ class SolidLanguageServer(ABC):
                 e,
             )
 
-    def _raw_document_symbols_cache_version(self) -> tuple[Hashable, ...]:
-        base_version: tuple[Hashable, ...] = (self.RAW_DOCUMENT_SYMBOLS_CACHE_VERSION, self._ls_specific_raw_document_symbols_cache_version)
-        fingerprint = self._document_symbols_cache_fingerprint()
+    def _raw_document_symbols_cache_fingerprint(self) -> Hashable | None:
+        """
+        Returns a fingerprint of any language server-specific aspects that result in changes
+        to the raw document symbol information produced by the language server.
+
+        Language servers must implement this method/change the return value whenever they
+        are reconfigured or otherwise affected in a way that affects the contents returned
+        by the language server for document symbol requests (raw request result).
+        For example, this could be context-specific configuration such as build flags or environment variables;
+        configuration options can, in such cases, be hashed together to produce a single fingerprint value.
+
+        Whenever the value changes, the raw document symbols cache (as well as the high-level cache that
+        builds on the raw results) will be invalidated and re-populated.
+
+        The value must be hashable and safe for inclusion in cache version tuples.
+        E.g. use an integer, a string or a tuple of integers/strings.
+
+        For example, if there is a single aspect being considered, use an integer to reflect the version
+        of this aspect (incrementing it whenever the implementation changes).
+        If multiple versioned aspects exist, use a tuple of versions, etc.
+        """
+        return None
+
+    def _raw_document_symbols_cache_version(self) -> Hashable:
+        base_version = (self.RAW_DOCUMENT_SYMBOLS_CACHE_VERSION, self._ls_specific_raw_document_symbols_cache_version)
+        fingerprint = self._raw_document_symbols_cache_fingerprint()
         if fingerprint is not None:
             return (*base_version, fingerprint)
         return base_version
@@ -3148,4 +3194,17 @@ class SolidLanguageServer(ABC):
         """
         Create the InitializeParams object to send to the language server during initialization.
         """
-        return self._create_initialize_params_builder().with_base_options(self._create_base_initialize_params()).build()
+        params = self._create_initialize_params_builder().with_base_options(self._create_base_initialize_params()).build()
+        self._register_content_modified_retry_methods(params)
+        return params
+
+    def _register_content_modified_retry_methods(self, params: InitializeParams) -> None:
+        """
+        Reads back `general.staleRequestSupport.retryOnContentModified` from the InitializeParams
+        we are about to send and registers it with the underlying `LanguageServerInterface`, so
+        that `send_request` only retries `ContentModified` (-32801) responses for methods we have
+        actually told the server we will retry (see `LanguageServerInterface.send_request`).
+        """
+        general_capabilities = cast(dict, params.get("capabilities", {})).get("general", {})
+        retry_methods = general_capabilities.get("staleRequestSupport", {}).get("retryOnContentModified", [])
+        self.server.set_content_modified_retry_methods(retry_methods)

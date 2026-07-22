@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import sqlite3
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -18,11 +19,13 @@ from mindroom.matrix.cache import (
     SharedConversationEventCache,
     postgres_event_cache_events,
     postgres_event_cache_threads,
+    sqlite_event_cache,
     sqlite_event_cache_events,
     sqlite_event_cache_threads,
 )
 from mindroom.matrix.cache.postgres_event_cache import PostgresEventCache
 from mindroom.matrix.cache.sqlite_event_cache import SqliteEventCache
+from mindroom.matrix.cache.thread_cache_invalidation import mark_thread_stale_fail_closed
 from mindroom.matrix.message_content import resolve_event_source_content
 from mindroom.matrix.rooms import leave_non_dm_rooms
 from mindroom.matrix.sync_cache_trust import SyncCacheTrust
@@ -309,6 +312,100 @@ async def test_disabling_principal_view_does_not_disable_other_principals(
 
 
 @pytest.mark.asyncio
+async def test_sqlite_lock_contention_quarantines_then_heals_principal(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A transient SQLite writer must fence stale data without disabling the principal forever."""
+    root = SqliteEventCache(tmp_path / "event_cache.db")
+    await root.initialize()
+    alice = root.for_principal("@alice:localhost")
+    bob = root.for_principal("@bob:localhost")
+    room_id = "!room:localhost"
+    thread_id = "$thread"
+    alice_event = _event(thread_id, 1)
+    bob_event = _event("$bob", 2)
+    try:
+        await replace_thread_unconditionally(alice, room_id, thread_id, [alice_event])
+        await bob.store_event("$bob", room_id, bob_event)
+        db = root._runtime.require_db()
+        read_logger = MagicMock()
+        monkeypatch.setattr(sqlite_event_cache, "logger", read_logger)
+        blocker = sqlite3.connect(root.db_path, timeout=0)
+        blocker.execute("BEGIN IMMEDIATE")
+        try:
+            readable_state = await asyncio.wait_for(
+                alice.get_thread_cache_state(room_id, thread_id),
+                timeout=0.5,
+            )
+            assert readable_state is None
+            read_logger.debug.assert_called_once_with(
+                "SQLite event cache read skipped because another writer owns storage",
+                operation="get_thread_cache_state",
+            )
+            timeout_cursor = await db.execute("PRAGMA busy_timeout")
+            assert await timeout_cursor.fetchone() == (5000,)
+            await timeout_cursor.close()
+            await db.execute("PRAGMA busy_timeout=0")
+            await mark_thread_stale_fail_closed(
+                alice,
+                room_id=room_id,
+                thread_id=thread_id,
+                reason="outbound_thread_mutation",
+                logger=MagicMock(),
+            )
+        finally:
+            blocker.rollback()
+            blocker.close()
+
+        diagnostics = alice.runtime_diagnostics()
+        assert diagnostics["cache_sqlite_principal_disabled"] is False
+        assert diagnostics["cache_sqlite_pending_principal_purge"] is True
+        assert diagnostics["cache_sqlite_read_contention_count"] == 1
+        assert alice.durable_writes_available is False
+        assert alice.cache_generation is None
+
+        assert await alice.get_thread_cache_state(room_id, thread_id) is None
+        assert alice.runtime_diagnostics()["cache_sqlite_pending_principal_purge"] is False
+        assert await bob.get_event(room_id, "$bob") == bob_event
+
+        await replace_thread_unconditionally(alice, room_id, thread_id, [alice_event])
+        healed_state = await alice.get_thread_cache_state(room_id, thread_id)
+        assert healed_state is not None
+        assert healed_state.validated_at is not None
+        assert healed_state.invalidated_at is None
+    finally:
+        await root.close()
+
+
+@pytest.mark.asyncio
+async def test_sqlite_pending_principal_purge_does_not_strand_rejoined_room(tmp_path: Path) -> None:
+    """A rejoin must flush a pending principal purge before lifting its departure fence."""
+    root = SqliteEventCache(tmp_path / "event_cache.db")
+    await root.initialize()
+    alice = root.for_principal("@alice:localhost")
+    room_id = "!room:localhost"
+    event_id = "$event"
+    event = _event(event_id, 1)
+    try:
+        await alice.store_event(event_id, room_id, event)
+        departure_epoch = alice.mark_room_departed(room_id)
+        root._runtime.record_pending_principal_purge(alice.principal_id)
+
+        await alice.mark_room_joined(room_id, expected_departure_epoch=departure_epoch)
+
+        diagnostics = alice.runtime_diagnostics()
+        assert diagnostics["cache_sqlite_pending_principal_purge"] is False
+        assert diagnostics["cache_sqlite_departed_room_count"] == 0
+        assert alice.durable_writes_available is True
+        assert await alice.get_event(room_id, event_id) is None
+        await alice.store_event(event_id, room_id, event)
+        assert await alice.get_event(room_id, event_id) == event
+    finally:
+        await root.close()
+
+
+@pytest.mark.asyncio
 async def test_failed_room_purge_blocks_reads_until_recovery(
     event_cache_factory: Callable[[], ConversationEventCache],
     monkeypatch: pytest.MonkeyPatch,
@@ -436,10 +533,14 @@ async def test_sqlite_cleanup_in_another_runtime_serializes_with_inflight_read( 
     event = _event(event_id, 1, sidecar_url=mxc_url)
     read_obtained_result = asyncio.Event()
     release_read = asyncio.Event()
+    cleanup_write_attempted = asyncio.Event()
+    cleanup_write_acquired = asyncio.Event()
     sqlite_loader = (
         sqlite_event_cache_events.load_event if lookup_kind == "event" else sqlite_event_cache_events.load_mxc_text
     )
     original_loader = cast("Callable[..., Awaitable[object]]", sqlite_loader)
+    departure_db = departure_root._runtime.require_db()
+    original_execute = departure_db.execute
 
     async def pause_after_read(*args: object, **kwargs: object) -> object:
         result = await original_loader(*args, **kwargs)
@@ -447,9 +548,18 @@ async def test_sqlite_cleanup_in_another_runtime_serializes_with_inflight_read( 
         await release_read.wait()
         return result
 
+    async def signal_cleanup_write(sql: str, *args: object, **kwargs: object) -> Cursor:
+        if sql != "BEGIN IMMEDIATE":
+            return await original_execute(sql, *args, **kwargs)
+        cleanup_write_attempted.set()
+        cursor = await original_execute(sql, *args, **kwargs)
+        cleanup_write_acquired.set()
+        return cursor
+
     try:
         await read_cache.store_event(event_id, room_id, event)
         assert await read_cache.store_mxc_text(room_id, event_id, mxc_url, "plaintext")
+        monkeypatch.setattr(departure_db, "execute", signal_cleanup_write)
         if lookup_kind == "event":
             monkeypatch.setattr(sqlite_event_cache_events, "load_event", pause_after_read)
             read_task = asyncio.create_task(read_cache.get_event(room_id, event_id))
@@ -474,8 +584,9 @@ async def test_sqlite_cleanup_in_another_runtime_serializes_with_inflight_read( 
                 )
 
         cleanup_task = asyncio.create_task(cleanup_room())
-        await asyncio.sleep(0)
-        assert not cleanup_task.done()
+        await asyncio.wait_for(cleanup_write_attempted.wait(), timeout=1)
+        with pytest.raises(TimeoutError):
+            await asyncio.wait_for(cleanup_write_acquired.wait(), timeout=0.25)
         release_read.set()
 
         assert await read_task == (event if lookup_kind == "event" else "plaintext")

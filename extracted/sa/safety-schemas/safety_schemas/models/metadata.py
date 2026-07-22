@@ -1,4 +1,5 @@
-from datetime import datetime
+from dataclasses import field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, List, Union
 
@@ -29,7 +30,7 @@ class MetadataModel(SafetyBaseModel):
     authentication_type: AuthenticationType
     telemetry: TelemetryModel
     schema_version: ReportSchemaVersion
-    timestamp: datetime = datetime.now()
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     def as_v30(self, *args: Any, **kwargs: Any) -> v3_0.SchemaModelV30:
         auth_method = None

@@ -108,6 +108,7 @@ docs = [
 all = [
     "scitex-dev[mcp]",
     "scitex-dev[skills]",
+    "scitex-dev[sync]",
     "scitex-dev[dev]",
     "scitex-dev[docs]",
     "scitex-dev[umbrella-regen]",
@@ -117,6 +118,13 @@ all = [
 [project.scripts]
 scitex-dev = "scitex_dev._cli:main"
 scitex-dev-testmon = "scitex_dev._hooks.run_testmon_cli:main"
+
+# Auto-loaded pytest guard: enforces a package's test-execution recipe
+# (mode=remote-required blocks local pytest). Inert by default (default mode is
+# `local`, and a package with no recipe resolves to that), so this never
+# affects scitex-dev's own CI or any package that has not opted in.
+[project.entry-points."pytest11"]
+scitex_dev_test_execution = "scitex_dev._core._test_execution_plugin"
 
 [project.entry-points."scitex_dev.docs"]
 scitex-dev = "scitex_dev"
@@ -182,6 +190,7 @@ scitex_dev = [
     "skills/*.md",
     "skills/references/*.md",
     "_skills/**/*",
+    "_hooks/*.sh",
     "_branding/*.yaml",
     "_cli/audit/_summary/data/*",
     "linter/_rules/_verb_lexicon.txt",

@@ -22,6 +22,18 @@ class Core(object):
 
 		Version history:
 
+		1.114.0 (21.07.2026)
+		- Fixed compatibility issue with Python 3.10 and 3.11
+		- Added further linter checks
+
+		1.113.0 (15.07.2026)
+		- Fixed pyvisa-sim backend compatibility
+		- Added ZES ZIMMER to the list of supported manufacturers
+		- Cleaned up PyCharm 2026.1 warnings
+
+		1.112.0 (11.02.2025)
+		- Added Ivi Interfaces ivi_direct_io and ivi_utility
+
 		1.111.0 (14.11.2025)
 		- Changed typing hints alternatives.Example 'int or bool' -> 'int | bool'
 
@@ -42,7 +54,7 @@ class Core(object):
 		- added check_status_always().
 
 		1.103.0 (09.04.2025)
-		- Fixes for Pycharm 2024.3 checks.
+		- Fixes for PyCharm 2024.3 checks.
 
 		1.102.0 (20.01.2025)
 		- Fixes for backend pyvisa-py.
@@ -255,19 +267,22 @@ class Core(object):
 	driver_version: str = ''
 	"""Placeholder for the driver version string."""
 
+	io: Instrument
+	"""Instrument IO interface for all the write / query operations. Assigned in __init__, released (set to None) in close()."""
+
 	def __init__(
 			self,
 			resource_name: str,
 			id_query: bool = True,
 			reset: bool = False,
-			driver_options: str = None,
-			user_options: str = None,
-			direct_session: object = None,
+			driver_options: str | None = None,
+			user_options: str | None = None,
+			direct_session: object | None = None,
 			called_from_driver: bool = True):
 		"""Initializes new driver session. For cleaner code, use the class methods: \n
 		- Core.from_existing_session() - initializes a new Core with an existing pyvisa session."""
 
-		self.core_version = '1.106.0'
+		self.core_version = '1.114.0'
 		self.resource_name = resource_name
 		self.called_from_driver = called_from_driver
 
@@ -320,10 +335,10 @@ class Core(object):
 			self.io.check_status()
 
 	@classmethod
-	def from_existing_session(cls, session: object, driver_options: str = None) -> 'Core':
+	def from_existing_session(cls, session: object, driver_options: str | None = None) -> 'Core':
 		"""Creates a new Core object with the entered 'session' reused."""
 		# noinspection PyTypeChecker
-		return cls(resource_name=None, id_query=False, reset=False, driver_options=driver_options, user_options=None, direct_session=session)
+		return cls(resource_name=None, id_query=False, reset=False, driver_options=driver_options, user_options=None, direct_session=session)  # ty: ignore[invalid-argument-type]
 
 	def __str__(self):
 		return f"Core session '{self.io.resource_name}'"
@@ -353,12 +368,12 @@ class Core(object):
 		"""Adds / Updates link handler for the entered link_name.
 		Handler API: handler(event_args: ArgLinkedEventArgs)
 		Returns the previous registered handler, or None if no handler was registered before."""
-		return self.io.set_link_handler(link_name, handler)
+		return self.io.set_link_handler(link_name, handler)  # ty: ignore[invalid-return-type]
 
 	def del_link_handler(self, link_name: str) -> Callable:
 		"""Deletes link handler for the link_name.
 		Returns the deleted handler, or None if none existed."""
-		return self.io.del_link_handler(link_name)
+		return self.io.del_link_handler(link_name)  # ty: ignore[invalid-return-type]
 
 	def del_all_link_handlers(self) -> int:
 		"""Deletes all the link handlers.
@@ -379,7 +394,7 @@ class Core(object):
 			Properties.scpi_quotes = settings.scpi_quotes
 
 	def compose_cmd_arg_param(
-			self, arg1: ArgSingle, arg2: ArgSingle = None, arg3: ArgSingle = None, arg4: ArgSingle = None, arg5: ArgSingle = None, arg6: ArgSingle = None) -> str:
+			self, arg1: ArgSingle, arg2: ArgSingle | None = None, arg3: ArgSingle | None = None, arg4: ArgSingle | None = None, arg5: ArgSingle | None = None, arg6: ArgSingle | None = None) -> str:
 		"""Composes command parameter string based on the single argument definition."""
 		return self._args_single_list.compose_cmd_string(arg1, arg2, arg3, arg4, arg5, arg6)
 
@@ -394,4 +409,4 @@ class Core(object):
 	def close(self):
 		"""Closes the Core session."""
 		self.io.close()
-		self.io = None
+		self.io = None  # ty: ignore[invalid-assignment]

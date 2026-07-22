@@ -205,9 +205,11 @@ char* rustLegacyDemangle(std::string_view s) {
   if (!has_hash && !has_escapes)
     return nullptr;
 
+  // Keep the trailing hash segment so the output matches what
+  // llvm::itaniumDemangle historically produced for these symbols;
+  // consumers (e.g. angr) rely on the hash being present.
   std::string result;
-  size_t end = has_hash ? segments.size() - 1 : segments.size();
-  for (size_t i = 0; i < end; ++i) {
+  for (size_t i = 0; i < segments.size(); ++i) {
     if (i > 0)
       result += "::";
     result += decoded[i].text;

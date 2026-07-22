@@ -29,6 +29,7 @@ from .types import (
     Server,
     Task,
     TaskDifficulty,
+    TerminalToolSpec,
     TextBlock,
     ToolOutput,
     ToolSpec,
@@ -178,6 +179,22 @@ def sanitize_tool_schema(
     if provider == "google":
         return _sanitize_google_schema(stripped)
     raise ValueError(f"Invalid provider: {provider!r}")
+
+
+def parse_terminal_tool(res: Mapping[str, Any]) -> Optional[TerminalToolSpec]:
+    """Read the terminal-tool descriptor out of a ``/tools`` response.
+
+    Returns None both when the environment has no ``@terminal`` tool and when
+    the env server predates the field.
+    """
+    raw = res.get("terminal_tool")
+    if not raw:
+        return None
+    return TerminalToolSpec(
+        name=raw["name"],
+        arg=raw.get("arg"),
+        description=raw.get("description", ""),
+    )
 
 
 @overload
@@ -346,6 +363,8 @@ class AsyncSession(BaseAsyncSession):
         self.toolset_name = toolset_name
 
         self._has_task_tools: bool = True
+        self._terminal_tool: Optional[TerminalToolSpec] = None
+        self._terminal_tool_fetched: bool = False
 
     def _env_path(self, suffix: str) -> str:
         """Build URL path, matching AsyncEnvironment's routing pattern.
@@ -448,6 +467,7 @@ class AsyncSession(BaseAsyncSession):
                         token=self.api_key,
                                 )
                 )
+                self._terminal_tool = parse_terminal_tool(res)
                 return convert_tool_response(res, format=format)
             except aiohttp.ClientResponseError as e:
                 if e.status == 404:
@@ -465,7 +485,45 @@ class AsyncSession(BaseAsyncSession):
                 token=self.api_key,
                 )
         )
+        self._terminal_tool = parse_terminal_tool(res)
         return convert_tool_response(res, format=format)
+
+    async def terminal_tool(self) -> Optional[TerminalToolSpec]:
+        """The environment's terminal tool, or None if it has none.
+
+        Fetches the tool list on first use and caches the result for the
+        lifetime of the session (an environment's terminal tool is static).
+        """
+        if not self._terminal_tool_fetched:
+            await self.list_tools()
+            self._terminal_tool_fetched = True
+        return self._terminal_tool
+
+    async def is_assistant_message_final(self) -> bool:
+        """True when a plain assistant message should end the rollout.
+
+        Environments that declare a ``@terminal`` tool expect the model to
+        write its answer as an ordinary message rather than call a submit-style
+        tool. When this returns True, a harness that receives an assistant
+        message with no tool calls should pass its text to
+        :meth:`call_terminal_tool` and stop.
+        """
+        return (await self.terminal_tool()) is not None
+
+    async def call_terminal_tool(self, message: str = "") -> ToolOutput:
+        """Call the environment's terminal tool with *message*.
+
+        A terminal tool that takes no arguments is called with none, and
+        *message* is ignored. Raises ``ToolCallError`` if the environment has
+        no terminal tool.
+        """
+        term = await self.terminal_tool()
+        if term is None:
+            raise ToolCallError(
+                reason="not_found",
+                detail=f"Environment {self.deployment!r} has no @terminal tool",
+            )
+        return await self.call_tool(term.name, {} if term.arg is None else {term.arg: message})
 
     async def call_tool(self, tool_name: str, input: JSONObject = {}) -> ToolOutput:
         if not isinstance(input, Mapping):
@@ -597,10 +655,25 @@ class AsyncEnvironment:
             return [Task(server_name=self.server, environment_name=res["env_name"], task_spec=task, namespace=self.namespace) for task in res["tasks"]]
 
     async def list_tools(self, format: Optional[Provider] = None) -> Union[list[ToolSpec], list[dict]]:
+        return convert_tool_response(await self._tools_response(), format=format)
+
+    async def _tools_response(self) -> Mapping[str, Any]:
         path = "/tools" if self.variant is None else f"/{self.variant}/tools"
         async with matrix_sid_provider(self.client, self.deployment_name, self.api_key) as sid:
-            res = await request_retryable(self.client, "GET", path, expect_json=True, sid=sid, deployment=self.deployment_name, token=self.api_key)
-            return convert_tool_response(res, format=format)
+            return await request_retryable(self.client, "GET", path, expect_json=True, sid=sid, deployment=self.deployment_name, token=self.api_key)
+
+    async def terminal_tool(self) -> Optional[TerminalToolSpec]:
+        """The environment's ``@terminal`` tool, or None if it has none."""
+        return parse_terminal_tool(await self._tools_response())
+
+    async def is_assistant_message_final(self) -> bool:
+        """True when a plain assistant message ends a rollout in this environment.
+
+        See :meth:`AsyncSession.is_assistant_message_final`; prefer the session
+        method inside a rollout, since it reuses the session's cached tool list
+        and accounts for any session toolset.
+        """
+        return (await self.terminal_tool()) is not None
 
     async def get_prompt(self, task: Task) -> str:
         async with matrix_sid_provider(self.client, task.deployment_name, self.api_key) as sid:
@@ -885,6 +958,21 @@ class Session:
     def list_tools(self, format: Optional[Provider] = None) -> Union[list[ToolSpec], list[dict]]:
         return self._run(self._async.list_tools(format))
 
+    def terminal_tool(self) -> Optional[TerminalToolSpec]:
+        """The environment's terminal tool, or None if it has none."""
+        return self._run(self._async.terminal_tool())
+
+    def is_assistant_message_final(self) -> bool:
+        """True when a plain assistant message should end the rollout.
+
+        See :meth:`AsyncSession.is_assistant_message_final`.
+        """
+        return self._run(self._async.is_assistant_message_final())
+
+    def call_terminal_tool(self, message: str = "") -> ToolOutput:
+        """Call the environment's terminal tool with *message*."""
+        return self._run(self._async.call_terminal_tool(message))
+
     def call_tool(self, tool_name: str, input: JSONObject = {}) -> ToolOutput:
         return self._run(self._async.call_tool(tool_name, input))
 
@@ -945,6 +1033,14 @@ class Environment:
 
     def list_tools(self, format: Optional[Provider] = None) -> Union[list[ToolSpec], list[dict]]:
         return self._run(self._async.list_tools(format))
+
+    def terminal_tool(self) -> Optional[TerminalToolSpec]:
+        """The environment's ``@terminal`` tool, or None if it has none."""
+        return self._run(self._async.terminal_tool())
+
+    def is_assistant_message_final(self) -> bool:
+        """True when a plain assistant message ends a rollout in this environment."""
+        return self._run(self._async.is_assistant_message_final())
 
     def get_prompt(self, task: Task) -> str:
         return self._run(self._async.get_prompt(task))

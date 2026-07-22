@@ -7,6 +7,7 @@ import pulumi
 from enum import Enum
 
 __all__ = [
+    'ActionStatus',
     'AlgorithmChannelSpecificationSupportedCompressionTypesItem',
     'AlgorithmChannelSpecificationSupportedInputModesItem',
     'AlgorithmHyperParameterSpecificationType',
@@ -48,6 +49,7 @@ __all__ = [
     'DomainUnifiedStudioSettingsStudioWebPortalAccess',
     'DomainUserSettingsAutoMountHomeEfs',
     'DomainUserSettingsStudioWebPortal',
+    'ExperimentTrialComponentStatusPropertiesPrimaryStatus',
     'FeatureGroupFeatureDefinitionFeatureType',
     'FeatureGroupStorageType',
     'FeatureGroupTableFormat',
@@ -142,6 +144,7 @@ __all__ = [
     'SpaceResourceSpecInstanceType',
     'SpaceSharingSettingsSharingType',
     'StudioLifecycleConfigAppType',
+    'TrialComponentStatusPrimaryStatus',
     'UserProfileAppInstanceType',
     'UserProfileAppType',
     'UserProfileHiddenSageMakerImageSageMakerImageName',
@@ -153,6 +156,19 @@ __all__ = [
     'UserProfileUserSettingsAutoMountHomeEfs',
     'UserProfileUserSettingsStudioWebPortal',
 ]
+
+
+@pulumi.type_token("aws-native:sagemaker:ActionStatus")
+class ActionStatus(_builtins.str, Enum):
+    """
+    The status of the action.
+    """
+    UNKNOWN = "Unknown"
+    IN_PROGRESS = "InProgress"
+    COMPLETED = "Completed"
+    FAILED = "Failed"
+    STOPPING = "Stopping"
+    STOPPED = "Stopped"
 
 
 @pulumi.type_token("aws-native:sagemaker:AlgorithmChannelSpecificationSupportedCompressionTypesItem")
@@ -859,7 +875,7 @@ class DomainUnifiedStudioSettingsStudioWebPortalAccess(_builtins.str, Enum):
 @pulumi.type_token("aws-native:sagemaker:DomainUserSettingsAutoMountHomeEfs")
 class DomainUserSettingsAutoMountHomeEfs(_builtins.str, Enum):
     """
-    Indicates whether auto-mounting of an EFS volume is supported for the user profile. 
+    Indicates whether auto-mounting of an EFS volume is supported for the user profile.
     """
     ENABLED = "Enabled"
     DISABLED = "Disabled"
@@ -873,6 +889,18 @@ class DomainUserSettingsStudioWebPortal(_builtins.str, Enum):
     """
     ENABLED = "ENABLED"
     DISABLED = "DISABLED"
+
+
+@pulumi.type_token("aws-native:sagemaker:ExperimentTrialComponentStatusPropertiesPrimaryStatus")
+class ExperimentTrialComponentStatusPropertiesPrimaryStatus(_builtins.str, Enum):
+    """
+    The status of the trial component.
+    """
+    IN_PROGRESS = "InProgress"
+    COMPLETED = "Completed"
+    FAILED = "Failed"
+    STOPPING = "Stopping"
+    STOPPED = "Stopped"
 
 
 @pulumi.type_token("aws-native:sagemaker:FeatureGroupFeatureDefinitionFeatureType")
@@ -1389,7 +1417,7 @@ class ModelPackageTransformInputCompressionType(_builtins.str, Enum):
 @pulumi.type_token("aws-native:sagemaker:ModelPackageTransformInputSplitType")
 class ModelPackageTransformInputSplitType(_builtins.str, Enum):
     """
-    The method to use to split the transform job's data files into smaller batches. 
+    The method to use to split the transform job's data files into smaller batches.
     """
     NONE = "None"
     TF_RECORD = "TFRecord"
@@ -2068,6 +2096,18 @@ class StudioLifecycleConfigAppType(_builtins.str, Enum):
     JUPYTER_LAB = "JupyterLab"
 
 
+@pulumi.type_token("aws-native:sagemaker:TrialComponentStatusPrimaryStatus")
+class TrialComponentStatusPrimaryStatus(_builtins.str, Enum):
+    """
+    The status of the trial component.
+    """
+    IN_PROGRESS = "InProgress"
+    COMPLETED = "Completed"
+    FAILED = "Failed"
+    STOPPING = "Stopping"
+    STOPPED = "Stopped"
+
+
 @pulumi.type_token("aws-native:sagemaker:UserProfileAppInstanceType")
 class UserProfileAppInstanceType(_builtins.str, Enum):
     """
@@ -2320,7 +2360,7 @@ class UserProfileSharingSettingsNotebookOutputOption(_builtins.str, Enum):
 @pulumi.type_token("aws-native:sagemaker:UserProfileUserSettingsAutoMountHomeEfs")
 class UserProfileUserSettingsAutoMountHomeEfs(_builtins.str, Enum):
     """
-    Indicates whether auto-mounting of an EFS volume is supported for the user profile. 
+    Indicates whether auto-mounting of an EFS volume is supported for the user profile.
     """
     ENABLED = "Enabled"
     DISABLED = "Disabled"

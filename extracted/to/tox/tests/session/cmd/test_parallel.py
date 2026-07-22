@@ -4,6 +4,7 @@ import sys
 from argparse import ArgumentTypeError
 from signal import SIGINT
 from subprocess import PIPE, Popen
+from textwrap import dedent
 from time import sleep
 from typing import TYPE_CHECKING
 from unittest import mock
@@ -48,6 +49,16 @@ def test_parse_num_processes_minus_one() -> None:
         parse_num_processes("-1")
 
 
+def test_parallel_zero_turns_off(tox_project: ToxProjectCreator, mocker: MockerFixture) -> None:
+    # The -p help says "zero is turn off", so -p 0 must run sequentially (one
+    # worker) rather than auto-detecting the CPU count like -p auto.
+    execute = mocker.patch.object(parallel, "execute", return_value=0)
+    project = tox_project({"tox.ini": "[tox]\nno_package=true\nenv_list=a,b\n[testenv]\ncommands=python -c 'pass'\n"})
+    project.run("p", "-p", "0")
+
+    assert execute.call_args.kwargs["max_workers"] == 1
+
+
 def test_parallel_general(tox_project: ToxProjectCreator, monkeypatch: MonkeyPatch, mocker: MockerFixture) -> None:
     def setup(self: ToxEnv) -> None:
         if self.name == "f":
@@ -55,7 +66,7 @@ def test_parallel_general(tox_project: ToxProjectCreator, monkeypatch: MonkeyPat
             raise Fail(msg)
         return prev_setup(self)
 
-    prev_setup = ToxEnv._setup_env  # noqa: SLF001
+    prev_setup = ToxEnv._setup_env  # ruff:ignore[private-member-access]
     mocker.patch.object(ToxEnv, "_setup_env", autospec=True, side_effect=setup)
     monkeypatch.setenv("PATH", "")
 
@@ -276,3 +287,39 @@ def test_no_capture_short_flag_with_parallel_fails(tox_project: ToxProjectCreato
     ini = "[testenv]\npackage=skip\ncommands=python --version"
     result = tox_project({"tox.ini": ini}).run("p", "-e", "py", "-i")
     result.assert_failed()
+
+
+def test_parallel_fail_fast_lets_running_finish(tox_project: ToxProjectCreator) -> None:
+    """Documented contract: on fail fast, running environments finish; only pending ones are skipped."""
+    toml = dedent("""\
+        env_list = ["a", "b"]
+        [env_run_base]
+        package = "skip"
+        [env.a]
+        commands = [["python", "-c", "raise SystemExit(7)"]]
+        [env.b]
+        commands = [["python", "-c", "import time, pathlib; time.sleep(2); pathlib.Path('done.txt').write_text('x')"]]
+    """)
+    project = tox_project({"tox.toml": toml})
+
+    outcome = project.run("p", "-p", "2", "--fail-fast")
+
+    outcome.assert_failed(code=7)
+    assert (project.path / "done.txt").exists()
+    assert "b: OK" in outcome.out
+
+
+def test_parallel_spinner_stays_out_of_non_tty_output(tox_project: ToxProjectCreator) -> None:
+    """Redirected output must hold plain text, not spinner control sequences."""
+    toml = dedent("""\
+        env_list = ["a"]
+        [env_run_base]
+        package = "skip"
+        commands = [["python", "-c", "print('hi')"]]
+    """)
+    project = tox_project({"tox.toml": toml})
+
+    outcome = project.run("p")
+
+    outcome.assert_success()
+    assert "\x1b[" not in outcome.out

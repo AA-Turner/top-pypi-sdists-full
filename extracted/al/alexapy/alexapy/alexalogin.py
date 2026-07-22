@@ -703,6 +703,12 @@ class AlexaLogin:
             try:
                 async with aiofiles.open(cookiefile, "rb") as myfile:
                     raw_cookie_file = await myfile.read()
+                if not raw_cookie_file:
+                    _LOGGER.debug(
+                        "Cookie file %s is empty; ignoring it",
+                        cookiefile.replace(self.email, hide_email(self.email)),
+                    )
+                    continue
                 try:
                     cookies = loads(raw_cookie_file.decode())
                     if self._debug:
@@ -880,95 +886,114 @@ class AlexaLogin:
                 pass
         return data
 
-    async def test_loggedin(self, cookies: dict[str, str] | None = None) -> bool:
-        """Function that will test the connection is logged in.
+    async def test_loggedin(
+        self,
+        cookies: dict[str, str] | None = None,
+        *,
+        rebuild_session: bool = True,
+    ) -> bool:
+        """Test whether the connection is logged in.
 
-        Tests:
-        - Attempts to get authentication and compares to expected login email
-        Returns false if unsuccessful getting json or the emails don't match
-        Returns false if no csrf found; necessary to issue commands
+        Attempts to retrieve the authenticated customer and compare the returned
+        email address with the expected login email.
+
+        Returns False if the response cannot be decoded, the email does not match,
+        or no usable authenticated session can be confirmed.
         """
         if self._debug:
-            _LOGGER.debug("Testing whether logged in to alexa.%s", self._url)
+            _LOGGER.debug(
+                "Testing whether logged in to alexa.%s (rebuild_session=%s)",
+                self._url,
+                rebuild_session
+            )
             _LOGGER.debug("Cookies: %s", cookies)
             _LOGGER.debug("Session Cookies:\n%s", self._print_session_cookies())
             _LOGGER.debug("Header: %s", dumps(self._headers))
+
         if not self._session:
             self._create_session()
-        await self.get_tokens()
-        await self.register_capabilities()
-        await self.exchange_token_for_cookies()
-        await self.get_csrf()
-        path = (
-            self._prefix
-            + "amazon.com"
-            + f"/api/users/me?platform=ios&version={CALL_VERSION}"
-        )
-        self._log_cookies_for_url(path)
-        get_resp = await self._session.get(
-            path,
-            cookies=cookies,
-            ssl=self._ssl,
-        )
-        email = None
-        json = None
-        await self._process_resp(get_resp)
-        try:
-            json = await get_resp.json()
-            email = json.get("email")
-        except (JSONDecodeError, SimpleJSONDecodeError, ContentTypeError) as ex:
-            _LOGGER.debug(
-                "Not logged in: %s",
-                EXCEPTION_TEMPLATE.format(type(ex).__name__, ex.args),
-            )
-            if self.url.lower() == "amazon.com":
-                return False
-        # Convert from amazon.com domain to native domain
-        if self.url.lower() != "amazon.com":
-            self._headers["authority"] = f"www.{self._url}"
+
+        if rebuild_session:
+            await self.get_tokens()
+            await self.register_capabilities()
+            await self.exchange_token_for_cookies()
+            await self.get_csrf()
+
+        domains = [self._url]
+        if self._url.lower() != "amazon.com":
+            domains.append("amazon.com")
+
+        customer = None
+
+        for domain in domains:
+            self._headers["authority"] = f"www.{domain}"
             path = (
                 self._prefix
-                + self._url
+                + domain
                 + f"/api/users/me?platform=ios&version={CALL_VERSION}"
             )
+
             self._log_cookies_for_url(path)
-            get_resp = await self._session.get(path)
+            get_resp = await self._session.get(
+                path,
+                cookies=cookies,
+                ssl=self._ssl,
+            )
             await self._process_resp(get_resp)
+
             try:
-                json = await get_resp.json()
-                email = json.get("email")
-            except (JSONDecodeError, SimpleJSONDecodeError, ContentTypeError) as ex:
+                customer = await get_resp.json()
+            except (
+                JSONDecodeError,
+                SimpleJSONDecodeError,
+                ContentTypeError,
+            ) as ex:
                 _LOGGER.debug(
-                    "Not logged in: %s",
+                    "Not logged in to %s: %s",
+                    domain,
                     EXCEPTION_TEMPLATE.format(type(ex).__name__, ex.args),
                 )
-                return False
-        self.customer_id = json.get("id")
-        if (email and email.lower() == self.email.lower()) or "@" not in self.email:
-            if "@" in self.email:
-                _LOGGER.debug(
-                    "Logged in as %s to %s with id: %s",
-                    hide_email(email),
-                    self.url,
-                    self.customer_id,
-                )
-            else:
-                _LOGGER.debug(
-                    "Logged in as to %s mobile account %s with %s",
-                    hide_email(email),
-                    self.url,
-                    self.customer_id,
-                )
-            self.stats["login_timestamp"] = datetime.datetime.now()
-            self.stats["api_calls"] = 0
-            await self.check_domain()
-            await self.finalize_login()
-            return True
-        _LOGGER.debug(
-            "Not logged in due to email mismatch to stored %s", hide_email(email)
-        )
-        await self.reset()
-        return False
+                continue
+
+            email = customer.get("email")
+            if (email and email.lower() == self.email.lower()) or "@" not in self.email:
+                break
+
+            _LOGGER.debug(
+                "Login email from %s did not match stored email: %s",
+                domain,
+                hide_email(email),
+            )
+            customer = None
+
+        if customer is None:
+            _LOGGER.debug("Not logged in to any attempted Alexa domain")
+            await self.reset()
+            return False
+
+        email = customer.get("email")
+        self.customer_id = customer.get("id")
+
+        if "@" in self.email:
+            _LOGGER.debug(
+                "Logged in as %s to %s with id: %s",
+                hide_email(email),
+                self.url,
+                self.customer_id,
+            )
+        else:
+            _LOGGER.debug(
+                "Logged in as %s to mobile account %s with %s",
+                hide_email(email),
+                self.url,
+                self.customer_id,
+            )
+
+        self.stats["login_timestamp"] = datetime.datetime.now()
+        self.stats["api_calls"] = 0
+        await self.check_domain()
+        await self.finalize_login()
+        return True
 
     async def get_csrf_token(self) -> str | None:
         """Get an anti-CSRF token from an Amazon webpage."""
@@ -1045,11 +1070,44 @@ class AlexaLogin:
     ) -> None:
         """Login to Amazon."""
         data = data or {}
-        if cookies:
-            _LOGGER.debug("Using cookies to log in")
-            if await self.test_loggedin(cookies):
+
+        # Prefer the persisted OAuth device registration whenever a refresh token
+        # is available. Access tokens and website cookies are short-lived runtime
+        # credentials and can be rebuilt silently from the refresh token without
+        # device registration, capability registration, or stored credentials.
+        if self.refresh_token:
+            _LOGGER.debug("Attempting login using the stored OAuth refresh token")
+            if not self._session:
+                self._create_session()
+            recovered = (
+                await self.refresh_access_token()
+                and await self.exchange_token_for_cookies()
+                and await self.get_csrf()
+                and await self.test_loggedin(rebuild_session=False)
+            )
+            if recovered:
+                _LOGGER.info(
+                    "Logged in %s using the stored OAuth refresh token",
+                    hide_email(self.email),
+                )
                 return
+            _LOGGER.debug(
+                "OAuth refresh-token login failed; falling back to stored cookies"
+            )
             await self.reset()
+
+        # Retain persisted-cookie login as a compatibility fallback for accounts
+        # without a usable OAuth refresh token.
+        if cookies:
+            _LOGGER.debug("Using stored cookies to log in")
+            if await self.test_loggedin(
+                cookies,
+                rebuild_session=False,
+            ):
+                return
+            _LOGGER.debug("Stored-cookie login failed; falling back to credentials")
+            await self.reset()
+
         _LOGGER.debug("Using credentials to log in")
         if not self._site:
             site: URL = self.start_url
@@ -1212,18 +1270,31 @@ class AlexaLogin:
                 assert isinstance(cookie_jar, aiohttp.CookieJar)
                 if self._debug:
                     _LOGGER.debug("Saving cookie to %s", cookiefile)
+                temp_cookiefile = f"{self._cookiefile[0]}.{uuid4().hex}.tmp"
                 try:
                     serialized_cookie_jar = _serialize_cookie_jar(cookie_jar)
-                    async with aiofiles.open(
-                        self._cookiefile[0], mode="w"
-                    ) as localfile:
-                        await localfile.write(dumps(serialized_cookie_jar))
+                    serialized_cookies = dumps(serialized_cookie_jar)
+                    async with aiofiles.open(temp_cookiefile, mode="w") as localfile:
+                        await localfile.write(serialized_cookies)
+                        await localfile.flush()
+
+                    # The temporary file is created beside the destination so
+                    # os.replace() is atomic on the same filesystem. The live
+                    # cookie file therefore remains valid until the replacement
+                    # is complete, even if shutdown interrupts the write.
+                    await asyncio.to_thread(
+                        os.replace, temp_cookiefile, self._cookiefile[0]
+                    )
                 except (OSError, EOFError, TypeError, AttributeError) as ex:
                     _LOGGER.debug(
                         "Error saving serialized cookie to %s: %s",
                         self._cookiefile[0].replace(self.email, hide_email(self.email)),
                         EXCEPTION_TEMPLATE.format(type(ex).__name__, ex.args),
                     )
+                finally:
+                    with contextlib.suppress(OSError):
+                        if os.path.exists(temp_cookiefile):
+                            await aioos.remove(temp_cookiefile)
             elif (cookiefile) and os.path.exists(cookiefile):
                 _LOGGER.debug(
                     "Removing outdated cookiefile %s",

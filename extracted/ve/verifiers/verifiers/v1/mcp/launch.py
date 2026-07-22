@@ -12,24 +12,27 @@ import tarfile
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass
-from functools import cache
+from functools import cache, partial
 from pathlib import Path
 from typing import TYPE_CHECKING
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
+import httpx
+
 from verifiers.v1.errors import RolloutError, ToolsetError, UserError
+from verifiers.v1.interception.tunnel import PrimeTunnel
 from verifiers.v1.mcp.server import STATE_SECRET_PARAM, STATE_URL_PARAM, ServerBase
 from verifiers.v1.runtimes import (
-    HOST,
     Runtime,
     make_runtime,
-    reachable_url,
     runtime_is_local,
 )
 from verifiers.v1.runtimes.base import _ENSURE_UV
 from verifiers.v1.types import Messages
 
 if TYPE_CHECKING:
+    from mcp import ClientSession
+
     from verifiers.v1.mcp.toolset import Toolset
     from verifiers.v1.mcp.user import User
 
@@ -38,13 +41,13 @@ logger = logging.getLogger(__name__)
 # Sandboxed servers install the working tree, so only wheel inputs need to cross the boundary.
 VF_BUILD_INPUTS = ("pyproject.toml", "README.md", "LICENSE", "verifiers")
 
-# A user ends the trajectory through shared state and `@stop`, not through this return value.
-Respond = Callable[[str], Awaitable[Messages]]
+# One user turn: (message, seq) -> user messages; `seq` is the conversation position that
+# replayed turns dedup on.
+Respond = Callable[[str, int], Awaitable[Messages]]
 
-# A server can pass its in-runtime probe before its host-facing connection settles.
-_USER_CONNECT_ATTEMPTS = 12
-_USER_CONNECT_BACKOFF = 0.2  # seconds, exponential up to the cap
-_USER_CONNECT_MAX_BACKOFF = 2.0
+MCP_CALL_RETRIES = 5
+MCP_TIMEOUT = httpx.Timeout(600.0, connect=5.0)  # the OpenAI SDK client defaults
+
 
 # Any HTTP response, including MCP's 406 to a bare GET, proves the server is listening.
 _PROBE = """
@@ -126,13 +129,15 @@ async def _install_in_sandbox(server: ServerBase, runtime: Runtime) -> str:
     # build, silently running the server against a released (older) API. Pretend the
     # local version so the floor is satisfied by the build we uploaded.
     vf_version = importlib.metadata.version("verifiers")
+    extras = ",".join(type(server).EXTRAS)
     setup = (
         f"{_ENSURE_UV}; set -e; "
         f'for t in {root}/*.tar.gz; do tar -xzf "$t" -C {root}; done && '
         f"uv venv {venv} && "
         f"SETUPTOOLS_SCM_PRETEND_VERSION={shlex.quote(vf_version)} "
         f"uv pip install --python {venv} {root}/{shlex.quote(vf.name)} && "
-        f"uv pip install --python {venv} {root}/{shlex.quote(env.name)}"
+        f"uv pip install --python {venv} "
+        f"{shlex.quote(f'{root}/{env.name}' + (f'[{extras}]' if extras else ''))}"
     )
     result = await runtime.run(["sh", "-c", setup], {})
     if result.exit_code != 0:
@@ -181,6 +186,10 @@ async def serve_in_runtime(
     the current rollout task from the adjacent `/task` endpoint rather than a launch argument.
     """
     env = {"VF_CONFIG": server.config.model_dump_json()}
+    if runtime.type == "subprocess":
+        # Keep provider temp files in the runtime workdir so cleanup removes them.
+        assert runtime.info.id is not None
+        env["TMPDIR"] = runtime.info.id
     if state_url:
         env["VF_STATE_URL"] = state_url
         env["VF_STATE_SECRET"] = state_secret
@@ -193,12 +202,19 @@ async def serve_in_runtime(
     else:
         port_file = f"/tmp/vf-port-{uuid.uuid4().hex}"
         env["MCP_PORT_FILE"] = port_file
-    if runtime.type == "subprocess":
-        python = sys.executable
-    else:
+    python = sys.executable
+    if runtime.type != "subprocess":
         python = await _install_in_sandbox(server, runtime)
+    command = [python, "-m", type(server).__module__]
+    if runtime.type != "subprocess":
+        # Providers may invoke uv after the install shell exits, so preserve its PATH.
+        command = [
+            "sh",
+            "-c",
+            f'export PATH="$HOME/.local/bin:$PATH"; exec {shlex.join(command)}',
+        ]
     log = f"vf_tool_{server.server_name}.log"
-    await runtime.run_background([python, "-m", type(server).__module__], env, log)
+    await runtime.run_background(command, env, log)
     if fixed is not None:
         port = fixed
     else:
@@ -217,13 +233,35 @@ async def serve_in_runtime(
 
 
 @contextlib.asynccontextmanager
+async def reachable_url(
+    service: Runtime, port: int, *, colocated: bool, consumer_is_local: bool
+) -> AsyncIterator[str]:
+    """Yield the URL a consumer uses to reach the server at (`service`, `port`), over two
+    primitives: `Runtime.expose` (publish a port out of a sandbox) and a host `Tunnel` (reach
+    into the host from a remote runtime). `colocated` = the server shares the consumer's
+    runtime; `consumer_is_local` = the consumer is on the host network.
+
+    - `colocated` -> localhost (same runtime, in-sandbox or host loopback);
+    - the server runs in a remote sandbox -> its own published URL (`expose`), reachable anywhere;
+    - else it's on the host network -> localhost to a local consumer, a host tunnel to a remote one."""
+    if colocated:
+        yield f"http://127.0.0.1:{port}"
+    elif not service.is_local:  # in a remote sandbox → it publishes its own port
+        yield await service.expose(port)
+    elif consumer_is_local:  # host network, local consumer → localhost, no tunnel
+        yield f"http://127.0.0.1:{port}"
+    else:  # host network, remote consumer → a host tunnel publishes the port outward
+        async with PrimeTunnel().expose(port) as url:
+            yield url
+
+
+@contextlib.asynccontextmanager
 async def serve(
     server: ServerBase,
     harness_runtime: Runtime | None = None,
     for_host: bool = False,
     harness_is_local: bool = True,
     *,
-    state_port: int | None = None,
     state_secret: str = "",
     state_base: str | None = None,
 ):
@@ -238,17 +276,13 @@ async def serve(
         # Only consumers outside the server runtime need its fixed published port. Colocated tools
         # use independent OS-assigned ports, avoiding clashes on the runtime's service port.
         exposed = for_host or runtime is not harness_runtime
-        state_url = None
-        if state_port is not None:
-            # Colocated servers reuse the harness's interception URL. A server in another runtime
-            # needs its own bridge to the host state port.
-            if state_base is not None and runtime is harness_runtime:
-                base = state_base
-            else:
-                base = await stack.enter_async_context(
-                    reachable_url(HOST, state_port, consumer=runtime)
-                )
-            state_url = f"{base.rstrip('/')}/state"
+        # The shared-state channel: every server reaches the interception at the rollout's
+        # `state_base`, which is universally reachable (the interception is exposed via a tunnel
+        # whenever any consumer is remote). Eval-level shared servers get no per-rollout channel
+        # (`state_base` is None for them).
+        state_url = (
+            f"{runtime.host_url(state_base.rstrip('/'))}/state" if state_base else None
+        )
         port = await serve_in_runtime(
             server,
             runtime,
@@ -256,24 +290,38 @@ async def serve(
             state_url=state_url,
             state_secret=state_secret,
         )
-        # User simulators are host-driven; tool servers are harness-facing.
-        consumer = HOST if for_host else harness_runtime
+        # Who consumes the server decides reachability: a user sim is reached by the HOST
+        # (`for_host`, always local, never colocated with it); a tool by the harness — colocated
+        # when it shares the harness's runtime, reached with the harness's locality (read off the
+        # harness runtime when there is one, else `harness_is_local` for an eval-level shared tool).
+        if for_host:
+            colocated, consumer_is_local = False, True
+        else:
+            colocated = runtime is harness_runtime
+            consumer_is_local = (
+                harness_runtime.is_local
+                if harness_runtime is not None
+                else harness_is_local
+            )
         base = await stack.enter_async_context(
             reachable_url(
-                runtime, port, consumer=consumer, consumer_is_local=harness_is_local
+                runtime, port, colocated=colocated, consumer_is_local=consumer_is_local
             )
         )
+        if not for_host and not colocated and harness_runtime is not None:
+            base = harness_runtime.host_url(base)
         yield f"{base.rstrip('/')}/mcp"
 
 
 @dataclass(frozen=True)
 class SharedToolServer:
     """One live taskset-scoped (shared) server, as the rollouts see it: its eval-level
-    `url` plus whether its runtime is `local` (host-reachable) — which decides whether a
-    rollout must bridge its state channel to reach a REMOTE shared server (see
-    `serve_tools`). An `external` server (a config-`url` endpoint) was not launched by
-    the framework and sits outside its state machinery entirely: rollouts get its URL
-    bare — no state tag, no bridge (and no per-rollout secret sent to a third party)."""
+    `url` plus whether its runtime is `local` (host-reachable) — a remote one is an
+    interception consumer, so the interception must be exposed for it to reach the
+    `/state` channel (see `Environment._requires_tunnel`). An `external` server (a
+    config-`url` endpoint) was not launched by the framework and sits outside its state
+    machinery entirely: rollouts get its URL bare — no state tag (and no per-rollout
+    secret sent to a third party)."""
 
     url: str
     local: bool
@@ -341,7 +389,6 @@ async def serve_tools(
     harness_runtime: Runtime,
     shared: dict[str, SharedToolServer] | None = None,
     *,
-    state_port: int | None = None,
     state_secret: str = "",
     state_base: str | None = None,
 ):
@@ -350,9 +397,9 @@ async def serve_tools(
     server fetches its task over the interception `/task` channel), and the
     taskset-scoped `shared` servers — already
     running eval-level (see `serve_shared`) — join under their per-rollout state tag.
-    `state_port`/`state_secret` wire each per-rollout server to the interception server's
-    shared-state channel; `state_base` (its reachable URL for this rollout) wires a shared
-    server, which can't take a per-process channel, via its per-request URL tag."""
+    `state_base`/`state_secret` wire each server to the interception server's shared-state
+    channel — `state_base` is universally reachable, so every server (per-rollout or
+    `shared`, any runtime) uses it directly."""
     urls: dict[str, str] = {}
     async with contextlib.AsyncExitStack() as stack:
         for name, server in (shared or {}).items():
@@ -363,15 +410,8 @@ async def serve_tools(
                 urls[name] = server.url
                 logger.info("tool server '%s' (shared, external): %s", name, server.url)
                 continue
-            tool_state_base = state_base
-            # A remote shared server cannot reach a local harness's loopback state URL.
-            if state_base and harness_runtime.is_local and not server.local:
-                tool_state_base = await stack.enter_async_context(
-                    reachable_url(HOST, state_port, consumer_is_local=False)
-                )
-            urls[name] = _shared_url_for_rollout(
-                server.url, tool_state_base, state_secret
-            )
+            url = harness_runtime.host_url(server.url) if server.local else server.url
+            urls[name] = _shared_url_for_rollout(url, state_base, state_secret)
             # The tagged URL contains the bearer secret; log only the untagged base URL.
             logger.info("tool server '%s' (shared): %s", name, server.url)
         for toolset in toolsets:
@@ -390,7 +430,6 @@ async def serve_tools(
                     serve(
                         toolset,
                         harness_runtime,
-                        state_port=state_port,
                         state_secret=state_secret,
                         state_base=state_base,
                     )
@@ -400,58 +439,61 @@ async def serve_tools(
 
 
 @contextlib.asynccontextmanager
-async def connect_user(url: str) -> AsyncIterator[Respond]:
-    """Connect to a user server, retrying only initial connection failures.
-
-    Body errors propagate unchanged; transport failures after connecting become `UserError`. The
-    session stays in this frame so AnyIO cancellation scopes remain correctly nested.
-    """
+async def user_session(url: str) -> AsyncIterator[ClientSession]:
+    """One fresh session to the user server, opened and closed within the caller's task so AnyIO
+    cancellation scopes stay correctly nested. A teardown failure after the body completed is
+    suppressed — the result is already in hand, and closing noise must not fail (or replay) an
+    already-answered call."""
     from mcp import ClientSession
-    from mcp.client.streamable_http import streamable_http_client
-
-    from verifiers.v1.dialects import parse_message
-
-    last_exc: Exception | None = None
-    for attempt in range(_USER_CONNECT_ATTEMPTS):
-        connected = in_body = False
-        try:
-            async with (
-                streamable_http_client(url) as (read, write, *_),
-                ClientSession(read, write) as session,
-            ):
-                await session.initialize()
-                connected = True
-
-                async def respond(message: str) -> Messages:
-                    result = await session.call_tool("respond", {"message": message})
-                    texts = [
-                        b.text
-                        for b in result.content
-                        if getattr(b, "type", None) == "text"
-                    ]
-                    data = json.loads("\n".join(texts))
-                    return [parse_message(m) for m in data["messages"]]
-
-                # Errors thrown into the yield belong to the harness body, not the connection.
-                in_body = True
-                yield respond
-                in_body = False
-            return
-        except RolloutError:
-            raise
-        except Exception as e:
-            if in_body:
-                raise
-            if connected:
-                # Raw transport groups bypass rollout handling, so attribute the loss here.
-                raise UserError(f"user server at {url} connection lost: {e!r}") from e
-            last_exc = e
-            await asyncio.sleep(
-                min(_USER_CONNECT_BACKOFF * 2**attempt, _USER_CONNECT_MAX_BACKOFF)
-            )
-    raise UserError(
-        f"user server at {url} unreachable after {_USER_CONNECT_ATTEMPTS} attempts: {last_exc!r}"
+    from mcp.client.streamable_http import (
+        create_mcp_http_client,
+        streamable_http_client,
     )
+
+    stack = contextlib.AsyncExitStack()
+    try:
+        http_client = await stack.enter_async_context(
+            create_mcp_http_client(timeout=MCP_TIMEOUT)
+        )
+        read, write, *_ = await stack.enter_async_context(
+            streamable_http_client(url, http_client=http_client)
+        )
+        session = await stack.enter_async_context(ClientSession(read, write))
+        await session.initialize()
+        yield session
+    finally:
+        with contextlib.suppress(Exception):
+            await stack.aclose()
+
+
+async def user_respond(url: str, message: str, seq: int) -> Messages:
+    """One `respond` turn against the user server, on a fresh session per attempt. A retried turn
+    whose response was lost would advance the simulator twice, so the server dedups on
+    (`seq`, `message`) and replays the recorded turn — making the retry effectively exactly-once.
+    The payload is parsed outside the retry so a parse failure fails once."""
+    from verifiers.v1.dialects import parse_message
+    from verifiers.v1.retries import retrying
+
+    try:
+        result = None
+        async for attempt in retrying(
+            give_up=RolloutError,
+            retries=MCP_CALL_RETRIES,
+            label=f"user respond ({url})",
+        ):
+            with attempt:
+                async with user_session(url) as session:
+                    result = await session.call_tool(
+                        "respond", {"message": message, "seq": seq}
+                    )
+        assert result is not None
+        texts = [b.text for b in result.content if getattr(b, "type", None) == "text"]
+        data = json.loads("\n".join(texts))
+        return [parse_message(m) for m in data["messages"]]
+    except RolloutError:
+        raise
+    except Exception as e:
+        raise UserError(f"user server at {url} respond failed: {e!r}") from e
 
 
 @contextlib.asynccontextmanager
@@ -459,7 +501,6 @@ async def serve_user(
     user: User | None,
     harness_runtime: Runtime | None = None,
     *,
-    state_port: int | None = None,
     state_secret: str = "",
     state_base: str | None = None,
 ) -> AsyncIterator[Respond | None]:
@@ -467,9 +508,9 @@ async def serve_user(
     the framework drives the user from the HOST) and yield the async `respond` the interception
     server drives — or `None` when the task has no user server. Placement is the user's
     `config` (colocated in the harness's runtime, or its own); the server fetches its task
-    over the interception `/task` channel. `state_port`/`state_secret` wire it to the shared-state channel — how
-    the user sim's `respond` reads/writes `self.state` (and ends the trajectory via a flag a task
-    `@vf.stop` checks)."""
+    over the interception `/task` channel. `state_base`/`state_secret` wire it to the shared-state
+    channel — how the user sim's `respond` reads/writes `self.state` (and ends the trajectory via
+    a flag a task `@vf.stop` checks)."""
     if user is None:
         yield None
         return
@@ -477,9 +518,7 @@ async def serve_user(
         user,
         harness_runtime,
         for_host=True,
-        state_port=state_port,
         state_secret=state_secret,
         state_base=state_base,
     ) as url:
-        async with connect_user(url) as respond:
-            yield respond
+        yield partial(user_respond, url)

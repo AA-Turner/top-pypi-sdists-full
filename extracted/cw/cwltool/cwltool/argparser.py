@@ -66,7 +66,10 @@ def arg_parser() -> argparse.ArgumentParser:
     env_table.add_env(
         "CWL_SINGULARITY_CACHE",
         f"directory path to find already downloaded Singularity images; "
-        f"[{bt}]dockerFile[/] images will also be searched for and stored here",
+        f"[{bt}]dockerFile[/] images will also be searched for and stored here. "
+        f"Images can be pre-pulled into this directory using "
+        f"[link=https://cwl-utils.readthedocs.io/en/latest/#cwl-docker-extract]"
+        f"cwl-docker-extract[/] from cwl-utils",
     )
     env_table.add_env(
         "ORCID",
@@ -89,6 +92,12 @@ def arg_parser() -> argparse.ArgumentParser:
     )
 
     parser = argparse.ArgumentParser(
+        # Force the program name to "cwltool" only when invoked through the
+        # generic ``cwl-runner`` alias (see #1535). Leaving it as ``None`` for
+        # any other invocation preserves argparse's basename default, so
+        # downstream tools that reuse this parser (e.g. Calrissian) keep their
+        # own program name.
+        prog="cwltool" if os.path.basename(sys.argv[0]) == "cwl-runner" else None,
         formatter_class=RichHelpFormatter,
         description="Reference executor for Common Workflow Language standards. "
         "Not for production use.",

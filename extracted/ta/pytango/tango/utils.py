@@ -616,8 +616,10 @@ def parse_type_hint(annotation, caller):
             return "DevVarDoubleStringArray", dformat, max_x, max_y
         if n_elements == 3 and typing.get_args(dtype)[1] is float and typing.get_args(dtype)[2] == AttrQuality:
             dtype = typing.get_args(dtype)[0]
-    if typing.get_origin(dtype) == np.ndarray:
-        dtype = typing.get_args(typing.get_args(dtype)[1])[0]
+    origin = typing.get_origin(dtype)
+    if origin is np.ndarray or origin is np.typing.NDArray:
+        # numpy < 2.5: ndarray[Any, dtype[T]]; numpy >= 2.5: NDArray is a TypeAliasType; scalar type is the sole arg
+        dtype = typing.get_args(typing.get_args(dtype)[1])[0] if origin is np.ndarray else typing.get_args(dtype)[0]
         dformat = None
         if caller in ["property", "command"]:
             dtype = (dtype,)

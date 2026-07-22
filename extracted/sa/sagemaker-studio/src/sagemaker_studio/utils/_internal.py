@@ -319,17 +319,10 @@ class InternalUtils:
 
         logging.info(f"Resolving connection from notebook_id={notebook_id}")
         api = SageMakerStudioAPI(config)
-        try:
-            response = api.datazone_api.get_notebook_wip(
-                domainIdentifier=domain_id,
-                identifier=notebook_id,
-            )
-        except Exception as e:
-            logging.info(f"get_notebook_wip failed ({e}), falling back to get_notebook")
-            response = api.datazone_api.get_notebook(
-                domainIdentifier=domain_id,
-                identifier=notebook_id,
-            )
+        response = api.datazone_api.get_notebook(
+            domainIdentifier=domain_id,
+            identifier=notebook_id,
+        )
         metadata = response.get("metadata") or {}
         connection_id = metadata.get("defaultSparkConnectionId", "")
         if connection_id:

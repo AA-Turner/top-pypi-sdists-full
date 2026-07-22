@@ -26,6 +26,9 @@ from airbyte_ops_webapp.pages.customer_billing.defaults import (
     CUSTOMER_BILLING_EMOJI,
     CUSTOMER_BILLING_PATH,
 )
+from airbyte_ops_webapp.pages.home.agents import (
+    HOME_AGENTS_CALLOUT,
+)
 from airbyte_ops_webapp.pages.motherduck_diagnostics.defaults import (
     MOTHERDUCK_DIAGNOSTICS_EMOJI,
     MOTHERDUCK_DIAGNOSTICS_PATH,
@@ -217,6 +220,7 @@ def open_ops_home(
                 "safe previews, and controlled production changes."
             ),
             show_auth_controls=True,
+            agents_callout=HOME_AGENTS_CALLOUT,
         )
 
         with Grid(columns=3, gap=4):

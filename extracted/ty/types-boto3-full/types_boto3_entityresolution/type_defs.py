@@ -972,6 +972,7 @@ class ResolutionTechniquesOutputTypeDef(TypedDict):
     resolutionType: ResolutionTypeType
     ruleBasedProperties: NotRequired[RuleBasedPropertiesOutputTypeDef]
     ruleConditionProperties: NotRequired[RuleConditionPropertiesOutputTypeDef]
+    enableRealTimeMatching: NotRequired[bool]
     providerProperties: NotRequired[ProviderPropertiesOutputTypeDef]
 
 
@@ -979,6 +980,7 @@ class ResolutionTechniquesTypeDef(TypedDict):
     resolutionType: ResolutionTypeType
     ruleBasedProperties: NotRequired[RuleBasedPropertiesTypeDef]
     ruleConditionProperties: NotRequired[RuleConditionPropertiesTypeDef]
+    enableRealTimeMatching: NotRequired[bool]
     providerProperties: NotRequired[ProviderPropertiesTypeDef]
 
 

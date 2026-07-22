@@ -3,18 +3,15 @@ os.environ["GRPC_VERBOSITY"] = "ERROR"
 import sys
 import grpc
 import json
-import shutil
 import traceback
 import faulthandler
-import requests as rq
-from tqdm import tqdm
 import threading
 import queue
 import subprocess
 from types import GeneratorType
 from http import HTTPStatus
-from zipfile import ZipFile
 from concurrent import futures
+from typing import Callable, Optional
 
 from fivetran_connector_sdk.initialisation_helper import init
 from fivetran_connector_sdk.protos import common_pb2
@@ -23,6 +20,9 @@ from fivetran_connector_sdk.protos import connector_sdk_pb2_grpc
 
 from fivetran_connector_sdk.logger import Logging
 from fivetran_connector_sdk.operations import Operations
+from fivetran_connector_sdk.configuration_form import ConfigurationForm
+from fivetran_connector_sdk.test import Test
+from fivetran_connector_sdk import form_field
 from fivetran_connector_sdk import constants
 from fivetran_connector_sdk.constants import (
     TESTER_VERSION, VERSION_FILENAME, UTF_8, DEPRECATED_FORCE_FLAG_WARNING,
@@ -37,7 +37,7 @@ from fivetran_connector_sdk.connector_helper import (
     update_connection, are_setup_tests_failing, get_connection_details,
     handle_failing_tests_message_and_exit, delete_file_if_exists,
     create_connection, get_os_arch_suffix, get_group_info,
-    java_exe_helper, run_tester, process_tables,
+    java_exe_helper, run_tester, run_configuration_tester, ensure_tester_installed, process_tables,
     update_base_url_if_required, exit_check,
     get_available_port, tester_root_dir_helper,
     check_dict, check_newer_version, cleanup_uploaded_project,
@@ -48,18 +48,21 @@ from fivetran_connector_sdk.connector_helper import (
 
 # Version format: <major_version>.<minor_version>.<patch_version>
 # (where Major Version = 2, Minor Version is incremental MM from Aug 25 onwards, Patch Version is incremental within a month)
-__version__ = "2.10.2"
+__version__ = "2.10.3"
 MAX_MESSAGE_LENGTH = 128 * 1024 * 1024 # 128MB
 
-__all__ = [cls.__name__ for cls in [Logging, Operations]]
+__all__ = [cls.__name__ for cls in [Logging, Operations, ConfigurationForm, Test]] + ["form_field"]
 
-
-def package(project_path: str, non_interactive: bool = False):
+def package(
+        project_path: str,
+        non_interactive: bool = False,
+        configuration_form_method: Optional[Callable] = None):
     """Packages the connector project into a distributable zip file.
 
     Args:
         project_path (str): The path to the connector project directory.
         non_interactive (bool): If True, skip dependency validation. Defaults to False.
+        configuration_form_method: Optional callable returning a ConfigurationForm instance.
     """
     if not non_interactive:
         pyproject_path = os.path.join(project_path, PYPROJECT_TOML)
@@ -71,21 +74,24 @@ def package(project_path: str, non_interactive: bool = False):
         print_library_log(
             "skipping dependency validation; --non-interactive is set")
 
-    package_path = create_package(project_path)
+    package_path = create_package(project_path, configuration_form_method)
     print_library_log(f"package created at: {package_path}", log_icon=Logging.LogIcon.SUCCESS)
     sys.exit(0)
 
-
 class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
-    def __init__(self, update, schema=None):
+    # noinspection PyShadowingNames
+    def __init__(self, update, schema=None, configuration_form=None):
         """Initializes the Connector instance.
         Args:
             update: The update method.
             schema: The schema method.
+            configuration_form: Optional callable returning a ConfigurationForm instance.
         """
 
         self.schema_method = schema
         self.update_method = update
+        self.configuration_form_method = configuration_form
+        self._cached_form = None
 
         self.configuration = None
         self.state = None
@@ -181,7 +187,7 @@ class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
                         )
                 if confirm.lower() == "y" and (not connection_config["secrets_list"] or (confirm_config.lower() == "y")):
                     print_library_log(f"updating connection {connection} in group {group_name}", log_icon=Logging.LogIcon.STEP)
-                    package_id = package_project(project_path, deploy_key)
+                    package_id = package_project(project_path, deploy_key, self.configuration_form_method)
                     response = update_connection(connection_id, connection, group_name, connection_config, package_id, deploy_key, hd_agent_id)
                     handle_connection_response(response, package_id, deploy_key, HTTPStatus.OK.value, is_new_connection=False, connection_id=connection_id)
                 else:
@@ -193,7 +199,7 @@ class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
                     f"python version not specified; connection will use the default python version ({DEFAULT_PYTHON_VERSION})")
                 print_library_log(
                     "set --python-version <version> in the deploy command or update it in your Fivetran dashboard")
-            package_id = package_project(project_path, deploy_key)
+            package_id = package_project(project_path, deploy_key, self.configuration_form_method)
             response = create_connection(deploy_key, group_id, connection_config, hd_agent_id, package_id, naming)
             handle_connection_response(response, package_id, deploy_key, HTTPStatus.CREATED.value, is_new_connection=True)
 
@@ -264,59 +270,7 @@ class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
         check_newer_version(__version__)
 
         Logging.LOG_LEVEL = log_level
-        os_arch_suffix = get_os_arch_suffix()
-        tester_root_dir = tester_root_dir_helper()
-        java_exe = java_exe_helper(tester_root_dir, os_arch_suffix)
-        install_tester = False
-        version_file = os.path.join(tester_root_dir, VERSION_FILENAME)
-        if os.path.isfile(version_file):
-            # Check version number & update if different
-            with open(version_file, 'r', encoding=UTF_8) as fi:
-                current_version = fi.readline()
-
-            if current_version != TESTER_VERSION:
-                shutil.rmtree(tester_root_dir)
-                install_tester = True
-        else:
-            install_tester = True
-
-        if install_tester:
-            os.makedirs(tester_root_dir, exist_ok=True)
-            download_filename = f"sdk-connector-tester-{os_arch_suffix}-{TESTER_VERSION}.zip"
-            download_filepath = os.path.join(tester_root_dir, download_filename)
-            try:
-                print_library_log(f"downloading connector tester version: {TESTER_VERSION}", log_icon=Logging.LogIcon.STEP)
-                download_url = f"https://github.com/fivetran/fivetran_sdk_tools/releases/download/{TESTER_VERSION}/{download_filename}"
-                with rq.get(download_url, stream=True) as r:
-                    if r.ok:
-                        total_size = int(r.headers.get('content-length', 0))
-                        with open(download_filepath, 'wb') as fo:
-                            with tqdm(total=total_size or None, unit='B', unit_scale=True, desc="downloading tester", leave=False, file=sys.stdout) as pbar:
-                                for chunk in r.iter_content(chunk_size=8192):
-                                    if chunk:
-                                        fo.write(chunk)
-                                        pbar.update(len(chunk))
-                    else:
-                        raise RuntimeError(
-                            f"failed to download connector tester error: {r.status_code} url:{download_url}")
-            except RuntimeError:
-                raise RuntimeError(
-                    f"failed to download connector tester\ntraceback:\n{traceback.format_exc()}")
-
-            try:
-                # unzip it
-                with ZipFile(download_filepath, 'r') as z_object:
-                    z_object.extractall(path=tester_root_dir)
-                # delete zip file
-                delete_file_if_exists(download_filepath)
-                # make java binary executable
-                import stat
-                st = os.stat(java_exe)
-                os.chmod(java_exe, st.st_mode | stat.S_IEXEC)
-                print_library_log("tester download complete", log_icon=Logging.LogIcon.SUCCESS)
-            except:
-                shutil.rmtree(tester_root_dir)
-                raise RuntimeError(f"failed to download connector tester\ntraceback:\n{traceback.format_exc()}")
+        java_exe, tester_root_dir = ensure_tester_installed()
 
         project_path = os.getcwd() if project_path is None else project_path
         pyproject_path = os.path.join(project_path, PYPROJECT_TOML)
@@ -356,6 +310,75 @@ class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
         finally:
             server.stop(grace=2.0)
 
+    def _validate_and_cache_form(self, run_tests: bool):
+        if self.configuration_form_method is None:
+            print_library_log(
+                "Your connector does not implement the configuration_form() method. Please implement it and re-run.",
+                Logging.Level.SEVERE
+            )
+            sys.exit(1)
+
+        constants.DEBUGGING = True
+        Logging.LOG_LEVEL = Logging.Level.INFO
+        self._cached_form = self.configuration_form_method()
+
+        if run_tests and not self._cached_form._tests:
+            print_library_log(
+                "Your connector does not provide any configuration tests to run.",
+                Logging.Level.SEVERE
+            )
+            sys.exit(1)
+
+    def _confirm_configuration_override(self, project_path: str):
+        config_path = os.path.join(project_path, constants.CONFIGURATION_JSON)
+        if os.path.exists(config_path):
+            confirm = input(
+                f"'{constants.CONFIGURATION_JSON}' already exists in '{project_path}'\n"
+                f"running this command will override it\n"
+                f"continue? (y/N): "
+            )
+            if confirm.lower() != "y":
+                print_library_log(f"'{constants.CONFIGURATION_JSON}' already exists; creating new file and overriding values cancelled")
+                sys.exit(0)
+
+    def generate_configuration(self, project_path: str, run_tests: bool = False):
+        """Runs the fivetran configuration command via the connector tester.
+
+        Starts the gRPC server and invokes the Java tester in configuration mode.
+        The tester calls ConfigurationForm to get fields, prompts the user interactively,
+        and saves configuration.json. With run_tests=True, it calls Test for each registered
+        test and displays results.
+
+        Args:
+            project_path: Path to the connector project directory.
+            run_tests: If True, run setup tests instead of collecting configuration.
+        """
+        self._validate_and_cache_form(run_tests)
+        check_newer_version(__version__)
+
+        project_path = os.getcwd() if project_path is None else project_path
+
+        if not run_tests:
+            self._confirm_configuration_override(project_path)
+
+        java_exe, tester_root_dir = ensure_tester_installed()
+
+        available_port = get_available_port()
+        if available_port is None:
+            raise RuntimeError("failed to allocate port error: no available port in range 50049-50060")
+
+        server = self.run(available_port, {}, log_level=Logging.Level.INFO)
+        try:
+            print_library_log("starting connector tester", log_icon=Logging.LogIcon.STEP)
+            run_configuration_tester(java_exe, tester_root_dir, project_path, available_port, run_tests)
+        except subprocess.CalledProcessError:
+            raise
+        except Exception as e:
+            print(traceback.format_exc())
+            raise e
+        finally:
+            server.stop(grace=2.0)
+
     # -- Methods below override ConnectorServicer methods
     def ConfigurationForm(self, request, context):
         """Overrides the ConfigurationForm method from ConnectorServicer.
@@ -365,25 +388,64 @@ class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
             context: The gRPC context.
 
         Returns:
-            common_pb2.ConfigurationFormResponse: An empty configuration form response.
+            common_pb2.ConfigurationFormResponse: The configuration form response.
         """
-        if not self.configuration:
-            self.configuration = {}
+        if self.configuration_form_method is None:
+            return common_pb2.ConfigurationFormResponse()
 
-        # Not going to use the tester's configuration file
-        return common_pb2.ConfigurationFormResponse()
+        try:
+            if Logging.LOG_LEVEL is None:
+                Logging.LOG_LEVEL = Logging.Level.INFO
+            print_library_log("calling configuration_form()", Logging.Level.INFO)
+            form = self._get_configuration_form()
+            return form._to_proto()
+        except Exception as e:
+            stacktrace = traceback.format_exc()
+            error_message = f"failed while executing configuration_form() error: {str(e)}"
+            print_library_log(error_message, Logging.Level.SEVERE)
+            raise RuntimeError(f"{error_message}\n{stacktrace}") from e
 
     def Test(self, request, context):
         """Overrides the Test method from ConnectorServicer.
 
+        Dispatches to the test function registered in ConfigurationForm whose __name__
+        matches request.name.
+
         Args:
-            request: The gRPC request.
+            request: The gRPC request containing name and configuration.
             context: The gRPC context.
 
         Returns:
-            None: As this method is not implemented.
+            common_pb2.TestResponse: The test result.
         """
-        return None
+        if self.configuration_form_method is None:
+            return common_pb2.TestResponse(success=True)
+
+        try:
+            if Logging.LOG_LEVEL is None:
+                Logging.LOG_LEVEL = Logging.Level.INFO
+            form = self._get_configuration_form()
+            test_fn = form._get_test_function_by_name(request.name)
+            if test_fn is None:
+                raise RuntimeError(f"no test registered with name '{request.name}'")
+            configuration = self.configuration if self.configuration else dict(request.configuration)
+            print_library_log(f"calling test '{request.name}'", Logging.Level.INFO)
+            result = test_fn(configuration)
+            if not isinstance(result, common_pb2.TestResponse):
+                return common_pb2.TestResponse(
+                    failure=f"test '{request.name}' must return Test.success() or Test.failure(...), got {type(result).__name__}"
+                )
+            return result
+        except Exception as e:
+            stacktrace = traceback.format_exc()
+            error_message = f"failed while executing test '{request.name}' error: {str(e)}"
+            print_library_log(error_message, Logging.Level.SEVERE)
+            raise RuntimeError(f"{error_message}\n{stacktrace}") from e
+
+    def _get_configuration_form(self):
+        if self._cached_form is None:
+            self._cached_form = self.configuration_form_method()
+        return self._cached_form
 
     def Schema(self, request, context):
         """Overrides the Schema method from ConnectorServicer.
@@ -487,7 +549,6 @@ def print_version():
     print_library_log("fivetran_connector_sdk " + __version__)
     sys.exit(0)
 
-
 def main():
     """The main entry point for the script.
     Parses command line arguments and passes them to connector object methods.
@@ -525,7 +586,7 @@ def main():
         sys.exit(1)
 
     if args.command.lower() == "package":
-        package(args.project_path, args.non_interactive)
+        package(args.project_path, args.non_interactive, connector_object.configuration_form_method)
 
     if args.command.lower() == "deploy":
         ft_group = get_destination_group(args)
@@ -561,6 +622,16 @@ def main():
             del os.environ["FIVETRAN_DEPLOYMENT_MODEL"]
             del os.environ["FIVETRAN_GROUP_ID"]
             del os.environ["FIVETRAN_CONNECTION_NAME"]
+
+    elif args.command.lower() == "configuration":
+        try:
+            connector_object.generate_configuration(args.project_path, run_tests=args.test)
+        except subprocess.CalledProcessError as e:
+            print_library_log(f"connector tester failed with exit code: {e.returncode}", level=Logging.Level.SEVERE, log_icon=Logging.LogIcon.FAILURE)
+            sys.exit(e.returncode)
+        except Exception as e:
+            print_library_log(f"configuration command failed error: {str(e)}", level=Logging.Level.SEVERE, log_icon=Logging.LogIcon.FAILURE)
+            sys.exit(1)
 
 
 if __name__ == "__main__":

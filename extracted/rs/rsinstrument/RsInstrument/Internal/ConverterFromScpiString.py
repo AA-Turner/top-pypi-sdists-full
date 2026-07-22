@@ -21,7 +21,7 @@ class ConverterFromScpiString:
 	In order to parse them properly, the ArgStructStringParser module must be able to set the argument value element-by-element.
 	The driver methods might want to set the whole argument value, because the result scpi string is a single argument response."""
 
-	def __init__(self, data_type: DataType, enum_type: Enum = None):
+	def __init__(self, data_type: DataType, enum_type: Enum | None = None):
 		self.scpi_enum = None
 		self.data_type = data_type
 		self.element_type = self.data_type.element_type
@@ -63,16 +63,20 @@ class ConverterFromScpiString:
 
 	def get_one_element_value(self, scpi_string: str):
 		"""Returns single element (not an array!!!) of the argument value converted from the SCPI string (single element)"""
+		# noinspection PyStringConversionWithoutDunderMethod
 		assert isinstance(scpi_string, str), f"Input parameter scpi_string must be string. Actual parameter: {type(scpi_string)}, value: {scpi_string}"
 		if self.element_type.is_scalar_enum:
-			return str_to_scalar_enum_helper(scpi_string, self.scpi_enum, False, exc_if_not_found=self.element_type == DataType.Enum)
+			# noinspection PyTypeChecker
+			return str_to_scalar_enum_helper(scpi_string, self.scpi_enum, False, exc_if_not_found=self.element_type == DataType.Enum)  # ty: ignore[invalid-argument-type]
 		return self.converter(scpi_string)
 
 	def get_value(self, scpi_string: str):
 		"""Returns complete value of the argument converted from the SCPI string (list or scalar)"""
 		if not self.data_type.is_list:
 			return self.get_one_element_value(scpi_string)
+		# noinspection PyStringConversionWithoutDunderMethod
 		assert isinstance(scpi_string, str), f"Input parameter scpi_string must be string. Actual parameter: {type(scpi_string)}, value: {scpi_string}"
 		if self.element_type is DataType.Enum:
-			return str_to_list_enum_helper(scpi_string, self.scpi_enum, exc_if_not_found=self.element_type == DataType.Enum)
+			# noinspection PyTypeChecker
+			return str_to_list_enum_helper(scpi_string, self.scpi_enum, exc_if_not_found=self.element_type == DataType.Enum)  # ty: ignore[invalid-argument-type]
 		return self.list_converter(scpi_string)

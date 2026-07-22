@@ -34,7 +34,7 @@ from fastmcp import Client
 from fastmcp.exceptions import ToolError
 from fastmcp.server.middleware import CallNext, Middleware, MiddlewareContext
 from fastmcp.tools import Tool, ToolResult
-from mcp_proxy_for_aws.utils import create_transport_with_sigv4
+from mcp_proxy_for_aws.utils import create_transport_with_sigv4, determine_aws_region
 from typing import Any, cast
 from typing_extensions import override
 
@@ -67,7 +67,13 @@ class ProfileOverrideMiddleware(Middleware):
         disable_telemetry: bool = False,
         skip_auth: bool = False,
     ) -> None:
-        """Initialize the middleware with connection and profile configuration."""
+        """Initialize the middleware with connection and profile configuration.
+
+        ``metadata`` must be the user-supplied metadata only (without the computed
+        ``AWS_REGION`` default): each profile client injects its own ``AWS_REGION``
+        resolved from that profile's configuration, with user metadata taking
+        precedence.
+        """
         super().__init__()
         self._allowed_profiles = set(allowed_profiles)
         self._default_profile = default_profile
@@ -163,11 +169,15 @@ class ProfileOverrideMiddleware(Middleware):
         async with self._lock:
             if profile not in self._profile_clients:
                 logger.info('Creating dedicated connection for profile %s', profile)
+                metadata = {
+                    'AWS_REGION': determine_aws_region(self._endpoint, profile),
+                    **self._metadata,
+                }
                 transport = create_transport_with_sigv4(
                     self._endpoint,
                     self._service,
                     self._region,
-                    self._metadata,
+                    metadata,
                     self._timeout,
                     profile,
                     self._disable_telemetry,
@@ -178,14 +188,34 @@ class ProfileOverrideMiddleware(Middleware):
                 self._profile_clients[profile] = client
             return self._profile_clients[profile]
 
+    async def _invalidate_profile_client(self, profile: str, failed_client: Client) -> None:
+        """Remove and disconnect a failed client if it is still cached."""
+        stale_client: Client | None = None
+        async with self._lock:
+            if self._profile_clients.get(profile) is failed_client:
+                stale_client = self._profile_clients.pop(profile)
+
+        if stale_client is not None:
+            try:
+                await stale_client.__aexit__(None, None, None)
+            except Exception:
+                logger.warning(
+                    'Failed to disconnect invalidated profile client %s',
+                    profile,
+                    exc_info=True,
+                )
+
     async def disconnect_profile_clients(self) -> None:
         """Disconnect all per-profile clients. Call during server shutdown."""
-        for profile, client in self._profile_clients.items():
+        async with self._lock:
+            profile_clients = list(self._profile_clients.items())
+            self._profile_clients.clear()
+
+        for profile, client in profile_clients:
             try:
                 await client.__aexit__(None, None, None)
             except Exception:
                 logger.exception('Failed to disconnect profile client %s', profile)
-        self._profile_clients.clear()
 
     async def _call_with_profile(
         self,
@@ -242,6 +272,7 @@ class ProfileOverrideMiddleware(Middleware):
             raise
         except Exception as e:
             logger.exception('Error calling tool via profile %s', profile)
+            await self._invalidate_profile_client(profile, client)
             raise ToolError(
                 f'Tool call failed using profile {profile!r}. '
                 'The request could not be completed with the specified profile.'

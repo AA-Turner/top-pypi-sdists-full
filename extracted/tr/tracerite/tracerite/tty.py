@@ -554,6 +554,12 @@ def _build_exception_banner(exc_info: ExceptionInfo, term_width: int) -> str:
                 body = body[1:]
         body_lines_raw = body.split("\n")
 
+    if notes := exc_info.get("notes", []):
+        # Paragraph breaks in the message call for a visual break before notes.
+        if "\n\n" in message:
+            body_lines_raw.append("")
+        body_lines_raw.extend(f"🔹 {note}" for note in notes)
+
     body_lines_wrapped: list[str] = []
     for para in body_lines_raw:
         body_lines_wrapped.extend(_wrap_text(para, cont_width) if para else [""])
@@ -734,16 +740,21 @@ def _build_chrono_frame_lines(
 
     start = frinfo.get("linenostart", 1)
     symbol = symbols.get(relevance, "")
-    symbol_colored = f"{EM_CALL}{symbol}{RESET}" if symbol else ""
-
     desc = frinfo.get("symbol_desc") or symdesc[relevance]
+    symbol_colored = f"{EM_CALL}{symbol}{RESET}" if symbol else ""
+    symbol_suffix = (
+        f"{symbol_colored} {SYMBOLDESC}{desc}{RESET}"
+        if desc
+        else symbol_colored
+        if symbol
+        else ""
+    )
 
     # Width available for the content after the left border "│ "
     content_width = max(1, term_width - _LINE_PREFIX_WIDTH)
     single_marked = len(info["marked_lines"]) == 1
 
     raw_lines: list[tuple[str, bool, bool]] = []
-    symbol_suffix = f"{symbol_colored} {SYMBOLDESC}{desc}{RESET}" if symbol else ""
 
     if not fragments:
         # Show "(no source code)" with the symbol emoji like a code line would have
@@ -1167,7 +1178,7 @@ def _merge_chrono_output(
             _LINE_PREFIX_WIDTH + 2,
             term_width - min_content_width - 4,
         )
-        inspector_col = min(max_line_len + 2, max_inspector_col)
+        inspector_col = min(max_line_len + 3, max_inspector_col)
 
         # Calculate available space - inspector must not overlap with code
         # Available = term_width - inspector_col - 4 (for box/arrow chars)

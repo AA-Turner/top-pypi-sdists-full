@@ -1,31 +1,25 @@
 import json
-from typing import Annotated, Any, Dict, List, Literal, Optional, Union
+from dataclasses import field
+from typing import Any, Dict, List, Literal, Optional, Union
 
 import flask
-from pydantic import Discriminator, Field, Tag, WithJsonSchema, field_validator
 
 from abstra_internals.repositories.tasks import TaskDTO
 from abstra_internals.utils.dict import filter_non_string_values
-from abstra_internals.utils.serializable import Serializable
-
-# Schema widened so MCP clients can pass structured JSON; the before-validator
-# encodes dict/list to str so the field stays typed as str downstream.
-_BODY_JSON_SCHEMA = WithJsonSchema(
-    {
-        "anyOf": [
-            {"type": "string"},
-            {"type": "object", "additionalProperties": True},
-            {"type": "array", "items": {}},
-        ],
-    }
+from abstra_internals.utils.serializable import (
+    Serializable,
+    field_validator,
+    register_discriminated_union,
 )
 
 
 class Request(Serializable):
     method: str
-    query_params: Dict[str, str] = Field(default_factory=dict)
-    headers: Dict[str, str] = Field(default_factory=dict)
-    body: Annotated[str, _BODY_JSON_SCHEMA] = ""
+    query_params: Dict[str, str] = field(default_factory=dict)
+    headers: Dict[str, str] = field(default_factory=dict)
+    # A before-validator encodes structured dict/list bodies to a JSON str so the
+    # field stays typed as str downstream (MCP clients may pass structured JSON).
+    body: str = ""
 
     @field_validator("body", mode="before")
     @classmethod
@@ -42,7 +36,7 @@ class Response(Serializable):
 
 
 class ExecutionMock(Serializable):
-    test_pending_tasks: List[TaskDTO] = Field(default_factory=list)
+    test_pending_tasks: List[TaskDTO] = field(default_factory=list)
 
 
 class HookExecutionMock(ExecutionMock):
@@ -50,7 +44,7 @@ class HookExecutionMock(ExecutionMock):
 
 
 class FormExecutionMock(ExecutionMock):
-    test_answers: List[Union[str, None]] = Field(default_factory=list)
+    test_answers: List[Union[str, None]] = field(default_factory=list)
 
 
 class ScriptExecutionMock(ExecutionMock):
@@ -73,32 +67,32 @@ class HookContext(Serializable):
     type: Literal["hook"] = "hook"
     request: Request
     response: Response
-    sent_tasks: List[str] = Field(default_factory=list)
-    legacy_thread_data: dict = Field(default_factory=dict)
-    mock_execution: HookExecutionMock = Field(default_factory=HookExecutionMock)
+    sent_tasks: List[str] = field(default_factory=list)
+    legacy_thread_data: dict = field(default_factory=dict)
+    mock_execution: HookExecutionMock = field(default_factory=HookExecutionMock)
 
 
 class FormContext(Serializable):
     type: Literal["form"] = "form"
     request: Request
-    sent_tasks: List[str] = Field(default_factory=list)
-    legacy_thread_data: dict = Field(default_factory=dict)
-    mock_execution: FormExecutionMock = Field(default_factory=FormExecutionMock)
+    sent_tasks: List[str] = field(default_factory=list)
+    legacy_thread_data: dict = field(default_factory=dict)
+    mock_execution: FormExecutionMock = field(default_factory=FormExecutionMock)
 
 
 class ScriptContext(Serializable):
     type: Literal["script"] = "script"
     task_id: str
-    sent_tasks: List[str] = Field(default_factory=list)
-    legacy_thread_data: dict = Field(default_factory=dict)
-    mock_execution: ScriptExecutionMock = Field(default_factory=ScriptExecutionMock)
+    sent_tasks: List[str] = field(default_factory=list)
+    legacy_thread_data: dict = field(default_factory=dict)
+    mock_execution: ScriptExecutionMock = field(default_factory=ScriptExecutionMock)
 
 
 class JobContext(Serializable):
     type: Literal["job"] = "job"
-    sent_tasks: List[str] = Field(default_factory=list)
-    legacy_thread_data: dict = Field(default_factory=dict)
-    mock_execution: JobExecutionMock = Field(default_factory=JobExecutionMock)
+    sent_tasks: List[str] = field(default_factory=list)
+    legacy_thread_data: dict = field(default_factory=dict)
+    mock_execution: JobExecutionMock = field(default_factory=JobExecutionMock)
 
 
 class PageContext(Serializable):
@@ -107,14 +101,14 @@ class PageContext(Serializable):
     response: Response
     page_path: str = ""
     page_execution_id: Optional[str] = None  # execution_id of the parent GET render
-    sent_tasks: List[str] = Field(default_factory=list)
-    legacy_thread_data: dict = Field(default_factory=dict)
-    mock_execution: PageExecutionMock = Field(default_factory=PageExecutionMock)
+    sent_tasks: List[str] = field(default_factory=list)
+    legacy_thread_data: dict = field(default_factory=dict)
+    mock_execution: PageExecutionMock = field(default_factory=PageExecutionMock)
 
 
 class CodeSnippetContext(Serializable):
     type: Literal["code_snippet"] = "code_snippet"
-    mock_execution: CodeSnippetExecutionMock = Field(
+    mock_execution: CodeSnippetExecutionMock = field(
         default_factory=CodeSnippetExecutionMock
     )
 
@@ -137,17 +131,27 @@ def _context_discriminator(v):
     return getattr(v, "type", None)
 
 
-ClientContext = Annotated[
-    Union[
-        Annotated[HookContext, Tag("hook")],
-        Annotated[FormContext, Tag("form")],
-        Annotated[ScriptContext, Tag("script")],
-        Annotated[JobContext, Tag("job")],
-        Annotated[PageContext, Tag("page")],
-        Annotated[CodeSnippetContext, Tag("code_snippet")],
-    ],
-    Discriminator(_context_discriminator),
+ClientContext = Union[
+    HookContext,
+    FormContext,
+    ScriptContext,
+    JobContext,
+    PageContext,
+    CodeSnippetContext,
 ]
+
+register_discriminated_union(
+    ClientContext,
+    _context_discriminator,
+    {
+        "hook": HookContext,
+        "form": FormContext,
+        "script": ScriptContext,
+        "job": JobContext,
+        "page": PageContext,
+        "code_snippet": CodeSnippetContext,
+    },
+)
 
 
 def extract_flask_request(request: flask.Request) -> Request:

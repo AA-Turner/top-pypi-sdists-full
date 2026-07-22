@@ -24,6 +24,11 @@ class TestBigQuery(Validator):
     maxDiff = None
 
     def test_bigquery(self):
+        # Presto's SHA512 takes VARBINARY, so annotated string args are wrapped in TO_UTF8
+        expr = self.parse_one("SELECT SHA512('foo')")
+        annotated = annotate_types(expr, dialect="bigquery")
+        self.assertEqual(annotated.sql("presto"), "SELECT SHA512(TO_UTF8('foo'))")
+
         self.validate_identity(
             "SELECT 'foo' 'bar'",
             "SELECT CONCAT('foo', 'bar')",
@@ -144,6 +149,9 @@ class TestBigQuery(Validator):
 
         column = self.validate_identity("SELECT `db.t`.`c` FROM `db.t`").selects[0]
         self.assertEqual(len(column.parts), 3)
+
+        column = self.validate_identity("SELECT `p.d.t`.`c`.`f` FROM `p.d.t`").selects[0]
+        column.this.assert_is(exp.Dot)
 
         select_with_quoted_udf = self.validate_identity("SELECT `p.d.UdF`(data) FROM `p.d.t`")
         self.assertEqual(select_with_quoted_udf.selects[0].name, "p.d.UdF")
@@ -428,6 +436,26 @@ class TestBigQuery(Validator):
             "x <> ''",
         )
         self.validate_identity(
+            'SELECT """ends with \\"word\\""""',
+            "SELECT 'ends with \"word\"'",
+        )
+        self.validate_identity(
+            "SELECT '''ends with \\'word\\''''",
+            "SELECT 'ends with \\'word\\''",
+        )
+        self.validate_identity(
+            'SELECT """a\\"b"""',
+            "SELECT 'a\"b'",
+        )
+        self.validate_identity(
+            'SELECT r"""ends with \\""""',
+            "SELECT 'ends with \\\\\"'",
+        )
+        self.validate_identity(
+            'SELECT r"""a\\"b"""',
+            "SELECT 'a\\\\\"b'",
+        )
+        self.validate_identity(
             "SELECT a overlaps",
             "SELECT a AS overlaps",
         )
@@ -546,7 +574,7 @@ LANGUAGE js AS
             "PARSE_TIMESTAMP('%Y-%m-%dT%H:%M:%E6S%z', x)",
             write={
                 "bigquery": "PARSE_TIMESTAMP('%FT%H:%M:%E6S%z', x)",
-                "duckdb": "STRPTIME(x, '%Y-%m-%dT%H:%M:%S.%f%z')",
+                "duckdb": "STRPTIME('1970 ' || x, '%Y ' || '%Y-%m-%dT%H:%M:%S.%f%z')",
             },
         )
         self.validate_all(
@@ -620,7 +648,7 @@ LANGUAGE js AS
             "PARSE_TIMESTAMP('%Y-%m-%dT%H:%M:%E6S%z', x)",
             write={
                 "bigquery": "PARSE_TIMESTAMP('%FT%H:%M:%E6S%z', x)",
-                "duckdb": "STRPTIME(x, '%Y-%m-%dT%H:%M:%S.%f%z')",
+                "duckdb": "STRPTIME('1970 ' || x, '%Y ' || '%Y-%m-%dT%H:%M:%S.%f%z')",
             },
         )
         self.validate_all(
@@ -827,7 +855,9 @@ LANGUAGE js AS
                 "bigquery": "SELECT TIMESTAMP_DIFF(TIMESTAMP_SECONDS(60), TIMESTAMP_SECONDS(0), MINUTE)",
                 "databricks": "SELECT TIMESTAMPDIFF(MINUTE, CAST(FROM_UNIXTIME(0) AS TIMESTAMP), CAST(FROM_UNIXTIME(60) AS TIMESTAMP))",
                 "duckdb": "SELECT DATE_DIFF('MINUTE', TO_TIMESTAMP(0), TO_TIMESTAMP(60))",
+                "presto": "SELECT DATE_DIFF('MINUTE', FROM_UNIXTIME(0), FROM_UNIXTIME(60))",
                 "snowflake": "SELECT TIMESTAMPDIFF(MINUTE, TO_TIMESTAMP(0), TO_TIMESTAMP(60))",
+                "trino": "SELECT DATE_DIFF('MINUTE', FROM_UNIXTIME(0), FROM_UNIXTIME(60))",
             },
         )
         self.validate_all(
@@ -840,7 +870,9 @@ LANGUAGE js AS
             write={
                 "databricks": "TIMESTAMPDIFF(MONTH, b, a)",
                 "mysql": "TIMESTAMPDIFF(MONTH, b, a)",
+                "presto": "DATE_DIFF('MONTH', b, a)",
                 "snowflake": "TIMESTAMPDIFF(MONTH, b, a)",
+                "trino": "DATE_DIFF('MONTH', b, a)",
             },
         )
 
@@ -921,6 +953,28 @@ LANGUAGE js AS
                     "duckdb": "SELECT DATE_DIFF('MILLISECOND', CAST('2023-01-01T05:00:00' AS TIMESTAMP), CAST('2023-01-01T00:00:00' AS TIMESTAMP))",
                 },
             ),
+        )
+        # DATETIME_DIFF counts unit boundary crossings, so Presto/Trino's date_diff (which
+        # counts complete units) must truncate its operands: both dates below are 1 day
+        # apart but cross a month boundary
+        self.validate_all(
+            "SELECT DATETIME_DIFF(DATETIME '2021-02-01 00:00:00', DATETIME '2021-01-31 00:00:00', MONTH)",
+            write={
+                "bigquery": "SELECT DATETIME_DIFF(CAST('2021-02-01 00:00:00' AS DATETIME), CAST('2021-01-31 00:00:00' AS DATETIME), MONTH)",
+                "presto": "SELECT DATE_DIFF('MONTH', DATE_TRUNC('MONTH', CAST('2021-01-31 00:00:00' AS TIMESTAMP)), DATE_TRUNC('MONTH', CAST('2021-02-01 00:00:00' AS TIMESTAMP)))",
+                "trino": "SELECT DATE_DIFF('MONTH', DATE_TRUNC('MONTH', CAST('2021-01-31 00:00:00' AS TIMESTAMP)), DATE_TRUNC('MONTH', CAST('2021-02-01 00:00:00' AS TIMESTAMP)))",
+            },
+        )
+        # BigQuery weeks start on Sunday: 2017-10-14 (Saturday) -> 2017-10-15 (Sunday)
+        # crosses a week boundary, so the Monday-based DATE_TRUNC('WEEK') is shifted
+        self.validate_all(
+            "SELECT DATETIME_DIFF(DATETIME '2017-10-15 00:00:00', DATETIME '2017-10-14 00:00:00', WEEK)",
+            write={
+                "bigquery": "SELECT DATETIME_DIFF(CAST('2017-10-15 00:00:00' AS DATETIME), CAST('2017-10-14 00:00:00' AS DATETIME), WEEK)",
+                "duckdb": "SELECT DATE_DIFF('WEEK', DATE_TRUNC('WEEK', CAST('2017-10-14 00:00:00' AS TIMESTAMP) + INTERVAL '1' DAY), DATE_TRUNC('WEEK', CAST('2017-10-15 00:00:00' AS TIMESTAMP) + INTERVAL '1' DAY))",
+                "presto": "SELECT DATE_DIFF('WEEK', DATE_TRUNC('WEEK', CAST('2017-10-14 00:00:00' AS TIMESTAMP) + INTERVAL '1' DAY), DATE_TRUNC('WEEK', CAST('2017-10-15 00:00:00' AS TIMESTAMP) + INTERVAL '1' DAY))",
+                "trino": "SELECT DATE_DIFF('WEEK', DATE_TRUNC('WEEK', CAST('2017-10-14 00:00:00' AS TIMESTAMP) + INTERVAL '1' DAY), DATE_TRUNC('WEEK', CAST('2017-10-15 00:00:00' AS TIMESTAMP) + INTERVAL '1' DAY))",
+            },
         )
         (
             self.validate_all(
@@ -1277,8 +1331,9 @@ LANGUAGE js AS
         self.validate_all(
             "r'x\\''",
             write={
-                "bigquery": "'x\\''",
-                "hive": "'x\\''",
+                "bigquery": "'x\\\\\\''",
+                "duckdb": "'x\\'''",
+                "hive": "'x\\\\\\''",
             },
         )
 
@@ -1799,15 +1854,29 @@ WHERE
             "SELECT PARSE_DATE('%A %b %e %Y', 'Thursday Dec 25 2008')",
             write={
                 "bigquery": "SELECT PARSE_DATE('%A %b %e %Y', 'Thursday Dec 25 2008')",
-                "duckdb": "SELECT CAST(STRPTIME('Thursday Dec 25 2008', '%A %b %-d %Y') AS DATE)",
+                "duckdb": "SELECT CAST(STRPTIME('1970 ' || 'Thursday Dec 25 2008', '%Y ' || '%A %b %-d %Y') AS DATE)",
             },
         )
         self.validate_all(
             "SELECT PARSE_DATE('%Y%m%d', '20081225')",
             write={
                 "bigquery": "SELECT PARSE_DATE('%Y%m%d', '20081225')",
-                "duckdb": "SELECT CAST(STRPTIME('20081225', '%Y%m%d') AS DATE)",
+                "duckdb": "SELECT CAST(STRPTIME('1970 ' || '20081225', '%Y ' || '%Y%m%d') AS DATE)",
                 "snowflake": "SELECT DATE('20081225', 'yyyymmDD')",
+            },
+        )
+        self.validate_all(
+            "SELECT PARSE_DATE('%m-%d', '12-25')",
+            write={
+                "bigquery": "SELECT PARSE_DATE('%m-%d', '12-25')",
+                "duckdb": "SELECT CAST(STRPTIME('1970 ' || '12-25', '%Y ' || '%m-%d') AS DATE)",
+            },
+        )
+        self.validate_all(
+            "SELECT PARSE_TIMESTAMP('%m-%d %H:%M:%S', '12-25 07:30:00')",
+            write={
+                "bigquery": "SELECT PARSE_TIMESTAMP('%m-%d %T', '12-25 07:30:00')",
+                "duckdb": "SELECT STRPTIME('1970 ' || '12-25 07:30:00', '%Y ' || '%m-%d %H:%M:%S')",
             },
         )
         self.validate_all(

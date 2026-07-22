@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: citeproc-py
-Version: 0.10.1
+Version: 0.10.2
 Summary: Citations and bibliography formatter
 Home-page: https://github.com/brechtm/citeproc-py
 Author: Brecht Machiels
@@ -159,6 +159,18 @@ If you want git to fully ignore the submodule, you can type
 git update-index --assume-unchanged citeproc/data/schema
 ```
 
+
+# v0.10.2 (Tue Jul 21 2026)
+
+#### 🐛 Bug Fix
+
+- Additional chicago style page range formats in csl 1.0.2 [#198](https://github.com/citeproc-py/citeproc-py/pull/198) ([@tmorrell](https://github.com/tmorrell))
+
+#### Authors: 1
+
+- Tom Morrell ([@tmorrell](https://github.com/tmorrell))
+
+---
 
 # v0.10.1 (Wed Jul 08 2026)
 

@@ -7,13 +7,12 @@ import re
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from babelfish import Language  # type: ignore[import-untyped]
-from guessit import guessit  # type: ignore[import-untyped]
 from requests import HTTPError, Session
 
 from subliminal.exceptions import DownloadLimitExceeded, NotInitializedProviderError
 from subliminal.matches import guess_matches
 from subliminal.subtitle import Subtitle
-from subliminal.utils import sanitize
+from subliminal.utils import safely_guessit, sanitize
 from subliminal.video import Episode, Video
 
 from . import Provider
@@ -24,56 +23,17 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 #: Subtitle id pattern
-id_pattern = re.compile(r'.*\/subtitles\/download\/([a-z0-9-]+)')
+id_pattern = re.compile(r'.*\/subtitles\/download\/([_a-z0-9-]+)')
 
-gestdown_languages: Set[Language] = {
-    Language(lang)
-    for lang in [
-        'ara',
-        'aze',
-        'ben',
-        'bos',
-        'bul',
-        'cat',
-        'ces',
-        'dan',
-        'deu',
-        'ell',
-        'eng',
-        'eus',
-        'fas',
-        'fin',
-        'fra',
-        'glg',
-        'heb',
-        'hrv',
-        'hun',
-        'hye',
-        'ind',
-        'ita',
-        'jpn',
-        'kor',
-        'mkd',
-        'msa',
-        'nld',
-        'nor',
-        'pol',
-        'por',
-        'ron',
-        'rus',
-        'slk',
-        'slv',
-        'spa',
-        'sqi',
-        'srp',
-        'swe',
-        'tha',
-        'tur',
-        'ukr',
-        'vie',
-        'zho',
+# fmt: off
+gestdown_languages = {
+    Language(lang) for lang in [
+        'ara', 'aze', 'ben', 'bos', 'bul', 'cat', 'ces', 'dan', 'deu', 'ell', 'eng', 'eus', 'fas', 'fin', 'fra', 'glg',
+        'heb', 'hrv', 'hun', 'hye', 'ind', 'ita', 'jpn', 'kor', 'mkd', 'msa', 'nld', 'nor', 'pol', 'por', 'ron', 'rus',
+        'slk', 'slv', 'spa', 'sqi', 'srp', 'swe', 'tha', 'tur', 'ukr', 'vie', 'zho',
     ]
 }
+# fmt: on
 
 
 class GestdownSubtitle(Subtitle):
@@ -140,7 +100,7 @@ class GestdownSubtitle(Subtitle):
         if self.release_group:
             matches |= guess_matches(
                 video,
-                guessit(self.release_group, {'type': 'episode'}),
+                safely_guessit(self.release_group, {'type': 'episode'}),
                 partial=True,
             )
 

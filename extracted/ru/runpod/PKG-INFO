@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: runpod
-Version: 1.10.1
+Version: 1.11.0
 Summary: 🐍 | Python library for Runpod API and serverless worker SDK.
 Home-page: https://runpod.io
 Author: Runpod
@@ -31,21 +31,21 @@ License-File: LICENSE
 Requires-Dist: aiohttp[speedups]>=3.14.1
 Requires-Dist: aiohttp-retry>=2.9.1
 Requires-Dist: backoff>=2.2.1
-Requires-Dist: boto3>=1.43.40
-Requires-Dist: click>=8.1.7
+Requires-Dist: boto3>=1.43.51
+Requires-Dist: click>=8.4.2
 Requires-Dist: colorama<0.4.7,>=0.4.6
-Requires-Dist: cryptography>=48.0.1
-Requires-Dist: fastapi[all]>=0.138.1
+Requires-Dist: cryptography>=49.0.0
+Requires-Dist: fastapi[all]>=0.139.2
 Requires-Dist: paramiko>=5.0.0
 Requires-Dist: prettytable>=3.18.0
-Requires-Dist: psutil>=5.9.0
+Requires-Dist: psutil>=7.2.2
 Requires-Dist: py-cpuinfo>=9.0.0
 Requires-Dist: inquirerpy==0.3.4
 Requires-Dist: requests>=2.34.2
 Requires-Dist: tomli>=2.4.1
-Requires-Dist: tomlkit>=0.15.0
+Requires-Dist: tomlkit>=0.15.1
 Requires-Dist: tqdm-loggable>=0.4.1
-Requires-Dist: urllib3>=1.26.6
+Requires-Dist: urllib3>=2.7.0
 Requires-Dist: watchdog>=6.0.0
 Dynamic: author
 Dynamic: home-page

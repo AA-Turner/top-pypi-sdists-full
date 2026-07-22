@@ -47,7 +47,6 @@ from pmd_pytcp.lib.interface_layer import InterfaceLayer
 from pmd_pytcp.lib.io_backend import register_interface_fd, unregister_interface_fd
 from pmd_pytcp.socket import AF_INET6, SHUT_RDWR, SHUT_WR, SOCK_DGRAM, SOCK_STREAM
 from pmd_pytcp.socket import socket as pytcp_socket
-from pmd_pytcp.stack import sysctl
 
 import pymobiledevice3.remote.tunnel_service as tunnel_service
 from pymobiledevice3.exceptions import InvalidServiceError, PyMobileDevice3Exception
@@ -70,8 +69,8 @@ _PEER_MAC = "02:00:00:00:00:02"
 
 #: Ceiling on the PyTCP interface MTU. The tunnel negotiates 16000; a large interface MTU
 #: makes downloads fast (the device sends big segments to us). Host->device segments are
-#: bounded separately by the tcp.snd_mss_max sysctl (:data:`MAX_SEND_MSS`), so a large
-#: value is safe here.
+#: governed separately by PLPMTUD (seeded at :data:`BASE_MSS_SEED`, raised only through
+#: device-ACKed sizes), so a large value is safe here.
 INTERFACE_MTU = 16000
 
 #: Receive-window ceiling (PyTCP 'tcp.rcv_wnd_max'; default 65535). A download is bounded by
@@ -80,32 +79,64 @@ INTERFACE_MTU = 16000
 #: fetch: 64 KB window -> 8 MB/s, 4 MiB window -> 40 MB/s (kernel-tunnel parity).
 MAX_RECV_WINDOW = 4 * 1024 * 1024
 
-#: Cap on the host->device send MSS (PyTCP 'tcp.snd_mss_max'; 0 = uncapped). 1340 (= a 1400-byte
-#: IPv6 packet minus 40+20 headers) is the proven-safe send size; a larger interface MTU keeps
-#: downloads fast (big device->host segments) while uploads avoid RTO stalls on the forwarding
-#: path. The advertised receive MSS is untouched, so downloads stay fast.
-MAX_SEND_MSS = 1340
+#: PLPMTUD cold-start seed (PyTCP 'tcp.base_mss'): host->device segments START at
+#: ``1400 - 60 = 1340`` payload — the proven-safe size across devices (= the static
+#: ``tcp.snd_mss_max`` = 1340 cap this replaced) — and only grow through packet sizes the
+#: device has actually ACKed, as
+#: RFC 4821/8899 probing (PyTCP 'tcp.mtu_probing') walks the ladder upward. A failed probe
+#: costs one RACK-repaired segment and narrows the search; it never stalls the transfer. So the
+#: worst case on any device/transport equals the old fixed-1340 behaviour, while paths that
+#: forward bigger packets (measured: USB CoreDeviceProxy drops host->device IPv6 packets over
+#: 8192 bytes total but passes everything below) converge to their real limit and upload several
+#: times faster. No per-device packet size is hardcoded anywhere.
+BASE_MSS_SEED = 1400
+
+#: RFC 8899 PROBE_TIMER (PyTCP 'tcp.plpmtud.probe_timer_ms'; RFC default 30000). The backstop
+#: loss-declaration for an MTU probe that dies without triggering loss recovery. The tunnel RTT
+#: is a few ms, so 30 s would park the search for a whole transfer; in-band signals
+#: (fast-retransmit/RACK/TLP recovery entry) normally beat this timer by orders of magnitude.
+PROBE_TIMER_MS = 1500
+
+#: RTO floor (PyTCP 'tcp.rto.min_ms'; RFC 6298 default 1000). The tunnel RTT is single-digit
+#: milliseconds, so the RFC's 1 s floor makes every genuine stall — including a PLPMTUD
+#: black-hole revert, which fires exactly once per over-large probe rung — cost ~200x the RTT.
+#: 200 ms matches Linux's floor and keeps MSS-search convergence under a second while staying
+#: ~40x above the observed RTT (no spurious-RTO risk; RACK/TLP handle tail losses first).
+MIN_RTO_MS = 200
+
+#: Delayed-ACK timer (PyTCP 'tcp.delayed_ack.delay_ms'; RFC default 100). The device Nagle-holds
+#: the tail segment of every multi-segment response until our ACK arrives, so each DTX/RemoteXPC
+#: round-trip stalls one full timer: measured `dvt ls /` latency is delay + ~7 ms link RTT,
+#: linear across 1..100 ms (110 ms at the default, 8 ms at 1 ms). 1 ms effectively ACKs
+#: immediately; bulk transfers are unaffected either way (streams are governed by the
+#: ACK-every-other-segment rule, not the timer — measured 38-39 MB/s at 1/10/100 ms alike).
+ACK_DELAY_MS = 1
 
 
 def throughput_sysctls() -> dict[str, int]:
-    """The ``stack.init(sysctls=...)`` entries that tune the tunnel for bulk transfer.
+    """The ``stack.init(sysctls=...)`` entries that tune the tunnel for bulk transfer and latency.
 
     These ride pmd-pytcp's public sysctls: ``tcp.rcv_wnd_max`` raises the advertised receive
-    window for fast downloads; ``tcp.snd_mss_max`` caps host->device segments so a large
-    interface MTU does not stall uploads. Any knob the installed pmd-pytcp does not register is
-    omitted (with a warning) so the tunnel runs untuned rather than failing.
+    window for fast downloads; ``tcp.delayed_ack.delay_ms`` drops the delayed-ACK timer so
+    interactive request/response services are not stalled by it (:data:`ACK_DELAY_MS`).
+
+    Host->device segment sizing is dynamic: RFC 4821/8899 PLPMTUD (``tcp.mtu_probing`` = 2)
+    starts every connection at the proven-safe 1340-byte send MSS (``tcp.base_mss`` =
+    :data:`BASE_MSS_SEED`) and raises it only through packet sizes the device has actually
+    ACKed, so each device/transport converges to its own real forwarding limit with no
+    hardcoded per-device size and a worst case equal to the old static 1340 cap.
+
+    Every knob here is guaranteed by the pmd-pytcp version floor in requirements.txt — no
+    capability probing.
     """
-    wanted = {"tcp.rcv_wnd_max": MAX_RECV_WINDOW, "tcp.default.snd_mss_max": MAX_SEND_MSS}
-    # The registry lists base keys, so an interface-scope knob is checked by its base name.
-    base_key = {"tcp.rcv_wnd_max": "tcp.rcv_wnd_max", "tcp.default.snd_mss_max": "tcp.snd_mss_max"}
-    registered = sysctl.list_keys()
-    out: dict[str, int] = {}
-    for key, value in wanted.items():
-        if base_key[key] in registered:
-            out[key] = value
-        else:
-            logger.warning("userspace tunnel: installed pmd-pytcp lacks the %r sysctl; running untuned", base_key[key])
-    return out
+    return {
+        "tcp.rcv_wnd_max": MAX_RECV_WINDOW,
+        "tcp.delayed_ack.delay_ms": ACK_DELAY_MS,
+        "tcp.rto.min_ms": MIN_RTO_MS,
+        "tcp.default.mtu_probing": 2,
+        "tcp.default.base_mss": BASE_MSS_SEED,
+        "tcp.plpmtud.default.probe_timer_ms": PROBE_TIMER_MS,
+    }
 
 
 #: Datagram socketpair buffer, sized to hold a burst of a full receive window of packets.
@@ -124,6 +155,13 @@ def _mac_to_bytes(mac: str) -> bytes:
 
 def _eth_header(dst_mac: str, src_mac: str) -> bytes:
     return _mac_to_bytes(dst_mac) + _mac_to_bytes(src_mac) + struct.pack("!H", _ETH_IPV6)
+
+
+#: Hot-path constants: the (fixed) Ethernet header prepended to every inbound packet, and the
+#: EtherType bytes checked on every outbound frame — precomputed so the per-packet paths do no
+#: string parsing / struct packing.
+_ETH_HDR_TO_STACK = _eth_header(_STACK_MAC, _PEER_MAC)
+_ETH_IPV6_BYTES = struct.pack("!H", _ETH_IPV6)
 
 
 def _packet_socketpair() -> tuple[socket.socket, socket.socket]:
@@ -204,6 +242,19 @@ class UserspaceTun:
             ip4_support=False,
         )
         await stack.start()
+        # The interface address is installed by the stack's own tasks shortly AFTER start()
+        # returns; until it lands, source-address selection finds no local host and a stack
+        # connect fails with gaierror. Today the dial plane's localhost-relay hop happens to
+        # add enough event-loop round trips to win that race, but nothing guarantees it — and
+        # an embedder calling connect_tcp() right after aopen() has no such slack. The tun is
+        # not "up" until its address is actually usable, so wait for it (yielding, not
+        # sleeping: the install normally lands within a loop tick or two).
+        target = Ip6Address(self._addr)
+        deadline = asyncio.get_running_loop().time() + 5
+        while not any(host.address == target for host in stack.local_ip6_hosts()):
+            if asyncio.get_running_loop().time() > deadline:
+                raise PyMobileDevice3Exception(f"userspace stack address {self._addr} was not assigned within 5s")
+            await asyncio.sleep(0)
         logger.debug("userspace tunnel up: pytcp L2 iface=%s addr=%s/64 mtu=%s", self._ifidx, self._addr, self._mtu)
 
     def set_peer(self, device_addr: str) -> None:
@@ -215,7 +266,7 @@ class UserspaceTun:
         # socket is non-blocking; a full buffer drops the packet (tunnel loss, TCP recovers).
         ipv6 = data[len(LOOPBACK_HEADER) :] if data[: len(LOOPBACK_HEADER)] == LOOPBACK_HEADER else data
         with suppress(OSError):
-            self._peer.send(_eth_header(_STACK_MAC, _PEER_MAC) + ipv6)
+            self._peer.send(_ETH_HDR_TO_STACK + ipv6)
 
     async def async_read(self) -> bytes:
         # outbound (stack -> device): await an Ethernet frame off the stack's socketpair and
@@ -223,10 +274,29 @@ class UserspaceTun:
         # nibble). Raises OSError once the socketpair is closed, which ends tun_read_task.
         while not self._closed:
             frame = await asyncio.get_running_loop().sock_recv(self._peer, 65535)
-            if len(frame) < 14 or struct.unpack("!H", frame[12:14])[0] != _ETH_IPV6:
+            if len(frame) < 14 or frame[12:14] != _ETH_IPV6_BYTES:
                 continue
             return frame[14:]
         return b""
+
+    async def async_read_batch(self) -> list[bytes]:
+        """Await at least one outbound frame, then greedily drain every further frame already
+        queued on the socketpair, returning their raw IPv6 payloads in arrival order.
+
+        One event-loop wakeup services a whole egress burst — the userspace counterpart of the
+        kernel tun's ``_tun_read_loop_via_reader`` batch-drain. Paying a loop reschedule per
+        MSS-sized packet caps uploads at a few thousand packets/s, because the same loop also
+        runs the pytcp stack. Raises OSError once the socketpair is closed, which ends
+        ``tun_read_task``."""
+        frame = await asyncio.get_running_loop().sock_recv(self._peer, 65535)
+        packets = []
+        while True:
+            if len(frame) > 14 and frame[12:14] == _ETH_IPV6_BYTES:
+                packets.append(frame[14:])
+            try:
+                frame = self._peer.recv(65535)
+            except (BlockingIOError, InterruptedError):
+                return packets
 
     async def connect_tcp(self, addr: str, port: int):
         """Open a PyTCP TCP socket connected to (addr, port) over this stack."""

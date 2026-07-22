@@ -1251,6 +1251,43 @@ async def test_read_timeout_on_write(aiohttp_client) -> None:
     assert result == b"foo"
 
 
+async def test_sock_read_timeout_not_rearmed_on_pooled_connection(
+    aiohttp_client: AiohttpClient,
+) -> None:
+    # Reading the buffered body of a completed response must not re-arm the
+    # sock_read timeout on a connection that has already been released to the
+    # keep-alive pool. Otherwise the timer fires while the connection sits idle
+    # in the pool, stamps SocketTimeoutError on it, and the next request that
+    # reuses it fails immediately (with no real read having stalled).
+    async def handler(request: web.Request) -> web.Response:
+        return web.json_response({"ok": True})
+
+    app = web.Application()
+    app.router.add_get("/", handler)
+
+    timeout = aiohttp.ClientTimeout(total=30, sock_read=0.1)
+    client = await aiohttp_client(app, timeout=timeout)
+
+    async with client.get("/") as resp:
+        assert resp.status == 200
+        await resp.read()
+
+    assert client.session.connector is not None
+    pooled = next(iter(client.session.connector._conns.values()))
+    proto = pooled[0][0]
+    # The pooled connection must carry no read-timeout handle, otherwise
+    # it could trigger an exception on the next request.
+    assert proto._read_timeout_handle is None
+    assert proto.exception() is None
+
+    # The connection is still reusable.
+    async with client.get("/") as resp:
+        assert resp.status == 200
+        assert await resp.json() == {"ok": True}
+
+    assert next(iter(client.session.connector._conns.values()))[0][0] is proto
+
+
 async def test_timeout_on_reading_data(aiohttp_client, mocker) -> None:
     loop = asyncio.get_event_loop()
 
@@ -5495,6 +5532,62 @@ async def test_invalid_redirect_origin_closes_payload(
     assert (
         payload.close_called
     ), "Payload.close() was not called when InvalidUrlRedirectClientError (invalid origin) was raised"
+
+
+async def test_request_body_closed_on_server_disconnect() -> None:
+    async def drop(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        # Slam the connection shut without sending a response.
+        writer.close()
+
+    server = await asyncio.start_server(drop, "127.0.0.1", 0)
+    port = server.sockets[0].getsockname()[1]
+    payload = MockedBytesPayload(b"x" * 1024)
+    try:
+        async with aiohttp.ClientSession() as session:
+            with pytest.raises(aiohttp.ClientError):
+                await session.post(f"http://127.0.0.1:{port}/", data=payload)
+    finally:
+        server.close()
+        await server.wait_closed()
+
+    assert (
+        payload.close_called
+    ), "Payload.close() was not called after a mid-upload disconnect"
+
+
+async def test_request_body_closed_on_cancellation() -> None:
+    accepted = asyncio.Event()
+
+    async def stall(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        accepted.set()
+        try:
+            await reader.read()  # wait for client EOF; never respond
+        finally:
+            writer.close()
+
+    server = await asyncio.start_server(stall, "127.0.0.1", 0)
+    port = server.sockets[0].getsockname()[1]
+    payload = MockedBytesPayload(b"y" * 1024)
+    try:
+        async with aiohttp.ClientSession() as session:
+            task = asyncio.create_task(
+                session.post(f"http://127.0.0.1:{port}/", data=payload)
+            )
+            await accepted.wait()
+            task.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await task
+    finally:
+        server.close()
+        await server.wait_closed()
+
+    assert payload.close_called, "Payload.close() was not called after cancellation"
+
+
+async def test_request_error_before_body_created_does_not_mask() -> None:
+    async with aiohttp.ClientSession() as session:
+        with pytest.raises(InvalidUrlClientError):
+            await session.get("http:///path")
 
 
 async def test_amazon_like_cookie_scenario(aiohttp_client: AiohttpClient) -> None:

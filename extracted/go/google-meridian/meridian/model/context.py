@@ -215,13 +215,13 @@ class ModelContext:
 
     if self._input_data.controls is not None:
       self._check_if_no_geo_variation(
-          self.controls_scaled,
+          self.controls_scaled,  # pyrefly: ignore[bad-argument-type]
           constants.CONTROLS,
           self._input_data.controls.coords[constants.CONTROL_VARIABLE].values,
       )
     if self._input_data.non_media_treatments is not None:
       self._check_if_no_geo_variation(
-          self.non_media_treatments_normalized,
+          self.non_media_treatments_normalized,  # pyrefly: ignore[bad-argument-type]
           constants.NON_MEDIA_TREATMENTS,
           self._input_data.non_media_treatments.coords[
               constants.NON_MEDIA_CHANNEL
@@ -229,19 +229,19 @@ class ModelContext:
       )
     if self._input_data.media is not None:
       self._check_if_no_geo_variation(
-          self.media_tensors.media_scaled,
+          self.media_tensors.media_scaled,  # pyrefly: ignore[bad-argument-type]
           constants.MEDIA,
           self._input_data.media.coords[constants.MEDIA_CHANNEL].values,
       )
     if self._input_data.reach is not None:
       self._check_if_no_geo_variation(
-          self.rf_tensors.reach_scaled,
+          self.rf_tensors.reach_scaled,  # pyrefly: ignore[bad-argument-type]
           constants.REACH,
           self._input_data.reach.coords[constants.RF_CHANNEL].values,
       )
     if self._input_data.organic_media is not None:
       self._check_if_no_geo_variation(
-          self.organic_media_tensors.organic_media_scaled,
+          self.organic_media_tensors.organic_media_scaled,  # pyrefly: ignore[bad-argument-type]
           "organic_media",
           self._input_data.organic_media.coords[
               constants.ORGANIC_MEDIA_CHANNEL
@@ -249,7 +249,7 @@ class ModelContext:
       )
     if self._input_data.organic_reach is not None:
       self._check_if_no_geo_variation(
-          self.organic_rf_tensors.organic_reach_scaled,
+          self.organic_rf_tensors.organic_reach_scaled,  # pyrefly: ignore[bad-argument-type]
           "organic_reach",
           self._input_data.organic_reach.coords[
               constants.ORGANIC_RF_CHANNEL
@@ -267,7 +267,7 @@ class ModelContext:
 
     # Result shape: [n, d], where d is the number of axes of condition.
     col_idx_full = backend.get_indices_where(
-        backend.reduce_std(scaled_data, axis=0) < epsilon
+        backend.reduce_std(scaled_data, axis=0) < epsilon  # pyrefly: ignore[bad-argument-type]
     )[:, 1]
     col_idx_unique, _, counts = backend.unique_with_counts(col_idx_full)
     # We use the shape of scaled_data (instead of `n_time`) because the data may
@@ -293,13 +293,13 @@ class ModelContext:
     """Validates model time invariants."""
     if self._input_data.controls is not None:
       self._check_if_no_time_variation(
-          self.controls_scaled,
+          self.controls_scaled,  # pyrefly: ignore[bad-argument-type]
           constants.CONTROLS,
           self._input_data.controls.coords[constants.CONTROL_VARIABLE].values,
       )
     if self._input_data.non_media_treatments is not None:
       self._check_if_no_time_variation(
-          self.non_media_treatments_normalized,
+          self.non_media_treatments_normalized,  # pyrefly: ignore[bad-argument-type]
           constants.NON_MEDIA_TREATMENTS,
           self._input_data.non_media_treatments.coords[
               constants.NON_MEDIA_CHANNEL
@@ -307,19 +307,19 @@ class ModelContext:
       )
     if self._input_data.media is not None:
       self._check_if_no_time_variation(
-          self.media_tensors.media_scaled,
+          self.media_tensors.media_scaled,  # pyrefly: ignore[bad-argument-type]
           constants.MEDIA,
           self._input_data.media.coords[constants.MEDIA_CHANNEL].values,
       )
     if self._input_data.reach is not None:
       self._check_if_no_time_variation(
-          self.rf_tensors.reach_scaled,
+          self.rf_tensors.reach_scaled,  # pyrefly: ignore[bad-argument-type]
           constants.REACH,
           self._input_data.reach.coords[constants.RF_CHANNEL].values,
       )
     if self._input_data.organic_media is not None:
       self._check_if_no_time_variation(
-          self.organic_media_tensors.organic_media_scaled,
+          self.organic_media_tensors.organic_media_scaled,  # pyrefly: ignore[bad-argument-type]
           constants.ORGANIC_MEDIA,
           self._input_data.organic_media.coords[
               constants.ORGANIC_MEDIA_CHANNEL
@@ -327,7 +327,7 @@ class ModelContext:
       )
     if self._input_data.organic_reach is not None:
       self._check_if_no_time_variation(
-          self.organic_rf_tensors.organic_reach_scaled,
+          self.organic_rf_tensors.organic_reach_scaled,  # pyrefly: ignore[bad-argument-type]
           constants.ORGANIC_REACH,
           self._input_data.organic_reach.coords[
               constants.ORGANIC_RF_CHANNEL
@@ -360,7 +360,7 @@ class ModelContext:
     """
     if spend is None:
       return
-    zero_spend_channels = spend.coords[dim].where(spend == 0, drop=True).values
+    zero_spend_channels = spend.coords[dim].where(spend == 0, drop=True).values  # pyrefly: ignore[missing-attribute]
 
     if zero_spend_channels.size > 0:
       raise ValueError(
@@ -380,7 +380,7 @@ class ModelContext:
 
     # Result shape: [n, d], where d is the number of axes of condition.
     col_idx_full = backend.get_indices_where(
-        backend.reduce_std(scaled_data, axis=1) < epsilon
+        backend.reduce_std(scaled_data, axis=1) < epsilon  # pyrefly: ignore[bad-argument-type]
     )[:, 1]
     col_idx_unique, _, counts = backend.unique_with_counts(col_idx_full)
     mask = backend.equal(counts, self.n_geos)
@@ -535,6 +535,20 @@ class ModelContext:
         enable_aks=self._model_spec.enable_aks,
         data=self._input_data,
         is_national=self.is_national,
+    )
+
+  def _inject_legacy_knot_info_for_serde(self, legacy_knots: list[int]):
+    """Injects legacy knots by bypassing the AKS check in get_knot_info."""
+    legacy_knots_arr = np.array(legacy_knots, dtype=int)
+    n_knots = len(legacy_knots_arr)
+    if n_knots == 1:
+      weights = np.ones((1, self.n_times), dtype=backend.np_float_dtype)
+    else:
+      weights = knots.l1_distance_weights(self.n_times, legacy_knots_arr)
+    self.__dict__["knot_info"] = knots.KnotInfo(
+        n_knots=n_knots,
+        knot_locations=legacy_knots_arr,
+        weights=weights,
     )
 
   @functools.cached_property
@@ -1076,7 +1090,7 @@ class ModelContext:
         if self.input_data.control_variable is not None
         else np.array([])
     )
-    return {
+    return {  # pyrefly: ignore[bad-return]
         constants.CHAIN: np.arange(n_chains),
         constants.DRAW: np.arange(n_draws),
         constants.GEO: self.input_data.geo,
@@ -1095,9 +1109,9 @@ class ModelContext:
     """Creates data dimensions for inference data."""
     inference_dims = dict(constants.INFERENCE_DIMS)
     if self.unique_sigma_for_each_geo:
-      inference_dims[constants.SIGMA] = [constants.GEO]
+      inference_dims[constants.SIGMA] = [constants.GEO]  # pyrefly: ignore[unsupported-operation]
     else:
-      inference_dims[constants.SIGMA] = []
+      inference_dims[constants.SIGMA] = []  # pyrefly: ignore[unsupported-operation]
 
     return {
         param: [constants.CHAIN, constants.DRAW] + list(dims)

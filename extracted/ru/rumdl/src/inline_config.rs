@@ -17,6 +17,11 @@
 //! - `<!-- prettier-ignore -->` - Disable all rules for next line (compatibility with prettier)
 //!
 //! Also supports rumdl-specific syntax with same semantics.
+//!
+//! `configure-file` differs from every other directive in two ways: its comment
+//! may span multiple lines, and a rule may be given a boolean instead of an
+//! options object to turn it off (`false`) or on (`true`) for the whole file.
+//! Directives inside fenced code blocks are ignored.
 
 use crate::markdownlint_config::markdownlint_to_rumdl_rule_key;
 use crate::utils::code_block_utils::CodeBlockUtils;
@@ -132,6 +137,37 @@ impl InlineConfig {
         let mut config = Self::new();
         let lines: Vec<&str> = content.lines().collect();
 
+        // configure-file is scanned over the whole document rather than per
+        // line, because it is the one directive allowed to span lines, and it
+        // applies before any enable/disable directive regardless of where it
+        // sits. Comments inside fenced code blocks are skipped.
+        for (offset, json_config) in scan_configure_file_comments(content) {
+            if offset_in_code_block(offset, code_blocks) {
+                continue;
+            }
+            let Some(obj) = json_config.as_object() else {
+                continue;
+            };
+            for (rule_name, rule_config) in obj {
+                // A boolean turns a rule off or back on, e.g.
+                // `{ "no-trailing-spaces": false }`, so route those to the
+                // disable set instead of storing them as rule options.
+                let normalized = normalize_rule_name(rule_name);
+                if let Some(enabled) = rule_config.as_bool() {
+                    if enabled {
+                        config.file_disabled_rules.remove(&normalized);
+                    } else {
+                        config.file_disabled_rules.insert(normalized);
+                    }
+                    continue;
+                }
+                // Store under the canonical rule id so lookups by `MDxxx` also
+                // find configs written with an alias, e.g.
+                // `{ "line-length": { "line_length": 70 } }`.
+                config.file_rule_config.insert(normalized, rule_config.clone());
+            }
+        }
+
         // Pre-compute line positions for checking if a line is in a code block
         let mut line_positions = Vec::with_capacity(lines.len());
         let mut pos = 0;
@@ -220,15 +256,7 @@ impl InlineConfig {
                             }
                         }
                     }
-                    DirectiveKind::ConfigureFile => {
-                        if let Some(json_config) = parse_configure_file_comment(line)
-                            && let Some(obj) = json_config.as_object()
-                        {
-                            for (rule_name, rule_config) in obj {
-                                config.file_rule_config.insert(rule_name.clone(), rule_config.clone());
-                            }
-                        }
-                    }
+                    // configure-file is handled document-wide before this loop.
                     _ => {}
                 }
             }
@@ -575,64 +603,132 @@ pub fn is_restore_comment(line: &str) -> bool {
         .any(|d| d.kind == DirectiveKind::Restore)
 }
 
-/// Parse a configure-file comment and return the JSON configuration.
-///
-/// Uses the unified parser for directive detection/disambiguation, then
-/// extracts the raw JSON payload directly from the line (since JSON
-/// cannot be reliably reconstructed from whitespace-split tokens).
-pub fn parse_configure_file_comment(line: &str) -> Option<JsonValue> {
-    // First check if the unified parser even found a configure-file directive
-    if !parse_inline_directives(line)
-        .iter()
-        .any(|d| d.kind == DirectiveKind::ConfigureFile)
-    {
-        return None;
-    }
+const CONFIGURE_FILE_KEYWORD: &str = "configure-file";
 
-    // Extract the raw JSON content between the keyword and -->
-    for tool in TOOL_PREFIXES {
-        let prefix = format!("<!-- {tool}configure-file");
-        if let Some(start) = line.find(&prefix) {
-            let after_prefix = &line[start + prefix.len()..];
-            if let Some(end) = after_prefix.find("-->") {
-                let json_str = after_prefix[..end].trim();
-                if !json_str.is_empty()
-                    && let Ok(value) = serde_json::from_str(json_str)
-                {
-                    return Some(value);
-                }
-            }
-        }
-    }
-    None
+/// Whether a byte offset falls inside one of the given code block ranges.
+fn offset_in_code_block(offset: usize, code_blocks: &[(usize, usize)]) -> bool {
+    code_blocks.iter().any(|&(start, end)| offset >= start && offset < end)
 }
 
-/// Warning about unknown rules in inline config comments
+/// The 1-indexed line a byte offset falls on.
+fn line_of_offset(text: &str, offset: usize) -> usize {
+    text[..offset].bytes().filter(|&b| b == b'\n').count() + 1
+}
+
+/// Find every configure-file comment in `text`, returning each JSON payload
+/// with the byte offset of its opening `<!--`.
+///
+/// `text` is normally the whole document: unlike every other directive, a
+/// configure-file comment may span lines, so its `-->` is searched for without
+/// regard to line boundaries. The offset lets callers map a payload back to a
+/// line number or test it against code block ranges.
+///
+/// Payloads that are empty or not valid JSON are skipped, and scanning
+/// continues past them.
+fn scan_configure_file_comments(text: &str) -> Vec<(usize, JsonValue)> {
+    let mut found = Vec::new();
+    let mut pos = 0;
+
+    while let Some(open_offset) = text[pos..].find("<!-- ") {
+        let comment_start = pos + open_offset;
+        let after_open = &text[comment_start + 5..]; // skip "<!-- "
+        // Advance past this opener by default, so an unrecognized or malformed
+        // comment cannot stall the scan.
+        pos = comment_start + 5;
+
+        for tool in TOOL_PREFIXES {
+            let Some(after_tool) = after_open.strip_prefix(tool) else {
+                continue;
+            };
+            let Some(after_kw) = after_tool.strip_prefix(CONFIGURE_FILE_KEYWORD) else {
+                break;
+            };
+            // Word boundary: the keyword must be followed by whitespace or `-->`,
+            // so `configure-files` does not match.
+            if !after_kw.is_empty() && !after_kw.starts_with(char::is_whitespace) && !after_kw.starts_with("-->") {
+                break;
+            }
+            let Some(close_offset) = after_kw.find("-->") else {
+                break;
+            };
+
+            let json_str = after_kw[..close_offset].trim();
+            if !json_str.is_empty()
+                && let Ok(value) = serde_json::from_str(json_str)
+            {
+                found.push((comment_start, value));
+            }
+            pos = comment_start + 5 + tool.len() + CONFIGURE_FILE_KEYWORD.len() + close_offset + 3;
+            break;
+        }
+    }
+
+    found
+}
+
+/// Parse a configure-file comment and return the JSON configuration.
+///
+/// Returns the first payload found. The text may span lines.
+pub fn parse_configure_file_comment(line: &str) -> Option<JsonValue> {
+    scan_configure_file_comments(line).into_iter().next().map(|(_, v)| v)
+}
+
+/// What is wrong with an inline config comment.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum InlineConfigProblem {
+    /// A rule name that is not recognized.
+    UnknownRule,
+    /// A recognized rule carrying an unrecognized option key inside a
+    /// configure-file config object.
+    UnknownOption { key: String },
+    /// An inline directive tries to enable a rule that configuration left
+    /// disabled. rumdl treats config-level rule selection as final, so the
+    /// enable has no effect; this makes that silent no-op visible.
+    EnableHasNoEffect,
+}
+
+/// Warning about an inline config comment.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InlineConfigWarning {
     /// The line number where the warning occurred (1-indexed)
     pub line_number: usize,
-    /// The rule name that was not recognized
+    /// The rule the warning concerns
     pub rule_name: String,
-    /// The type of inline config comment
+    /// The type of inline config comment (e.g. "disable", "configure-file")
     pub comment_type: String,
-    /// Optional suggestion for similar rule names
+    /// Suggestion for a similar rule name or option key, when one is close
     pub suggestion: Option<String>,
+    /// What is wrong
+    pub problem: InlineConfigProblem,
 }
 
 impl InlineConfigWarning {
     /// Format the warning message
     pub fn format_message(&self) -> String {
-        if let Some(ref suggestion) = self.suggestion {
-            format!(
-                "Unknown rule in inline {} comment: {} (did you mean: {}?)",
-                self.comment_type, self.rule_name, suggestion
-            )
-        } else {
-            format!(
-                "Unknown rule in inline {} comment: {}",
-                self.comment_type, self.rule_name
-            )
+        // Wording for unknown rules/options matches the config-file validator so
+        // the same mistake reads the same way wherever it is written.
+        match &self.problem {
+            InlineConfigProblem::UnknownOption { key } => match self.suggestion {
+                Some(ref suggestion) => format!(
+                    "Unknown option for rule {}: {} (did you mean: {}?)",
+                    self.rule_name, key, suggestion
+                ),
+                None => format!("Unknown option for rule {}: {}", self.rule_name, key),
+            },
+            InlineConfigProblem::UnknownRule => match self.suggestion {
+                Some(ref suggestion) => format!(
+                    "Unknown rule in inline {} comment: {} (did you mean: {}?)",
+                    self.comment_type, self.rule_name, suggestion
+                ),
+                None => format!(
+                    "Unknown rule in inline {} comment: {}",
+                    self.comment_type, self.rule_name
+                ),
+            },
+            InlineConfigProblem::EnableHasNoEffect => format!(
+                "Rule {} is not enabled in configuration, so the inline {} comment enabling it has no effect",
+                self.rule_name, self.comment_type
+            ),
         }
     }
 
@@ -658,6 +754,55 @@ pub fn validate_inline_config_rules(content: &str) -> Vec<InlineConfigWarning> {
     let mut warnings = Vec::new();
     let all_rule_names: Vec<String> = RULE_ALIAS_MAP.keys().map(std::string::ToString::to_string).collect();
 
+    let suggest = |rule_name: &str| {
+        suggest_similar_key(rule_name, &all_rule_names).map(|s| if s.starts_with("MD") { s } else { s.to_lowercase() })
+    };
+
+    // configure-file carries its rule names as JSON keys and may span lines, so
+    // it is scanned over the whole document. Warnings are reported against the
+    // line the comment opens on.
+    let registry = crate::config::default_registry();
+    for (offset, json_config) in scan_configure_file_comments(content) {
+        let Some(obj) = json_config.as_object() else {
+            continue;
+        };
+        let line_number = line_of_offset(content, offset);
+        for (rule_name, rule_config) in obj {
+            if !is_valid_rule_name(rule_name) {
+                warnings.push(InlineConfigWarning {
+                    line_number,
+                    rule_name: rule_name.clone(),
+                    comment_type: "configure-file".to_string(),
+                    suggestion: suggest(rule_name),
+                    problem: InlineConfigProblem::UnknownRule,
+                });
+                // The rule itself is unknown, so its options cannot be checked
+                // against anything and would only add noise.
+                continue;
+            }
+            // A boolean turns the rule on or off and carries no options.
+            let Some(options) = rule_config.as_object() else {
+                continue;
+            };
+            let canonical = normalize_rule_name(rule_name);
+            let Some(valid_keys) = registry.config_keys_for(&canonical) else {
+                continue;
+            };
+            let valid_keys_vec: Vec<String> = valid_keys.iter().cloned().collect();
+            for key in options.keys() {
+                if !valid_keys.contains(key) {
+                    warnings.push(InlineConfigWarning {
+                        line_number,
+                        rule_name: canonical.clone(),
+                        comment_type: "configure-file".to_string(),
+                        suggestion: suggest_similar_key(key, &valid_keys_vec),
+                        problem: InlineConfigProblem::UnknownOption { key: key.clone() },
+                    });
+                }
+            }
+        }
+    }
+
     for (idx, line) in content.lines().enumerate() {
         let line_num = idx + 1;
 
@@ -673,27 +818,8 @@ pub fn validate_inline_config_rules(content: &str) -> Vec<InlineConfigWarning> {
                 DirectiveKind::DisableNextLine => "disable-next-line",
                 DirectiveKind::DisableFile => "disable-file",
                 DirectiveKind::EnableFile => "enable-file",
-                DirectiveKind::ConfigureFile => {
-                    // configure-file: rule names are JSON keys, handle separately
-                    if let Some(json_config) = parse_configure_file_comment(line)
-                        && let Some(obj) = json_config.as_object()
-                    {
-                        for rule_name in obj.keys() {
-                            if !is_valid_rule_name(rule_name) {
-                                let suggestion = suggest_similar_key(rule_name, &all_rule_names)
-                                    .map(|s| if s.starts_with("MD") { s } else { s.to_lowercase() });
-                                warnings.push(InlineConfigWarning {
-                                    line_number: line_num,
-                                    rule_name: rule_name.clone(),
-                                    comment_type: "configure-file".to_string(),
-                                    suggestion,
-                                });
-                            }
-                        }
-                    }
-                    continue;
-                }
-                DirectiveKind::Capture | DirectiveKind::Restore => continue,
+                // configure-file is scanned document-wide above.
+                DirectiveKind::ConfigureFile | DirectiveKind::Capture | DirectiveKind::Restore => continue,
             };
             for rule in &directive.rules {
                 rule_entries.push((rule, comment_type));
@@ -703,18 +829,91 @@ pub fn validate_inline_config_rules(content: &str) -> Vec<InlineConfigWarning> {
         // Validate each rule name
         for (rule_name, comment_type) in rule_entries {
             if !is_valid_rule_name(rule_name) {
-                let suggestion = suggest_similar_key(rule_name, &all_rule_names)
-                    .map(|s| if s.starts_with("MD") { s } else { s.to_lowercase() });
                 warnings.push(InlineConfigWarning {
                     line_number: line_num,
                     rule_name: rule_name.to_string(),
                     comment_type: comment_type.to_string(),
-                    suggestion,
+                    suggestion: suggest(rule_name),
+                    problem: InlineConfigProblem::UnknownRule,
                 });
             }
         }
     }
 
+    // configure-file warnings are collected ahead of the per-line pass, so
+    // restore document order before returning.
+    warnings.sort_by_key(|w| w.line_number);
+    warnings
+}
+
+/// Warn when an inline directive tries to ENABLE a rule that configuration left
+/// disabled, so the enable has no effect.
+///
+/// rumdl removes disabled rules from the rule set before any file is read
+/// (`filter_rules`), so a disabled rule is never instantiated and inline config
+/// cannot bring it back. `active_rules` is the set of canonical rule ids that
+/// configuration left enabled; a valid rule outside it is not running.
+///
+/// Only recognized rule names outside the active set warn. Unknown names are
+/// left to `validate_inline_config_rules`, a bare `enable`/`enable-file` (no
+/// rules, meaning "all") targets no specific rule, and a `configure-file`
+/// boolean warns only for `true` (an enable), never `false` (a disable).
+pub fn validate_inline_enables_against_active_rules(
+    content: &str,
+    active_rules: &HashSet<String>,
+) -> Vec<InlineConfigWarning> {
+    use crate::config::is_valid_rule_name;
+
+    let mut warnings = Vec::new();
+
+    let flag = |warnings: &mut Vec<InlineConfigWarning>, name: &str, comment_type: &str, line: usize| {
+        // Skip unrecognized names (handled elsewhere) and rules that are active.
+        if !is_valid_rule_name(name) {
+            return;
+        }
+        let canonical = normalize_rule_name(name);
+        if active_rules.contains(&canonical) {
+            return;
+        }
+        warnings.push(InlineConfigWarning {
+            line_number: line,
+            rule_name: canonical,
+            comment_type: comment_type.to_string(),
+            suggestion: None,
+            problem: InlineConfigProblem::EnableHasNoEffect,
+        });
+    };
+
+    // configure-file may span lines and is scanned over the whole document.
+    for (offset, json_config) in scan_configure_file_comments(content) {
+        let Some(obj) = json_config.as_object() else {
+            continue;
+        };
+        let line = line_of_offset(content, offset);
+        for (rule_name, rule_config) in obj {
+            // Only a boolean `true` is an enable; `false` disables and an
+            // options object configures without enabling.
+            if rule_config.as_bool() == Some(true) {
+                flag(&mut warnings, rule_name, "configure-file", line);
+            }
+        }
+    }
+
+    // enable / enable-file are line-scoped; an empty rule list means "all".
+    for (idx, line) in content.lines().enumerate() {
+        for directive in parse_inline_directives(line) {
+            let comment_type = match directive.kind {
+                DirectiveKind::Enable => "enable",
+                DirectiveKind::EnableFile => "enable-file",
+                _ => continue,
+            };
+            for rule in &directive.rules {
+                flag(&mut warnings, rule, comment_type, idx + 1);
+            }
+        }
+    }
+
+    warnings.sort_by_key(|w| w.line_number);
     warnings
 }
 
@@ -1131,6 +1330,318 @@ This is a test line."#;
         let obj = json.as_object().unwrap();
         assert!(obj.contains_key("tables"), "Should have tables key");
         assert!(!obj.get("tables").unwrap().as_bool().unwrap());
+    }
+
+    // ── multi-line configure-file ────────────────────────────────────────
+    //
+    // markdownlint scans configure-file over the whole document rather than
+    // per line, so the comment may span lines. Every other directive stays
+    // line-scoped in both tools.
+
+    // ── inline enable of a config-disabled rule ──────────────────────────
+    //
+    // rumdl treats config-level rule selection as final: a rule configuration
+    // disabled is never instantiated, so an inline enable of it does nothing.
+    // These warnings make that silent no-op visible.
+
+    fn active_set(names: &[&str]) -> HashSet<String> {
+        names.iter().map(|s| (*s).to_string()).collect()
+    }
+
+    #[test]
+    fn test_inline_enable_of_inactive_rule_warns() {
+        let active = active_set(&["MD013", "MD022"]);
+        let content = "<!-- rumdl-enable MD012 -->\n";
+
+        let warnings = validate_inline_enables_against_active_rules(content, &active);
+
+        assert_eq!(warnings.len(), 1, "expected one no-effect warning: {warnings:?}");
+        assert_eq!(warnings[0].rule_name, "MD012");
+        assert_eq!(warnings[0].comment_type, "enable");
+        assert_eq!(warnings[0].problem, InlineConfigProblem::EnableHasNoEffect);
+        assert_eq!(warnings[0].line_number, 1);
+    }
+
+    #[test]
+    fn test_inline_enable_of_active_rule_does_not_warn() {
+        // The load-bearing false-positive guard: enabling a rule that IS active
+        // must stay silent.
+        let active = active_set(&["MD012", "MD013"]);
+        let content = "<!-- rumdl-enable MD012 -->\n";
+
+        let warnings = validate_inline_enables_against_active_rules(content, &active);
+
+        assert!(warnings.is_empty(), "active rule warned: {warnings:?}");
+    }
+
+    #[test]
+    fn test_bare_enable_all_does_not_warn() {
+        // `enable` with no rule list means "all"; it targets no specific rule.
+        let active = active_set(&["MD013"]);
+        for content in ["<!-- rumdl-enable -->\n", "<!-- rumdl-enable-file -->\n"] {
+            let warnings = validate_inline_enables_against_active_rules(content, &active);
+            assert!(warnings.is_empty(), "bare enable warned: {content} -> {warnings:?}");
+        }
+    }
+
+    #[test]
+    fn test_enable_file_and_alias_of_inactive_rule_warn() {
+        let active = active_set(&["MD013"]);
+        // enable-file, plus an alias for an inactive rule, both flagged.
+        let content = "<!-- rumdl-enable-file no-multiple-blanks -->\n";
+
+        let warnings = validate_inline_enables_against_active_rules(content, &active);
+
+        assert_eq!(warnings.len(), 1, "{warnings:?}");
+        assert_eq!(warnings[0].rule_name, "MD012", "alias must normalize to the id");
+        assert_eq!(warnings[0].comment_type, "enable-file");
+    }
+
+    #[test]
+    fn test_configure_file_true_for_inactive_rule_warns_but_false_does_not() {
+        let active = active_set(&["MD013"]);
+        let enable = r#"<!-- markdownlint-configure-file {"MD012": true} -->"#;
+        let disable = r#"<!-- markdownlint-configure-file {"MD012": false} -->"#;
+
+        let warn_true = validate_inline_enables_against_active_rules(enable, &active);
+        let warn_false = validate_inline_enables_against_active_rules(disable, &active);
+
+        assert_eq!(warn_true.len(), 1, "configure-file true should warn: {warn_true:?}");
+        assert_eq!(warn_true[0].rule_name, "MD012");
+        assert!(
+            warn_false.is_empty(),
+            "configure-file false is a disable, not an ignored enable: {warn_false:?}"
+        );
+    }
+
+    #[test]
+    fn test_unknown_rule_in_enable_does_not_warn_as_no_effect() {
+        // An unrecognized name is reported by validate_inline_config_rules; it
+        // must not also be flagged here (it is not a known-but-inactive rule).
+        let active = active_set(&["MD013"]);
+        let content = "<!-- rumdl-enable NotARule -->\n";
+
+        let warnings = validate_inline_enables_against_active_rules(content, &active);
+
+        assert!(warnings.is_empty(), "unknown rule double-warned: {warnings:?}");
+    }
+
+    #[test]
+    fn test_disable_directive_never_warns_as_no_effect() {
+        // Only enables are no-ops against a disabled rule; a disable of an
+        // inactive rule is meaningless but harmless and must stay silent.
+        let active = active_set(&["MD013"]);
+        let content = "<!-- rumdl-disable MD012 -->\n<!-- rumdl-disable-file MD012 -->\n";
+
+        let warnings = validate_inline_enables_against_active_rules(content, &active);
+
+        assert!(warnings.is_empty(), "disable warned: {warnings:?}");
+    }
+
+    // ── unknown option keys inside configure-file ────────────────────────
+    //
+    // A typo'd option key used to be dropped in silence, while the same typo
+    // in a config file was reported with a suggestion.
+
+    #[test]
+    fn test_unknown_option_key_in_configure_file_warns() {
+        let content = r#"<!-- markdownlint-configure-file {"MD013": {"line_lenght": 20}} -->"#;
+
+        let warnings = validate_inline_config_rules(content);
+
+        assert_eq!(warnings.len(), 1, "expected one option warning: {warnings:?}");
+        assert_eq!(warnings[0].rule_name, "MD013");
+        assert_eq!(
+            warnings[0].problem,
+            InlineConfigProblem::UnknownOption {
+                key: "line_lenght".to_string()
+            }
+        );
+        assert!(
+            warnings[0].suggestion.is_some(),
+            "a near-miss key should suggest the real one"
+        );
+        assert!(
+            warnings[0].format_message().contains("Unknown option for rule MD013"),
+            "message was: {}",
+            warnings[0].format_message()
+        );
+    }
+
+    #[test]
+    fn test_valid_option_keys_do_not_warn_in_either_case_style() {
+        // The false-positive guard that matters: both spellings are legal, and
+        // warning on them would be worse than the silence this replaces.
+        for content in [
+            r#"<!-- markdownlint-configure-file {"MD013": {"line_length": 20}} -->"#,
+            r#"<!-- markdownlint-configure-file {"MD013": {"line-length": 20}} -->"#,
+        ] {
+            let warnings = validate_inline_config_rules(content);
+            assert!(warnings.is_empty(), "valid key warned: {content} -> {warnings:?}");
+        }
+    }
+
+    #[test]
+    fn test_unknown_rule_does_not_also_warn_about_its_options() {
+        // The rule name is already reported; validating options of a rule that
+        // does not exist would just be noise.
+        let content = r#"<!-- markdownlint-configure-file {"nonexistent": {"whatever": 1}} -->"#;
+
+        let warnings = validate_inline_config_rules(content);
+
+        assert_eq!(
+            warnings.len(),
+            1,
+            "expected only the unknown-rule warning: {warnings:?}"
+        );
+        assert_eq!(warnings[0].rule_name, "nonexistent");
+        assert_eq!(warnings[0].problem, InlineConfigProblem::UnknownRule);
+    }
+
+    #[test]
+    fn test_boolean_rule_value_has_no_option_warnings() {
+        let content = r#"<!-- markdownlint-configure-file {"MD013": false} -->"#;
+
+        let warnings = validate_inline_config_rules(content);
+
+        assert!(warnings.is_empty(), "a boolean has no option keys: {warnings:?}");
+    }
+
+    #[test]
+    fn test_unknown_option_key_in_multiline_comment_reports_start_line() {
+        let content = "# Head\n\n<!-- markdownlint-configure-file\n{\n  \"MD013\": { \"line_lenght\": 20 }\n}\n-->\n";
+
+        let warnings = validate_inline_config_rules(content);
+
+        assert_eq!(warnings.len(), 1, "expected one option warning: {warnings:?}");
+        assert_eq!(warnings[0].line_number, 3, "must point at the comment's opening line");
+    }
+
+    #[test]
+    fn test_configure_file_spanning_multiple_lines_applies() {
+        let content = "<!-- markdownlint-configure-file\n{\n  \"MD013\": { \"line_length\": 20 }\n}\n-->\n\n# Head\n";
+
+        let inline_config = InlineConfig::from_content(content);
+        let config_override = inline_config.get_rule_config("MD013");
+
+        assert!(config_override.is_some(), "a multi-line configure-file must apply");
+        let obj = config_override.unwrap().as_object().unwrap();
+        assert_eq!(obj.get("line_length").unwrap().as_u64().unwrap(), 20);
+    }
+
+    #[test]
+    fn test_every_configure_file_comment_applies_not_just_the_first() {
+        // Scanning the whole document must not collapse to the first match:
+        // both comments configure a different rule and both must land.
+        let content = "<!-- markdownlint-configure-file { \"MD013\": { \"line_length\": 20 } } -->\n\n<!-- markdownlint-configure-file\n{\n  \"MD007\": { \"indent\": 4 }\n}\n-->\n\n# Head\n";
+
+        let inline_config = InlineConfig::from_content(content);
+
+        assert!(
+            inline_config.get_rule_config("MD013").is_some(),
+            "first (single-line) configure-file dropped"
+        );
+        assert!(
+            inline_config.get_rule_config("MD007").is_some(),
+            "second (multi-line) configure-file dropped"
+        );
+    }
+
+    #[test]
+    fn test_multiline_configure_file_in_code_block_is_ignored() {
+        // rumdl ignores inline config inside fences; markdownlint does not.
+        // Widening to a whole-document scan must not lose that.
+        let content = "# Head\n\n```markdown\n<!-- markdownlint-configure-file\n{\n  \"MD013\": { \"line_length\": 20 }\n}\n-->\n```\n";
+
+        let inline_config = InlineConfig::from_content(content);
+
+        assert!(
+            inline_config.get_rule_config("MD013").is_none(),
+            "configure-file inside a fenced code block must not apply"
+        );
+    }
+
+    #[test]
+    fn test_multiline_configure_file_bool_and_alias_still_honored() {
+        // The boolean and alias handling must survive the move off the
+        // per-line path, in the multi-line form too.
+        let content = "<!-- markdownlint-configure-file\n{\n  \"no-multiple-blanks\": false,\n  \"line-length\": { \"line_length\": 70 }\n}\n-->\n";
+
+        let inline_config = InlineConfig::from_content(content);
+
+        assert!(
+            inline_config.is_rule_disabled("MD012", 1),
+            "boolean alias key must disable the rule"
+        );
+        let obj = inline_config
+            .get_rule_config("MD013")
+            .expect("alias-keyed config should resolve to MD013")
+            .as_object()
+            .unwrap();
+        assert_eq!(obj.get("line_length").unwrap().as_u64().unwrap(), 70);
+    }
+
+    #[test]
+    fn test_multiline_configure_file_warning_reports_start_line() {
+        // An unknown rule inside a multi-line comment is reported at the line
+        // the comment opens on, not line 1 and not the closing line.
+        let content = "# Head\n\n<!-- markdownlint-configure-file\n{\n  \"nonexistent\": { \"foo\": true }\n}\n-->\n";
+
+        let warnings = validate_inline_config_rules(content);
+
+        assert_eq!(warnings.len(), 1, "expected one unknown-rule warning: {warnings:?}");
+        assert_eq!(warnings[0].rule_name, "nonexistent");
+        assert_eq!(warnings[0].comment_type, "configure-file");
+        assert_eq!(
+            warnings[0].line_number, 3,
+            "warning must point at the line the comment starts on"
+        );
+    }
+
+    #[test]
+    fn test_configure_file_bool_false_disables_rule() {
+        // markdownlint documents a boolean as a way to turn a rule off for the
+        // whole file, e.g. `{ "no-trailing-spaces": false }`.
+        let content = r#"<!-- markdownlint-configure-file {"MD012": false} -->"#;
+
+        let inline_config = InlineConfig::from_content(content);
+
+        assert!(inline_config.is_rule_disabled("MD012", 1));
+        assert!(
+            inline_config.get_rule_config("MD012").is_none(),
+            "a boolean should not be stored as rule options"
+        );
+    }
+
+    #[test]
+    fn test_configure_file_bool_false_disables_rule_by_alias() {
+        let content = r#"<!-- markdownlint-configure-file {"no-multiple-blanks": false} -->"#;
+
+        let inline_config = InlineConfig::from_content(content);
+
+        assert!(inline_config.is_rule_disabled("MD012", 1));
+    }
+
+    #[test]
+    fn test_configure_file_bool_true_leaves_rule_enabled() {
+        let content = r#"<!-- markdownlint-configure-file {"MD012": true} -->"#;
+
+        let inline_config = InlineConfig::from_content(content);
+
+        assert!(!inline_config.is_rule_disabled("MD012", 1));
+    }
+
+    #[test]
+    fn test_get_rule_config_from_configure_file_alias_key() {
+        // A config written with the rule's alias must be reachable by its id.
+        let content = r#"<!-- markdownlint-configure-file {"line-length": {"line_length": 50}} -->"#;
+
+        let inline_config = InlineConfig::from_content(content);
+        let config_override = inline_config.get_rule_config("MD013");
+
+        assert!(config_override.is_some(), "alias-keyed config should resolve to MD013");
+        let obj = config_override.unwrap().as_object().unwrap();
+        assert_eq!(obj.get("line_length").unwrap().as_u64().unwrap(), 50);
     }
 
     // ── parse_disable_comment / parse_enable_comment edge cases ──────────

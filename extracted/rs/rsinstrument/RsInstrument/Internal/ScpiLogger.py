@@ -24,7 +24,7 @@ class LoggingMode(Enum):
 class LogInfoReplacer:
     """Replacer, that takes the SCPI Logger Log Info and customizes its value."""
 
-    def __init__(self, source: 'LogInfoReplacer' = None):
+    def __init__(self, source: 'LogInfoReplacer | None' = None):
         """Create the new LogInfoReplacer either with empty replacer dictionaries,
         or the ones from another LogInfoReplacer."""
         if source is None:
@@ -99,8 +99,8 @@ class LogEntry:
 
     def __init__(self, start_time: datetime | None | float, end_time: datetime | None | float, device_name: str, log_string_info: str, log_string: str, cmd: str | None, add_new_line: bool, error: bool, raw: bool, binary: bool):
         # Public properties
-        self.start_time: datetime = start_time
-        self.end_time: datetime = end_time
+        self.start_time: datetime | float | None = start_time
+        self.end_time: datetime | float | None = end_time
 
         self._device_name: str = device_name
         self._log_string_info: str = log_string_info
@@ -139,7 +139,7 @@ class LogEntry:
         """Create the entry as info entry."""
         return cls(start_time=start_time, end_time=end_time, device_name=device_name, log_string_info=log_string_info, log_string=log_string, cmd=cmd, add_new_line=add_new_line, error=False, raw=False, binary=True)
 
-    def set_timestamp_reference_time(self, ref_time: datetime):
+    def set_timestamp_reference_time(self, ref_time: datetime | None):
         """Sets reference time for the start time.
         None (default value) means the start time is absolute."""
         self._timestamp_reference_time = ref_time
@@ -542,7 +542,7 @@ class ScpiLogger:
         """Sets UDP logging port. Default value is 49200."""
         self._udp_port = value
 
-    def set_relative_timestamp(self, timestamp: datetime) -> None:
+    def set_relative_timestamp(self, timestamp: datetime | float | int) -> None:
         """If set, the further timestamps will be relative to the entered time."""
         self._timestamp_reference_time_local = convert_ts_to_datetime(timestamp)
 
@@ -598,8 +598,9 @@ class ScpiLogger:
         if self._global_mode:
             if GlobalData.get_logging_relative_time_of_first_entry():
                 if reference_time is not None:
-                    self.set_relative_timestamp(reference_time)
-                    GlobalData.set_logging_relative_timestamp(reference_time)
+                    t = convert_ts_to_datetime(reference_time)
+                    self.set_relative_timestamp(t)
+                    GlobalData.set_logging_relative_timestamp(t)
                     GlobalData.set_logging_relative_time_of_first_entry(False)
         else:
             if self._time_offset_zero_on_first_entry:
@@ -759,7 +760,7 @@ class ScpiLogger:
             log_string = log_string.replace(log_string_info, '')
         return log_string
 
-    def _compose_log_entry(self, start_time: datetime | float, end_time: datetime | float, log_string_info: str, log_string: str, cmd: str | None, max_log_string_len: int = None) -> LogEntry:
+    def _compose_log_entry(self, start_time: datetime | float | None, end_time: datetime | float | None, log_string_info: str, log_string: str, cmd: str | None, max_log_string_len: int | None = None) -> LogEntry:
         """Composes the log string with the format defined in the self._format_string"""
         log_string_info = self._adjust_log_strings(log_string_info)
         log_string = self._adjust_log_strings(log_string)
@@ -772,7 +773,7 @@ class ScpiLogger:
         entry = LogEntry(start_time, end_time, self.device_name, log_string_info, log_string, cmd, add_new_line=False, error=False, raw=False, binary=False)
         return entry
 
-    def _compose_bin_log_entry(self, start_time: datetime | float, end_time: datetime | float, log_string_info: str, cmd: str | None, log_data: bytes) -> LogEntry:
+    def _compose_bin_log_entry(self, start_time: datetime | float | None, end_time: datetime | float | None, log_string_info: str, cmd: str | None, log_data: bytes) -> LogEntry:
         """Composes the binary log string with the format defined in the self._format_string"""
         log_string_info = self._adjust_log_strings(log_string_info)
         log_string_info = escape_nonprintable_chars(log_string_info, self.encoding)

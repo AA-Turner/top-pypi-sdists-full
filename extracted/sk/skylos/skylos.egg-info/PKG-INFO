@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: skylos
-Version: 4.29.0
+Version: 4.30.0
 Summary: Open-source, local-first static analysis and PR gates for Python, TypeScript/JavaScript, Go, Java, Kotlin, PHP, Rust, Dart, C#, and Shell. Finds dead code, security issues, secrets, quality regressions, and AI-code mistakes.
 Author-email: Aaron Oh <aaronoh2015@gmail.com>
 License-Expression: Apache-2.0
@@ -129,6 +129,20 @@ Verify a changed file or range before an agent hands it to review:
 skylos verify . --file src/app.py --range 40:75 --project-context
 ```
 
+`skylos verify` schema version 2 returns `pass`, `fail`, or `incomplete`.
+`incomplete` means a requested proof could not be established, such as a
+third-party TS/JS import, computed namespace member, unsupported language-local
+API check, or parser surface that Skylos could not prove; it exits `2` unless
+`--no-fail` is set. The `coverage` object lists detected languages, expected
+checks, language support, missing checks, completed/skipped checks, checked
+references, and deterministic skip reasons.
+
+Deterministic local/workspace API verification currently covers Python,
+TypeScript/JavaScript, Go, and Java without executing target code. PHP, Rust,
+Dart, C#, Kotlin, and Shell retain their existing static-analysis coverage,
+but their local API proof is reported as unsupported and therefore incomplete.
+See [AI Code Verification Coverage](./docs/ai-code-verification.md).
+
 Create a local AI hallucination contract for repo-specific generated-code
 truth. `skylos verify` auto-discovers `.skylos/ai-contract.yml`:
 
@@ -136,6 +150,13 @@ truth. `skylos verify` auto-discovers `.skylos/ai-contract.yml`:
 skylos contract init
 skylos contract inspect
 skylos verify .
+```
+
+Test a running agent against deterministic response and tool-use scenarios:
+
+```bash
+skylos agent init
+skylos agent test --allow-contract-endpoint
 ```
 
 Create a project config with thresholds, ignores, template hooks, and vibe
@@ -187,6 +208,7 @@ Need more commands? Read the [CLI Reference](https://docs.skylos.dev/cli-referen
 | Security agent deep scan | `skylos agent security-deep .` | Three-stage security workflow with threat-model context, static threat traces, discovery/validation, and remediation handoff | [AI features](https://docs.skylos.dev/ai-features) |
 | AI-assisted review | `skylos agent scan .` | Static analysis plus optional LLM review and fix suggestions | [AI features](https://docs.skylos.dev/ai-features) |
 | Agent harness replay | `skylos agent replay .skylos/runs/<run-id>` | Validates and summarizes saved agent verification phases, tool calls, decisions, and budgets | [Agent harness artifacts](#agent-harness-artifacts) |
+| Runtime agent behavior test | `skylos agent init && skylos agent test --allow-contract-endpoint` | Checks final responses, tool selection, explicit refusals, and source IDs against a versioned contract | [Agent Behavior Testing](./docs/agent-behavior-testing.md) |
 | Verification-backed remediation | `skylos agent scan . --fix` | Re-scans fixed security findings and records proof-test metadata for supported fixes | [AI features](https://docs.skylos.dev/ai-features) |
 | MCP agent verification | `verify_change` MCP tool | Lets Claude, Cursor, and other MCP clients verify an edited file/range with the same schema as `skylos verify` | [MCP server](https://docs.skylos.dev/mcp-server) |
 | LLM integration inventory | `skylos discover .` | Maps every LLM call, agent tool, prompt site, and input source in the codebase | [Agent verification](./docs/agent-verification.md) |
@@ -257,6 +279,51 @@ Static pre-deployment verification complements runtime controls (gateways,
 policy engines, human approval flows); it does not replace them. Full guide:
 [docs/agent-verification.md](./docs/agent-verification.md).
 
+## Test Running Agent Behavior
+
+Skylos separates generated-code truth, static agent guardrails, and observed
+runtime behavior:
+
+| Command | Verification question |
+|:---|:---|
+| `skylos verify` | Did the agent generate valid, non-hallucinated code? |
+| `skylos defend` | Does the agent implementation contain the required guardrails? |
+| `skylos agent test` | Did the running agent behave according to its contract? |
+
+Create `.skylos/agent-test.yml`, then test a live OpenAI-compatible endpoint:
+
+```bash
+skylos agent init
+skylos agent test --allow-contract-endpoint
+```
+
+Or evaluate captured evidence without a network call:
+
+```bash
+skylos agent test --observations agent-observations.json
+skylos agent test --observations agent-observations.json \
+  --format json --output agent-results.json
+```
+
+Version 1 deterministically checks exact response substrings, required,
+allowed, and forbidden tool calls, tool arguments and sequence, maximum call
+count, explicit refusals, and explicit source IDs. Missing typed evidence is
+`incomplete`, never `pass`; exit codes are `0` pass, `1` violation, and `2`
+incomplete/invalid. Tool selection and final-answer source-ID checks are separate
+one-turn scenarios: Skylos records local replayable evidence but never executes
+tools returned by the target agent. Offline observations are marked as
+unverified fixtures rather than runtime proof.
+
+For an authenticated remote endpoint, keep the destination and secret choice
+in the trusted CLI invocation:
+
+```bash
+skylos agent test --endpoint https://agent.example.com/v1/chat/completions \
+  --allow-remote --auth-env MY_AGENT_API_KEY
+```
+
+Full guide: [docs/agent-behavior-testing.md](./docs/agent-behavior-testing.md).
+
 ## How Skylos Fits
 
 Skylos is not a replacement for every specialized scanner. It is a local-first
@@ -292,8 +359,8 @@ repo and PR checker that puts several common review checks behind one CLI.
 
 ## Agent Harness Artifacts
 
-`skylos agent verify .` records replayable verification artifacts under
-`.skylos/runs/<run-id>` and prints the run directory in table output. JSON
+`skylos agent verify .` and `skylos agent test` record replayable artifacts
+under `.skylos/runs/<run-id>` and print the run directory in table output. JSON
 output includes the same harness summary under the `harness` key.
 
 Use `skylos agent replay .skylos/runs/<run-id>` to validate and inspect a saved
@@ -301,6 +368,8 @@ run without making LLM calls. Add `--format json` when another agent or CI job
 needs machine-readable status. A valid replay exits `0`; an invalid or corrupt
 artifact set exits `1` with issue codes. Replay output includes
 `schema_version` so CI and agents can detect artifact-contract changes.
+Replay checks internal consistency and corruption; artifacts are not signed and
+are not proof against an actor that can rewrite the entire run directory.
 
 Each run directory contains:
 
@@ -308,6 +377,8 @@ Each run directory contains:
 - `state.json`: full observable state, including phases, tool calls, decisions,
   and budget usage.
 - `summary.json`: compact status, counts, budget, and artifact paths.
+- `behavior-results.json`: normalized runtime assertions, provenance, coverage,
+  and a digest-bound evidence report for `skylos agent test` runs.
 
 The current harness state is observable and replay-validated. It is not yet a
 resume mechanism for continuing interrupted verification runs.
@@ -396,17 +467,18 @@ or `--include-folder` to override an excluded folder.
 
 ## Language Support
 
-| Language | Dead Code | Security | Quality | Notes |
-|:---|:---:|:---:|:---:|:---|
-| Python | Yes | Yes | Yes | strongest coverage; framework-aware static analysis and optional tracing |
-| TypeScript / JavaScript | Yes | Yes | Yes | Tree-sitter parsing, package graph reachability, framework conventions |
-| Java | Yes | Yes | Yes | Tree-sitter parsing and structured security-flow analysis |
-| Go | Yes | Partial | Partial | dead-code and selected security benchmark coverage |
-| PHP | Yes | Yes | Partial | PHP parser coverage plus taint-style security sinks and sources |
-| Rust | Yes | Yes | Partial | Rust parser coverage plus security sink/source checks |
-| Dart | Yes | Yes | Partial | Dart parser coverage plus selected security sinks and sources |
-| C# | Yes | Yes | Partial | C# symbol coverage plus selected ASP.NET, process, SQL, HTTP, and file sinks |
-| Shell | No | Yes | Partial | shell-script security checks for command injection, SSRF, and path traversal |
+| Language | Dead Code | Security | Quality | Local API Proof (`verify`) | Notes |
+|:---|:---:|:---:|:---:|:---:|:---|
+| Python | Yes | Yes | Yes | Supported | strongest coverage; framework-aware static analysis and optional tracing |
+| TypeScript / JavaScript | Yes | Yes | Yes | Supported | Tree-sitter parsing, package graph reachability, framework conventions |
+| Java | Yes | Yes | Yes | Supported | Tree-sitter parsing, structured security-flow analysis, conservative static-member proof |
+| Go | Yes | Partial | Partial | Supported | native engine status remains separate from deterministic workspace API proof |
+| PHP | Yes | Yes | Partial | Unsupported | PHP parser coverage plus taint-style security sinks and sources |
+| Rust | Yes | Yes | Partial | Unsupported | Rust parser coverage plus security sink/source checks |
+| Dart | Yes | Yes | Partial | Unsupported | Dart parser coverage plus selected security sinks and sources |
+| C# | Yes | Yes | Partial | Unsupported | C# symbol coverage plus selected ASP.NET, process, SQL, HTTP, and file sinks |
+| Kotlin | Yes | Partial | Partial | Unsupported | Kotlin symbol extraction with conservative static-analysis coverage |
+| Shell | No | Yes | Partial | Unsupported | shell-script security checks for command injection, SSRF, and path traversal |
 
 See [Rules Reference](https://docs.skylos.dev/rules-reference) for rule families
 and scanner scope.

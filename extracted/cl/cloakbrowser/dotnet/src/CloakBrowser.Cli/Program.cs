@@ -12,7 +12,7 @@ using CloakBrowser;
 //   cloakbrowser clear-cache  # Remove cached binaries
 
 const string UpgradeHint =
-    "→ Try the latest Pro binary (Chromium 150) free for 7 days: https://cloakbrowser.dev";
+    "→ Get the latest Pro binary (Chromium 150) + newest patches: https://cloakbrowser.dev";
 
 // Route CloakBrowser logs to stderr at Info level (clean output).
 CloakLog.MinLevel = CloakLogLevel.Info;

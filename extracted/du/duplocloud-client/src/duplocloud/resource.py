@@ -89,6 +89,38 @@ class DuploResource():
     else:
       raise DuploStillWaiting("Timed out waiting")
 
+  def retry_transient(self, fn: callable, attempts: int=3, base_delay: int=2):
+    """Call ``fn`` and retry only on transient errors.
+
+    Retries up to ``attempts`` times with linear backoff for transient
+    failures — gateway codes (502/503/504) and ``DuploConnectionError``.
+    Non-transient ``DuploError``s propagate immediately (no retry), and
+    the final transient failure is re-raised after the last attempt so
+    the caller can record it.
+
+    Args:
+      fn: Zero-arg callable performing the request.
+      attempts: Total number of tries, including the first.
+      base_delay: Seconds multiplied by the attempt number for backoff.
+
+    Returns:
+      Whatever ``fn`` returns on the first successful attempt.
+    """
+    transient_codes = {502, 503, 504}
+    for attempt in range(1, attempts + 1):
+      try:
+        return fn()
+      except DuploError as e:
+        is_transient = (
+          isinstance(e, DuploConnectionError) or e.code in transient_codes
+        )
+        if not is_transient or attempt == attempts:
+          raise
+        self.duplo.logger.warning(
+          f"Transient error (attempt {attempt}/{attempts}), retrying: {e}"
+        )
+        time.sleep(base_delay * attempt)
+
 class DuploResourceV2(DuploResource):
 
   def __init__(self, duplo: DuploCtl, slug: str = None, prefixed: bool = False):
@@ -111,7 +143,7 @@ class DuploResourceV2(DuploResource):
     
     Usage: cli usage
       ```sh
-      duploctl {{kind | lower}} list
+      duploctl {{command}} list
       ```
 
     Returns:
@@ -126,7 +158,7 @@ class DuploResourceV2(DuploResource):
 
     Usage: cli usage
       ```sh
-      duploctl {{kind | lower}} find <name>
+      duploctl {{command}} find <name>
       ```
     
     Args:
@@ -153,7 +185,7 @@ class DuploResourceV2(DuploResource):
       self.find(name)
       return self.update(name, body)
     except DuploNotFound:
-      return self.create(body)
+      return self.create(body=body)
   
 
 class DuploResourceV3(DuploResource):
@@ -182,7 +214,7 @@ class DuploResourceV3(DuploResource):
 
     Usage: cli usage
       ```sh
-      duploctl {{kind | lower}} list
+      duploctl {{command}} list
       ```
     
     Returns:
@@ -198,7 +230,7 @@ class DuploResourceV3(DuploResource):
 
     Usage: cli usage
       ```sh
-      duploctl {{kind | lower}} find <name>
+      duploctl {{command}} find <name>
       ```
 
     Args:
@@ -221,7 +253,7 @@ class DuploResourceV3(DuploResource):
 
     Usage: cli usage
       ```sh
-      duploctl {{kind | lower}} delete <name>
+      duploctl {{command}} delete <name>
       ```
 
     Args:
@@ -247,7 +279,7 @@ class DuploResourceV3(DuploResource):
 
     Usage: CLI Usage
       ```sh
-      duploctl {{kind | lower}} create -f '{{kind | lower}}.yaml'
+      duploctl {{command}} create -f '{{kind | lower}}.yaml'
       ```
       Contents of the `{{kind|lower}}.yaml` file
       ```yaml
@@ -258,7 +290,7 @@ class DuploResourceV3(DuploResource):
       ```sh
       echo \"\"\"
       --8<-- "src/tests/data/{{kind|lower}}.yaml"
-      \"\"\" | duploctl {{kind | lower}} create -f -
+      \"\"\" | duploctl {{command}} create -f -
       ```
 
     Args:
@@ -321,7 +353,7 @@ class DuploResourceV3(DuploResource):
 
     Usage: CLI Usage
       ```sh
-      duploctl {{kind | lower}} apply -f '{{kind | lower}}.yaml'
+      duploctl {{command}} apply -f '{{kind | lower}}.yaml'
       ```
       Contents of the `{{kind|lower}}.yaml` file
       ```yaml
@@ -341,6 +373,6 @@ class DuploResourceV3(DuploResource):
       self.find(name)
       return self.update(name=name, body=body, patches=patches)
     except DuploNotFound:
-      return self.create(body)
+      return self.create(body=body)
 
 

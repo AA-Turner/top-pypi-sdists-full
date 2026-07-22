@@ -11,13 +11,9 @@ from dify_plugin.entities.datasource import (
 )
 from dify_plugin.entities.model import EmbeddingInputType, ModelType
 from dify_plugin.entities.model.message import (
-    AssistantPromptMessage,
     PromptMessage,
-    PromptMessageRole,
     PromptMessageTool,
-    SystemPromptMessage,
-    ToolPromptMessage,
-    UserPromptMessage,
+    ensure_prompt_message,
 )
 from dify_plugin.entities.model.text_embedding import MultiModalContent
 from dify_plugin.entities.provider_config import CredentialType
@@ -107,6 +103,7 @@ PluginAccessAction = (
     | ToolActions
     | ModelActions
     | EndpointActions
+    | OAuthActions
     | DynamicParameterActions
     | DatasourceActions
 )
@@ -171,22 +168,7 @@ class PromptMessageMixin(BaseModel):
             msg = "prompt_messages must be a list"
             raise TypeError(msg)
 
-        for i in range(len(v)):
-            if isinstance(v[i], PromptMessage):
-                continue
-
-            if v[i]["role"] == PromptMessageRole.USER.value:
-                v[i] = UserPromptMessage(**v[i])
-            elif v[i]["role"] == PromptMessageRole.ASSISTANT.value:
-                v[i] = AssistantPromptMessage(**v[i])
-            elif v[i]["role"] == PromptMessageRole.SYSTEM.value:
-                v[i] = SystemPromptMessage(**v[i])
-            elif v[i]["role"] == PromptMessageRole.TOOL.value:
-                v[i] = ToolPromptMessage(**v[i])
-            else:
-                v[i] = PromptMessage(**v[i])
-
-        return v
+        return [ensure_prompt_message(item) for item in v]
 
 
 class ModelInvokeLLMRequest(PluginAccessModelRequest, PromptMessageMixin):
@@ -222,6 +204,7 @@ class ModelInvokeTextEmbeddingRequest(PluginAccessModelRequest):
     action: ModelActions = ModelActions.InvokeTextEmbedding
 
     texts: list[str]
+    input_type: EmbeddingInputType
 
 
 class ModelInvokeMultimodalEmbeddingRequest(PluginAccessModelRequest):

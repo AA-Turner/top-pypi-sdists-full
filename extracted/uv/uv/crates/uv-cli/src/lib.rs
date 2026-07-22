@@ -6535,8 +6535,7 @@ pub enum PythonCommand {
 
     /// Upgrade installed Python versions.
     ///
-    /// Upgrades versions to the latest supported patch release. Requires the `python-upgrade`
-    /// preview feature.
+    /// Upgrades versions to the latest supported patch release.
     ///
     /// A target Python minor version to upgrade may be provided, e.g., `3.13`. Multiple versions
     /// may be provided to perform more than one upgrade.
@@ -8366,6 +8365,14 @@ pub struct MetadataArgs {
     /// that provide them. To do this, the venv will be synced in inexact mode.
     #[arg(long)]
     pub sync: bool,
+
+    /// Sync dependencies to the active virtual environment.
+    ///
+    /// Instead of creating or updating the virtual environment for the project or script, the
+    /// active virtual environment will be preferred, if the `VIRTUAL_ENV` environment variable is
+    /// set.
+    #[arg(long)]
+    pub active: bool,
 
     /// The Python interpreter to use during resolution.
     ///

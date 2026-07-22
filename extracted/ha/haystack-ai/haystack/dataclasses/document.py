@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import hashlib
+import json
 from dataclasses import asdict, dataclass, field, fields
 from typing import Any
 
@@ -12,32 +13,15 @@ from haystack.dataclasses.byte_stream import ByteStream
 from haystack.dataclasses.sparse_embedding import SparseEmbedding
 from haystack.utils.dataclasses import _warn_on_inplace_mutation
 
-LEGACY_FIELDS = ["content_type", "id_hash_keys", "dataframe"]
+_LEGACY_FIELDS = ["content_type", "id_hash_keys", "dataframe"]
 
 
-class _BackwardCompatible(type):
-    """
-    Metaclass that handles Document backward compatibility.
-    """
-
+class _RemoveLegacyFields(type):
     def __call__(cls, *args: Any, **kwargs: Any) -> Any:
         """
-        Called before Document.__init__, handles legacy fields.
-
-        Embedding was stored as NumPy arrays in 1.x, so we convert it to a list of floats.
-        Other legacy fields are removed.
+        Called before Document.__init__, removes the legacy fields.
         """
-        ### Conversion from 1.x Document ###
-        content = kwargs.get("content")
-        if content and not isinstance(content, str):
-            raise ValueError("The `content` field must be a string or None.")
-
-        # Embedding were stored as NumPy arrays in 1.x, so we convert it to the new type
-        if isinstance(embedding := kwargs.get("embedding"), ndarray):
-            kwargs["embedding"] = embedding.tolist()
-
-        # Remove legacy fields
-        for field_name in LEGACY_FIELDS:
+        for field_name in _LEGACY_FIELDS:
             kwargs.pop(field_name, None)
 
         return super().__call__(*args, **kwargs)
@@ -45,7 +29,7 @@ class _BackwardCompatible(type):
 
 @_warn_on_inplace_mutation
 @dataclass
-class Document(metaclass=_BackwardCompatible):  # noqa: PLW1641
+class Document(metaclass=_RemoveLegacyFields):  # noqa: PLW1641
     """
     Base data class containing some data to be queried.
 
@@ -68,6 +52,20 @@ class Document(metaclass=_BackwardCompatible):  # noqa: PLW1641
     score: float | None = field(default=None)
     embedding: list[float] | None = field(default=None)
     sparse_embedding: SparseEmbedding | None = field(default=None)
+
+    def __post_init__(self) -> None:
+        """
+        Checks content type, converts embedding from 1.x type and generates the ID based on the init parameters.
+        """
+        if self.content is not None and not isinstance(self.content, str):
+            raise ValueError("The `content` field must be a string or None.")
+
+        # Embeddings were stored as NumPy arrays in 1.x, so we convert them to the new type
+        if isinstance(self.embedding, ndarray):
+            self.embedding = self.embedding.tolist()
+
+        # Generate an id only if not explicitly set
+        self.id = self.id or self._create_id()
 
     def __repr__(self) -> str:
         fields = []
@@ -98,13 +96,6 @@ class Document(metaclass=_BackwardCompatible):  # noqa: PLW1641
             return False
         return self.to_dict() == other.to_dict()
 
-    def __post_init__(self) -> None:
-        """
-        Generate the ID based on the init parameters.
-        """
-        # Generate an id only if not explicitly set
-        self.id = self.id or self._create_id()
-
     def _create_id(self) -> str:
         """
         Creates a hash of the given content that acts as the document's ID.
@@ -113,7 +104,8 @@ class Document(metaclass=_BackwardCompatible):  # noqa: PLW1641
         dataframe = None  # this allows the ID creation to remain unchanged even if the dataframe field has been removed
         blob = self.blob.data if self.blob is not None else None
         mime_type = self.blob.mime_type if self.blob is not None else None
-        meta = self.meta or {}
+        # Sort keys so meta order doesn't affect the ID. Keep "{}" for empty meta so existing IDs stay stable.
+        meta = json.dumps(self.meta, sort_keys=True, default=str) if self.meta else "{}"
         embedding = self.embedding if self.embedding is not None else None
         sparse_embedding = self.sparse_embedding.to_dict() if self.sparse_embedding is not None else ""
         data = f"{text}{dataframe}{blob!r}{mime_type}{meta}{embedding}{sparse_embedding}"
@@ -160,10 +152,10 @@ class Document(metaclass=_BackwardCompatible):  # noqa: PLW1641
         # ValueError later if this is the case.
         meta = data.pop("meta", {})
         # Unflatten metadata if it was flattened. We assume any keyword argument that's not
-        # a document field is a metadata key. We treat legacy fields as document fields
-        # for backward compatibility.
+        # a document field is a metadata key. We treat legacy fields as document fields, so that
+        # `_RemoveLegacyFields` drops them instead of them ending up in `meta`.
         flatten_meta = {}
-        document_fields = LEGACY_FIELDS + [f.name for f in fields(cls)]
+        document_fields = _LEGACY_FIELDS + [f.name for f in fields(cls)]
         for key in list(data.keys()):
             if key not in document_fields:
                 flatten_meta[key] = data.pop(key)

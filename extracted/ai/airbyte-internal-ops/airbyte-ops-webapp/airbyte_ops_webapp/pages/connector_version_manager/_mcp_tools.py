@@ -32,6 +32,8 @@ from airbyte_ops_webapp.pages.connector_version_manager._helpers import (
     fallback_current_state,
     get_adapter,
     json_text,
+    org_connector_pin_rows,
+    org_pin_version_rows,
     pinned_version_rows,
     progressive_rollout_rows,
     recent_release_rows,
@@ -41,6 +43,7 @@ from airbyte_ops_webapp.pages.connector_version_manager._helpers import (
     scope_context_needed_message,
     target_ids,
     version_rows_or_empty,
+    yanked_version_rows,
 )
 from airbyte_ops_webapp.pages.connector_version_manager._state import (
     ApplyOverrideResult,
@@ -72,7 +75,7 @@ connector_version_manager_app = FastMCPApp("Connector Version Manager")
 # Number of pins fetched per "Load More" click.
 _PIN_BATCH_SIZE = 100
 
-# Registry yank workflow dispatch target (mirrors `mcp/registry.py`).
+# Registry yank workflow dispatch target (mirrors `mcp/connector_registry.py`).
 _YANK_WORKFLOW_REPO_OWNER = "airbytehq"
 _YANK_WORKFLOW_REPO_NAME = "airbyte"
 _YANK_WORKFLOW_DEFAULT_BRANCH = "master"
@@ -179,6 +182,29 @@ def load_active_rollouts_tab() -> TabRowsResult:
 def load_pinned_versions_tab(origin_filter: str = "all") -> TabRowsResult:
     """Load Pinned Versions tab data, optionally filtered by pin origin type."""
     return TabRowsResult(rows=pinned_version_rows(origin_filter=origin_filter))
+
+
+@connector_version_manager_app.tool()
+def load_yanked_versions_tab() -> TabRowsResult:
+    """Load Yanked Versions tab data on demand (lazy)."""
+    return TabRowsResult(rows=yanked_version_rows())
+
+
+@connector_version_manager_app.tool()
+def load_org_pin_versions(organization_id: str = "") -> TabRowsResult:
+    """Load the versions pinned under an organization (aggregate, all scopes)."""
+    return TabRowsResult(rows=org_pin_version_rows(organization_id))
+
+
+@connector_version_manager_app.tool()
+def load_org_pins(
+    organization_id: str = "",
+    pinned_version_id: str = "",
+) -> TabRowsResult:
+    """Load the individual pins for a version under an organization."""
+    return TabRowsResult(
+        rows=org_connector_pin_rows(organization_id, pinned_version_id),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -653,6 +679,12 @@ def load_connector_version_context(
 
     adapter = get_adapter(auth_bearer_token or None)
 
+    yank_fields = _selected_version_yank_fields(
+        adapter,
+        connector_name=context.connector.name,
+        version=effective_version,
+    )
+
     # Load pins if we resolved a version_id
     version_pins: list[dict[str, Any]] = []
     version_pins_total = 0
@@ -685,7 +717,48 @@ def load_connector_version_context(
         version_pins_offset=version_pins_offset,
         selected_version_id=selected_version_id,
         selected_version_tag=effective_version,
+        **yank_fields,
     )
+
+
+def _selected_version_yank_fields(
+    adapter: OpsMcpAdapter,
+    *,
+    connector_name: str,
+    version: str,
+) -> dict[str, Any]:
+    """Resolve the selected version's yank-marker fields for the status panel.
+
+    Returns a mapping matching the `selected_version_yank_*` fields of
+    `ConnectorVersionContextResult`. When the version has no active
+    `version-yank.yml` marker (or the registry read fails), the fields signal a
+    non-yanked version so the panel degrades gracefully rather than breaking the
+    whole context load.
+    """
+    not_yanked: dict[str, Any] = {
+        "selected_version_yanked": False,
+        "selected_version_yank_yanked_at": "",
+        "selected_version_yank_yanked_at_display": "",
+        "selected_version_yank_reason": "",
+        "selected_version_yank_approval_url": "",
+        "selected_version_yank_raw": "",
+    }
+    if not connector_name or not version:
+        return not_yanked
+    try:
+        marker = adapter.get_yank_marker(connector_name, version)
+    except Exception:
+        return not_yanked
+    if marker is None:
+        return not_yanked
+    return {
+        "selected_version_yanked": True,
+        "selected_version_yank_yanked_at": marker.yanked_at,
+        "selected_version_yank_yanked_at_display": _fmt_date_long(marker.yanked_at),
+        "selected_version_yank_reason": marker.reason,
+        "selected_version_yank_approval_url": marker.approval_url,
+        "selected_version_yank_raw": marker.raw,
+    }
 
 
 @connector_version_manager_app.tool()
@@ -1059,10 +1132,62 @@ def yank_connector_version(
     guard used by the CLI/MCP path, which does not apply to this
     human-operated webapp (see `CONTRIBUTING.md`).
     """
+    marker_reason = reason
+    if reference_url:
+        marker_reason = (
+            f"{reason}\n\nReference: {reference_url}"
+            if reason
+            else f"Reference: {reference_url}"
+        )
+    return _dispatch_yank_workflow(
+        connector_name=connector_name,
+        version=version,
+        unyank=False,
+        reason=marker_reason,
+    )
+
+
+@connector_version_manager_app.tool()
+def unyank_connector_version(
+    connector_name: str,
+    version: str,
+) -> RolloutActionResult:
+    """Unyank (restore) a previously yanked connector version in the registry.
+
+    Dispatches the same `version-yank-command.yml` workflow as
+    `yank_connector_version`, but with `unyank: true`. That renames the active
+    `version-yank.yml` marker to a `version-unyanked-<date>.yml` audit marker in
+    `coral:prod` and recompiles the registry so the version rejoins
+    latest-version resolution. Intended to reverse an earlier yank.
+    """
+    return _dispatch_yank_workflow(
+        connector_name=connector_name,
+        version=version,
+        unyank=True,
+    )
+
+
+def _dispatch_yank_workflow(
+    *,
+    connector_name: str,
+    version: str,
+    unyank: bool,
+    reason: str = "",
+) -> RolloutActionResult:
+    """Dispatch the registry `version-yank-command.yml` workflow.
+
+    Shared by `yank_connector_version` and `unyank_connector_version`; `unyank`
+    selects the direction and `reason` (yank only) is recorded in the marker.
+    The optional reference URL is deliberately **not** passed as the workflow's
+    `approval-url` input: that input is the unsupervised-agent HITL approval
+    guard used by the CLI/MCP path, which does not apply to this human-operated
+    webapp (see `CONTRIBUTING.md`).
+    """
+    action = "unyank" if unyank else "yank"
     if not connector_name or not version:
         return RolloutActionResult(
             rollout_action_result=(
-                "A connector and version must be selected before yanking."
+                f"A connector and version must be selected before {action}ing."
             ),
             rollout_action_success=False,
         )
@@ -1070,7 +1195,7 @@ def yank_connector_version(
     if mock_only_enabled():
         return RolloutActionResult(
             rollout_action_result=(
-                f"[Mock] Would yank {connector_name}@{version} on {YANK_STORE}."
+                f"[Mock] Would {action} {connector_name}@{version} on {YANK_STORE}."
             ),
             rollout_action_success=True,
         )
@@ -1079,7 +1204,7 @@ def yank_connector_version(
         token = resolve_ci_trigger_github_token()
     except ValueError as exc:
         return RolloutActionResult(
-            rollout_action_result=f"Failed to yank version: {exc}",
+            rollout_action_result=f"Failed to {action} version: {exc}",
             rollout_action_success=False,
         )
 
@@ -1087,17 +1212,10 @@ def yank_connector_version(
         "connector-name": connector_name,
         "version": version,
         "store": YANK_STORE,
-        "unyank": "false",
+        "unyank": str(unyank).lower(),
     }
-    marker_reason = reason
-    if reference_url:
-        marker_reason = (
-            f"{reason}\n\nReference: {reference_url}"
-            if reason
-            else f"Reference: {reference_url}"
-        )
-    if marker_reason:
-        workflow_inputs["reason"] = marker_reason
+    if reason:
+        workflow_inputs["reason"] = reason
 
     dispatch_result = trigger_workflow_dispatch(
         owner=_YANK_WORKFLOW_REPO_OWNER,
@@ -1111,8 +1229,8 @@ def yank_connector_version(
     view_url = dispatch_result.run_url or dispatch_result.workflow_url
     return RolloutActionResult(
         rollout_action_result=(
-            f"Yank workflow triggered for {connector_name}@{version} on "
-            f"{YANK_STORE}. View progress at: {view_url}"
+            f"{action.capitalize()} workflow triggered for {connector_name}@{version} "
+            f"on {YANK_STORE}. View progress at: {view_url}"
         ),
         rollout_action_success=True,
     )

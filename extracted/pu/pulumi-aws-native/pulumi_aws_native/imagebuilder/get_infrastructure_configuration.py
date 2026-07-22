@@ -207,8 +207,7 @@ class AwaitableGetInfrastructureConfigurationResult(GetInfrastructureConfigurati
 def get_infrastructure_configuration(arn: Optional[_builtins.str] = None,
                                      opts: Optional[pulumi.InvokeOptions] = None) -> AwaitableGetInfrastructureConfigurationResult:
     """
-    Resource schema for AWS::ImageBuilder::InfrastructureConfiguration
-
+    Resource Type definition for AWS::ImageBuilder::InfrastructureConfiguration
 
     :param _builtins.str arn: The Amazon Resource Name (ARN) of the infrastructure configuration.
     """
@@ -232,11 +231,10 @@ def get_infrastructure_configuration(arn: Optional[_builtins.str] = None,
         subnet_id=pulumi.get(__ret__, 'subnet_id'),
         tags=pulumi.get(__ret__, 'tags'),
         terminate_instance_on_failure=pulumi.get(__ret__, 'terminate_instance_on_failure'))
-def get_infrastructure_configuration_output(arn: Optional[pulumi.Input[_builtins.str]] = None,
+def get_infrastructure_configuration_output(arn: pulumi.Input[Optional[_builtins.str]] = None,
                                             opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetInfrastructureConfigurationResult]:
     """
-    Resource schema for AWS::ImageBuilder::InfrastructureConfiguration
-
+    Resource Type definition for AWS::ImageBuilder::InfrastructureConfiguration
 
     :param _builtins.str arn: The Amazon Resource Name (ARN) of the infrastructure configuration.
     """

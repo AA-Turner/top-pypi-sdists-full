@@ -4,8 +4,16 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-pyo3 = { version = "0.28", features = ["abi3"] }
+colored = "3.1.1"
+dirs = "6.0.0"
+ignore = "0.4"
+pyo3 = { version = "0.29", features = ["abi3"] }
+rayon = "1.12.0"
 regex = "1.12"
+rusqlite = { version = "0.40.1", features = ["bundled"] }
+rust-yaml = "1.1.0"
+similar = "3.1.1"
+xxhash-rust = { version = "0.8.16", features = ["xxh3"] }
 
 [lib]
 name = "gersemi_rust_backend"
@@ -13,6 +21,6 @@ crate-type = ["cdylib"]
 path = "backend.rs"
 
 [lints.clippy]
+case-sensitive-file-extension-comparisons = {level = "allow", priority = 1}
 struct-field-names = {level = "allow", priority = 1}
 pedantic = "warn"
-

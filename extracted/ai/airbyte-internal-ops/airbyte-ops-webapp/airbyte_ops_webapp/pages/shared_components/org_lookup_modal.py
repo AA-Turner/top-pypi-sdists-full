@@ -28,19 +28,7 @@ from prefab_ui.components.control_flow import If
 from prefab_ui.rx import EVENT, RESULT, STATE
 from pydantic import BaseModel, ConfigDict, Field
 
-
-class OrgSearchResult(BaseModel):
-    """A single organization/workspace search hit shown in the lookup modal."""
-
-    model_config = ConfigDict(frozen=True)
-
-    entity_type: str = ""
-    entity_id: str = ""
-    entity_name: str = ""
-    entity_email: str = ""
-    organization_id: str = ""
-    workspace_id: str = ""
-    display_label: str = ""
+from airbyte_ops_webapp.pages.shared_components.org_search import OrgSearchRow
 
 
 class OrgLookupModalState(BaseModel):
@@ -54,7 +42,7 @@ class OrgLookupModalState(BaseModel):
 
     org_search_modal_open: bool = False
     org_search_query: str = ""
-    org_search_results: list[OrgSearchResult] = Field(default_factory=list)
+    org_search_results: list[OrgSearchRow] = Field(default_factory=list)
     org_search_error: str = ""
     org_search_selected_id: str = ""
     org_search_selected_label: str = ""
@@ -71,6 +59,10 @@ def render_org_lookup_modal(
     search_error_key: str = "org_search_error",
     selected_id_key: str = "org_search_selected_id",
     selected_label_key: str = "org_search_selected_label",
+    result_id_field: str = "entity_id",
+    result_label_field: str = "display_label",
+    target_label_key: str | None = None,
+    search_error_actions: list[Any] | None = None,
 ) -> None:
     """Render a 🔍 button that opens a modal for searching organizations/workspaces.
 
@@ -78,6 +70,19 @@ def render_org_lookup_modal(
     When the user clicks a row, the entity ID is stored in state. Clicking
     "Select" writes the chosen ID back to `target_state_key` and fires any
     `on_select_actions` (e.g. to auto-submit the parent form).
+
+    `result_id_field` selects which result-row field is written back as the
+    chosen ID — default `entity_id` (the clicked entity), or e.g.
+    `organization_id` to always resolve a workspace hit up to its organization.
+    `result_label_field` selects which row field is shown as the selected label
+    — default `display_label` (the clicked entity's label), or e.g.
+    `organization_label` so a workspace hit shows its parent org's label,
+    matching an `organization_id` `result_id_field`.
+    When `target_label_key` is set, the chosen label is also written there on
+    Select, so callers can show the selected context.
+    `search_error_actions` are appended to the search tool call's `on_error`
+    so a page can add its own error feedback (e.g. a page-level toast) in
+    addition to the modal's inline error text.
     """
     with Dialog(
         title="Search Organizations & Workspaces",
@@ -100,6 +105,7 @@ def render_org_lookup_modal(
                 search_error_key=search_error_key,
                 selected_id_key=selected_id_key,
                 selected_label_key=selected_label_key,
+                search_error_actions=search_error_actions or [],
             )
             _render_search_results(
                 search_results_key=search_results_key,
@@ -109,6 +115,9 @@ def render_org_lookup_modal(
                 selected_id_key=selected_id_key,
                 selected_label_key=selected_label_key,
                 on_select_actions=on_select_actions or [],
+                result_id_field=result_id_field,
+                result_label_field=result_label_field,
+                target_label_key=target_label_key,
             )
             _render_cancel_button(
                 dialog_state_key=dialog_state_key,
@@ -125,6 +134,7 @@ def _render_search_input(
     search_error_key: str,
     selected_id_key: str,
     selected_label_key: str,
+    search_error_actions: list[Any],
 ) -> None:
     """Search input row with a Search button.
 
@@ -150,6 +160,7 @@ def _render_search_input(
             ],
             on_error=[
                 SetState(search_error_key, "Search failed. Please try again."),
+                *search_error_actions,
             ],
         ),
     ]
@@ -177,6 +188,9 @@ def _render_search_results(
     selected_id_key: str,
     selected_label_key: str,
     on_select_actions: list[Any],
+    result_id_field: str = "entity_id",
+    result_label_field: str = "display_label",
+    target_label_key: str | None = None,
 ) -> None:
     """Results table with clickable rows."""
     with If(getattr(STATE, search_error_key)):
@@ -195,11 +209,11 @@ def _render_search_results(
                 ],
                 rows=getattr(STATE, search_results_key),
                 on_row_click=[
-                    SetState(selected_id_key, EVENT.entity_id),
-                    SetState(selected_label_key, EVENT.display_label),
+                    SetState(selected_id_key, getattr(EVENT, result_id_field)),
+                    SetState(selected_label_key, getattr(EVENT, result_label_field)),
                 ],
             )
-    with If(getattr(STATE, selected_label_key)):
+    with If(getattr(STATE, selected_id_key)):
         with Row(gap=2, align="center"):
             Text("Selected:", style={"fontWeight": "600", "fontSize": "0.875rem"})
             Text(
@@ -213,6 +227,11 @@ def _render_search_results(
                 css_class="bg-[#5D51D5] text-white border-[#5D51D5] hover:bg-[#4D43BE]",
                 on_click=[
                     SetState(target_state_key, getattr(STATE, selected_id_key)),
+                    *(
+                        [SetState(target_label_key, getattr(STATE, selected_label_key))]
+                        if target_label_key
+                        else []
+                    ),
                     SetState(dialog_state_key, False),
                     SetState(selected_id_key, ""),
                     SetState(selected_label_key, ""),

@@ -20,20 +20,20 @@ from .Internal.ContextManagers import InstrErrorSuppressor, VisaTimeoutSuppresso
 
 class RsInstrument:
 	"""Root class for remote-controlling instrument with SCPI commands."""
-	_driver_version_const = '1.124.0.122'
-	_driver_options_const = "SupportedInstrModels = All Rohde & Schwarz Instruments, SupportedIdnPatterns = Rohde\\s*(-|&)\\s*Schwarz/Hameg, SimulationIdnString = Rohde&Schwarz*SimulationDevice*100001*" + _driver_version_const
+	_driver_version_const = '1.126.0.125'
+	_driver_options_const = "SupportedInstrModels = All Rohde & Schwarz Instruments, SupportedIdnPatterns = Rohde\\s*(-|&)\\s*Schwarz/Hameg/ZES ZIMMER, SimulationIdnString = Rohde&Schwarz*SimulationDevice*100001*" + _driver_version_const
 	# noinspection PyClassVar
-	_global_logging_relative_timestamp: ClassVar[datetime] = None
+	_global_logging_relative_timestamp: ClassVar[datetime | None] = None
 	_global_logging_target_stream: ClassVar = None
 	_global_logging_relative_timestamp_of_first_entry: ClassVar = False
 
 	def __init__(
-			self, resource_name: str, id_query: bool = True, reset: bool = False, options: str = None, direct_session: object = None):
+			self, resource_name: str, id_query: bool = True, reset: bool = False, options: str | None = None, direct_session: object | None = None):
 		"""Initializes new RsInstrument session. \n
 
 		:param resource_name: VISA resource name, e.g. 'TCPIP::192.168.2.1::INSTR'
 		:param id_query: if True, the instrument's model name is verified against the models supported by the driver and eventually throws an exception
-		:param reset: Resets the instrument (sends *RST) command and clears its status syb-system
+		:param reset: Resets the instrument (sends ``*RST``) command and clears its status syb-system
 		:param direct_session: Another driver object or pyVisa object to reuse the session instead of opening a new session
 		:param options: string tokens alternating the driver settings. More tokens are separated by comma.
 
@@ -57,19 +57,19 @@ class RsInstrument:
 			- ``ViClearExeMode = Disabled`` - viClear() execution mode. Default: ``execute_on_all``
 			- ``OpcQueryAfterWrite = True`` - same as driver.utilities.opc_query_after_write = True. Default: ``False``
 			- ``OpcWaitMode = OpcQuery`` - mode for all the opc-synchronized write/reads. Other modes: StbPolling, StbPollingSlow, StbPollingSuperSlow. Default: ``StbPolling``
-			- ``StbInErrorCheck = False`` - if true, the driver checks errors with *STB? If false, it uses SYST:ERR?. Default: ``True``
+			- ``StbInErrorCheck = False`` - if true, the driver checks errors with ``*STB?`` If false, it uses SYST:ERR?. Default: ``True``
 			- ``SkipStatusSystemSettings = False`` - some instruments do not support full status system commands. In such case, set this value to True. Default: ``False``
-			- ``SkipClearStatus = True`` - set to True for instruments that do not support *CLS command. Default: ``False``
-			- ``DisableOpcQuery = True`` - set to True for instruments that do not support *OPC? query. Default: ``False``
+			- ``SkipClearStatus = True`` - set to True for instruments that do not support ``*CLS`` command. Default: ``False``
+			- ``DisableOpcQuery = True`` - set to True for instruments that do not support ``*OPC?`` query. Default: ``False``
 			- ``EachCmdAsQuery = True``, set to True, for instruments that always return answer. Default: ``false``
 			- ``CmdIdn = ID?`` - defines which SCPI command to use for identification query. Use '<none>' string to skip identification query at the init. Default: ``*IDN?``
 			- ``CmdReset = RT`` - defines which SCPI command to use for reset. Default: ``*RST``
 			- ``VxiCapable = false`` - you can force a session to a VXI-incapable. Default: <interface-dependent>
 			- ``Encoding = utf-8`` - setting of encoding for strings into bytes and vice versa. Default: ``charmap``
 			- ``OpcSyncQueryMechanism = AlsoCheckMav`` - setting of mechanism for OPC-synchronized queries. Default: ``OnlyCheckMavErrQueue``
-			- ``FirstCmds = *CLS`` - first command(s) to sent after init. Separated more commands/queries with ';;'. Default: ````
-			- ``EachCmdPrefix = lf`` - this prefix is added to the beginning of each command sent to the instrument. Default: ````
-			- ``EachCmdSuffix = cr`` - this suffix is added to the end of each command sent to the instrument. Default: ````
+			- ``FirstCmds = *CLS`` - first command(s) to sent after init. Separated more commands/queries with ';;'. Default: ``(empty)``
+			- ``EachCmdPrefix = lf`` - this prefix is added to the beginning of each command sent to the instrument. Default: ``(empty)``
+			- ``EachCmdSuffix = cr`` - this suffix is added to the end of each command sent to the instrument. Default: ``(empty)``
 			- ``StripStringTrailingWhitespaces = True`` - use it to strip white spaces from string query responses. Default: ``False``
 			- ``LoggingMode = On`` - sets the logging status right from the start. Possible values: On | Off | Error. Default: ``Off``
 			- ``LoggingName = 'MyDevice'`` - sets the name to represent the session in the log entries. Default: ``<resource_name>``
@@ -98,7 +98,7 @@ class RsInstrument:
 		self._ivi_utility = IviUtility(self._core)
 
 	@classmethod
-	def from_existing_session(cls, session: object, options: str = None) -> 'RsInstrument':
+	def from_existing_session(cls, session: object, options: str | None = None) -> 'RsInstrument':
 		"""Creates a new RsInstrument object with the entered 'session' reused.
 		:param session: can be another driver or a direct pyvisa session.
 		:param options: string tokens alternating the driver settings. More tokens are separated by comma."""
@@ -177,7 +177,7 @@ class RsInstrument:
 		self._core.io.close()
 
 	@staticmethod
-	def list_resources(expression: str = '?*::INSTR', visa_select: str = None) -> List[str]:
+	def list_resources(expression: str = '?*::INSTR', visa_select: str | None = None) -> List[str]:
 		"""Finds all the resources defined by the expression.
 
 		* '?*' - matches all the available instruments
@@ -214,7 +214,7 @@ class RsInstrument:
 
 	@property
 	def logger(self) -> ScpiLogger:
-		"""Scpi Logger interface, see :ref:`here <Logger>` """
+		"""SCPI Logger interface, see :ref:`here <Logger>` """
 		return self._core.io.logger
 
 	# Utilities part follows - copy it manually from the Utilities.py file
@@ -225,12 +225,12 @@ class RsInstrument:
 
 	@property
 	def idn_string(self) -> str:
-		"""Returns instrument's identification string - the response on the SCPI command *IDN?"""
+		"""Returns instrument's identification string - the response on the SCPI command ``*IDN?``"""
 		return self._core.io.idn_string
 
 	@idn_string.setter
 	def idn_string(self, idn_string: str) -> None:
-		"""Sets instrument's identification string - the response on the SCPI command *IDN?"""
+		"""Sets instrument's identification string - the response on the SCPI command ``*IDN?``"""
 		self._core.io.idn_string = idn_string
 
 	@property
@@ -264,7 +264,7 @@ class RsInstrument:
 		return self._core.io.serial_number
 
 	def query_opc(self, timeout: int = 0) -> int:
-		"""SCPI command: *OPC?
+		"""SCPI command: ``*OPC?``
 		Queries the instrument's OPC bit and hence it waits until the instrument reports operation complete.
 		If you define timeout > 0, the VISA timeout is set to that value just for this method call."""
 		return self._core.io.query_opc(timeout)
@@ -305,15 +305,15 @@ class RsInstrument:
 
 	@property
 	def opc_query_after_write(self) -> bool:
-		"""Sets / returns Instrument *OPC? query sending after each command write.
-		When True, (default is False) the driver sends *OPC? every time a write command is performed.
+		"""Sets / returns Instrument ``*OPC?`` query sending after each command write.
+		When True, (default is False) the driver sends ``*OPC?`` every time a write command is performed.
 		Use this if you want to make sure your sequence is performed command-after-command."""
 		return self._core.io.opc_query_after_write
 
 	@opc_query_after_write.setter
 	def opc_query_after_write(self, value) -> None:
-		"""Sets / returns Instrument *OPC? query sending after each command write.
-		When True, (default is False) the driver sends *OPC? every time a write command is performed.
+		"""Sets / returns Instrument ``*OPC?`` query sending after each command write.
+		When True, (default is False) the driver sends ``*OPC?`` every time a write command is performed.
 		Use this if you want to make sure your sequence is performed command-after-command."""
 		self._core.io.opc_query_after_write = value
 
@@ -339,29 +339,31 @@ class RsInstrument:
 
 	def clear_status(self) -> None:
 		"""Clears instrument's status system, the session's I/O buffers and the instrument's error queue"""
-		return self._core.io.clear_status()
+		self._core.io.clear_status()
 
 	def query_all_errors(self) -> List[str] | None:
 		"""Queries and clears all the errors from the instrument's error queue.
 		The method returns list of strings as error messages. If no error is detected, the return value is None.
 		The process is: querying 'SYSTem:ERRor?' in a loop until the error queue is empty.
 		If you want to include the error codes, call the query_all_errors_with_codes()"""
+		# noinspection PyTypeChecker
 		return self._core.io.query_all_syst_errors(include_codes=False)
 
 	def query_all_errors_with_codes(self) -> List[Tuple[int, str]] | None:
 		"""Queries and clears all the errors from the instrument's error queue.
 		The method returns list of tuples (code: int, message: str). If no error is detected, the return value is None.
 		The process is: querying 'SYSTem:ERRor?' in a loop until the error queue is empty."""
+		# noinspection PyTypeChecker
 		return self._core.io.query_all_syst_errors(include_codes=True)
 
 	def reset(self, timeout: int = 0) -> None:
-		"""SCPI command: *RST
-		Sends *RST command + calls the clear_status().
+		"""SCPI command: ``*RST``
+		Sends ``*RST`` command + calls the clear_status().
 		If you define timeout > 0, the VISA timeout is set to that value just for this method call."""
 		self._core.io.reset(timeout)
 
-	def self_test(self, timeout: int = None) -> Tuple[int, str]:
-		"""SCPI command: *TST?
+	def self_test(self, timeout: int | None = None) -> Tuple[int, str]:
+		"""SCPI command: ``*TST?``
 		Performs instrument's self-test.
 		Returns tuple (code:int, message: str). Code 0 means the self-test passed.
 		You can define the custom timeout in milliseconds. If you do not define it, the method uses default self-test timeout (usually 60 secs)."""
@@ -369,7 +371,7 @@ class RsInstrument:
 
 	def is_connection_active(self) -> bool:
 		"""Returns true, if the VISA connection is active and the communication with the instrument still works.
-		WARNING!!! this method queries the session's VISA Timeout and additionally, queries the *IDN? from the instrument,
+		WARNING!!! this method queries the session's VISA Timeout and additionally, queries the ``*IDN?`` from the instrument,
 		hence affects the performance of your application when used regularly."""
 		return self._core.io.is_connection_active()
 
@@ -441,7 +443,7 @@ class RsInstrument:
 		"""Puts the instrument into remote state."""
 		self._core.io.go_to_remote()
 
-	def lock_resource(self, timeout: int, requested_key: str | bytes = None) -> bytes | str:
+	def lock_resource(self, timeout: int, requested_key: str | bytes | None = None) -> bytes | str | None:
 		"""Locks the instrument to prevent it from communicating with other clients."""
 		return self._core.io.lock_resource(timeout, requested_key)
 
@@ -450,9 +452,9 @@ class RsInstrument:
 		self._core.io.unlock_resource()
 
 	def process_all_commands(self) -> None:
-		"""SCPI command: *WAI
-		Stops further commands processing until all commands sent before *WAI have been executed."""
-		return self._core.io.write('*WAI')
+		"""SCPI command: ``*WAI``
+		Stops further commands processing until all commands sent before ``*WAI`` have been executed."""
+		self._core.io.write('*WAI')
 
 	def write(self, cmd: str) -> None:
 		"""Writes the command to the instrument as string.
@@ -469,7 +471,7 @@ class RsInstrument:
 		e.g.: cmd = 'SELECT:INPUT' param = '2', result command = 'SELECT:INPUT 2'"""
 		self._core.io.write(f'{cmd} {param}', log_info='Write integer')
 
-	def write_int_with_opc(self, cmd: str, param: int, timeout: int = None) -> None:
+	def write_int_with_opc(self, cmd: str, param: int, timeout: int | None = None) -> None:
 		"""Writes the command with OPC to the instrument followed by the integer parameter:
 		e.g.: cmd = 'SELECT:INPUT' param = '2', result command = 'SELECT:INPUT 2'
 		If you do not provide timeout, the method uses current opc_timeout."""
@@ -480,7 +482,7 @@ class RsInstrument:
 		e.g.: cmd = 'CENTER:FREQ' param = '10E6', result command = 'CENTER:FREQ 10E6'"""
 		self._core.io.write(f'{cmd} {Conv.float_to_str(param)}', log_info='Write float')
 
-	def write_float_with_opc(self, cmd: str, param: float, timeout: int = None) -> None:
+	def write_float_with_opc(self, cmd: str, param: float, timeout: int | None = None) -> None:
 		"""Writes the command with OPC to the instrument followed by the boolean parameter:
 		e.g.: cmd = 'CENTER:FREQ' param = '10E6', result command = 'CENTER:FREQ 10E6'
 		If you do not provide timeout, the method uses current opc_timeout."""
@@ -491,7 +493,7 @@ class RsInstrument:
 		e.g.: cmd = 'OUTPUT' param = 'True', result command = 'OUTPUT ON'"""
 		self._core.io.write(f'{cmd} {Conv.bool_to_str(param)}', log_info='Write boolean')
 
-	def write_bool_with_opc(self, cmd: str, param: bool, timeout: int = None) -> None:
+	def write_bool_with_opc(self, cmd: str, param: bool, timeout: int | None = None) -> None:
 		"""Writes the command with OPC to the instrument followed by the boolean parameter:
 		e.g.: cmd = 'OUTPUT' param = 'True', result command = 'OUTPUT ON'
 		If you do not provide timeout, the method uses current opc_timeout."""
@@ -546,31 +548,31 @@ class RsInstrument:
 		Blank or empty response is returned as an empty list."""
 		return self._core.io.query_bool_list(query)
 
-	def write_str_with_opc(self, cmd: str, timeout: int = None) -> None:
+	def write_str_with_opc(self, cmd: str, timeout: int | None = None) -> None:
 		"""Writes the opc-synced command to the instrument.
 		If you do not provide timeout, the method uses current opc_timeout."""
 		self._core.io.write_with_opc(cmd, timeout)
 
-	def write_with_opc(self, cmd: str, timeout: int = None) -> None:
+	def write_with_opc(self, cmd: str, timeout: int | None = None) -> None:
 		"""This method is an alias to the write_str_with_opc().
 		Writes the opc-synced command to the instrument.
 		If you do not provide timeout, the method uses current opc_timeout."""
 		self._core.io.write_with_opc(cmd, timeout)
 
-	def query_str_with_opc(self, query: str, timeout: int = None) -> str:
+	def query_str_with_opc(self, query: str, timeout: int | None = None) -> str:
 		"""Sends the opc-synced query to the instrument and returns the response as string.
 		The response is trimmed of any trailing LF characters and has no length limit.
 		If you do not provide timeout, the method uses current opc_timeout."""
 		return self._core.io.query_str_with_opc(query, timeout)
 
-	def query_with_opc(self, query: str, timeout: int = None) -> str:
+	def query_with_opc(self, query: str, timeout: int | None = None) -> str:
 		"""This method is an alias to the write_str_with_opc().
 		Sends the opc-synced query to the instrument and returns the response as string.
 		The response is trimmed of any trailing LF characters and has no length limit.
 		If you do not provide timeout, the method uses current opc_timeout."""
 		return self._core.io.query_str_with_opc(query, timeout)
 
-	def query_str_list_with_opc(self, query: str, timeout: int = None, remove_blank_response: bool = False) -> List[str]:
+	def query_str_list_with_opc(self, query: str, timeout: int | None = None, remove_blank_response: bool = False) -> List[str]:
 		"""Sends a OPC-synced query and reads response from the instrument as csv-list.
 		If you do not provide timeout, the method uses current opc_timeout.
 		\nMeaning of the 'remove_blank_response':
@@ -578,23 +580,23 @@ class RsInstrument:
 		- True: whitespaces-only response is returned as an empty list []."""
 		return self._core.io.query_str_list_with_opc(query, timeout, remove_blank_response)
 
-	def query_bool_with_opc(self, query: str, timeout: int = None) -> bool:
+	def query_bool_with_opc(self, query: str, timeout: int | None = None) -> bool:
 		"""Sends the opc-synced query to the instrument and returns the response as boolean.
 		If you do not provide timeout, the method uses current opc_timeout."""
 		return self._core.io.query_bool_with_opc(query, timeout)
 
-	def query_bool_list_with_opc(self, query: str, timeout: int = None) -> List[bool]:
+	def query_bool_list_with_opc(self, query: str, timeout: int | None = None) -> List[bool]:
 		"""Sends a OPC-synced query and reads response from the instrument as csv-list of booleans.
 		If you do not provide timeout, the method uses current opc_timeout.
 		Blank or empty response is returned as an empty list."""
 		return self._core.io.query_bool_list_with_opc(query, timeout)
 
-	def query_int_with_opc(self, query: str, timeout: int = None) -> int:
+	def query_int_with_opc(self, query: str, timeout: int | None = None) -> int:
 		"""Sends the opc-synced query to the instrument and returns the response as integer.
 		If you do not provide timeout, the method uses current opc_timeout."""
 		return self._core.io.query_int_with_opc(query, timeout)
 
-	def query_float_with_opc(self, query: str, timeout: int = None) -> float:
+	def query_float_with_opc(self, query: str, timeout: int | None = None) -> float:
 		"""Sends the opc-synced query to the instrument and returns the response as float.
 		If you do not provide timeout, the method uses current opc_timeout."""
 		return self._core.io.query_float_with_opc(query, timeout)
@@ -610,7 +612,7 @@ class RsInstrument:
 		Returns data:bytes"""
 		return self._core.io.query_bin_block(query)
 
-	def query_bin_block_with_opc(self, query: str, timeout: int = None) -> bytes:
+	def query_bin_block_with_opc(self, query: str, timeout: int | None = None) -> bytes:
 		"""Sends a OPC-synced query and returns binary data block to bytes.
 		If you do not provide timeout, the method uses current opc_timeout."""
 		return self._core.io.query_bin_block_with_opc(query, timeout)
@@ -623,7 +625,7 @@ class RsInstrument:
 		"""
 		return self._core.io.query_bin_or_ascii_float_list(query)
 
-	def query_bin_or_ascii_float_list_with_opc(self, query: str, timeout: int = None) -> List[float]:
+	def query_bin_or_ascii_float_list_with_opc(self, query: str, timeout: int | None = None) -> List[float]:
 		"""Sends a OPC-synced query and reads a list of floating-point numbers that can be returned as ASCII or binary format.
 
 		* For ASCII format, the list numbers are decoded as comma-separated values.
@@ -640,7 +642,7 @@ class RsInstrument:
 		"""
 		return self._core.io.query_bin_or_ascii_int_list(query)
 
-	def query_bin_or_ascii_int_list_with_opc(self, query: str, timeout: int = None) -> List[int]:
+	def query_bin_or_ascii_int_list_with_opc(self, query: str, timeout: int | None = None) -> List[int]:
 		"""Sends a OPC-synced query and reads a list of floating-point numbers that can be returned as ASCII or binary format.
 
 		* For ASCII format, the list numbers are decoded as comma-separated values.
@@ -666,7 +668,7 @@ class RsInstrument:
 		"""
 		self._core.io.query_bin_block_to_file(query, file_path, append)
 
-	def query_bin_block_to_file_with_opc(self, query: str, file_path: str, append: bool = False, timeout: int = None) -> None:
+	def query_bin_block_to_file_with_opc(self, query: str, file_path: str, append: bool = False, timeout: int | None = None) -> None:
 		"""Sends a OPC-synced query and writes the returned data to the provided file.
 		If append is False, any existing file content is discarded.
 		If append is True, the new content is added to the end of the existing file, or if the file does not exit, it is created.
@@ -711,7 +713,7 @@ class RsInstrument:
 
 	def get_lock(self) -> threading.RLock:
 		"""Returns the thread lock for the current session. \n
-		By default:
+		By default,
 
 		* If you create a new RsInstrument instance with new VISA session, the session gets a new thread lock. You can assign it to another RsInstrument sessions in order to share one physical instrument with a multi-thread access.
 		* If you create a new RsInstrument from an existing session, the thread lock is shared automatically making both instances multi-thread safe.
@@ -767,7 +769,7 @@ class RsInstrument:
 			if curr < minimum:
 				raise Exception(f"Assertion for minimum RsInstrument version failed. Current version: '{RsInstrument._driver_version_const}', minimum required version: '{min_version}'")
 
-	def instr_err_suppressor(self, visa_tout_ms: int = 0, suppress_only_codes: int | List[int] = None) -> InstrErrorSuppressor:
+	def instr_err_suppressor(self, visa_tout_ms: int = 0, suppress_only_codes: int | List[int] | None = None) -> InstrErrorSuppressor:
 		"""Returns Context Manager that suppresses the instrument errors.
 		Other exceptions types are still raised.
 		On entering the context, this class clears all the instrument status errors.

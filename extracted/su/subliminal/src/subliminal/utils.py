@@ -8,20 +8,28 @@ import os
 import platform
 import re
 import socket
-from collections.abc import Iterable
+import sys
+from abc import ABC, abstractmethod
+from collections.abc import Iterable, Iterator
 from datetime import datetime, timedelta, timezone
 from types import GeneratorType
-from typing import TYPE_CHECKING, Any, Callable, Generic, TypeVar, cast, overload
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar, cast, overload
 from xmlrpc.client import ProtocolError
 
+if sys.version_info >= (3, 12):
+    from typing import override
+else:  # pragma: no cover
+    from typing_extensions import override
+
 import requests
+from guessit import guessit  # type: ignore[import-untyped]
 from requests.exceptions import SSLError
 
 from .exceptions import ServiceUnavailable
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence, Set
-    from typing import TypedDict, TypeGuard
+    from collections.abc import Callable, Sequence, Set
+    from typing import Literal, TypedDict, TypeGuard
 
     S = TypeVar('S')
 
@@ -45,6 +53,265 @@ T = TypeVar('T')
 R = TypeVar('R')
 
 logger = logging.getLogger(__name__)
+
+
+def safely_guessit(name: str | None, options: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Wrap guessit to catch internal errors and format the output correctly."""
+    # Return an empty dict with None or ''
+    if not name:
+        return {}
+
+    # Try calling guessit
+    try:
+        result: dict[str, Any] = guessit(name, options)
+    except Exception:
+        logger.exception('guessit failed to parse %r', name)
+        return {}
+
+    # Format the outputs
+    force_int = ('season', 'episode', 'year')
+    force_list_str = ('alternative_title',)
+    for k, v in result.items():
+        if k in force_int:
+            result[k] = [int(x) for x in v] if is_iterable(v) else int(v)
+        elif k in force_list_str:
+            result[k] = ensure_list(v)
+        else:
+            # Default format to str
+            result[k] = ensure_str(v)
+
+    return result
+
+
+def unescape_delimiter(string: str, delimiter: str) -> str:
+    """Unescape delimiter."""
+    return string.replace(f'\\{delimiter}', delimiter)
+
+
+def split_esc(string: str, delimiter: str) -> Iterator[str]:
+    """Split the string by the non-escaped delimiter.
+
+    Return an iterator of the string parts.
+    """
+    dln = len(delimiter)
+    ln = len(string)
+    i = 0
+    j = 0
+    while j < ln:
+        # Delimiter found
+        if string[j : j + dln] == delimiter:
+            yield unescape_delimiter(string[i:j], delimiter)
+            j += dln
+            i = j
+        # Escaped character
+        elif string[j] == '\\':
+            if j + 1 >= ln:
+                yield unescape_delimiter(string[i:j], delimiter)
+                return
+            j += 2
+        # Other character
+        else:
+            j += 1
+    yield unescape_delimiter(string[i:j], delimiter)
+
+
+def parse_sed_expression(expr: str) -> tuple[str, str, str] | None:
+    """Parse a sed-like substitution ``s<delim>pattern<delim>replacement<delim>flags``.
+
+    The delimiter is the character right after the leading ``s`` and may be any
+    non-alphanumeric, non-backslash, non-whitespace character (commonly ``/``).
+    A delimiter escaped with a backslash inside the pattern or the replacement is
+    treated as a literal delimiter character.
+
+    :param str expr: the expression to parse.
+    :return: ``(pattern, replacement, flags)`` or ``None`` if `expr` is not a
+        well-formed sed substitution.
+    :rtype: tuple of (str, str, str) or None
+    """
+    if len(expr) < 2 or expr[0] != 's':
+        return None
+    delim = expr[1]
+    if delim.isalnum() or delim == '\\' or delim.isspace():
+        return None
+
+    segments = list(split_esc(expr[2:], delim))
+    # Expect exactly pattern, replacement and flags (i.e. three delimiters total)
+    if len(segments) != 3:
+        return None
+    return segments[0], segments[1], segments[2]
+
+
+class SedSubstitution:
+    """Parsed regular expression for name substitution."""
+
+    _name: str
+    _regex: re.Pattern[str]
+    _replacement: str
+    _count: int
+
+    def __init__(self, name: str, pattern: str, replacement: str, flags: str) -> None:
+        self._name = name
+        unknown = set(flags) - {'g', 'i'}
+        if unknown:
+            msg = f'Unsupported flag(s) {"".join(sorted(unknown))!r} in name expression {name!r}'
+            raise ValueError(msg)
+        re_flags = re.IGNORECASE if 'i' in flags else 0
+        try:
+            self._regex = re.compile(pattern, re_flags)
+        except re.error as e:
+            msg = f'Invalid regular expression {pattern!r} in name expression {name!r}: {e}'
+            raise ValueError(msg) from e
+        self._replacement = replacement
+        self._count = 0 if 'g' in flags else 1
+
+    @classmethod
+    def maybe_from_name(cls, name: str) -> SedSubstitution | None:
+        """Sed substitution, or None if invalid."""
+        sed = parse_sed_expression(name)
+        if sed is None:
+            # Not a valid sed-expression
+            return None
+
+        return SedSubstitution(name, *sed)
+
+    def sub(self, string: str) -> str:
+        """Substitute segments of the string according to the sed expression."""
+        try:
+            new_string, count = self._regex.subn(self._replacement, string, count=self._count)
+        except re.error:
+            logger.exception('Failed to apply name expression %r to %r', self._name, string)
+            return string
+        if count == 0:
+            logger.warning('Name expression %r did not match %r', self._name, string)
+            return string
+        return new_string
+
+
+def parse_name(name: Sequence[str] | str | None) -> list[SedSubstitution] | str | None:
+    """Parse the name input used for name resolution.
+
+    :param name: the name input to parse.
+    :type name: Sequence[str] | str | None
+    :return: the corrected name and, if necessary, the list of regular expressions for substitution
+    :rtype: list[SedSubstitution] | str | None
+    """
+    name = ensure_list(name)
+    # No static name, no substitution
+    if name is None or len(name) == 0:
+        return None
+
+    substitutions = [SedSubstitution.maybe_from_name(n) for n in name]
+
+    # One expression if not a sed expression, look for a static name
+    if any(expr is None for expr in substitutions):
+        # Single static name, no substitution
+        if len(name) == 1:
+            return name[0]
+
+        # A static name with other sed-expressions or static names
+        msg = f'A static name was found mixed-in with sed-expressions or other static names: {name}'
+        raise ValueError(msg)
+
+    # A list of substitutions
+    return cast('list[SedSubstitution]', substitutions)
+
+
+class NameResolver(ABC):
+    r"""Compute the name passed to guessit for each scanned file.
+
+    The behaviour is selected from the `name` input:
+
+    * **pass** -- `name` is None: the `name` is not overwritten, the original
+      file path is used.
+    * **static** -- `name` is a single plain string: the same `name` is used for
+      every file instead of the file path.
+    * **sed** -- `name` is a ``s/pattern/replacement/flags`` substitution or a
+      list of substitutions: the substitutions are applied to each file path
+      following sed semantics (the unmatched part of the path is kept), in the
+      same order as they are provided. Back-references (``\1`` …) are available
+      in the replacement, ``&`` is a literal character (unlike in sed) and the
+      supported flags are ``g`` (replace all occurrences instead of the first)
+      and ``i`` (case-insensitive match).
+
+    In the sed mode, a file whose path does not match is left untouched:
+    ``None`` is returned by calling the instance, and the original file path is
+    used as if in the pass mode.
+
+    :param name: the file path substitution value.
+    :type name: Sequence[str] | str | None
+    :raises ValueError: if the sed expression contains an invalid regular
+        expression, an unsupported flag or if static names are mixed with
+        substitution expressions or with other static names.
+    """
+
+    _mode: ClassVar[Literal['pass', 'static', 'sed']]
+
+    @classmethod
+    def from_name(cls, name: Sequence[str] | str | None = None) -> NameResolver:
+        """Detect the type of name resolver to use, based on the input name."""
+        subs = parse_name(name)
+
+        if subs is None:
+            return PassNameResolver()
+        if isinstance(subs, str):
+            return StaticNameResolver(subs)
+        return SedNameResolver(subs)
+
+    @property
+    def mode(self) -> Literal['pass', 'static', 'sed']:
+        """Name resolver mode."""
+        return self._mode
+
+    @abstractmethod
+    def __call__(self, filepath: str | os.PathLike[str]) -> str | None:
+        """Return the name to use for `filepath`, or ``None`` to use the path as-is."""
+        raise NotImplementedError()
+
+
+class PassNameResolver(NameResolver):
+    """Name resolver that always returns ``None``."""
+
+    _mode: ClassVar[Literal['pass', 'static', 'sed']] = 'pass'
+
+    @override
+    def __call__(self, filepath: str | os.PathLike[str]) -> str | None:
+        """Return ``None`` to use the file path as video name."""
+        return None
+
+
+class StaticNameResolver(NameResolver):
+    """Name resolver that returns a static string."""
+
+    _mode: ClassVar[Literal['pass', 'static', 'sed']] = 'static'
+
+    _name: str
+
+    def __init__(self, name: str) -> None:
+        self._name = name
+
+    def __call__(self, filepath: str | os.PathLike[str]) -> str | None:
+        """Return the same static string for all the file paths."""
+        return self._name
+
+
+class SedNameResolver(NameResolver):
+    """Compute the name passed to guessit for each scanned file."""
+
+    _mode: ClassVar[Literal['pass', 'static', 'sed']] = 'sed'
+
+    _substitutions: list[SedSubstitution]
+
+    def __init__(self, substitutions: Sequence[SedSubstitution]) -> None:
+        self._substitutions = list(substitutions)
+
+    def __call__(self, filepath: str | os.PathLike[str]) -> str:
+        """Return the name to use for `filepath`, or ``None`` to use the path as-is."""
+        name = os.fspath(filepath)
+        # Chain sed substitutions
+        for sed in self._substitutions:
+            name = sed.sub(name)
+
+        return name
 
 
 class none_passthrough(Generic[T, R]):

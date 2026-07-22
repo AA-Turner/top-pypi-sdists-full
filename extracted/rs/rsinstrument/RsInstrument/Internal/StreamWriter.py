@@ -1,7 +1,6 @@
 """See the docstring for the StreamWriter class."""
 
 from enum import Flag
-from typing import AnyStr
 from io import BytesIO, StringIO
 
 from .Utilities import size_to_kb_mb_string
@@ -35,7 +34,7 @@ class StreamWriter:
 
 		if Type.Variable in self._target:
 			assert meta_data is None, f'You can not define input meta_data for a Variable StreamWriter.'
-			self._data = BytesIO() if binary else StringIO()
+			self._data = BytesIO() if binary else StringIO()  # ty: ignore[invalid-assignment]
 		elif Type.Forget in self._target:
 			self._data: str | bytes = ''
 		elif Type.File in self._target:
@@ -43,7 +42,7 @@ class StreamWriter:
 			self._file_path = meta_data
 			mode = 'w' if self._target == Type.File else 'a'
 			mode += 'b' if self._binary else ''
-			self._data = open(self._file_path, mode)
+			self._data = open(self._file_path, mode)  # ty: ignore[invalid-assignment]
 		else:
 			raise RsInstrException(f'StreamWriter unknown target {target}')
 
@@ -104,7 +103,7 @@ class StreamWriter:
 		File streams are always binary."""
 		return self._binary
 
-	def write(self, data: AnyStr) -> None:
+	def write(self, data: str | bytes) -> None:
 		"""Writes chunk to the stream.
 			- For Type.Bytes data must be bytes.
 			- For Type.String, data must be string.
@@ -119,9 +118,11 @@ class StreamWriter:
 		else:
 			assert isinstance(data, str), f'String data is required. Actual type: {type(data)}. {self}'
 		if Type.Variable in self._target:
-			self._data.write(data)
+			# noinspection PyUnresolvedReferences,PyTypeChecker
+			self._data.write(data)  # ty: ignore[unresolved-attribute]
 		elif Type.File in self._target:
-			self._data.write(data)
+			# noinspection PyUnresolvedReferences,PyTypeChecker
+			self._data.write(data)  # ty: ignore[unresolved-attribute]
 		self._written_len += len(data)
 
 	def switch_to_string_data(self, encoding: str) -> None:
@@ -132,11 +133,14 @@ class StreamWriter:
 			return
 		self._binary = False
 		if Type.Variable in self._target:
-			self._data = StringIO(self.content.decode(encoding))
+			# noinspection PyUnresolvedReferences
+			self._data = StringIO(self.content.decode(encoding))  # ty: ignore[invalid-assignment, unresolved-attribute]
 		elif Type.File in self._target:
-			self._data.close()
-			self._data = open(self._file_path, 'a')
+			# noinspection PyUnresolvedReferences
+			self._data.close()  # ty: ignore[unresolved-attribute]
+			self._data = open(self._file_path, 'a')  # ty: ignore[invalid-assignment]
 
+	# noinspection PyUnresolvedReferences
 	@property
 	def content(self) -> str | bytes | None:
 		"""Returns content of the writer. Only works with variable types."""
@@ -146,9 +150,10 @@ class StreamWriter:
 			raise RsInstrException(f'Can not return content for the current {self}')
 		if not self._data:
 			return None
-		self._data.seek(0)
-		ret_val = self._data.read()
-		self._data.close()
+		self._data.seek(0)  # ty: ignore[unresolved-attribute]
+		ret_val = self._data.read()  # ty: ignore[unresolved-attribute]
+
+		self._data.close()  # ty: ignore[unresolved-attribute]
 		return ret_val
 
 	@property
@@ -156,8 +161,9 @@ class StreamWriter:
 		"""Returns number of bytes written to the stream since its creation."""
 		return self._written_len
 
+	# noinspection PyUnresolvedReferences
 	def close(self) -> None:
 		"""Closes the StreamWriter. You can not use its instance afterward."""
 		if Type.File in self._target and self._data:
-			self._data.close()
-		self._data = None
+			self._data.close()  # ty: ignore[unresolved-attribute]
+		self._data = None  # ty: ignore[invalid-assignment]

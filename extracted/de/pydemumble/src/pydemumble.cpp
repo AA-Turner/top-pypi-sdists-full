@@ -6,7 +6,7 @@
 #include <cstdlib>
 #include <string>
 
-#define __PYDEMUMBLE_VERSION__ "0.0.1"
+#define __PYDEMUMBLE_VERSION__ "0.1.3"
 
 namespace pydemumble
 {

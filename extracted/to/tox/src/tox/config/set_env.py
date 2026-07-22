@@ -15,7 +15,7 @@ SetEnvRaw = str | dict[str, Any] | list[dict[str, Any]]
 
 
 class SetEnv:
-    def __init__(  # noqa: C901, PLR0912
+    def __init__(  # ruff:ignore[complex-structure, too-many-branches]
         self, raw: SetEnvRaw, name: str, env_name: str | None, root: Path
     ) -> None:
         self.changed = False
@@ -25,9 +25,9 @@ class SetEnv:
         self._markers: dict[str, Marker] = {}  # PEP-496 markers for conditional env vars
         self._needs_replacement: list[str] = []  # env vars that need replacement
         self._env_files: list[tuple[str, set[str]]] = []
-        self._replacer: Replacer = lambda s, c: s  # noqa: ARG005
+        self._replacer: Replacer = lambda s, c: s  # ruff:ignore[unused-lambda-argument]
         self._name, self._env_name, self._root = name, env_name, root
-        from .loader.replacer import MatchExpression, find_replace_expr  # noqa: PLC0415
+        from .loader.replacer import MatchExpression, find_replace_expr  # ruff:ignore[import-outside-top-level]
 
         if isinstance(raw, dict):
             self._parse_dict(raw)
@@ -37,7 +37,7 @@ class SetEnv:
             self._parse_dict(merged)
             return
         keys_after_file: set[str] = set()
-        for line in raw.splitlines():  # noqa: PLR1702
+        for line in raw.splitlines():  # ruff:ignore[too-many-nested-blocks]
             if line.strip():
                 if self._is_file_line(line):
                     self._env_files.append((self._parse_file_line(line), keys_after_file := set()))
@@ -46,7 +46,7 @@ class SetEnv:
                         key, value, marker = self._extract_key_value_marker(line)
                         if "{" in key:
                             msg = f"invalid line {line!r} in set_env"
-                            raise ValueError(msg)  # noqa: TRY301
+                            raise ValueError(msg)  # ruff:ignore[raise-within-try]
                     except ValueError:
                         for expr in find_replace_expr(line):
                             if isinstance(expr, MatchExpression):
@@ -108,7 +108,7 @@ class SetEnv:
             msg = f"{env_file} does not exist for set_env"
             raise Fail(msg)
         for env_line in env_file.read_text().splitlines():
-            env_line = env_line.strip()  # noqa: PLW2901
+            env_line = env_line.strip()  # ruff:ignore[redefined-loop-name]
             if not env_line or env_line.startswith("#"):
                 continue
             key, value, _ = self._extract_key_value_marker(env_line)
@@ -126,20 +126,25 @@ class SetEnv:
     @staticmethod
     def _split_value_marker(value: str) -> tuple[str, str]:
         # Parse value; marker format (PEP-496 style)
-        # Handle escaped semicolons (\;) and quoted strings
-        in_quotes = False
-        quote_char = ""
-        i = 0
-        while i < len(value):
-            char = value[i]
-            if char in {'"', "'"} and (i == 0 or value[i - 1] != "\\"):
-                if not in_quotes:
-                    in_quotes, quote_char = True, char
-                elif char == quote_char:
-                    in_quotes = False
-            elif char == ";" and not in_quotes and (i == 0 or value[i - 1] != "\\"):
-                return value[:i].strip().replace("\\;", ";"), value[i + 1 :].strip()
-            i += 1
+        # Handle escaped semicolons (\;) and quoted strings. Quotes keep a ";" inside a quoted value from being read
+        # as the marker separator, but only when balanced -- a lone quote (e.g. an apostrophe in the value) must not
+        # swallow the marker, so retry ignoring quotes if one is left open.
+        for respect_quotes in (True, False):
+            in_quotes = False
+            quote_char = ""
+            index = 0
+            while index < len(value):
+                char = value[index]
+                if respect_quotes and char in {'"', "'"} and (index == 0 or value[index - 1] != "\\"):
+                    if not in_quotes:
+                        in_quotes, quote_char = True, char
+                    elif char == quote_char:
+                        in_quotes = False
+                elif char == ";" and not in_quotes and (index == 0 or value[index - 1] != "\\"):
+                    return value[:index].strip().replace("\\;", ";"), value[index + 1 :].strip()
+                index += 1
+            if not in_quotes:
+                break  # quotes balanced or absent: the first pass is authoritative
         return value.replace("\\;", ";"), ""
 
     def load(self, item: str, args: ConfigLoadArgs | None = None) -> str:
@@ -177,7 +182,7 @@ class SetEnv:
                 if self._is_file_line(sub_line):
                     for key, value in self._stream_env_file(self._parse_file_line(sub_line), args):
                         if key not in self._raw and key not in self._defined_keys:
-                            sub_raw[key] = value  # noqa: PERF403
+                            sub_raw[key] = value  # ruff:ignore[manual-dict-comprehension]
                 else:
                     key, value, marker = self._extract_key_value_marker(sub_line)
                     if key not in self._raw and key not in self._defined_keys:

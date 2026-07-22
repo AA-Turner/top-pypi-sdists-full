@@ -27,7 +27,10 @@ use uv_normalize::{GroupName, PackageName};
 use uv_pep440::Version;
 use uv_preview::{Preview, PreviewFeature};
 use uv_pypi_types::{ConflictKind, Conflicts, SupportedEnvironments};
-use uv_python::{Interpreter, PythonDownloads, PythonEnvironment, PythonPreference, PythonRequest};
+use uv_python::{
+    ConfigDiscovery, Interpreter, PythonDownloads, PythonEnvironment, PythonPreference,
+    PythonRequest,
+};
 use uv_requirements::{ExtrasResolver, LockedRequirements, read_lock_requirements};
 use uv_resolver::{
     FlatIndex, InMemoryIndex, Lock, Options, OptionsBuilder, Package, PythonRequirement,
@@ -95,7 +98,7 @@ pub(crate) async fn lock(
     python_preference: PythonPreference,
     python_downloads: PythonDownloads,
     concurrency: Concurrency,
-    no_config: bool,
+    config_discovery: ConfigDiscovery,
     cache: &Cache,
     workspace_cache: &WorkspaceCache,
     printer: Printer,
@@ -112,7 +115,7 @@ pub(crate) async fn lock(
                 false,
                 python_preference,
                 python_downloads,
-                no_config,
+                config_discovery,
                 &client_builder,
                 cache,
                 &reporter,
@@ -153,7 +156,7 @@ pub(crate) async fn lock(
                     Some(workspace),
                     &groups,
                     project_dir,
-                    no_config,
+                    config_discovery,
                 )
                 .await?;
                 ProjectInterpreter::discover(
@@ -180,7 +183,7 @@ pub(crate) async fn lock(
                 python_downloads,
                 &install_mirrors,
                 false,
-                no_config,
+                config_discovery,
                 Some(false),
                 cache,
                 printer,
@@ -515,12 +518,16 @@ async fn do_lock(
     let source_trees = vec![];
 
     // If necessary, lower the overrides and constraints.
-    let requirements = target.lower(
-        requirements,
-        index_locations,
-        sources,
-        client_builder.credentials_cache(),
-    )?;
+    let requirements = target
+        .lower(
+            requirements,
+            index_locations,
+            sources,
+            cache,
+            workspace_cache,
+            client_builder.credentials_cache(),
+        )
+        .await?;
     let overrides = {
         let mut lowered_overrides = Vec::new();
         for entry in overrides {
@@ -532,8 +539,11 @@ async fn do_lock(
                                 vec![requirement],
                                 index_locations,
                                 sources,
+                                cache,
+                                workspace_cache,
                                 client_builder.credentials_cache(),
-                            )?
+                            )
+                            .await?
                             .into_iter()
                             .map(Override::Requirement),
                     );
@@ -546,8 +556,11 @@ async fn do_lock(
                                 package.dependencies.into_vec(),
                                 index_locations,
                                 sources,
+                                cache,
+                                workspace_cache,
                                 client_builder.credentials_cache(),
-                            )?
+                            )
+                            .await?
                             .into_boxed_slice(),
                     }));
                 }
@@ -555,30 +568,41 @@ async fn do_lock(
         }
         lowered_overrides
     };
-    let constraints = target.lower(
-        constraints,
-        index_locations,
-        sources,
-        client_builder.credentials_cache(),
-    )?;
-    let build_constraints = target.lower(
-        build_constraints,
-        index_locations,
-        sources,
-        client_builder.credentials_cache(),
-    )?;
-    let dependency_groups = dependency_groups
-        .into_iter()
-        .map(|(name, group)| {
-            let requirements = target.lower(
+    let constraints = target
+        .lower(
+            constraints,
+            index_locations,
+            sources,
+            cache,
+            workspace_cache,
+            client_builder.credentials_cache(),
+        )
+        .await?;
+    let build_constraints = target
+        .lower(
+            build_constraints,
+            index_locations,
+            sources,
+            cache,
+            workspace_cache,
+            client_builder.credentials_cache(),
+        )
+        .await?;
+    let mut lowered_dependency_groups = BTreeMap::new();
+    for (name, group) in dependency_groups {
+        let requirements = target
+            .lower(
                 group.requirements,
                 index_locations,
                 sources,
+                cache,
+                workspace_cache,
                 client_builder.credentials_cache(),
-            )?;
-            Ok((name, requirements))
-        })
-        .collect::<Result<BTreeMap<_, _>, ProjectError>>()?;
+            )
+            .await?;
+        lowered_dependency_groups.insert(name, requirements);
+    }
+    let dependency_groups = lowered_dependency_groups;
 
     // Collect the conflicts.
     let mut conflicts = target.conflicts()?;
@@ -787,16 +811,28 @@ async fn do_lock(
 
     // Lower the extra build dependencies.
     let extra_build_requires = match &target {
-        LockTarget::Workspace(workspace) => LoweredExtraBuildDependencies::from_workspace(
-            extra_build_dependencies.clone(),
-            workspace,
-            index_locations,
-            sources,
-            client.credentials_cache(),
-        )?,
+        LockTarget::Workspace(workspace) => {
+            LoweredExtraBuildDependencies::from_workspace(
+                extra_build_dependencies.clone(),
+                workspace,
+                index_locations,
+                sources,
+                cache,
+                workspace_cache,
+                client.credentials_cache(),
+            )
+            .await?
+        }
         LockTarget::Script(script) => {
             // Try to get extra build dependencies from the script metadata
-            script_extra_build_requires((*script).into(), settings, client.credentials_cache())?
+            script_extra_build_requires(
+                (*script).into(),
+                settings,
+                cache,
+                workspace_cache,
+                client.credentials_cache(),
+            )
+            .await?
         }
     }
     .into_inner();
@@ -1025,6 +1061,7 @@ async fn do_lock(
                 &resolution,
                 target.install_path(),
                 lock_supported_environments.clone().into_markers(),
+                index_locations,
             )?
             .with_manifest(manifest)
             .with_conflicts(conflicts)
@@ -1237,6 +1274,11 @@ impl ValidatedLock {
             debug!(
                 "Resolving despite existing lockfile due to `--upgrade-package` or `--upgrade-group`"
             );
+            return Ok(Self::Preferable(lock));
+        }
+
+        if !lock.satisfies_hash_algorithms(install_path, index_locations)? {
+            debug!("Resolving despite existing lockfile due to mismatched hash algorithm");
             return Ok(Self::Preferable(lock));
         }
 

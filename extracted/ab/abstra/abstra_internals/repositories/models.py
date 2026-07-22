@@ -1,8 +1,6 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from multiprocessing.connection import Connection
 from typing import Optional
-
-from pydantic import ConfigDict, Field
 
 from abstra_internals.entities.execution_context import ClientContext
 from abstra_internals.utils.serializable import Serializable
@@ -48,11 +46,9 @@ class StopAllExecutionsMessage(ControlMessage):
 
 
 class RunSnippetMessage(ControlMessage):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
     type: str = "run_snippet"
     payload: RunSnippetPayload
-    connection: Optional[Connection] = Field(default=None, exclude=True)
+    connection: Optional[Connection] = field(default=None, metadata={"exclude": True})
 
     @staticmethod
     def create(code: str, title: str = "Debug Snippet") -> "RunSnippetMessage":
@@ -62,11 +58,9 @@ class RunSnippetMessage(ControlMessage):
 
 
 class RunSnippetSandboxedMessage(ControlMessage):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
     type: str = "run_snippet_sandboxed"
     payload: RunSnippetPayload
-    connection: Optional[Connection] = Field(default=None, exclude=True)
+    connection: Optional[Connection] = field(default=None, metadata={"exclude": True})
     # Publisher's reply-queue x-expires; the worker must redeclare with the exact
     # same value or RabbitMQ 406s (see consumer._send_snippet_result).
     queue_expire_ms: Optional[int] = None

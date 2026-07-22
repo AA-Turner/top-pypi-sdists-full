@@ -10,7 +10,7 @@ class ArgSingleSuppressed(object):
 	- 'value' attribute, since this is discarded or linked internally directly  in the Query_XxXx_Suppressed().
 	- 'is_optional' attribute, since it is always mandatory."""
 
-	def __init__(self, argument_ix: int, data_type: DataType, is_open_list: bool = False, repetition: int = 1, intern_link: str = None):
+	def __init__(self, argument_ix: int, data_type: DataType, is_open_list: bool = False, repetition: int = 1, intern_link: str | None = None):
 		self.name = ''
 		self.argument_ix = argument_ix
 		self.data_type = data_type

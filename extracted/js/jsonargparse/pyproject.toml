@@ -13,14 +13,13 @@ authors = [
 readme = "README.rst"
 license = "MIT"
 license-files = ["LICENSE.rst"]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -84,7 +83,7 @@ omegaconf = [
     "omegaconf>=2.1.1",
 ]
 typing-extensions = [
-    "typing-extensions>=3.10.0.0; python_version < '3.10'",
+    "typing-extensions>=4.12.0; python_version < '3.11'",
 ]
 test = [
     "jsonargparse[test-no-urls]",
@@ -110,7 +109,8 @@ dev = [
     "jsonargparse[coverage]",
     "jsonargparse[doc]",
     "pre-commit>=2.19.0",
-    "tox>=3.25.0",
+    "tox>=4.0.0",
+    "tox-uv>=1.0.0",
     "build>=0.10.0",
 ]
 doc = [
@@ -128,10 +128,10 @@ maintainer = [
 Documentation-stable = "https://jsonargparse.readthedocs.io/en/stable/"
 Documentation-latest = "https://jsonargparse.readthedocs.io/en/latest/"
 Changes = "https://jsonargparse.readthedocs.io/en/stable/changelog.html"
-GitHub = "https://github.com/omni-us/jsonargparse"
+GitHub = "https://github.com/mauvilsa/jsonargparse"
 PyPI = "https://pypi.org/project/jsonargparse"
-SonarCloud = "https://sonarcloud.io/dashboard?id=omni-us_jsonargparse"
-Codecov = "https://codecov.io/gh/omni-us/jsonargparse"
+SonarCloud = "https://sonarcloud.io/dashboard?id=mauvilsa_jsonargparse"
+Codecov = "https://codecov.io/gh/mauvilsa/jsonargparse"
 
 
 [tool.setuptools]
@@ -179,9 +179,6 @@ ignore = [
     "E721",  # Allow comparing types with type()
 ]
 
-[tool.ruff.lint.pydocstyle]
-convention = "google"
-
 
 [tool.typos.default.extend-identifiers]
 Villegas = "Villegas"
@@ -190,7 +187,7 @@ Villegas = "Villegas"
 [tool.tox]
 legacy_tox_ini = """
 [tox]
-envlist = py{39,310,311,312,313,314}-{all-extras,no-extras,argparse},omegaconf,pydantic-v1,without-pyyaml,without-future-annotations
+envlist = py{310,311,312,313,314}-{all-extras,no-extras,argparse},omegaconf,pydantic-v1,without-pyyaml,without-future-annotations
 skip_missing_interpreters = true
 
 [testenv]
@@ -200,6 +197,10 @@ extras =
     argparse: coverage
 changedir = jsonargparse_tests
 allowlist_externals = rm
+passenv = UV_EXCLUDE_NEWER
+# Ensure uv installs into the tox env even if UV_SYSTEM_PYTHON=1 set outside
+setenv =
+    UV_SYSTEM_PYTHON = 0
 commands =
     all-extras: python -m pytest {posargs}
     no-extras: python -m pytest {posargs}
@@ -208,10 +209,15 @@ commands =
     argparse: python -m pytest -W ignore::pytest.PytestUnknownMarkWarning --tb=no -m "not (not_supported or implementation_specific or investigate)" tests_argparse_{env_name}.py {posargs}
 usedevelop = true
 
+[testenv:.pkg]
+setenv =
+    {[testenv]setenv}
+
 [testenv:omegaconf]
 extras = test,coverage,all
 changedir = jsonargparse_tests
 setenv =
+    {[testenv]setenv}
     JSONARGPARSE_OMEGACONF_FULL_TEST = true
 commands =
     python -m pytest {posargs}
@@ -227,7 +233,7 @@ commands =
         copy('conftest.py', Path(r'{envtmpdir}', 'conftest.py')); \
         copy('test_pydantic.py', Path(r'{envtmpdir}', 'test_pydantic.py'))\
     "
-    pip install "pydantic<2"
+    uv pip install --python {envpython} "pydantic<2"
     python -m pytest {posargs} {envtmpdir}/test_pydantic.py
 
     # Test with pydantic>=2 importing from pydantic.v1
@@ -239,13 +245,13 @@ commands =
         content = re.sub(r'^annotated = [^\\n]*', 'annotated = False', content, flags=re.MULTILINE); \
         path.write_text(content)\
     "
-    pip install "pydantic>=2"
+    uv pip install --python {envpython} "pydantic>=2"
     python -m pytest {posargs} {envtmpdir}/test_pydantic.py
 
 [testenv:without-pyyaml]
 extras = test,coverage,all
 commands =
-    pip uninstall -y argcomplete omegaconf pyyaml responses ruamel.yaml ruamel.yaml.clib types-PyYAML
+    uv pip uninstall --python {envpython} argcomplete omegaconf pyyaml responses ruamel.yaml ruamel.yaml.clib types-PyYAML
     python -m pytest {posargs}
 
 [testenv:without-future-annotations]

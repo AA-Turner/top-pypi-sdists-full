@@ -83,7 +83,7 @@ class Mcp(betterproto2.Message):
     [#extension: envoy.filters.http.mcp]
 
     This filter will inspect and get attributes from MCP traffic.
-    [#next-free-field: 8]
+    [#next-free-field: 9]
     """
 
     traffic_mode: "McpTrafficMode" = betterproto2.field(
@@ -107,9 +107,12 @@ class Mcp(betterproto2.Message):
         optional=True,
     )
     """
-    Maximum size of the request body to buffer for JSON-RPC validation.
-    If the request body exceeds this size, the request is rejected with ``413 Payload Too Large``.
-    This limit applies to both ``REJECT_NO_MCP`` and ``PASS_THROUGH`` modes to prevent unbounded buffering.
+    Maximum size of the request body to buffer for JSON-RPC parsing.
+    Only the first ``max_request_body_size`` bytes are parsed for MCP attribute extraction.
+
+    When the body exceeds this limit:
+    - In ``PASS_THROUGH`` mode: the request is allowed through with an ``is_exceeding_limit`` marker in the dynamic metadata, indicating that the MCP payload was only partially parsed.
+    - In ``REJECT_NO_MCP`` mode: the request is rejected with ``400 Bad Request`` because the complete root JSON object must fit within the size limit.
 
     It defaults to 8KB (8192 bytes) and the maximum allowed value is 10MB (10485760 bytes).
 
@@ -160,6 +163,18 @@ class Mcp(betterproto2.Message):
     the MCP request body contains a valid baggage field.
 
     If unset (default), do not extract or inject baggage.
+    """
+
+    reject_duplicate_keys: "bool | None" = betterproto2.field(
+        8,
+        betterproto2.TYPE_MESSAGE,
+        unwrap=lambda: ______google__protobuf__.BoolValue,
+        optional=True,
+    )
+    """
+    When true, reject requests that contain duplicate JSON keys at any
+    nesting level. RFC 8259 Section 4 states that names within an object SHOULD be
+    unique. Defaults to false (last-key-wins / last-win).
     """
 
 

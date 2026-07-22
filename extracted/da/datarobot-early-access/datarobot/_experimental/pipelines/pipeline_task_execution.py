@@ -151,6 +151,18 @@ class PipelineTaskExecution(APIObject):
         When execution finished, or None if still running.
     error_detail : str or None
         Failure message when the task failed.
+    node_id : int or None
+        Runtime node id of this specific invocation. In a fan-out pipeline the
+        same ``@task`` runs at several graph nodes and each invocation shares
+        one ``task_id`` but has a distinct ``node_id``. Pass it back as the
+        ``node_id`` argument to :meth:`get`, :meth:`get_result`, :meth:`get_logs`,
+        or :meth:`get_durable_log` to address a single fan-out invocation.
+        None for legacy rows that pre-date node-id tracking.
+    graph_node_id : int or None
+        Static graph node id (from the pipeline graph) this execution maps to,
+        stable across dispatches. None when no 1:1 match against the static
+        graph exists (call sites in loops, helper-wrapped tasks) or for legacy
+        rows.
     """
 
     _converter = t.Dict({
@@ -160,6 +172,8 @@ class PipelineTaskExecution(APIObject):
         t.Key("started_at", optional=True, default=None): t.Or(String(), t.Null()),
         t.Key("completed_at", optional=True, default=None): t.Or(String(), t.Null()),
         t.Key("error_detail", optional=True, default=None): t.Or(String(allow_blank=True), t.Null()),
+        t.Key("node_id", optional=True, default=None): t.Or(t.Int(), t.Null()),
+        t.Key("graph_node_id", optional=True, default=None): t.Or(t.Int(), t.Null()),
     }).allow_extra("*")
 
     def __init__(
@@ -170,6 +184,8 @@ class PipelineTaskExecution(APIObject):
         started_at: Optional[str] = None,
         completed_at: Optional[str] = None,
         error_detail: Optional[str] = None,
+        node_id: Optional[int] = None,
+        graph_node_id: Optional[int] = None,
         **kwargs: Any,
     ) -> None:
         self.task_id = task_id
@@ -178,6 +194,8 @@ class PipelineTaskExecution(APIObject):
         self.started_at = started_at
         self.completed_at = completed_at
         self.error_detail = error_detail
+        self.node_id = node_id
+        self.graph_node_id = graph_node_id
 
     def __repr__(self) -> str:
         return f"PipelineTaskExecution(task_id={self.task_id!r}, name={self.name!r}, status={self.status!r})"
@@ -210,12 +228,22 @@ class PipelineTaskExecution(APIObject):
         # This endpoint returns a bare JSON array, not a paginated envelope.
         return [cls.from_server_data(item) for item in response.json()]
 
+    @staticmethod
+    def _node_id_params(node_id: Optional[int]) -> Optional[Dict[str, Any]]:
+        """Build the ``?nodeId=`` query params, or None when unset.
+
+        The server query parameter is camelCase ``nodeId``; wrapping in rawdict
+        keeps it verbatim (to_api would otherwise be applied to the params).
+        """
+        return rawdict({"nodeId": node_id}) if node_id is not None else None
+
     @classmethod
     def get(
         cls: Type[TPipelineTaskExecution],
         pipeline_id: str,
         dispatch_id: str,
         task_id: int,
+        node_id: Optional[int] = None,
     ) -> TPipelineTaskExecution:
         """Get the execution record for a single task in a dispatch.
 
@@ -227,13 +255,18 @@ class PipelineTaskExecution(APIObject):
             The dispatch ID.
         task_id : int
             The public sequential task number.
+        node_id : int, optional
+            The runtime ``node_id`` of a specific fan-out invocation (from
+            :meth:`list`). Required when the same ``@task`` ran at multiple
+            graph nodes -- omitting it then raises a 409 ``ClientError`` listing
+            the candidate node ids. May be omitted for single-execution tasks.
 
         Returns
         -------
         task : PipelineTaskExecution
         """
         path = cls._tasks_path(pipeline_id, dispatch_id)
-        response = cls._client.get(f"{path}{task_id}/")
+        response = cls._client.get(f"{path}{task_id}/", params=cls._node_id_params(node_id))
         return cls.from_server_data(response.json())
 
     @classmethod
@@ -242,6 +275,7 @@ class PipelineTaskExecution(APIObject):
         pipeline_id: str,
         dispatch_id: str,
         task_id: int,
+        node_id: Optional[int] = None,
     ) -> TaskExecutionResult:
         """Get a completed task's result (presigned URL + JSON preview).
 
@@ -253,13 +287,18 @@ class PipelineTaskExecution(APIObject):
             The dispatch ID.
         task_id : int
             The public sequential task number.
+        node_id : int, optional
+            The runtime ``node_id`` of a specific fan-out invocation (from
+            :meth:`list`). Required when the same ``@task`` ran at multiple
+            graph nodes -- omitting it then raises a 409 ``ClientError`` listing
+            the candidate node ids. May be omitted for single-execution tasks.
 
         Returns
         -------
         result : TaskExecutionResult
         """
         path = cls._tasks_path(pipeline_id, dispatch_id)
-        response = cls._client.get(f"{path}{task_id}/result/")
+        response = cls._client.get(f"{path}{task_id}/result/", params=cls._node_id_params(node_id))
         data = response.json()
         return TaskExecutionResult(
             url=data["url"],
@@ -278,6 +317,7 @@ class PipelineTaskExecution(APIObject):
         task_id: int,
         tail_lines: Optional[int] = None,
         verbosity: str = "user",
+        node_id: Optional[int] = None,
     ) -> TaskExecutionLogs:
         """Read the live K8s pod logs for a task execution.
 
@@ -294,17 +334,25 @@ class PipelineTaskExecution(APIObject):
         verbosity : str, optional
             'user' (default) hides the electron runner's own structured JSON log
             lines; 'all' returns every line unfiltered.
+        node_id : int, optional
+            The runtime ``node_id`` of a specific fan-out invocation (from
+            :meth:`list`). Required when the same ``@task`` ran at multiple
+            graph nodes -- omitting it then raises a 409 ``ClientError`` listing
+            the candidate node ids. May be omitted for single-execution tasks.
 
         Returns
         -------
         logs : TaskExecutionLogs
         """
         path = cls._tasks_path(pipeline_id, dispatch_id)
-        # rawdict keeps query keys snake_case; the server expects ``tail_lines``,
-        # not the camelCased ``tailLines`` that to_api would otherwise produce.
+        # rawdict keeps query keys verbatim; the server expects ``tail_lines``
+        # (snake_case) and ``nodeId`` (camelCase alias), not what to_api would
+        # otherwise produce.
         params: Dict[str, Any] = {"verbosity": verbosity}
         if tail_lines is not None:
             params["tail_lines"] = tail_lines
+        if node_id is not None:
+            params["nodeId"] = node_id
         response = cls._client.get(f"{path}{task_id}/logs/", params=rawdict(params))
         data = response.json()
         return TaskExecutionLogs(
@@ -320,6 +368,7 @@ class PipelineTaskExecution(APIObject):
         task_id: int,
         stream: str,
         verbosity: str = "user",
+        node_id: Optional[int] = None,
     ) -> TaskExecutionDurableLog:
         """Read a task's durable (S3-uploaded) stdout/stderr log content.
 
@@ -336,15 +385,23 @@ class PipelineTaskExecution(APIObject):
         verbosity : str, optional
             'user' (default) hides the electron runner's own structured JSON log
             lines; 'all' returns every line unfiltered.
+        node_id : int, optional
+            The runtime ``node_id`` of a specific fan-out invocation (from
+            :meth:`list`). Required when the same ``@task`` ran at multiple
+            graph nodes -- omitting it then raises a 409 ``ClientError`` listing
+            the candidate node ids. May be omitted for single-execution tasks.
 
         Returns
         -------
         log : TaskExecutionDurableLog
         """
         path = cls._tasks_path(pipeline_id, dispatch_id)
+        params: Dict[str, Any] = {"verbosity": verbosity}
+        if node_id is not None:
+            params["nodeId"] = node_id
         response = cls._client.get(
             f"{path}{task_id}/logs/{stream}/",
-            params=rawdict({"verbosity": verbosity}),
+            params=rawdict(params),
         )
         data = response.json()
         return TaskExecutionDurableLog(

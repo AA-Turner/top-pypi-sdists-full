@@ -306,6 +306,14 @@ pub struct GatewayState {
     /// Default: `false`. When `false`, `mode=hybrid` silently falls back to
     /// `mode=fuzzy`.  Mirrors [`GatewayConfig::semantic_search_enabled`].
     pub semantic_search_enabled: bool,
+
+    /// SQLite persistence lane for tool-call events, sessions, and
+    /// session events.
+    ///
+    /// `None` when the `admin-persist-sqlite` feature is off or when
+    /// `--no-admin` is passed.
+    #[cfg(feature = "admin-persist-sqlite")]
+    pub admin_sqlite_lane: Option<crate::gateway::admin::sqlite_lane::AdminSqliteLane>,
 }
 
 impl GatewayState {
@@ -365,11 +373,11 @@ impl GatewayState {
     pub fn instance_json(&self, e: &ServiceEntry) -> Value {
         let diag = self.instance_diagnostics.get(&e.instance_id);
         let mut row = entry_to_json(e, self.stale_timeout, diag.as_ref());
-        let app_ui = app_ui_diagnostics(e, &self.capability_index.snapshot());
+        let ui_control = ui_control_diagnostics(e, &self.capability_index.snapshot());
         if !row.get("diagnostics").is_some_and(Value::is_object) {
             row["diagnostics"] = json!({});
         }
-        row["diagnostics"]["app_ui"] = app_ui;
+        row["diagnostics"]["ui_control"] = ui_control;
         row
     }
 
@@ -481,26 +489,27 @@ impl GatewayState {
         }
     }
 
-    /// Return operator-facing registry rows with dead-PID entries pruned.
+    /// Return operator-facing registry rows with dead owner/host entries pruned.
     ///
     /// Issue #719: before this method existed, `list_dcc_instances` could
-    /// return rows whose owning DCC process had already exited — for up to
+    /// return rows whose owning service or bound DCC host had already exited — for up to
     /// `stale_timeout_secs` (default 30 s) after the process died, or
     /// indefinitely if no gateway process was running the periodic sweep.
     /// Agents then routed `call_tool` / `acquire_dcc_instance` to a dead
     /// backend and hit connection-refused.
     ///
     /// This is a self-healing read path: every call consults
-    /// [`FileRegistry::read_alive`] which probes each row's `pid` field via
-    /// `sysinfo` and evicts dead-PID rows from both the in-memory view and
-    /// the on-disk `services.json` before returning. The same
+    /// [`FileRegistry::read_alive`] which checks the service sentinel (or
+    /// legacy `pid` fallback) plus any explicit `host_pid`, and evicts dead
+    /// rows from both the in-memory view and on-disk `services.json` before
+    /// returning. The same
     /// sentinel / self-row filters that [`Self::all_instances`] uses are
     /// applied after the prune so the caller sees the identical view
     /// minus the zombies.
     ///
-    /// Fail-open contract (#227): rows with no `pid` are considered alive
-    /// and survive the prune. `FileRegistry::read_alive` enforces this
-    /// internally; we do not re-check it here.
+    /// Fail-open contract (#227): legacy rows with neither a sentinel nor PID
+    /// are considered alive and survive the prune. `FileRegistry::read_alive`
+    /// enforces this internally; we do not re-check it here.
     ///
     /// Returns `(alive_entries, evicted_count)`. `evicted_count` is the
     /// total number of dead-PID rows the registry dropped — callers can
@@ -620,11 +629,18 @@ fn lifecycle_json(e: &ServiceEntry) -> Value {
             "root_path",
         ],
     );
+    let instance_type = first_metadata_value(&e.metadata, &["dcc_mcp_instance_type"]);
 
     json!({
         "role": role,
         "owner": owner,
         "session": session,
+        "pid": e.pid,
+        "service_pid": e.pid,
+        "host_pid": e.host_pid,
+        "dcc_pid": e.host_pid,
+        "host_bound": e.host_pid.is_some(),
+        "instance_type": instance_type,
         "sidecar_pid": sidecar_pid,
         "supports_safe_stop": sidecar_pid.is_some() || safe_stop_url.is_some(),
         "safe_stop_url": safe_stop_url,
@@ -693,22 +709,25 @@ fn dispatch_json(e: &ServiceEntry, stale: bool) -> Value {
     })
 }
 
-fn app_ui_diagnostics(e: &ServiceEntry, snap: &crate::gateway::capability::IndexSnapshot) -> Value {
+fn ui_control_diagnostics(
+    e: &ServiceEntry,
+    snap: &crate::gateway::capability::IndexSnapshot,
+) -> Value {
     let explicit_status = first_metadata_value(
         &e.metadata,
         &[
-            "app_ui.status",
-            "dcc_mcp_app_ui_status",
-            "dcc_mcp.app_ui.status",
+            "ui_control.status",
+            "dcc_mcp_ui_control_status",
+            "dcc_mcp.ui_control.status",
         ],
     )
     .map(|value| value.trim().to_ascii_lowercase());
     let explicit_reason = first_metadata_value(
         &e.metadata,
         &[
-            "app_ui.reason",
-            "dcc_mcp_app_ui_reason",
-            "dcc_mcp.app_ui.reason",
+            "ui_control.reason",
+            "dcc_mcp_ui_control_reason",
+            "dcc_mcp.ui_control.reason",
         ],
     );
 
@@ -717,7 +736,7 @@ fn app_ui_diagnostics(e: &ServiceEntry, snap: &crate::gateway::capability::Index
         .iter()
         .filter(|record| record.instance_id == e.instance_id)
         .filter(|record| record.loaded)
-        .filter(|record| record.callable_id.starts_with("app_ui__"))
+        .filter(|record| record.callable_id.starts_with("ui_control__"))
         .map(|record| record.callable_id.clone())
         .collect();
     tools.sort();
@@ -793,6 +812,7 @@ pub fn entry_to_json(
         // Both fields are null when not set; agents should skip null values
         // when building the disambiguation prompt for users.
         "pid":             e.pid,
+        "host_pid":        e.host_pid,
         "display_name":    e.display_name,
         // ── misc ───────────────────────────────────────────────────────────
         "version":         e.version,

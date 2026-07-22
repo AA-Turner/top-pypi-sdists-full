@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: soupsieve
-Version: 2.9
+Version: 2.9.1
 Summary: A modern CSS selector implementation for Beautiful Soup.
 Project-URL: Homepage, https://github.com/facelessuser/soupsieve
 Author-email: Isaac Muse <Isaac.Muse@gmail.com>

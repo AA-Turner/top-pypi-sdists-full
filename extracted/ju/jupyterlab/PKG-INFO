@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jupyterlab
-Version: 4.6.1
+Version: 4.6.2
 Summary: JupyterLab computational environment
 Project-URL: Homepage, https://jupyter.org
 Project-URL: Changelog, https://jupyterlab.readthedocs.io/en/stable/getting_started/changelog.html
@@ -68,6 +68,7 @@ Requires-Dist: packaging>=23.2
 Requires-Dist: tomli>=1.2.2; python_version < '3.11'
 Requires-Dist: tornado>=6.2.0
 Requires-Dist: traitlets
+Requires-Dist: typing-extensions>=4.4.0; python_version < '3.12'
 Provides-Extra: dev
 Requires-Dist: build; extra == 'dev'
 Requires-Dist: bump2version; extra == 'dev'

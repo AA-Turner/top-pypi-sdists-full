@@ -265,6 +265,7 @@ default_message_pool.register_message(
 class StatsConfig(betterproto2.Message):
     """
     Statistics configuration such as tagging.
+    [#next-free-field: 6]
     """
 
     stats_tags: "list[TagSpecifier]" = betterproto2.field(
@@ -341,6 +342,26 @@ class StatsConfig(betterproto2.Message):
           1800000,
           3600000
         ]
+    """
+
+    allow_default_tag_overrides: "bool | None" = betterproto2.field(
+        5,
+        betterproto2.TYPE_MESSAGE,
+        unwrap=lambda: ____google__protobuf__.BoolValue,
+        optional=True,
+    )
+    """
+    When set to ``true``, tag extractors specified in :ref:`stats_tags
+    <envoy_v3_api_field_config.metrics.v3.StatsConfig.stats_tags>` take precedence over the built-in
+    default tag extractors that share the same ``tag_name``, instead of the default taking
+    precedence. This allows overriding individual default Envoy tags (for example
+    ``envoy.cluster_name``) while keeping :ref:`use_all_default_tags
+    <envoy_v3_api_field_config.metrics.v3.StatsConfig.use_all_default_tags>` enabled, so it is not
+    necessary to disable all defaults and re-declare every extractor.
+
+    Has no effect when ``use_all_default_tags`` is ``false`` (no default extractors are added in
+    that case). If not provided, the value is assumed to be false, preserving existing behavior
+    where the default extractor takes precedence over custom extractors with the same ``tag_name``.
     """
 
 

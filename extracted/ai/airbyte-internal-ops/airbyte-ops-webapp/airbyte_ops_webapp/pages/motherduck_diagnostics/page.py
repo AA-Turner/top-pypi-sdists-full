@@ -68,6 +68,9 @@ from airbyte_ops_webapp.pages.motherduck_diagnostics._mcp_tools import (
 from airbyte_ops_webapp.pages.motherduck_diagnostics._state import (
     MotherDuckDiagnosticsPageState,
 )
+from airbyte_ops_webapp.pages.motherduck_diagnostics.agents import (
+    MOTHERDUCK_DIAGNOSTICS_AGENTS_CALLOUT,
+)
 from airbyte_ops_webapp.pages.motherduck_diagnostics.defaults import (
     DEFAULT_LOOKBACK_HOURS,
     KNOWN_ERROR_TYPES,
@@ -166,6 +169,7 @@ def motherduck_diagnostics() -> PrefabApp:
                         "shows only redacted query text."
                     ),
                     show_auth_controls=True,
+                    agents_callout=MOTHERDUCK_DIAGNOSTICS_AGENTS_CALLOUT,
                 )
                 with Tabs(
                     name="diagnostics_tab",

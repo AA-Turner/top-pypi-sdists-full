@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: abxbus
-Version: 2.5.26
+Version: 2.5.40
 Summary: Advanced Pydantic-powered event bus with async support
 Author: Nick Sweeting, ArchiveBox
 Classifier: Programming Language :: Python :: 3
@@ -1815,7 +1815,7 @@ pnpm --dir abxbus-ts install --frozen-lockfile
 Recommended once per clone:
 
 ```bash
-git config --local core.hooksPath .git/hooks
+git config --local core.hooksPath "$(git rev-parse --git-dir)/hooks"
 env -u GIT_CONFIG_COUNT -u GIT_CONFIG_KEY_0 -u GIT_CONFIG_VALUE_0 uv run prek install
 env -u GIT_CONFIG_COUNT -u GIT_CONFIG_KEY_0 -u GIT_CONFIG_VALUE_0 uv run prek run --all-files
 ```
@@ -1830,8 +1830,6 @@ uv run pyright
 ```bash
 # Run the portable Python suite in parallel
 uv run pytest -vs -n auto --dist loadfile --full-trace \
-    --ignore=tests/test_cross_runtime_roundtrip.py \
-    --ignore=tests/test_eventbus_performance.py \
     tests/
 
 # Run specific test file

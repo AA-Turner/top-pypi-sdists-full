@@ -19,6 +19,7 @@ class SuggestionType(StrEnum):
 
     ADOPT_DATA_DISK = "adopt_data_disk"
     CLEAR_FULL_BACKUP = "clear_full_backup"
+    CLEAR_PORT_CONFIG = "clear_port_config"
     CREATE_FULL_BACKUP = "create_full_backup"
     DISABLE_BOOT = "disable_boot"
     ENABLE_NTP = "enable_ntp"
@@ -44,6 +45,7 @@ class IssueType(StrEnum):
     in this list parsed as strings on older versions of the client.
     """
 
+    APP_PORT_CONFLICT = "app_port_conflict"
     BOOT_FAIL = "boot_fail"
     CORRUPT_DOCKER = "corrupt_docker"
     CORRUPT_REPOSITORY = "corrupt_repository"
@@ -71,6 +73,7 @@ class IssueType(StrEnum):
     PWNED = "pwned"
     REBOOT_REQUIRED = "reboot_required"
     SECURITY = "security"
+    SYSTEMD_UNIT_FAILED = "systemd_unit_failed"
     UPDATE_FAILED = "update_failed"
     UPDATE_ROLLBACK = "update_rollback"
 
@@ -117,10 +120,12 @@ class UnhealthyReason(StrEnum):
     client.
     """
 
+    DATA_FILESYSTEM_CHECK_ERROR = "data_filesystem_check_error"
     DOCKER = "docker"
     DOCKER_GATEWAY_UNPROTECTED = "docker_gateway_unprotected"
     DUPLICATE_OS_INSTALLATION = "duplicate_os_installation"
     OSERROR_BAD_MESSAGE = "oserror_bad_message"
+    OS_FILESYSTEM_CHECK_ERROR = "os_filesystem_check_error"
     PRIVILEGED = "privileged"
     SETUP = "setup"
     SUPERVISOR = "supervisor"
@@ -162,6 +167,7 @@ class CheckType(StrEnum):
     FREE_SPACE = "free_space"
     MULTIPLE_DATA_DISKS = "multiple_data_disks"
     NETWORK_INTERFACE_IPV4 = "network_interface_ipv4"
+    SYSTEMD_UNIT_FAILURE = "systemd_unit_failure"
 
 
 # --- OBJECTS ----
@@ -176,6 +182,7 @@ class Suggestion(ResponseData):
     reference: str | None
     uuid: UUID
     auto: bool
+    reference_extra: dict | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -186,6 +193,7 @@ class Issue(ResponseData):
     context: ContextType
     reference: str | None
     uuid: UUID
+    reference_extra: dict | None
 
 
 @dataclass(frozen=True, slots=True)

@@ -6,7 +6,7 @@ from __future__ import annotations
 import pytest
 
 from airbyte_ops_mcp.airbyte_repo.bump_version import InvalidVersionError
-from airbyte_ops_mcp.mcp.prerelease import (
+from airbyte_ops_mcp.mcp.connector_versions import (
     PRERELEASE_SHA_LENGTH,
     PRERELEASE_TAG_PREFIX,
     compute_prerelease_docker_image_tag,

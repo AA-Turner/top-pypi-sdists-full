@@ -12,6 +12,7 @@ from abstra_internals.controllers.file_locks import (
     LockState,
     PresenceState,
 )
+from abstra_internals.services import mcp_context
 from tests.fixtures import BaseTest
 
 
@@ -293,56 +294,47 @@ class FindBlockingLockTest(unittest.TestCase):
         CodebaseEventController.listeners = []
 
     def test_none_when_unlocked(self) -> None:
-        blocking = FileLockController.find_blocking_lock(
-            "main.py", "alice@example.com", "sess-a"
-        )
+        blocking = FileLockController.find_blocking_lock("main.py", "alice@example.com")
         self.assertIsNone(blocking)
 
     def test_none_for_holder(self) -> None:
         FileLockController.acquire("main.py", "sess-a", "alice@example.com", "Alice")
-        blocking = FileLockController.find_blocking_lock(
-            "main.py", "alice@example.com", "sess-a"
-        )
+        blocking = FileLockController.find_blocking_lock("main.py", "alice@example.com")
         self.assertIsNone(blocking)
 
     def test_blocks_other_email(self) -> None:
         FileLockController.acquire("main.py", "sess-a", "alice@example.com", "Alice")
-        blocking = FileLockController.find_blocking_lock(
-            "main.py", "bob@example.com", "sess-b"
-        )
+        blocking = FileLockController.find_blocking_lock("main.py", "bob@example.com")
         assert blocking is not None
         self.assertEqual(blocking.holder_email, "alice@example.com")
 
-    def test_blocks_same_email_other_session(self) -> None:
+    def test_allows_same_email_other_session(self) -> None:
         FileLockController.acquire("main.py", "sess-a", "alice@example.com", "Alice")
-        blocking = FileLockController.find_blocking_lock(
-            "main.py", "alice@example.com", "sess-b"
-        )
+        blocking = FileLockController.find_blocking_lock("main.py", "alice@example.com")
+        self.assertIsNone(blocking)
+
+    def test_empty_email_never_bypasses(self) -> None:
+        FileLockController.acquire("main.py", "sess-a", "", "")
+        blocking = FileLockController.find_blocking_lock("main.py", "")
         assert blocking is not None
         self.assertEqual(blocking.session_id, "sess-a")
 
     def test_blocks_directory_with_locked_descendant(self) -> None:
         FileLockController.acquire("src/foo.py", "sess-a", "alice@example.com", "Alice")
-        blocking = FileLockController.find_blocking_lock(
-            "src", "bob@example.com", "sess-b"
-        )
+        blocking = FileLockController.find_blocking_lock("src", "bob@example.com")
         assert blocking is not None
         self.assertEqual(blocking.file_path, "src/foo.py")
 
     def test_directory_descendant_held_by_requester_not_blocking(self) -> None:
         FileLockController.acquire("src/foo.py", "sess-a", "alice@example.com", "Alice")
-        blocking = FileLockController.find_blocking_lock(
-            "src", "alice@example.com", "sess-a"
-        )
+        blocking = FileLockController.find_blocking_lock("src", "alice@example.com")
         self.assertIsNone(blocking)
 
     def test_ignores_sibling_path_prefix(self) -> None:
         FileLockController.acquire(
             "srcother/baz.py", "sess-a", "alice@example.com", "Alice"
         )
-        blocking = FileLockController.find_blocking_lock(
-            "src", "bob@example.com", "sess-b"
-        )
+        blocking = FileLockController.find_blocking_lock("src", "bob@example.com")
         self.assertIsNone(blocking)
 
 
@@ -388,14 +380,17 @@ class CodebaseWriteLockGuardTest(BaseTest):
             (self.root / "guarded.py").read_text(encoding="utf-8"), "updated"
         )
 
-    def test_edit_blocked_for_same_user_other_session(self) -> None:
+    def test_edit_allowed_for_same_user_other_session(self) -> None:
         FileLockController.acquire("guarded.py", "tab-1", "local", "local")
         response = self.client.put(
             "/_editor/api/codebase/files/guarded.py",
             json={"content": "updated"},
             headers={"X-Abstra-Lock-Session-Id": "tab-2"},
         )
-        self.assertEqual(response.status_code, 423)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            (self.root / "guarded.py").read_text(encoding="utf-8"), "updated"
+        )
 
     def test_edit_allowed_when_unlocked(self) -> None:
         response = self.client.put(
@@ -409,6 +404,32 @@ class CodebaseWriteLockGuardTest(BaseTest):
         response = self.client.post(
             "/_editor/api/codebase/files/guarded.py?overwrite=true",
             data=b"hacked",
+        )
+        self.assertEqual(response.status_code, 423)
+        self.assertEqual(
+            (self.root / "guarded.py").read_text(encoding="utf-8"), "original"
+        )
+
+    def test_create_overwrite_allowed_for_ai_write_when_locked_by_other_user(
+        self,
+    ) -> None:
+        self._lock_as_other_user()
+        response = self.client.post(
+            "/_editor/api/codebase/files/guarded.py?overwrite=true",
+            data=b"ai content",
+            headers={"X-Abstra-User-Message-Id": "msg-1"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            (self.root / "guarded.py").read_text(encoding="utf-8"), "ai content"
+        )
+
+    def test_create_overwrite_with_invalid_message_id_still_blocked(self) -> None:
+        self._lock_as_other_user()
+        response = self.client.post(
+            "/_editor/api/codebase/files/guarded.py?overwrite=true",
+            data=b"hacked",
+            headers={"X-Abstra-User-Message-Id": "bad value!"},
         )
         self.assertEqual(response.status_code, 423)
         self.assertEqual(
@@ -493,14 +514,26 @@ class UpdateStageLockGuardTest(BaseTest):
             )
         self.assertEqual(self._stage_code(), "print('mine')")
 
-    def test_code_update_blocked_for_other_session_in_request_context(self) -> None:
+    def test_code_update_allowed_for_same_user_other_session(self) -> None:
         FileLockController.acquire("my_form.py", "tab-1", "local", "local")
         app = flask.Flask(__name__)
         with app.test_request_context(headers={"X-Abstra-Lock-Session-Id": "tab-2"}):
-            with self.assertRaises(FileLockedException):
-                self.controller.update_stage(
-                    self.stage.id, {"code_content": "print('stolen')"}
-                )
+            self.controller.update_stage(
+                self.stage.id, {"code_content": "print('other tab')"}
+            )
+        self.assertEqual(self._stage_code(), "print('other tab')")
+
+    def test_code_update_allowed_for_ai_write_when_locked_by_other_user(self) -> None:
+        FileLockController.acquire(
+            "my_form.py", "sess-other", "other@example.com", "Other"
+        )
+        app = flask.Flask(__name__)
+        with app.test_request_context():
+            mcp_context.set_current_message_id("msg-1")
+            self.controller.update_stage(
+                self.stage.id, {"code_content": "print('ai write')"}
+            )
+        self.assertEqual(self._stage_code(), "print('ai write')")
 
     def test_stage_route_returns_423_when_locked(self) -> None:
         FileLockController.acquire(

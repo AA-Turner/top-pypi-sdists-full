@@ -15,8 +15,10 @@ import numpy as np
 from tqdm import trange
 from typing import Optional, Union, Tuple
 
-from AOT_biomaps.AOT_Recon.ReconTools import get_array_module, forward_projection, backward_projection, clamp_positive, check_stopping_criterion, calculate_step_size_reg, gradient_2d, divergence_2d, proj_tv
-from AOT_biomaps.AOT_Recon.ReconEnums import NoiseType, PreconditionerType, StopCriterionType
+from AOT_biomaps.AOT_Recon.ReconTools import get_array_module, forward_projection, backward_projection, check_stopping_criterion, calculate_step_size_PDHG, gradient_2d, divergence_2d, proj_tv
+from AOT_biomaps.AOT_Recon.ReconEnums import NoiseType, StopCriterionType
+from AOT_biomaps.AOT_Recon.AOT_Preconditioner.NoPreconditioner import NoPreconditioner
+from AOT_biomaps.AOT_Recon.AOT_Preconditioner.DiagPreconditioner import DiagPreconditioner
 from AOT_biomaps.AOT_Recon.AOT_SMatrix.SMatrix_SELL import SMatrix_SELL
 from AOT_biomaps.AOT_Recon.AOT_SMatrix.SMatrix_CSR import SMatrix_CSR
 from AOT_biomaps.AOT_Recon.AOT_SMatrix.SMatrix_DENSE import SMatrix_DENSE
@@ -107,7 +109,7 @@ def PDHG(
     y: Union[np.ndarray, 'cp.ndarray'],
     numIterations: int = 100,
     beta: float = 1.0,         
-    gamma: float = 1.0,     
+    gamma: float = 300.0,     
     eta = 0.9,   
     theta: float = 1.0,        
     tau: Union[float, str] = "auto",
@@ -116,7 +118,7 @@ def PDHG(
     num_subsets: int = 1,     
     reshuffle_period: int = 10,
     noise_type: NoiseType = NoiseType.GAUSSIAN,
-    preconditioner_type: PreconditionerType = PreconditionerType.NONE,
+    preconditioner: Union[NoPreconditioner, DiagPreconditioner] = NoPreconditioner(SMatrix=None),
     use_adaptive_steps: bool = False,
     stop_criterion: StopCriterionType = StopCriterionType.MAX_ITERATIONS,
     stop_threshold: float = 100.0,
@@ -165,7 +167,7 @@ def PDHG(
         reshuffle_period: Number of iterations after which subsets are reshuffled
         noise_type: Type of noise (POISSON or GAUSSIAN)
         potential_type: Kept for signature compatibility, operates strictly as TOTAL_VARIATION
-        preconditioner_type: Type of preconditioner to use (default: NONE)
+        preconditioner: Preconditioner instance to use (see PreconditionerEnums for available types)
         use_adaptive_steps: If True, adaptively adjusts step sizes based on gradient norms
         stop_criterion: Criterion for stopping the iterations (StopCriterionType enum)
         stop_threshold: Threshold value for the stopping criterion (for MAX_iterations, this is ignored)
@@ -220,22 +222,10 @@ def PDHG(
     p_i = 1.0 / num_subsets
 
     if tau == "auto" or sigma == "auto":
-        if preconditioner_type != PreconditionerType.NONE:
-            sens_fwd = forward_projection(SMatrix, xp.ones(ZX, dtype=xp.float32))
-            if SMatrix.isComplexSMatrix: sens_fwd = xp.abs(sens_fwd)
-            xp.maximum(sens_fwd, 1e-10, out=sens_fwd)
-            sigma_q = gamma * 0.99 / sens_fwd
-            sigma_p = gamma * 0.99 / 2.0
-
-            sens_bwd = backward_projection(SMatrix, xp.ones(NT, dtype=data_dtype))
-            if SMatrix.isComplexSMatrix: sens_bwd = xp.abs(sens_bwd)
-            xp.maximum(sens_bwd, 1e-10, out=sens_bwd)
-            tau_vec = (0.99 * p_i / gamma) / (sens_bwd + 4.0)
-        else:
-            tau, sigma_q, sigma_p = calculate_step_size_reg(SMatrix, gamma, num_subsets, numIterations_stepCalculation, show_logs)
-            sigma_q = xp.full(NT, sigma_q, dtype=xp.float32)
-            sigma_p = sigma_p
-            tau_vec = xp.full(ZX, tau, dtype=xp.float32)
+        tau, sigma_q, sigma_p = calculate_step_size_PDHG(SMatrix, preconditioner, gamma, num_subsets, numIterations_stepCalculation, show_logs)
+        sigma_q = xp.full(NT, sigma_q, dtype=xp.float32)
+        sigma_p = sigma_p
+        tau_vec = xp.full(ZX, tau, dtype=xp.float32)
     else:
         sigma_q = xp.full(NT, sigma, dtype=xp.float32)
         sigma_p = sigma
@@ -246,9 +236,7 @@ def PDHG(
         max_grad_norm = 1.0
 
     # Preparation for saving intermediate states
-    save_indices = np.unique(
-        np.append(np.arange(0, numIterations, max(1, numIterations // max_saves)), numIterations - 1)
-    ).tolist()
+    save_indices = np.unique(np.append(np.arange(0, numIterations, max(1, numIterations // max_saves)), numIterations - 1)).tolist()
     saved_lambda = []
     saved_indices_list = []
     cost_history = [] if isCostFunction else None
@@ -256,7 +244,7 @@ def PDHG(
 
     # Progress bar configuration
     algo_name = f"SPDHG (Chambolle-Pock) ({num_subsets} subsets)" if num_subsets > 1 else "PDHG (Chambolle-Pock)"
-    prec_str = "Diagonal Preconditioner" if preconditioner_type != PreconditionerType.NONE else "No Preconditioner"
+    prec_str = preconditioner.get_name()
     if SMatrix.isComplexSMatrix:
         description = f"[AOT-biomaps] 4-phases quadrature {algo_name} --- ({SMatrix.matrix_type.name}) --- {prec_str} --- {'WITH' if withTumor else 'WITHOUT'} TUMOR --- {SMatrix.device.upper()}"
     else:

@@ -20,6 +20,7 @@ from datarobot._experimental.pipelines.enums import PipelineInputState
 from datarobot.enums import enum_to_list
 from datarobot.models.api_object import APIObject
 from datarobot.utils import rawdict
+from datarobot.utils.pagination import unpaginate
 
 TPipelineInput = TypeVar("TPipelineInput", bound="PipelineInput")
 
@@ -134,10 +135,10 @@ class PipelineInput(APIObject):
         cls: Type[TPipelineInput],
         pipeline_id: str,
         version_id: Optional[int] = None,
-        offset: int = 0,
-        limit: int = 50,
     ) -> List[TPipelineInput]:
         """List input sets for a pipeline.
+
+        Transparently follows pagination and returns the complete result set.
 
         Parameters
         ----------
@@ -145,20 +146,15 @@ class PipelineInput(APIObject):
             The pipeline ID.
         version_id : int, optional
             Filter to a specific version. If None, lists draft inputs.
-        offset : int, optional
-            Pagination offset. Default 0.
-        limit : int, optional
-            Maximum number of results. Default 50.
 
         Returns
         -------
         inputs : list of PipelineInput
         """
         path = cls._inputs_path(pipeline_id, version_id)
-        params: Dict[str, int] = {"offset": offset, "limit": limit}
-        response = cls._client.get(path, params=params)
         return [
-            cls._with_version_number(cls.from_server_data(item), version_id) for item in response.json().get("data", [])
+            cls._with_version_number(cls.from_server_data(item), version_id)
+            for item in unpaginate(path, None, cls._client)
         ]
 
     @classmethod

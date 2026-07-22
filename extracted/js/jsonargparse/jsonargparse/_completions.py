@@ -10,7 +10,7 @@ from copy import copy
 from enum import Enum
 from importlib.util import find_spec
 from subprocess import PIPE, Popen
-from typing import Literal, Optional, Union
+from typing import Literal, Union
 
 from ._actions import ActionConfigFile, ActionFail, _ActionConfigLoad, _ActionHelpClassPath, remove_actions
 from ._common import NonParsingAction, get_optionals_as_positionals_actions, get_parsing_setting
@@ -24,7 +24,7 @@ from ._typehints import (
     is_subclass,
     type_to_str,
 )
-from ._util import NoneType, Path, import_object, unique
+from ._util import NoneType, Path, import_object, merge_config, unique
 
 
 def handle_completions(parser):
@@ -80,7 +80,7 @@ def patch_argcomplete_support():
 
 def get_argcomplete_namespace(parser, namespace):
     namespace.__class__ = __import__("jsonargparse").Namespace
-    return parser.merge_config(parser.get_defaults(skip_validation=True), namespace).as_flat()
+    return merge_config(parser, parser.get_defaults(skip_validation=True), namespace).as_flat()
 
 
 def get_files_completer():
@@ -141,7 +141,7 @@ def get_completion_script(parser, completion_type: str, **kwargs) -> str:
     return get_shtab_script(parser, completion_type[len("shtab-") :], **kwargs)
 
 
-def get_shtab_script(parser, shell: str, preambles: Optional[list[str]] = None) -> str:
+def get_shtab_script(parser, shell: str, preambles: list[str] | None = None) -> str:
     import shtab
 
     if shell not in shtab.SUPPORTED_SHELLS:

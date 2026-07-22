@@ -8,17 +8,17 @@ readme = "README.md"
 homepage = "https://docs.zizmor.sh"
 edition = "2024"
 license = "MIT"
-rust-version = "1.88.0"
-version = "1.27.0"
+rust-version = "1.97.0"
+version = "1.28.0"
 
 [workspace.dependencies]
-github-actions-expressions = { path = "crates/github-actions-expressions", version = "1.27.0" }
-github-actions-models = { path = "crates/github-actions-models", version = "1.27.0" }
-subfeature = { path = "crates/subfeature", version = "1.27.0" }
-tree-sitter-iter = { path = "crates/tree-sitter-iter", version = "1.27.0" }
-yamlpath = { path = "crates/yamlpath", version = "1.27.0" }
-yamlpatch = { path = "crates/yamlpatch", version = "1.27.0" }
-zizmor-sarif = { path = "crates/zizmor-sarif", version = "1.27.0" }
+github-actions-expressions = { path = "crates/github-actions-expressions", version = "1.28.0" }
+github-actions-models = { path = "crates/github-actions-models", version = "1.28.0" }
+subfeature = { path = "crates/subfeature", version = "1.28.0" }
+tree-sitter-iter = { path = "crates/tree-sitter-iter", version = "1.28.0" }
+yamlpath = { path = "crates/yamlpath", version = "1.28.0" }
+yamlpatch = { path = "crates/yamlpatch", version = "1.28.0" }
+zizmor-sarif = { path = "crates/zizmor-sarif", version = "1.28.0" }
 
 anyhow = "1.0.102"
 itertools = "0.15.0"
@@ -43,7 +43,7 @@ ignore = "0.4.25"
 indexmap = { version = "2.13.1", features = ["serde"] }
 indicatif = "0.18"
 insta = "1.47.1"
-jsonschema = { version = "0.46.5", default-features = false }
+jsonschema = { version = "0.47.0", default-features = false }
 line-index = "0.1.2"
 memchr = "2.8.0"
 owo-colors = "4.3.0"

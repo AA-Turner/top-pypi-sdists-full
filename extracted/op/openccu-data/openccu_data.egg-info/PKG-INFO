@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openccu-data
-Version: 2026.7.0
+Version: 2026.7.1
 Summary: Extract and distribute Homematic CCU/OpenCCU configuration metadata (translations, easymodes, link profiles).
 Author-email: SukramJ <sukramj@icloud.com>
 License: MIT License

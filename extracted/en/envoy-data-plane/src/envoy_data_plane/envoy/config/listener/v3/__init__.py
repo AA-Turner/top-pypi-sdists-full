@@ -7,7 +7,6 @@ __all__ = (
     "ActiveRawUdpListenerConfig",
     "AdditionalAddress",
     "ApiListener",
-    "ApiListenerManager",
     "Filter",
     "FilterChain",
     "FilterChainMatch",
@@ -15,6 +14,7 @@ __all__ = (
     "Listener",
     "ListenerCollection",
     "ListenerConnectionBalanceConfig",
+    "ListenerConnectionBalanceConfigCpuLocalityBalance",
     "ListenerConnectionBalanceConfigExactBalance",
     "ListenerDeprecatedV1",
     "ListenerDrainType",
@@ -23,10 +23,8 @@ __all__ = (
     "ListenerFilterChainMatchPredicate",
     "ListenerFilterChainMatchPredicateMatchSet",
     "ListenerInternalListenerConfig",
-    "ListenerManager",
     "QuicProtocolOptions",
     "UdpListenerConfig",
-    "ValidationListenerManager",
 )
 
 import datetime
@@ -157,22 +155,6 @@ class ApiListener(betterproto2.Message):
 
 default_message_pool.register_message(
     "envoy.config.listener.v3", "ApiListener", ApiListener
-)
-
-
-@dataclass(eq=False, repr=False, config={"extra": "forbid"})
-class ApiListenerManager(betterproto2.Message):
-    """
-    A placeholder proto so that users can explicitly configure the API
-    Listener Manager via the bootstrap's :ref:`listener_manager <envoy_v3_api_field_config.bootstrap.v3.Bootstrap.listener_manager>`.
-    [#not-implemented-hide:]
-    """
-
-    pass
-
-
-default_message_pool.register_message(
-    "envoy.config.listener.v3", "ApiListenerManager", ApiListenerManager
 )
 
 
@@ -1039,7 +1021,21 @@ class ListenerConnectionBalanceConfig(betterproto2.Message):
     """
     The listener will use the connection balancer according to ``type_url``. If ``type_url`` is invalid,
     Envoy will not attempt to balance active connections between worker threads.
-    [#extension-category: envoy.network.connection_balance]
+    The ``envoy.network.connection_balance`` extension category is currently empty
+    because the only registered member (``envoy.network.connection_balance.dlb``)
+    is disabled. See https://github.com/envoyproxy/envoy/issues/45491.
+    """
+
+    cpu_locality_balance: "ListenerConnectionBalanceConfigCpuLocalityBalance | None" = (
+        betterproto2.field(
+            3, betterproto2.TYPE_MESSAGE, optional=True, group="balance_type"
+        )
+    )
+    """
+    If specified, the listener will steer new connections to worker threads using a kernel
+    ``SO_REUSEPORT`` BPF program. See :ref:`CpuLocalityBalance
+    <envoy_v3_api_msg_config.listener.v3.Listener.ConnectionBalanceConfig.CpuLocalityBalance>`
+    for the requirements and fallback behavior.
     """
 
     @model_validator(mode="after")
@@ -1051,6 +1047,41 @@ default_message_pool.register_message(
     "envoy.config.listener.v3",
     "Listener.ConnectionBalanceConfig",
     ListenerConnectionBalanceConfig,
+)
+
+
+@dataclass(eq=False, repr=False, config={"extra": "forbid"})
+class ListenerConnectionBalanceConfigCpuLocalityBalance(betterproto2.Message):
+    """
+    A connection balancer that steers each new TCP connection to the worker thread pinned to the
+    CPU that received the connection, using a kernel ``SO_REUSEPORT`` BPF program. This removes
+    the lock that the :ref:`exact balancer
+    <envoy_v3_api_msg_config.listener.v3.Listener.ConnectionBalanceConfig.ExactBalance>` takes on
+    every accept and keeps each connection on a single worker for cache and ``NUMA`` locality. To
+    realize locality the operator should align ``NIC`` receive steering so connections arrive on
+    the worker CPUs, for example with receive side scaling or ``IRQ`` affinity.
+
+    It is available on Linux only and requires :ref:`enable_worker_cpu_affinity
+    <envoy_v3_api_field_config.bootstrap.v3.Bootstrap.enable_worker_cpu_affinity>` so worker ``i``
+    is pinned to the CPU the program steers to it, :ref:`enable_reuse_port
+    <envoy_v3_api_field_config.listener.v3.Listener.enable_reuse_port>`, a kernel that supports
+    reuse port BPF steering, and a worker count no greater than the number of CPUs in the process
+    affinity mask. When any of these is not met, or if the kernel rejects the steering program at
+    runtime, the listener keeps serving with the kernel default reuse port hashing and without CPU
+    locality.
+
+    Worker affinity is fixed when the worker threads start, so a listener added dynamically via LDS
+    steers with the same mapping. During a hot restart new connections may be steered to the
+    draining parent process until it exits.
+    """
+
+    pass
+
+
+default_message_pool.register_message(
+    "envoy.config.listener.v3",
+    "Listener.ConnectionBalanceConfig.CpuLocalityBalance",
+    ListenerConnectionBalanceConfigCpuLocalityBalance,
 )
 
 
@@ -1326,22 +1357,6 @@ default_message_pool.register_message(
 
 
 @dataclass(eq=False, repr=False, config={"extra": "forbid"})
-class ListenerManager(betterproto2.Message):
-    """
-    A placeholder proto so that users can explicitly configure the standard
-    Listener Manager via the bootstrap's :ref:`listener_manager <envoy_v3_api_field_config.bootstrap.v3.Bootstrap.listener_manager>`.
-    [#not-implemented-hide:]
-    """
-
-    pass
-
-
-default_message_pool.register_message(
-    "envoy.config.listener.v3", "ListenerManager", ListenerManager
-)
-
-
-@dataclass(eq=False, repr=False, config={"extra": "forbid"})
 class QuicProtocolOptions(betterproto2.Message):
     """
     [#protodoc-title: QUIC listener config]
@@ -1538,22 +1553,6 @@ class UdpListenerConfig(betterproto2.Message):
 
 default_message_pool.register_message(
     "envoy.config.listener.v3", "UdpListenerConfig", UdpListenerConfig
-)
-
-
-@dataclass(eq=False, repr=False, config={"extra": "forbid"})
-class ValidationListenerManager(betterproto2.Message):
-    """
-    A placeholder proto so that users can explicitly configure the standard
-    Validation Listener Manager via the bootstrap's :ref:`listener_manager <envoy_v3_api_field_config.bootstrap.v3.Bootstrap.listener_manager>`.
-    [#not-implemented-hide:]
-    """
-
-    pass
-
-
-default_message_pool.register_message(
-    "envoy.config.listener.v3", "ValidationListenerManager", ValidationListenerManager
 )
 
 

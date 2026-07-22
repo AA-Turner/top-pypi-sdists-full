@@ -2690,6 +2690,7 @@ class Kconfig(Kbaseconfig):
             kubeconfigmgmt = f"{clusterdir}/kubeconfig.mgmt"
             if os.path.exists(f'{clusterdir}/bmcs.yml'):
                 call(f'KUBECONFIG={kubeconfigmgmt} {oc} delete -f {clusterdir}/bmcs.yml', shell=True)
+            call(f'{oc} delete pdb -n openshift-kube-storage-version-migrator --all', shell=True)
             call(f'KUBECONFIG={kubeconfigmgmt} {oc} delete -f {clusterdir}/autoapprovercron.yml', shell=True)
             call(f'KUBECONFIG={kubeconfigmgmt} {oc} delete -f {clusterdir}/nodepools.yaml', shell=True)
             call(f'KUBECONFIG={kubeconfigmgmt} {oc} delete -f {clusterdir}/hostedcluster.yaml', shell=True)

@@ -8,6 +8,7 @@ __all__ = (
     "IpTaggingIpTag",
     "IpTaggingIpTagHeader",
     "IpTaggingIpTagHeaderHeaderAction",
+    "IpTaggingIpTags",
     "IpTaggingRequestType",
 )
 
@@ -78,7 +79,7 @@ class IpTagging(betterproto2.Message):
     IP tagging :ref:`configuration overview <config_http_filters_ip_tagging>`.
     [#extension: envoy.filters.http.ip_tagging]
 
-    [#next-free-field: 6]
+    [#next-free-field: 7]
     """
 
     request_type: "IpTaggingRequestType" = betterproto2.field(
@@ -92,9 +93,10 @@ class IpTagging(betterproto2.Message):
         4, betterproto2.TYPE_MESSAGE, repeated=True
     )
     """
-    [#comment:TODO(ccaraman): Extend functionality to load IP tags from file system.
-    Tracked by issue https://github.com/envoyproxy/envoy/issues/2695]
     The set of IP tags for the filter.
+    Only one of :ref:`ip_tags <envoy_v3_api_field_extensions.filters.http.ip_tagging.v3.IPTagging.ip_tags>`
+    or :ref:`ip_tags_datasource <envoy_v3_api_field_extensions.filters.http.ip_tagging.v3.IPTagging.ip_tags_datasource>`
+    can be set for the IP Tagging filter.
     """
 
     ip_tag_header: "IpTaggingIpTagHeader | None" = betterproto2.field(
@@ -104,6 +106,16 @@ class IpTagging(betterproto2.Message):
     Specify to which header the tags will be written.
 
     If left unspecified, the tags will be appended to the ``x-envoy-ip-tags`` header.
+    """
+
+    ip_tags_datasource: "_____config__core__v3__.DataSource | None" = (
+        betterproto2.field(6, betterproto2.TYPE_MESSAGE, optional=True)
+    )
+    """
+    Data source from which to retrieve ip tags.
+    Only filename based data source is currently supported for IP tags.
+    When using this data source, if a ``watched_directory`` is provided, the IP tags file will be re-read when a file move is detected.
+    See :ref:`watched_directory <envoy_v3_api_msg_config.core.v3.DataSource>` for more information about the ``watched_directory`` field.
     """
 
 
@@ -173,6 +185,23 @@ default_message_pool.register_message(
     "envoy.extensions.filters.http.ip_tagging.v3",
     "IPTagging.IpTagHeader",
     IpTaggingIpTagHeader,
+)
+
+
+@dataclass(eq=False, repr=False, config={"extra": "forbid"})
+class IpTaggingIpTags(betterproto2.Message):
+    """
+    Specifies the content of the IP tag file.
+    Allow the file to be created with no IP tags.
+    """
+
+    ip_tags: "list[IpTaggingIpTag]" = betterproto2.field(
+        1, betterproto2.TYPE_MESSAGE, repeated=True
+    )
+
+
+default_message_pool.register_message(
+    "envoy.extensions.filters.http.ip_tagging.v3", "IPTagging.IPTags", IpTaggingIpTags
 )
 
 

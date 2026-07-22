@@ -1,17 +1,24 @@
 # SPDX-FileCopyrightText: 2024-2026 Espressif Systems (Shanghai) CO LTD
 # SPDX-License-Identifier: Apache-2.0
 import os
-import sys
+
+import rich_click as click
+from esp_pylib.excepthook import install_exception_reporting
+
+from esp_kconfiglib.errors import kconfig_error_handler
 
 
-def _main() -> None:
-    """Entry point for ``python -m esp_menuconfig``."""
-    from esp_kconfiglib.core import standard_kconfig
+@click.command()
+@click.argument("kconfig", default="Kconfig", required=False)
+def _main(kconfig: str) -> None:
+    """Launch the ESP-IDF interactive menuconfig."""
+    from esp_kconfiglib.core import Kconfig
     from esp_kconfiglib.deprecated import load_rename_files_from_env
 
     from . import menuconfig
 
-    kconf = standard_kconfig()
+    parser_version = int(os.environ.get("KCONFIG_PARSER_VERSION", "1"))
+    kconf = Kconfig(kconfig, suppress_traceback=True, parser_version=parser_version)
     load_rename_files_from_env(
         kconf,
         sdkconfig_rename=os.environ.get("SDKCONFIG_RENAME"),
@@ -22,8 +29,6 @@ def _main() -> None:
 
 
 if __name__ == "__main__":
-    try:
-        _main()
-    except Exception as e:
-        print(f"A fatal error occurred: {e}", file=sys.stderr)
-        sys.exit(2)
+    install_exception_reporting()
+    with kconfig_error_handler():
+        _main(standalone_mode=False)

@@ -1,20 +1,9 @@
 # pylint: disable=too-many-lines
 # ruff: noqa: C420
 from typing import Iterable, List, Mapping
-from gersemi.argument_schema import (
-    SpecializedCommand,
-    StandardCommand,
-    argument_schema_from_dict,
-    argument_schemas_from_dict,
-)
-from gersemi.immutable import ImmutableDict, make_immutable
+from gersemi.argument_schema import preprocess_definitions
 from gersemi.keyword_kind import KeywordFormatter
 from gersemi.keywords import AnyMatcher, KeywordMatcher
-from gersemi.specializations.add_custom_target import add_custom_target
-from gersemi.specializations.condition_syntax_command_invocation_dumper import (
-    condition_syntax_commands,
-)
-from gersemi.specializations.set_property import set_property
 
 _COMPARE_EQUAL = ("COMPARE", "EQUAL")
 _COMPARE_GREATER = ("COMPARE", "GREATER")
@@ -179,6 +168,7 @@ builtin_commands = {
     "block": {
         "_inhibit_favour_expansion": True,
         "multi_value_keywords": ["SCOPE_FOR", "PROPAGATE"],
+        "block_end": "endblock",
     },
     "break": {},
     "cmake_host_system_information": {
@@ -204,6 +194,10 @@ builtin_commands = {
         },
         "one_value_keywords": ["API_VERSION", "DATA_VERSION", "CALLBACK"],
         "multi_value_keywords": ["HOOKS", "OPTIONS", _CUSTOM_CONTENT_Any],
+    },
+    "cmake_diagnostic": {
+        "options": ["RECURSE", "NO_RECURSE", "PUSH", "POP"],
+        "one_value_keywords": ["SET", "PROMOTE", "DEMOTE", "GET"],
     },
     "cmake_language": {
         "_two_words_keywords": [_EVAL_CODE],
@@ -243,6 +237,15 @@ builtin_commands = {
             "PARSE_ARGV": {
                 "one_value_keywords": ["PARSE_ARGV"],
                 "back_positional_arguments": [
+                    "<prefix>",
+                    "<options>",
+                    "<one_value_keywords>",
+                    "<multi_value_keywords>",
+                ],
+            },
+            "PARSE_ARGN": {
+                "options": ["PARSE_ARGN"],
+                "front_positional_arguments": [
                     "<prefix>",
                     "<options>",
                     "<one_value_keywords>",
@@ -494,7 +497,51 @@ builtin_commands = {
         "multi_value_keywords": ["FILE_PERMISSIONS"],
     },
     "continue": {},
-    **condition_syntax_commands,
+    "discover_tests": {
+        "options": ["COMMAND_EXPAND_LISTS"],
+        "one_value_keywords": [
+            "DISCOVERY_MATCH",
+            "TEST_NAME",
+        ],
+        "multi_value_keywords": [
+            "COMMAND",
+            "CONFIGURATIONS",
+            "DISCOVERY_ARGS",
+            "DISCOVERY_PROPERTIES",
+            "TEST_ARGS",
+            "TEST_PROPERTIES",
+        ],
+        "keyword_formatters": {
+            "COMMAND": KeywordFormatter.CommandLine,
+            "DISCOVERY_ARGS": KeywordFormatter.CommandLine,
+            "TEST_ARGS": KeywordFormatter.CommandLine,
+            "DISCOVERY_PROPERTIES": KeywordFormatter.Pairs,
+            "TEST_PROPERTIES": KeywordFormatter.Pairs,
+        },
+    },
+    "if": {
+        "__impl": "condition_syntax",
+        "_inhibit_favour_expansion": True,
+        "block_end": "endif",
+    },
+    "elseif": {
+        "__impl": "condition_syntax_with_dedent",
+        "_inhibit_favour_expansion": True,
+    },
+    "else": {
+        "__impl": "condition_syntax_with_dedent",
+        "_inhibit_favour_expansion": True,
+    },
+    "endif": {
+        "__impl": "condition_syntax",
+        "_inhibit_favour_expansion": True,
+    },
+    "while": {
+        "__impl": "condition_syntax",
+        "_inhibit_favour_expansion": True,
+        "block_end": "endwhile",
+    },
+    "endwhile": {"__impl": "condition_syntax"},
     "endblock": {},
     "endforeach": {},
     "endfunction": {},
@@ -522,7 +569,7 @@ builtin_commands = {
             "ENCODING",
             "COMMAND_ERROR_IS_FATAL",
         ],
-        "multi_value_keywords": ["COMMAND"],
+        "multi_value_keywords": ["COMMAND", "ENVIRONMENT", "ENVIRONMENT_MODIFICATION"],
         "keyword_formatters": {"COMMAND": KeywordFormatter.CommandLine},
     },
     "file": {
@@ -739,6 +786,7 @@ builtin_commands = {
             "READ_SYMLINK": {
                 "one_value_keywords": [
                     "READ_SYMLINK",  # <filename>
+                    "RESULT",
                 ],
             },
             "CREATE_LINK": {
@@ -840,12 +888,17 @@ builtin_commands = {
                     "MTIME",
                     "THREADS",
                     "WORKING_DIRECTORY",
+                    "ENCODING",
                 ],
                 "multi_value_keywords": ["PATHS"],
             },
             "ARCHIVE_EXTRACT": {
                 "options": ["ARCHIVE_EXTRACT", "LIST_ONLY", "VERBOSE"],
-                "one_value_keywords": ["INPUT", "DESTINATION"],
+                "one_value_keywords": [
+                    "INPUT",
+                    "DESTINATION",
+                    "ENCODING",
+                ],
                 "multi_value_keywords": ["PATTERNS"],
             },
             "REMOVE": {"options": ["REMOVE"]},
@@ -937,10 +990,12 @@ builtin_commands = {
         "front_positional_arguments": ["<loop_var>"],
         "options": ["IN"],
         "multi_value_keywords": ["RANGE", "LISTS", "ITEMS", "ZIP_LISTS"],
+        "block_end": "endforeach",
     },
     "function": {
         "_inhibit_favour_expansion": True,
         "front_positional_arguments": ["<name>"],
+        "block_end": "endfunction",
     },
     "get_cmake_property": {
         "front_positional_arguments": ["<var>", "<property>"],
@@ -984,7 +1039,7 @@ builtin_commands = {
     },
     "include": {
         "front_positional_arguments": ["<file|module>"],
-        "options": ["OPTIONAL", "NO_POLICY_SCOPE"],
+        "options": ["OPTIONAL", "NO_POLICY_SCOPE", "NO_DIAGNOSTIC_SCOPE"],
         "one_value_keywords": ["RESULT_VARIABLE"],
     },
     "include_guard": {},
@@ -1037,6 +1092,7 @@ builtin_commands = {
                 "one_value_keywords": [
                     "FILTER",  # <list>
                     "REGEX",
+                    "PREDICATE",
                 ],
             },
             "INSERT": {
@@ -1082,6 +1138,8 @@ builtin_commands = {
                     "OUTPUT_VARIABLE",
                     "TRANSFORM",  # <list>
                     "REGEX",
+                    "APPLY",
+                    "PREDICATE",
                 ],
                 "multi_value_keywords": ["REPLACE", "AT", "FOR"],
             },
@@ -1097,6 +1155,7 @@ builtin_commands = {
                     "COMPARE",
                     "CASE",
                     "ORDER",
+                    "COMPARATOR",
                 ]
             },
         },
@@ -1104,6 +1163,7 @@ builtin_commands = {
     "macro": {
         "_inhibit_favour_expansion": True,
         "front_positional_arguments": ["<name>"],
+        "block_end": "endmacro",
     },
     "mark_as_advanced": {
         "options": ["CLEAR", "FORCE"],
@@ -1144,7 +1204,20 @@ builtin_commands = {
         "multi_value_keywords": ["PROPERTIES"],
         "keyword_formatters": {"PROPERTIES": KeywordFormatter.Pairs},
     },
-    **set_property,
+    "set_property": {
+        "options": ["GLOBAL", "APPEND", "APPEND_STRING"],
+        "multi_value_keywords": [
+            "TARGET",
+            "SOURCE",
+            "INSTALL",
+            "TEST",
+            "CACHE",
+            "PROPERTY",
+            "TARGET_DIRECTORIES",
+            "DIRECTORY",
+            "FILE_SET",
+        ],
+    },
     "set": {
         "front_positional_arguments": ["<variable>"],
         "options": ["PARENT_SCOPE", "FORCE"],
@@ -1386,7 +1459,7 @@ builtin_commands = {
                     "SET",
                     "STRING_ENCODE",
                 ],
-                "multi_value_keywords": ["EQUAL"],
+                "multi_value_keywords": ["EQUAL", "PARTIAL_EQUAL"],
             },
         },
     },
@@ -1458,7 +1531,18 @@ builtin_commands = {
             },
         },
     },
-    **add_custom_target,
+    "add_custom_target": {
+        "front_positional_arguments": ["Name"],
+        "options": ["ALL", "VERBATIM", "USES_TERMINAL", "COMMAND_EXPAND_LISTS"],
+        "one_value_keywords": [
+            "WORKING_DIRECTORY",
+            "COMMENT",
+            "JOB_POOL",
+            "JOB_SERVER_AWARE",
+        ],
+        "multi_value_keywords": ["COMMAND", "DEPENDS", "BYPRODUCTS", "SOURCES"],
+        "keyword_formatters": {"COMMAND": KeywordFormatter.CommandLine},
+    },
     "add_definitions": {},
     "add_dependencies": {
         "front_positional_arguments": ["<target>"],
@@ -2053,6 +2137,8 @@ builtin_commands = {
             "RETURN_VALUE",
             "CAPTURE_CMAKE_ERROR",
             "PARALLEL_LEVEL",
+            "PRESET",
+            "PRESETS_FILE",
         ],
     },
     "ctest_configure": {
@@ -2063,6 +2149,8 @@ builtin_commands = {
             "OPTIONS",
             "RETURN_VALUE",
             "CAPTURE_CMAKE_ERROR",
+            "PRESET",
+            "PRESETS_FILE",
         ],
     },
     "ctest_coverage": {
@@ -2091,6 +2179,8 @@ builtin_commands = {
             "STOP_TIME",
             "RETURN_VALUE",
             "DEFECT_COUNT",
+            "PRESET",
+            "PRESETS_FILE",
         ],
     },
     "ctest_read_custom_files": {},
@@ -2141,11 +2231,18 @@ builtin_commands = {
             "CAPTURE_CMAKE_ERROR",
             "INCLUDE_FROM_FILE",
             "EXCLUDE_FROM_FILE",
+            "PRESET",
+            "PRESETS_FILE",
         ],
     },
     "ctest_update": {
-        "options": ["QUIET"],
-        "one_value_keywords": ["SOURCE", "RETURN_VALUE", "CAPTURE_CMAKE_ERROR"],
+        "options": ["QUIET", "VERSION_ONLY"],
+        "one_value_keywords": [
+            "SOURCE",
+            "RETURN_VALUE",
+            "CAPTURE_CMAKE_ERROR",
+            "VERSION_OVERRIDE",
+        ],
     },
     "ctest_upload": {
         "options": ["QUIET"],
@@ -3571,30 +3668,6 @@ builtin_commands = {
     #
     ### FindZLIB
 }
-
-
-def preprocess_definitions(definitions):
-    return make_immutable(
-        {
-            key.strip().lower(): (
-                StandardCommand(
-                    canonical_name=key,
-                    inhibit_favour_expansion=value.get(
-                        "_inhibit_favour_expansion", False
-                    ),
-                    two_words_keywords=tuple(value.get("_two_words_keywords", ())),
-                    schema=argument_schema_from_dict(value),
-                    signatures=argument_schemas_from_dict(
-                        value.get("signatures", ImmutableDict())
-                    ),
-                    block_end=value.get("block_end", None),
-                )
-                if "__impl" not in value
-                else SpecializedCommand(canonical_name=key, impl=value.get("__impl"))
-            )
-            for key, value in definitions.items()
-        }
-    )
 
 
 _builtin_commands = preprocess_definitions(builtin_commands)

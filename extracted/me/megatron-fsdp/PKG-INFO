@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: megatron-fsdp
-Version: 0.5.0
+Version: 0.5.1
 Summary: **Megatron-FSDP** is an NVIDIA-developed PyTorch extension that provides a high-performance implementation of Fully Sharded Data Parallelism (FSDP)
 Author-email: NVIDIA <nemo-toolkit@nvidia.com>
 Maintainer-email: NVIDIA <nemo-toolkit@nvidia.com>

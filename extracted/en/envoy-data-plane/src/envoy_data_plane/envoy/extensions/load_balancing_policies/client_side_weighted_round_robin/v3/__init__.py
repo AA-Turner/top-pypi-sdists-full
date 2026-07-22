@@ -49,7 +49,7 @@ class ClientSideWeightedRoundRobin(betterproto2.Message):
     See the :ref:`load balancing architecture
     overview<arch_overview_load_balancing_types>` for more information.
 
-    [#next-free-field: 9]
+    [#next-free-field: 10]
     """
 
     enable_oob_load_report: "bool | None" = betterproto2.field(
@@ -143,6 +143,15 @@ class ClientSideWeightedRoundRobin(betterproto2.Message):
     """
     Configuration for slow start mode.
     If this configuration is not set, slow start will not be not enabled.
+    """
+
+    oob_reporting_config: "__common__v3__.OrcaOobReportingConfig | None" = (
+        betterproto2.field(9, betterproto2.TYPE_MESSAGE, optional=True)
+    )
+    """
+    Optional overrides for the OOB reporting connection (alternative port,
+    ``:authority``, transport socket selection). Honored only when
+    ``enable_oob_load_report`` is true.
     """
 
 

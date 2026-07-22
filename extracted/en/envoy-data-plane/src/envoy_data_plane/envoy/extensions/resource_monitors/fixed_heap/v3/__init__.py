@@ -31,6 +31,21 @@ class FixedHeapConfig(betterproto2.Message):
     max_heap_size_bytes: "typing.Annotated[int, pydantic.Field(ge=0, le=2**64 - 1)]" = (
         betterproto2.field(1, betterproto2.TYPE_UINT64)
     )
+    """
+    Static value for max heap size in bytes set at startup.
+    Exactly one of max_heap_size_bytes or max_heap_size_bytes_runtime must be set.
+    If set, the expected value must be greater than ``0``, otherwise validation will fail.
+    """
+
+    max_heap_size_bytes_runtime: "____config__core__v3__.RuntimeUInt64 | None" = (
+        betterproto2.field(2, betterproto2.TYPE_MESSAGE, optional=True)
+    )
+    """
+    Runtime overlay for max heap size in bytes. When set, the value can be overridden
+    at runtime during startup or later without restart.
+    Exactly one of max_heap_size_bytes or max_heap_size_bytes_runtime must be set.
+    If set, the expected value must be greater than ``0``, otherwise validation will fail.
+    """
 
 
 default_message_pool.register_message(
@@ -38,3 +53,6 @@ default_message_pool.register_message(
     "FixedHeapConfig",
     FixedHeapConfig,
 )
+
+
+from .....config.core import v3 as ____config__core__v3__

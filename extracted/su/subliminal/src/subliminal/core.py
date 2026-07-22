@@ -11,7 +11,8 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING, Any
 
 from babelfish import Language  # type: ignore[import-untyped]
-from guessit import guessit  # type: ignore[import-untyped]
+
+from subliminal.utils import safely_guessit
 
 from .archives import ARCHIVE_ERRORS, ARCHIVE_EXTENSIONS, is_supported_archive, scan_archive
 from .exceptions import ArchiveError, DiscardingError
@@ -25,7 +26,7 @@ from .extensions import (
 )
 from .matches import fps_matches
 from .score import compute_score as default_compute_score
-from .subtitle import SUBTITLE_EXTENSIONS, ExternalSubtitle, LanguageType
+from .subtitle import SUBTITLE_EXTENSIONS, ExternalSubtitle, filter_and_sort_categories
 from .utils import get_age, handle_exception
 from .video import VIDEO_EXTENSIONS, Episode, Movie, Video
 
@@ -224,8 +225,7 @@ class ProviderPool:
         languages: Set[Language],
         *,
         min_score: int = 0,
-        hearing_impaired: bool | None = None,
-        foreign_only: bool | None = None,
+        subtitle_categories: str = '',
         skip_wrong_fps: bool = False,
         only_one: bool = False,
         compute_score: ComputeScore | None = None,
@@ -240,8 +240,8 @@ class ProviderPool:
         :param languages: languages to download.
         :type languages: set of :class:`~babelfish.language.Language`
         :param int min_score: minimum score for a subtitle to be downloaded.
-        :param (bool | None) hearing_impaired: hearing impaired preference (yes/no/indifferent).
-        :param (bool | None) foreign_only: foreign only preference (yes/no/indifferent).
+        :param str subtitle_categories: ordered list of categories to download, omitted categories are filtered out.
+            Empty string corresponds to no filtering or sorting.
         :param bool skip_wrong_fps: skip subtitles with an FPS that do not match the video (False).
         :param bool only_one: download only one subtitle, not one per language.
         :param compute_score: function that takes `subtitle` and `video` as positional arguments,
@@ -261,15 +261,8 @@ class ProviderPool:
         if skip_wrong_fps and video.frame_rate is not None and video.frame_rate > 0:
             subtitles = [s for s in subtitles if fps_matches(video, fps=s.fps, strict=False)]
 
-        # sort by hearing impaired and foreign only
-        language_type = LanguageType.from_flags(hearing_impaired=hearing_impaired, foreign_only=foreign_only)
-        if language_type != LanguageType.UNKNOWN:
-            logger.info('Sort subtitles by %s types first', language_type.value)
-            subtitles = sorted(
-                subtitles,
-                key=lambda s: s.language_type == language_type,
-                reverse=True,
-            )
+        # filter and sort by subtitle categories
+        subtitles = filter_and_sort_categories(subtitles, subtitle_categories=subtitle_categories)
 
         # sort subtitles by score
         scored_subtitles = sorted(
@@ -482,7 +475,7 @@ def scan_name(path: str | os.PathLike, name: str | None = None) -> Video:
     else:
         logger.info('Scanning video %r', path)
 
-    return Video.fromguess(path, guessit(repl))
+    return Video.fromguess(path, safely_guessit(repl))
 
 
 def scan_video(path: str | os.PathLike, name: str | None = None) -> Video:
@@ -795,8 +788,7 @@ def download_best_subtitles(
     languages: Set[Language],
     *,
     min_score: int = 0,
-    hearing_impaired: bool | None = None,
-    foreign_only: bool | None = None,
+    subtitle_categories: str = '',
     skip_wrong_fps: bool = False,
     only_one: bool = False,
     compute_score: ComputeScore | None = None,
@@ -812,8 +804,8 @@ def download_best_subtitles(
     :param languages: languages to download.
     :type languages: set of :class:`~babelfish.language.Language`
     :param int min_score: minimum score for a subtitle to be downloaded.
-    :param (bool | None) hearing_impaired: hearing impaired preference (yes/no/indifferent).
-    :param (bool | None) foreign_only: foreign only preference (yes/no/indifferent).
+    :param str subtitle_categories: ordered list of categories to download, omitted categories are filtered out.
+        Empty string corresponds to no filtering or sorting.
     :param bool skip_wrong_fps: skip subtitles with an FPS that do not match the video (False).
     :param bool only_one: download only one subtitle, not one per language.
     :param compute_score: function that takes `subtitle` and `video` as positional arguments,
@@ -848,8 +840,7 @@ def download_best_subtitles(
                 video,
                 languages,
                 min_score=min_score,
-                hearing_impaired=hearing_impaired,
-                foreign_only=foreign_only,
+                subtitle_categories=subtitle_categories,
                 skip_wrong_fps=skip_wrong_fps,
                 only_one=only_one,
                 compute_score=compute_score,
@@ -869,7 +860,7 @@ def save_subtitles(
     encoding: str | None = None,
     subtitle_format: str | None = None,
     extension: str | None = None,
-    language_type_suffix: bool = False,
+    category_suffix: bool = False,
     language_format: str = 'alpha2',
 ) -> list[Subtitle]:
     """Save subtitles on filesystem.
@@ -889,7 +880,7 @@ def save_subtitles(
     :param str encoding: encoding in which to save the subtitles, default is to keep original encoding.
     :param str subtitle_format: format in which to save the subtitles, default is to keep original format.
     :param (str | None) extension: the subtitle extension, default is to match to the subtitle format.
-    :param bool language_type_suffix: add a suffix 'hi' or 'fo' if needed. Default to False.
+    :param bool category_suffix: add a suffix with the subtitle category ('hi' or 'fo') if needed. Default to False.
     :param str language_format: format of the language suffix. Default to 'alpha2'.
     :return: the saved subtitles
     :rtype: list of :class:`~subliminal.subtitle.Subtitle`
@@ -918,7 +909,7 @@ def save_subtitles(
             video,
             single=single,
             extension=extension,
-            language_type_suffix=language_type_suffix,
+            category_suffix=category_suffix,
             language_format=language_format,
         )
         if directory is not None:

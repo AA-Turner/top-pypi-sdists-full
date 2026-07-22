@@ -15,7 +15,7 @@ classifiers = [
 dependencies = [
   "grpcio==1.80.0",
   "grpcio-tools==1.80.0",
-  "requests==2.33.1",
+  "requests==2.34.2",
   "pipreqs-fivetran==1.1.2",
   "prompt-toolkit==3.0.52",
   "pathspec==1.1.1",

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import abc
 import dataclasses
 import json
 import os
@@ -8,7 +9,7 @@ import uuid
 from collections.abc import Mapping, Sequence
 from datetime import datetime, timedelta
 from enum import Enum, IntEnum
-from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Tuple, TypeAlias, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Literal, Optional, Tuple, TypeAlias, Union
 
 import numpy as np
 
@@ -34,7 +35,12 @@ if TYPE_CHECKING:
 
     from chalk._reporting.models import BatchOpKind, BatchOpStatus
 
-    root_validator = lambda _: (lambda x: x)
+    def root_validator(_: Any) -> Callable[[Any], Any]:
+        def _identity(x: Any) -> Any:
+            return x
+
+        return _identity
+
 else:
     try:
         from pydantic.v1 import BaseModel, Extra, Field, root_validator, validator
@@ -2083,9 +2089,9 @@ class RegisterModelArtifactResponse(BaseModel):
 
 @dataclasses.dataclass(frozen=True)
 class ModelArtifactSpec:
-    model_type: ModelType
+    model_type: Optional[ModelType]  # None for image-only models (no serialized artifact)
     model_class: Optional[ModelClass]
-    model_encoding: ModelEncoding
+    model_encoding: Optional[ModelEncoding]
     model_files: List[str]
     additional_files: List[str]
     input_schema: Any
@@ -2105,7 +2111,10 @@ class DownloadModelArtifactResult:
     downloaded_additional_files: List[str]
 
 
-class GetRegisteredModelResponse(BaseModel):
+@dataclasses.dataclass(frozen=True)
+class ModelNamespaceResponse:
+    """A model namespace (all versions). Informational; not callable."""
+
     model_id: str
     model_name: str
     description: Optional[str]
@@ -2117,14 +2126,54 @@ class GetRegisteredModelResponse(BaseModel):
     latest_model_version: Optional[Any] = None
 
 
-class GetRegisteredModelVersionResponse(BaseModel):
+@dataclasses.dataclass(frozen=True)
+class ModelVersionResponse(abc.ABC):
+    """A registered model version; see RegisteredModelVersion / DeployedModelVersion."""
+
     model_id: str
     model_name: str
+    version: int
     created_by: str
     created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
-    archived_at: Optional[datetime] = None
     model_artifact: Optional[ModelArtifactSpec] = None
+    input_features: List[str] = dataclasses.field(default_factory=list)
+    output_features: List[str] = dataclasses.field(default_factory=list)
+
+    @abc.abstractmethod
+    def remote(self, *args: Any, **kwargs: Any) -> Any:
+        """Invoke the deployed model with one row of feature values, returning its output."""
+        ...
+
+
+@dataclasses.dataclass(frozen=True)
+class RegisteredModelVersion(ModelVersionResponse):
+    """A version that is registered but not deployed to a scaling group."""
+
+    def remote(self, *args: Any, **kwargs: Any) -> Any:
+        from chalk.client._model_remote import ModelNotDeployedError
+
+        raise ModelNotDeployedError(
+            f"Model {self.model_name!r} v{self.version} is not deployed to a scaling group. "
+            + "Deploy it with `deploy_model_version_to_scaling_group()` before calling `.remote()`."
+        )
+
+
+@dataclasses.dataclass(frozen=True)
+class DeployedModelVersion(ModelVersionResponse):
+    """A version deployed to a scaling group; ``remote()`` calls it directly."""
+
+    _client: Any = dataclasses.field(default=None, repr=False, compare=False)
+    _web_url: str = dataclasses.field(default="", repr=False, compare=False)
+
+    def remote(self, *args: Any, **kwargs: Any) -> Any:
+        from chalk.client._model_remote import bind_inputs, call_model_scaling_group
+
+        inputs = bind_inputs(self.input_features, args, kwargs)
+        # Reuse the ingress URL resolved at get_model_version time so repeated calls skip re-resolution.
+        out = call_model_scaling_group(
+            self._client, self.model_name, inputs, version=self.version, web_url=self._web_url or None
+        )
+        return out.column(0).to_pylist()[0]
 
 
 class CreateModelTrainingJobResponse(BaseModel):

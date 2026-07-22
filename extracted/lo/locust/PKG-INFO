@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: locust
-Version: 2.46.0
+Version: 2.46.1
 Summary: Developer-friendly load testing framework
 Project-URL: homepage, https://locust.io/
 Project-URL: repository, https://github.com/locustio/locust
@@ -16,7 +16,6 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -25,12 +24,12 @@ Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: Software Development :: Testing :: Traffic Generation
 Classifier: Topic :: System :: Distributed Computing
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Requires-Dist: configargparse>=1.7.1
 Requires-Dist: flask-cors>=3.0.10
 Requires-Dist: flask-login>=0.6.3
 Requires-Dist: flask>=2.0.0
-Requires-Dist: gevent!=25.8.1,<26.0.0,>=24.10.1
+Requires-Dist: gevent>=24.10.1
 Requires-Dist: geventhttpclient>=2.3.1
 Requires-Dist: msgpack>=1.0.0
 Requires-Dist: psutil>=5.9.1
@@ -40,7 +39,6 @@ Requires-Dist: python-socketio[client]>=5.13.0
 Requires-Dist: pywin32; sys_platform == 'win32'
 Requires-Dist: pyzmq>=25.0.0
 Requires-Dist: requests>=2.32.2
-Requires-Dist: tomli>=1.1.0; python_version < '3.11'
 Requires-Dist: typing-extensions>=4.6.0; python_version < '3.12'
 Requires-Dist: werkzeug>=2.0.0
 Provides-Extra: dns

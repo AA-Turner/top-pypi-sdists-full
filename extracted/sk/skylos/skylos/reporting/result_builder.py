@@ -177,6 +177,33 @@ def _attach_analysis_reports(analyzer, result):
     if grep_verify_report is not None:
         result["analysis_summary"]["grep_verify"] = dict(grep_verify_report)
 
+    verification_checks = getattr(analyzer, "_ai_verification_checks", None)
+    if isinstance(verification_checks, list):
+        from skylos.core.verification_coverage import build_ai_verification_coverage
+
+        expected_checks = getattr(analyzer, "_ai_verification_expectations", None)
+        result["analysis_summary"]["ai_verification"] = build_ai_verification_coverage(
+            verification_checks,
+            expected_checks=expected_checks
+            if isinstance(expected_checks, list)
+            else None,
+        )
+
+    language_engines = getattr(analyzer, "_language_engine_reports", None)
+    if isinstance(language_engines, dict) and language_engines:
+        result["analysis_summary"]["language_engines"] = {
+            str(language): dict(report)
+            for language, report in language_engines.items()
+            if isinstance(report, dict)
+        }
+        incomplete_languages = sorted(
+            str(language)
+            for language, report in language_engines.items()
+            if isinstance(report, dict) and report.get("status") == "partial"
+        )
+        if incomplete_languages:
+            result["analysis_summary"]["incomplete_languages"] = incomplete_languages
+
 
 def _attach_workspace(analyzer, result, workspace_inventory, path):
     if workspace_inventory is None:
@@ -313,6 +340,8 @@ def _attach_unused_ts_exports(result, unused_ts_exports):
         return
     result.setdefault("unused_exports", []).extend(unused_ts_exports)
     result["analysis_summary"]["unused_exports_count"] = len(unused_ts_exports)
+
+
 def _attach_grade(
     result,
     files,

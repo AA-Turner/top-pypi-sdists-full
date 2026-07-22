@@ -13,7 +13,6 @@ from argparse import (
 from collections.abc import Iterable
 from io import StringIO
 from string import Template
-from typing import Optional, Union
 
 from ._actions import (
     ActionConfigFile,
@@ -59,28 +58,31 @@ class YAMLCommentFormatter:
 
     def add_yaml_comments(self, cfg: str) -> str:
         """Adds help text as yaml comments."""
+        from ._core import ArgumentParser
+
         ruyaml = import_ruamel("add_yaml_comments")
         yaml = ruyaml.YAML()
         cfg = yaml.load(cfg)
 
-        def get_subparsers(parser, prefix=""):
-            subparsers = {}
+        def get_parsers(parser: ArgumentParser, prefix="") -> dict[str | None, ArgumentParser]:
+            parsers = {}
             if parser._subparsers is not None:
-                for key, subparser in parser._subparsers._group_actions[0].choices.items():
+                for key, subparser in parser._subparsers._group_actions[0].choices.items():  # type: ignore[union-attr]
                     full_key = (prefix + "." if prefix else "") + key
-                    subparsers[full_key] = subparser
-                    subparsers.update(get_subparsers(subparser, prefix=full_key))
-            return subparsers
+                    parsers[full_key] = subparser
+                    parsers.update(get_parsers(subparser, prefix=full_key))
+            parsers[None] = parser
+            return parsers
 
         parser = parent_parser.get()
-        parsers = get_subparsers(parser)
-        parsers[None] = parser
+        assert isinstance(parser, ArgumentParser)
+        parsers = get_parsers(parser)
 
         group_titles = {}
-        for parser_key, parser in parsers.items():
-            group_titles[parser_key] = parser.description
-            prefix = "" if parser_key is None else parser_key + "."
-            for group in parser._action_groups:
+        for parser_n_key, parser_n in parsers.items():
+            group_titles[parser_n_key] = parser_n.description
+            prefix = "" if parser_n_key is None else parser_n_key + "."
+            for group in parser_n._action_groups:
                 actions = filter_non_parsing_actions(group._group_actions)
                 actions = [
                     a for a in actions if not isinstance(a, (_ActionConfigLoad, ActionConfigFile, ActionSubCommands))
@@ -284,7 +286,7 @@ class DefaultHelpFormatter(HelpFormatterDeprecations, HelpFormatter):
         action.default = orig_default
         return help_str
 
-    def _get_type_str(self, action: Action) -> Optional[str]:
+    def _get_type_str(self, action: Action) -> str | None:
         type_str = None
         if isinstance(action, ActionYesNo):
             type_str = "bool"
@@ -294,14 +296,14 @@ class DefaultHelpFormatter(HelpFormatterDeprecations, HelpFormatter):
             type_str = type_to_str(action._typehint)
         return type_str
 
-    def add_usage(self, usage: Optional[str], actions: Iterable[Action], *args, **kwargs) -> None:
+    def add_usage(self, usage: str | None, actions: Iterable[Action], *args, **kwargs) -> None:
         actions = [a for a in actions if not isinstance(a, ActionLink)]
         super().add_usage(usage, actions, *args, **kwargs)
 
 
 def get_env_var(
-    parser_or_formatter: Union[ArgumentParser, DefaultHelpFormatter],
-    action: Optional[Action] = None,
+    parser_or_formatter: ArgumentParser | DefaultHelpFormatter,
+    action: Action | None = None,
 ) -> str:
     """Returns the environment variable name for a given parser or formatter and action."""
     if isinstance(parser_or_formatter, DefaultHelpFormatter):

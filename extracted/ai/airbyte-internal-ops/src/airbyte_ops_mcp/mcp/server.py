@@ -74,39 +74,19 @@ from airbyte_ops_mcp.constants import (
     ServerConfigKey,
 )
 from airbyte_ops_mcp.mcp._guidance import MCP_SERVER_INSTRUCTIONS
-from airbyte_ops_mcp.mcp.agent_message_bus import register_message_bus_tools
-from airbyte_ops_mcp.mcp.cloud_connector_versions import (
-    register_cloud_connector_version_tools,
-)
 from airbyte_ops_mcp.mcp.connection_medic import register_connection_medic_tools
-from airbyte_ops_mcp.mcp.connection_state import register_connection_state_tools
-from airbyte_ops_mcp.mcp.connector_rollout import register_connector_rollout_tools
-from airbyte_ops_mcp.mcp.devin_reminders import register_devin_reminder_tools
-from airbyte_ops_mcp.mcp.devin_secret_request import register_devin_secret_request_tools
-from airbyte_ops_mcp.mcp.gcp_logs import register_gcp_logs_tools
-from airbyte_ops_mcp.mcp.github_actions import register_github_actions_tools
-from airbyte_ops_mcp.mcp.github_repo_ops import register_github_repo_ops_tools
+from airbyte_ops_mcp.mcp.connector_qa import register_connector_qa_tools
+from airbyte_ops_mcp.mcp.connector_registry import register_connector_registry_tools
+from airbyte_ops_mcp.mcp.connector_versions import register_connector_version_tools
+from airbyte_ops_mcp.mcp.context_store_ops import register_context_store_ops_tools
+from airbyte_ops_mcp.mcp.devin_ops import register_devin_ops_tools
+from airbyte_ops_mcp.mcp.github_ops import register_github_ops_tools
 from airbyte_ops_mcp.mcp.human_in_the_loop import register_human_in_the_loop_tools
-from airbyte_ops_mcp.mcp.motherduck_diagnostics import (
-    register_motherduck_diagnostics_tools,
-)
-from airbyte_ops_mcp.mcp.organization_agentic_flag import (
-    register_organization_agentic_flag_tools,
-)
-from airbyte_ops_mcp.mcp.organization_payment_config import (
-    register_organization_payment_config_tools,
-)
-from airbyte_ops_mcp.mcp.people_lookup import register_people_lookup_tools
-from airbyte_ops_mcp.mcp.prerelease import register_prerelease_tools
-from airbyte_ops_mcp.mcp.prod_db_queries import register_prod_db_query_tools
+from airbyte_ops_mcp.mcp.logging import register_logging_tools
+from airbyte_ops_mcp.mcp.organization_admin import register_organization_admin_tools
+from airbyte_ops_mcp.mcp.prod_db_ops import register_prod_db_ops_tools
 from airbyte_ops_mcp.mcp.prompts import register_prompts
-from airbyte_ops_mcp.mcp.registry import register_registry_tools
-from airbyte_ops_mcp.mcp.regression_tests import register_regression_tests_tools
-from airbyte_ops_mcp.mcp.release_block import register_release_block_tools
-from airbyte_ops_mcp.mcp.session_feedback import register_session_feedback_tools
-from airbyte_ops_mcp.mcp.session_namer import register_session_namer_tools
-from airbyte_ops_mcp.mcp.slack_messaging import register_slack_messaging_tools
-from airbyte_ops_mcp.mcp.tier_lookup import register_tier_lookup_tools
+from airbyte_ops_mcp.mcp.zendesk_ops import register_zendesk_ops_tools
 from airbyte_ops_mcp.telemetry import _DEFAULT_SEGMENT_WRITE_KEY
 
 logger = logging.getLogger(__name__)
@@ -241,15 +221,22 @@ app = mcp_server(
 def register_server_assets(app: FastMCP) -> None:
     """Register all server assets (tools, prompts, resources) with the FastMCP app.
 
-    This function registers assets for all domains:
-    - REPO: GitHub repository operations
-    - CLOUD: Cloud connector version management
-    - PROMPTS: Prompt templates for common workflows
-    - REGRESSION_TESTS: Connector regression tests (single-version and comparison)
-    - REGISTRY: Connector registry operations (read/write metadata from GCS)
-    - METADATA: Connector metadata operations (future)
-    - QA: Connector quality assurance (future)
-    - INSIGHTS: Connector analysis and insights (future)
+    Tools are grouped into domain-oriented modules to keep the generated pdoc
+    reference navigable:
+
+    - `connector_versions`: cloud version overrides, rollouts, pre-release publish
+    - `connector_registry`: registry reads/yank plus monorepo list/bump
+    - `connector_qa`: regression tests and release blocking
+    - `connection_medic`: connection state/catalog reads plus emergency writes
+    - `prod_db_ops`: Prod Cloud DB-replica SQL queries
+    - `logging`: GCP Cloud Logging backend-error lookup
+    - `context_store_ops`: MotherDuck / context-store diagnostics
+    - `organization_admin`: is_agentic flag, payment config, customer tiers
+    - `github_ops`: CI workflow trigger/status, Docker image info, subscriptions
+    - `human_in_the_loop`: human escalation, team-roster lookup, Slack newsletter posting
+    - `devin_ops`: reminders, secret requests, session feedback and naming
+    - `zendesk_ops`: read-only Zendesk Support ticket retrieval
+    - `prompts`: prompt templates for common workflows
 
     Tools annotated with `requires_client_filesystem=True` are automatically
     hidden when `MCP_NO_CLIENT_FILESYSTEM=1` via the standard tool filter.
@@ -259,31 +246,19 @@ def register_server_assets(app: FastMCP) -> None:
     Args:
         app: FastMCP application instance
     """
-    register_github_repo_ops_tools(app)
-    register_github_actions_tools(app)
-    register_prerelease_tools(app)
-    register_cloud_connector_version_tools(app)
-    register_connector_rollout_tools(app)
-    register_prod_db_query_tools(app)
-    register_gcp_logs_tools(app)
-    register_prompts(app)
-    register_regression_tests_tools(app)
-    register_registry_tools(app)
-    register_connection_state_tools(app)
+    register_connector_version_tools(app)
+    register_connector_registry_tools(app)
+    register_connector_qa_tools(app)
     register_connection_medic_tools(app)
-    register_organization_agentic_flag_tools(app)
-    register_organization_payment_config_tools(app)
-    register_people_lookup_tools(app)
+    register_prod_db_ops_tools(app)
+    register_logging_tools(app)
+    register_context_store_ops_tools(app)
+    register_organization_admin_tools(app)
+    register_github_ops_tools(app)
     register_human_in_the_loop_tools(app)
-    register_devin_reminder_tools(app)
-    register_message_bus_tools(app)
-    register_session_feedback_tools(app)
-    register_session_namer_tools(app)
-    register_slack_messaging_tools(app)
-    register_devin_secret_request_tools(app)
-    register_tier_lookup_tools(app)
-    register_release_block_tools(app)
-    register_motherduck_diagnostics_tools(app)
+    register_devin_ops_tools(app)
+    register_zendesk_ops_tools(app)
+    register_prompts(app)
 
 
 register_server_assets(app)

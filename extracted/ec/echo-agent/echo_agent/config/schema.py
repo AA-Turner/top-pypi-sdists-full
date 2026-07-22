@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic.alias_generators import to_camel
 
 
@@ -61,6 +61,14 @@ class TelegramChannelConfig(_Base):
             "status": "effective", "ref": "channels/telegram.py:109",
             "desc_zh": "是否对消息添加表情回应",
             "desc_en": "Whether to add emoji reactions to messages",
+        },
+    )
+    data_dir: str = Field(
+        default="",
+        json_schema_extra={
+            "status": "effective", "ref": "channels/telegram.py:_offset_path",
+            "desc_zh": "Telegram 状态持久化目录(存 long-poll offset,防重启后重复拉取);缺省 ~/.echo-agent/data/telegram",
+            "desc_en": "Directory persisting Telegram state (long-poll offset, prevents re-fetch after restart); defaults to ~/.echo-agent/data/telegram",
         },
     )
 
@@ -952,7 +960,7 @@ class ModelRouteConfig(_Base):
         },
     )
     max_tokens: int = Field(
-        default=4096,
+        default=8192,
         json_schema_extra={
             "status": "effective", "ref": "agent/pipeline/inference_stage.py:615",
             "desc_zh": "该路由生成的最大 token 数",
@@ -1794,6 +1802,14 @@ class SessionConfig(_Base):
             "desc_en": "Send a self-introduction on new sessions",
         },
     )
+    im_clarify_pending_ttl_seconds: int = Field(
+        default=300,
+        json_schema_extra={
+            "status": "effective", "ref": "agent/loop.py",
+            "desc_zh": "IM 通道追问续接的待答有效期(秒);agent 发出追问后超过此时长,下一条消息不再当作答案而按新消息处理",
+            "desc_en": "TTL (seconds) for an IM follow-up question; after this, the next message is treated as new rather than an answer to the pending question",
+        },
+    )
     introduction_template: str = Field(
         default="",
         json_schema_extra={
@@ -1855,12 +1871,78 @@ class MemoryConfig(_Base):
             "desc_en": "Memory scope policy",
         },
     )
+    cross_channel_owner: bool = Field(
+        default=True,
+        json_schema_extra={
+            "status": "effective", "ref": "bus/events.py:memory_scope_key",
+            "desc_zh": "跨通道主人记忆归一:开启时,principal_bindings 列入的 sender 在各通道 1:1 私聊共享 owner 记忆;未列入者与群聊均按会话隔离。关闭则全部按会话隔离",
+            "desc_en": "Cross-channel owner memory: when on, senders listed in principal_bindings share owner memory across 1:1 DMs on any channel; unlisted senders and groups stay per-session. Off = all per-session.",
+        },
+    )
+    owner_key: str = Field(
+        default="owner",
+        json_schema_extra={
+            "status": "effective", "ref": "bus/events.py:memory_scope_key",
+            "desc_zh": "主人记忆作用域键(单主体默认 owner,一般无需修改)",
+            "desc_en": "Owner memory scope key (single-subject default owner; rarely needs changing)",
+        },
+    )
+    allow_model_environment_writes: bool = Field(
+        default=False,
+        json_schema_extra={
+            "status": "effective", "ref": "agent/tools/memory.py",
+            "desc_zh": "是否允许模型记忆工具写 ENVIRONMENT 记忆或带 global 标签(这类绕过 scope、全局可见);默认关闭,模型只能写自己 scope 的 USER 记忆,避免任意通道模型污染全局",
+            "desc_en": "Allow the model memory tool to write ENVIRONMENT memory or global-tagged entries (these bypass scope, globally visible). Off by default; the model may only write its own scope's USER memory.",
+        },
+    )
+
+    @field_validator("owner_key")
+    @classmethod
+    def _owner_key_non_empty(cls, v: str) -> str:
+        # 空/空白 owner_key 会让私聊 memory_scope 变空串,进而在 store 层 fail-open
+        # 放行全库记忆(store.py:497)。这里 fail-closed 拒绝。
+        if not v or not v.strip():
+            raise ValueError("owner_key 不能为空")
+        return v
+
+    principal_bindings: list[str] = Field(
+        default_factory=list,
+        json_schema_extra={
+            "status": "effective", "ref": "bus/events.py:memory_scope_key",
+            "desc_zh": "主人身份绑定表:每项 \"通道:sender_id\",列入者的 1:1 私聊归一到 owner 记忆域实现跨通道互通;未列入者按会话隔离。安全前提:仅对 sender_id 由平台保证不可伪造的通道(如 Telegram/Slack)启用,否则冒充该 id 者可读主人记忆;仅在 cross_channel_owner 开启时生效",
+            "desc_en": "Owner identity bindings: each \"channel:sender_id\"; listed senders' 1:1 DMs map to the owner memory scope for cross-channel sharing; others stay per-session. Security assumption: only for channels whose sender_id is platform-guaranteed unforgeable (e.g. Telegram/Slack); otherwise anyone spoofing that id reads owner memory. Effective only when cross_channel_owner is on.",
+        },
+    )
+
+    @field_validator("principal_bindings")
+    @classmethod
+    def _validate_principal_bindings(cls, v: list[str]) -> list[str]:
+        # 每项须为 "channel:sender_id",冒号两侧非空;非法项 fail-closed 拒绝启动,
+        # 避免错配把陌生人误绑成 owner 或静默失效。归一化去除首尾空白后存储,
+        # 使 "telegram: alice" 这类含空格配置能与下游真实 sender_id 正确比对。
+        normalized: list[str] = []
+        for item in v:
+            channel, sep, sender = item.partition(":")
+            channel, sender = channel.strip(), sender.strip()
+            if not sep or not channel or not sender:
+                raise ValueError(f"principal_bindings 项格式须为 'channel:sender_id',非法项: {item!r}")
+            normalized.append(f"{channel}:{sender}")
+        return normalized
+
     retrieval_on_miss: Literal["degrade", "sync"] = Field(
         default="degrade",
         json_schema_extra={
             "status": "effective", "ref": "agent/pipeline/context_stage.py:197",
-            "desc_zh": "检索缓存未命中时的行为:degrade=本轮跳过检索,sync=同步补检索",
-            "desc_en": "Behavior on retrieval cache miss: degrade=skip this turn, sync=fetch synchronously",
+            "desc_zh": "检索缓存未命中时的行为:degrade=有界同步检索(超时回退关键词),sync=完整同步检索",
+            "desc_en": "Behavior on retrieval cache miss: degrade=bounded sync retrieval with keyword fallback, sync=full synchronous retrieval",
+        },
+    )
+    retrieval_miss_timeout_seconds: float = Field(
+        default=0.8,
+        json_schema_extra={
+            "status": "effective", "ref": "agent/pipeline/context_stage.py:197",
+            "desc_zh": "degrade 模式下缓存未命中时的同步检索时间预算(秒),超时回退本地关键词检索;0=完全跳过(旧行为)",
+            "desc_en": "Time budget (s) for bounded sync retrieval on cache miss in degrade mode; falls back to local keyword search on timeout; 0=skip entirely (legacy)",
         },
     )
     cache_ttl_seconds: float = Field(
@@ -1885,6 +1967,14 @@ class MemoryConfig(_Base):
             "status": "effective", "ref": "agent/loop.py:176",
             "desc_zh": "触发记忆整合的条目阈值",
             "desc_en": "Entry threshold that triggers memory consolidation",
+        },
+    )
+    narrative_episode_count: int = Field(
+        default=3,
+        json_schema_extra={
+            "status": "effective", "ref": "agent/pipeline/context_stage.py",
+            "desc_zh": "快照叙事层注入的最近 episode.summary 条数(承载跨条目时序/因果,补结构化事实层缺失)",
+            "desc_en": "Number of recent episode summaries injected as the snapshot narrative layer (carries cross-entry temporal/causal narrative)",
         },
     )
     vector_enabled: bool = Field(
@@ -1975,6 +2065,22 @@ class MemoryConfig(_Base):
             "desc_en": "Forget score threshold; entries below it are forgotten",
         },
     )
+    lineage_max_versions: int = Field(
+        default=3,
+        json_schema_extra={
+            "status": "effective", "ref": "memory/forgetting.py:prune_lineage",
+            "desc_zh": "同 key 世系保留的 superseded 版本数上限,超出的最旧版本转归档待遗忘",
+            "desc_en": "Max superseded versions kept per key lineage; older ones move to archival for forgetting",
+        },
+    )
+    lineage_retention_days: int = Field(
+        default=90,
+        json_schema_extra={
+            "status": "effective", "ref": "memory/forgetting.py:prune_lineage",
+            "desc_zh": "superseded 版本保留天数,超期即转归档待遗忘(即便未超版本数上限)",
+            "desc_en": "Retention days for superseded versions; stale ones move to archival even under the version cap",
+        },
+    )
     max_working_memory: int = Field(
         default=20,
         json_schema_extra={
@@ -2010,6 +2116,14 @@ class MemoryConfig(_Base):
             "desc_en": "Local fastembed fallback model when no embed-capable provider exists; empty string disables the fallback",
         },
     )
+    hf_embedding_endpoint: str = Field(
+        default="https://hf-mirror.com",
+        json_schema_extra={
+            "status": "effective", "ref": "memory/local_embed.py",
+            "desc_zh": "本地嵌入模型(fastembed)的 HuggingFace 下载源,默认走 hf-mirror.com 镜像以适配国内网络;设为官方源填 https://huggingface.co,空串则不覆盖已有 HF_ENDPOINT 环境变量",
+            "desc_en": "HuggingFace download endpoint for the local fastembed model; defaults to the hf-mirror.com mirror for CN networks. Set to https://huggingface.co for the official source, or empty to leave any existing HF_ENDPOINT env var untouched",
+        },
+    )
     # Latency budget for the per-message query-embedding round-trip in hybrid
     # retrieval. On timeout retrieval degrades to keyword-only for that turn.
     # Raise this if your embedding endpoint is on a high-latency network and
@@ -2022,12 +2136,44 @@ class MemoryConfig(_Base):
             "desc_en": "Query-embedding timeout (seconds); falls back to keyword search on timeout",
         },
     )
+    rrf_min_similarity: float = Field(
+        default=0.25,
+        json_schema_extra={
+            "status": "effective", "ref": "memory/retrieval.py:vec_rank_map",
+            "desc_zh": "RRF 向量召回相似度下限(可调),向量命中分数低于该值则不占 rank 槽、不贡献 RRF 分,避免低相似度命中污染真实候选;BM25 侧不设(量纲不同)",
+            "desc_en": "RRF vector-recall similarity floor (tunable); vector hits scoring below it occupy no rank slot and contribute no RRF term, preventing low-similarity hits from polluting real candidates. Not applied to BM25 (different scale).",
+        },
+    )
     embed_load_timeout_seconds: float = Field(
         default=60.0,
         json_schema_extra={
             "status": "effective", "ref": "memory/local_embed.py",
             "desc_zh": "本地嵌入模型首次加载/下载的超时(秒),超时即标记失败并降级为关键词检索,避免下载挂起拖垮进程",
             "desc_en": "Local embedding model first-load/download timeout (seconds); on timeout the embedder is marked failed and degrades to keyword search, preventing a hung download from starving the process",
+        },
+    )
+    local_embedding_cache_dir: str = Field(
+        default="~/.echo-agent/models/fastembed",
+        json_schema_extra={
+            "status": "effective", "ref": "memory/local_embed.py",
+            "desc_zh": "本地嵌入模型(fastembed)的缓存目录,安装期预取与运行期共用同一目录以实现离线命中;默认落在 echo-home 下的稳定位置(而非易被系统清理的临时目录),空串则用 fastembed 默认(FASTEMBED_CACHE_PATH 或临时目录)",
+            "desc_en": "fastembed cache directory for the local embedding model; install-time prefetch and runtime share this path for offline cache hits. Defaults to a stable location under echo-home (not the volatile tempdir fastembed uses by default). Empty leaves fastembed's default (FASTEMBED_CACHE_PATH or tempdir) untouched",
+        },
+    )
+    local_embedding_max_load_attempts: int = Field(
+        default=5,
+        json_schema_extra={
+            "status": "effective", "ref": "memory/local_embed.py",
+            "desc_zh": "本地嵌入模型加载失败后的最大重试次数,超过则本进程保持关键词检索直到重启;避免一次网络抖动就永久降级",
+            "desc_en": "Max load attempts for the local embedding model before staying keyword-only until restart; prevents one network blip from permanently degrading the process",
+        },
+    )
+    local_embedding_retry_backoff_seconds: float = Field(
+        default=30.0,
+        json_schema_extra={
+            "status": "effective", "ref": "memory/local_embed.py",
+            "desc_zh": "本地嵌入模型加载失败后再次尝试前的退避等待(秒),避免失败后每条消息都反复触发加载",
+            "desc_en": "Backoff (seconds) before re-attempting a failed local embedding model load, so a failure does not re-trigger a load on every message",
         },
     )
     contradiction_scan_on_store: bool = Field(
@@ -2186,7 +2332,7 @@ class WorkerProfileConfig(_Base):
         },
     )
     max_tokens: int = Field(
-        default=4096,
+        default=8192,
         json_schema_extra={
             "status": "effective", "ref": "agent/multi_agent/registry.py:29",
             "desc_zh": "子代理生成最大 token 数",
@@ -2475,6 +2621,17 @@ class MediaUnderstandingConfig(_Base):
 
 
 # ── Storage configs ──────────────────────────────────────────────────────────
+
+class RuntimeConfig(_Base):
+    single_instance: bool = Field(
+        default=True,
+        json_schema_extra={
+            "status": "effective", "ref": "app.py:AppRuntime.start",
+            "desc_zh": "同一 workspace 是否只允许运行一个消费通道的实例（防止后台服务与前台 run 重复消费、重复回复）；用 --force 可临时越过",
+            "desc_en": "Allow only one channel-consuming instance per workspace (prevents duplicate consumption/replies when a background service and a foreground run coexist); --force overrides it",
+        },
+    )
+
 
 class StorageConfig(_Base):
     database_path: str = Field(
@@ -3384,7 +3541,7 @@ class UIConfig(_Base):
     locale: Literal["en", "zh", "auto"] = Field(
         default="auto",
         json_schema_extra={
-            "status": "effective", "ref": "cli/setup.py:1054",
+            "status": "effective", "ref": "cli/setup/__init__.py:127",
             "desc_zh": "界面语言",
             "desc_en": "Interface language",
         },
@@ -3584,6 +3741,7 @@ class Config(_Base):
     checkpoint: CheckpointConfig = Field(default_factory=CheckpointConfig)
     validation: ValidationConfig = Field(default_factory=ValidationConfig)
     media_understanding: MediaUnderstandingConfig = Field(default_factory=MediaUnderstandingConfig)
+    runtime: RuntimeConfig = Field(default_factory=RuntimeConfig)
     storage: StorageConfig = Field(default_factory=StorageConfig)
     observability: ObservabilityConfig = Field(default_factory=ObservabilityConfig)
     skills: SkillsConfig = Field(default_factory=SkillsConfig)

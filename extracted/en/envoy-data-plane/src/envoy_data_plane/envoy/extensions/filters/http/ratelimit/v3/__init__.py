@@ -97,7 +97,7 @@ class RateLimit(betterproto2.Message):
     Rate limit :ref:`configuration overview <config_http_filters_rate_limit>`.
     [#extension: envoy.filters.http.ratelimit]
 
-    [#next-free-field: 18]
+    [#next-free-field: 19]
     """
 
     domain: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
@@ -315,6 +315,14 @@ class RateLimit(betterproto2.Message):
       2. :ref:`dynamic metadata <envoy_v3_api_field_config.route.v3.RateLimit.Action.dynamic_metadata>`.
       3. :ref:`disable_key <envoy_v3_api_field_config.route.v3.RateLimit.disable_key>`.
       4. :ref:`override limit <envoy_v3_api_field_config.route.v3.RateLimit.limit>`.
+    """
+
+    metadata_namespace: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        18, betterproto2.TYPE_STRING
+    )
+    """
+    The namespace where dynamic metadata from rate limit response is saved.
+    If not set, the default is "envoy.filters.http.ratelimit".
     """
 
 

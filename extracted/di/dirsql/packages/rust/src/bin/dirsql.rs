@@ -6,7 +6,7 @@
 //!
 //! Only compiled with `--features cli`.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::ExitCode;
 
 use clap::{Args, Parser, Subcommand};
@@ -23,25 +23,28 @@ use dirsql::{DirSQL, Extension, Row, Table};
     about = "Ephemeral SQL index over a local directory, exposed over HTTP.",
     long_about = "Runs an HTTP server that exposes a SQL view of a local \
                   directory. Tables are defined by a `.dirsql.toml` config \
-                  file; with no config, a default `files` table over every \
-                  file in the directory is served. With the `init` \
-                  subcommand, writes that same default `files` table as a \
-                  starter `.dirsql.toml` — no target-directory inspection, \
-                  no network, deterministic."
+                  file passed with `-c`; with no `-c` there are no named \
+                  tables and filesystem queries go through path-tables \
+                  (`SELECT * FROM './'`) — a `./.dirsql.toml` on disk is NOT \
+                  auto-loaded, pass it explicitly. Config flags are \
+                  subcommand-local: for `query` pass them AFTER the \
+                  subcommand (`dirsql query <sql> -c <cfg>`); a flag before a \
+                  subcommand is a hard error. The `init` subcommand writes a \
+                  starter `.dirsql.toml` defining a `files` table — no \
+                  target-directory inspection, no network, deterministic.",
+    args_conflicts_with_subcommands = true
 )]
 struct Cli {
     #[command(subcommand)]
     command: Option<Command>,
 
-    /// Path to a config file. **Repeatable** (`-c a -c b`): the configs load
-    /// and merge in argv order -- their `[[table]]`, `ignore`, and
-    /// `[[dirsql.extension]]` entries accumulate, and their `pre-query` /
-    /// `post-query` hooks chain FIFO. With none given, `./.dirsql.toml` is used;
-    /// when that file does not exist, a default `files` table is served. The
-    /// index is rooted at the invocation directory (cwd), not a config's
-    /// location (#540). Used by server mode and by the `query` subcommand.
-    #[arg(short = 'c', long, global = true)]
-    config: Vec<PathBuf>,
+    /// Server-mode config flags. With no subcommand, dirsql runs the HTTP
+    /// server and these configure it. They are subcommand-local, not global:
+    /// for `query` the same flags are passed AFTER the subcommand
+    /// (`dirsql query <sql> -c <cfg>`); a config flag placed BEFORE a
+    /// subcommand is a hard error, never silently dropped (#609).
+    #[command(flatten)]
+    common: ConfigArgs,
 
     /// Bind address. Used when no subcommand is given.
     #[arg(long, default_value = "localhost")]
@@ -50,6 +53,37 @@ struct Cli {
     /// TCP port to bind. Used when no subcommand is given.
     #[arg(long, default_value_t = 7117)]
     port: u16,
+}
+
+/// The config-layer flags shared by server mode and the `query` subcommand.
+/// Flattened into both `Cli` (server) and `QueryArgs` (query) rather than
+/// declared `global`, so a repeatable `-c` cannot straddle the subcommand
+/// boundary and be silently dropped -- misplacement is a hard clap error
+/// (`args_conflicts_with_subcommands`) instead (#609).
+#[derive(Debug, Args)]
+struct ConfigArgs {
+    /// Path to a config file. **Repeatable** (`-c a -c b`): the configs load
+    /// and merge in argv order -- their `[[table]]`, `ignore`, and
+    /// `[[dirsql.extension]]` entries accumulate, and their `pre-query` /
+    /// `post-query` hooks chain FIFO. With none given, no named tables are
+    /// defined -- query the filesystem with a path-table (`FROM './'`). A
+    /// `./.dirsql.toml` on disk is NOT auto-loaded (#602); pass it explicitly
+    /// to use it. A `-c` naming a missing file is an error. The index is rooted at the
+    /// invocation directory (cwd), not a config's location (#540). For `query`,
+    /// pass this AFTER the subcommand (`dirsql query <sql> -c <cfg>`).
+    #[arg(short = 'c', long)]
+    config: Vec<PathBuf>,
+
+    /// Internal (launcher-only): seed the resolved config set with the shipped
+    /// starter `files` table *before* the `-c` configs, so an explicit `-c`
+    /// composes with it instead of standing alone. `--include-default -c
+    /// <plugin>` yields that table **plus** the plugin's tables — the additive
+    /// composition the plugin launcher (#529) injects for the no-user-`-c`
+    /// case (#604). This is an explicit opt-in, not the implicit no-`-c`
+    /// fallback (which was retired in #636). Hidden from `--help`: it is
+    /// internal plumbing for the launcher, not a documented public flag.
+    #[arg(long = "include-default", hide = true)]
+    include_default: bool,
 
     /// Load a SQLite extension by literal path, overriding a TOML config's
     /// `[[dirsql.extension]]` entries. Repeatable. Format: `<path>` or
@@ -60,20 +94,19 @@ struct Cli {
     /// which need an interpreter this compiled binary lacks — and passes the
     /// resolved literal paths here. When any are present, the TOML
     /// config's own extension entries are not loaded (the launcher already
-    /// merged and resolved them). Used by server mode and by the `query`
-    /// subcommand.
-    #[arg(long = "extension", global = true)]
+    /// merged and resolved them).
+    #[arg(long = "extension")]
     extension: Vec<String>,
 
     /// Keep the SQLite index on disk between runs so a restart only re-parses
     /// files that actually changed. Bare `--persist` caches at the default
     /// location (`<root>/.dirsql/cache.db`); `--persist <path>` caches there.
-    /// Off by default (ephemeral index). Used by server mode and `query`.
-    #[arg(long, num_args = 0..=1, global = true)]
+    /// Off by default (ephemeral index).
+    #[arg(long, num_args = 0..=1)]
     persist: Option<Option<PathBuf>>,
 }
 
-impl Cli {
+impl ConfigArgs {
     /// Apply the `--persist [PATH]` flag to a builder. Absent → no change;
     /// bare `--persist` → persist at the default location; `--persist <path>`
     /// → persist at `<path>`.
@@ -84,28 +117,27 @@ impl Cli {
         builder
     }
 
-    /// The effective config paths: those passed via `-c`/`--config`, or the
-    /// single default `./.dirsql.toml` when none were given.
+    /// The config paths passed via `-c`/`--config`. Empty when none were given
+    /// -- no named tables are defined, and there is no implicit
+    /// `./.dirsql.toml` discovery (#602).
     fn config_paths(&self) -> Vec<PathBuf> {
-        if self.config.is_empty() {
-            vec![PathBuf::from("./.dirsql.toml")]
-        } else {
-            self.config.clone()
-        }
+        self.config.clone()
     }
 }
 
 #[derive(Debug, Subcommand)]
 enum Command {
-    /// Write the fixed starter `.dirsql.toml` — the same default `files`
-    /// table zero-config mode serves. No target-directory inspection.
+    /// Write the fixed starter `.dirsql.toml` — a `files` table over every
+    /// file in the directory. The output does not auto-load; pass it with
+    /// `dirsql query <sql> -c ./.dirsql.toml`. No target-directory
+    /// inspection.
     Init(InitArgs),
 
     /// Run one SQL query against the indexed directory, print the result
     /// rows as JSON on stdout, and exit. No server, no watch. Shares the
-    /// server's query pipeline, so config discovery, hooks, the query
+    /// server's query pipeline, so config loading, hooks, the query
     /// timeout, the read-only rule, and error classification are identical
-    /// to `POST /query`.
+    /// to `POST /query`. Config flags follow the SQL: `dirsql query <sql> -c <cfg>`.
     Query(QueryArgs),
 }
 
@@ -113,6 +145,41 @@ enum Command {
 struct QueryArgs {
     /// The SQL to run (a single read-only statement).
     sql: String,
+
+    /// Attach a parser to every path-table in the query. The command follows
+    /// the `on-file` hook contract (`docs/reference/hooks.md`): argv splitting,
+    /// `{path}`/`{root}` placeholders, a JSON array of row objects on stdout,
+    /// per-file failure isolation, and the hook timeout. With it set, a
+    /// path-table's rows and schema come from the parser instead of the stat
+    /// columns. One `--on-file` max; for multiple tables use a config file.
+    #[arg(long = "on-file")]
+    on_file: Vec<String>,
+
+    #[command(flatten)]
+    common: ConfigArgs,
+}
+
+/// Reduce the repeatable `--on-file` occurrences to at most one parser command.
+///
+/// `clap` collects repeats into a `Vec` so the error can name config files
+/// (its default "cannot be used multiple times" cannot). Empty → no parser;
+/// exactly one → that command; more than one → an error pointing at config
+/// files, where per-table parsers belong. A whitespace-only command is rejected
+/// up front (the hook contract forbids an empty command).
+fn resolve_on_file(occurrences: &[String]) -> std::result::Result<Option<String>, String> {
+    match occurrences {
+        [] => Ok(None),
+        [command] if command.trim().is_empty() => {
+            Err("--on-file needs a non-empty command".to_string())
+        }
+        [command] => Ok(Some(command.clone())),
+        _ => Err(
+            "--on-file may be given at most once; it applies to every path-table in the \
+             query. For per-table parsers, define tables in a config file with an \
+             `on-file` key and pass it with -c."
+                .to_string(),
+        ),
+    }
 }
 
 #[derive(Debug, Args)]
@@ -138,7 +205,7 @@ async fn main() -> ExitCode {
 
     match cli.command.take() {
         Some(Command::Init(args)) => run_init(args),
-        Some(Command::Query(args)) => run_query(&cli, args).await,
+        Some(Command::Query(args)) => run_query(args).await,
         None => run_server(cli).await,
     }
 }
@@ -149,10 +216,17 @@ async fn main() -> ExitCode {
 /// Any [`QueryFailure`](dirsql::cli::execute::QueryFailure) prints its
 /// message — the same string the HTTP `{"error": …}` body carries — to
 /// stderr with a non-zero exit.
-async fn run_query(cli: &Cli, args: QueryArgs) -> ExitCode {
-    let state = load_state(cli);
-    let pre_query = load_pre_queries(cli);
-    let post_query = load_post_queries(cli);
+async fn run_query(args: QueryArgs) -> ExitCode {
+    let parser = match resolve_on_file(&args.on_file) {
+        Ok(parser) => parser,
+        Err(message) => {
+            eprintln!("dirsql query: {message}");
+            return ExitCode::from(1);
+        }
+    };
+    let state = load_state(&args.common, parser);
+    let pre_query = load_pre_queries(&args.common);
+    let post_query = load_post_queries(&args.common);
     // Same default the server binds with; the pipeline enforces it.
     let timeout = ServerConfig::default().query_timeout;
 
@@ -211,12 +285,14 @@ fn run_init(args: InitArgs) -> ExitCode {
 }
 
 async fn run_server(cli: Cli) -> ExitCode {
-    let state = load_state(&cli);
+    // The server has no `--on-file`: clap rejects it as an unknown flag before
+    // reaching here. Path-tables served over HTTP keep their stat columns.
+    let state = load_state(&cli.common, None);
     let mut server_config = ServerConfig::bind(cli.host.clone(), cli.port);
-    for pre_query in load_pre_queries(&cli) {
+    for pre_query in load_pre_queries(&cli.common) {
         server_config = server_config.with_pre_query(pre_query);
     }
-    for post_query in load_post_queries(&cli) {
+    for post_query in load_post_queries(&cli.common) {
         server_config = server_config.with_post_query(post_query);
     }
 
@@ -243,18 +319,25 @@ async fn run_server(cli: Cli) -> ExitCode {
     ExitCode::SUCCESS
 }
 
-fn load_state(cli: &Cli) -> AppState {
-    let configs = cli.config_paths();
-
-    // Zero-config default: no `-c` was given and the implicit `./.dirsql.toml`
-    // is absent -> serve a default `files` table so dirsql is queryable out of
-    // the box. An explicitly-passed config that is missing degrades below.
-    if cli.config.is_empty() && !configs[0].exists() {
-        return load_default_state(cli, &configs[0]);
+fn load_state(cfg: &ConfigArgs, path_table_parser: Option<String>) -> AppState {
+    // Neither a `-c` nor the launcher's `--include-default` -> index the
+    // invocation directory with no named tables. A `./.dirsql.toml` on disk is
+    // NOT consulted (#602); pass it explicitly with `-c` to use it.
+    if cfg.config.is_empty() && !cfg.include_default {
+        return load_configless_state(cfg, path_table_parser);
     }
 
     let mut builder = DirSQL::builder();
-    for config_path in &configs {
+    // `--include-default` seeds the shipped starter `files` table before the
+    // `-c` configs, so an explicit config composes with it instead of standing
+    // alone (#604). Programmatic tables sort before config tables in
+    // `resolve`, giving `[starter] ++ [-c]`; a starter-vs-config `files`
+    // collision hits the existing dedup in `compile_matcher`. With no `-c` at
+    // all the flag still applies, yielding just the starter table.
+    if cfg.include_default {
+        builder = builder.table(default_files_table());
+    }
+    for config_path in &cfg.config {
         // Canonicalize so config-relative paths (extension libraries, hook
         // working directories) resolve against an absolute parent — `notify`
         // and the hook subprocesses misbehave with relative paths like `./`.
@@ -276,12 +359,18 @@ fn load_state(cli: &Cli) -> AppState {
     // resolved them (including package names the compiled binary can't
     // resolve), so suppress config extension loading and supply the resolved
     // literal paths instead.
-    if !cli.extension.is_empty() {
+    if !cfg.extension.is_empty() {
         builder = builder
-            .extensions(parse_extension_specs(&cli.extension))
+            .extensions(parse_extension_specs(&cfg.extension))
             .suppress_config_extensions(true);
     }
-    builder = cli.apply_persist(builder);
+    builder = cfg.apply_persist(builder);
+    // `--on-file` touches path-tables only: config `[[table]]` definitions keep
+    // their own `on-file` hooks; a path-table named in the query gets this
+    // parser regardless of any `-c`.
+    if let Some(command) = path_table_parser {
+        builder = builder.path_table_parser(command);
+    }
     match builder.build() {
         Ok(db) => AppState::Ready(db),
         Err(err) => AppState::Unavailable(format!("failed to load config: {err}")),
@@ -316,9 +405,9 @@ fn parse_extension_specs(specs: &[String]) -> Vec<Extension> {
 /// degrades the index in [`load_state`], so the hook is simply omitted here).
 /// Each hook's working directory is its own config file's parent, mirroring
 /// the `on-file` contract, and it carries that config's `hook-timeout`.
-fn load_pre_queries(cli: &Cli) -> Vec<PreQuery> {
+fn load_pre_queries(cfg: &ConfigArgs) -> Vec<PreQuery> {
     let mut hooks = Vec::new();
-    for config_path in &cli.config_paths() {
+    for config_path in &cfg.config_paths() {
         if !config_path.exists() {
             continue;
         }
@@ -347,9 +436,9 @@ fn load_pre_queries(cli: &Cli) -> Vec<PreQuery> {
 /// so the server chains them FIFO. Mirrors [`load_pre_queries`]: one hook per
 /// config, skipped when absent/unloadable, each running from its own config's
 /// parent under its own `hook-timeout`.
-fn load_post_queries(cli: &Cli) -> Vec<PostQuery> {
+fn load_post_queries(cfg: &ConfigArgs) -> Vec<PostQuery> {
     let mut hooks = Vec::new();
-    for config_path in &cli.config_paths() {
+    for config_path in &cfg.config_paths() {
         if !config_path.exists() {
             continue;
         }
@@ -374,39 +463,36 @@ fn load_post_queries(cli: &Cli) -> Vec<PostQuery> {
     hooks
 }
 
-/// Zero-config fallback. When no `.dirsql.toml` is found, dirsql indexes the
-/// directory that would have held the config with a single default `files`
-/// table — one row per file, columns drawn entirely from filesystem facts —
-/// so `SELECT * FROM files` works immediately. A config file, when present,
-/// fully overrules this default.
-fn load_default_state(cli: &Cli, config_path: &Path) -> AppState {
-    let dir = config_path
-        .parent()
-        .filter(|p| !p.as_os_str().is_empty())
-        .map(Path::to_path_buf)
-        .unwrap_or_else(|| PathBuf::from("."));
-
+/// With no `-c`, dirsql indexes the invocation directory but defines no named
+/// tables: filesystem queries go through path-tables (`SELECT * FROM './'`),
+/// and a `files` query fails with a hint pointing at that form (#636). A
+/// `./.dirsql.toml` in the cwd is not consulted (#602).
+fn load_configless_state(cfg: &ConfigArgs, path_table_parser: Option<String>) -> AppState {
     // Canonicalize for the same reason `load_state` does: `notify` misbehaves
     // when watching relative paths.
-    let root = match dir.canonicalize() {
+    let root = match PathBuf::from(".").canonicalize() {
         Ok(p) => p,
         Err(err) => {
-            return AppState::Unavailable(format!("failed to resolve {}: {err}", dir.display()));
+            return AppState::Unavailable(format!("failed to resolve current directory: {err}"));
         }
     };
 
-    let builder = cli.apply_persist(DirSQL::builder().root(root).table(default_files_table()));
+    let mut builder = cfg.apply_persist(DirSQL::builder().root(root));
+    if let Some(command) = path_table_parser {
+        builder = builder.path_table_parser(command);
+    }
     match builder.build() {
         Ok(db) => AppState::Ready(db),
-        Err(err) => AppState::Unavailable(format!("failed to build default index: {err}")),
+        Err(err) => AppState::Unavailable(format!("failed to build the index: {err}")),
     }
 }
 
-/// The default `files` table used in zero-config mode, parsed from the same
-/// [`dirsql::cli::DEFAULT_CONFIG_TOML`] asset `dirsql init` writes verbatim,
-/// so the two can never drift apart.
+/// The shipped starter `files` table, parsed from the [`dirsql::DEFAULT_CONFIG_TOML`]
+/// asset `dirsql init` writes. Used only by the explicit `--include-default`
+/// compose path (#604), which seeds it as a programmatic table *before* the
+/// `-c` configs. There is no implicit no-`-c` fallback (#636).
 fn default_files_table() -> Table {
-    let config = dirsql::config::load_config_str(dirsql::cli::DEFAULT_CONFIG_TOML)
+    let config = dirsql::config::load_config_str(dirsql::DEFAULT_CONFIG_TOML)
         .expect("DEFAULT_CONFIG_TOML must be valid dirsql config TOML");
     let table_config = &config.tables[0];
     Table::new(
@@ -462,10 +548,85 @@ mod tests {
         assert_eq!(query_body("   "), r#"{"sql":"   "}"#);
     }
 
+    /// The `ConfigArgs` parsed from a `query` subcommand invocation (#609:
+    /// config flags are subcommand-local, so they live on the Query variant).
+    fn query_common(argv: &[&str]) -> ConfigArgs {
+        match Cli::parse_from(argv).command {
+            Some(Command::Query(args)) => args.common,
+            other => panic!("expected a query subcommand, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn config_paths_is_empty_without_a_config_flag() {
+        // No `-c` -> no config paths at all: bare `dirsql` serves the baked-in
+        // default, with no implicit `./.dirsql.toml` discovery (#602).
+        let cli = Cli::parse_from(["dirsql"]);
+        assert!(cli.common.config_paths().is_empty());
+    }
+
+    #[test]
+    fn config_paths_returns_exactly_the_passed_paths() {
+        // Server mode (no subcommand): `-c` accumulates at the top level; the
+        // paths are exactly those, in argv order.
+        let cli = Cli::parse_from(["dirsql", "-c", "a.toml", "-c", "b.toml"]);
+        assert_eq!(
+            cli.common.config_paths(),
+            vec![PathBuf::from("a.toml"), PathBuf::from("b.toml")]
+        );
+    }
+
+    #[test]
+    fn config_flags_parse_after_the_query_subcommand() {
+        // #609: config flags are subcommand-local. `dirsql query <sql> -c a -c b`
+        // accumulates both on the Query variant, in argv order.
+        assert_eq!(
+            query_common(&[
+                "dirsql", "query", "SELECT 1", "-c", "a.toml", "-c", "b.toml"
+            ])
+            .config_paths(),
+            vec![PathBuf::from("a.toml"), PathBuf::from("b.toml")]
+        );
+    }
+
+    #[test]
+    fn config_flag_before_a_subcommand_is_a_hard_error() {
+        // #609: a `-c` BEFORE the subcommand conflicts with it (never silently
+        // dropped or straddled). `args_conflicts_with_subcommands` rejects it.
+        let result = Cli::try_parse_from(["dirsql", "-c", "a.toml", "query", "SELECT 1"]);
+        assert!(
+            result.is_err(),
+            "a config flag before the subcommand must be rejected, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn include_default_defaults_false_without_the_flag() {
+        // Absent -> false: `-c` keeps its replacement semantics unless the
+        // launcher explicitly opts the baked-in default back in (#604).
+        let cli = Cli::parse_from(["dirsql"]);
+        assert!(!cli.common.include_default);
+    }
+
+    #[test]
+    fn include_default_flag_sets_true() {
+        let cli = Cli::parse_from(["dirsql", "--include-default"]);
+        assert!(cli.common.include_default);
+    }
+
+    #[test]
+    fn include_default_parses_after_the_query_subcommand() {
+        // Subcommand-local (#609): the launcher injects it AFTER `query`
+        // alongside `-c <plugin>`.
+        assert!(
+            query_common(&["dirsql", "query", "SELECT 1", "--include-default"]).include_default
+        );
+    }
+
     #[test]
     fn persist_flag_absent_is_none() {
         let cli = Cli::parse_from(["dirsql"]);
-        assert_eq!(cli.persist, None);
+        assert_eq!(cli.common.persist, None);
     }
 
     #[test]
@@ -473,21 +634,101 @@ mod tests {
         // Bare `--persist` (no value) → `Some(None)`: persist at the default
         // `<root>/.dirsql/cache.db`, no override path.
         let cli = Cli::parse_from(["dirsql", "--persist"]);
-        assert_eq!(cli.persist, Some(None));
+        assert_eq!(cli.common.persist, Some(None));
     }
 
     #[test]
     fn persist_flag_with_path_carries_the_value() {
         let cli = Cli::parse_from(["dirsql", "--persist", "/var/cache/x.db"]);
-        assert_eq!(cli.persist, Some(Some(PathBuf::from("/var/cache/x.db"))));
+        assert_eq!(
+            cli.common.persist,
+            Some(Some(PathBuf::from("/var/cache/x.db")))
+        );
     }
 
     #[test]
-    fn persist_flag_is_global_on_the_query_subcommand() {
-        // `--persist` is global, so it attaches to `query` too; the flag sits
-        // after the positional SQL to avoid the num_args(0..=1) greedy grab.
-        let cli = Cli::parse_from(["dirsql", "query", "SELECT 1", "--persist"]);
-        assert_eq!(cli.persist, Some(None));
+    fn persist_flag_parses_after_the_query_subcommand() {
+        // Subcommand-local (#609); the flag sits after the positional SQL to
+        // avoid the num_args(0..=1) greedy grab.
+        assert_eq!(
+            query_common(&["dirsql", "query", "SELECT 1", "--persist"]).persist,
+            Some(None)
+        );
+    }
+
+    /// The `on_file` occurrences parsed from a `query` invocation.
+    fn query_on_file(argv: &[&str]) -> Vec<String> {
+        match Cli::parse_from(argv).command {
+            Some(Command::Query(args)) => args.on_file,
+            other => panic!("expected a query subcommand, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn on_file_absent_leaves_no_occurrences() {
+        assert!(query_on_file(&["dirsql", "query", "SELECT 1"]).is_empty());
+    }
+
+    #[test]
+    fn on_file_parses_after_the_query_subcommand() {
+        assert_eq!(
+            query_on_file(&["dirsql", "query", "SELECT 1", "--on-file", "cat {path}"]),
+            vec!["cat {path}".to_string()]
+        );
+    }
+
+    #[test]
+    fn on_file_collects_every_repeat_for_the_arity_check() {
+        // clap collects repeats; `resolve_on_file` turns >1 into the pointed
+        // error rather than clap's generic "cannot be used multiple times".
+        assert_eq!(
+            query_on_file(&[
+                "dirsql",
+                "query",
+                "SELECT 1",
+                "--on-file",
+                "a",
+                "--on-file",
+                "b"
+            ]),
+            vec!["a".to_string(), "b".to_string()]
+        );
+    }
+
+    #[test]
+    fn on_file_is_rejected_before_a_query_subcommand() {
+        // Like the other subcommand-local flags, `--on-file` ahead of the
+        // subcommand is not a server flag: clap rejects it.
+        assert!(Cli::try_parse_from(["dirsql", "--on-file", "cat", "query", "SELECT 1"]).is_err());
+    }
+
+    #[test]
+    fn resolve_on_file_is_none_without_the_flag() {
+        assert_eq!(resolve_on_file(&[]), Ok(None));
+    }
+
+    #[test]
+    fn resolve_on_file_returns_the_single_command() {
+        assert_eq!(
+            resolve_on_file(&["cat {path}".to_string()]),
+            Ok(Some("cat {path}".to_string()))
+        );
+    }
+
+    #[test]
+    fn resolve_on_file_rejects_a_blank_command() {
+        let err = resolve_on_file(&["   ".to_string()]).unwrap_err();
+        assert!(err.contains("non-empty"), "got: {err}");
+    }
+
+    #[test]
+    fn resolve_on_file_rejects_a_repeat_and_points_at_config_files() {
+        let err = resolve_on_file(&["a".to_string(), "b".to_string()]).unwrap_err();
+        assert!(err.contains("at most once"), "got: {err}");
+        assert!(
+            err.contains("config file"),
+            "the error must point at config files, got: {err}"
+        );
     }
 
     #[test]
@@ -510,19 +751,5 @@ mod tests {
         let exts = parse_extension_specs(&specs);
         assert_eq!(exts[0].path, PathBuf::from("/a.so"));
         assert_eq!(exts[0].entrypoint.as_deref(), Some("init::extra"));
-    }
-
-    #[test]
-    fn default_files_table_declares_filesystem_fact_columns_over_recursive_glob() {
-        let table = default_files_table();
-        assert_eq!(table.glob, "**/*");
-        assert!(table.ddl.starts_with("CREATE TABLE files ("));
-        for col in ["path", "basename", "dir", "ext", "size", "mtime", "ctime"] {
-            assert!(
-                table.ddl.contains(col),
-                "default files DDL must declare {col}, got: {}",
-                table.ddl
-            );
-        }
     }
 }

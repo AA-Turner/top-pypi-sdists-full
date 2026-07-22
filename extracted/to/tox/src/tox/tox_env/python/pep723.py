@@ -74,7 +74,7 @@ class Pep723Mixin(Python, RunToxEnv):
             desc="path to Python script with PEP 723 inline metadata (relative to tox_root)",
         )
 
-        def default_commands(conf: Config, env_name: str | None) -> list[Command]:  # noqa: ARG001
+        def default_commands(conf: Config, env_name: str | None) -> list[Command]:  # ruff:ignore[unused-function-argument]
             if script := self.conf["script"]:
                 tox_root: Path = self.core["tox_root"]
                 args = ["python", str(tox_root / script)]
@@ -83,7 +83,7 @@ class Pep723Mixin(Python, RunToxEnv):
                 return [Command(args)]
             return []
 
-        commands_def = cast("ConfigDynamicDefinition[list[Command]]", self.conf._defined["commands"])  # noqa: SLF001
+        commands_def = cast("ConfigDynamicDefinition[list[Command]]", self.conf._defined["commands"])  # ruff:ignore[private-member-access]
         commands_def.default = default_commands
         add_skip_missing_interpreters_to_core(self.core, self.options)
         add_skip_missing_interpreters_to_env(self.conf, self.core, self.options)
@@ -119,7 +119,12 @@ class Pep723Mixin(Python, RunToxEnv):
             if (size := full_path.stat().st_size) > _MAX_SCRIPT_BYTES:
                 msg = f"script file {full_path} is {size} bytes, exceeds the {_MAX_SCRIPT_BYTES} byte limit"
                 raise Fail(msg)
-            self._script_metadata = _parse_script_metadata(full_path.read_text(encoding="utf-8"))
+            try:
+                # utf-8-sig: a BOM would otherwise hide a metadata block starting on the first line
+                self._script_metadata = _parse_script_metadata(full_path.read_text(encoding="utf-8-sig"))
+            except ValueError as exc:  # config error, not a tox defect - includes TOMLDecodeError
+                msg = f"invalid inline script metadata in {full_path}: {exc}"
+                raise Fail(msg) from exc
         return self._script_metadata
 
     def _resolve_script_path(self) -> Path | None:

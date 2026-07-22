@@ -175,7 +175,7 @@ sources:
     url: https://public.gi.ucsc.edu/~ekephart/public-data/#tumor_25.01_polya
     builder: scripts/sweep_treehouse_polya_cohorts.py
     sibling_builders:
-      - scripts/sweep_treehouse_tcga_cohorts.py  # TCGA subset of this file
+      - scripts/sweep_treehouse_tcga_cohorts.py  # TCGA samples from this file
       - scripts/build_treehouse_reference_expression.py  # single-cohort CLI
     unit: log2(TPM+1)
     expected_size_gb: 6.2
@@ -197,9 +197,9 @@ sources:
       ENSG, then runs the standard tech-RNA zero + per-sample
       renormalize before stat summarization. Same builder is
       parameterized for every Treehouse cancer code listed above.
-      The TCGA subset (~9,800 samples) of this same file is extracted
+      The TCGA-provenance samples (~9,800) in this same file are extracted
       by `scripts/sweep_treehouse_tcga_cohorts.py` and tagged
-      `source_cohort=TREEHOUSE_POLYA_25_01_TCGA_SUBSET` so a future
+      `source_cohort=TREEHOUSE_POLYA_25_01_TCGA_SAMPLES` so a future
       authoritative GDC build can land alongside without clobbering.
 
   - id: treehouse-ribod-25-01
@@ -804,29 +804,13 @@ sources:
   # "no clean public RNA-seq" bucket (closest is Lee 2020
   # PRJNA433667 raw FASTQ for 21 AcCC — needs an alignment pipeline).
 
-  - id: gse294016-adcc
-    category: expression
-    cancer_codes: [ADCC]
-    source_type: geo-matrix
-    builder: scripts/build_geo_matrix.py
-    accession: GSE294016
-    file_url: https://ftp.ncbi.nlm.nih.gov/geo/series/GSE294nnn/GSE294016/suppl/GSE294016_TPM_mat.tsv.gz
-    file_name: GSE294016_TPM_mat.tsv.gz
-    unit: TPM
-    gene_id_col: ""
-    gene_id_type: ensembl
-    transposed: true   # matrix is samples-as-rows × genes-as-cols (ENSG headers)
-    source_cohort: GSE294016_BARTL_2025_SGC
-    source_project: GEO
-    citation: PMID 40506428 (Bartl 2025 salivary gland cancer panel)
-    expected_size_gb: 0.02
-    notes: >
-      Bartl 2025 salivary-gland cancer bulk RNA-seq panel (n=95
-      total: includes ACC, AcCC, MEC, etc.). Matrix is transposed
-      (rows = samples, cols = Ensembl IDs versioned). Currently
-      routes ALL samples to ADCC; per-sample histology split (ACC
-      vs AcCC vs MEC) needs Bartl 2025 Supplementary Table 1
-      sample-→-diagnosis lookup — pending.
+  # GSE294016 is intentionally NOT a local build route. The former entry sent
+  # all 95 mixed salivary-cancer samples to ADCC and produced a 99-column
+  # artifact by expanding the duplicate P-58/P-77 sample IDs twice. The public
+  # Nature Supplementary Dataset 1 gives an exact diagnosis map (57 ADCC sample
+  # rows, 3 ACINIC, 35 other histologies). Rebuilding the source matrices and
+  # every derived artifact belongs to oncoref#422; keeping the broken local
+  # route would let `pirlygenes build all` recreate data we have quarantined.
 
   - id: gse235092-merkel
     category: expression

@@ -152,6 +152,15 @@ class McpRouter(betterproto2.Message):
     If not set, sessions are created without identity binding.
     """
 
+    lazy_initialization: "bool" = betterproto2.field(3, betterproto2.TYPE_BOOL)
+    """
+    If true, backend initialization is deferred until the first request that targets each backend.
+    The ``initialize`` response is returned immediately with gateway capabilities and an empty
+    backend session map. Each backend is initialized on-demand when a request first routes to it.
+    This avoids blocking the client ``initialize`` on slow or misbehaving backends.
+    Default is false (eager initialization of all backends during ``initialize``).
+    """
+
 
 default_message_pool.register_message(
     "envoy.extensions.filters.http.mcp_router.v3", "McpRouter", McpRouter

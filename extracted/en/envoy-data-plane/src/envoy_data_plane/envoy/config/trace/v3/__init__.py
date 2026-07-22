@@ -347,7 +347,7 @@ class OpenTelemetryConfig(betterproto2.Message):
 
     Configuration for the OpenTelemetry tracer.
      [#extension: envoy.tracers.opentelemetry]
-    [#next-free-field: 7]
+    [#next-free-field: 9]
     """
 
     grpc_service: "__core__v3__.GrpcService | None" = betterproto2.field(
@@ -413,6 +413,34 @@ class OpenTelemetryConfig(betterproto2.Message):
     Envoy caches the span in memory when the OpenTelemetry backend service is temporarily unavailable.
     This field specifies the maximum number of spans that can be cached. If not specified, the
     default is 1024.
+    """
+
+    set_telemetry_sdk_resource_attributes: "bool | None" = betterproto2.field(
+        7,
+        betterproto2.TYPE_MESSAGE,
+        unwrap=lambda: ____google__protobuf__.BoolValue,
+        optional=True,
+    )
+    """
+    Specifies whether to set the telemetry SDK resource attributes.
+    The following attributes will be set:
+
+    - telemetry.sdk.language
+    - telemetry.sdk.name
+    - telemetry.sdk.version
+
+    If not specified, the default is to set these attributes.
+    """
+
+    set_service_name_resource_attribute: "bool | None" = betterproto2.field(
+        8,
+        betterproto2.TYPE_MESSAGE,
+        unwrap=lambda: ____google__protobuf__.BoolValue,
+        optional=True,
+    )
+    """
+    Specifies whether to set the ``service.name`` resource attribute.
+    If not specified, the default is to set this attribute.
     """
 
 

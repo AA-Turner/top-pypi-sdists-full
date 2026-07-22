@@ -90,6 +90,15 @@ class HttpStatusError(HttpError):
         self.response = response
 
 
+def format_error(error: Exception) -> str:
+    name = type(error).__name__
+    if isinstance(error, HttpStatusError):
+        return f"{name} {error.response.status_code}"
+    if isinstance(error, HttpError):
+        return name
+    return f"{name}: {error}"
+
+
 class HttpClient(ABC):
     backend: str
 

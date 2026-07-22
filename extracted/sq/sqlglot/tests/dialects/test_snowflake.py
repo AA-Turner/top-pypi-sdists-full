@@ -46,6 +46,10 @@ class TestSnowflake(Validator):
         self.validate_identity("SELECT MIN(amount)")
         self.validate_identity("SELECT MODE(x)")
         self.validate_identity("SELECT MODE(status) OVER (PARTITION BY region) FROM orders")
+        self.validate_all(
+            "SELECT MODE(x) FROM t",
+            read={"postgres": "SELECT MODE() WITHIN GROUP (ORDER BY x) FROM t"},
+        )
         self.validate_identity("SELECT TAN(x)")
         self.validate_identity("SELECT COS(x)")
         self.validate_identity("SELECT SINH(1.5)")
@@ -1035,6 +1039,14 @@ class TestSnowflake(Validator):
             r"SELECT 'a \' \\ \\t \\x21 z $ '",
         )
         self.validate_identity(
+            r"SELECT $$a\$b$$",
+            r"SELECT 'a\\$b'",
+        )
+        self.validate_identity(
+            r"SELECT $$a\$$",
+            r"SELECT 'a\\'",
+        )
+        self.validate_identity(
             "SELECT {'test': 'best'}::VARIANT",
             "SELECT CAST(OBJECT_CONSTRUCT('test', 'best') AS VARIANT)",
         )
@@ -1095,6 +1107,32 @@ class TestSnowflake(Validator):
         self.validate_identity(
             "ALTER TABLE foo ADD COLUMN id INT identity(1, 1)",
             "ALTER TABLE foo ADD id INT AUTOINCREMENT START 1 INCREMENT 1",
+        )
+        self.validate_identity("CREATE TABLE x (y INT AUTOINCREMENT START 10)")
+        self.validate_identity("CREATE TABLE x (y INT AUTOINCREMENT INCREMENT 2)")
+        self.validate_identity("CREATE TABLE x (y INT AUTOINCREMENT ORDER)")
+        self.validate_identity("CREATE TABLE x (y INT AUTOINCREMENT NOORDER)")
+        self.validate_identity("CREATE TABLE x (y INT AUTOINCREMENT START 10 NOORDER)")
+        self.validate_identity("CREATE TABLE x (y INT AUTOINCREMENT INCREMENT 2 ORDER)")
+        self.validate_identity(
+            "CREATE TABLE x (y INT AUTOINCREMENT INCREMENT 2 START 10)",
+            "CREATE TABLE x (y INT AUTOINCREMENT START 10 INCREMENT 2)",
+        )
+        self.validate_identity(
+            "CREATE TABLE x (y INT AUTOINCREMENT(0, 1) ORDER)",
+            "CREATE TABLE x (y INT AUTOINCREMENT START 0 INCREMENT 1 ORDER)",
+        )
+        self.validate_all(
+            "CREATE TABLE c (pk BIGINT AUTOINCREMENT START 10)",
+            read={
+                "postgres": "CREATE TABLE c (pk BIGINT GENERATED ALWAYS AS IDENTITY (START WITH 10))"
+            },
+        )
+        self.validate_all(
+            "CREATE TABLE c (pk BIGINT AUTOINCREMENT INCREMENT -1)",
+            read={
+                "postgres": "CREATE TABLE c (pk BIGINT GENERATED ALWAYS AS IDENTITY (INCREMENT BY -1))"
+            },
         )
         self.validate_identity(
             "SELECT DAYOFWEEK('2016-01-02T23:39:20.123-07:00'::TIMESTAMP)",
@@ -1525,6 +1563,9 @@ class TestSnowflake(Validator):
             },
         )
 
+        # FROM here is the query's FROM clause, not the FROM FIRST | LAST modifier
+        self.validate_identity("SELECT NTH_VALUE(a, 2) FROM t")
+
         # NTH_VALUE FROM FIRST not supported in DuckDB
         self.validate_all(
             "SELECT NTH_VALUE(is_deleted, 2) FROM FIRST IGNORE NULLS OVER (PARTITION BY id) AS nth_is_deleted FROM my_table",
@@ -1653,6 +1694,17 @@ class TestSnowflake(Validator):
             write={
                 "duckdb": "SELECT COUNT_IF(CAST(c1 AS BOOLEAN)) = 1 FROM test",
                 "snowflake": "SELECT BOOLXOR_AGG(c1) FROM test",
+            },
+        )
+        self.validate_all(
+            # Snowflake's COUNT_IF returns 0 when the condition is NULL on all rows of a
+            # non-empty input, whereas DuckDB >= 1.2's returns NULL; IS TRUE preserves the former
+            "SELECT COUNT_IF(x > 1) FROM t",
+            write={
+                "snowflake": "SELECT COUNT_IF(x > 1) FROM t",
+                "duckdb": "SELECT COUNT_IF((x > 1) IS TRUE) FROM t",
+                "duckdb, version=1.2": "SELECT COUNT_IF((x > 1) IS TRUE) FROM t",
+                "duckdb, version=1.1": "SELECT SUM(CASE WHEN x > 1 THEN 1 ELSE 0 END) FROM t",
             },
         )
         for suffix in (
@@ -1848,7 +1900,7 @@ class TestSnowflake(Validator):
                 "bigquery": "SELECT PARSE_TIMESTAMP('%d-%m-%Y %I:%M:%S', col) FROM t",
                 "duckdb": "SELECT STRPTIME(col, '%d-%m-%Y %I:%M:%S') FROM t",
                 "snowflake": "SELECT TO_TIMESTAMP(col, 'DD-mm-yyyy hh12:mi:ss') FROM t",
-                "spark": "SELECT TO_TIMESTAMP(col, 'dd-MM-yyyy hh:mm:ss') FROM t",
+                "spark": "SELECT TO_TIMESTAMP(col, 'd-M-yyyy hh:mm:ss') FROM t",
             },
         )
         self.validate_all(
@@ -1913,7 +1965,7 @@ class TestSnowflake(Validator):
             write={
                 "bigquery": "SELECT PARSE_TIMESTAMP('%m/%d/%Y %T', '04/05/2013 01:02:03')",
                 "snowflake": "SELECT TO_TIMESTAMP('04/05/2013 01:02:03', 'mm/DD/yyyy hh24:mi:ss')",
-                "spark": "SELECT TO_TIMESTAMP('04/05/2013 01:02:03', 'MM/dd/yyyy HH:mm:ss')",
+                "spark": "SELECT TO_TIMESTAMP('04/05/2013 01:02:03', 'M/d/yyyy HH:mm:ss')",
             },
         )
         self.validate_all(

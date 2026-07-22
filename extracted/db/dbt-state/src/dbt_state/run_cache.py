@@ -1220,6 +1220,9 @@ class RunCache:
                 ),
                 clone_chain_depth_limit=self.clone_chain_depth_limit,
                 dbt_node_state=self._build_dbt_node_state(node),
+                compare_unrendered_code=self._run_cache_config.resolve_compare_unrendered_code(
+                    node_config
+                ),
             ), EnrichmentTimings(last_modified_duration_ms=last_modified_duration_ms)
 
         view_traversal_start = perf_counter()
@@ -1312,6 +1315,9 @@ class RunCache:
             stale_upstream_policy=self._run_cache_config.resolve_stale_upstream_policy(node_config),
             clone_chain_depth_limit=self.clone_chain_depth_limit,
             dbt_node_state=self._build_dbt_node_state(node),
+            compare_unrendered_code=self._run_cache_config.resolve_compare_unrendered_code(
+                node_config
+            ),
         ), EnrichmentTimings(
             view_traversal_duration_ms=view_traversal_duration_ms,
             last_modified_duration_ms=last_modified_duration_ms,
@@ -1368,6 +1374,7 @@ class RunCache:
             node_macros_hash=calculator.node_macros_hash,
             node_contract_hash=node_contract_hash,
             profile_name=self._config.profile_name,
+            project_id=self._run_cache_config.dbt_project_id,
         )
 
     def _node_execution_type(self, node: ModelOrSnapshotOrTestNode) -> str:

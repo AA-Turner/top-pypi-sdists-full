@@ -8,6 +8,7 @@ __all__ = (
     "DownstreamReverseConnectionSocketInterfaceHttpHandshakeConfig",
 )
 
+import datetime
 import typing
 
 import betterproto2
@@ -29,6 +30,7 @@ class DownstreamReverseConnectionSocketInterface(betterproto2.Message):
     Configuration for the downstream reverse connection socket interface.
     This interface initiates reverse connections to upstream Envoys and provides
     them as socket connections for downstream requests.
+    [#next-free-field: 6]
     """
 
     stat_prefix: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
@@ -51,6 +53,28 @@ class DownstreamReverseConnectionSocketInterface(betterproto2.Message):
     """
     Optional HTTP handshake configuration. When unset, the initiator envoy uses the defaults
     provided by ``HttpHandshakeConfig``.
+    """
+
+    access_log: "list[_____config__accesslog__v3__.AccessLog]" = betterproto2.field(
+        4, betterproto2.TYPE_MESSAGE, repeated=True
+    )
+    """
+    Access log configuration for reverse tunnel initiator lifecycle events.
+    Logs are emitted on handshake success, handshake failure, and connection close.
+    Reverse tunnel metadata (``node_id``, ``cluster_id``, ``tenant_id``, upstream cluster, etc.)
+    is available via ``%DYNAMIC_METADATA(envoy.reverse_tunnel.initiator:*)%`` substitutions.
+    """
+
+    max_reconnect_backoff: "datetime.timedelta | None" = betterproto2.field(
+        5,
+        betterproto2.TYPE_MESSAGE,
+        unwrap=lambda: ______google__protobuf__.Duration,
+        optional=True,
+    )
+    """
+    Upper bound on the per-host reconnect backoff. The initiator retries a failed handshake on a
+    deterministic exponential schedule (1s, 2s, 4s, ...) with small upward jitter; this value caps
+    that schedule.
     """
 
 
@@ -84,6 +108,24 @@ class DownstreamReverseConnectionSocketInterfaceHttpHandshakeConfig(
     Additional headers to include in the HTTP handshake request.
     """
 
+    use_http_upgrade: "bool" = betterproto2.field(3, betterproto2.TYPE_BOOL)
+    """
+    Perform the handshake as an HTTP/1.1 ``Upgrade`` exchange (``Upgrade: reverse-tunnel``,
+    success on ``101``) so HTTP proxies can route the handshake and splice the tunnel
+    afterward. The responder must set this flag to the same value.
+    Defaults to ``false``.
+    """
+
+    formatters: "list[_____config__core__v3__.TypedExtensionConfig]" = (
+        betterproto2.field(4, betterproto2.TYPE_MESSAGE, repeated=True)
+    )
+    """
+    Formatter extensions usable in ``additional_headers`` substitution. See the formatter
+    extensions documentation for details. When set, ``additional_headers`` values are evaluated
+    as substitution format strings; when empty, the values are sent literally.
+    [#extension-category: envoy.formatter]
+    """
+
 
 default_message_pool.register_message(
     "envoy.extensions.bootstrap.reverse_tunnel.downstream_socket_interface.v3",
@@ -92,4 +134,6 @@ default_message_pool.register_message(
 )
 
 
+from .......google import protobuf as ______google__protobuf__
+from ......config.accesslog import v3 as _____config__accesslog__v3__
 from ......config.core import v3 as _____config__core__v3__

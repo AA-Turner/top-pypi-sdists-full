@@ -16,7 +16,6 @@ def test_delegated_parity_across_reference_classes():
         ("CLL", ["MS4A1"]),         # non-TCGA heme reference
         ("MTC", ["CALCA"]),         # microarray TPM proxy
         ("BRCA_Basal", ["KRT5"]),   # molecular subtype
-        ("SARC", ["TP53"]),         # computed source union
     ]
     compare_columns = [
         "Ensembl_Gene_ID",
@@ -55,9 +54,6 @@ def test_delegated_parity_across_reference_classes():
             gene_id_style="pirlygenes",
             gene_universe="pirlygenes",
         ).copy()
-        delegated, _ = accessors._normalize_reference_source_cohort_labels(
-            delegated
-        )
         delegated["normalization"] = "TPM_clean"
 
         actual_cmp = actual[compare_columns].sort_values(sort_columns).reset_index(drop=True)
@@ -67,6 +63,95 @@ def test_delegated_parity_across_reference_classes():
         pd.testing.assert_frame_equal(actual_cmp, delegated_cmp, check_dtype=False)
         assert actual.attrs["delegated_to"] == "oncoref.cancer_reference_expression"
         assert actual.attrs["reference_source"] == "summary_rows_all"
+
+
+def test_sarc_union_preserves_summaries_and_adds_artifact_only_children():
+    actual = accessors.cancer_reference_expression(
+        cancer_types="SARC",
+        genes=["TP53"],
+        normalize="tpm_clean",
+    )
+    delegated = oncoref.cancer_reference_expression(
+        cancer_types="SARC",
+        genes=["TP53"],
+        normalize="tpm_clean",
+        format="long",
+        include_provenance=True,
+        on_missing="empty",
+        auto_fetch=False,
+        sample_qc="all",
+        reference_source="summary_rows_all",
+        gene_id_style="pirlygenes",
+        gene_universe="pirlygenes",
+    )
+    summary_codes = set(delegated["cancer_code"].astype(str))
+    actual_codes = set(actual["cancer_code"].astype(str))
+
+    assert summary_codes <= actual_codes
+    assert actual_codes - summary_codes == {"SARC_ESS_HG", "SARC_ESS_LG"}
+    assert actual.attrs["reference_source"] == "summary_rows_all+artifact"
+
+
+def test_artifact_only_ess_cohorts_load_packaged_modes_and_provenance():
+    codes = ["SARC_ESS_HG", "SARC_ESS_LG"]
+    genes = ["ESR1", "PGR", "BCOR"]
+    out = accessors.cancer_reference_expression(
+        cancer_types=codes,
+        genes=genes,
+        normalize=["tpm_clean", "tpm_clean_log1p"],
+    )
+
+    assert set(out["cancer_code"].astype(str)) == set(codes)
+    assert set(out["Symbol"].astype(str)) == set(genes)
+    assert set(out["normalization"].astype(str)) == {
+        "TPM_clean", "TPM_clean_log1p",
+    }
+    assert set(out["source_cohort"].astype(str)) == {
+        "GSE85383_YOSHIDA_2017_ESS"
+    }
+    assert set(out.loc[out["cancer_code"].eq("SARC_ESS_HG"), "n_samples"]) == {4}
+    assert set(out.loc[out["cancer_code"].eq("SARC_ESS_LG"), "n_samples"]) == {9}
+    assert out["expression"].notna().all()
+    assert out.attrs["reference_source"] == "artifact"
+    assert not out.attrs["missing_requests"]
+
+
+def test_artifact_only_exact_source_filter_and_pooling_contract():
+    cohort = "GSE85383_YOSHIDA_2017_ESS"
+    selected = accessors.cancer_reference_expression(
+        cancer_types="SARC_ESS_HG",
+        genes=["ESR1"],
+        source_cohort=cohort,
+        pool=True,
+    )
+    assert selected["source_cohort"].tolist() == ["POOLED"]
+    assert selected["n_samples"].tolist() == [4]
+    assert selected[["q1", "q3"]].isna().all().all()
+
+    missing = accessors.cancer_reference_expression(
+        cancer_types="SARC_ESS_HG",
+        genes=["ESR1"],
+        source_cohort="NO_SUCH_COHORT",
+    )
+    assert missing.empty
+    assert missing.attrs["availability"][0]["available"] is False
+    assert (
+        missing.attrs["availability"][0]["missing_reason"]
+        == "no_reference_artifact_matching_source_filter"
+    )
+
+
+def test_compact_cancer_expression_loads_artifact_only_reference():
+    out = accessors.cancer_expression("SARC_ESS_HG", genes=["ESR1"])
+
+    assert out["Symbol"].tolist() == ["ESR1"]
+    assert out["expression"].iloc[0] > 0
+    status = accessors.cancer_expression_reference_status(
+        "SARC_ESS_HG"
+    ).iloc[0]
+    assert status["reference_status"] == "direct_reference"
+    assert status["reference_code"] == "SARC_ESS_HG"
+    assert status["reference_n_samples"] == 4
 
 
 def test_adapter_expands_legacy_aliases_and_derives_raw_log_without_fallback(
@@ -163,11 +248,50 @@ def test_delegated_filter_preserves_case_insensitive_trimmed_symbols():
         assert compact["Symbol"].tolist() == ["MS4A1"]
 
 
+@pytest.mark.parametrize(
+    ("code", "display_alias", "official_symbol"),
+    [
+        ("LUAD", "p53", "TP53"),
+        ("LUAD", "P53", "TP53"),
+        ("SKCM", "gp100", "PMEL"),
+        ("SKCM", "GP100", "PMEL"),
+        ("OV", "FRα", "FOLR1"),
+        ("OV", "frΑ", "FOLR1"),
+    ],
+)
+def test_display_aliases_are_unicode_case_insensitive(
+    code, display_alias, official_symbol,
+):
+    out = accessors.cancer_reference_expression(
+        cancer_types=code,
+        genes=[display_alias],
+    )
+    assert not out.empty
+    assert set(out["Symbol"]) == {official_symbol}
+
+    compact = accessors.cancer_expression(code, genes=[display_alias])
+    assert not compact.empty
+    assert set(compact["Symbol"]) == {official_symbol}
+
+
 def test_explicit_empty_source_kind_returns_no_rows():
     out = accessors.cancer_reference_expression(
         cancer_types="CLL",
         genes=["MS4A1"],
         source_kind=[],
+    )
+    assert out.empty
+    assert out.attrs["availability"][0]["available"] is False
+
+
+@pytest.mark.parametrize("pool", [False, True])
+@pytest.mark.parametrize("source_cohort", [[], (), ""])
+def test_explicit_empty_source_cohort_returns_no_rows(source_cohort, pool):
+    out = accessors.cancer_reference_expression(
+        cancer_types="CLL",
+        genes=["MS4A1"],
+        source_cohort=source_cohort,
+        pool=pool,
     )
     assert out.empty
     assert out.attrs["availability"][0]["available"] is False
@@ -233,6 +357,64 @@ def test_exact_cohort_filter_is_applied_before_pooling():
     assert out["expression"].notna().all()
 
 
+def test_nutm_exact_cohort_filter_is_applied_before_pooling():
+    out = accessors.cancer_reference_expression(
+        cancer_types="NUTM",
+        genes=["TP53"],
+        source_cohort="UNC_NUTM1",
+        pool=True,
+    )
+    assert not out.empty
+    assert set(out["source_cohort"]) == {"POOLED"}
+    assert out["expression"].notna().all()
+    assert any(
+        record["cancer_code"] == "NUTM" and record["available"]
+        for record in out.attrs["availability"]
+    )
+
+
+@pytest.mark.parametrize(
+    ("requested", "expected"),
+    [
+        (
+            "TREEHOUSE_POLYA_25_01_TCGA_SUBSET",
+            "TREEHOUSE_POLYA_25_01_TCGA_SAMPLES",
+        ),
+        (
+            "TREEHOUSE_POLYA_25_01_TCGA_SAMPLES",
+            "TREEHOUSE_POLYA_25_01_TCGA_SAMPLES",
+        ),
+        (
+            "TREEHOUSE_POLYA_25_01_TCGA_SARC_HISTOLOGY",
+            "TREEHOUSE_POLYA_25_01_TCGA_SARC_HISTOLOGY",
+        ),
+    ],
+)
+def test_source_cohort_filters_are_canonical_and_exact(requested, expected):
+    actual = accessors._reference_compatibility_source_cohorts(None, requested)
+    assert actual == expected
+
+
+@pytest.mark.parametrize(
+    "requested",
+    [
+        "TREEHOUSE_POLYA_25_01_TCGA_SAMPLES",
+        "TREEHOUSE_POLYA_25_01_TCGA_SUBSET",
+    ],
+)
+def test_generic_tcga_cohort_does_not_select_sarc_histology_rows(requested):
+    out = accessors.cancer_reference_expression(
+        cancer_types="SARC",
+        genes=["TP53"],
+        source_cohort=requested,
+    )
+
+    assert set(out["cancer_code"]) == {"SARC_PLEOLPS"}
+    assert set(out["source_cohort"]) == {
+        "TREEHOUSE_POLYA_25_01_TCGA_SAMPLES",
+    }
+
+
 def test_sarc_histology_source_label_and_filter_are_canonicalized():
     canonical = "TREEHOUSE_POLYA_25_01_TCGA_SARC_HISTOLOGY"
     out = accessors.cancer_reference_expression(
@@ -243,9 +425,23 @@ def test_sarc_histology_source_label_and_filter_are_canonicalized():
     assert not out.empty
     assert set(out["source_cohort"]) == {canonical}
     assert set(out["cancer_code"]) == {"SARC_DDLPS", "SARC_WDLPS"}
+    availability = {
+        record["cancer_code"]: record for record in out.attrs["availability"]
+    }
+    assert availability["SARC_DDLPS"]["available"] is True
+    assert availability["SARC_WDLPS"]["available"] is True
+    assert availability["SARC_PLEOLPS"]["available"] is False
     assert (
-        "SARC DDLPS/WDLPS source cohort normalized to registry label"
-        in out.attrs["compatibility_transforms"]
+        availability["SARC_PLEOLPS"]["missing_reason"]
+        == "no_reference_summary_rows"
+    )
+    assert any(
+        record["cancer_code"] == "SARC_PLEOLPS"
+        for record in out.attrs["missing_requests"]
+    )
+    assert not any(
+        "source-cohort" in transform
+        for transform in out.attrs["compatibility_transforms"]
     )
 
 

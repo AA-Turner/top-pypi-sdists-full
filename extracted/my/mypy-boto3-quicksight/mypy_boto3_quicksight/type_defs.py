@@ -3373,6 +3373,10 @@ class CapabilitiesTypeDef(TypedDict):
     GenerateAnalyses: NotRequired[Literal["DENY"]]
     Story: NotRequired[Literal["DENY"]]
     Scenario: NotRequired[Literal["DENY"]]
+    Trigger: NotRequired[Literal["DENY"]]
+    ScheduleTrigger: NotRequired[Literal["DENY"]]
+    InboundEmailTrigger: NotRequired[Literal["DENY"]]
+    QuickEventTrigger: NotRequired[Literal["DENY"]]
 
 
 class CapacityBytesRangeFilterTypeDef(TypedDict):

@@ -9,6 +9,9 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
       - name: Install uv
@@ -16,8 +19,27 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
       - name: Install dependencies
         run: uv sync --all-extras --dev
+      - name: Lint (ruff)
+        run: uv run ruff check src tests examples
+      - name: Format check (ruff)
+        run: uv run ruff format --check src tests examples
       - name: Run tests
         run: uv run pytest
+
+  compat-floor:
+    # Guards the declared lower bound. The `test` job resolves the newest Pipecat (via the
+    # examples extra), so this job pins pipecat-ai to the floor and runs the suite against it.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+      - name: Install the package pinned to the Pipecat floor
+        run: |
+          uv venv --python 3.11
+          uv pip install -e . "pipecat-ai==1.0.0" pytest pytest-asyncio fakeredis
+      - name: Run tests against the floor
+        run: .venv/bin/python -m pytest

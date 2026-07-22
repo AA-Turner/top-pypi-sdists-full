@@ -85,6 +85,8 @@ class async_flow(_AsyncContextDecorator):
 class FlowType(str, Enum):
     QUEUE = "queue"
     CUSTOM = "custom"
+    WORKFLOW = "workflow"
+    ACTIVITY = "activity"
 
 
 class Framework(str, Enum):
@@ -95,6 +97,8 @@ class Framework(str, Enum):
     AZURE_EVENTHUB = "azure_eventhub"
     SQS = "sqs"
     KAFKA = "kafka"
+    # Workflow engines
+    TEMPORAL = "temporal"
     # Manual flows
     CUSTOM = "custom"
 

@@ -1602,7 +1602,7 @@ def _cached_partial(
     >>> model = nnx.Linear(2, 3, rngs=nnx.Rngs(0))
     >>> optimizer = nnx.Optimizer(model, optax.adamw(1e-3), wrt=nnx.Param)
     ...
-    >>> @nnx.jit
+    >>> @nnx.jit(graph_updates=True, graph=True)
     ... def train_step(model, optimizer, x, y):
     ...   def loss_fn(model):
     ...     return jnp.mean((model(x) - y) ** 2)
@@ -1611,8 +1611,9 @@ def _cached_partial(
     ...   optimizer.update(model, grads)
     ...   return loss
     ...
-    >>> cached_train_step = nnx.cached_partial(train_step, model, optimizer)
-    ...
+    >>> with nnx.set_graph_mode(True):
+    ...   with nnx.set_graph_updates(True):
+    ...       cached_train_step = nnx.cached_partial(train_step, model, optimizer)
     >>> for step in range(total_steps:=2):
     ...   x, y = jnp.ones((10, 2)), jnp.ones((10, 3))
     ...   # loss = train_step(model, optimizer, x, y)
@@ -2483,7 +2484,7 @@ def update(node, state: tp.Any, /, *states: tp.Any) -> None:
     >>> prev_loss = loss_fn(model, x, y)
 
     >>> grads = nnx.grad(loss_fn)(model, x, y)
-    >>> new_state = jax.tree.map(lambda p, g: p - 0.1*g, nnx.state(model), grads)
+    >>> new_state = jax.tree.map(lambda p, g: p - 0.1*g, nnx.state(model), nnx.state(grads))
     >>> nnx.update(model, new_state)
     >>> assert loss_fn(model, x, y) < prev_loss
 
@@ -2759,7 +2760,12 @@ def map(
     A :class:`State` with the mapped values.
   """
   graphdef, state = split(node, graph=graph)
-  state = statelib.map_state(f, state)
+  if isinstance(state, statelib.State):
+     state = statelib.map_state(f, state)
+  else:
+     # If node is a Variable, then state isn't actually a State. It stays a variable.
+     # This handles that very unintuitive behavior.
+     state = f((), state)
   return merge(graphdef, state, recreate_variables=recreate_variables)
 
 
@@ -2872,8 +2878,20 @@ def pop(
     return states
 
 
-def clone(node: Node, variables: bool = True, *, graph: bool | None = None) -> Node:
+def clone(
+  node: Node,
+  variables: bool = True,
+  *,
+  arrays: bool = False,
+  graph: bool | None = None,
+) -> Node:
   """Create a deep copy of the given graph node.
+
+  By default the cloned :class:`Variable` wrappers are new objects but
+  share their underlying ``jax.Array`` buffers with the original. This
+  is cheap, but ``jit(donate_argnums=...)`` will reject the clone
+  because JAX refuses to donate the same buffer twice. Pass
+  ``arrays=True`` to also copy the underlying buffers.
 
   Example usage::
 
@@ -2888,6 +2906,11 @@ def clone(node: Node, variables: bool = True, *, graph: bool | None = None) -> N
     node: A graph node object.
     variables: If ``True`` (default) copies of the :class:`Variable` objects are created,
       otherwise the Variables are shared between the original and cloned node.
+    arrays: If ``True``, the underlying ``jax.Array`` buffers of each
+      :class:`Variable` are also copied so the clone has independent
+      memory and is compatible with ``jit(donate_argnums=...)``. If True,
+      ``variables`` should be also ``True``, otherwise a ValueError is raised.
+      Defaults to ``False`` (buffers shared with the original).
     graph: If ``True`` (default), uses graph-mode which supports the full
       NNX feature set including shared references. If ``False``, uses
       tree-mode which treats Modules as regular JAX pytrees, avoiding
@@ -2896,10 +2919,17 @@ def clone(node: Node, variables: bool = True, *, graph: bool | None = None) -> N
     A deep copy of the :class:`Module` object.
   """
   graphdef, state = split(node, graph=graph)
+  if arrays:
+    if not variables:
+      raise ValueError("If arrays is True, variables should be also True")
+    state = jax.tree.map(jax.numpy.copy, state)
+    # Optimization: as state is already a copy,
+    # set variables to False to avoid another copy
+    variables = False
   return merge(graphdef, state, copy=variables)
 
 
-def vars_as(
+def with_vars(
   node: A,
   /,
   *,
@@ -2937,18 +2967,17 @@ def vars_as(
       duplicates_strs += '\n  ---'
     raise ValueError(f'Found duplicate at paths:{duplicates_strs}')
 
-  def _to_refs(jax_path, x):
-    if predicate(jax_to_nnx_path(jax_path), x):
+  def _to_refs(path, x):
+    if predicate(path, x):
       assert isinstance(x, Variable)
       variable = x.copy(**new_attrs)
       return variable
     return x
 
-  node = jax.tree.map_with_path(
-    _to_refs, node, is_leaf=lambda x: isinstance(x, Variable)
-  )
+  node = map(_to_refs, node, recreate_variables=False)
   return node
 
+vars_as = deprecated(with_vars)
 
 def as_pure(tree: A) -> A:
   """Returns a new tree with all ``Variable`` objects replaced with inner values.
@@ -3152,7 +3181,7 @@ def iter_graph(
     >>> module = Linear(3, 4, rngs=nnx.Rngs(0))
     >>> graph = [module, module]
     ...
-    >>> for path, value in nnx.iter_graph(graph):
+    >>> for path, value in nnx.iter_graph(graph, graph=True):
     ...   print(path, type(value).__name__)
     ...
     (0, '_pytree__nodes') HashableMapping

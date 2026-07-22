@@ -141,16 +141,16 @@ OutputItemsTypedDict = TypeAliasType(
         OutputMemoryServerToolItemTypedDict,
         OutputMessageItemTypedDict,
         OutputShellCallOutputItemTypedDict,
-        OutputBashServerToolItemTypedDict,
         OutputFunctionCallItemTypedDict,
         OutputImageGenerationServerToolItemTypedDict,
         OutputWebFetchServerToolItemTypedDict,
         OutputCodeInterpreterServerToolItemTypedDict,
         OutputReasoningItemTypedDict,
         OutputAdvisorServerToolItemTypedDict,
-        OutputSubagentServerToolItemTypedDict,
         OutputFilesServerToolItemTypedDict,
+        OutputBashServerToolItemTypedDict,
         OutputFusionServerToolItemTypedDict,
+        OutputSubagentServerToolItemTypedDict,
     ],
 )
 r"""An output item from the response"""

@@ -1,6 +1,6 @@
 [project]
 name = "abxpkg"
-version = "1.11.257"
+version = "1.11.286"
 description = "System package manager interfaces with Python type hints"
 authors = [{name = "Nick Sweeting"}, {name = "ArchiveBox"}]
 requires-python = ">=3.12,<3.15"
@@ -133,11 +133,12 @@ pythonVersion = "3.12"
 pythonPlatform = "Linux"
 
 [tool.pytest.ini_options]
-testpaths = ["tests", "README.md", "AGENTS.md", "skills", "docs"]
+testpaths = ["tests", "README.md", "django_example_project/README.md", "AGENTS.md", "skills", "docs"]
 addopts = ["--codeblocks"]
 markers = [
     "root_required: tests that require root privileges and run in the privileged live-integration job",
     "docker_required: tests that require a working Docker daemon and run in the Linux live-integration job",
+    "live_required: documentation examples that require provisioned package-manager runtimes or live indexes",
 ]
 
 [tool.ty.src]

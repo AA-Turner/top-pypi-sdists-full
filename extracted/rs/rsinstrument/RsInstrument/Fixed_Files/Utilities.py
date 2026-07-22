@@ -132,19 +132,21 @@ class Utilities:
 
 	def clear_status(self) -> None:
 		"""Clears instrument's status system, the session's I/O buffers and the instrument's error queue."""
-		return self._core.io.clear_status()
+		self._core.io.clear_status()
 
 	def query_all_errors(self) -> List[str] | None:
 		"""Queries and clears all the errors from the instrument's error queue.
 		The method returns list of strings as error messages. If no error is detected, the return value is None.
 		The process is: querying 'SYSTem:ERRor?' in a loop until the error queue is empty.
 		If you want to include the error codes, call the query_all_errors_with_codes()"""
+		# noinspection PyTypeChecker
 		return self._core.io.query_all_syst_errors(include_codes=False)
 
 	def query_all_errors_with_codes(self) -> List[Tuple[int, str]] | None:
 		"""Queries and clears all the errors from the instrument's error queue.
 		The method returns list of tuples (code: int, message: str). If no error is detected, the return value is None.
 		The process is: querying 'SYSTem:ERRor?' in a loop until the error queue is empty."""
+		# noinspection PyTypeChecker
 		return self._core.io.query_all_syst_errors(include_codes=True)
 
 	def reset(self) -> None:
@@ -156,7 +158,7 @@ class Utilities:
 	def default_instrument_setup(self) -> None:
 		"""Custom steps performed at the init and at the reset()."""
 
-	def self_test(self, timeout: int = None) -> Tuple[int, str]:
+	def self_test(self, timeout: int | None = None) -> Tuple[int, str]:
 		"""SCPI command: *TST?
 		Performs instrument's self-test.
 		Returns tuple (code:int, message: str). Code 0 means the self-test passed.
@@ -175,7 +177,7 @@ class Utilities:
 		return self._core.io.reconnect(force_close)
 
 	@property
-	def resource_name(self) -> int:
+	def resource_name(self) -> str:
 		"""Returns the resource name used in the constructor"""
 		return self._core.io.resource_name
 
@@ -210,14 +212,14 @@ class Utilities:
 		self._core.io.data_chunk_size = chunk_size
 
 	@property
-	def visa_manufacturer(self) -> int:
+	def visa_manufacturer(self) -> str:
 		"""Returns the manufacturer of the current VISA session."""
 		return self._core.io.visa_manufacturer
 
 	def process_all_commands(self) -> None:
 		"""SCPI command: *WAI
 		Stops further commands processing until all commands sent before *WAI have been executed."""
-		return self._core.io.write('*WAI')
+		self._core.io.write('*WAI')
 
 	def write_str(self, cmd: str) -> None:
 		"""Writes the command to the instrument."""
@@ -233,7 +235,7 @@ class Utilities:
 		e.g.: cmd = 'SELECT:INPUT' param = '2', result command = 'SELECT:INPUT 2'"""
 		self._core.io.write(f'{cmd} {param}')
 
-	def write_int_with_opc(self, cmd: str, param: int, timeout: int = None) -> None:
+	def write_int_with_opc(self, cmd: str, param: int, timeout: int | None = None) -> None:
 		"""Writes the command with OPC to the instrument followed by the integer parameter:
 		e.g.: cmd = 'SELECT:INPUT' param = '2', result command = 'SELECT:INPUT 2'
 		If you do not provide timeout, the method uses current opc_timeout."""
@@ -244,7 +246,7 @@ class Utilities:
 		e.g.: cmd = 'CENTER:FREQ' param = '10E6', result command = 'CENTER:FREQ 10E6'"""
 		self._core.io.write(f'{cmd} {Conv.float_to_str(param)}')
 
-	def write_float_with_opc(self, cmd: str, param: float, timeout: int = None) -> None:
+	def write_float_with_opc(self, cmd: str, param: float, timeout: int | None = None) -> None:
 		"""Writes the command with OPC to the instrument followed by the boolean parameter:
 		e.g.: cmd = 'CENTER:FREQ' param = '10E6', result command = 'CENTER:FREQ 10E6'
 		If you do not provide timeout, the method uses current opc_timeout."""
@@ -255,7 +257,7 @@ class Utilities:
 		e.g.: cmd = 'OUTPUT' param = 'True', result command = 'OUTPUT ON'"""
 		self._core.io.write(f'{cmd} {Conv.bool_to_str(param)}')
 
-	def write_bool_with_opc(self, cmd: str, param: bool, timeout: int = None) -> None:
+	def write_bool_with_opc(self, cmd: str, param: bool, timeout: int | None = None) -> None:
 		"""Writes the command with OPC to the instrument followed by the boolean parameter:
 		e.g.: cmd = 'OUTPUT' param = 'True', result command = 'OUTPUT ON'
 		If you do not provide timeout, the method uses current opc_timeout."""
@@ -284,41 +286,41 @@ class Utilities:
 		"""Sends the query to the instrument and returns the response as float."""
 		return self._core.io.query_float(query)
 
-	def write_str_with_opc(self, cmd: str, timeout: int = None) -> None:
+	def write_str_with_opc(self, cmd: str, timeout: int | None = None) -> None:
 		"""Writes the opc-synced command to the instrument.
 		If you do not provide timeout, the method uses current opc_timeout."""
 		self._core.io.write_with_opc(cmd, timeout)
 
-	def write_with_opc(self, cmd: str, timeout: int = None) -> None:
+	def write_with_opc(self, cmd: str, timeout: int | None = None) -> None:
 		"""This method is an alias to the write_str_with_opc().
 		Writes the opc-synced command to the instrument.
 		If you do not provide timeout, the method uses current opc_timeout."""
 		self._core.io.write_with_opc(cmd, timeout)
 
-	def query_str_with_opc(self, query: str, timeout: int = None) -> str:
+	def query_str_with_opc(self, query: str, timeout: int | None = None) -> str:
 		"""Sends the opc-synced query to the instrument and returns the response as string.
 		The response is trimmed of any trailing LF characters and has no length limit.
 		If you do not provide timeout, the method uses current opc_timeout."""
 		return self._core.io.query_str_with_opc(query, timeout)
 
-	def query_with_opc(self, query: str, timeout: int = None) -> str:
+	def query_with_opc(self, query: str, timeout: int | None = None) -> str:
 		"""This method is an alias to the query_str_with_opc().
 		Sends the opc-synced query to the instrument and returns the response as string.
 		The response is trimmed of any trailing LF characters and has no length limit.
 		If you do not provide timeout, the method uses current opc_timeout."""
 		return self._core.io.query_str_with_opc(query, timeout)
 
-	def query_bool_with_opc(self, query: str, timeout: int = None) -> bool:
+	def query_bool_with_opc(self, query: str, timeout: int | None = None) -> bool:
 		"""Sends the opc-synced query to the instrument and returns the response as boolean.
 		If you do not provide timeout, the method uses current opc_timeout."""
 		return self._core.io.query_bool_with_opc(query, timeout)
 
-	def query_int_with_opc(self, query: str, timeout: int = None) -> int:
+	def query_int_with_opc(self, query: str, timeout: int | None = None) -> int:
 		"""Sends the opc-synced query to the instrument and returns the response as integer.
 		If you do not provide timeout, the method uses current opc_timeout."""
 		return self._core.io.query_int_with_opc(query, timeout)
 
-	def query_float_with_opc(self, query: str, timeout: int = None) -> float:
+	def query_float_with_opc(self, query: str, timeout: int | None = None) -> float:
 		"""Sends the opc-synced query to the instrument and returns the response as float.
 		If you do not provide timeout, the method uses current opc_timeout."""
 		return self._core.io.query_float_with_opc(query, timeout)
@@ -334,7 +336,7 @@ class Utilities:
 		Returns data:bytes"""
 		return self._core.io.query_bin_block(query)
 
-	def query_bin_block_with_opc(self, query: str, timeout: int = None) -> bytes:
+	def query_bin_block_with_opc(self, query: str, timeout: int | None = None) -> bytes:
 		"""Sends a OPC-synced query and returns binary data block to bytes.
 		If you do not provide timeout, the method uses current opc_timeout."""
 		return self._core.io.query_bin_block_with_opc(query, timeout)
@@ -347,7 +349,7 @@ class Utilities:
 			- True: whitespaces-only response is returned as an empty list []."""
 		return self._core.io.query_str_list(query, remove_blank_response)
 
-	def query_str_list_with_opc(self, query: str, timeout: int = None, remove_blank_response: bool = False) -> List[str]:
+	def query_str_list_with_opc(self, query: str, timeout: int | None = None, remove_blank_response: bool = False) -> List[str]:
 		"""Sends a OPC-synced query and reads response from the instrument as csv-list.
 		If you do not provide timeout, the method uses current opc_timeout.
 		Meaning of the 'remove_blank_response':
@@ -361,7 +363,7 @@ class Utilities:
 		Blank or empty response is returned as an empty list."""
 		return self._core.io.query_bool_list(query)
 
-	def query_bool_list_with_opc(self, query: str, timeout: int = None) -> List[bool]:
+	def query_bool_list_with_opc(self, query: str, timeout: int | None = None) -> List[bool]:
 		"""Sends a OPC-synced query and reads response from the instrument as csv-list of booleans.
 		If you do not provide timeout, the method uses current opc_timeout.
 		Blank or empty response is returned as an empty list."""
@@ -373,7 +375,7 @@ class Utilities:
 		- For Binary Format, the numbers are decoded based on the property BinFloatFormat, usually float 32-bit (FORM REAL,32)."""
 		return self._core.io.query_bin_or_ascii_float_list(query)
 
-	def query_bin_or_ascii_float_list_with_opc(self, query: str, timeout: int = None) -> List[float]:
+	def query_bin_or_ascii_float_list_with_opc(self, query: str, timeout: int | None = None) -> List[float]:
 		"""Sends a OPC-synced query and reads a list of floating-point numbers that can be returned in ASCII format or in binary format.
 		- For ASCII format, the list numbers are decoded as comma-separated values.
 		- For Binary Format, the numbers are decoded based on the property BinFloatFormat, usually float 32-bit (FORM REAL,32).
@@ -386,7 +388,7 @@ class Utilities:
 		- For Binary Format, the numbers are decoded based on the property BinFloatFormat, usually float 32-bit (FORM REAL,32)."""
 		return self._core.io.query_bin_or_ascii_int_list(query)
 
-	def query_bin_or_ascii_int_list_with_opc(self, query: str, timeout: int = None) -> List[int]:
+	def query_bin_or_ascii_int_list_with_opc(self, query: str, timeout: int | None = None) -> List[int]:
 		"""Sends a OPC-synced query and reads a list of floating-point numbers that can be returned in ASCII format or in binary format.
 		- For ASCII format, the list numbers are decoded as comma-separated values.
 		- For Binary Format, the numbers are decoded based on the property BinFloatFormat, usually float 32-bit (FORM REAL,32).
@@ -406,7 +408,7 @@ class Utilities:
 			- ``read_file_from_instrument_to_pc()``"""
 		self._core.io.query_bin_block_to_file(query, file_path, append)
 
-	def query_bin_block_to_file_with_opc(self, query: str, file_path: str, append: bool = False, timeout: int = None) -> None:
+	def query_bin_block_to_file_with_opc(self, query: str, file_path: str, append: bool = False, timeout: int | None = None) -> None:
 		"""Sends a OPC-synced query and writes the returned data to the provided file.
 		If append is False, any existing file content is discarded.
 		If append is True, the new content is added to the end of the existing file, or if the file does not exit, it is created.
@@ -450,7 +452,7 @@ class Utilities:
 
 	def get_lock(self) -> threading.RLock:
 		"""Returns the thread lock for the current session. \n
-		By default:
+		By default,
 			- If you create standard new [DRIVER_PREFIX] instance with new VISA session, the session gets a new thread lock. You can assign it to other [DRIVER_PREFIX] sessions in order to share one physical instrument with a multi-thread access.
 			- If you create new [DRIVER_PREFIX] from an existing session, the thread lock is shared automatically making both instances multi-thread safe.
 		You can always assign new thread lock by calling ``driver.utilities.assign_lock()``"""
@@ -464,7 +466,7 @@ class Utilities:
 		"""Clears the existing thread lock, making the current session thread-independent from others that might share the current thread lock."""
 		self._core.io.clear_lock()
 
-	def instr_err_suppressor(self, visa_tout_ms: int = 0, suppress_only_codes: int | List[int] = None) -> InstrErrorSuppressor:
+	def instr_err_suppressor(self, visa_tout_ms: int = 0, suppress_only_codes: int | List[int] | None = None) -> InstrErrorSuppressor:
 		"""Returns Context Manager that suppresses the instrument errors.
 		Other exceptions types are still raised.
 		On entering the context, this class clears all the instrument status errors.

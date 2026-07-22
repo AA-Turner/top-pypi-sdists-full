@@ -27,7 +27,7 @@ class DnsCluster(betterproto2.Message):
     Configuration for DNS discovery clusters.
     [#extension: envoy.clusters.dns]
 
-    [#next-free-field: 10]
+    [#next-free-field: 11]
     """
 
     dns_refresh_rate: "datetime.timedelta | None" = betterproto2.field(
@@ -113,6 +113,20 @@ class DnsCluster(betterproto2.Message):
     which maps to :ref:`logical DNS discovery <arch_overview_service_discovery_types_logical_dns>`
     semantics. Otherwise, each address is considered to be a separate endpoint, which maps to
     :ref:`strict DNS discovery <arch_overview_service_discovery_types_strict_dns>` semantics.
+    """
+
+    dns_min_refresh_rate: "datetime.timedelta | None" = betterproto2.field(
+        10,
+        betterproto2.TYPE_MESSAGE,
+        unwrap=lambda: _____google__protobuf__.Duration,
+        optional=True,
+    )
+    """
+    When :ref:`respect_dns_ttl <envoy_v3_api_field_extensions.clusters.dns.v3.DnsCluster.respect_dns_ttl>`
+    is enabled, this field specifies a minimum value for the TTL-derived DNS refresh rate.
+    DNS records with TTLs shorter than this value will be refreshed at this rate instead. If not
+    set, the TTL from the DNS response is used directly with no minimum floor.
+    The value must be at least 1 second.
     """
 
 

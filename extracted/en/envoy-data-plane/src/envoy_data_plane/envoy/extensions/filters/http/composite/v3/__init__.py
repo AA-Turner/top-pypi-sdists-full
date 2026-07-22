@@ -62,10 +62,16 @@ class Composite(betterproto2.Message):
         2, betterproto2.TYPE_MESSAGE, optional=True
     )
     """
-    [#not-implemented-hide:]
     The match tree that will be used to select an action to execute. The action type should be
     :ref:`ExecuteFilterAction
     <envoy_v3_api_msg_extensions.filters.http.composite.v3.ExecuteFilterAction>`.
+
+    .. warning::
+      This should only be set when using the Composite filter as in the :ref:`http_filters
+      <envoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.http_filters>`.
+      Never set this field when using the Composite filter with the :ref:`ExtensionWithMatcher
+      <envoy_v3_api_msg_extensions.common.matching.v3.ExtensionWithMatcher>` which will result in
+      undefined behavior.
     """
 
 
@@ -78,7 +84,6 @@ default_message_pool.register_message(
 class CompositePerRoute(betterproto2.Message):
     """
     Per-route configuration for the Composite filter.
-    [#not-implemented-hide:]
     """
 
     matcher: "______xds__type__matcher__v3__.Matcher | None" = betterproto2.field(
@@ -86,6 +91,13 @@ class CompositePerRoute(betterproto2.Message):
     )
     """
     Override of the match tree for this route.
+
+    .. warning::
+      This should only be set when using the Composite filter as in the :ref:`http_filters
+      <envoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.http_filters>`.
+      Never set this field when using the Composite filter with the :ref:`ExtensionWithMatcher
+      <envoy_v3_api_msg_extensions.common.matching.v3.ExtensionWithMatcher>` which will result in
+      undefined behavior.
     """
 
 

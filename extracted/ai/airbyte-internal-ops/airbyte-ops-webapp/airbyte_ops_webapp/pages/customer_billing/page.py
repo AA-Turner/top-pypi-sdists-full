@@ -29,6 +29,9 @@ from airbyte_ops_webapp.pages.customer_billing._mcp_tools import (
 from airbyte_ops_webapp.pages.customer_billing._state import (
     CustomerBillingPageState,
 )
+from airbyte_ops_webapp.pages.customer_billing.agents import (
+    CUSTOMER_BILLING_AGENTS_CALLOUT,
+)
 from airbyte_ops_webapp.pages.customer_billing.billing_actions import (
     render_billing_actions,
 )
@@ -96,6 +99,7 @@ def customer_billing() -> PrefabApp:
                         "billing waivers, and Orb subscription plans."
                     ),
                     show_auth_controls=True,
+                    agents_callout=CUSTOMER_BILLING_AGENTS_CALLOUT,
                 )
                 _render_loading_banner()
                 _render_error_banner()

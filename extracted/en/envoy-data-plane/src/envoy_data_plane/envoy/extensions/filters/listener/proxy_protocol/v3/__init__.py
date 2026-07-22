@@ -6,6 +6,7 @@
 __all__ = (
     "ProxyProtocol",
     "ProxyProtocolKeyValuePair",
+    "ProxyProtocolKeyValuePairValueStringEncoding",
     "ProxyProtocolRule",
     "ProxyProtocolTlvLocation",
 )
@@ -20,6 +21,31 @@ from .......message_pool import default_message_pool
 
 _COMPILER_VERSION = "0.9.0"
 betterproto2.check_compiler_version(_COMPILER_VERSION)
+
+
+class ProxyProtocolKeyValuePairValueStringEncoding(betterproto2.Enum):
+    """
+    Specifies the encoding scheme that is used to encode the TLV value before it is
+    stored in dynamic metadata or filter state.
+    """
+
+    UNSPECIFIED = 0
+    """
+    Unspecified encoding scheme. Defaults to ``SANITIZED_UTF8``.
+    """
+
+    SANITIZED_UTF8 = 1
+    """
+    The TLV value will be sanitized to a valid UTF-8 string before being stored:
+    any invalid UTF-8 sequences will be replaced with the ``!`` character.
+    """
+
+    BASE64 = 2
+    """
+    The raw TLV value will be encoded as a `Base64 <https://datatracker.ietf.org/doc/html/rfc4648#section-4>`_
+    string (with padding) before being stored. This is useful for binary TLV values that
+    are not valid UTF-8 strings.
+    """
 
 
 class ProxyProtocolTlvLocation(betterproto2.Enum):
@@ -148,6 +174,25 @@ class ProxyProtocolKeyValuePair(betterproto2.Message):
     )
     """
     The key to use within the namespace.
+    """
+
+    value_string_encoding: "ProxyProtocolKeyValuePairValueStringEncoding" = (
+        betterproto2.field(
+            3,
+            betterproto2.TYPE_ENUM,
+            default_factory=lambda: ProxyProtocolKeyValuePairValueStringEncoding(0),
+        )
+    )
+    """
+    The value encoding scheme that is used to encode the TLV value before it is stored in
+    dynamic metadata or filter state. If not set, defaults to ``SANITIZED_UTF8``, which
+    sanitizes the TLV value to a valid UTF-8 string.
+
+    .. note::
+
+      This option only applies to the legacy untyped dynamic metadata and filter state.
+      For the new typed dynamic metadata, the raw TLV value bytes are stored as is and
+      no encoding is applied.
     """
 
 

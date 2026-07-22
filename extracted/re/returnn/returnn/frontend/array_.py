@@ -168,6 +168,8 @@ def cast(tensor: Tensor, dtype: str) -> Tensor:
     :param dtype:
     :return: tensor with the same data, but with a different dtype
     """
+    if tensor.dtype == dtype:
+        return tensor
     # noinspection PyProtectedMember
     return tensor._raw_backend.cast(tensor, dtype=dtype)
 
@@ -801,6 +803,7 @@ def pack_padded(
     This uses :func:`masked_select` internally based on the mask of non-masked frames.
 
     See :func:`pad_packed` for the inverse operation.
+    See :func:`pack` (packed storage backend) to pack while keeping the original (virtual) dims.
 
     :param source:
     :param dims: dims in source to pack. the order defines the format. first dim is major, etc.

@@ -4,10 +4,11 @@ import ast
 import json
 import os
 import shlex
+import tempfile
 from collections.abc import Iterable, Mapping, MutableMapping
 from functools import lru_cache
 from pathlib import Path
-from typing import Protocol, runtime_checkable
+from typing import ClassVar, Protocol, runtime_checkable
 
 
 DERIVED_CACHE_KEY = "ABXPKG_DERIVED_CACHE"
@@ -28,6 +29,7 @@ _FIRST_WRITER_ENV_KEYS = frozenset(
 @runtime_checkable
 class SupportsExecEnv(Protocol):
     PATH: str
+    EXEC_ONLY_ENV_KEYS: ClassVar[frozenset[str]]
 
     def setup_PATH(self) -> None: ...
 
@@ -127,6 +129,7 @@ def build_exec_env(
     *,
     base_env: Mapping[str, str] | None = None,
     extra_env: Mapping[str, str] | None = None,
+    include_exec_only_env: bool = True,
 ) -> dict[str, str]:
     """Build the final env used for runtime execution.
 
@@ -187,6 +190,7 @@ def build_exec_env(
         apply_exec_env(extra_layer, env)
 
     seen_providers: set[int] = set()
+    first_writer_provider_keys: set[str] = set()
     for provider in providers:
         provider_id = id(provider)
         if provider_id in seen_providers:
@@ -195,9 +199,14 @@ def build_exec_env(
 
         provider.setup_PATH()
         provider_env = dict(provider.ENV)
-        for key in _FIRST_WRITER_ENV_KEYS:
-            if env.get(key):
+        if not include_exec_only_env:
+            for key in getattr(provider, "EXEC_ONLY_ENV_KEYS", ()):
                 provider_env.pop(key, None)
+        for key in _FIRST_WRITER_ENV_KEYS:
+            if key in first_writer_provider_keys:
+                provider_env.pop(key, None)
+            elif provider_env.get(key):
+                first_writer_provider_keys.add(key)
         consume_PATH_env(
             provider_env,
             prepend_layers=provider_path_prepend_layers,
@@ -287,13 +296,26 @@ def write_dotenv_values(
         return
 
     dotenv_path.parent.mkdir(parents=True, exist_ok=True)
-    dotenv_path.write_text(
-        "".join(
-            f"{key}={shlex.quote(str(value))}\n"
-            for key, value in sorted(values.items())
-        ),
-        encoding="utf-8",
+    contents = "".join(
+        f"{key}={shlex.quote(str(value))}\n" for key, value in sorted(values.items())
     )
+    file_mode = dotenv_path.stat().st_mode & 0o777 if dotenv_path.exists() else 0o600
+    temp_fd, temp_name = tempfile.mkstemp(
+        dir=dotenv_path.parent,
+        prefix=f".{dotenv_path.name}.",
+        suffix=".tmp",
+    )
+    temp_path = Path(temp_name)
+    try:
+        os.fchmod(temp_fd, file_mode)
+        with os.fdopen(temp_fd, "w", encoding="utf-8") as temp_file:
+            temp_file.write(contents)
+            temp_file.flush()
+            os.fsync(temp_file.fileno())
+        os.replace(temp_path, dotenv_path)
+    finally:
+        if temp_path.exists():
+            temp_path.unlink()
 
 
 def load_derived_cache(dotenv_path: Path) -> dict[str, dict[str, object]]:

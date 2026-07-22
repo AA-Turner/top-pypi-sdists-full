@@ -72,6 +72,8 @@ fn make_gateway_state() -> GatewayState {
         gateway_persist: false,
         gateway_idle_timeout_secs: 30,
         semantic_search_enabled: false,
+        #[cfg(feature = "admin-persist-sqlite")]
+        admin_sqlite_lane: None,
     }
 }
 
@@ -89,6 +91,7 @@ fn make_service_entry(port: u16) -> ServiceEntry {
         scene: None,
         documents: vec![],
         pid: None,
+        host_pid: None,
         sentinel_path: None,
         display_name: Some("maya-test".into()),
         status: ServiceStatus::Available,

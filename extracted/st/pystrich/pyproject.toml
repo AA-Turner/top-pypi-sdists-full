@@ -1,6 +1,6 @@
 [project]
 name = "pyStrich"
-version = "0.17"
+version = "0.18"
 description = "PyStrich is a fast pure-Python module to generate 1D and 2D barcodes: Code 39, Code 128 (including GS1-128), EAN-13, ITF-14, Data Matrix (including GS1 Data Matrix), QR Code, PDF417 and Aztec Code."
 readme = "README.md"
 license = "Apache-2.0"
@@ -69,16 +69,17 @@ dev = [
     # once Pillow leaves the core dependencies.
     "pillow>=10.3; python_version < '3.11'",
     "pillow>=12.2; python_version >= '3.11'",
+    "pre-commit>=4.6.0",
 ]
 docs = [
     "sphinx>=8.1",
     "furo>=2024.8.6",
     "sphinx-copybutton>=0.5",
-    "sphinx-argparse>=0.5",
     "sphinxext-opengraph>=0.13.0",
     "sphinx-sitemap>=2.9.0",
     "sphinx-intl>=2.3.2",
     "polib>=1.2.0",
+    "sphinx-argparse-cli>=1.19.0",
 ]
 
 [build-system]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zernio-sdk
-Version: 1.4.287
+Version: 1.4.297
 Summary: The official Python library for the Zernio API
 Project-URL: Homepage, https://zernio.com
 Project-URL: Documentation, https://docs.zernio.com
@@ -443,6 +443,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 |--------|-------------|
 | `ad_campaigns.list_ad_campaigns()` | List campaigns |
 | `ad_campaigns.bulk_update_ad_campaign_status()` | Pause or resume many campaigns |
+| `ad_campaigns.get_ad_set_details()` | Live ad-set details incl. learning phase (Meta) |
 | `ad_campaigns.get_ad_tree()` | Get campaign tree |
 | `ad_campaigns.get_ads_timeline()` | Get daily account metrics |
 | `ad_campaigns.update_ad_campaign()` | Update a campaign |
@@ -458,6 +459,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `ads.list_ad_accounts()` | List ad accounts |
 | `ads.list_ad_catalog_product_sets()` | List a catalog's product sets |
 | `ads.list_ad_catalogs()` | List Meta product catalogs |
+| `ads.list_ad_studies()` | A/B tests and lift studies (Meta) |
 | `ads.list_ads()` | List ads |
 | `ads.list_ads_business_centers()` | List TikTok Business Centers |
 | `ads.list_conversion_associations()` | List associated campaigns |
@@ -466,16 +468,22 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `ads.list_lead_forms()` | List lead forms |
 | `ads.list_leads()` | List submitted leads |
 | `ads.create_ad_insights_report()` | Submit an async insights report run (Meta) |
+| `ads.create_call_ad()` | Create Click-to-Call ad |
 | `ads.create_conversion_destination()` | Create a conversion destination |
-| `ads.create_ctwa_ad()` | Create Click-to-WhatsApp ad |
+| `ads.create_ctwa_ad()` | Create Click-to-WhatsApp ad (deprecated) |
 | `ads.create_lead_form()` | Create a lead form |
+| `ads.create_messaging_ad()` | Create click-to-message ad (WhatsApp / Messenger / Instagram Direct) |
+| `ads.create_rf_prediction()` | Create a Reach & Frequency prediction (Meta) |
 | `ads.create_standalone_ad()` | Create standalone ad |
 | `ads.create_test_lead()` | Create a test lead |
 | `ads.get_ad()` | Get ad details |
+| `ads.get_ad_account_finance()` | Ad account finances (Meta) |
 | `ads.get_ad_analytics()` | Get ad analytics |
 | `ads.get_ad_comments()` | List comments on an ad |
 | `ads.get_ad_insights_report()` | Poll an async insights report run (Meta) |
+| `ads.get_ad_previews()` | Render previews of an existing ad (Meta) |
 | `ads.get_ad_tracking_tags()` | Get ad tracking tags |
+| `ads.get_ads_activity_log()` | Ad account change / audit log (Meta) |
 | `ads.get_campaign_analytics()` | Get campaign analytics |
 | `ads.get_conversion_destination()` | Get a conversion destination |
 | `ads.get_conversion_metrics()` | Get attribution metrics |
@@ -485,6 +493,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `ads.get_lead_form()` | Get a lead form |
 | `ads.get_linked_in_bid_pricing()` | Suggested bid and budget bounds (LinkedIn) |
 | `ads.get_linked_in_supply_forecast()` | Impressions, clicks and spend forecast (LinkedIn) |
+| `ads.get_rf_prediction()` | Read a Reach & Frequency prediction (Meta) |
 | `ads.update_ad()` | Update ad |
 | `ads.update_ad_account()` | Update ad account settings |
 | `ads.update_ad_status()` | Pause or resume a single ad |
@@ -496,12 +505,16 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `ads.adjust_conversions()` | Adjust uploaded conversions |
 | `ads.archive_lead_form()` | Archive a lead form |
 | `ads.boost_post()` | Boost post as ad |
+| `ads.cancel_rf_reservation()` | Cancel a Reach & Frequency reservation (Meta) |
 | `ads.estimate_ad_reach()` | Estimate audience reach |
+| `ads.generate_ad_previews()` | Render pre-create ad previews (Meta) |
 | `ads.query_ad_insights()` | Flexible live insights query (Meta) |
 | `ads.remove_conversion_associations()` | Remove associated campaigns |
+| `ads.reserve_rf_prediction()` | Reserve a Reach & Frequency prediction (Meta) |
 | `ads.search_ad_interests()` | Search targeting interests |
 | `ads.search_ad_targeting()` | Search targeting options |
 | `ads.send_conversions()` | Send conversion events |
+| `ads.upload_ad_image()` | Upload an ad image from base64 (Meta) |
 
 ### Broadcasts
 | Method | Description |
@@ -696,6 +709,8 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `phone_numbers.create_phone_number_port_in()` | Port numbers in |
 | `phone_numbers.get_phone_number()` | Get phone number |
 | `phone_numbers.get_phone_number_kyc_form()` | Get KYC form spec |
+| `phone_numbers.get_phone_number_port_in_order_requirements()` | A port-in order's pending requirements |
+| `phone_numbers.get_phone_number_port_in_requirements()` | Country porting requirements |
 | `phone_numbers.get_phone_number_remediation()` | Get declined requirements |
 | `phone_numbers.cancel_phone_number_port_in()` | Cancel a port-in |
 | `phone_numbers.check_phone_number_availability()` | Check country availability |
@@ -736,12 +751,16 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 |--------|-------------|
 | `sms.list_sms_opt_outs()` | List SMS opt-outs |
 | `sms.list_sms_registrations()` | List carrier registrations |
+| `sms.list_sms_sender_ids()` | List alphanumeric sender IDs |
+| `sms.create_sms_sender_id()` | Create an alphanumeric sender ID |
 | `sms.get_sms_registration()` | Get a carrier registration |
+| `sms.delete_sms_sender_id()` | Delete an alphanumeric sender ID |
 | `sms.appeal_sms_registration()` | Appeal a rejected campaign |
 | `sms.deactivate_sms_registration()` | Deactivate a brand/campaign registration |
 | `sms.disable_sms_on_number()` | Disable SMS on a number |
 | `sms.enable_sms_on_number()` | Enable SMS on a number |
 | `sms.lookup_sms_number()` | Look up carrier + line type |
+| `sms.request_sms_sender_id_limit_increase()` | Request a higher sender ID daily limit |
 | `sms.resend_sms_registration_otp()` | Re-send the sole-prop OTP |
 | `sms.reuse_sms_registration_for_number()` | Add number to SMS registration |
 | `sms.send_sms()` | Send an SMS/MMS |

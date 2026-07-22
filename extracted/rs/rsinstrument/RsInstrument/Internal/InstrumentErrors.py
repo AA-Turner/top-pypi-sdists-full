@@ -19,9 +19,9 @@ class TimeoutException(RsInstrException):
 class StatusException(RsInstrException):
 	"""Exception for instrument status errors.
 	Tje field  errors_list contains the complete list of all the errors with messages and codes."""
-	def __init__(self, rsrc_name: str, message: str, errors_list: List[Tuple[int, str]], first_exc: type = None):
+	def __init__(self, rsrc_name: str, message: str, errors_list: List[Tuple[int, str]], first_exc: type | None = None):
 		self.rsrc_name: str = rsrc_name
-		self.first_exc: type = first_exc
+		self.first_exc: type | None = first_exc
 		self.errors_list: List[Tuple[int, str]] = errors_list
 		super(StatusException, self).__init__(message)
 
@@ -47,7 +47,7 @@ class DriverValueError(RsInstrException):
 		super(DriverValueError, self).__init__(message)
 
 
-def get_instrument_status_errors(rsrc_name: str, errors: List[Tuple[int, str]], context: str = '') -> str | None:
+def get_instrument_status_errors(rsrc_name: str, errors: List[Tuple[int, str]] | None, context: str = '') -> str | None:
 	"""Checks the errors list and of it contains at least one element, it returns the error message.
 	Otherwise, it returns None."""
 	if errors is None or len(errors) == 0:
@@ -66,10 +66,11 @@ def get_instrument_status_errors(rsrc_name: str, errors: List[Tuple[int, str]], 
 	return None
 
 
-def assert_no_instrument_status_errors(rsrc_name: str, errors: List[Tuple[int, str]], context: str = '', first_exc=None) -> None:
+def assert_no_instrument_status_errors(rsrc_name: str, errors: List[Tuple[int, str]] | None, context: str = '', first_exc=None) -> None:
 	"""Checks the errors list and of it contains at least one element, it throws StatusException."""
 	msg = get_instrument_status_errors(rsrc_name, errors, context)
 	if msg:
+		# noinspection PyTypeChecker
 		raise StatusException(rsrc_name, msg, errors, first_exc=first_exc)
 
 

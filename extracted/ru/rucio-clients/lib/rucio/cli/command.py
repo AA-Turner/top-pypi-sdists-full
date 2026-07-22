@@ -117,7 +117,7 @@ class LazyGroup(click.Group):
 )  # TODO: Implement https://click.palletsprojects.com/en/stable/options/#dynamic-defaults-for-prompts for args from config or os
 @click.option("--account", "--issuer", "issuer", help="Rucio account to use.")
 @click.option("--auth-host", help="The Rucio Authentication host")
-@click.option("-S", "--auth-strategy", help="Authentication strategy", type=click.Choice(['userpass', 'x509', 'x509_proxy', 'gss', 'ssh', 'saml', 'oidc']))
+@click.option("-S", "--auth-strategy", help="Authentication strategy", type=click.Choice(['userpass', 'x509', 'x509_proxy', 'gss', 'ssh', 'oidc']))
 # x509 and x509 proxy auth
 @click.option("--ca-certificate", help="CA certificate to verify peer against (SSL)")
 @click.option("--certificate", help="Client certificate file")
@@ -125,18 +125,7 @@ class LazyGroup(click.Group):
 @click.option("--config", help="The Rucio configuration file to use", envvar="RUCIO_CONFIG")
 @click.option("-H", "--hostname", help="The Rucio API host")
 # oidc auth
-@click.option("--oidc-user", help="OIDC username")
-@click.option("--oidc-password", help="OIDC password")
 @click.option("--oidc-audience", help="Defines which audience are tokens requested for.")
-@click.option(
-    "--oidc-auto",
-    is_flag=True,
-    default=False,
-    help="""
-        If not specified, username and password credentials are not required and users will be given a URL to use in their browser.
-        If specified, the users explicitly trust Rucio with their IdP credentials"
-    """,
-)
 @click.option(
     "--oidc-issuer",
     help="""
@@ -151,7 +140,6 @@ class LazyGroup(click.Group):
     help="""
         If not specified, user will be asked to enter a code returned by the browser to the command line.
         If --polling is set, Rucio Client should get the token without any further interaction of the user.
-        This option is active only if --auto is *not* specified
     """,
 )
 @click.option(
@@ -174,7 +162,7 @@ class LazyGroup(click.Group):
 @click.option("-R", "--robot", is_flag=True, default=False, help="All size output are in bytes and without the units")
 @click.option("-T", "--timeout", type=float, help="Set all timeout values to seconds")
 @click.option("-U", "--user-agent", default="rucio-clients", help="Rucio User Agent")
-# userpass/gss/saml auth
+# userpass/gss auth
 @click.option("-u", "--user", help="Username for userpass")
 @click.option("--password", help="Password for userpass")
 @click.option("--vo", help="VO to authenticate at. Only used in multi-VO mode")
@@ -198,11 +186,8 @@ def main(
     no_pager: bool,
     user: Optional[str],
     password: Optional[str],
-    oidc_user: Optional[str],
-    oidc_password: Optional[str],
     oidc_scope: Optional[str],
     oidc_audience: Optional[str],
-    oidc_auto: bool,
     oidc_polling: bool,
     oidc_refresh_lifetime: Optional[str],
     oidc_issuer: Optional[str],
@@ -245,11 +230,8 @@ def main(
             "VO": vo,
             "username": user,
             "password": password,
-            "oidc_username": oidc_user,
-            "oidc_password": oidc_password,
             "oidc_scope": oidc_scope,
             "oidc_audience": oidc_audience,
-            "oidc_auto": oidc_auto,
             "oidc_polling": oidc_polling,
             "oidc_refresh_lifetime": oidc_refresh_lifetime,
             "oidc_issuer": oidc_issuer,

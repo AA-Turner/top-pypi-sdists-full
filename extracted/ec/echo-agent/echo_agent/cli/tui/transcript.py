@@ -10,6 +10,7 @@ from textual.containers import VerticalScroll
 from echo_agent.cli.tui.blocks import (
     AgentReply,
     ApprovalBlock,
+    ChoiceBlock,
     CognitiveBlock,
     ToolCallBlock,
     UserTurn,
@@ -37,6 +38,15 @@ class TranscriptView(VerticalScroll):
         self._tool_blocks: dict[str, ToolCallBlock] = {}
         self._last_memory: CognitiveBlock | None = None
         self._last_thinking: CognitiveBlock | None = None
+
+    def on_mount(self) -> None:
+        # Anchor to the bottom so newly mounted blocks (replies, streaming
+        # tokens, tool/heartbeat lines) auto-follow into view. Without this the
+        # view kept its scroll position while content grew below the fold, so a
+        # long reply looked "stuck". Textual's anchor is persistent and self-
+        # releasing: scrolling up pauses the follow, scrolling back to the
+        # bottom restores it — no manual scroll_end on every mount.
+        self.anchor()
 
     @property
     def heartbeat_count(self) -> int:
@@ -104,6 +114,13 @@ class TranscriptView(VerticalScroll):
         self.mount(b)
         return b
 
+    def add_clarify(
+        self, clarify_id: str, question: str, options: list[str]
+    ) -> ChoiceBlock:
+        b = ChoiceBlock(clarify_id, question, options)
+        self.mount(b)
+        return b
+
     def add_error(self, msg: str) -> AgentReply:
         """Show a server-side error frame (e.g. rate limited) in the transcript.
 
@@ -111,6 +128,7 @@ class TranscriptView(VerticalScroll):
         this surfaces the reason instead of silently swallowing it or faking a
         disconnect."""
         w = AgentReply()
+        w.is_status = True
         self.mount(w)
         w.set_final(f"⚠️ 服务端错误: {msg}")
         return w
@@ -130,3 +148,32 @@ class TranscriptView(VerticalScroll):
 
     def last_thinking_block(self) -> CognitiveBlock | None:
         return self._last_thinking
+
+    def last_reply_text(self) -> str | None:
+        """Plain text of the most recent agent reply, or None if there is no
+        reply yet. Heartbeats subclass AgentReply, so they are excluded to keep
+        /copy pointed at the actual answer, not a progress line. Status lines
+        (server errors) reuse AgentReply but set is_status — also excluded, so a
+        rate-limit/error right before /copy doesn't clobber the real last reply."""
+        for w in reversed(list(self.children)):
+            if isinstance(w, _Heartbeat):
+                continue
+            if isinstance(w, AgentReply):
+                if getattr(w, "is_status", False):
+                    continue
+                return w.text
+        return None
+
+    def export_text(self) -> str:
+        """The whole conversation as a plain-text transcript (user turns and
+        agent replies in order), for /copy all. Cognitive/tool/heartbeat lines
+        are skipped — they are UI scaffolding, not content worth copying."""
+        parts: list[str] = []
+        for w in self.children:
+            if isinstance(w, _Heartbeat):
+                continue
+            if isinstance(w, UserTurn):
+                parts.append(f"❯ {w.raw_text}")
+            elif isinstance(w, AgentReply):
+                parts.append(w.text)
+        return "\n\n".join(p for p in parts if p)

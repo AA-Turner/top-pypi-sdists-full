@@ -60,6 +60,27 @@ from aiohttp.helpers import (
             "text/plain;base64",
             helpers.MimeType("text", "plain", "", MultiDict({"base64": ""})),
         ),
+        (
+            "text/html; ",
+            helpers.MimeType("text", "html", "", MultiDictProxy(MultiDict())),
+        ),
+        (
+            "text/html;  ",
+            helpers.MimeType("text", "html", "", MultiDictProxy(MultiDict())),
+        ),
+        (
+            "text/html;\t",
+            helpers.MimeType("text", "html", "", MultiDictProxy(MultiDict())),
+        ),
+        (
+            "text/html; charset=utf-8; ",
+            helpers.MimeType(
+                "text",
+                "html",
+                "",
+                MultiDictProxy(MultiDict({"charset": "utf-8"})),
+            ),
+        ),
     ],
 )
 def test_parse_mimetype(mimetype, expected) -> None:
@@ -1046,6 +1067,8 @@ def test_method_must_be_empty_body():
     assert "HEAD" in EMPTY_BODY_METHODS
     # CONNECT is only empty on a successful response
     assert "CONNECT" not in EMPTY_BODY_METHODS
+    # Callers are expected to pass already-normalised (uppercase) methods.
+    assert "head" not in EMPTY_BODY_METHODS
 
 
 def test_should_remove_content_length_is_subset_of_must_be_empty_body():

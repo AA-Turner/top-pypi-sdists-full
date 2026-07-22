@@ -8346,20 +8346,22 @@ TEST_CASES = [
         1, 0),
 
 
-    # schemaless JSON encoded as string can choose too-narrow integer types and overflow values
+    # schemaless JSON encoded as string widens too-narrow integer types instead of
+    # overflowing: y=22 first pins the path to Int8, then y=220 widens it to Int16
+    # rather than wrapping to -36 (CH-440, ColumnVector::tryInsert range check)
     (ConversionMode.ONLY_LEGACY,
         [('v', 'Map(String, JSON)', '$', False)],
         '{"a":{"x":11,"y":22},"b":{"x":110,"y":220}}',
-        b'\x00\x02\x01a\x0f{"x":11,"y":22}\x01b\x11{"x":110,"y":-36}',
+        b'\x00\x02\x01a\x0f{"x":11,"y":22}\x01b\x11{"x":110,"y":220}',
         b'',
         1, 0),
     (ConversionMode.ONLY_LEGACY,
         [('json', 'Map(String, JSON)', "$", False)],
         '{"a":"{\\"x\\":11,\\"y\\":22}","b":"{\\"x\\":110,\\"y\\":220}"}',
-        b'\x00\x02\x01a\x0f{"x":11,"y":22}\x01b\x11{"x":110,"y":-36}',
+        b'\x00\x02\x01a\x0f{"x":11,"y":22}\x01b\x11{"x":110,"y":220}',
         b'',
         1, 0),
-    # doesn't happen with binary JSON encoding
+    # binary JSON encoding stores per-value type tags, so it already preserved the value
     (ConversionMode.ONLY_NONLEGACY,
         [('v', 'Map(String, JSON)', '$', False)],
         '{"a":{"x":11,"y":22},"b":{"x":110,"y":220}}',

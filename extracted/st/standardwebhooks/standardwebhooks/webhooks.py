@@ -15,24 +15,51 @@ class WebhookVerificationError(Exception):
     pass
 
 
+class EmptyWebhookSecretError(Exception):
+    pass
+
+
 class Webhook:
     _SECRET_PREFIX: str = "whsec_"
     _whsecret: bytes
 
     def __init__(self, whsecret: t.Union[str, bytes]):
-        if not whsecret:
-            raise RuntimeError("Secret can't be empty.")
-
         if isinstance(whsecret, str):
             if whsecret.startswith(self._SECRET_PREFIX):
                 whsecret = whsecret[len(self._SECRET_PREFIX) :]
             # add padding in case whsecret is unpadded base64 (b64decode skips extra padding)
-            self._whsecret = base64.b64decode(whsecret + "==")
+            whsecret = base64.b64decode(whsecret + "==")
+
+        if not whsecret:
+            raise EmptyWebhookSecretError("webhook secret may not be empty")
 
         if isinstance(whsecret, bytes):
             self._whsecret = whsecret
+        else:
+            raise RuntimeError("Invalid webhook secret")
 
-    def verify(self, data: t.Union[bytes, str], headers: t.Dict[str, str]) -> t.Any:
+    def verify(
+        self,
+        data: t.Union[bytes, str],
+        headers: t.Dict[str, str],
+        *,
+        json_parse: bool = True,
+    ) -> t.Any:
+        """
+        Verify the given webhook headers against the body bytes (data).
+
+        Args:
+            json_parse (bool): Whether to deserialize the data to (default: True)
+
+        Returns:
+            After successful verification: if json_parse is True, returns the
+            JSON-parsed input data; if it json_parse False, returns None.
+
+        Raises:
+            WebhookVerificationError if one of the required headers is missing,
+            invalid, too old or too new; or no matching signature is found.
+        """
+
         data = data if isinstance(data, str) else data.decode()
         headers = {k.lower(): v for (k, v) in headers.items()}
         msg_id = headers.get("webhook-id")
@@ -51,7 +78,10 @@ class Webhook:
                 continue
             sig_bytes = base64.b64decode(signature)
             if hmac.compare_digest(expected_sig, sig_bytes):
-                return json.loads(data)
+                if json_parse:
+                    return json.loads(data)
+                else:
+                    return
 
         raise WebhookVerificationError("No matching signature found")
 

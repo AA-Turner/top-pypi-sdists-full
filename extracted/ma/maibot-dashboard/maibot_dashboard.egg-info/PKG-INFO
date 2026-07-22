@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: maibot-dashboard
-Version: 1.5.5
+Version: 1.5.6
 Summary: MaiBot WebUI static assets
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown

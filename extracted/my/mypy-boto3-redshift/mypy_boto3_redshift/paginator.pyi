@@ -36,6 +36,7 @@ Usage::
         DescribeIntegrationsPaginator,
         DescribeNodeConfigurationOptionsPaginator,
         DescribeOrderableClusterOptionsPaginator,
+        DescribeQev2IdcApplicationsPaginator,
         DescribeRedshiftIdcApplicationsPaginator,
         DescribeReservedNodeExchangeStatusPaginator,
         DescribeReservedNodeOfferingsPaginator,
@@ -78,6 +79,7 @@ Usage::
     describe_integrations_paginator: DescribeIntegrationsPaginator = client.get_paginator("describe_integrations")
     describe_node_configuration_options_paginator: DescribeNodeConfigurationOptionsPaginator = client.get_paginator("describe_node_configuration_options")
     describe_orderable_cluster_options_paginator: DescribeOrderableClusterOptionsPaginator = client.get_paginator("describe_orderable_cluster_options")
+    describe_qev2_idc_applications_paginator: DescribeQev2IdcApplicationsPaginator = client.get_paginator("describe_qev2_idc_applications")
     describe_redshift_idc_applications_paginator: DescribeRedshiftIdcApplicationsPaginator = client.get_paginator("describe_redshift_idc_applications")
     describe_reserved_node_exchange_status_paginator: DescribeReservedNodeExchangeStatusPaginator = client.get_paginator("describe_reserved_node_exchange_status")
     describe_reserved_node_offerings_paginator: DescribeReservedNodeOfferingsPaginator = client.get_paginator("describe_reserved_node_offerings")
@@ -138,6 +140,8 @@ from .type_defs import (
     DescribeIntegrationsMessagePaginateTypeDef,
     DescribeNodeConfigurationOptionsMessagePaginateTypeDef,
     DescribeOrderableClusterOptionsMessagePaginateTypeDef,
+    DescribeQev2IdcApplicationsMessagePaginateTypeDef,
+    DescribeQev2IdcApplicationsResultTypeDef,
     DescribeRedshiftIdcApplicationsMessagePaginateTypeDef,
     DescribeRedshiftIdcApplicationsResultTypeDef,
     DescribeReservedNodeExchangeStatusInputMessagePaginateTypeDef,
@@ -208,6 +212,7 @@ __all__ = (
     "DescribeIntegrationsPaginator",
     "DescribeNodeConfigurationOptionsPaginator",
     "DescribeOrderableClusterOptionsPaginator",
+    "DescribeQev2IdcApplicationsPaginator",
     "DescribeRedshiftIdcApplicationsPaginator",
     "DescribeReservedNodeExchangeStatusPaginator",
     "DescribeReservedNodeOfferingsPaginator",
@@ -663,6 +668,24 @@ class DescribeOrderableClusterOptionsPaginator(_DescribeOrderableClusterOptionsP
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/redshift/paginator/DescribeOrderableClusterOptions.html#Redshift.Paginator.DescribeOrderableClusterOptions.paginate)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_redshift/paginators/#describeorderableclusteroptionspaginator)
+        """
+
+if TYPE_CHECKING:
+    _DescribeQev2IdcApplicationsPaginatorBase = Paginator[DescribeQev2IdcApplicationsResultTypeDef]
+else:
+    _DescribeQev2IdcApplicationsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class DescribeQev2IdcApplicationsPaginator(_DescribeQev2IdcApplicationsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/redshift/paginator/DescribeQev2IdcApplications.html#Redshift.Paginator.DescribeQev2IdcApplications)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_redshift/paginators/#describeqev2idcapplicationspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeQev2IdcApplicationsMessagePaginateTypeDef]
+    ) -> PageIterator[DescribeQev2IdcApplicationsResultTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/redshift/paginator/DescribeQev2IdcApplications.html#Redshift.Paginator.DescribeQev2IdcApplications.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_redshift/paginators/#describeqev2idcapplicationspaginator)
         """
 
 if TYPE_CHECKING:

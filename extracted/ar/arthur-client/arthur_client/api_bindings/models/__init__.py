@@ -102,6 +102,7 @@ from arthur_client.api_bindings.models.data_plane import DataPlane
 from arthur_client.api_bindings.models.data_plane_association import DataPlaneAssociation
 from arthur_client.api_bindings.models.data_plane_association_sort import DataPlaneAssociationSort
 from arthur_client.api_bindings.models.data_plane_capabilities import DataPlaneCapabilities
+from arthur_client.api_bindings.models.data_plane_exists import DataPlaneExists
 from arthur_client.api_bindings.models.data_plane_sort import DataPlaneSort
 from arthur_client.api_bindings.models.data_result_filter import DataResultFilter
 from arthur_client.api_bindings.models.data_result_filter_op import DataResultFilterOp

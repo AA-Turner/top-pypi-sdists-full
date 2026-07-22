@@ -5465,6 +5465,17 @@ async def _run_agent_async(
         api_key = os.getenv(env_key, "") if env_key else ""
         if not api_key:
             api_key = gc.api_keys.get(provider, "")
+        # v3.5.8 — third-source fallback. Profile-driven 3-source resolver
+        # picks up provider env aliases (e.g. MINIMAX_TOKEN), the cvc
+        # config store, and brand-name aliases like "MiniMax". Only kicks
+        # in if both env and gc.api_keys return empty, so existing
+        # behaviour is preserved.
+        if not api_key:
+            try:
+                from cvc.providers.base import resolve_api_key
+                api_key = resolve_api_key(provider)
+            except Exception:
+                pass
 
     if not api_key and provider not in ("ollama", "lmstudio", "vertex"):
         render_error(

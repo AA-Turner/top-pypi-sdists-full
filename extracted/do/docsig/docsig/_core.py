@@ -12,6 +12,7 @@ from pathlib import Path as _Path
 from pprint import pformat as _pformat
 
 from . import _decorators
+from ._config import DEFAULT_EXCLUDES as _DEFAULT_EXCLUDES
 from ._config import Check as _Check
 from ._config import Config as _Config
 from ._config import Filters as _Filters
@@ -23,29 +24,9 @@ from ._parsers import parse_from_file as _parse_from_file
 from ._parsers import parse_from_string as _parse_from_string
 from ._report import report as _report
 from ._traverse import run_checks as _run_checks
-from ._utils import get_parent_that_has as _get_parent_that_has
 from ._utils import print_checks as _print_checks
 from .messages import E as _E
 from .messages import Messages as _Messages
-
-_DEFAULT_EXCLUDES = """\
-(?x)^(
-    |\\.?venv[\\\\/].*
-    |\\.git[\\\\/].*
-    |\\.hg[\\\\/].*
-    |\\.idea[\\\\/].*
-    |\\.mypy_cache[\\\\/].*
-    |\\.nox[\\\\/].*
-    |\\.pytest_cache[\\\\/].*
-    |\\.svn[\\\\/].*
-    |\\.tox[\\\\/].*
-    |\\.vscode[\\\\/].*
-    |_?build[\\\\/].*
-    |.*[\\\\/]__pycache__[\\\\/].*
-    |dist[\\\\/].*
-    |node_modules[\\\\/].*
-)$
-"""
 
 
 def setup_logger(verbose: bool) -> None:
@@ -119,7 +100,7 @@ def docsig(  # pylint: disable=too-many-locals,too-many-arguments
     verbose: bool = False,
     target: _Messages | None = None,
     disable: _Messages | None = None,
-    exclude: str | None = None,
+    exclude: str | list[str] | None = None,
     excludes: list[str] | None = None,
 ) -> int:
     """Run docstring/signature checks on paths or a string and report.
@@ -153,8 +134,8 @@ def docsig(  # pylint: disable=too-many-locals,too-many-arguments
     :param verbose: Increase output verbosity.
     :param target: List of errors to target.
     :param disable: List of errors to disable.
-    :param exclude: Regular expression of files and dirs to exclude from
-        checks.
+    :param exclude: Regular expression(s) of files and dirs to exclude
+        from checks, joined with the default exclusions.
     :param excludes: Files or dirs to exclude from checks.
     :return: Exit code (non-zero if any check failed).
     """
@@ -172,9 +153,11 @@ def docsig(  # pylint: disable=too-many-locals,too-many-arguments
         ],
         stacklevel=5,
     )
-    exclude_ = [_DEFAULT_EXCLUDES]
-    if exclude is not None:
-        exclude_.append(exclude)
+    exclude_patterns = [_DEFAULT_EXCLUDES]
+    if isinstance(exclude, str):
+        exclude_patterns.append(exclude)
+    elif exclude:
+        exclude_patterns.extend(exclude)
 
     # while some params could be taken out for one time use (such as
     # verbose), bundling all the configuration together makes it easier
@@ -196,7 +179,7 @@ def docsig(  # pylint: disable=too-many-locals,too-many-arguments
     )
     filters = _Filters(
         include_ignored=include_ignored,
-        exclude=exclude_,
+        exclude=exclude_patterns,
         excludes=excludes or [],
     )
     config = _Config(
@@ -222,8 +205,7 @@ def docsig(  # pylint: disable=too-many-locals,too-many-arguments
         return _report(failures, config)
 
     retcodes = _RetCode()
-    repo = _get_parent_that_has(".git/HEAD")
-    files = _Files(path, config.filters, repo)
+    files = _Files(path, config.filters)
     for file in files:
         failures = runner(file, config)
         retcode = _report(failures, config, str(file))

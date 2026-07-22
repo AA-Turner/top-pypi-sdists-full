@@ -34,6 +34,7 @@ __all__ = (
     "RateLimitHitsAddend",
     "RateLimitOverride",
     "RateLimitOverrideDynamicMetadata",
+    "RateLimitOverrideRateLimitOverride",
     "RateLimitXRateLimitOption",
     "RedirectAction",
     "RedirectActionRedirectResponseCode",
@@ -1022,9 +1023,13 @@ class RateLimit(betterproto2.Message):
     <config_http_filters_rate_limit_rate_limit_override>` for more information.
 
     .. note::
-      This is not supported if the rate limit action is configured in the ``typed_per_filter_config`` like
-      :ref:`VirtualHost.typed_per_filter_config<envoy_v3_api_field_config.route.v3.VirtualHost.typed_per_filter_config>` or
-      :ref:`Route.typed_per_filter_config<envoy_v3_api_field_config.route.v3.Route.typed_per_filter_config>`, etc.
+      For the global HTTP :ref:`rate limit filter
+      <config_http_filters_rate_limit>`, this is supported both at the route/virtual host
+      level and when the rate limit configuration is supplied via the filter's
+      ``rate_limits`` field or the ``typed_per_filter_config``
+      (:ref:`RateLimitPerRoute <envoy_v3_api_msg_extensions.filters.http.ratelimit.v3.RateLimitPerRoute>`).
+      This is not supported by the :ref:`local rate limit filter
+      <config_http_filters_local_rate_limit>`.
     """
 
     hits_addend: "RateLimitHitsAddend | None" = betterproto2.field(
@@ -1933,6 +1938,13 @@ class RateLimitOverride(betterproto2.Message):
     Limit override from dynamic metadata.
     """
 
+    rate_limit: "RateLimitOverrideRateLimitOverride | None" = betterproto2.field(
+        2, betterproto2.TYPE_MESSAGE, optional=True, group="override_specifier"
+    )
+    """
+    Static limit override.
+    """
+
     @model_validator(mode="after")
     def check_oneof(cls, values):
         return cls._validate_field_groups(values)
@@ -1968,9 +1980,39 @@ default_message_pool.register_message(
 
 
 @dataclass(eq=False, repr=False, config={"extra": "forbid"})
+class RateLimitOverrideRateLimitOverride(betterproto2.Message):
+    """
+    Rate limit to apply to this descriptor.
+    """
+
+    requests_per_unit: "typing.Annotated[int, pydantic.Field(ge=0, le=2**32 - 1)]" = (
+        betterproto2.field(1, betterproto2.TYPE_UINT32)
+    )
+    """
+    The number of requests per unit of time.
+    """
+
+    unit: "___type__v3__.RateLimitUnit" = betterproto2.field(
+        2,
+        betterproto2.TYPE_ENUM,
+        default_factory=lambda: ___type__v3__.RateLimitUnit(0),
+    )
+    """
+    The unit of time.
+    """
+
+
+default_message_pool.register_message(
+    "envoy.config.route.v3",
+    "RateLimit.Override.RateLimitOverride",
+    RateLimitOverrideRateLimitOverride,
+)
+
+
+@dataclass(eq=False, repr=False, config={"extra": "forbid"})
 class RedirectAction(betterproto2.Message):
     """
-    [#next-free-field: 10]
+    [#next-free-field: 11]
 
     Oneofs:
         - scheme_rewrite_specifier: When the scheme redirection take place, the following rules apply:
@@ -2076,6 +2118,25 @@ class RedirectAction(betterproto2.Message):
       ``/aaa/yyy/bbb``.
     """
 
+    path_rewrite: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)] | None" = betterproto2.field(
+        10, betterproto2.TYPE_STRING, optional=True, group="path_rewrite_specifier"
+    )
+    """
+    The path portion of the URL will be set to this value and supports
+    :ref:`substitution format specifiers <config_access_log_format>` and CEL
+    expressions.
+
+    For example, with the following config:
+
+    .. code-block:: yaml
+
+      path_rewrite: "/new/%REQ(x-version)%"
+
+    Would redirect to ``/new/v2`` given a request header ``x-version: v2``.
+    If the substitution produces an empty string the path redirect is ignored
+    and the original path is preserved.
+    """
+
     response_code: "RedirectActionRedirectResponseCode" = betterproto2.field(
         3,
         betterproto2.TYPE_ENUM,
@@ -2106,7 +2167,7 @@ default_message_pool.register_message(
 class RetryPolicy(betterproto2.Message):
     """
     HTTP retry :ref:`architecture overview <arch_overview_http_routing_retry>`.
-    [#next-free-field: 14]
+    [#next-free-field: 15]
     """
 
     retry_on: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
@@ -2260,6 +2321,20 @@ class RetryPolicy(betterproto2.Message):
     )
     """
     HTTP headers which must be present in the request for retries to be attempted.
+    """
+
+    refresh_cluster_on_retry: "bool" = betterproto2.field(14, betterproto2.TYPE_BOOL)
+    """
+    By default, the target upstream cluster of a retry request is the same as the original request,
+    and Envoy will not try to refresh it when retrying.
+    If this field is set to true, Envoy will try to refresh the target upstream cluster when
+    retrying a request. This is useful when users want to try different upstream cluster for
+    each retry attempt.
+
+    .. note::
+      This currently works when the route cluster specifier support the dynamic refresh,
+      e.g. :ref:`matcher cluster specifier
+      <envoy_v3_api_msg_extensions.router.cluster_specifiers.matcher.v3.MatcherClusterSpecifier>`.
     """
 
 

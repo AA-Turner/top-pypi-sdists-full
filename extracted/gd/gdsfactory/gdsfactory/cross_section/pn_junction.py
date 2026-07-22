@@ -57,8 +57,7 @@ def pin(
 
     https://doi.org/10.1364/OE.26.029983
 
-    .. code::
-
+    ```text
                                       layer
                                 |<----width--->|
                                  _______________ via_stack_gap           slab_gap
@@ -71,16 +70,17 @@ def pin(
                                                               via_stack_width
        <---------------------------------------------------------------------->
                                    slab_width
+    ```
 
-    .. plot::
-        :include-source:
-
+    Example:
+        ```python
         import gdsfactory as gf
 
         xs = gf.cross_section.pin(width=0.5, via_stack_gap=1, via_stack_width=1)
         p = gf.path.arc(radius=10, angle=45)
         c = p.extrude(xs)
         c.plot()
+        ```
     """
     section_list: list[Section] = list(sections or [])
     slab_width = width + 2 * via_stack_gap + 2 * via_stack_width - 2 * slab_gap
@@ -186,8 +186,6 @@ def pn(
         slab_inset: slab inset in um.
         kwargs: cross_section settings.
 
-    .. code::
-
                               offset_low_doping
                                 <------>
                                |       |
@@ -206,15 +204,15 @@ def pn(
                                |<------------->|
                                gap_medium_doping
 
-    .. plot::
-        :include-source:
-
+    Example:
+        ```python
         import gdsfactory as gf
 
         xs = gf.cross_section.pn(width=0.5, gap_low_doping=0, width_doping=2.)
         p = gf.path.arc(radius=10, angle=45)
         c = p.extrude(xs)
         c.plot()
+        ```
     """
     slab_insets_valid = (slab_inset, slab_inset) if slab_inset else None
 
@@ -378,8 +376,7 @@ def pn_with_trenches(
         sections: optional list of sections.
         kwargs: cross_section settings.
 
-    .. code::
-
+    ```text
                                    offset_low_doping
                                      <------>
                                     |       |
@@ -399,16 +396,17 @@ def pn_with_trenches(
                                     gap_medium_doping
        <------------------------------------------------------------>
                                 width_slab
+    ```
 
-    .. plot::
-        :include-source:
-
+    Example:
+        ```python
         import gdsfactory as gf
 
         xs = gf.cross_section.pn_with_trenches(width=0.5, gap_low_doping=0, width_doping=2.)
         p = gf.path.arc(radius=10, angle=45)
         c = p.extrude(xs)
         c.plot()
+        ```
     """
     if slab_offset is None and width_slab is None:
         raise ValueError("Must specify either slab_offset or width_slab")
@@ -596,8 +594,7 @@ def pn_with_trenches_asymmetric(
         sections: optional list of sections.
         kwargs: cross_section settings.
 
-    .. code::
-
+    ```text
                                    gap_low_doping[1]
                                      <------>
                                     |       |
@@ -617,16 +614,17 @@ def pn_with_trenches_asymmetric(
                                     gap_medium_doping[1]
        <------------------------------------------------------------>
                                 width_slab
+    ```
 
-    .. plot::
-        :include-source:
-
+    Example:
+        ```python
         import gdsfactory as gf
 
         xs = gf.cross_section.pn_with_trenches_assymmetric(width=0.5, gap_low_doping=0, width_doping=2.)
         p = gf.path.arc(radius=10, angle=45)
         c = p.extrude(xs)
         c.plot()
+        ```
     """
     if slab_offset is None and width_slab is None:
         raise ValueError("Must specify either slab_offset or width_slab")
@@ -826,8 +824,7 @@ def l_wg_doped_with_trenches(
         sections: optional list of sections.
         kwargs: cross_section settings.
 
-    .. code::
-
+    ```text
                                           gap_low_doping
                                            <------>
                                                   |
@@ -850,16 +847,17 @@ def l_wg_doped_with_trenches(
                              gap_high_doping
        <------------------------------------------->
                         width_slab
+    ```
 
-    .. plot::
-        :include-source:
-
+    Example:
+        ```python
         import gdsfactory as gf
 
         xs = gf.cross_section.pn_with_trenches(width=0.5, gap_low_doping=0, width_doping=2.)
         p = gf.path.arc(radius=10, angle=45)
         c = p.extrude(xs)
         c.plot()
+        ```
     """
     if slab_offset is None and width_slab is None:
         raise ValueError("Must specify either slab_offset or width_slab")
@@ -1017,8 +1015,6 @@ def pn_ge_detector_si_contacts(
                 polygon by more than the value listed here will be removed.
         kwargs: cross_section settings.
 
-    .. code::
-
                                    layer_si
                            |<------width_si---->|
 
@@ -1043,15 +1039,15 @@ def pn_ge_detector_si_contacts(
                                      |<---------------------------------->|
                                                 width_doping
 
-    .. plot::
-        :include-source:
-
+    Example:
+        ```python
         import gdsfactory as gf
 
         xs = gf.cross_section.pn()
         p = gf.path.straight()
         c = p.extrude(xs)
         c.plot()
+        ```
     """
     width_low_doping = width_doping - gap_low_doping
     offset_low_doping = width_low_doping / 2 + gap_low_doping

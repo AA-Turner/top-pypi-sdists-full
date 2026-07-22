@@ -863,13 +863,22 @@ class Geocif:
             self.dir_output / "cid" / "indices" / self.method /
             admin_zone / country / crop
         )
-        
-        file_name = f"{country}_{crop}_s*.csv"
-        all_files = list(_dir_country.glob(file_name))
+
+        # Read ONLY the seasons declared for this country/crop (config wins;
+        # else calendar-detected). A bare ``_s*`` glob would also pull in
+        # stray index files for seasons the country doesn't actually grow —
+        # e.g. Nigeria (seasons=[1]) had leftover ``nigeria_maize_s2_*`` files
+        # that injected a spurious, yield-less Season 2 into every output.
+        from geocif.indices_runner import get_seasons
+        seasons = get_seasons(country, self.parser, crop=crop)
+        all_files = []
+        for s in seasons:
+            all_files.extend(sorted(_dir_country.glob(f"{country}_{crop}_s{s}_*.csv")))
 
         if not all_files:
             raise FileNotFoundError(
-                f"No files found in {_dir_country} with pattern {file_name}"
+                f"No files found in {_dir_country} for seasons {seasons} "
+                f"(pattern {country}_{crop}_s{{season}}_*.csv)"
             )
         
         self.df_inputs = pd.concat(
@@ -1433,14 +1442,19 @@ class Geocif:
         all_simulation_stages = list(self.simulation_stages)
         step_subsets = self._get_setup_stages()
 
-        # Same chronological derivation as _get_setup_stages, reused here to
-        # know the "publish date" (latest covered month) and remaining-season
-        # months at each step. Feeds _filter_by_simulation_stages so it can
-        # admit forward-looking FLDAS/S2S leads from the freshest init only.
-        chronological = []
+        # Per-SEASON chronology (planting→harvest), reused here to know the
+        # "publish date" (latest covered month) and remaining-season months at
+        # each step. Feeds _filter_by_simulation_stages so it can admit
+        # forward-looking FLDAS/S2S leads from the freshest init only. Grouped
+        # by season so a two-season country uses the right season's window per
+        # step (single-season => one group, unchanged).
+        group_info = []
         if all_simulation_stages:
-            longest = max(all_simulation_stages, key=lambda s: len(s))
-            chronological = list(reversed([int(x) for x in longest]))
+            for g in self._group_stages_by_season(all_simulation_stages):
+                gmonths = {int(x) for s in g for x in s}
+                glongest = max(g, key=lambda s: len(s))
+                gchrono = list(reversed([int(x) for x in glongest]))
+                group_info.append((gmonths, gchrono))
 
         df_inputs_orig = self.df_inputs.copy()
         cached_latlon = None
@@ -1452,9 +1466,14 @@ class Geocif:
 
             # Per-step publish date + remaining season — read by
             # _filter_by_simulation_stages when use_cids contains forecast
-            # types. No-op when chronological is empty.
+            # types. Pick this subset's season group (max month overlap).
+            covered = {int(x) for s in stage_subset for x in s}
+            chronological = []
+            if covered and group_info:
+                _, chronological = max(
+                    group_info, key=lambda gi: len(gi[0] & covered)
+                )
             if chronological:
-                covered = {int(x) for s in stage_subset for x in s}
                 chronological_covered = [m for m in chronological if m in covered]
                 self._latest_covered_month = (
                     chronological_covered[-1] if chronological_covered else None
@@ -2979,32 +2998,55 @@ class Geocif:
             except Exception as e:
                 self.logger.error(f"Error in ML loop: {e}")
 
+    def _group_stages_by_season(self, stages) -> List[list]:
+        """Partition simulation stages into growing seasons.
+
+        Two stages belong to the same season when their month sets overlap
+        (share >=1 month); disjoint month sets mean different seasons -- e.g.
+        Somalia Gu ``{4,5,6,7}`` vs Deyr ``{10,11,12,1}``. Single-season
+        countries collapse to one group, so their behavior is unchanged.
+
+        Union-find over the month sets (stage count is tiny, so O(n^2) is
+        fine). Avoids ``list.remove`` on numpy arrays (ambiguous truth value).
+        """
+        stages = [np.asarray(s) for s in stages]
+        month_sets = [set(int(x) for x in s) for s in stages]
+        n = len(stages)
+        parent = list(range(n))
+
+        def find(a):
+            while parent[a] != a:
+                parent[a] = parent[parent[a]]
+                a = parent[a]
+            return a
+
+        for i in range(n):
+            for j in range(i + 1, n):
+                if month_sets[i] & month_sets[j]:
+                    parent[find(i)] = find(j)
+
+        comps = {}
+        for i in range(n):
+            comps.setdefault(find(i), []).append(stages[i])
+        return list(comps.values())
+
     def _get_setup_stages(self) -> List[List]:
         """Build per-time-step stage subsets for multi-step execution.
 
-        For ``run_time_steps = all`` or ``N``, returns a list of stage
-        subsets.  Each subset contains ALL Stage_IDs whose period numbers
-        fall within a growing window from planting forward.
-
-        The chronological order is derived from the longest Stage_ID
-        (which contains the full season sequence).  For ``_r`` methods,
-        Stage_ID arrays are ordered harvest→planting, so reversing gives
-        the planting-forward order.  This handles cross-year seasons
-        (e.g., Oct→Apr = ``[10, 11, 12, 1, 2, 3, 4]``) without assuming
-        contiguous integer ranges.
+        For ``run_time_steps = all`` or ``N``, returns cumulative prefixes from
+        planting forward, built SEPARATELY per growing season (see
+        ``_group_stages_by_season``) so multi-season countries emit every
+        season instead of collapsing to whichever season owns the single
+        longest stage (the Somalia Gu+Deyr bug). Per-season chronological order
+        comes from that season's longest Stage_ID; ``_r`` methods store
+        harvest→planting, so reversing gives planting-forward — handling
+        cross-year seasons (e.g. Oct→Apr = ``[10, 11, 12, 1, 2, 3, 4]``)
+        without assuming contiguous ranges.
 
         Returns:
             List of stage subsets (each a list of numpy arrays).
         """
         if not self.simulation_stages:
-            return [self.simulation_stages]
-
-        # Find the longest stage — it contains the full season sequence
-        longest = max(self.simulation_stages, key=lambda s: len(s))
-        # Reverse: harvest→planting becomes planting→harvest
-        chronological = list(reversed([int(x) for x in longest]))
-
-        if len(chronological) <= 1:
             return [self.simulation_stages]
 
         step = 1
@@ -3014,27 +3056,29 @@ class Geocif:
             except ValueError:
                 return [self.simulation_stages]
 
-        # Build progression: cumulative prefixes of chronological order
-        subsets = []
-        for i in range(step, len(chronological) + 1, step):
-            allowed = set(chronological[:i])
-            subset = [
-                s for s in self.simulation_stages
-                if all(int(x) in allowed for x in s)
-            ]
-            if subset:
-                subsets.append(subset)
+        all_subsets = []
+        for group in self._group_stages_by_season(self.simulation_stages):
+            longest = max(group, key=lambda s: len(s))
+            chronological = list(reversed([int(x) for x in longest]))
+            if len(chronological) <= 1:
+                all_subsets.append(group)
+                continue
 
-        # Ensure the last step includes the full season
-        all_periods = set(chronological)
-        full_subset = [
-            s for s in self.simulation_stages
-            if all(int(x) in all_periods for x in s)
-        ]
-        if not subsets or len(subsets[-1]) < len(full_subset):
-            subsets.append(full_subset)
+            subsets = []
+            for i in range(step, len(chronological) + 1, step):
+                allowed = set(chronological[:i])
+                subset = [s for s in group if all(int(x) in allowed for x in s)]
+                if subset:
+                    subsets.append(subset)
 
-        return subsets
+            all_periods = set(chronological)
+            full_subset = [s for s in group if all(int(x) in all_periods for x in s)]
+            if not subsets or len(subsets[-1]) < len(full_subset):
+                subsets.append(full_subset)
+
+            all_subsets.extend(subsets)
+
+        return all_subsets if all_subsets else [self.simulation_stages]
 
     # ============================================================================
     # ML DATAFRAME CREATION

@@ -31,13 +31,10 @@ class CreateTagDto(BaseModel):
     name: Annotated[str, Field(min_length=1, strict=True)]
     __properties: ClassVar[List[str]] = ["name"]
 
-    @field_validator('name')
+    @field_validator('name', mode="before")
     def name_validate_regular_expression(cls, value):
         """Validates the regular expression"""
-        if not isinstance(value, str):
-            value = str(value)
-
-        if not re.match(r"^[a-zA-Z\d-_][a-zA-Z\d-_ ]{0,39}$", value):
+        if isinstance(value, str) and not re.match(r"^[a-zA-Z\d-_][a-zA-Z\d-_ ]{0,39}$", value):
             raise ValueError(r"must validate the regular expression /^[a-zA-Z\d-_][a-zA-Z\d-_ ]{0,39}$/")
         return value
 

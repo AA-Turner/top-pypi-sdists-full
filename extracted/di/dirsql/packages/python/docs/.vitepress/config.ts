@@ -37,6 +37,7 @@ export default defineConfig({
         {
           text: 'How-to Guides',
           items: [
+            { text: 'Query files without a config', link: '/howto/query-without-config' },
             { text: 'Define tables for your files', link: '/howto/define-tables' },
             { text: 'Derive columns from file paths', link: '/howto/columns-from-paths' },
             { text: 'Extract rows from file contents', link: '/howto/extract-from-contents' },
@@ -45,6 +46,7 @@ export default defineConfig({
             { text: 'Load a SQLite extension', link: '/howto/load-extension' },
             { text: 'Keep the index across restarts', link: '/howto/persist' },
             { text: 'React to file changes', link: '/howto/react-to-changes' },
+            { text: 'Write a plugin', link: '/howto/write-a-plugin' },
             { text: 'Embed dirsql in your application', link: '/howto/embed' }
           ]
         },
@@ -55,6 +57,7 @@ export default defineConfig({
             { text: 'Configuration File', link: '/reference/config' },
             { text: 'Command Hooks', link: '/reference/hooks' },
             { text: 'Virtual Columns & Glob Captures', link: '/reference/columns' },
+            { text: 'Path-tables', link: '/reference/path-tables' },
             { text: 'HTTP API', link: '/reference/http-api' },
             { text: 'SDK', link: '/reference/sdk' },
             { text: 'Migrations', link: '/migrations' }

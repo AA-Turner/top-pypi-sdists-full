@@ -20,6 +20,7 @@ from datarobot._experimental.pipelines.enums import PipelineImageStatus
 from datarobot.enums import enum_to_list
 from datarobot.models.api_object import APIObject
 from datarobot.utils import rawdict
+from datarobot.utils.pagination import unpaginate
 
 TPipelineImage = TypeVar("TPipelineImage", bound="PipelineImage")
 
@@ -194,25 +195,16 @@ class PipelineImage(APIObject):
     @classmethod
     def list(
         cls: Type[TPipelineImage],
-        offset: int = 0,
-        limit: int = 50,
     ) -> List[TPipelineImage]:
         """List the caller's active images.
 
-        Parameters
-        ----------
-        offset : int, optional
-            Pagination offset. Default 0.
-        limit : int, optional
-            Maximum number of results. Default 50.
+        Transparently follows pagination and returns the complete result set.
 
         Returns
         -------
         images : list of PipelineImage
         """
-        params: Dict[str, int] = {"offset": offset, "limit": limit}
-        response = cls._client.get(cls._path, params=params)
-        return [cls.from_server_data(item) for item in response.json().get("data", [])]
+        return [cls.from_server_data(item) for item in unpaginate(cls._path, None, cls._client)]
 
     def update(
         self: TPipelineImage,

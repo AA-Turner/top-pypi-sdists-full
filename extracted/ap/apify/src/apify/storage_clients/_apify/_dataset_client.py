@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import warnings
 from logging import getLogger
 from typing import TYPE_CHECKING
 
@@ -18,7 +17,7 @@ from apify.storage_clients._ppe_dataset_mixin import DatasetClientPpeMixin
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Mapping, Sequence
 
-    from apify_client.clients import DatasetClientAsync
+    from apify_client._resource_clients import DatasetClientAsync
     from crawlee._types import JsonSerializable
 
     from apify import Configuration
@@ -42,7 +41,6 @@ class ApifyDatasetClient(DatasetClient, DatasetClientPpeMixin):
         self,
         *,
         api_client: DatasetClientAsync,
-        api_public_base_url: str,
         lock: asyncio.Lock,
     ) -> None:
         """Initialize a new instance.
@@ -58,18 +56,21 @@ class ApifyDatasetClient(DatasetClient, DatasetClientPpeMixin):
         self._lock = lock
         """A lock to ensure that only one operation is performed at a time."""
 
-        if api_public_base_url:
-            # Remove in version 4.0, https://github.com/apify/apify-sdk-python/issues/635
-            warnings.warn(
-                'api_public_base_url argument is deprecated and will be removed in version 4.0.0',
-                DeprecationWarning,
-                stacklevel=2,
-            )
-
     @override
     async def get_metadata(self) -> DatasetMetadata:
         metadata = await self._api_client.get()
-        return DatasetMetadata.model_validate(metadata)
+
+        if metadata is None:
+            raise ValueError('Failed to retrieve dataset metadata.')
+
+        return DatasetMetadata(
+            id=metadata.id,
+            name=metadata.name,
+            created_at=metadata.created_at,
+            modified_at=metadata.modified_at,
+            accessed_at=metadata.accessed_at,
+            item_count=metadata.item_count,
+        )
 
     @classmethod
     async def open(
@@ -114,7 +115,6 @@ class ApifyDatasetClient(DatasetClient, DatasetClientPpeMixin):
 
         dataset_client = cls(
             api_client=api_client,
-            api_public_base_url='',  # Remove in version 4.0, https://github.com/apify/apify-sdk-python/issues/635
             lock=asyncio.Lock(),
         )
 
@@ -144,6 +144,8 @@ class ApifyDatasetClient(DatasetClient, DatasetClientPpeMixin):
 
         async with self._charge_lock(), self._lock:
             items = data if self._is_sequence_of_items(data) else [data]
+            if not items:
+                return
             limit = self._compute_limit_for_push(len(items))
             items = items[:limit]
 

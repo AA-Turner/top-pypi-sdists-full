@@ -18,6 +18,9 @@ import requests
 import time
 import urllib.parse
 
+
+from .. import schemas
+
 if TYPE_CHECKING:
     from ..client import Client
 from .models import (
@@ -35,7 +38,10 @@ class TrendsClient:
 
 
     def get_personalized(
-        self, personalized_trend_fields: List = None
+        self,
+        personalized_trend_fields: Optional[
+            List[Literal["category", "post_count", "trend_name", "trending_since"]]
+        ] = None,
     ) -> GetPersonalizedResponse:
         """
         Get personalized Trends
@@ -188,7 +194,10 @@ class TrendsClient:
 
 
     def get_by_woeid(
-        self, woeid: int, max_trends: int = None, trend_fields: List = None
+        self,
+        woeid: int,
+        max_trends: Optional[int] = None,
+        trend_fields: Optional[List[Literal["trend_name", "tweet_count"]]] = None,
     ) -> GetByWoeidResponse:
         """
         Get Trends by WOEID

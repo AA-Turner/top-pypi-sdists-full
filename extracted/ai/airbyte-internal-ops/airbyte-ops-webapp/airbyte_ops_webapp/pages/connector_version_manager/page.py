@@ -37,6 +37,9 @@ from airbyte_ops_webapp.pages.connector_version_manager._mcp_tools import (
 from airbyte_ops_webapp.pages.connector_version_manager._state import (
     ConnectorVersionManagerPageState,
 )
+from airbyte_ops_webapp.pages.connector_version_manager.agents import (
+    CONNECTOR_VERSION_MANAGER_AGENTS_CALLOUT,
+)
 from airbyte_ops_webapp.pages.connector_version_manager.connector_overview import (
     render_rollout_status_section,
 )
@@ -150,6 +153,7 @@ def connector_version_manager(
                         "and apply production pin changes."
                     ),
                     show_auth_controls=True,
+                    agents_callout=CONNECTOR_VERSION_MANAGER_AGENTS_CALLOUT,
                 )
                 render_connector_selector(state)
 

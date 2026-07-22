@@ -14,6 +14,7 @@ else:
     from typing_extensions import NotRequired, TypedDict, TypeAlias
 from .. import _utilities
 from . import outputs
+from .. import outputs as _root_outputs
 
 __all__ = [
     'GetListenerResult',
@@ -24,7 +25,7 @@ __all__ = [
 
 @pulumi.output_type
 class GetListenerResult:
-    def __init__(__self__, alpn_policy=None, certificates=None, default_actions=None, listener_arn=None, listener_attributes=None, mutual_authentication=None, port=None, protocol=None, ssl_policy=None):
+    def __init__(__self__, alpn_policy=None, certificates=None, default_actions=None, listener_arn=None, listener_attributes=None, mutual_authentication=None, port=None, protocol=None, ssl_policy=None, tags=None):
         if alpn_policy and not isinstance(alpn_policy, list):
             raise TypeError("Expected argument 'alpn_policy' to be a list")
         pulumi.set(__self__, "alpn_policy", alpn_policy)
@@ -52,6 +53,9 @@ class GetListenerResult:
         if ssl_policy and not isinstance(ssl_policy, str):
             raise TypeError("Expected argument 'ssl_policy' to be a str")
         pulumi.set(__self__, "ssl_policy", ssl_policy)
+        if tags and not isinstance(tags, list):
+            raise TypeError("Expected argument 'tags' to be a list")
+        pulumi.set(__self__, "tags", tags)
 
     @_builtins.property
     @pulumi.getter(name="alpnPolicy")
@@ -129,6 +133,11 @@ class GetListenerResult:
         """
         return pulumi.get(self, "ssl_policy")
 
+    @_builtins.property
+    @pulumi.getter
+    def tags(self) -> Optional[Sequence['_root_outputs.Tag']]:
+        return pulumi.get(self, "tags")
+
 
 class AwaitableGetListenerResult(GetListenerResult):
     # pylint: disable=using-constant-test
@@ -144,14 +153,14 @@ class AwaitableGetListenerResult(GetListenerResult):
             mutual_authentication=self.mutual_authentication,
             port=self.port,
             protocol=self.protocol,
-            ssl_policy=self.ssl_policy)
+            ssl_policy=self.ssl_policy,
+            tags=self.tags)
 
 
 def get_listener(listener_arn: Optional[_builtins.str] = None,
                  opts: Optional[pulumi.InvokeOptions] = None) -> AwaitableGetListenerResult:
     """
     Specifies a listener for an Application Load Balancer, Network Load Balancer, or Gateway Load Balancer.
-
 
     :param _builtins.str listener_arn: The Amazon Resource Name (ARN) of the listener.
     """
@@ -169,12 +178,12 @@ def get_listener(listener_arn: Optional[_builtins.str] = None,
         mutual_authentication=pulumi.get(__ret__, 'mutual_authentication'),
         port=pulumi.get(__ret__, 'port'),
         protocol=pulumi.get(__ret__, 'protocol'),
-        ssl_policy=pulumi.get(__ret__, 'ssl_policy'))
-def get_listener_output(listener_arn: Optional[pulumi.Input[_builtins.str]] = None,
+        ssl_policy=pulumi.get(__ret__, 'ssl_policy'),
+        tags=pulumi.get(__ret__, 'tags'))
+def get_listener_output(listener_arn: pulumi.Input[Optional[_builtins.str]] = None,
                         opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetListenerResult]:
     """
     Specifies a listener for an Application Load Balancer, Network Load Balancer, or Gateway Load Balancer.
-
 
     :param _builtins.str listener_arn: The Amazon Resource Name (ARN) of the listener.
     """
@@ -191,4 +200,5 @@ def get_listener_output(listener_arn: Optional[pulumi.Input[_builtins.str]] = No
         mutual_authentication=pulumi.get(__response__, 'mutual_authentication'),
         port=pulumi.get(__response__, 'port'),
         protocol=pulumi.get(__response__, 'protocol'),
-        ssl_policy=pulumi.get(__response__, 'ssl_policy')))
+        ssl_policy=pulumi.get(__response__, 'ssl_policy'),
+        tags=pulumi.get(__response__, 'tags')))

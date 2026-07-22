@@ -1855,6 +1855,7 @@ SEARCH_WORKSPACES = sqlalchemy.text(
     """
     SELECT DISTINCT
          workspace.organization_id,
+         organization.name AS organization_name,
          workspace.id AS workspace_id,
          workspace.name AS workspace_name,
          workspace.slug,
@@ -1865,6 +1866,8 @@ SEARCH_WORKSPACES = sqlalchemy.text(
     FROM workspace
     LEFT JOIN dataplane_group
       ON workspace.dataplane_group_id = dataplane_group.id
+    LEFT JOIN organization
+      ON workspace.organization_id = organization.id
     WHERE workspace.tombstone = false
       AND (
           workspace.name ILIKE '%' || :name_contains || '%'
@@ -2407,6 +2410,191 @@ SELECT_VERSIONS_WITH_PINS_BY_DEFINITION = sqlalchemy.text(
     ORDER BY
          pins.pin_count DESC,
          versions.created_at DESC
+    """
+)
+
+
+# =============================================================================
+# Organization-scoped Pin Queries
+# =============================================================================
+
+# Aggregate view of connector versions pinned *anywhere under an organization*
+# (org-, workspace-, or actor-scoped pins), with the per-scope pin breakdown.
+#
+# A pin is "under" an organization when it targets the org itself, one of the
+# org's (non-tombstoned) workspaces, or an actor living in one of those
+# workspaces. This mirrors the actor > workspace > organization scope union
+# used by `SELECT_SOURCE_ACTOR_POPULATION_BY_ORG`, but keyed by organization
+# instead of a connector version.
+#
+# `has_active_rollout` is `true` when at least one rollout-origin pin for the
+# version is backed by a `connector_rollout` in a non-terminal state (the same
+# active-state set used elsewhere in this module). It lets the UI flag versions
+# whose pins are driven by a live rollout rather than manual overrides.
+#
+# Performance: `scoped_configuration.scope_id` / `organization_id` / `id` are
+# `uuid` columns, so all comparisons stay `uuid = uuid` and the bind parameter
+# is cast *once* (`CAST(:organization_id AS uuid)`) rather than casting indexed
+# columns to `text` per row (which would defeat the FK/PK indexes and force
+# full sequential scans of the global `actor` / `workspace` tables). Org
+# membership is resolved by joining each pin's scope to its parent org via those
+# indexes instead of pre-materializing the org's entire actor set. `origin` is
+# `text` whose meaning depends on `origin_type`: a `connector_rollout` id for
+# rollout pins, a `"user"` id for manual `user` pins, and a non-uuid identifier
+# for breaking-change pins. So every cast of `origin` to `uuid` is `CASE`-guarded
+# to the matching `origin_type` rather than applied blindly.
+SELECT_ORG_PIN_STATS = sqlalchemy.text(
+    """
+    SELECT
+         versions.id AS version_id,
+         versions.actor_definition_id AS connector_definition_id,
+         definitions.name AS connector_name,
+         versions.docker_repository,
+         versions.docker_image_tag,
+         versions.last_published,
+         COUNT(*) AS pin_count,
+         COALESCE(SUM(CASE WHEN sc.origin_type = 'breaking_change' THEN 1 END), 0) AS breaking_change_pins,
+         COALESCE(SUM(CASE WHEN sc.origin_type = 'connector_rollout' THEN 1 END), 0) AS rollout_pins,
+         COALESCE(SUM(CASE WHEN sc.origin_type IS NULL
+                       OR sc.origin_type NOT IN ('breaking_change', 'connector_rollout') THEN 1
+             END), 0) AS manual_pins,
+         COALESCE(SUM(CASE WHEN (sc.origin_type IS NULL OR sc.origin_type NOT IN ('breaking_change', 'connector_rollout'))
+                       AND sc.scope_type = 'actor' THEN 1
+             END), 0) AS actor_pins,
+         COALESCE(SUM(CASE WHEN sc.scope_type = 'workspace' THEN 1 END), 0) AS workspace_pins,
+         COALESCE(SUM(CASE WHEN sc.scope_type = 'organization' THEN 1 END), 0) AS org_pins,
+         COALESCE(BOOL_OR(
+             cr.state IN ('initialized', 'workflow_started', 'in_progress', 'paused', 'finalizing', 'errored')
+         ), false) AS has_active_rollout
+    FROM scoped_configuration sc
+    LEFT JOIN workspace ws
+      ON sc.scope_type = 'workspace'
+     AND ws.id = sc.scope_id
+     AND ws.tombstone = false
+    LEFT JOIN actor a
+      ON sc.scope_type = 'actor'
+     AND a.id = sc.scope_id
+     AND a.tombstone = false
+    LEFT JOIN workspace aws
+      ON aws.id = a.workspace_id
+     AND aws.tombstone = false
+    JOIN actor_definition_version versions
+      ON versions.id = sc.value::uuid
+    JOIN actor_definition definitions
+      ON definitions.id = versions.actor_definition_id
+    LEFT JOIN connector_rollout cr
+      ON cr.id = CASE WHEN sc.origin_type = 'connector_rollout' THEN CAST(sc.origin AS uuid) END
+    WHERE sc.key = 'connector_version'
+      AND (
+           (sc.scope_type = 'organization' AND sc.scope_id = CAST(:organization_id AS uuid))
+        OR (sc.scope_type = 'workspace' AND ws.organization_id = CAST(:organization_id AS uuid))
+        OR (sc.scope_type = 'actor' AND aws.organization_id = CAST(:organization_id AS uuid))
+      )
+      AND (
+           CAST(:connector_definition_id AS uuid) IS NULL
+           OR versions.actor_definition_id = CAST(:connector_definition_id AS uuid)
+      )
+    GROUP BY
+         versions.id,
+         versions.actor_definition_id,
+         definitions.name,
+         versions.docker_repository,
+         versions.docker_image_tag,
+         versions.last_published,
+         versions.created_at
+    ORDER BY
+         pin_count DESC,
+         versions.created_at DESC
+    LIMIT :limit
+    """
+)
+
+# Detailed per-pin view of every `scoped_configuration` pin discovered under an
+# organization (org/workspace/actor scope), one row per pin. Resolves the pinned
+# connector + version, the scope's display name, the manual author's email
+# (`origin` -> `user`), and — for rollout-origin pins — the backing
+# `connector_rollout` id and state so the caller can distinguish a manual pin
+# from one caused by an active rollout.
+#
+# `:pinned_version_id` narrows to a single version (the post-selection filter
+# for the org tab); `:connector_definition_id` narrows to one connector. The
+# `origin_filter` is applied in Python by the caller, not in SQL — an OR-chain of
+# `:origin_filter = '...'` branches over the whole pin set is a needless scan cost
+# when the fetched pin list is tiny.
+#
+# Performance mirrors `SELECT_ORG_PIN_STATS`: native `uuid = uuid` joins on the
+# FK/PK indexes with the bind parameter cast once, so no per-row `::text` casts
+# defeat the indexes and no org-wide actor set is materialized. `origin` holds a
+# uuid only for `user` (author) and `connector_rollout` pins — breaking-change
+# origins are non-uuid — so both `origin`-keyed joins `CASE`-guard the cast to the
+# matching `origin_type`.
+SELECT_ORG_CONNECTOR_PINS = sqlalchemy.text(
+    """
+    SELECT
+         sc.value::uuid AS pinned_version_id,
+         adv.actor_definition_id AS connector_definition_id,
+         ad.name AS connector_name,
+         adv.docker_repository,
+         adv.docker_image_tag AS pinned_version_tag,
+         sc.scope_type AS pin_scope_type,
+         sc.scope_id,
+         CASE sc.scope_type
+              WHEN 'organization' THEN org.name
+              WHEN 'workspace' THEN ws.name
+              WHEN 'actor' THEN a.name
+         END AS scope_name,
+         sc.origin_type,
+         sc.origin,
+         origin_user.name AS pinned_by_user_name,
+         origin_user.email AS pinned_by_user_email,
+         sc.description,
+         sc.reference_url,
+         sc.created_at,
+         sc.expires_at,
+         cr.id AS rollout_id,
+         cr.state AS rollout_state
+    FROM scoped_configuration sc
+    LEFT JOIN organization org
+      ON sc.scope_type = 'organization'
+     AND org.id = sc.scope_id
+    LEFT JOIN workspace ws
+      ON sc.scope_type = 'workspace'
+     AND ws.id = sc.scope_id
+     AND ws.tombstone = false
+    LEFT JOIN actor a
+      ON sc.scope_type = 'actor'
+     AND a.id = sc.scope_id
+     AND a.tombstone = false
+    LEFT JOIN workspace aws
+      ON aws.id = a.workspace_id
+     AND aws.tombstone = false
+    JOIN actor_definition_version adv
+      ON adv.id = sc.value::uuid
+    JOIN actor_definition ad
+      ON ad.id = adv.actor_definition_id
+    LEFT JOIN "user" origin_user
+      ON origin_user.id = CASE WHEN sc.origin_type = 'user' THEN CAST(sc.origin AS uuid) END
+    LEFT JOIN connector_rollout cr
+      ON cr.id = CASE WHEN sc.origin_type = 'connector_rollout' THEN CAST(sc.origin AS uuid) END
+    WHERE sc.key = 'connector_version'
+      AND (
+           (sc.scope_type = 'organization' AND sc.scope_id = CAST(:organization_id AS uuid))
+        OR (sc.scope_type = 'workspace' AND ws.organization_id = CAST(:organization_id AS uuid))
+        OR (sc.scope_type = 'actor' AND aws.organization_id = CAST(:organization_id AS uuid))
+      )
+      AND (
+           CAST(:connector_definition_id AS uuid) IS NULL
+           OR adv.actor_definition_id = CAST(:connector_definition_id AS uuid)
+      )
+      AND (
+           CAST(:pinned_version_id AS uuid) IS NULL
+           OR sc.value::uuid = CAST(:pinned_version_id AS uuid)
+      )
+    ORDER BY
+         ad.name,
+         adv.docker_image_tag,
+         sc.created_at DESC
+    LIMIT :limit
     """
 )
 

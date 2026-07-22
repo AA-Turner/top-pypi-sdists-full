@@ -332,16 +332,16 @@ def _load_codex_tokens_with_source() -> tuple[CodexOAuthTokens | None, str | Non
         stored = load_oauth_credential("codex")
         return (_tokens_from_credential(stored.credential), stored.source) if stored else (None, None)
 
+    # Codex CLI credentials are external and read-only. Prefer them before touching
+    # the fast-agent credential store so an existing auth.json is sufficient on its own.
+    tokens = _load_codex_cli_tokens()
+    if tokens:
+        return tokens, "auth.json"
+
     stored = load_oauth_credential("codex")
     if stored:
         return _tokens_from_credential(stored.credential), stored.source
 
-    # Codex CLI credentials are an external, read-only fallback. Fast-agent-owned
-    # credentials take precedence so refreshed tokens can persist without modifying
-    # the CLI's auth.json.
-    tokens = _load_codex_cli_tokens()
-    if tokens:
-        return tokens, "auth.json"
     _warn_about_legacy_codex_keyring_credentials()
     return None, None
 
@@ -508,7 +508,7 @@ def login_codex_oauth(timeout_seconds: int = 300) -> CodexOAuthTokens:
             "Authorization code missing from callback URL.",
         )
 
-    if returned_state and returned_state != state:
+    if returned_state != state:
         raise ProviderKeyError(
             "Codex OAuth login failed",
             "State parameter mismatch. Please retry login.",

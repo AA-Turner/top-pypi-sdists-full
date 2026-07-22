@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: RsInstrument
-Version: 1.124.0
+Version: 1.126.0
 Summary: VISA or Socket Communication Module for Rohde & Schwarz Instruments
 Author: Rohde & Schwarz GmbH & Co. KG
 Maintainer: Rohde & Schwarz GmbH & Co. KG
@@ -17,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
@@ -24,6 +25,23 @@ Requires-Dist: pyvisa>=1.13.0
 Requires-Dist: typing-extensions>=4.0.0
 Provides-Extra: mcp
 Requires-Dist: fastmcp>=2.14.0; extra == "mcp"
+Provides-Extra: otel
+Requires-Dist: opentelemetry-api>=1.20.0; extra == "otel"
+Requires-Dist: opentelemetry-sdk>=1.20.0; extra == "otel"
+Provides-Extra: dev
+Requires-Dist: pytest>=8.0; extra == "dev"
+Requires-Dist: pytest-cov>=5.0; extra == "dev"
+Requires-Dist: ruff>=0.9.0; extra == "dev"
+Requires-Dist: ty>=0.0.1; extra == "dev"
+Provides-Extra: dev-mcp-otel
+Requires-Dist: pytest>=8.0; extra == "dev-mcp-otel"
+Requires-Dist: pytest-cov>=5.0; extra == "dev-mcp-otel"
+Requires-Dist: ruff>=0.9.0; extra == "dev-mcp-otel"
+Requires-Dist: ty>=0.0.1; extra == "dev-mcp-otel"
+Requires-Dist: pyvisa-py>=0.7.0; extra == "dev-mcp-otel"
+Requires-Dist: fastmcp>=2.14.0; extra == "dev-mcp-otel"
+Requires-Dist: opentelemetry-api>=1.20.0; extra == "dev-mcp-otel"
+Requires-Dist: opentelemetry-sdk>=1.20.0; extra == "dev-mcp-otel"
 Dynamic: license-file
 
 =============
@@ -70,6 +88,18 @@ If you're looking for examples with specific instruments, check out the ones for
 
 Version history:
 ----------------
+
+    Version 1.126.0.125 (21.07.2026)
+        - Fixed compatibility issue with Python 3.10 and 3.11
+        - Small documentation improvements
+
+    Version 1.125.0.124 (20.07.2026)
+        - Fixed pyvisa-sim backend compatibility
+        - Added ZES ZIMMER to the list of supported manufacturers
+        - Added OTEL module (OpenTelemetry Tracing and Metrics)
+        - MCP server: MCP trace context follows FastMCP ``meta``/``fastmcp.telemetry`` (``RsInstrument[mcp,otel]`` for SCPI spans); package layout ``RsInstrument.mcp`` with ``python -m RsInstrument.mcp`` entrypoint
+        - MCP server - fixed linting issues
+        - Cleaned up PyCharm 2026.1 warnings
 
     Version 1.124.0.122 (09.02.2026)
         - Added IVI interfaces: ``ivi_direct_io``, ``ivi_utility``

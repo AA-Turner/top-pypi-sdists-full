@@ -2197,7 +2197,7 @@ class EvaluationFormSection(dict):
                 *Minimum*: 1
         :param Sequence['EvaluationFormScoreThreshold'] score_thresholds: The score thresholds for performance categories.
         :param _builtins.float weight: The scoring weight of the section.
-                *Minimum*: 0 
+                *Minimum*: 0
                 *Maximum*: 100
         """
         pulumi.set(__self__, "ref_id", ref_id)
@@ -2269,7 +2269,7 @@ class EvaluationFormSection(dict):
     def weight(self) -> Optional[_builtins.float]:
         """
         The scoring weight of the section.
-         *Minimum*: 0 
+         *Minimum*: 0
          *Maximum*: 100
         """
         return pulumi.get(self, "weight")
@@ -4724,35 +4724,22 @@ class RuleAssignSlaAction(dict):
     def __init__(__self__, *,
                  case_sla_configuration: 'outputs.RuleAssignSlaActionCaseSlaConfigurationProperties',
                  sla_assignment_type: 'RuleAssignSlaActionSlaAssignmentType'):
-        """
-        :param 'RuleAssignSlaActionCaseSlaConfigurationProperties' case_sla_configuration: The SLA configuration for cases.
-        :param 'RuleAssignSlaActionSlaAssignmentType' sla_assignment_type: The type of SLA assignment.
-        """
         pulumi.set(__self__, "case_sla_configuration", case_sla_configuration)
         pulumi.set(__self__, "sla_assignment_type", sla_assignment_type)
 
     @_builtins.property
     @pulumi.getter(name="caseSlaConfiguration")
     def case_sla_configuration(self) -> 'outputs.RuleAssignSlaActionCaseSlaConfigurationProperties':
-        """
-        The SLA configuration for cases.
-        """
         return pulumi.get(self, "case_sla_configuration")
 
     @_builtins.property
     @pulumi.getter(name="slaAssignmentType")
     def sla_assignment_type(self) -> 'RuleAssignSlaActionSlaAssignmentType':
-        """
-        The type of SLA assignment.
-        """
         return pulumi.get(self, "sla_assignment_type")
 
 
 @pulumi.output_type
 class RuleAssignSlaActionCaseSlaConfigurationProperties(dict):
-    """
-    The SLA configuration for cases.
-    """
     @staticmethod
     def __key_warning(key: str):
         suggest = None
@@ -4781,8 +4768,6 @@ class RuleAssignSlaActionCaseSlaConfigurationProperties(dict):
                  field_id: Optional[_builtins.str] = None,
                  target_field_values: Optional[Sequence['outputs.RuleSlaTargetFieldValue']] = None):
         """
-        The SLA configuration for cases.
-
         :param _builtins.str name: The name of the SLA.
         :param _builtins.float target_sla_minutes: The target SLA time in minutes.
         :param 'RuleAssignSlaActionCaseSlaConfigurationPropertiesType' type: The type of SLA.
@@ -5060,7 +5045,7 @@ class RuleReference(dict):
         """
         Information about the reference when the ``referenceType`` is ``URL``. Otherwise, null. (Supports variable injection in the ``Value`` field.)
 
-        :param 'RuleReferenceType' type: The type of the reference. ``DATE`` must be of type Epoch timestamp. 
+        :param 'RuleReferenceType' type: The type of the reference. ``DATE`` must be of type Epoch timestamp.
                 *Allowed values*: ``URL`` | ``ATTACHMENT`` | ``NUMBER`` | ``STRING`` | ``DATE`` | ``EMAIL``
         :param _builtins.str value: A valid value for the reference. For example, for a URL reference, a formatted URL that is displayed to an agent in the Contact Control Panel (CCP).
         """
@@ -5071,7 +5056,7 @@ class RuleReference(dict):
     @pulumi.getter
     def type(self) -> 'RuleReferenceType':
         """
-        The type of the reference. ``DATE`` must be of type Epoch timestamp. 
+        The type of the reference. ``DATE`` must be of type Epoch timestamp.
          *Allowed values*: ``URL`` | ``ATTACHMENT`` | ``NUMBER`` | ``STRING`` | ``DATE`` | ``EMAIL``
         """
         return pulumi.get(self, "type")

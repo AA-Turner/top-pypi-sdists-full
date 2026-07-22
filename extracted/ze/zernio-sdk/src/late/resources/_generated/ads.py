@@ -148,6 +148,34 @@ class AdsResource:
             f"/v1/ads/campaigns/{campaign_id}/analytics", params=params
         )
 
+    def generate_ad_previews(
+        self,
+        account_id: str,
+        ad_account_id: str,
+        *,
+        formats: list[str] | None = None,
+        existing_creative_id: str | None = None,
+        creative_spec: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Render pre-create ad previews (Meta)"""
+        payload = self._build_payload(
+            account_id=account_id,
+            ad_account_id=ad_account_id,
+            formats=formats,
+            existing_creative_id=existing_creative_id,
+            creative_spec=creative_spec,
+        )
+        return self._client._post("/v1/ads/preview", data=payload)
+
+    def get_ad_previews(
+        self, ad_id: str, *, formats: str | None = None
+    ) -> dict[str, Any]:
+        """Render previews of an existing ad (Meta)"""
+        params = self._build_params(
+            formats=formats,
+        )
+        return self._client._get(f"/v1/ads/{ad_id}/preview", params=params)
+
     def query_ad_insights(
         self,
         account_id: str,
@@ -156,6 +184,10 @@ class AdsResource:
         level: str | None = None,
         fields: str | None = None,
         breakdowns: str | None = None,
+        action_breakdowns: str | None = None,
+        action_attribution_windows: str | None = None,
+        action_report_time: str | None = None,
+        use_unified_attribution_setting: bool | None = None,
         filtering: str | None = None,
         date_preset: str | None = None,
         from_date: str | None = None,
@@ -171,6 +203,10 @@ class AdsResource:
             level=level,
             fields=fields,
             breakdowns=breakdowns,
+            action_breakdowns=action_breakdowns,
+            action_attribution_windows=action_attribution_windows,
+            action_report_time=action_report_time,
+            use_unified_attribution_setting=use_unified_attribution_setting,
             filtering=filtering,
             date_preset=date_preset,
             from_date=from_date,
@@ -189,6 +225,10 @@ class AdsResource:
         level: str | None = None,
         fields: str | None = None,
         breakdowns: str | None = None,
+        action_breakdowns: str | None = None,
+        action_attribution_windows: list[str] | None = None,
+        action_report_time: str | None = None,
+        use_unified_attribution_setting: bool | None = None,
         filtering: list[dict[str, Any]] | None = None,
         date_preset: str | None = None,
         from_date: str | None = None,
@@ -202,6 +242,10 @@ class AdsResource:
             level=level,
             fields=fields,
             breakdowns=breakdowns,
+            action_breakdowns=action_breakdowns,
+            action_attribution_windows=action_attribution_windows,
+            action_report_time=action_report_time,
+            use_unified_attribution_setting=use_unified_attribution_setting,
             filtering=filtering,
             date_preset=date_preset,
             from_date=from_date,
@@ -292,6 +336,121 @@ class AdsResource:
             account_id=account_id,
         )
         return self._client._get("/v1/ads/business-centers", params=params)
+
+    def get_ads_activity_log(
+        self,
+        account_id: str,
+        ad_account_id: str,
+        *,
+        since: str | None = None,
+        until: str | None = None,
+        object_id: str | None = None,
+        limit: int | None = 50,
+        after: str | None = None,
+    ) -> dict[str, Any]:
+        """Ad account change / audit log (Meta)"""
+        params = self._build_params(
+            account_id=account_id,
+            ad_account_id=ad_account_id,
+            since=since,
+            until=until,
+            object_id=object_id,
+            limit=limit,
+            after=after,
+        )
+        return self._client._get("/v1/ads/activity", params=params)
+
+    def create_rf_prediction(
+        self,
+        account_id: str,
+        ad_account_id: str,
+        start_date: datetime | str,
+        end_date: datetime | str,
+        *,
+        budget_amount: float | None = None,
+        reach: int | None = None,
+        frequency_cap: int | None = None,
+        targeting: dict[str, Any] | None = None,
+        placements: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Create a Reach & Frequency prediction (Meta)"""
+        payload = self._build_payload(
+            account_id=account_id,
+            ad_account_id=ad_account_id,
+            budget_amount=budget_amount,
+            reach=reach,
+            start_date=start_date,
+            end_date=end_date,
+            frequency_cap=frequency_cap,
+            targeting=targeting,
+            placements=placements,
+        )
+        return self._client._post("/v1/ads/rf-predictions", data=payload)
+
+    def get_rf_prediction(
+        self, prediction_id: str, account_id: str, ad_account_id: str
+    ) -> dict[str, Any]:
+        """Read a Reach & Frequency prediction (Meta)"""
+        params = self._build_params(
+            account_id=account_id,
+            ad_account_id=ad_account_id,
+        )
+        return self._client._get(
+            f"/v1/ads/rf-predictions/{prediction_id}", params=params
+        )
+
+    def cancel_rf_reservation(
+        self, prediction_id: str, account_id: str, ad_account_id: str
+    ) -> dict[str, Any]:
+        """Cancel a Reach & Frequency reservation (Meta)"""
+        params = self._build_params(
+            account_id=account_id,
+            ad_account_id=ad_account_id,
+        )
+        return self._client._delete(
+            f"/v1/ads/rf-predictions/{prediction_id}", params=params
+        )
+
+    def reserve_rf_prediction(
+        self, prediction_id: str, account_id: str, ad_account_id: str
+    ) -> dict[str, Any]:
+        """Reserve a Reach & Frequency prediction (Meta)"""
+        payload = self._build_payload(
+            account_id=account_id,
+            ad_account_id=ad_account_id,
+        )
+        return self._client._post(
+            f"/v1/ads/rf-predictions/{prediction_id}/reserve", data=payload
+        )
+
+    def list_ad_studies(
+        self,
+        account_id: str,
+        ad_account_id: str,
+        *,
+        fields: str | None = None,
+        limit: int | None = 25,
+        after: str | None = None,
+    ) -> dict[str, Any]:
+        """A/B tests and lift studies (Meta)"""
+        params = self._build_params(
+            account_id=account_id,
+            ad_account_id=ad_account_id,
+            fields=fields,
+            limit=limit,
+            after=after,
+        )
+        return self._client._get("/v1/ads/studies", params=params)
+
+    def get_ad_account_finance(
+        self, account_id: str, ad_account_id: str
+    ) -> dict[str, Any]:
+        """Ad account finances (Meta)"""
+        params = self._build_params(
+            account_id=account_id,
+            ad_account_id=ad_account_id,
+        )
+        return self._client._get("/v1/ads/accounts/finance", params=params)
 
     def list_ad_accounts(
         self,
@@ -410,6 +569,8 @@ class AdsResource:
         goal: str | None = None,
         optimization_goal: str | None = None,
         billing_event: str | None = None,
+        buying_type: str | None = None,
+        rf_prediction_id: str | None = None,
         budget_amount: float | None = None,
         budget_type: str | None = None,
         status: str | None = None,
@@ -453,6 +614,7 @@ class AdsResource:
         start_date: datetime | str | None = None,
         instagram_account_id: str | None = None,
         dynamic_creative: dict[str, Any] | None = None,
+        carousel_cards: list[dict[str, Any]] | None = None,
         placement_assets: dict[str, Any] | None = None,
         audience_id: str | None = None,
         campaign_type: str | None = "display",
@@ -484,6 +646,8 @@ class AdsResource:
             goal=goal,
             optimization_goal=optimization_goal,
             billing_event=billing_event,
+            buying_type=buying_type,
+            rf_prediction_id=rf_prediction_id,
             budget_amount=budget_amount,
             budget_type=budget_type,
             status=status,
@@ -527,6 +691,7 @@ class AdsResource:
             start_date=start_date,
             instagram_account_id=instagram_account_id,
             dynamic_creative=dynamic_creative,
+            carousel_cards=carousel_cards,
             placement_assets=placement_assets,
             audience_id=audience_id,
             campaign_type=campaign_type,
@@ -656,6 +821,23 @@ class AdsResource:
         return self._client._post(
             f"/v1/ads/lead-forms/{form_id}/test-leads", data=payload
         )
+
+    def upload_ad_image(
+        self,
+        account_id: str,
+        ad_account_id: str,
+        image_base64: str,
+        *,
+        filename: str | None = None,
+    ) -> dict[str, Any]:
+        """Upload an ad image from base64 (Meta)"""
+        payload = self._build_payload(
+            account_id=account_id,
+            ad_account_id=ad_account_id,
+            image_base64=image_base64,
+            filename=filename,
+        )
+        return self._client._post("/v1/ads/images", data=payload)
 
     def search_ad_interests(self, q: str, account_id: str) -> dict[str, Any]:
         """Search targeting interests"""
@@ -990,74 +1172,17 @@ class AdsResource:
             params=params,
         )
 
-    def create_ctwa_ad(
-        self,
-        account_id: str,
-        ad_account_id: str,
-        name: str,
-        budget_amount: float,
-        budget_type: str,
-        *,
-        headline: str | None = None,
-        body: str | None = None,
-        image_url: str | None = None,
-        video: dict[str, Any] | None = None,
-        creatives: list[dict[str, Any]] | None = None,
-        currency: str | None = None,
-        end_date: datetime | str | None = None,
-        countries: list[str] | None = None,
-        cities: list[dict[str, Any]] | None = None,
-        regions: list[dict[str, Any]] | None = None,
-        zips: list[dict[str, Any]] | None = None,
-        metros: list[dict[str, Any]] | None = None,
-        custom_locations: list[dict[str, Any]] | None = None,
-        age_min: int | None = None,
-        age_max: int | None = None,
-        interests: list[dict[str, Any]] | None = None,
-        audience_id: str | None = None,
-        placements: dict[str, Any] | None = None,
-        advantage_audience: int | None = None,
-        objective: str | None = None,
-        bid_strategy: str | None = None,
-        bid_amount: float | None = None,
-        roas_average_floor: float | None = None,
-        dsa_beneficiary: str | None = None,
-        dsa_payor: str | None = None,
-    ) -> dict[str, Any]:
-        """Create Click-to-WhatsApp ad"""
-        payload = self._build_payload(
-            account_id=account_id,
-            ad_account_id=ad_account_id,
-            name=name,
-            headline=headline,
-            body=body,
-            image_url=image_url,
-            video=video,
-            creatives=creatives,
-            budget_amount=budget_amount,
-            budget_type=budget_type,
-            currency=currency,
-            end_date=end_date,
-            countries=countries,
-            cities=cities,
-            regions=regions,
-            zips=zips,
-            metros=metros,
-            custom_locations=custom_locations,
-            age_min=age_min,
-            age_max=age_max,
-            interests=interests,
-            audience_id=audience_id,
-            placements=placements,
-            advantage_audience=advantage_audience,
-            objective=objective,
-            bid_strategy=bid_strategy,
-            bid_amount=bid_amount,
-            roas_average_floor=roas_average_floor,
-            dsa_beneficiary=dsa_beneficiary,
-            dsa_payor=dsa_payor,
-        )
-        return self._client._post("/v1/ads/ctwa", data=payload)
+    def create_messaging_ad(self) -> dict[str, Any]:
+        """Create click-to-message ad (WhatsApp / Messenger / Instagram Direct)"""
+        return self._client._post("/v1/ads/messaging")
+
+    def create_call_ad(self) -> dict[str, Any]:
+        """Create Click-to-Call ad"""
+        return self._client._post("/v1/ads/call")
+
+    def create_ctwa_ad(self) -> dict[str, Any]:
+        """Create Click-to-WhatsApp ad (deprecated)"""
+        return self._client._post("/v1/ads/ctwa")
 
     async def alist_ads(
         self,
@@ -1151,6 +1276,34 @@ class AdsResource:
             f"/v1/ads/campaigns/{campaign_id}/analytics", params=params
         )
 
+    async def agenerate_ad_previews(
+        self,
+        account_id: str,
+        ad_account_id: str,
+        *,
+        formats: list[str] | None = None,
+        existing_creative_id: str | None = None,
+        creative_spec: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Render pre-create ad previews (Meta) (async)"""
+        payload = self._build_payload(
+            account_id=account_id,
+            ad_account_id=ad_account_id,
+            formats=formats,
+            existing_creative_id=existing_creative_id,
+            creative_spec=creative_spec,
+        )
+        return await self._client._apost("/v1/ads/preview", data=payload)
+
+    async def aget_ad_previews(
+        self, ad_id: str, *, formats: str | None = None
+    ) -> dict[str, Any]:
+        """Render previews of an existing ad (Meta) (async)"""
+        params = self._build_params(
+            formats=formats,
+        )
+        return await self._client._aget(f"/v1/ads/{ad_id}/preview", params=params)
+
     async def aquery_ad_insights(
         self,
         account_id: str,
@@ -1159,6 +1312,10 @@ class AdsResource:
         level: str | None = None,
         fields: str | None = None,
         breakdowns: str | None = None,
+        action_breakdowns: str | None = None,
+        action_attribution_windows: str | None = None,
+        action_report_time: str | None = None,
+        use_unified_attribution_setting: bool | None = None,
         filtering: str | None = None,
         date_preset: str | None = None,
         from_date: str | None = None,
@@ -1174,6 +1331,10 @@ class AdsResource:
             level=level,
             fields=fields,
             breakdowns=breakdowns,
+            action_breakdowns=action_breakdowns,
+            action_attribution_windows=action_attribution_windows,
+            action_report_time=action_report_time,
+            use_unified_attribution_setting=use_unified_attribution_setting,
             filtering=filtering,
             date_preset=date_preset,
             from_date=from_date,
@@ -1192,6 +1353,10 @@ class AdsResource:
         level: str | None = None,
         fields: str | None = None,
         breakdowns: str | None = None,
+        action_breakdowns: str | None = None,
+        action_attribution_windows: list[str] | None = None,
+        action_report_time: str | None = None,
+        use_unified_attribution_setting: bool | None = None,
         filtering: list[dict[str, Any]] | None = None,
         date_preset: str | None = None,
         from_date: str | None = None,
@@ -1205,6 +1370,10 @@ class AdsResource:
             level=level,
             fields=fields,
             breakdowns=breakdowns,
+            action_breakdowns=action_breakdowns,
+            action_attribution_windows=action_attribution_windows,
+            action_report_time=action_report_time,
+            use_unified_attribution_setting=use_unified_attribution_setting,
             filtering=filtering,
             date_preset=date_preset,
             from_date=from_date,
@@ -1297,6 +1466,121 @@ class AdsResource:
             account_id=account_id,
         )
         return await self._client._aget("/v1/ads/business-centers", params=params)
+
+    async def aget_ads_activity_log(
+        self,
+        account_id: str,
+        ad_account_id: str,
+        *,
+        since: str | None = None,
+        until: str | None = None,
+        object_id: str | None = None,
+        limit: int | None = 50,
+        after: str | None = None,
+    ) -> dict[str, Any]:
+        """Ad account change / audit log (Meta) (async)"""
+        params = self._build_params(
+            account_id=account_id,
+            ad_account_id=ad_account_id,
+            since=since,
+            until=until,
+            object_id=object_id,
+            limit=limit,
+            after=after,
+        )
+        return await self._client._aget("/v1/ads/activity", params=params)
+
+    async def acreate_rf_prediction(
+        self,
+        account_id: str,
+        ad_account_id: str,
+        start_date: datetime | str,
+        end_date: datetime | str,
+        *,
+        budget_amount: float | None = None,
+        reach: int | None = None,
+        frequency_cap: int | None = None,
+        targeting: dict[str, Any] | None = None,
+        placements: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Create a Reach & Frequency prediction (Meta) (async)"""
+        payload = self._build_payload(
+            account_id=account_id,
+            ad_account_id=ad_account_id,
+            budget_amount=budget_amount,
+            reach=reach,
+            start_date=start_date,
+            end_date=end_date,
+            frequency_cap=frequency_cap,
+            targeting=targeting,
+            placements=placements,
+        )
+        return await self._client._apost("/v1/ads/rf-predictions", data=payload)
+
+    async def aget_rf_prediction(
+        self, prediction_id: str, account_id: str, ad_account_id: str
+    ) -> dict[str, Any]:
+        """Read a Reach & Frequency prediction (Meta) (async)"""
+        params = self._build_params(
+            account_id=account_id,
+            ad_account_id=ad_account_id,
+        )
+        return await self._client._aget(
+            f"/v1/ads/rf-predictions/{prediction_id}", params=params
+        )
+
+    async def acancel_rf_reservation(
+        self, prediction_id: str, account_id: str, ad_account_id: str
+    ) -> dict[str, Any]:
+        """Cancel a Reach & Frequency reservation (Meta) (async)"""
+        params = self._build_params(
+            account_id=account_id,
+            ad_account_id=ad_account_id,
+        )
+        return await self._client._adelete(
+            f"/v1/ads/rf-predictions/{prediction_id}", params=params
+        )
+
+    async def areserve_rf_prediction(
+        self, prediction_id: str, account_id: str, ad_account_id: str
+    ) -> dict[str, Any]:
+        """Reserve a Reach & Frequency prediction (Meta) (async)"""
+        payload = self._build_payload(
+            account_id=account_id,
+            ad_account_id=ad_account_id,
+        )
+        return await self._client._apost(
+            f"/v1/ads/rf-predictions/{prediction_id}/reserve", data=payload
+        )
+
+    async def alist_ad_studies(
+        self,
+        account_id: str,
+        ad_account_id: str,
+        *,
+        fields: str | None = None,
+        limit: int | None = 25,
+        after: str | None = None,
+    ) -> dict[str, Any]:
+        """A/B tests and lift studies (Meta) (async)"""
+        params = self._build_params(
+            account_id=account_id,
+            ad_account_id=ad_account_id,
+            fields=fields,
+            limit=limit,
+            after=after,
+        )
+        return await self._client._aget("/v1/ads/studies", params=params)
+
+    async def aget_ad_account_finance(
+        self, account_id: str, ad_account_id: str
+    ) -> dict[str, Any]:
+        """Ad account finances (Meta) (async)"""
+        params = self._build_params(
+            account_id=account_id,
+            ad_account_id=ad_account_id,
+        )
+        return await self._client._aget("/v1/ads/accounts/finance", params=params)
 
     async def alist_ad_accounts(
         self,
@@ -1417,6 +1701,8 @@ class AdsResource:
         goal: str | None = None,
         optimization_goal: str | None = None,
         billing_event: str | None = None,
+        buying_type: str | None = None,
+        rf_prediction_id: str | None = None,
         budget_amount: float | None = None,
         budget_type: str | None = None,
         status: str | None = None,
@@ -1460,6 +1746,7 @@ class AdsResource:
         start_date: datetime | str | None = None,
         instagram_account_id: str | None = None,
         dynamic_creative: dict[str, Any] | None = None,
+        carousel_cards: list[dict[str, Any]] | None = None,
         placement_assets: dict[str, Any] | None = None,
         audience_id: str | None = None,
         campaign_type: str | None = "display",
@@ -1491,6 +1778,8 @@ class AdsResource:
             goal=goal,
             optimization_goal=optimization_goal,
             billing_event=billing_event,
+            buying_type=buying_type,
+            rf_prediction_id=rf_prediction_id,
             budget_amount=budget_amount,
             budget_type=budget_type,
             status=status,
@@ -1534,6 +1823,7 @@ class AdsResource:
             start_date=start_date,
             instagram_account_id=instagram_account_id,
             dynamic_creative=dynamic_creative,
+            carousel_cards=carousel_cards,
             placement_assets=placement_assets,
             audience_id=audience_id,
             campaign_type=campaign_type,
@@ -1667,6 +1957,23 @@ class AdsResource:
         return await self._client._apost(
             f"/v1/ads/lead-forms/{form_id}/test-leads", data=payload
         )
+
+    async def aupload_ad_image(
+        self,
+        account_id: str,
+        ad_account_id: str,
+        image_base64: str,
+        *,
+        filename: str | None = None,
+    ) -> dict[str, Any]:
+        """Upload an ad image from base64 (Meta) (async)"""
+        payload = self._build_payload(
+            account_id=account_id,
+            ad_account_id=ad_account_id,
+            image_base64=image_base64,
+            filename=filename,
+        )
+        return await self._client._apost("/v1/ads/images", data=payload)
 
     async def asearch_ad_interests(self, q: str, account_id: str) -> dict[str, Any]:
         """Search targeting interests (async)"""
@@ -2011,71 +2318,14 @@ class AdsResource:
             params=params,
         )
 
-    async def acreate_ctwa_ad(
-        self,
-        account_id: str,
-        ad_account_id: str,
-        name: str,
-        budget_amount: float,
-        budget_type: str,
-        *,
-        headline: str | None = None,
-        body: str | None = None,
-        image_url: str | None = None,
-        video: dict[str, Any] | None = None,
-        creatives: list[dict[str, Any]] | None = None,
-        currency: str | None = None,
-        end_date: datetime | str | None = None,
-        countries: list[str] | None = None,
-        cities: list[dict[str, Any]] | None = None,
-        regions: list[dict[str, Any]] | None = None,
-        zips: list[dict[str, Any]] | None = None,
-        metros: list[dict[str, Any]] | None = None,
-        custom_locations: list[dict[str, Any]] | None = None,
-        age_min: int | None = None,
-        age_max: int | None = None,
-        interests: list[dict[str, Any]] | None = None,
-        audience_id: str | None = None,
-        placements: dict[str, Any] | None = None,
-        advantage_audience: int | None = None,
-        objective: str | None = None,
-        bid_strategy: str | None = None,
-        bid_amount: float | None = None,
-        roas_average_floor: float | None = None,
-        dsa_beneficiary: str | None = None,
-        dsa_payor: str | None = None,
-    ) -> dict[str, Any]:
-        """Create Click-to-WhatsApp ad (async)"""
-        payload = self._build_payload(
-            account_id=account_id,
-            ad_account_id=ad_account_id,
-            name=name,
-            headline=headline,
-            body=body,
-            image_url=image_url,
-            video=video,
-            creatives=creatives,
-            budget_amount=budget_amount,
-            budget_type=budget_type,
-            currency=currency,
-            end_date=end_date,
-            countries=countries,
-            cities=cities,
-            regions=regions,
-            zips=zips,
-            metros=metros,
-            custom_locations=custom_locations,
-            age_min=age_min,
-            age_max=age_max,
-            interests=interests,
-            audience_id=audience_id,
-            placements=placements,
-            advantage_audience=advantage_audience,
-            objective=objective,
-            bid_strategy=bid_strategy,
-            bid_amount=bid_amount,
-            roas_average_floor=roas_average_floor,
-            dsa_beneficiary=dsa_beneficiary,
-            dsa_payor=dsa_payor,
-        )
-        return await self._client._apost("/v1/ads/ctwa", data=payload)
+    async def acreate_messaging_ad(self) -> dict[str, Any]:
+        """Create click-to-message ad (WhatsApp / Messenger / Instagram Direct) (async)"""
+        return await self._client._apost("/v1/ads/messaging")
+
+    async def acreate_call_ad(self) -> dict[str, Any]:
+        """Create Click-to-Call ad (async)"""
+        return await self._client._apost("/v1/ads/call")
+
+    async def acreate_ctwa_ad(self) -> dict[str, Any]:
+        """Create Click-to-WhatsApp ad (deprecated) (async)"""
+        return await self._client._apost("/v1/ads/ctwa")

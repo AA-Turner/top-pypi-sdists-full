@@ -208,6 +208,16 @@ class PnpmProvider(BinProvider):
         self.PATH = self._merge_PATH(*path_entries, PATH=self.PATH)
         super().setup_PATH(no_cache=no_cache)
 
+    def _exec_bin_abspath(self, bin_abspath: Path) -> Path:
+        installer = self._INSTALLER_BINARY
+        if (
+            installer is not None
+            and installer.loaded_abspath == bin_abspath
+            and installer.loaded_binprovider is not None
+        ):
+            return installer.loaded_binprovider._exec_bin_abspath(bin_abspath)
+        return super()._exec_bin_abspath(bin_abspath)
+
     def _cached_installer_binary(self, no_cache: bool = False):
         if not no_cache and self._INSTALLER_BINARY and self._INSTALLER_BINARY.is_valid:
             return self._INSTALLER_BINARY
@@ -233,11 +243,19 @@ class PnpmProvider(BinProvider):
                 return loaded
         return None
 
-    def _cache_node_dependency(self, no_cache: bool = False) -> None:
+    def _managed_env_provider(self) -> EnvProvider:
+        """Return the host-discovery provider for this pnpm installation."""
+        managed_lib_dir = self._managed_lib_dir()
+        if managed_lib_dir is None:
+            return EnvProvider()
+        env_root = managed_lib_dir / "env"
+        return EnvProvider(install_root=env_root, bin_dir=env_root / "bin")
+
+    def _cache_node_dependency(self, no_cache: bool = False):
         try:
             node_loaded = Binary(
                 name="node",
-                binproviders=[EnvProvider(install_root=None, bin_dir=None)],
+                binproviders=[self._managed_env_provider()],
             ).load(no_cache=no_cache)
         except Exception:
             node_loaded = None
@@ -260,6 +278,27 @@ class PnpmProvider(BinProvider):
                 resolved_provider=node_loaded.loaded_binprovider,
                 cache_kind="dependency",
             )
+        return node_loaded
+
+    @staticmethod
+    def _pnpm_package_for_node(node_version: SemVer | None) -> str:
+        """Select the newest pnpm major supported by the discovered Node runtime."""
+        version = tuple(node_version) if node_version is not None else None
+        if version is None or version >= (22, 13, 0):
+            return "pnpm"
+        if version >= (18, 12, 0):
+            return "pnpm@10"
+        if version >= (16, 14, 0):
+            return "pnpm@8"
+        if version >= (14, 6, 0):
+            return "pnpm@7"
+        if version >= (12, 17, 0):
+            return "pnpm@6"
+        if version >= (10, 16, 0):
+            return "pnpm@5"
+        if version >= (10, 13, 0):
+            return "pnpm@4"
+        return "pnpm@3"
 
     def _managed_lib_dir(self) -> Path | None:
         """Return the ABX-managed lib root implied by install_root, if any.
@@ -292,11 +331,16 @@ class PnpmProvider(BinProvider):
         return self.cache_dir / "npm"
 
     def _load_installer_at(self, abspath: Path, no_cache: bool = False):
-        loaded = EnvProvider(
-            PATH=str(abspath.parent),
-            install_root=None,
-            bin_dir=None,
-        ).load(bin_name=self.INSTALLER_BIN, no_cache=True)
+        env_provider = (
+            self._managed_env_provider()
+            if self._managed_lib_dir() is not None
+            else EnvProvider(PATH=str(abspath.parent), install_root=None, bin_dir=None)
+        )
+        # INSTALLER_BINARY already selected this exact candidate. Keep the
+        # projection provider constrained to its directory so a different,
+        # newer pnpm elsewhere on ambient PATH cannot replace it here.
+        env_provider.PATH = str(abspath.parent)
+        loaded = env_provider.load(bin_name=self.INSTALLER_BIN, no_cache=True)
         if loaded and loaded.loaded_abspath:
             if loaded.loaded_version and loaded.loaded_sha256:
                 self.write_cached_binary(
@@ -321,15 +365,34 @@ class PnpmProvider(BinProvider):
         from .binprovider_npm import NpmProvider
 
         npm_root = self._installer_provider_root()
+        node_loaded = self._cache_node_dependency(no_cache=no_cache)
+        pnpm_package = self._pnpm_package_for_node(
+            node_loaded.loaded_version if node_loaded is not None else None,
+        )
+        npm_provider = NpmProvider(
+            install_root=npm_root,
+            postinstall_scripts=True,
+            min_release_age=0,
+        ).get_provider_with_overrides(
+            overrides={"pnpm": {"install_args": [pnpm_package]}},
+        )
+
+        # npm is a host dependency. Project it into the managed env/bin before
+        # giving it to the npm provider so no programmatic path relies on the
+        # ambient host path (or the human-convenience LIB_DIR/bin directory).
+        try:
+            host_npm = Binary(
+                name="npm",
+                binproviders=[self._managed_env_provider()],
+            ).load(no_cache=no_cache)
+        except Exception:
+            host_npm = None
+        if host_npm and host_npm.loaded_abspath:
+            npm_provider._INSTALLER_BINARY = host_npm
+
         loaded = Binary(
             name=self.INSTALLER_BIN,
-            binproviders=[
-                NpmProvider(
-                    install_root=npm_root,
-                    postinstall_scripts=True,
-                    min_release_age=0,
-                ),
-            ],
+            binproviders=[npm_provider],
             postinstall_scripts=True,
             min_release_age=0,
         ).install(no_cache=no_cache)
@@ -373,21 +436,55 @@ class PnpmProvider(BinProvider):
             if loaded is not None:
                 return loaded
 
-        local_installer = (
-            self._installer_provider_root()
-            / "node_modules"
-            / ".bin"
-            / str(
-                self.INSTALLER_BIN,
-            )
-        )
-        if local_installer.is_file() and os.access(local_installer, os.X_OK):
-            loaded = self._load_installer_at(local_installer, no_cache=no_cache)
-            if loaded is not None:
-                return loaded
+        from .binprovider_npm import NpmProvider
 
-        loaded = self._install_installer_binary(no_cache=no_cache)
-        return loaded
+        installer_root = self._installer_provider_root()
+        node_loaded = self._cache_node_dependency(no_cache=no_cache)
+        pnpm_package = self._pnpm_package_for_node(
+            node_loaded.loaded_version if node_loaded is not None else None,
+        )
+        installer_provider = NpmProvider(
+            install_root=installer_root,
+            postinstall_scripts=True,
+            min_release_age=0,
+        ).get_provider_with_overrides(
+            overrides={"pnpm": {"install_args": [pnpm_package]}},
+        )
+        with installer_provider.mutation_lock():
+            local_installer = (
+                installer_root
+                / "node_modules"
+                / ".bin"
+                / str(
+                    self.INSTALLER_BIN,
+                )
+            )
+            if local_installer.is_file() and os.access(local_installer, os.X_OK):
+                loaded = installer_provider.load(
+                    self.INSTALLER_BIN,
+                    quiet=True,
+                    no_cache=True,
+                )
+                if loaded and loaded.loaded_abspath:
+                    if loaded.loaded_version and loaded.loaded_sha256:
+                        self.write_cached_binary(
+                            self.INSTALLER_BIN,
+                            loaded.loaded_abspath,
+                            loaded.loaded_version,
+                            loaded.loaded_sha256,
+                            resolved_provider_name=(
+                                loaded.loaded_binprovider.name
+                                if loaded.loaded_binprovider is not None
+                                else self.name
+                            ),
+                            resolved_provider=loaded.loaded_binprovider,
+                            cache_kind="dependency",
+                        )
+                    self._INSTALLER_BINARY = loaded
+                    self._cache_node_dependency(no_cache=no_cache)
+                    return loaded
+
+            return self._install_installer_binary(no_cache=no_cache)
 
     @log_method_call(include_result=True)
     def exec(
@@ -866,7 +963,8 @@ class PnpmProvider(BinProvider):
         **context,
     ) -> HostBinPath | None:
         if str(bin_name) == self.INSTALLER_BIN:
-            return bin_abspath(bin_name, PATH=self.PATH) or bin_abspath(bin_name)
+            installer = self.INSTALLER_BINARY(no_cache=no_cache)
+            return installer.loaded_abspath
         return self._available_cli_paths(no_cache=no_cache).get(str(bin_name))
 
     def default_version_handler(

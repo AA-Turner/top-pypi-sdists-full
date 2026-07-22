@@ -204,7 +204,7 @@ class WidgetSchema:
         return self
 
     def read_cnpj(self, label: str, **kwargs):
-        """CNPJ number input with validation and masking.
+        """CNPJ input with validation and masking. Accepts both the numeric and the alphanumeric CNPJ formats.
 
         Position Args:
                 label (str): The label to display to the user

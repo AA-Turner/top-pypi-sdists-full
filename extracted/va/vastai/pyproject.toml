@@ -40,9 +40,10 @@ dependencies = [
   "curlify>=2.2",
   "rich>=13.0",
   "cryptography==49.0.0",
-  "pillow==12.2.0"
+  "pillow==12.2.0",
+  "typing-extensions>=4.6.0"
 ]
-version = "1.4.2"
+version = "1.4.3"
 
 [tool.poetry]
 packages = [

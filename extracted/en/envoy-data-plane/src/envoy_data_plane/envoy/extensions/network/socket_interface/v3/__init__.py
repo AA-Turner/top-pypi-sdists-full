@@ -23,7 +23,7 @@ class DefaultSocketInterface(betterproto2.Message):
     """
     [#protodoc-title: Default socket interface configuration]
 
-    Configuration for default socket interface that relies on OS dependent syscall to create
+    Configuration for the default socket interface that relies on OS-dependent syscalls to create
     sockets.
     """
 
@@ -31,9 +31,14 @@ class DefaultSocketInterface(betterproto2.Message):
         1, betterproto2.TYPE_MESSAGE, optional=True
     )
     """
-    io_uring options. io_uring is only valid in Linux with at least kernel version 5.11. Otherwise,
-    Envoy will fall back to use the default socket API. If not set then io_uring will not be
-    enabled.
+    Options for ``io_uring``-based socket I/O. ``io_uring`` is only supported on Linux with
+    kernel version 5.11 or later. On unsupported platforms, Envoy falls back to the default
+    socket API.
+
+    .. note::
+
+      If not set, ``io_uring`` will not be enabled and the standard epoll-based I/O path
+      is used.
     """
 
 
@@ -46,6 +51,21 @@ default_message_pool.register_message(
 
 @dataclass(eq=False, repr=False, config={"extra": "forbid"})
 class IoUringOptions(betterproto2.Message):
+    """
+    Configuration for ``io_uring``-based asynchronous I/O.
+
+    Each worker thread creates its own ``io_uring`` instance during initialization. Operations
+    are submitted to the submission queue (SQ) and completions are reaped from the completion
+    queue (CQ) via an eventfd integrated with the worker's event loop.
+
+    .. warning::
+
+      ``io_uring`` support is experimental and its performance characteristics depend heavily on
+      the kernel version.
+
+    [#next-free-field: 8]
+    """
+
     io_uring_size: "int | None" = betterproto2.field(
         1,
         betterproto2.TYPE_MESSAGE,
@@ -53,18 +73,19 @@ class IoUringOptions(betterproto2.Message):
         optional=True,
     )
     """
-    The size for io_uring submission queues (SQ). io_uring is built with a fixed size in each
-    thread during configuration, and each io_uring operation creates a submission queue
-    entry (SQE). The default is 1000.
+    The number of entries in the ``io_uring`` submission queue (SQ). Each in-flight I/O
+    operation requires one SQE. The completion queue (CQ) is sized at ``2x`` this value
+    to provide overflow headroom. If not specified, defaults to 1000.
     """
 
     enable_submission_queue_polling: "bool" = betterproto2.field(
         2, betterproto2.TYPE_BOOL
     )
     """
-    Enable io_uring submission queue polling (SQPOLL). io_uring SQPOLL mode polls all SQEs in the
-    SQ in the kernel thread. io_uring SQPOLL mode may reduce latency and increase CPU usage as a
-    cost. The default is false.
+    Enables ``io_uring`` submission queue polling (``SQPOLL``). When enabled, a dedicated
+    kernel thread polls the SQ for new entries, eliminating the ``io_uring_enter()`` syscall
+    on submission. This may reduce latency at the cost of increased CPU usage.
+    If not specified, defaults to false.
     """
 
     read_buffer_size: "int | None" = betterproto2.field(
@@ -74,9 +95,10 @@ class IoUringOptions(betterproto2.Message):
         optional=True,
     )
     """
-    The size of an io_uring socket's read buffer. Each io_uring read operation will allocate a
-    buffer of the given size. If the given buffer is too small, the socket will have read multiple
-    times for all the data. The default is 8192.
+    The starting size in bytes of the buffer for each ``readv``-based ``io_uring`` read. Envoy
+    grows the next read up to 16 times this size while reads keep filling the buffer and resets it
+    otherwise, so large transfers use fewer reads. When ``enable_multishot_receive`` is set, this
+    is also the size of each kernel-provided buffer. If not specified, defaults to 8192.
     """
 
     write_timeout_ms: "int | None" = betterproto2.field(
@@ -86,9 +108,53 @@ class IoUringOptions(betterproto2.Message):
         optional=True,
     )
     """
-    The write timeout of an io_uring socket on closing in ms. io_uring writes and closes
-    asynchronously. If the remote stops reading, the io_uring write operation may never complete.
-    The operation is canceled and the socket is closed after the timeout. The default is 1000.
+    The timeout in milliseconds to wait for pending write operations to complete when closing
+    a socket. ``io_uring`` writes are asynchronous. If the remote peer stops reading, a write
+    may never complete. After this timeout, pending writes are canceled and the socket is
+    closed. If not specified, defaults to 1000.
+    """
+
+    write_high_watermark_bytes: "int | None" = betterproto2.field(
+        5,
+        betterproto2.TYPE_MESSAGE,
+        unwrap=lambda: _____google__protobuf__.UInt32Value,
+        optional=True,
+    )
+    """
+    The high watermark in bytes for the write buffer. When the amount of pending write data
+    exceeds this threshold, the socket stops accepting new writes from the connection so that
+    backpressure propagates to the upper layers. If not specified, defaults to 131072 (128 KiB).
+    When set, the value must be at least 4096 (4 KiB).
+    """
+
+    write_low_watermark_bytes: "int | None" = betterproto2.field(
+        6,
+        betterproto2.TYPE_MESSAGE,
+        unwrap=lambda: _____google__protobuf__.UInt32Value,
+        optional=True,
+    )
+    """
+    The low watermark in bytes for the write buffer. After the buffer has exceeded
+    ``write_high_watermark_bytes`` and writes were paused, the socket resumes accepting writes
+    once the pending write data drops to or below this value.
+    If not specified, defaults to 16384 (16 KiB).
+    When set, the value must be at least 1024 (1 KiB).
+
+    .. note::
+
+      This value must be less than ``write_high_watermark_bytes``. If misconfigured, it is
+      clamped to ``write_high_watermark_bytes / 2``.
+    """
+
+    enable_multishot_receive: "bool" = betterproto2.field(7, betterproto2.TYPE_BOOL)
+    """
+    Enables ``multishot`` reads backed by a kernel-provided buffer ring. A single ``recv`` is armed
+    per socket and the kernel keeps delivering data as it arrives without a new submission per
+    read, which reduces event loop wakeups and read submissions for read-heavy workloads. The ring
+    holds ``io_uring_size`` buffers rounded up to a power of two and capped at 4096, each
+    ``read_buffer_size`` bytes, so each worker thread uses up to that buffer count times
+    ``read_buffer_size`` bytes for the pool. Requires Linux kernel 6.0 or later. On older kernels,
+    Envoy falls back to ``readv``-based reads. If not specified, defaults to false.
     """
 
 

@@ -56,6 +56,10 @@ def _add_naming(subparser):
 def _add_non_interactive(subparser):
     subparser.add_argument("--non-interactive", action="store_true", help="Use non-interactive mode")
 
+def _add_test(subparser):
+    subparser.add_argument("--test", action="store_true",
+                           help="Run all setup tests defined in configuration_form(). Only valid with the 'configuration' command.")
+
 def create_argument_parser():
     parser = argparse.ArgumentParser(
         prog="fivetran", allow_abbrev=False, add_help=True,
@@ -71,6 +75,7 @@ def create_argument_parser():
     # subparsers that register --force override it when the user passes the flag.
     parser.set_defaults(force=False)
     parser.set_defaults(non_interactive=False)
+    parser.set_defaults(test=False)
 
     subparsers = parser.add_subparsers(dest="command", metavar="<command>")
 
@@ -116,6 +121,14 @@ def create_argument_parser():
     _add_project_path(reset_subparser)
     _add_force(reset_subparser)
     _add_non_interactive(reset_subparser)
+
+    configuration_subparser = subparsers.add_parser(
+        "configuration",
+        help="Interactively collect configuration values or run setup tests",
+        usage="fivetran configuration [project_path] [options]",
+    )
+    _add_project_path(configuration_subparser)
+    _add_test(configuration_subparser)
 
     subparsers.add_parser("help", help="Show this help message and exit",
                           usage="fivetran help")

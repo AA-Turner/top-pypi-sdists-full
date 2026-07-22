@@ -36,10 +36,12 @@ ECOSYSTEM_COMMAND_CATEGORIES = [
         "Discovery",
         [
             "list",
+            "gui",
             "show-graph",
             "show-stats",
-            "dashboard",
-            "start-dashboard",
+            # `dashboard` / `start-dashboard` moved to the top-level
+            # canonical `gui` group (§12); what remains here are hidden
+            # Phase W aliases, which the categorised help never lists.
         ],
     ),
     (

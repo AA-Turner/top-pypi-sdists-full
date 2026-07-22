@@ -49,8 +49,27 @@ class ToolSpec(BaseModel, extra="forbid"):
     description: str
     input_schema: Optional[JSONObject]
 
+class TerminalToolSpec(BaseModel, extra="forbid"):
+    """Describes the environment's ``@terminal`` tool.
+
+    The tool itself is omitted from ``ListToolsOutput.tools`` — the model never
+    sees it. Instead the harness treats a plain assistant message as the end of
+    the rollout and feeds its text back through this tool.
+
+    ``arg`` is the single field name on the tool's Pydantic input model, which
+    the message is passed as. It is None for a terminal tool that takes no
+    arguments — one that ends the rollout on the assistant's message but grades
+    from environment state rather than from the message text.
+    """
+    name: str
+    arg: Optional[str] = None
+    description: str = ""
+
 class ListToolsOutput(BaseModel, extra="forbid"):
     tools: list[ToolSpec]
+    # None when the environment has no @terminal tool. Older env servers never
+    # populate this, so clients must treat a missing field as None.
+    terminal_tool: Optional[TerminalToolSpec] = None
 
 class ToolCall(BaseModel, extra="forbid"):
     name: str

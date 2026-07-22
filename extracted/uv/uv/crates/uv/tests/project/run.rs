@@ -1661,7 +1661,22 @@ fn run_with_local_wheel_refreshes_rebuilt_wheel() -> Result<()> {
 /// search paths are available in these ephemeral environments.
 #[test]
 fn run_with_pyvenv_cfg_file() -> Result<()> {
-    let context = uv_test::test_context!("3.12").with_pyvenv_cfg_filters();
+    let context = uv_test::test_context_with_versions!(&["3.12"]).with_pyvenv_cfg_filters();
+
+    // This sets up to test for a regression where we escaped double quotes and backslashes.
+    // Windows paths don't allow double quotes and use backslash as a path separator so the path has
+    // to differ.
+    let parent_environment = context.temp_dir.child(if cfg!(windows) {
+        ".\\parent-environment"
+    } else {
+        "parent\"\\environment"
+    });
+    context
+        .venv()
+        .arg(parent_environment.path())
+        .assert()
+        .success();
+    let context = context.with_filtered_path(&parent_environment, "PARENT_VENV");
 
     let pyproject_toml = context.temp_dir.child("pyproject.toml");
     pyproject_toml.write_str(indoc! { r#"
@@ -1691,7 +1706,12 @@ fn run_with_pyvenv_cfg_file() -> Result<()> {
        "#
     })?;
 
-    uv_snapshot!(context.filters(), context.run().arg("--with").arg("iniconfig").arg("main.py"), @"
+    uv_snapshot!(context.filters(), context.run()
+        .env(EnvVars::UV_PROJECT_ENVIRONMENT, parent_environment.path())
+        .env(EnvVars::VIRTUAL_ENV, parent_environment.path())
+        .arg("--with")
+        .arg("iniconfig")
+        .arg("main.py"), @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -1700,7 +1720,7 @@ fn run_with_pyvenv_cfg_file() -> Result<()> {
     uv = [UV_VERSION]
     version_info = 3.12.[X]
     include-system-site-packages = false
-    extends-environment = [PARENT_VENV]
+    extends-environment = [PARENT_VENV]/
 
 
     ----- stderr -----
@@ -1719,7 +1739,9 @@ fn run_with_pyvenv_cfg_file() -> Result<()> {
 
 #[test]
 fn run_with_overlay_interpreter() -> Result<()> {
-    let context = uv_test::test_context!("3.12").with_filtered_exe_suffix();
+    let context = uv_test::test_context!("3.12")
+        .with_filtered_virtualenv_bin()
+        .with_filtered_exe_suffix();
 
     let pyproject_toml = context.temp_dir.child("pyproject.toml");
     pyproject_toml.write_str(indoc! { r#"
@@ -1777,7 +1799,7 @@ fn run_with_overlay_interpreter() -> Result<()> {
     success: true
     exit_code: 0
     ----- stdout -----
-    [CACHE_DIR]/builds-v0/[TMP]/python
+    [CACHE_DIR]/builds-v0/[TMP]/[BIN]/python
 
     ----- stderr -----
     Resolved 6 packages in [TIME]
@@ -1799,7 +1821,7 @@ fn run_with_overlay_interpreter() -> Result<()> {
     success: true
     exit_code: 0
     ----- stdout -----
-    [CACHE_DIR]/builds-v0/[TMP]/pythonw
+    [CACHE_DIR]/builds-v0/[TMP]/[BIN]/pythonw
 
     ----- stderr -----
     Resolved 6 packages in [TIME]
@@ -1813,7 +1835,7 @@ fn run_with_overlay_interpreter() -> Result<()> {
     }, {
             assert_snapshot!(
                 context.read("main"), @r#"
-            #![CACHE_DIR]/builds-v0/[TMP]/python
+            #![CACHE_DIR]/builds-v0/[TMP]/[BIN]/python
             # -*- coding: utf-8 -*-
             import sys
             from foo import main
@@ -1844,7 +1866,7 @@ fn run_with_overlay_interpreter() -> Result<()> {
     success: true
     exit_code: 0
     ----- stdout -----
-    [CACHE_DIR]/builds-v0/[TMP]/python
+    [CACHE_DIR]/builds-v0/[TMP]/[BIN]/python
 
     ----- stderr -----
     Resolved 4 packages in [TIME]
@@ -1862,7 +1884,7 @@ fn run_with_overlay_interpreter() -> Result<()> {
     success: true
     exit_code: 0
     ----- stdout -----
-    [CACHE_DIR]/builds-v0/[TMP]/pythonw
+    [CACHE_DIR]/builds-v0/[TMP]/[BIN]/pythonw
 
     ----- stderr -----
     Resolved 4 packages in [TIME]
@@ -1886,7 +1908,7 @@ fn run_with_overlay_interpreter() -> Result<()> {
     success: true
     exit_code: 0
     ----- stdout -----
-    [CACHE_DIR]/builds-v0/[TMP]/python
+    [CACHE_DIR]/builds-v0/[TMP]/[BIN]/python
 
     ----- stderr -----
     Resolved 6 packages in [TIME]
@@ -1900,7 +1922,7 @@ fn run_with_overlay_interpreter() -> Result<()> {
     success: true
     exit_code: 0
     ----- stdout -----
-    [CACHE_DIR]/builds-v0/[TMP]/pythonw
+    [CACHE_DIR]/builds-v0/[TMP]/[BIN]/pythonw
 
     ----- stderr -----
     Resolved 6 packages in [TIME]
@@ -1925,7 +1947,7 @@ fn run_with_overlay_interpreter() -> Result<()> {
     }, {
             assert_snapshot!(
                 context.read("main"), @r#"
-            #![CACHE_DIR]/builds-v0/[TMP]/python
+            #![CACHE_DIR]/builds-v0/[TMP]/[BIN]/python
             # -*- coding: utf-8 -*-
             import sys
             from foo import main
@@ -1945,7 +1967,7 @@ fn run_with_overlay_interpreter() -> Result<()> {
     success: true
     exit_code: 0
     ----- stdout -----
-    [CACHE_DIR]/builds-v0/[TMP]/python
+    [CACHE_DIR]/builds-v0/[TMP]/[BIN]/python
 
     ----- stderr -----
     Resolved 4 packages in [TIME]
@@ -1957,7 +1979,7 @@ fn run_with_overlay_interpreter() -> Result<()> {
     success: true
     exit_code: 0
     ----- stdout -----
-    [CACHE_DIR]/builds-v0/[TMP]/pythonw
+    [CACHE_DIR]/builds-v0/[TMP]/[BIN]/pythonw
 
     ----- stderr -----
     Resolved 4 packages in [TIME]
@@ -2853,7 +2875,7 @@ fn run_no_sync() -> Result<()> {
         .child("__init__.py")
         .touch()?;
 
-    // Running with `--no-sync` should succeed error, even if the lockfile isn't present.
+    // Running with `--no-sync` should succeed, even if the lockfile isn't present.
     uv_snapshot!(context.filters(), context.run().arg("--no-sync").arg("--").arg("python").arg("--version"), @"
     success: true
     exit_code: 0
@@ -3691,7 +3713,7 @@ fn run_no_project() -> Result<()> {
     success: true
     exit_code: 0
     ----- stdout -----
-    [CACHE_DIR]/builds-v0/[TMP]/[PYTHON]
+    [CACHE_DIR]/builds-v0/[TMP]/[BIN]/[PYTHON]
 
     ----- stderr -----
     ");
@@ -3707,7 +3729,7 @@ fn run_no_project() -> Result<()> {
     ----- stderr -----
     ");
 
-    // `run --no-project --locked` should fail.
+    // `run --no-project --locked` should warn about `--locked`.
     uv_snapshot!(context.filters(), context.run().arg("--no-project").arg("--locked").arg("python").arg("-c").arg("import sys; print(sys.executable)"), @"
     success: true
     exit_code: 0
@@ -7225,6 +7247,64 @@ fn run_centralized_environment_no_sync_uses_incompatible_python() -> Result<()> 
         .success();
 
     // `--no-sync` reuses the existing environment despite the Python request.
+    uv_snapshot!(context.filters(), context.run()
+        .arg("--preview-features")
+        .arg("centralized-project-envs")
+        .arg("--no-sync")
+        .arg("--python")
+        .arg("3.11")
+        .arg("python")
+        .arg("-c")
+        .arg("import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"), @r#"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    3.12
+
+    ----- stderr -----
+    warning: Using incompatible environment (`project-cp3.12.[X]-[HASH]`) due to `--no-sync` (The project environment's Python version does not satisfy the request: `Python 3.11`)
+    "#);
+    Ok(())
+}
+
+#[test]
+fn run_centralized_environment_path_file() -> Result<()> {
+    let context = uv_test::test_context_with_versions!(&["3.11", "3.12"])
+        .with_filtered_centralized_environment_hashes();
+    context
+        .temp_dir
+        .child("pyproject.toml")
+        .write_str(indoc! {r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.11"
+        dependencies = []
+    "#})?;
+    context
+        .sync()
+        .arg("--preview-features")
+        .arg("centralized-project-envs")
+        .arg("--python")
+        .arg("3.12")
+        .assert()
+        .success();
+
+    // Point the path file at an environment outside the centralized store.
+    let environment = context.temp_dir.child(".venv");
+    uv_fs::remove_virtualenv(environment.path())?;
+    let external = context.temp_dir.child("external");
+    context
+        .venv()
+        .arg(external.path())
+        .arg("--python")
+        .arg("3.12")
+        .assert()
+        .success();
+    // Resolve a relative path file target from `.venv`'s parent.
+    environment.write_str("external")?;
+
+    // Like a directory link, use the path file's interpreter to select the cached environment.
     uv_snapshot!(context.filters(), context.run()
         .arg("--preview-features")
         .arg("centralized-project-envs")

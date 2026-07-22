@@ -62,7 +62,7 @@ def temp_path_for(path: Path) -> Path:
 
 # Chrome session directory (relative to extractor output dir)
 # Note: Chrome binary is obtained via CHROME_BINARY env var, not searched for.
-# The centralized Chrome binary search is in chrome_utils.js findChromium().
+# Chrome launch consumes the CHROME_BINARY path resolved by abxpkg.
 CHROME_SESSION_DIR = "../chrome"
 SINGLEFILE_NORESULTS_TOKENS = (
     "SingleFile extension completed but no output file found",
@@ -145,7 +145,14 @@ def save_singlefile(
     for arg in config.CHROME_ARGS_EXTRA or []:
         if arg not in chrome_args:
             chrome_args.append(arg)
-    if not config.CHROME_SANDBOX:
+    linux_without_display = (
+        sys.platform.startswith("linux")
+        and not os.environ.get(
+            "DISPLAY",
+            "",
+        ).strip()
+    )
+    if not config.CHROME_SANDBOX or linux_without_display:
         for arg in ("--no-sandbox", "--disable-setuid-sandbox"):
             if arg not in chrome_args:
                 chrome_args.append(arg)

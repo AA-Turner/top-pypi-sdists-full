@@ -1017,11 +1017,6 @@ class EventBus:
         handler: ContravariantEventHandlerCallable[T_OnEvent],
     ) -> EventHandler: ...
 
-    # I dont think this is needed, but leaving it here for now
-    # 9. Coroutine[Any, Any, Any] - direct coroutine
-    # @overload
-    # def on(self, event_pattern: EventPatternType, handler: Coroutine[Any, Any, Any]) -> None: ...
-
     def on(
         self,
         event_pattern: EventPatternType,
@@ -1605,8 +1600,6 @@ class EventBus:
             self.pending_event_queue.shutdown(immediate=True)
             self.pending_event_queue._queue.clear()  # pyright: ignore[reportPrivateUsage]
 
-        # print('DESTROYING', self.event_history)
-
         if self._runloop_task and not self._runloop_task.done():
             try:
                 self._runloop_task.cancel()
@@ -2142,6 +2135,12 @@ class EventBus:
                 raise
             assert resolved_event_timeout is not None
             await self._finalize_event_timeout(event, resolved_event_timeout)
+
+        # Timeout diagnostics can traverse and render the entire event tree. Keep
+        # that synchronous reporting work outside the event's execution deadline
+        # so it cannot consume the budget of handlers that have not run yet.
+        for event_result in event.event_results.values():
+            event_result._log_timeout_diagnostic_if_needed(event)  # pyright: ignore[reportPrivateUsage]
 
         await self._mark_event_complete_if_ready(event)
         await self._propagate_parent_completion(event)

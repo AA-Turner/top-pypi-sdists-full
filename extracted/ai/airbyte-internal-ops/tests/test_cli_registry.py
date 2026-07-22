@@ -236,7 +236,7 @@ def test_registry_connector_version_yank_help() -> None:
 @pytest.mark.unit
 def test_yank_connector_version_response_model() -> None:
     """Test YankConnectorVersionResponse Pydantic model."""
-    from airbyte_ops_mcp.mcp.registry import YankConnectorVersionResponse
+    from airbyte_ops_mcp.mcp.connector_registry import YankConnectorVersionResponse
 
     response = YankConnectorVersionResponse(
         message="Yank workflow triggered for source-faker@1.2.3 on coral:dev.",
@@ -262,6 +262,26 @@ def test_registry_connector_version_unyank_help() -> None:
     result = run_cli("registry", "connector-version", "unyank", "--help")
     assert result.returncode == 0
     assert "unyank" in result.stdout.lower()
+
+
+@pytest.mark.unit
+def test_registry_connector_version_list_yanked_help() -> None:
+    """Test registry connector-version list-yanked help output."""
+    result = run_cli("registry", "connector-version", "list-yanked", "--help")
+    assert result.returncode == 0
+    assert "yanked" in result.stdout.lower()
+    assert "store" in result.stdout.lower()
+    assert "format" in result.stdout.lower()
+
+
+@pytest.mark.unit
+def test_registry_connector_version_yank_status_help() -> None:
+    """Test registry connector-version yank-status help output."""
+    result = run_cli("registry", "connector-version", "yank-status", "--help")
+    assert result.returncode == 0
+    assert "name" in result.stdout.lower()
+    assert "version" in result.stdout.lower()
+    assert "store" in result.stdout.lower()
 
 
 @pytest.mark.unit

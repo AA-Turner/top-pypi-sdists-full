@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-# pyright: strict
 import dataclasses
 import textwrap
 import typing as t
 
 import construct as cs
+import typing_extensions
 from construct.lib.containers import (
     globalPrintFullStrings,
     globalPrintPrivateEntries,
@@ -12,9 +12,195 @@ from construct.lib.containers import (
 )
 from construct.lib.py3compat import bytestringtype, reprstring, unicodestringtype
 
-from .generic_wrapper import Adapter, Construct, Context, ParsedType, PathType
+from .generic_wrapper import Adapter, Construct, Context, PathType
+
+T = t.TypeVar("T")
 
 
+class DataclassFieldError(Exception):
+    """Exception raised by csfield, csfield_noinit, csfield_const and csfield_default."""
+
+
+def _rename_subcon(
+    subcon: Construct[T, t.Any],
+    doc: str | None = None,
+    parsed: t.Callable[[t.Any, Context], None] | None = None,
+) -> Construct[T, t.Any]:
+    """Helper method to rename a subcon if doc or parsed are available."""
+    if (doc is not None) or (parsed is not None):
+        if doc is not None:
+            doc = textwrap.dedent(doc).strip("\n")
+        subcon = cs.Renamed(subcon, newdocs=doc, newparsed=parsed)
+    return subcon
+
+
+def csfield(
+    subcon: Construct[T, t.Any],
+    doc: str | None = None,
+    parsed: t.Callable[[t.Any, Context], None] | None = None,
+    *,
+    kw_only: bool = False,
+) -> T:
+    """
+    Field specifier for dataclasses that are passed to "DataclassStruct" and "DataclassBitStruct".
+
+    Should not be used for fields that can be built from `None` (e.g. `cs.Default`, `cs.Const`,
+    `cs.Rebuild`, `cs.Computed`, `cs.Padding`, `cs.Tell`, `cs.Pass`, `cs.Terminated`). For these
+    fields, use `csfield_noinit()` instead, or - for `cs.Const` and `cs.Default` -
+    `csfield_const()` or `csfield_default()`.
+
+    Note on `kw_only`: if a preceding field in the dataclass has a default value (e.g. created with
+    `csfield_default()`), every following field that has no default of its own (i.e. every plain
+    `csfield()`) must be marked `kw_only=True`. Otherwise Python's `dataclasses` module raises
+    ``TypeError: non-default argument '...' follows default argument`` when the class is defined.
+    """
+    if subcon.flagbuildnone is True:
+        raise DataclassFieldError(
+            "Fields that can build from None, should be used with ``csfield_noinit()``, ``csfield_default()`` or ``csfield_const()``."
+        )
+
+    subcon = _rename_subcon(subcon, doc, parsed)
+
+    return t.cast(
+        T,
+        dataclasses.field(
+            kw_only=kw_only,
+            metadata={"subcon": subcon},
+        ),
+    )
+
+
+def csfield_noinit(
+    subcon: Construct[T, None],
+    doc: str | None = None,
+    parsed: t.Callable[[t.Any, Context], None] | None = None,
+    *,
+    # "init" should not be used by users. It is only for type checkers to see that this field is excluded from __init__.
+    init: t.Literal[False] = False,
+) -> T | None:
+    """
+    Field specifier for dataclasses that are passed to "DataclassStruct" and "DataclassBitStruct" for constructs that
+    can be build from `None` and thus should be *excluded* from the dataclass constructor.
+
+    It can be used for e.g. `cs.Rebuild`, `cs.Computed`, `cs.Padding`, `cs.Tell`, `cs.Pass` and `cs.Terminated`.
+
+    `cs.Const` and `cs.Default` can also be used with this field specifier. Note however that the field will then
+    be `None` until the struct is parsed, since the constant/default value is not applied by the constructor. If
+    the constant/default value should already be available right after construction, use `csfield_const()` or
+    `csfield_default()` instead.
+    """
+    if subcon.flagbuildnone is False:
+        raise DataclassFieldError(
+            "csfield_noinit() can only be used with constructs that have flagbuildnone=True (Const, Rebuild, Computed, Padding, Tell, Pass, Terminated)."
+        )
+
+    subcon = _rename_subcon(subcon, doc, parsed)
+
+    return t.cast(
+        T | None,
+        dataclasses.field(
+            default=None,
+            init=False,
+            metadata={"subcon": subcon},
+        ),
+    )
+
+
+def csfield_const(
+    subcon: Construct[T, t.Any],
+    const: T,
+    doc: str | None = None,
+    parsed: t.Callable[[t.Any, Context], None] | None = None,
+    *,
+    # "init" should not be used by users. It is only for type checkers to see that this field is excluded from __init__.
+    init: t.Literal[False] = False,
+) -> T:
+    """
+    Field specifier for dataclasses that are passed to "DataclassStruct" and "DataclassBitStruct" for constants.
+    Fields that are created with this field specifier are *excluded* from the dataclass constructor.
+
+    The subcon that is passed to this function is automatically wrapped in a `cs.Const` construct.
+    """
+    if subcon.flagbuildnone is True:
+        raise DataclassFieldError(
+            "csfield_const() cannot be used with a subcon that can already build from None (e.g. another "
+            "``cs.Const``, ``cs.Default`` or ``cs.Computed``). Pass the plain, unwrapped subcon instead."
+        )
+    if callable(const):
+        raise DataclassFieldError(
+            "csfield_const() cannot be used with context lambdas."
+        )
+    if isinstance(subcon, cs.Const):
+        raise DataclassFieldError(
+            "csfield_const() cannot be used with a subcon that is already a ``cs.Const``. Pass the plain, unwrapped subcon instead."
+        )
+
+    subcon = cs.Const(const, subcon)
+    subcon = _rename_subcon(subcon, doc, parsed)
+
+    return t.cast(
+        T,
+        dataclasses.field(
+            default=const,
+            init=False,
+            metadata={"subcon": subcon},
+        ),
+    )
+
+
+def csfield_default(
+    subcon: Construct[T, t.Any],
+    doc: str | None = None,
+    parsed: t.Callable[[t.Any, Context], None] | None = None,
+    *,
+    default: T,
+) -> T:
+    """
+    Field specifier for dataclasses that are passed to "DataclassStruct" and
+    DataclassBitStruct" for fields with default values. Fields that are created
+    with this field specifier are *included* in the dataclass constructor.
+
+    The subcon that is passed to this function is automatically wrapped in a
+    `cs.Default` construct.
+
+    For default values that are calculated by the context, use
+    `csfield_noinit(cs.Default(...))` instead.
+
+    Note: since this field has a default value, every field that follows it and has no default of its
+    own (i.e. every plain `csfield()`) must be marked `kw_only=True`. Otherwise Python's `dataclasses`
+    module raises ``TypeError: non-default argument '...' follows default argument`` when the class
+    is defined.
+    """
+    if subcon.flagbuildnone is True:
+        raise DataclassFieldError(
+            "csfield_default() cannot be used with a subcon that can already build from None (e.g. "
+            "``cs.Const``, another ``cs.Default`` or ``cs.Computed``). Pass the plain, unwrapped subcon instead."
+        )
+    if callable(default):
+        raise DataclassFieldError(
+            "csfield_default() cannot be used with context lambdas. Use `csfield_noinit(cs.Default(...))` instead."
+        )
+    if isinstance(subcon, cs.Default):
+        raise DataclassFieldError(
+            "csfield_default() cannot be used with a subcon that is already a ``cs.Default``. Pass the plain, unwrapped subcon instead."
+        )
+
+    subcon = cs.Default(subcon, default)
+    subcon = _rename_subcon(subcon, doc, parsed)
+
+    return t.cast(
+        T,
+        dataclasses.field(
+            default=default,
+            init=True,
+            metadata={"subcon": subcon},
+        ),
+    )
+
+
+@typing_extensions.dataclass_transform(
+    field_specifiers=(csfield, csfield_noinit, csfield_const, csfield_default)
+)
 class DataclassMixin:
     """
     Mixin for the dataclasses which are passed to "DataclassStruct" and "DataclassBitStruct".
@@ -75,52 +261,6 @@ class DataclassMixin:
         return "".join(text)
 
 
-def csfield(
-    subcon: Construct[ParsedType, t.Any],
-    doc: t.Optional[str] = None,
-    parsed: t.Optional[t.Callable[[t.Any, Context], None]] = None,
-) -> ParsedType:
-    """
-    Helper method for "DataclassStruct" and "DataclassBitStruct" to create the dataclass fields.
-
-    This method also processes Const and Default, to pass these values als default values to the dataclass.
-    """
-    orig_subcon = subcon
-
-    # Rename subcon, if doc or parsed are available
-    if (doc is not None) or (parsed is not None):
-        if doc is not None:
-            doc = textwrap.dedent(doc).strip("\n")
-        subcon = cs.Renamed(subcon, newdocs=doc, newparsed=parsed)
-
-    if orig_subcon.flagbuildnone is True:
-        init = False
-        default = None
-    else:
-        init = True
-        default = dataclasses.MISSING
-
-    # Set default values in case of special sucons
-    if isinstance(orig_subcon, cs.Const):
-        const_subcon: "cs.Const[t.Any, t.Any]" = orig_subcon
-        default = const_subcon.value
-    elif isinstance(orig_subcon, cs.Default):
-        default_subcon: "cs.Default[t.Any, t.Any]" = orig_subcon
-        if callable(default_subcon.value):
-            default = None  # context lambda is only defined at parsing/building
-        else:
-            default = default_subcon.value
-
-    return t.cast(
-        ParsedType,
-        dataclasses.field(
-            default=default,
-            init=init,
-            metadata={"subcon": subcon},
-        ),
-    )
-
-
 DataclassType = t.TypeVar("DataclassType", bound=DataclassMixin)
 
 
@@ -152,7 +292,8 @@ class DataclassStruct(Adapter[t.Any, t.Any, DataclassType, DataclassType]):
         Image(width=1, height=2, pixels=b'12')
     """
 
-    subcon: "cs.Struct" # type: ignore
+    subcon: "cs.Struct"  # type: ignore
+
     def __init__(
         self,
         dc_type: t.Type[DataclassType],
@@ -225,10 +366,7 @@ class DataclassStruct(Adapter[t.Any, t.Any, DataclassType, DataclassType]):
 
 def DataclassBitStruct(
     dc_type: t.Type[DataclassType], reverse: bool = False
-) -> t.Union[
-    "cs.Transformed[DataclassType, DataclassType]",
-    "cs.Restreamed[DataclassType, DataclassType]",
-]:
+) -> "cs.Transformed[DataclassType, DataclassType] | cs.Restreamed[DataclassType, DataclassType]":
     r"""
     Makes a DataclassStruct inside a Bitwise.
 

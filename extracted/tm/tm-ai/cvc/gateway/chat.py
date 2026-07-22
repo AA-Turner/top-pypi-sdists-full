@@ -1018,9 +1018,12 @@ async def run_chat_turn(
             tool_complete_callback=lambda *_, **__: None,
             prefill_messages=portal_prefill or None,
         )
+        # v2.92.12 fix: pass prior session messages so "continue" resumes.
+        _prior_msgs = getattr(agent, "_session_messages", None)
+        _history = list(_prior_msgs) if _prior_msgs else None
         result = agent.run_conversation(
             user_message=text,
-            conversation_history=None,
+            conversation_history=_history,
             task_id=session_id,
         )
         return str(result.get("final_response", "") or "")
@@ -1161,9 +1164,16 @@ async def run_chat_turn_streaming(
 
     def _run_agent() -> None:
         try:
+            # v2.92.12 fix: pass prior session messages as conversation_history
+            # so "continue" turns resume from where the agent left off, instead
+            # of restarting from scratch.  The cached agent retains
+            # _session_messages between calls within the same session_id; we
+            # shallow-copy to avoid mutation during the run.
+            _prior_msgs = getattr(agent, "_session_messages", None)
+            _history = list(_prior_msgs) if _prior_msgs else None
             result = agent.run_conversation(
                 user_message=text,
-                conversation_history=None,
+                conversation_history=_history,
                 task_id=session_id,
             )
             run_holder["result"] = result
@@ -1205,7 +1215,25 @@ async def run_chat_turn_streaming(
         yield {"type": "error", "message": f"Agent error: {exc}"}
 
     # Final done event with accumulated text.
-    final_text = "".join(outbox.streamed_text)
+    # v2.92.12 fix: prefer result["final_response"] over streamed_text.
+    # When the agent exits via budget_exhausted, _handle_max_iterations
+    # produces a summary with tools stripped — no text_delta events fire
+    # through the outbox, so streamed_text is empty even though the model
+    # produced a valid summary.  Falling back to result["final_response"]
+    # ensures the dashboard always shows the agent's final answer.
+    _result_dict = run_holder.get("result") or {}
+    final_text = (
+        _result_dict.get("final_response")
+        or "".join(outbox.streamed_text)
+    )
+    # If BOTH are empty, emit an explicit fallback so the dashboard
+    # never renders a blank "done" event (the silent-freeze symptom).
+    if not final_text or not final_text.strip():
+        final_text = (
+            "⚠️ I ran through my tool-iteration budget without producing "
+            "a final summary. Your tool calls did execute — say 'continue' "
+            "and I'll pick up where I left off, or rephrase the request."
+        )
     yield {"type": "done", "content": final_text}
 
     # C3: spine capture finalization for channel adapters.
@@ -1454,6 +1482,16 @@ async def chat_endpoint(
                 or result.get("final_response")
                 or "".join(outbox.streamed_text)
             )
+            # v2.92.12 fix: never send an empty "done" event — that's the
+            # silent-freeze symptom.  If the agent produced no visible text
+            # despite running tool calls, surface an explicit continuation
+            # prompt so the user knows the turn ended without a reply.
+            if not final_text or not str(final_text).strip():
+                final_text = (
+                    "⚠️ I ran through my tool-iteration budget without "
+                    "producing a final summary. Your tool calls did execute "
+                    "— say 'continue' and I'll pick up where I left off."
+                )
             if result.get("failed"):
                 yield _sse({
                     "type": "error",
@@ -1910,6 +1948,16 @@ async def ws_chat_endpoint(
                 or result.get("final_response")
                 or "".join(outbox.streamed_text)
             )
+            # v2.92.12 fix: never send an empty "done" event — that's the
+            # silent-freeze symptom.  If the agent produced no visible text
+            # despite running tool calls, surface an explicit continuation
+            # prompt so the user knows the turn ended without a reply.
+            if not final_text or not str(final_text).strip():
+                final_text = (
+                    "⚠️ I ran through my tool-iteration budget without "
+                    "producing a final summary. Your tool calls did execute "
+                    "— say 'continue' and I'll pick up where I left off."
+                )
             if result.get("failed"):
                 await _send_async({
                     "type": "error",

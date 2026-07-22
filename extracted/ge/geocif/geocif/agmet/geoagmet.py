@@ -99,6 +99,14 @@ class AgmetGeo(base.BaseGeo):
             "AGMET", "show_logos", fallback=True
         )
 
+        # Honor [ML] show_production_share (default True): suppress the
+        # "% of national production" caption on crop-condition figures for
+        # projects where the region share is misleading (e.g. poppy).
+        from geocif.viz import diagnostics as _diag
+        _diag.set_show_production_share(
+            _diag.show_production_share_from_parser(self.parser)
+        )
+
     @staticmethod
     def _expand_eo_plot(eo_plot_raw, plot_snow_thickness=False):
         """Map raw EO variable names to subplot names in GEOGLAM display order.

@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: scenedetect
-Version: 0.7
-Summary: Video scene cut/shot detection program and Python library.
+Version: 0.7.1
+Summary: Video scene cut/shot detection program and Python library (bundles the opencv-python OpenCV variant and the scenedetect CLI).
 Author-email: Brandon Castellano <brandon248@gmail.com>
 License-Expression: BSD-3-Clause
 Project-URL: Homepage, https://www.scenedetect.com
@@ -37,16 +37,6 @@ Provides-Extra: pyav
 Requires-Dist: av>=9.2; extra == "pyav"
 Provides-Extra: moviepy
 Requires-Dist: moviepy; extra == "moviepy"
-Provides-Extra: dev
-Requires-Dist: av>=9.2; extra == "dev"
-Requires-Dist: moviepy; extra == "dev"
-Requires-Dist: pytest>=7.0; extra == "dev"
-Provides-Extra: docs
-Requires-Dist: Sphinx==7.0.1; extra == "docs"
-Requires-Dist: sphinx-copybutton==0.5.2; extra == "docs"
-Provides-Extra: website
-Requires-Dist: mkdocs==1.5.2; extra == "website"
-Requires-Dist: jinja2>=3.1.6; extra == "website"
 Dynamic: license-file
 
 
@@ -75,6 +65,8 @@ Documentation: https://www.scenedetect.com/docs
 Github Repo: https://github.com/Breakthrough/PySceneDetect/
 
 Install: ``pip install --upgrade scenedetect`` (or ``scenedetect-headless`` for servers)
+
+Packages: `scenedetect <https://pypi.org/project/scenedetect/>`_ (CLI + ``opencv-python``), `scenedetect-headless <https://pypi.org/project/scenedetect-headless/>`_ (CLI + ``opencv-python-headless``), and `scenedetect-core <https://pypi.org/project/scenedetect-core/>`_ (library only, minimal dependencies, bring your own OpenCV variant). All provide the same ``scenedetect`` module -- install only one.
 
 ----------------------------------------------------------
 

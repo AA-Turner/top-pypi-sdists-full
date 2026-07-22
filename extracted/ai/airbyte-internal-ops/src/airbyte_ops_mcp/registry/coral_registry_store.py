@@ -41,7 +41,11 @@ from airbyte_ops_mcp.registry.rebuild import OutputMode, RebuildResult, rebuild_
 from airbyte_ops_mcp.registry.registry_store_base import Registry
 from airbyte_ops_mcp.registry.store import RegistryStore
 from airbyte_ops_mcp.registry.yank import (
+    YankedVersion,
+    YankMarkerDetail,
     YankResult,
+    get_yank_marker,
+    list_yanked_versions,
     unyank_connector_version,
     yank_connector_version,
 )
@@ -95,6 +99,29 @@ class CoralRegistry(Registry):
             connector_name=connector_name,
             bucket_name=self.bucket_name,
             version=version,
+        )
+
+    def list_yanked_versions(
+        self,
+        *,
+        with_details: bool = True,
+    ) -> list[YankedVersion]:
+        self._require_no_prefix("list_yanked_versions")
+        return list_yanked_versions(
+            bucket_name=self.bucket_name,
+            with_details=with_details,
+        )
+
+    def get_yank_marker(
+        self,
+        connector_name: str,
+        version: str,
+    ) -> YankMarkerDetail | None:
+        self._require_no_prefix("get_yank_marker")
+        return get_yank_marker(
+            connector_name=connector_name,
+            version=version,
+            bucket_name=self.bucket_name,
         )
 
     # ---------------------------------------------------------------------

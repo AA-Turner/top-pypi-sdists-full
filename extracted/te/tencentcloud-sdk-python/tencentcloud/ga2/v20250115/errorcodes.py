@@ -86,6 +86,9 @@ INVALIDPARAMETERVALUE_ASCIICHARACTERS = 'InvalidParameterValue.AsciiCharacters'
 # 证书 `%(value)s` 和存量证书重复。
 INVALIDPARAMETERVALUE_CERTIFICATESCONFLICT = 'InvalidParameterValue.CertificatesConflict'
 
+# 参数 `%(parameter)s` 不能为空。
+INVALIDPARAMETERVALUE_EMPTY = 'InvalidParameterValue.Empty'
+
 # 七层转发策略域名和存量重复。
 INVALIDPARAMETERVALUE_FORWARDINGPOLICYHOSTCONFLICT = 'InvalidParameterValue.ForwardingPolicyHostConflict'
 
@@ -98,8 +101,17 @@ INVALIDPARAMETERVALUE_INSTANCEMISMATCH = 'InvalidParameterValue.InstanceMismatch
 # 实例名称仅支持以大小写字符或中文开头，支持数字、英文句号、或段划线、下划线。
 INVALIDPARAMETERVALUE_INSTANCENAME = 'InvalidParameterValue.InstanceName'
 
+# 参数 `%(parameter)s` 值 `%(value)s` 数量超过限制。不能大于 `%(limit)s` 个。
+INVALIDPARAMETERVALUE_LIMITEXCEEDED = 'InvalidParameterValue.LimitExceeded'
+
 # 终端节点组监听端口要和终端节点组所属监听器端口保持一致。
 INVALIDPARAMETERVALUE_LISTENERPORTNOTEQUAL = 'InvalidParameterValue.ListenerPortNotEqual'
+
+# 参数`%(value)s`日志主题所在地域与终端节点地域`%(region)s`未正确对应。
+INVALIDPARAMETERVALUE_LOGTASKLOCATEDERROR = 'InvalidParameterValue.LogTaskLocatedError'
+
+# 日志集主题`%(value)s`不存在
+INVALIDPARAMETERVALUE_LOGSETNOTEXIST = 'InvalidParameterValue.LogsetNotExist'
 
 # 参数 `%(parameter)s` 值 `%(value)s` 是无效的。正确且完整的值形如 `%(template)s`。
 INVALIDPARAMETERVALUE_MALFORMED = 'InvalidParameterValue.Malformed'
@@ -160,6 +172,9 @@ RESOURCENOTFOUND = 'ResourceNotFound'
 
 # 加速地域`%(value)s` 已经存在。
 UNSUPPORTEDOPERATION_ACCELERATEREGIONREPEAT = 'UnsupportedOperation.AccelerateRegionRepeat'
+
+# 当前账号不支持配置访问日志。
+UNSUPPORTEDOPERATION_ACCESSLOG = 'UnsupportedOperation.AccessLog'
 
 # 账户被冻结，不支持当前操作。
 UNSUPPORTEDOPERATION_ACCOUNTFROZEN = 'UnsupportedOperation.AccountFrozen'
@@ -227,6 +242,9 @@ UNSUPPORTEDOPERATION_EXISTGLOBALACCELERATORACLPOLICY = 'UnsupportedOperation.Exi
 # 存在监听器，不支持当前操作。
 UNSUPPORTEDOPERATION_EXISTLISTENER = 'UnsupportedOperation.ExistListener'
 
+# 存在第三方节点，不允许配置默认准许所有流量访问通道策略。
+UNSUPPORTEDOPERATION_EXISTTHIRDPARTYNODES = 'UnsupportedOperation.ExistThirdPartyNodes'
+
 # 转发规则不支持配置默认终端节点组。
 UNSUPPORTEDOPERATION_FORWARDGROUPFORWARDINGRULEUNSUPPORTEDDEFAULTENDPOINTGROUP = 'UnsupportedOperation.ForwardGroupForwardingRuleUnsupportedDefaultEndpointGroup'
 
@@ -251,11 +269,17 @@ UNSUPPORTEDOPERATION_IPV6NOTSUPPORT = 'UnsupportedOperation.Ipv6NotSupport'
 # 当前账号不支持配置端口段。
 UNSUPPORTEDOPERATION_LISTENERPORTSEGMENT = 'UnsupportedOperation.ListenerPortSegment'
 
+# 暂不支持，请先授权开启日志任务。
+UNSUPPORTEDOPERATION_NOTAUTHORIZATION = 'UnsupportedOperation.NotAuthorization'
+
 # 当前全球加速实例没有设置跨境类型。无法创建跨境加速地域或终端节点组。
 UNSUPPORTEDOPERATION_NOTSETCROSSBORDERTYPE = 'UnsupportedOperation.NotSetCrossBorderType'
 
 # 仅TCP监听器，支持通过TOA获取客户端IP。
 UNSUPPORTEDOPERATION_ONLYTCPLISTENERSUPPORTTOA = 'UnsupportedOperation.OnlyTcpListenerSupportToa'
+
+# 请求参数错误，不支持当前操作。具体出错信息为：`%(info)s` 。
+UNSUPPORTEDOPERATION_REQUESTPARAMETERSERROR = 'UnsupportedOperation.RequestParametersError'
 
 # 当前操作使终端节点组域名和全球加速实例域名一致，不支持当前操作。
 UNSUPPORTEDOPERATION_SAMEDOMAIN = 'UnsupportedOperation.SameDomain'

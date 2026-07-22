@@ -1463,16 +1463,12 @@ fn to_graph_rec<'a>(
 
                             let mut could_serialize_predicate = true;
                             let predicate = match &options.predicate {
-                                PythonPredicate::PyArrow {
-                                    predicate,
-                                    has_residual,
-                                } => {
-                                    if *has_residual {
-                                        // This will ensure we apply post-apply-predicate
+                                PythonPredicate::PyArrow(pred) => {
+                                    if pred.has_residual {
+                                        // Ensure the engine post-applies the residual predicate.
                                         could_serialize_predicate = false;
                                     }
-
-                                    predicate.into_bound_py_any(py).unwrap()
+                                    pred.pyarrow_predicate.bind(py).clone()
                                 },
                                 PythonPredicate::None => None::<()>.into_bound_py_any(py).unwrap(),
                                 PythonPredicate::Polars(_) => {
@@ -1627,10 +1623,12 @@ fn to_graph_rec<'a>(
 
         #[cfg(feature = "ewma")]
         ewm_variant @ EwmMean { input, options }
+        | ewm_variant @ EwmSum { input, options }
         | ewm_variant @ EwmVar { input, options }
         | ewm_variant @ EwmStd { input, options } => {
             use nodes::ewm::EwmNode;
             use polars_compute::ewm::mean::EwmMeanState;
+            use polars_compute::ewm::sum::EwmSumState;
             use polars_compute::ewm::{EwmCovState, EwmStateUpdate, EwmStdState, EwmVarState};
             use polars_core::with_match_physical_float_type;
 
@@ -1644,6 +1642,17 @@ fn to_graph_rec<'a>(
                         let state: EwmMeanState<$T> = EwmMeanState::new(
                             AsPrimitive::<$T>::as_(options.alpha),
                             options.adjust,
+                            options.min_periods,
+                            options.ignore_nulls,
+                        );
+
+                        Box::new(state)
+                    })
+                },
+                EwmSum { .. } => {
+                    with_match_physical_float_type!(dtype, |$T| {
+                        let state: EwmSumState<$T> = EwmSumState::new(
+                            AsPrimitive::<$T>::as_(options.alpha),
                             options.min_periods,
                             options.ignore_nulls,
                         );
@@ -1670,6 +1679,7 @@ fn to_graph_rec<'a>(
 
             let name = match ewm_variant {
                 EwmMean { .. } => "ewm-mean",
+                EwmSum { .. } => "ewm-sum",
                 EwmVar { .. } => "ewm-var",
                 EwmStd { .. } => "ewm-std",
                 _ => unreachable!(),

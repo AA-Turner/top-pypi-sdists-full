@@ -3,7 +3,7 @@ import typing as t
 
 from typing_extensions import Self
 
-from .generic_wrapper import *
+from .generic_wrapper import Adapter, Construct, Context, PathType
 
 
 # ## TEnum ############################################################################################################
@@ -12,7 +12,7 @@ class EnumValue:
     This is a helper class for adding documentation to an enum value.
     """
 
-    def __init__(self, value: int, doc: t.Optional[str] = None) -> None:
+    def __init__(self, value: int, doc: str | None = None) -> None:
         self.value = value
         self.__doc__ = doc if doc else ""
 
@@ -47,7 +47,7 @@ class EnumBase(enum.IntEnum):
         'This is the running state.'
     """
 
-    def __new__(cls, val: t.Union[EnumValue, int]) -> "Self":
+    def __new__(cls, val: EnumValue | int) -> "Self":
         if isinstance(val, EnumValue):
             obj = int.__new__(cls, val.value)
             obj._value_ = val.value
@@ -62,7 +62,7 @@ class EnumBase(enum.IntEnum):
     # not found in the enum, a new pseudo member is created.
     # The idea is taken from: https://stackoverflow.com/a/57179436
     @classmethod
-    def _missing_(cls, value: t.Any) -> t.Optional[enum.Enum]:
+    def _missing_(cls, value: t.Any) -> enum.Enum | None:
         if isinstance(value, int):
             pseudo_member = cls._value2member_map_.get(value, None)
             if pseudo_member is None:
@@ -91,6 +91,7 @@ class TEnum(Adapter[int, int, EnumType, EnumType]):
     """
     Typed enum.
     """
+
     def __init__(self, subcon: Construct[int, int], enum_type: t.Type[EnumType]):
         if not issubclass(enum_type, EnumBase):
             raise TypeError(
@@ -152,7 +153,7 @@ class FlagsEnumBase(enum.IntFlag):
         'This is option two.'
     """
 
-    def __new__(cls, val: t.Union[EnumValue, int]) -> "Self":
+    def __new__(cls, val: EnumValue | int) -> "Self":
         if isinstance(val, EnumValue):
             obj = int.__new__(cls, val.value)
             obj._value_ = val.value
@@ -187,6 +188,7 @@ class TFlagsEnum(Adapter[int, int, FlagsEnumType, FlagsEnumType]):
     """
     Typed enum.
     """
+
     def __init__(self, subcon: Construct[int, int], enum_type: t.Type[FlagsEnumType]):
         if not issubclass(enum_type, FlagsEnumBase):
             raise TypeError(

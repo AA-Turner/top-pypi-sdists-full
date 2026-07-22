@@ -1,33 +1,32 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: azure-mgmt-servicebus
-Version: 9.0.0
-Summary: Microsoft Azure Service Bus Management Client Library for Python
-Home-page: https://github.com/Azure/azure-sdk-for-python
-Author: Microsoft Corporation
-Author-email: azpysdkhelp@microsoft.com
-License: MIT License
+Version: 10.0.0
+Summary: Microsoft Azure Servicebus Management Client Library for Python
+Author-email: Microsoft Corporation <azpysdkhelp@microsoft.com>
+License-Expression: MIT
+Project-URL: repository, https://github.com/Azure/azure-sdk-for-python
 Keywords: azure,azure sdk
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: License :: OSI Approved :: MIT License
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: isodate>=0.6.1
+Requires-Dist: azure-mgmt-core>=1.6.0
 Requires-Dist: typing-extensions>=4.6.0
-Requires-Dist: azure-common>=1.1
-Requires-Dist: azure-mgmt-core>=1.5.0
+Dynamic: license-file
 
 # Microsoft Azure SDK for Python
 
 This is the Microsoft Azure Service Bus Management Client Library.
-This package has been tested with Python 3.9+.
+This package has been tested with Python 3.10+.
 For a more complete view of Azure libraries, see the [azure sdk python release](https://aka.ms/azsdk/python/all).
 
 ## _Disclaimer_
@@ -38,7 +37,7 @@ _Azure SDK Python packages support for Python 2.7 has ended 01 January 2022. For
 
 ### Prerequisites
 
-- Python 3.9+ is required to use this package.
+- Python 3.10+ is required to use this package.
 - [Azure subscription](https://azure.microsoft.com/free/)
 
 ### Install the package
@@ -50,7 +49,7 @@ pip install azure-identity
 
 ### Authentication
 
-By default, [Azure Active Directory](https://aka.ms/awps/aad) token authentication depends on correct configuration of the following environment variables.
+By default, [Microsoft Entra](https://learn.microsoft.com/entra/fundamentals/what-is-entra) token authentication depends on correct configuration of the following environment variables.
 
 - `AZURE_CLIENT_ID` for Azure client ID.
 - `AZURE_TENANT_ID` for Azure tenant ID.
@@ -86,8 +85,144 @@ If you encounter any bugs or have suggestions, please file an issue in the
 [Issues](https://github.com/Azure/azure-sdk-for-python/issues)
 section of the project. 
 
-
 # Release History
+
+## 10.0.0 (2026-07-20)
+
+### Features Added
+
+  - Client `ServiceBusManagementClient` added parameter `cloud_setting` in method `__init__`
+  - Client `ServiceBusManagementClient` added method `send_request`
+  - Client `ServiceBusManagementClient` added operation group `network_security_perimeter_configuration`
+  - Client `ServiceBusManagementClient` added operation group `network_security_perimeter_configurations`
+  - Model `ProxyResource` added property `system_data`
+  - Model `Resource` added property `system_data`
+  - Model `ResourceNamespacePatch` added property `system_data`
+  - Model `SBNamespaceUpdateParameters` added property `system_data`
+  - Enum `TlsVersion` added member `ONE3`
+  - Enum `MigrationConfigurationName` added member `DEFAULT`
+  - Model `TrackedResource` added property `system_data`
+  - Added model `ConfidentialCompute`
+  - Added model `FailOver`
+  - Added model `FailOverProperties`
+  - Added model `FailoverPropertiesProperties`
+  - Added enum `GeoDRRoleType`
+  - Added model `GeoDataReplicationProperties`
+  - Added enum `IpAddressType`
+  - Added enum `Mode`
+  - Added model `NamespaceFailoverProperties`
+  - Added model `NamespaceReplicaLocation`
+  - Added model `NetworkSecurityPerimeter`
+  - Added model `NetworkSecurityPerimeterConfiguration`
+  - Added model `NetworkSecurityPerimeterConfigurationProperties`
+  - Added model `NetworkSecurityPerimeterConfigurationPropertiesProfile`
+  - Added model `NetworkSecurityPerimeterConfigurationPropertiesResourceAssociation`
+  - Added enum `NetworkSecurityPerimeterConfigurationProvisioningState`
+  - Added model `NspAccessRule`
+  - Added enum `NspAccessRuleDirection`
+  - Added model `NspAccessRuleProperties`
+  - Added model `NspAccessRulePropertiesSubscriptionsItem`
+  - Added model `PlatformCapabilities`
+  - Added model `ProvisioningIssue`
+  - Added model `ProvisioningIssueProperties`
+  - Added enum `ResourceAssociationAccessMode`
+  - Operation group `NamespacesOperations` added method `begin_failover`
+  - Added operation group `NetworkSecurityPerimeterConfigurationOperations`
+  - Added operation group `NetworkSecurityPerimeterConfigurationsOperations`
+
+### Breaking Changes
+
+  - This version introduces new hybrid models which have dual dictionary and model nature. Please follow https://aka.ms/azsdk/python/migrate/hybrid-models for migration.
+  - Model `ArmDisasterRecovery` moved instance variable `provisioning_state`, `pending_replication_operations_count`, `partner_namespace`, `alternate_name` and `role` under property `properties` whose type is `ArmDisasterRecoveryProperties`
+  - Model `MigrationConfigProperties` moved instance variable `provisioning_state`, `pending_replication_operations_count`, `target_namespace`, `post_migration_name` and `migration_state` under property `properties` whose type is `MigrationConfigPropertiesProperties`
+  - Model `NetworkRuleSet` moved instance variable `trusted_service_access_enabled`, `default_action`, `virtual_network_rules`, `ip_rules` and `public_network_access` under property `properties` whose type is `NetworkRuleSetProperties`
+  - Model `PrivateEndpointConnection` moved instance variable `private_endpoint`, `private_link_service_connection_state` and `provisioning_state` under property `properties` whose type is `PrivateEndpointConnectionProperties`
+  - Model `PrivateLinkResource` moved instance variable `group_id`, `required_members` and `required_zone_names` under property `properties` whose type is `PrivateLinkResourceProperties`
+  - Model `ProxyResource` deleted or renamed its instance variable `location`
+  - Model `Rule` moved instance variable `action`, `filter_type`, `sql_filter` and `correlation_filter` under property `properties` whose type is `Ruleproperties`
+  - Model `SBAuthorizationRule` moved instance variable `rights` under property `properties` whose type is `SBAuthorizationRuleProperties`
+  - Model `SBNamespace` moved instance variable `minimum_tls_version`, `provisioning_state`, `status`, `created_at`, `updated_at`, `service_bus_endpoint`, `metric_id`, `zone_redundant`, `encryption`, `private_endpoint_connections`, `disable_local_auth`, `alternate_name`, `public_network_access` and `premium_messaging_partitions` under property `properties` whose type is `SBNamespaceProperties`
+  - Model `SBNamespaceUpdateParameters` moved instance variable `provisioning_state`, `status`, `created_at`, `updated_at`, `service_bus_endpoint`, `metric_id`, `encryption`, `private_endpoint_connections`, `disable_local_auth` and `alternate_name` under property `properties` whose type is `SBNamespaceUpdateProperties`
+  - Model `SBQueue` moved instance variable `count_details`, `created_at`, `updated_at`, `accessed_at`, `size_in_bytes`, `message_count`, `lock_duration`, `max_size_in_megabytes`, `max_message_size_in_kilobytes`, `requires_duplicate_detection`, `requires_session`, `default_message_time_to_live`, `dead_lettering_on_message_expiration`, `duplicate_detection_history_time_window`, `max_delivery_count`, `status`, `enable_batched_operations`, `auto_delete_on_idle`, `enable_partitioning`, `enable_express`, `forward_to` and `forward_dead_lettered_messages_to` under property `properties` whose type is `SBQueueProperties`
+  - Model `SBSubscription` moved instance variable `message_count`, `created_at`, `accessed_at`, `updated_at`, `count_details`, `lock_duration`, `requires_session`, `default_message_time_to_live`, `dead_lettering_on_filter_evaluation_exceptions`, `dead_lettering_on_message_expiration`, `duplicate_detection_history_time_window`, `max_delivery_count`, `status`, `enable_batched_operations`, `auto_delete_on_idle`, `forward_to`, `forward_dead_lettered_messages_to`, `is_client_affine` and `client_affine_properties` under property `properties` whose type is `SBSubscriptionProperties`
+  - Model `SBTopic` moved instance variable `size_in_bytes`, `created_at`, `updated_at`, `accessed_at`, `subscription_count`, `count_details`, `default_message_time_to_live`, `max_size_in_megabytes`, `max_message_size_in_kilobytes`, `requires_duplicate_detection`, `duplicate_detection_history_time_window`, `enable_batched_operations`, `status`, `support_ordering`, `auto_delete_on_idle`, `enable_partitioning` and `enable_express` under property `properties` whose type is `SBTopicProperties`
+  - Method `DisasterRecoveryConfigsOperations.fail_over` changed type of its parameter `parameters` from `FailoverProperties` to `NamespaceFailoverProperties`
+
+### Other Changes
+
+  - Deleted model `ArmDisasterRecoveryListResult`/`MigrationConfigListResult`/`NetworkRuleSetListResult`/`OperationListResult`/`PrivateEndpointConnectionListResult`/`RuleListResult`/`SBAuthorizationRuleListResult`/`SBNamespaceListResult`/`SBQueueListResult`/`SBSubscriptionListResult`/`SBTopicListResult` which actually were not used by SDK users
+  - Deleted model `FailoverProperties`/`SqlRuleAction` which actually were not used by SDK users
+
+## 10.0.0b2 (2026-07-07)
+
+### Features Added
+
+  - Client `ServiceBusManagementClient` added parameter `cloud_setting` in method `__init__`
+  - Client `ServiceBusManagementClient` added method `send_request`
+  - Client `ServiceBusManagementClient` added operation group `network_security_perimeter_configurations`
+  - Client `ServiceBusManagementClient` added operation group `network_security_perimeter_configuration`
+  - Enum `MigrationConfigurationName` added member `DEFAULT`
+  - Model `ProxyResource` added property `system_data`
+  - Model `Resource` added property `system_data`
+  - Model `ResourceNamespacePatch` added property `system_data`
+  - Model `SBNamespaceUpdateParameters` added property `system_data`
+  - Enum `TlsVersion` added member `ONE3`
+  - Model `TrackedResource` added property `system_data`
+  - Added model `ConfidentialCompute`
+  - Added model `FailOver`
+  - Added model `FailOverProperties`
+  - Added model `FailoverPropertiesProperties`
+  - Added enum `GeoDRRoleType`
+  - Added model `GeoDataReplicationProperties`
+  - Added enum `IpAddressType`
+  - Added enum `Mode`
+  - Added model `NamespaceFailoverProperties`
+  - Added model `NamespaceReplicaLocation`
+  - Added model `NetworkSecurityPerimeter`
+  - Added model `NetworkSecurityPerimeterConfiguration`
+  - Added model `NetworkSecurityPerimeterConfigurationProperties`
+  - Added model `NetworkSecurityPerimeterConfigurationPropertiesProfile`
+  - Added model `NetworkSecurityPerimeterConfigurationPropertiesResourceAssociation`
+  - Added enum `NetworkSecurityPerimeterConfigurationProvisioningState`
+  - Added model `NspAccessRule`
+  - Added enum `NspAccessRuleDirection`
+  - Added model `NspAccessRuleProperties`
+  - Added model `NspAccessRulePropertiesSubscriptionsItem`
+  - Added model `PlatformCapabilities`
+  - Added model `ProvisioningIssue`
+  - Added model `ProvisioningIssueProperties`
+  - Added enum `ResourceAssociationAccessMode`
+  - Operation group `NamespacesOperations` added method `begin_failover`
+  - Added operation group `NetworkSecurityPerimeterConfigurationOperations`
+  - Added operation group `NetworkSecurityPerimeterConfigurationsOperations`
+
+### Breaking Changes
+
+  - This version introduces new hybrid models which have dual dictionary and model nature. Please follow https://aka.ms/azsdk/python/migrate/hybrid-models for migration.
+  - Model `ArmDisasterRecovery` moved instance variable `provisioning_state`, `pending_replication_operations_count`, `partner_namespace`, `alternate_name` and `role` under property `properties` whose type is `ArmDisasterRecoveryProperties`
+  - Model `MigrationConfigProperties` moved instance variable `provisioning_state`, `pending_replication_operations_count`, `target_namespace`, `post_migration_name` and `migration_state` under property `properties` whose type is `MigrationConfigPropertiesProperties`
+  - Model `NetworkRuleSet` moved instance variable `trusted_service_access_enabled`, `default_action`, `virtual_network_rules`, `ip_rules` and `public_network_access` under property `properties` whose type is `NetworkRuleSetProperties`
+  - Model `PrivateEndpointConnection` moved instance variable `private_endpoint`, `private_link_service_connection_state` and `provisioning_state` under property `properties` whose type is `PrivateEndpointConnectionProperties`
+  - Model `PrivateLinkResource` moved instance variable `group_id`, `required_members` and `required_zone_names` under property `properties` whose type is `PrivateLinkResourceProperties`
+  - Model `ProxyResource` deleted or renamed its instance variable `location`
+  - Model `Rule` moved instance variable `action`, `filter_type`, `sql_filter` and `correlation_filter` under property `properties` whose type is `Ruleproperties`
+  - Model `SBAuthorizationRule` moved instance variable `rights` under property `properties` whose type is `SBAuthorizationRuleProperties`
+  - Model `SBNamespace` moved instance variable `minimum_tls_version`, `provisioning_state`, `status`, `created_at`, `updated_at`, `service_bus_endpoint`, `metric_id`, `zone_redundant`, `encryption`, `private_endpoint_connections`, `disable_local_auth`, `alternate_name`, `public_network_access` and `premium_messaging_partitions` under property `properties` whose type is `SBNamespaceProperties`
+  - Model `SBNamespaceUpdateParameters` moved instance variable `provisioning_state`, `status`, `created_at`, `updated_at`, `service_bus_endpoint`, `metric_id`, `encryption`, `private_endpoint_connections`, `disable_local_auth` and `alternate_name` under property `properties` whose type is `SBNamespaceUpdateProperties`
+  - Model `SBQueue` moved instance variable `count_details`, `created_at`, `updated_at`, `accessed_at`, `size_in_bytes`, `message_count`, `lock_duration`, `max_size_in_megabytes`, `max_message_size_in_kilobytes`, `requires_duplicate_detection`, `requires_session`, `default_message_time_to_live`, `dead_lettering_on_message_expiration`, `duplicate_detection_history_time_window`, `max_delivery_count`, `status`, `enable_batched_operations`, `auto_delete_on_idle`, `enable_partitioning`, `enable_express`, `forward_to` and `forward_dead_lettered_messages_to` under property `properties` whose type is `SBQueueProperties`
+  - Model `SBSubscription` moved instance variable `message_count`, `created_at`, `accessed_at`, `updated_at`, `count_details`, `lock_duration`, `requires_session`, `default_message_time_to_live`, `dead_lettering_on_filter_evaluation_exceptions`, `dead_lettering_on_message_expiration`, `duplicate_detection_history_time_window`, `max_delivery_count`, `status`, `enable_batched_operations`, `auto_delete_on_idle`, `forward_to`, `forward_dead_lettered_messages_to`, `is_client_affine` and `client_affine_properties` under property `properties` whose type is `SBSubscriptionProperties`
+  - Model `SBTopic` moved instance variable `size_in_bytes`, `created_at`, `updated_at`, `accessed_at`, `subscription_count`, `count_details`, `default_message_time_to_live`, `max_size_in_megabytes`, `max_message_size_in_kilobytes`, `requires_duplicate_detection`, `duplicate_detection_history_time_window`, `enable_batched_operations`, `status`, `support_ordering`, `auto_delete_on_idle`, `enable_partitioning` and `enable_express` under property `properties` whose type is `SBTopicProperties`
+
+### Other Changes
+
+  - Deleted model `ArmDisasterRecoveryListResult`/`MigrationConfigListResult`/`NetworkRuleSetListResult`/`OperationListResult`/`PrivateEndpointConnectionListResult`/`RuleListResult`/`SBAuthorizationRuleListResult`/`SBNamespaceListResult`/`SBQueueListResult`/`SBSubscriptionListResult`/`SBTopicListResult` which actually were not used by SDK users
+  - Deleted model `FailoverProperties`/`SqlRuleAction` which actually were not used by SDK users
+
+## 10.0.0b1 (2025-07-15)
+
+### Breaking Changes
+
+  - This package now only targets the latest Api-Version available on Azure and removes APIs of other Api-Version. After this change, the package can have much smaller size. If your application requires a specific and non-latest Api-Version, it's recommended to pin this package to the previous released version; If your application always only use latest Api-Version, please ignore this change.
 
 ## 9.0.0 (2025-04-22)
 

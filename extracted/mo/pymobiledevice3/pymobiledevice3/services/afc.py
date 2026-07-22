@@ -29,13 +29,13 @@ from typing import Any, Callable, Optional, TextIO, Union
 
 import hexdump
 from click.exceptions import Exit
-from construct import Const, CString, GreedyRange, Int64ul, Tell
+from construct import Bytes, Const, CString, GreedyRange, Int64ul, Tell
 from construct_typed import DataclassMixin, EnumBase, TEnum, TStruct, csfield
 from parameter_decorators import path_to_str
 from pygments import formatters, highlight, lexers
 from pygnuutils.cli.ls import ls as ls_cli
 from pygnuutils.ls import Ls, LsStub
-from tqdm.auto import trange
+from tqdm.auto import tqdm
 from xonsh.built_ins import XSH
 from xonsh.cli_utils import Annotated, Arg, ArgParserAlias
 from xonsh.main import main as xonsh_main
@@ -46,6 +46,13 @@ from pymobiledevice3.lockdown import LockdownClient
 from pymobiledevice3.lockdown_service_provider import LockdownServiceProvider
 from pymobiledevice3.services.lockdown_service import LockdownService
 from pymobiledevice3.utils import get_asyncio_loop, try_decode
+
+try:
+    # construct-typing >= 0.8.0 rejects csfield(Const(...)) and requires csfield_const() for const
+    # fields. Older versions (0.7.x, the Python 3.9 floor) have no csfield_const.
+    from construct_typed import csfield_const
+except ImportError:  # construct-typing < 0.8.0
+    csfield_const = None
 
 MAXIMUM_READ_SIZE = 4 * 1024**2  # 4 MB
 MODE_MASK = 0o0000777
@@ -170,10 +177,16 @@ MAXIMUM_WRITE_SIZE = 1 << 30
 
 AFCMAGIC = b"CFA6LPAA"
 
+# construct-typing >= 0.8.0 requires csfield_const() for const fields; 0.7.x (the Python 3.9 floor)
+# only has csfield(Const(...)). Pick the form the installed version supports.
+_afc_magic_field = (
+    csfield_const(Bytes(len(AFCMAGIC)), AFCMAGIC) if csfield_const is not None else csfield(Const(AFCMAGIC))
+)
+
 
 @dataclass
 class AfcHeader(DataclassMixin):
-    magic: bytes = csfield(Const(AFCMAGIC))
+    magic: bytes = _afc_magic_field
     entire_length: int = csfield(Int64ul)
     this_length: int = csfield(Int64ul)
     packet_num: int = csfield(Int64ul)
@@ -413,12 +426,21 @@ class AfcService(LockdownService):
                     f.write(await self.get_file_contents(src))
                 else:
                     handle = await self.fopen(src)
-                    iterator = range(0, src_size, MAXIMUM_READ_SIZE)
-                    if progress_bar:
-                        iterator = trange(0, src_size, MAXIMUM_READ_SIZE)
-                    for offset in iterator:
-                        to_read = min(MAXIMUM_READ_SIZE, src_size - offset)
-                        f.write(await self.fread(handle, to_read))
+                    # Bytes-scaled bar (B/KB/MB with a live rate) rather than a chunk
+                    # counter — the rate readout doubles as a transfer benchmark.
+                    with tqdm(
+                        total=src_size,
+                        unit="B",
+                        unit_scale=True,
+                        unit_divisor=1024,
+                        desc=posixpath.basename(src),
+                        disable=not progress_bar,
+                    ) as pbar:
+                        for offset in range(0, src_size, MAXIMUM_READ_SIZE):
+                            to_read = min(MAXIMUM_READ_SIZE, src_size - offset)
+                            chunk = await self.fread(handle, to_read)
+                            f.write(chunk)
+                            pbar.update(len(chunk))
                     await self.fclose(handle)
             os.utime(dst, (os.stat(dst).st_atime, (await self.stat(src))["st_mtime"].timestamp()))
             if callback is not None:
@@ -497,13 +519,14 @@ class AfcService(LockdownService):
             await asyncio.sleep(0.1)
 
     @path_to_str()
-    async def _push_internal(self, local_path, remote_path, callback=None):
+    async def _push_internal(self, local_path, remote_path, callback=None, progress_bar: bool = True):
         """
         Internal method for pushing files to the device.
 
         :param local_path: Local file or directory path
         :param remote_path: Remote destination path on the device
         :param callback: Optional callback function called for each file copied (src, dst)
+        :param progress_bar: If True, display a tqdm progress bar while streaming large files.
         """
         if callback is not None:
             callback(local_path, remote_path)
@@ -520,8 +543,35 @@ class AfcService(LockdownService):
                 if not await self.exists(remote_parent):
                     raise
                 remote_path = posixpath.join(remote_parent, os.path.basename(remote_path))
-            with open(local_path, "rb") as f:
-                await self.set_file_contents(remote_path, f.read())
+            src_size = os.path.getsize(local_path)
+            if src_size <= MAXIMUM_READ_SIZE:
+                with open(local_path, "rb") as f:
+                    await self.set_file_contents(remote_path, f.read())
+            else:
+                # Stream large files in chunks instead of loading them whole into memory,
+                # with the same bytes-scaled bar `pull` shows — the live rate readout
+                # doubles as a transfer benchmark.
+                handle = await self.fopen(remote_path, "w")
+                try:
+                    with (
+                        open(local_path, "rb") as f,
+                        tqdm(
+                            total=src_size,
+                            unit="B",
+                            unit_scale=True,
+                            unit_divisor=1024,
+                            desc=os.path.basename(local_path),
+                            disable=not progress_bar,
+                        ) as pbar,
+                    ):
+                        while True:
+                            chunk = f.read(MAXIMUM_READ_SIZE)
+                            if not chunk:
+                                break
+                            await self.fwrite(handle, chunk)
+                            pbar.update(len(chunk))
+                finally:
+                    await self.fclose(handle)
         else:
             # directory
             if not await self.exists(remote_path):
@@ -534,29 +584,33 @@ class AfcService(LockdownService):
                 if os.path.isdir(local_filename):
                     if not await self.exists(remote_filename):
                         await self.makedirs(remote_filename)
-                    await self._push_internal(local_filename, remote_filename, callback=callback)
+                    await self._push_internal(
+                        local_filename, remote_filename, callback=callback, progress_bar=progress_bar
+                    )
                     continue
 
-                await self._push_internal(local_filename, remote_filename, callback=callback)
+                await self._push_internal(local_filename, remote_filename, callback=callback, progress_bar=progress_bar)
 
     @path_to_str()
-    async def push(self, local_path, remote_path, callback=None):
+    async def push(self, local_path, remote_path, callback=None, progress_bar: bool = True):
         """
         Push (upload) a file or directory from the local machine to the device.
 
         A regular file is written to ``remote_path`` (or, if ``remote_path`` is an existing
-        remote directory, into it under the file's basename). A local directory is copied
-        recursively into ``remote_path``/<basename of local_path>, creating remote directories
-        as needed.
+        remote directory, into it under the file's basename). Files larger than
+        ``MAXIMUM_READ_SIZE`` (4 MB) are streamed in chunks with a byte-scaled progress bar.
+        A local directory is copied recursively into ``remote_path``/<basename of local_path>,
+        creating remote directories as needed.
 
         :param local_path: Source path on the local machine.
         :param remote_path: Destination path on the device.
         :param callback: Optional callable invoked as ``callback(local_path, remote_path)``
             before each entry is transferred.
+        :param progress_bar: If True, display a tqdm progress bar while streaming large files.
         """
         if os.path.isdir(local_path):
             remote_path = posixpath.join(remote_path, os.path.basename(local_path))
-        await self._push_internal(local_path, remote_path, callback)
+        await self._push_internal(local_path, remote_path, callback, progress_bar=progress_bar)
 
     @path_to_str()
     async def rm_single(self, filename: str, force: bool = False) -> bool:

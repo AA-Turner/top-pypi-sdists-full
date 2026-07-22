@@ -6,19 +6,15 @@
     - $RUNNER_TAG
   variables:
     IMAGE_REGISTRY: registry.gitlab.com/tango-controls/docker/pytango-builder
-    MANYLINUX: manylinux2014
-    GLIBC_TAG: '2_17' # depends on manylinux
+    MANYLINUX: manylinux_2_28
+    GLIBC_TAG: '2_28' # depends on manylinux
     PYTHON_TAG: 'cp${PYTHON_VER}-cp${PYTHON_VER}'
     WHEEL_GLOB_PATTERN: pytango-*${PYTHON_TAG}*${ARCH}.whl
   parallel:
     matrix:
       - RUNNER_TAG: amd64
-        ARCH: [x86_64, i686]
-        PYTHON_VER: [310, 311, 312, 313]
-      # Skip i686 for Python >=3.14
-      - RUNNER_TAG: amd64
-        ARCH: [x86_64]
-        PYTHON_VER: [314]
+        ARCH: x86_64
+        PYTHON_VER: [310, 311, 312, 313, 314]
       - RUNNER_TAG: aarch64
         ARCH: aarch64
         PYTHON_VER: [310, 311, 312, 313, 314]
@@ -58,8 +54,8 @@ linux:build-wheel-against-specific-branch:
     ARCH: x86_64
     PYTHON_VER: 314
     IMAGE_REGISTRY: registry.gitlab.com/tango-controls/docker/pytango-builder
-    MANYLINUX: manylinux2014
-    GLIBC_TAG: '2_17' # depends on manylinux
+    MANYLINUX: manylinux_2_28
+    GLIBC_TAG: '2_28' # depends on manylinux
     PYTHON_TAG: 'cp${PYTHON_VER}-cp${PYTHON_VER}'
     WHEEL_GLOB_PATTERN: pytango-*${PYTHON_TAG}*${ARCH}.whl
     IDL_SOURCE: "main"

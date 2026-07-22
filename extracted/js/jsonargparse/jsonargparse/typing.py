@@ -6,14 +6,11 @@ import os
 import pathlib
 import re
 import sys
-from typing import Any, Callable, Optional, Union, get_type_hints
-
-if sys.version_info >= (3, 10):
-    from typing import TypeAlias as _TypeAlias
-else:
-    _TypeAlias = type
+from collections.abc import Callable
+from typing import Any, TypeAlias, get_type_hints
 
 from ._common import ClassType, is_final_class, is_subclass, path_dump_preserve_relative
+from ._deprecated import renamed_parameter_warning
 from ._namespace import Namespace
 from ._optionals import final, is_alias_type, pydantic_support
 from ._paths import Path, change_to_path_dir
@@ -60,7 +57,7 @@ _operators2 = {v: k for k, v in _operators1.items()}
 if sys.version_info >= (3, 12):
     from typing import TypeAliasType as TypeAliasType
 
-    _TypeClass = Union[type, TypeAliasType]
+    _TypeClass = type | TypeAliasType
 else:
     _TypeClass = type
 
@@ -71,8 +68,8 @@ registration_pending: dict[str, Callable] = {}
 
 def class_from_function(
     func: Callable[..., ClassType],
-    func_return: Optional[type[ClassType]] = None,
-    name: Optional[str] = None,
+    func_return: type[ClassType] | None = None,
+    name: str | None = None,
 ) -> type[ClassType]:
     """Creates a dynamic class which if instantiated is equivalent to calling func.
 
@@ -165,7 +162,7 @@ class _LazyInitBaseClass:
 
                 lazy_method = partial(self._lazy_init_then_call_method, name)
                 if name == "__call__":
-                    lazy_method = staticmethod(lazy_method)  # type: ignore[assignment]
+                    lazy_method = staticmethod(lazy_method)
                     self._lazy.__call__ = lazy_method  # type: ignore[method-assign]
                 self.__dict__[name] = lazy_method
                 seen_methods[id(member)] = lazy_method
@@ -224,16 +221,16 @@ def extend_base_type(
     name: str,
     base_type: type,
     validation_fn: Callable,
-    docstring: Optional[str] = None,
-    extra_attrs: Optional[dict] = None,
-    register_key: Optional[tuple] = None,
-) -> _TypeAlias:
+    docstring: str | None = None,
+    extra_attrs: dict | None = None,
+    register_key: tuple | None = None,
+) -> TypeAlias:
     """Creates and registers an extension of base type.
 
     Args:
         name: How the new type will be called.
         base_type: The type from which the created type is extended.
-        validation_fn: Function that validates the value on instantiation/casting. Gets two arguments: ``type_class``
+        validation_fn: Function that validates the value on instantiation/casting. Gets two arguments: ``class_type``
             and ``value``.
         docstring: The ``__doc__`` attribute value for the created type.
         extra_attrs: Attributes set to the type class that the ``validation_fn`` can access.
@@ -267,12 +264,12 @@ def extend_base_type(
 
 
 def restricted_number_type(
-    name: Optional[str],
+    name: str | None,
     base_type: type,
-    restrictions: Union[tuple, list[tuple]],
+    restrictions: tuple | list[tuple],
     join: str = "and",
-    docstring: Optional[str] = None,
-) -> _TypeAlias:
+    docstring: str | None = None,
+) -> TypeAlias:
     """Creates or returns an already registered restricted number type class.
 
     Args:
@@ -341,9 +338,9 @@ def restricted_number_type(
 
 def restricted_string_type(
     name: str,
-    regex: Union[str, re.Pattern],
-    docstring: Optional[str] = None,
-) -> _TypeAlias:
+    regex: str | re.Pattern,
+    docstring: str | None = None,
+) -> TypeAlias:
     """Creates or returns an already registered restricted string type class.
 
     Args:
@@ -378,7 +375,7 @@ def restricted_string_type(
     )
 
 
-def _is_path_type(value, type_class):
+def _is_path_type(value, class_type):
     return isinstance(value, Path)
 
 
@@ -393,7 +390,7 @@ def _serialize_path(path: Path):
     return str(path)
 
 
-def path_type(mode: str, docstring: Optional[str] = None, **kwargs) -> _TypeAlias:
+def path_type(mode: str, docstring: str | None = None, **kwargs) -> TypeAlias:
     """Creates or returns an already registered path type class.
 
     Args:
@@ -441,73 +438,74 @@ def path_type(mode: str, docstring: Optional[str] = None, **kwargs) -> _TypeAlia
 class RegisteredType:
     def __init__(
         self,
-        type_class: _TypeClass,
+        class_type: _TypeClass,
         serializer: Callable,
-        deserializer: Optional[Callable],
-        deserializer_exceptions: Union[type[Exception], tuple[type[Exception], ...]],
+        deserializer: Callable | None,
+        deserializer_exceptions: type[Exception] | tuple[type[Exception], ...],
         type_check: Callable,
     ):
-        self.type_class = type_class
+        self.class_type = class_type
         self.serializer = serializer
-        self.base_deserializer = type_class if deserializer is None else deserializer
+        self.base_deserializer = class_type if deserializer is None else deserializer
         self.deserializer_exceptions = deserializer_exceptions
         self.type_check = type_check
 
     def __eq__(self, other):
-        return all(getattr(self, k) == getattr(other, k) for k in ["type_class", "serializer", "base_deserializer"])
+        return all(getattr(self, k) == getattr(other, k) for k in ["class_type", "serializer", "base_deserializer"])
 
     def is_value_of_type(self, value):
-        return self.type_check(value, self.type_class)
+        return self.type_check(value, self.class_type)
 
     def deserializer(self, value):
         try:
             return self.base_deserializer(value)
         except self.deserializer_exceptions as ex:
-            type_class_name = getattr(self.type_class, "__name__", str(self.type_class))
-            ex2 = ValueError(f"Not of type {type_class_name}: {ex}")
+            class_type_name = getattr(self.class_type, "__name__", str(self.class_type))
+            ex2 = ValueError(f"Not of type {class_type_name}: {ex}")
             ex2.parent = ex
             raise ex2 from ex
 
 
+@renamed_parameter_warning({"type_class": "class_type"})
 def register_type(
-    type_class: _TypeClass,
+    class_type: _TypeClass,
     serializer: Callable = str,
-    deserializer: Optional[Callable] = None,
-    deserializer_exceptions: Union[type[Exception], tuple[type[Exception], ...]] = (
+    deserializer: Callable | None = None,
+    deserializer_exceptions: type[Exception] | tuple[type[Exception], ...] = (
         ValueError,
         TypeError,
         AttributeError,
     ),
     type_check: Callable = lambda v, t: v.__class__ == t,
     fail_already_registered: bool = True,
-    uniqueness_key: Optional[tuple] = None,
+    uniqueness_key: tuple | None = None,
 ) -> None:
     """Registers a new type for use in jsonargparse parsers.
 
     Args:
-        type_class: The class to be registered. Python 3.12+ also supports
+        class_type: The class to be registered. Python 3.12+ also supports
             ``TypeAliasType`` aliases.
         serializer: Function that converts an instance of the class to a basic type.
         deserializer: Function that converts a basic type to an instance of the
-            class. Default instantiates ``type_class``.
+            class. Default instantiates ``class_type``.
         deserializer_exceptions: Exceptions that deserializer raises when it fails.
-        type_check: Function to check if a value is of ``type_class``. Gets as arguments the value and ``type_class``.
+        type_check: Function to check if a value is of ``class_type``. Gets as arguments the value and ``class_type``.
         fail_already_registered: Whether to fail if type has already been registered.
         uniqueness_key: Key to determine uniqueness of type.
     """
-    if sys.version_info[:2] < (3, 12) and not inspect.isclass(type_class):
-        raise ValueError(f"Expected type_class to be a class, got {type(type_class)}")
-    elif sys.version_info[:2] >= (3, 12) and not (inspect.isclass(type_class) or is_alias_type(type_class)):
-        raise ValueError(f"Expected type_class to be a class or a type alias, got {type(type_class)}")
-    type_handler = RegisteredType(type_class, serializer, deserializer, deserializer_exceptions, type_check)
+    if sys.version_info[:2] < (3, 12) and not inspect.isclass(class_type):
+        raise ValueError(f"Expected class_type to be a class, got {type(class_type)}")
+    elif sys.version_info[:2] >= (3, 12) and not (inspect.isclass(class_type) or is_alias_type(class_type)):
+        raise ValueError(f"Expected class_type to be a class or a type alias, got {type(class_type)}")
+    type_handler = RegisteredType(class_type, serializer, deserializer, deserializer_exceptions, type_check)
     fail_already_registered = globals().get("_fail_already_registered", fail_already_registered)
-    if not uniqueness_key and fail_already_registered and get_registered_type(type_class):
-        if type_handler == registered_type_handlers[type_class]:
+    if not uniqueness_key and fail_already_registered and get_registered_type(class_type):
+        if type_handler == registered_type_handlers[class_type]:
             return
-        raise ValueError(f'Type "{type_class}" already registered with different serializer and/or deserializer.')
-    registered_type_handlers[type_class] = type_handler
+        raise ValueError(f'Type "{class_type}" already registered with different serializer and/or deserializer.')
+    registered_type_handlers[class_type] = type_handler
     if uniqueness_key is not None:
-        registered_types[uniqueness_key] = type_class
+        registered_types[uniqueness_key] = class_type
 
 
 def register_type_on_first_use(import_path: str, *args, **kwargs):
@@ -518,26 +516,26 @@ def register_type_on_first_use(import_path: str, *args, **kwargs):
     )
 
 
-def get_registered_type(type_class) -> Optional[RegisteredType]:
-    if type_class not in registered_type_handlers:
+def get_registered_type(class_type) -> RegisteredType | None:
+    if class_type not in registered_type_handlers:
         from contextlib import suppress
 
         with suppress(AttributeError, ValueError):
-            import_path = get_import_path(type_class)
+            import_path = get_import_path(class_type)
             if import_path in registration_pending:
                 registration_pending.pop(import_path)()
-    return registered_type_handlers.get(type_class)
+    return registered_type_handlers.get(class_type)
 
 
-def add_type(type_class: type, uniqueness_key: Optional[tuple], type_check: Optional[Callable] = None):
+def add_type(class_type: type, uniqueness_key: tuple | None, type_check: Callable | None = None):
     assert uniqueness_key not in registered_types
-    if type_class.__name__ in globals():
-        raise ValueError(f'Type name "{type_class.__name__}" clashes with name already defined in jsonargparse.typing.')
-    globals()[type_class.__name__] = type_class
+    if class_type.__name__ in globals():
+        raise ValueError(f'Type name "{class_type.__name__}" clashes with name already defined in jsonargparse.typing.')
+    globals()[class_type.__name__] = class_type
     kwargs = {"uniqueness_key": uniqueness_key}
     if type_check is not None:
         kwargs["type_check"] = type_check  # type: ignore[assignment]
-    register_type(type_class, type_class._type, **kwargs)  # type: ignore[arg-type,attr-defined]
+    register_type(class_type, class_type._type, **kwargs)  # type: ignore[attr-defined]
 
 
 _fail_already_registered = False
@@ -596,7 +594,7 @@ def timedelta_deserializer(value):
 register_type_on_first_use("datetime.timedelta", deserializer=timedelta_deserializer)
 
 
-def bytes_serializer(value: Union[bytes, bytearray]) -> str:
+def bytes_serializer(value: bytes | bytearray) -> str:
     from base64 import b64encode
 
     return b64encode(value).decode()
@@ -677,10 +675,10 @@ register_type(SecretStr)
 register_type_on_first_use("pydantic.SecretStr")
 
 
-def pydantic_deserializer(type_class):
+def pydantic_deserializer(class_type):
     from pydantic import create_model  # pylint: disable=no-name-in-module
 
-    pydantic_model = create_model("pydantic_model", pydantic_field=(type_class, ...))
+    pydantic_model = create_model("pydantic_model", pydantic_field=(class_type, ...))
 
     def deserialize(value):
         return pydantic_model(pydantic_field=value).pydantic_field
@@ -688,12 +686,12 @@ def pydantic_deserializer(type_class):
     return deserialize
 
 
-def pydantic_serializer(type_class):
+def pydantic_serializer(class_type):
     serializer = str
     for base in [int, float, bool, list, dict, (set, list)]:
         if not isinstance(base, tuple):
             base = (base, base)
-        if issubclass(type_class, base[0]):
+        if issubclass(class_type, base[0]):
             serializer = base[1]
             break
     return serializer
@@ -707,28 +705,28 @@ pydantic_type_modules = {
 }
 
 
-def is_pydantic_type(type_class):
+def is_pydantic_type(class_type):
     return (
         pydantic_support
-        and inspect.isclass(type_class)
-        and any(getattr(t, "__module__", "") in pydantic_type_modules for t in inspect.getmro(type_class))
+        and inspect.isclass(class_type)
+        and any(getattr(t, "__module__", "") in pydantic_type_modules for t in inspect.getmro(class_type))
     )
 
 
-def register_pydantic_type(type_class):
+def register_pydantic_type(class_type):
     from ._optionals import is_annotated
 
-    if is_annotated(type_class):
-        type_class = type_class.__origin__
-    if not is_pydantic_type(type_class):
+    if is_annotated(class_type):
+        class_type = class_type.__origin__
+    if not is_pydantic_type(class_type):
         return
-    if not get_registered_type(type_class):
+    if not get_registered_type(class_type):
         from pydantic import ValidationError
 
         register_type(
-            type_class=type_class,
-            serializer=pydantic_serializer(type_class),
-            deserializer=pydantic_deserializer(type_class),
+            class_type=class_type,
+            serializer=pydantic_serializer(class_type),
+            deserializer=pydantic_deserializer(class_type),
             deserializer_exceptions=(ValidationError, TypeError),
         )
 

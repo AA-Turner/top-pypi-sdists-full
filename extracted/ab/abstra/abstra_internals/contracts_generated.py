@@ -7756,6 +7756,8 @@ CommonOrganizationFeatureFlagsCLAMAVSCANENABLED = bool
 
 CommonOrganizationFeatureFlagsDBENVVARSENABLED = bool
 
+CommonOrganizationFeatureFlagsCONSOLESECURITYPAGE = bool
+
 
 @dataclass
 class CommonOrganizationFeatureFlags:
@@ -7770,6 +7772,7 @@ class CommonOrganizationFeatureFlags:
     e_n_f_o_r_c_e_c_o_n_s_u_m_p_t_i_o_n_l_i_m_i_t_s: typing.Optional[CommonOrganizationFeatureFlagsENFORCECONSUMPTIONLIMITS] = field(default_factory=lambda: None)
     c_l_a_m_a_v_s_c_a_n_e_n_a_b_l_e_d: typing.Optional[CommonOrganizationFeatureFlagsCLAMAVSCANENABLED] = field(default_factory=lambda: None)
     d_b_e_n_v_v_a_r_s_e_n_a_b_l_e_d: typing.Optional[CommonOrganizationFeatureFlagsDBENVVARSENABLED] = field(default_factory=lambda: None)
+    c_o_n_s_o_l_e_s_e_c_u_r_i_t_y_p_a_g_e: typing.Optional[CommonOrganizationFeatureFlagsCONSOLESECURITYPAGE] = field(default_factory=lambda: None)
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         data = {}
@@ -7790,6 +7793,8 @@ class CommonOrganizationFeatureFlags:
             data['CLAMAV_SCAN_ENABLED'] = self.c_l_a_m_a_v_s_c_a_n_e_n_a_b_l_e_d
         if self.d_b_e_n_v_v_a_r_s_e_n_a_b_l_e_d is not None:
             data['DB_ENV_VARS_ENABLED'] = self.d_b_e_n_v_v_a_r_s_e_n_a_b_l_e_d
+        if self.c_o_n_s_o_l_e_s_e_c_u_r_i_t_y_p_a_g_e is not None:
+            data['CONSOLE_SECURITY_PAGE'] = self.c_o_n_s_o_l_e_s_e_c_u_r_i_t_y_p_a_g_e
         return data
 
     @classmethod
@@ -7806,6 +7811,7 @@ class CommonOrganizationFeatureFlags:
             e_n_f_o_r_c_e_c_o_n_s_u_m_p_t_i_o_n_l_i_m_i_t_s=None if data.get('ENFORCE_CONSUMPTION_LIMITS') is None else bool(data['ENFORCE_CONSUMPTION_LIMITS']),
             c_l_a_m_a_v_s_c_a_n_e_n_a_b_l_e_d=None if data.get('CLAMAV_SCAN_ENABLED') is None else bool(data['CLAMAV_SCAN_ENABLED']),
             d_b_e_n_v_v_a_r_s_e_n_a_b_l_e_d=None if data.get('DB_ENV_VARS_ENABLED') is None else bool(data['DB_ENV_VARS_ENABLED']),
+            c_o_n_s_o_l_e_s_e_c_u_r_i_t_y_p_a_g_e=None if data.get('CONSOLE_SECURITY_PAGE') is None else bool(data['CONSOLE_SECURITY_PAGE']),
         )
 
 
@@ -8131,11 +8137,22 @@ CommonOrganizationMembershipsMetadataAllowedLoginMethodsItem = CommonLoginMethod
 
 CommonOrganizationMembershipsMetadataAllowedLoginMethods = typing.List[CommonOrganizationMembershipsMetadataAllowedLoginMethodsItem]
 
+CommonOrganizationMembershipsMetadataForcePlayerAuth = bool
+
+CommonOrganizationMembershipsMetadataPlayerAuthWhitelistPatternsItem = str
+
+CommonOrganizationMembershipsMetadataPlayerAuthWhitelistPatterns = typing.List[CommonOrganizationMembershipsMetadataPlayerAuthWhitelistPatternsItem]
+
+CommonOrganizationMembershipsMetadataPlayerSsoRequired = bool
+
 
 @dataclass
 class CommonOrganizationMembershipsMetadata:
     whitelist_patterns: typing.Optional[CommonOrganizationMembershipsMetadataWhitelistPatterns] = field(default_factory=lambda: None)
     allowed_login_methods: typing.Optional[CommonOrganizationMembershipsMetadataAllowedLoginMethods] = field(default_factory=lambda: None)
+    force_player_auth: typing.Optional[CommonOrganizationMembershipsMetadataForcePlayerAuth] = field(default_factory=lambda: None)
+    player_auth_whitelist_patterns: typing.Optional[CommonOrganizationMembershipsMetadataPlayerAuthWhitelistPatterns] = field(default_factory=lambda: None)
+    player_sso_required: typing.Optional[CommonOrganizationMembershipsMetadataPlayerSsoRequired] = field(default_factory=lambda: None)
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         data = {}
@@ -8143,6 +8160,12 @@ class CommonOrganizationMembershipsMetadata:
             data['whitelistPatterns'] = self.whitelist_patterns
         if self.allowed_login_methods is not None:
             data['allowedLoginMethods'] = [item for item in self.allowed_login_methods]
+        if self.force_player_auth is not None:
+            data['forcePlayerAuth'] = self.force_player_auth
+        if self.player_auth_whitelist_patterns is not None:
+            data['playerAuthWhitelistPatterns'] = self.player_auth_whitelist_patterns
+        if self.player_sso_required is not None:
+            data['playerSsoRequired'] = self.player_sso_required
         return data
 
     @classmethod
@@ -8150,6 +8173,9 @@ class CommonOrganizationMembershipsMetadata:
         return cls(
             whitelist_patterns=None if data.get('whitelistPatterns') is None else [str(item) for item in data['whitelistPatterns']],
             allowed_login_methods=None if data.get('allowedLoginMethods') is None else [item for item in data['allowedLoginMethods']],
+            force_player_auth=None if data.get('forcePlayerAuth') is None else bool(data['forcePlayerAuth']),
+            player_auth_whitelist_patterns=None if data.get('playerAuthWhitelistPatterns') is None else [str(item) for item in data['playerAuthWhitelistPatterns']],
+            player_sso_required=None if data.get('playerSsoRequired') is None else bool(data['playerSsoRequired']),
         )
 
 
@@ -8271,6 +8297,8 @@ CommonPartialFeatureFlagsCLAMAVSCANENABLED = bool
 
 CommonPartialFeatureFlagsDBENVVARSENABLED = bool
 
+CommonPartialFeatureFlagsCONSOLESECURITYPAGE = bool
+
 
 @dataclass
 class CommonPartialFeatureFlags:
@@ -8285,6 +8313,7 @@ class CommonPartialFeatureFlags:
     e_n_f_o_r_c_e_c_o_n_s_u_m_p_t_i_o_n_l_i_m_i_t_s: typing.Optional[CommonPartialFeatureFlagsENFORCECONSUMPTIONLIMITS] = field(default_factory=lambda: None)
     c_l_a_m_a_v_s_c_a_n_e_n_a_b_l_e_d: typing.Optional[CommonPartialFeatureFlagsCLAMAVSCANENABLED] = field(default_factory=lambda: None)
     d_b_e_n_v_v_a_r_s_e_n_a_b_l_e_d: typing.Optional[CommonPartialFeatureFlagsDBENVVARSENABLED] = field(default_factory=lambda: None)
+    c_o_n_s_o_l_e_s_e_c_u_r_i_t_y_p_a_g_e: typing.Optional[CommonPartialFeatureFlagsCONSOLESECURITYPAGE] = field(default_factory=lambda: None)
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         data = {}
@@ -8310,6 +8339,8 @@ class CommonPartialFeatureFlags:
             data['CLAMAV_SCAN_ENABLED'] = self.c_l_a_m_a_v_s_c_a_n_e_n_a_b_l_e_d
         if self.d_b_e_n_v_v_a_r_s_e_n_a_b_l_e_d is not None:
             data['DB_ENV_VARS_ENABLED'] = self.d_b_e_n_v_v_a_r_s_e_n_a_b_l_e_d
+        if self.c_o_n_s_o_l_e_s_e_c_u_r_i_t_y_p_a_g_e is not None:
+            data['CONSOLE_SECURITY_PAGE'] = self.c_o_n_s_o_l_e_s_e_c_u_r_i_t_y_p_a_g_e
         return data
 
     @classmethod
@@ -8326,6 +8357,7 @@ class CommonPartialFeatureFlags:
             e_n_f_o_r_c_e_c_o_n_s_u_m_p_t_i_o_n_l_i_m_i_t_s=None if data.get('ENFORCE_CONSUMPTION_LIMITS') is None else bool(data['ENFORCE_CONSUMPTION_LIMITS']),
             c_l_a_m_a_v_s_c_a_n_e_n_a_b_l_e_d=None if data.get('CLAMAV_SCAN_ENABLED') is None else bool(data['CLAMAV_SCAN_ENABLED']),
             d_b_e_n_v_v_a_r_s_e_n_a_b_l_e_d=None if data.get('DB_ENV_VARS_ENABLED') is None else bool(data['DB_ENV_VARS_ENABLED']),
+            c_o_n_s_o_l_e_s_e_c_u_r_i_t_y_p_a_g_e=None if data.get('CONSOLE_SECURITY_PAGE') is None else bool(data['CONSOLE_SECURITY_PAGE']),
         )
 
 
@@ -8337,11 +8369,22 @@ CommonPartialMembershipsMetadataAllowedLoginMethodsItem = CommonLoginMethod
 
 CommonPartialMembershipsMetadataAllowedLoginMethods = typing.List[CommonPartialMembershipsMetadataAllowedLoginMethodsItem]
 
+CommonPartialMembershipsMetadataForcePlayerAuth = bool
+
+CommonPartialMembershipsMetadataPlayerAuthWhitelistPatternsItem = str
+
+CommonPartialMembershipsMetadataPlayerAuthWhitelistPatterns = typing.List[CommonPartialMembershipsMetadataPlayerAuthWhitelistPatternsItem]
+
+CommonPartialMembershipsMetadataPlayerSsoRequired = bool
+
 
 @dataclass
 class CommonPartialMembershipsMetadata:
     whitelist_patterns: typing.Optional[CommonPartialMembershipsMetadataWhitelistPatterns] = field(default_factory=lambda: None)
     allowed_login_methods: typing.Optional[CommonPartialMembershipsMetadataAllowedLoginMethods] = field(default_factory=lambda: None)
+    force_player_auth: typing.Optional[CommonPartialMembershipsMetadataForcePlayerAuth] = field(default_factory=lambda: None)
+    player_auth_whitelist_patterns: typing.Optional[CommonPartialMembershipsMetadataPlayerAuthWhitelistPatterns] = field(default_factory=lambda: None)
+    player_sso_required: typing.Optional[CommonPartialMembershipsMetadataPlayerSsoRequired] = field(default_factory=lambda: None)
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         data = {}
@@ -8349,6 +8392,12 @@ class CommonPartialMembershipsMetadata:
             data['whitelistPatterns'] = self.whitelist_patterns
         if self.allowed_login_methods is not None:
             data['allowedLoginMethods'] = [item for item in self.allowed_login_methods]
+        if self.force_player_auth is not None:
+            data['forcePlayerAuth'] = self.force_player_auth
+        if self.player_auth_whitelist_patterns is not None:
+            data['playerAuthWhitelistPatterns'] = self.player_auth_whitelist_patterns
+        if self.player_sso_required is not None:
+            data['playerSsoRequired'] = self.player_sso_required
         return data
 
     @classmethod
@@ -8356,6 +8405,9 @@ class CommonPartialMembershipsMetadata:
         return cls(
             whitelist_patterns=None if data.get('whitelistPatterns') is None else [str(item) for item in data['whitelistPatterns']],
             allowed_login_methods=None if data.get('allowedLoginMethods') is None else [item for item in data['allowedLoginMethods']],
+            force_player_auth=None if data.get('forcePlayerAuth') is None else bool(data['forcePlayerAuth']),
+            player_auth_whitelist_patterns=None if data.get('playerAuthWhitelistPatterns') is None else [str(item) for item in data['playerAuthWhitelistPatterns']],
+            player_sso_required=None if data.get('playerSsoRequired') is None else bool(data['playerSsoRequired']),
         )
 
 
@@ -14255,6 +14307,8 @@ class AbstraLibApiEditorLocksReleasePostResponse:
         )
 
 
+AbstraLibApiEditorStatusMessageVersion = str
+
 AbstraLibApiEditorStatusMessageUpdateAvailable = bool
 
 AbstraLibApiEditorStatusMessageUpdateLabel = str
@@ -14287,16 +14341,19 @@ class AbstraLibApiEditorStatusMessageUpdate:
 
 @dataclass
 class AbstraLibApiEditorStatusMessage:
+    version: AbstraLibApiEditorStatusMessageVersion
     update: AbstraLibApiEditorStatusMessageUpdate
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         data = {}
+        data['version'] = self.version
         data['update'] = self.update.to_dict()
         return data
 
     @classmethod
     def from_dict(cls, data: typing.Dict[str, typing.Any]) -> "AbstraLibApiEditorStatusMessage":
         return cls(
+            version=str(data['version']),
             update=AbstraLibApiEditorStatusMessageUpdate.from_dict(data['update']),
         )
 

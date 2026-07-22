@@ -91,12 +91,20 @@ def _filter_experiment(df, experiment_name):
 
 
 def _order_by_production(pivot, prod_pct, ascending=True):
-    """Sort pivot rows by production %, relabel index with pct suffix."""
+    """Sort pivot rows by production %, relabel index with pct suffix.
+
+    The ``(X.Y%)`` suffix is dropped (rows keep plain region names) when
+    production-share display is disabled via
+    ``diagnostics.set_show_production_share(False)`` — ordering by production
+    is preserved either way.
+    """
     if not prod_pct:
         return pivot
+    from geocif.viz import diagnostics as _diag
     pivot["_pct"] = pivot.index.map(lambda r: prod_pct.get(r, 0))
     pivot = pivot.sort_values("_pct", ascending=ascending)
-    pivot.index = [f"{r} ({prod_pct.get(r, 0):.1f}%)" for r in pivot.index]
+    if _diag.is_production_share_shown():
+        pivot.index = [f"{r} ({prod_pct.get(r, 0):.1f}%)" for r in pivot.index]
     return pivot.drop(columns=["_pct"])
 
 
@@ -802,6 +810,11 @@ def analyze_model_ranking(parser, logger, metric="rmse", n_bootstrap=200):
 
 def run(path_config_files=[Path("../config/geocif.txt")], n_trials=30):
     logger, parser = log.setup_logger_parser(path_config_files)
+
+    # Honor [ML] show_production_share (default True) so figures omit the
+    # region production-share suffix/labels for projects where it's misleading.
+    from geocif.viz import diagnostics as _diag
+    _diag.set_show_production_share(_diag.show_production_share_from_parser(parser))
 
     # Dedicated experiments DB (not the main geocif.db)
     now = ar.utcnow().to("America/New_York")
@@ -1530,7 +1543,9 @@ def _plot_metric_by_cid_region(df_exp_data, experiment_name, dir_plots, metric="
         sns.heatmap(pivot, annot=True, fmt=fmt, cmap=cmap, ax=ax, linewidths=0.5)
         ax.set_title(f"{ylabel} by Region × CID — {country}\n({experiment_name})")
         ax.set_xlabel("")
-        ax.set_ylabel("Region (% of production)")
+        from geocif.viz import diagnostics as _diag
+        ax.set_ylabel("Region (% of production)"
+                      if _diag.is_production_share_shown() else "Region")
         for tick in ax.get_xticklabels():
             if tick.get_text() == "All CIDs":
                 tick.set_fontweight("bold")

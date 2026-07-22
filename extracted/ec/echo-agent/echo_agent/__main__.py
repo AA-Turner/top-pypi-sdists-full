@@ -18,25 +18,45 @@ from echo_agent.app import (  # noqa: F401
 )
 
 
-def _run_eval(args) -> None:
+def _run_eval(args) -> int:
+    """Run the eval suite. Returns a process exit code: 0 only when the suite
+    ran and every case passed; non-zero on missing dataset, empty selection,
+    bad arguments, or any case failure (so CI can gate on it)."""
+    import sys as _sys
     from pathlib import Path as _Path
 
     config_path = args.config or getattr(args, "top_config", None)
     workspace = args.workspace or getattr(args, "top_workspace", None)
 
+    # --parallel 0 would build asyncio.Semaphore(0) and hang forever; a
+    # negative value raises inside Semaphore. Reject both up front.
+    if args.parallel < 1:
+        print(f"--parallel must be >= 1 (got {args.parallel}).", file=_sys.stderr)
+        return 2
+
     from echo_agent.config.loader import load_config, resolve_config_file
-    config_file = resolve_config_file(config_path)
+    config_file = resolve_config_file(config_path, search_dir=workspace)
     config = load_config(config_path=config_file)
 
     dataset_path = args.dataset or config.evaluation.dataset_path
-    path = _Path(dataset_path)
+    path = _Path(dataset_path).expanduser()
+    # Resolve a relative dataset path against the workspace / config-file dir
+    # (matching how the daemon resolves paths), not the process cwd.
+    if not path.is_absolute():
+        base = None
+        if workspace:
+            base = _Path(workspace).expanduser()
+        elif config_file:
+            base = _Path(config_file).parent
+        if base is not None:
+            path = base / path
     if not path.exists():
-        print(f"Dataset not found: {path}")
+        print(f"Dataset not found: {path}", file=_sys.stderr)
         print("Create a YAML file with test cases. Example:")
         print("  - id: test_001")
         print("    input: 'Hello'")
         print("    expected_contains: ['hello', 'hi']")
-        return
+        return 1
 
     from echo_agent.evaluation import EvalRunner, EvalDataset
 
@@ -46,10 +66,10 @@ def _run_eval(args) -> None:
         dataset = EvalDataset(cases)
 
     if not dataset.cases:
-        print("No test cases found.")
-        return
+        print(f"No test cases found (dataset={path}, tag={args.tag or '-'}).", file=_sys.stderr)
+        return 1
 
-    async def run():
+    async def run() -> int:
         from echo_agent.app import bootstrap
 
         overrides = {"workspace": workspace} if workspace else None
@@ -58,7 +78,14 @@ def _run_eval(args) -> None:
         await ctx.agent.start()
 
         try:
-            runner = EvalRunner(ctx.agent, parallel=args.parallel, timeout=config.evaluation.timeout_per_case)
+            # Pass the provider so expected_output cases get semantic judging,
+            # not just the non-semantic string-similarity metric.
+            runner = EvalRunner(
+                ctx.agent,
+                parallel=args.parallel,
+                timeout=config.evaluation.timeout_per_case,
+                provider=ctx.provider,
+            )
             report = await runner.run_dataset(dataset)
 
             from echo_agent.evaluation.reporter import EvalReporter
@@ -68,13 +95,14 @@ def _run_eval(args) -> None:
             if args.output:
                 _Path(args.output).write_text(reporter.to_json(report), encoding="utf-8")
                 print(f"\nResults saved to {args.output}")
+            return 0 if report.passed_cases == report.total_cases else 1
         finally:
             from echo_agent.app import AppRuntime
             await AppRuntime._stop_step("agent", ctx.agent.stop())
             await AppRuntime._stop_step("bus", ctx.bus.stop())
             await AppRuntime._stop_step("storage", ctx.storage.close())
 
-    asyncio.run(run())
+    return asyncio.run(run())
 
 
 def main() -> None:
@@ -91,12 +119,17 @@ def main() -> None:
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="echo-agent", description="Echo Agent — modular AI agent framework")
+    from echo_agent import __version__
+    # __version__ 取自已安装包元数据;源码树直接运行会显示 0.0.0+unknown。
+    parser.add_argument("--version", action="version", version=f"echo-agent {__version__}")
     subparsers = parser.add_subparsers(dest="command")
 
     # run
     run_parser = subparsers.add_parser("run", help="Start the agent")
     run_parser.add_argument("-c", "--config", help="Path to config file")
     run_parser.add_argument("-w", "--workspace", help="Workspace directory")
+    run_parser.add_argument("--force", action="store_true",
+                            help="跳过同 workspace 单实例互斥，强制多开（会造成重复回复/并发写库风险）")
 
     # setup
     setup_parser = subparsers.add_parser("setup", help="Run the setup wizard")
@@ -222,6 +255,29 @@ def _build_parser() -> argparse.ArgumentParser:
     cp_parser.add_argument("-w", "--workspace", help="Workspace directory")
     cp_parser.add_argument("-y", "--yes", action="store_true", help="Skip restore confirmation")
 
+    # migrate
+    mig_parser = subparsers.add_parser("migrate", help="Run data migrations (memory scope)")
+    mig_parser.add_argument("action", choices=["run", "rollback", "status", "memory-md"], help="Migration action")
+    mig_parser.add_argument("--dry-run", action="store_true", help="Report changes without writing")
+    mig_parser.add_argument("-c", "--config", help="Path to config file")
+    mig_parser.add_argument("-w", "--workspace", help="Workspace directory")
+    mig_parser.add_argument("-y", "--yes", action="store_true", help="Skip confirmation")
+    mig_parser.add_argument(
+        "--adopt-empty", action="store_true",
+        help="run 时额外把空 scope 的 USER 记忆收编给 owner_key",
+    )
+
+    # deps — skill dependency management (status/install/refresh). Its own
+    # argparse lives in dependencies.cli; capture the tail verbatim and delegate.
+    deps_parser = subparsers.add_parser(
+        "deps",
+        help="Manage skill dependencies (status/install/refresh)",
+    )
+    deps_parser.add_argument(
+        "deps_args", nargs=argparse.REMAINDER,
+        help="deps subcommand and its arguments (e.g. status, install <feature>, refresh)",
+    )
+
     # top-level flags for backward compat
     parser.add_argument("-c", "--config", help="Path to config file", dest="top_config")
     parser.add_argument("-w", "--workspace", help="Workspace directory", dest="top_workspace")
@@ -270,17 +326,25 @@ def _dispatch() -> None:
                 system=args.system,
                 force=args.force,
                 follow=args.follow,
+                config=args.config or args.top_config,
             )
             return
         from echo_agent.app import run_gateway
         try:
-            asyncio.run(run_gateway(config_path=args.config or args.top_config, host=args.host, port=args.port, workspace=args.workspace or args.top_workspace))
+            asyncio.run(run_gateway(config_path=args.config or args.top_config, host=args.host, port=args.port, workspace=args.workspace or args.top_workspace, force=args.force))
         except KeyboardInterrupt:
             pass
         return
 
     if args.command == "eval":
-        _run_eval(args)
+        import sys as _sys
+        _sys.exit(_run_eval(args))
+
+    if args.command == "deps":
+        from echo_agent.dependencies.cli import main as deps_main
+        # 始终传列表(哪怕为空):传 None 会让内层 argparse 回读真实
+        # sys.argv 从而把外层的 "deps" 当成子命令,报 invalid choice。
+        deps_main(args.deps_args)
         return
 
     if args.command == "service":
@@ -357,6 +421,19 @@ def _dispatch() -> None:
         )
         return
 
+    if args.command == "migrate":
+        from echo_agent.cli.migrate_cmd import run_migrate_command
+        import sys as _sys
+        rc = run_migrate_command(
+            args.action,
+            config_path=args.config or args.top_config,
+            workspace=args.workspace or args.top_workspace,
+            dry_run=args.dry_run,
+            yes=args.yes,
+            adopt_empty=args.adopt_empty,
+        )
+        _sys.exit(rc)
+
     if args.command == "cli":
         from echo_agent.cli import attach_client
         host, port, ws_path, token = attach_client.resolve_defaults(
@@ -387,7 +464,7 @@ def _dispatch() -> None:
 
     from echo_agent.app import run
     try:
-        asyncio.run(run(config_path=config_path, workspace=workspace))
+        asyncio.run(run(config_path=config_path, workspace=workspace, force=getattr(args, "force", False)))
     except KeyboardInterrupt:
         pass
 

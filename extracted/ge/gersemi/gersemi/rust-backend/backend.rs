@@ -1,117 +1,90 @@
+mod app;
+mod args;
 mod argument_schema;
+mod cache;
+mod configuration;
+mod custom_command_definition_finder;
+mod diff;
+mod formatter;
 mod keyword_preprocessor;
 mod node;
 mod parser;
+mod runner;
+mod sanity_checker;
 mod two_words_keyword_isolator;
+mod utils;
+mod warning_sink;
 
 use pyo3::pymodule;
 
 #[pymodule]
 mod gersemi_rust_backend {
-    use crate::argument_schema::{isolate_conditions, ArgumentSchema, KeywordMatcher};
-    use crate::keyword_preprocessor::{
-        keep_unique_arguments, sort_and_keep_unique_arguments, sort_arguments,
-    };
-    use crate::node::{Node, Nodes};
-    use crate::parser::{tree, BlockDefinitions, Error, Parser};
-    use crate::two_words_keyword_isolator::TwoWordKeywordMatcher;
+    use crate::argument_schema::CommandSchemas;
+    use crate::parser::{Error, Parser};
+    use crate::sanity_checker::check_equivalence;
     use pyo3::pyfunction;
-
-    #[pyfunction]
-    fn parse(
-        text: String,
-        blocks: BlockDefinitions,
-        known_commands: Vec<String>,
-    ) -> Result<Node, Error> {
-        let parser = Parser::new(text, blocks, known_commands);
-        parser.start()
-    }
+    use std::collections::HashMap;
+    use std::path::PathBuf;
 
     #[pyfunction]
     #[allow(clippy::needless_pass_by_value)]
-    fn dumper_split_arguments(schema: ArgumentSchema, arguments: Nodes) -> Nodes {
-        schema.split_arguments_with_sections(arguments)
-    }
-
-    #[pyfunction]
-    fn condition_syntax_preprocess_arguments(arguments_node: Node) -> Node {
-        let Node::Tree { data, children } = arguments_node else {
-            return arguments_node;
+    fn validate(text: String) -> Result<(), Error> {
+        let schemas = CommandSchemas {
+            definition_schemas: HashMap::new(),
+            extension_schemas: HashMap::new(),
         };
-        Node::Tree {
-            data,
-            children: isolate_conditions(children),
-        }
+        let parser = Parser::new(text, &schemas);
+        parser.start().and(Ok(()))
     }
 
     #[pyfunction]
-    fn isolate_two_words_keywords(
-        two_words_keywords: Vec<TwoWordKeywordMatcher>,
-        arguments_node: Node,
-    ) -> Node {
-        let Node::Tree { data, children } = arguments_node else {
-            return arguments_node;
+    #[allow(clippy::needless_pass_by_value)]
+    fn check_code_equivalence(before: String, after: String) -> Result<bool, Error> {
+        let schemas = CommandSchemas {
+            definition_schemas: HashMap::new(),
+            extension_schemas: HashMap::new(),
         };
-        Node::Tree {
-            data,
-            children: crate::two_words_keyword_isolator::preprocess_arguments(
-                two_words_keywords,
-                children,
-            ),
-        }
+        let before = Parser::new(before, &schemas).start()?;
+        let after = Parser::new(after, &schemas).start()?;
+
+        Ok(check_equivalence(before, after))
     }
 
-    #[pyfunction]
-    fn pair_arguments(arguments: Nodes) -> Nodes {
-        let mut result = Nodes::new();
-        let mut accumulator = Nodes::new();
-        for argument in arguments {
-            if accumulator.is_empty() {
-                if argument.is_comment() {
-                    result.push(argument);
-                } else {
-                    accumulator.push(argument);
-                }
-            } else {
-                let is_comment_node = argument.is_comment();
-                accumulator.push(argument);
-                if !is_comment_node {
-                    let accumulator = std::mem::take(&mut accumulator);
-                    result.push(tree("pair", accumulator));
-                }
-            }
-        }
+    #[pymodule_export]
+    use crate::formatter::Formatter;
 
-        if !accumulator.is_empty() {
-            result.push(tree("pair", accumulator));
-        }
-        result
-    }
+    #[pymodule_export]
+    use crate::app::App;
 
     #[pyfunction]
-    #[allow(clippy::needless_pass_by_value)]
-    fn preprocess_keyword_values(
-        nodes: Nodes,
-        preprocessor: String,
-        case_insensitive: bool,
-    ) -> Nodes {
-        match preprocessor.as_str() {
-            "sort" => sort_arguments(nodes, case_insensitive),
-            "unique" => keep_unique_arguments(nodes),
-            "sort+unique" => sort_and_keep_unique_arguments(nodes, case_insensitive),
-            _ => nodes,
-        }
-    }
-
-    #[pyfunction]
-    #[allow(clippy::needless_pass_by_value)]
-    fn is_one_of_keywords(matchers: Vec<KeywordMatcher>, node: Node) -> bool {
-        crate::argument_schema::is_one_of_keywords(&matchers, &node)
+    pub fn warn(s: String) {
+        crate::warning_sink::warn(s);
     }
 
     #[pyfunction]
     fn version() -> &'static str {
         static RESULT: &str = env!("CARGO_VERSION");
         RESULT
+    }
+
+    #[pyfunction]
+    pub fn max_number_of_workers() -> usize {
+        match std::thread::available_parallelism() {
+            Err(_) => 1,
+            Ok(n) => n.get(),
+        }
+    }
+
+    #[pyfunction]
+    #[allow(clippy::needless_pass_by_value)]
+    pub fn user_cache_dir(appname: String, version: String) -> Option<PathBuf> {
+        dirs::cache_dir().and_then(|p| {
+            let p = p.join(appname).join(version);
+            if std::fs::create_dir_all(&p).is_ok() {
+                Some(p)
+            } else {
+                None
+            }
+        })
     }
 }

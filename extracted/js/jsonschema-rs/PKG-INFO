@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jsonschema_rs
-Version: 0.48.1
+Version: 0.48.2
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -20,6 +20,7 @@ Classifier: Topic :: File Formats :: JSON :: JSON Schema
 Requires-Dist: fastjsonschema>=2.20.0 ; extra == 'bench'
 Requires-Dist: jsonschema>=4.23.0 ; extra == 'bench'
 Requires-Dist: pytest-benchmark>=4.0.0 ; extra == 'bench'
+Requires-Dist: pytest-codspeed>=5.0.0 ; extra == 'bench'
 Requires-Dist: flask>=2.2.5 ; extra == 'tests'
 Requires-Dist: hypothesis>=6.79.4 ; extra == 'tests'
 Requires-Dist: pytest>=7.4.4 ; extra == 'tests'

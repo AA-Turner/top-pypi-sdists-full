@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ghapi
-Version: 2.0.1
+Version: 2.0.3
 Summary: A python client for the GitHub API
 Author-email: Jeremy Howard <info@fast.ai>
 License: Apache-2.0

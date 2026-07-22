@@ -22,8 +22,13 @@ from loguru import logger
 
 
 def configure_logging(level: str) -> None:
+    from echo_agent.observability.log_buffer import install_log_buffer
+
     logger.remove()
     logger.add(sys.stderr, level=level, format="<green>{time:HH:mm:ss}</green> | <level>{level:<7}</level> | {message}")
+    # Buffer records in memory so the dashboard's /api/logs endpoint has history
+    # to serve; the stderr sink alone keeps nothing queryable.
+    install_log_buffer(level=level)
 
 
 @dataclass
@@ -38,14 +43,26 @@ class BootstrapResult:
     channels: Any = None
     scheduler: Any = None
     health: Any = None
+    instance_lock: Any = None
 
 
 async def bootstrap(
     config_path: str | None = None,
     overrides: dict[str, Any] | None = None,
     on_cli_exit: Callable[[], None] | None = None,
+    *,
+    single_instance: bool = False,
+    force: bool = False,
+    role: str = "run",
 ) -> BootstrapResult:
-    """Shared bootstrap: config → storage → providers → bus → agent → channels."""
+    """Shared bootstrap: config → storage → providers → bus → agent → channels.
+
+    When ``single_instance`` is set (the channel-consuming entrypoints), the
+    workspace lock is acquired *before* opening SQLite or running migrations, so
+    a second process against the same workspace bails out here instead of
+    concurrently initializing the database. On conflict this raises
+    :class:`InstanceLockError` before any resource is opened — nothing to leak.
+    ``force`` / ``runtime.single_instance=false`` disable the guard."""
     from echo_agent.agent.loop import AgentLoop
     from echo_agent.bus.queue import MessageBus
     from echo_agent.channels.manager import ChannelManager
@@ -57,7 +74,10 @@ async def bootstrap(
     from echo_agent.scheduler.delivery import build_scheduled_job_handler
     from echo_agent.storage.sqlite import SQLiteBackend
 
-    config_file = resolve_config_file(config_path)
+    # 不带 -c 时用 workspace 作查找目录,避免子命令回退到 ~/.echo-agent 的全局
+    # 配置(与 run_gateway 的预解析、cost/config 命令行为保持一致)。
+    search_dir = overrides.get("workspace") if overrides else None
+    config_file = resolve_config_file(config_path, search_dir=search_dir)
     config = load_config(config_path=config_file, overrides=overrides)
     configure_logging(config.observability.log_level)
 
@@ -67,6 +87,14 @@ async def bootstrap(
         workspace_value = workspace_base / workspace_value
     ws = workspace_value.resolve()
     ws.mkdir(parents=True, exist_ok=True)
+
+    # Acquire the single-instance lock before opening SQLite / running migrations
+    # so a duplicate process bails out here rather than concurrently initializing
+    # the database. Raising before any resource is opened means nothing to leak.
+    instance_lock: Any = None
+    if single_instance and config.runtime.single_instance and not force:
+        from echo_agent.runtime_lock import acquire_instance_lock
+        instance_lock = acquire_instance_lock(ws, role=role)
 
     storage = SQLiteBackend(ws / config.storage.database_path)
     await storage.initialize()
@@ -263,6 +291,7 @@ async def bootstrap(
         config=config, workspace=ws, storage=storage, bus=bus,
         router=router, provider=provider, agent=agent,
         channels=channels, scheduler=scheduler, health=health,
+        instance_lock=instance_lock,
     )
 
 
@@ -322,6 +351,7 @@ class AppRuntime:
         self._gateway: Any = None
         self._started = False
         self._shutdown_event = shutdown_event
+        self._instance_lock: Any = None
 
     @property
     def gateway(self) -> Any:
@@ -330,8 +360,13 @@ class AppRuntime:
     async def start(self) -> bool:
         """Start all components. Returns False if there is nothing to serve
         (no active channels and gateway disabled), in which case the caller
-        should call ``stop()`` and exit."""
+        should call ``stop()`` and exit.
+
+        The workspace single-instance lock is acquired in ``bootstrap`` (before
+        SQLite is opened), not here — this runtime only owns releasing it on
+        ``stop()`` via ``ctx.instance_lock``."""
         ctx = self._ctx
+        self._instance_lock = ctx.instance_lock
         self._started = True
         await ctx.bus.start()
         await ctx.agent.start()
@@ -380,6 +415,12 @@ class AppRuntime:
         await self._stop_step("agent", ctx.agent.stop())
         await self._stop_step("bus", ctx.bus.stop())
         await self._stop_step("storage", ctx.storage.close())
+        if self._instance_lock is not None:
+            try:
+                self._instance_lock.release()
+            except Exception as e:
+                logger.warning("Error releasing instance lock: {}", e)
+            self._instance_lock = None
 
     @staticmethod
     async def _stop_step(name: str, coro: Any) -> None:
@@ -391,14 +432,22 @@ class AppRuntime:
             logger.warning("Error stopping {}: {}", name, e)
 
 
-async def run(config_path: str | None = None, workspace: str | None = None) -> None:
+async def run(config_path: str | None = None, workspace: str | None = None, force: bool = False) -> None:
     """Run the full agent (``echo-agent run``)."""
     if config_path is None and workspace:
         from echo_agent.config.loader import resolve_config_file
         config_path = str(resolve_config_file(search_dir=workspace) or "")
     overrides = {"workspace": workspace} if workspace else None
     shutdown = asyncio.Event()
-    ctx = await bootstrap(config_path=config_path, overrides=overrides, on_cli_exit=shutdown.set)
+    from echo_agent.runtime_lock import InstanceLockError
+    try:
+        ctx = await bootstrap(
+            config_path=config_path, overrides=overrides, on_cli_exit=shutdown.set,
+            single_instance=True, force=force, role="run",
+        )
+    except InstanceLockError as e:
+        logger.error(e.message)
+        return
 
     logger.info("Echo Agent starting — workspace: {}", ctx.workspace)
 
@@ -520,6 +569,7 @@ async def run_gateway(
     host: str | None = None,
     port: int | None = None,
     workspace: str | None = None,
+    force: bool = False,
 ) -> None:
     """Run in gateway mode (``echo-agent gateway``) — same lifecycle as ``run``
     with the gateway force-enabled, so health checks and the scheduler are
@@ -537,7 +587,9 @@ async def run_gateway(
     _cfg_file = resolve_config_file(config_path)
     _cfg = load_config(config_path=_cfg_file)
     pre_host = host or _cfg.gateway.host
-    pre_port = port or _cfg.gateway.port
+    # port=0 is the "pick an ephemeral port" sentinel and must survive: use the
+    # config port only when --port was omitted (None), not when it is 0.
+    pre_port = port if port is not None else _cfg.gateway.port
     bind_err = _gateway_port_in_use(pre_host, pre_port)
     if bind_err:
         logger.error(bind_err)
@@ -559,11 +611,21 @@ async def run_gateway(
     if profile_override:
         overrides["security"] = {**overrides.get("security", {}), **profile_override["security"]}
     shutdown = asyncio.Event()
-    ctx = await bootstrap(config_path=config_path, overrides=overrides or None, on_cli_exit=shutdown.set)
+    from echo_agent.runtime_lock import InstanceLockError
+    try:
+        ctx = await bootstrap(
+            config_path=config_path, overrides=overrides or None, on_cli_exit=shutdown.set,
+            single_instance=True, force=force, role="gateway",
+        )
+    except InstanceLockError as e:
+        logger.error(e.message)
+        return
     ctx.config.gateway.enabled = True
     if host:
         ctx.config.gateway.host = host
-    if port:
+    # Apply --port when provided, including 0 (ephemeral). Only None means
+    # "not passed"; `if port` would drop the dynamic-port request.
+    if port is not None:
         ctx.config.gateway.port = port
 
     install_signal_handler(shutdown)

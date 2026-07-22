@@ -1396,8 +1396,11 @@ def cancer_type_registry():
       soft-tissue SARC default
     - ``parent_code`` — if this row is a subtype of another registry
       entry (e.g. ``LAML_APL`` has ``parent_code=LAML``)
-    - ``expression_source`` — where to find median expression (TCGA,
-      TARGET, BEATAML, CoMMpass, curated, none)
+    - ``expression_source`` — where to find aggregate reference expression
+      (TCGA, TARGET, BEATAML, CoMMpass, curated, none). This is summary
+      availability, not a promise that releasable per-sample matrices,
+      representatives, or percentile vectors exist; use the corresponding
+      ``available_*_cohorts()`` expression accessor for those capabilities.
     - ``notes`` — one-line clinical / therapeutic context
 
     Returns a defensive copy so callers can mutate freely.
@@ -1584,14 +1587,17 @@ def sarcoma_lineage_codes(*, with_expression_only=False):
 
 # Computed cohort aggregates: "view" cohorts that pool the per-sample values of
 # several atom cohorts by histology or source, rather than being a single frozen
-# matrix. Backed by ``cancer-cohort-aggregates.csv`` ({aggregate_code:
-# [member_code,...]}); the pan-sarcoma ``SARC`` grand union is computed from the
-# registry family (so it tracks new atoms automatically) rather than enumerated.
+# matrix. The explicit rollup rows are delegated to oncoref and filtered to
+# pirlygenes' historical aggregate surface. The pan-sarcoma ``SARC`` grand union
+# delegates to oncoref's live aggregate API as well, so new ontology-only
+# grouping nodes are not mistaken for sample-bearing members.
 def cohort_aggregates_df():
-    """Return the curated ``cancer-cohort-aggregates.csv`` long table
-    (``aggregate_code, member_code, basis``) — the explicit histology
-    rollup cohorts (e.g. ``SARC_RMS`` ← the four rhabdomyosarcoma subtypes;
-    ``SARC_LPS`` ← the liposarcoma subtypes)."""
+    """Return oncoref's rows for pirlygenes' compatible aggregate surface.
+
+    The schema remains ``aggregate_code, member_code, basis`` and the public
+    rollups remain the historical explicit histology/organ cohorts (for
+    example ``SARC_RMS`` and ``SARC_LPS``).
+    """
     return get_data("cancer-cohort-aggregates")
 
 
@@ -1619,7 +1625,14 @@ def cohort_registry_df():
     ``prefix, kind, source_project, assay, n_samples, n_codes, is_computed,
     member_cohorts, provenance``. The authority to validate any ``source_cohort``
     against — includes the computed aggregates and literature-curated cohorts
-    that are absent from :func:`available_cancer_expression_references`."""
+    that are absent from :func:`available_cancer_expression_references`.
+
+    A row describes source-level provenance, not artifact coverage. In
+    particular, ``assay`` and ``n_samples`` may describe the samples used to
+    build released aggregate summaries even when no per-sample matrix can be
+    redistributed. Use ``available_representative_cohorts()`` and
+    ``available_percentile_cohorts()`` for those explicit capabilities.
+    """
     return get_data("cohort-registry")
 
 
@@ -1648,18 +1661,20 @@ def known_cohort_ids():
 def cohort_aggregates():
     """``{aggregate_code: [member_code, ...]}`` for every computed-aggregate
     cohort: the curated histology rollups (``SARC_RMS``, ``SARC_LPS``) plus the
-    pan-sarcoma ``SARC`` grand union — every ``family == 'sarcoma'`` atom that is
-    not itself an aggregate (``SARC`` is itself a registry code but resolves to
-    the computed union; its TCGA-SARC samples are already folded into the
-    histology atoms, so there is no separate frozen ``SARC`` shard)."""
+    pan-sarcoma ``SARC`` grand union from oncoref's live aggregate authority
+    (``SARC`` is itself a registry code but resolves to the computed union; its
+    TCGA-SARC samples are already folded into the histology atoms, so there is
+    no separate frozen ``SARC`` shard)."""
     df = cohort_aggregates_df()
     out = {}
     for agg, grp in df.groupby("aggregate_code"):
         out[str(agg)] = list(dict.fromkeys(grp["member_code"].astype(str)))
-    # pan-sarcoma grand union under the bare SARC code, computed from family;
-    # exclude the aggregates AND SARC itself (no self-membership / circularity).
-    aggs = set(out) | {"SARC"}
-    out["SARC"] = [c for c in sarcoma_lineage_codes() if c not in aggs]
+    # Do not derive this from every ``family == 'sarcoma'`` row: oncoref's WHO
+    # registry also contains non-sample-bearing grouping nodes such as
+    # SARC_ROUND_CELL. Its aggregate API owns the leaf-vs-grouping distinction.
+    import oncoref
+
+    out["SARC"] = list(oncoref.cohort_aggregate_members("SARC") or [])
     return out
 
 

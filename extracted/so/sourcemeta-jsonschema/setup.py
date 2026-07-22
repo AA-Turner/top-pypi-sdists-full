@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name         = "sourcemeta_jsonschema",
-    version      = "16.2.0",
+    version      = "16.2.1",
     description  = "The CLI for working with JSON Schema. Covers formatting, linting, testing, and much more for both local development and CI/CD pipelines. By a member of the JSON Schema Technical Steering Committee",
     author       = "Sourcemeta",
     author_email = "hello@sourcemeta.com",

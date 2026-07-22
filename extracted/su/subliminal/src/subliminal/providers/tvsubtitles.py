@@ -10,14 +10,13 @@ from typing import TYPE_CHECKING, ClassVar
 from zipfile import ZipFile
 
 from babelfish import Language, language_converters  # type: ignore[import-untyped]
-from guessit import guessit  # type: ignore[import-untyped]
 from requests import Session
 
 from subliminal.cache import EPISODE_EXPIRATION_TIME, SHOW_EXPIRATION_TIME, region
 from subliminal.exceptions import NotInitializedProviderError, ProviderError
 from subliminal.matches import guess_matches
 from subliminal.subtitle import Subtitle
-from subliminal.utils import sanitize
+from subliminal.utils import safely_guessit, sanitize
 from subliminal.video import Episode, Video
 
 from . import ParserBeautifulSoup, Provider
@@ -33,6 +32,18 @@ with contextlib.suppress(ValueError):
 link_re = re.compile(r'^(?P<series>.+?)(?: \(?\d{4}\)?| \((?:US|UK)\))? \((?P<first_year>\d{4})-\d{4}\)$')
 episode_id_re = re.compile(r'^episode-\d+\.html$')
 script_re = re.compile(r'var\s*s(?P<num>\d+)\s*=\s*\'(?P<string>[^\']+)\'')
+
+
+# fmt: off
+tvsubtitles_languages = {
+    Language('por', 'BR')
+} | {
+    Language(lang) for lang in [
+        'ara', 'bul', 'ces', 'dan', 'deu', 'ell', 'eng', 'fin', 'fra', 'hun', 'ita', 'jpn', 'kor', 'nld', 'pol', 'por',
+        'ron', 'rus', 'spa', 'swe', 'tur', 'ukr', 'zho',
+    ]
+}
+# fmt: on
 
 
 class TVsubtitlesSubtitle(Subtitle):
@@ -88,9 +99,9 @@ class TVsubtitlesSubtitle(Subtitle):
 
         # other properties
         if self.release is not None:
-            matches |= guess_matches(video, guessit(self.release, {'type': 'episode'}), partial=True)
+            matches |= guess_matches(video, safely_guessit(self.release, {'type': 'episode'}), partial=True)
         if self.rip is not None:
-            matches |= guess_matches(video, guessit(self.rip, {'type': 'episode'}), partial=True)
+            matches |= guess_matches(video, safely_guessit(self.rip, {'type': 'episode'}), partial=True)
 
         return matches
 
@@ -98,34 +109,7 @@ class TVsubtitlesSubtitle(Subtitle):
 class TVsubtitlesProvider(Provider):
     """TVsubtitles Provider."""
 
-    languages: ClassVar[Set[Language]] = {Language('por', 'BR')} | {
-        Language(lang)
-        for lang in [
-            'ara',
-            'bul',
-            'ces',
-            'dan',
-            'deu',
-            'ell',
-            'eng',
-            'fin',
-            'fra',
-            'hun',
-            'ita',
-            'jpn',
-            'kor',
-            'nld',
-            'pol',
-            'por',
-            'ron',
-            'rus',
-            'spa',
-            'swe',
-            'tur',
-            'ukr',
-            'zho',
-        ]
-    }
+    languages: ClassVar[Set[Language]] = tvsubtitles_languages
     video_types: ClassVar = (Episode,)
     server_url: ClassVar[str] = 'https://www.tvsubtitles.net'
     subtitle_class: ClassVar = TVsubtitlesSubtitle

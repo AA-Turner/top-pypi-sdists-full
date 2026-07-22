@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: haystack-ai
-Version: 2.31.0
+Version: 3.0.0
 Summary: LLM framework to build customizable, production-ready LLM applications. Connect components (models, vector DBs, file converters) to pipelines or agents that can interact with your data.
 Project-URL: CI: GitHub, https://github.com/deepset-ai/haystack/actions
 Project-URL: Docs: RTD, https://haystack.deepset.ai/overview/intro
@@ -27,7 +27,6 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.10
 Requires-Dist: docstring-parser
 Requires-Dist: filetype
-Requires-Dist: haystack-experimental
 Requires-Dist: httpx
 Requires-Dist: jinja2
 Requires-Dist: jsonschema
@@ -55,6 +54,16 @@ Description-Content-Type: text/markdown
 | Docs    | [![Website](https://img.shields.io/website?label=documentation&up_message=online&url=https%3A%2F%2Fdocs.haystack.deepset.ai)](https://docs.haystack.deepset.ai)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | Package | [![PyPI](https://img.shields.io/pypi/v/haystack-ai)](https://pypi.org/project/haystack-ai/) ![PyPI - Downloads](https://img.shields.io/pypi/dm/haystack-ai?color=blue&logo=pypi&logoColor=gold) ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/haystack-ai?logo=python&logoColor=gold) [![Conda Version](https://img.shields.io/conda/vn/conda-forge/haystack-ai.svg)](https://anaconda.org/conda-forge/haystack-ai) [![GitHub](https://img.shields.io/github/license/deepset-ai/haystack?color=blue)](LICENSE) [![License Compliance](https://github.com/deepset-ai/haystack/actions/workflows/license_compliance.yml/badge.svg)](https://github.com/deepset-ai/haystack/actions/workflows/license_compliance.yml) [![HVTrust](https://hvtracker.net/badge/haystack.svg)](https://hvtracker.net/agents/haystack/) [![Evidence Grade](https://hvtracker.net/badge/haystack-grade.svg)](https://hvtracker.net/agents/haystack/) [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/13067/badge)](https://www.bestpractices.dev/projects/13067)|
 | Meta    | [![Discord](https://img.shields.io/discord/993534733298450452?logo=discord)](https://discord.com/invite/qZxjM4bAHU) [![Twitter Follow](https://img.shields.io/twitter/follow/haystack_ai)](https://twitter.com/haystack_ai)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+</div>
+
+<div align="center">
+
+# 🎉🎊✨ &nbsp; Haystack 3.0 is out! &nbsp; ✨🎊🎉
+
+### Read the announcement [here](https://haystack.deepset.ai/blog/haystack-3-release)!
+
+## 🥳 🎈 🎆 🪅 🎇 🍾 🥂 🎁 🌈
+
 </div>
 
 [Haystack](https://haystack.deepset.ai/) is an open-source AI orchestration framework for building production-ready LLM applications in Python.

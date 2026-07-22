@@ -2,15 +2,12 @@ import datetime
 import os
 from typing import Generic, Literal, Optional, TypeVar
 
-from pydantic import field_serializer
-
 from abstra_internals.entities.execution_context import (
     ClientContext,
     FormExecutionMock,
     HookExecutionMock,
     ScriptExecutionMock,
 )
-from abstra_internals.utils.datetime import to_utc_iso_string
 from abstra_internals.utils.serializable import Serializable
 
 T = TypeVar("T", bound=ClientContext)
@@ -71,11 +68,3 @@ class Execution(Serializable, Generic[T]):
     @property
     def short_id(self) -> str:
         return self.id[:8]
-
-    @field_serializer("created_at")
-    def serialize_created_at(self, value):
-        return to_utc_iso_string(value)
-
-    @field_serializer("updated_at")
-    def serialize_updated_at(self, value):
-        return to_utc_iso_string(value) if value is not None else None

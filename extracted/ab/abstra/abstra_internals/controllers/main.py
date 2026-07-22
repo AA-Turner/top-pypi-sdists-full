@@ -1487,7 +1487,7 @@ class MainController:
 
     def create_stage(
         self,
-        type: Literal["form", "page", "hook", "job", "tasklet"],
+        type: Literal["page", "form", "hook", "job", "tasklet"],
         title: str,
         file: str,
         workflow_position: tuple[int, int] | None = None,
@@ -1498,8 +1498,8 @@ class MainController:
 
         Args:
             type: Kind of stage to create:
-                - 'form': interactive form stage (collects user input)
-                - 'page': interactive page stage (custom HTML/CSS/JS dashboards and tools)
+                - 'page': interactive page stage (custom HTML/CSS/JS dashboards and tools); preferred for new user-facing stages, especially flows that upload files
+                - 'form': interactive form stage (collects user input via built-in widgets); prefer 'page' for new flows and for anything involving file uploads
                 - 'hook': webhook stage (HTTP endpoint triggered externally)
                 - 'job': scheduled job stage (runs periodically on a schedule)
                 - 'tasklet': background script stage (processes tasks without UI)
@@ -2674,6 +2674,132 @@ class MainController:
         if url is not None:
             result["url"] = url
 
+        return result
+
+    def run_page_function(
+        self,
+        page_stage_id: str,
+        action_name: str,
+        action_params: Optional[dict] = None,
+        user_jwt: Optional[str] = None,
+    ):
+        """Call one of a page's registered Python functions directly, without a browser.
+
+        Pages expose their backend as functions decorated with @register_function;
+        the page's frontend JS calls them over HTTP. This tool makes that same
+        call directly, so you can test and debug a page's backend logic in
+        isolation — no rendering, clicking, or console-log scraping needed.
+
+        Returns the HTTP status, the parsed response ({"result": ...} on success,
+        {"error": ...} on failure), and the execution_id — pass it to
+        get_execution_logs to see print() output. Generator functions are
+        supported: their streamed output is collected into "streamed_chunks".
+
+        Use run_page instead when you need to check the rendered frontend
+        (__render__ cannot be called through this tool).
+
+        Args:
+            page_stage_id (str): Unique identifier of the page stage.
+            action_name (str): Name of the function registered with
+                @register_function in the page's Python file.
+            action_params (Optional[dict]): Keyword arguments to pass to the
+                function. Keys must match the function's parameter names.
+            user_jwt (Optional[str]): JWT token for web-editor user identification.
+
+        Copywritings:
+            Run a page function for debugging
+            Running a page function for debugging...
+        """
+        page = self.get_page_stage(page_stage_id)
+        if not page:
+            raise Exception(
+                f"Page with id {page_stage_id!r} not found. "
+                "Use list_all_stages to find valid page stage ids."
+            )
+
+        request = Request(
+            method="POST",
+            headers={"Content-Type": "application/json"},
+            body=json.dumps({"function": action_name, "params": action_params or {}}),
+        )
+        context = PageContext(
+            request=request,
+            response=Response(headers={}, status=200, body=""),
+            page_path=page.path,
+        )
+
+        connection = self.repositories.producer.enqueue(
+            page.id, context, user_jwt=user_jwt
+        )
+
+        try:
+            start_msg = drain_until_response(
+                connection, timeout=DRAIN_START_TIMEOUT_SECONDS
+            )
+            if start_msg is None:
+                raise Exception("Timed out waiting for the page execution to start.")
+
+            execution_id = None
+            if (
+                isinstance(start_msg, dict)
+                and start_msg.get("type") == "execution:started"
+            ):
+                execution_id = start_msg.get("executionId")
+                msg = drain_until_response(connection)
+            else:
+                msg = start_msg
+
+            if isinstance(msg, dict) and "__page_stream__" in msg:
+                return self._drain_page_stream(connection, msg, execution_id)
+
+            response = normalize_response(msg)
+            if not response:
+                raise Exception("Timed out waiting for the page function response.")
+        finally:
+            connection.close()
+
+        body = response.body
+        try:
+            body = json.loads(body)
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+        return {
+            "status": response.status,
+            "response": body,
+            "execution_id": execution_id,
+        }
+
+    def _drain_page_stream(
+        self, connection, first_msg: dict, execution_id: Optional[str]
+    ):
+        """Internal: collect the streamed output of a generator page function
+        for run_page_function."""
+        status = 200
+        chunks = []
+        error = None
+
+        msg = first_msg
+        while isinstance(msg, dict) and "__page_stream__" in msg:
+            kind = msg["__page_stream__"]
+            if kind == "start":
+                status = msg.get("status", 200)
+            elif kind == "chunk":
+                chunks.append(msg.get("data"))
+            elif kind == "error":
+                error = msg.get("error")
+                break
+            elif kind == "end":
+                break
+            msg = drain_until_response(connection)
+
+        result = {
+            "status": status,
+            "streamed_chunks": chunks,
+            "execution_id": execution_id,
+        }
+        if error is not None:
+            result["error"] = error
         return result
 
     def execute_code_snippet(self, code: str, title: str = "Debug Snippet"):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: schemathesis
-Version: 4.24.0
+Version: 4.24.1
 Summary: Adaptive API testing for OpenAPI and GraphQL
 Project-URL: Documentation, https://schemathesis.readthedocs.io/en/stable/
 Project-URL: Changelog, https://github.com/schemathesis/schemathesis/blob/master/CHANGELOG.md
@@ -34,7 +34,7 @@ Requires-Dist: harfile<1.0,>=0.5.0
 Requires-Dist: hypothesis-graphql<1,>=0.13.1
 Requires-Dist: hypothesis-jsonschema<0.24,>=0.23.1
 Requires-Dist: hypothesis<7,>=6.130.12
-Requires-Dist: jsonschema-rs>=0.48.0
+Requires-Dist: jsonschema-rs>=0.48.2
 Requires-Dist: pyrate-limiter<5.0,>=4.0
 Requires-Dist: pytest<10,>=9
 Requires-Dist: pyyaml<7.0,>=5.1

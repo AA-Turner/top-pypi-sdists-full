@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any
 from apify_client._docs import docs_group
 from apify_client._models import Build, BuildResponse
 from apify_client._resource_clients._resource_client import ResourceClient, ResourceClientAsync
-from apify_client._utils import response_to_dict
+from apify_client._utils.http import response_to_dict
 
 if TYPE_CHECKING:
     from datetime import timedelta
@@ -110,7 +110,7 @@ class BuildClient(ResourceClient):
 
         Returns:
             The Actor build data. If the status on the object is not one of the terminal statuses (SUCCEEDED, FAILED,
-                TIMED_OUT, ABORTED), then the build has not yet finished.
+                TIMED-OUT, ABORTED), then the build has not yet finished.
         """
         result = self._wait_for_finish(
             url=self._build_url(),
@@ -230,7 +230,7 @@ class BuildClientAsync(ResourceClientAsync):
 
         Returns:
             The Actor build data. If the status on the object is not one of the terminal statuses (SUCCEEDED, FAILED,
-                TIMED_OUT, ABORTED), then the build has not yet finished.
+                TIMED-OUT, ABORTED), then the build has not yet finished.
         """
         result = await self._wait_for_finish(
             url=self._build_url(),

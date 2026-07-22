@@ -7,7 +7,7 @@ use rumdl_config::resolve_rule_names;
 use rumdl_lib::config as rumdl_config;
 use rumdl_lib::discovery::{
     ExcludeMatchers, ExplicitIncludeMatchers, MARKDOWN_EXTENSIONS, MarkdownWalkOptions, apply_markdown_walk_options,
-    expand_directory_pattern, has_markdown_extension, path_relative_to,
+    expand_directory_pattern, has_markdown_extension, normalize_pattern_for_base, path_relative_to,
 };
 use rumdl_lib::rule::Rule;
 use std::collections::HashSet;
@@ -270,12 +270,26 @@ pub fn find_markdown_files(
     // Track whether config-based include patterns are active in discovery mode
     let has_config_include = is_discovery_mode && !config.global.include.is_empty();
 
+    // Include patterns are matched relative to the same base the walker's
+    // overrides use, so `~` is expanded and an absolute pattern under that base
+    // is rewritten relative to it (see `normalize_pattern_for_base`).
+    let include_base = project_root
+        .map(Path::to_path_buf)
+        .or_else(|| std::env::current_dir().ok());
+    let normalize_include = |pattern: &str| normalize_pattern_for_base(pattern, include_base.as_deref());
+    let config_include: Vec<String> = config
+        .global
+        .include
+        .iter()
+        .map(|pattern| normalize_include(pattern))
+        .collect();
+
     // Config include patterns that explicitly name files beyond the standard
     // markdown extensions (e.g. `**/*.md.jinja`). These widen both the
     // walker's type filter and the final lintable-file filter below, so that
     // config include reaches the same files the equivalent CLI --include does.
     let explicit_includes = if has_config_include {
-        ExplicitIncludeMatchers::new(&config.global.include)
+        ExplicitIncludeMatchers::new(&config_include)
     } else {
         ExplicitIncludeMatchers::new(&[])
     };
@@ -287,12 +301,13 @@ pub fn find_markdown_files(
         // 1. CLI --include always wins
         cli_include
             .split(',')
-            .map(|p| p.trim().to_string())
+            .map(|p| p.trim())
             .filter(|p| !p.is_empty())
+            .map(normalize_include)
             .collect()
     } else if is_discovery_mode && !config.global.include.is_empty() {
         // 2. Config include is used ONLY in discovery mode if specified
-        config.global.include.clone()
+        config_include.clone()
     } else if is_discovery_mode {
         // 3. Default: Don't add include patterns as overrides - the type filter already handles
         // selecting markdown files (lines 183-199). Using overrides here would bypass gitignore
@@ -386,22 +401,13 @@ pub fn find_markdown_files(
             if !exclude_matchers.is_empty() {
                 // Compute path relative to project_root for pattern matching
                 // This ensures patterns like "subdir/file.md" work regardless of cwd
-                let path_for_matching = if let Some(canonical_root) = canonical_project_root.as_deref() {
-                    if let Ok(canonical_path) = path.canonicalize() {
-                        if let Ok(relative) = canonical_path.strip_prefix(canonical_root) {
-                            relative.to_string_lossy().to_string()
-                        } else {
-                            // Path is not under project_root, fall back to cleaned_path
-                            cleaned_path.clone()
-                        }
-                    } else {
-                        cleaned_path.clone()
-                    }
-                } else {
-                    cleaned_path.clone()
-                };
-
-                if let Some(pattern) = exclude_matchers.matched_pattern(&path_for_matching) {
+                let path_for_matching = canonical_project_root
+                    .as_deref()
+                    .and_then(|root| path_relative_to(path, root))
+                    .unwrap_or_else(|| cleaned_path.clone());
+                // Absolute patterns (written literally or produced by `~`
+                // expansion) match the absolute path instead.
+                if let Some(pattern) = exclude_matchers.matched_pattern_for_file(Some(&path_for_matching), path) {
                     // Excluding an explicitly provided file is a deliberate config choice, so
                     // this is an informational notice, not a warning, and it is surfaced only
                     // under --verbose. This keeps explicit-path mode as quiet as discovery
@@ -564,24 +570,19 @@ pub fn find_markdown_files(
     // --- Post-walk exclude pattern filtering ---
     // The ignore crate's overrides may not work correctly when the walker path prefix
     // differs from the config file location. Apply exclude patterns manually here.
-    if !exclude_matchers.is_empty()
-        && let Some(canonical_root) = canonical_project_root.as_deref()
-    {
+    // This also carries absolute patterns, which the walker's overrides cannot
+    // express: the ignore crate anchors a leading `/` to the walk root.
+    if !exclude_matchers.is_empty() {
         file_paths.retain(|file_path| {
             let path = Path::new(file_path);
-            // Compute path relative to project_root for pattern matching
-            let path_for_matching = if let Ok(canonical_path) = path.canonicalize() {
-                if let Ok(relative) = canonical_path.strip_prefix(canonical_root) {
-                    relative.to_string_lossy().to_string()
-                } else {
-                    file_path.clone()
-                }
-            } else {
-                file_path.clone()
-            };
+            // Compute path relative to project_root for pattern matching. Without
+            // a project root, or outside it, only the absolute form applies.
+            let path_for_matching = canonical_project_root
+                .as_deref()
+                .and_then(|root| path_relative_to(path, root));
 
             // Check if any exclude pattern matches
-            !exclude_matchers.is_match(&path_for_matching)
+            !exclude_matchers.excludes_file(path_for_matching.as_deref(), path)
         });
     }
 

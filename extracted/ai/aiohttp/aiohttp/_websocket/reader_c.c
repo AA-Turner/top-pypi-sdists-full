@@ -5982,61 +5982,30 @@ static int __pyx_pw_7aiohttp_10_websocket_8reader_c_15WebSocketReader_1__init__(
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
       if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__init__", 0) < (0)) __PYX_ERR(0, 137, __pyx_L3_error)
-      for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__init__", 0, 2, 4, i); __PYX_ERR(0, 137, __pyx_L3_error) }
+      for (Py_ssize_t i = __pyx_nargs; i < 4; i++) {
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__init__", 1, 4, 4, i); __PYX_ERR(0, 137, __pyx_L3_error) }
       }
+    } else if (unlikely(__pyx_nargs != 4)) {
+      goto __pyx_L5_argtuple_error;
     } else {
-      switch (__pyx_nargs) {
-        case  4:
-        values[3] = __Pyx_ArgRef_VARARGS(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 137, __pyx_L3_error)
-        CYTHON_FALLTHROUGH;
-        case  3:
-        values[2] = __Pyx_ArgRef_VARARGS(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 137, __pyx_L3_error)
-        CYTHON_FALLTHROUGH;
-        case  2:
-        values[1] = __Pyx_ArgRef_VARARGS(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 137, __pyx_L3_error)
-        values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 137, __pyx_L3_error)
-        break;
-        default: goto __pyx_L5_argtuple_error;
-      }
+      values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 137, __pyx_L3_error)
+      values[1] = __Pyx_ArgRef_VARARGS(__pyx_args, 1);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 137, __pyx_L3_error)
+      values[2] = __Pyx_ArgRef_VARARGS(__pyx_args, 2);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 137, __pyx_L3_error)
+      values[3] = __Pyx_ArgRef_VARARGS(__pyx_args, 3);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 137, __pyx_L3_error)
     }
     __pyx_v_queue = ((struct __pyx_obj_7aiohttp_10_websocket_8reader_c_WebSocketDataQueue *)values[0]);
     if (__Pyx_PyInt_FromNumber(&values[1], "max_msg_size", 0) < (0)) __PYX_ERR(0, 140, __pyx_L3_error)
     __pyx_v_max_msg_size = ((PyObject*)values[1]);
-    if (values[2]) {
-      __pyx_v_compress = __Pyx_PyObject_IsTrue(values[2]); if (unlikely((__pyx_v_compress == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 141, __pyx_L3_error)
-    } else {
-
-      /* "aiohttp/_websocket/reader_c.py":141
- *         queue: WebSocketDataQueue,
- *         max_msg_size: int,
- *         compress: bool = True,             # <<<<<<<<<<<<<<
- *         decode_text: bool = True,
- *     ) -> None:
-*/
-      __pyx_v_compress = ((int)1);
-    }
-    if (values[3]) {
-      __pyx_v_decode_text = __Pyx_PyObject_IsTrue(values[3]); if (unlikely((__pyx_v_decode_text == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 142, __pyx_L3_error)
-    } else {
-
-      /* "aiohttp/_websocket/reader_c.py":142
- *         max_msg_size: int,
- *         compress: bool = True,
- *         decode_text: bool = True,             # <<<<<<<<<<<<<<
- *     ) -> None:
- *         self.queue = queue
-*/
-      __pyx_v_decode_text = ((int)1);
-    }
+    __pyx_v_compress = __Pyx_PyObject_IsTrue(values[2]); if (unlikely((__pyx_v_compress == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 141, __pyx_L3_error)
+    __pyx_v_decode_text = __Pyx_PyObject_IsTrue(values[3]); if (unlikely((__pyx_v_decode_text == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 142, __pyx_L3_error)
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__init__", 0, 2, 4, __pyx_nargs); __PYX_ERR(0, 137, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__init__", 1, 4, 4, __pyx_nargs); __PYX_ERR(0, 137, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -6050,14 +6019,6 @@ static int __pyx_pw_7aiohttp_10_websocket_8reader_c_15WebSocketReader_1__init__(
   if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_queue), __pyx_mstate_global->__pyx_ptype_7aiohttp_10_websocket_8reader_c_WebSocketDataQueue, 0, "queue", 0))) __PYX_ERR(0, 139, __pyx_L1_error)
   if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_max_msg_size), (&PyLong_Type), 0, "max_msg_size", 2))) __PYX_ERR(0, 140, __pyx_L1_error)
   __pyx_r = __pyx_pf_7aiohttp_10_websocket_8reader_c_15WebSocketReader___init__(((struct __pyx_obj_7aiohttp_10_websocket_8reader_c_WebSocketReader *)__pyx_v_self), __pyx_v_queue, __pyx_v_max_msg_size, __pyx_v_compress, __pyx_v_decode_text);
-
-  /* "aiohttp/_websocket/reader_c.py":137
- * 
- * class WebSocketReader:
- *     def __init__(             # <<<<<<<<<<<<<<
- *         self,
- *         queue: WebSocketDataQueue,
-*/
 
   /* function exit code */
   goto __pyx_L0;
@@ -6089,7 +6050,7 @@ static int __pyx_pf_7aiohttp_10_websocket_8reader_c_15WebSocketReader___init__(s
   __Pyx_RefNannySetupContext("__init__", 0);
 
   /* "aiohttp/_websocket/reader_c.py":144
- *         decode_text: bool = True,
+ *         decode_text: bool,
  *     ) -> None:
  *         self.queue = queue             # <<<<<<<<<<<<<<
  *         self._max_msg_size = max_msg_size
@@ -10026,27 +9987,46 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
       }
       __pyx_L26:;
 
-      /* "aiohttp/_websocket/reader_c.py":407
- *                     )
- * 
- *                 self._frame_fin = bool(fin)             # <<<<<<<<<<<<<<
+      /* "aiohttp/_websocket/reader_c.py":410
+ *                 # fragments of a data message.
+ *                 # https://datatracker.ietf.org/doc/html/rfc6455#section-5.4
+ *                 if opcode <= 0x7:             # <<<<<<<<<<<<<<
+ *                     self._frame_fin = bool(fin)
+ *                 self._frame_opcode = opcode
+*/
+      __pyx_t_9 = (__pyx_v_opcode <= 0x7);
+      if (__pyx_t_9) {
+
+        /* "aiohttp/_websocket/reader_c.py":411
+ *                 # https://datatracker.ietf.org/doc/html/rfc6455#section-5.4
+ *                 if opcode <= 0x7:
+ *                     self._frame_fin = bool(fin)             # <<<<<<<<<<<<<<
  *                 self._frame_opcode = opcode
  *                 self._has_mask = bool(has_mask)
 */
-      __pyx_t_9 = __pyx_v_fin;
-      __pyx_v_self->_frame_fin = (!(!__pyx_t_9));
+        __pyx_t_9 = __pyx_v_fin;
+        __pyx_v_self->_frame_fin = (!(!__pyx_t_9));
 
-      /* "aiohttp/_websocket/reader_c.py":408
- * 
- *                 self._frame_fin = bool(fin)
+        /* "aiohttp/_websocket/reader_c.py":410
+ *                 # fragments of a data message.
+ *                 # https://datatracker.ietf.org/doc/html/rfc6455#section-5.4
+ *                 if opcode <= 0x7:             # <<<<<<<<<<<<<<
+ *                     self._frame_fin = bool(fin)
+ *                 self._frame_opcode = opcode
+*/
+      }
+
+      /* "aiohttp/_websocket/reader_c.py":412
+ *                 if opcode <= 0x7:
+ *                     self._frame_fin = bool(fin)
  *                 self._frame_opcode = opcode             # <<<<<<<<<<<<<<
  *                 self._has_mask = bool(has_mask)
  *                 self._payload_len_flag = length
 */
       __pyx_v_self->_frame_opcode = __pyx_v_opcode;
 
-      /* "aiohttp/_websocket/reader_c.py":409
- *                 self._frame_fin = bool(fin)
+      /* "aiohttp/_websocket/reader_c.py":413
+ *                     self._frame_fin = bool(fin)
  *                 self._frame_opcode = opcode
  *                 self._has_mask = bool(has_mask)             # <<<<<<<<<<<<<<
  *                 self._payload_len_flag = length
@@ -10055,7 +10035,7 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
       __pyx_t_9 = __pyx_v_has_mask;
       __pyx_v_self->_has_mask = (!(!__pyx_t_9));
 
-      /* "aiohttp/_websocket/reader_c.py":410
+      /* "aiohttp/_websocket/reader_c.py":414
  *                 self._frame_opcode = opcode
  *                 self._has_mask = bool(has_mask)
  *                 self._payload_len_flag = length             # <<<<<<<<<<<<<<
@@ -10064,7 +10044,7 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
 */
       __pyx_v_self->_payload_len_flag = __pyx_v_length;
 
-      /* "aiohttp/_websocket/reader_c.py":411
+      /* "aiohttp/_websocket/reader_c.py":415
  *                 self._has_mask = bool(has_mask)
  *                 self._payload_len_flag = length
  *                 self._state = READ_PAYLOAD_LENGTH             # <<<<<<<<<<<<<<
@@ -10082,7 +10062,7 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
 */
     }
 
-    /* "aiohttp/_websocket/reader_c.py":414
+    /* "aiohttp/_websocket/reader_c.py":418
  * 
  *             # read payload length
  *             if self._state == READ_PAYLOAD_LENGTH:             # <<<<<<<<<<<<<<
@@ -10092,7 +10072,7 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
     __pyx_t_9 = (__pyx_v_self->_state == __pyx_v_7aiohttp_10_websocket_8reader_c_READ_PAYLOAD_LENGTH);
     if (__pyx_t_9) {
 
-      /* "aiohttp/_websocket/reader_c.py":415
+      /* "aiohttp/_websocket/reader_c.py":419
  *             # read payload length
  *             if self._state == READ_PAYLOAD_LENGTH:
  *                 len_flag = self._payload_len_flag             # <<<<<<<<<<<<<<
@@ -10102,7 +10082,7 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
       __pyx_t_14 = __pyx_v_self->_payload_len_flag;
       __pyx_v_len_flag = __pyx_t_14;
 
-      /* "aiohttp/_websocket/reader_c.py":416
+      /* "aiohttp/_websocket/reader_c.py":420
  *             if self._state == READ_PAYLOAD_LENGTH:
  *                 len_flag = self._payload_len_flag
  *                 if len_flag == 126:             # <<<<<<<<<<<<<<
@@ -10112,7 +10092,7 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
       __pyx_t_9 = (__pyx_v_len_flag == 0x7E);
       if (__pyx_t_9) {
 
-        /* "aiohttp/_websocket/reader_c.py":417
+        /* "aiohttp/_websocket/reader_c.py":421
  *                 len_flag = self._payload_len_flag
  *                 if len_flag == 126:
  *                     if data_len - start_pos < 2:             # <<<<<<<<<<<<<<
@@ -10122,7 +10102,7 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
         __pyx_t_9 = ((__pyx_v_data_len - __pyx_v_start_pos) < 2);
         if (__pyx_t_9) {
 
-          /* "aiohttp/_websocket/reader_c.py":418
+          /* "aiohttp/_websocket/reader_c.py":422
  *                 if len_flag == 126:
  *                     if data_len - start_pos < 2:
  *                         break             # <<<<<<<<<<<<<<
@@ -10131,7 +10111,7 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
 */
           goto __pyx_L5_break;
 
-          /* "aiohttp/_websocket/reader_c.py":417
+          /* "aiohttp/_websocket/reader_c.py":421
  *                 len_flag = self._payload_len_flag
  *                 if len_flag == 126:
  *                     if data_len - start_pos < 2:             # <<<<<<<<<<<<<<
@@ -10140,7 +10120,7 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
 */
         }
 
-        /* "aiohttp/_websocket/reader_c.py":419
+        /* "aiohttp/_websocket/reader_c.py":423
  *                     if data_len - start_pos < 2:
  *                         break
  *                     first_byte = data_cstr[start_pos]             # <<<<<<<<<<<<<<
@@ -10149,7 +10129,7 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
 */
         __pyx_v_first_byte = (__pyx_v_data_cstr[__pyx_v_start_pos]);
 
-        /* "aiohttp/_websocket/reader_c.py":420
+        /* "aiohttp/_websocket/reader_c.py":424
  *                         break
  *                     first_byte = data_cstr[start_pos]
  *                     second_byte = data_cstr[start_pos + 1]             # <<<<<<<<<<<<<<
@@ -10158,7 +10138,7 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
 */
         __pyx_v_second_byte = (__pyx_v_data_cstr[(__pyx_v_start_pos + 1)]);
 
-        /* "aiohttp/_websocket/reader_c.py":421
+        /* "aiohttp/_websocket/reader_c.py":425
  *                     first_byte = data_cstr[start_pos]
  *                     second_byte = data_cstr[start_pos + 1]
  *                     start_pos += 2             # <<<<<<<<<<<<<<
@@ -10167,7 +10147,7 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
 */
         __pyx_v_start_pos = (__pyx_v_start_pos + 2);
 
-        /* "aiohttp/_websocket/reader_c.py":422
+        /* "aiohttp/_websocket/reader_c.py":426
  *                     second_byte = data_cstr[start_pos + 1]
  *                     start_pos += 2
  *                     self._payload_bytes_to_read = first_byte << 8 | second_byte             # <<<<<<<<<<<<<<
@@ -10176,17 +10156,17 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
 */
         __pyx_v_self->_payload_bytes_to_read = ((__pyx_v_first_byte << 8) | __pyx_v_second_byte);
 
-        /* "aiohttp/_websocket/reader_c.py":416
+        /* "aiohttp/_websocket/reader_c.py":420
  *             if self._state == READ_PAYLOAD_LENGTH:
  *                 len_flag = self._payload_len_flag
  *                 if len_flag == 126:             # <<<<<<<<<<<<<<
  *                     if data_len - start_pos < 2:
  *                         break
 */
-        goto __pyx_L30;
+        goto __pyx_L31;
       }
 
-      /* "aiohttp/_websocket/reader_c.py":423
+      /* "aiohttp/_websocket/reader_c.py":427
  *                     start_pos += 2
  *                     self._payload_bytes_to_read = first_byte << 8 | second_byte
  *                 elif len_flag > 126:             # <<<<<<<<<<<<<<
@@ -10196,7 +10176,7 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
       __pyx_t_9 = (__pyx_v_len_flag > 0x7E);
       if (__pyx_t_9) {
 
-        /* "aiohttp/_websocket/reader_c.py":424
+        /* "aiohttp/_websocket/reader_c.py":428
  *                     self._payload_bytes_to_read = first_byte << 8 | second_byte
  *                 elif len_flag > 126:
  *                     if data_len - start_pos < 8:             # <<<<<<<<<<<<<<
@@ -10206,7 +10186,7 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
         __pyx_t_9 = ((__pyx_v_data_len - __pyx_v_start_pos) < 8);
         if (__pyx_t_9) {
 
-          /* "aiohttp/_websocket/reader_c.py":425
+          /* "aiohttp/_websocket/reader_c.py":429
  *                 elif len_flag > 126:
  *                     if data_len - start_pos < 8:
  *                         break             # <<<<<<<<<<<<<<
@@ -10215,7 +10195,7 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
 */
           goto __pyx_L5_break;
 
-          /* "aiohttp/_websocket/reader_c.py":424
+          /* "aiohttp/_websocket/reader_c.py":428
  *                     self._payload_bytes_to_read = first_byte << 8 | second_byte
  *                 elif len_flag > 126:
  *                     if data_len - start_pos < 8:             # <<<<<<<<<<<<<<
@@ -10224,7 +10204,7 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
 */
         }
 
-        /* "aiohttp/_websocket/reader_c.py":426
+        /* "aiohttp/_websocket/reader_c.py":430
  *                     if data_len - start_pos < 8:
  *                         break
  *                     self._payload_bytes_to_read = UNPACK_LEN3(data, start_pos)[0]             # <<<<<<<<<<<<<<
@@ -10234,7 +10214,7 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
         __pyx_t_3 = NULL;
         __Pyx_INCREF(__pyx_v_7aiohttp_10_websocket_8reader_c_UNPACK_LEN3);
         __pyx_t_10 = __pyx_v_7aiohttp_10_websocket_8reader_c_UNPACK_LEN3; 
-        __pyx_t_4 = PyLong_FromSsize_t(__pyx_v_start_pos); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 426, __pyx_L1_error)
+        __pyx_t_4 = PyLong_FromSsize_t(__pyx_v_start_pos); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 430, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
         __pyx_t_5 = 1;
         #if CYTHON_UNPACK_METHODS
@@ -10254,17 +10234,17 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
           __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
           __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 426, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 430, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
         }
-        __pyx_t_10 = __Pyx_GetItemInt(__pyx_t_2, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 1, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 426, __pyx_L1_error)
+        __pyx_t_10 = __Pyx_GetItemInt(__pyx_t_2, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 1, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 430, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_10);
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-        __pyx_t_7 = __Pyx_PyIndex_AsSsize_t(__pyx_t_10); if (unlikely((__pyx_t_7 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 426, __pyx_L1_error)
+        __pyx_t_7 = __Pyx_PyIndex_AsSsize_t(__pyx_t_10); if (unlikely((__pyx_t_7 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 430, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
         __pyx_v_self->_payload_bytes_to_read = __pyx_t_7;
 
-        /* "aiohttp/_websocket/reader_c.py":427
+        /* "aiohttp/_websocket/reader_c.py":431
  *                         break
  *                     self._payload_bytes_to_read = UNPACK_LEN3(data, start_pos)[0]
  *                     start_pos += 8             # <<<<<<<<<<<<<<
@@ -10273,17 +10253,17 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
 */
         __pyx_v_start_pos = (__pyx_v_start_pos + 8);
 
-        /* "aiohttp/_websocket/reader_c.py":423
+        /* "aiohttp/_websocket/reader_c.py":427
  *                     start_pos += 2
  *                     self._payload_bytes_to_read = first_byte << 8 | second_byte
  *                 elif len_flag > 126:             # <<<<<<<<<<<<<<
  *                     if data_len - start_pos < 8:
  *                         break
 */
-        goto __pyx_L30;
+        goto __pyx_L31;
       }
 
-      /* "aiohttp/_websocket/reader_c.py":429
+      /* "aiohttp/_websocket/reader_c.py":433
  *                     start_pos += 8
  *                 else:
  *                     self._payload_bytes_to_read = len_flag             # <<<<<<<<<<<<<<
@@ -10293,9 +10273,9 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
       /*else*/ {
         __pyx_v_self->_payload_bytes_to_read = __pyx_v_len_flag;
       }
-      __pyx_L30:;
+      __pyx_L31:;
 
-      /* "aiohttp/_websocket/reader_c.py":434
+      /* "aiohttp/_websocket/reader_c.py":438
  *                 # bytes. Control frames are capped at 125 bytes (checked in
  *                 # READ_HEADER) so only text/binary/continuation need this.
  *                 if self._max_msg_size and self._frame_opcode in {             # <<<<<<<<<<<<<<
@@ -10306,11 +10286,11 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
       if (__pyx_t_6) {
       } else {
         __pyx_t_9 = __pyx_t_6;
-        goto __pyx_L34_bool_binop_done;
+        goto __pyx_L35_bool_binop_done;
       }
       __pyx_t_13 = __pyx_v_self->_frame_opcode;
 
-      /* "aiohttp/_websocket/reader_c.py":435
+      /* "aiohttp/_websocket/reader_c.py":439
  *                 # READ_HEADER) so only text/binary/continuation need this.
  *                 if self._max_msg_size and self._frame_opcode in {
  *                     OP_CODE_TEXT,             # <<<<<<<<<<<<<<
@@ -10321,10 +10301,10 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
       if (!__pyx_t_15) {
       } else {
         __pyx_t_6 = __pyx_t_15;
-        goto __pyx_L36_bool_binop_done;
+        goto __pyx_L37_bool_binop_done;
       }
 
-      /* "aiohttp/_websocket/reader_c.py":434
+      /* "aiohttp/_websocket/reader_c.py":438
  *                 # bytes. Control frames are capped at 125 bytes (checked in
  *                 # READ_HEADER) so only text/binary/continuation need this.
  *                 if self._max_msg_size and self._frame_opcode in {             # <<<<<<<<<<<<<<
@@ -10335,10 +10315,10 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
       if (!__pyx_t_15) {
       } else {
         __pyx_t_6 = __pyx_t_15;
-        goto __pyx_L36_bool_binop_done;
+        goto __pyx_L37_bool_binop_done;
       }
 
-      /* "aiohttp/_websocket/reader_c.py":437
+      /* "aiohttp/_websocket/reader_c.py":441
  *                     OP_CODE_TEXT,
  *                     OP_CODE_BINARY,
  *                     OP_CODE_CONTINUATION,             # <<<<<<<<<<<<<<
@@ -10347,9 +10327,9 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
 */
       __pyx_t_15 = (__pyx_t_13 == __pyx_v_7aiohttp_10_websocket_8reader_c_OP_CODE_CONTINUATION);
       __pyx_t_6 = __pyx_t_15;
-      __pyx_L36_bool_binop_done:;
+      __pyx_L37_bool_binop_done:;
 
-      /* "aiohttp/_websocket/reader_c.py":434
+      /* "aiohttp/_websocket/reader_c.py":438
  *                 # bytes. Control frames are capped at 125 bytes (checked in
  *                 # READ_HEADER) so only text/binary/continuation need this.
  *                 if self._max_msg_size and self._frame_opcode in {             # <<<<<<<<<<<<<<
@@ -10358,10 +10338,10 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
 */
       __pyx_t_15 = __pyx_t_6;
       __pyx_t_9 = __pyx_t_15;
-      __pyx_L34_bool_binop_done:;
+      __pyx_L35_bool_binop_done:;
       if (__pyx_t_9) {
 
-        /* "aiohttp/_websocket/reader_c.py":439
+        /* "aiohttp/_websocket/reader_c.py":443
  *                     OP_CODE_CONTINUATION,
  *                 }:
  *                     projected_size = self._payload_bytes_to_read + len(self._partial)             # <<<<<<<<<<<<<<
@@ -10372,13 +10352,13 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
         __Pyx_INCREF(__pyx_t_10);
         if (unlikely(__pyx_t_10 == Py_None)) {
           PyErr_SetString(PyExc_TypeError, "object of type 'NoneType' has no len()");
-          __PYX_ERR(0, 439, __pyx_L1_error)
+          __PYX_ERR(0, 443, __pyx_L1_error)
         }
-        __pyx_t_7 = __Pyx_PyByteArray_GET_SIZE(__pyx_t_10); if (unlikely(__pyx_t_7 == ((Py_ssize_t)-1))) __PYX_ERR(0, 439, __pyx_L1_error)
+        __pyx_t_7 = __Pyx_PyByteArray_GET_SIZE(__pyx_t_10); if (unlikely(__pyx_t_7 == ((Py_ssize_t)-1))) __PYX_ERR(0, 443, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
         __pyx_v_projected_size = (__pyx_v_self->_payload_bytes_to_read + __pyx_t_7);
 
-        /* "aiohttp/_websocket/reader_c.py":440
+        /* "aiohttp/_websocket/reader_c.py":444
  *                 }:
  *                     projected_size = self._payload_bytes_to_read + len(self._partial)
  *                     if projected_size >= self._max_msg_size:             # <<<<<<<<<<<<<<
@@ -10388,7 +10368,7 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
         __pyx_t_9 = (__pyx_v_projected_size >= __pyx_v_self->_max_msg_size);
         if (unlikely(__pyx_t_9)) {
 
-          /* "aiohttp/_websocket/reader_c.py":441
+          /* "aiohttp/_websocket/reader_c.py":445
  *                     projected_size = self._payload_bytes_to_read + len(self._partial)
  *                     if projected_size >= self._max_msg_size:
  *                         raise WebSocketError(             # <<<<<<<<<<<<<<
@@ -10396,47 +10376,47 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
  *                             f"Message size {projected_size} "
 */
           __pyx_t_2 = NULL;
-          __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_WebSocketError); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 441, __pyx_L1_error)
+          __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_WebSocketError); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 445, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_4);
 
-          /* "aiohttp/_websocket/reader_c.py":442
+          /* "aiohttp/_websocket/reader_c.py":446
  *                     if projected_size >= self._max_msg_size:
  *                         raise WebSocketError(
  *                             WSCloseCode.MESSAGE_TOO_BIG,             # <<<<<<<<<<<<<<
  *                             f"Message size {projected_size} "
  *                             f"exceeds limit {self._max_msg_size}",
 */
-          __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_WSCloseCode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 442, __pyx_L1_error)
+          __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_WSCloseCode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 446, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_3);
-          __pyx_t_12 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_MESSAGE_TOO_BIG); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 442, __pyx_L1_error)
+          __pyx_t_12 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_MESSAGE_TOO_BIG); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 446, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_12);
           __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-          /* "aiohttp/_websocket/reader_c.py":443
+          /* "aiohttp/_websocket/reader_c.py":447
  *                         raise WebSocketError(
  *                             WSCloseCode.MESSAGE_TOO_BIG,
  *                             f"Message size {projected_size} "             # <<<<<<<<<<<<<<
  *                             f"exceeds limit {self._max_msg_size}",
  *                         )
 */
-          __pyx_t_3 = __Pyx_PyUnicode_From_Py_ssize_t(__pyx_v_projected_size, 0, ' ', 'd'); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 443, __pyx_L1_error)
+          __pyx_t_3 = __Pyx_PyUnicode_From_Py_ssize_t(__pyx_v_projected_size, 0, ' ', 'd'); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 447, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_3);
 
-          /* "aiohttp/_websocket/reader_c.py":444
+          /* "aiohttp/_websocket/reader_c.py":448
  *                             WSCloseCode.MESSAGE_TOO_BIG,
  *                             f"Message size {projected_size} "
  *                             f"exceeds limit {self._max_msg_size}",             # <<<<<<<<<<<<<<
  *                         )
  * 
 */
-          __pyx_t_1 = __Pyx_PyUnicode_From_unsigned_int(__pyx_v_self->_max_msg_size, 0, ' ', 'd'); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 444, __pyx_L1_error)
+          __pyx_t_1 = __Pyx_PyUnicode_From_unsigned_int(__pyx_v_self->_max_msg_size, 0, ' ', 'd'); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 448, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_1);
           __pyx_t_16[0] = __pyx_mstate_global->__pyx_kp_u_Message_size;
           __pyx_t_16[1] = __pyx_t_3;
           __pyx_t_16[2] = __pyx_mstate_global->__pyx_kp_u_exceeds_limit;
           __pyx_t_16[3] = __pyx_t_1;
 
-          /* "aiohttp/_websocket/reader_c.py":443
+          /* "aiohttp/_websocket/reader_c.py":447
  *                         raise WebSocketError(
  *                             WSCloseCode.MESSAGE_TOO_BIG,
  *                             f"Message size {projected_size} "             # <<<<<<<<<<<<<<
@@ -10444,7 +10424,7 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
  *                         )
 */
           __pyx_t_17 = __Pyx_PyUnicode_Join(__pyx_t_16, 4, 13 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_3) + 15 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_1), 127);
-          if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 443, __pyx_L1_error)
+          if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 447, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_17);
           __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
           __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -10467,14 +10447,14 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
             __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
             __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
             __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-            if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 441, __pyx_L1_error)
+            if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 445, __pyx_L1_error)
             __Pyx_GOTREF(__pyx_t_10);
           }
           __Pyx_Raise(__pyx_t_10, 0, 0, 0);
           __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-          __PYX_ERR(0, 441, __pyx_L1_error)
+          __PYX_ERR(0, 445, __pyx_L1_error)
 
-          /* "aiohttp/_websocket/reader_c.py":440
+          /* "aiohttp/_websocket/reader_c.py":444
  *                 }:
  *                     projected_size = self._payload_bytes_to_read + len(self._partial)
  *                     if projected_size >= self._max_msg_size:             # <<<<<<<<<<<<<<
@@ -10483,7 +10463,7 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
 */
         }
 
-        /* "aiohttp/_websocket/reader_c.py":434
+        /* "aiohttp/_websocket/reader_c.py":438
  *                 # bytes. Control frames are capped at 125 bytes (checked in
  *                 # READ_HEADER) so only text/binary/continuation need this.
  *                 if self._max_msg_size and self._frame_opcode in {             # <<<<<<<<<<<<<<
@@ -10492,7 +10472,7 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
 */
       }
 
-      /* "aiohttp/_websocket/reader_c.py":447
+      /* "aiohttp/_websocket/reader_c.py":451
  *                         )
  * 
  *                 self._state = READ_PAYLOAD_MASK if self._has_mask else READ_PAYLOAD             # <<<<<<<<<<<<<<
@@ -10506,7 +10486,7 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
       }
       __pyx_v_self->_state = __pyx_t_14;
 
-      /* "aiohttp/_websocket/reader_c.py":414
+      /* "aiohttp/_websocket/reader_c.py":418
  * 
  *             # read payload length
  *             if self._state == READ_PAYLOAD_LENGTH:             # <<<<<<<<<<<<<<
@@ -10515,7 +10495,7 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
 */
     }
 
-    /* "aiohttp/_websocket/reader_c.py":450
+    /* "aiohttp/_websocket/reader_c.py":454
  * 
  *             # read payload mask
  *             if self._state == READ_PAYLOAD_MASK:             # <<<<<<<<<<<<<<
@@ -10525,7 +10505,7 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
     __pyx_t_9 = (__pyx_v_self->_state == __pyx_v_7aiohttp_10_websocket_8reader_c_READ_PAYLOAD_MASK);
     if (__pyx_t_9) {
 
-      /* "aiohttp/_websocket/reader_c.py":451
+      /* "aiohttp/_websocket/reader_c.py":455
  *             # read payload mask
  *             if self._state == READ_PAYLOAD_MASK:
  *                 if data_len - start_pos < 4:             # <<<<<<<<<<<<<<
@@ -10535,7 +10515,7 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
       __pyx_t_9 = ((__pyx_v_data_len - __pyx_v_start_pos) < 4);
       if (__pyx_t_9) {
 
-        /* "aiohttp/_websocket/reader_c.py":452
+        /* "aiohttp/_websocket/reader_c.py":456
  *             if self._state == READ_PAYLOAD_MASK:
  *                 if data_len - start_pos < 4:
  *                     break             # <<<<<<<<<<<<<<
@@ -10544,7 +10524,7 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
 */
         goto __pyx_L5_break;
 
-        /* "aiohttp/_websocket/reader_c.py":451
+        /* "aiohttp/_websocket/reader_c.py":455
  *             # read payload mask
  *             if self._state == READ_PAYLOAD_MASK:
  *                 if data_len - start_pos < 4:             # <<<<<<<<<<<<<<
@@ -10553,14 +10533,14 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
 */
       }
 
-      /* "aiohttp/_websocket/reader_c.py":453
+      /* "aiohttp/_websocket/reader_c.py":457
  *                 if data_len - start_pos < 4:
  *                     break
  *                 self._frame_mask = data_cstr[start_pos : start_pos + 4]             # <<<<<<<<<<<<<<
  *                 start_pos += 4
  *                 self._state = READ_PAYLOAD
 */
-      __pyx_t_10 = __Pyx_PyBytes_FromStringAndSize(((char const *)__pyx_v_data_cstr) + __pyx_v_start_pos, (__pyx_v_start_pos + 4) - __pyx_v_start_pos); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 453, __pyx_L1_error)
+      __pyx_t_10 = __Pyx_PyBytes_FromStringAndSize(((char const *)__pyx_v_data_cstr) + __pyx_v_start_pos, (__pyx_v_start_pos + 4) - __pyx_v_start_pos); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 457, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_10);
       __Pyx_GIVEREF(__pyx_t_10);
       __Pyx_GOTREF(__pyx_v_self->_frame_mask);
@@ -10568,7 +10548,7 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
       __pyx_v_self->_frame_mask = ((PyObject*)__pyx_t_10);
       __pyx_t_10 = 0;
 
-      /* "aiohttp/_websocket/reader_c.py":454
+      /* "aiohttp/_websocket/reader_c.py":458
  *                     break
  *                 self._frame_mask = data_cstr[start_pos : start_pos + 4]
  *                 start_pos += 4             # <<<<<<<<<<<<<<
@@ -10577,7 +10557,7 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
 */
       __pyx_v_start_pos = (__pyx_v_start_pos + 4);
 
-      /* "aiohttp/_websocket/reader_c.py":455
+      /* "aiohttp/_websocket/reader_c.py":459
  *                 self._frame_mask = data_cstr[start_pos : start_pos + 4]
  *                 start_pos += 4
  *                 self._state = READ_PAYLOAD             # <<<<<<<<<<<<<<
@@ -10586,7 +10566,7 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
 */
       __pyx_v_self->_state = __pyx_v_7aiohttp_10_websocket_8reader_c_READ_PAYLOAD;
 
-      /* "aiohttp/_websocket/reader_c.py":450
+      /* "aiohttp/_websocket/reader_c.py":454
  * 
  *             # read payload mask
  *             if self._state == READ_PAYLOAD_MASK:             # <<<<<<<<<<<<<<
@@ -10595,7 +10575,7 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
 */
     }
 
-    /* "aiohttp/_websocket/reader_c.py":457
+    /* "aiohttp/_websocket/reader_c.py":461
  *                 self._state = READ_PAYLOAD
  * 
  *             if self._state == READ_PAYLOAD:             # <<<<<<<<<<<<<<
@@ -10605,7 +10585,7 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
     __pyx_t_9 = (__pyx_v_self->_state == __pyx_v_7aiohttp_10_websocket_8reader_c_READ_PAYLOAD);
     if (__pyx_t_9) {
 
-      /* "aiohttp/_websocket/reader_c.py":458
+      /* "aiohttp/_websocket/reader_c.py":462
  * 
  *             if self._state == READ_PAYLOAD:
  *                 chunk_len = data_len - start_pos             # <<<<<<<<<<<<<<
@@ -10614,7 +10594,7 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
 */
       __pyx_v_chunk_len = (__pyx_v_data_len - __pyx_v_start_pos);
 
-      /* "aiohttp/_websocket/reader_c.py":459
+      /* "aiohttp/_websocket/reader_c.py":463
  *             if self._state == READ_PAYLOAD:
  *                 chunk_len = data_len - start_pos
  *                 if self._payload_bytes_to_read >= chunk_len:             # <<<<<<<<<<<<<<
@@ -10624,7 +10604,7 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
       __pyx_t_9 = (__pyx_v_self->_payload_bytes_to_read >= __pyx_v_chunk_len);
       if (__pyx_t_9) {
 
-        /* "aiohttp/_websocket/reader_c.py":460
+        /* "aiohttp/_websocket/reader_c.py":464
  *                 chunk_len = data_len - start_pos
  *                 if self._payload_bytes_to_read >= chunk_len:
  *                     f_end_pos = data_len             # <<<<<<<<<<<<<<
@@ -10633,7 +10613,7 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
 */
         __pyx_v_f_end_pos = __pyx_v_data_len;
 
-        /* "aiohttp/_websocket/reader_c.py":461
+        /* "aiohttp/_websocket/reader_c.py":465
  *                 if self._payload_bytes_to_read >= chunk_len:
  *                     f_end_pos = data_len
  *                     self._payload_bytes_to_read -= chunk_len             # <<<<<<<<<<<<<<
@@ -10642,17 +10622,17 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
 */
         __pyx_v_self->_payload_bytes_to_read = (__pyx_v_self->_payload_bytes_to_read - __pyx_v_chunk_len);
 
-        /* "aiohttp/_websocket/reader_c.py":459
+        /* "aiohttp/_websocket/reader_c.py":463
  *             if self._state == READ_PAYLOAD:
  *                 chunk_len = data_len - start_pos
  *                 if self._payload_bytes_to_read >= chunk_len:             # <<<<<<<<<<<<<<
  *                     f_end_pos = data_len
  *                     self._payload_bytes_to_read -= chunk_len
 */
-        goto __pyx_L43;
+        goto __pyx_L44;
       }
 
-      /* "aiohttp/_websocket/reader_c.py":463
+      /* "aiohttp/_websocket/reader_c.py":467
  *                     self._payload_bytes_to_read -= chunk_len
  *                 else:
  *                     f_end_pos = start_pos + self._payload_bytes_to_read             # <<<<<<<<<<<<<<
@@ -10662,7 +10642,7 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
       /*else*/ {
         __pyx_v_f_end_pos = (__pyx_v_start_pos + __pyx_v_self->_payload_bytes_to_read);
 
-        /* "aiohttp/_websocket/reader_c.py":464
+        /* "aiohttp/_websocket/reader_c.py":468
  *                 else:
  *                     f_end_pos = start_pos + self._payload_bytes_to_read
  *                     self._payload_bytes_to_read = 0             # <<<<<<<<<<<<<<
@@ -10671,9 +10651,9 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
 */
         __pyx_v_self->_payload_bytes_to_read = 0;
       }
-      __pyx_L43:;
+      __pyx_L44:;
 
-      /* "aiohttp/_websocket/reader_c.py":466
+      /* "aiohttp/_websocket/reader_c.py":470
  *                     self._payload_bytes_to_read = 0
  * 
  *                 had_fragments = self._frame_payload_len             # <<<<<<<<<<<<<<
@@ -10683,7 +10663,7 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
       __pyx_t_7 = __pyx_v_self->_frame_payload_len;
       __pyx_v_had_fragments = __pyx_t_7;
 
-      /* "aiohttp/_websocket/reader_c.py":467
+      /* "aiohttp/_websocket/reader_c.py":471
  * 
  *                 had_fragments = self._frame_payload_len
  *                 self._frame_payload_len += f_end_pos - start_pos             # <<<<<<<<<<<<<<
@@ -10692,7 +10672,7 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
 */
       __pyx_v_self->_frame_payload_len = (__pyx_v_self->_frame_payload_len + (__pyx_v_f_end_pos - __pyx_v_start_pos));
 
-      /* "aiohttp/_websocket/reader_c.py":468
+      /* "aiohttp/_websocket/reader_c.py":472
  *                 had_fragments = self._frame_payload_len
  *                 self._frame_payload_len += f_end_pos - start_pos
  *                 f_start_pos = start_pos             # <<<<<<<<<<<<<<
@@ -10701,7 +10681,7 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
 */
       __pyx_v_f_start_pos = __pyx_v_start_pos;
 
-      /* "aiohttp/_websocket/reader_c.py":469
+      /* "aiohttp/_websocket/reader_c.py":473
  *                 self._frame_payload_len += f_end_pos - start_pos
  *                 f_start_pos = start_pos
  *                 start_pos = f_end_pos             # <<<<<<<<<<<<<<
@@ -10710,7 +10690,7 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
 */
       __pyx_v_start_pos = __pyx_v_f_end_pos;
 
-      /* "aiohttp/_websocket/reader_c.py":471
+      /* "aiohttp/_websocket/reader_c.py":475
  *                 start_pos = f_end_pos
  * 
  *                 if self._payload_bytes_to_read != 0:             # <<<<<<<<<<<<<<
@@ -10720,7 +10700,7 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
       __pyx_t_9 = (__pyx_v_self->_payload_bytes_to_read != 0);
       if (__pyx_t_9) {
 
-        /* "aiohttp/_websocket/reader_c.py":474
+        /* "aiohttp/_websocket/reader_c.py":478
  *                     # If we don't have a complete frame, we need to save the
  *                     # data for the next call to feed_data.
  *                     self._payload_fragments.append(data_cstr[f_start_pos:f_end_pos])             # <<<<<<<<<<<<<<
@@ -10729,14 +10709,14 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
 */
         if (unlikely(__pyx_v_self->_payload_fragments == Py_None)) {
           PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "append");
-          __PYX_ERR(0, 474, __pyx_L1_error)
+          __PYX_ERR(0, 478, __pyx_L1_error)
         }
-        __pyx_t_10 = __Pyx_PyBytes_FromStringAndSize(((char const *)__pyx_v_data_cstr) + __pyx_v_f_start_pos, __pyx_v_f_end_pos - __pyx_v_f_start_pos); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 474, __pyx_L1_error)
+        __pyx_t_10 = __Pyx_PyBytes_FromStringAndSize(((char const *)__pyx_v_data_cstr) + __pyx_v_f_start_pos, __pyx_v_f_end_pos - __pyx_v_f_start_pos); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 478, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_10);
-        __pyx_t_18 = __Pyx_PyList_Append(__pyx_v_self->_payload_fragments, __pyx_t_10); if (unlikely(__pyx_t_18 == ((int)-1))) __PYX_ERR(0, 474, __pyx_L1_error)
+        __pyx_t_18 = __Pyx_PyList_Append(__pyx_v_self->_payload_fragments, __pyx_t_10); if (unlikely(__pyx_t_18 == ((int)-1))) __PYX_ERR(0, 478, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-        /* "aiohttp/_websocket/reader_c.py":475
+        /* "aiohttp/_websocket/reader_c.py":479
  *                     # data for the next call to feed_data.
  *                     self._payload_fragments.append(data_cstr[f_start_pos:f_end_pos])
  *                     break             # <<<<<<<<<<<<<<
@@ -10745,7 +10725,7 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
 */
         goto __pyx_L5_break;
 
-        /* "aiohttp/_websocket/reader_c.py":471
+        /* "aiohttp/_websocket/reader_c.py":475
  *                 start_pos = f_end_pos
  * 
  *                 if self._payload_bytes_to_read != 0:             # <<<<<<<<<<<<<<
@@ -10754,7 +10734,7 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
 */
       }
 
-      /* "aiohttp/_websocket/reader_c.py":478
+      /* "aiohttp/_websocket/reader_c.py":482
  * 
  *                 payload: bytes | bytearray
  *                 if had_fragments:             # <<<<<<<<<<<<<<
@@ -10764,7 +10744,7 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
       __pyx_t_9 = (__pyx_v_had_fragments != 0);
       if (__pyx_t_9) {
 
-        /* "aiohttp/_websocket/reader_c.py":480
+        /* "aiohttp/_websocket/reader_c.py":484
  *                 if had_fragments:
  *                     # We have to join the payload fragments get the payload
  *                     self._payload_fragments.append(data_cstr[f_start_pos:f_end_pos])             # <<<<<<<<<<<<<<
@@ -10773,14 +10753,14 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
 */
         if (unlikely(__pyx_v_self->_payload_fragments == Py_None)) {
           PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "append");
-          __PYX_ERR(0, 480, __pyx_L1_error)
+          __PYX_ERR(0, 484, __pyx_L1_error)
         }
-        __pyx_t_10 = __Pyx_PyBytes_FromStringAndSize(((char const *)__pyx_v_data_cstr) + __pyx_v_f_start_pos, __pyx_v_f_end_pos - __pyx_v_f_start_pos); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 480, __pyx_L1_error)
+        __pyx_t_10 = __Pyx_PyBytes_FromStringAndSize(((char const *)__pyx_v_data_cstr) + __pyx_v_f_start_pos, __pyx_v_f_end_pos - __pyx_v_f_start_pos); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 484, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_10);
-        __pyx_t_18 = __Pyx_PyList_Append(__pyx_v_self->_payload_fragments, __pyx_t_10); if (unlikely(__pyx_t_18 == ((int)-1))) __PYX_ERR(0, 480, __pyx_L1_error)
+        __pyx_t_18 = __Pyx_PyList_Append(__pyx_v_self->_payload_fragments, __pyx_t_10); if (unlikely(__pyx_t_18 == ((int)-1))) __PYX_ERR(0, 484, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-        /* "aiohttp/_websocket/reader_c.py":481
+        /* "aiohttp/_websocket/reader_c.py":485
  *                     # We have to join the payload fragments get the payload
  *                     self._payload_fragments.append(data_cstr[f_start_pos:f_end_pos])
  *                     if self._has_mask:             # <<<<<<<<<<<<<<
@@ -10789,7 +10769,7 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
 */
         if (__pyx_v_self->_has_mask) {
 
-          /* "aiohttp/_websocket/reader_c.py":482
+          /* "aiohttp/_websocket/reader_c.py":486
  *                     self._payload_fragments.append(data_cstr[f_start_pos:f_end_pos])
  *                     if self._has_mask:
  *                         assert self._frame_mask is not None             # <<<<<<<<<<<<<<
@@ -10801,14 +10781,14 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
             __pyx_t_9 = (__pyx_v_self->_frame_mask != ((PyObject*)Py_None));
             if (unlikely(!__pyx_t_9)) {
               __Pyx_Raise(((PyObject *)(((PyTypeObject*)PyExc_AssertionError))), 0, 0, 0);
-              __PYX_ERR(0, 482, __pyx_L1_error)
+              __PYX_ERR(0, 486, __pyx_L1_error)
             }
           }
           #else
-          if ((1)); else __PYX_ERR(0, 482, __pyx_L1_error)
+          if ((1)); else __PYX_ERR(0, 486, __pyx_L1_error)
           #endif
 
-          /* "aiohttp/_websocket/reader_c.py":483
+          /* "aiohttp/_websocket/reader_c.py":487
  *                     if self._has_mask:
  *                         assert self._frame_mask is not None
  *                         payload_bytearray = bytearray(b"".join(self._payload_fragments))             # <<<<<<<<<<<<<<
@@ -10818,7 +10798,7 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
           __pyx_t_4 = NULL;
           __pyx_t_17 = __pyx_v_self->_payload_fragments;
           __Pyx_INCREF(__pyx_t_17);
-          __pyx_t_12 = __Pyx_PyBytes_Join(__pyx_mstate_global->__pyx_kp_b__2, __pyx_t_17); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 483, __pyx_L1_error)
+          __pyx_t_12 = __Pyx_PyBytes_Join(__pyx_mstate_global->__pyx_kp_b__2, __pyx_t_17); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 487, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_12);
           __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
           __pyx_t_5 = 1;
@@ -10827,13 +10807,13 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
             __pyx_t_10 = __Pyx_PyObject_FastCall((PyObject*)(&PyByteArray_Type), __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
             __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
             __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
-            if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 483, __pyx_L1_error)
+            if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 487, __pyx_L1_error)
             __Pyx_GOTREF(__pyx_t_10);
           }
           __Pyx_XDECREF_SET(__pyx_v_payload_bytearray, ((PyObject*)__pyx_t_10));
           __pyx_t_10 = 0;
 
-          /* "aiohttp/_websocket/reader_c.py":484
+          /* "aiohttp/_websocket/reader_c.py":488
  *                         assert self._frame_mask is not None
  *                         payload_bytearray = bytearray(b"".join(self._payload_fragments))
  *                         websocket_mask(self._frame_mask, payload_bytearray)             # <<<<<<<<<<<<<<
@@ -10842,10 +10822,10 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
 */
           __pyx_t_10 = __pyx_v_self->_frame_mask;
           __Pyx_INCREF(__pyx_t_10);
-          __pyx_f_7aiohttp_10_websocket_4mask__websocket_mask_cython(((PyObject*)__pyx_t_10), __pyx_v_payload_bytearray, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 484, __pyx_L1_error)
+          __pyx_f_7aiohttp_10_websocket_4mask__websocket_mask_cython(((PyObject*)__pyx_t_10), __pyx_v_payload_bytearray, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 488, __pyx_L1_error)
           __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-          /* "aiohttp/_websocket/reader_c.py":485
+          /* "aiohttp/_websocket/reader_c.py":489
  *                         payload_bytearray = bytearray(b"".join(self._payload_fragments))
  *                         websocket_mask(self._frame_mask, payload_bytearray)
  *                         payload = payload_bytearray             # <<<<<<<<<<<<<<
@@ -10855,17 +10835,17 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
           __Pyx_INCREF(__pyx_v_payload_bytearray);
           __Pyx_XDECREF_SET(__pyx_v_payload, __pyx_v_payload_bytearray);
 
-          /* "aiohttp/_websocket/reader_c.py":481
+          /* "aiohttp/_websocket/reader_c.py":485
  *                     # We have to join the payload fragments get the payload
  *                     self._payload_fragments.append(data_cstr[f_start_pos:f_end_pos])
  *                     if self._has_mask:             # <<<<<<<<<<<<<<
  *                         assert self._frame_mask is not None
  *                         payload_bytearray = bytearray(b"".join(self._payload_fragments))
 */
-          goto __pyx_L46;
+          goto __pyx_L47;
         }
 
-        /* "aiohttp/_websocket/reader_c.py":487
+        /* "aiohttp/_websocket/reader_c.py":491
  *                         payload = payload_bytearray
  *                     else:
  *                         payload = b"".join(self._payload_fragments)             # <<<<<<<<<<<<<<
@@ -10875,15 +10855,15 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
         /*else*/ {
           __pyx_t_10 = __pyx_v_self->_payload_fragments;
           __Pyx_INCREF(__pyx_t_10);
-          __pyx_t_12 = __Pyx_PyBytes_Join(__pyx_mstate_global->__pyx_kp_b__2, __pyx_t_10); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 487, __pyx_L1_error)
+          __pyx_t_12 = __Pyx_PyBytes_Join(__pyx_mstate_global->__pyx_kp_b__2, __pyx_t_10); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 491, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_12);
           __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
           __Pyx_XDECREF_SET(__pyx_v_payload, __pyx_t_12);
           __pyx_t_12 = 0;
         }
-        __pyx_L46:;
+        __pyx_L47:;
 
-        /* "aiohttp/_websocket/reader_c.py":488
+        /* "aiohttp/_websocket/reader_c.py":492
  *                     else:
  *                         payload = b"".join(self._payload_fragments)
  *                     self._payload_fragments.clear()             # <<<<<<<<<<<<<<
@@ -10897,22 +10877,22 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
           PyObject *__pyx_callargs[2] = {__pyx_t_10, NULL};
           __pyx_t_12 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_clear, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
-          if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 488, __pyx_L1_error)
+          if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 492, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_12);
         }
         __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
 
-        /* "aiohttp/_websocket/reader_c.py":478
+        /* "aiohttp/_websocket/reader_c.py":482
  * 
  *                 payload: bytes | bytearray
  *                 if had_fragments:             # <<<<<<<<<<<<<<
  *                     # We have to join the payload fragments get the payload
  *                     self._payload_fragments.append(data_cstr[f_start_pos:f_end_pos])
 */
-        goto __pyx_L45;
+        goto __pyx_L46;
       }
 
-      /* "aiohttp/_websocket/reader_c.py":489
+      /* "aiohttp/_websocket/reader_c.py":493
  *                         payload = b"".join(self._payload_fragments)
  *                     self._payload_fragments.clear()
  *                 elif self._has_mask:             # <<<<<<<<<<<<<<
@@ -10921,7 +10901,7 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
 */
       if (__pyx_v_self->_has_mask) {
 
-        /* "aiohttp/_websocket/reader_c.py":490
+        /* "aiohttp/_websocket/reader_c.py":494
  *                     self._payload_fragments.clear()
  *                 elif self._has_mask:
  *                     assert self._frame_mask is not None             # <<<<<<<<<<<<<<
@@ -10933,26 +10913,26 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
           __pyx_t_9 = (__pyx_v_self->_frame_mask != ((PyObject*)Py_None));
           if (unlikely(!__pyx_t_9)) {
             __Pyx_Raise(((PyObject *)(((PyTypeObject*)PyExc_AssertionError))), 0, 0, 0);
-            __PYX_ERR(0, 490, __pyx_L1_error)
+            __PYX_ERR(0, 494, __pyx_L1_error)
           }
         }
         #else
-        if ((1)); else __PYX_ERR(0, 490, __pyx_L1_error)
+        if ((1)); else __PYX_ERR(0, 494, __pyx_L1_error)
         #endif
 
-        /* "aiohttp/_websocket/reader_c.py":491
+        /* "aiohttp/_websocket/reader_c.py":495
  *                 elif self._has_mask:
  *                     assert self._frame_mask is not None
  *                     payload_bytearray = data_cstr[f_start_pos:f_end_pos]  # type: ignore[assignment]             # <<<<<<<<<<<<<<
  *                     if type(payload_bytearray) is not bytearray:  # pragma: no branch
  *                         # Cython will do the conversion for us
 */
-        __pyx_t_12 = __Pyx_PyByteArray_FromStringAndSize(((char const *)__pyx_v_data_cstr) + __pyx_v_f_start_pos, __pyx_v_f_end_pos - __pyx_v_f_start_pos); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 491, __pyx_L1_error)
+        __pyx_t_12 = __Pyx_PyByteArray_FromStringAndSize(((char const *)__pyx_v_data_cstr) + __pyx_v_f_start_pos, __pyx_v_f_end_pos - __pyx_v_f_start_pos); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 495, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_12);
         __Pyx_XDECREF_SET(__pyx_v_payload_bytearray, ((PyObject*)__pyx_t_12));
         __pyx_t_12 = 0;
 
-        /* "aiohttp/_websocket/reader_c.py":492
+        /* "aiohttp/_websocket/reader_c.py":496
  *                     assert self._frame_mask is not None
  *                     payload_bytearray = data_cstr[f_start_pos:f_end_pos]  # type: ignore[assignment]
  *                     if type(payload_bytearray) is not bytearray:  # pragma: no branch             # <<<<<<<<<<<<<<
@@ -10962,7 +10942,7 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
         __pyx_t_9 = (((PyObject *)Py_TYPE(__pyx_v_payload_bytearray)) != ((PyObject *)(&PyByteArray_Type)));
         if (__pyx_t_9) {
 
-          /* "aiohttp/_websocket/reader_c.py":496
+          /* "aiohttp/_websocket/reader_c.py":500
  *                         # but we need to do it for Python and we
  *                         # will always get here in Python
  *                         payload_bytearray = bytearray(payload_bytearray)             # <<<<<<<<<<<<<<
@@ -10975,13 +10955,13 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
             PyObject *__pyx_callargs[2] = {__pyx_t_10, __pyx_v_payload_bytearray};
             __pyx_t_12 = __Pyx_PyObject_FastCall((PyObject*)(&PyByteArray_Type), __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
             __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
-            if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 496, __pyx_L1_error)
+            if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 500, __pyx_L1_error)
             __Pyx_GOTREF(__pyx_t_12);
           }
           __Pyx_DECREF_SET(__pyx_v_payload_bytearray, ((PyObject*)__pyx_t_12));
           __pyx_t_12 = 0;
 
-          /* "aiohttp/_websocket/reader_c.py":492
+          /* "aiohttp/_websocket/reader_c.py":496
  *                     assert self._frame_mask is not None
  *                     payload_bytearray = data_cstr[f_start_pos:f_end_pos]  # type: ignore[assignment]
  *                     if type(payload_bytearray) is not bytearray:  # pragma: no branch             # <<<<<<<<<<<<<<
@@ -10990,7 +10970,7 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
 */
         }
 
-        /* "aiohttp/_websocket/reader_c.py":497
+        /* "aiohttp/_websocket/reader_c.py":501
  *                         # will always get here in Python
  *                         payload_bytearray = bytearray(payload_bytearray)
  *                     websocket_mask(self._frame_mask, payload_bytearray)             # <<<<<<<<<<<<<<
@@ -10999,10 +10979,10 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
 */
         __pyx_t_12 = __pyx_v_self->_frame_mask;
         __Pyx_INCREF(__pyx_t_12);
-        __pyx_f_7aiohttp_10_websocket_4mask__websocket_mask_cython(((PyObject*)__pyx_t_12), __pyx_v_payload_bytearray, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 497, __pyx_L1_error)
+        __pyx_f_7aiohttp_10_websocket_4mask__websocket_mask_cython(((PyObject*)__pyx_t_12), __pyx_v_payload_bytearray, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 501, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
 
-        /* "aiohttp/_websocket/reader_c.py":498
+        /* "aiohttp/_websocket/reader_c.py":502
  *                         payload_bytearray = bytearray(payload_bytearray)
  *                     websocket_mask(self._frame_mask, payload_bytearray)
  *                     payload = payload_bytearray             # <<<<<<<<<<<<<<
@@ -11012,17 +10992,17 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
         __Pyx_INCREF(__pyx_v_payload_bytearray);
         __Pyx_XDECREF_SET(__pyx_v_payload, __pyx_v_payload_bytearray);
 
-        /* "aiohttp/_websocket/reader_c.py":489
+        /* "aiohttp/_websocket/reader_c.py":493
  *                         payload = b"".join(self._payload_fragments)
  *                     self._payload_fragments.clear()
  *                 elif self._has_mask:             # <<<<<<<<<<<<<<
  *                     assert self._frame_mask is not None
  *                     payload_bytearray = data_cstr[f_start_pos:f_end_pos]  # type: ignore[assignment]
 */
-        goto __pyx_L45;
+        goto __pyx_L46;
       }
 
-      /* "aiohttp/_websocket/reader_c.py":500
+      /* "aiohttp/_websocket/reader_c.py":504
  *                     payload = payload_bytearray
  *                 else:
  *                     payload = data_cstr[f_start_pos:f_end_pos]             # <<<<<<<<<<<<<<
@@ -11030,23 +11010,23 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
  *                 self._handle_frame(
 */
       /*else*/ {
-        __pyx_t_12 = __Pyx_PyBytes_FromStringAndSize(((char const *)__pyx_v_data_cstr) + __pyx_v_f_start_pos, __pyx_v_f_end_pos - __pyx_v_f_start_pos); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 500, __pyx_L1_error)
+        __pyx_t_12 = __Pyx_PyBytes_FromStringAndSize(((char const *)__pyx_v_data_cstr) + __pyx_v_f_start_pos, __pyx_v_f_end_pos - __pyx_v_f_start_pos); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 504, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_12);
         __Pyx_XDECREF_SET(__pyx_v_payload, __pyx_t_12);
         __pyx_t_12 = 0;
       }
-      __pyx_L45:;
+      __pyx_L46:;
 
-      /* "aiohttp/_websocket/reader_c.py":502
+      /* "aiohttp/_websocket/reader_c.py":506
  *                     payload = data_cstr[f_start_pos:f_end_pos]
  * 
  *                 self._handle_frame(             # <<<<<<<<<<<<<<
  *                     self._frame_fin, self._frame_opcode, payload, self._compressed
  *                 )
 */
-      ((struct __pyx_vtabstruct_7aiohttp_10_websocket_8reader_c_WebSocketReader *)__pyx_v_self->__pyx_vtab)->_handle_frame(__pyx_v_self, __pyx_v_self->_frame_fin, __pyx_v_self->_frame_opcode, __pyx_v_payload, __pyx_v_self->_compressed, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 502, __pyx_L1_error)
+      ((struct __pyx_vtabstruct_7aiohttp_10_websocket_8reader_c_WebSocketReader *)__pyx_v_self->__pyx_vtab)->_handle_frame(__pyx_v_self, __pyx_v_self->_frame_fin, __pyx_v_self->_frame_opcode, __pyx_v_payload, __pyx_v_self->_compressed, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 506, __pyx_L1_error)
 
-      /* "aiohttp/_websocket/reader_c.py":505
+      /* "aiohttp/_websocket/reader_c.py":509
  *                     self._frame_fin, self._frame_opcode, payload, self._compressed
  *                 )
  *                 self._frame_payload_len = 0             # <<<<<<<<<<<<<<
@@ -11055,7 +11035,7 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
 */
       __pyx_v_self->_frame_payload_len = 0;
 
-      /* "aiohttp/_websocket/reader_c.py":506
+      /* "aiohttp/_websocket/reader_c.py":510
  *                 )
  *                 self._frame_payload_len = 0
  *                 self._state = READ_HEADER             # <<<<<<<<<<<<<<
@@ -11064,7 +11044,7 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
 */
       __pyx_v_self->_state = __pyx_v_7aiohttp_10_websocket_8reader_c_READ_HEADER;
 
-      /* "aiohttp/_websocket/reader_c.py":457
+      /* "aiohttp/_websocket/reader_c.py":461
  *                 self._state = READ_PAYLOAD
  * 
  *             if self._state == READ_PAYLOAD:             # <<<<<<<<<<<<<<
@@ -11075,14 +11055,14 @@ static void __pyx_f_7aiohttp_10_websocket_8reader_c_15WebSocketReader__feed_data
   }
   __pyx_L5_break:;
 
-  /* "aiohttp/_websocket/reader_c.py":509
+  /* "aiohttp/_websocket/reader_c.py":513
  * 
  *         # XXX: Cython needs slices to be bounded, so we can't omit the slice end here.
  *         self._tail = data_cstr[start_pos:data_len] if start_pos < data_len else b""             # <<<<<<<<<<<<<<
 */
   __pyx_t_9 = (__pyx_v_start_pos < __pyx_v_data_len);
   if (__pyx_t_9) {
-    __pyx_t_10 = __Pyx_PyBytes_FromStringAndSize(((char const *)__pyx_v_data_cstr) + __pyx_v_start_pos, __pyx_v_data_len - __pyx_v_start_pos); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 509, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyBytes_FromStringAndSize(((char const *)__pyx_v_data_cstr) + __pyx_v_start_pos, __pyx_v_data_len - __pyx_v_start_pos); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 513, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
     __pyx_t_12 = __pyx_t_10;
     __pyx_t_10 = 0;
@@ -14688,25 +14668,25 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 static int __Pyx_InitConstants(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   {
-    const struct { const unsigned int length: 11; } index[] = {{20},{42},{53},{40},{26},{20},{21},{13},{179},{33},{42},{56},{18},{32},{30},{0},{1},{1},{1},{8},{26},{25},{30},{21},{25},{15},{15},{22},{17},{30},{12},{7},{6},{15},{2},{16},{9},{14},{5},{6},{13},{12},{5},{12},{14},{13},{9},{5},{5},{12},{15},{4},{4},{4},{14},{20},{4},{12},{4},{17},{11},{11},{9},{18},{9},{19},{18},{36},{38},{28},{28},{27},{25},{23},{32},{14},{15},{33},{35},{26},{29},{25},{24},{16},{27},{6},{7},{18},{9},{13},{4},{8},{5},{5},{18},{5},{11},{8},{10},{17},{13},{10},{4},{6},{11},{15},{5},{8},{5},{4},{3},{9},{9},{9},{10},{8},{3},{8},{12},{13},{7},{13},{6},{5},{4},{5},{4},{8},{12},{6},{10},{8},{7},{4},{6},{13},{7},{3},{7},{8},{12},{14},{12},{11},{10},{33},{30},{14},{12},{5},{4},{15},{10},{17},{13},{14},{6},{4},{4},{13},{12},{10},{10},{12},{19},{4},{5},{7},{23},{8},{5},{6},{6},{12},{5},{6},{6},{14},{462},{0},{11},{12},{5},{788},{60},{65},{14},{27},{11},{316},{458},{92},{57},{58},{1104},{12},{77}};
-    #if (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (3458 bytes) */
-const char* const cstring = "BZh91AY&SYC\006i\277\000\0030\377\377\377\377\377\377\377\377\377\377\377\377\377\377\377\377\377\377\300@@@@@@@@@@@@\000@\000`\014\274\262\370\350{M\347s\257^\000=\243i\226\365w\t\334\356T\310\275v\000\017\014\206\202\202Sdj\032i\351'\247\246\215M\246\022l2&S\322bz\246\321\352i?S\332I\246\211\372\246\233\321G\250\3612\217Q\246j6j\237\251\351L\323\noH%\020\232\t\210\323\001\000\206S\323\010\324\243i7\224\3240\201\352\000=@\0004\032<\243G\352\207\250\321\220\0324\000hL\020\224\321\24154~\250\317SP\362\236jh\2152='\352\232\0322\014\200\r\032\0004\320\032z\200\000\000\000\014$!4OI\220\325<\00532\241\351\006\324\0316\211\221\246\206\200\365\001\352\r\000\r\032\006\203@\003@\003D\032b`A\200\t\246\232i\200\010\300F&L\002`\000#\010\300\000#\000&L\230L@\221H\304\3211\002\247\350\247\251\232\217\325=G\24424z@\310\320\003#\324\000\r\003@\000\006@\000\000\003\350\034FOX\200\000\2641x2\215\313;U\211\"$\223j`\360s\323\034\020\311\034\010\007\320^m<\2012\035<}\371I\037J\2669\235\036\242\277\"\007!\037i\002\202\010\0033\"\034\034\027S\217\346\\\274\374\334\201\206C(\014\371\331\004\031\r4\252:_1\370\340\213Z\372\343?\255\370\217\307\003?/\227\272\0177\263\373\273\277\2177\364\376Y\357\314dL\247u\367\227\336Z]}\351a}\365\337}\327\331}\367\345\311\224\374\351\272\257b\017\323\325\326\316:?V\357\331\354\371\271[\341\335\322q\342\377\333bQe\226TWUu\343\252\272\340\341au\357\000W\210t\003A\361\221#\212\034\3401qD\346\333m\364\360\344\354Jxp\260\"\266\333m\266\337x\222\247\372\031\314\275\360\263\356\223\003`\324\306\206\320\332m\264\232e)\010\032\224\216\330\236\314\364\310\267\277\310X\0220\010\224Y/M\215\003hw\024\262\203J\342\350\022/C\260\235\334\263|\270,\356\330\320\321\031\330\301\215!\264\331\t\020\002H*\0212X\260\221$s\350/\337\027\030\220\223\222\353o\241(\211\032+\254\256\n\273/2\005\025\276)\216\021\225\241\001\243=\217\306\222B\312\333I\264\233\006\305d @m\320\nfTA\212\304\270\3074B\231F\335\2410\315\344\000_0\247\223R\234p\030\306I\310\206\253E\225\266\223h,\006\232\036y""\3111\027\306\343At$\260\302\257\000V\223\264\r\231d.S'l\364h\245 \240\371\367\014+z\364bum%s\\\021q\"\\h\325\302\225\221\206\326\336\321n\3406#{\244\372\203\221e:W\2510\272j\311uf>h6(\301\360H5+G\352\341\336\277\022s\203I`\374\277\3369\2611\211\021\032\212\237\312\017\246CYRD&\221\241\205\r;\374\207\355\345\333\327\310\306\351\355\"e\327,\303g\210w+\003\010\301L\250\352\344\247C\n6&\340\3340\227\210\023#\322\332D\270\244\245K\255\"z\262\216\033\266\337?\333\r?w\275\277\261\356\374\216\370\344\273\034u\336X\220z\357\211 \" q^9\\\304\352d\247\336\326\266`\300Ej\303\034\277\333\322\350\350<\236\363\311\307\230\323\212\325f\323r\252x\320\265\243Uu9\254\372Lb\267E\310\026\364\321\336\347\206<f\232\274\205)L\377\371\013\210\321\003{_jT\243\266\247\260\333g\014:\226\314\300\226&k\tJ\237f\n\306\220\023\350\211\026\002\300;\343\033\323\306\372/\214\013\220\271^\372\237.2\274\004\372\355AY\324\242-\350\n\352U\3039\260\002\257\323\300pEsg\320\256\374n\361&\356\225\356\242\311X\276\322\356\001\341\364\201\215xG3\231\312\343Tn/[\365\362\213\226\033ZH-&\324+4\216,\215z]|\032\201\373,\241C\273\010C\203\322\352\036\347\224[;\276\346D\343\001Qm\021\271r\370\013\365\003\016y\220,\254H1\2625\261b\306*\030\205\324\0357`\340_\242\020\027\341\010\314\267\023\254\010g\362V~!\024\0015\336\254\210\351\275\325\215q\323\314\003t\214\237$\016\031o6\343\365\200\364\005\211X-^\000\243\033\021\304\241*\372\357WZx5&\222\3131R\277k\006,\312ts\373\262\366\314\222\330K\335\320t8/\"La\027/\347\347S,\270\333\031\321\001\300\311\353P\251\016\201\3148\251\317qj\313l\324\204\344\342\342{\322\017\255\215\257\177\224-w\276;,J\264[\231|\t\"\0277\227\350\246\264\242\271\241\275\314\211& 1\332\250\024\220C\034&$r\304\254Uk\032p\006\271Tr:=\2539!\356])p\273*Lu\210\223\026\214F\275\023\200\364\027X\3129$\367T\360\251)\310\214\323k-\333\305\030\306\023\">\017c\333\221\270\3232-\362'\272!F\375\206\363fk\\\364\037\245\355\206\001E\030\270\356\232l\333\006\204\311\234W\230\236\272\322>\260;of3\027\225$\233^\323~""\271F\246Tbi0\274B41#\021\236z x\360\3446\373\226\335\350\306/I\211$\237n\335\357G\020\323\0222\326$\243\214\241\333\243\307\366NF\313v\ng&7\013\351\343.l\353t\374\t#\203\246=D\370${\351\257\314\357\020\263\030FX\306\022\214\204\365:\364\236\0350A\225\203\341V\267!\313/\003\257>\032\354B\214\260\227'2gB\\\277#\236]7\313\361]\205z\235\301\260\325\275\033\n\272\320\030\325\213\236\264\356\364\225\211\322Oz\365\027\027b\2568U\204((\327p\313\035;\267u\204\204\320K0\256\203*\t\0002\354\000\200\0175G\304aO@\366\321\035O\240\215\352r\371\234Z\324\265\217\213\234k]]E\036\232\001\321\\\360r\354\006\361\021P\272!\005+\005\273\260*P\330\276i\024\010^n\2765B\010\020\3033\233\006&\344(\344\252\222A\005Y\352\360\367v\366\357\202kJ\334\\\236\206p\376*`\230t\000\323$\3429\272pu\005\277\331\350\367a\213,&e1\354\214\333,l\362T\202e1|p\250\306jyV\234\033D\030$\021\211$8[\002\322\276|$\372\246\210q\333\311\034\0008\343?#\233\235\203<P 3%xq\010\255C*>m@\010l\342\323\031\003v\214\364\023\210]\030\216\326\326\0339\330\352\261\030i\240\253\305\335\303\321\256n\271\332\215\313j\025<\250\201\200i\207\223\213\241\326\200\231\010\366\027M9\337\324\305x\261\003\007\252\350\326\327\341t\016L\005\004\214\211\354]5\306\260:\257\225\247\305\274+\306\303'E\001\010\201s\214\000dX\251<D78S\272\016i\222$\021\226|d\274+\245\202\021\026a\304\006\317+R\354x\306\347\371v\310w6\326h|-}=m{\210\271\200\216\005\310\352\336\300V2\006\203\325\370Z\351\221Vn\024\331\030*\231\231\233\004\025\2511\316Q\307\000bB\020e(\023L\210\013v\202\231;\n>\260\371\226&K\252y\357f4\251mL\252\000;`M\022\342\201\2118\\R\027\032\270\230zh\222\013\357\245\027\010\3216\340\0209\251\021\357\252\204C[[\001b\264\223\032\2030x.^F\230\321\001U7\005e\233\251!\214a\221\205u\222&\226\325\353\256\332\031\240b\023\225[\300s\234\266\274\030u\"\254\261Q\261\226~\216\263\252\370\004&\334\312\346\2339\031\211\254\025c\230\022\316\363,s\303\246\016\252\256RqK\230\334V\020 \225\001\337\2165\335\315\351\334\303\247Y\\\220&\333f5%0&{`e\366v>\003\014""\351;'q'\330[\244G0\300\003\0210\212\232\360BCu\356z\355#\241x7K\341%\014\351\234\357\347\361D\220\303\256$\210\"\246=P\215\020ER\025\364\n-J\024\256\002\226\230l3\262!\372\260\226\2461i\264p\352\266s\343\014\223\033\312`eJ\20382\230\214\2165\300`\206\257\361*e\032\266*x\t\252!\351\3531:\222\233h\002\202!\"\303\236:\247n\224\23090j'\014)Ao\n\312\244R\034\264\303\\0~\025(\n\352\206\0171pVq\337\267\251ZO8\366\303\267H\031\020\330[,\3267\243\271\314\212\001\302\343^X\032\030\021\336\330\203!\004\320\3300\353Mp0%\257E13k70Zhi\351\344\rX\312\026 \346\216\306\247+2\345\240\nl\252I57\013\323T\351\330[J7\236\221\2040j\316+\226Bp\340\031.',h\"s9G?\216\266\362\210\033\207r\007\000\230\242\n\222Ti\304\244v9n\224ba\316\261(\030\355\000$\202\003\016\324 \004p\206\216\2269sY\215#M|\3219+5\031\000jj\2262\031F\023'\306\2111\0351\033\322$g\275f\201^4\036\034\317\020\3415vh#mB\031i416\200.\022\333\252\212r\276\022\270\265J\206\271\212\260G<P\026\337=\306\025J\027\264\305,dd\003\260\214\336$\0310\301:\000\242\244+\024\244j\215Y\330\357\362\243\r\253\201m\"\220\357t\033\016\315\272\256\254\267\263\2410Y\232N\034<\325\214 \014G\005\240\204\310\355\232b*\tqYR\013am%H\304\007\304%\256$n\203\210\032\253]\0140\215H\212Eu\2301\224\236t6Q\253\034i\200&\314\0052\367\350\t\t$\232\201;\300bds\257\203*'PqN:4h\352~\215\327\377\272\3547\241\214\r+\002\226|\301\006\263z>\035J\231\355=\276\016\237Q\014\3127\347\3040\217\022<\323B\232\376\244[\274\343L%\305\322\030h\214\036\274\330\243\rZS<D\251*\356\243\006`\322\202\353\206\233\005\300\257x:\250+V]\343\242\016\214\345\014m\276\313\206#e\373\362\0020\206Z\020\023\r\210\343\256!\006\210\241\206dv_L|\222\232#\370\326\312\215a\205O\336\350. \276T\276\226\037\221\211\355sNq\004\306\334\006\027T\226\341\323}k\232\315\367\302\363G\361?m\302\014\242\227P2\344\002\032H\372\202@y\303\352\324\020\003@$\261\357\372\377\2178\004\373\177\237v\362\222\022-\032\005\rH\314\021\231\215\255\3131=,S\376\203@\214\263A\363n\324\n^\237\221\234`G2\231\307x\305\266@\023\267""\307\260\244\242\240\366\000\254\237\215\215\362\221zR\250\377\300\344\033,p2\021%\213(\234\250\304\264\223\355\341\226FsP\301\377l\240\232<\242\322\207\207\300Mq\001\231U\236\312\262\246\233\245s\326\347\227\360\007\275\230l-!S\3662\007\0253\010\352\255\003\274i\303\357Z\"\214\267d\021o\241x\257\331\367\233S.m\224|\306<j\206\312Os\235\307_\333\325eM\253\351\376H\377\001\374+\216\262\242\211t\021\275\001\321\303<[3D\240\256\317\006\000\235\355P\353\307\226\201\035\025\305S#?$\373o\253\333rK\244\225\236x\017\247\336ph-\222yV\212\252\264B\214\247N\315!_\252\017:\222%\217[\355`\315\326)q'q6\025~\213\224)R\024\025sg9ti\351\242\336\240\343\3128\325\003\234\330v\216x\260\300\226?G\265\241\251\270\034i\326\001\313\354\224\323\232&[\265\226\"e\203\312z\270\225&W\"\006\005Y^$\365\032\366\355_\217\327+Kq\332\306\324\301Tl\213\232]\353\332P\244\312\t\033&5\221\223|'|\243\217\005\312\210y\003S\277\205\217\027S\037\030tj\rLe\247L`xa\275\247\234\230\233v\"z\273\236\n\371\275\320\272\031\3730\366\206\324\376\334E\234]\255\215\023\316\204\372\242\354h?\356\312\310s4\030\321\033\300y\340\000\336~\020\335\021\314\026\206\rQ\003G\255\004z \326\021\255\322\352\035\367\335u\334\034\274}\\\237F\257\030\327\310\243\234[\033~\021\322\345\345\250\"\371\351\016\374\035+\227GL{\254\007DC\325\325\346{\335\001\310\017\302\312<\263\245\002\231\3318cdl$\000\250\312(\274\345b\230ye\217\236\242B\203\201.\311\007\343<GS\223^s\245E\217\n\231\213\332\362Hp0\25119\206\006,\364\220\225\245\242BQw]\037\242\350x#\032\031\224\274\315fa\031\005\rB\200r\264\274\212\030\002\202\014U\344+\234\312\310ddI|l+\244\264z\347\\\010\223\255R\365UN\211\336\244>\336\312\26442\026[\014\004\020A\263\342D@\210-Ci6\302\n\032E\2555\314\n\020\367/_\316O;\036\034\370\214\365U\330C\322M*\317\217\341_\374]\311\024\341BA\014\031\246\374";
-    PyObject *data = __Pyx_DecompressString(cstring, 3458, 2);
+    const struct { const unsigned int length: 11; } index[] = {{20},{42},{53},{40},{26},{20},{21},{13},{179},{33},{42},{56},{18},{32},{30},{0},{1},{1},{1},{8},{26},{25},{30},{21},{25},{15},{15},{22},{17},{30},{12},{7},{6},{15},{2},{16},{9},{14},{5},{6},{13},{12},{5},{12},{14},{13},{9},{5},{5},{12},{15},{4},{4},{4},{14},{20},{4},{12},{4},{17},{11},{11},{9},{18},{9},{19},{18},{36},{38},{28},{28},{27},{25},{23},{32},{14},{15},{33},{35},{26},{29},{25},{24},{16},{27},{6},{7},{18},{9},{13},{4},{8},{5},{5},{18},{5},{11},{8},{10},{17},{13},{10},{4},{6},{11},{15},{5},{8},{5},{4},{3},{9},{9},{9},{10},{8},{3},{8},{12},{13},{7},{13},{6},{5},{4},{5},{4},{8},{12},{6},{10},{8},{7},{4},{6},{13},{7},{3},{7},{8},{12},{14},{12},{11},{10},{33},{30},{14},{12},{5},{4},{15},{10},{17},{13},{14},{6},{4},{4},{13},{12},{10},{10},{12},{19},{4},{5},{7},{23},{8},{5},{6},{6},{12},{5},{6},{6},{14},{462},{0},{11},{12},{5},{788},{60},{65},{14},{27},{11},{316},{458},{92},{57},{58},{1113},{12},{77}};
+    #if (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (3453 bytes) */
+const char* const cstring = "BZh91AY&SYk6(T\000\0033\377\377\377\377\377\377\377\377\377\377\377\377\377\377\377\377\377\377\300@@@@@@@@@@@@\000@\000`\014\274f\370\357b\325\342\356\234\024Q\332[\247[\225a\315\316\345Y\n\267\200\003\301\241\240\242jLG\250i\352hi\352z\2316\23144\3154\004\006\246M\2411\2654\230\230\214\200f\220\311\246\2324\332\236\247\2504d= \224@\202b2i\204\002i\224\303 \250\362M\265OP\364\200z\206\200\320\000\r\032i\342\217Sz\241\3524=M\000\320\001\240\004\2056\221\2225\006\321\251\352by&@h\362j\000\3104\000\007\242\000\310\0002d\320\000\000\002S$\"\004\321=CS4\3126\230\246\231\006A\223#\020\006\200\320\036\240\006\200\321\240h=C@444=D\032b`A\200\t\246\232i\200\010\300F&L\002`\000#\010\300\000#\000&L\230L@\221H4\323Q\240*~*z\014S\324\333TyM=M\244\036\243@\3202=@4\r\003@4\003A\240h\001\352\000>\263\206\3426\340\000\3043\010\341FU\235\244\312Q\202I\265R6y\251\2332\342\r\224\017\326^\205\274\262\260;y\\\352QG\253{9\235\r\245\216\220\034\205\036\352!\010@\222\210:}?\321\377\035X\376\272\337\337\362R\245X\227Z\244\025-i\223\007T\365\363\036\317?\236h\365\375\203\362=\236?/k\374\376\337\355\355\376<_\317\334\321~s*f;o\274\276\362\322\353\357K\013\357\311}\367_e\367\337\233.c\363\2475~g\373]\035,\341\247\364\363~\277o\317\325o\203\233\224\341\302\037\262\304\246\313,\254\311^L\225W\221\363\327\317\272\265\300*\3449\201\240\374C\207\366\177\034\016\327hGi\246\254\034\r\307\266\235\326\265\350\\4\323M4\326(\224\277\320\306a\360\205\217d\210\031\314\314hm\r\246\333I\246JP\201\231VwdtG-e\276\035\342\300\254\270*$\027\257\246\306\201\2649\222\262CJd\340V_C\260\214\371\243\337&\026w\354hh\24660cHn\022\201(\001$+AX\206`\210(\243B\306<fX\232\024t[|\3442\254\014\314\301\220\232\264\006\000X\256\362\3069\036.\001\001\220\322\243\363 \002,\246fI\264\233\006\305d @m\311\004\261) \300\260\0230b\250%\204m\332\242\030\271\300\027\342\022\363(Q\252\341\214en\262\031\255\026\026\332M\240\260\032hx\343Zi\027\352\231\220\234+W]G\210+H\332\006\212\357\023Q#lsfU\222\223\361\257\016-}\267f\263\335Ey\266""\010\331\021/\030\332\003\025\310\343cg`\266\2606'\223\321{G#\005\2728mQt\226\nu*}3\030\024\344\370\3505LG\356\345\341\3074u\222\212q\035\377\357<\251\251\310\210\216\254\237\312\016\245\007\271\222\204\246SC\014\036\265:\303\367\270\033:\272UV}\006\373\rP\341\235\217j\261F\021\016\245\024M\251h\242\224P\330\277\020\254T\216\003\300\210~\311G\230\t\037&\tG\037\206W\321\334\226x\277\275\025\372<\2372\337\037\264\263\276l\030p\361NX\217\366a\032<\214{\214\225L\346'C&?\006\325\263\006\002;V)&\376\276\036>3\311\357<\2348\215X\255Vr\034\312\251\353!kF\252\353sY\365\030\305n\233\220-\345\247\271\262)*5W\3441\246l\355\264e\203t\034\235>\005-g\212\347\250\333a\237.\345\327\324)\270qx\225-\323\311y\230,\364\313\013B\320\256\274GJ\315\337\252x\202h\232\234\362t\361)\304\207R\332\tY\222\204k\324\212\366+a\270n\000\264{\230\r\370\267\023sB\332\203k\215W\302[\274\233\222\323~\303q@\361}\241\215x\307?\237\314\344\320l/g\203\315&\256\324\312Ae5!I\224u2\252r\272x\224\003\367\031B\215u\324F\016/\017\304\370\374\345\247{\336\341Ct$[\200\343\315|k\200/o\264-g\243\r{~\366\235\233\223\322\314\224\230\273\270h\235\214@\234b*\247\215\225\210|/\361\352\340-I\216\276\355\\\274\214\363^l=\215\340\377\304\251\014\321\034\023\314\376\210e\026rTs\307I\010\201\257W\242\305\033\021\313\354\301]i\336\326\232\213,\305\215~\346\014Y\324\343\331\356\315\331:Ma7o\031\306\340\274\215*\010\372\277\227w\034\323T\331\0167\233\314\276\275*\221i\034\303\202\233.-Y\255\237\030PP.(A\037\366*l!\345\013]\357\216\375\211^\233s\257y%B\346\365~\214y\022\234\223\305{\231\032N<\252\326\203!Te\023\n\245\330\340\335\020\240\333\n)l\245S-.\342\336\r\027\215\003\343eJ\262\010\223\226\214F\301\023y\004\027h\312z\222\213\253\200V\230\362\2435Z\313y8#\030\302tH?\315\350\225\265&t[\345OtB\236}\3079\273=\256\202\020\325\006\221<QF-WO>}\303Bt\320,\014P]\251'H\035\227\262\243\027\225%\237o!\317\266a\251\231\030\232\214\025\210\2220\250(v\211\007;\006\241\247\203>\216\342C\353\214*\333\264\351\332\255RG%\212\031\330\223\0163""\007f\237[\355\235F\353w\nh'9\205\365*.m\013u\033\311d\177,\232\3120K\010c\311\347w\210Y\314#,c\t\206D|>\235G\203S\337\231\204\"V\267)\325\233y\323\243\016K\020\2474E\311\304\232\020\2337\313\3316\253\346\371\016\302\275\016\336\330\253\347F\304\256\264\0065c\331\221;|)\307\006#\276{\325\304\324\273\216+\304X\263]\303\206t\262\361w\305\n\241-\202\373\032\350l\rm\220\200\036}'\312\312]\367\265\010WK\363\241WC\227\340nJK3\334\345\031\247Mt\223i\310;,\257'/\001\030`\233\214\263(T\300b\342\311r\226\314qi\260\214-\337\306\270\230\tc\212\325\2215t,\350\256\242B\025\361\324\325\342\353kc\"/Jx\371^\225\307\357\030\tQ\n\301W\236\252(\357\272\272\026\241?\351tw\210\022\222U'\003\3306uXj\360(\371\324\305\362\202\262\243\\\n\365`\344\020`\217\220Ib\302\327\2565\364\242(\327<a\206\336\330\325.\334nq\371[\216\036%B\0032h\230\022\214\352d\261\304\314\001\016\036M!\230\177`\317M8\005\322\010\355\255a\273c\035^#\016:J\374]\273\375\376I\372hj75\250W\002\261\354\003T]N.\213j\002e$\334]=\007^\266,\005\214\030AWN\326\303\013\237H\305\010J)\021\301v\3237\304i>\367y\304\302_\231\216#t\202T\006W9\003Ej\203\352A\214{U\370Z\235\307\242\016\025\035Km\224\216\022\rT$\305R\032\276\006\\8\361\215\237\357S\203;\013\275MX\225\214\334e\206\025\254\000\263\237V\332p\200\032#\250\020q\212\266\202n\311\224\272\241QM-\266\352 JJ\247f\261\331\201t\021\026\254\201\014i\005\274\201D\215\204\237b}\013\001zt<w\331\202T-H\224@\007l\010\242\275\3001\023-\222\203h\264\n\230\\I\005\372t\215\204\342o\252@\352\304G\247d\"\033\315\346\002\325mi\215A\227;\2276\363Lh\200\250\213\202\262\315\224\220\3060\274\300\314D\034\317^\354q\327\034%\032A\332y\000rQ\265\374%I2;X\341\020p_w\255I\230\010\216L\352\346\233\272\214\344\366\n\262N\tgq\226:\001\312\376\212\356R\201K\230\334V\017A+\003\256I\027\233\213\324\271\207.\323$\257NKg5\2467\246\213^\313\354\357\301\346\032\022\206P\342_\264\267J\216a\200\006\"a\0256\340\210\212\353\335\005\344$\245w\267T\"&\r\t\240\353\321\342\215\"\213li\030G\216Mq\r\020ER%\364\312mJT\310""\363\033L6\032\031ym)K{\230\305\030\215[\261V\274cF\247%T5\322\261\2348L\235\027:`\310\032\307\303\271\302\213\265.y\".\231{\315\363+rUm\004!@\2241\3274\275\371h\301\321\203aX`\252.\361nf\"\241\005\244\036\360\3425\225A^\310`\366\326\252\306;\374\\\312\3228\307\305\016\361 eA\235hf\270\336N^$H\r<\233\345\201\221\201V\356x2\020M\r\203\016\310\327\201q^\276I`1k\233\027,\262+\335(k\250\245c\016),juY\2335 c\262\271e\326\3340Mt'|\267\0327f1\205\325\322\254\337M\030\214\374\206\216X\215y\334\250\215\207I\346\361\326\266\271'\n8Rl\225,\205jY'4\244jr\335\254\312\216\267\224\2236 \022B\014\376\004\240'~n\267y\235\361\031RH\233x\243rd5\231@jk\232B)\206\023\247\311\2151\034\261\234\351\0323\336\263H\254n^~\303\334\033\366\262\354L\032\312Q\257j\243p\332\010r\226\265\326U\2461,\250\305J\306\271\212\257\222\210\336[}\027\030U)^\303\024\322\022\017\035\204g8\217\313\205\364 \014j.\313\304\232\241\335\n\177\226@\322\346\363\226Zl\354\034c{N\266\216\250\317\275\260\247\233\207[\206\336*F\020\006#\210\320B%\\S-B\220\226\343(Al-\225r=\340/\002\034O\037\201\212\360,r^\312\036\324\036\2109\305\n)$U \252H\325\222D\300\023\347\003\034\335t\204\244\262\317H\235\30012J\027\275\231\023\2408'\r:t\364CO5\377\357%\207:\025\001\251^\245\2378A\254\347HE\255SE\247\243{\250\326E:\215\3721\214$\304\2205R\246\337\255\0377t\325\021qt\246\032d\010/\026)\003^\244\321\0312L\275~+\231sJ\013\2204\330.\035;\241\265\005j\303\272p\203T\346\014m\276\333lE\3300 n4'\206f\\\356B\302\322\010\232\007\362\347\217\2526s\301\027\372z\273\367}\0075\237\233\334\023\362\027M/\255\207\346`:=\003\346 \230\333\200\302t%\260u\275E\320f\373\323\350\017\244\276\027(p\241-\241\303T\006n\324{\005\003\321>\335\351 \324\0137;\237\371\370@N\357\273\341\270\244\204\213.I?R3\004fcgoR\006\263\023\275\341\341\021\226\000>_\\\360\245\255\3713\202Dw\363\216\025\023\025\031\000G\340\033\305v\212\203x\005d\362\330\340(u\342*\217\350\037\261\352c\346\310D\2125\0219\0021\025.\367\370\242\221\234d0\177\026PF\024\206\272\212#\352#6\200\314""\2508\312\262\246\236\262\253M\272Z\240\367%\033\0130O\366\031\003\270IDt\026I\327>.\024\226%\305\221\014\213\201\013'\236\317\t\274\277\253\264P\2451\226\250l\243\215\377\033\221eSE\2257\216f\302\372\215\325nC*%\2276\231\204v\315\301\305&\241\232$\245rH0\003{\352\034t\342\240G\005\021\222dg\235&\245\206m\032\216D\222I\234\353@\177\265\r\354\245=Ru\026b\252\274!2\362A\352\315\024z`\360\346\"g\323\260\330\014\326bg\331&\247\235W\374\267\202l\321%W\026;u\205*H\265\344\266\352\2165@\337/[`\334\031\354\010\243\322\357\221\372\233a\267\222\030\007\027\262Q\2160\277\251\261| _\003\274v\210\211w\023\366\201\201B&Jk\232\336\354s\307\252\363+nFa\274\277\024\006\310\253\225\213_*\326\356 H7PuE\325\210\217\371\204;\325g\241\334\217\0063\353{\215\013~\330\346\320\032\035\265\2358t2\037\321\317\302Kjn\300\327\233\336\316\300\301\013\211\207\262\377hm9{\001c\227s\317\216xV\266\023\327\321\211e\203\022\345\274\000c\034n\201\245f\003Xo\207\260B0X\226\224\005\236?Q\350\323{\230 \324\231\322;\036\375i\026\227\326\3727Zz<c\311s/\010\275\024\362\007;\223\222x\270\322\2301\236\345U\254:#\201\321\333\r\371\347\317\311\370\275\021\307\021\255\300\036y\252\2063\271;\021\303\034$\220\031\035\202\267-\234\252b\235\247\337\260\240\300\344T:I\371I1\361\355\327.\344\221q\341c1}\327\321!\310\302\304\345\006\034\030\272\026\202Yn\2323Em\250Hs\335L\025\315\014\312\242\252\325R\216\201M\203\000t\313}\0050\002\2111h\240\320uMA\321\321*4\\[+,S\322\205d\243\213\246^\r.\205N\326\323\237>\364\220\221\002\000`\301\204B\361\346d\231\206\245\264\233b\024\264\241\255\342\346\nQ\357\341\307\234\236vl\375\t\320\244\343\224B\321\245\236\006\217\314\337\370\273\222)\302\204\203Y\261B\240";
+    PyObject *data = __Pyx_DecompressString(cstring, 3453, 2);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (3339 bytes) */
-const char* const cstring = "x\332\215\030\311_\333V\323\033)IH\203\203I \220TNH\310BH\235\220fi\233\324\030CL\300\306\013\220\255Ue\351\031\004F\262%\231\245M\333\0349\352\250\243\216:\352\350\243\217\034u\324\321\177B\376\204oF\262\274\000\351\327\374@\363\336\274\231y\263\317#\263\214L\222\373,\251(\274(P\237\250\264(\220\204((\274Pc\034TIbv\010U\022%J\200\235\2540\222B8j\207\3102\263\341PJb\271ETa\016\312\"\303Q,#\010\242B\025\tUf\244\r\"Q\312&#P\261GO\250\342\201B\3449\302\212;\025\t$t\004Q\004t \234L\311\374\037\300\306\357\360\n\225\022v\2312\317Q\253\205\371\007\317(\205\354+\036\265w\302\226E\231P\254\310\221\027T/\316Q\350\005\265\334\222\356HM\213\nAU\024*q\240l\2021\274Lq\244\314\027\211\304(\244|\000\306I<\253x\372\256$W\036\314<\233\241\030\201\243$\262EX\005\264\253\025\3312\003\212\313\224X\242\2125\276\014\216\242\224\203\n\221\247\251T\211:\020k\224\000vP\212\010\336\220{\030\224M\002\376#\n.\250I\307E\216\207i`\347\205\215I\212\343%\270\204\337%\310=\317\224e2\235#,\001\004\207\366l\354\020\001]\317v\373\274\233\000\"\260\307+\233\030\247\007\177\020I\004\255e\"\341a\221W\344\002\334*V\320W\024\250\2144%\336\213.8\202\354W\340rWs\010\034\362OQ\033\020\305U\241}\344\262\377<\271\236\367\374\372\211j\257\013\020\237Y\014\357\3779\246\246_1\034G\203\365\204\341\305ME\251L\323{\244(\213\3546Q\2467I\271B$\371\224\223\035\270\272\354\035<\354\034<\224\010\303\021\211f\247+\007\036[\021\222\232\256H\242\"\262b\331CzI\207.\257)|[\326\361;!\013\010\263#\267\202+O\317vW\210\223\300`\027BF\222\230\203\023\010X\357\220\035Q:\330\345\311\336$\353d\032\315\013\312$\307\313L\261L\210\200\337v\276\273\251\276\301\002\005pv\310y\331%\344~\302\254\0246d\261&\261\344eM)=x6\233J\307s\357z\364\302\315J\313\340\304R&\237Ld\322\205Tz5^He\322\tF`I\031d%%I\224\350\344\333\004\235O\342qr))\226\362\216\275N\276\315\363\002SN\245\327\342K\2519\272\220|[XN\346\363\361\205$]\310d\350\331\324\0026\207\225Tza%\003\277\271L!\223\310,\321\311\\.\223\243\351\225\203}\370\235\203\002\242\323\020\353\034)\241""\200\002\277C\304\232\342\\\\\220jd5\275\022O\274\241\035\025\351Df.\331B,%\323\217\327\363\t\254\335\004\004\272\2356'\363\0070\362F\001*n=O\317%\347\227\342\005P/\027O-\201^\353\244\230w\222b\216Q\230l\215\324\310I\3144MK\204\253\261\204n9\233>\225\006\n\025z\235\362\257T\304\363\376)g%\210.\315\301\366kgD,\235r\304\313_9\300,?\005\rj\322'\325p\334\335\336\345\234\0029\266\375\0277\264\t\276\356\003\217\344\244\225\336\ttP\256Lh\247\277\034?\374*\227\347\230\367K|\2613%D\351\224v\340U=S\251\020\201c\344\003\201\345\305\026\200R\227 \351x\201\3104\315\3541\274B\323=-\241(\302o\253\276\235\002f\313P\274l\0318\240\366hEbXRd\330mg\226\000}\031\373\262(\310\236F\235\371u\242\251\260\240\030x\254TSj\320\315\333\345\214\326r\004\333\247\373\245q\234qm\023iT\234#\325\032\241i\016K\310\005\034\324\033Fw\237\005Ck2iG\272\355\301N\004<\337AW\247\341z\201\005\031\364\206\027A\272' \255\216GC\266\265]\345f\036\257\220\035yK\344\005\247/\225E\261B\323;\014\212\334a\366\351\035y\203\306Q\352\366b\300\211\\\255\214\302i\001\244:\220\354\341g_qgE\005\265\2461V\320\302Z\317\203\212X\201\2372))^8h\272\002\315\003B\311\243\010g\275I\330m\271\266\343\356\300C\265\262\342\256[\346\340\022\307\256\273\252\t\025\236\335\006MNV\310\327\010\334\214sOw\025\354\264xw\265\306\224]S\252\310\214\212{\332\323\216-\\\273l\350\023\005\324F\220}\332\321y\247m\272D \035\004\231\224K\320\326\271\236\242u\312\254\345?\\\271\306\302\212#%\3061[\356\004\361dIb8\034Lkl\311\265\212\233Q\300^F\302\315\226\241H\001\337MI\334s\037\034\265\n\244\r\301\370xB\341\001Us?2\026\r\221\332\345\006\321\227\267W\0162E|\006Q\367|]\377 \271;\233\232 \363\033\002<\025Z\330\370\322Rf=9\327\325\357\363\276\344\362J\341\035=\237\213/'\273\327\356\034\361\265'\316\273\225d\236^O\025^\3238\312`\\\371\n\253+KI:\235\\\367\235\230\"\276\2561\342k\317\014\337\311\351\341k\217\017X\321\313\371\005\347\"\332\235\250=(\234^\276Dfy%\007\032\201\t\363\361\245|\262\033\221\316\024`\214\366\320\024r\253I_f\305Q\311\223\351m\035e;\273""\256\361\334Fz\022\275=\216\332\316&\323\265q\224\313%\343s\364k\370$s\356z%\376n)\023\237\353\331\240K\026\n\257{q\313\361\374\233\317~;\364\275\3517/\233U+4\246\305\354\376\213\207\212\032\263\316\215k\361\317\361\346\205o\355\301\260\035\276dG\206\277\234\361\235\0358|\252N\250\20251c\306\233\003\027\017\367T\326\032\23568s\302\344\353r#j\017^V\005=nG\276\323\252\310\322\357\2730\210\342\232\203C\352S\355\246\226\265##\332y=f\017F\324e=\014\262\233\003W\265\t\215\321\024@\272\0025@\217j\021\240\005\2427Z\025\356\2754tL\260}{R\257\272\322\253\366\340\204>g\2343o\230q\344Hik:\3347\241\307\333\347C\352\214\252\200i\221\021k\344\236u\357E=j\375\230\267\362\205/\003\276\360\r=\242\323\326\314\\\003d\337\326\213\206\27792\256e\214GF\326\036\303\273\256E\3650h\020\216\200\214\177t\316\270id\255\351\227\365b#\204\034W\265i\303o\217\334\004\345Gf\033\321\306L\243\332\014\017\253Y\353\362]c\310\000}\200\273\t\237a\235\321\253\315\216}\250\221c\307\310w\332\337\306\272\0317\3013c\326X\314\014\333#\3275\001X\307'\365\177L\306\376\216\002-\207G\2653\332\026\336\004\362\364)k\372\227\306\231\006c\217@\27444\263\347\334\036\217Y\261\204\225@\013\233-\0220`X\235\327\356\241\007\257iY\255l\335{i\275L\0371v\344\212Z\325\374\315\013\0215\001\032\201\206\262\032U\237k\t0}\360\232um\332`\214=\263X\017\326c\3658\352\375\243V\324\373\364\2021f.\324c\275\016@\332j\023\322%2\241/\0301#\001\234\214\tr\256XW\036\200?;\304\257\314\250=6\2161\345\265\252>`\244\314\267\365\217GN\236\365\304\371>HI\232a\363N=Z\217\241\021W\272\030\362\r\177s`P=\243n\351~t\260\355\331pI\275\013F/\031g\315+\365\263\215\260\335E\304\032a#\372\237\t\233@1\255\373\355A\210\314\2245\365K\303\337\010\273514\005\021:{\316\356\0378|\255\306\021\244\265(\202\005\365\261\312\201\237\301~\024w\036\262n`T\013kw\364[z\3653\330\365S=\336\004\272E\225A\362%-\240\335\206\033\372\007\254\001(8\273\377\374\341\014\344HQ\013i\257!\251C\306\234y\256\036EI\347\320wV\350\252{\315<j\336\336\271*\264$8\252`U\203\313\215\222\031\377""\354\207\004\351\373\366\260\240^\325f\264=H\341\007\246R\177y\0249zg\255\275\267\336\027\255b\311*I\226\264\373\305\347\333\363'\003\000\222\201\024\202T \213 \033XE\260\032X\013\330!41\006\2514\005\016\017}\363y\367p]M:\305\332\177I\005e \233\232\360Q\264\347\340\202'f\320\2341?5\236\036\335:\222\255\334\232\265\306Z\354\226\265%Z\"\336g\355\376\005b\377\366\256\\D\260\030XF\260\354\335\374\021\301\307\000\213\200\rl\"\330\014l#\330\016\210\010\304\300'\004\237\002\211 \200D\3605\202\327\3017\010\336\0043\0102\301\267\010\336\006i\004t\360\367 j^\205Ng]|\014\nV\353\337\324\377<\232\264\262\271f/*\332\361\335\270V\320\257\033\212\371\2521a\315\257[\353\037\254\017\256\343dK\336\003\251\373\376yTc\336\263\342=\202\367\201\337\020\374\026\220\021\310\201=\004{\236\246\013\010\026\202\353\010\326\203\037\020|\010\022\004$\310#\340\203\n\002%\270\217`?\230\r\241KB\253\010VC[\010\266B\002\002!4\333\007`\266o\036\301|_\006A\246/\217 \337\367\001\301\207>\032\001\335\367{\337\177\016\2425v\337xj\3362\345\372D\275\324X8zb\255@S\001\3539\213\333\266\266+V\245m\375,\2326\353\245M\032A\372X\366\360\010\370@\005A%PCP\013\354#\330?\026\303E\004\213^\360r\010r\3015\004k\301_\021\374\032\344\020p\340\256N(\2777C\320G\327\353o\032{GL\263\027\003\263\355\272\306\270\345U\205\"\337\000[\007\206\324'\232_\0137\035\354\256\272\016\325\003\270\037\020s\266U\274XP\027\017\377\302\223A\265_\363\273\305<\241m\202\343\2006\006\327\034V?\373\233!hW\026\365\275y\276\376cc\033\022\311\016\r\251\257\364;F\024\332\000(\370\t\206\037\370\025\272\273\365h\256\221\266ry;t\3760v:\2435tK\177\013\265\313tq\302\270\265\236,\036M[o\3379\234\026\362\271\212;}l\002\372\242\242?5n\030\363f\264\331\017J\332\375C\320\212\030hs\375\021\025Z\316Y\234>\212\372L{\014~\200>\376\\\233\205\211\021\200n\010Sh\360\232\366\016'\224=x]\343\365\2527LaR4\007\257\250\177\3527\365\274C:\210\303\37314\307K`\327\277lF\2651}Vg\276\214\340\334|\242\005\265'zHO\032\021\243`F\314l\357\324\030u\247+\232\t\232\364\3764{(\241\347""\032Y\217\372\2066\0072\347\214\240\021;E\3365\350\352A\343\261Q4\375\250\315\270\236s\236\013]\234\013\316\210?\3069\340\316\371O`\t\266I\031Z/\274W.Z\223/\352\367`\334\017_>\345\252a5\255O\270\316\213X\221[z\326}\333D\364,\344\010\242\356\032aD-j\014\220;\317\241V\020\306\240\037W\335X\340\270\205I|\240\007\364{\306,\204~d\324\216D\365Q'\201\"7\364\2730\010\027a\014\373\021\033v\0362\217\314\3730\002\003\215\033\250\330u\230\312\376\223\022ZdY\250\336\305#\346\250\352p7]t\364\313\271\316\253f\302\020\353\331.\267\337\322\013\326\335x\343R\343q\203i(G1\024\375\017D7\002>\353\274O\252\3668N\350\270=\365\000\"\033v\275\261h]\207\016j=]hT\217\331{<\351\"jF\177\0161\375X\277\332x\324\310:\371\326\362TO\262\216k)\214\237\363j\262\256<4dx=D(\264\027\014yl\306\232\2609\007\251?g\372[&G\233\203\024\3048\356\370\377\276\361\302\314\231Nn;\302\342\315.A\240\342\360\2505\202}.j>\257\307\235g\210\363\326\005\337\304\034W\035;\273\342<%\341\335\246\350?\233\337\200\\\310\313\224\2315\331\372p\235\251+\r8\273\r\351\240\030/\353\360\226\273\241G\233\360\271\251\257B(g\214\252\355J\374\001\336y\303X\245\021L\202\277\214\005\023\\|\007\036\"as\252\316\264.\261\306\037\342\013\n\362v\364\201s\005\203\251\020\325g\364\277\261\210\300\234f\304\255\327\001x\215\203\343\322\272\223\257\0270x\317\353\243\215\211\006\323D\017\334\303\322\3652\360\354\205\303\224\372\016^\334\177\030\327\314-H\240ik%k\205F\240\271\271O\377]\221\347\250;\235\277\362\246\250\3565\376\007e\353O\360m\276Bs\274\\a\024v\363\256\217\356\375+\261\365\227\351\377\000@'\021\004";
-    PyObject *data = __Pyx_DecompressString(cstring, 3339, 1);
+    #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (3341 bytes) */
+const char* const cstring = "x\332\215\030\311_\333V\323\033)IH\203\203I \220TNH\310BH\235\220fi\233\324\030CL\300\306\013\220\255Ue\351\031\004F\262%\231\245M\333\0349\352\250\243\216:\352\350\243\217\034u\324\321\177B\376\204oF\262\274\000\351\327\376\202\346\275y3\363f\237\347\31622I\356\263\244\242\360\242@}\242\322\242@\022\242\240\360B\215qP%\211\331!TI\224(\001v\262\302H\n\341\250\035\"\313\314\206C)\211\345\026Q\2059(\213\014G\261\214 \210\nU$T\231\2216\210D)\233\214@\305\036=\241\212\007\n\221\347\010+\356T$\220\320\021D\021\320\201p2%\363\177\000\033\277\303+TJ\330e\312<G\255\026\346\037<\243\024\262\257x\324\336\t[\026eB\261\"G^P\2758G\241\027\324rK\272#5-*\004UQ\250\304\201\262\t\306\3602\305\2212_$\022\243\220\362\001\030'\361\254\342\351\273\222\\y0\363l\206b\004\216\222\310\026a\025\320\256Vd\313\014(.Sb\211*\326\37028\212R\016*D\236\246R%\352@\254Q\002\330A)\"xC\356aP6\t\370\217(\270\240&\035\0279\036\246\201\235\0276&)\216\227\340\022~\227 \367<S\226\311t\216\260\004\020\034\332\263\261C\004t=\333\355\363n\002\210\300\036\257lb\234\036\374A$\021\264\226\211\204\207E^\221\013p\253XA_Q\2402\322\224x/\272\340\010\262_\201\313]\315!p\310?Em@\024W\205\366\221\313\376\363\344z\336\363\353'\252\275.@|f1\274\377\347\230\232~\305p\034\r\326\023\206\0277\025\2452M\357\221\242,\262\333D\231\336$\345\n\221\344SNv\340\352\262w\360\260s\360P\"\014G$\232\235\256\034xlEHj\272\"\211\212\310\212e\017\351%\035\272\274\246\360mY\307\357\204, \314\216\334\n\256<=\333]!N\002\203]\010\031Ib\016N `\275CvD\351`\227'{\223\254\223i4/(\223\034/3\3052!\002~\333\371\356\246\372\006\013\024\300\331!\347e\227\220\373\t\263R\330\220\305\232\304\222\2275\245\364\340\331l*\035\317\275\353\321\0137+-\203\023K\231|2\221I\027R\351\325x!\225I'\030\201%e\220\225\224$Q\242\223o\023t>\211\307\311\245\244X\312;\366:\3716\317\013L9\225^\213/\245\346\350B\362ma9\231\317\307\027\222t!\223\241gS\013\330\034VR\351\205\225\014\374\3452\205L\"\263D's\271L\216\246W\016\366\341o\016\n\210NC\254s\244\204\002\n\374\016\021k\212sqA""\252\221\325\364J<\361\206vT\244\023\231\271d\013\261\224L?^\317'\260v\023\020\350v\332\234\314\037\300\310\033\005\250\270\365<=\227\234_\212\027@\275\\<\265\004z\255\223b\336I\2129Fa\2625R#'1\3234-\021\256\306\022\272\345l\372T\032(T\350u\312\277R\021\317\373\247\234\225 \2724\007\333\257\235\021\261t\312\021/\177\345\000\263\374\0244\250I\237T\303qw{\227s\n\344\330\366_\334\320&\370\272\017<\222\223Vz'\320A\2712\241\235\376r\374\360\253\\\236c\336/\361\305\316\224\020\245S\332\201W\365L\245B\004\216\221\017\004\226\027[\000J]\202\244\343\005\"\3234\263\307\360\nM\367\264\204\242\010\177\255\372v\n\230-C\361\262e\340\200\332\243\025\211aI\221a\267\235Y\002\364e\354\313\242 {\032u\346\327\211\246\302\202b\340\261RM\251A7o\2273Z\313\021l\237\356\227\306q\306\265M\244Qq\216Tk\204\2469,!\027pPo\030\335}\026\014\255\311\244\035\351\266\007;\021\360|\007]\235\206\353\005\026d\320\033^\004\351\236\200\264:\036\r\331\326v\225\233y\274Bv\344-\221\027\234\276T\026\305\nM\3570(r\207\331\247w\344\r\032G\251\333\213\001'r\2652\n\247\005\220\352@\262\207\237}\305\235\025\025\324\232\306XA\013k=\017*b\005\376\225II\361\302A\323\025h\036\020J\036E8\353M\302n\313\265\035w\007\036\252\225\025w\3352\007\2278v\335UM\250\360\3546hr\262B\276F\340f\234{\272\253`\247\305\273\2535\246\354\232REfT\334\323\236vl\341\332eC\237(\2406\202\354\323\216\316;m\323%\002\351 \310\244\\\202\266\316\365\024\255Sf-\377\341\3125\026V\034)1\216\331r'\210'K\022\303\341`ZcK\256U\334\214\002\3662\022n\266\014E\n\370nJ\342\236\373\340\250U m\010\306\307\023\n\017\250\232\373\221\261h\210\324.7\210\276\274\275r\220)\3423\210\272\347\353\372\017\222\273\263\251\t2\277!\300S\241\205\215/-e\326\223s]\375>\357K.\257\024\336\321\363\271\370r\262{\355\316\021_{\342\274[I\346\351\365T\3415\215\243\014\306\225\257\260\272\262\224\244\323\311u\337\211)\342\353\032#\276\366\314\360\235\234\036\276\366\370\200\025\275\234_p.\242\335\211\332\203\302\351\345Kd\226Wr\240\021\2300\037_\312'\273\021\351L\001\306h\017M!\267""\232\364eV\034\225<\231\336\326Q\266\263\353\032\317m\244'\321\333\343\250\355l2]\033G\271\\2>G\277\206O2\347\256W\342\357\2262\361\271\236\r\272d\241\360\272\027\267\034\317\277\371\354\267C\337\233~\363\262Y\265BcZ\314\356\277x\250\2501\353\334\270\026\377\034o^\370\326\036\014\333\341Kvd\370\313\031\337\331\201\303\247\352\204*X\0233f\2749p\361pOe\255\321i\2033'L\276.7\242\366\340eU\320\343v\344;\255\212,\375\276\013\203(\25698\244>\325njY;2\242\235\327c\366`D]\326\303 \2739pU\233\320\030M\001\244+P\003\364\250\026\001Z z\243U\341\336KC\307\004\333\267'\365\252+\275j\017N\350s\3069\363\206\031G\216\224\266\246\303}\023z\274}>\244\316\250\n\230\026\031\261F\356Y\367^\324\243\326\217y+_\3702\340\013\337\320#:m\315\3145@\366m\275h\370\233#\343Z\306xdd\3551\274\353ZT\017\203\006\341\010\310\370G\347\214\233F\326\232~Y/6B\310qU\2336\374\366\310MP~d\266\021m\3144\252\315\360\260\232\265.\3375\206\014\320\007\270\233\360\031\326\031\275\332\354\330\207\0329v\214|\247\375m\254\233q\023<3f\215\305\314\260=r]\023\200u|R\377\307d\354\357(\320rxT;\243m\341M O\237\262\246\177i\234i0\366\010\304KC3{\316\355\361\230\025KX\t\264\260\331\"\001\003\206\325y\355\036z\360\232\226\325\312\326\275\227\326\313\364\021cG\256\250U\315\337\274\020Q\023\240\021h(\253Q\365\271\226\000\323\007\257Y\327\246\r\306\3303\213\365`=V\217\243\336?jE\275O/\030c\346B=\326\353\000\244\2556!]\"\023\372\202\0213\022\300\311\230 \347\212u\345\001\370\263C\374\312\214\332c\343\030S^\253\352\003F\312|[\377x\344\344YO\234\357\203\224\244\0316\357\324\243\365\030\032q\245\213!\337\3607\007\006\3253\352\226\356G\007\333\236\r\227\324\273`\364\222q\326\274R?\333\010\333]D\254\0216\242\377\231\260\t\024\323\272\337\036\204\310LYS\2774\374\215\260[\023CS\020\241\263\347\354\376\201\303\327j\034AZ\213\"XP\037\253\034\370\031\354Gq\347!\353\006F\265\260vG\277\245W?\203]?\325\343M\240[T\031$_\322\002\332m\270\241\177\300\032\200\202\263\373\317\037\316@\216\024\265\220\366\032\222:d\314\231\347\352Q\224t\016}g\205""\256\272\327\314\243\346\355\235\253BK\202\243\nV5\270\334(\231\361\317~H\220\276o\017\013\352UmF\333\203\024~`*\365\227G\221\243w\326\332{\353}\321*\226\254\222dI\273_|\276=\1772\000 \031H!H\005\262\010\262\201U\004\253\201\265\200\035B\023c\220JS\340\360\3207\237w\017\327\325\244S\254\375\227TP\006\262\251\t\037E{\016.xb\006\315\031\363S\343\351\321\255#\331\312\255Yk\254\305nY[\242%\342}\326\356_ \366o\357\312E\004\213\201e\004\313\336\315\037\021|\014\260\010\330\300&\202\315\3006\202\355\200\210@\014|B\360)\220\010\002H\004_#x\035|\203\340M0\203 \023|\213\340m\220F@\007\177\017\242\346U\350t\326\305\307\240`\265\376M\375\317\243I+\233k\366\242\242\035\337\215k\005\375\272\241\230\257\032\023\326\374\272\265\376\301\372\340:N\266\344=\220\272\357\237G5\346=+\336#x\037\370\r\301o\001\031\201\034\330C\260\347i\272\200`!\270\216`=\370\001\301\207 A@\202<\002>\250 P\202\373\010\366\203\331\020\272$\264\212`5\264\205`+$ \020B\263}\000f\373\346\021\314\367e\020d\372\362\010\362}\037\020|\350\243\021\320}\277\367\375\347 Zc\367\215\247\346-S\256O\324K\215\205\243'\326\n4\025\260\236\263\270mk\273bU\332\326\317\242i\263^\332\244\021\244\217e\017\217\200\017T\020T\0025\004\265\300>\202\375c1\\D\260\350\005/\207 \027\\C\260\026\374\025\301\257A\016\001\007\356\352\204\362{3\004}t\275\376\246\261w\3044{10\333\256k\214[^U(\362\r\260u`H}\242\371\265p\323\301\356\252\353P=\200\373\0011g[\305\213\005u\361\360/<\031T\3735\277[\314\023\332&8\016hcp\315a\365\263\277\031\202veQ\337\233\347\353?6\266!\221\354\320\220\372J\277cD\241\r\200\202\237`\370\201_\241\273[\217\346\032i+\227\267C\347\017c\2473ZC\267\364\267P\273L\027'\214[\353\311\342\321\264\365\366\235\303i!\237\253\270\323\307&\240/*\372S\343\2061oF\233\375\240\244\335?\004\255\210\2016\327\037Q\241\345\234\305\351\243\250\317\264\307\340\007\350\343\317\265Y\230\030\001\350\2060\205\006\257i\357pB\331\203\3275^\257z\303\024&Es\360\212\372\247~S\317;\244\2038\274\037Cs\274\004v\375\313fT\033\323gu\346\313\010\316\315'ZP{""\242\207\364\244\0211\nf\304\314\366N\215Qw\272\242\231\240I\357\277f\017%\364\\#\353Q\337\320\346@\346\234\0214b\247\310\273\006]=h<6\212\246\037\265\031\327s\316s\241\213s\301\031\361\3078\007\3349\377\t,\3016)C\353\205\367\312Ek\362E\375\036\214\373\341\313\2472\264\0376\337\002\027F|0bEn\351Y\367\221\023\321\263\220,\210\272k\204\021\265\2501\240\242\363.jEc\014\032s\325\r\n\316]\030\311\007z@\277g\314B\016\214\214\332\221\250>\352\310\215\334\320\357\302D\\\204y\354Gl\330y\321<2\357\303,\0144n\240\206\327a<\373OJh\221e\241\214\027\217\230\243\252\303\335t\321\321/\347:\317\233\tC\254g\273\374\177K/Xw\343\215K\215\307\r\246\241\034\305P\364?\020\346\0108\257\363P\251\332\3438\252\343\366\324\003\010q\330}n,Z\327\241\225ZO\027\032\325c\366\036\317\276\210\232\321\237Cp?\326\2576\0365\262N\342\265<\325\223\265\343Z\n\003\351<\237\254+\017\r\031\236\021\021\n\355\005C\036\233\261&l\316A\r\314\231\376\226\311\321\346 \005\301\216;\376\277o\2740s\246\223\344\216\260x\263K\020\2508<j\215`\303\213\232\317\353q\347=\342<z\30171\307U\307\316\2568oJx\300)\372\317\3467 \027\0224efM\266>\\g\352J\003\316nCQ)\306\313:<\352n\350\321&|n\352\253\020\312\031\243j\273\022\177\200\007\3370\226k\004\223\340/c\301\004\027\337\201\027I\330\234\2523\255K\254\361\207\370\224\202\004\036}\340\\\301`*D\365\031\375o\254&0\247\031q\013w\000\236\345\340\270\264\356$\356\005\014\336\363\372hc\242\3014\321\003\367\260\206\275\014<{\3410\245\276\203\247\367\037\3065s\013\022h\332Z\311Z\241\021\350r\356o\200]\221\347\250;\235\237{ST\367\032\377Oe\353\267\3706_\2419^\2560\n\273y\327G\367\376\\l\375D\375\037;\273\024\020";
+    PyObject *data = __Pyx_DecompressString(cstring, 3341, 1);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #else /* compression: none (6232 bytes) */
-const char* const bytes = "BaseException | NoneContinuation frame for non started messageControl frame payload cannot be larger than 125 bytesDecompressed message exceeds size limit Invalid UTF-8 text messageInvalid close code: Invalid close frame: Message size Note that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the 'annotation_typing' directive to False.Received fragmented control frameReceived frame with non-zero reserved bitsThe opcode in non-fin frame is expected to be zero, got Unexpected opcode='WSMessage | WSMessageTextBytes'WSMessage | WSMessageTextBytes .?add_noteaiohttp._websocket.helpersaiohttp._websocket.modelsaiohttp/_websocket/reader_c.pyaiohttp.base_protocolaiohttp.compression_utilsaiohttp.helpersaiohttp.streamsbuiltins.BaseExceptionbytes | bytearraybytes | bytearray | memoryview'cython_int'disableenable exceeds limit gcint | cython_intisenabled<stringsource>utf-8BINARYBaseExceptionBaseProtocolCLOSECONTINUATIONCancelledError_EXC_SENTINELEofStreamFalseFinalINVALID_TEXTMESSAGE_TOO_BIGNonePINGPONGPROTOCOL_ERROR__Pyx_PyDict_NextRefTEXTTimeoutErrorTrueUNPACK_CLOSE_CODEUNPACK_LEN3WSCloseCodeWSMessageWSMessageTextBytesWSMsgTypeWS_DEFLATE_TRAILINGWebSocketDataQueueWebSocketDataQueue.__reduce_cython__WebSocketDataQueue.__setstate_cython__WebSocketDataQueue.exceptionWebSocketDataQueue.feed_dataWebSocketDataQueue.feed_eofWebSocketDataQueue.is_eofWebSocketDataQueue.readWebSocketDataQueue.set_exceptionWebSocketErrorWebSocketReaderWebSocketReader.__reduce_cython__WebSocketReader.__setstate_cython__WebSocketReader._feed_dataWebSocketReader._handle_frameWebSocketReader.feed_dataWebSocketReader.feed_eofZLibDecompressoraiohttp._websocket.reader_cappendasyncioasyncio.coroutines__await__base_protocolboolbuiltinsbytesclearcline_in_tracebackclosecollectionscompresscompressedcompression_utilscreate_futurecython_intdatadecodedecode_textdecompress_syncdeque__dict___dictdoneexcexc_causeexceptionfeed_data_feed_datafeed_eo""ffin__func____getstate___handle_framehelpers_is_coroutineis_eofitemsjoinlimitloop__main__max_msg_sizemodels__module____name____new__nextopcodepause_readingpayloadpoppopleftprotocol__pyx_capi____pyx_checksum__pyx_result__pyx_state__pyx_type__pyx_unpickle_WebSocketDataQueue__pyx_unpickle_WebSocketReader__pyx_vtable____qualname__queueread_reading_paused__reduce____reduce_cython____reduce_ex__resume_readingreturnselfsendset_exception__set_name__set_resultsetdefault__setstate____setstate_cython__sizestatestreamssuppress_deflate_header__test__throwtypingupdateuse_setstatevaluevalueswaiterwebsocket_maskPyObject *\000\000\000\000\000\000\000\000\000\000\000\000int\000\000\000\000\000\000\000\000\000\000unsigned int\000\000\000\000ALLOWED_CLOSE_CODES\000EMPTY_FRAME\000EMPTY_FRAME_ERROR\000MESSAGE_TYPES_WITH_CONTENT\000TUPLE_NEW\000UNPACK_CLOSE_CODE\000UNPACK_LEN3\000WSMessage\000WSMessageTextBytes\000WSMsgType\000WS_MSG_TYPE_BINARY\000WS_MSG_TYPE_TEXT\000COMPRESSED_FALSE\000COMPRESSED_NOT_SET\000COMPRESSED_TRUE\000OP_CODE_BINARY\000OP_CODE_CLOSE\000OP_CODE_CONTINUATION\000OP_CODE_NOT_SET\000OP_CODE_PING\000OP_CODE_PONG\000OP_CODE_TEXT\000READ_HEADER\000READ_PAYLOAD\000READ_PAYLOAD_LENGTH\000READ_PAYLOAD_MASK\200\001\330\0040\260\001\260\026\260q\320\004\033\2301\330\010\017\210t\2201\320\n\034\230A\200A\340\r\016\330\020\021\330\021\022\330\024\025\360\006\000\t\014\2107\220$\220n\320$4\260A\340\014\017\210w\220c\320\031.\250d\260$\260i\270s\300!\330\020\026\220n\240A\330\024\037\230q\330\024\025\360\010\000\r\020\210t\2201\340\020\023\2207\230#\230Q\330\024\030\230\013\2401\330\020\024\220M\240\021\330\020\021\340\014\032\230$\230a\230t\2401\330\014\017\210w\220c\230\021\330\020\031\230\024\230Q\330\020\024\220K\230q\360\006\000\022\023\330\020\026\220n\240A\330\024\037\230q\330\024\025\330&'\240q\360\010\000\r\020\210q\330\020$\240D\250\n\260\"\260A\330\020\024\220I\230V\2401\340\020$\240A\360\010\000\r\020\210q\330\020\023\2204\220t\2301\330\024\030\320\030*\320*:\270!""\320;S\320ST\360\014\000\021\"\240\024\240_\3204D\300A\330\024&\240b\250\001\340\030\034\230O\2502\250Q\330\033\037\230q\330\035!\240\021\360\006\000\021\024\2204\220\177\240d\250#\250Q\320.>\270b\300\004\300A\330\024\032\230.\250\001\330\030#\2401\330\030B\300!\3004\300q\340\021\025\220Q\320\026)\250\023\250A\330\020!\240\021\340\020!\240\025\240a\240q\340\014\017\210w\220c\230\021\330\020\023\2204\220q\330\024\025\330\030\037\230~\250W\260A\260Q\330\024\033\320\0331\260\021\330\030\036\230n\250A\330\034'\240\177\260a\330\037 \360\014\000\025\031\230\006\230j\250\001\330\030!\240\021\240,\320.@\300\006\300a\330\030\033\2301\230A\360\010\000\025\031\230\006\230j\250\001\330\030!\240\021\330\0341\3201C\320CS\320ST\340\030\033\2301\230A\360\006\000\021\025\220F\230*\240A\330\024\035\230Q\230l\320*>\320>N\310a\330\024\027\220q\230\001\340\r\024\220C\220q\330\014\017\210s\220!\2209\230C\230q\330\020\035\320\035.\250a\250w\260b\270\003\2701\270A\330\020\023\220;\230b\240\005\240T\250\033\260G\2701\330\024\032\230.\250\001\330\030#\2401\330\030.\250a\250q\340\020\021\330\024$\240G\2501\250C\250w\260a\260q\330\020\027\320\027-\250Q\330\024\032\230.\250\001\330\030#\240?\260!\330\033\034\330\020\026\220i\230q\240\014\250I\260X\270\\\310\021\330\021\022\330\020\026\220n\240A\330\024\037\230q\330\024+\2501\250E\260\021\260(\270!\2701\360\006\000\021\027\220i\230q\240\014\250I\260X\270S\300\001\340\014\020\220\006\220j\240\001\240\025\240a\330\r\024\220C\220q\330\014\022\220)\2301\230L\250\t\260\027\270\t\300\021\330\014\020\220\006\220j\240\001\240\025\240c\250\021\250!\330\r\024\220C\220q\330\014\022\220)\2301\230L\250\t\260\027\270\t\300\021\330\014\020\220\006\220j\240\001\240\025\240c\250\021\250!\340\014\022\220.\240\001\330\020\033\320\033,\320,@\300\001\300\021\200A\340\r\016\330\023,\250A\330\t\n\330\010\014\210H\220A\330\010\014\210N\230!\330\010\014\210G\2203\220d\230*\240G\2501\330\014\020\220\013\2301\330\014\031\230\021\230(\240%\240q\200A\330\024<\270A\340\010""\014\210J\220a\330\010\014\210L\230\002\230&\240\001\330\010\014\320\014\034\230A\330\010\013\2104\210w\220b\230\004\230H\240D\250\004\250D\260\n\270!\330\014\020\220\n\230.\250\001\320\004\032\230!\330\010\014\210F\220)\2301\320\004\032\230!\330\010\014\210H\220A\330\010\014\320\014\034\230A\330\010\014\210N\230!\200\001\330\004-\250Q\250f\260A\200\001\360\010\000\005\016\210T\220\032\2304\230w\240d\250-\260t\270>\310\024\310Y\320VZ\320Zb\320bf\320fr\320rv\360\000\000w\001E\002\360\000\000E\002I\002\360\000\000I\002Q\002\360\000\000Q\002U\002\360\000\000U\002V\002\330\004\014\210G\2201\220F\230,\240a\330\004\007\200v\210W\220E\230\024\230Q\330\010\022\220!\330\010\027\220q\340\010\027\220t\2309\240G\2505\260\003\2604\260|\3007\310%\310s\320RV\320Vc\320cj\320jo\320or\320rv\320v}\360\000\000~\001E\002\360\000\000E\002J\002\360\000\000J\002M\002\360\000\000M\002Q\002\360\000\000Q\002\\\002\360\000\000\\\002c\002\360\000\000c\002h\002\360\000\000h\002k\002\360\000\000k\002o\002\360\000\000o\002|\002\360\000\000|\002C\003\360\000\000C\003H\003\360\000\000H\003K\003\360\000\000K\003O\003\360\000\000O\003X\003\360\000\000X\003_\003\360\000\000_\003`\003\330\004\007\200q\330\010\017\320\0173\2604\260q\270\007\270{\310'\320QR\340\010\017\320\0173\2604\260q\270\007\270{\310!\200\001\360\010\000\005\016\210T\220\034\230T\240\036\250t\260?\300$\320FW\320W[\320[b\320bf\320fs\320sw\360\000\000x\001F\002\360\000\000F\002J\002\360\000\000J\002Z\002\360\000\000Z\002^\002\360\000\000^\002s\002\360\000\000s\002w\002\360\000\000w\002C\003\360\000\000C\003G\003\360\000\000G\003W\003\360\000\000W\003[\003\360\000\000[\003e\003\360\000\000e\003i\003\360\000\000i\003t\003\360\000\000t\003x\003\360\000\000x\003Q\004\360\000\000Q\004U\004\360\000\000U\004j\004\360\000\000j\004n\004\360\000\000n\004B\005\360\000\000B\005F\005\360\000\000F\005O\005\360\000\000O\005S\005\360\000\000S\005[\005\360\000\000[\005_\005\360\000\000_\005`\005\330\004\014\210G\2201\220F\230,\240a\330\004\007\200v\210W""\220E\230\024\230Q\330\010\022\220!\330\010\027\220q\340\010\027\220t\320\033+\2507\260%\260s\270$\270f\300G\3105\320PS\320SW\320Wd\320dk\320kp\320ps\320sw\360\000\000x\001B\002\360\000\000B\002I\002\360\000\000I\002N\002\360\000\000N\002Q\002\360\000\000Q\002U\002\360\000\000U\002i\002\360\000\000i\002p\002\360\000\000p\002u\002\360\000\000u\002x\002\360\000\000x\002|\002\360\000\000|\002C\003\360\000\000C\003J\003\360\000\000J\003O\003\360\000\000O\003R\003\360\000\000R\003V\003\360\000\000V\003]\003\360\000\000]\003d\003\360\000\000d\003e\003\330\004\007\200q\330\010\017\320\0170\260\004\260A\260W\270K\300w\310a\340\010\017\320\0170\260\004\260A\260W\270K\300q\320\004\036\230a\330\010\013\2104\210q\220\006\220g\230Q\330\014\023\2205\230\001\230\021\340\010\013\2104\210v\220W\230A\330\014\023\2206\230\021\340\010\t\330\014\020\220\013\2301\230A\330\010\017\210}\230A\330\014\020\220\010\230\001\330\014\031\230\021\230$\230h\240a\330\014\023\2201\340\010\017\210q\200\001\340\004\037\230q\320 0\260\013\270;\300k\320QR\330\004\023\220?\240(\250!\2501\330\004\007\200|\2207\230!\330\0101\260\021\3202D\300N\320RS\330\004\013\2101\200\001\340\004\037\230q\320 0\260\013\270;\300k\320QR\330\004\023\320\023%\240X\250Q\250a\330\004\007\200|\2207\230!\330\0104\260A\3205J\310.\320XY\330\004\013\2101\320\004\037\230q\340\010\013\2104\210q\330\014\022\220$\220i\230t\2407\250\"\250F\260!\340\010\031\230\021\330\010\023\2203\220a\220q\330\010\024\220A\340\010\t\340\014\017\210t\2208\2303\230a\330\020\023\2209\230B\230j\250\002\250!\330\024\025\330\020\035\230Y\240a\240q\330\020\036\230i\240q\250\n\260\"\260A\330\020\035\230Q\340\020\027\220{\240#\240S\250\002\250!\330\020\030\230\013\2403\240c\250\022\2501\330\020\030\230\013\2403\240c\250\022\2501\330\020\030\230\013\2403\240c\250\022\2501\330\020\031\230\033\240B\240a\360\030\000\021\024\2205\230\003\2305\240\004\240E\250\024\250T\260\024\260Q\330\024\032\230.\250\001\330\030#\2401\330\030\031\360\006\000\021\024\2207\230!\330""\024\025\330\024\025\330\024\025\330\024\025\330\024\025\330\024\025\340\024\032\230.\250\001\330\030#\2401\330\030,\250A\250Q\360\006\000\021\024\2207\230\"\230D\240\004\240D\250\003\2501\330\024\032\230.\250\001\330\030#\2401\330\030\031\360\006\000\021\035\230L\250\003\2503\250b\260\001\330\020\031\230\034\240R\240q\360\010\000\021\024\2207\230\"\230D\240\004\240G\2502\250Q\330\024\032\230.\250\001\330\030#\2401\330\030\031\360\014\000\021\024\2204\220|\2403\240d\250-\260s\270!\330\024\030\230\017\320':\270*\300A\330\025\026\330\024\032\230.\250\001\330\030#\2401\330\030\031\360\006\000\021\025\220N\240$\240a\240q\330\020\024\320\024%\240Q\330\020\024\220M\240\024\240Q\240a\330\020\024\320\024)\250\021\330\020\024\220J\230a\360\006\000\r\020\210t\2208\2303\230a\330\020\033\2304\230q\330\020\023\2209\230C\230q\330\024\027\220y\240\002\240*\250B\250a\330\030\031\330\024!\240\031\250!\2501\330\024\"\240)\2501\250J\260b\270\001\330\024!\240\021\330\024\030\320\0302\260+\270S\300\002\300\"\300A\330\025\036\230b\240\001\330\024\027\220y\240\002\240*\250B\250a\330\030\031\330\024\030\320\0302\260+\270Q\270f\300J\310a\310q\330\024!\240\021\340\024\030\320\0302\260!\360\n\000\021\024\2204\220\177\240d\250$\250o\270Q\330\024\025\330\024\025\330\024\025\340\024%\240T\320)A\300\022\3003\300a\300t\3101\330\024\027\220\177\240c\250\024\250Q\330\030\036\230n\250A\330\034'\240q\330\034+\2501\250A\330,-\250T\260\021\360\006\000\021\025\220J\320\0363\2604\3207G\300q\360\006\000\r\020\210t\2208\2303\230a\330\020\023\2209\230B\230j\250\002\250!\330\024\025\330\020\024\220O\2409\250A\250\\\270\032\3002\300Q\330\020\035\230Q\330\020\024\220J\230a\340\014\017\210t\2208\2303\230a\330\020\034\230I\240R\240q\330\020\023\2204\320\027/\250s\260!\330\024 \240\001\330\024\030\320\0303\2601\340\024 \240\n\250\"\250D\260\001\330\024\030\320\0302\260!\340\020 \240\004\240A\330\020\024\320\024+\250:\260R\260q\330\020\036\230a\330\020\034\230A\340\020\023\2204\320\027/\250s\260!\360\006\000\025""\031\320\030+\2507\260!\2609\270A\270\\\310\021\330\024\025\360\006\000\021\024\2201\340\024\030\320\030+\2507\260!\2609\270A\270\\\310\021\330\024\027\220t\2301\330\030\037\230t\240=\260\007\260q\330\030,\250I\260Q\260c\270\025\270a\270t\3001\330\030&\240a\240t\250>\270\021\330\030\"\240!\340\030\"\240#\240U\250!\2504\250q\330\024\030\320\030+\2506\260\021\330\025\031\230\021\330\024\033\2304\230}\250G\2601\330\024(\250\t\260\021\260,\270a\330\024\027\220t\2301\320\034/\250w\260a\360\010\000\031-\250I\260Q\260a\330\024\"\240!\2404\240~\260Q\330\024\036\230a\340\024\036\230i\240q\250\014\260A\340\020\024\220N\240!\330\024\030\230\r\240T\320)9\270\031\300$\300a\340\020\024\320\024*\250!\330\020\024\220J\230a\360\006\000\t\r\210I\220Y\230a\230z\250\035\260j\300\002\300.\320PQ\320\004\030\230\001\330\010\017\210t\2201void (PyObject *, PyObject *, int __pyx_skip_dispatch)\000_websocket_mask_cython";
+    #else /* compression: none (6241 bytes) */
+const char* const bytes = "BaseException | NoneContinuation frame for non started messageControl frame payload cannot be larger than 125 bytesDecompressed message exceeds size limit Invalid UTF-8 text messageInvalid close code: Invalid close frame: Message size Note that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the 'annotation_typing' directive to False.Received fragmented control frameReceived frame with non-zero reserved bitsThe opcode in non-fin frame is expected to be zero, got Unexpected opcode='WSMessage | WSMessageTextBytes'WSMessage | WSMessageTextBytes .?add_noteaiohttp._websocket.helpersaiohttp._websocket.modelsaiohttp/_websocket/reader_c.pyaiohttp.base_protocolaiohttp.compression_utilsaiohttp.helpersaiohttp.streamsbuiltins.BaseExceptionbytes | bytearraybytes | bytearray | memoryview'cython_int'disableenable exceeds limit gcint | cython_intisenabled<stringsource>utf-8BINARYBaseExceptionBaseProtocolCLOSECONTINUATIONCancelledError_EXC_SENTINELEofStreamFalseFinalINVALID_TEXTMESSAGE_TOO_BIGNonePINGPONGPROTOCOL_ERROR__Pyx_PyDict_NextRefTEXTTimeoutErrorTrueUNPACK_CLOSE_CODEUNPACK_LEN3WSCloseCodeWSMessageWSMessageTextBytesWSMsgTypeWS_DEFLATE_TRAILINGWebSocketDataQueueWebSocketDataQueue.__reduce_cython__WebSocketDataQueue.__setstate_cython__WebSocketDataQueue.exceptionWebSocketDataQueue.feed_dataWebSocketDataQueue.feed_eofWebSocketDataQueue.is_eofWebSocketDataQueue.readWebSocketDataQueue.set_exceptionWebSocketErrorWebSocketReaderWebSocketReader.__reduce_cython__WebSocketReader.__setstate_cython__WebSocketReader._feed_dataWebSocketReader._handle_frameWebSocketReader.feed_dataWebSocketReader.feed_eofZLibDecompressoraiohttp._websocket.reader_cappendasyncioasyncio.coroutines__await__base_protocolboolbuiltinsbytesclearcline_in_tracebackclosecollectionscompresscompressedcompression_utilscreate_futurecython_intdatadecodedecode_textdecompress_syncdeque__dict___dictdoneexcexc_causeexceptionfeed_data_feed_datafeed_eo""ffin__func____getstate___handle_framehelpers_is_coroutineis_eofitemsjoinlimitloop__main__max_msg_sizemodels__module____name____new__nextopcodepause_readingpayloadpoppopleftprotocol__pyx_capi____pyx_checksum__pyx_result__pyx_state__pyx_type__pyx_unpickle_WebSocketDataQueue__pyx_unpickle_WebSocketReader__pyx_vtable____qualname__queueread_reading_paused__reduce____reduce_cython____reduce_ex__resume_readingreturnselfsendset_exception__set_name__set_resultsetdefault__setstate____setstate_cython__sizestatestreamssuppress_deflate_header__test__throwtypingupdateuse_setstatevaluevalueswaiterwebsocket_maskPyObject *\000\000\000\000\000\000\000\000\000\000\000\000int\000\000\000\000\000\000\000\000\000\000unsigned int\000\000\000\000ALLOWED_CLOSE_CODES\000EMPTY_FRAME\000EMPTY_FRAME_ERROR\000MESSAGE_TYPES_WITH_CONTENT\000TUPLE_NEW\000UNPACK_CLOSE_CODE\000UNPACK_LEN3\000WSMessage\000WSMessageTextBytes\000WSMsgType\000WS_MSG_TYPE_BINARY\000WS_MSG_TYPE_TEXT\000COMPRESSED_FALSE\000COMPRESSED_NOT_SET\000COMPRESSED_TRUE\000OP_CODE_BINARY\000OP_CODE_CLOSE\000OP_CODE_CONTINUATION\000OP_CODE_NOT_SET\000OP_CODE_PING\000OP_CODE_PONG\000OP_CODE_TEXT\000READ_HEADER\000READ_PAYLOAD\000READ_PAYLOAD_LENGTH\000READ_PAYLOAD_MASK\200\001\330\0040\260\001\260\026\260q\320\004\033\2301\330\010\017\210t\2201\320\n\034\230A\200A\340\r\016\330\020\021\330\021\022\330\024\025\360\006\000\t\014\2107\220$\220n\320$4\260A\340\014\017\210w\220c\320\031.\250d\260$\260i\270s\300!\330\020\026\220n\240A\330\024\037\230q\330\024\025\360\010\000\r\020\210t\2201\340\020\023\2207\230#\230Q\330\024\030\230\013\2401\330\020\024\220M\240\021\330\020\021\340\014\032\230$\230a\230t\2401\330\014\017\210w\220c\230\021\330\020\031\230\024\230Q\330\020\024\220K\230q\360\006\000\022\023\330\020\026\220n\240A\330\024\037\230q\330\024\025\330&'\240q\360\010\000\r\020\210q\330\020$\240D\250\n\260\"\260A\330\020\024\220I\230V\2401\340\020$\240A\360\010\000\r\020\210q\330\020\023\2204\220t\2301\330\024\030\320\030*\320*:\270!""\320;S\320ST\360\014\000\021\"\240\024\240_\3204D\300A\330\024&\240b\250\001\340\030\034\230O\2502\250Q\330\033\037\230q\330\035!\240\021\360\006\000\021\024\2204\220\177\240d\250#\250Q\320.>\270b\300\004\300A\330\024\032\230.\250\001\330\030#\2401\330\030B\300!\3004\300q\340\021\025\220Q\320\026)\250\023\250A\330\020!\240\021\340\020!\240\025\240a\240q\340\014\017\210w\220c\230\021\330\020\023\2204\220q\330\024\025\330\030\037\230~\250W\260A\260Q\330\024\033\320\0331\260\021\330\030\036\230n\250A\330\034'\240\177\260a\330\037 \360\014\000\025\031\230\006\230j\250\001\330\030!\240\021\240,\320.@\300\006\300a\330\030\033\2301\230A\360\010\000\025\031\230\006\230j\250\001\330\030!\240\021\330\0341\3201C\320CS\320ST\340\030\033\2301\230A\360\006\000\021\025\220F\230*\240A\330\024\035\230Q\230l\320*>\320>N\310a\330\024\027\220q\230\001\340\r\024\220C\220q\330\014\017\210s\220!\2209\230C\230q\330\020\035\320\035.\250a\250w\260b\270\003\2701\270A\330\020\023\220;\230b\240\005\240T\250\033\260G\2701\330\024\032\230.\250\001\330\030#\2401\330\030.\250a\250q\340\020\021\330\024$\240G\2501\250C\250w\260a\260q\330\020\027\320\027-\250Q\330\024\032\230.\250\001\330\030#\240?\260!\330\033\034\330\020\026\220i\230q\240\014\250I\260X\270\\\310\021\330\021\022\330\020\026\220n\240A\330\024\037\230q\330\024+\2501\250E\260\021\260(\270!\2701\360\006\000\021\027\220i\230q\240\014\250I\260X\270S\300\001\340\014\020\220\006\220j\240\001\240\025\240a\330\r\024\220C\220q\330\014\022\220)\2301\230L\250\t\260\027\270\t\300\021\330\014\020\220\006\220j\240\001\240\025\240c\250\021\250!\330\r\024\220C\220q\330\014\022\220)\2301\230L\250\t\260\027\270\t\300\021\330\014\020\220\006\220j\240\001\240\025\240c\250\021\250!\340\014\022\220.\240\001\330\020\033\320\033,\320,@\300\001\300\021\200A\340\r\016\330\023,\250A\330\t\n\330\010\014\210H\220A\330\010\014\210N\230!\330\010\014\210G\2203\220d\230*\240G\2501\330\014\020\220\013\2301\330\014\031\230\021\230(\240%\240q\200A\330\024<\270A\340\010""\014\210J\220a\330\010\014\210L\230\002\230&\240\001\330\010\014\320\014\034\230A\330\010\013\2104\210w\220b\230\004\230H\240D\250\004\250D\260\n\270!\330\014\020\220\n\230.\250\001\320\004\032\230!\330\010\014\210F\220)\2301\320\004\032\230!\330\010\014\210H\220A\330\010\014\320\014\034\230A\330\010\014\210N\230!\200\001\330\004-\250Q\250f\260A\200\001\360\010\000\005\016\210T\220\032\2304\230w\240d\250-\260t\270>\310\024\310Y\320VZ\320Zb\320bf\320fr\320rv\360\000\000w\001E\002\360\000\000E\002I\002\360\000\000I\002Q\002\360\000\000Q\002U\002\360\000\000U\002V\002\330\004\014\210G\2201\220F\230,\240a\330\004\007\200v\210W\220E\230\024\230Q\330\010\022\220!\330\010\027\220q\340\010\027\220t\2309\240G\2505\260\003\2604\260|\3007\310%\310s\320RV\320Vc\320cj\320jo\320or\320rv\320v}\360\000\000~\001E\002\360\000\000E\002J\002\360\000\000J\002M\002\360\000\000M\002Q\002\360\000\000Q\002\\\002\360\000\000\\\002c\002\360\000\000c\002h\002\360\000\000h\002k\002\360\000\000k\002o\002\360\000\000o\002|\002\360\000\000|\002C\003\360\000\000C\003H\003\360\000\000H\003K\003\360\000\000K\003O\003\360\000\000O\003X\003\360\000\000X\003_\003\360\000\000_\003`\003\330\004\007\200q\330\010\017\320\0173\2604\260q\270\007\270{\310'\320QR\340\010\017\320\0173\2604\260q\270\007\270{\310!\200\001\360\010\000\005\016\210T\220\034\230T\240\036\250t\260?\300$\320FW\320W[\320[b\320bf\320fs\320sw\360\000\000x\001F\002\360\000\000F\002J\002\360\000\000J\002Z\002\360\000\000Z\002^\002\360\000\000^\002s\002\360\000\000s\002w\002\360\000\000w\002C\003\360\000\000C\003G\003\360\000\000G\003W\003\360\000\000W\003[\003\360\000\000[\003e\003\360\000\000e\003i\003\360\000\000i\003t\003\360\000\000t\003x\003\360\000\000x\003Q\004\360\000\000Q\004U\004\360\000\000U\004j\004\360\000\000j\004n\004\360\000\000n\004B\005\360\000\000B\005F\005\360\000\000F\005O\005\360\000\000O\005S\005\360\000\000S\005[\005\360\000\000[\005_\005\360\000\000_\005`\005\330\004\014\210G\2201\220F\230,\240a\330\004\007\200v\210W""\220E\230\024\230Q\330\010\022\220!\330\010\027\220q\340\010\027\220t\320\033+\2507\260%\260s\270$\270f\300G\3105\320PS\320SW\320Wd\320dk\320kp\320ps\320sw\360\000\000x\001B\002\360\000\000B\002I\002\360\000\000I\002N\002\360\000\000N\002Q\002\360\000\000Q\002U\002\360\000\000U\002i\002\360\000\000i\002p\002\360\000\000p\002u\002\360\000\000u\002x\002\360\000\000x\002|\002\360\000\000|\002C\003\360\000\000C\003J\003\360\000\000J\003O\003\360\000\000O\003R\003\360\000\000R\003V\003\360\000\000V\003]\003\360\000\000]\003d\003\360\000\000d\003e\003\330\004\007\200q\330\010\017\320\0170\260\004\260A\260W\270K\300w\310a\340\010\017\320\0170\260\004\260A\260W\270K\300q\320\004\036\230a\330\010\013\2104\210q\220\006\220g\230Q\330\014\023\2205\230\001\230\021\340\010\013\2104\210v\220W\230A\330\014\023\2206\230\021\340\010\t\330\014\020\220\013\2301\230A\330\010\017\210}\230A\330\014\020\220\010\230\001\330\014\031\230\021\230$\230h\240a\330\014\023\2201\340\010\017\210q\200\001\340\004\037\230q\320 0\260\013\270;\300k\320QR\330\004\023\220?\240(\250!\2501\330\004\007\200|\2207\230!\330\0101\260\021\3202D\300N\320RS\330\004\013\2101\200\001\340\004\037\230q\320 0\260\013\270;\300k\320QR\330\004\023\320\023%\240X\250Q\250a\330\004\007\200|\2207\230!\330\0104\260A\3205J\310.\320XY\330\004\013\2101\320\004\037\230q\340\010\013\2104\210q\330\014\022\220$\220i\230t\2407\250\"\250F\260!\340\010\031\230\021\330\010\023\2203\220a\220q\330\010\024\220A\340\010\t\340\014\017\210t\2208\2303\230a\330\020\023\2209\230B\230j\250\002\250!\330\024\025\330\020\035\230Y\240a\240q\330\020\036\230i\240q\250\n\260\"\260A\330\020\035\230Q\340\020\027\220{\240#\240S\250\002\250!\330\020\030\230\013\2403\240c\250\022\2501\330\020\030\230\013\2403\240c\250\022\2501\330\020\030\230\013\2403\240c\250\022\2501\330\020\031\230\033\240B\240a\360\030\000\021\024\2205\230\003\2305\240\004\240E\250\024\250T\260\024\260Q\330\024\032\230.\250\001\330\030#\2401\330\030\031\360\006\000\021\024\2207\230!\330""\024\025\330\024\025\330\024\025\330\024\025\330\024\025\330\024\025\340\024\032\230.\250\001\330\030#\2401\330\030,\250A\250Q\360\006\000\021\024\2207\230\"\230D\240\004\240D\250\003\2501\330\024\032\230.\250\001\330\030#\2401\330\030\031\360\006\000\021\035\230L\250\003\2503\250b\260\001\330\020\031\230\034\240R\240q\360\010\000\021\024\2207\230\"\230D\240\004\240G\2502\250Q\330\024\032\230.\250\001\330\030#\2401\330\030\031\360\014\000\021\024\2204\220|\2403\240d\250-\260s\270!\330\024\030\230\017\320':\270*\300A\330\025\026\330\024\032\230.\250\001\330\030#\2401\330\030\031\360\014\000\021\024\2207\230#\230Q\330\024\030\230\016\240d\250!\2501\330\020\024\320\024%\240Q\330\020\024\220M\240\024\240Q\240a\330\020\024\320\024)\250\021\330\020\024\220J\230a\360\006\000\r\020\210t\2208\2303\230a\330\020\033\2304\230q\330\020\023\2209\230C\230q\330\024\027\220y\240\002\240*\250B\250a\330\030\031\330\024!\240\031\250!\2501\330\024\"\240)\2501\250J\260b\270\001\330\024!\240\021\330\024\030\320\0302\260+\270S\300\002\300\"\300A\330\025\036\230b\240\001\330\024\027\220y\240\002\240*\250B\250a\330\030\031\330\024\030\320\0302\260+\270Q\270f\300J\310a\310q\330\024!\240\021\340\024\030\320\0302\260!\360\n\000\021\024\2204\220\177\240d\250$\250o\270Q\330\024\025\330\024\025\330\024\025\340\024%\240T\320)A\300\022\3003\300a\300t\3101\330\024\027\220\177\240c\250\024\250Q\330\030\036\230n\250A\330\034'\240q\330\034+\2501\250A\330,-\250T\260\021\360\006\000\021\025\220J\320\0363\2604\3207G\300q\360\006\000\r\020\210t\2208\2303\230a\330\020\023\2209\230B\230j\250\002\250!\330\024\025\330\020\024\220O\2409\250A\250\\\270\032\3002\300Q\330\020\035\230Q\330\020\024\220J\230a\340\014\017\210t\2208\2303\230a\330\020\034\230I\240R\240q\330\020\023\2204\320\027/\250s\260!\330\024 \240\001\330\024\030\320\0303\2601\340\024 \240\n\250\"\250D\260\001\330\024\030\320\0302\260!\340\020 \240\004\240A\330\020\024\320\024+\250:\260R\260q\330\020\036\230a\330\020\034\230A\340\020\023\2204\320""\027/\250s\260!\360\006\000\025\031\320\030+\2507\260!\2609\270A\270\\\310\021\330\024\025\360\006\000\021\024\2201\340\024\030\320\030+\2507\260!\2609\270A\270\\\310\021\330\024\027\220t\2301\330\030\037\230t\240=\260\007\260q\330\030,\250I\260Q\260c\270\025\270a\270t\3001\330\030&\240a\240t\250>\270\021\330\030\"\240!\340\030\"\240#\240U\250!\2504\250q\330\024\030\320\030+\2506\260\021\330\025\031\230\021\330\024\033\2304\230}\250G\2601\330\024(\250\t\260\021\260,\270a\330\024\027\220t\2301\320\034/\250w\260a\360\010\000\031-\250I\260Q\260a\330\024\"\240!\2404\240~\260Q\330\024\036\230a\340\024\036\230i\240q\250\014\260A\340\020\024\220N\240!\330\024\030\230\r\240T\320)9\270\031\300$\300a\340\020\024\320\024*\250!\330\020\024\220J\230a\360\006\000\t\r\210I\220Y\230a\230z\250\035\260j\300\002\300.\320PQ\320\004\030\230\001\330\010\017\210t\2201void (PyObject *, PyObject *, int __pyx_skip_dispatch)\000_websocket_mask_cython";
     PyObject *data = NULL;
     CYTHON_UNUSED_VAR(__Pyx_DecompressString);
     #endif

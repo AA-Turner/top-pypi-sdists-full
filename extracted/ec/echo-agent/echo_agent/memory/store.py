@@ -30,6 +30,7 @@ from loguru import logger
 from echo_agent.memory.types import MemoryEntry, MemoryTier, MemoryType, source_priority
 from echo_agent.memory.text import cjk_tokens
 from echo_agent.memory.forgetting import ForgettingCurve
+from echo_agent.memory.eligibility import Audience, is_eligible
 
 msvcrt = None
 try:
@@ -136,6 +137,14 @@ def _atomic_write_text(path: Path, content: str) -> None:
         raise
 
 
+def _safe_scope(scope: str) -> str:
+    """把 scope 变成文件名安全串:非 [A-Za-z0-9._-] 替换为 _,空则 default。
+    防止 scope 里的 : / 等造成路径穿越或非法文件名。"""
+    if not scope:
+        return "default"
+    return re.sub(r"[^A-Za-z0-9._-]", "_", scope)
+
+
 class MemoryStore:
     """Persistent memory store with file-based storage, safety checks, and scored search."""
 
@@ -152,6 +161,9 @@ class MemoryStore:
         contradiction_scan_on_store: bool = False,
         archival_threshold: float = 0.05,
         forget_threshold: float = 0.01,
+        lineage_max_versions: int = 3,
+        lineage_retention_days: int = 90,
+        service_only: bool = False,
     ):
         self.memory_dir = memory_dir
         self.memory_dir.mkdir(parents=True, exist_ok=True)
@@ -168,14 +180,25 @@ class MemoryStore:
         self._key_index: dict[str, set[str]] = {}  # key -> set of entry IDs for O(1) conflict lookup
         self._storage = storage
         self._scope_policy = scope_policy
+        # R1 Task8 软约束:service_only=True 时,写方法(add/update/delete/
+        # mark_superseded/set_tier)在非 service 调用栈直写时 logger.warning。
+        # service 写前经 service_write() 上下文置位 _in_service_write,写方法据此
+        # 区分 service 自调(免告警)与外部直写(告警)。软告警不硬抛——迁移脚本
+        # 与既有 store 内部自调(_merge_locked/_evict_oldest 不经写方法)均不误伤。
+        self._service_only = service_only
+        self._in_service_write = 0
         self._pending_storage_tasks: set = set()
         self._dirty_ids: set[str] = set()
         self._failed_sync: set[str] = set()
         self._load()
+        self._lineage_max_versions = lineage_max_versions
+        self._lineage_retention_days = lineage_retention_days
         self._forgetting = ForgettingCurve(
             base_half_life_days=decay_half_life_days,
             archive_threshold=archival_threshold,
             forget_threshold=forget_threshold,
+            lineage_max_versions=lineage_max_versions,
+            lineage_retention_days=lineage_retention_days,
         )
         self._vector_index = None  # set externally via set_vector_index()
         self._retriever = None  # set externally via set_retriever()
@@ -210,6 +233,27 @@ class MemoryStore:
 
     def set_retriever(self, retriever):
         self._retriever = retriever
+
+    @contextmanager
+    def service_write(self):
+        """标记一段 MemoryService 发起的写:期间 store 写方法不触发 _service_only
+        告警。可重入(计数),支持 service 内部一次写序里多次调 store。"""
+        self._in_service_write += 1
+        try:
+            yield
+        finally:
+            self._in_service_write -= 1
+
+    def _warn_if_direct(self, op: str, entry_id: str = "") -> None:
+        """service_only 模式下,非 service 调用栈直写 store 写方法即软告警。
+        不硬抛:仅提示新代码应改走 MemoryService 八步写序,避免绕过失效/审计/门禁。"""
+        if self._service_only and self._in_service_write <= 0:
+            logger.warning(
+                "MemoryStore.{} called directly (service_only); writes should go "
+                "through MemoryService to keep provenance/invalidation/audit intact. "
+                "entry_id={}",
+                op, entry_id or "?",
+            )
 
     @staticmethod
     def _content_hash(text: str) -> str:
@@ -479,14 +523,27 @@ class MemoryStore:
                     del self._key_index[entry.key]
 
     def _filtered_entries(
-        self, mem_type: MemoryType | None = None, session_key: str | None = None,
+        self,
+        mem_type: MemoryType | None = None,
+        session_key: str | None = None,
+        *,
+        audience: "Audience | None" = None,
     ) -> list[MemoryEntry]:
-        """按类型和会话可见性过滤记忆条目。"""
+        """按类型和会话可见性过滤记忆条目。
+
+        ``audience=None`` 时不做生命周期过滤（写入路径 find_by_key/
+        find_by_content_matches 靠此仍能定位 superseded 条目）；非 None 时按
+        eligibility 矩阵过滤。"""
         entries = list(self._entries.values())
         if mem_type is not None:
             entries = [entry for entry in entries if entry.type == mem_type]
         if session_key:
             entries = [entry for entry in entries if self._visible_in_session(entry, session_key)]
+        if audience is not None:
+            entries = [
+                entry for entry in entries
+                if is_eligible(entry, audience, is_unresolved_fn=self.is_unresolved)
+            ]
         return entries
 
     def is_visible_in_session(self, entry: MemoryEntry, session_key: str) -> bool:
@@ -507,7 +564,10 @@ class MemoryStore:
         if "global" in entry.tags:
             return True
         if not entry.source_session:
-            return True
+            # ENVIRONMENT 是机器/环境事实,天然无主体,保持可见;
+            # USER 无主,fail-closed:历史条目须经 `migrate run --adopt-empty` 收编,
+            # 否则不可见(但不丢失)。防空 scope USER 记忆跨会话全局泄露。
+            return entry.type == MemoryType.ENVIRONMENT
         return entry.source_session == session_key
 
     def _same_scope(self, existing: MemoryEntry, incoming: MemoryEntry) -> bool:
@@ -636,6 +696,18 @@ class MemoryStore:
     def _load(self) -> None:
         self._reload_type(MemoryType.USER)
         self._reload_type(MemoryType.ENVIRONMENT)
+        # fail-closed 下空 scope USER 记忆不可见,提示运维收编(否则"软失忆")。
+        if self._scope_policy != "legacy":
+            orphan = sum(
+                1 for e in self._typed_entries(MemoryType.USER)
+                if not e.source_session and "global" not in e.tags
+            )
+            if orphan > 0:
+                logger.warning(
+                    "{} 条空 scope 的 USER 记忆当前不可见(fail-closed),"
+                    "执行 `echo-agent migrate run --adopt-empty` 收编给 owner",
+                    orphan,
+                )
 
     def _find_conflict(self, entry: MemoryEntry) -> MemoryEntry | None:
         if not entry.key:
@@ -643,7 +715,16 @@ class MemoryStore:
         candidate_ids = self._key_index.get(entry.key, set())
         for eid in candidate_ids:
             existing = self._entries.get(eid)
-            if existing and existing.type == entry.type and self._same_scope(existing, entry):
+            if existing is None or existing.is_superseded:
+                # superseded 旧版本仍留在 _key_index(世系/回滚需要),但改口须
+                # 以 active 版本为冲突基准,否则会命中旧版本导致 version 不递增。
+                continue
+            if self.PENDING_CONFIRMATION_TAG in existing.tags:
+                # 被 provenance 拒后落库的 pending 条目(待用户确认/待裁决)不作
+                # 冲突基准:否则后续等优先级写会 append_version 把它翻成 active
+                # 版本、重新进召回,绕过"低优先级不改 active"的守卫语义。
+                continue
+            if existing.type == entry.type and self._same_scope(existing, entry):
                 return existing
         return None
 
@@ -656,10 +737,15 @@ class MemoryStore:
             raise ValueError(scan_error)
         return normalized
 
-    def _evict_oldest(self, mem_type: MemoryType) -> None:
-        """淘汰有效重要性最低的记忆条目，为新条目腾出空间。"""
+    def _evict_oldest(self, mem_type: MemoryType, scope_ref: "MemoryEntry | None" = None) -> None:
+        """淘汰有效重要性最低的记忆条目,为新条目腾出空间。
+        scope_ref 非空时只在与其同 scope 的子集内淘汰,避免高频 scope 挤掉别主体记忆。"""
+        # superseded 版本由世系保留(Task 6)管理,不参与容量淘汰,否则会误删旧版本。
+        candidates = [e for e in self._typed_entries(mem_type) if not e.is_superseded]
+        if scope_ref is not None:
+            candidates = [e for e in candidates if self._same_scope(e, scope_ref)]
         typed = sorted(
-            self._typed_entries(mem_type),
+            candidates,
             key=lambda entry: (self._forgetting.effective_importance(entry), entry.updated_at or "", entry.id),
         )
         if typed:
@@ -672,49 +758,95 @@ class MemoryStore:
 
     def _merge_locked(self, existing_id: str, new_entry: MemoryEntry) -> MemoryEntry:
         existing = self._entries[existing_id]
-        # Provenance guard: a lower-provenance write must not silently
-        # overwrite higher-provenance content (e.g. model inference vs. what
-        # the user explicitly stated). Keep the content, merge the metadata,
-        # and leave a suspected_conflict marker for the resolution flow.
+        # Provenance guard: a lower-provenance write must not overwrite
+        # higher-provenance content (e.g. model inference vs. what the user
+        # explicitly stated). Keep the old entry ACTIVE, drop the incoming
+        # write (it never lands in the store), and spawn an unresolved
+        # contradiction pair for the resolution flow to adjudicate.
         if source_priority(new_entry.source) < source_priority(existing.source):
-            merged_tags = _normalize_tags(
-                [*existing.tags, *new_entry.tags, self.SUSPECTED_CONFLICT_TAG]
-            )
-            existing.tags = merged_tags
-            existing.importance = max(existing.importance, new_entry.importance)
-            self._dirty_ids.add(existing_id)
             logger.info(
                 "Provenance guard: kept '{}' content from {} over incoming {}",
                 existing.key, existing.source, new_entry.source,
             )
             self._spawn_blocked_contradiction(existing, new_entry)
             return existing
-        new_content = self._validate_content(new_entry.content)
-        content_changed = new_content != existing.content
-        existing.content = new_content
-        existing.tags = _normalize_tags([*existing.tags, *new_entry.tags])
-        existing.importance = max(existing.importance, new_entry.importance)
-        existing.source = new_entry.source
-        existing.updated_at = datetime.now().isoformat()
-        self._dirty_ids.add(existing_id)
-        # Content changed → the stored vector no longer matches. Re-queue an
-        # embed keyed on the old vector so flush replaces it (same contract as
-        # update()); otherwise the merge path silently leaves the index
-        # pointing at the pre-merge text.
-        if content_changed:
-            self._queue_embed(existing, old_vec_id=existing.embedding_id)
-        return existing
+        # Priority >= old: append a new version instead of overwriting in place,
+        # so the prior fact survives as superseded (audit + rollback) rather
+        # than vanishing. _merge_locked already runs inside store.add's
+        # file_lock, so call the non-locking variant to avoid re-entering the
+        # same lock and deadlocking.
+        self._validate_content(new_entry.content)
+        return self._append_version_locked(existing_id, new_entry)
+
+    def append_version(self, old_id: str, new_entry: MemoryEntry) -> MemoryEntry:
+        """同 key 改口:新建版本而非原地覆盖。旧条目保留并标记 superseded_by,
+        清旧向量(只 ACTIVE 进索引),新条目 version = old.version + 1。文件锁内原子完成。
+        旧条目已不在(并发删除)时退化为普通新增。"""
+        path = self._path_for(new_entry.type)
+        with self._file_lock(path):
+            self._reload_type(new_entry.type)
+            return self._append_version_locked(old_id, new_entry)
+
+    def _append_version_locked(self, old_id: str, new_entry: MemoryEntry) -> MemoryEntry:
+        """append_version 的锁内主体(不加锁、不 reload)。调用方须已持有对应类型的
+        file_lock 并完成 reload:公开的 append_version 自己加锁,而 _merge_locked 已在
+        store.add 的 file_lock 内,直接调加锁版会与同一把锁重入死锁,故复用此不加锁版本。"""
+        old = self._entries.get(old_id)
+        if old is None:
+            # 旧条目已不在(并发删除),退化为普通新增
+            self._entries[new_entry.id] = new_entry
+            self._index_entry(new_entry)
+            self._dirty_ids.add(new_entry.id)
+            self._save_type(new_entry.type)
+            self._queue_embed(new_entry)
+            return new_entry
+        new_entry.version = old.version + 1
+        self._entries[new_entry.id] = new_entry
+        self._index_entry(new_entry)
+        old.superseded_by = new_entry.id
+        old.updated_at = datetime.now().isoformat()
+        self._dirty_ids.add(new_entry.id)
+        self._dirty_ids.add(old_id)
+        # 世系裁剪:每次改口后,把该 key 下超版本数上限/超保留天数的旧 superseded
+        # 版本置 tier=ARCHIVAL,交既有 archival→forget 遗忘流删除。只碰 superseded,
+        # 不动 active,故 active USER 不衰减语义不变。就地标记同步落盘,遗忘删除由
+        # 空闲整合期的 run_decay_pass 异步执行。
+        same_key = [
+            e for e in self._typed_entries(new_entry.type) if e.key == new_entry.key
+        ]
+        for pruned in self._forgetting.prune_lineage(same_key):
+            self._dirty_ids.add(pruned.id)
+        self._save_type(new_entry.type)
+        self._queue_embed(new_entry)  # 新版本进索引
+        if old.embedding_id:
+            self._schedule_vector_removal(old.embedding_id)  # 清旧向量
+            old.embedding_id = ""  # 清引用,与 mark_superseded 对齐:否则孤儿扫描
+            # 仍把已移除的旧向量当有效引用,fire-and-forget 移除失败则永久孤儿。
+        return new_entry
 
     def _spawn_blocked_contradiction(self, existing: MemoryEntry, blocked: MemoryEntry) -> None:
-        """Record the guard-blocked content as a Contradiction row so the
-        resolution flow can see it (placeholder memory_id_b = blocked:<source>).
-        Async fire-and-forget, mirroring _cleanup_deleted's spawn pattern."""
+        """Record a guard-blocked lower-priority write as an unresolved
+        Contradiction the resolution flow can adjudicate.
+
+        The blocked content is first landed as a REAL store entry (source kept,
+        tagged ``needs_user_confirmation`` and parked at ARCHIVAL tier so the
+        unified eligibility matrix keeps it out of recall/snapshot/tool while
+        ``store.get`` and reflection's pairing can still resolve it). Its real id
+        becomes ``memory_id_b`` — no more ``blocked:<source>`` placeholder that
+        ``store.get`` could never resolve. The winner (``existing``) is left
+        untouched and stays recall-eligible: the pair is NOT marked unresolved,
+        so a low-priority write can never suppress the authoritative fact.
+
+        The synchronous part (landing the entry) runs inline so reflection can
+        consume it immediately; only the SQL row insert is async fire-and-forget,
+        mirroring _cleanup_deleted's spawn pattern."""
         if not self._storage:
             return
+        landed = self._land_blocked_entry(existing, blocked)
         from echo_agent.memory.types import Contradiction
         c = Contradiction(
             memory_id_a=existing.id,
-            memory_id_b=f"blocked:{blocked.source}",
+            memory_id_b=landed.id,
             description=(
                 f"Provenance guard blocked lower-priority write on key "
                 f"'{existing.key}': {blocked.content}"
@@ -722,16 +854,7 @@ class MemoryStore:
         )
 
         async def _record() -> None:
-            try:
-                await self._storage.execute_sql(
-                    "INSERT OR REPLACE INTO memory_contradictions"
-                    "(id, memory_id_a, memory_id_b, description, resolution, resolved_at, created_at) "
-                    "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                    (c.id, c.memory_id_a, c.memory_id_b, c.description,
-                     None, None, c.created_at),
-                )
-            except Exception as e:
-                logger.warning("Failed to record blocked contradiction: {}", e)
+            await self._insert_contradiction_row(c)
 
         try:
             loop = asyncio.get_running_loop()
@@ -748,10 +871,91 @@ class MemoryStore:
             finally:
                 new_loop.close()
 
+    async def _insert_contradiction_row(self, c) -> None:
+        """INSERT 一行 unresolved contradiction 镜像。供同步 spawn 路径与异步
+        service 拒绝路径(record_blocked_contradiction)共用。"""
+        try:
+            await self._storage.execute_sql(
+                "INSERT OR REPLACE INTO memory_contradictions"
+                "(id, memory_id_a, memory_id_b, description, resolution, resolved_at, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (c.id, c.memory_id_a, c.memory_id_b, c.description,
+                 None, None, c.created_at),
+            )
+        except Exception as e:
+            logger.warning("Failed to record blocked contradiction: {}", e)
+
+    async def record_blocked_contradiction(
+        self, existing: MemoryEntry, landed: MemoryEntry
+    ) -> None:
+        """service 拒绝路径专用:对已 landed 的 blocked 条目,同步(await)写入 SQL
+        contradiction 行——不再 fire-and-forget,消除"有 pending 条目、无 contradiction
+        行"的孤儿窗口。landing 由调用方在 _service_write 锁内先完成,这里只补 SQL 行。"""
+        if not self._storage:
+            return
+        from echo_agent.memory.types import Contradiction
+        c = Contradiction(
+            memory_id_a=existing.id,
+            memory_id_b=landed.id,
+            description=(
+                f"Provenance guard blocked lower-priority write on key "
+                f"'{existing.key}': {landed.content}"
+            ),
+        )
+        await self._insert_contradiction_row(c)
+
+    async def aclose(self, timeout: float = 5.0) -> None:
+        """等待所有在途 SQLite 镜像任务落盘,用于进程关闭屏障。
+
+        _spawn_blocked_contradiction / _cleanup_deleted 等把 fire-and-forget
+        镜像写注册进 _pending_storage_tasks,但此前无任何 drain 入口,进程关闭时
+        aiosqlite 会向已关闭事件循环回调。此方法在关闭时排空这些任务。"""
+        pending = [t for t in self._pending_storage_tasks if not t.done()]
+        if not pending:
+            return
+        _done, still = await asyncio.wait(pending, timeout=timeout)
+        if still:
+            logger.warning("{} memory mirror task(s) not drained at shutdown", len(still))
+
+    def _land_blocked_entry(self, existing: MemoryEntry, blocked: MemoryEntry) -> MemoryEntry:
+        """Persist the guard-blocked content as a pending, out-of-recall entry.
+
+        Kept ACTIVE-but-parked (tier=ARCHIVAL + needs_user_confirmation tag) so
+        it is store.get-able and reflection-pairable, yet excluded from recall by
+        the eligibility matrix. Not superseded (reflection skips superseded ends)
+        and never a merge base (see _find_conflict's pending-tag skip), so a later
+        equal-priority write can't resurrect it into active recall.
+
+        注入扫描对称性:add 路径在 store.add 入口就 _validate_content(内含
+        _scan_memory_content 注入扫描)使恶意内容永不落库;replace 被拒路径不经
+        store.update 故此前绕过扫描,直接落 blocked.content。此处补同款校验——
+        扫描命中时 _validate_content 抛 ValueError(与 add 一致),landing 随之
+        跳过,恶意内容不会落成 pending 条目被 reflection 注入 LLM prompt。"""
+        content = self._validate_content(blocked.content)
+        landed = MemoryEntry(
+            type=existing.type,
+            tier=MemoryTier.ARCHIVAL,
+            key=existing.key,
+            content=content,
+            tags=_normalize_tags([*blocked.tags, self.PENDING_CONFIRMATION_TAG]),
+            source_session=blocked.source_session or existing.source_session,
+            importance=blocked.importance,
+            source=blocked.source,
+        )
+        self._entries[landed.id] = landed
+        self._index_entry(landed)
+        self._dirty_ids.add(landed.id)
+        self._save_type(landed.type)
+        return landed
+
+    PENDING_CONFIRMATION_TAG = "needs_user_confirmation"
+
+
     # ── CRUD ─────────────────────────────────────────────────────────────────
 
     def add(self, entry: MemoryEntry) -> MemoryEntry:
         """添加记忆条目。自动去重、冲突合并、容量淘汰。"""
+        self._warn_if_direct("add", entry.id)
         entry.content = self._validate_content(entry.content)
         entry.key = entry.key.strip()
         entry.tags = _normalize_tags(entry.tags)
@@ -782,8 +986,12 @@ class MemoryStore:
                 return merged
 
             limit = self._max_user if entry.type == MemoryType.USER else self._max_env
-            if len(self._typed_entries(entry.type)) >= limit:
-                self._evict_oldest(entry.type)
+            same_scope_typed = [
+                e for e in self._typed_entries(entry.type)
+                if self._same_scope(e, entry) and not e.is_superseded
+            ]
+            if len(same_scope_typed) >= limit:
+                self._evict_oldest(entry.type, scope_ref=entry)
 
             self._entries[entry.id] = entry
             self._index_entry(entry)
@@ -806,14 +1014,14 @@ class MemoryStore:
     _SNAPSHOT_MIN_IMPORTANCE_UNVISITED = 0.4   # access_count==0 USER facts need this raw importance
 
     def _admit_to_snapshot(self, entry: MemoryEntry) -> bool:
-        """Gate for the frozen core snapshot. Hard gate (all types): exclude
-        superseded entries (already-adjudicated losers) and entries in an open
-        contradiction (not-yet-adjudicated pairs). Soft gate (USER only):
-        exclude low-confidence facts. Any error -> admit (degrade safe)."""
+        """Gate for the frozen core snapshot. Hard gate (all types): the unified
+        eligibility policy excludes superseded (adjudicated losers), unresolved
+        (open contradictions) and archived entries. Soft gate (USER only):
+        exclude low-confidence facts. Any error -> reject (fail-closed): a stale
+        or ineligible fact frozen into the system prompt is worse than dropping
+        one entry from the snapshot."""
         try:
-            if entry.is_superseded:
-                return False
-            if self.is_unresolved(entry.id):
+            if not is_eligible(entry, Audience.SNAPSHOT, is_unresolved_fn=self.is_unresolved):
                 return False
             if entry.type == MemoryType.USER:
                 if self._forgetting.effective_importance(entry) < self._SNAPSHOT_MIN_EFFECTIVE_IMPORTANCE:
@@ -822,8 +1030,8 @@ class MemoryStore:
                     return False
             return True
         except Exception as e:
-            logger.debug("Snapshot admission check failed for {}, admitting: {}", entry.id, e)
-            return True
+            logger.debug("Snapshot admission check failed for {}, rejecting: {}", entry.id, e)
+            return False
 
 
     def _run_contradiction_scan(self, entry: MemoryEntry) -> None:
@@ -861,6 +1069,7 @@ class MemoryStore:
         tags: list[str] | None = None,
         source: str | None = None,
     ) -> MemoryEntry | None:
+        self._warn_if_direct("update", entry_id)
         entry = self._entries.get(entry_id)
         if not entry:
             return None
@@ -888,6 +1097,7 @@ class MemoryStore:
             return entry
 
     def delete(self, entry_id: str) -> bool:
+        self._warn_if_direct("delete", entry_id)
         entry = self._entries.get(entry_id)
         if not entry:
             return False
@@ -907,6 +1117,43 @@ class MemoryStore:
         self._cleanup_deleted(entry)
         return True
 
+    def _run_cleanup_coro(self, coro_factory: "Callable[[], Any]") -> None:
+        """Drive a best-effort cleanup coroutine on the running loop if there is
+        one, else on a throwaway loop. Extracted from _cleanup_deleted so both
+        the delete path and append_version's vector-only removal share the same
+        running-loop double path (fire-and-forget under a loop, synchronous
+        otherwise). Callers must gate on having work to do before calling."""
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+        if loop is not None:
+            task = asyncio.ensure_future(coro_factory())
+            self._pending_storage_tasks.add(task)
+            task.add_done_callback(self._pending_storage_tasks.discard)
+        else:
+            new_loop = asyncio.new_event_loop()
+            try:
+                new_loop.run_until_complete(coro_factory())
+            finally:
+                new_loop.close()
+
+    def _schedule_vector_removal(self, embedding_id: str) -> None:
+        """Best-effort removal of a single vector from the index, using the same
+        running-loop double path as _cleanup_deleted. Used when an entry is kept
+        in _entries (e.g. superseded by append_version) but its vector must stop
+        being retrievable — only ACTIVE entries should stay in the index."""
+        if not (self._vector_index and embedding_id):
+            return
+
+        async def _remove() -> None:
+            try:
+                await self._vector_index.remove(embedding_id)
+            except Exception as e:
+                logger.debug("Vector removal failed for {}: {}", embedding_id, e)
+
+        self._run_cleanup_coro(_remove)
+
     def _cleanup_deleted(self, entry: MemoryEntry) -> None:
         async def _cleanup() -> None:
             if self._storage:
@@ -922,23 +1169,11 @@ class MemoryStore:
 
         if not self._storage and not (self._vector_index and entry.embedding_id):
             return
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            loop = None
-        if loop is not None:
-            task = asyncio.ensure_future(_cleanup())
-            self._pending_storage_tasks.add(task)
-            task.add_done_callback(self._pending_storage_tasks.discard)
-        else:
-            new_loop = asyncio.new_event_loop()
-            try:
-                new_loop.run_until_complete(_cleanup())
-            finally:
-                new_loop.close()
+        self._run_cleanup_coro(_cleanup)
 
     def set_tier(self, entry_id: str, tier: MemoryTier) -> bool:
         """Persist a tier change (e.g. archival) to the authoritative JSON store."""
+        self._warn_if_direct("set_tier", entry_id)
         entry = self._entries.get(entry_id)
         if not entry:
             return False
@@ -995,6 +1230,7 @@ class MemoryStore:
     def mark_superseded(self, entry_id: str, superseded_by: str) -> bool:
         """Persist a supersession marker to the authoritative JSON store, so
         retrieval's ``is_superseded`` filter actually takes effect."""
+        self._warn_if_direct("mark_superseded", entry_id)
         entry = self._entries.get(entry_id)
         if not entry:
             return False
@@ -1006,22 +1242,11 @@ class MemoryStore:
                 return False
             entry.superseded_by = superseded_by
             entry.updated_at = datetime.now().isoformat()
-            self._dirty_ids.add(entry_id)
-            self._save_type(entry.type)
-            return True
-
-    def set_version(self, entry_id: str, version: int) -> bool:
-        entry = self._entries.get(entry_id)
-        if not entry:
-            return False
-        path = self._path_for(entry.type)
-        with self._file_lock(path):
-            self._reload_type(entry.type)
-            entry = self._entries.get(entry_id)
-            if not entry:
-                return False
-            entry.version = version
-            entry.updated_at = datetime.now().isoformat()
+            # 旧条目已被取代:清其向量,只让 ACTIVE 条目留在索引里。异步 detector
+            # 裁决路径也走 mark_superseded,一并覆盖两条路径的向量回收。
+            if entry.embedding_id:
+                self._schedule_vector_removal(entry.embedding_id)
+                entry.embedding_id = ""
             self._dirty_ids.add(entry_id)
             self._save_type(entry.type)
             return True
@@ -1029,8 +1254,14 @@ class MemoryStore:
     def get(self, entry_id: str) -> MemoryEntry | None:
         return self._entries.get(entry_id)
 
-    def list_all(self, mem_type: MemoryType | None = None, session_key: str | None = None) -> list[MemoryEntry]:
-        entries = self._filtered_entries(mem_type, session_key)
+    def list_all(
+        self,
+        mem_type: MemoryType | None = None,
+        session_key: str | None = None,
+        *,
+        audience: "Audience | None" = None,
+    ) -> list[MemoryEntry]:
+        entries = self._filtered_entries(mem_type, session_key, audience=audience)
         return sorted(entries, key=lambda entry: entry.updated_at or "", reverse=True)
 
     # ── Search ───────────────────────────────────────────────────────────────
@@ -1041,10 +1272,12 @@ class MemoryStore:
         mem_type: MemoryType | None = None,
         limit: int = 20,
         session_key: str | None = None,
+        *,
+        audience: "Audience | None" = None,
     ) -> list[MemoryEntry]:
         pattern = re.compile(re.escape(query), re.IGNORECASE)
         results: list[MemoryEntry] = []
-        for entry in self._filtered_entries(mem_type, session_key):
+        for entry in self._filtered_entries(mem_type, session_key, audience=audience):
             matched = (
                 pattern.search(entry.content)
                 or pattern.search(entry.key)
@@ -1061,6 +1294,8 @@ class MemoryStore:
         mem_type: MemoryType | None = None,
         limit: int = 10,
         session_key: str | None = None,
+        *,
+        audience: "Audience | None" = None,
     ) -> list[tuple[MemoryEntry, float]]:
         """Multi-keyword scored search. Returns (entry, score) pairs sorted by score."""
         words = [
@@ -1074,11 +1309,13 @@ class MemoryStore:
         if not words:
             return [
                 (entry, self._forgetting.effective_importance(entry))
-                for entry in self.search_keyword(query, mem_type, limit, session_key=session_key)
+                for entry in self.search_keyword(
+                    query, mem_type, limit, session_key=session_key, audience=audience,
+                )
             ]
 
         scored: list[tuple[MemoryEntry, float]] = []
-        for entry in self._filtered_entries(mem_type, session_key):
+        for entry in self._filtered_entries(mem_type, session_key, audience=audience):
             haystack = f"{entry.key} {entry.content} {' '.join(entry.tags)}".lower()
             word_hits = sum(1 for word in words if word in haystack)
             if word_hits == 0:
@@ -1111,11 +1348,13 @@ class MemoryStore:
         key: str,
         mem_type: MemoryType | None = None,
         session_key: str | None = None,
+        *,
+        audience: "Audience | None" = None,
     ) -> MemoryEntry | None:
         normalized_key = key.strip()
         if not normalized_key:
             return None
-        for entry in self._filtered_entries(mem_type, session_key):
+        for entry in self._filtered_entries(mem_type, session_key, audience=audience):
             if entry.key == normalized_key:
                 return entry
         return None
@@ -1126,12 +1365,14 @@ class MemoryStore:
         mem_type: MemoryType | None = None,
         limit: int | None = 10,
         session_key: str | None = None,
+        *,
+        audience: "Audience | None" = None,
     ) -> list[MemoryEntry]:
         normalized = substring.strip()
         if not normalized:
             return []
         results: list[MemoryEntry] = []
-        for entry in self._filtered_entries(mem_type, session_key):
+        for entry in self._filtered_entries(mem_type, session_key, audience=audience):
             if normalized in entry.content or normalized in entry.key:
                 results.append(entry)
                 if limit is not None and len(results) >= limit:
@@ -1188,16 +1429,26 @@ class MemoryStore:
             lines.append(overflow_notice.format(dropped=dropped))
         return "\n".join(lines)
 
+    # R3 叙事层:episode.summary 注入的字符上限,防止长会话叙事挤爆 system prompt。
+    _NARRATIVE_SNAPSHOT_CHAR_LIMIT = 2000
+
     def get_snapshot_with_ids(
-        self, session_key: str | None = None
+        self,
+        session_key: str | None = None,
+        episode_summaries: list[str] | None = None,
     ) -> tuple[str, frozenset[str]]:
         """Build the bounded memory snapshot for system-prompt injection, plus the
-        set of entry ids that entered it (used to de-dup dynamic recall)."""
+        set of entry ids that entered it (used to de-dup dynamic recall).
+
+        episode_summaries 为叙事层(最近 N 条 episode.summary),与结构化事实层
+        分工:事实层存最终态,叙事层承载跨条目时序/因果。episode 非 MemoryEntry,
+        不进 collected(无 id 去重需求)。由 ContextStage 在 async 上下文预取传入,
+        规避 get_snapshot_with_ids 转 async 牵动全部快照调用点。"""
         parts: list[str] = []
         collected: list[str] = []
-        long_term = self.read_long_term()
-        if long_term:
-            parts.append(f"## Long-term Memory\n\n{long_term}")
+        # R3:MEMORY.md 不再注入快照。快照只承载结构化事实层
+        # (user/env 段 + pending 冲突提示),MD 降为人类可读视图,由 render.py
+        # 单独渲染,不再进 system prompt。
 
         user_ctx = self.get_context(
             MemoryType.USER,
@@ -1225,6 +1476,23 @@ class MemoryStore:
         if env_ctx:
             parts.append(f"## Environment Memory\n\n{env_ctx}")
 
+        # R3 叙事层:最近 N 条 episode.summary 注入 ## Recent Context 段。空列表
+        # 不注入空段。带字符上限保护——逐条累加,超限即停,不截半句。
+        if episode_summaries:
+            lines: list[str] = []
+            used = 0
+            for s in episode_summaries:
+                s = (s or "").strip()
+                if not s:
+                    continue
+                line = f"- {s}"
+                if used + len(line) > self._NARRATIVE_SNAPSHOT_CHAR_LIMIT:
+                    break
+                lines.append(line)
+                used += len(line) + 1  # +1 近似换行
+            if lines:
+                parts.append("## Recent Context\n\n" + "\n".join(lines))
+
         # Reflection deferred conflicts: one-line nudge (reuses the snapshot
         # channel; no new interruption mechanism).
         try:
@@ -1249,36 +1517,18 @@ class MemoryStore:
 
     # ── Long-term memory file (MEMORY.md) ────────────────────────────────────
 
-    def read_long_term(self) -> str:
-        if self._long_term_file.exists():
-            return self._long_term_file.read_text(encoding="utf-8")
-        return ""
+    def _long_term_path(self, scope: str):
+        # 文件名 = 可读的净化前缀 + 原始 scope 的短哈希。净化会把 : / 等归一为 _,
+        # 单靠它 telegram:bob 与 telegram_bob 会碰撞到同一文件、跨 scope 串记忆;
+        # 追加原始 scope 的 sha256 短哈希消歧,保证不同 scope 必得不同分片。
+        import hashlib
+        digest = hashlib.sha256((scope or "").encode("utf-8")).hexdigest()[:8]
+        return self._long_term_file.parent / f"MEMORY.{_safe_scope(scope)}.{digest}.md"
 
-    def write_long_term(self, content: str) -> None:
+    def write_long_term(self, scope: str, content: str) -> None:
         normalized = content.strip()
         if normalized:
             self._validate_content(normalized, field_name="memory_update")
-        with self._file_lock(self._long_term_file):
-            _atomic_write_text(self._long_term_file, normalized)
-
-    _MAX_HISTORY_BYTES = 1_000_000
-
-    def append_history(self, entry: str) -> None:
-        with self._file_lock(self._history_file):
-            self._history_file.parent.mkdir(parents=True, exist_ok=True)
-            # Rotate instead of growing forever — HISTORY.md is append-only
-            # and would otherwise be an unbounded file.
-            try:
-                if (
-                    self._history_file.exists()
-                    and self._history_file.stat().st_size > self._MAX_HISTORY_BYTES
-                ):
-                    rotated = self._history_file.with_name(
-                        f"HISTORY-{datetime.now().strftime('%Y%m%d%H%M%S')}.md"
-                    )
-                    os.replace(self._history_file, rotated)
-                    logger.info("Rotated history file to {}", rotated.name)
-            except OSError as e:
-                logger.warning("History rotation failed: {}", e)
-            with open(self._history_file, "a", encoding="utf-8") as handle:
-                handle.write(entry.rstrip() + "\n\n")
+        path = self._long_term_path(scope)
+        with self._file_lock(path):
+            _atomic_write_text(path, normalized)

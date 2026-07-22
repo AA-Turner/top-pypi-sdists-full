@@ -27,7 +27,7 @@ use tracing::instrument;
 use crate::{
     CollectionOptions,
     registry::input::{CollectionError, InputGroup, InputKey, InputKind, RepoSlug},
-    utils::{PipeSelf as _, ZIZMOR_AGENT},
+    utils::ZIZMOR_AGENT,
 };
 
 mod lineref;
@@ -754,14 +754,6 @@ impl Client {
         slug: &RepoSlug,
         file: &str,
     ) -> Result<Option<String>, ClientError> {
-        self.fetch_single_file_async(slug, file).await
-    }
-
-    async fn fetch_single_file_async(
-        &self,
-        slug: &RepoSlug,
-        file: &str,
-    ) -> Result<Option<String>, ClientError> {
         tracing::debug!("fetching {file} from {slug}");
 
         let url = format!(
@@ -776,10 +768,7 @@ impl Client {
             .api_client
             .get(&url)
             .header(ACCEPT, "application/vnd.github.raw+json")
-            .pipe(|req| match slug.git_ref.as_ref() {
-                Some(g) => req.query(&[("ref", g)]),
-                None => req,
-            })
+            .query(&[("ref", slug.git_ref())])
             .send()
             .await?;
 
@@ -808,7 +797,6 @@ impl Client {
     ) -> Result<(), CollectionError> {
         let owner = &slug.owner;
         let repo = &slug.repo;
-        let git_ref = &slug.git_ref;
 
         tracing::debug!("fetching workflows for {slug}");
 
@@ -823,10 +811,7 @@ impl Client {
         let resp: Vec<File> = self
             .api_client
             .get(&url)
-            .pipe(|req| match git_ref {
-                Some(g) => req.query(&[("ref", g)]),
-                None => req,
-            })
+            .query(&[("ref", slug.git_ref())])
             .send()
             .await
             .map_err(ClientError::from)?
@@ -846,7 +831,7 @@ impl Client {
             .into_iter()
             .filter(|file| file.name.ends_with(".yml") || file.name.ends_with(".yaml"))
         {
-            let Some(contents) = self.fetch_single_file_async(slug, &file.path).await? else {
+            let Some(contents) = self.fetch_single_file(slug, &file.path).await? else {
                 // This can only happen if we have some kind of TOCTOU
                 // discrepancy with the listing call above, e.g. a file
                 // was deleted on a branch immediately after we listed it.
@@ -881,7 +866,7 @@ impl Client {
             api_base = self.api_base,
             owner = slug.owner,
             repo = slug.repo,
-            git_ref = slug.git_ref.as_deref().unwrap_or("HEAD")
+            git_ref = slug.git_ref(),
         );
         tracing::debug!("fetching repo: {url}");
 
@@ -896,6 +881,14 @@ impl Client {
             .map_err(ClientError::from)?
             .error_for_status()
             .map_err(ClientError::from)?;
+
+        if resp.status() == StatusCode::MULTIPLE_CHOICES {
+            // Bug #2202: GitHub's tarball endpoint will return 300
+            // if the ref is ambiguous, i.e. matches both a tag and
+            // a branch name. We *could* arbitrarily pick one or the
+            // other, but rejecting seems safer.
+            return Err(CollectionError::AmbiguousRemoteRef { slug: slug.clone() });
+        }
 
         let contents = resp.bytes().await.map_err(ClientError::from)?;
         let tar = GzDecoder::new(contents.deref());

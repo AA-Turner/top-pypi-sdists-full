@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-peewee
-Version: 4.0.8.20260712
+Version: 4.1.2.20260722
 Summary: Typing stubs for peewee
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -21,7 +21,7 @@ This is a [type stub package](https://typing.python.org/en/latest/tutorials/exte
 for the [`peewee`](https://github.com/coleifer/peewee) package. It can be used by type checkers
 to check code that uses `peewee`. This version of
 `types-peewee` aims to provide accurate annotations for
-`peewee==4.0.8`.
+`peewee==4.1.2`.
 
 This stub package is marked as [partial](https://typing.python.org/en/latest/spec/distributing.html#partial-stub-packages).
 If you find that annotations are missing, feel free to contribute and help complete them.
@@ -35,8 +35,8 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 2.2.0
+* [mypy](https://github.com/python/mypy/) 2.3.0
 * [pyright](https://github.com/microsoft/pyright) 1.1.411
 
 It was generated from typeshed commit
-[`8e3110c4d3cf2828734b119863c6853529bb3034`](https://github.com/python/typeshed/commit/8e3110c4d3cf2828734b119863c6853529bb3034).
+[`1cb63c866b21be1c4cb579726561477708f3f7e0`](https://github.com/python/typeshed/commit/1cb63c866b21be1c4cb579726561477708f3f7e0).

@@ -5,7 +5,7 @@ import warnings
 
 from envoy.service.network_ext_proc.v3 import network_external_processor_pb2 as envoy_dot_service_dot_network__ext__proc_dot_v3_dot_network__external__processor__pb2
 
-GRPC_GENERATED_VERSION = '1.81.0'
+GRPC_GENERATED_VERSION = '1.82.1'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 

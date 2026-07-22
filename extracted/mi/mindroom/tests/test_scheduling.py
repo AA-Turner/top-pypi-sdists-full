@@ -25,6 +25,7 @@ from mindroom.scheduling import (
     _persist_scheduled_task_state,
     _run_cron_task,
     _run_once_task,
+    _validate_parsed_workflow,
     build_edited_scheduled_workflow,
     build_scheduled_task_read_model,
     cancel_all_scheduled_tasks,
@@ -274,6 +275,31 @@ def test_build_edited_scheduled_workflow_rejects_invalid_field_combinations() ->
 
     with pytest.raises(ValueError, match="message cannot be empty"):
         build_edited_scheduled_workflow(existing_once, room_id="!room:server", message="   ")
+
+
+def test_impossible_cron_rejected_on_create_and_edit_paths() -> None:
+    """Syntactically valid but impossible crons (e.g. Feb 31) must be rejected, not persisted."""
+    existing_cron = ScheduledWorkflow(
+        schedule_type="cron",
+        cron_schedule=CronSchedule(minute="0", hour="9", day="*", month="*", weekday="*"),
+        message="original message",
+        description="Original description",
+    )
+
+    with pytest.raises(ValueError, match="Invalid cron expression"):
+        build_edited_scheduled_workflow(existing_cron, room_id="!room:server", cron_expression="0 0 31 2 *")
+
+    impossible_workflow = ScheduledWorkflow(
+        schedule_type="cron",
+        cron_schedule=CronSchedule(minute="0", hour="0", day="31", month="2", weekday="*"),
+        message="check email",
+        description="Check email",
+    )
+    parse_error = _validate_parsed_workflow(impossible_workflow)
+    assert parse_error is not None
+    assert "Invalid cron expression" in parse_error.error
+
+    assert _validate_parsed_workflow(existing_cron) is None
 
 
 @pytest.fixture(autouse=True)
@@ -2099,6 +2125,61 @@ async def test_persist_scheduled_task_state_raises_on_matrix_error() -> None:
             task_id="task1234",
             workflow=workflow,
         )
+
+
+@pytest.mark.asyncio
+async def test_persist_scheduled_task_state_includes_cron_description() -> None:
+    """Matrix state should expose the backend-owned recurring schedule description."""
+    client = AsyncMock()
+    client.room_put_state.return_value = nio.RoomPutStateResponse.from_dict(
+        {"event_id": "$state"},
+        room_id="!test:server",
+    )
+    workflow = ScheduledWorkflow(
+        schedule_type="cron",
+        cron_schedule=CronSchedule(minute="0", hour="9"),
+        message="check logs",
+        description="check logs",
+        room_id="!test:server",
+    )
+
+    await _persist_scheduled_task_state(
+        client=client,
+        room_id="!test:server",
+        task_id="task1234",
+        workflow=workflow,
+    )
+
+    content = client.room_put_state.await_args.kwargs["content"]
+    assert content["cron_description"] == "At 09:00"
+
+
+@pytest.mark.asyncio
+async def test_persist_scheduled_task_state_omits_cron_description_for_one_time_task() -> None:
+    """One-time state must not expose a stale or contradictory cron description."""
+    client = AsyncMock()
+    client.room_put_state.return_value = nio.RoomPutStateResponse.from_dict(
+        {"event_id": "$state"},
+        room_id="!test:server",
+    )
+    workflow = ScheduledWorkflow(
+        schedule_type="once",
+        execute_at=datetime.now(UTC) + timedelta(minutes=5),
+        cron_schedule=CronSchedule(minute="0", hour="9"),
+        message="check logs",
+        description="check logs",
+        room_id="!test:server",
+    )
+
+    await _persist_scheduled_task_state(
+        client=client,
+        room_id="!test:server",
+        task_id="task1234",
+        workflow=workflow,
+    )
+
+    content = client.room_put_state.await_args.kwargs["content"]
+    assert content["cron_description"] is None
 
 
 @pytest.mark.asyncio

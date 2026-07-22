@@ -17,7 +17,7 @@ def test_devenv_fail_multiple_target(tox_project: ToxProjectCreator) -> None:
 
 @pytest.mark.slow
 @pytest.mark.integration
-def test_devenv_ok(tox_project: ToxProjectCreator, enable_pip_pypi_access: str | None) -> None:  # noqa: ARG001
+def test_devenv_ok(tox_project: ToxProjectCreator, enable_pip_pypi_access: str | None) -> None:  # ruff:ignore[unused-function-argument]
     content = {
         "setup.py": "from setuptools import setup\nsetup(name='demo', version='1.0')",
         "tox.ini": "[tox]\nenv_list = py\n[testenv]\nusedevelop = True",
@@ -33,3 +33,10 @@ def test_devenv_ok(tox_project: ToxProjectCreator, enable_pip_pypi_access: str |
 def test_devenv_help(tox_project: ToxProjectCreator) -> None:
     outcome = tox_project({"tox.ini": ""}).run("d", "-h")
     outcome.assert_success()
+
+
+def test_devenv_fail_all_target(tox_project: ToxProjectCreator) -> None:
+    outcome = tox_project({"tox.ini": "[tox]\nenv_list=a,b"}).run("d", "-e", "ALL")
+    outcome.assert_failed()
+    msg = "ROOT: HandledError| exactly one target environment allowed in devenv mode but found ALL\n"
+    outcome.assert_out_err(msg, "")

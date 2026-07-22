@@ -1,12 +1,12 @@
 # File generated with docstub
 
 import numbers
-from collections.abc import Hashable, Sequence
-from typing import Literal
+from collections.abc import Hashable, Iterable, Sequence
+from contextlib import contextmanager
+from typing import Callable, Generator, Literal
 
 import numpy as np
 import xarray
-import xarray as xr
 from _typeshed import Incomplete
 from numpy.typing import NDArray
 
@@ -30,6 +30,7 @@ __all__ = [
     "solve",
     "inv",
     "pinv",
+    "default_dims",
 ]
 
 class MissingMonkeypatchError(Exception):
@@ -87,7 +88,7 @@ def matmul(
     out_append: str = ...,
     **kwargs: Incomplete,
 ) -> xarray.DataArray: ...
-def matrix_transpose(da: xarray.DataArray, dims: list[str]) -> xarray.DataArray: ...
+def matrix_transpose(da: xarray.DataArray, dims: list[str] | None = ...) -> xarray.DataArray: ...
 def matrix_power(
     da: xarray.DataArray, n: int, dims: Sequence[Hashable] | None = ..., **kwargs: Incomplete
 ) -> xarray.DataArray: ...
@@ -195,3 +196,7 @@ def pinv(
     hermitian: bool = ...,
     **kwargs: Incomplete,
 ) -> xarray.DataArray: ...
+@contextmanager
+def default_dims(
+    func_or_dims: Callable | Iterable,
+) -> Generator[None, None, None]: ...

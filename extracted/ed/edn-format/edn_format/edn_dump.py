@@ -4,6 +4,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import datetime
 import decimal
 import fractions
+import math
 import re
 import uuid
 
@@ -12,7 +13,7 @@ import pyrfc3339
 from .immutable_dict import ImmutableDict
 from .immutable_list import ImmutableList
 from .char import Char
-from .edn_lex import Keyword, Symbol
+from .edn_lex import Keyword, MetadataValue, Symbol
 from .edn_parse import TaggedElement
 
 from .compat import _PY3, long, basestring, unicode, unichr
@@ -124,10 +125,23 @@ def udump(obj,
         "indent_step": indent_step + (indent or 0),
     }
 
-    if obj is None:
+    if isinstance(obj, MetadataValue):
+        # EDN metadata `^M V`. Both metadata and value serialize at the same
+        # nesting depth as the MetadataValue itself (don't bump indent_step).
+        same_level = dict(kwargs, indent_step=indent_step)
+        meta_str = udump(obj.metadata, **same_level)
+        value_str = udump(obj.value, **same_level)
+        return '^{} {}'.format(meta_str, value_str)
+    elif obj is None:
         return 'nil'
     elif isinstance(obj, bool):
         return 'true' if obj else 'false'
+    elif isinstance(obj, float) and (math.isnan(obj) or math.isinf(obj)):
+        # EDN symbolic values; https://clojure.org/reference/reader#_symbolic_values
+        # A bare `inf`/`nan` would read back as a Symbol, breaking round-tripping.
+        if math.isnan(obj):
+            return '##NaN'
+        return '##Inf' if obj > 0 else '##-Inf'
     elif isinstance(obj, (int, long, float)):
         return unicode(obj)
     elif isinstance(obj, decimal.Decimal):

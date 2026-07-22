@@ -142,6 +142,16 @@ class OpenAIRealtimeAgentAdapter(VoiceAgentAdapter):
         # proceed()/resume). Consumed (cleared) when the kick fires.
         self._agent_turn_pending: bool = speaks_first  # first turn armed if speaks_first
 
+        # Issue #657: distinct deferral flag for the user-audio race guard.
+        # Set when user audio arrives while a response is in flight; cleared and
+        # consumed in the response.done/cancelled handler to fire the deferred
+        # response.create.  Kept separate from _agent_turn_pending so each flag
+        # retains its single original meaning.
+        # Known limitation: a second user-audio commit while one create is already
+        # deferred collapses into this single boolean.  Manual-VAD single-turn flow
+        # makes that path unreachable in practice; FSM refactor tracked as follow-up.
+        self._deferred_response_create: bool = False
+
         # --- Issue #630: realtime function-call (tool-call) surfacing ---
         # In-progress function calls keyed by call_id. Each value is a dict
         # {"name": str|None, "arguments": str} assembled from the streaming
@@ -296,6 +306,15 @@ class OpenAIRealtimeAgentAdapter(VoiceAgentAdapter):
         """Open the Realtime WebSocket and send the initial session.update."""
         import websockets
 
+        # Issue #662 / reconnect hygiene (JS parity — openai-realtime.ts connect()):
+        # a reused adapter instance must start each connection with a clean slate.
+        # Clearing _response_active matters most: a disconnect mid-response would
+        # otherwise leave it True, and the next turn's user-audio commit would take
+        # the defer branch forever (no response.done ever arrives to fire it), draining
+        # recv_audio to timeout.
+        self._response_active = False
+        self._deferred_response_create = False
+
         self._ws = await websockets.connect(
             self.url,
             additional_headers={
@@ -332,6 +351,23 @@ class OpenAIRealtimeAgentAdapter(VoiceAgentAdapter):
         )
         logger.debug("OpenAIRealtimeAgentAdapter: session.update sent")
 
+        # Stamp realtime-specific attrs onto the active ``voice.adapter.connect``
+        # span (opened by the executor connect loop). Base spans are name-owned;
+        # the adapter contributes attributes, never a parallel span name (mirrors
+        # ElevenLabs stamping ``voice.elevenlabs.agent_id``).
+        from opentelemetry import trace as _otel_trace
+        from .._telemetry import set_span_attributes
+
+        set_span_attributes(
+            _otel_trace.get_current_span(),
+            {
+                "voice.realtime.model": self.model,
+                "voice.realtime.voice": self.voice,
+                "voice.realtime.session_type": "realtime",
+                "voice.realtime.tool_count": len(self.tools),
+            },
+        )
+
     async def disconnect(self) -> None:
         """Close the WebSocket if open."""
         if self._ws is not None:
@@ -344,6 +380,11 @@ class OpenAIRealtimeAgentAdapter(VoiceAgentAdapter):
                 pass
             finally:
                 self._ws = None
+            # Issue #662 / reconnect hygiene (JS parity): clear response-lifecycle
+            # guard state on teardown so a reused adapter instance does not carry a
+            # stale active/deferred flag into its next connection.
+            self._response_active = False
+            self._deferred_response_create = False
             logger.debug("OpenAIRealtimeAgentAdapter: disconnected")
 
     # ------------------------------------------------------------------ I/O
@@ -403,12 +444,28 @@ class OpenAIRealtimeAgentAdapter(VoiceAgentAdapter):
         if self._ws is None:
             raise RuntimeError("OpenAIRealtimeAgentAdapter: not connected")
 
+        # R2 markers/attrs land on the active ``voice.audio.receive`` span (opened
+        # by the base drain that invokes recv_audio) via the ambient OTel context —
+        # this method runs INSIDE that span. ``get_current_span().add_event`` is a
+        # safe no-op on a non-recording span, so no extra guard is needed.
+        from opentelemetry import trace as _otel_trace
+        from .._telemetry import set_span_attributes
+
         # If send_audio was called since last recv, commit and request response.
         if self._pending_audio_bytes > 0:
             await self._ws.send(json.dumps({"type": "input_audio_buffer.commit"}))
-            await self._ws.send(json.dumps({"type": "response.create"}))
             self._pending_audio_bytes = 0
-            self._agent_turn_pending = False  # user spoke → per-turn signal consumed
+            self._agent_turn_pending = False  # user spoke → per-turn signal consumed (always)
+            if self._response_active:
+                # Race guard (#657): server rejects/ignores a duplicate
+                # response.create while a response is in flight, which causes the
+                # recv loop to drain to timeout instead of completing.  Defer via
+                # _deferred_response_create (distinct from _agent_turn_pending) so
+                # the response.done handler fires response.create once the in-flight
+                # response clears.
+                self._deferred_response_create = True
+            else:
+                await self._ws.send(json.dumps({"type": "response.create"}))
 
         # Gap 1: agent-speaks-first / multi-turn agent initiation.
         # When the executor signals an agent turn via notify_agent_turn() and
@@ -473,6 +530,10 @@ class OpenAIRealtimeAgentAdapter(VoiceAgentAdapter):
                 # drain re-entries don't fire a spurious second response.create.
                 self._response_active = True
                 self._response_ever_active = True
+                # R2 marker: record the response start on the active receive span.
+                _otel_trace.get_current_span().add_event(
+                    "voice.realtime.response.created"
+                )
 
             elif etype in (
                 "response.output_audio_transcript.delta",
@@ -499,6 +560,26 @@ class OpenAIRealtimeAgentAdapter(VoiceAgentAdapter):
                 # Response finished or was cancelled — mark it so the next
                 # drain re-entry returns an empty chunk (clean exit).
                 self._response_active = False
+                # R2 markers: record the response terminal as a span event and
+                # stamp the FINAL tool-call count onto the active
+                # ``voice.audio.receive`` span. Done BEFORE the deferred re-fire and
+                # the tool-only empty-chunk return below, so the count reflects THIS
+                # response — set even when 0, for every response.done/.cancelled
+                # actually observed. A drain that ends on tail-silence before a
+                # terminal event is processed won't stamp it (pre-existing drain
+                # timing, not new here).
+                _otel_trace.get_current_span().add_event(f"voice.realtime.{etype}")
+                set_span_attributes(
+                    _otel_trace.get_current_span(),
+                    {"voice.realtime.tool_call_count": len(self._completed_tool_calls)},
+                )
+                # Issue #657: if user audio was committed while a response was
+                # in flight, _deferred_response_create was set as a deferral flag.
+                # Now that _response_active is cleared, fire the deferred create.
+                if self._deferred_response_create:
+                    await self._ws.send(json.dumps({"type": "response.create"}))
+                    self._deferred_response_create = False
+                    self._response_active = True
                 # Issue #646: a tool-only turn (function call, NO audio delta) would
                 # otherwise loop here to the deadline and raise — the accumulated tool
                 # call is parsed but never returned. When the response is done and at
@@ -596,6 +677,7 @@ class OpenAIRealtimeAgentAdapter(VoiceAgentAdapter):
         """
         # Reset per-turn tool-call state so a prior turn's calls don't bleed
         # through (mirrors the transcript reset in _drain_agent_response).
+        self._deferred_response_create = False
         self._completed_tool_calls = []
         self._tool_call_accumulators = {}
 
@@ -688,7 +770,12 @@ class OpenAIRealtimeAgentAdapter(VoiceAgentAdapter):
             )
         )
         # Prompt the model to generate audio output.
+        # Guard: if a response is already in flight, defer the create rather than
+        # firing unconditionally — mirrors the recv_audio user-audio branch guard.
+        if self._response_active:
+            self._deferred_response_create = True
+            return
         await self._ws.send(json.dumps({"type": "response.create"}))
         logger.debug(
-            "OpenAIRealtimeAgentAdapter: send_text injected %r", text[:60]
+            "OpenAIRealtimeAgentAdapter: send_text injected text (%d chars)", len(text)
         )

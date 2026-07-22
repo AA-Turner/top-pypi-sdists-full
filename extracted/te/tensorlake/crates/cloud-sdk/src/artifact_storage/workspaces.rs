@@ -1,11 +1,9 @@
 //! Workspace client: private durable refs (`refs/workspaces/<id>`) on artifact storage.
 //!
-//! A workspace is the unit of ongoing work (artifact_storage issue #24): created from a base
-//! commit, advanced by snapshots (ordinary commits on the workspace ref, uploaded as CDC chunks
-//! through the resumable-ingest pipeline), and published by promoting a snapshot onto a real
-//! branch (squash by default). Workspaces are durable scratch pads — they survive crashes,
-//! timeouts, and unmounts, and die only by explicit deletion. All calls authenticate with a
-//! minted git credential, like the repo/commit APIs.
+//! A workspace is the unit of ongoing work: it is allocated lazily by the first write, advances a
+//! crash-safe autosave WAL without creating commits, materializes explicit snapshots as commits,
+//! and publishes only through promote (squash by default). All calls authenticate with a minted
+//! git credential, like the repo/commit APIs.
 
 use reqwest::Method;
 use serde::{Deserialize, Serialize};
@@ -13,9 +11,36 @@ use serde::{Deserialize, Serialize};
 use crate::Traced;
 use crate::error::SdkError;
 
-use super::ingest::expect_json;
+use super::ingest::{expect_json, with_transient_retries};
 use super::merge::{MergeConflict, MergeReport, MergeStats, Signature, expect_json_or_conflict};
-use super::{ArtifactStorageClient, decode_empty};
+use super::{ArtifactStorageClient, advance_pagination_cursor, decode_empty};
+
+fn encoded_git_path(path: &str, allow_empty: bool) -> Result<String, SdkError> {
+    if path.is_empty() {
+        return if allow_empty {
+            Ok(String::new())
+        } else {
+            Err(SdkError::ClientError("Git path must not be empty".into()))
+        };
+    }
+    if path.starts_with('/')
+        || path.split('/').any(|component| {
+            component.is_empty()
+                || component == "."
+                || component == ".."
+                || component.contains('\0')
+        })
+    {
+        return Err(SdkError::ClientError(format!(
+            "Git path is not canonical: {path:?}"
+        )));
+    }
+    Ok(path
+        .split('/')
+        .map(super::encode_path_segment)
+        .collect::<Vec<_>>()
+        .join("/"))
+}
 
 /// One workspace joined across its identity record, ref, and lease rows.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -39,6 +64,38 @@ pub struct WorkspaceInfo {
     /// name), in server-assigned order.
     #[serde(default)]
     pub shared_target: Option<String>,
+    /// Number of explicit snapshot commits on this workspace line. Autosave checkpoints are not
+    /// commits and are deliberately excluded.
+    #[serde(default)]
+    pub snapshot_count: u64,
+    /// Newest mount heartbeat, WAL append, snapshot, or promote time.
+    #[serde(default)]
+    pub last_activity_ms: Option<u64>,
+    /// `none`, `dirty`, or `materialized`.
+    #[serde(default = "default_workspace_wal_state")]
+    pub wal_state: String,
+    /// `attached` or `detached`; `unknown` when returned by an older server.
+    #[serde(default = "default_workspace_attachment_state")]
+    pub attachment_state: String,
+    #[serde(default)]
+    pub mounted_on: Option<String>,
+    #[serde(default)]
+    pub wal_generation: Option<u64>,
+}
+
+fn default_workspace_wal_state() -> String {
+    "none".to_string()
+}
+
+fn default_workspace_attachment_state() -> String {
+    "unknown".to_string()
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct WorkspaceListPage {
+    workspaces: Vec<WorkspaceInfo>,
+    #[serde(default)]
+    next_after: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, Serialize)]
@@ -72,6 +129,22 @@ pub struct WorkspaceHeartbeat {
     pub pinned: bool,
 }
 
+/// Writable-mount presence update. This is deliberately separate from the bodyless lease
+/// heartbeat so callers must opt into changing fleet-visible attachment state.
+#[derive(Clone, Debug, Default, Serialize)]
+pub struct WorkspaceMountHeartbeatRequest {
+    /// Stable random owner of this writable attachment. Attach, heartbeat, and unmount carry the
+    /// same id so a stale process cannot replace or clear another sandbox's live claim.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mount_id: Option<String>,
+    /// Human-readable mount location shown by workspace listing/status.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mounted_on: Option<String>,
+    /// Clear the active attachment on a clean unmount while re-arming detached retention.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub unmount: bool,
+}
+
 #[derive(Clone, Debug, Default, Serialize)]
 pub struct PromoteWorkspaceRequest {
     /// Target branch (short name; `refs/heads/` implied).
@@ -92,6 +165,10 @@ pub struct PromoteWorkspaceRequest {
     pub message: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub author: Option<Signature>,
+    /// Writable mount owner. Omitted callers remain compatible while the workspace is unclaimed;
+    /// once a daemon claims it the server rejects no-id mutations.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mount_id: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -146,6 +223,8 @@ pub struct SyncWorkspaceRequest {
     pub message: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub author: Option<Signature>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mount_id: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -165,25 +244,178 @@ pub struct SyncWorkspaceResponse {
     pub stats: MergeStats,
 }
 
+/// Result of a non-history-rewriting view refresh or pristine-workspace target switch.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ViewSyncWorkspaceResponse {
+    pub workspace_head: String,
+    pub target_head: String,
+    pub base: String,
+    pub target_ref: Option<String>,
+    pub changed: bool,
+}
+
+/// Server-resolved source for a lazy repository mount. The canonical ref is returned by the
+/// server so clients never reinterpret a tag as a branch while following it.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct GitMountSource {
+    pub format_ver: u16,
+    /// `branch` | `tag` | `commit`.
+    pub kind: String,
+    /// `follow` for canonical branch/tag refs; `pinned` for full commits.
+    pub follow_policy: String,
+    #[serde(default)]
+    pub canonical_ref: Option<String>,
+    pub resolved_commit: String,
+    #[serde(default)]
+    pub subtree: Option<String>,
+    pub root_tree: String,
+}
+
+/// Expiring liveness record for a read-only repository mount. Presence never roots repository
+/// history; expiry is authoritative when a sandbox disappears without unmounting.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct GitMountPresence {
+    pub format_ver: u16,
+    pub session_id: String,
+    pub principal: String,
+    pub source: GitMountSource,
+    pub mounted_on: String,
+    pub started_at_ms: u64,
+    pub last_heartbeat_ms: u64,
+    pub expires_at_ms: u64,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct RecordGitMountPresenceRequest<'a> {
+    pub source: &'a GitMountSource,
+    pub mounted_on: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ttl_seconds: Option<u64>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct GitMountPresencePage {
+    pub mounts: Vec<GitMountPresence>,
+    pub truncated: bool,
+    #[serde(default)]
+    pub next_after: Option<String>,
+}
+
+/// The explicit history-rewriting workspace operation. `sync` is reserved for refreshing or
+/// switching a view when no workspace snapshots would be rewritten.
+pub type RebaseWorkspaceRequest = SyncWorkspaceRequest;
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct RebaseWorkspaceResponse {
+    #[serde(flatten)]
+    pub result: SyncWorkspaceResponse,
+    /// Retained server ref for the replaced chain. Absent for an up-to-date rebase.
+    #[serde(default)]
+    pub recovery_ref: Option<String>,
+}
+
+/// One durable commit in a workspace's active or retained chain.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct GitWorkspaceLogEntry {
+    pub oid: String,
+    pub subject: String,
+    #[serde(default)]
+    pub actor: Option<String>,
+    #[serde(default)]
+    pub operation: Option<String>,
+    pub at_ms: u64,
+    #[serde(default)]
+    pub conflicted: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct GitRetainedChain {
+    pub recovery_ref: String,
+    pub head: String,
+    pub base: String,
+    pub created_at_ms: u64,
+    pub reason: String,
+    pub retention: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct GitWorkspaceLogPage {
+    pub format_ver: u16,
+    pub workspace_id: String,
+    #[serde(default)]
+    pub active_chain: Vec<GitWorkspaceLogEntry>,
+    #[serde(default)]
+    pub retained_chains: Vec<GitRetainedChain>,
+    pub truncated: bool,
+    #[serde(default)]
+    pub next_after: Option<String>,
+}
+
+/// One bounded node/edge page used by repository and project-fleet smartlog views.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct GitSmartlogNode {
+    pub id: String,
+    pub kind: String,
+    #[serde(default)]
+    pub label: Option<String>,
+    #[serde(default)]
+    pub oid: Option<String>,
+    #[serde(default)]
+    pub repo: Option<String>,
+    #[serde(default)]
+    pub workspace_id: Option<String>,
+    #[serde(default)]
+    pub actor: Option<String>,
+    #[serde(default)]
+    pub state: Option<String>,
+    #[serde(default)]
+    pub timestamp_ms: Option<u64>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct GitSmartlogEdge {
+    pub from: String,
+    pub to: String,
+    pub kind: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct GitSmartlogPage {
+    pub format_ver: u16,
+    #[serde(default)]
+    pub repo: Option<String>,
+    #[serde(default)]
+    pub nodes: Vec<GitSmartlogNode>,
+    #[serde(default)]
+    pub edges: Vec<GitSmartlogEdge>,
+    pub truncated: bool,
+    #[serde(default)]
+    pub next_after: Option<String>,
+}
+
 /// One ref's head and movement generation — the poll target for branch/workspace following.
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RefStatus {
     pub ref_name: String,
-    /// Current head (hex); absent when the ref does not exist.
+    /// Raw ref target (hex); for annotated tags this is the tag-object oid. Absent when deleted.
     pub oid: Option<String>,
+    /// Commit reached by peeling the ref target. New servers populate this for every live ref;
+    /// older servers omit it, so branch/lightweight-tag clients may fall back to `oid`.
+    #[serde(default)]
+    pub resolved_commit: Option<String>,
     /// Movement counter: bumps on every write or delete of the ref. 0 = never written.
     pub generation: u64,
 }
 
 /// One directory page from the paged tree listing.
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TreePage {
     pub entries: Vec<TreeEntry>,
     pub truncated: bool,
     pub next_after: Option<String>,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TreeEntry {
     pub name: String,
     pub oid: String,
@@ -200,6 +432,10 @@ pub struct WorkspaceFleetItem {
     pub id: String,
     /// Full repo id (`{project}/{repo}`).
     pub repo: String,
+    /// `git` for repository workspaces, `native` for filesystem workspaces. Defaults to `git`
+    /// against servers predating native fleet rows.
+    #[serde(default = "default_workspace_storage")]
+    pub storage: String,
     /// Derived server-side at read time: `live` | `gap` | `idle` | `detached`.
     pub status: String,
     /// `default` | `shared-rw`.
@@ -233,6 +469,10 @@ pub struct WorkspaceFleetItem {
     /// Host reported by the currently-open mount session, if any.
     #[serde(default)]
     pub mounted_on: Option<String>,
+}
+
+fn default_workspace_storage() -> String {
+    "git".to_string()
 }
 
 /// A workspace's creating principal: the authenticated `sub` and its human/agent classification.
@@ -283,6 +523,108 @@ pub struct WorkspaceFleetQuery<'a> {
 }
 
 impl ArtifactStorageClient {
+    /// Resolve a branch, tag, full commit, and optional subtree into a canonical lazy-mount
+    /// source. The server owns namespace resolution and directory validation.
+    pub async fn resolve_git_mount_source(
+        &self,
+        project_id: &str,
+        repo: &str,
+        git_username: &str,
+        git_token: &str,
+        source: Option<&str>,
+        subtree: Option<&str>,
+    ) -> Result<Traced<GitMountSource>, SdkError> {
+        let mut params = url::form_urlencoded::Serializer::new(String::new());
+        if let Some(source) = source {
+            params.append_pair("source", source);
+        }
+        if let Some(subtree) = subtree {
+            params.append_pair("subtree", subtree);
+        }
+        let params = params.finish();
+        let suffix = if params.is_empty() {
+            "mount-source".to_string()
+        } else {
+            format!("mount-source?{params}")
+        };
+        let (req, trace_id) = self.git_request(
+            Method::GET,
+            project_id,
+            repo,
+            Some(&suffix),
+            git_username,
+            git_token,
+        )?;
+        let source = expect_json(req.send().await?).await?;
+        Ok(Traced::new(trace_id, source))
+    }
+
+    pub async fn record_git_mount_presence(
+        &self,
+        project_id: &str,
+        repo: &str,
+        git_username: &str,
+        git_token: &str,
+        session_id: &str,
+        request: &RecordGitMountPresenceRequest<'_>,
+    ) -> Result<Traced<GitMountPresence>, SdkError> {
+        let (req, trace_id) = self.git_request(
+            Method::POST,
+            project_id,
+            repo,
+            Some(&format!("mount-presence/{session_id}")),
+            git_username,
+            git_token,
+        )?;
+        let presence = expect_json(req.json(request).send().await?).await?;
+        Ok(Traced::new(trace_id, presence))
+    }
+
+    pub async fn delete_git_mount_presence(
+        &self,
+        project_id: &str,
+        repo: &str,
+        git_username: &str,
+        git_token: &str,
+        session_id: &str,
+    ) -> Result<Traced<()>, SdkError> {
+        let (req, trace_id) = self.git_request(
+            Method::DELETE,
+            project_id,
+            repo,
+            Some(&format!("mount-presence/{session_id}")),
+            git_username,
+            git_token,
+        )?;
+        decode_empty(req.send().await?, trace_id).await
+    }
+
+    pub async fn list_git_mount_presence(
+        &self,
+        project_id: &str,
+        repo: &str,
+        git_username: &str,
+        git_token: &str,
+        after: Option<&str>,
+        limit: usize,
+    ) -> Result<Traced<GitMountPresencePage>, SdkError> {
+        let mut params = url::form_urlencoded::Serializer::new(String::new());
+        params.append_pair("limit", &limit.to_string());
+        if let Some(after) = after {
+            params.append_pair("after", after);
+        }
+        let (req, trace_id) = self.git_request(
+            Method::GET,
+            project_id,
+            repo,
+            Some(&format!("mount-presence?{}", params.finish())),
+            git_username,
+            git_token,
+        )?;
+        let page = expect_json(req.send().await?).await?;
+        Ok(Traced::new(trace_id, page))
+    }
+
     pub async fn create_workspace(
         &self,
         project_id: &str,
@@ -374,6 +716,10 @@ impl ArtifactStorageClient {
     ) -> Result<Traced<Vec<WorkspaceFleetItem>>, SdkError> {
         let mut items = Vec::new();
         let mut after: Option<String> = query.after.map(str::to_string);
+        let mut seen_after = std::collections::HashSet::new();
+        if let Some(after) = &after {
+            seen_after.insert(after.clone());
+        }
         loop {
             let page = self
                 .workspace_fleet(
@@ -392,10 +738,16 @@ impl ArtifactStorageClient {
             if !page.truncated {
                 return Ok(Traced::new(trace_id, items));
             }
-            let Some(next) = page.next_after else {
-                return Ok(Traced::new(trace_id, items));
-            };
-            after = Some(next);
+            let next = page.next_after.ok_or_else(|| {
+                SdkError::ClientError(
+                    "workspace fleet page was truncated without a pagination cursor".to_string(),
+                )
+            })?;
+            after = Some(advance_pagination_cursor(
+                &mut seen_after,
+                next,
+                "workspace fleet listing",
+            )?);
         }
     }
 
@@ -406,16 +758,33 @@ impl ArtifactStorageClient {
         git_username: &str,
         git_token: &str,
     ) -> Result<Traced<Vec<WorkspaceInfo>>, SdkError> {
-        let (req, trace_id) = self.git_request(
-            Method::GET,
-            project_id,
-            repo,
-            Some("workspaces"),
-            git_username,
-            git_token,
-        )?;
-        let list = expect_json(req.send().await?).await?;
-        Ok(Traced::new(trace_id, list))
+        let mut workspaces = Vec::new();
+        let mut after = None::<String>;
+        let mut seen_after = std::collections::HashSet::new();
+        loop {
+            let suffix = after.as_ref().map_or_else(
+                || "workspaces?limit=1000".to_string(),
+                |after| format!("workspaces?limit=1000&after={}", urlencoding::encode(after)),
+            );
+            let (req, trace_id) = self.git_request(
+                Method::GET,
+                project_id,
+                repo,
+                Some(&suffix),
+                git_username,
+                git_token,
+            )?;
+            let page: WorkspaceListPage = expect_json(req.send().await?).await?;
+            workspaces.extend(page.workspaces);
+            let Some(next) = page.next_after else {
+                return Ok(Traced::new(trace_id, workspaces));
+            };
+            after = Some(advance_pagination_cursor(
+                &mut seen_after,
+                next,
+                "workspace listing",
+            )?);
+        }
     }
 
     /// Re-arm the workspace's activity lease. Pinned workspaces heartbeat as a no-op.
@@ -427,15 +796,48 @@ impl ArtifactStorageClient {
         git_token: &str,
         workspace_id: &str,
     ) -> Result<Traced<WorkspaceHeartbeat>, SdkError> {
-        let (req, trace_id) = self.git_request(
-            Method::POST,
-            project_id,
-            repo,
-            Some(&format!("workspaces/{workspace_id}/heartbeat")),
-            git_username,
-            git_token,
-        )?;
-        let hb = expect_json(req.send().await?).await?;
+        let suffix = format!("workspaces/{workspace_id}/heartbeat");
+        let (hb, trace_id) = with_transient_retries(|| async {
+            let (req, trace_id) = self.git_request(
+                Method::POST,
+                project_id,
+                repo,
+                Some(&suffix),
+                git_username,
+                git_token,
+            )?;
+            Ok((expect_json(req.send().await?).await?, trace_id))
+        })
+        .await?;
+        Ok(Traced::new(trace_id, hb))
+    }
+
+    /// Re-arm a writable workspace lease and atomically update its fleet-visible mount presence.
+    pub async fn workspace_mount_heartbeat(
+        &self,
+        project_id: &str,
+        repo: &str,
+        git_username: &str,
+        git_token: &str,
+        workspace_id: &str,
+        request: &WorkspaceMountHeartbeatRequest,
+    ) -> Result<Traced<WorkspaceHeartbeat>, SdkError> {
+        let suffix = format!("workspaces/{workspace_id}/heartbeat");
+        let (hb, trace_id) = with_transient_retries(|| async {
+            let (req, trace_id) = self.git_request(
+                Method::POST,
+                project_id,
+                repo,
+                Some(&suffix),
+                git_username,
+                git_token,
+            )?;
+            Ok((
+                expect_json(req.json(request).send().await?).await?,
+                trace_id,
+            ))
+        })
+        .await?;
         Ok(Traced::new(trace_id, hb))
     }
 
@@ -496,12 +898,9 @@ impl ArtifactStorageClient {
         Ok(Traced::new(trace_id, preflight))
     }
 
-    /// Pull the target branch into a behind workspace, rebase-style: one merge commit on the
-    /// target head, workspace history kept linear, the pre-sync chain preserved under a
-    /// presync ref. Under the default `materialize` policy conflicts land as diff3 markers in
-    /// the workspace; under `fail` a conflicted sync changes nothing and the returned report
-    /// has `clean: false` with `workspace_head` untouched. Snapshot uncommitted mount changes
-    /// before syncing.
+    /// Refresh the current workspace source or switch a pristine workspace to `target`. The
+    /// server rejects a base-changing sync once snapshots exist; use `workspace_rebase` when
+    /// rewriting the active chain is intentional.
     pub async fn workspace_sync(
         &self,
         project_id: &str,
@@ -510,7 +909,7 @@ impl ArtifactStorageClient {
         git_token: &str,
         workspace_id: &str,
         request: &SyncWorkspaceRequest,
-    ) -> Result<Traced<SyncWorkspaceResponse>, SdkError> {
+    ) -> Result<Traced<ViewSyncWorkspaceResponse>, SdkError> {
         let (req, trace_id) = self.git_request(
             Method::POST,
             project_id,
@@ -519,12 +918,121 @@ impl ArtifactStorageClient {
             git_username,
             git_token,
         )?;
-        let resp = expect_json_or_conflict::<SyncWorkspaceResponse, SyncWorkspaceResponse>(
+        let resp = expect_json(req.json(request).send().await?).await?;
+        Ok(Traced::new(trace_id, resp))
+    }
+
+    /// Rebase a snapshotted workspace onto `target`, retaining the replaced chain under the
+    /// returned recovery ref. This is deliberately separate from pristine/view-only sync.
+    pub async fn workspace_rebase(
+        &self,
+        project_id: &str,
+        repo: &str,
+        git_username: &str,
+        git_token: &str,
+        workspace_id: &str,
+        request: &RebaseWorkspaceRequest,
+    ) -> Result<Traced<RebaseWorkspaceResponse>, SdkError> {
+        let (req, trace_id) = self.git_request(
+            Method::POST,
+            project_id,
+            repo,
+            Some(&format!("workspaces/{workspace_id}/rebase")),
+            git_username,
+            git_token,
+        )?;
+        let resp = expect_json_or_conflict::<RebaseWorkspaceResponse, RebaseWorkspaceResponse>(
             req.json(request).send().await?,
         )
         .await?
         .unwrap_or_else(|conflicted| conflicted);
         Ok(Traced::new(trace_id, resp))
+    }
+
+    pub async fn workspace_log(
+        &self,
+        project_id: &str,
+        repo: &str,
+        git_username: &str,
+        git_token: &str,
+        workspace_id: &str,
+        after: Option<&str>,
+        limit: usize,
+    ) -> Result<Traced<GitWorkspaceLogPage>, SdkError> {
+        let mut params = url::form_urlencoded::Serializer::new(String::new());
+        params.append_pair("limit", &limit.to_string());
+        if let Some(after) = after {
+            params.append_pair("after", after);
+        }
+        let suffix = format!("workspaces/{workspace_id}/log?{}", params.finish());
+        let (req, trace_id) = self.git_request(
+            Method::GET,
+            project_id,
+            repo,
+            Some(&suffix),
+            git_username,
+            git_token,
+        )?;
+        let page = expect_json(req.send().await?).await?;
+        Ok(Traced::new(trace_id, page))
+    }
+
+    pub async fn repo_smartlog(
+        &self,
+        project_id: &str,
+        repo: &str,
+        git_username: &str,
+        git_token: &str,
+        after: Option<&str>,
+        limit: usize,
+    ) -> Result<Traced<GitSmartlogPage>, SdkError> {
+        let mut params = url::form_urlencoded::Serializer::new(String::new());
+        params.append_pair("limit", &limit.to_string());
+        if let Some(after) = after {
+            params.append_pair("after", after);
+        }
+        let (req, trace_id) = self.git_request(
+            Method::GET,
+            project_id,
+            repo,
+            Some(&format!("smartlog?{}", params.finish())),
+            git_username,
+            git_token,
+        )?;
+        let page = expect_json(req.send().await?).await?;
+        Ok(Traced::new(trace_id, page))
+    }
+
+    pub async fn project_smartlog(
+        &self,
+        project_id: &str,
+        git_username: &str,
+        git_token: &str,
+        repo: Option<&str>,
+        workspace: Option<&str>,
+        after: Option<&str>,
+        limit: usize,
+    ) -> Result<Traced<GitSmartlogPage>, SdkError> {
+        let mut params = url::form_urlencoded::Serializer::new(String::new());
+        params.append_pair("limit", &limit.to_string());
+        if let Some(repo) = repo {
+            params.append_pair("repo", repo);
+        }
+        if let Some(workspace) = workspace {
+            params.append_pair("workspace", workspace);
+        }
+        if let Some(after) = after {
+            params.append_pair("after", after);
+        }
+        let (req, trace_id) = self.project_git_request(
+            Method::GET,
+            project_id,
+            &format!("smartlog?{}", params.finish()),
+            git_username,
+            git_token,
+        );
+        let page = expect_json(req.send().await?).await?;
+        Ok(Traced::new(trace_id, page))
     }
 
     pub async fn delete_workspace(
@@ -584,10 +1092,14 @@ impl ArtifactStorageClient {
         limit: usize,
     ) -> Result<Traced<TreePage>, SdkError> {
         let enc = |s: &str| url::form_urlencoded::byte_serialize(s.as_bytes()).collect::<String>();
+        let encoded_dir_path = encoded_git_path(dir_path, true)?;
         let mut suffix = if dir_path.is_empty() {
             format!("tree?version={}&limit={limit}", enc(version))
         } else {
-            format!("tree/{}?version={}&limit={limit}", dir_path, enc(version))
+            format!(
+                "tree/{encoded_dir_path}?version={}&limit={limit}",
+                enc(version)
+            )
         };
         if let Some(after) = after {
             suffix.push_str(&format!("&after={}", enc(after)));
@@ -614,8 +1126,9 @@ impl ArtifactStorageClient {
         version: &str,
         file_path: &str,
     ) -> Result<Traced<Vec<u8>>, SdkError> {
+        let encoded_file_path = encoded_git_path(file_path, false)?;
         let suffix = format!(
-            "files/{file_path}?version={}",
+            "files/{encoded_file_path}?version={}",
             url::form_urlencoded::byte_serialize(version.as_bytes()).collect::<String>()
         );
         let (req, trace_id) = self.git_request(
@@ -644,6 +1157,64 @@ impl ArtifactStorageClient {
 mod tests {
     use super::*;
 
+    #[test]
+    fn git_paths_are_component_encoded_and_canonical() {
+        assert_eq!(
+            encoded_git_path("src/what ?#%.rs", false).unwrap(),
+            "src/what%20%3F%23%25.rs"
+        );
+        assert_eq!(encoded_git_path("", true).unwrap(), "");
+        assert!(encoded_git_path("../secret", false).is_err());
+        assert!(encoded_git_path("a//b", false).is_err());
+    }
+
+    #[test]
+    fn mount_heartbeat_distinguishes_attach_keepalive_and_clean_unmount() {
+        let attached = serde_json::to_value(WorkspaceMountHeartbeatRequest {
+            mount_id: Some("mount-1".to_string()),
+            mounted_on: Some("sandbox:/code".to_string()),
+            unmount: false,
+        })
+        .unwrap();
+        assert_eq!(
+            attached,
+            serde_json::json!({"mount_id": "mount-1", "mounted_on": "sandbox:/code"})
+        );
+
+        let detached = serde_json::to_value(WorkspaceMountHeartbeatRequest {
+            mount_id: Some("mount-1".to_string()),
+            mounted_on: None,
+            unmount: true,
+        })
+        .unwrap();
+        assert_eq!(
+            detached,
+            serde_json::json!({"mount_id": "mount-1", "unmount": true})
+        );
+    }
+
+    #[test]
+    fn workspace_mutations_serialize_optional_mount_fence() {
+        let promote = serde_json::to_value(PromoteWorkspaceRequest {
+            branch: "main".to_string(),
+            mount_id: Some("mount-1".to_string()),
+            ..Default::default()
+        })
+        .unwrap();
+        assert_eq!(promote["mount_id"], "mount-1");
+
+        let sync = serde_json::to_value(SyncWorkspaceRequest {
+            target: Some("main".to_string()),
+            mount_id: Some("mount-1".to_string()),
+            ..Default::default()
+        })
+        .unwrap();
+        assert_eq!(sync["mount_id"], "mount-1");
+
+        let legacy = serde_json::to_value(SyncWorkspaceRequest::default()).unwrap();
+        assert!(legacy.get("mount_id").is_none());
+    }
+
     /// Promote responses from servers that predate merge mode decode with the new fields
     /// defaulting to false.
     #[test]
@@ -655,6 +1226,34 @@ mod tests {
         assert!(!resp.fast_forwarded);
     }
 
+    #[test]
+    fn workspace_info_decodes_wal_and_activity_state_with_old_server_defaults() {
+        let base = r#"{
+            "id":"aa", "ref_name":"refs/workspaces/aa", "principal":"user:u1",
+            "base":"1111111111111111111111111111111111111111",
+            "base_ref":"refs/heads/main",
+            "head":"1111111111111111111111111111111111111111",
+            "created_at_secs":1, "lease_secs":0, "lease_due_ms":null, "pinned":true
+        }"#;
+        let old: WorkspaceInfo = serde_json::from_str(base).unwrap();
+        assert_eq!(old.snapshot_count, 0);
+        assert_eq!(old.wal_state, "none");
+        assert_eq!(old.attachment_state, "unknown");
+        assert_eq!(old.wal_generation, None);
+
+        let current = base.replace(
+            "\"pinned\":true",
+            "\"pinned\":true,\"snapshot_count\":2,\"last_activity_ms\":99,\"wal_state\":\"dirty\",\"attachment_state\":\"attached\",\"mounted_on\":\"sandbox-1\",\"wal_generation\":7",
+        );
+        let current: WorkspaceInfo = serde_json::from_str(&current).unwrap();
+        assert_eq!(current.snapshot_count, 2);
+        assert_eq!(current.last_activity_ms, Some(99));
+        assert_eq!(current.wal_state, "dirty");
+        assert_eq!(current.attachment_state, "attached");
+        assert_eq!(current.mounted_on.as_deref(), Some("sandbox-1"));
+        assert_eq!(current.wal_generation, Some(7));
+    }
+
     /// The fleet page decodes gsvc-server's exact wire shape (`fleet_item_json` /
     /// `WorkspaceFleetResponse` in `crates/gsvc-server/src/http.rs`) — every field the CLI
     /// listing consumes. The server side of this contract is pinned by the fleet e2e test in
@@ -664,7 +1263,7 @@ mod tests {
         let body = r#"{
             "project": "p1",
             "items": [{
-                "id": "aabbccdd", "repo": "p1/demo", "status": "live", "mode": "shared-rw",
+                "id": "aabbccdd", "repo": "p1/demo", "storage": "native", "status": "live", "mode": "shared-rw",
                 "created_by": {"name": "user:u1", "kind": "human"},
                 "base": "1111111111111111111111111111111111111111",
                 "base_ref": "refs/heads/main",
@@ -690,6 +1289,7 @@ mod tests {
         let item = &page.items[0];
         assert_eq!(item.id, "aabbccdd");
         assert_eq!(item.repo, "p1/demo");
+        assert_eq!(item.storage, "native");
         assert_eq!(item.status, "live");
         assert_eq!(item.mode, "shared-rw");
         assert_eq!(item.created_by.as_ref().unwrap().name, "user:u1");
@@ -721,6 +1321,7 @@ mod tests {
         let page: WorkspaceFleetPage = serde_json::from_str(body).unwrap();
         let item = &page.items[0];
         assert!(item.created_by.is_none(), "unbound workspace");
+        assert_eq!(item.storage, "git", "old servers default to git rows");
         assert!(item.base_ref.is_none());
         assert_eq!(item.lease_secs, 0, "old servers omit lease_secs");
         assert!(item.lease_due_ms.is_none(), "omitted lease row = pinned");
@@ -748,5 +1349,104 @@ mod tests {
         assert_eq!(resp.base, "t1");
         assert_eq!(resp.conflicts.len(), 1);
         assert_eq!(resp.conflicts[0].kind, "content");
+
+        let view: ViewSyncWorkspaceResponse = serde_json::from_value(serde_json::json!({
+            "workspace_head": "t2", "target_head": "t2", "base": "t2",
+            "target_ref": "refs/tags/v2", "changed": true
+        }))
+        .unwrap();
+        assert!(view.changed);
+        assert_eq!(view.target_ref.as_deref(), Some("refs/tags/v2"));
+    }
+
+    #[test]
+    fn mount_source_and_presence_decode_versioned_wire() {
+        let source: GitMountSource = serde_json::from_value(serde_json::json!({
+            "format_ver": 1,
+            "kind": "tag", "follow_policy": "follow",
+            "canonical_ref": "refs/tags/v1",
+            "resolved_commit": "1111111111111111111111111111111111111111",
+            "subtree": "services/api",
+            "root_tree": "2222222222222222222222222222222222222222"
+        }))
+        .unwrap();
+        assert_eq!(source.canonical_ref.as_deref(), Some("refs/tags/v1"));
+        assert_eq!(source.subtree.as_deref(), Some("services/api"));
+
+        let presence: GitMountPresence = serde_json::from_value(serde_json::json!({
+            "format_ver": 1,
+            "session_id": "mount-1",
+            "principal": "user:1",
+            "source": source,
+            "mounted_on": "sandbox-1",
+            "started_at_ms": 1,
+            "last_heartbeat_ms": 2,
+            "expires_at_ms": 3
+        }))
+        .unwrap();
+        assert_eq!(presence.source.kind, "tag");
+        assert_eq!(presence.expires_at_ms, 3);
+
+        let annotated: RefStatus = serde_json::from_value(serde_json::json!({
+            "ref_name": "refs/tags/v1",
+            "oid": "3333333333333333333333333333333333333333",
+            "resolved_commit": "1111111111111111111111111111111111111111",
+            "generation": 4
+        }))
+        .unwrap();
+        assert_eq!(
+            annotated.resolved_commit.as_deref(),
+            Some("1111111111111111111111111111111111111111")
+        );
+        let legacy: RefStatus = serde_json::from_value(serde_json::json!({
+            "ref_name": "refs/heads/main", "oid": "1111", "generation": 1
+        }))
+        .unwrap();
+        assert!(legacy.resolved_commit.is_none());
+    }
+
+    #[test]
+    fn rebase_log_and_smartlog_decode_server_shapes() {
+        let response: RebaseWorkspaceResponse = serde_json::from_value(serde_json::json!({
+            "workspace_head": "ws1", "target_head": "t1", "base": "t1",
+            "clean": true, "up_to_date": false, "fast_forwarded": false,
+            "changed_paths": 1, "conflicts": [],
+            "stats": {"trees_read": 1, "entries_compared": 2, "blobs_merged": 0, "wall_ms": 0.1},
+            "recovery_ref": "refs/recovery/workspaces/ws-1/rebase-1"
+        }))
+        .unwrap();
+        assert_eq!(response.result.workspace_head, "ws1");
+        assert!(response.recovery_ref.unwrap().contains("recovery"));
+
+        let log: GitWorkspaceLogPage = serde_json::from_value(serde_json::json!({
+            "format_ver": 1,
+            "workspace_id": "ws-1",
+            "active_chain": [{
+                "oid": "abc", "subject": "checkpoint", "at_ms": 10,
+                "actor": "agent:1", "operation": "op-1", "conflicted": false
+            }],
+            "retained_chains": [{
+                "recovery_ref": "refs/recovery/ws-1/one", "head": "old", "base": "base",
+                "created_at_ms": 9, "reason": "rebase", "retention": "retained"
+            }],
+            "truncated": false,
+            "next_after": null
+        }))
+        .unwrap();
+        assert_eq!(log.active_chain[0].subject, "checkpoint");
+        assert_eq!(log.retained_chains[0].retention, "retained");
+
+        let graph: GitSmartlogPage = serde_json::from_value(serde_json::json!({
+            "format_ver": 1, "repo": "demo",
+            "nodes": [{
+                "id": "branch:main", "kind": "branch", "label": "main", "oid": "abc",
+                "workspace_id": null, "actor": null, "timestamp_ms": null, "state": "active"
+            }],
+            "edges": [{"from": "branch:main", "to": "abc", "kind": "points_to"}],
+            "truncated": true, "next_after": "opaque-cursor"
+        }))
+        .unwrap();
+        assert_eq!(graph.nodes[0].kind, "branch");
+        assert_eq!(graph.next_after.as_deref(), Some("opaque-cursor"));
     }
 }

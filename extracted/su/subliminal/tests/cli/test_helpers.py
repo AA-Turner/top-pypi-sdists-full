@@ -1,16 +1,21 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
 
 import pytest
 
 from subliminal.cli.helpers import (
+    _parse_auto_generated,
     get_argument_doc,
     get_parameters_from_signature,
+    read_configuration,
     split_doc_args,
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+    from pathlib import Path
+
     from babelfish import Language  # type: ignore[import-untyped]
 
 # Core test
@@ -93,3 +98,23 @@ def test_get_parameters_from_signature(docstring: str) -> None:
     assert params[5]['default'] is False
     assert params[5]['annotation'] == 'bool'
     assert params[5]['desc'] is None
+
+
+def test_read_configuration_file_not_found(tmp_path: Path) -> None:
+    path = tmp_path / 'config.toml'
+    conf = read_configuration(path)
+    msg = 'Not using any configuration file'
+    assert conf['obj']['debug_message'].startswith(msg)
+
+
+@pytest.mark.parametrize(
+    ('param', 'check'),
+    [
+        (None, False),
+        ('language', False),
+        ('_provider__opensubtitlescom__username', True),
+    ],
+)
+def test_parse_auto_generated(param: str, check: bool) -> None:
+    parsed = _parse_auto_generated(param)
+    assert (parsed is None) is not check

@@ -6,6 +6,7 @@
 __all__ = ("FilterStateValue", "FilterStateValueSharedWithUpstream")
 
 import typing
+import warnings
 
 import betterproto2
 import pydantic
@@ -115,8 +116,7 @@ class FilterStateValue(betterproto2.Message):
 
     read_only: "bool" = betterproto2.field(3, betterproto2.TYPE_BOOL)
     """
-    If marked as read-only, the filter state key value is locked, and cannot
-    be overridden by any filter, including this filter.
+    This field is deprecated and its value has no effect.
     """
 
     shared_with_upstream: "FilterStateValueSharedWithUpstream" = betterproto2.field(
@@ -135,6 +135,13 @@ class FilterStateValue(betterproto2.Message):
     Skip the update if the value evaluates to an empty string.
     This option can be used to supply multiple alternatives for the same filter state object key.
     """
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        if self.is_set("read_only"):
+            warnings.warn(
+                "FilterStateValue.read_only is deprecated", DeprecationWarning
+            )
 
     @model_validator(mode="after")
     def check_oneof(cls, values):

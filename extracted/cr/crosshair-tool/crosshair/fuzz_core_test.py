@@ -43,7 +43,6 @@ KNOWN_FAILURES = {
     "int.to_bytes": "[3.11+] symbolic int.to_bytes ignores its now-optional args -> TypeError",
     "bool.to_bytes": "[3.11+] symbolic bool.to_bytes ignores its now-optional args -> TypeError",
     "str.__format__": "format(symbolic_str) diverges from concrete",
-    "tuple.__getitem__": "symbolic tuple[i] wraps the index modulo len instead of raising IndexError",
     "float.__floordiv__": "symbolic float // float returns an int instead of a float",
     "float.__divmod__": "symbolic divmod(float, float) returns an int quotient instead of a float",
     "float.__mod__": "symbolic float % float diverges from concrete on extreme values",
@@ -193,6 +192,11 @@ KNOWN_FAILURES = {
     "urllib.parse.urlencode": "CrossHairInternal: numeric op on symbolic while not tracing",
     "difflib.ndiff": "SymbolicBool leaks through __bool__ (TypeError in difflib.compare)",
     "pipes.quote": "symbolic str quoting diverges (regex match differs; <3.13 only)",
+    # symbolic datetime methods diverge from concrete (surfaced by making the
+    # datetime receiver types drivable).
+    "datetime.date.__sub__": "symbolic date - datetime returns a timedelta instead of raising TypeError",
+    "datetime.date.isocalendar": "symbolic date.isocalendar() diverges from concrete (IsoCalendarDate)",
+    "datetime.datetime.isocalendar": "symbolic datetime.isocalendar() diverges from concrete (IsoCalendarDate)",
 }
 
 # Divergences that surface only on Windows (issue #467, the Windows op triage).
@@ -207,6 +211,10 @@ WINDOWS_KNOWN_FAILURES = {
     "msvcrt.SetErrorMode": "[win32] symbolic msvcrt.SetErrorMode returns the wrong mode",
     "msvcrt.open_osfhandle": "[win32] symbolic open_osfhandle raises TypeError vs concrete OSError",
     "ctypes.set_last_error": "[win32] symbolic ctypes.set_last_error returns 0, not the prior error",
+    # os.*_handle_inheritable are Windows-only (operate on handles, not fds); the
+    # symbolic int isn't realized before the C helper, same as waitstatus below.
+    "os.get_handle_inheritable": "[win32] symbolic int rejected by the C helper ('an integer is required')",
+    "os.set_handle_inheritable": "[win32] symbolic int rejected by the C helper ('an integer is required')",
     # Platform-divergent ops (behave differently / only on Windows).
     "select.select": "[win32] select() rejects non-socket fds (WinError 10038); symbolic raises TypeError",
     "os.waitstatus_to_exitcode": "symbolic int rejected by the C helper ('an integer is required')",

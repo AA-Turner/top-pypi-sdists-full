@@ -59,6 +59,7 @@ __all__ = (
     "DescribeIntegrationsPaginatorName",
     "DescribeNodeConfigurationOptionsPaginatorName",
     "DescribeOrderableClusterOptionsPaginatorName",
+    "DescribeQev2IdcApplicationsPaginatorName",
     "DescribeRedshiftIdcApplicationsPaginatorName",
     "DescribeReservedNodeExchangeStatusPaginatorName",
     "DescribeReservedNodeOfferingsPaginatorName",
@@ -152,6 +153,7 @@ DescribeIntegrationsFilterNameType = Literal[
 DescribeIntegrationsPaginatorName = Literal["describe_integrations"]
 DescribeNodeConfigurationOptionsPaginatorName = Literal["describe_node_configuration_options"]
 DescribeOrderableClusterOptionsPaginatorName = Literal["describe_orderable_cluster_options"]
+DescribeQev2IdcApplicationsPaginatorName = Literal["describe_qev2_idc_applications"]
 DescribeRedshiftIdcApplicationsPaginatorName = Literal["describe_redshift_idc_applications"]
 DescribeReservedNodeExchangeStatusPaginatorName = Literal["describe_reserved_node_exchange_status"]
 DescribeReservedNodeOfferingsPaginatorName = Literal["describe_reserved_node_offerings"]
@@ -669,6 +671,7 @@ PaginatorName = Literal[
     "describe_integrations",
     "describe_node_configuration_options",
     "describe_orderable_cluster_options",
+    "describe_qev2_idc_applications",
     "describe_redshift_idc_applications",
     "describe_reserved_node_exchange_status",
     "describe_reserved_node_offerings",

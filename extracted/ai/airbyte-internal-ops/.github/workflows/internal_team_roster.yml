@@ -9,7 +9,7 @@ on:
       - "src/airbyte_ops_mcp/internal_team_roster.py"
       - "data/github_to_airbyte_io_email.csv"
       - "src/airbyte_ops_mcp/cli/roster.py"
-      - "src/airbyte_ops_mcp/mcp/people_lookup.py"
+      - "src/airbyte_ops_mcp/mcp/human_in_the_loop.py"
       - ".github/workflows/internal_team_roster.yml"
 
 permissions:

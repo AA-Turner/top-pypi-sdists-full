@@ -8,10 +8,9 @@ from abstra_internals.controllers.file_locks import (
     FileLockedException,
 )
 from abstra_internals.environment import EDITOR_MODE, PROJECT_ID
+from abstra_internals.services import mcp_context
 from abstra_internals.services.jwt import decode_jwt
 from abstra_internals.settings import Settings
-
-LOCK_SESSION_ID_HEADER = "X-Abstra-Lock-Session-Id"
 
 
 def current_editor_user() -> Optional[Tuple[str, str]]:
@@ -31,21 +30,22 @@ def current_editor_user() -> Optional[Tuple[str, str]]:
     return email, name
 
 
-def _requester_identity() -> Tuple[str, str]:
+def _requester_email() -> str:
     if not flask.has_request_context():
-        return "", ""
+        return ""
     identity = current_editor_user()
-    email = identity[0] if identity else ""
-    session_id = flask.request.headers.get(LOCK_SESSION_ID_HEADER) or ""
-    return email, session_id
+    return identity[0] if identity else ""
 
 
 def check_file_lock(*file_paths: str) -> Optional[flask.Response]:
-    email, session_id = _requester_identity()
+    if mcp_context.current_message_id() is not None:
+        return None
+
+    email = _requester_email()
 
     for file_path in file_paths:
         normalized = file_path.replace("\\", "/")
-        blocking = FileLockController.find_blocking_lock(normalized, email, session_id)
+        blocking = FileLockController.find_blocking_lock(normalized, email)
         if blocking is not None:
             return flask.make_response(
                 {"error": "file_locked", "holder": blocking.to_dict()}, 423
@@ -54,14 +54,15 @@ def check_file_lock(*file_paths: str) -> Optional[flask.Response]:
 
 
 def raise_if_file_locked(file_path: Path) -> None:
+    if mcp_context.current_message_id() is not None:
+        return
+
     try:
         relative = file_path.resolve().relative_to(Settings.root_path.resolve())
     except ValueError:
         return
 
-    email, session_id = _requester_identity()
-    blocking = FileLockController.find_blocking_lock(
-        relative.as_posix(), email, session_id
-    )
+    email = _requester_email()
+    blocking = FileLockController.find_blocking_lock(relative.as_posix(), email)
     if blocking is not None:
         raise FileLockedException(blocking)

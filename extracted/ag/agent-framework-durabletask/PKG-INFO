@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agent-framework-durabletask
-Version: 1.0.0b260709
+Version: 1.0.0b260721
 Summary: Durable Task integration for Microsoft Agent Framework.
 Author-email: Microsoft <af-support@microsoft.com>
 Requires-Python: >=3.10

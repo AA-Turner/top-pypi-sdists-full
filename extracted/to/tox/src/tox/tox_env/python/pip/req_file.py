@@ -33,7 +33,7 @@ class PythonDeps(RequirementsFile):
         self._unroll: tuple[list[str], list[str]] | None = None
         self._req_parser_: RequirementsFile | None = None
 
-    def _extend_parser(self, parser: ArgumentParser) -> None:  # noqa: PLR6301
+    def _extend_parser(self, parser: ArgumentParser) -> None:  # ruff:ignore[no-self-use]
         parser.add_argument("--no-deps", action="store_true", dest="no_deps", default=False)
 
     def _merge_option_line(self, base_opt: Namespace, opt: Namespace, filename: str) -> None:
@@ -107,7 +107,7 @@ class PythonDeps(RequirementsFile):
             line = f"{line[: len(escape_match)]} {escaped}"
         return line
 
-    def _parse_requirements(self, opt: Namespace, recurse: bool) -> list[ParsedRequirement]:  # noqa: FBT001
+    def _parse_requirements(self, opt: Namespace, recurse: bool) -> list[ParsedRequirement]:  # ruff:ignore[boolean-type-hint-positional-argument]
         # check for any invalid options in the deps list
         # (requirements recursively included from other files are not checked)
         requirements = super()._parse_requirements(opt, recurse)
@@ -126,12 +126,12 @@ class PythonDeps(RequirementsFile):
             if not self.requirements and opts_dict:
                 msg = "no dependencies"
                 raise ValueError(msg)
-            result_opts: list[str] = [f"{key}={value}" for key, value in opts_dict.items()]
+            result_opts = _render_options(opts_dict)
             result_req = [str(req) for req in self.requirements]
             self._unroll = result_opts, result_req
         return self._unroll
 
-    def __iadd__(self, other: PythonDeps) -> PythonDeps:  # noqa: PYI034
+    def __iadd__(self, other: PythonDeps) -> PythonDeps:  # ruff:ignore[non-self-return-type]
         self._raw += "\n" + other._raw
         return self
 
@@ -221,7 +221,7 @@ class PythonConstraints(RequirementsFile):
             line = f"{line[: len(escape_match)]} {escaped}"
         return line
 
-    def _parse_requirements(self, opt: Namespace, recurse: bool) -> list[ParsedRequirement]:  # noqa: FBT001
+    def _parse_requirements(self, opt: Namespace, recurse: bool) -> list[ParsedRequirement]:  # ruff:ignore[boolean-type-hint-positional-argument]
         # check for any invalid options in the deps list
         # (requirements recursively included from other files are not checked)
         requirements = super()._parse_requirements(opt, recurse)
@@ -239,7 +239,7 @@ class PythonConstraints(RequirementsFile):
             if not self.requirements and opts_dict:
                 msg = "no dependencies"
                 raise ValueError(msg)
-            result_opts: list[str] = [f"{key}={value}" for key, value in opts_dict.items()]
+            result_opts = _render_options(opts_dict)
             result_req = [str(req) for req in self.requirements]
             self._unroll = result_opts, result_req
         return self._unroll
@@ -294,6 +294,13 @@ ONE_ARG_ESCAPE = {
     "-e",
     "--editable",
 }
+
+
+def _render_options(options: dict[str, object]) -> list[str]:
+    # set-valued options (e.g. no_binary) render sorted so the value is stable across hash seeds - the install
+    # cache compares these strings and an order change would force a spurious recreate
+    return [f"{key}={','.join(sorted(value)) if isinstance(value, set) else value}" for key, value in options.items()]
+
 
 __all__ = (
     "ONE_ARG",

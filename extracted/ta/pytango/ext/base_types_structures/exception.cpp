@@ -51,7 +51,7 @@ Tango::DevFailed convert_to_dev_failed(PyObject *type, PyObject *value, PyObject
                                                        traceback);
 
             try {
-                py::object tbList = py::reinterpret_borrow<py::object>(tbList_ptr);
+                py::object tbList = py::reinterpret_steal<py::object>(tbList_ptr);
                 py::str origin = py::str("").attr("join")(tbList);
                 std::string origin_str = origin.cast<std::string>();
                 dev_err[0].origin = CORBA::string_dup(origin_str.c_str());
@@ -71,7 +71,7 @@ Tango::DevFailed convert_to_dev_failed(PyObject *type, PyObject *value, PyObject
                                              type,
                                              value == nullptr ? Py_None : value);
 
-            py::object tbList = py::reinterpret_borrow<py::object>(tbList_ptr);
+            py::object tbList = py::reinterpret_steal<py::object>(tbList_ptr);
             py::str desc = py::str("").attr("join")(tbList);
             std::string desc_str = desc.cast<std::string>();
             dev_err[0].desc = CORBA::string_dup(desc_str.c_str());

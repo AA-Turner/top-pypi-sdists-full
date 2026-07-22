@@ -11,6 +11,7 @@ on:
       - "uv.lock"
       - "Dockerfile.ops-mcp"
       - "Dockerfile.ops-mcp.dockerignore"
+      - "infra/internal-mcp-servers/docker/cloud-mcp/**"
   repository_dispatch:
     types: [deploy-cloud-mcp, deploy-agent-mcp]
   workflow_dispatch:
@@ -58,169 +59,166 @@ env:
   MCP_PREVIEW_INPUT: ${{ github.event.inputs.preview || '' }}
 
 jobs:
-  resolve-vars:
-    name: "Resolve deployment variables"
+  # ---------- Resolve which service(s) to deploy and how ----------
+  resolve-targets:
+    name: "Resolve deployment targets"
     runs-on: ubuntu-latest
     outputs:
-      ref: ${{ steps.resolve.outputs.ref }}
-      short_sha: ${{ steps.resolve.outputs.short_sha }}
-      source: ${{ steps.resolve.outputs.source }}
-      image: ${{ steps.resolve.outputs.image }}
-      image_repo: ${{ steps.resolve.outputs.image_repo }}
-      service: ${{ steps.resolve.outputs.service }}
-      public_url: ${{ steps.resolve.outputs.public_url }}
-      is_preview: ${{ steps.resolve.outputs.is_preview }}
-      dockerfile: ${{ steps.resolve.outputs.dockerfile }}
-      build_context: ${{ steps.resolve.outputs.build_context }}
+      # JSON array of fully-resolved deploy specs (one object per deployable
+      # server). The `deploy-mcp` job fans out over it, so a single push that
+      # touches both the ops-mcp package and the cloud-mcp image files deploys
+      # both services in one run.
+      targets: ${{ steps.resolve-vars.outputs.targets }}
     steps:
-      - name: Resolve deployment variables
-        id: resolve
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      # On a push, deploy only the server(s) whose files actually changed. The
+      # push trigger's `paths` guarantees at least one of these matches. Non-push
+      # events (workflow_dispatch / repository_dispatch) ignore this and use the
+      # single server named by the event.
+      - name: Detect changed servers (push only)
+        id: changes
+        if: github.event_name == 'push'
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            ops_mcp:
+              - '.github/workflows/deploy-mcp-command.yml'
+              - 'src/**'
+              - 'pyproject.toml'
+              - 'uv.lock'
+              - 'Dockerfile.ops-mcp'
+              - 'Dockerfile.ops-mcp.dockerignore'
+            cloud_mcp:
+              - 'infra/internal-mcp-servers/docker/cloud-mcp/**'
+
+      - name: Resolve Variables
+        id: resolve-vars
         env:
           GH_TOKEN: ${{ github.token }}
           GCP_REGION: ${{ env.GCP_REGION }}
           GCP_PROJECT: ${{ env.GCP_PROJECT }}
           MCP_SERVER: ${{ env.MCP_SERVER }}
+          MCP_PR: ${{ env.MCP_PR }}
+          MCP_COMMENT_ID: ${{ env.MCP_COMMENT_ID }}
           MCP_PREVIEW: ${{ env.MCP_PREVIEW }}
           MCP_PREVIEW_INPUT: ${{ env.MCP_PREVIEW_INPUT }}
+          OPS_MCP_CHANGED: ${{ steps.changes.outputs.ops_mcp }}
+          CLOUD_MCP_CHANGED: ${{ steps.changes.outputs.cloud_mcp }}
         run: |
-          ref="$GITHUB_SHA"
-          short_sha="${GITHUB_SHA:0:7}"
-          source="manual"
+          set -euo pipefail
+          CLOUD_MCP_DIR="infra/internal-mcp-servers/docker/cloud-mcp"
+
+          # ---------- Which server(s) does this run deploy? ----------
+          # push: path-based selection (a change to the ops-mcp package deploys
+          # ops-mcp; a change to the cloud-mcp image dir deploys cloud-mcp).
+          # dispatch: the single server named by the event.
+          servers=()
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            [ "$OPS_MCP_CHANGED" = "true" ] && servers+=("ops-mcp")
+            [ "$CLOUD_MCP_CHANGED" = "true" ] && servers+=("cloud-mcp")
+          else
+            servers+=("$MCP_SERVER")
+          fi
+
+          # ---------- Validate inputs (guard statements) ----------
+          # Reject anything outside the known set so an unexpected value can't
+          # build arbitrary paths or silently deploy ops-mcp.
+          [ "$GITHUB_EVENT_NAME" = "push" ] \
+            || printf '%s\n' ops-mcp cloud-mcp agent-mcp | grep -qxF "$MCP_SERVER" \
+            || { echo "::error::Unsupported mcp-server: '$MCP_SERVER' (allowed: ops-mcp, cloud-mcp, agent-mcp)"; exit 1; }
+          # repository_dispatch only carries cloud-mcp/agent-mcp; an empty
+          # client_payload.mcp-server falls back to 'ops-mcp', so reject that
+          # rather than silently deploying ops-mcp to prod.
+          [ "$GITHUB_EVENT_NAME" != "repository_dispatch" ] || [ "$MCP_SERVER" != "ops-mcp" ] \
+            || { echo "::error::repository_dispatch must set client_payload.mcp-server to cloud-mcp or agent-mcp (resolved to 'ops-mcp')"; exit 1; }
+          [ -z "$MCP_COMMENT_ID" ] || [ -n "$MCP_PR" ] \
+            || { echo "::error::comment-id requires pr to be set"; exit 1; }
+          [ -z "$MCP_PR" ] || [[ "$MCP_PR" =~ ^[1-9][0-9]*$ ]] \
+            || { echo "::error::Invalid PR number: $MCP_PR"; exit 1; }
+          [ "${#servers[@]}" -gt 0 ] \
+            || { echo "::error::No deployment targets resolved for this event."; exit 1; }
+
+          # ---------- Preview vs production ----------
+          # 'auto'/empty infers from pr/comment-id; an explicit 'true'/'false'
+          # override wins (checked last so 'false' can force production).
           is_preview="false"
+          { [ -n "$MCP_PR" ] || [ -n "$MCP_COMMENT_ID" ]; } && is_preview="true"
+          { [ "$MCP_PREVIEW_INPUT" = "true" ] || [ "$MCP_PREVIEW" = "true" ]; } && is_preview="true"
+          { [ "$MCP_PREVIEW_INPUT" = "false" ] || [ "$MCP_PREVIEW" = "false" ]; } && is_preview="false"
 
-          # MCP_SERVER flows into image paths, Dockerfile selection, and the
-          # deploy target, and it can arrive from a repository_dispatch payload
-          # (or fall back to the 'ops-mcp' default). Reject anything outside the
-          # known set so an unexpected value can't build arbitrary paths or
-          # silently deploy ops-mcp when a dispatch omits mcp-server.
-          case "$MCP_SERVER" in
-            ops-mcp|cloud-mcp|agent-mcp) ;;
-            *)
-              echo "Unsupported mcp-server: '$MCP_SERVER' (allowed: ops-mcp, cloud-mcp, agent-mcp)" >&2
-              exit 1
-              ;;
-          esac
-
-          # repository_dispatch only accepts cloud-mcp/agent-mcp types (ops-mcp
-          # deploys via push-to-main or an explicit workflow_dispatch). An empty
-          # client_payload.mcp-server falls back to the 'ops-mcp' default above,
-          # so reject that here rather than silently deploying ops-mcp to prod.
-          if [ "$GITHUB_EVENT_NAME" = "repository_dispatch" ] && [ "$MCP_SERVER" = "ops-mcp" ]; then
-            echo "repository_dispatch must set client_payload.mcp-server to cloud-mcp or agent-mcp (resolved to 'ops-mcp')" >&2
-            exit 1
-          fi
-
-          if [ "$GITHUB_EVENT_NAME" = "push" ] && [ "$GITHUB_REF_NAME" = "main" ]; then
-            source="main"
-          fi
-
-          # Presence of either pr or comment-id means this is a slash-command
-          # preview deploy rather than a production deploy.
-          if [ -n "$MCP_COMMENT_ID" ] && [ -z "$MCP_PR" ]; then
-            echo "comment-id requires pr to be set" >&2
-            exit 1
-          fi
-
-          # Resolve an explicit preview override from either the workflow_dispatch
-          # `preview` input or the repository_dispatch `client_payload.preview`.
-          # 'auto' / empty means "infer from pr/comment-id presence".
-          preview_override=""
-          if [ "$MCP_PREVIEW_INPUT" = "true" ] || [ "$MCP_PREVIEW" = "true" ]; then
-            preview_override="true"
-          elif [ "$MCP_PREVIEW_INPUT" = "false" ] || [ "$MCP_PREVIEW" = "false" ]; then
-            preview_override="false"
-          fi
-
-          if [ "$preview_override" = "true" ]; then
-            is_preview="true"
-          elif [ "$preview_override" = "false" ]; then
-            is_preview="false"
-          elif [ -n "$MCP_PR" ] || [ -n "$MCP_COMMENT_ID" ]; then
-            is_preview="true"
-          fi
-
+          # ---------- Deploy source + ref ----------
+          ref="$GITHUB_SHA"
+          source="manual"
+          { [ "$GITHUB_EVENT_NAME" = "push" ] && [ "$GITHUB_REF_NAME" = "main" ]; } && source="main"
           if [ -n "$MCP_PR" ]; then
-            if ! [[ "$MCP_PR" =~ ^[1-9][0-9]*$ ]]; then
-              echo "Invalid PR number: $MCP_PR" >&2
-              exit 1
-            fi
             ref="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${MCP_PR}" --jq '.head.sha')"
-            short_sha="${ref:0:7}"
             source="pr-${MCP_PR}"
           fi
+          short_sha="${ref:0:7}"
 
-          image_repo="${MCP_SERVER}"
-          image_name="${MCP_SERVER}"
+          # ---------- Per-server deploy specs ----------
+          # agent-mcp (mcp.airbyte.ai) is built from airbytehq/sonar, not this
+          # repo, so it is inert here: it never enters the deploy matrix, and a
+          # request for it just resolves to an empty target list (no-op run).
+          targets="[]"
+          for server in "${servers[@]}"; do
+            if [ "$server" = "agent-mcp" ]; then continue; fi
 
-          # Most images build from a root Dockerfile.<server> with repo root as
-          # context (ops-mcp needs the repo source for `COPY src/`). cloud-mcp has
-          # no such need, so its Dockerfile + requirements live beside the infra
-          # deployment files and build from that scoped directory as context.
-          case "$MCP_SERVER" in
-            cloud-mcp)
-              dockerfile="infra/internal-mcp-servers/docker/cloud-mcp/Dockerfile"
-              build_context="infra/internal-mcp-servers/docker/cloud-mcp"
-              ;;
-            *)
-              dockerfile="Dockerfile.${MCP_SERVER}"
+            # Most images build from a root Dockerfile.<server> with the repo
+            # root as context (ops-mcp needs `COPY src/`). cloud-mcp's Dockerfile
+            # + requirements live beside the infra files, built from that dir.
+            if [ "$server" = "cloud-mcp" ]; then
+              dockerfile="${CLOUD_MCP_DIR}/Dockerfile"
+              build_context="$CLOUD_MCP_DIR"
+            else
+              dockerfile="Dockerfile.${server}"
               build_context="."
-              ;;
-          esac
+            fi
 
-          if [ "$is_preview" = "true" ]; then
-            service="${MCP_SERVER}-preview"
-            public_url="https://mcp.internal.airbyte.ai/${MCP_SERVER}-preview"
-            image="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT}/${image_repo}/${image_name}:preview-${short_sha}"
-          else
-            service="${MCP_SERVER}"
-            public_url="https://mcp.internal.airbyte.ai/${MCP_SERVER}"
-            image="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT}/${image_repo}/${image_name}:${source}-${short_sha}"
-          fi
+            if [ "$is_preview" = "true" ]; then
+              service="${server}-preview"
+              tag="preview-${short_sha}"
+            else
+              service="$server"
+              tag="${source}-${short_sha}"
+            fi
 
-          {
-            printf "ref=%s\n" "$ref"
-            printf "short_sha=%s\n" "$short_sha"
-            printf "source=%s\n" "$source"
-            printf "image=%s\n" "$image"
-            printf "image_repo=%s\n" "$image_repo"
-            printf "service=%s\n" "$service"
-            printf "public_url=%s\n" "$public_url"
-            printf "is_preview=%s\n" "$is_preview"
-            printf "dockerfile=%s\n" "$dockerfile"
-            printf "build_context=%s\n" "$build_context"
-          } | tee -a "$GITHUB_OUTPUT"
+            targets="$(jq -c \
+              --arg server "$server" \
+              --arg service "$service" \
+              --arg image "${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT}/${server}/${server}:${tag}" \
+              --arg image_repo "$server" \
+              --arg public_url "https://mcp.internal.airbyte.ai/${service}" \
+              --arg is_preview "$is_preview" \
+              --arg dockerfile "$dockerfile" \
+              --arg build_context "$build_context" \
+              --arg source "$source" \
+              --arg short_sha "$short_sha" \
+              --arg ref "$ref" \
+              '. += [{server:$server, service:$service, image:$image, image_repo:$image_repo, public_url:$public_url, is_preview:$is_preview, dockerfile:$dockerfile, build_context:$build_context, source:$source, short_sha:$short_sha, ref:$ref}]' \
+              <<<"$targets")"
+          done
 
-  # agent-mcp (the Airbyte Agents MCP behind mcp.airbyte.ai) is built from
-  # airbytehq/sonar's `agent-engine-mcp` app, not from this repo and not from
-  # the published PyAirbyte `airbyte` package. Its internal-mirror image build
-  # + deploy is paused while a Porter-based cross-repo image bridge is set up,
-  # so agent-mcp requests short-circuit here instead of building anything.
-  pause-agent-mcp:
-    name: "agent-mcp deploy paused"
-    needs: resolve-vars
-    if: ${{ startsWith(needs.resolve-vars.outputs.service, 'agent-mcp') }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Notice
-        run: |
-          {
-            printf "## agent-mcp deploy is paused\n\n"
-            printf "The Agents MCP (mcp.airbyte.ai) is built from "
-            printf "\`airbytehq/sonar\` (\`agent-engine-mcp\`), not from this repo "
-            printf "or the published PyAirbyte package.\n\n"
-            printf "This deploy path is a no-op until the Porter-based cross-repo "
-            printf "image bridge is in place. Requested service: \`%s\`.\n" \
-              "${{ needs.resolve-vars.outputs.service }}"
-          } | tee -a "$GITHUB_STEP_SUMMARY"
+          # ---------- Emit outputs (logged via tee for debugging) ----------
+          echo "targets=$targets" | tee -a "$GITHUB_OUTPUT"
+          echo "Resolved deployment targets:"
+          jq . <<<"$targets"
 
+  # ---------- Build + deploy each resolved service ----------
   deploy-mcp:
-    name: "Deploy ${{ needs.resolve-vars.outputs.service }}"
-    needs: resolve-vars
-    if: ${{ !startsWith(needs.resolve-vars.outputs.service, 'agent-mcp') }}
+    name: "Deploy ${{ matrix.target.service }}"
+    needs: resolve-targets
+    if: needs.resolve-targets.outputs.targets != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJSON(needs.resolve-targets.outputs.targets) }}
     runs-on: ubuntu-latest
     environment:
-      name: "Cloud Run (${{ needs.resolve-vars.outputs.service }})"
-      url: ${{ needs.resolve-vars.outputs.public_url }}
+      name: "Cloud Run (${{ matrix.target.service }})"
+      url: ${{ matrix.target.public_url }}
     steps:
       - name: Append comment with deployment job link
         id: post-start-comment
@@ -231,17 +229,17 @@ jobs:
           issue-number: ${{ env.MCP_PR }}
           edit-mode: append
           body: |
-            > 🚀 **${{ env.MCP_SERVER }} Deploy Job Info**
+            > 🚀 **${{ matrix.target.server }} Deploy Job Info**
             >
-            > Deploying `${{ needs.resolve-vars.outputs.source }}` to `${{ needs.resolve-vars.outputs.public_url }}`.
-            > Image: `${{ needs.resolve-vars.outputs.image }}`
+            > Deploying `${{ matrix.target.source }}` to `${{ matrix.target.public_url }}`.
+            > Image: `${{ matrix.target.image }}`
             >
             > ⏳ Job started... [Check job output.](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
       - name: Checkout deployment target
         uses: actions/checkout@v6
         with:
-          ref: ${{ needs.resolve-vars.outputs.ref }}
+          ref: ${{ matrix.target.ref }}
 
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
@@ -254,13 +252,13 @@ jobs:
 
       - name: Verify Artifact Registry repository
         run: >
-          gcloud artifacts repositories describe "${{ needs.resolve-vars.outputs.image_repo }}"
+          gcloud artifacts repositories describe "${{ matrix.target.image_repo }}"
           --project="${{ env.GCP_PROJECT }}"
           --location="${{ env.GCP_REGION }}"
 
       - name: Verify Cloud Run service
         run: >
-          gcloud run services describe "${{ needs.resolve-vars.outputs.service }}"
+          gcloud run services describe "${{ matrix.target.service }}"
           --project="${{ env.GCP_PROJECT }}"
           --region="${{ env.GCP_REGION }}"
           --format="value(metadata.name)"
@@ -273,25 +271,25 @@ jobs:
           DOCKER_BUILDKIT: "1"
         run: >
           docker build
-          --file "${{ needs.resolve-vars.outputs.dockerfile }}"
-          --tag "${{ needs.resolve-vars.outputs.image }}"
-          "${{ needs.resolve-vars.outputs.build_context }}"
+          --file "${{ matrix.target.dockerfile }}"
+          --tag "${{ matrix.target.image }}"
+          "${{ matrix.target.build_context }}"
 
       - name: Push image
-        run: docker push "${{ needs.resolve-vars.outputs.image }}"
+        run: docker push "${{ matrix.target.image }}"
 
       - name: Update Cloud Run service image
         run: >
-          gcloud run services update "${{ needs.resolve-vars.outputs.service }}"
+          gcloud run services update "${{ matrix.target.service }}"
           --project="${{ env.GCP_PROJECT }}"
           --region="${{ env.GCP_REGION }}"
-          --image="${{ needs.resolve-vars.outputs.image }}"
+          --image="${{ matrix.target.image }}"
           --quiet
 
       - name: Route traffic to latest revision (production only)
-        if: needs.resolve-vars.outputs.is_preview != 'true'
+        if: matrix.target.is_preview != 'true'
         run: >
-          gcloud run services update-traffic "${{ needs.resolve-vars.outputs.service }}"
+          gcloud run services update-traffic "${{ matrix.target.service }}"
           --project="${{ env.GCP_PROJECT }}"
           --region="${{ env.GCP_REGION }}"
           --to-latest
@@ -299,37 +297,37 @@ jobs:
 
       - name: Find existing preview comment
         id: find-preview-comment
-        if: needs.resolve-vars.outputs.is_preview == 'true' && env.MCP_PR != ''
+        if: matrix.target.is_preview == 'true' && env.MCP_PR != ''
         uses: peter-evans/find-comment@v3
         with:
           issue-number: ${{ env.MCP_PR }}
-          body-includes: "<!-- ${{ env.MCP_SERVER }}-preview -->"
+          body-includes: "<!-- ${{ matrix.target.server }}-preview -->"
 
       - name: Post or update preview comment
-        if: needs.resolve-vars.outputs.is_preview == 'true' && env.MCP_PR != ''
+        if: matrix.target.is_preview == 'true' && env.MCP_PR != ''
         uses: peter-evans/create-or-update-comment@v5
         with:
           comment-id: ${{ steps.find-preview-comment.outputs.comment-id }}
           issue-number: ${{ env.MCP_PR }}
           edit-mode: replace
           body: |
-            <!-- ${{ env.MCP_SERVER }}-preview -->
-            ### 🔍 ${{ env.MCP_SERVER }} Preview
+            <!-- ${{ matrix.target.server }}-preview -->
+            ### 🔍 ${{ matrix.target.server }} Preview
 
-            **Preview URL:** ${{ needs.resolve-vars.outputs.public_url }}
-            **Commit:** `${{ needs.resolve-vars.outputs.short_sha }}`
+            **Preview URL:** ${{ matrix.target.public_url }}
+            **Commit:** `${{ matrix.target.short_sha }}`
 
-            > This preview deploys to a dedicated preview service at `mcp.internal.airbyte.ai/${{ env.MCP_SERVER }}-preview`. It shares the same OIDC config and secrets as production. Only one preview is active at a time — subsequent deploys replace the previous one.
+            > This preview deploys to a dedicated preview service at `${{ matrix.target.public_url }}`. It shares the same OIDC config and secrets as production. Only one preview is active per service — subsequent deploys to this preview service replace the previous revision.
 
       - name: Summarize deployment
         run: |
           {
-            printf "%s deployed.\n" "${{ env.MCP_SERVER }}"
-            printf "Source: %s\n" "${{ needs.resolve-vars.outputs.source }}"
-            printf "Commit: %s\n" "${{ needs.resolve-vars.outputs.ref }}"
-            printf "Image: %s\n" "${{ needs.resolve-vars.outputs.image }}"
-            printf "Service: %s\n" "${{ needs.resolve-vars.outputs.service }}"
-            printf "URL: %s\n" "${{ needs.resolve-vars.outputs.public_url }}"
+            printf "%s deployed.\n" "${{ matrix.target.server }}"
+            printf "Source: %s\n" "${{ matrix.target.source }}"
+            printf "Commit: %s\n" "${{ matrix.target.ref }}"
+            printf "Image: %s\n" "${{ matrix.target.image }}"
+            printf "Service: %s\n" "${{ matrix.target.service }}"
+            printf "URL: %s\n" "${{ matrix.target.public_url }}"
           } | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Append success comment
@@ -344,7 +342,7 @@ jobs:
           edit-mode: append
           reactions: hooray
           body: |
-            > ✅ ${{ env.MCP_SERVER }} deploy completed successfully: ${{ needs.resolve-vars.outputs.public_url }}
+            > ✅ ${{ matrix.target.server }} deploy completed successfully: ${{ matrix.target.public_url }}
 
       - name: Append failure comment
         if: >
@@ -358,4 +356,4 @@ jobs:
           edit-mode: append
           reactions: confused
           body: |
-            > ❌ ${{ env.MCP_SERVER }} deploy failed. Check the [job output](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details.
+            > ❌ ${{ matrix.target.server }} deploy failed. Check the [job output](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details.

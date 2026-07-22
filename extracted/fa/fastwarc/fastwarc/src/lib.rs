@@ -27,6 +27,7 @@ pub mod _fastwarc {
         let py = m.py();
 
         // Load submodules.
+        // Don't add with add_submodule(), otherwise they end up in __all__.
         let stream_io = pyo3::wrap_pymodule!(_stream_io)(py);
         let stream_io = stream_io.bind(py);
 

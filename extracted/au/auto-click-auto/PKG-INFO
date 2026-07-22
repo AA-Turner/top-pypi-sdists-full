@@ -1,9 +1,9 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: auto-click-auto
-Version: 0.1.5
+Version: 0.1.6
 Summary: Automatically enable tab autocompletion for shells in Click CLI applications.
-Home-page: https://github.com/KAUTH/auto-click-auto
 License: MIT
+License-File: LICENSE
 Keywords: click,autocomplete,shell
 Author: Konstantinos Papadopoulos
 Author-email: konpap1996@yahoo.com
@@ -21,11 +21,13 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.11 
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development
 Requires-Dist: click (>=8.1.4,<9.0.0)
 Project-URL: Documentation, https://github.com/KAUTH/auto-click-auto/blob/main/README.md
+Project-URL: Homepage, https://github.com/KAUTH/auto-click-auto
 Project-URL: Repository, https://github.com/KAUTH/auto-click-auto
 Description-Content-Type: text/markdown
 

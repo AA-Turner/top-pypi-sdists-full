@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jupytext
-Version: 1.19.4
+Version: 1.19.5
 Summary: Jupyter notebooks as Markdown documents, Julia, Python or R scripts
 Project-URL: Homepage, https://github.com/jupytext/jupytext
 Project-URL: Source Code, https://github.com/jupytext/jupytext
@@ -129,7 +129,7 @@ Provides-Extra: test-ui
 Requires-Dist: bash-kernel; extra == 'test-ui'
 Description-Content-Type: text/markdown
 
-![](https://github.com/jupytext/jupytext/blob/17aea37c612f33a4e27eeee4b81966f1506920fd/docs/images/logo_large.png?raw=true)
+[![](https://github.com/jupytext/jupytext/blob/17aea37c612f33a4e27eeee4b81966f1506920fd/docs/images/logo_large.png?raw=true)](https://jupytext.org)
 
 <!-- INDEX-START -->
 
@@ -250,3 +250,7 @@ Read more about Jupytext in the [documentation](https://jupytext.org).
 If you're new to Jupytext, you may want to start with the [FAQ](https://github.com/jupytext/jupytext/blob/main/docs/faq.md) or with the [Tutorials](https://github.com/jupytext/jupytext/blob/main/docs/tutorials.md).
 
 There is also this short introduction to Jupytext: [![](https://img.shields.io/badge/YouTube-JupyterCon%202020-red.svg)](https://www.youtube.com/watch?v=SDYdeVfMh48).
+
+## Community
+
+Have a question, a bug report, or an idea? Join us on [Discord](https://discord.gg/VfdAsYyn) or open an issue or discussion on [GitHub](https://github.com/jupytext/jupytext).

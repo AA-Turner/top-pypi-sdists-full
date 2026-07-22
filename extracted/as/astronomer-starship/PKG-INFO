@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: astronomer-starship
-Version: 2.8.6
+Version: 2.9.0
 Summary: Migrations to Astro
 Author-email: Fritz Davenport <fritz@astronomer.io>, CETA Team <ceta@astronomer.io>, Astronomer <humans@astronomer.io>
 License: PROPRIETARY
@@ -24,16 +24,19 @@ Requires-Dist: apache-airflow-providers-http; extra == "provider"
 Provides-Extra: dev
 Requires-Dist: twine; extra == "dev"
 Requires-Dist: build; extra == "dev"
+Requires-Dist: commitizen; extra == "dev"
 Requires-Dist: apache-airflow<3.2; extra == "dev"
 Requires-Dist: pytest>=7; extra == "dev"
 Requires-Dist: pytest-cov>=4.0; extra == "dev"
 Requires-Dist: pytest-integration>=0.2; extra == "dev"
 Requires-Dist: pytest-sugar>=0.9; extra == "dev"
 Requires-Dist: docker>=6; extra == "dev"
-Requires-Dist: mkdocs; extra == "dev"
-Requires-Dist: mkdocs-material; extra == "dev"
-Requires-Dist: mkdocstrings[python]; extra == "dev"
-Requires-Dist: pygments; extra == "dev"
+Requires-Dist: astronomer-starship[docs]; extra == "dev"
+Provides-Extra: docs
+Requires-Dist: mkdocs; extra == "docs"
+Requires-Dist: mkdocs-material; extra == "docs"
+Requires-Dist: mkdocstrings[python]; extra == "docs"
+Requires-Dist: pygments; extra == "docs"
 Dynamic: license-file
 
 # Astronomer Starship

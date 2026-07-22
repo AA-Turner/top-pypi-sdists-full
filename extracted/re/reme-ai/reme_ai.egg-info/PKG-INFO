@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: reme-ai
-Version: 0.4.1.1
+Version: 0.4.1.3
 Summary: Remember Me, Refine Me.
 Author-email: EconML team of Alibaba Tongyi Lab <jinli.yl@alibaba-inc.com>
 License-Expression: Apache-2.0
@@ -43,16 +43,14 @@ Requires-Dist: jieba>=0.42.1; extra == "core"
 Requires-Dist: rjieba>=0.2.1; extra == "core"
 Requires-Dist: neo4j>=6.2.0; extra == "core"
 Requires-Dist: networkx>=3.4.2; extra == "core"
+Requires-Dist: openai-codex>=0.1.0b3; extra == "core"
 Provides-Extra: dev
 Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: pytest>=8.0; extra == "dev"
 Requires-Dist: pytest-asyncio>=0.23; extra == "dev"
-Provides-Extra: benchmark
-Requires-Dist: portalocker>=2.10.1; extra == "benchmark"
 Provides-Extra: full
 Requires-Dist: reme-ai[core]; extra == "full"
 Requires-Dist: reme-ai[dev]; extra == "full"
-Requires-Dist: reme-ai[benchmark]; extra == "full"
 Dynamic: license-file
 
 <p align="center">

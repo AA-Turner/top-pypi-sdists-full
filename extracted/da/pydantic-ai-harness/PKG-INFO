@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydantic-ai-harness
-Version: 0.7.1
+Version: 0.9.0
 Summary: The batteries for your Pydantic AI agent
 Project-URL: Homepage, https://github.com/pydantic/pydantic-ai-harness
 Project-URL: Source, https://github.com/pydantic/pydantic-ai-harness
@@ -21,7 +21,7 @@ Classifier: Topic :: Software Development :: Libraries
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Requires-Dist: httpx>=0.28.1
-Requires-Dist: pydantic-ai-slim>=2.1.0
+Requires-Dist: pydantic-ai-slim>=2.14.1
 Provides-Extra: acp
 Requires-Dist: agent-client-protocol<0.12,>=0.11; extra == 'acp'
 Provides-Extra: code-mode
@@ -32,9 +32,11 @@ Provides-Extra: dbos
 Requires-Dist: pydantic-ai-slim[dbos]; extra == 'dbos'
 Provides-Extra: dynamic-workflow
 Requires-Dist: pydantic-monty>=0.0.16; extra == 'dynamic-workflow'
+Provides-Extra: exa
+Requires-Dist: exa-py>=2.16.0; extra == 'exa'
 Provides-Extra: logfire
 Requires-Dist: logfire>=4.31.0; extra == 'logfire'
-Requires-Dist: pydantic-ai-slim[spec]>=2.1.0; extra == 'logfire'
+Requires-Dist: pydantic-ai-slim[spec]>=2.14.1; extra == 'logfire'
 Provides-Extra: temporal
 Requires-Dist: pydantic-ai-slim[temporal]; extra == 'temporal'
 Description-Content-Type: text/markdown
@@ -70,12 +72,13 @@ Extras for specific capabilities:
 uv add "pydantic-ai-harness[codemode]"          # CodeMode (adds the Monty sandbox)
 uv add "pydantic-ai-harness[dynamic-workflow]"  # DynamicWorkflow (adds the Monty sandbox)
 uv add "pydantic-ai-harness[logfire]"           # ManagedPrompt (Logfire-managed prompts)
+uv add "pydantic-ai-harness[exa]"               # ExaSearch + ExaAgent (web research via the Exa API)
 uv add "pydantic-ai-harness[acp]"               # ACP (serve an agent to editors over the Agent Client Protocol)
 ```
 
 The `code-mode` extra is also supported as an alias.
 
-Requires Python 3.10+ and `pydantic-ai-slim>=2.1.0`.
+Requires Python 3.10+ and `pydantic-ai-slim>=2.14.1`.
 
 ## Quick start
 
@@ -191,6 +194,8 @@ We studied leading coding agents, agent frameworks, and Claw-style assistants to
 | | **Shell** | Execute commands with allowlists, denylists, and timeouts | :white_check_mark: [Docs](pydantic_ai_harness/shell/) | [pydantic-ai-backend](https://github.com/vstorm-co/pydantic-ai-backend) (vstorm&#8209;co) |
 | | **Repo context injection** | Auto-load CLAUDE.md/AGENTS.md and repo structure | :white_check_mark: [Docs](pydantic_ai_harness/context/) | [pydantic-deep](https://github.com/vstorm-co/pydantic-deepagents) (vstorm&#8209;co) |
 | | **Docs lookup** | On-demand `read_pyai_docs` tool for Pydantic AI docs | :white_check_mark: [Docs](pydantic_ai_harness/docs/) | |
+| | **Web research** | Web search returning relevant page excerpts, full single-page retrieval, and opt-in deep search with cited answers, backed by [Exa](https://exa.ai) | :white_check_mark: [Docs](pydantic_ai_harness/exa/) | |
+| | **Hosted research agent** | Delegate open-ended research to the [Exa](https://exa.ai) Agent API as deferred tool calls -- resolved inline or by the host application | :white_check_mark: [Docs](pydantic_ai_harness/exa/) | |
 | | **Verification loop** | Run tests after edits, auto-fix failures | :construction: [PR&nbsp;#169](https://github.com/pydantic/pydantic-ai-harness/pull/169) | |
 | **Editor integration** | **ACP** | Serve an agent to editors (Zed, etc.) over the [Agent Client Protocol](https://agentclientprotocol.com) -- streamed text, diff-rendered edits, tool approval | :white_check_mark: [Docs](pydantic_ai_harness/experimental/acp/) (experimental) | |
 | **Prompt management** | **Managed prompt** | Back an agent's instructions with a [Logfire](https://pydantic.dev/logfire)-managed prompt, editable without shipping code | :white_check_mark: [Docs](pydantic_ai_harness/logfire/) | |
@@ -198,6 +203,7 @@ We studied leading coding agents, agent frameworks, and Claw-style assistants to
 | | **Context compaction** | LLM-powered summarization of older messages | :white_check_mark: [Docs](pydantic_ai_harness/compaction/) | [summarization-pydantic-ai](https://github.com/vstorm-co/summarization-pydantic-ai) (vstorm&#8209;co) |
 | | **Limit warnings** | Warn agent before hitting context/iteration limits | :white_check_mark: [Docs](pydantic_ai_harness/compaction/) | [summarization-pydantic-ai](https://github.com/vstorm-co/summarization-pydantic-ai) (vstorm&#8209;co) |
 | | **Tool output management** | Truncate, summarize, or spill large tool outputs | :white_check_mark: [Docs](pydantic_ai_harness/overflowing_tool_output/) | |
+| | **Cache-bust monitoring** | Warn when a run's prompt-cache prefix collapses between model requests | :white_check_mark: [Docs](pydantic_ai_harness/cache_stability/) | |
 | | **System reminders** | Inject periodic reminders to counteract instruction drift | :construction: [PR&nbsp;#181](https://github.com/pydantic/pydantic-ai-harness/pull/181) | |
 | **Memory &&nbsp;persistence** | **Memory** | Persistent, namespaced notebook with bounded prompt injection, on-demand search, and concurrency-safe stores | :white_check_mark: [Docs](pydantic_ai_harness/memory/) | [pydantic-deep](https://github.com/vstorm-co/pydantic-deepagents) (vstorm&#8209;co) |
 | | **Session persistence** | Save and restore full conversation state | :white_check_mark: [Docs](pydantic_ai_harness/step_persistence/) | |
@@ -223,7 +229,6 @@ We studied leading coding agents, agent frameworks, and Claw-style assistants to
 | | **Tool orphan repair** | Fix orphaned tool calls in conversation history | :construction: [PR&nbsp;#184](https://github.com/pydantic/pydantic-ai-harness/pull/184) | |
 | **Reasoning** | **Adaptive reasoning** | Adjust thinking effort based on task complexity | :construction: [PR&nbsp;#174](https://github.com/pydantic/pydantic-ai-harness/pull/174) | |
 | | **Current time** | Inject current date/time into system prompt | :construction: [PR&nbsp;#170](https://github.com/pydantic/pydantic-ai-harness/pull/170) | |
-| **Prompt management** | **Managed prompt** | Serve Logfire-managed prompts as instructions, so you can edit and roll them out without a code deploy | :white_check_mark: [Docs](pydantic_ai_harness/logfire/) | |
 
 > Packages by [vstorm-co](https://github.com/vstorm-co) are endorsed by the Pydantic AI team. We're working with them to upstream some of their implementations into this repo.
 

@@ -30,6 +30,7 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
   "Programming Language :: Python :: Implementation :: CPython",
   "Topic :: Software Development :: Libraries :: Python Modules",
 ]
@@ -41,19 +42,21 @@ dependencies = [
   "python-dotenv>=1.2.2",
   "tomli>=2.4; python_version<'3.11'",
 ]
-optional-dependencies.testing = [
-  "covdefaults>=2.3",
-  "coverage>=7.13.4",
-  "pytest-mock>=3.15.1",
-]
 urls.Homepage = "https://github.com/pytest-dev/pytest-env"
 urls.Source = "https://github.com/pytest-dev/pytest-env"
 urls.Tracker = "https://github.com/pytest-dev/pytest-env/issues"
 entry-points.pytest11.env = "pytest_env.plugin"
 
+[dependency-groups]
+test = [
+  "covdefaults>=2.3",
+  "coverage>=7.13.4",
+  "pytest-mock>=3.15.1",
+]
+
 [tool.hatch]
-build.hooks.vcs.version-file = "src/pytest_env/version.py"
 version.source = "vcs"
+build.hooks.vcs.version-file = "src/pytest_env/version.py"
 
 [tool.ruff]
 line-length = 120
@@ -95,7 +98,10 @@ write-changes = true
 count = true
 
 [tool.pyproject-fmt]
-max_supported_python = "3.14"
+max_supported_python = "3.15"
+
+[tool.ty]
+environment.python-version = "3.14"
 
 [tool.coverage]
 run.branch = true
@@ -120,6 +126,3 @@ report.fail_under = 100
 report.show_missing = true
 html.show_contexts = true
 html.skip_covered = false
-
-[tool.ty]
-environment.python-version = "3.14"

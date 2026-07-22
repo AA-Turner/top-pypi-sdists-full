@@ -945,6 +945,170 @@ def _infer_planting_month(stage_names):
     return None
 
 
+_MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+               "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+_MONTH_NUM = {m: i + 1 for i, m in enumerate(_MONTH_ABBR)}
+_NUM_MONTH = {i + 1: m for i, m in enumerate(_MONTH_ABBR)}
+
+
+def _swd_month(token):
+    """Month number from a Stage-Window-Display token.
+
+    Tokens look like ``"Jun 1"`` / ``"Mar 31"`` (calendar-order endpoints
+    from ``geocif.utils.dict_growth_stages_monthly[_end]``); a bare month
+    name like ``"March"`` also works. Returns ``None`` if unparseable.
+    """
+    if not isinstance(token, str) or not token.strip():
+        return None
+    return _MONTH_NUM.get(token.strip()[:3].title())
+
+
+_CAL_MONTH_PREFIX = {m: i + 1 for i, m in enumerate(
+    ["jan", "feb", "mar", "apr", "may", "jun",
+     "jul", "aug", "sep", "oct", "nov", "dec"])}
+
+
+def _window_bounds(swd):
+    """('Mar 1-Jun 30') -> (3, 6); (None, None) if unparseable."""
+    if not isinstance(swd, str) or "-" not in swd:
+        return (None, None)
+    left, right = swd.split("-", 1)
+    return (_swd_month(left), _swd_month(right))
+
+
+def _season_bounds_from_windows(windows):
+    """Planting & harvest months = start/end of the longest cumulative window.
+
+    Each Stage Window Display is calendar-order ('<plant> 1-<as-of> 31'); the
+    full-season step has the widest span, so its start = planting and its end =
+    harvest. Fallback for when the crop calendar lacks the crop/season. Returns
+    (plant_month, harvest_month) ints, or (None, None).
+    """
+    best, best_span = None, -1
+    for swd in set(w for w in windows if isinstance(w, str)):
+        p, e = _window_bounds(swd)
+        if p is None or e is None:
+            continue
+        span = (e - p) % 12
+        if span > best_span:
+            best_span, best = span, (p, e)
+    return best if best is not None else (None, None)
+
+
+def _calendar_bounds(calendar_path, country, crop, season):
+    """(planting_month, harvest_month) ints from an EWCM-style crop calendar.
+
+    Sheet ``{crop}_{season}`` (or ``{crop}`` for wheat); half-month columns
+    ``jan_1..dec_15`` encode 1=planting, 2=growing, 3=harvest. Reads the
+    country's admin/livelihood-zone rows that grow the crop, then takes
+    planting = first month flagged 1 and harvest = first month flagged 3
+    walking forward from planting (cross-year aware). (None, None) if the
+    file/sheet/country is absent — caller then falls back to stage windows.
+    """
+    from pathlib import Path
+
+    calendar_path = Path(calendar_path)
+    if not calendar_path.exists():
+        return (None, None)
+    try:
+        xl = pd.ExcelFile(calendar_path)
+    except Exception:
+        return (None, None)
+    sheet = f"{crop}_{season}"
+    if sheet not in xl.sheet_names:
+        if crop in xl.sheet_names:          # wheat-style single-season sheet
+            sheet = crop
+        else:
+            xl.close()
+            return (None, None)
+    try:
+        df = pd.read_excel(xl, sheet_name=sheet)
+    finally:
+        xl.close()
+
+    ccol = next((c for c in df.columns if c.lower() == "country"), None)
+    monthcols = [c for c in df.columns
+                 if "_" in c and c.split("_")[0].lower() in _CAL_MONTH_PREFIX]
+    if ccol is None or not monthcols:
+        return (None, None)
+    rows = df[df[ccol].astype(str).str.lower().str.strip()
+              == country.lower().replace("_", " ")]
+    grown = rows[(rows[monthcols] > 0).any(axis=1)] if not rows.empty else rows
+    if grown.empty:
+        return (None, None)
+
+    def _month_has(val):
+        has = {}
+        for c in monthcols:
+            m = _CAL_MONTH_PREFIX[c.split("_")[0].lower()]
+            has[m] = has.get(m, False) or bool((grown[c] == val).any())
+        return has
+
+    plant_has, harv_has = _month_has(1), _month_has(3)
+    plant = next((m for m in range(1, 13) if plant_has.get(m)), None)
+    if plant is None:
+        return (None, None)
+    harvest = next((((plant - 1 + i) % 12) + 1 for i in range(12)
+                    if harv_has.get(((plant - 1 + i) % 12) + 1)), None)
+    return (plant, harvest)
+
+
+def _add_calendar_columns(df, season_bounds=None):
+    """Add ``Planting Month`` / ``Harvest Month`` / ``Prediction Month``.
+
+    * ``Prediction Month`` – as-of month of THIS row's window (its later
+      endpoint in ``Stage Window Display``, i.e. the month data ran through).
+    * ``Planting`` / ``Harvest Month`` – season constants. Taken from
+      ``season_bounds`` — a dict keyed ``(Country, Crop, Season) -> (plant,
+      harvest)`` built from each country's crop calendar (see
+      ``_calendar_bounds``) — so the live in-season year's truncated windows
+      don't understate the harvest. Falls back to the longest window in each
+      group of this frame when no bound is supplied.
+
+    No-op if the three columns already exist or ``Stage Window Display`` is
+    absent. Rows with an unparseable window get blank calendar cells.
+    """
+    if "Stage Window Display" not in df.columns:
+        return df
+    if {"Planting Month", "Harvest Month", "Prediction Month"}.issubset(df.columns):
+        return df
+
+    df = df.copy()
+    swd = df["Stage Window Display"]
+    df["Prediction Month"] = swd.map(lambda s: _NUM_MONTH.get(_window_bounds(s)[1]))
+
+    has_season = "Season" in df.columns
+
+    def _season_val(v):
+        try:
+            return int(v) if v is not None and v == v else None  # NaN-safe
+        except (TypeError, ValueError):
+            return None
+
+    if season_bounds:
+        plant_out, harv_out = [], []
+        countries = df["Country"] if "Country" in df.columns else [None] * len(df)
+        crops = df["Crop"] if "Crop" in df.columns else [None] * len(df)
+        seasons = df["Season"] if has_season else [None] * len(df)
+        for c, cr, s in zip(countries, crops, seasons):
+            p, h = season_bounds.get((c, cr, _season_val(s)), (None, None))
+            plant_out.append(_NUM_MONTH.get(p))
+            harv_out.append(_NUM_MONTH.get(h))
+        df["Planting Month"] = plant_out
+        df["Harvest Month"] = harv_out
+    else:
+        grp_cols = [c for c in ("Country", "Region", "Crop", "Season") if c in df.columns]
+        lookup = {}
+        for gk, sub in df.groupby(grp_cols, dropna=False):
+            key = gk if isinstance(gk, tuple) else (gk,)
+            lookup[key] = _season_bounds_from_windows(sub["Stage Window Display"])
+        keys = [tuple(r) for r in df[grp_cols].to_numpy()]
+        df["Planting Month"] = [_NUM_MONTH.get(lookup.get(k, (None, None))[0]) for k in keys]
+        df["Harvest Month"] = [_NUM_MONTH.get(lookup.get(k, (None, None))[1]) for k in keys]
+
+    return df
+
+
 def _stage_sort_key(name, planting_month=None):
     """Sort stage names chronologically.
 
@@ -1150,11 +1314,14 @@ def _plot_metric_progression(df, stages_sorted, metric_col, ylabel, title,
             colors_c = plt.cm.tab20c(np.linspace(0, 1, 20))
             cmap = mcolors.ListedColormap(np.vstack([colors_b, colors_c]))
 
+        from .viz.diagnostics import is_production_share_shown
+        _show_pct = is_production_share_shown()
         markers = ["o", "s", "D", "^", "v", "<", ">", "p", "h", "X", "*", "P"]
         for i, region in enumerate(regions):
             rdf = region_vals[region_vals["Region"] == region]
             rdf = rdf.set_index("Stage Name").reindex(stages_sorted)
-            rlabel = f"{region} ({prod_pct[region]:.1f}%)" if region in prod_pct else region
+            rlabel = (f"{region} ({prod_pct[region]:.1f}%)"
+                      if (_show_pct and region in prod_pct) else region)
             ax.plot(stages_sorted, rdf[metric_col].values, color=cmap(i),
                     alpha=0.65, linewidth=1.8, marker=markers[i % len(markers)],
                     markersize=5, label=rlabel)
@@ -2466,11 +2633,16 @@ def _generate_model_comparison(df_pred_store, dg, dir_outlook, yield_units="Mg/h
                 # per-model panels. Sharing Y across all panels; sharing X
                 # within each row (same X-dim across models). No Pearson r
                 # annotations (removed per user request 2026-07-04).
+                from .viz.diagnostics import is_production_share_shown
                 _row_dims = [
                     ("area_pct_of_country", "Region % of country area"),
-                    ("production_pct_of_country", "Region % of country production"),
                     ("obs_yield_5yr_mean", f"Mean obs yield ({yield_units})"),
                 ]
+                if is_production_share_shown():
+                    _row_dims.insert(
+                        1,
+                        ("production_pct_of_country", "Region % of country production"),
+                    )
                 # Filter out rows whose column is missing / all-NaN
                 _row_dims = [
                     (c, l) for (c, l) in _row_dims
@@ -3250,6 +3422,17 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
     make_maps = parser.getboolean("ML", "make_maps", fallback=False)
     _MAKE_MAPS = make_maps
 
+    # [ML] show_production_share (default True): process-wide toggle for whether
+    # a region's production share is DISPLAYED on figures/tables/captions (the
+    # "(X.Y%)" label suffix, "% of Production" column, etc.). Set False for
+    # projects whose area stats don't match the model's region scheme (e.g.
+    # poppy: "Southern" isn't split into the newer "South-Western" region).
+    # Ordering-by-production is unaffected — only the shown value is hidden.
+    from .viz import diagnostics as _diag_cfg
+    _diag_cfg.set_show_production_share(
+        _diag_cfg.show_production_share_from_parser(parser)
+    )
+
     # [ML] outlook_maps_current_year_only (default False): when True, the
     # headline outlook-index + predicted-yield choropleths are rendered ONLY
     # for current_year (the live forecast), skipping every per-hindcast-year
@@ -3830,6 +4013,8 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                 )
                 df_table = df_table.merge(df_last_obs, on="Region", how="left")
 
+                from .viz.diagnostics import is_production_share_shown
+                _show_prod_share = is_production_share_shown()
                 if prod_pct:
                     order = sorted(
                         df_table["Region"].tolist(),
@@ -3840,15 +4025,16 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                     # Production share goes in its own column so the Region
                     # name keeps its native width (no parenthetical suffix
                     # that pushed the column to truncate region names).
-                    df_table["% of Production"] = [
-                        f"{prod_pct.get(r, 0):.1f}%" for r in df_table["Region"]
-                    ]
+                    if _show_prod_share:
+                        df_table["% of Production"] = [
+                            f"{prod_pct.get(r, 0):.1f}%" for r in df_table["Region"]
+                        ]
                 ci_has_values = (
                     df_table["lower CI"].notna().any()
                     or df_table["upper CI"].notna().any()
                 )
                 cols_order = []
-                if prod_pct:
+                if prod_pct and _show_prod_share:
                     cols_order.append("% of Production")
                 cols_order += ["Predicted Yield"]
                 if ci_has_values:
@@ -4205,6 +4391,36 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                     stage_name=stage_val, annotate_regions=False,
                 )
 
+        # Planting/harvest months per (Country, Crop, Season) from each
+        # country's configured crop calendar (EWCM etc.), falling back to the
+        # multi-year stage-window span when the calendar lacks the crop/season.
+        # Built from df_pred_store (all years/stages) so the live in-season
+        # year's truncated windows don't understate the harvest.
+        from pathlib import Path as _Path
+        _dir_cal = parser.get("PATHS", "dir_crop_calendars", fallback="")
+        season_bounds = {}
+        for (_c_cfg, _crop_cfg, _m), _dfp in df_pred_store.items():
+            if _dfp is None or _dfp.empty or "Stage Window Display" not in _dfp.columns:
+                continue
+            _country_val = _dfp["Country"].iloc[0] if "Country" in _dfp.columns else _c_cfg
+            _seasons = ([int(s) for s in _dfp["Season"].dropna().unique()]
+                        if "Season" in _dfp.columns else [None])
+            _cal_file = (parser.get(_c_cfg, "calendar_file", fallback="")
+                         if parser.has_section(_c_cfg) else "")
+            for _s in _seasons:
+                _key = (_country_val, _crop_cfg, _s)
+                if _key in season_bounds:
+                    continue
+                _pb = (None, None)
+                if _cal_file and _dir_cal:
+                    _pb = _calendar_bounds(_Path(_dir_cal) / _cal_file, _c_cfg,
+                                           _crop_cfg, _s if _s is not None else 1)
+                if _pb == (None, None):
+                    _sub = _dfp if _s is None else _dfp[_dfp["Season"] == _s]
+                    _pb = _season_bounds_from_windows(_sub["Stage Window Display"])
+                season_bounds[_key] = _pb
+        logger.info(f"Calendar planting/harvest bounds (Country,Crop,Season): {season_bounds}")
+
         # Long-format CSV — one row per (region, year, model) including
         # ensemble + every active blend
         df_long_parts = [df_all]
@@ -4213,6 +4429,9 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
         for _blend_name, df_blend in blends:
             df_long_parts.append(df_blend)
         df_long = pd.concat(df_long_parts, ignore_index=True)
+        # Analyst-facing calendar columns: planting / harvest (from crop
+        # calendar) + prediction/as-of month (per time-step row).
+        df_long = _add_calendar_columns(df_long, season_bounds)
         csv_path = dir_outlook / f"yield_outlook_{scope}_{crops_str}_{current_year}.csv"
         df_long.to_csv(csv_path, index=False)
         logger.info(f"Outlook CSV saved to {csv_path}")
@@ -4230,6 +4449,10 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
             pivot_cols = pivot_cols + ["Season"]
             df_pivot_src = df_all.copy()
             df_pivot_src["Season"] = df_pivot_src["Season"].fillna(0).astype(int)
+        # Keep each time-step (prediction month) as its own wide row rather
+        # than silently averaging across stages when run_time_steps != latest.
+        if "Stage Window Display" in df_pivot_src.columns:
+            pivot_cols = pivot_cols + ["Stage Window Display"]
         df_wide = df_pivot_src.pivot_table(
             index=pivot_cols, columns="Model", values="outlook_index"
         ).reset_index()
@@ -4247,6 +4470,7 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                 ),
                 on=merge_cols, how="left",
             )
+        df_wide = _add_calendar_columns(df_wide, season_bounds)
         csv_wide = dir_outlook / f"yield_outlook_{scope}_{crops_str}_{current_year}_wide.csv"
         df_wide.to_csv(csv_wide, index=False)
         logger.info(f"Wide-format CSV saved to {csv_wide}")

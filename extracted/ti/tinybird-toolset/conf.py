@@ -141,6 +141,11 @@ class ClickHouseBuildExt(build_ext):
         # Temporary for debugging: some functions are missing from libdbms.a, this is in the private repo pmaster already so we should include it from the repo
         apply_patch("patches/dbmsfunctions.patch")
 
+        # Range-check narrow-integer Field inserts so JSON/Dynamic paths widen instead of
+        # silently wrapping (1944 -> -104). Backport of the ColumnVector::tryInsert fix;
+        # remove once the fix lands in the pinned ClickHouse submodule.
+        apply_patch("patches/ColumnVectorTryInsert.patch")
+
         if sys.platform == 'darwin':
             # We disable whole_archive options destined for AppleClang, which is unsupported but keeps being a PITA
             apply_patch("patches/darwin.patch")

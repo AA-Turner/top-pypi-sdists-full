@@ -7,15 +7,17 @@ import typing as t
 import arrow
 from construct.lib import (
     Container,
-    ContainerType,
     HexDisplayedBytes,
     HexDisplayedDict,
     HexDisplayedInteger,
     HexDumpDisplayedBytes,
     HexDumpDisplayedDict,
     ListContainer,
-    ListType,
     RebufferedBytesIO,
+)
+from construct.lib.containers import (
+    ContainerType,
+    ListType,
 )
 from cryptography.hazmat.primitives.ciphers import Cipher
 from cryptography.hazmat.primitives.ciphers.aead import AESCCM, AESGCM, ChaCha20Poly1305
@@ -31,7 +33,7 @@ from typing_extensions import Buffer, TypeAlias
 
 ReadableBuffer: TypeAlias = Buffer
 StreamType = t.IO[bytes]
-FilenameType = t.Union[str, bytes, os.PathLike[str], os.PathLike[bytes]]
+FilenameType = str | bytes | os.PathLike[str] | os.PathLike[bytes]
 PathType = str
 ContextKWType = t.Any
 
@@ -39,9 +41,9 @@ ContextKWType = t.Any
 # exceptions
 # ===============================================================================
 class ConstructError(Exception):
-    path: t.Optional[PathType]
+    path: PathType | None
     def __init__(
-        self, message: str = ..., path: t.Optional[PathType] = ...
+        self, message: str = ..., path: PathType | None = ...
     ) -> None: ...
 
 class SizeofError(ConstructError): ...
@@ -76,16 +78,16 @@ class CipherError(ConstructError): ...
 # used internally
 # ===============================================================================
 def stream_read(
-    stream: StreamType, length: int, path: t.Optional[PathType]
+    stream: StreamType, length: int, path: PathType | None
 ) -> bytes: ...
-def stream_read_entire(stream: StreamType, path: t.Optional[PathType]) -> bytes: ...
+def stream_read_entire(stream: StreamType, path: PathType | None) -> bytes: ...
 def stream_write(
-    stream: StreamType, data: bytes, length: int, path: t.Optional[PathType]
+    stream: StreamType, data: bytes, length: int, path: PathType | None
 ) -> None: ...
 def stream_seek(
-    stream: StreamType, offset: int, whence: int, path: t.Optional[PathType]
+    stream: StreamType, offset: int, whence: int, path: PathType | None
 ) -> int: ...
-def stream_tell(stream: StreamType, path: t.Optional[PathType]) -> int: ...
+def stream_tell(stream: StreamType, path: PathType | None) -> int: ...
 def stream_size(stream: StreamType) -> int: ...
 def stream_iseof(stream: StreamType) -> bool: ...
 def evaluate(param: ConstantOrContextLambda2[T], context: Context) -> T: ...
@@ -108,10 +110,10 @@ ParsedType = t.TypeVar("ParsedType", covariant=True)
 BuildTypes = t.TypeVar("BuildTypes", contravariant=True)
 
 class Construct(t.Generic[ParsedType, BuildTypes]):
-    name: t.Optional[str]
+    name: str | None
     docs: str
     flagbuildnone: bool
-    parsed: t.Optional[t.Callable[[ParsedType, Context], None]]
+    parsed: t.Callable[[ParsedType, Context], None] | None
     def parse(self, data: ReadableBuffer, **contextkw: ContextKWType) -> ParsedType: ...
     def parse_stream(
         self, stream: StreamType, **contextkw: ContextKWType
@@ -137,20 +139,22 @@ class Construct(t.Generic[ParsedType, BuildTypes]):
         self, schemaname: str = ..., filename: FilenameType = ...
     ) -> str: ...
     def __rtruediv__(
-        self, name: t.Optional[t.AnyStr]
+        self, name: t.AnyStr | None
     ) -> Renamed[ParsedType, BuildTypes]: ...
     __rdiv__: t.Callable[[str], Construct[ParsedType, BuildTypes]]
     def __mul__(
         self,
-        other: t.Union[str, bytes, t.Callable[[ParsedType, Context], None]],
+        other: str | bytes | t.Callable[[ParsedType, Context], None],
     ) -> Renamed[ParsedType, BuildTypes]: ...
     def __rmul__(
         self,
-        other: t.Union[str, bytes, t.Callable[[ParsedType, Context], None]],
+        other: str | bytes | t.Callable[[ParsedType, Context], None],
     ) -> Renamed[ParsedType, BuildTypes]: ...
     def __add__(self, other: Construct[t.Any, t.Any]) -> Struct: ...
     def __rshift__(self, other: Construct[t.Any, t.Any]) -> Sequence: ...
-    def __getitem__(self, count: t.Union[int, t.Callable[[Context], int]]) -> Array[
+    def __getitem__(
+        self, count: int | t.Callable[[Context], int]
+    ) -> Array[
         ParsedType,
         BuildTypes,
     ]: ...
@@ -178,8 +182,8 @@ class Context(Container[t.Any]):
     _index: int  # optional field
 
 ValueType = t.TypeVar("ValueType")
-ConstantOrContextLambda = t.Union[ValueType, t.Callable[[Context], t.Any]]
-ConstantOrContextLambda2 = t.Union[ValueType, t.Callable[[Context], ValueType]]
+ConstantOrContextLambda = ValueType | t.Callable[[Context], t.Any]
+ConstantOrContextLambda2 = ValueType | t.Callable[[Context], ValueType]
 
 SubconParsedType = t.TypeVar("SubconParsedType", covariant=True)
 SubconBuildTypes = t.TypeVar("SubconBuildTypes", contravariant=True)
@@ -234,8 +238,8 @@ class Tunnel(
     def _encode(self, data: bytes, context: Context, path: PathType) -> bytes: ...
 
 class Compiled(Construct[t.Any, t.Any]):
-    source: t.Optional[str]
-    defersubcon: t.Optional[Construct[t.Any, t.Any]]
+    source: str | None
+    defersubcon: Construct[t.Any, t.Any] | None
     parsefunc: t.Callable[[StreamType, Context], t.Any]
     buildfunc: t.Callable[[t.Any, StreamType, Context], t.Any]
     def __init__(
@@ -247,23 +251,21 @@ class Compiled(Construct[t.Any, t.Any]):
 # ===============================================================================
 # bytes and bits
 # ===============================================================================
-class Bytes(Construct[bytes, t.Union[bytes, bytearray, int]]):
+class Bytes(Construct[bytes, bytes | bytearray | int]):
     length: ConstantOrContextLambda[int]
     def __init__(
         self,
         length: ConstantOrContextLambda[int],
     ) -> None: ...
 
-GreedyBytes: Construct[bytes, t.Union[bytes, bytearray]]
+GreedyBytes: Construct[bytes, bytes | bytearray]
 
-def Bitwise(subcon: Construct[SubconParsedType, SubconBuildTypes]) -> t.Union[
-    Transformed[SubconParsedType, SubconBuildTypes],
-    Restreamed[SubconParsedType, SubconBuildTypes],
-]: ...
-def Bytewise(subcon: Construct[SubconParsedType, SubconBuildTypes]) -> t.Union[
-    Transformed[SubconParsedType, SubconBuildTypes],
-    Restreamed[SubconParsedType, SubconBuildTypes],
-]: ...
+def Bitwise(
+    subcon: Construct[SubconParsedType, SubconBuildTypes],
+) -> Transformed[SubconParsedType, SubconBuildTypes] | Restreamed[SubconParsedType, SubconBuildTypes]: ...
+def Bytewise(
+    subcon: Construct[SubconParsedType, SubconBuildTypes],
+) -> Transformed[SubconParsedType, SubconBuildTypes] | Restreamed[SubconParsedType, SubconBuildTypes]: ...
 
 # ===============================================================================
 # integers and floats
@@ -272,7 +274,7 @@ class FormatField(Construct[ParsedType, BuildTypes]):
     fmtstr: str
     length: int
     if sys.version_info >= (3, 8):
-        ENDIANITY = t.Union[t.Literal["=", "<", ">"], str]
+        ENDIANITY = t.Literal["=", "<", ">"] | str
         FORMAT_INT = t.Literal["B", "H", "L", "Q", "b", "h", "l", "q"]
         FORMAT_FLOAT = t.Literal["f", "d", "e"]
         FORMAT_BOOL = t.Literal["?"]
@@ -398,7 +400,7 @@ class StringEncoded(Construct[str, str]):
         ENCODING_1 = t.Literal["ascii", "utf8", "utf_8", "u8"]
         ENCODING_2 = t.Literal["utf16", "utf_16", "u16", "utf_16_be", "utf_16_le"]
         ENCODING_4 = t.Literal["utf32", "utf_32", "u32", "utf_32_be", "utf_32_le"]
-        ENCODING = t.Union[str, ENCODING_1, ENCODING_2, ENCODING_4]
+        ENCODING = str | ENCODING_1 | ENCODING_2 | ENCODING_4
     else:
         ENCODING = str
     encoding: ENCODING
@@ -429,7 +431,7 @@ class EnumIntegerString(str):
     def new(intvalue: int, stringvalue: str) -> EnumIntegerString: ...
 
 class Enum(
-    Adapter[int, int, t.Union[EnumInteger, EnumIntegerString], t.Union[int, str]]
+    Adapter[int, int, EnumInteger | EnumIntegerString, int | str]
 ):
     encmapping: t.Dict[str, int]
     decmapping: t.Dict[int, EnumIntegerString]
@@ -437,7 +439,7 @@ class Enum(
     def __init__(
         self,
         subcon: Construct[int, int],
-        *merge: t.Union[t.Type[enum.IntEnum], t.Type[enum.IntFlag]],
+        *merge: t.Type[enum.IntEnum] | t.Type[enum.IntFlag],
         **mapping: int,
     ) -> None: ...
     def __getattr__(self, name: str) -> EnumIntegerString: ...
@@ -446,14 +448,14 @@ class BitwisableString(str):
     def __or__(self, other: BitwisableString) -> BitwisableString: ...
 
 class FlagsEnum(
-    Adapter[int, int, Container[bool], t.Union[int, str, t.Dict[str, bool]]]
+    Adapter[int, int, Container[bool], int | str | t.Dict[str, bool]]
 ):
     flags: t.Dict[str, int]
     reverseflags: t.Dict[int, str]
     def __init__(
         self,
         subcon: Construct[int, int],
-        *merge: t.Union[t.Type[enum.IntEnum], t.Type[enum.IntFlag]],
+        *merge: t.Type[enum.IntEnum] | t.Type[enum.IntFlag],
         **flags: int,
     ) -> None: ...
     def __getattr__(self, name: str) -> BitwisableString: ...
@@ -471,7 +473,7 @@ class Mapping(Adapter[SubconParsedType, SubconBuildTypes, t.Any, t.Any]):
 # structures and sequences
 # ===============================================================================
 # this can maybe made better when variadic generics are available
-class Struct(Construct[Container[t.Any], t.Optional[t.Dict[str, t.Any]]]):
+class Struct(Construct[Container[t.Any], t.Dict[str, t.Any] | None]):
     subcons: t.List[Construct[t.Any, t.Any]]
     _subcons: t.Dict[str, Construct[t.Any, t.Any]]
     def __init__(
@@ -482,7 +484,7 @@ class Struct(Construct[Container[t.Any], t.Optional[t.Dict[str, t.Any]]]):
     def __getattr__(self, name: str) -> t.Any: ...
 
 # this can maybe made better when variadic generics are available
-class Sequence(Construct[ListContainer[t.Any], t.Optional[t.List[t.Any]]]):
+class Sequence(Construct[ListContainer[t.Any], t.List[t.Any] | None]):
     subcons: t.List[Construct[t.Any, t.Any]]
     _subcons: t.Dict[str, Construct[t.Any, t.Any]]
     def __init__(
@@ -496,7 +498,7 @@ class Sequence(Construct[ListContainer[t.Any], t.Optional[t.List[t.Any]]]):
 # arrays ranges and repeaters
 # ===============================================================================
 class Array(
-    Subconstruct[
+    Subconstruct[  # ty: ignore[invalid-generic-class]
         SubconParsedType,
         SubconBuildTypes,
         ListContainer[SubconParsedType],  # type: ignore
@@ -513,7 +515,7 @@ class Array(
     ) -> None: ...
 
 class GreedyRange(
-    Subconstruct[
+    Subconstruct[  # ty: ignore[invalid-generic-class]
         SubconParsedType,
         SubconBuildTypes,
         ListContainer[SubconParsedType],  # type: ignore
@@ -528,26 +530,18 @@ class GreedyRange(
     ) -> None: ...
 
 class RepeatUntil(
-    Subconstruct[
+    Subconstruct[  # ty: ignore[invalid-generic-class]
         SubconParsedType,
         SubconBuildTypes,
         ListContainer[SubconParsedType],  # type: ignore
         t.List[SubconBuildTypes],  # type: ignore
     ]
 ):
-    predicate: t.Union[
-        bool,
-        t.Callable[[SubconParsedType, ListContainer[SubconParsedType], Context], bool],
-    ]
+    predicate: bool | t.Callable[[SubconParsedType, ListContainer[SubconParsedType], Context], bool]
     discard: bool
     def __init__(
         self,
-        predicate: t.Union[
-            bool,
-            t.Callable[
-                [SubconParsedType, ListContainer[SubconParsedType], Context], bool
-            ],
-        ],
+        predicate: bool | t.Callable[[SubconParsedType, ListContainer[SubconParsedType], Context], bool],
         subcon: Construct[SubconParsedType, SubconBuildTypes],
         discard: bool = ...,
     ) -> None: ...
@@ -561,9 +555,9 @@ class Renamed(
     def __init__(
         self,
         subcon: Construct[SubconParsedType, SubconBuildTypes],
-        newname: t.Optional[str] = ...,
-        newdocs: t.Optional[str] = ...,
-        newparsed: t.Optional[t.Callable[[t.Any, Context], None]] = ...,
+        newname: str | None = ...,
+        newdocs: str | None = ...,
+        newparsed: t.Callable[[t.Any, Context], None] | None = ...,
     ) -> None: ...
 
 # ===============================================================================
@@ -573,31 +567,44 @@ class Const(Subconstruct[t.Any, t.Any, ParsedType, BuildTypes]):
     value: BuildTypes
     @t.overload
     def __new__(
-        cls: "type[Const[bytes, t.Optional[bytes]]]",
+        cls: "type[Const[bytes, bytes | None]]",
         value: bytes,
-    ) -> Const[bytes, t.Optional[bytes]]: ...
+    ) -> Const[bytes, bytes | None]: ...
     @t.overload
     def __new__(
-        cls: "type[Const[SubconParsedType, t.Optional[SubconBuildTypes]]]",
+        cls: "type[Const[SubconParsedType, SubconBuildTypes | None]]",
         value: SubconBuildTypes,
         subcon: Construct[SubconParsedType, SubconBuildTypes],
-    ) -> Const[SubconParsedType, t.Optional[SubconBuildTypes]]: ...
+    ) -> Const[SubconParsedType, SubconBuildTypes | None]: ...
 
 class Computed(Construct[ParsedType, None]):
     func: ConstantOrContextLambda2[ParsedType]
+    @t.overload
     def __init__(
         self,
-        func: ConstantOrContextLambda2[ParsedType],
+        func: t.Callable[[Context], ParsedType],
+    ) -> None: ...
+    @t.overload
+    def __init__(
+        self,
+        func: ParsedType,
     ) -> None: ...
 
 Index: Construct[int, t.Any]
 
 class Rebuild(Subconstruct[SubconParsedType, SubconBuildTypes, SubconParsedType, None]):
-    func: ConstantOrContextLambda[SubconBuildTypes]
+    func: ConstantOrContextLambda2[SubconBuildTypes]
+    @t.overload
     def __init__(
         self,
         subcon: Construct[SubconParsedType, SubconBuildTypes],
-        func: ConstantOrContextLambda[SubconBuildTypes],
+        func: SubconBuildTypes,
+    ) -> None: ...
+    @t.overload
+    def __init__(
+        self,
+        subcon: Construct[SubconParsedType, SubconBuildTypes],
+        func: t.Callable[[Context], SubconBuildTypes],
     ) -> None: ...
 
 class Default(
@@ -605,14 +612,21 @@ class Default(
         SubconParsedType,
         SubconBuildTypes,
         SubconParsedType,
-        t.Optional[SubconBuildTypes],
+        SubconBuildTypes | None,
     ]
 ):
-    value: ConstantOrContextLambda[SubconBuildTypes]
+    value: ConstantOrContextLambda2[SubconBuildTypes]
+    @t.overload
     def __init__(
         self,
         subcon: Construct[SubconParsedType, SubconBuildTypes],
-        value: ConstantOrContextLambda[SubconBuildTypes],
+        value: SubconBuildTypes,
+    ) -> None: ...
+    @t.overload
+    def __init__(
+        self,
+        subcon: Construct[SubconParsedType, SubconBuildTypes],
+        value: t.Callable[[Context], SubconBuildTypes],
     ) -> None: ...
 
 class Check(Construct[None, None]):
@@ -644,7 +658,7 @@ class NamedTuple(
         SubconParsedType,
         SubconBuildTypes,
         t.Tuple[t.Any, ...],
-        t.Union[t.Tuple[t.Any, ...], t.List[t.Any], t.Dict[str, t.Any]],
+        t.Tuple[t.Any, ...] | t.List[t.Any] | t.Dict[str, t.Any],
     ]
 ):
     tuplename: str
@@ -673,14 +687,14 @@ def Timestamp(
 @t.overload
 def Timestamp(
     subcon: Construct[int, int],
-    unit: t.Union[int, float],
-    epoch: t.Union[int, arrow.Arrow],
+    unit: int | float,
+    epoch: int | arrow.Arrow,
 ) -> TimestampAdapter[int, int]: ...
 @t.overload
 def Timestamp(
     subcon: Construct[float, float],
-    unit: t.Union[int, float],
-    epoch: t.Union[int, arrow.Arrow],
+    unit: int | float,
+    epoch: int | arrow.Arrow,
 ) -> TimestampAdapter[float, float]: ...
 
 K = t.TypeVar("K")
@@ -699,10 +713,10 @@ class Hex(Adapter[t.Any, t.Any, ParsedType, BuildTypes]):
     ) -> Hex[HexDisplayedBytes, BuildTypes]: ...
     @t.overload
     def __new__(
-        cls: "type[Hex[HexDisplayedDict[str, t.Union[int, bytes, SubconParsedType]], BuildTypes,]]",
+        cls: "type[Hex[HexDisplayedDict[str, int | bytes | SubconParsedType], BuildTypes,]]",
         subcon: Construct[RawCopyObj[SubconParsedType], BuildTypes],
     ) -> Hex[
-        HexDisplayedDict[str, t.Union[int, bytes, SubconParsedType]],
+        HexDisplayedDict[str, int | bytes | SubconParsedType],
         BuildTypes,
     ]: ...
     @t.overload
@@ -724,10 +738,10 @@ class HexDump(Adapter[t.Any, t.Any, ParsedType, BuildTypes]):
     ) -> HexDump[HexDumpDisplayedBytes, BuildTypes]: ...
     @t.overload
     def __new__(
-        cls: "type[HexDump[HexDumpDisplayedDict[str, t.Union[int, bytes, SubconParsedType]],BuildTypes,]]",
+        cls: "type[HexDump[HexDumpDisplayedDict[str, int | bytes | SubconParsedType],BuildTypes,]]",
         subcon: Construct[RawCopyObj[SubconParsedType], BuildTypes],
     ) -> HexDump[
-        HexDumpDisplayedDict[str, t.Union[int, bytes, SubconParsedType]],
+        HexDumpDisplayedDict[str, int | bytes | SubconParsedType],
         BuildTypes,
     ]: ...
     @t.overload
@@ -746,12 +760,12 @@ class HexDump(Adapter[t.Any, t.Any, ParsedType, BuildTypes]):
 # ===============================================================================
 # this can maybe made better when variadic generics are available
 class Union(Construct[Container[t.Any], t.Dict[str, t.Any]]):
-    parsefrom: t.Optional[ConstantOrContextLambda[t.Union[int, str]]]
+    parsefrom: ConstantOrContextLambda[int | str] | None
     subcons: t.List[Construct[t.Any, t.Any]]
     _subcons: t.Dict[str, Construct[t.Any, t.Any]]
     def __init__(
         self,
-        parsefrom: t.Optional[ConstantOrContextLambda[t.Union[int, str]]],
+        parsefrom: ConstantOrContextLambda[int | str] | None,
         *subcons: Construct[t.Any, t.Any],
         **subconskw: Construct[t.Any, t.Any],
     ) -> None: ...
@@ -767,8 +781,8 @@ class Select(Construct[t.Any, t.Any]):
     ) -> None: ...
 
 def Optional(
-    subcon: Construct[SubconParsedType, SubconBuildTypes]
-) -> Construct[t.Union[SubconParsedType, None], t.Union[SubconBuildTypes, None]]: ...
+    subcon: Construct[SubconParsedType, SubconBuildTypes],
+) -> Construct[SubconParsedType | None, SubconBuildTypes | None]: ...
 
 ThenParsedType = t.TypeVar("ThenParsedType")
 ThenBuildTypes = t.TypeVar("ThenBuildTypes")
@@ -781,11 +795,11 @@ class IfThenElse(Construct[ParsedType, BuildTypes]):
     elsesubcon: Construct[t.Any, t.Any]
     @t.overload
     def __new__(
-        cls: "type[IfThenElse[t.Union[ThenParsedType, ElseParsedType], t.Union[ThenBuildTypes, ElseBuildTypes]]]",
+        cls: "type[IfThenElse[ThenParsedType | ElseParsedType, ThenBuildTypes | ElseBuildTypes]]",
         condfunc: ConstantOrContextLambda[bool],
         thensubcon: Construct[ThenParsedType, ThenBuildTypes],
         elsesubcon: Construct[ElseParsedType, ElseBuildTypes],
-    ) -> "IfThenElse[t.Union[ThenParsedType, ElseParsedType], t.Union[ThenBuildTypes, ElseBuildTypes]]": ...
+    ) -> "IfThenElse[ThenParsedType | ElseParsedType, ThenBuildTypes | ElseBuildTypes]": ...
     @t.overload
     def __new__(
         cls: "type[IfThenElse[t.Any, t.Any]]",
@@ -797,7 +811,7 @@ class IfThenElse(Construct[ParsedType, BuildTypes]):
 def If(
     condfunc: ConstantOrContextLambda[bool],
     subcon: Construct[ThenParsedType, ThenBuildTypes],
-) -> IfThenElse[t.Optional[ThenParsedType], t.Optional[ThenBuildTypes]]: ...
+) -> IfThenElse[ThenParsedType | None, ThenBuildTypes | None]: ...
 
 SwitchType = t.TypeVar("SwitchType")
 
@@ -807,17 +821,17 @@ class Switch(Construct[ParsedType, BuildTypes]):
     default: Construct[t.Any, t.Any]
     @t.overload
     def __new__(
-        cls: "type[Switch[int, t.Optional[int]]]",
+        cls: "type[Switch[int, int | None]]",
         keyfunc: ConstantOrContextLambda[SwitchType],
         cases: t.Dict[SwitchType, Construct[int, int]],
-        default: t.Optional[Construct[int, int]] = ...,
-    ) -> Switch[int, t.Optional[int]]: ...
+        default: Construct[int, int] | None = ...,
+    ) -> Switch[int, int | None]: ...
     @t.overload
     def __new__(
         cls: "type[Switch[t.Any, t.Any]]",
         keyfunc: ConstantOrContextLambda[t.Any],
         cases: t.Dict[t.Any, Construct[t.Any, t.Any]],
-        default: t.Optional[Construct[t.Any, t.Any]] = ...,
+        default: Construct[t.Any, t.Any] | None = ...,
     ) -> Switch[t.Any, t.Any]: ...
 
 class StopIf(Construct[None, None]):
@@ -865,10 +879,7 @@ def AlignedStruct(
 ) -> Struct: ...
 def BitStruct(
     *subcons: Construct[t.Any, t.Any], **subconskw: Construct[t.Any, t.Any]
-) -> t.Union[
-    Transformed[Container[t.Any], t.Dict[str, t.Any]],
-    Restreamed[Container[t.Any], t.Dict[str, t.Any]],
-]: ...
+) -> Transformed[Container[t.Any], t.Dict[str, t.Any]] | Restreamed[Container[t.Any], t.Dict[str, t.Any]]: ...
 
 # ===============================================================================
 # stream manipulation
@@ -877,12 +888,12 @@ class Pointer(
     Subconstruct[SubconParsedType, SubconBuildTypes, SubconParsedType, SubconBuildTypes]
 ):
     offset: ConstantOrContextLambda[int]
-    stream: t.Optional[t.Callable[[Context], StreamType]]
+    stream: t.Callable[[Context], StreamType] | None
     def __init__(
         self,
         offset: ConstantOrContextLambda[int],
         subcon: Construct[SubconParsedType, SubconBuildTypes],
-        stream: t.Optional[t.Callable[[Context], StreamType]] = ...,
+        stream: t.Callable[[Context], StreamType] | None = ...,
     ) -> None: ...
 
 class Peek(
@@ -890,7 +901,7 @@ class Peek(
         SubconParsedType,
         SubconBuildTypes,
         SubconParsedType,
-        t.Union[SubconBuildTypes, None],
+        SubconBuildTypes | None,
     ]
 ):
     def __init__(
@@ -937,11 +948,11 @@ class RawCopyObj(t.Generic[ParsedType], Container[t.Any]):
     length: int
 
 class RawCopy(
-    Subconstruct[
+    Subconstruct[  # ty: ignore[invalid-generic-class]
         SubconParsedType,
         SubconBuildTypes,
         RawCopyObj[SubconParsedType],
-        t.Optional[t.Dict[str, t.Union[SubconBuildTypes, bytes]]],
+        t.Dict[str, SubconBuildTypes | bytes] | None,
     ]
 ):
     def __init__(
@@ -950,23 +961,22 @@ class RawCopy(
     ) -> None: ...
 
 def ByteSwapped(
-    subcon: Construct[SubconParsedType, SubconBuildTypes]
+    subcon: Construct[SubconParsedType, SubconBuildTypes],
 ) -> Transformed[SubconParsedType, SubconBuildTypes]: ...
-def BitsSwapped(subcon: Construct[SubconParsedType, SubconBuildTypes]) -> t.Union[
-    Transformed[SubconParsedType, SubconBuildTypes],
-    Restreamed[SubconParsedType, SubconBuildTypes],
-]: ...
+def BitsSwapped(
+    subcon: Construct[SubconParsedType, SubconBuildTypes],
+) -> Transformed[SubconParsedType, SubconBuildTypes] | Restreamed[SubconParsedType, SubconBuildTypes]: ...
 
 class Prefixed(
     Subconstruct[SubconParsedType, SubconBuildTypes, SubconParsedType, SubconBuildTypes]
 ):
     lengthfield: Construct[SubconParsedType, SubconBuildTypes]
-    includelength: t.Optional[bool]
+    includelength: bool | None
     def __init__(
         self,
         lengthfield: Construct[int, int],
         subcon: Construct[SubconParsedType, SubconBuildTypes],
-        includelength: t.Optional[bool] = ...,
+        includelength: bool | None = ...,
     ) -> None: ...
 
 def PrefixedArray(
@@ -991,16 +1001,16 @@ class NullTerminated(
     Subconstruct[SubconParsedType, SubconBuildTypes, SubconParsedType, SubconBuildTypes]
 ):
     term: bytes
-    include: t.Optional[bool]
-    consume: t.Optional[bool]
-    require: t.Optional[bool]
+    include: bool | None
+    consume: bool | None
+    require: bool | None
     def __init__(
         self,
         subcon: Construct[SubconParsedType, SubconBuildTypes],
         term: bytes = ...,
-        include: t.Optional[bool] = ...,
-        consume: t.Optional[bool] = ...,
-        require: t.Optional[bool] = ...,
+        include: bool | None = ...,
+        consume: bool | None = ...,
+        require: bool | None = ...,
     ) -> None: ...
 
 class NullStripped(
@@ -1016,14 +1026,10 @@ class NullStripped(
 class RestreamData(
     Subconstruct[SubconParsedType, SubconBuildTypes, SubconParsedType, None]
 ):
-    datafunc: t.Union[
-        bytes, io.BytesIO, Construct[bytes, t.Any], t.Callable[[Context], bytes]
-    ]
+    datafunc: bytes | io.BytesIO | Construct[bytes, t.Any] | t.Callable[[Context], bytes]
     def __init__(
         self,
-        datafunc: t.Union[
-            bytes, io.BytesIO, Construct[bytes, t.Any], t.Callable[[Context], bytes]
-        ],
+        datafunc: bytes | io.BytesIO | Construct[bytes, t.Any] | t.Callable[[Context], bytes],
         subcon: Construct[SubconParsedType, SubconBuildTypes],
     ) -> None: ...
 
@@ -1031,16 +1037,16 @@ class Transformed(
     Subconstruct[SubconParsedType, SubconBuildTypes, SubconParsedType, SubconBuildTypes]
 ):
     decodefunc: t.Callable[[bytes], bytes]
-    decodeamount: t.Optional[int]
+    decodeamount: int | None
     encodefunc: t.Callable[[bytes], bytes]
-    encodeamount: t.Optional[int]
+    encodeamount: int | None
     def __init__(
         self,
         subcon: Construct[SubconParsedType, SubconBuildTypes],
         decodefunc: t.Callable[[bytes], bytes],
-        decodeamount: t.Optional[int],
+        decodeamount: int | None,
         encodefunc: t.Callable[[bytes], bytes],
-        encodeamount: t.Optional[int],
+        encodeamount: int | None,
     ) -> None: ...
 
 class Restreamed(
@@ -1064,10 +1070,10 @@ class Restreamed(
 class ProcessXor(
     Subconstruct[SubconParsedType, SubconBuildTypes, SubconParsedType, SubconBuildTypes]
 ):
-    padfunc: ConstantOrContextLambda2[t.Union[int, bytes]]
+    padfunc: ConstantOrContextLambda2[int | bytes]
     def __init__(
         self,
-        padfunc: ConstantOrContextLambda2[t.Union[int, bytes]],
+        padfunc: ConstantOrContextLambda2[int | bytes],
         subcon: Construct[SubconParsedType, SubconBuildTypes],
     ) -> None: ...
 
@@ -1085,7 +1091,7 @@ class ProcessRotateLeft(
 
 T = t.TypeVar("T")
 
-class Checksum(t.Generic[T, ParsedType, BuildTypes], Construct[ParsedType, BuildTypes]):
+class Checksum(t.Generic[T, ParsedType, BuildTypes], Construct[ParsedType, BuildTypes | None]):
     checksumfield: Construct[ParsedType, BuildTypes]
     hashfunc: t.Callable[[T], BuildTypes]
     bytesfunc: t.Callable[[Context], T]
@@ -1098,13 +1104,13 @@ class Checksum(t.Generic[T, ParsedType, BuildTypes], Construct[ParsedType, Build
 
 class Compressed(Tunnel[SubconParsedType, SubconBuildTypes]):
     encoding: str
-    level: t.Optional[int]
+    level: int | None
     lib: t.Any
     def __init__(
         self,
         subcon: Construct[SubconParsedType, SubconBuildTypes],
         encoding: str,
-        level: t.Optional[int] = ...,
+        level: int | None = ...,
     ) -> None: ...
 
 class CompressedLZ4(Tunnel[SubconParsedType, SubconBuildTypes]):
@@ -1121,7 +1127,7 @@ class Rebuffered(
     def __init__(
         self,
         subcon: Construct[SubconParsedType, SubconBuildTypes],
-        tailcutoff: t.Optional[int] = ...,
+        tailcutoff: int | None = ...,
     ) -> None: ...
 
 class EncryptedSym(Tunnel[SubconParsedType, SubconBuildTypes]):
@@ -1133,13 +1139,13 @@ class EncryptedSym(Tunnel[SubconParsedType, SubconBuildTypes]):
     ) -> None: ...
 
 class EncryptedSymAead(Tunnel[SubconParsedType, SubconBuildTypes]):
-    cipher: ConstantOrContextLambda2[t.Union[AESGCM, AESCCM, ChaCha20Poly1305]]
+    cipher: ConstantOrContextLambda2[AESGCM | AESCCM | ChaCha20Poly1305]
     nonce: ConstantOrContextLambda2[bytes]
     associated_data: ConstantOrContextLambda2[bytes]
     def __init__(
         self,
         subcon: Construct[SubconParsedType, SubconBuildTypes],
-        cipher: ConstantOrContextLambda2[t.Union[AESGCM, AESCCM, ChaCha20Poly1305]],
+        cipher: ConstantOrContextLambda2[AESGCM | AESCCM | ChaCha20Poly1305],
         nonce: ConstantOrContextLambda2[bytes],
         associated_data: ConstantOrContextLambda2[bytes] = ...,
     ) -> None: ...
@@ -1148,11 +1154,11 @@ class EncryptedSymAead(Tunnel[SubconParsedType, SubconBuildTypes]):
 # lazy equivalents
 # ===============================================================================
 class Lazy(
-    Subconstruct[
+    Subconstruct[  # ty: ignore[invalid-generic-class]
         SubconParsedType,
         SubconBuildTypes,
         t.Callable[[], SubconParsedType],
-        t.Union[t.Callable[[], SubconParsedType], SubconParsedType],
+        t.Callable[[], SubconParsedType] | SubconParsedType,
     ]
 ):
     def __init__(
@@ -1162,12 +1168,12 @@ class Lazy(
 
 class LazyContainer(t.Generic[ContainerType], t.Dict[str, ContainerType]):
     def __getattr__(self, name: str) -> ContainerType: ...
-    def __getitem__(self, index: t.Union[str, int]) -> ContainerType: ...
+    def __getitem__(self, index: str | int) -> ContainerType: ...
     def keys(self) -> t.Iterator[str]: ...  # type: ignore
     def values(self) -> t.List[ContainerType]: ...  # type: ignore
     def items(self) -> t.List[t.Tuple[str, ContainerType]]: ...  # type: ignore
 
-class LazyStruct(Construct[LazyContainer[t.Any], t.Optional[t.Dict[str, t.Any]]]):
+class LazyStruct(Construct[LazyContainer[t.Any], t.Dict[str, t.Any] | None]):
     subcons: t.List[Construct[t.Any, t.Any]]
     _subcons: t.Dict[str, Construct[t.Any, t.Any]]
     _subconsindexes: t.Dict[str, int]
@@ -1181,7 +1187,7 @@ class LazyStruct(Construct[LazyContainer[t.Any], t.Optional[t.Dict[str, t.Any]]]
 class LazyListContainer(t.List[ListType]): ...
 
 class LazyArray(
-    Subconstruct[
+    Subconstruct[  # ty: ignore[invalid-generic-class]
         SubconParsedType,
         SubconBuildTypes,
         ListContainer[SubconParsedType],  # type: ignore
@@ -1245,7 +1251,7 @@ def Filter(
 ]: ...
 
 class Slicing(
-    Adapter[
+    Adapter[  # ty: ignore[invalid-generic-class]
         SubconParsedType,
         SubconBuildTypes,
         ListContainer[SubconParsedType],  # type: ignore
@@ -1254,21 +1260,12 @@ class Slicing(
 ):
     def __init__(
         self,
-        subcon: t.Union[
-            Array[
-                SubconParsedType,
-                SubconBuildTypes,
-            ],
-            GreedyRange[
-                SubconParsedType,
-                SubconBuildTypes,
-            ],
-        ],
+        subcon: Array[SubconParsedType, SubconBuildTypes] | GreedyRange[SubconParsedType, SubconBuildTypes],
         count: int,
-        start: t.Optional[int],
-        stop: t.Optional[int],
+        start: int | None,
+        stop: int | None,
         step: int = ...,
-        empty: t.Optional[SubconParsedType] = ...,
+        empty: SubconParsedType | None = ...,
     ) -> None: ...
 
 class Indexing(
@@ -1276,17 +1273,8 @@ class Indexing(
 ):
     def __init__(
         self,
-        subcon: t.Union[
-            Array[
-                SubconParsedType,
-                SubconBuildTypes,
-            ],
-            GreedyRange[
-                SubconParsedType,
-                SubconBuildTypes,
-            ],
-        ],
+        subcon: Array[SubconParsedType, SubconBuildTypes] | GreedyRange[SubconParsedType, SubconBuildTypes],
         count: int,
         index: int,
-        empty: t.Optional[SubconParsedType] = ...,
+        empty: SubconParsedType | None = ...,
     ) -> None: ...

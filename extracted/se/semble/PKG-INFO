@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: semble
-Version: 0.5.1
+Version: 0.5.2
 Summary: Fast and Accurate Code Search for Agents
 Author-email: Thomas van Dongen <thomasvdongen@proton.me>, Stéphan Tulkens <stephantul@gmail.com>
 License: MIT License
@@ -47,7 +47,6 @@ License-File: LICENSE
 Requires-Dist: model2vec>=0.4.0
 Requires-Dist: vicinity>=0.4.4
 Requires-Dist: numpy>=1.24.0
-Requires-Dist: bm25s>=0.2.0
 Requires-Dist: pathspec>=0.12
 Requires-Dist: tree-sitter<0.26,>=0.25
 Requires-Dist: tree-sitter-language-pack!=1.6.3,<1.8.0,>=1.0

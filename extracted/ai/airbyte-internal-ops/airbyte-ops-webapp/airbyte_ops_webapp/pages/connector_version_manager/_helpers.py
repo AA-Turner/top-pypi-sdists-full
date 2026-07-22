@@ -617,6 +617,118 @@ def pinned_version_rows(
     return rows
 
 
+def _connector_display_name(row: dict[str, Any]) -> str:
+    """Derive a short connector name from a row's docker repository."""
+    docker_repo = row.get("docker_repository", "")
+    if docker_repo:
+        return docker_repo.rsplit("/", 1)[-1]
+    return row.get("connector_name", "")
+
+
+def org_pin_version_rows(organization_id: str) -> list[dict[str, Any]]:
+    """Build aggregate version rows for the Organization Pins tab.
+
+    Shape-compatible with the Pinned Versions tab table (same `_display` keys),
+    plus an additional `has_active_rollout_display` column. Returns an empty
+    list when no organization is selected.
+    """
+    if not organization_id.strip():
+        return []
+    raw = get_adapter().list_org_pin_stats(organization_id)
+    rows: list[dict[str, Any]] = []
+    for row in raw:
+        bc = int(row.get("breaking_change_pins", 0) or 0)
+        rollout = int(row.get("rollout_pins", 0) or 0)
+        actor = int(row.get("actor_pins", 0) or 0)
+        ws = int(row.get("workspace_pins", 0) or 0)
+        org = int(row.get("org_pins", 0) or 0)
+        has_active_rollout = bool(row.get("has_active_rollout", False))
+        rows.append(
+            {
+                **row,
+                "connector_id": row.get("connector_definition_id", ""),
+                "connector_name": _connector_display_name(row),
+                "custom_pin_count_display": actor + ws + org,
+                "breaking_change_pins_display": bc,
+                "rollout_pins_display": rollout,
+                "actor_pins_display": actor,
+                "workspace_pins_display": ws,
+                "org_pins_display": org,
+                "has_active_rollout_display": "Yes" if has_active_rollout else "",
+            }
+        )
+    return rows
+
+
+def _pin_type_display(row: dict[str, Any]) -> str:
+    """Human label distinguishing manual pins from rollout/breaking-change pins."""
+    origin_type = row.get("origin_type")
+    if origin_type == "connector_rollout":
+        state = row.get("rollout_state")
+        return f"Rollout ({state})" if state else "Rollout"
+    if origin_type == "breaking_change":
+        return "Breaking Change"
+    return "Manual"
+
+
+def org_connector_pin_rows(
+    organization_id: str,
+    pinned_version_id: str = "",
+) -> list[dict[str, Any]]:
+    """Build detailed per-pin rows for a selected version under an organization."""
+    if not organization_id.strip():
+        return []
+    raw = get_adapter().list_org_connector_pins(
+        organization_id,
+        pinned_version_id=pinned_version_id or None,
+    )
+    rows: list[dict[str, Any]] = []
+    for row in raw:
+        scope_type = str(row.get("pin_scope_type", ""))
+        scope_id = str(row.get("scope_id", ""))
+        scope_name = row.get("scope_name") or ""
+        set_by = row.get("pinned_by_user_email") or row.get("pinned_by_user_name") or ""
+        created_at = str(row.get("created_at", "") or "")
+        expires_at = str(row.get("expires_at", "") or "")
+        scope_url = ""
+        if scope_type in ("workspace", "organization") and scope_id:
+            scope_url = _cloud_scope_url(scope_type=scope_type, scope_id=scope_id)
+        rows.append(
+            {
+                **row,
+                "connector_name": _connector_display_name(row),
+                "scope_display": scope_type.title(),
+                "scope_name_display": scope_name or scope_id,
+                "pin_type_display": _pin_type_display(row),
+                "set_by_display": str(set_by),
+                "rollout_state_display": str(row.get("rollout_state", "") or ""),
+                "created_at_display": _fmt_date(created_at),
+                "expires_at_display": _fmt_date(expires_at),
+                "scope_url": scope_url,
+            }
+        )
+    return rows
+
+
+def yanked_version_rows() -> list[dict[str, Any]]:
+    """Build rows for the Yanked Versions tab (cross-connector, active yanks only).
+
+    Sources active `version-yank.yml` markers via
+    `get_adapter().list_yanked_versions`, so only versions with a live yank
+    marker appear. Adds a `yanked_at_display` field for the formatted date.
+    """
+    try:
+        yanked = get_adapter().list_yanked_versions()
+    except Exception:
+        return []
+    rows: list[dict[str, Any]] = []
+    for entry in yanked:
+        row = asdict(entry)
+        row["yanked_at_display"] = _format_date_display(str(row.get("yanked_at", "")))
+        rows.append(row)
+    return rows
+
+
 def admin_user_options() -> list[dict[str, str]]:
     if mock_only_enabled():
         return [{"label": DEFAULT_ADMIN_USER_EMAIL, "value": DEFAULT_ADMIN_USER_EMAIL}]

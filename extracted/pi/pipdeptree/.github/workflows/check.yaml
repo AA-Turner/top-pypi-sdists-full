@@ -7,22 +7,52 @@ on:
   pull_request:
   schedule:
     - cron: "0 8 * * *"
-
 concurrency:
   group: check-${{ github.ref }}
   cancel-in-progress: true
-
 permissions:
   contents: read
-
 jobs:
-  test:
+  dist:
+    uses: ./.github/workflows/dist.yaml
+  rust:
     runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: ${{ github.workspace }}/.python-packages
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - name: Install Graphviz
+        run: sudo apt-get install graphviz -y
+      - name: Install uv
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          enable-cache: false
+      - name: Install resolver dependencies
+        run: uv pip install --target .python-packages 'nab-index>=0.0.11' 'nab-python>=0.0.11'
+      - name: Check formatting
+        run: cargo fmt --all --check
+      - name: Check lints
+        run: cargo clippy --all-targets --all-features -- -D warnings
+      - name: Install coverage tool
+        uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853 # v2.83.2
+        with:
+          tool: cargo-llvm-cov
+      - name: Run tests with coverage
+        run: cargo llvm-cov --no-default-features --test public_api --fail-under-lines 100 --fail-under-functions 100
+  test:
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
         env:
           - "pypy-3.11"
+          - "3.15"
+          - "3.15t"
           - "3.14"
           - "3.13"
           - "3.12"
@@ -32,15 +62,29 @@ jobs:
           - docs
           - dev
           - pkg_meta
+        exclude:
+          # Run non-runtime checks only on Linux
+          - os: windows-latest
+            env: type
+          - os: windows-latest
+            env: docs
+          - os: windows-latest
+            env: dev
+          - os: windows-latest
+            env: pkg_meta
     steps:
-      - name: Install OS dependencies
+      - name: Install OS dependencies (Linux)
+        if: runner.os == 'Linux'
         run: sudo apt-get install graphviz -y
+      - name: Install OS dependencies (Windows)
+        if: runner.os == 'Windows'
+        run: choco install graphviz -y
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
           persist-credentials: false
       - name: Install the latest version of uv
-        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
         with:
           enable-cache: false
           cache-dependency-glob: "pyproject.toml"

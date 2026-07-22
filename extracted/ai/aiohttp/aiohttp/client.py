@@ -580,6 +580,7 @@ class ClientSession:
         if self.closed:
             raise RuntimeError("Session is closed")
 
+        method = method.upper()
         ssl = _merge_ssl_params(ssl, verify_ssl, ssl_context, fingerprint)
 
         if auth is not None:
@@ -695,6 +696,7 @@ class ClientSession:
             await trace.send_request_start(method, url.update_query(params), headers)
 
         timer = tm.timer()
+        req: ClientRequest | None = None
         try:
             with timer:
                 # https://www.rfc-editor.org/rfc/rfc9112.html#name-retrying-requests
@@ -1017,6 +1019,9 @@ class ClientSession:
             if handle:
                 handle.cancel()
                 handle = None
+
+            if req is not None and req._body is not None:
+                await req._body.close()
 
             for trace in traces:
                 await trace.send_request_exception(
@@ -1370,7 +1375,12 @@ class ClientSession:
                 compress=compress,
                 client_notakeover=notakeover,
             )
-            parser = WebSocketReader(reader, max_msg_size, decode_text=decode_text)
+            parser = WebSocketReader(
+                reader,
+                max_msg_size,
+                compress=bool(compress),
+                decode_text=decode_text,
+            )
             cb = None if heartbeat is None else ws_resp._on_data_received
             conn_proto.set_parser(parser, reader, data_received_cb=cb)
             return ws_resp

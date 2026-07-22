@@ -5501,6 +5501,11 @@ class _GenerateUserScenariosParameters(_common.BaseModel):
         default=None,
         description="""Opt-in flag to authorize cross-region routing for LLM models.""",
     )
+    gemini_agent_config: Optional[GeminiAgentConfig] = Field(
+        default=None,
+        description="""If set, the server derives the agents map and root_agent_id
+      from the referenced Gemini Agent server-side.""",
+    )
 
 
 class _GenerateUserScenariosParametersDict(TypedDict, total=False):
@@ -5523,6 +5528,10 @@ class _GenerateUserScenariosParametersDict(TypedDict, total=False):
 
     allow_cross_region_model: Optional[bool]
     """Opt-in flag to authorize cross-region routing for LLM models."""
+
+    gemini_agent_config: Optional[GeminiAgentConfigDict]
+    """If set, the server derives the agents map and root_agent_id
+      from the referenced Gemini Agent server-side."""
 
 
 _GenerateUserScenariosParametersOrDict = Union[
@@ -13363,6 +13372,24 @@ _GetRagFileRequestParametersOrDict = Union[
 ]
 
 
+class RagFileStatus(_common.BaseModel):
+    """RagFile status."""
+
+    state: Optional[RagFileState] = Field(
+        default=None, description="""The state of the RagFile."""
+    )
+
+
+class RagFileStatusDict(TypedDict, total=False):
+    """RagFile status."""
+
+    state: Optional[RagFileState]
+    """The state of the RagFile."""
+
+
+RagFileStatusOrDict = Union[RagFileStatus, RagFileStatusDict]
+
+
 class DirectUploadSource(_common.BaseModel):
     """The input content is encapsulated and uploaded in the request."""
 
@@ -13675,7 +13702,7 @@ class RagFile(_common.BaseModel):
         default=None,
         description="""Required. The display name of the RagFile. The name can be up to 128 characters long and can consist of any UTF-8 characters.""",
     )
-    file_status: Optional[genai_types.FileStatus] = Field(
+    file_status: Optional[RagFileStatus] = Field(
         default=None, description="""Output only. State of the RagFile."""
     )
     gcs_source: Optional[genai_types.GcsSource] = Field(
@@ -13730,7 +13757,7 @@ class RagFileDict(TypedDict, total=False):
     display_name: Optional[str]
     """Required. The display name of the RagFile. The name can be up to 128 characters long and can consist of any UTF-8 characters."""
 
-    file_status: Optional[genai_types.FileStatusDict]
+    file_status: Optional[RagFileStatusDict]
     """Output only. State of the RagFile."""
 
     gcs_source: Optional[genai_types.GcsSourceDict]

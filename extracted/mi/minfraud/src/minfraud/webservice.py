@@ -256,7 +256,7 @@ class AsyncClient(BaseClient):
         :type timeout: float
         :param proxy: The URL of an HTTP proxy to use. It may optionally include
           a basic auth username and password, e.g.,
-          ``http://username:password@host:port``.
+          ``http://<username>:<password>@<host>:<port>``.
         :return: Client object
         :rtype: Client
         """
@@ -274,7 +274,7 @@ class AsyncClient(BaseClient):
         :param transaction: A dictionary containing the transaction to be
           sent to the minFraud Factors web service as specified in the `REST
           API documentation
-          <https://dev.maxmind.com/minfraud/api-documentation/requests?lang=en>`_.
+          <https://dev.maxmind.com/minfraud/api-documentation/requests/?lang=en>`_.
         :type transaction: dict
         :param validate: If set to false, validation of the transaction
           dictionary will be disabled. This validation helps ensure that your
@@ -313,7 +313,7 @@ class AsyncClient(BaseClient):
         :param transaction: A dictionary containing the transaction to be
           sent to the minFraud Insights web service as specified in the `REST
           API documentation
-          <https://dev.maxmind.com/minfraud/api-documentation/requests?lang=en>`_.
+          <https://dev.maxmind.com/minfraud/api-documentation/requests/?lang=en>`_.
         :type transaction: dict
         :param validate: If set to false, validation of the transaction
           dictionary will be disabled. This validation helps ensure that your
@@ -352,7 +352,7 @@ class AsyncClient(BaseClient):
         :param transaction: A dictionary containing the transaction to be
           sent to the minFraud Score web service as specified in the `REST API
           documentation
-          <https://dev.maxmind.com/minfraud/api-documentation/requests?lang=en>`_.
+          <https://dev.maxmind.com/minfraud/api-documentation/requests/?lang=en>`_.
         :type transaction: dict
         :param validate: If set to false, validation of the transaction
           dictionary will be disabled. This validation helps ensure that your
@@ -388,9 +388,9 @@ class AsyncClient(BaseClient):
         """Send a transaction report to the Report Transaction endpoint.
 
         :param report: A dictionary containing the transaction report to be sent
-          to the Report Transations web service as specified in the `REST API`
+          to the Report Transations web service as specified in the `REST API
           documentation
-          <https://dev.maxmind.com/minfraud/report-a-transaction?lang=en>_.
+          <https://dev.maxmind.com/minfraud/report-a-transaction/?lang=en>`_.
         :type report: dict
         :param validate: If set to false, validation of the report dictionary
           will be disabled. This validation helps ensure that your request is
@@ -442,8 +442,14 @@ class AsyncClient(BaseClient):
     async def _session(self) -> aiohttp.ClientSession:
         if not hasattr(self, "_existing_session"):
             self._existing_session = aiohttp.ClientSession(
-                auth=aiohttp.BasicAuth(self._account_id, self._license_key),
-                headers={"Accept": "application/json", "User-Agent": _AIOHTTP_UA},
+                headers={
+                    "Accept": "application/json",
+                    "Authorization": aiohttp.encode_basic_auth(
+                        self._account_id,
+                        self._license_key,
+                    ),
+                    "User-Agent": _AIOHTTP_UA,
+                },
                 timeout=aiohttp.ClientTimeout(total=self._timeout),
             )
 
@@ -504,7 +510,7 @@ class Client(BaseClient):
           60.
         :param proxy: The URL of an HTTP proxy to use. It may optionally include
           a basic auth username and password, e.g.,
-          ``http://username:password@host:port``.
+          ``http://<username>:<password>@<host>:<port>``.
         :type timeout: float
         :return: Client object
         :rtype: Client
@@ -532,7 +538,7 @@ class Client(BaseClient):
         :param transaction: A dictionary containing the transaction to be
           sent to the minFraud Factors web service as specified in the `REST
           API documentation
-          <https://dev.maxmind.com/minfraud/api-documentation/requests?lang=en>`_.
+          <https://dev.maxmind.com/minfraud/api-documentation/requests/?lang=en>`_.
         :type transaction: dict
         :param validate: If set to false, validation of the transaction
           dictionary will be disabled. This validation helps ensure that your
@@ -571,7 +577,7 @@ class Client(BaseClient):
         :param transaction: A dictionary containing the transaction to be
           sent to the minFraud Insights web service as specified in the `REST
           API documentation
-          <https://dev.maxmind.com/minfraud/api-documentation/requests?lang=en>`_.
+          <https://dev.maxmind.com/minfraud/api-documentation/requests/?lang=en>`_.
         :type transaction: dict
         :param validate: If set to false, validation of the transaction
           dictionary will be disabled. This validation helps ensure that your
@@ -610,7 +616,7 @@ class Client(BaseClient):
         :param transaction: A dictionary containing the transaction to be
           sent to the minFraud Score web service as specified in the `REST API
           documentation
-          <https://dev.maxmind.com/minfraud/api-documentation/requests?lang=en>`_.
+          <https://dev.maxmind.com/minfraud/api-documentation/requests/?lang=en>`_.
         :type transaction: dict
         :param validate: If set to false, validation of the transaction
           dictionary will be disabled. This validation helps ensure that your
@@ -646,9 +652,9 @@ class Client(BaseClient):
         """Send a transaction report to the Report Transaction endpoint.
 
         :param report: A dictionary containing the transaction report to be sent
-          to the Report Transations web service as specified in the `REST API`
+          to the Report Transations web service as specified in the `REST API
           documentation
-          <https://dev.maxmind.com/minfraud/report-transaction/#Request_Body>_.
+          <https://dev.maxmind.com/minfraud/report-a-transaction/?lang=en>`_.
         :type report: dict
         :param validate: If set to false, validation of the report dictionary
           will be disabled. This validation helps ensure that your request is

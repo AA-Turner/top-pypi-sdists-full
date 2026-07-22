@@ -19,12 +19,14 @@ from typing import (
     Collection,
     Dict,
     FrozenSet,
+    Iterable,
     List,
     Mapping,
     Optional,
     Sequence,
     Set,
     Tuple,
+    Union,
     cast,
 )
 
@@ -189,8 +191,8 @@ class IterableResult:
     typ: type
 
 
-# The canonical builtin types -- ``type(x) -> int`` is a stable, identity-eq
-# inversion target, so these stay gradable (mirrors ``inputgen.TYPES``).
+# The canonical builtin value types -- ``type(x) -> int`` is a stable, identity-eq
+# inversion target, so these stay gradable.
 _GRADABLE_CLASSES = frozenset(
     (int, float, bool, str, bytes, bytearray, list, tuple, dict, set, frozenset)
 )
@@ -377,21 +379,30 @@ class DiffResult:
     unsupported: int = 0
 
 
+def _union_of(types: Iterable[object]) -> object:
+    """Union of proxy types, order-preserved and de-duplicated."""
+    uniq = tuple(dict.fromkeys(types))
+    return uniq[0] if len(uniq) == 1 else Union[uniq]  # type: ignore
+
+
 def _proxy_type(v: object) -> object:
-    """A (possibly parameterized) type to build a symbolic stand-in for ``v``."""
+    """A (possibly parameterized) type to build a symbolic stand-in for ``v``.
+
+    A container's element type is a union over all of its elements."""
     t = type(v)
     if t is list:
-        return List[_proxy_type(next(iter(v)))] if v else List[int]  # type: ignore
+        return List[_union_of(_proxy_type(x) for x in v)] if v else List[int]  # type: ignore
     if t is set:
-        return Set[_proxy_type(next(iter(v)))] if v else Set[int]  # type: ignore
+        return Set[_union_of(_proxy_type(x) for x in v)] if v else Set[int]  # type: ignore
     if t is frozenset:
-        return FrozenSet[_proxy_type(next(iter(v)))] if v else FrozenSet[int]  # type: ignore
+        return FrozenSet[_union_of(_proxy_type(x) for x in v)] if v else FrozenSet[int]  # type: ignore
     if t is tuple:
         return Tuple[tuple(_proxy_type(x) for x in v)] if v else Tuple[()]  # type: ignore
     if t is dict:
         if v:
-            k, val = next(iter(v.items()))  # type: ignore
-            return Dict[_proxy_type(k), _proxy_type(val)]  # type: ignore
+            keys = _union_of(_proxy_type(k) for k in v)  # type: ignore
+            vals = _union_of(_proxy_type(x) for x in v.values())  # type: ignore
+            return Dict[keys, vals]  # type: ignore
         return Dict[int, int]
     return t
 

@@ -1014,69 +1014,63 @@ class Tomography(Experiment):
             AOsignal = self.AOsignal_withTumor
         else:
             AOsignal = self.AOsignal_withoutTumor
+
         delta_x = self.params.general['dx']  # in meters
         n_piezos = self.params.acoustic['probe']['num_elements']
         demodulated_data = {}
         structured_buffer = {}
 
         for i in trange(AOsignal.shape[1], desc="[AOT-biomaps] Demodulating AO signals (4-phases quadrature)"):
-            hex_pattern = self.patterns[i]["fileName"]
-            fs_key = self.decimations[i]
-            angle_rad = np.deg2rad(self.theta[i])
-            angle_rad = float(np.round(angle_rad, 5))
+            field_obj = self.AcousticFields[i]
+            label = field_obj.get_name_field()
+            parts = label.split("_")
+            hex_pattern = parts[1]
+            angle_code = parts[-1]
 
-            # Plane wave (f_s = 0)
-            if fs_key == 0:
-                demodulated_data[(fs_key, angle_rad)] = np.array(AOsignal[:,i])
+            angle_deg = -int(angle_code[1:]) if angle_code.startswith("1") else int(angle_code)
+            angle_rad = float(np.round(np.deg2rad(angle_deg), 6))
+
+            if set(hex_pattern.lower().replace(" ", "")) == {'f'}:
+                fs_key = 0.0
+                phase = 0.0
+            else:
+                profile = hex_to_binary_profile(hex_pattern, n_piezos)
+                ft_prof = np.fft.fft(profile)
+                idx_max = np.argmax(np.abs(ft_prof[1:n_piezos//2])) + 1
+                freqs = np.fft.fftfreq(n_piezos, d=delta_x)
+                fs_key = float(np.round(abs(freqs[idx_max]) / 1000.0, 6))  # in mm⁻¹
+                phase = get_phase_deterministic(profile)
+
+            if fs_key == 0.0: # plane wave, no demodulation needed
+                demodulated_data[(fs_key, angle_rad)] = np.array(AOsignal[:, i], dtype=np.complex64)
                 continue
 
-            # Structured wave
-            profile = hex_to_binary_profile(hex_pattern, n_piezos)
-
-            # Calculate spatial frequency (FS)
-            ft_prof = np.fft.fft(profile)
-            # Only consider positive non-DC part
-            idx_max = np.argmax(np.abs(ft_prof[1:len(profile)//2])) + 1
-            freqs = np.fft.fftfreq(len(profile), d=delta_x)
-
-            # freqs is in m^-1 because delta_x is in meters
-            fs_m_inv = abs(freqs[idx_max])
-
-            # CORRECTION: Convert fs from m^-1 to mm^-1 (mm^-1 is used in iRadon)
-            fs_key = float(np.round(fs_m_inv / 1000.0, 5))
-            
-            if fs_key == 0: continue
-
-            # Calculate Phase (Shift)
-            phase = get_phase_deterministic(profile)
-
-            # Store by (fs, theta) and phase
             key = (fs_key, angle_rad)
             if key not in structured_buffer:
                 structured_buffer[key] = {}
 
-            # Averaging is needed if multiple acquisitions have the same phase (for SNR)
+            sig = np.array(AOsignal[:, i])
             if phase in structured_buffer[key]:
-                structured_buffer[key][phase] = (structured_buffer[key][phase] + np.array(AOsignal[:,i])) / 2
+                structured_buffer[key][phase] = (structured_buffer[key][phase] + sig) / 2
             else:
-                structured_buffer[key][phase] = np.array(AOsignal[:,i])
+                structured_buffer[key][phase] = sig
 
         for (fs, theta), phases in structured_buffer.items():
-            s0 = phases.get(0.0, 0)
-            s_pi_2 = phases.get(np.pi/2, 0)
-            s_pi = phases.get(np.pi, 0)
-            s_3pi_2 = phases.get(3*np.pi/2, 0)
-
-            # Ensure zeros are arrays of the correct size
-            example = next(val for val in phases.values() if not isinstance(val, int))
-            if isinstance(s0, int): s0 = np.zeros_like(example)
-            if isinstance(s_pi, int): s_pi = np.zeros_like(example)
-            if isinstance(s_pi_2, int): s_pi_2 = np.zeros_like(example)
-            if isinstance(s_3pi_2, int): s_3pi_2 = np.zeros_like(example)
+            required_phases = [0.0, np.pi/2, np.pi, 3*np.pi/2]
+            if not all(p in phases for p in required_phases):
+                example = next(iter(phases.values()))
+                s0 = phases.get(0.0, np.zeros_like(example))
+                s_pi_2 = phases.get(np.pi/2, np.zeros_like(example))
+                s_pi = phases.get(np.pi, np.zeros_like(example))
+                s_3pi_2 = phases.get(3*np.pi/2, np.zeros_like(example))
+            else:
+                s0 = phases[0.0]
+                s_pi_2 = phases[np.pi/2]
+                s_pi = phases[np.pi]
+                s_3pi_2 = phases[3*np.pi/2]
 
             real = s0 - s_pi
             imag = s_pi_2 - s_3pi_2
-
             demodulated_data[(fs, theta)] = (real - 1j * imag) / (2/np.pi)
 
         return demodulated_data

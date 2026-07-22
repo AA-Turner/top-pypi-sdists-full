@@ -29,6 +29,7 @@ Note: opendataloader-pdf handles PDF files only. Standalone images (JPG, PNG)
 
 import json
 import os
+import signal
 import subprocess
 import sys
 import tempfile
@@ -67,18 +68,18 @@ class OpendataloaderRunError(RuntimeError):
 
 def _opendataloader_env(java_binary: str) -> dict[str, str] | None:
     java_path = Path(str(java_binary or "").strip()).expanduser()
-    if not str(java_path):
+    if not java_path.is_absolute() or not java_path.is_file():
         return None
 
     env = os.environ.copy()
-    java_bin_dir = str(java_path.resolve(strict=False).parent)
-    current_path = env["PATH"] if "PATH" in env else ""
-    path_parts = current_path.split(os.pathsep) if current_path else []
-    if java_bin_dir not in path_parts:
-        env["PATH"] = os.pathsep.join([java_bin_dir, *path_parts])
-
-    java_home = java_path.resolve(strict=False).parent.parent
-    if (java_home / "bin" / "java").is_file():
+    binary_dir = str(java_path.parent)
+    current_path = env.get("PATH", "")
+    env["PATH"] = os.pathsep.join(path for path in (binary_dir, current_path) if path)
+    java_home = java_path.resolve().parent.parent
+    # macOS /usr/bin/java is a launcher, not a JDK home.  Treat a candidate as
+    # JAVA_HOME only when it has the JDK/JRE release marker; otherwise preserve
+    # the runner's JAVA_HOME so the launcher can select that runtime normally.
+    if (java_home / "bin" / "java").is_file() and (java_home / "release").is_file():
         env["JAVA_HOME"] = str(java_home)
     return env
 
@@ -125,13 +126,27 @@ def _run_opendataloader(
 ) -> Path | None:
     """Run opendataloader-pdf on a single file with a given format, return output path or None."""
     cmd = [binary, "-f", fmt, "-o", str(out_dir), "-q", *extra_args, str(source_file)]
-    result = subprocess.run(
+    process = subprocess.Popen(
         cmd,
-        capture_output=True,
-        timeout=timeout,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         text=True,
         env=env,
+        start_new_session=True,
     )
+    try:
+        stdout, stderr = process.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        # opendataloader-pdf is a Python wrapper around a Java subprocess. Kill
+        # the owned process group so a timed-out extraction cannot leave the
+        # JVM alive holding inherited pipes or consuming the runner CPU.
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        process.communicate()
+        raise
+    result = subprocess.CompletedProcess(cmd, process.returncode, stdout, stderr)
     if result.stderr:
         print(result.stderr, file=sys.stderr, end="")
     if result.returncode != 0:

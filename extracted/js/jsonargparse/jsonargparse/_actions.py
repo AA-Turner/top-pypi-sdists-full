@@ -6,9 +6,9 @@ from argparse import SUPPRESS, _HelpAction, _VersionAction
 from argparse import Action as ArgparseAction
 from contextlib import contextmanager
 from contextvars import ContextVar
-from typing import Any, Optional
+from typing import Any
 
-from ._common import Action, NonParsingAction, is_subclass, is_subclasses_disabled, parser_context
+from ._common import Action, NonParsingAction, get_parsing_setting, is_subclass, is_subclasses_disabled, parser_context
 from ._loaders_dumpers import get_loader_exceptions, load_value
 from ._namespace import Namespace
 from ._optionals import _get_config_read_mode, ruamel_support
@@ -23,6 +23,7 @@ from ._util import (
     indent_text,
     iter_to_set_str,
     load_config_path_context,
+    merge_config,
     parse_value_or_config,
 )
 
@@ -116,7 +117,7 @@ class ActionConfigFile(Action):
         with parser_context(single_subcommand=False), previous_config_context(cfg), skip_apply_links():
             kwargs = {"env": False, "defaults": False, "_skip_validation": True, "_fail_no_subcommand": False}
             try:
-                cfg_path: Optional[Path] = Path(value, mode=_get_config_read_mode())
+                cfg_path: Path | None = Path(value, mode=_get_config_read_mode())
             except TypeError as ex_path:
                 try:
                     if isinstance(load_value(value), str):
@@ -127,9 +128,9 @@ class ActionConfigFile(Action):
                     raise TypeError(f'Parser key "{dest}": {ex_str}') from ex_str
             else:
                 cfg_file = parser.parse_path(value, **kwargs)
-            cfg_merged = parser.merge_config(cfg_file, cfg)
+            cfg_merged = merge_config(parser, cfg_file, cfg)
             cfg.__dict__.update(cfg_merged.__dict__)
-            if cfg.get(dest) is None:
+            if cfg.get(dest) is get_parsing_setting("unset_sentinel"):
                 cfg[dest] = []
             cfg[dest].append(cfg_path)
 
@@ -171,23 +172,28 @@ class _ActionPrintConfig(NonParsingAction):
             help=(
                 "Print the configuration after applying all other arguments and exit. The optional "
                 "flags customizes the output and are one or more keywords separated by comma. The "
-                "supported flags are:%s skip_default, skip_null."
+                "supported flags are:%s skip_default, skip_unset."
             )
             % (" comments," if ruamel_support else ""),
         )
 
     def __call__(self, parser, namespace, value, option_string=None):
-        kwargs = {"subparser": parser, "key": None, "skip_none": False, "skip_validation": False}
-        valid_flags = {"": None, "skip_default": "skip_default", "skip_null": "skip_none"}
+        from ._deprecated import deprecated_skip_null, deprecated_valid_flags
+
+        kwargs = {"subparser": parser, "key": None, "skip_unset": False, "skip_validation": False}
+        valid_flags = {"": None, "skip_default": "skip_default", "skip_unset": "skip_unset"} | deprecated_valid_flags
         if ruamel_support:
             valid_flags["comments"] = "with_comments"
-        if value is not None:
-            flags = value[0].split(",")
-            invalid_flags = [f for f in flags if f not in valid_flags]
-            if len(invalid_flags) > 0:
-                raise argument_error(f'Invalid option "{invalid_flags[0]}" for {option_string}')
-            for flag in [f for f in flags if f != ""]:
-                kwargs[valid_flags[flag]] = True
+        flags = value[0].split(",")
+        invalid_flags = [f for f in flags if f not in valid_flags]
+        if len(invalid_flags) > 0:
+            raise argument_error(f'Invalid option "{invalid_flags[0]}" for {option_string}')
+        for flag in [f for f in flags if f != ""]:
+            mapped = valid_flags[flag]
+            if deprecated_skip_null(flag):
+                kwargs["skip_unset"] = True
+            else:
+                kwargs[mapped] = True
         while hasattr(parser, "parent_parser"):
             kwargs["key"] = parser.subcommand if kwargs["key"] is None else parser.subcommand + "." + kwargs["key"]
             parser = parser.parent_parser
@@ -224,7 +230,7 @@ class _ActionPrintConfig(NonParsingAction):
 
 
 class _ActionConfigLoad(Action):
-    def __init__(self, basetype: Optional[type] = None, **kwargs):
+    def __init__(self, basetype: type | None = None, **kwargs):
         if len(kwargs) == 0:
             self._basetype = basetype
         else:
@@ -241,8 +247,8 @@ class _ActionConfigLoad(Action):
         parser, namespace, value = args[:3]
         loaded_value = self._load_config(value, parser)
         if isinstance(namespace.get(self.dest), Namespace):
-            loaded_value = parser.merge_config(
-                Namespace({self.dest: loaded_value}), Namespace({self.dest: namespace[self.dest]})
+            loaded_value = merge_config(
+                parser, Namespace({self.dest: loaded_value}), Namespace({self.dest: namespace[self.dest]})
             )[self.dest]
         namespace[self.dest] = loaded_value
         return None
@@ -267,7 +273,7 @@ class _ActionHelpClassPath(NonParsingAction):
     sub_add_kwargs: dict[str, Any] = {}
 
     @classmethod
-    def get_help_types(cls, typehint) -> Optional[tuple]:
+    def get_help_types(cls, typehint) -> tuple | None:
         from ._typehints import get_subclass_or_closed_types
 
         return get_subclass_or_closed_types(typehint=typehint, also_lists=True, callable_return=True)

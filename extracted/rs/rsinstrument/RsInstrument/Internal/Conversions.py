@@ -32,11 +32,13 @@ class BinIntFormat(Enum):
 
 def assert_string_data(value: str) -> None:
 	"""Asserts value is string type."""
+	# noinspection PyStringConversionWithoutDunderMethod
 	assert isinstance(value, str), f"Input value type must be string. Actual type: {type(value)}, value: {value}"
 
 
 def assert_list_data(value: List) -> None:
 	"""Asserts value is list type."""
+	# noinspection PyStringConversionWithoutDunderMethod
 	assert isinstance(value, list), f"Input value type must be a list. Actual type: {type(value)}, value: {value}"
 
 
@@ -367,6 +369,7 @@ def bool_to_str(value: bool) -> str:
 	if type(value) is bool:
 		return 'ON' if value is True else 'OFF'
 	else:
+		# noinspection PyStringConversionWithoutDunderMethod
 		raise RsInstrException(f"bool_to_str: unsupported variable type '{type(value)}', value '{value}'. Only boolean values are supported.")
 
 
@@ -446,6 +449,7 @@ def decimal_or_bool_value_to_str(x: int | float | bool) -> str:
 	- float
 	- boolean"""
 	if type(x) is bool:
+		# noinspection PyTypeChecker
 		return bool_to_str(x)
 	if isinstance(x, int):
 		return str(x)
@@ -719,7 +723,7 @@ def str_to_list_enum_ext(string: str, enum_type) -> List[Enum]:
 
 
 def convert_ts_to_datetime(timestamp: datetime | float) -> datetime:
-	"""Converts timestamp as float to datetime. For datetime tuple it just passes the value."""
+	"""Converts timestamp as float or int to datetime. For datetime tuple it just passes the value."""
 	if isinstance(timestamp, float) or isinstance(timestamp, int):
 		return datetime.fromtimestamp(timestamp)
 	return timestamp

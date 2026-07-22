@@ -20,7 +20,7 @@ T = TypeVar("T")
 V = TypeVar("V")
 
 
-class ConfigDefinition(ABC, Generic[T]):  # noqa: PLW1641
+class ConfigDefinition(ABC, Generic[T]):  # ruff:ignore[eq-without-hash]
     """Abstract base class for configuration definitions."""
 
     def __init__(self, keys: Iterable[str], desc: str) -> None:
@@ -29,6 +29,11 @@ class ConfigDefinition(ABC, Generic[T]):  # noqa: PLW1641
 
     @abstractmethod
     def __call__(self, conf: Config, loaders: list[Loader[T]], args: ConfigLoadArgs) -> T:
+        raise NotImplementedError
+
+    @abstractmethod
+    def overwrite(self, value: T) -> None:
+        """Force the configuration to the given value, replacing any constant or already loaded one."""
         raise NotImplementedError
 
     def __eq__(self, o: object) -> bool:
@@ -40,7 +45,7 @@ class ConfigDefinition(ABC, Generic[T]):  # noqa: PLW1641
         return not (self == o)
 
 
-class ConfigConstantDefinition(ConfigDefinition[T]):  # noqa: PLW1641
+class ConfigConstantDefinition(ConfigDefinition[T]):  # ruff:ignore[eq-without-hash]
     """A configuration definition whose value is defined upfront (such as the tox environment name)."""
 
     def __init__(
@@ -54,13 +59,16 @@ class ConfigConstantDefinition(ConfigDefinition[T]):  # noqa: PLW1641
 
     def __call__(
         self,
-        conf: Config,  # noqa: ARG002
-        loaders: list[Loader[T]],  # noqa: ARG002
-        args: ConfigLoadArgs,  # noqa: ARG002
+        conf: Config,  # ruff:ignore[unused-method-argument]
+        loaders: list[Loader[T]],  # ruff:ignore[unused-method-argument]
+        args: ConfigLoadArgs,  # ruff:ignore[unused-method-argument]
     ) -> T:
         if callable(self.value):
             return cast("Callable[[], T]", self.value)()
         return self.value
+
+    def overwrite(self, value: T) -> None:
+        self.value = value
 
     def __eq__(self, o: object) -> bool:
         if not isinstance(o, ConfigConstantDefinition):
@@ -75,10 +83,10 @@ class ConfigConstantDefinition(ConfigDefinition[T]):  # noqa: PLW1641
 _PLACE_HOLDER = object()
 
 
-class ConfigDynamicDefinition(ConfigDefinition[T]):  # noqa: PLW1641
+class ConfigDynamicDefinition(ConfigDefinition[T]):  # ruff:ignore[eq-without-hash]
     """A configuration definition that comes from a source (such as in memory, an ini file, a toml file, etc.)."""
 
-    def __init__(  # noqa: PLR0913
+    def __init__(  # ruff:ignore[too-many-arguments]
         self,
         keys: Iterable[str],
         desc: str,
@@ -128,6 +136,9 @@ class ConfigDynamicDefinition(ConfigDefinition[T]):  # noqa: PLW1641
                 value = self.post_process(value)
             self._cache = value
         return cast("T", self._cache)
+
+    def overwrite(self, value: T) -> None:
+        self._cache = value
 
     def __repr__(self) -> str:
         values = ((k, v) for k, v in vars(self).items() if k not in {"post_process", "_cache"} and v is not None)

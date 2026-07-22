@@ -47,6 +47,9 @@ __all__ = (
 
 _DEFAULT_THREAD_TIMEOUT = 5.0
 _DEFAULT_PROCESS_TIMEOUT = 7.0
+_DEFAULT_GET_SERVER_PORT_RETRIES = 400
+_DEFAULT_GET_SERVER_PORT_DELAY = 0.03
+
 
 IOR = collections.namedtuple(
     "IOR",
@@ -82,7 +85,7 @@ def get_server_host_port():
     return ior.host.decode(), ior.port
 
 
-def get_server_port_via_pid(pid, host, retries=400, delay=0.03):
+def get_server_port_via_pid(pid, host, retries=_DEFAULT_GET_SERVER_PORT_RETRIES, delay=_DEFAULT_GET_SERVER_PORT_DELAY):
     """Return the TCP port that a device server process is listening on (GIOP).
 
     This checks TCP sockets open on the process with the given PID, and attempts
@@ -258,36 +261,42 @@ class MultiDeviceTestContext:
     Example usage::
 
         from tango import DeviceProxy
-        from tango.server import Device, attribute
+        from tango.server import Device, attribute, class_property, device_property
         from tango.test_context import MultiDeviceTestContext
 
 
         class Device1(Device):
+            cls_prop1 = class_property(dtype=str)
+            dev_prop1 = device_property(dtype=str)
+
             @attribute(dtype=int)
             def attr1(self):
                 return 1
 
 
         class Device2(Device):
-            @attribute(dtype=int)
+            @attribute(dtype=int, memorized=True, hw_memorized=True)
             def attr2(self):
                 dev1 = DeviceProxy("test/device/1")
                 return dev1.attr1 * 2
+
+            @attr2.write
+            def attr2(self, value):
+                print(f"Got new value {value}")
 
 
         devices_info = (
             {
                 "class": Device1,
+                "class_properties": {"cls_prop1": "cls_val"},
                 "devices": [
-                    {"name": "test/device/1"},
+                    {"name": "test/device/1", "properties": {"dev_prop1": "dev_val"}},
                 ],
             },
             {
                 "class": Device2,
                 "devices": [
-                    {
-                        "name": "test/device/2",
-                    },
+                    {"name": "test/device/2", "memorized": {"attr2": 123}},
                 ],
             },
         )
@@ -312,6 +321,9 @@ class MultiDeviceTestContext:
           :class:`~tango.DeviceClass` or the name of some such class,
           the second element being a :class:`~tango.DeviceImpl` or the
           name of some such class
+
+      * "class_properties" (dict), with class property names as keys and
+        class property values as the dict values.
 
       * "devices" which value is a sequence of dicts with the following keys:
 
@@ -381,6 +393,14 @@ class MultiDeviceTestContext:
       or if that isn't specified the global green mode.
     :type green_mode:
       :obj:`~tango.GreenMode`
+    :param cleanup:
+      if True - after the server loop finishes the Util.cleanup() method will be called
+      and all configured classes will be erased.
+      To be used, if one needs to restart server loop in the same process.
+      This feature is experimental and may introduce unexpected bugs in behavior!
+      [default: True].
+    :type cleanup:
+      :py:obj:`bool`
 
     .. versionadded:: 9.3.2
 
@@ -398,6 +418,12 @@ class MultiDeviceTestContext:
         This can be disabled by setting the `enable_test_context_tango_host_override`
         class/instance attribute to `False` before starting the test context.
         Added support for `root_atts` key to "devices" field in `devices_info`.
+
+    .. versionadded:: 10.3.1
+        added support for *class_properties* as a dict inside the *devices_info* parameter.
+
+    .. versionadded:: 10.3.1
+        added *cleanup* parameter.
     """
 
     command = "{0} {1} -ORBendPoint giop:tcp:{2}:{3} -file={4}"
@@ -419,6 +445,7 @@ class MultiDeviceTestContext:
         daemon=False,
         timeout=None,
         green_mode=None,
+        cleanup=True,
     ):
         if not server_name:
             _, first_device = _device_class_from_field(devices_info[0]["class"])
@@ -467,7 +494,8 @@ class MultiDeviceTestContext:
                 raise ValueError("multiple entries in devices_info pointing to the same Tango class")
             tangoclass_list.append(tangoclass)
             # File
-            self.append_db_file(server_name, instance_name, tangoclass, device_info["devices"])
+            class_properties = device_info.get("class_properties")
+            self.append_db_file(server_name, instance_name, tangoclass, device_info["devices"], class_properties)
             if device_cls:
                 class_list.append((device_cls, device, tangoclass))
             else:
@@ -478,11 +506,11 @@ class MultiDeviceTestContext:
             self.delete_db()
             raise ValueError("mixing HLAPI and classical API in devices_info is not supported")
         if class_list:
-            runserver = partial(run, class_list, cmd_args, green_mode=green_mode)
+            runserver = partial(run, class_list, cmd_args, green_mode=green_mode, cleanup=cleanup)
         elif len(device_list) == 1 and hasattr(device_list[0], "run_server"):
-            runserver = partial(device.run_server, cmd_args, green_mode=green_mode)
+            runserver = partial(device.run_server, cmd_args, green_mode=green_mode, cleanup=cleanup)
         elif device_list:
-            runserver = partial(run, device_list, cmd_args, green_mode=green_mode)
+            runserver = partial(run, device_list, cmd_args, green_mode=green_mode, cleanup=cleanup)
         else:
             raise ValueError("Wrong format of devices_info")
 
@@ -516,7 +544,10 @@ class MultiDeviceTestContext:
             if not self.port:
                 util = Util.instance()
                 pid = util.get_pid()
-                self.port = get_server_port_via_pid(pid, self.host)
+                # wait slightly less than total startup timeout for port so we can
+                # report port error details rather than generic startup failure
+                retries = int(self.timeout * 0.8 / _DEFAULT_GET_SERVER_PORT_DELAY)
+                self.port = get_server_port_via_pid(pid, self.host, retries=retries)
             if self._process:
                 # set TANGO_HOST override for device server (DS) launcher child process
                 self._override_test_context_tango_host()
@@ -547,7 +578,7 @@ class MultiDeviceTestContext:
         # now we can connect to the device - success!
         self._startup_exception_queue.put(None)
 
-    def append_db_file(self, server, instance, tangoclass, device_prop_info):
+    def append_db_file(self, server, instance, tangoclass, device_prop_info, class_properties=None):
         """Generate a database file corresponding to the given arguments."""
         device_names = [info["name"] for info in device_prop_info]
         # Open the file
@@ -558,16 +589,15 @@ class MultiDeviceTestContext:
             f.write("\n")
         # Create database
         db = Database(self.db)
-        # Write properties
+        # Write class properties
+        class_properties = dict(class_properties or {})
+        self._patch_empty_string_properties(class_properties)
+        db.put_class_property(tangoclass, class_properties)
+        # Write device properties
         for info in device_prop_info:
             device_name = info["name"]
             properties = dict(info.get("properties", {}))
-            # Patch the property dict to avoid a PyTango bug
-            for key, value in properties.items():
-                if is_non_str_seq(value):
-                    properties[key] = [v if v != "" else " " for v in value]
-                else:
-                    properties[key] = value if value != "" else " "
+            self._patch_empty_string_properties(properties)
             db.put_device_property(device_name, properties)
 
             root_atts = info.get("root_atts", {})
@@ -585,7 +615,7 @@ class MultiDeviceTestContext:
             db.put_device_attribute_property(device_name, properties_to_save)
         try:
             validated_db = Database(self.db)
-        except DevFailed:
+        except DevFailed as exc:
             with open(self.db) as f:
                 content = f.read()
             raise RuntimeError(
@@ -593,8 +623,20 @@ class MultiDeviceTestContext:
                 f"Check device properties (empty list or str?): "
                 f"{device_prop_info}.\n"
                 f"Problematic file has content:\n{content}"
-            ) from None
+            ) from exc
         return validated_db
+
+    def _patch_empty_string_properties(self, properties: dict):
+
+        def ensure_not_empty_string(prop):
+            return prop if prop != "" else " "
+
+        # Patch the property dict to avoid a PyTango bug
+        for key, value in properties.items():
+            if is_non_str_seq(value):
+                properties[key] = [ensure_not_empty_string(v) for v in value]
+            else:
+                properties[key] = ensure_not_empty_string(value)
 
     def delete_db(self):
         """delete temporary database file only if it was created by this class"""
@@ -639,20 +681,20 @@ class MultiDeviceTestContext:
         try:
             self._wait_until_port_is_known()
             self._wait_until_startup_status_is_known()
-        except RuntimeError:
+        except RuntimeError as exc:
             if self.thread.is_alive():
                 raise RuntimeError(
                     "The server appears to be stuck at initialization. Check stdout/stderr for more information."
-                ) from None
+                ) from exc
             elif hasattr(self.thread, "exitcode"):
                 raise RuntimeError(
                     f"The server process stopped with exitcode {self.thread.exitcode}. "
                     f"Check stdout/stderr for more information."
-                ) from None
+                ) from exc
             else:
                 raise RuntimeError(
                     "The server stopped without reporting. Check stdout/stderr for more information."
-                ) from None
+                ) from exc
 
         if self._startup_exception:
             raise self._startup_exception
@@ -804,6 +846,16 @@ class DeviceTestContext(MultiDeviceTestContext):
       :class:`~tango.server.Device`.
     :type device_cls:
       :class:`~tango.DeviceClass`
+    :param properties:
+      The device properties as a dict, with names as the keys, and the corresponding values.
+      These will be set in the database prior to the device server starting.
+    :type properties:
+      :py:obj:`dict`\\[:py:obj:`str`, :py:obj:`object`]
+    :param class_properties:
+      The class properties as a dict, with names as the keys, and the corresponding values.
+      These will be set in the database prior to the device server starting.
+    :type class_properties:
+      :py:obj:`dict`\\[:py:obj:`str`, :py:obj:`object`]
 
     The rest of the parameters are described in
     :class:`~tango.test_context.MultiDeviceTestContext`.
@@ -815,6 +867,9 @@ class DeviceTestContext(MultiDeviceTestContext):
 
     .. versionadded:: 9.3.6
         added *green_mode* parameter.
+
+    .. versionadded:: 10.3.1
+        added *class_properties* parameter.
     """
 
     def __init__(
@@ -835,6 +890,8 @@ class DeviceTestContext(MultiDeviceTestContext):
         memorized=None,
         root_atts=None,
         green_mode=None,
+        class_properties=None,
+        cleanup=True,
     ):
         # Argument
         if not server_name:
@@ -853,6 +910,7 @@ class DeviceTestContext(MultiDeviceTestContext):
         devices_info = (
             {
                 "class": cls,
+                "class_properties": class_properties,
                 "devices": (
                     {
                         "name": device_name,

@@ -26,7 +26,7 @@ class CommandsGroup:
 	def __str__(self):
 		"""String representation of the CommandsGroup"""
 		out = f"SCPI Commands Group {self.group_name}"
-		if self.has_repcap():
+		if self.rep_cap is not None:
 			out += f', RepCap {self.rep_cap.name} = {self.rep_cap.get_enum_value()}'
 		return out
 
@@ -47,6 +47,7 @@ class CommandsGroup:
 	def set_repcap_enum_value(self, enum_value: Enum | int) -> None:
 		"""Sets RepCap value as enum or integer
 		Default is not allowed here."""
+		assert self.rep_cap is not None, f"Commands group '{self.group_name}' has no RepCap."
 		try:
 			self.rep_cap.set_enum_value(enum_value)
 		except ValueError:
@@ -54,6 +55,7 @@ class CommandsGroup:
 
 	def get_repcap_enum_value(self) -> Enum:
 		"""Returns RepCap value as enum"""
+		assert self.rep_cap is not None, f"Commands group '{self.group_name}' has no RepCap."
 		return self.rep_cap.get_enum_value()
 
 	def get_repcap_cmd_value(self, enum_value: Enum | int, enum_type) -> str:
@@ -70,7 +72,7 @@ class CommandsGroup:
 		# Default value - get it from the group or the parent groups
 		group = self
 		while group is not None:
-			if group.has_repcap():
+			if group.rep_cap is not None:
 				if group.rep_cap.matches_type(enum_type):
 					return group.rep_cap.get_cmd_string_value()
 			group = group.parent
@@ -92,7 +94,7 @@ class CommandsGroup:
 		groups = []
 		while group is not None:
 			item = group.group_name
-			if group.has_repcap():
+			if group.rep_cap is not None:
 				item += f' => {group.rep_cap.name}'
 			groups.insert(0, item)
 			group = group.parent
@@ -103,7 +105,7 @@ class CommandsGroup:
 			f"Error replacing RepCaps in the SCPI command:"
 			f"RepCap '{enum_type}' not found in the group chain:\n{groups_chain}")
 
-	def get_owners_chain(self, stop: 'CommandsGroup' = None) -> List['CommandsGroup']:
+	def get_owners_chain(self, stop: 'CommandsGroup | None' = None) -> List['CommandsGroup']:
 		"""Returns the owners chain including itself up to the entered point or up to the root by default"""
 		chain = []
 		group = self
@@ -129,6 +131,7 @@ class CommandsGroup:
 			group = new_group
 			for item in chain:
 				group = getattr(group, item.group_name)
+			assert x.rep_cap is not None
 			fnc = getattr(group, x.rep_cap.method_set_name)
 			fnc(x.rep_cap.get_enum_value())
 
@@ -136,4 +139,5 @@ class CommandsGroup:
 		"""Sets RepCaps of the Group and its children groups to their initial values"""
 		all_existing = filter(lambda grp: grp.has_repcap(), self.get_self_and_desc_existing_children())
 		for x in all_existing:
+			assert x.rep_cap is not None
 			x.rep_cap.set_to_start_value()

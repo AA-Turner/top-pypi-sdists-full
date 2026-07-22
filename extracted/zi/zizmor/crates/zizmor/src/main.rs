@@ -246,8 +246,6 @@ async fn run(app: &mut App) -> Result<ExitCode, Error> {
 
     tracing::info!("🌈 zizmor v{version}", version = env!("CARGO_PKG_VERSION"));
 
-    tracing::debug!("app: {app:?}");
-
     // Validate stdin input constraints: `-` must be the only input,
     // and cannot be combined with `--fix`.
     if app.input.inputs.iter().any(|i| i == "-") {
@@ -558,6 +556,32 @@ async fn main() -> ExitCode {
                                 Level::HELP.message(
                                     format!("ensure that {slug} exists and you have access to it")
                                 )
+                            ]);
+
+                        let renderer = Renderer::styled();
+                        let report = renderer.render(&[group]);
+
+                        Some(report)
+                    }
+                    CollectionError::AmbiguousRemoteRef { slug } => {
+                        let group = Group::with_title(Level::ERROR.primary_title(err.to_string()))
+                            .elements([
+                                Level::HELP.message(
+                                    "disambiguate the Git ref by putting it in the right namespace"
+                                        .to_string(),
+                                ),
+                                Level::HELP.message(format!(
+                                    "example: {owner}/{repo}@refs/heads/{branch}",
+                                    owner = slug.owner,
+                                    repo = slug.repo,
+                                    branch = slug.git_ref()
+                                )),
+                                Level::HELP.message(format!(
+                                    "example: {owner}/{repo}@refs/tags/{tag}",
+                                    owner = slug.owner,
+                                    repo = slug.repo,
+                                    tag = slug.git_ref()
+                                )),
                             ]);
 
                         let renderer = Renderer::styled();

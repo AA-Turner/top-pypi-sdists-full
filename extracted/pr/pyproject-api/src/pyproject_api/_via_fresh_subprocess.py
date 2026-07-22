@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import sys
 from contextlib import contextmanager
-from subprocess import PIPE, Popen  # noqa: S404
+from subprocess import PIPE, Popen  # ruff:ignore[suspicious-subprocess-import]
 from threading import Thread
 from typing import IO, TYPE_CHECKING, Any, cast
 
@@ -28,7 +28,10 @@ class SubprocessCmdStatus(CmdStatus, Thread):
 
     @property
     def done(self) -> bool:
-        return self.process.returncode is not None
+        # communicate() sets returncode before run() stores what it returned, so a caller polling the process can
+        # reach out_err() while it still holds None. Free-threaded builds land in that window; report the command
+        # finished only once its output is actually there.
+        return self._out_err is not None
 
     def out_err(self) -> tuple[str, str]:
         return cast("tuple[str, str]", self._out_err)
@@ -58,7 +61,7 @@ class SubprocessFrontend(Frontend):
         self.executable = sys.executable
 
     @contextmanager
-    def _send_msg(self, cmd: str, result_file: Path, msg: str) -> Iterator[SubprocessCmdStatus]:  # noqa: ARG002
+    def _send_msg(self, cmd: str, result_file: Path, msg: str) -> Iterator[SubprocessCmdStatus]:  # ruff:ignore[unused-method-argument]
         env = os.environ.copy()
         backend = os.pathsep.join(str(i) for i in self._backend_paths).strip()
         if backend:

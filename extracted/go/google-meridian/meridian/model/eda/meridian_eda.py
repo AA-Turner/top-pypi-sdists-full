@@ -35,7 +35,6 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-
 if TYPE_CHECKING:
   from meridian.model import model  # pylint: disable=g-bad-import-order,g-import-not-at-top
 
@@ -45,7 +44,7 @@ __all__ = [
     'BoxplotSortingConfig',
 ]
 
-Geos = int | Sequence[str] | Literal[eda_constants.NATIONALIZE]
+Geos = int | Sequence[str] | Literal[eda_constants.NATIONALIZE]  # pyrefly: ignore[invalid-literal]
 
 _BULLET_POINT_RE = re.compile(r'(?m)^\* ')
 
@@ -674,7 +673,7 @@ class MeridianEDA:
         national_data_source=self.eda_engine.national_treatments_without_non_media_scaled_ds,
         geo_data_source=self.eda_engine.treatments_without_non_media_scaled_ds,
         processing_function=lambda data: _process_stacked_ds(
-            eda_engine_module.stack_variables(data)
+            eda_engine_module.stack_variables(data)  # pyrefly: ignore[bad-argument-type]
         ),
         sorting_config=sorting_config,
     )
@@ -701,7 +700,7 @@ class MeridianEDA:
         national_data_source=self.eda_engine.national_controls_and_non_media_scaled_ds,
         geo_data_source=self.eda_engine.controls_and_non_media_scaled_ds,
         processing_function=lambda data: _process_stacked_ds(
-            eda_engine_module.stack_variables(data)
+            eda_engine_module.stack_variables(data)  # pyrefly: ignore[bad-argument-type]
         ),
         sorting_config=sorting_config,
     )
@@ -764,7 +763,7 @@ class MeridianEDA:
           else geo_data_source.sel(geo=geo_to_plot)
       )
 
-      processed_data = processing_function(data_to_process).sort_values(
+      processed_data = processing_function(data_to_process).sort_values(  # pyrefly: ignore[bad-argument-type]
           eda_constants.VALUE,
           ascending=ascending,
           key=abs if sort_abs else None,
@@ -916,7 +915,7 @@ class MeridianEDA:
 
       charts.append((
           alt.Chart(plot_data)
-          .mark_boxplot(ticks=True, size=40, extent=1.5)
+          .mark_boxplot(ticks={'size': 20}, size=40, extent=1.5)
           .encode(
               x=alt.X(
                   f'{eda_constants.VARIABLE}:N',
@@ -1159,18 +1158,7 @@ class MeridianEDA:
 
     Returns:
       A bar chart showing the prior mean of contribution by channel.
-
-    Raises:
-      eda_engine_module.GeoLevelCheckOnNationalModelError: If the Meridian model
-      is national.
     """
-
-    if self._meridian.is_national:
-      raise eda_engine_module.GeoLevelCheckOnNationalModelError(
-          'Prior mean of contribution by channel is not supported for national'
-          ' models.'
-      )
-
     [artifact] = self._dataset_level_prior_check_outcome.get_overall_artifacts()
 
     return self._plot_barcharts(
@@ -1181,7 +1169,7 @@ class MeridianEDA:
         national_data_source=artifact.mean_prior_contribution_da,
         geo_data_source=artifact.mean_prior_contribution_da,
         processing_function=lambda data: _process_stacked_ds(
-            data.rename({constants.CHANNEL: eda_constants.VARIABLE})
+            data.rename({constants.CHANNEL: eda_constants.VARIABLE})  # pyrefly: ignore[bad-argument-type]
         ),
         n_channels=eda_constants.PRIOR_MEAN_BARCHART_LIMIT,
         bar_size=60,
@@ -1881,7 +1869,7 @@ class MeridianEDA:
         ).size,
         n_geos=n_geos,
     )
-    message_kwargs['additional_info'] = display_limit_message
+    message_kwargs['additional_info'] = display_limit_message  # pyrefly: ignore[unsupported-operation]
     final_message = message_template.format(**message_kwargs)
 
     return formatter.TableSpec(
@@ -1953,29 +1941,19 @@ class MeridianEDA:
 
   def _generate_prior_specifications_card(
       self,
-  ) -> tuple[str | None, dict[eda_outcome.EDASeverity, int]]:
+  ) -> tuple[str, dict[eda_outcome.EDASeverity, int]]:
     """Creates the HTML snippet for the Prior Specifications section.
 
     Returns:
       A tuple containing:
-        - A string of the HTML snippet for the Prior Specifications card, or
-          None if the model is national.
+        - A string of the HTML snippet for the Prior Specifications card.
         - A dictionary of severity counts for the card.
     """
-    if self._meridian.is_national:
-      return None, _initialize_severity_counts()
-
     [artifact] = self._dataset_level_prior_check_outcome.get_overall_artifacts()
     prior_probability = artifact.prior_negative_baseline_prob
 
-    prior_chart = formatter.ChartSpec(
-        id=eda_constants.PRIOR_CHART_ID,
-        chart_json=self.plot_prior_mean().to_json(),
-        infos=[
-            f'{eda_constants.PRIOR_PROBABILITY_REPORT_INFO}Prior Probability of'
-            f' negative baseline: {prior_probability}'
-        ],
-    )
+    prior_chart = self._generate_prior_mean_chart_spec(prior_probability)
+    chart_specs = [prior_chart]
 
     return (
         formatter.create_card_html(
@@ -1984,9 +1962,22 @@ class MeridianEDA:
                 id=eda_constants.PRIOR_SPECIFICATIONS_CARD_ID,
                 title=eda_constants.PRIOR_SPECIFICATIONS_CARD_TITLE,
             ),
-            chart_specs=[prior_chart],
+            chart_specs=chart_specs,
         ),
         _initialize_severity_counts(),
+    )
+
+  def _generate_prior_mean_chart_spec(
+      self, prior_probability: float
+  ) -> formatter.ChartSpec:
+    """Generates the ChartSpec for the default prior mean chart."""
+    return formatter.ChartSpec(
+        id=eda_constants.PRIOR_CHART_ID,
+        chart_json=self.plot_prior_mean().to_json(),
+        infos=[
+            f'{eda_constants.PRIOR_PROBABILITY_REPORT_INFO}Prior Probability of'
+            f' negative baseline: {prior_probability}'
+        ],
     )
 
   def _validate_and_get_geos_to_plot(self, geos: Geos) -> Sequence[str]:
@@ -2078,7 +2069,7 @@ def _plot_time_series(
                   title=y_axis_title,
                   titleColor=color,
                   minExtent=60,
-                  orient=y_axis_orient,
+                  orient=y_axis_orient,  # pyrefly: ignore[bad-argument-type]
                   offset=y_axis_offset,
               ),
               scale=alt.Scale(zero=False),
@@ -2274,10 +2265,13 @@ def _get_plot_data_for_heatmap(
   # Maintain the original order of variables.
   plot_variables = [v for v in all_variables if v in selected_vars]
 
-  return df[
-      df[eda_constants.VARIABLE_1].isin(plot_variables)
-      & df[eda_constants.VARIABLE_2].isin(plot_variables)
-  ], plot_variables
+  return (
+      df[
+          df[eda_constants.VARIABLE_1].isin(plot_variables)
+          & df[eda_constants.VARIABLE_2].isin(plot_variables)
+      ],
+      plot_variables,
+  )
 
 
 def _format_explanation_for_html(explanation: str) -> str:

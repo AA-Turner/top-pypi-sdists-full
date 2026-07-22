@@ -54,6 +54,7 @@ System_Numerics_IRootFunctions_TSelf = typing.TypeVar("System_Numerics_IRootFunc
 System_Numerics_IEqualityOperators_TSelf = typing.TypeVar("System_Numerics_IEqualityOperators_TSelf")
 System_Numerics_IEqualityOperators_TOther = typing.TypeVar("System_Numerics_IEqualityOperators_TOther")
 System_Numerics_IEqualityOperators_TResult = typing.TypeVar("System_Numerics_IEqualityOperators_TResult")
+System_Numerics_IDecimalFloatingPointIeee754_TSelf = typing.TypeVar("System_Numerics_IDecimalFloatingPointIeee754_TSelf")
 System_Numerics_INumberBase_TSelf = typing.TypeVar("System_Numerics_INumberBase_TSelf")
 System_Numerics_IBitwiseOperators_TSelf = typing.TypeVar("System_Numerics_IBitwiseOperators_TSelf")
 System_Numerics_IBitwiseOperators_TOther = typing.TypeVar("System_Numerics_IBitwiseOperators_TOther")
@@ -3433,7 +3434,7 @@ class _Decimal64_CreateTruncating:
         ...
 
 
-class Decimal64(System.IComparable[System_Numerics_Decimal64], System.IEquatable[System_Numerics_Decimal64], System.Numerics.IFloatingPoint[System_Numerics_Decimal64], System.ISpanFormattable, System.ISpanParsable[System_Numerics_Decimal64], System.Numerics.IMinMaxValue[System_Numerics_Decimal64], System.IUtf8SpanFormattable, System.IUtf8SpanParsable[System_Numerics_Decimal64], System.IDecimalIeee754ParseAndFormatInfo[System_Numerics_Decimal64, int]):
+class Decimal64(System.IComparable[System_Numerics_Decimal64], System.IEquatable[System_Numerics_Decimal64], System.Numerics.IDecimalFloatingPointIeee754[System_Numerics_Decimal64], System.ISpanFormattable, System.ISpanParsable[System_Numerics_Decimal64], System.Numerics.IMinMaxValue[System_Numerics_Decimal64], System.IUtf8SpanFormattable, System.IUtf8SpanParsable[System_Numerics_Decimal64], System.IDecimalIeee754ParseAndFormatInfo[System_Numerics_Decimal64, int]):
     """This class has no documentation."""
 
     POSITIVE_INFINITY: System.Numerics.Decimal64
@@ -3567,11 +3568,59 @@ class Decimal64(System.IComparable[System_Numerics_Decimal64], System.IEquatable
         ...
 
     @staticmethod
+    def acos(x: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def acosh(x: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def acos_pi(x: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def asin(x: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def asinh(x: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def asin_pi(x: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def atan(x: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def atan_2(y: System.Numerics.Decimal64, x: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def atan_2_pi(y: System.Numerics.Decimal64, x: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def atanh(x: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def atan_pi(x: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
     def bit_decrement(x: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
         ...
 
     @staticmethod
     def bit_increment(x: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def cbrt(x: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
         ...
 
     @staticmethod
@@ -3598,12 +3647,64 @@ class Decimal64(System.IComparable[System_Numerics_Decimal64], System.IEquatable
     def copy_sign(value: System.Numerics.Decimal64, sign: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
         ...
 
+    @staticmethod
+    def cos(x: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def cosh(x: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def cos_pi(x: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def decode_binary(x: int) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def decode_decimal(x: int) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def encode_binary(x: System.Numerics.Decimal64) -> int:
+        ...
+
+    @staticmethod
+    def encode_decimal(x: System.Numerics.Decimal64) -> int:
+        ...
+
     @overload
     def equals(self, other: System.Numerics.Decimal64) -> bool:
         ...
 
     @overload
     def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    @staticmethod
+    def exp(x: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def exp_10(x: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def exp_10_m_1(x: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def exp_2(x: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def exp_2_m_1(x: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def exp_m_1(x: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
         ...
 
     @staticmethod
@@ -3615,6 +3716,18 @@ class Decimal64(System.IComparable[System_Numerics_Decimal64], System.IEquatable
         ...
 
     def get_hash_code(self) -> int:
+        ...
+
+    @staticmethod
+    def get_quantum(x: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def have_same_quantum(x: System.Numerics.Decimal64, y: System.Numerics.Decimal64) -> bool:
+        ...
+
+    @staticmethod
+    def hypot(x: System.Numerics.Decimal64, y: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
         ...
 
     @staticmethod
@@ -3675,6 +3788,40 @@ class Decimal64(System.IComparable[System_Numerics_Decimal64], System.IEquatable
 
     @staticmethod
     def is_subnormal(value: System.Numerics.Decimal64) -> bool:
+        ...
+
+    @staticmethod
+    def lerp(value_1: System.Numerics.Decimal64, value_2: System.Numerics.Decimal64, amount: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    @overload
+    def log(x: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    @overload
+    def log(x: System.Numerics.Decimal64, new_base: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def log_10(x: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def log_10_p_1(x: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def log_2(x: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def log_2_p_1(x: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def log_p_1(x: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
         ...
 
     @staticmethod
@@ -3762,11 +3909,23 @@ class Decimal64(System.IComparable[System_Numerics_Decimal64], System.IEquatable
         ...
 
     @staticmethod
+    def pow(x: System.Numerics.Decimal64, y: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
     def quantize(x: System.Numerics.Decimal64, y: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
         ...
 
     @staticmethod
-    def quantum(x: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+    def reciprocal_estimate(x: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def reciprocal_sqrt_estimate(x: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def root_n(x: System.Numerics.Decimal64, n: int) -> System.Numerics.Decimal64:
         ...
 
     @staticmethod
@@ -3790,10 +3949,6 @@ class Decimal64(System.IComparable[System_Numerics_Decimal64], System.IEquatable
         ...
 
     @staticmethod
-    def same_quantum(x: System.Numerics.Decimal64, y: System.Numerics.Decimal64) -> bool:
-        ...
-
-    @staticmethod
     def scale_b(x: System.Numerics.Decimal64, n: int) -> System.Numerics.Decimal64:
         ...
 
@@ -3802,7 +3957,39 @@ class Decimal64(System.IComparable[System_Numerics_Decimal64], System.IEquatable
         ...
 
     @staticmethod
+    def sin(x: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def sin_cos(x: System.Numerics.Decimal64) -> System.ValueTuple[System.Numerics.Decimal64, System.Numerics.Decimal64]:
+        ...
+
+    @staticmethod
+    def sin_cos_pi(x: System.Numerics.Decimal64) -> System.ValueTuple[System.Numerics.Decimal64, System.Numerics.Decimal64]:
+        ...
+
+    @staticmethod
+    def sinh(x: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def sin_pi(x: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
     def sqrt(x: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def tan(x: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def tanh(x: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
+        ...
+
+    @staticmethod
+    def tan_pi(x: System.Numerics.Decimal64) -> System.Numerics.Decimal64:
         ...
 
     @overload
@@ -4281,7 +4468,7 @@ class _Decimal32_CreateTruncating:
         ...
 
 
-class Decimal32(System.IComparable[System_Numerics_Decimal32], System.IEquatable[System_Numerics_Decimal32], System.Numerics.IFloatingPoint[System_Numerics_Decimal32], System.ISpanFormattable, System.ISpanParsable[System_Numerics_Decimal32], System.Numerics.IMinMaxValue[System_Numerics_Decimal32], System.IUtf8SpanFormattable, System.IUtf8SpanParsable[System_Numerics_Decimal32], System.IDecimalIeee754ParseAndFormatInfo[System_Numerics_Decimal32, int]):
+class Decimal32(System.IComparable[System_Numerics_Decimal32], System.IEquatable[System_Numerics_Decimal32], System.Numerics.IDecimalFloatingPointIeee754[System_Numerics_Decimal32], System.ISpanFormattable, System.ISpanParsable[System_Numerics_Decimal32], System.Numerics.IMinMaxValue[System_Numerics_Decimal32], System.IUtf8SpanFormattable, System.IUtf8SpanParsable[System_Numerics_Decimal32], System.IDecimalIeee754ParseAndFormatInfo[System_Numerics_Decimal32, int]):
     """This class has no documentation."""
 
     POSITIVE_INFINITY: System.Numerics.Decimal32
@@ -4415,11 +4602,59 @@ class Decimal32(System.IComparable[System_Numerics_Decimal32], System.IEquatable
         ...
 
     @staticmethod
+    def acos(x: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def acosh(x: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def acos_pi(x: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def asin(x: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def asinh(x: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def asin_pi(x: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def atan(x: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def atan_2(y: System.Numerics.Decimal32, x: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def atan_2_pi(y: System.Numerics.Decimal32, x: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def atanh(x: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def atan_pi(x: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
     def bit_decrement(x: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
         ...
 
     @staticmethod
     def bit_increment(x: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def cbrt(x: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
         ...
 
     @staticmethod
@@ -4446,12 +4681,64 @@ class Decimal32(System.IComparable[System_Numerics_Decimal32], System.IEquatable
     def copy_sign(value: System.Numerics.Decimal32, sign: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
         ...
 
+    @staticmethod
+    def cos(x: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def cosh(x: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def cos_pi(x: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def decode_binary(x: int) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def decode_decimal(x: int) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def encode_binary(x: System.Numerics.Decimal32) -> int:
+        ...
+
+    @staticmethod
+    def encode_decimal(x: System.Numerics.Decimal32) -> int:
+        ...
+
     @overload
     def equals(self, other: System.Numerics.Decimal32) -> bool:
         ...
 
     @overload
     def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    @staticmethod
+    def exp(x: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def exp_10(x: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def exp_10_m_1(x: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def exp_2(x: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def exp_2_m_1(x: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def exp_m_1(x: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
         ...
 
     @staticmethod
@@ -4463,6 +4750,18 @@ class Decimal32(System.IComparable[System_Numerics_Decimal32], System.IEquatable
         ...
 
     def get_hash_code(self) -> int:
+        ...
+
+    @staticmethod
+    def get_quantum(x: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def have_same_quantum(x: System.Numerics.Decimal32, y: System.Numerics.Decimal32) -> bool:
+        ...
+
+    @staticmethod
+    def hypot(x: System.Numerics.Decimal32, y: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
         ...
 
     @staticmethod
@@ -4523,6 +4822,40 @@ class Decimal32(System.IComparable[System_Numerics_Decimal32], System.IEquatable
 
     @staticmethod
     def is_subnormal(value: System.Numerics.Decimal32) -> bool:
+        ...
+
+    @staticmethod
+    def lerp(value_1: System.Numerics.Decimal32, value_2: System.Numerics.Decimal32, amount: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    @overload
+    def log(x: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    @overload
+    def log(x: System.Numerics.Decimal32, new_base: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def log_10(x: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def log_10_p_1(x: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def log_2(x: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def log_2_p_1(x: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def log_p_1(x: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
         ...
 
     @staticmethod
@@ -4610,11 +4943,23 @@ class Decimal32(System.IComparable[System_Numerics_Decimal32], System.IEquatable
         ...
 
     @staticmethod
+    def pow(x: System.Numerics.Decimal32, y: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
     def quantize(x: System.Numerics.Decimal32, y: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
         ...
 
     @staticmethod
-    def quantum(x: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+    def reciprocal_estimate(x: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def reciprocal_sqrt_estimate(x: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def root_n(x: System.Numerics.Decimal32, n: int) -> System.Numerics.Decimal32:
         ...
 
     @staticmethod
@@ -4638,10 +4983,6 @@ class Decimal32(System.IComparable[System_Numerics_Decimal32], System.IEquatable
         ...
 
     @staticmethod
-    def same_quantum(x: System.Numerics.Decimal32, y: System.Numerics.Decimal32) -> bool:
-        ...
-
-    @staticmethod
     def scale_b(x: System.Numerics.Decimal32, n: int) -> System.Numerics.Decimal32:
         ...
 
@@ -4650,7 +4991,39 @@ class Decimal32(System.IComparable[System_Numerics_Decimal32], System.IEquatable
         ...
 
     @staticmethod
+    def sin(x: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def sin_cos(x: System.Numerics.Decimal32) -> System.ValueTuple[System.Numerics.Decimal32, System.Numerics.Decimal32]:
+        ...
+
+    @staticmethod
+    def sin_cos_pi(x: System.Numerics.Decimal32) -> System.ValueTuple[System.Numerics.Decimal32, System.Numerics.Decimal32]:
+        ...
+
+    @staticmethod
+    def sinh(x: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def sin_pi(x: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
     def sqrt(x: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def tan(x: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def tanh(x: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
+        ...
+
+    @staticmethod
+    def tan_pi(x: System.Numerics.Decimal32) -> System.Numerics.Decimal32:
         ...
 
     @overload
@@ -5553,6 +5926,10 @@ class BFloat16(System.IComparable[System_Numerics_BFloat16], System.ISpanFormatt
         ...
 
 
+class IDecimalFloatingPointIeee754(typing.Generic[System_Numerics_IDecimalFloatingPointIeee754_TSelf], System.Numerics.IFloatingPointIeee754[System_Numerics_IDecimalFloatingPointIeee754_TSelf], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+
 class DivisionRounding(IntEnum):
     """This class has no documentation."""
 
@@ -5880,7 +6257,7 @@ class _Decimal128_CreateTruncating:
         ...
 
 
-class Decimal128(System.IComparable[System_Numerics_Decimal128], System.IEquatable[System_Numerics_Decimal128], System.Numerics.IFloatingPoint[System_Numerics_Decimal128], System.ISpanFormattable, System.ISpanParsable[System_Numerics_Decimal128], System.Numerics.IMinMaxValue[System_Numerics_Decimal128], System.IUtf8SpanFormattable, System.IUtf8SpanParsable[System_Numerics_Decimal128], System.IDecimalIeee754ParseAndFormatInfo[System_Numerics_Decimal128, System.UInt128]):
+class Decimal128(System.IComparable[System_Numerics_Decimal128], System.IEquatable[System_Numerics_Decimal128], System.Numerics.IDecimalFloatingPointIeee754[System_Numerics_Decimal128], System.ISpanFormattable, System.ISpanParsable[System_Numerics_Decimal128], System.Numerics.IMinMaxValue[System_Numerics_Decimal128], System.IUtf8SpanFormattable, System.IUtf8SpanParsable[System_Numerics_Decimal128], System.IDecimalIeee754ParseAndFormatInfo[System_Numerics_Decimal128, System.UInt128]):
     """This class has no documentation."""
 
     POSITIVE_INFINITY: System.Numerics.Decimal128
@@ -6014,11 +6391,59 @@ class Decimal128(System.IComparable[System_Numerics_Decimal128], System.IEquatab
         ...
 
     @staticmethod
+    def acos(x: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def acosh(x: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def acos_pi(x: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def asin(x: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def asinh(x: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def asin_pi(x: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def atan(x: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def atan_2(y: System.Numerics.Decimal128, x: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def atan_2_pi(y: System.Numerics.Decimal128, x: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def atanh(x: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def atan_pi(x: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
     def bit_decrement(x: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
         ...
 
     @staticmethod
     def bit_increment(x: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def cbrt(x: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
         ...
 
     @staticmethod
@@ -6045,12 +6470,64 @@ class Decimal128(System.IComparable[System_Numerics_Decimal128], System.IEquatab
     def copy_sign(value: System.Numerics.Decimal128, sign: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
         ...
 
+    @staticmethod
+    def cos(x: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def cosh(x: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def cos_pi(x: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def decode_binary(x: System.UInt128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def decode_decimal(x: System.UInt128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def encode_binary(x: System.Numerics.Decimal128) -> System.UInt128:
+        ...
+
+    @staticmethod
+    def encode_decimal(x: System.Numerics.Decimal128) -> System.UInt128:
+        ...
+
     @overload
     def equals(self, other: System.Numerics.Decimal128) -> bool:
         ...
 
     @overload
     def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    @staticmethod
+    def exp(x: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def exp_10(x: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def exp_10_m_1(x: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def exp_2(x: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def exp_2_m_1(x: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def exp_m_1(x: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
         ...
 
     @staticmethod
@@ -6062,6 +6539,18 @@ class Decimal128(System.IComparable[System_Numerics_Decimal128], System.IEquatab
         ...
 
     def get_hash_code(self) -> int:
+        ...
+
+    @staticmethod
+    def get_quantum(x: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def have_same_quantum(x: System.Numerics.Decimal128, y: System.Numerics.Decimal128) -> bool:
+        ...
+
+    @staticmethod
+    def hypot(x: System.Numerics.Decimal128, y: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
         ...
 
     @staticmethod
@@ -6122,6 +6611,40 @@ class Decimal128(System.IComparable[System_Numerics_Decimal128], System.IEquatab
 
     @staticmethod
     def is_subnormal(value: System.Numerics.Decimal128) -> bool:
+        ...
+
+    @staticmethod
+    def lerp(value_1: System.Numerics.Decimal128, value_2: System.Numerics.Decimal128, amount: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    @overload
+    def log(x: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    @overload
+    def log(x: System.Numerics.Decimal128, new_base: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def log_10(x: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def log_10_p_1(x: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def log_2(x: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def log_2_p_1(x: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def log_p_1(x: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
         ...
 
     @staticmethod
@@ -6209,11 +6732,23 @@ class Decimal128(System.IComparable[System_Numerics_Decimal128], System.IEquatab
         ...
 
     @staticmethod
+    def pow(x: System.Numerics.Decimal128, y: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
     def quantize(x: System.Numerics.Decimal128, y: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
         ...
 
     @staticmethod
-    def quantum(x: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+    def reciprocal_estimate(x: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def reciprocal_sqrt_estimate(x: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def root_n(x: System.Numerics.Decimal128, n: int) -> System.Numerics.Decimal128:
         ...
 
     @staticmethod
@@ -6237,10 +6772,6 @@ class Decimal128(System.IComparable[System_Numerics_Decimal128], System.IEquatab
         ...
 
     @staticmethod
-    def same_quantum(x: System.Numerics.Decimal128, y: System.Numerics.Decimal128) -> bool:
-        ...
-
-    @staticmethod
     def scale_b(x: System.Numerics.Decimal128, n: int) -> System.Numerics.Decimal128:
         ...
 
@@ -6249,7 +6780,39 @@ class Decimal128(System.IComparable[System_Numerics_Decimal128], System.IEquatab
         ...
 
     @staticmethod
+    def sin(x: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def sin_cos(x: System.Numerics.Decimal128) -> System.ValueTuple[System.Numerics.Decimal128, System.Numerics.Decimal128]:
+        ...
+
+    @staticmethod
+    def sin_cos_pi(x: System.Numerics.Decimal128) -> System.ValueTuple[System.Numerics.Decimal128, System.Numerics.Decimal128]:
+        ...
+
+    @staticmethod
+    def sinh(x: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def sin_pi(x: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
     def sqrt(x: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def tan(x: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def tanh(x: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
+        ...
+
+    @staticmethod
+    def tan_pi(x: System.Numerics.Decimal128) -> System.Numerics.Decimal128:
         ...
 
     @overload

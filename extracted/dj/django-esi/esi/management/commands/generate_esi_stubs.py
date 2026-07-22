@@ -519,20 +519,20 @@ class Command(BaseCommand):
                 f.write("    @overload\n")
                 f.write(
                     f"    def {method_name}(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> {value_type}:\n"
-                )  # noqa: E501
+                )
                 f.write(f"        \"\"\"{docstring}\"\"\"\n") if docstring else None
                 f.write("        ...\n\n")
 
                 f.write("    @overload\n")
                 f.write(
                     f"    def {method_name}(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[{value_type}, Response]:\n"
-                )  # noqa: E501
+                )
                 f.write(f"        \"\"\"{docstring}\"\"\"\n") if docstring else None
                 f.write("        ...\n\n")
 
                 f.write(
                     f"    def {method_name}(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> {value_type} | tuple[{value_type}, Response]:\n"
-                )  # noqa: E501
+                )
                 f.write(f"        \"\"\"{docstring}\"\"\"\n") if docstring else None
                 f.write("        ...\n\n")
 

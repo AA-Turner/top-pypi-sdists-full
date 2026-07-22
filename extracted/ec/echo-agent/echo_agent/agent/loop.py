@@ -30,6 +30,7 @@ from echo_agent.bus.queue import MessageBus
 from echo_agent.config.schema import Config
 from echo_agent.cost.budget import CostTracker
 from echo_agent.memory.consolidator import MemoryConsolidator
+from echo_agent.memory.service import MemoryService
 from echo_agent.memory.store import MemoryStore
 from echo_agent.models.inference import InferenceController
 from echo_agent.models.provider import LLMProvider
@@ -44,11 +45,7 @@ from echo_agent.agent.streaming import (
     TokenStreamPublisher as _TokenStreamPublisher,
 )
 from echo_agent.agent.progress_heartbeat import ProgressHeartbeat, SharedActivityState
-from echo_agent.agent.degraded_notice import (
-    GENERIC_FALLBACK_TEXT,
-    combine_notices,
-    is_generic_fallback,
-)
+from echo_agent.agent.degraded_notice import GENERIC_FALLBACK_TEXT
 
 
 def _resolve_builtin_skills_dir(workspace: Path, configured_path: str) -> Path | None:
@@ -125,7 +122,10 @@ class _ProviderEmbedFn:
         return []
 
 
-def resolve_embed_fallback(embed_provider, emb_model, local_model_name, local_load_timeout=60.0):
+def resolve_embed_fallback(
+    embed_provider, emb_model, local_model_name, local_load_timeout=60.0, hf_endpoint="",
+    cache_dir="", max_load_attempts=5, retry_backoff=30.0,
+):
     """Resolve the embedding tier: provider-backed when available, else the
     local fastembed fallback (zero-config vector search), else nothing.
 
@@ -139,7 +139,12 @@ def resolve_embed_fallback(embed_provider, emb_model, local_model_name, local_lo
 
     if local_model_name:
         from echo_agent.memory.local_embed import LocalEmbedder
-        local = LocalEmbedder(local_model_name, load_timeout_seconds=local_load_timeout)
+        resolved_cache = str(Path(cache_dir).expanduser()) if cache_dir else ""
+        local = LocalEmbedder(
+            local_model_name, load_timeout_seconds=local_load_timeout,
+            hf_endpoint=hf_endpoint, cache_dir=resolved_cache,
+            max_load_attempts=max_load_attempts, retry_backoff_seconds=retry_backoff,
+        )
         if local.available:
             logger.info(
                 "No embed-capable provider; using local embedding fallback '{}'",
@@ -247,6 +252,22 @@ class AgentLoop:
             contradiction_scan_on_store=config.memory.contradiction_scan_on_store,
             archival_threshold=config.memory.archival_threshold,
             forget_threshold=config.memory.forget_threshold,
+            lineage_max_versions=config.memory.lineage_max_versions,
+            lineage_retention_days=config.memory.lineage_retention_days,
+            # R1 Task8:唯一写口。所有写者经 self._memory_service 单例(下方构造)
+            # 走八步写序,故 store 置 service_only,外部绕过 service 直写即软告警。
+            service_only=config.memory.enabled,
+        )
+        # R1 Task8:统一装配的 MemoryService 单例——所有写者(工具/reviewer/REST/
+        # promotion/reflection/detector/归档)共享此实例,失效/flush/审计集中一处,
+        # 审计统一落 logs_dir/memory_audit.jsonl(复用 tool_audit.jsonl 同目录)。
+        # 收口前各入口就近 new 独立 service,失效/审计各自为政;此处收敛为单例。
+        self._memory_service = MemoryService(
+            self.memory,
+            invalidate_fn=self._invalidate_memory_caches,
+            flush_fn=self.memory.flush_pending_embeds,
+            audit_path=workspace / config.storage.logs_dir / "memory_audit.jsonl",
+            allow_env_writes=config.memory.allow_model_environment_writes,
         )
         self.tools = ToolRegistry(
             audit_log_path=workspace / config.storage.logs_dir / "tool_audit.jsonl",
@@ -296,6 +317,10 @@ class AgentLoop:
             default_policy=config.permissions.approval.default_policy,
             store_path=workspace / "data" / "approvals.json",
         )
+        from echo_agent.agent.clarify_manager import ClarifyManager
+        self.clarify = ClarifyManager()
+        from echo_agent.agent.interrupt_manager import InterruptManager
+        self.interrupt = InterruptManager()
         self.inference = InferenceController()
         if config.permissions.approval.require_approval:
             from echo_agent.models.inference import InferenceConstraints
@@ -407,6 +432,8 @@ class AgentLoop:
         self._snapshot_enabled = config.memory.snapshot_enabled
         self._memory_snapshots: OrderedDict[str, str] = OrderedDict()
         self._memory_snapshot_ids: "OrderedDict[str, frozenset[str]]" = OrderedDict()
+        self._memory_snapshot_meta: dict[str, tuple[str, int]] = {}
+        self._scope_versions: dict[str, int] = {}
         self._retrieval_cache: OrderedDict[str, Any] = OrderedDict()
         self._max_cached_sessions = 200
         from echo_agent.agent.background import BackgroundScheduler
@@ -416,6 +443,12 @@ class AgentLoop:
         # Kept so a finished CRON turn can write its real outcome back to the job
         # (see _on_inbound); the scheduler otherwise only ever sees "queued".
         self._scheduler = scheduler
+        # Retained for the dashboard task API (gateway/api/tasks.py); previously
+        # only forwarded into tool discovery and never held on the instance.
+        self._task_manager = task_manager
+        # Retained so the REST transition endpoint can advance workflows after
+        # a terminal task transition — the same closing-the-loop hook TaskTool got.
+        self._workflow_engine = workflow_engine
         self._register_tools(scheduler=scheduler, task_manager=task_manager, workflow_engine=workflow_engine)
         self._setup_delegation()
 
@@ -445,13 +478,18 @@ class AgentLoop:
             memory_snapshots=self._memory_snapshots,
             memory_snapshot_ids=self._memory_snapshot_ids,
             put_snapshot=self.put_memory_snapshot,
+            memory_snapshot_meta=self._memory_snapshot_meta,
+            scope_version_fn=self._scope_version,
             snapshot_enabled=self._snapshot_enabled,
+            memory_enabled=config.memory.enabled,
             tool_definitions_fn=self.tools.get_definitions,
             episodic=self._episodic,
+            narrative_episode_count=config.memory.narrative_episode_count,
             plan_run_store=self._plan_run_store,
             bus=bus,
             retrieval_cache_get=self._get_retrieval_cache,
             retrieval_on_miss=config.memory.retrieval_on_miss,
+            retrieval_miss_timeout=config.memory.retrieval_miss_timeout_seconds,
             cache_ttl=config.memory.cache_ttl_seconds,
             cache_jaccard_min=config.memory.cache_jaccard_min,
             cognitive_emitter=self.cognitive_emitter,
@@ -483,6 +521,8 @@ class AgentLoop:
             cognitive_emitter=self.cognitive_emitter,
             compressor=self.compressor,
             memory_store=self.memory,
+            clarify_manager=self.clarify,
+            interrupt_manager=self.interrupt,
         )
         # Retrieval prefetcher: after each reply ResponseStage fires this on the
         # DISCARDABLE tier to warm the next turn's cache. Needs _hybrid_retriever
@@ -537,6 +577,11 @@ class AgentLoop:
             skill_admission=self._skill_admission,
             working_memories=self._working_memories,
             prefetcher=self._prefetcher,
+            scope_version_fn=self._scope_version,
+            invalidate_memory_caches_fn=self._invalidate_memory_caches,
+            memory_enabled=config.memory.enabled,
+            # R1 Task8:Reviewer 经 ResponseStage 后台 review 注入 loop 单例 service。
+            memory_service=self._memory_service,
         )
 
     def _register_tools(self, scheduler: Any = None, task_manager: Any = None, workflow_engine: Any = None) -> None:
@@ -549,12 +594,26 @@ class AgentLoop:
             scheduler=scheduler,
             session_manager=self.sessions,
             skill_store=self.skill_store,
-            memory_store=self.memory,
-            contradiction_detector=getattr(self, "_contradiction_detector", None),
+            # memory.enabled 是总开关：关闭时连 memory_store 都不传，
+            # discover_tools 的 `if memory_store:` 门控即不注册 memory 工具；
+            # 配套的矛盾检测/失效回调在关闭时一并传 None，避免半开状态。
+            memory_store=self.memory if self.config.memory.enabled else None,
+            contradiction_detector=(
+                getattr(self, "_contradiction_detector", None)
+                if self.config.memory.enabled else None
+            ),
             task_manager=task_manager,
             workflow_engine=workflow_engine,
             knowledge_index=self.knowledge,
             approval=self.approval,
+            clarify_manager=self.clarify,
+            memory_invalidate_fn=(
+                self._invalidate_memory_caches if self.config.memory.enabled else None
+            ),
+            # R1 Task8:MemoryTool 注入 loop 单例 service,不再就近 new。
+            memory_service=(
+                self._memory_service if self.config.memory.enabled else None
+            ),
         )
         for tool in all_tools:
             self.tools.register(tool)
@@ -574,8 +633,10 @@ class AgentLoop:
         forgetting = self.memory.forgetting_curve
 
         episodic = EpisodicManager(storage) if storage else None
-        semantic = SemanticManager(self.memory)
-        archival = ArchivalManager(storage, store=self.memory) if storage else None
+        # R1 Task8:晋升(SemanticManager)与归档/遗忘删除(ArchivalManager)均注入
+        # loop 的 _memory_service 单例,失效/flush/审计统一收敛。
+        semantic = SemanticManager(self._memory_service)
+        archival = ArchivalManager(storage, service=self._memory_service) if storage else None
 
         self._episodic = episodic
         self.consolidator.set_episodic_manager(episodic)
@@ -671,6 +732,42 @@ class AgentLoop:
     def is_running(self) -> bool:
         return self._running
 
+    # ── Public accessors for the dashboard/gateway API ───────────────────────
+    # These back the read paths in gateway/api/{analytics,cron_api,tasks,logs}.
+    # The underlying state is held privately; exposing it via properties keeps a
+    # stable public contract without leaking mutation access to internals.
+
+    @property
+    def cost_tracker(self) -> Any:
+        """CostTracker backing the analytics API (daily/skill/channel usage)."""
+        return self._cost_tracker
+
+    @property
+    def scheduler(self) -> Any:
+        """Cron scheduler backing the cron API; None when scheduling is off."""
+        return self._scheduler
+
+    @property
+    def task_manager(self) -> Any:
+        """TaskManager backing the tasks API; None when no manager was wired."""
+        return self._task_manager
+
+    @property
+    def workflow_engine(self) -> Any:
+        """WorkflowEngine for DAG advance on task completion; None when unwired."""
+        return self._workflow_engine
+
+    @property
+    def log_buffer(self) -> Any:
+        """Recent structured log records backing the logs API.
+
+        Sourced from the process-global buffer, so it reflects all logging
+        regardless of which subsystem emitted it.
+        """
+        from echo_agent.observability.log_buffer import get_log_buffer
+
+        return get_log_buffer()
+
     def _resolved_vector_dimensions(self) -> int:
         """Dimension for knowledge attach: explicit config wins, then the live
         index, then the local model's known dim, then the legacy default."""
@@ -737,6 +834,10 @@ class AgentLoop:
             embed_fn, self._embed_model_id, self._local_embedder = resolve_embed_fallback(
                 None, emb_model, config.memory.local_embedding_model,
                 local_load_timeout=config.memory.embed_load_timeout_seconds,
+                hf_endpoint=config.memory.hf_embedding_endpoint,
+                cache_dir=config.memory.local_embedding_cache_dir,
+                max_load_attempts=config.memory.local_embedding_max_load_attempts,
+                retry_backoff=config.memory.local_embedding_retry_backoff_seconds,
             )
 
         from echo_agent.memory.vectors import VectorIndex
@@ -766,7 +867,14 @@ class AgentLoop:
 
         if config.memory.contradiction_detection and storage:
             from echo_agent.memory.contradiction import ContradictionDetector
-            detector = ContradictionDetector(storage, vector_index, store=self.memory)
+            # R1 Task8:裁决 mark_superseded 走 loop 单例 service 的 maintenance
+            # 通道(统一失效+审计)。矛盾镜像跟踪(unresolved 标记/清除)仍直接落 store。
+            detector = ContradictionDetector(
+                storage,
+                vector_index,
+                store=self.memory,
+                service=self._memory_service,
+            )
             self._contradiction_detector = detector
             self.consolidator.set_contradiction_detector(detector)
             self.consolidator.set_auto_resolve_contradictions(
@@ -779,8 +887,11 @@ class AgentLoop:
 
         if config.memory.reflection_enabled:
             from echo_agent.memory.reflection import ReflectionEngine
+            # R1 Task8:reflection 的写(蒸馏 add/清 tag/裁决 mark_superseded)注入
+            # loop 单例 service,统一走 maintenance 通道失效+审计。收口前就近 new 的
+            # reflection service 无 audit_path,审计 no-op——收敛后一并落统一审计。
             self.consolidator.set_reflection(ReflectionEngine(
-                self.memory,
+                self._memory_service,
                 llm_call=self.provider.chat_with_retry,
                 contradiction_detector=self._contradiction_detector,
             ))
@@ -812,6 +923,8 @@ class AgentLoop:
             embed_timeout=config.memory.embed_timeout_seconds,
             visibility_fn=self.memory.is_visible_in_session,
             episode_search_fn=_episode_search if episodic_mgr is not None else None,
+            is_unresolved_fn=self.memory.is_unresolved,
+            min_similarity=config.memory.rrf_min_similarity,
         )
         self.memory.set_retriever(self._hybrid_retriever)
         # context_stage 在 __init__ 里按值持有了 None，这里重指最终检索器。
@@ -835,7 +948,6 @@ class AgentLoop:
         self._response_stage._prefetcher = self._prefetcher
 
     async def start(self) -> None:
-        self._running = True
         await self._resolve_embed_and_index(self._storage)
         if self._vector_index is not None:
             # Order matters: purge orphan rows BEFORE the index loads (so they
@@ -869,6 +981,8 @@ class AgentLoop:
         if self._contradiction_detector is not None:
             try:
                 self.memory.reset_unresolved()
+                # unresolved 镜像本身是全局索引,启动重建必须扫全库——这是
+                # get_unresolved 唯一合法的不带 memory_scope(全库)调用方。
                 for c in await self._contradiction_detector.get_unresolved(limit=10000):
                     self.memory.mark_contradiction_unresolved(
                         c.id, c.memory_id_a, c.memory_id_b
@@ -886,6 +1000,11 @@ class AgentLoop:
             except Exception as e:
                 logger.warning("Skill candidate store schema init failed: {}", e)
         self.bus.subscribe_inbound(self._on_inbound)
+        # 置位必须在 subscribe_inbound 之后、且在所有可抛异常的初始化完成之后:
+        # 之前 _running=True 在 start() 首行,embedding 探针/索引初始化中途抛错时
+        # 健康检查(app.py 以 is_running 为 HEALTHY 判据)会对一个收不了消息的
+        # 半启动实例误报健康。
+        self._running = True
         if self._plugin_manager:
             await self._plugin_manager.hooks.dispatch("on_agent_start")
         if self.evolution is not None:
@@ -916,6 +1035,13 @@ class AgentLoop:
         # the scheduler; ``aclose`` cancels discardable tasks and flushes durable
         # ones. This is the single shutdown path for background work.
         await self._bg_scheduler.aclose(timeout=10.0)
+        # 调度器 aclose 后再排空 store 的在途镜像任务:DURABLE 任务可能刚产生镜像写,
+        # 顺序不能反。消除关闭时 aiosqlite 向已关闭事件循环回调的资源警告。
+        if getattr(self, "memory", None) is not None:
+            try:
+                await self.memory.aclose()
+            except Exception as e:
+                logger.debug("Memory store aclose raised (ignored): {}", e)
         # Release the local embedder's dedicated thread pool, if one was built.
         if self._local_embedder is not None:
             try:
@@ -936,17 +1062,47 @@ class AgentLoop:
                 cache.popitem(last=False)
 
     async def put_memory_snapshot(
-        self, key: str, value: str, ids: "frozenset[str] | None" = None
+        self, key: str, value: str, ids: "frozenset[str] | None" = None,
+        scope: str = "", version: int = 0,
     ) -> None:
         """快照缓存的唯一写入入口:经统一 LRU 管控。同时写入进入快照的 entry.id 集,
-        供动态召回去重。"""
+        供动态召回去重。并记录构建时的 (scope, version),读侧据此按 scope 版本校验:
+        某 scope 被写后 bump 版本,挂在任意 session_key 上的旧快照都因版本不符失效。"""
         await self._lru_put(self._memory_snapshots, key, value)
         await self._lru_put(self._memory_snapshot_ids, key, ids or frozenset())
+        async with self._state_lock:
+            self._memory_snapshot_meta[key] = (scope, version)
+            # meta 不走 _lru_put,快照被 LRU 逐出后其 meta 会残留。按当前快照键集
+            # 剪除孤儿 meta,保证 meta 不超出快照上限、不无界增长(读侧已先 gate
+            # session_key in _memory_snapshots,孤儿 meta 不会误命中,但须防泄漏)。
+            if len(self._memory_snapshot_meta) > len(self._memory_snapshots):
+                live = set(self._memory_snapshots)
+                for k in [mk for mk in self._memory_snapshot_meta if mk not in live]:
+                    del self._memory_snapshot_meta[k]
+
+    def _scope_version(self, scope: str) -> int:
+        return self._scope_versions.get(scope, 0)
 
     async def _clear_memory_snapshot(self, session_key: str) -> None:
         async with self._state_lock:
             self._memory_snapshots.pop(session_key, None)
             self._memory_snapshot_ids.pop(session_key, None)
+            self._memory_snapshot_meta.pop(session_key, None)
+
+    async def _invalidate_memory_caches(self, scope: str, global_scope: bool = False) -> None:
+        """记忆写操作后的缓存失效。per-scope 用版本号:bump 该 scope 的版本,
+        使所有在旧版本下构建、共享该 memory_scope 的快照/检索缓存(可能挂在
+        不同 session_key 上)读取时因版本不符而失效——根治按单 session_key
+        pop 清不掉跨通道共享 scope 的问题。environment/矛盾裁决影响所有会话,
+        仍全局 clear。"""
+        async with self._state_lock:
+            if global_scope:
+                self._memory_snapshots.clear()
+                self._memory_snapshot_ids.clear()
+                self._memory_snapshot_meta.clear()
+                self._retrieval_cache.clear()
+            else:
+                self._scope_versions[scope] = self._scope_versions.get(scope, 0) + 1
 
     async def _put_retrieval_cache(self, session_key: str, entry: Any) -> None:
         """检索预取缓存的唯一写入入口:复用统一 LRU(锁 + 上限),
@@ -1022,9 +1178,11 @@ class AgentLoop:
             return
         # 群聊会话作用域解析：把按策略解析出的隔离键固化到 override，
         # 使下游全部 session_key 读取(锁/working memory/快照/可见性/source_session)统一按此键隔离。
+        scope = self.config.session.group_session_scope
         if not event.session_key_override:
-            scope = self.config.session.group_session_scope
             event.session_key_override = event.scoped_session_key(scope)
+        # 记忆作用域(memory_scope)的冻结统一下沉到 _process_event,使 _on_inbound
+        # 与 process_direct(A2A/CLI)两条入站路径共享同一处逻辑,避免新增入口漏设。
         # Approval decisions (/approve, /deny, /approvals) are handled BEFORE
         # acquiring the session lock — by design. A turn that is blocked waiting
         # for approval holds the session lock while parked in wait_for_decision;
@@ -1044,6 +1202,47 @@ class AgentLoop:
                 out.metadata["_inbound_event_id"] = event.event_id
                 await self.bus.publish_outbound(out)
                 return
+        # Clarify answers, like approval decisions, are handled BEFORE acquiring
+        # the session lock — the blocked agent holds that lock while parked in
+        # wait_for_answer, so resolving must run on a lock-free path. Do not move
+        # this below sessions.acquire().
+        if self._is_clarify_command(event.text):
+            response_text = await self._handle_clarify_command(event)
+            if response_text is not None:
+                out = OutboundEvent.from_text_with_media(
+                    channel=event.channel,
+                    chat_id=event.chat_id,
+                    text=response_text,
+                    reply_to_id=event.reply_to_id,
+                )
+                out.metadata = dict(event.metadata)
+                out.metadata["_inbound_event_id"] = event.event_id
+                await self.bus.publish_outbound(out)
+                return
+        # Session-interrupt escape valve, handled BEFORE the session lock for the
+        # same reason as clarify answers: the agent blocked in wait_for_answer
+        # holds the lock, so the wake must run on a lock-free path. Synthesized by
+        # the gateway on ws disconnect; internal control command, no reply.
+        if self._is_clarify_cancel_command(event.text):
+            await self._handle_clarify_cancel(event)
+            return
+        # Turn-interrupt escape valve. Handled BEFORE the session lock for the
+        # same reason as clarify-cancel: the running turn holds the lock, so the
+        # cooperative-stop signal must be delivered on a lock-free path — the
+        # inference loop polls the flag at its next checkpoint and stops cleanly.
+        # Synthesized by the gateway from a Ctrl+C interrupt frame; internal
+        # control command, no reply.
+        if self._is_interrupt_command(event.text):
+            await self._handle_interrupt(event)
+            return
+        # IM follow-up continuation. On IM channels a clarify tool call cannot
+        # block the turn, so the agent's question was remembered per session
+        # (InferenceStage._prepare_clarify → register_im_pending). If this
+        # session has an unanswered, unexpired follow-up, bind this message to it
+        # so the model sees WHAT is being answered — otherwise a bare "A" reads
+        # as an isolated, ambiguous message. This runs on IM channels only; CLI
+        # uses the blocking /clarify path and never registers an IM pending.
+        self._maybe_bind_im_clarify_answer(event)
         session_lock = await self.sessions.acquire(event.session_key)
         async with session_lock:
             trace_id = uuid.uuid4().hex[:12]
@@ -1053,31 +1252,22 @@ class AgentLoop:
                 cognitive_emitter=self.cognitive_emitter,
             )
             activity = SharedActivityState(started_at=time.monotonic())
+            # Register this turn so a lock-free /__interrupt__ can flag it for a
+            # cooperative stop. request() always starts un-interrupted, so a
+            # stale flag from a prior turn cannot leak into this one.
+            self.interrupt.request(event.session_key, event.event_id)
             try:
                 await heartbeat.start(activity)
                 result = await self._process_event(event, trace_id, publish_response=True, activity=activity)
                 response_text = result.response_text
-                notice = combine_notices(result.degraded_notices)
 
-                # Convergence point: the turn MUST deliver a meaningful message.
-                # 1) degraded event + no real answer  -> send the Chinese notice
-                # 2) degraded event + real answer not yet sent -> answer + notice
-                # 3) degraded event + real answer already streamed -> notice only
-                # 4) no degraded event, empty/generic answer -> generic Chinese
-                # 5) no degraded event, real answer -> unchanged behaviour
-                final_text = ""
-                if notice:
-                    if result.outbound_sent:
-                        final_text = notice
-                    elif is_generic_fallback(response_text):
-                        final_text = notice
-                    else:
-                        final_text = f"{response_text}\n\n{notice}"
-                elif not result.outbound_sent:
-                    if is_generic_fallback(response_text):
-                        final_text = GENERIC_FALLBACK_TEXT
-                    else:
-                        final_text = response_text
+                # Delivery point. Text convergence (degraded notices, English
+                # filler → Chinese fallback) already happened in
+                # ResponseStage.finalize BEFORE the session was persisted, so
+                # history, stream, and this publish all carry the same text.
+                # Here we only decide whether an outbound message is still
+                # needed: streamed turns already delivered it.
+                final_text = "" if result.outbound_sent else response_text
 
                 if final_text and _should_publish_reply(event, final_text):
                     out = OutboundEvent.from_text_with_media(
@@ -1099,11 +1289,29 @@ class AgentLoop:
                 await self.bus.publish_outbound(error_out)
                 await self._record_cron_outcome(event, "error", str(e))
             finally:
+                # Deregister the turn so a finished turn leaves no residue for
+                # the next one to trip over (mirrors request() above).
+                self.interrupt.clear(event.session_key)
                 await heartbeat.stop()
                 self.tracer.flush_trace(trace_id)
 
     async def _process_event(self, event: InboundEvent, trace_id: str, *, publish_response: bool = False, activity: Any = None) -> _ProcessResult:
         """处理单个入站事件 — 委托给 pipeline stages。"""
+        # 记忆作用域键:与 session_key 解耦(后者承载会话锁/历史/投递路由,不能按人
+        # 归一)。此处是所有入站路径(_on_inbound、A2A/CLI 的 process_direct)的唯一
+        # 咽喉点,统一冻结可确保任何入口都拿到正确作用域。单主体下 1:1 私聊(任意通道,
+        # 含 A2A/CLI)归一到 owner 键实现跨通道记忆互通,群聊保持 per_user 隔离;
+        # 开关关闭时退回按会话键(旧行为)。
+        if not event.memory_scope:
+            if self.config.memory.cross_channel_owner:
+                scope = self.config.session.group_session_scope
+                event.memory_scope = event.memory_scope_key(
+                    scope,
+                    self.config.memory.owner_key,
+                    frozenset(self.config.memory.principal_bindings),
+                )
+            else:
+                event.memory_scope = event.session_key
         session = await self.sessions.get_or_create(event.session_key)
         if event.session_key not in self._working_memories:
             from echo_agent.memory.tiers import WorkingMemory
@@ -1272,6 +1480,107 @@ class AgentLoop:
             return False
         command = stripped.split(maxsplit=1)[0].lower()
         return command in {"/approvals", "/approve", "/deny"}
+
+    def _is_clarify_command(self, text: str) -> bool:
+        return text.strip().split(maxsplit=1)[0].lower() == "/clarify" if text.strip() else False
+
+    def _maybe_bind_im_clarify_answer(self, event: InboundEvent) -> None:
+        """Bind an IM message to a pending follow-up question on its session.
+
+        The agent asked a question on an IM channel last turn; that question was
+        remembered (register_im_pending). We surface it to the model by reusing
+        the reply-quote injection path: setting reply_to_text makes
+        build_user_message_with_reply prepend the question (and any options) to
+        the history copy, so the model sees the user is answering it — without
+        rewriting event.text (retrieval/history keep the raw reply). We do NOT
+        force-map "A" → option ourselves; the model resolves the choice from the
+        full quoted context, which also handles free-text answers uniformly.
+
+        No-ops when: the event is not a real user message (cron / unattended /
+        internal control events must not consume pending — they reuse the source
+        session key and would otherwise mis-bind to the last question); the loop
+        has no clarify manager wired (lightweight __new__ construction paths); the
+        session has no pending; the pending expired (TTL); or the message already
+        carries its own quote. In the quoted case the explicit user reference wins
+        over the implicit follow-up binding, but the stale pending is still cleared
+        so it cannot bind to a later unrelated message.
+        """
+        # 仅真实用户的常规消息才能消费待答状态。定时任务(cron/unattended)与内部
+        # 控制事件复用同一 source_session_key 时,不应把 TTL 内的下一次调度误当成
+        # “回答上次问题”而绑定到 pending。
+        if event.event_type != EventType.MESSAGE or event.unattended or event.is_control:
+            return
+        # clarify 兜底:__new__ 绕过 __init__ 的构造路径(如部分轻量测试)不接线
+        # self.clarify,此处安全 no-op 而非抛 AttributeError。
+        clarify = getattr(self, "clarify", None)
+        if clarify is None:
+            return
+        session_key = event.session_key
+        if not session_key:
+            return
+        # 用户显式引用了某条消息:引用意图优先于隐式追问绑定,不再改写 reply_to_text。
+        # 但仍要清理本 session 的待答状态,否则旧问题会残留 —— 引用回答成功后,下一条
+        # 无关消息会被误绑到已被回答过的旧问题上。
+        if event.reply_to_text:
+            clarify.clear_im_pending(session_key)
+            return
+        ttl = float(self.config.session.im_clarify_pending_ttl_seconds)
+        req = clarify.take_im_pending(session_key, ttl)
+        if req is None:
+            return
+        question = (req.question or "").strip()
+        if not question:
+            return
+        if req.options:
+            choices = "；".join(f"{chr(65 + i)}. {opt}" for i, opt in enumerate(req.options))
+            quoted = f"{question}\n可选项：{choices}"
+        else:
+            quoted = question
+        event.reply_to_text = quoted
+        event.reply_to_is_own = True
+        event.reply_to_sender = None
+
+    _CLARIFY_CANCEL_CMD = "/__clarify_cancel__"
+
+    def _is_clarify_cancel_command(self, text: str) -> bool:
+        return text.strip() == self._CLARIFY_CANCEL_CMD
+
+    async def _handle_clarify_cancel(self, event: InboundEvent) -> None:
+        # Wake any clarify blocked on this session with the interrupt sentinel,
+        # so a disconnected/quit CLI does not leave the agent parked in
+        # wait_for_answer until the 24h registry backstop. Internal control
+        # command — no user-facing reply.
+        self.clarify.cancel_session(event.session_key)
+
+    _INTERRUPT_CMD = "/__interrupt__"
+
+    def _is_interrupt_command(self, text: str) -> bool:
+        return text.strip() == self._INTERRUPT_CMD
+
+    async def _handle_interrupt(self, event: InboundEvent) -> None:
+        # Flag the session's running turn for a cooperative stop. Also cancel any
+        # clarify parked on this session: a Ctrl+C while the agent waits for an
+        # answer should unblock it (mirrors the disconnect escape valve), not
+        # sit idle. Internal control command — no user-facing reply; the turn
+        # itself emits the "stopped" text when it converges at the checkpoint.
+        # The gateway stamps the turn the user meant to stop into metadata; pass
+        # it through so a delayed stop frame can't land on a later turn. Empty
+        # means "stop whatever is running" (older clients that don't track IDs).
+        target_event_id = str(event.metadata.get("_interrupt_target_event_id", ""))
+        self.interrupt.interrupt(event.session_key, target_event_id)
+        self.clarify.cancel_session(event.session_key)
+
+    async def _handle_clarify_command(self, event: InboundEvent) -> str | None:
+        # Format: /clarify <clarify_id> <answer...>  (answer may contain spaces)
+        parts = event.text.strip().split(maxsplit=2)
+        if len(parts) < 2:
+            return "用法:`/clarify <id> <答案>`"
+        clarify_id = parts[1]
+        answer = parts[2] if len(parts) >= 3 else ""
+        ok = self.clarify.resolve(clarify_id, answer)
+        if ok:
+            return f"已回复澄清请求 {clarify_id}。"
+        return f"澄清请求未找到或已处理:{clarify_id}"
 
     def _can_decide_approval(self, user_id: str, request: Any) -> bool:
         if user_id in (self.config.permissions.admin_users or []):

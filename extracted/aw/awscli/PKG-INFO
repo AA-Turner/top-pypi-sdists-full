@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: awscli
-Version: 1.45.51
+Version: 1.45.53
 Summary: Universal Command Line Environment for AWS.
 Home-page: http://aws.amazon.com/cli/
 Author: Amazon Web Services
@@ -23,7 +23,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >= 3.10
 License-File: LICENSE.txt
-Requires-Dist: botocore==1.43.51
+Requires-Dist: botocore==1.43.53
 Requires-Dist: docutils<=0.19,>=0.18.1
 Requires-Dist: s3transfer<0.20.0,>=0.19.0
 Requires-Dist: PyYAML<6.1,>=3.10
@@ -260,7 +260,7 @@ for more information.
 
 For more information about configuration options, please refer to the
 `AWS CLI Configuration Variables
-topic <http://docs.aws.amazon.com/cli/latest/topic/config-vars.html#cli-aws-help-config-vars>`__.
+topic <https://docs.aws.amazon.com/cli/latest/topic/config-vars.html#cli-aws-help-config-vars>`__.
 You can access this topic from the AWS CLI as well by running
 ``aws help config-vars``.
 

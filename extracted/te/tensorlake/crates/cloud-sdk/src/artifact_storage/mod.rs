@@ -1,5 +1,6 @@
 use reqwest::{Method, StatusCode};
 use serde::de::DeserializeOwned;
+use std::collections::HashSet;
 
 use crate::{
     client::{Client, Traced},
@@ -13,7 +14,8 @@ pub mod workspaces;
 
 use models::{
     CreateRepoRequest, GitCredential, ListBranchesResponse, ListOperationsResponse,
-    ListRefsResponse, ListReposResponse, MintGitTokenRequest, RepoInfo, RepoMetaInfo,
+    ListRefsResponse, ListReposResponse, MintGitTokenRequest, REPO_KIND_FILESYSTEM, RepoInfo,
+    RepoMetaInfo,
 };
 
 #[derive(Clone)]
@@ -315,17 +317,40 @@ impl ArtifactStorageClient {
         git_username: &str,
         git_token: &str,
     ) -> Result<Traced<ListReposResponse>, SdkError> {
-        let mut url = format!(
-            "{}/project/{}/repos",
-            self.git_base_url,
-            encode_path_segment(project_id)
-        );
-        if let Some(kind) = kind {
-            url.push_str(&format!("?kind={}", urlencoding::encode(kind)));
+        let mut repos = Vec::new();
+        let mut after = None::<String>;
+        let mut seen_after = HashSet::new();
+        loop {
+            let query = repo_list_query(kind, after.as_deref());
+            let url = format!(
+                "{}/project/{}/repos?{}",
+                self.git_base_url,
+                encode_path_segment(project_id),
+                query,
+            );
+            let (request, trace_id) =
+                self.git_request_url(Method::GET, url, git_username, git_token);
+            let page: Traced<ListReposResponse> =
+                decode_json(request.send().await?, trace_id).await?;
+            let trace_id = page.trace_id.clone();
+            let page = page.into_inner();
+            repos.extend(page.repos);
+            let Some(next) = page.next_after else {
+                return Ok(Traced::new(
+                    trace_id,
+                    ListReposResponse {
+                        project: project_id.to_string(),
+                        repos,
+                        next_after: None,
+                    },
+                ));
+            };
+            after = Some(advance_pagination_cursor(
+                &mut seen_after,
+                next,
+                "repository listing",
+            )?);
         }
-        let (request, trace_id) = self.git_request_url(Method::GET, url, git_username, git_token);
-        let response = request.send().await?;
-        decode_json(response, trace_id).await
     }
 
     /// Authoritative point-read of one repo's meta (kind, default branch, status). 404 =>
@@ -497,16 +522,48 @@ impl ArtifactStorageClient {
         git_username: &str,
         git_token: &str,
     ) -> Result<Traced<ListOperationsResponse>, SdkError> {
-        let (request, trace_id) = self.git_request(
-            Method::GET,
-            project_id,
-            repo,
-            Some("admin/operations"),
-            git_username,
-            git_token,
-        )?;
-        let response = request.send().await?;
-        decode_json(response, trace_id).await
+        let mut operations = Vec::new();
+        let mut after = None::<String>;
+        let mut seen_after = HashSet::new();
+        loop {
+            let suffix = after.as_ref().map_or_else(
+                || "admin/operations?limit=1000".to_string(),
+                |after| {
+                    format!(
+                        "admin/operations?limit=1000&after={}",
+                        urlencoding::encode(after)
+                    )
+                },
+            );
+            let (request, trace_id) = self.git_request(
+                Method::GET,
+                project_id,
+                repo,
+                Some(&suffix),
+                git_username,
+                git_token,
+            )?;
+            let page: Traced<ListOperationsResponse> =
+                decode_json(request.send().await?, trace_id).await?;
+            let trace_id = page.trace_id.clone();
+            let page = page.into_inner();
+            operations.extend(page.operations);
+            let Some(next) = page.next_after else {
+                return Ok(Traced::new(
+                    trace_id,
+                    ListOperationsResponse {
+                        repo: format!("{project_id}/{repo}"),
+                        operations,
+                        next_after: None,
+                    },
+                ));
+            };
+            after = Some(advance_pagination_cursor(
+                &mut seen_after,
+                next,
+                "operation listing",
+            )?);
+        }
     }
 
     pub async fn list_operations(
@@ -584,6 +641,27 @@ impl ArtifactStorageClient {
     }
 }
 
+fn repo_list_query(kind: Option<&str>, after: Option<&str>) -> String {
+    // `form_urlencoded::Serializer` contains a non-Send callback reference. Keep it in this
+    // synchronous helper so napi/tonic callers can carry the async request future across workers.
+    let mut params = url::form_urlencoded::Serializer::new(String::new());
+    if let Some(kind) = kind {
+        params.append_pair("kind", kind);
+        // Every filesystem page carries a synchronous cache-generation fence. Project inventory
+        // routes have no repository affinity, so consecutive requests may land on different
+        // server pods; fencing only page one could splice a fresh first page to a stale later page
+        // and omit a just-created filesystem after the first cursor.
+        if kind == REPO_KIND_FILESYSTEM {
+            params.append_pair("fresh", "true");
+        }
+    }
+    if let Some(after) = after {
+        params.append_pair("after", after);
+    }
+    params.append_pair("limit", "1000");
+    params.finish()
+}
+
 pub fn resolve_artifact_storage_url(api_url: &str) -> String {
     if let Ok(parsed) = url::Url::parse(api_url) {
         let host = parsed.host_str().unwrap_or("");
@@ -603,6 +681,21 @@ fn trim_base_url(url: String) -> String {
 
 fn encode_path_segment(segment: &str) -> String {
     urlencoding::encode(segment).into_owned()
+}
+
+/// A paged collection must always make forward progress. Treat an empty or repeated cursor as a
+/// malformed server response rather than spinning forever in an SDK call.
+fn advance_pagination_cursor(
+    seen: &mut HashSet<String>,
+    next: String,
+    surface: &str,
+) -> Result<String, SdkError> {
+    if next.is_empty() || !seen.insert(next.clone()) {
+        return Err(SdkError::ClientError(format!(
+            "{surface} returned an empty or repeated pagination cursor"
+        )));
+    }
+    Ok(next)
 }
 
 fn traceparent() -> (String, String) {
@@ -649,8 +742,14 @@ async fn body_message(response: reqwest::Response) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{ArtifactStorageClient, encode_path_segment, resolve_artifact_storage_url};
+    use std::collections::HashSet;
+
+    use super::{
+        ArtifactStorageClient, advance_pagination_cursor, encode_path_segment, repo_list_query,
+        resolve_artifact_storage_url,
+    };
     use crate::ClientBuilder;
+    use crate::artifact_storage::models::REPO_KIND_FILESYSTEM;
 
     #[test]
     fn resolves_git_url_from_api_url() {
@@ -685,6 +784,33 @@ mod tests {
         assert_eq!(
             client.git_repo_url("project_123", "myrepo"),
             "https://git.tensorlake.ai/project_123/myrepo"
+        );
+    }
+
+    #[test]
+    fn pagination_cursor_must_make_progress() {
+        let mut seen = HashSet::new();
+        assert_eq!(
+            advance_pagination_cursor(&mut seen, "page-2".to_string(), "test").unwrap(),
+            "page-2"
+        );
+        assert!(advance_pagination_cursor(&mut seen, "page-2".to_string(), "test").is_err());
+        assert!(advance_pagination_cursor(&mut seen, String::new(), "test").is_err());
+    }
+
+    #[test]
+    fn filesystem_inventory_fences_every_page() {
+        assert_eq!(
+            repo_list_query(Some(REPO_KIND_FILESYSTEM), None),
+            "kind=filesystem&fresh=true&limit=1000"
+        );
+        assert_eq!(
+            repo_list_query(Some(REPO_KIND_FILESYSTEM), Some("project/repo")),
+            "kind=filesystem&fresh=true&after=project%2Frepo&limit=1000"
+        );
+        assert_eq!(
+            repo_list_query(Some("repository"), None),
+            "kind=repository&limit=1000"
         );
     }
 }

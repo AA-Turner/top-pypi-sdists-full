@@ -181,7 +181,7 @@ static void xyz_to_healpix_loop(
 
 
 static void nested_to_ring_loop(
-    char **args, const npy_intp *dimensions, const npy_intp *steps, void *data)
+    char **args, const npy_intp *dimensions, const npy_intp *steps, void *NPY_UNUSED(data))
 {
     npy_intp i, n = dimensions[0];
 
@@ -205,7 +205,7 @@ static void nested_to_ring_loop(
 
 
 static void ring_to_nested_loop(
-    char **args, const npy_intp *dimensions, const npy_intp *steps, void *data)
+    char **args, const npy_intp *dimensions, const npy_intp *steps, void *NPY_UNUSED(data))
 {
     npy_intp i, n = dimensions[0];
 
@@ -229,7 +229,7 @@ static void ring_to_nested_loop(
 
 
 static void bilinear_interpolation_weights_loop(
-    char **args, const npy_intp *dimensions, const npy_intp *steps, void *data)
+    char **args, const npy_intp *dimensions, const npy_intp *steps, void *NPY_UNUSED(data))
 {
     npy_intp i, n = dimensions[0];
 
@@ -301,31 +301,39 @@ static void neighbours_loop(
 
 
 static void bit_scan_reverse_loop(
-    char **args, const npy_intp *dimensions, const npy_intp *steps, void *data)
+    char **args, const npy_intp *dimensions, const npy_intp *steps, void *NPY_UNUSED(data))
 {
     npy_intp i, n = dimensions[0];
 
     for (i = 0; i < n; i ++)
     {
-        int64_t  in = *(int64_t *) &args[0][i * steps[0]];
-        int    *out =  (int *)     &args[1][i * steps[1]];
-        #if __has_include(<stdbit.h>)
-            *out = 63 - stdc_leading_zeros(in);
-        #elif defined(_MSC_VER)
-            unsigned long index;
-            if (_BitScanReverse64(&index, in))
-                *out = index;
-            else
-                *out = -1;
-        #else
-            *out = 63 - __builtin_clzll(in);
-        #endif
+        int64_t   in = *(int64_t *) &args[0][i * steps[0]];
+        int64_t *out =  (int64_t *) &args[1][i * steps[1]];
+        if (in <= 0)
+        {
+            *out = -1;
+        } else {
+            int result;
+            uint64_t arg = (uint64_t) in;
+            #if __has_include(<stdbit.h>)
+                result = 63 - stdc_leading_zeros(arg);
+            #elif defined(_MSC_VER)
+                unsigned long index;
+                if (_BitScanReverse64(&index, arg))
+                    result = index;
+                else
+                    result = -1;
+            #else
+                result = 63 - __builtin_clzll(arg);
+            #endif
+            *out = result;
+        }
     }
 }
 
 
 static PyObject *healpix_cone_search(
-    PyObject *self, PyObject *args, PyObject *kwargs)
+    PyObject *NPY_UNUSED(self), PyObject *args, PyObject *kwargs)
 {
     PyObject *result;
     static char *kws[] = {"lon", "lat", "radius", "nside", "order", NULL};
@@ -413,7 +421,7 @@ static char
         NPY_INT64, NPY_INT,
         NPY_INT64, NPY_INT64, NPY_INT64, NPY_INT64,
         NPY_INT64, NPY_INT64, NPY_INT64, NPY_INT64},
-    bit_scan_reverse_types[] = {NPY_INT64, NPY_INT};
+    bit_scan_reverse_types[] = {NPY_INT64, NPY_INT64};
 
 
 PyMODINIT_FUNC PyInit__core(void)

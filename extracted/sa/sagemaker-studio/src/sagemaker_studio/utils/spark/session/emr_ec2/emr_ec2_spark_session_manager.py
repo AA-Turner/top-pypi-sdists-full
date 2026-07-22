@@ -170,14 +170,11 @@ class EmrEc2SparkSessionManager(SparkSessionManager):
             os.environ["SPARK_CONNECT_MODE_ENABLED"] = "1"
             self._lazy_init()
 
-            # Step 1: Start session
-            self.emr_session_id = self._start_session()
-
-            # Step 2: Wait for IDLE
-            self._wait_for_idle(self.emr_session_id)
-
-            # Step 3: Get endpoint and construct Spark Connect URL
-            spark_connect_url, endpoint_response = self._get_spark_connect_url(self.emr_session_id)
+            # Step 1-3: Start session, wait for IDLE, get endpoint (all metriced)
+            user_id, spark_configs = self._build_session_params()
+            session_id, spark_connect_url, endpoint_response = self._start_session(
+                user_id, spark_configs
+            )
 
             # Step 4: Create SparkSession with auth interceptor
             # Seed with initial token to avoid redundant API call on first gRPC request.
@@ -274,18 +271,15 @@ class EmrEc2SparkSessionManager(SparkSessionManager):
         )
         return user_id, spark_configs
 
-    def _start_session(self):
-        """Prepare configs and start a Spark Connect session on the EMR on EC2 cluster."""
-        logger.info(f"Starting session on cluster {self.cluster_id}")
-        logger.debug(f"Endpoint: {self.endpoint_url}, Region: {self.region}")
+    @sync_with_metrics("_start_emr_ec2_session")
+    def _start_session(self, user_id, spark_configs):
+        """Start session, wait for IDLE, and get endpoint URL.
+
+        Metrics capture the full lifecycle: API call + polling + endpoint retrieval.
+        This matches the EMR on EKS and EMR Serverless patterns.
+        """
         self._user_msg(f"Create session for connection: {self.resolved_connection_name}")
 
-        user_id, spark_configs = self._build_session_params()
-        return self._call_start_session(user_id, spark_configs)
-
-    @sync_with_metrics("_start_emr_ec2_session")
-    def _call_start_session(self, user_id, spark_configs):
-        """Call the EMR start_session API. Metrics are captured for this method only."""
         resp = self._emr_client.start_session(
             ClusterId=self.cluster_id,
             ClientRequestToken=str(uuid.uuid4()),
@@ -299,8 +293,15 @@ class EmrEc2SparkSessionManager(SparkSessionManager):
             ],
         )
         session_id = resp["Id"]
+        self.emr_session_id = session_id  # assign early so stop() can clean up on failure
         logger.info(f"Session started: {session_id} (state={resp['State']})")
-        return session_id
+
+        self._wait_for_idle(session_id)
+
+        spark_connect_url, endpoint_response = self._get_spark_connect_url(session_id)
+        self._user_msg(f"Session created for connection: {self.resolved_connection_name}.")
+
+        return session_id, spark_connect_url, endpoint_response
 
     def _wait_for_idle(self, session_id):
         """Poll get_session until state is IDLE."""
@@ -310,13 +311,10 @@ class EmrEc2SparkSessionManager(SparkSessionManager):
             resp = self._emr_client.get_session(ClusterId=self.cluster_id, SessionId=session_id)
             session = resp["Session"]
             state = session["State"]
-            logger.debug(f"[{i+1}/{_MAX_POLL}] State: {state}")
+            logger.debug(f"[{i + 1}/{_MAX_POLL}] State: {state}")
 
             if state == "IDLE":
                 logger.info(f"Session {session_id} is IDLE (ready)")
-                self._user_msg(
-                    f"Session {session_id} created for connection: {self.resolved_connection_name}."
-                )
                 return
             elif state in ("FAILED", "TERMINATED", "TERMINATING"):
                 reason = session.get("StateChangeReason", "unknown")
@@ -325,11 +323,6 @@ class EmrEc2SparkSessionManager(SparkSessionManager):
             time.sleep(_POLL_INTERVAL)
 
         raise RuntimeError(f"Timed out waiting for session {session_id} to become IDLE")
-
-    @staticmethod
-    def _user_msg(msg):
-        """Print a user-facing progress message (visible in notebook cell output)."""
-        print(msg, flush=True)
 
     def _get_spark_connect_url(self, session_id):
         """Get session endpoint and construct sc:// URL.

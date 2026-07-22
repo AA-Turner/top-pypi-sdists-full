@@ -32,18 +32,18 @@ Example usage:
 
 from __future__ import annotations
 
+from importlib.util import find_spec
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from kugelaudio.pipecat.tts import KugelAudioTTSService as KugelAudioTTSService
     from kugelaudio.pipecat.models import TTSModels as TTSModels
+    from kugelaudio.pipecat.turn import KugelTurnStopStrategy as KugelTurnStopStrategy
 
-try:
-    from pipecat.services.tts_service import TTSService
-
-    _PIPECAT_AVAILABLE = True
-except ImportError:
-    _PIPECAT_AVAILABLE = False
+_PIPECAT_AVAILABLE = (
+    find_spec("pipecat") is not None
+    and find_spec("pipecat.services.tts_service") is not None
+)
 
 
 def _check_pipecat_installed() -> None:
@@ -69,6 +69,18 @@ def __getattr__(name: str):
 
         return TTSModels
 
+    if name == "KugelTurnStopStrategy":
+        _check_pipecat_installed()
+        try:
+            from kugelaudio.pipecat.turn import KugelTurnStopStrategy
+        except ImportError as exc:
+            raise ImportError(
+                "Kugel turn detection requires pipecat-ai>=0.0.101 and "
+                "kugelaudio[turn-detection]"
+            ) from exc
+
+        return KugelTurnStopStrategy
+
     if name in (
         "DEFAULT_MODEL",
         "DEFAULT_SAMPLE_RATE",
@@ -92,6 +104,7 @@ def __getattr__(name: str):
 __all__ = [
     "KugelAudioTTSService",
     "TTSModels",
+    "KugelTurnStopStrategy",
     "DEFAULT_MODEL",
     "DEFAULT_SAMPLE_RATE",
     "DEFAULT_VOICE_ID",

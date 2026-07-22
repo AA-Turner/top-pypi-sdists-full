@@ -6,7 +6,7 @@
     - micromamba config set channel_priority flexible
 
 .matrix-wheel-macos:
-  image: macos-14-xcode-15
+  image: macos-15-xcode-16
   tags:
     - saas-macos-medium-m1
   parallel:
@@ -85,7 +85,7 @@ macos:test-pixi:
   parallel:
     matrix:
       - PIXI_ARCH: ["aarch64", "x86_64"]
-  image: macos-14-xcode-15
+  image: macos-15-xcode-16
   tags:
     - saas-macos-medium-m1
   before_script:

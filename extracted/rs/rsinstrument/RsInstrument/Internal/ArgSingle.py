@@ -11,7 +11,7 @@ class ArgSingle(object):
 	"""Single Argument outside a structure - used for composing query arguments.
 	Contains the argument value as well (self.value)."""
 
-	def __init__(self, name: str, value, data_type: DataType, enum_type=None, is_optional: bool = False, is_open_list: bool = False, repetition: int = 1, intern_link: str = None):
+	def __init__(self, name: str, value, data_type: DataType, enum_type=None, is_optional: bool = False, is_open_list: bool = False, repetition: int = 1, intern_link: str | None = None):
 		self.name = name if name else ''
 		self.argument_ix = None
 		self.value = value
@@ -92,7 +92,8 @@ class ArgSingle(object):
 
 	def set_scalar_value_from_str(self, string: str) -> None:
 		"""Sets scalar value from input string"""
-		self.value = self.conv_from_scpi_string.get_value(string)
+		# noinspection PyUnresolvedReferences
+		self.value = self.conv_from_scpi_string.get_value(string)  # ty: ignore[unresolved-attribute]
 
 	def check_consistency(self) -> None:
 		"""Checks the consistency of the object"""

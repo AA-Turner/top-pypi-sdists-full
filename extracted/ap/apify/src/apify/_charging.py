@@ -3,22 +3,23 @@ from __future__ import annotations
 import math
 from contextvars import ContextVar
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
-from typing import TYPE_CHECKING, Protocol, TypedDict
+from logging import getLogger
+from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
 
-from pydantic import TypeAdapter
+from pydantic import ConfigDict
+from pydantic.alias_generators import to_camel
 
-from apify._models import (
-    ActorRun,
-    FlatPricePerMonthActorPricingInfo,
-    FreeActorPricingInfo,
-    PayPerEventActorPricingInfo,
-    PricePerDatasetItemActorPricingInfo,
-    PricingModel,
-)
+import apify_client._models as _client_models
+from apify_client._models import ActorChargeEvent as ClientActorChargeEvent
+from apify_client._models import FlatPricePerMonthActorPricingInfo as ClientFlatPricePerMonth
+from apify_client._models import FreeActorPricingInfo as ClientFree
+from apify_client._models import PayPerEventActorPricingInfo as ClientPayPerEvent
+from apify_client._models import PricePerDatasetItemActorPricingInfo as ClientPricePerDatasetItem
+from apify_client._models import PricingPerEvent as ClientPricingPerEvent
+
 from apify._utils import ReentrantLock, docs_group, ensure_context
-from apify.log import logger
 from apify.storages import Dataset
 
 if TYPE_CHECKING:
@@ -28,15 +29,150 @@ if TYPE_CHECKING:
 
     from apify._configuration import Configuration
 
-run_validator = TypeAdapter[ActorRun | None](ActorRun | None)
+logger = getLogger(__name__)
+
+charging_manager_ctx: ContextVar[ChargingManager | None] = ContextVar('charging_manager_ctx', default=None)
+"""Holds the current `ChargingManager` instance, if any.
+
+Allows PPE-aware dataset clients to access the charging manager without needing to pass it explicitly.
+"""
 
 DEFAULT_DATASET_ITEM_EVENT = 'apify-default-dataset-item'
+"""Name of the synthetic event charged for each item pushed to the default dataset."""
 
-# Context variable to hold the current `ChargingManager` instance, if any. This allows PPE-aware dataset clients to
-# access the charging manager without needing to pass it explicitly.
-charging_manager_ctx: ContextVar[ChargingManager | None] = ContextVar('charging_manager_ctx', default=None)
+PricingModel = Literal['PAY_PER_EVENT', 'PRICE_PER_DATASET_ITEM', 'FLAT_PRICE_PER_MONTH', 'FREE']
+"""Pricing model for an Actor."""
 
 _ensure_context = ensure_context('active')
+
+
+# These are thin subclasses of the `apify-client` pricing models. The Apify platform serializes Actor
+# pricing info into the `APIFY_ACTOR_PRICING_INFO` env var (parsed by `Configuration.actor_pricing_info`),
+# but omits several fields that `apify-client` v3 marks as required (`apifyMarginPercentage`, `createdAt`,
+# `startedAt`, per-event `eventDescription`, and per-variant `trialMinutes` / `pricePerUnitUsd` / `unitName`).
+# Each subclass relaxes only those omitted fields to optional, so the env var deserializes without faking
+# values. Because every subclass is-a `apify-client` model, the API-returned `Run.pricing_info` (already an
+# `apify-client` instance) flows through the same code paths without conversion.
+
+
+@docs_group('Charging')
+class ActorChargeEvent(ClientActorChargeEvent):
+    """Definition of a single chargeable event in the pay-per-event pricing model."""
+
+    model_config = ConfigDict(alias_generator=to_camel)
+
+    event_description: str | None = None
+    """Human-readable description of the event.
+
+    Required in apify-client but omitted from the env var, so it is relaxed to optional.
+    """
+
+
+@docs_group('Charging')
+class PricingPerEvent(ClientPricingPerEvent):
+    """Pay-per-event pricing details - the chargeable events and their prices."""
+
+    model_config = ConfigDict(alias_generator=to_camel)
+
+    actor_charge_events: dict[str, ActorChargeEvent] | None = None
+    """Mapping of event name to its charge definition."""
+
+
+@docs_group('Charging')
+class FreeActorPricingInfo(ClientFree):
+    """Pricing info for an Actor offered free of charge."""
+
+    model_config = ConfigDict(alias_generator=to_camel)
+
+    apify_margin_percentage: float | None = None
+    """Apify's margin on the price, as a percentage."""
+
+    created_at: datetime | None = None
+    """Timestamp when this pricing info was created."""
+
+    started_at: datetime | None = None
+    """Timestamp when this pricing became effective."""
+
+
+@docs_group('Charging')
+class FlatPricePerMonthActorPricingInfo(ClientFlatPricePerMonth):
+    """Pricing info for an Actor billed at a flat monthly price."""
+
+    model_config = ConfigDict(alias_generator=to_camel)
+
+    apify_margin_percentage: float | None = None
+    """Apify's margin on the price, as a percentage."""
+
+    created_at: datetime | None = None
+    """Timestamp when this pricing info was created."""
+
+    started_at: datetime | None = None
+    """Timestamp when this pricing became effective."""
+
+    trial_minutes: int | None = None
+    """Length of the free trial period, in minutes."""
+
+    price_per_unit_usd: float | None = None
+    """Price per unit, in USD."""
+
+
+@docs_group('Charging')
+class PricePerDatasetItemActorPricingInfo(ClientPricePerDatasetItem):
+    """Pricing info for an Actor billed per dataset item produced."""
+
+    model_config = ConfigDict(alias_generator=to_camel)
+
+    apify_margin_percentage: float | None = None
+    """Apify's margin on the price, as a percentage."""
+
+    created_at: datetime | None = None
+    """Timestamp when this pricing info was created."""
+
+    started_at: datetime | None = None
+    """Timestamp when this pricing became effective."""
+
+    unit_name: str | None = None
+    """Name of the billed unit."""
+
+
+@docs_group('Charging')
+class PayPerEventActorPricingInfo(ClientPayPerEvent):
+    """Pricing info for an Actor billed per charged event."""
+
+    model_config = ConfigDict(alias_generator=to_camel)
+
+    apify_margin_percentage: float | None = None
+    """Apify's margin on the price, as a percentage."""
+
+    created_at: datetime | None = None
+    """Timestamp when this pricing info was created."""
+
+    started_at: datetime | None = None
+    """Timestamp when this pricing became effective."""
+
+    pricing_per_event: PricingPerEvent
+    """The pay-per-event pricing details."""
+
+
+ActorPricingInfoModel = ClientFree | ClientFlatPricePerMonth | ClientPricePerDatasetItem | ClientPayPerEvent
+"""Common supertype of both env-var-parsed SDK subclasses and the API-returned `Run.pricing_info`."""
+
+# apify-client ships these models with deferred forward refs (`__pydantic_complete__` is False), so the
+# subclasses must be rebuilt - with the `TieredPricing*` names in scope - before the env-var discriminated
+# union can validate standalone.
+_pricing_rebuild_namespace = vars(_client_models) | {
+    'ActorChargeEvent': ActorChargeEvent,
+    'PricingPerEvent': PricingPerEvent,
+}
+for _pricing_model in (
+    ActorChargeEvent,
+    PricingPerEvent,
+    FreeActorPricingInfo,
+    FlatPricePerMonthActorPricingInfo,
+    PricePerDatasetItemActorPricingInfo,
+    PayPerEventActorPricingInfo,
+):
+    _pricing_model.model_rebuild(_types_namespace=_pricing_rebuild_namespace)
 
 
 @docs_group('Charging')
@@ -55,7 +191,7 @@ class ChargingManager(Protocol):
     charge_lock: ReentrantLock
     """Lock to synchronize charge operations. Prevents race conditions between `charge` and `push_data` calls."""
 
-    async def charge(self, event_name: str, count: int = 1) -> ChargeResult:
+    async def charge(self, event_name: str, *, count: int = 1) -> ChargeResult:
         """Charge for a specified number of events - sub-operations of the Actor.
 
         This is relevant only for the pay-per-event pricing model.
@@ -173,6 +309,7 @@ class ChargingManagerImplementation(ChargingManager):
 
         self._charging_state: dict[str, ChargingStateItem] = {}
         self._pricing_info: dict[str, PricingInfoItem] = {}
+        self._tier_priced_events: set[str] = set()
 
         self._not_ppe_warning_printed = False
         self.active = False
@@ -202,10 +339,16 @@ class ChargingManagerImplementation(ChargingManager):
         else:
             self._pricing_model = pricing_info.pricing_model if pricing_info else None
 
-        # Load per-event pricing information
-        if pricing_info is not None and isinstance(pricing_info, PayPerEventActorPricingInfo):
+        # Load per-event pricing information. Check against the apify-client base so both env-var-parsed
+        # SDK subclasses and the API-returned model match.
+        if isinstance(pricing_info, ClientPayPerEvent):
             actor_charge_events = pricing_info.pricing_per_event.actor_charge_events or {}
             for event_name, event_pricing in actor_charge_events.items():
+                if event_pricing.event_price_usd is None:
+                    # Tier-priced event - not chargeable via the SDK's flat-price path; tracked so a later
+                    # charge attempt is reported accurately rather than as an "unknown event".
+                    self._tier_priced_events.add(event_name)
+                    continue
                 self._pricing_info[event_name] = PricingInfoItem(
                     price=Decimal(str(event_pricing.event_price_usd)),
                     title=event_pricing.event_title,
@@ -250,7 +393,7 @@ class ChargingManagerImplementation(ChargingManager):
         self.active = False
 
     @_ensure_context
-    async def charge(self, event_name: str, count: int = 1) -> ChargeResult:
+    async def charge(self, event_name: str, *, count: int = 1) -> ChargeResult:
         # For runs that do not use the pay-per-event pricing model, just print a warning and return
         if self._pricing_model != 'PAY_PER_EVENT':
             if not self._not_ppe_warning_printed:
@@ -308,7 +451,12 @@ class ChargingManagerImplementation(ChargingManager):
                     # the platform handles them automatically based on dataset writes.
                     pass
                 elif event_name in self._pricing_info:
-                    await self._client.run(self._actor_run_id).charge(event_name, charged_count)
+                    await self._client.run(self._actor_run_id).charge(event_name, count=charged_count)
+                    logger.debug(f"Charged {charged_count} occurrence(s) of event '{event_name}'.")
+                elif event_name in self._tier_priced_events:
+                    logger.warning(
+                        f"Event '{event_name}' is tier-priced and is not chargeable via the pay-per-event API."
+                    )
                 else:
                     logger.warning(f"Attempting to charge for an unknown event '{event_name}'")
 
@@ -320,7 +468,7 @@ class ChargingManagerImplementation(ChargingManager):
                         'event_title': pricing_info.title,
                         'event_price_usd': float(round(pricing_info.price, 3)),
                         'charged_count': charged_count,
-                        'timestamp': datetime.now(timezone.utc).isoformat(),
+                        'timestamp': datetime.now(UTC).isoformat(),
                     }
                 )
 
@@ -427,7 +575,8 @@ class ChargingManagerImplementation(ChargingManager):
             if self._actor_run_id is None:
                 raise RuntimeError('Actor run ID not found even though the Actor is running on Apify')
 
-            run = run_validator.validate_python(await self._client.run(self._actor_run_id).get())
+            run = await self._client.run(self._actor_run_id).get()
+
             if run is None:
                 raise RuntimeError('Actor run not found')
 
@@ -469,12 +618,6 @@ class PricingInfoItem:
 
 
 class _FetchedPricingInfoDict(TypedDict):
-    pricing_info: (
-        FreeActorPricingInfo
-        | FlatPricePerMonthActorPricingInfo
-        | PricePerDatasetItemActorPricingInfo
-        | PayPerEventActorPricingInfo
-        | None
-    )
+    pricing_info: ActorPricingInfoModel | None
     charged_event_counts: dict[str, int]
     max_total_charge_usd: Decimal

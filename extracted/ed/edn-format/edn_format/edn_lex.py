@@ -113,6 +113,30 @@ class Symbol(BaseEdnType):
         return self._name
 
 
+class MetadataValue(object):
+    """An EDN value annotated with metadata, serialized as ``^{metadata} value``."""
+
+    __slots__ = ('metadata', 'value')
+
+    def __init__(self, metadata, value):
+        self.metadata = metadata
+        self.value = value
+
+    def __eq__(self, other):
+        if not isinstance(other, MetadataValue):
+            return other == self.value
+        return self.value == other.value
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __hash__(self):
+        return hash(self.value)
+
+    def __repr__(self):
+        return '{}({!r}, {!r})'.format(self.__class__.__name__, self.metadata, self.value)
+
+
 # http://www.dabeaz.com/ply/ply.html
 tokens = ('WHITESPACE',
           'CHAR',
@@ -120,6 +144,7 @@ tokens = ('WHITESPACE',
           'INTEGER',
           'HEX_INTEGER',
           'FLOAT',
+          'SYMBOLIC_VALUE',
           'RATIO',
           'SYMBOL',
           'KEYWORD',
@@ -132,7 +157,8 @@ tokens = ('WHITESPACE',
           'MAP_OR_SET_END',
           'TAG',
           'DISCARD_TAG',
-          'MAP_NAMESPACE_TAG')
+          'MAP_NAMESPACE_TAG',
+          'CARET')
 
 PARTS = {}
 PARTS["non_nums"] = r"\w.*+!\-_?$%&=:#<>@"
@@ -188,7 +214,17 @@ t_LIST_END = r'\)'
 t_MAP_START = r'\{'
 t_SET_START = r'\#\{'
 t_MAP_OR_SET_END = r'\}'
+t_CARET = r'\^'
 t_ignore = ''.join([" ", "\t", "\n", ","])
+
+
+def t_SYMBOLIC_VALUE(t):
+    # https://clojure.org/reference/reader#_symbolic_values
+    r"\#\#(-Inf|Inf|NaN)"
+    t.value = {"##Inf": float("inf"),
+               "##-Inf": float("-inf"),
+               "##NaN": float("nan")}[t.value]
+    return t
 
 
 def t_WHITESPACE(t):
@@ -256,7 +292,7 @@ def t_INTEGER(t):
 
 
 def t_HEX_INTEGER(t):
-    r"""[+-]?0x[A-F0-9]+"""
+    r"""[+-]?0x[0-9A-Fa-f]+"""
     t.value = int(t.value, 16)
     return t
 

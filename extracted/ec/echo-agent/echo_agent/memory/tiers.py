@@ -80,6 +80,32 @@ class EpisodicManager:
         importance: float = 0.5,
         message_range: tuple[int, int] = (0, 0),
     ) -> Episode:
+        # Idempotency: a real (non-zero) message_range uniquely identifies the
+        # compressed span, so a retry/concurrent consolidation of the same span
+        # must not create a duplicate episode. range == (0, 0) means "no range
+        # info" and keeps the legacy per-call insert behaviour.
+        if message_range != (0, 0):
+            existing = await self._storage.fetch_sql(
+                "SELECT * FROM memory_episodes WHERE session_key = ? "
+                "AND message_range_start = ? AND message_range_end = ?",
+                (session_key, message_range[0], message_range[1]),
+            )
+            if existing:
+                row = existing[0]
+                logger.debug(
+                    "create_episode idempotent hit {} for session {} range {}",
+                    row["id"], session_key, message_range,
+                )
+                return Episode(
+                    id=row["id"],
+                    session_key=row["session_key"],
+                    summary=row["summary"],
+                    message_range_start=row["message_range_start"],
+                    message_range_end=row["message_range_end"],
+                    entity_ids=json.loads(row["entities"]) if row["entities"] else [],
+                    importance=row["importance"],
+                    created_at=row["created_at"],
+                )
         episode = Episode(
             id=uuid.uuid4().hex[:12],
             session_key=session_key,
@@ -90,8 +116,13 @@ class EpisodicManager:
             importance=importance,
             created_at=datetime.now().isoformat(),
         )
+        # 非 (0,0) 区间受唯一索引 uq_episodes_span 保护:并发同区间用 INSERT OR IGNORE
+        # 抢锁,只有真正写入的那次才 embed。冲突方回查既有行返回,跳过 _embed_summary
+        # (向量已由首次插入写过,重复 embed 会产生孤儿向量)。(0,0) 区间不受索引约束,
+        # 保持 INSERT OR REPLACE 的逐次插入行为。
+        insert_verb = "INSERT OR IGNORE" if message_range != (0, 0) else "INSERT OR REPLACE"
         await self._storage.execute_sql(
-            "INSERT OR REPLACE INTO memory_episodes (id, session_key, summary, "
+            f"{insert_verb} INTO memory_episodes (id, session_key, summary, "
             "message_range_start, message_range_end, entities, importance, created_at) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             (
@@ -100,6 +131,30 @@ class EpisodicManager:
                 json.dumps(episode.entity_ids), episode.importance, episode.created_at,
             ),
         )
+        if message_range != (0, 0):
+            # execute_sql 不返回 rowcount,回查该区间当前落库行:若非本次 id,说明并发
+            # 冲突被 IGNORE,返回既有行且不 embed。
+            rows = await self._storage.fetch_sql(
+                "SELECT * FROM memory_episodes WHERE session_key = ? "
+                "AND message_range_start = ? AND message_range_end = ?",
+                (session_key, message_range[0], message_range[1]),
+            )
+            if rows and rows[0]["id"] != episode.id:
+                row = rows[0]
+                logger.debug(
+                    "create_episode lost insert race, reusing {} for session {} range {}",
+                    row["id"], session_key, message_range,
+                )
+                return Episode(
+                    id=row["id"],
+                    session_key=row["session_key"],
+                    summary=row["summary"],
+                    message_range_start=row["message_range_start"],
+                    message_range_end=row["message_range_end"],
+                    entity_ids=json.loads(row["entities"]) if row["entities"] else [],
+                    importance=row["importance"],
+                    created_at=row["created_at"],
+                )
         await self._embed_summary(episode.id, summary)
         logger.debug("Created episode {} for session {}", episode.id, session_key)
         return episode
@@ -242,8 +297,10 @@ class SemanticManager:
     Wraps existing MemoryStore CRUD with tier filtering.
     """
 
-    def __init__(self, store: Any):
-        self._store = store
+    def __init__(self, service: Any):
+        # 写走 service 八步写序;读(get_semantic_entries)仍直接读 store。
+        self._service = service
+        self._store = service.store
 
     def get_semantic_entries(
         self,
@@ -255,28 +312,46 @@ class SemanticManager:
 
     async def promote_from_episodic(
         self, episode: Episode, extracted_facts: list[dict[str, Any]],
+        memory_scope: str = "",
     ) -> list[MemoryEntry]:
-        """Promote extracted facts from an episode to semantic memory."""
+        """Promote extracted facts from an episode to semantic memory.
+
+        写入统一走 MemoryService.promote(八步写序:校验→scope 门禁→ENV 门禁→
+        provenance→写入→flush→失效→审计)。fact 未显式给 type 时默认落 USER +
+        当前 memory_scope(不再默认 ENVIRONMENT 全局可见),写 ENV 需模型显式声明且
+        受 allow_model_environment_writes 门禁约束。source="consolidated"
+        优先级(2)高于 model_inferred(1) 是有意设计(睡眠蒸馏比单轮推断可信),保留。
+        """
+        from echo_agent.memory.service import ActorContext
+
         promoted: list[MemoryEntry] = []
         for fact in extracted_facts:
-            fact_type = MemoryType(fact.get("type", "environment"))
-            entry = MemoryEntry(
+            fact_type = MemoryType(fact.get("type", "user"))
+            # USER 落当前 scope(memory_scope 缺省回退 episode.session_key);
+            # ENV 保持全局可见(memory_scope 空 → source_session 空)。
+            scope = (memory_scope or episode.session_key) if fact_type == MemoryType.USER else ""
+            ctx = ActorContext(
+                actor="consolidation",
+                session_key=scope,
+                memory_scope=scope,
+            )
+            result = await self._service.promote(
+                ctx,
                 type=fact_type,
-                tier=MemoryTier.SEMANTIC,
                 key=fact.get("key", ""),
                 content=fact.get("content", ""),
                 tags=fact.get("tags", []),
                 importance=fact.get("importance", 0.5),
-                episode_id=episode.id,
                 source="consolidated",
-                source_session=episode.session_key if fact_type == MemoryType.USER else "",
             )
-            try:
-                result = self._store.add(entry)
-                promoted.append(result)
-            except ValueError as e:
+            if result.ok and result.entry is not None:
+                # 保留晋升来源 episode 的关联(service.add 不透传 episode_id)。
+                result.entry.episode_id = episode.id
+                promoted.append(result.entry)
+            else:
                 logger.warning(
-                    "Failed to promote fact from episode {}: {}", episode.id, e,
+                    "Failed to promote fact from episode {}: {}",
+                    episode.id, result.reason,
                 )
         if promoted:
             logger.info("Promoted {} facts from episode {}", len(promoted), episode.id)
@@ -286,24 +361,30 @@ class SemanticManager:
 class ArchivalManager:
     """Compressed long-term storage for old/low-importance memories.
 
-    When constructed with the authoritative ``MemoryStore``, tier changes and
-    deletions go through it (and thus persist to the JSON files the store
-    actually loads from). The raw-SQL path is kept only as a fallback for
-    callers that have no store — writing the SQLite mirror alone has no effect
-    on what the agent remembers, because the store never reads it back.
+    归档(set_tier→ARCHIVAL)与遗忘删除(remove)统一走 MemoryService 的
+    maintenance 通道:内部维护身份跳过 provenance/ENV 门禁,但仍失效+flush+审计,
+    并持久化到 store 实际加载的 JSON。仅裸 SQL 回退路径(无 service 的老调用方)
+    保留——写 SQLite 镜像本身对 agent 记得什么没有影响,store 从不读回它。
     """
 
-    def __init__(self, storage: StorageBackend, store: Any = None):
+    def __init__(self, storage: StorageBackend, service: Any = None):
         self._storage = storage
-        self._store = store
+        self._service = service
 
     async def archive(self, entries: list[MemoryEntry]) -> int:
         """Move entries to archival tier. Returns count archived."""
         count = 0
         for entry in entries:
-            if self._store is not None:
+            if self._service is not None:
+                from echo_agent.memory.service import ActorContext
                 from echo_agent.memory.types import MemoryTier as _Tier
-                if self._store.set_tier(entry.id, _Tier.ARCHIVAL):
+                ctx = ActorContext(
+                    actor="maintenance",
+                    session_key=entry.source_session,
+                    memory_scope=entry.source_session,
+                )
+                result = await self._service.set_tier(ctx, entry.id, _Tier.ARCHIVAL)
+                if result.ok:
                     entry.tier = _Tier.ARCHIVAL
                     count += 1
                 continue
@@ -325,9 +406,17 @@ class ArchivalManager:
     async def delete_forgotten(self, entries: list[MemoryEntry]) -> int:
         count = 0
         for entry in entries:
-            if self._store is not None:
-                # store.delete persists to JSON and cleans mirror + vectors.
-                if self._store.delete(entry.id):
+            if self._service is not None:
+                # service.remove(maintenance) 跳过 provenance(内部维护删除),
+                # 持久化到 JSON 并清理镜像 + 向量,同时失效+审计。
+                from echo_agent.memory.service import ActorContext
+                ctx = ActorContext(
+                    actor="maintenance",
+                    session_key=entry.source_session,
+                    memory_scope=entry.source_session,
+                )
+                result = await self._service.remove(ctx, entry.id)
+                if result.ok:
                     count += 1
                 continue
             await self._storage.execute_sql(

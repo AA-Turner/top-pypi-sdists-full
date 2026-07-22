@@ -27,7 +27,7 @@ def sso_redirect(request, scopes=None, return_to=None) -> HttpResponseRedirect:
         request.session.session_key[:5] if request.session.session_key else '[no key]'
     )
     if scopes is None:
-        scopes = list()
+        scopes: list = []
     elif isinstance(scopes, str):
         scopes = list([scopes])
 

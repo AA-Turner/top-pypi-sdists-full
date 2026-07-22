@@ -31,11 +31,11 @@ from chalk.client.models import (
     FeatureReference,
     FeatureStatisticsResponse,
     GetIncrementalProgressResponse,
-    GetRegisteredModelResponse,
-    GetRegisteredModelVersionResponse,
     JobQueueItem,
     ListDatasetsResponse,
     ManualTriggerScheduledQueryResponse,
+    ModelNamespaceResponse,
+    ModelVersionResponse,
     NamedQueryMetadata,
     OfflineQueryDeadlineOptions,
     OfflineQueryInfo,
@@ -47,6 +47,7 @@ from chalk.client.models import (
     OnlineQueryContext,
     PlanQueryResponse,
     RedeployResponse,
+    RegisteredModelVersion,
     RegisterModelResponse,
     RegisterModelVersionResponse,
     ResolverRunResponse,
@@ -2828,35 +2829,74 @@ class ChalkClient:
         self,
         name: str,
         version: Optional[int] = None,
-    ) -> Union[GetRegisteredModelResponse, GetRegisteredModelVersionResponse]:
-        """Retrieve a registered model from the Chalk model registry.
+    ) -> Union[ModelNamespaceResponse, ModelVersionResponse]:
+        """Retrieve a model from the Chalk model registry.
+
+        .. deprecated::
+            Use `get_model_namespace` for namespace-level info, or `get_model_version`
+            to retrieve a version (only a version exposes ``.remote()``).
 
         Parameters
         ----------
         name
             Name of the model to retrieve.
         version
-            Specific version number to retrieve. If not provided, returns
-            information about all versions of the model.
+            Specific version to retrieve. If omitted, returns namespace-level info.
 
         Returns
         -------
-        Union[GetRegisteredModelResponse, GetRegisteredModelVersionResponse]
-            Model information including metadata, versions, and configuration details.
+        Union[ModelNamespaceResponse, ModelVersionResponse]
+            Without a version, a `ModelNamespaceResponse` (info only). With a version, a
+            `ModelVersionResponse` — see `get_model_version`.
 
         Examples
         --------
-        Get model by name:
-
         >>> from chalk.client import ChalkClient
         >>> client = ChalkClient()
-        >>> model = client.get_model(name="RiskScoreModel")
-        >>> print(f"Latest version: {model.latest_model_version}")
+        >>> risk_model_namespace = client.get_model(name="RiskScoreModel")   # info
+        >>> risk_model_v1 = client.get_model(name="RiskScoreModel", version=1)
+        """
+        ...
 
-        Get specific model version:
+    def get_model_namespace(
+        self,
+        name: str,
+    ) -> ModelNamespaceResponse:
+        """Retrieve namespace-level info for a model.
 
-        >>> model_v1 = client.get_model(name="RiskScoreModel", version=1)
-        >>> print(f"Performance: {model_v1.metadata['training_metrics']}")
+        Parameters
+        ----------
+        name
+            Name of the model to retrieve.
+
+        Returns
+        -------
+        ModelNamespaceResponse
+            Namespace-level info. This does not expose ``.remote()`` — use
+            `get_model_version` to invoke a deployed model.
+
+        Examples
+        --------
+        >>> from chalk.client import ChalkClient
+        >>> client = ChalkClient()
+        >>> risk_model = client.get_model_namespace(name="RiskScoreModel")
+        """
+        ...
+
+    def get_model_version(
+        self,
+        name: str,
+        version: Optional[int] = None,
+    ) -> ModelVersionResponse:
+        """Retrieve a single model version (latest when ``version`` is omitted).
+
+        Returns a `DeployedModelVersion` when the version is deployed to a scaling group —
+        its ``.remote(*args, **kwargs)`` invokes the model directly — otherwise a
+        `RegisteredModelVersion`, whose ``.remote()`` raises until it is deployed.
+
+        >>> from chalk.client import ChalkClient
+        >>> latest_risk_model = ChalkClient().get_model_version("RiskScoreModel")
+        >>> latest_risk_model.remote(txn_amount=42.0, account_age_days=365)
         """
         ...
 
@@ -3022,7 +3062,7 @@ class ChalkClient:
     def delete_model_namespace(
         self,
         name: str,
-    ) -> GetRegisteredModelResponse:
+    ) -> ModelNamespaceResponse:
         """Delete a model namespace from the Chalk model registry.
 
         This archives the model and all of its versions. **The underlying model
@@ -3038,7 +3078,7 @@ class ChalkClient:
 
         Returns
         -------
-        GetRegisteredModelResponse
+        ModelNamespaceResponse
             The archived model.
 
         Examples
@@ -3053,7 +3093,7 @@ class ChalkClient:
         self,
         name: str,
         version: int,
-    ) -> GetRegisteredModelVersionResponse:
+    ) -> RegisteredModelVersion:
         """Delete a single model version from the Chalk model registry.
 
         This archives the given version. **The underlying model artifact data is
@@ -3070,7 +3110,7 @@ class ChalkClient:
 
         Returns
         -------
-        GetRegisteredModelVersionResponse
+        RegisteredModelVersion
             The archived model version.
 
         Examples

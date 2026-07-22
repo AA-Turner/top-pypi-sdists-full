@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mindroom
-Version: 2026.7.215
+Version: 2026.7.230
 Summary: A universal interface for AI agents with persistent memory, where every conversation has a home
 Project-URL: documentation, https://github.com/mindroom-ai/mindroom
 Project-URL: homepage, https://github.com/mindroom-ai/mindroom
@@ -37,7 +37,7 @@ Requires-Dist: markdown-it-py>=4
 Requires-Dist: mcp[cli]>=1.12.4
 Requires-Dist: mdit-py-plugins>=0.5
 Requires-Dist: mem0ai>=0.1.115
-Requires-Dist: mindroom-nio[e2e]==0.27.2
+Requires-Dist: mindroom-nio[e2e]==0.27.3
 Requires-Dist: openai
 Requires-Dist: packaging>=24
 Requires-Dist: pydantic-settings>=2.10.1
@@ -518,6 +518,7 @@ Plain replies that never reach threaded context still stay plain replies.
 - `!cancel_schedule <id>` - Cancel a scheduled task
 - `!edit_schedule <id> <task>` - Edit an existing scheduled task
 - `!config <operation>` - Manage configuration
+- `!desktop [setup|status|confirm|rotate|disconnect]` - Manage your private Desktop target
 - `!model [name|list|reset]` - Show or switch the model used in the current thread
 - `!thread_mode [room|thread|reset|show]` - Show or switch the thread mode used in the current room (room admin only)
 - `!encrypt [confirm]` - Enable end-to-end encryption for this room (irreversible, room admin only)

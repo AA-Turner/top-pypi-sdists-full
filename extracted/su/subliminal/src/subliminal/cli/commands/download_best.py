@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import logging
 import os
+import warnings
 from collections import defaultdict
 from typing import TYPE_CHECKING, Any
 
@@ -32,7 +33,7 @@ from subliminal.core import (
 )
 from subliminal.exceptions import GuessingError
 from subliminal.extensions import get_default_providers, get_default_refiners
-from subliminal.utils import merge_extend_and_ignore_unions
+from subliminal.utils import NameResolver, merge_extend_and_ignore_unions
 
 from ._format import AgeParamType, LanguageParamType, plural
 
@@ -209,6 +210,10 @@ REFINER = click.Choice(['ALL', *sorted(refiner_manager.names())])
     is_flag=True,
     flag_value=True,
     multiple=True,
+    deprecated=(
+        'use `--subtitle-categories fo,n,hi` to favor fo (the current fallback) or `--subtitle-categories fo` '
+        'to download fo only.'
+    ),
     help='Prefer foreign-only subtitles.',
 )
 @click.option(
@@ -218,6 +223,10 @@ REFINER = click.Choice(['ALL', *sorted(refiner_manager.names())])
     is_flag=True,
     flag_value=False,
     multiple=True,
+    deprecated=(
+        'use `--subtitle-categories n,hi,fo` to disfavor fo (the current fallback) or `--subtitle-categories n,hi` '
+        'to skip fo.'
+    ),
     help='Disfavor foreign-only subtitles.',
 )
 @click.option(
@@ -227,6 +236,10 @@ REFINER = click.Choice(['ALL', *sorted(refiner_manager.names())])
     is_flag=True,
     flag_value=True,
     multiple=True,
+    deprecated=(
+        'use `--subtitle-categories hi,n,fo` to favor hi (the current fallback) or `--subtitle-categories hi` '
+        'to download hi only.'
+    ),
     help='Prefer hearing-impaired subtitles.',
 )
 @click.option(
@@ -236,7 +249,24 @@ REFINER = click.Choice(['ALL', *sorted(refiner_manager.names())])
     is_flag=True,
     flag_value=False,
     multiple=True,
+    deprecated=(
+        'use `--subtitle-categories n,fo,hi` to disfavor hi (the current fallback) or `--subtitle-categories n,fo` '
+        'to skip hi.'
+    ),
     help='Disfavor hearing-impaired subtitles.',
+)
+@click.option(
+    '-C',
+    '--subtitle-categories',
+    type=click.STRING,
+    default='',
+    help=(
+        'Comma-separated ordered list of subtitle categories to download. Skip one or two categories to filter out '
+        'subtitles of these categories. The (exclusive) categories are: hi (hearing impaired), '
+        'fo (foreign only) and n (narrative, standard subtitles). For instance, "hi,n,fo" would sort hearing impaired '
+        'subtitles first and foreign only subtitles last; "hi" would only download hearing impaired subtitles. '
+        'If set to an empty string (the default), no filtering or sorting is carried out.'
+    ),
 )
 @click.option(
     '-m',
@@ -248,8 +278,22 @@ REFINER = click.Choice(['ALL', *sorted(refiner_manager.names())])
 @click.option(
     '--language-type-suffix/--no-language-type-suffix',
     is_flag=True,
+    type=bool,
+    default=None,
+    deprecated='use `--category-suffix` instead',
+    help=(
+        'Add a suffix ("hi" or "fo") to the saved subtitle name with the subtitle category, '
+        'hearing impaired or foreign only.'
+    ),
+)
+@click.option(
+    '--category-suffix/--no-category-suffix',
+    is_flag=True,
     default=False,
-    help='Add a suffix to the saved subtitle name to indicate a hearing impaired or foreign only subtitle.',
+    help=(
+        'Add a suffix ("hi" or "fo") to the saved subtitle name with the subtitle category, '
+        'hearing impaired or foreign only.'
+    ),
 )
 @click.option(
     '--language-format',
@@ -287,9 +331,16 @@ REFINER = click.Choice(['ALL', *sorted(refiner_manager.names())])
     '--name',
     type=click.STRING,
     metavar='NAME',
+    multiple=True,
     help=(
-        'Name used instead of the path name for guessing information about the file. '
-        'If used with multiple paths or a directory, `name` is passed to ALL the files.'
+        'Name used instead of the path name for guessing information about the file '
+        '(can be used multiple times). If used with a directory, `name` is passed to ALL the files. '
+        'NAME may also be a sed-like substitution `s/pattern/replacement/flags`, applied '
+        r'to each file path individually: back-references (\1, \2, ...) are available in '
+        'the replacement, `&` is a literal character (unlike in sed) and the `g` (replace all) and `i` '
+        '(case-insensitive) flags are supported. When used multiple times, the substitutions are '
+        'applied in the order they are provided, mixing a static name with substitutions '
+        '(or with other static names) is not allowed and it will result in an error.'
     ),
 )
 @click.option('-v', '--verbose', count=True, help='Increase verbosity.')
@@ -317,13 +368,15 @@ def download(
     skip_wrong_fps: bool,
     hearing_impaired: tuple[bool | None, ...],
     foreign_only: tuple[bool | None, ...],
+    subtitle_categories: str,
     min_score: int,
-    language_type_suffix: bool,
+    language_type_suffix: bool | None,
+    category_suffix: bool,
     language_format: str,
     max_workers: int,
     archives: bool,
     use_absolute_path: str,
-    name: str | None,
+    name: Sequence[str],
     verbose: int,
     path: list[str],
 ) -> None:
@@ -345,13 +398,29 @@ def download(
     if not subtitle_format or subtitle_format in ['""', "''"]:
         subtitle_format = None
 
-    # language_type
+    # build the per-file name resolver (static name or sed-like substitutions)
+    try:
+        name_resolver = NameResolver.from_name(name)
+    except ValueError as e:
+        raise click.BadParameter(str(e), param_hint='--name') from e
+
+    # TODO: deprecate
+    # subtitle category
     hearing_impaired_flag: bool | None = None
     if len(hearing_impaired) > 0:
         hearing_impaired_flag = hearing_impaired[-1]
     foreign_only_flag: bool | None = None
     if len(foreign_only) > 0:
         foreign_only_flag = foreign_only[-1]
+    if hearing_impaired_flag is not None:
+        subtitle_categories = 'hi,n,fo' if hearing_impaired_flag else 'n,fo,hi'
+    elif foreign_only_flag is not None:
+        subtitle_categories = 'fo,n,hi' if foreign_only_flag else 'n,hi,fo'
+
+    if language_type_suffix in [False, True]:  # pragma: no cover
+        msg = '`--[no-]language_type_suffix` has been renamed `--[no-]category-suffix`'
+        warnings.warn(msg, DeprecationWarning, stacklevel=2)
+        category_suffix = language_type_suffix
 
     logger.info('Download with subliminal version %s', __version__)
     # Make sure verbose is maximal if debug is specified to show ALL the messages
@@ -412,14 +481,16 @@ def download(
             video_candidates: list[Video] = []
             for filepath in collected_filepaths:
                 # Try scanning the video at path
-                video = scan_video_path(filepath, absolute_path=absolute_path, name=name, verbose=verbose, debug=debug)
+                video = scan_video_path(
+                    filepath, absolute_path=absolute_path, name=name_resolver, verbose=verbose, debug=debug
+                )
                 if video is None:
                     # Fallback to scanning with absolute path
                     if use_absolute_path == 'fallback':
                         video = scan_video_path(
                             filepath,
                             absolute_path=True,
-                            name=name,
+                            name=name_resolver,
                             verbose=verbose,
                             debug=debug,
                         )
@@ -513,8 +584,7 @@ def download(
                     v,
                     language_set,
                     min_score=scores['hash'] * min_score // 100,
-                    hearing_impaired=hearing_impaired_flag,
-                    foreign_only=foreign_only_flag,
+                    subtitle_categories=subtitle_categories,
                     skip_wrong_fps=skip_wrong_fps,
                     only_one=single,
                     ignore_subtitles=ignore_subtitles,
@@ -537,7 +607,7 @@ def download(
             directory=directory,
             encoding=encoding,
             subtitle_format=subtitle_format,
-            language_type_suffix=language_type_suffix,
+            category_suffix=category_suffix,
             language_format=language_format,
         )
         total_subtitles += len(saved_subtitles)
@@ -591,7 +661,7 @@ def download(
 def scan_video_path(
     filepath: str | os.PathLike[str],
     *,
-    name: str | None = None,
+    name: str | NameResolver | None = None,
     absolute_path: bool = False,
     verbose: int = 0,
     debug: bool = False,
@@ -601,11 +671,13 @@ def scan_video_path(
     # Take the absolute path, and only if the path exists
     if absolute_path and exists:
         filepath = os.path.abspath(filepath)
+    # Resolve the name for this specific file, after the conversion to absolute path
+    file_name = name(filepath) if isinstance(name, NameResolver) else name
     # Used for print
-    filepath_or_name = f'{filepath} ({name})' if name else filepath
+    filepath_or_name = f'{filepath} ({file_name})' if file_name else filepath
 
     try:
-        video = scan_path(filepath, name=name)
+        video = scan_path(filepath, name=file_name)
 
     except GuessingError as e:
         logger.exception(

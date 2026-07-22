@@ -56,6 +56,7 @@ with patch("sagemaker_studio.Project"):
         "sagemaker_studio.utils.spark.session.athena.interceptors",
         "sagemaker_studio.utils.spark.session.emr_serverless.interceptors",
         "sagemaker_studio.utils.spark.session.glue.interceptors",
+        "sagemaker_studio.utils.spark.session.emr_eks.interceptors",
     ]:
         mock_interceptors = Mock()
         mock_interceptors.CustomChannelBuilder = Mock()
@@ -218,15 +219,23 @@ def test_create_session_manager_glue():
     assert mgr2._connection is conn2
 
 
-def test_create_session_manager_emr_eks_raises():
-    """Ensure RuntimeError is raised for EMR_EKS connections."""
+def test_create_session_manager_emr_eks():
+    """Ensure EMR on EKS session manager is created for EMR_EKS service."""
     conn = _make_connection(
-        {"sparkEmrProperties": {"computeArn": "arn:aws:emr-containers:us-west-2:123:/vc/vc-1"}}
+        {
+            "sparkEmrProperties": {
+                "computeArn": "arn:aws:emr-containers:us-west-2:123:/virtualclusters/vc-1/endpoints/ep-1"
+            }
+        }
     )
     conn.type = "SPARK_CONNECT"
 
-    with pytest.raises(RuntimeError, match="not yet supported for EMR_EKS"):
-        _create_session_manager(conn, "my-conn", None, MagicMock())
+    from sagemaker_studio.utils.spark.session.emr_eks.emr_eks_spark_session_manager import (
+        EmrEksSparkSessionManager,
+    )
+
+    mgr = _create_session_manager(conn, "my-conn", None, MagicMock())
+    assert isinstance(mgr, EmrEksSparkSessionManager)
 
 
 def test_create_session_manager_emr_ec2(monkeypatch):
@@ -511,6 +520,27 @@ def test_create_session_manager_emr_serverless_receives_spark_conf():
 
     mgr = _create_session_manager(conn, "my-conn", None, MagicMock(), spark_conf=user_conf)
     assert isinstance(mgr, EMRServerlessSparkSessionManager)
+    assert mgr._user_spark_conf == user_conf
+
+
+def test_create_session_manager_emr_eks_receives_spark_conf():
+    """Ensure spark_conf is passed to EmrEksSparkSessionManager."""
+    from sagemaker_studio.utils.spark.session.emr_eks.emr_eks_spark_session_manager import (
+        EmrEksSparkSessionManager,
+    )
+
+    conn = _make_connection(
+        {
+            "sparkEmrProperties": {
+                "computeArn": "arn:aws:emr-containers:us-west-2:123:/virtualclusters/vc-1/endpoints/ep-1"
+            }
+        }
+    )
+    conn.type = "SPARK_CONNECT"
+    user_conf = {"spark.executor.memory": "4g"}
+
+    mgr = _create_session_manager(conn, "my-conn", None, MagicMock(), spark_conf=user_conf)
+    assert isinstance(mgr, EmrEksSparkSessionManager)
     assert mgr._user_spark_conf == user_conf
 
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pytango
-Version: 10.3.0
+Version: 10.3.1
 Summary: Python bindings for the cppTango library; part of the Tango Distributed Control System toolkit
 Author: Coutinho
 Maintainer: Anton Joubert, Yury Matveyev

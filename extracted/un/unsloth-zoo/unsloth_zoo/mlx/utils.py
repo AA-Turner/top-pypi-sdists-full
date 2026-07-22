@@ -4536,7 +4536,7 @@ def _prepare_dataset(dataset, tokenizer, dataset_text_field="text",
     each encoded row. Default True preserves the pre-PR behavior that
     delegated EOS appending to ``mlx_lm.tuner.datasets.TextDataset`` for
     direct MLX text fine-tuning callers (raw ``{"text": str}`` rows
-    without already-rendered EOS). Studio passes False because its
+    without already-rendered EOS). Unsloth passes False because its
     chat-template rendering already includes EOS.
 
     Returns:
@@ -4583,7 +4583,7 @@ def _prepare_dataset(dataset, tokenizer, dataset_text_field="text",
 
     class _StudioTextDataset:
         """TextDataset variant. Optionally appends EOS (mlx-lm parity);
-        Studio passes append_eos=False because chat templates already render it."""
+        Unsloth passes append_eos=False because chat templates already render it."""
 
         def __init__(self, data, tokenizer, text_key="text", eos_id=None):
             self._data = data
@@ -4950,7 +4950,7 @@ def _torch_randperm_order(length, seed):
     except Exception as exc:
         raise ImportError(
             "Unsloth MLX: dataset_order='torch_randperm' requires torch so MLX "
-            "Studio can mirror CUDA Studio batch order."
+            "Unsloth can mirror CUDA Unsloth batch order."
         ) from exc
     generator = torch.Generator()
     generator.manual_seed(3407 if seed is None else int(seed))
@@ -4967,7 +4967,7 @@ def create_ordered_batches(dataset, tokenizer, batch_size, max_seq_length,
                            comm_group=None):
     """Create text batches with an explicit dataset order.
 
-    Studio uses this to mirror CUDA's effective sampler stream without
+    Unsloth uses this to mirror CUDA's effective sampler stream without
     changing generic mlx-lm batching behavior.
 
     In DDP, ``batch_size`` remains local to each rank. ``comm_group`` expands
@@ -5542,7 +5542,7 @@ def save_trainable_adapters(model, path, adapter_config=None):
 
     Includes all LoRA adapter tensors (frozen or not). Excludes wrapped
     base weights INSIDE a LoRA module (reload-leaked state that would
-    reintroduce the original Studio adapter-export bloat).
+    reintroduce the original Unsloth adapter-export bloat).
     """
     trainable = dict(mlx.utils.tree_flatten(model.trainable_parameters()))
     adapter_tensors = collect_mlx_lora_adapter_tensors(model)
@@ -6392,6 +6392,11 @@ def _vlm_gguf_name_candidates(name):
         if value not in candidates:
             candidates.append(value)
 
+    if name.startswith(
+        ("audio_tower.", "vision_tower.", "embed_audio.", "embed_vision.")
+    ):
+        add(f"model.{name}")
+
     if name.startswith("thinker.vision_tower."):
         suffix = name[len("thinker.vision_tower."):]
         add(f"thinker.visual.{suffix}")
@@ -6409,7 +6414,7 @@ def _vlm_gguf_name_candidates(name):
     return candidates
 
 
-def _vlm_gguf_tensor_candidates(tensor):
+def _vlm_gguf_tensor_candidates(name, tensor):
     """Yield HF-layout tensor candidates for an MLX VLM tensor."""
     candidates = []
     shape = getattr(tensor, "shape", ())
@@ -6418,6 +6423,8 @@ def _vlm_gguf_tensor_candidates(tensor):
         candidates.append(mx.transpose(tensor, (0, 4, 1, 2, 3)))
     elif len(shape) == 4:
         candidates.append(mx.transpose(tensor, (0, 3, 1, 2)))
+    elif len(shape) == 3 and "depthwise_conv1d.weight" in name:
+        candidates.append(mx.transpose(tensor, (0, 2, 1)))
 
     if len(shape) == 1 and mx.issubdtype(tensor.dtype, mx.floating):
         candidates.append(tensor - 1)
@@ -6426,10 +6433,12 @@ def _vlm_gguf_tensor_candidates(tensor):
     return candidates
 
 
-def _has_vlm_gguf_tensor_candidate(tensor):
+def _has_vlm_gguf_tensor_candidate(name, tensor):
     """Return whether a tensor shape can require HF-layout recovery."""
     shape = getattr(tensor, "shape", ())
-    if len(shape) in (4, 5):
+    if len(shape) in (4, 5) or (
+        len(shape) == 3 and "depthwise_conv1d.weight" in name
+    ):
         return True
     if len(shape) == 1:
         dtype = getattr(tensor, "dtype", None)
@@ -6441,7 +6450,7 @@ def _has_vlm_gguf_rewrite_candidate(name, tensor):
     """Return whether a tensor can differ between mlx-vlm and GGUF layouts."""
     if any(candidate_name != name for candidate_name in _vlm_gguf_name_candidates(name)):
         return True
-    return _has_vlm_gguf_tensor_candidate(tensor)
+    return _has_vlm_gguf_tensor_candidate(name, tensor)
 
 
 def _mlx_arrays_match(actual, expected):
@@ -6481,7 +6490,7 @@ def _rewrite_mlx_vlm_tensor_for_gguf(name, tensor, sanitize_steps):
         return name, tensor, False
 
     for candidate_name in _vlm_gguf_name_candidates(name):
-        for candidate_tensor in _vlm_gguf_tensor_candidates(tensor):
+        for candidate_tensor in _vlm_gguf_tensor_candidates(name, tensor):
             for pipeline in _normalize_mlx_vlm_sanitize_pipelines(sanitize_steps):
                 sanitized = _apply_mlx_vlm_sanitizers(
                     pipeline,
@@ -7246,20 +7255,13 @@ def save_pretrained_gguf(
                     f"{rewritten} MLX VLM tensors for llama.cpp GGUF export."
                 )
 
-        # Strip MTP/nextn config keys so llama.cpp converter
-        # doesn't inflate block_count / inject nextn_predict_layers.
-        # Also restore architectures from the original HF config since
-        # mlx-vlm's save_config strips that key.
+        # Restore architectures from the original HF config since mlx-vlm's
+        # save_config strips that key. convert_to_gguf reconciles MTP metadata
+        # with the exported tensor names for every save path.
         _config_path = tmp_path / "config.json"
         if _config_path.exists():
             _cfg = json.loads(_config_path.read_text())
             _changed = False
-            for _key in ("mtp_num_hidden_layers", "unsloth_fixed_mtp"):
-                if _cfg.pop(_key, None) is not None:
-                    _changed = True
-                _tc = _cfg.get("text_config")
-                if _tc and _tc.pop(_key, None) is not None:
-                    _changed = True
             # Restore architectures from the original HF config
             if "architectures" not in _cfg:
                 _orig_cfg_path = getattr(tokenizer, "name_or_path", None)

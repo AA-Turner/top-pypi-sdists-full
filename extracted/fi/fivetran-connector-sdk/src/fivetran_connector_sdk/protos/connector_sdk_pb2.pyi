@@ -1,8 +1,9 @@
-import common_pb2 as _common_pb2
+from fivetran_connector_sdk import common_pb2 as _common_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
-from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Mapping, Optional as _Optional, Union as _Union
+from collections.abc import Iterable as _Iterable, Mapping as _Mapping
+from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
@@ -104,20 +105,20 @@ class TableSelection(_message.Message):
     def __init__(self, included: bool = ..., table_name: _Optional[str] = ..., columns: _Optional[_Mapping[str, bool]] = ..., include_new_columns: bool = ...) -> None: ...
 
 class UpdateResponse(_message.Message):
-    __slots__ = ("record", "schema_change", "checkpoint", "warning", "task", "records")
-    RECORD_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("structured_record", "schema_change", "checkpoint", "warning", "task", "structured_records")
+    STRUCTURED_RECORD_FIELD_NUMBER: _ClassVar[int]
     SCHEMA_CHANGE_FIELD_NUMBER: _ClassVar[int]
     CHECKPOINT_FIELD_NUMBER: _ClassVar[int]
     WARNING_FIELD_NUMBER: _ClassVar[int]
     TASK_FIELD_NUMBER: _ClassVar[int]
-    RECORDS_FIELD_NUMBER: _ClassVar[int]
-    record: Record
+    STRUCTURED_RECORDS_FIELD_NUMBER: _ClassVar[int]
+    structured_record: StructuredRecord
     schema_change: SchemaChange
     checkpoint: Checkpoint
     warning: _common_pb2.Warning
     task: _common_pb2.Task
-    records: Records
-    def __init__(self, record: _Optional[_Union[Record, _Mapping]] = ..., schema_change: _Optional[_Union[SchemaChange, _Mapping]] = ..., checkpoint: _Optional[_Union[Checkpoint, _Mapping]] = ..., warning: _Optional[_Union[_common_pb2.Warning, _Mapping]] = ..., task: _Optional[_Union[_common_pb2.Task, _Mapping]] = ..., records: _Optional[_Union[Records, _Mapping]] = ...) -> None: ...
+    structured_records: StructuredRecords
+    def __init__(self, structured_record: _Optional[_Union[StructuredRecord, _Mapping]] = ..., schema_change: _Optional[_Union[SchemaChange, _Mapping]] = ..., checkpoint: _Optional[_Union[Checkpoint, _Mapping]] = ..., warning: _Optional[_Union[_common_pb2.Warning, _Mapping]] = ..., task: _Optional[_Union[_common_pb2.Task, _Mapping]] = ..., structured_records: _Optional[_Union[StructuredRecords, _Mapping]] = ...) -> None: ...
 
 class SchemaChange(_message.Message):
     __slots__ = ("with_schema", "without_schema")
@@ -127,13 +128,13 @@ class SchemaChange(_message.Message):
     without_schema: _common_pb2.TableList
     def __init__(self, with_schema: _Optional[_Union[_common_pb2.SchemaList, _Mapping]] = ..., without_schema: _Optional[_Union[_common_pb2.TableList, _Mapping]] = ...) -> None: ...
 
-class Records(_message.Message):
-    __slots__ = ("records",)
-    RECORDS_FIELD_NUMBER: _ClassVar[int]
-    records: _containers.RepeatedCompositeFieldContainer[Record]
-    def __init__(self, records: _Optional[_Iterable[_Union[Record, _Mapping]]] = ...) -> None: ...
+class StructuredRecords(_message.Message):
+    __slots__ = ("structured_records",)
+    STRUCTURED_RECORDS_FIELD_NUMBER: _ClassVar[int]
+    structured_records: _containers.RepeatedCompositeFieldContainer[StructuredRecord]
+    def __init__(self, structured_records: _Optional[_Iterable[_Union[StructuredRecord, _Mapping]]] = ...) -> None: ...
 
-class Record(_message.Message):
+class StructuredRecord(_message.Message):
     __slots__ = ("schema_name", "table_name", "type", "data")
     class DataEntry(_message.Message):
         __slots__ = ("key", "value")

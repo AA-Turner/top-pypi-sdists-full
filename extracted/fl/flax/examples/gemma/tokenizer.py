@@ -99,8 +99,8 @@ def _train_sentencepiece(
   Returns:
     path to the trained sentencepiece vocabulary model.
   """
-  model_path = Path(model_path)
-  abs_model_path = model_path.expanduser().absolute().resolve()
+  model_path = Path(model_path)  # pyrefly: ignore[bad-assignment]
+  abs_model_path = model_path.expanduser().absolute().resolve()  # pyrefly: ignore[missing-attribute]
   fname, _ = _dump_chars_to_textfile(
       dataset, maxchars=maxchars, data_keys=data_keys
   )
@@ -180,9 +180,10 @@ class TokenizeOpNumpy:
   def __call__(self, features: dict[str, Any]) -> dict[str, Any]:
     for k in self.data_keys:
       features[k] = self.sp_processor.EncodeAsIds(features[k])
-      features[k].insert(0, self.sp_processor.bos_id)
-      features[k].append(self.sp_processor.eos_id)
-      features[k] = np.array(features[k], dtype=np.int32)
+      features[k] = np.array(
+          [self.sp_processor.bos_id()] + features[k] + [self.sp_processor.eos_id()],
+          dtype=np.int32
+      )
     return features
 
 

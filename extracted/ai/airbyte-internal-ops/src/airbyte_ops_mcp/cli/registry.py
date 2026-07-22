@@ -53,7 +53,7 @@ from airbyte_ops_mcp.github_api import (
     get_file_contents_at_ref,
     resolve_default_github_token,
 )
-from airbyte_ops_mcp.mcp.prerelease import (
+from airbyte_ops_mcp.mcp.connector_versions import (
     compute_prerelease_docker_image_tag,
 )
 from airbyte_ops_mcp.registry import (
@@ -940,6 +940,96 @@ def unyank_cmd(
             )
     else:
         exit_with_error(result.message, code=1)
+
+
+@connector_version_app.command(name="list-yanked")
+def list_yanked_cmd(
+    store: Annotated[
+        str,
+        Parameter(
+            help="Store target (e.g. 'coral:dev', 'coral:prod').",
+        ),
+    ],
+    *,
+    format: Annotated[
+        Literal["json", "text"],
+        Parameter(
+            help="Output format: 'json' for JSON array, 'text' for newline-separated."
+        ),
+    ] = "json",
+) -> None:
+    """List all yanked connector versions in the registry.
+
+    Returns one entry per active `version-yank.yml` marker, sorted by connector
+    name then version. Historical `version-unyanked-*.yml` audit markers are
+    ignored.
+
+    Requires GCS_CREDENTIALS environment variable to be set.
+
+    Examples:
+        airbyte-ops registry connector-version list-yanked --store coral:prod
+        airbyte-ops registry connector-version list-yanked --store coral:prod --format text
+    """
+    registry = _resolve_store(store)
+    yanked = registry.list_yanked_versions()
+
+    if format == "json":
+        print_json(
+            {
+                "yanked_versions": [item.to_dict() for item in yanked],
+                "count": len(yanked),
+            }
+        )
+    else:
+        for item in yanked:
+            print(f"{item.connector_name}\t{item.version}")
+
+
+@connector_version_app.command(name="yank-status")
+def yank_status_cmd(
+    name: Annotated[
+        str,
+        Parameter(help="Connector name (e.g., 'source-faker')."),
+    ],
+    version: Annotated[
+        str,
+        Parameter(help="Version to inspect (e.g., '1.2.3')."),
+    ],
+    store: Annotated[
+        str,
+        Parameter(
+            help="Store target (e.g. 'coral:dev', 'coral:prod').",
+        ),
+    ],
+) -> None:
+    """Show the active yank marker for a single connector version.
+
+    Prints the marker's parsed fields (`yanked_at`, `reason`, `approval_url`)
+    when the version currently has an active `version-yank.yml` marker, or
+    reports that the version is not yanked. Historical
+    `version-unyanked-*.yml` audit markers are ignored.
+
+    Requires GCS_CREDENTIALS environment variable to be set.
+
+    Examples:
+        airbyte-ops registry connector-version yank-status --name source-faker --version 1.2.3 --store coral:prod
+    """
+    registry = _resolve_store(store)
+    marker = registry.get_yank_marker(connector_name=name, version=version)
+
+    if marker is None:
+        print_json(
+            {
+                "connector_name": name,
+                "version": version,
+                "yanked": False,
+            }
+        )
+        print_success(f"{name} {version} is not yanked.")
+        return
+
+    print_json({"yanked": True, **marker.to_dict()})
+    print_success(f"{name} {version} is yanked.")
 
 
 # =============================================================================

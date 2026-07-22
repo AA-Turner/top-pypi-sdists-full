@@ -7,6 +7,7 @@ from __future__ import unicode_literals
 from stone.backends.python_rsrc import stone_base as bb
 from stone.backends.python_rsrc import stone_validators as bv
 
+
 class PlatformType(bb.Union):
     """
     Possible platforms on which a user may view content.
@@ -15,22 +16,24 @@ class PlatformType(bb.Union):
     return true. To get the associated value of a tag (if one exists), use the
     corresponding ``get_*`` method.
 
-    :ivar seen_state.PlatformType.web: The content was viewed on the web.
-    :ivar seen_state.PlatformType.desktop: The content was viewed on a desktop
-        client.
-    :ivar seen_state.PlatformType.mobile_ios: The content was viewed on a mobile
-        iOS client.
-    :ivar seen_state.PlatformType.mobile_android: The content was viewed on a
-        mobile android client.
-    :ivar seen_state.PlatformType.api: The content was viewed from an API
-        client.
-    :ivar seen_state.PlatformType.unknown: The content was viewed on an unknown
-        platform.
-    :ivar seen_state.PlatformType.mobile: The content was viewed on a mobile
-        client. DEPRECATED: Use mobile_ios or mobile_android instead.
+    :ivar PlatformType.web:
+        The content was viewed on the web.
+    :ivar PlatformType.desktop:
+        The content was viewed on a desktop client.
+    :ivar PlatformType.mobile_ios:
+        The content was viewed on a mobile iOS client.
+    :ivar PlatformType.mobile_android:
+        The content was viewed on a mobile android client.
+    :ivar PlatformType.api:
+        The content was viewed from an API client.
+    :ivar PlatformType.unknown:
+        The content was viewed on an unknown platform.
+    :ivar PlatformType.mobile:
+        The content was viewed on a mobile client. DEPRECATED: Use mobile_ios or
+        mobile_android instead.
     """
 
-    _catch_all = 'other'
+    _catch_all = "other"
     # Attribute is overwritten below the class definition
     web = None
     # Attribute is overwritten below the class definition
@@ -54,7 +57,7 @@ class PlatformType(bb.Union):
 
         :rtype: bool
         """
-        return self._tag == 'web'
+        return self._tag == "web"
 
     def is_desktop(self):
         """
@@ -62,7 +65,7 @@ class PlatformType(bb.Union):
 
         :rtype: bool
         """
-        return self._tag == 'desktop'
+        return self._tag == "desktop"
 
     def is_mobile_ios(self):
         """
@@ -70,7 +73,7 @@ class PlatformType(bb.Union):
 
         :rtype: bool
         """
-        return self._tag == 'mobile_ios'
+        return self._tag == "mobile_ios"
 
     def is_mobile_android(self):
         """
@@ -78,7 +81,7 @@ class PlatformType(bb.Union):
 
         :rtype: bool
         """
-        return self._tag == 'mobile_android'
+        return self._tag == "mobile_android"
 
     def is_api(self):
         """
@@ -86,7 +89,7 @@ class PlatformType(bb.Union):
 
         :rtype: bool
         """
-        return self._tag == 'api'
+        return self._tag == "api"
 
     def is_unknown(self):
         """
@@ -94,7 +97,7 @@ class PlatformType(bb.Union):
 
         :rtype: bool
         """
-        return self._tag == 'unknown'
+        return self._tag == "unknown"
 
     def is_mobile(self):
         """
@@ -102,7 +105,7 @@ class PlatformType(bb.Union):
 
         :rtype: bool
         """
-        return self._tag == 'mobile'
+        return self._tag == "mobile"
 
     def is_other(self):
         """
@@ -110,10 +113,13 @@ class PlatformType(bb.Union):
 
         :rtype: bool
         """
-        return self._tag == 'other'
+        return self._tag == "other"
 
     def _process_custom_annotations(self, annotation_type, field_path, processor):
-        super(PlatformType, self)._process_custom_annotations(annotation_type, field_path, processor)
+        super(PlatformType, self)._process_custom_annotations(
+            annotation_type, field_path, processor
+        )
+
 
 PlatformType_validator = bv.Union(PlatformType)
 
@@ -126,25 +132,23 @@ PlatformType._unknown_validator = bv.Void()
 PlatformType._mobile_validator = bv.Void()
 PlatformType._other_validator = bv.Void()
 PlatformType._tagmap = {
-    'web': PlatformType._web_validator,
-    'desktop': PlatformType._desktop_validator,
-    'mobile_ios': PlatformType._mobile_ios_validator,
-    'mobile_android': PlatformType._mobile_android_validator,
-    'api': PlatformType._api_validator,
-    'unknown': PlatformType._unknown_validator,
-    'mobile': PlatformType._mobile_validator,
-    'other': PlatformType._other_validator,
+    "web": PlatformType._web_validator,
+    "desktop": PlatformType._desktop_validator,
+    "mobile_ios": PlatformType._mobile_ios_validator,
+    "mobile_android": PlatformType._mobile_android_validator,
+    "api": PlatformType._api_validator,
+    "unknown": PlatformType._unknown_validator,
+    "mobile": PlatformType._mobile_validator,
+    "other": PlatformType._other_validator,
 }
 
-PlatformType.web = PlatformType('web')
-PlatformType.desktop = PlatformType('desktop')
-PlatformType.mobile_ios = PlatformType('mobile_ios')
-PlatformType.mobile_android = PlatformType('mobile_android')
-PlatformType.api = PlatformType('api')
-PlatformType.unknown = PlatformType('unknown')
-PlatformType.mobile = PlatformType('mobile')
-PlatformType.other = PlatformType('other')
+PlatformType.web = PlatformType("web")
+PlatformType.desktop = PlatformType("desktop")
+PlatformType.mobile_ios = PlatformType("mobile_ios")
+PlatformType.mobile_android = PlatformType("mobile_android")
+PlatformType.api = PlatformType("api")
+PlatformType.unknown = PlatformType("unknown")
+PlatformType.mobile = PlatformType("mobile")
+PlatformType.other = PlatformType("other")
 
-ROUTES = {
-}
-
+ROUTES = {}

@@ -12,7 +12,7 @@ from airbyte_ops_mcp.cloud_admin.models import OrganizationInfo
 from airbyte_ops_mcp.cloud_admin.organization_agentic_flag import (
     set_organization_agentic_status,
 )
-from airbyte_ops_mcp.mcp import organization_agentic_flag
+from airbyte_ops_mcp.mcp import organization_admin
 
 
 def _tier_result(customer_tier: str) -> SimpleNamespace:
@@ -34,8 +34,7 @@ def test_normalize_organization_ids(
 ) -> None:
     """`_normalize_organization_ids` trims, dedupes, and accepts single/list input."""
     assert (
-        organization_agentic_flag._normalize_organization_ids(organization_ids)
-        == expected_ids
+        organization_admin._normalize_organization_ids(organization_ids) == expected_ids
     )
 
 
@@ -45,7 +44,7 @@ def test_get_organization_agentic_flag_reads_multiple_orgs_from_db(
 ) -> None:
     """`get_organization_agentic_flag` returns DB rows and missing IDs for a list."""
     monkeypatch.setattr(
-        organization_agentic_flag,
+        organization_admin,
         "query_organization_agentic_flags",
         lambda organization_ids: [
             {
@@ -65,14 +64,14 @@ def test_get_organization_agentic_flag_reads_multiple_orgs_from_db(
         ],
     )
     monkeypatch.setattr(
-        organization_agentic_flag,
+        organization_admin,
         "get_org_tier",
         lambda organization_id: _tier_result(
             "TIER_1" if organization_id == "org-1" else "TIER_2"
         ),
     )
 
-    result = organization_agentic_flag.get_organization_agentic_flag(
+    result = organization_admin.get_organization_agentic_flag(
         ["org-1", "org-2", "missing-org"],
         ctx=MagicMock(),
     )
@@ -99,21 +98,19 @@ def test_get_organization_agentic_flag_uses_config_api_override(
             }
         )
     )
+    monkeypatch.setattr(organization_admin, "_get_organization_info", get_org_info)
     monkeypatch.setattr(
-        organization_agentic_flag, "_get_organization_info", get_org_info
-    )
-    monkeypatch.setattr(
-        organization_agentic_flag,
+        organization_admin,
         "_resolve_cloud_auth",
         lambda ctx: ("token", None, None),
     )
     monkeypatch.setattr(
-        organization_agentic_flag,
+        organization_admin,
         "get_org_tier",
         lambda organization_id: _tier_result("TIER_2"),
     )
 
-    result = organization_agentic_flag.get_organization_agentic_flag(
+    result = organization_admin.get_organization_agentic_flag(
         "org-1",
         config_api_root="https://config-api.test",
         ctx=MagicMock(),
@@ -240,31 +237,31 @@ def test_update_organization_agentic_flag_validates_and_updates_list(
         )
 
     monkeypatch.setattr(
-        organization_agentic_flag, "require_internal_admin_flag_only", lambda: None
+        organization_admin, "require_internal_admin_flag_only", lambda: None
     )
     monkeypatch.setattr(
-        organization_agentic_flag,
+        organization_admin,
         "resolve_admin_email_from_approval",
         lambda approval_comment_url: "approver@airbyte.io",
     )
     monkeypatch.setattr(
-        organization_agentic_flag, "query_organization_agentic_flags", fake_query
+        organization_admin, "query_organization_agentic_flags", fake_query
     )
     monkeypatch.setattr(
-        organization_agentic_flag, "_set_organization_agentic_status", fake_update
+        organization_admin, "_set_organization_agentic_status", fake_update
     )
     monkeypatch.setattr(
-        organization_agentic_flag,
+        organization_admin,
         "_resolve_cloud_auth",
         lambda ctx: ("token", None, None),
     )
     monkeypatch.setattr(
-        organization_agentic_flag,
+        organization_admin,
         "get_org_tier",
         lambda organization_id: _tier_result("TIER_2"),
     )
 
-    result = organization_agentic_flag.update_organization_agentic_flag(
+    result = organization_admin.update_organization_agentic_flag(
         ["org-1", "org-2"],
         True,
         approval_comment_url="https://slack.example/approval",
@@ -284,15 +281,15 @@ def test_update_organization_agentic_flag_rejects_tier_mismatch(
 ) -> None:
     """`update_organization_agentic_flag` defaults to `TIER_2` and rejects TIER_1."""
     monkeypatch.setattr(
-        organization_agentic_flag, "require_internal_admin_flag_only", lambda: None
+        organization_admin, "require_internal_admin_flag_only", lambda: None
     )
     monkeypatch.setattr(
-        organization_agentic_flag,
+        organization_admin,
         "resolve_admin_email_from_approval",
         lambda approval_comment_url: "approver@airbyte.io",
     )
     monkeypatch.setattr(
-        organization_agentic_flag,
+        organization_admin,
         "query_organization_agentic_flags",
         lambda organization_ids: [
             {
@@ -305,16 +302,14 @@ def test_update_organization_agentic_flag_rejects_tier_mismatch(
         ],
     )
     monkeypatch.setattr(
-        organization_agentic_flag,
+        organization_admin,
         "get_org_tier",
         lambda organization_id: _tier_result("TIER_1"),
     )
     update = MagicMock()
-    monkeypatch.setattr(
-        organization_agentic_flag, "_set_organization_agentic_status", update
-    )
+    monkeypatch.setattr(organization_admin, "_set_organization_agentic_status", update)
 
-    result = organization_agentic_flag.update_organization_agentic_flag(
+    result = organization_admin.update_organization_agentic_flag(
         "org-1",
         True,
         approval_comment_url="https://slack.example/approval",
@@ -335,19 +330,19 @@ def test_update_organization_agentic_flag_requires_approval(
 ) -> None:
     """`update_organization_agentic_flag` rejects updates without valid HITL approval."""
     monkeypatch.setattr(
-        organization_agentic_flag, "require_internal_admin_flag_only", lambda: None
+        organization_admin, "require_internal_admin_flag_only", lambda: None
     )
 
     def reject_approval(approval_comment_url: str) -> str:
-        raise organization_agentic_flag.ApprovalResolutionError("approval required")
+        raise organization_admin.ApprovalResolutionError("approval required")
 
     monkeypatch.setattr(
-        organization_agentic_flag,
+        organization_admin,
         "resolve_admin_email_from_approval",
         reject_approval,
     )
 
-    result = organization_agentic_flag.update_organization_agentic_flag(
+    result = organization_admin.update_organization_agentic_flag(
         ["org-1", "org-2"],
         True,
         approval_comment_url="invalid-approval",
@@ -367,15 +362,15 @@ def test_update_organization_agentic_flag_uses_production_config_api_root(
 ) -> None:
     """`update_organization_agentic_flag` uses the trusted Config API root."""
     monkeypatch.setattr(
-        organization_agentic_flag, "require_internal_admin_flag_only", lambda: None
+        organization_admin, "require_internal_admin_flag_only", lambda: None
     )
     monkeypatch.setattr(
-        organization_agentic_flag,
+        organization_admin,
         "resolve_admin_email_from_approval",
         lambda approval_comment_url: "approver@airbyte.io",
     )
     monkeypatch.setattr(
-        organization_agentic_flag,
+        organization_admin,
         "query_organization_agentic_flags",
         lambda organization_ids: [
             {
@@ -388,12 +383,12 @@ def test_update_organization_agentic_flag_uses_production_config_api_root(
         ],
     )
     monkeypatch.setattr(
-        organization_agentic_flag,
+        organization_admin,
         "get_org_tier",
         lambda organization_id: _tier_result("TIER_2"),
     )
     monkeypatch.setattr(
-        organization_agentic_flag,
+        organization_admin,
         "_resolve_cloud_auth",
         lambda ctx: ("token", None, None),
     )
@@ -408,10 +403,10 @@ def test_update_organization_agentic_flag_uses_production_config_api_root(
         )
     )
     monkeypatch.setattr(
-        organization_agentic_flag, "_set_organization_agentic_status", set_status
+        organization_admin, "_set_organization_agentic_status", set_status
     )
 
-    result = organization_agentic_flag.update_organization_agentic_flag(
+    result = organization_admin.update_organization_agentic_flag(
         "org-1",
         True,
         approval_comment_url="https://slack.example/approval",
@@ -424,7 +419,7 @@ def test_update_organization_agentic_flag_uses_production_config_api_root(
     set_status.assert_called_once_with(
         organization_id="org-1",
         is_agentic=True,
-        config_api_root=organization_agentic_flag.constants.CLOUD_CONFIG_API_ROOT,
+        config_api_root=organization_admin.constants.CLOUD_CONFIG_API_ROOT,
         client_id=None,
         client_secret=None,
         bearer_token="token",

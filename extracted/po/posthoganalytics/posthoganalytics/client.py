@@ -1802,7 +1802,11 @@ class Client(object):
             self.log.debug("enqueued %s.", msg["event"])
             return sent_uuid
         except Full:
-            self.log.warning("analytics-python queue is full")
+            self.log.warning(
+                "event queue is full (maxsize %d), dropping event %s",
+                self.queue.maxsize,
+                msg["event"],
+            )
             return None
 
     @property
@@ -1826,7 +1830,18 @@ class Client(object):
         if self._metrics is None:
             with self._metrics_lock:
                 if self._metrics is None:
-                    self._metrics = PostHogMetrics(self, self._metrics_config)
+                    # Same no-throw semantics as the rest of the public client surface:
+                    # a bad metrics config degrades to defaults instead of raising from
+                    # the first chained metrics.count() call (raise only in debug mode).
+                    try:
+                        self._metrics = PostHogMetrics(self, self._metrics_config)
+                    except Exception as e:
+                        if self.debug:
+                            raise e
+                        self.log.exception(
+                            f"Error initializing metrics, using default configuration: {e}"
+                        )
+                        self._metrics = PostHogMetrics(self, None)
         return self._metrics
 
     def flush(self, timeout_seconds: Optional[float] = 10) -> None:

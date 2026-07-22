@@ -166,9 +166,7 @@ def print_table(meta: dict[str, MetaEntry], ops: dict[str, str], ttl_days: int):
 
         stale_reasons = {"op": "op changed", "hash": "file changed"}
         if state in stale_reasons:
-            updated_at = (
-                datetime.fromtimestamp(item[0]).strftime("%Y-%m-%d %H:%M") if item else "—"
-            )
+            updated_at = datetime.fromtimestamp(item[0]).strftime("%Y-%m-%d %H:%M") if item else "—"
             print(f"{name:<28}  {updated_at:>16}  {stale_reasons[state]:>12}  stale")
             continue
 

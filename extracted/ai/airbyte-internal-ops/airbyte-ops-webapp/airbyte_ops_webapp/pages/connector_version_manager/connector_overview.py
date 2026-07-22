@@ -38,6 +38,7 @@ from airbyte_ops_webapp.pages.connector_version_manager._mcp_tools import (
     advance_rollout,
     finalize_rollout,
     promote_to_next_stage,
+    unyank_connector_version,
     yank_connector_version,
 )
 from airbyte_ops_webapp.theme import (
@@ -84,19 +85,30 @@ def render_rollout_status_section(css_class: str = "") -> None:
                 _render_connector_identity_rows()
                 _render_version_comparison_rows()
 
-                # Case A: No active rollouts
-                with If(STATE.active_rollouts.length().__eq__(0)):
-                    Muted("No progressive rollouts active.")
-                    _render_yank_section()
+                # Always surface whether a rollout is active, so it's visible
+                # even while reviewing a non-rollout version.
+                _render_active_rollout_row()
 
-                # Case B: Active rollout exists — show consolidated view
-                with If(STATE.active_rollouts.length()):
+                # Active rollout whose version matches the selected version:
+                # render the full (compute-heavier) per-tier detail view. When a
+                # different version is selected, the summary row above is enough.
+                with If(
+                    STATE.active_rollouts.length().__and__(
+                        STATE.rollout_summary.rc_version.__eq__(
+                            STATE.selected_version_tag
+                        )
+                    )
+                ):
                     _render_active_rollout_detail()
+
+                # Selected-version yank detail + yank/unyank action.
+                _render_yank_controls()
 
     # Rollout confirmation modal (shared for all actions)
     _render_rollout_confirmation_modal()
-    # Yank confirmation modal (only reachable when no rollout is active)
+    # Yank / Unyank confirmation modals
     _render_yank_confirmation_modal()
+    _render_unyank_confirmation_modal()
 
 
 def _pivoted_row(label: str, value: object) -> None:
@@ -206,6 +218,29 @@ def _render_tier_card(card: LoopItem) -> None:
                     _render_breakdown_line(line)
 
 
+def _render_active_rollout_row() -> None:
+    """Always-visible one-line summary of the connector's active rollout.
+
+    Renders `Active Rollout: {version} ({updated})` when a rollout exists and
+    `Active Rollout: (none)` when it does not. This keeps the rollout's existence
+    visible regardless of which version is selected, while the compute-heavier
+    per-tier detail view is rendered separately only when the rollout version
+    matches the selected version.
+    """
+    with Row(justify="between", align="baseline", gap=2):
+        AbFieldCaption("Active Rollout")
+        with If(STATE.active_rollouts.length().__eq__(0)):
+            Text(content="(none)", css_class="text-[0.85rem] text-right")
+        with If(STATE.active_rollouts.length()):
+            Text(
+                content=STATE.rollout_summary.rc_version
+                + " ("
+                + STATE.rollout_summary.updated_at
+                + ")",
+                css_class="text-[0.85rem] text-right",
+            )
+
+
 def _render_active_rollout_detail() -> None:
     """Consolidated rollout detail from `STATE.rollout_summary`, one card per tier."""
     with (
@@ -281,13 +316,89 @@ def _render_rollout_action_buttons() -> None:
             )
 
 
-def _render_yank_section() -> None:
-    """Yank Version action, shown only for a released version without a rollout.
+_YANK_DETAIL_CARD_CLASS = (
+    "mt-2 px-2.5 py-2 rounded-md border border-white/[0.12] bg-white/[0.02]"
+)
+# Marker values render in a full-width code block so long content (reason
+# prose, unbreakable approval URLs) wraps inside the card instead of
+# overflowing the parent. URLs break anywhere; reason preserves its wrapping.
+_YANK_CODE_BLOCK_CLASS = (
+    "text-[0.72rem] font-mono p-2 rounded bg-black/20 border border-white/[0.08]"
+)
+_YANK_REASON_CLASS = f"{_YANK_CODE_BLOCK_CLASS} whitespace-pre-wrap break-words"
+_YANK_URL_CLASS = f"{_YANK_CODE_BLOCK_CLASS} break-all"
 
-    "Yank" overlaps with "Cancel Rollout", so it is intentionally rendered only
-    in the no-active-rollout case (already rolled out / released versions).
+
+def _render_yank_controls() -> None:
+    """Yank detail + yank/unyank action for the selected version.
+
+    When the selected version is yanked, show the Version Yank Detail card and
+    an Unyank action regardless of any unrelated active rollout. Otherwise offer
+    Yank for any non-yanked selected version *except* the version that is
+    actively being rolled out: "Yank" overlaps with "Cancel Rollout" only for
+    the active RC version (mirroring the `rc_version == selected_version_tag`
+    gating of the Rollout Status detail), so a non-RC released version stays
+    yankable even while an unrelated rollout is in progress.
     """
-    with If(STATE.selected_version_tag), Row(gap=2, css_class="mt-2 flex-wrap"):
+    with If(STATE.selected_version_tag):
+        with If(STATE.selected_version_yanked.__eq__(True)):
+            _render_yank_detail_section()
+            _render_unyank_section()
+        with If(STATE.selected_version_yanked.__eq__(False)):
+            with If(
+                STATE.active_rollouts.length()
+                .__eq__(0)
+                .__or__(
+                    STATE.rollout_summary.rc_version.__ne__(STATE.selected_version_tag)
+                )
+            ):
+                _render_yank_section()
+
+
+def _render_yank_detail_section() -> None:
+    """Version Yank Detail card, shown when the selected version is yanked.
+
+    Renders the parsed marker fields (yanked date, reason, approval URL) from
+    the `version-yank.yml` marker. Reason and approval URL use full-width code
+    blocks so long values wrap inside the card rather than overflowing it.
+    """
+    with Div(css_class=_YANK_DETAIL_CARD_CLASS), Column(gap=2):
+        H3("Version Yank Detail", css_class="text-sm")
+        _pivoted_row("Yanked At", STATE.selected_version_yank_yanked_at_display)
+        with If(STATE.selected_version_yank_reason.__ne__("")):
+            AbFieldCaption("Reason")
+            Text(
+                content=STATE.selected_version_yank_reason,
+                css_class=_YANK_REASON_CLASS,
+            )
+        with If(STATE.selected_version_yank_approval_url.__ne__("")):
+            AbFieldCaption("Approval URL")
+            Text(
+                content=STATE.selected_version_yank_approval_url,
+                css_class=_YANK_URL_CLASS,
+            )
+
+
+def _render_unyank_section() -> None:
+    """Unyank Version action, shown when the selected version is yanked."""
+    with Row(gap=2, css_class="mt-2 flex-wrap"):
+        Button(
+            "Unyank Version",
+            variant="destructive",
+            css_class=BUTTON_DESTRUCTIVE_CLASS,
+            disabled=STATE.is_loading,
+            on_click=[SetState("unyank_modal_open", True)],
+        )
+
+
+def _render_yank_section() -> None:
+    """Yank Version action for a non-yanked, non-RC selected version.
+
+    Gated by `_render_yank_controls`: shown for any non-yanked selected version
+    except the active RC version (which uses "Cancel Rollout" instead), so a
+    released version stays yankable even while an unrelated rollout is active.
+    """
+    with Row(gap=2, css_class="mt-2 flex-wrap"):
         Button(
             "Yank Version",
             variant="destructive",
@@ -579,6 +690,64 @@ def _render_yank_confirmation_modal() -> None:
                                         refresh_message="Refreshing connector context\u2026",
                                     ),
                                     on_error=fail_tool_call("Yank version failed."),
+                                ),
+                            ]
+                        ),
+                    ],
+                )
+
+
+def _render_unyank_confirmation_modal() -> None:
+    """Confirmation dialog for unyanking the selected connector version."""
+    with Dialog(
+        title="Unyank Version",
+        description="Restore a previously yanked connector version.",
+        name="unyank_modal_open",
+    ):
+        Button("", css_class="hidden")
+
+        with Column(gap=4):
+            Markdown(
+                content="**Unyank this version?**\n\n"
+                "This dispatches the registry yank workflow with `unyank: true` "
+                "for "
+                + STATE.selected_connector.name
+                + " "
+                + STATE.selected_version_tag
+                + " on "
+                + YANK_STORE
+                + ". The active yank marker is moved to an audit marker and the "
+                "version rejoins latest-version resolution after the registry "
+                "recompiles."
+            )
+            with Row(justify="end", gap=2):
+                Button(
+                    "Cancel",
+                    variant="outline",
+                    css_class=BUTTON_OUTLINE_CLASS,
+                    on_click=[SetState("unyank_modal_open", False)],
+                )
+                Button(
+                    "Confirm Unyank",
+                    variant="outline",
+                    css_class=BUTTON_INFO_CLASS,
+                    disabled=STATE.is_loading,
+                    on_click=[
+                        SetState("unyank_modal_open", False),
+                        *start_tool_call("Unyanking version…"),
+                        _refresh_token_then(
+                            [
+                                CallTool(
+                                    unyank_connector_version,
+                                    arguments={
+                                        "connector_name": STATE.selected_connector.name,
+                                        "version": STATE.selected_version_tag,
+                                    },
+                                    on_success=rollout_action_success_actions(
+                                        toast_title="Version unyanked",
+                                        refresh_message="Refreshing connector context\u2026",
+                                    ),
+                                    on_error=fail_tool_call("Unyank version failed."),
                                 ),
                             ]
                         ),

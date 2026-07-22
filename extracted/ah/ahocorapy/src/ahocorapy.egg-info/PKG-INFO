@@ -1,18 +1,16 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: ahocorapy
-Version: 1.6.2
+Version: 1.8.0
 Summary: ahocorapy - Pure python ahocorasick implementation
-Home-page: https://github.com/abusix/ahocorapy
-Author: abusix
-Author-email: fp@abusix.com
+Home-page: https://github.com/FrederikP/ahocorapy
+Author: Frederik Petersen
+Author-email: frederik@the-imperfection.de
 License: MIT
-Project-URL: Source, https://github.com/abusix/ahocorapy
-Project-URL: Company, https://www.abusix.com/
-Keywords: keyword,search,purepython,aho-corasick,ahocorasick,abusix
+Project-URL: Source, https://github.com/FrederikP/ahocorapy
+Keywords: keyword,search,purepython,aho-corasick,ahocorasick
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 2
 Classifier: Programming Language :: Python :: 2.7
 Classifier: Programming Language :: Python :: 3
@@ -25,12 +23,27 @@ Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=2.7
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: requires-python
+Dynamic: summary
 
-[![Test](https://img.shields.io/github/workflow/status/abusix/ahocorapy/test/master)](https://github.com/abusix/ahocorapy/actions)
-[![Test Coverage](https://img.shields.io/codecov/c/gh/abusix/ahocorapy/master)](https://codecov.io/gh/abusix/ahocorapy)
+[![Test](https://img.shields.io/github/actions/workflow/status/FrederikP/ahocorapy/pythontest.yml?branch=master)](https://github.com/FrederikP/ahocorapy/actions)
+[![Test Coverage](https://img.shields.io/codecov/c/gh/FrederikP/ahocorapy/master)](https://codecov.io/gh/FrederikP/ahocorapy)
 [![Downloads](https://pepy.tech/badge/ahocorapy)](https://pepy.tech/project/ahocorapy)
 [![PyPi Version](https://img.shields.io/pypi/v/ahocorapy.svg)](https://pypi.python.org/pypi/ahocorapy)
 [![PyPi License](https://img.shields.io/pypi/l/ahocorapy.svg)](https://pypi.python.org/pypi/ahocorapy)
@@ -71,42 +84,52 @@ suitable for really large sets of keywords') which really was the case the last 
 
 ### Performance
 
-I compared the two libraries mentioned above with ahocorapy. We used 50,000 keywords long list and an input text of 34,199 characters.
-In the text only one keyword of the list is contained.
-The setup process was run once per library and the search process was run 100 times. The following results are in seconds (not averaged for the lookup).
+I compared the two libraries mentioned above with ahocorapy, using a 50,000 keywords long list and two input texts:
 
-You can perform this test yourself using `python tests/ahocorapy_performance_test.py`. (Except for the pyahocorasick_py results. These were taken by importing the
-pure python version of the code of [pyahocorasick](https://github.com/WojciechMula/pyahocorasick/). It's not available through pypi
-as stated in the code.)
+- **sparse**: 34,198 characters of text that contain exactly one keyword. This resembles searching ordinary text for a set of names.
+- **dense**: 85,578 characters built by concatenating keywords, containing 6,207 matches. This measures the other extreme, where almost every position is part of a match.
 
-I also added measurements for the pure python libraries with run with pypy.
+The setup process was run once per library and each search was run 100 times. The following results are in seconds (not averaged for the lookup).
+
+You can perform this test yourself using `python tests/ahocorapy_performance_test.py`. (Except for the pure python variant of
+pyahocorasick. It's not published on pypi, so those numbers were taken by importing the pure python code from the
+[pyahocorasick](https://github.com/WojciechMula/pyahocorasick/) repo at `etc/py/pyahocorasick.py`.)
+
+The pure python libraries were additionally run with pypy.
 
 These are the results:
 
-| Library (Variant)                                      | Setup (1x) | Search (100x) |
-| ------------------------------------------------------ | ---------- | ------------- |
-| ahocorapy\*                                            | 0.30s      | 0.29s         |
-| ahocorapy (run with pypy)\*                            | 0.37s      | 0.10s         |
-| pyahocorasick\*                                        | 0.04s      | 0.04s         |
-| pyahocorasick (run with pypy)\*                        | 0.10s      | 0.05s         |
-| pyahocorasick (pure python variant in github repo)\*\* | 0.50s      | 1.68s         |
-| py_aho_corasick\*                                      | 0.72s      | 4,60s         |
-| py_aho_corasick (run with pypy)\*                      | 0.83s      | 2.02s         |
+| Library (Variant)                                    | Setup (1x) | Search sparse (100x) | Search dense (100x) |
+| ---------------------------------------------------- | ---------- | -------------------- | ------------------- |
+| ahocorapy\*                                          | 0.19s      | 0.02s                | 0.42s               |
+| ahocorapy (run with pypy)\*                          | 0.23s      | 0.01s                | 0.28s               |
+| pyahocorasick\*                                      | 0.02s      | 0.02s                | 0.08s               |
+| pyahocorasick (run with pypy)\*                      | 0.03s      | 0.03s                | 0.15s               |
+| pyahocorasick (pure python variant in github repo)\* | 0.10s      | 0.21s                | 0.69s               |
+| pyahocorasick (pure python variant, run with pypy)\* | 0.18s      | 0.07s                | 0.30s               |
+| py_aho_corasick\*                                    | 0.34s      | 2.05s                | 2.48s               |
+| py_aho_corasick (run with pypy)\*                    | 0.45s      | 1.00s                | 1.19s               |
 
-As expected the C-Extension shatters the pure python implementations. Even though there is probably still room for optimization in
-ahocorapy we are not going to get to the mark that pyahocorasick sets. ahocorapy's lookups are faster than py_aho_corasick.
-When run with pypy ahocorapy is almost as fast as pyahocorasick, at least when it comes to
-searching. The setup overhead is higher due to the suffix shortcutting mechanism used.
+On sparse text ahocorapy is on par with the pyahocorasick C-Extension on CPython, and faster than it on pypy. This is possible
+because during setup ahocorapy precomputes the matches to report per state and a regex character class of all symbols that
+keywords can start with, which the search loop then uses to skip over stretches of text that cannot contain a keyword start at
+C speed. On match-dense text the C-Extension is still clearly faster. Setup takes longer than with pyahocorasick due to the
+suffix shortcutting and match precomputation described above. Compared to the other pure python libraries ahocorapy is the
+fastest in every discipline.
 
 \* Specs
-  
-CPU: AMD Ryzen 2700X
-Linux Kernel: 6.0.6
-CPython: 3.11.0  
-pypy: PyPy 7.3.9 (Python 3.9.12) with GCC 10.2.1 20210130
-Date tested: 2022-11-22
 
-\*\* Old measurement with different specs
+CPU: Apple M4 Pro
+
+OS: macOS 26.5.2 (Darwin 25.5.0)
+
+CPython: 3.14.5
+
+pypy: PyPy 7.3.23 (Python 3.11.15) with GCC Apple LLVM 21.0.0 (clang-2100.0.123.102)
+
+Library versions: ahocorapy 1.8.0, pyahocorasick 2.3.1, py_aho_corasick 1.1.0
+
+Date tested: 2026-07-21
 
 ## Basic Usage:
 
@@ -159,6 +182,65 @@ Prints :
 ('lacrosse', 23)
 ```
 
+### Arbitrary Sequences of Arbitrary Symbols
+
+ahocorapy is not limited to strings. Keywords and search input can be **any
+sequence of hashable symbols**. Internally the tree never assumes anything about
+the symbols beyond that they can be used as dictionary keys, so it works with
+tuples of integers, byte values, lists of tokens and more.
+
+The only requirements are:
+
+- Each **symbol** (an element of the sequence) must be hashable.
+- Each **keyword** and the **search input** must be an iterable that also
+  supports `len()` (needed to compute match start indices). Strings, tuples,
+  lists and bytes all qualify.
+
+For example, using tuples of integers as keywords:
+
+```python
+from ahocorapy.keywordtree import KeywordTree
+kwtree = KeywordTree()
+kwtree.add((1, 2, 3))
+kwtree.add((2, 3, 4))
+kwtree.finalize()
+
+result = kwtree.search((9, 1, 2, 3, 4, 8))
+print(result)
+```
+
+Prints:
+
+```python
+((1, 2, 3), 1)
+```
+
+Using lists of string tokens enables word-level (instead of character-level)
+matching:
+
+```python
+kwtree = KeywordTree()
+kwtree.add(['hello', 'world'])
+kwtree.finalize()
+
+result = kwtree.search(['say', 'hello', 'world', 'now'])
+print(result)
+```
+
+Prints:
+
+```python
+(['hello', 'world'], 1)
+```
+
+A note on `bytes`: in Python 3 iterating over a `bytes` object yields integers,
+whereas in Python 2 `bytes` is an alias for `str` and yields 1-character
+strings. Matching works in both cases, but the symbol type differs between the
+two Python versions.
+
+The `case_insensitive=True` option is string-specific (it calls `.lower()` on
+keywords and input) and therefore only applies when your symbols are strings.
+
 ### Thread Safety
 
 The construction of the tree is currently NOT thread safe. That means `add`ing shouldn't be called multiple times concurrently. Behavior is undefined.
@@ -178,4 +260,4 @@ visualizer.draw('readme_example.png', kwtree)
 
 The resulting .png of the graph looks like this:
 
-![graph for kwtree](https://raw.githubusercontent.com/abusix/ahocorapy/master/img/readme_example.png "Keyword Tree")
+![graph for kwtree](https://raw.githubusercontent.com/FrederikP/ahocorapy/master/img/readme_example.png "Keyword Tree")

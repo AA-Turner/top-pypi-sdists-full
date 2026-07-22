@@ -33,11 +33,13 @@ import logging
 import os
 import time
 from dataclasses import dataclass, field, replace
+from dataclasses import fields as dataclass_fields
 from typing import Any
 
 import aiohttp
 from kugelaudio._sdk_metadata import sdk_query_string
 from kugelaudio.client import _parse_api_key, _resolve_region_url
+from kugelaudio.models import clamp_cfg_scale
 from kugelaudio.exceptions import ValidationError, classify_ws_frame
 from livekit.agents import (
     APIConnectionError,
@@ -576,7 +578,7 @@ class TTS(tts.TTS):
             sample_rate: Output sample rate in Hz. Supported rates: 24000 (native),
                 22050, 16000, 8000. Lower rates use server-side resampling with
                 minimal latency impact (~0.1ms per 100ms of audio).
-            cfg_scale: CFG scale for generation quality. Defaults to 2.0.
+            cfg_scale: Classifier-free guidance scale. Clamped to [1.2, 2.5]. Defaults to 2.0.
             max_new_tokens: Maximum tokens to generate. Defaults to 2048.
             normalize: Apply loudness normalization to the output audio. Defaults
                 to True.
@@ -597,11 +599,15 @@ class TTS(tts.TTS):
                 to the default geo-routed API endpoint if no region is specified.
             http_session: Optional aiohttp session to reuse.
         """
+        # ``aligned_transcript`` only exists on newer livekit-agents
+        # TTSCapabilities; older 1.0.x raises TypeError on unknown kwargs.
+        capability_kwargs: dict[str, Any] = {"streaming": True}
+        if "aligned_transcript" in {
+            f.name for f in dataclass_fields(tts.TTSCapabilities)
+        }:
+            capability_kwargs["aligned_transcript"] = word_timestamps
         super().__init__(
-            capabilities=tts.TTSCapabilities(
-                streaming=True,
-                aligned_transcript=word_timestamps,
-            ),
+            capabilities=tts.TTSCapabilities(**capability_kwargs),
             sample_rate=sample_rate,
             num_channels=1,
         )
@@ -611,6 +617,8 @@ class TTS(tts.TTS):
             raise ValueError(
                 "KUGELAUDIO_API_KEY must be set or api_key must be provided"
             )
+
+        cfg_scale = clamp_cfg_scale(cfg_scale)
 
         clean_key, detected_region = _parse_api_key(kugelaudio_api_key)
 
@@ -719,7 +727,7 @@ class TTS(tts.TTS):
         Args:
             model: TTS model to use.
             voice_id: Voice ID to use.
-            cfg_scale: CFG scale for generation.
+            cfg_scale: Classifier-free guidance scale. Clamped to [1.2, 2.5].
             max_new_tokens: Maximum tokens to generate.
             normalize: Apply loudness normalization to the output audio.
             word_timestamps: Enable or disable word-level timestamps.
@@ -733,6 +741,7 @@ class TTS(tts.TTS):
             self._opts.voice_id = voice_id
             changed = True
         if is_given(cfg_scale) and cfg_scale != self._opts.cfg_scale:
+            cfg_scale = clamp_cfg_scale(cfg_scale)
             self._opts.cfg_scale = cfg_scale
             changed = True
         if is_given(max_new_tokens) and max_new_tokens != self._opts.max_new_tokens:

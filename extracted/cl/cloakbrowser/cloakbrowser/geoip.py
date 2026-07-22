@@ -32,6 +32,10 @@ GEOIP_UPDATE_INTERVAL = 30 * 86_400  # 30 days
 DEFAULT_GEOIP_TIMEOUT_SECONDS = 5.0
 GEOIP_TIMEOUT_ENV = "CLOAKBROWSER_GEOIP_TIMEOUT_SECONDS"
 
+# Serializes GeoIP DB downloads within a process so N concurrent launches
+# don't each fetch the same ~70 MB file (issue #458). Per-process only.
+_GEOIP_DOWNLOAD_LOCK = threading.Lock()
+
 # Country ISO code → BCP 47 locale (covers ~90 % of proxy traffic)
 COUNTRY_LOCALE_MAP: dict[str, str] = {
     "US": "en-US", "GB": "en-GB", "AU": "en-AU", "CA": "en-CA", "NZ": "en-NZ",
@@ -102,7 +106,7 @@ def resolve_proxy_geo_with_ip(
     except ImportError:
         raise ImportError(
             "geoip2 is required for geoip=True. Install it with:\n"
-            "  pip install cloakbrowser[geoip]"
+            "  pip install 'cloakbrowser[geoip]'"
         ) from None
 
     # Ensure the DB first — the download must NOT be bounded by the resolution
@@ -272,7 +276,7 @@ def _resolve_exit_ip(proxy_url: str | None, timeout: float | None = None) -> str
             return ip
         except httpx.UnsupportedProtocol:
             logger.warning(
-                "SOCKS5 proxy requires socksio: pip install cloakbrowser[geoip]"
+                "SOCKS5 proxy requires socksio: pip install 'cloakbrowser[geoip]'"
             )
             return None
         except Exception:
@@ -300,12 +304,17 @@ def _ensure_geoip_db() -> Path | None:
         _maybe_trigger_update(db_path)
         return db_path
 
-    try:
-        _download_geoip_db(db_path)
-        return db_path
-    except Exception as exc:
-        logger.warning("Failed to download GeoIP database: %s", exc)
-        return None
+    # Serialize concurrent first-use downloads: only one launch fetches the
+    # shared file, the rest wait and reuse it.
+    with _GEOIP_DOWNLOAD_LOCK:
+        if db_path.exists():  # another launch finished while we waited
+            return db_path
+        try:
+            _download_geoip_db(db_path)
+            return db_path
+        except Exception as exc:
+            logger.warning("Failed to download GeoIP database: %s", exc)
+            return None
 
 
 def _download_geoip_db(dest: Path) -> None:
@@ -335,7 +344,7 @@ def _download_geoip_db(dest: Path) -> None:
                             last_pct = pct
                             logger.info("GeoIP download: %d %%", pct)
 
-        tmp_path.rename(dest)
+        os.replace(tmp_path, dest)  # atomic overwrite (Windows-safe, unlike rename)
         logger.info("GeoIP database ready: %s", dest)
     except Exception:
         tmp_path.unlink(missing_ok=True)
@@ -352,9 +361,14 @@ def _maybe_trigger_update(db_path: Path) -> None:
         return
 
     def _bg() -> None:
+        # Skip if a download (initial or refresh) is already running.
+        if not _GEOIP_DOWNLOAD_LOCK.acquire(blocking=False):
+            return
         try:
             _download_geoip_db(db_path)
         except Exception:
             logger.debug("Background GeoIP update failed", exc_info=True)
+        finally:
+            _GEOIP_DOWNLOAD_LOCK.release()
 
     threading.Thread(target=_bg, daemon=True).start()

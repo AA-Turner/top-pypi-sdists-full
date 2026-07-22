@@ -111,7 +111,9 @@ default_message_pool.register_message(
 @dataclass(eq=False, repr=False, config={"extra": "forbid"})
 class SubClustersConfig(betterproto2.Message):
     """
-    Configuration for sub clusters. Hard code STRICT_DNS cluster type now.
+    Configuration for sub clusters. Sub clusters default to the ``STRICT_DNS`` discovery type, or
+    use the ``DnsCluster`` extension when ``dns_cluster_config`` is set.
+    [#next-free-field: 6]
     """
 
     lb_policy: "____config__cluster__v3__.ClusterLbPolicy" = betterproto2.field(
@@ -154,6 +156,19 @@ class SubClustersConfig(betterproto2.Message):
     warmed during steady state and are known at config load time.
     """
 
+    dns_cluster_config: "__dns__v3__.DnsCluster | None" = betterproto2.field(
+        5, betterproto2.TYPE_MESSAGE, optional=True
+    )
+    """
+    Optional DNS configuration for dynamically created sub clusters. When set, sub clusters
+    are created using the :ref:`DnsCluster <envoy_v3_api_msg_extensions.clusters.dns.v3.DnsCluster>`
+    extension (``envoy.cluster.dns``) rather than the legacy ``STRICT_DNS`` discovery type,
+    enabling full DNS configuration including refresh rates, failure backoff, TTL respect,
+    lookup family, and resolver selection.
+
+    When not set, sub clusters inherit DNS settings from the parent cluster configuration.
+    """
+
 
 default_message_pool.register_message(
     "envoy.extensions.clusters.dynamic_forward_proxy.v3",
@@ -168,3 +183,4 @@ from .....config.core import v3 as ____config__core__v3__
 from ....common.dynamic_forward_proxy import (
     v3 as ___common__dynamic_forward_proxy__v3__,
 )
+from ...dns import v3 as __dns__v3__

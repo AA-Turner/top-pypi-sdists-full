@@ -6,8 +6,11 @@ from unittest.mock import MagicMock, create_autospec, patch
 
 import pytest
 from conftest import make_docstring_app, make_sig_app
+from docutils.frontend import get_default_settings
+from docutils.parsers.rst import Parser
 from sphinx.application import Sphinx
 from sphinx.config import Config
+from sphinx.ext.autosummary import extract_summary
 
 import sphinx_autodoc_typehints as sat
 from sphinx_autodoc_typehints import (
@@ -87,7 +90,7 @@ def test_process_docstring_sphinx_signature_raises_type_error() -> None:
 
 def test_process_docstring_descriptor_without_stub_is_untouched() -> None:
     """A C data descriptor with no stub keeps its docstring as-is."""
-    import array  # noqa: PLC0415
+    import array  # ruff:ignore[import-outside-top-level]
 
     app = make_docstring_app()
     lines = ["the typecode character used to create the array"]
@@ -97,7 +100,7 @@ def test_process_docstring_descriptor_without_stub_is_untouched() -> None:
 
 def test_process_docstring_descriptor_with_existing_type_field() -> None:
     """An explicit :type: field wins over the stub annotation."""
-    import array  # noqa: PLC0415
+    import array  # ruff:ignore[import-outside-top-level]
 
     app = make_docstring_app()
     lines = [":type: str"]
@@ -152,6 +155,25 @@ def test_inject_overload_empty_overloads_returns_false() -> None:
         assert _inject_overload_signatures(app, "function", "name", obj, []) is False
     finally:
         _OVERLOADS_CACHE.pop("test_mod2", None)
+
+
+def test_inject_overload_keeps_summary_first() -> None:
+    """Overloads must follow the summary so autosummary can still extract it (#730)."""
+    obj = MagicMock()
+    obj.__module__ = "test_mod"
+    obj.__qualname__ = "func"
+    sig = inspect.Signature(
+        parameters=[inspect.Parameter("x", inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=int)],
+        return_annotation=str,
+    )
+    _OVERLOADS_CACHE["test_mod"] = {"func": [sig]}
+    try:
+        app = make_docstring_app()
+        lines = ["Run the thing.", "", ":param x: the x"]
+        assert _inject_overload_signatures(app, "function", "name", obj, lines) is True
+        assert extract_summary(lines, get_default_settings(Parser())) == "Run the thing."
+    finally:
+        _OVERLOADS_CACHE.pop("test_mod", None)
 
 
 def test_local_function_warning_includes_location() -> None:
@@ -231,7 +253,7 @@ def test_inject_overload_local_directive_with_global_enabled() -> None:
 
 def test_process_docstring_uses_new_when_init_inherited() -> None:
     class _NewOnlyClass:
-        def __new__(cls, x: int, y: str) -> _NewOnlyClass:  # noqa: ARG004, PYI034
+        def __new__(cls, x: int, y: str) -> _NewOnlyClass:  # ruff:ignore[unused-static-method-argument, non-self-return-type]
             return super().__new__(cls)
 
     app = make_docstring_app(typehints_document_rtype=False)
@@ -244,7 +266,7 @@ def test_process_docstring_uses_new_when_init_inherited() -> None:
 
 def test_process_docstring_prefers_init_over_new() -> None:
     class _BothClass:
-        def __new__(cls, a: float) -> _BothClass:  # noqa: ARG004, PYI034
+        def __new__(cls, a: float) -> _BothClass:  # ruff:ignore[unused-static-method-argument, non-self-return-type]
             return super().__new__(cls)
 
         def __init__(self, x: int) -> None:
@@ -265,7 +287,7 @@ def test_inject_types_no_signature() -> None:
     app = make_docstring_app(typehints_document_rtype=False)
 
     lines: list[str] = []
-    sat._inject_types_to_docstring({"return": str}, None, sample, app, "function", "sample", lines)  # noqa: SLF001
+    sat._inject_types_to_docstring({"return": str}, None, sample, app, "function", "sample", lines)  # ruff:ignore[private-member-access]
     assert not any(s.startswith(":type") for s in lines)
 
 
@@ -390,7 +412,7 @@ def test_process_signature_annotations_error(error: Exception) -> None:
 
     class _Func:
         @property
-        def __annotations__(self) -> dict[str, object]:  # noqa: PLW3201
+        def __annotations__(self) -> dict[str, object]:  # ruff:ignore[bad-dunder-method-name]
             raise error
 
         def __call__(self) -> None: ...

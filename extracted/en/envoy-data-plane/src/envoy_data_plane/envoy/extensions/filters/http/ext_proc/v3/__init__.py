@@ -503,6 +503,17 @@ class ExternalProcessor(betterproto2.Message):
     received in response to request headers. It is recommended to set this field rather than set
     :ref:`disable_clear_route_cache <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ExternalProcessor.disable_clear_route_cache>`.
     Only one of ``disable_clear_route_cache`` or ``route_cache_action`` can be set.
+
+    .. attention::
+
+      Clearing the route cache can cause Envoy to recompute route matching after earlier HTTP
+      filters have already processed the request. This can be security-sensitive when filters
+      that make route-dependent authorization decisions, such as the RBAC filter, run before
+      ext_proc and ext_proc mutates route-matching inputs.
+
+      Operators should only enable route cache clearing for trusted external processors, should
+      carefully order route-dependent authorization filters, and should use mutation_rules to
+      restrict sensitive mutations when appropriate.
     """
 
     deferred_close_timeout: "datetime.timedelta | None" = betterproto2.field(

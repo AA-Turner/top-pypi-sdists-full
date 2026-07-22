@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: pytest_docker_tools
-Version: 3.1.9
+Version: 3.1.10
 Summary: Docker integration tests for pytest
 Author-email: John Carr <john.carr@unrouted.co.uk>
 License: Apache-2.0
@@ -20,6 +20,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: pytest>=6.0.1
 Requires-Dist: docker>=4.3.1
+Dynamic: license-file
 
 # pytest-docker-tools
 

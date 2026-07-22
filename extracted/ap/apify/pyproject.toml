@@ -4,24 +4,24 @@ build-backend = "hatchling.build"
 
 [project]
 name = "apify"
-version = "3.4.1"
+version = "4.0.0"
 description = "Apify SDK for Python"
 authors = [{ name = "Apify Technologies s.r.o.", email = "support@apify.com" }]
 license = { file = "LICENSE" }
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Libraries",
+    "Typing :: Typed",
 ]
 keywords = [
     "apify",
@@ -35,16 +35,15 @@ keywords = [
     "scraping",
 ]
 dependencies = [
-    "apify-client>=2.3.0,<3.0.0",
-    "apify-shared>=2.0.0,<3.0.0",
-    "crawlee>=1.0.4,<2.0.0",
+    "apify-client[brotli]>=3.1.0,<4.0.0",
+    "crawlee>=1.8.0,<2.0.0",
     "cachetools>=5.5.0",
     "cryptography>=42.0.0",
     "impit>=0.8.0",
     "lazy-object-proxy>=1.11.0",
     "more_itertools>=10.2.0",
     "pydantic>=2.11.0",
-    "typing-extensions>=4.1.0",
+    "typing-extensions>=4.4.0",
     "websockets>=14.0",
     "yarl>=1.18.0",
 ]
@@ -59,7 +58,7 @@ scrapy = ["scrapy>=2.14.0"]
 "Documentation" = "https://docs.apify.com/sdk/python/docs/overview"
 "Homepage" = "https://docs.apify.com/sdk/python/"
 "Issue Tracker" = "https://github.com/apify/apify-sdk-python/issues"
-"Release Notes" = "https://docs.apify.com/sdk/python/docs/upgrading/upgrading-to-v2"
+"Release Notes" = "https://docs.apify.com/sdk/python/docs/upgrading/upgrading-to-v4"
 "Source Code" = "https://github.com/apify/apify-sdk-python"
 
 [dependency-groups]
@@ -71,7 +70,6 @@ dev = [
     "black>=24.3.0",
     "build<2.0.0",
     "crawlee[parsel]",
-    "dycw-pytest-only<3.0.0",
     "griffe",
     "poethepoet<1.0.0",
     "pre-commit<5.0.0",
@@ -85,7 +83,7 @@ dev = [
     "ruff~=0.15.0",
     "setuptools", # setuptools are used by pytest but not explicitly required
     "ty~=0.0.0",
-    "types-cachetools<7.0.0",
+    "types-cachetools<7.0.1",
     "uvicorn[standard]",
     "werkzeug<4.0.0", # Werkzeug is used by httpserver
 ]
@@ -198,7 +196,7 @@ builtins-ignorelist = ["id"]
 
 [tool.ruff.lint.isort]
 known-local-folder = ["apify"]
-known-first-party = ["apify_client", "apify_shared", "crawlee"]
+known-first-party = ["apify_client", "crawlee"]
 
 [tool.ruff.lint.pylint]
 max-branches = 18
@@ -210,7 +208,7 @@ asyncio_mode = "auto"
 timeout = 1800
 
 [tool.ty.environment]
-python-version = "3.10"
+python-version = "3.11"
 
 [tool.ty.src]
 include = ["src", "tests", "scripts", "docs", "website"]
@@ -241,7 +239,6 @@ exclude-newer = "24 hours"
 [tool.uv.exclude-newer-package]
 # Allow internal Apify packages to install immediately.
 apify-client = false
-apify-shared = false
 apify_fingerprint_datapoints = false
 crawlee = false
 

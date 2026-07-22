@@ -12,7 +12,7 @@ import numpy as np
 from abc import ABC, abstractmethod
 from typing import Optional, Union
 
-from AOT_biomaps.AOT_Recon.ReconEnums import SMatrixType, PreconditionerType
+from AOT_biomaps.AOT_Recon.ReconEnums import SMatrixType
 from AOT_biomaps.AOT_Recon.ReconTools import check_gpu_available
 
 # Check for CuPy availability
@@ -214,4 +214,18 @@ class SMatrix(ABC):
     @abstractmethod
     def get_matrix_size(self) -> dict:
         """Returns the total size of the matrix in GB."""
+        pass
+
+    @abstractmethod
+    def compute_hessian_diagonal(self):
+        """
+        Compute diag(A^H A).
+        """
+        pass
+
+    @abstractmethod
+    def normalize_matrix(self):
+        """
+        Normalize the matrix by its maximum absolute value.
+        """
         pass

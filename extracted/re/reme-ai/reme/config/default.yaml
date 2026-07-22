@@ -4,11 +4,8 @@ service:
 jobs:
   index_update_loop:
     backend: background
-    max_file_bytes: 20971520
-    watch_dirs: [daily_dir, digest_dir, resource_dir]
-#    watch_dirs: [daily_dir, digest_dir]
-    watch_suffixes: [md, jsonl]
-#    watch_suffixes: [md]
+    watch_dirs: [daily_dir, digest_dir]
+    watch_suffixes: [md]
     steps:
       - backend: init_changes_step
         monitor_type: file_store
@@ -21,7 +18,6 @@ jobs:
 
   resource_watch_loop:
     backend: background
-    max_file_bytes: 20971520
     watch_dirs: [resource_dir]
     watch_suffixes: [md, txt, json, jsonl, csv, yaml, html]
     steps:
@@ -40,7 +36,6 @@ jobs:
 
   digest_watch_loop:
     backend: background
-    max_file_bytes: 20971520
     watch_dirs: [daily_dir, digest_dir]
     watch_suffixes: [md]
     steps:
@@ -196,7 +191,7 @@ jobs:
           default: ""
         include_content:
           type: boolean
-          description: "whether to include the raw YAML content in response metadata"
+          description: "whether to include the raw YAML content in the response answer and metadata"
           default: true
     steps:
       - backend: proactive_step
@@ -237,23 +232,23 @@ jobs:
     steps:
       - backend: help_step
 
-  shell:
-    backend: base
-    description: "execute a shell command asynchronously in the workspace"
-    parameters:
-      type: object
-      properties:
-        cmd:
-          type: string
-          description: "shell command to execute"
-        shell_timeout:
-          type: number
-          description: "maximum execution time in seconds"
-          default: 86400
-      required:
-        - cmd
-    steps:
-      - backend: shell_step
+#  shell:
+#    backend: base
+#    description: "execute a shell command asynchronously in the workspace"
+#    parameters:
+#      type: object
+#      properties:
+#        cmd:
+#          type: string
+#          description: "shell command to execute"
+#        shell_timeout:
+#          type: number
+#          description: "maximum execution time in seconds"
+#          default: 86400
+#      required:
+#        - cmd
+#    steps:
+#      - backend: shell_step
 
   traverse:
     backend: base
@@ -282,7 +277,6 @@ jobs:
 
   reindex:
     backend: base
-    max_file_bytes: 20971520
     description: "wipe the file store and rebuild it from the existing files"
     watch_dirs: [daily_dir, digest_dir, resource_dir]
     watch_suffixes: [md, jsonl]
@@ -678,6 +672,22 @@ components:
       api_key: ${CLAUDE_CODE_API_KEY:-}
       base_url: ${CLAUDE_CODE_BASE_URL:-https://dashscope.aliyuncs.com/apps/anthropic}
       permission_mode: bypassPermissions
+      system_prompt_mode: replace
+    codex:
+      backend: codex
+      auth_mode: api_key
+      model: ${CODEX_MODEL_NAME:-}
+      api_key: ${CODEX_API_KEY:-}
+      base_url: ${CODEX_BASE_URL:-}
+      approval_mode: auto_review
+      sandbox: full-access
+    codex_oauth:
+      backend: codex
+      auth_mode: oauth
+      model: ${CODEX_MODEL_NAME:-}
+      codex_home: ${CODEX_HOME:-~/.codex}
+      approval_mode: auto_review
+      sandbox: full-access
 
   file_graph:
     default:
@@ -697,6 +707,8 @@ components:
     markdown:
       backend: markdown
       supported_extensions: [ "md" ]
+      embed_toc: true
+      max_ast_sections: 100
       include_frontmatter_in_metadata: false
       include_frontmatter_keys_in_metadata: []  # empty = all non-empty frontmatter keys
     json:

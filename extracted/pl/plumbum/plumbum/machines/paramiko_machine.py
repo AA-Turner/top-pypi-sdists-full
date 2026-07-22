@@ -21,7 +21,7 @@ from typing import IO, Any
 from plumbum.commands.base import shquote
 from plumbum.commands.processes import ProcessLineTimedOut, iter_lines
 from plumbum.machines.base import PopenAddons
-from plumbum.machines.remote import BaseRemoteMachine
+from plumbum.machines.remote import BaseRemoteMachine, _check_env_name
 from plumbum.machines.session import ShellSession
 from plumbum.path.local import LocalPath
 from plumbum.path.remote import RemotePath, RemoteStatRes
@@ -359,10 +359,12 @@ class ParamikoMachine(BaseRemoteMachine):
         envdelta = self.env.getdelta()
         if env:
             envdelta.update(env)
-        argv.extend(["cd", str(cwd or self.cwd), "&&"])
+        argv.extend(["cd", shquote(str(cwd or self.cwd)), "&&"])
         if envdelta:
             argv.append("env")
-            argv.extend(f"{k}={shquote(v)}" for k, v in envdelta.items())
+            argv.extend(
+                f"{_check_env_name(k)}={shquote(v)}" for k, v in envdelta.items()
+            )
         argv.extend(args.formulate())
         cmdline = " ".join(argv)
         logger.debug(cmdline)
@@ -467,8 +469,17 @@ class ParamikoMachine(BaseRemoteMachine):
         f.close()
 
     def _path_stat(self, fn: str) -> RemoteStatRes | None:
+        return self._sftp_stat(self.sftp.stat, fn)
+
+    def _path_lstat(self, fn: str) -> RemoteStatRes | None:
+        return self._sftp_stat(self.sftp.lstat, fn)
+
+    @staticmethod
+    def _sftp_stat(
+        stat_fn: Callable[[str], paramiko.SFTPAttributes], fn: str
+    ) -> RemoteStatRes | None:
         try:
-            st = self.sftp.stat(fn)
+            st = stat_fn(fn)
         except OSError as e:
             if e.errno == errno.ENOENT:
                 return None
@@ -489,9 +500,12 @@ class ParamikoMachine(BaseRemoteMachine):
         )
 
         assert st.st_mode is not None
-        if stat.S_ISDIR(st.st_mode):
+        res.text_mode = ""
+        if stat.S_ISLNK(st.st_mode):
+            res.text_mode = "symbolic link"
+        elif stat.S_ISDIR(st.st_mode):
             res.text_mode = "directory"
-        if stat.S_ISREG(st.st_mode):
+        elif stat.S_ISREG(st.st_mode):
             res.text_mode = "regular file"
         return res
 

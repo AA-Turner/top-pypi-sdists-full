@@ -1,7 +1,7 @@
 import time
 from duplocloud.controller import DuploCtl
 from duplocloud.resource import DuploResourceV2
-from duplocloud.errors import DuploError, DuploFailedResource, DuploStillWaiting
+from duplocloud.errors import DuploError, DuploFailedResource, DuploNotFound, DuploStillWaiting
 from duplocloud.commander import Command, Resource
 from json import dumps, loads
 import duplocloud.args as args
@@ -114,8 +114,11 @@ class DuploService(DuploResourceV2):
     try:
       endpoint = f"v3/subscriptions/{self.tenant_id}/replicationcontroller/{name}"
       response = self.client.get(endpoint)
+      result = response.json()
+      if not result:
+        raise DuploNotFound(name, self.kind)
       self.duplo.logger.debug(f"Found service {name} using new endpoint.")
-      return response.json()
+      return result
     # catch the DuploError and let super take over if it's just a 404 which means the new endpoint doesn't exist
     except DuploError:
       self.duplo.logger.debug(f"Service {name} not found using new endpoint, falling back to list.")
@@ -158,11 +161,20 @@ class DuploService(DuploResourceV2):
       old["Replicaset"] = self.current_replicaset(name)
     if patches:
       body = self.duplo.jsonpatch(body, patches)
-    if ((ttags := body["Template"].get("AllocationTags", None))
+    template = body.get("Template", body)
+    # When body is flat (no Template wrapper), use existing service
+    # state as fallback so we don't overwrite settings with defaults
+    if "Template" not in body:
+      existing = self.find(name).get("Template", {})
+    else:
+      existing = template
+    if ((ttags := template.get("AllocationTags", None))
         and not body.get("AllocationTags", None)):
       body["AllocationTags"] = ttags
-    body["OtherDockerConfig"] = body["Template"]["OtherDockerConfig"]
-    body["AgentPlatform"] = body["Template"].get("AgentPlatform", 0)
+    if "OtherDockerConfig" not in body:
+      body["OtherDockerConfig"] = existing.get("OtherDockerConfig") or "{}"
+    if "AgentPlatform" not in body:
+      body["AgentPlatform"] = existing.get("AgentPlatform", 0)
     self.client.post(self.endpoint("ReplicationControllerChangeAll"), body)
     if self.duplo.wait:
       self._wait(old, body)
@@ -343,63 +355,50 @@ class DuploService(DuploResourceV2):
     Returns:
       message: Success message
     """
-    if [image, container_image, init_container_image].count(None) != 2:
+    if not any([image, container_image, init_container_image]):
       raise DuploError("Provide a service image, container images, or init container images.")
     self.duplo.logger.debug("UPDATE IMAGE")
-    service = self.find(name)
-    data = {}
-    updated_containers = []
-    not_found_containers = []
-
-    if not image:
-      other_docker_config = loads(service["Template"].get("OtherDockerConfig", "{}"))
-      if container_image:
-        images = container_image
-        containers = other_docker_config.get("additionalContainers", [])
-      elif init_container_image:
-        images = init_container_image
-        containers = other_docker_config.get("initContainers", [])
-
-      for key, value in images:
-        container_found = False
-        for c in containers:
-          if c["name"] == key:
-            c["image"] = value
-            updated_containers.append(key)
-            container_found = True
-            break
-        if not container_found:
-          not_found_containers.append(key)
-
-      if not updated_containers:
-        raise DuploError(f"No matching containers found in service '{name}'")
-
-      data = {
-        "Name": name,
-        "OtherDockerConfig": dumps(other_docker_config),
-        "AllocationTags": service["Template"].get("AllocationTags", "")
-      }
-
+    payload = []
+    if image:
+      payload.append({"ContainerName": "duplo-main-container", "ImageName": image})
+    for cname, cimage in (container_image or []):
+      payload.append({"ContainerName": cname, "ImageName": cimage})
+    for cname, cimage in (init_container_image or []):
+      payload.append({"ContainerName": cname, "ImageName": cimage})
+    endpoint = f"v3/subscriptions/{self.tenant_id}/containers/replicationController/{name}/containerimage"
+    old = None
+    if self.duplo.wait:
+      old = self.find(name)
+    try:
+      self.client.put(endpoint, payload)
+    except DuploNotFound:
+      self.duplo.logger.debug("V3 containerimage endpoint not found, falling back to V2")
+      self._update_image_v2(name, image, container_image, init_container_image, old)
     else:
-      data = {
-        "Name": name,
-        "Image": image,
-        "AllocationTags": service["Template"].get("AllocationTags", "")
-      }
+      if self.duplo.wait:
+        self.duplo.logger.debug("Wait enabled, beginning wait process")
+        self._wait(old, {"Name": name, "Image": image or ""})
+    return {"message": f"Successfully updated image for service '{name}'."}
 
+  def _update_image_v2(self, name, image, container_image, init_container_image, old):
+    """Fallback to V2 endpoint for older Duplo backends."""
+    if container_image or init_container_image:
+      raise DuploError(
+        "Sidecar and init container image updates require a newer Duplo backend. "
+        "Please upgrade your Duplo portal or use the main image parameter only."
+      )
+    if not image:
+      raise DuploError("No image provided for V2 fallback.")
+    service = old if old else self.find(name)
+    data = {
+      "Name": name,
+      "Image": image,
+      "AllocationTags": service["Template"].get("AllocationTags", "")
+    }
     self.client.post(self.endpoint("ReplicationControllerChange"), data)
-
     if self.duplo.wait:
       self.duplo.logger.debug("Wait enabled, beginning wait process")
       self._wait(service, data)
-
-    response_message = "Successfully updated image for service."
-    if updated_containers:
-      response_message += f" Updated containers: {', '.join(updated_containers)}."
-    if not_found_containers:
-      response_message += f" Could not find containers: {', '.join(not_found_containers)}."
-
-    return {"message": response_message}
 
   @Command()
   def update_env(self,
@@ -447,7 +446,8 @@ class DuploService(DuploResourceV2):
       return "mixed"
 
     service = self.find(name)
-    currentDockerconfig = loads(service["Template"]["OtherDockerConfig"])
+    raw_config = service["Template"].get("OtherDockerConfig") or "{}"
+    currentDockerconfig = loads(raw_config)
     currentEnv = currentDockerconfig.get("Env", [])
     # Check if user is attempting to merge against a null Env. If so, set currentEnv to empty.
     if currentEnv is None and strategy == "merge":
@@ -523,7 +523,8 @@ class DuploService(DuploResourceV2):
       message: A message about success.
     """
     service = self.find(name)
-    currentDockerconfig = loads(service["Template"]["OtherDockerConfig"])
+    raw_config = service["Template"].get("OtherDockerConfig") or "{}"
+    currentDockerconfig = loads(raw_config)
     currentLabels = currentDockerconfig.get("PodLabels", [])
     newLabels = []
     if setvar is not None:
@@ -982,7 +983,10 @@ class DuploService(DuploResourceV2):
     def wait_check():
       self.duplo.logger.debug(f"Running wait check for {name}")
       svc = self.find(name)
-      replicas = svc[replica_key]
+      replicas = svc.get(replica_key)
+      if replicas is None:
+        self.duplo.logger.warning(f"Replicas not retrieved, checked for {replica_key}\nin\n{svc}")
+        raise DuploStillWaiting(f"Service {name} waiting for replica status")
 
       # we are still waiting if the changed values do not appear when retrieving the service
       if (image_changed and self.image_from_body(svc) != new_img):

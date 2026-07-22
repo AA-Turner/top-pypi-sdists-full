@@ -2,15 +2,16 @@ import inspect
 from functools import wraps
 from os import PathLike
 from pathlib import Path
-from typing import Optional, Type, TypeVar, Union
+from typing import TypeVar
 
 from ._common import parser_context
 from ._core import ArgumentParser
 from ._loaders_dumpers import get_loader_exceptions, load_value
 from ._optionals import _get_config_read_mode
+from ._paths import change_to_path_dir
 from ._required import clear_required, iter_required_keys
 from ._typehints import is_subclass_spec, resolve_class_path_by_name
-from ._util import import_object
+from ._util import import_object, load_config_path_context
 
 __all__ = ["FromConfigMixin"]
 
@@ -30,7 +31,9 @@ class FromConfigMixin:
            defaults.
 
         2. Adds a ``from_config`` ``@classmethod``, that instantiates the class
-           based on a config file or dict.
+           based on a config file or dict. If
+           ``config_read_mode_fsspec_enabled=True`` is set, then config paths
+           can be URLs.
 
     Attributes:
         __from_config_init_defaults__: Optional path to a config file for
@@ -39,7 +42,7 @@ class FromConfigMixin:
             ArgumentParser used for parsing configs.
     """
 
-    __from_config_init_defaults__: Optional[Union[str, PathLike]] = None
+    __from_config_init_defaults__: str | PathLike | None = None
     __from_config_parser_kwargs__: dict = {}
 
     def __init_subclass__(cls, **kwargs) -> None:
@@ -48,7 +51,7 @@ class FromConfigMixin:
         _override_init_defaults(cls, cls.__from_config_parser_kwargs__)
 
     @classmethod
-    def from_config(cls: Type[T], config: Union[str, PathLike, dict]) -> T:
+    def from_config(cls: type[T], config: str | PathLike | dict) -> T:
         """Instantiate current class based on a config file or dict.
 
         Args:
@@ -58,15 +61,20 @@ class FromConfigMixin:
         return cls(**kwargs)
 
 
-def _parse_class_kwargs_from_config(cls: Type[T], config: Union[str, PathLike, dict], **kwargs) -> tuple[dict, Type[T]]:
+def _parse_class_kwargs_from_config(cls: type[T], config: str | PathLike | dict, **kwargs) -> tuple[dict, type[T]]:
     """Parse the init kwargs for ``cls`` from a config file or dict."""
     parser = ArgumentParser(exit_on_error=False, **kwargs)
+    cfg_path = None
     if not isinstance(config, dict):
         from .typing import Path
 
         cfg_path = Path(config, mode=_get_config_read_mode())
-        cfg_str = cfg_path.read_text()
-        with parser_context(load_value_mode=parser.parser_mode):
+        with (
+            load_config_path_context(cfg_path),
+            change_to_path_dir(cfg_path),
+            parser_context(load_value_mode=parser.parser_mode),
+        ):
+            cfg_str = cfg_path.read_text()
             try:
                 config = load_value(cfg_str, path=str(config))
             except get_loader_exceptions() as ex:
@@ -86,11 +94,12 @@ def _parse_class_kwargs_from_config(cls: Type[T], config: Union[str, PathLike, d
     parser.add_class_arguments(cls)
     for required in iter_required_keys(parser):
         clear_required(parser, required)
-    cfg = parser.parse_object(config, defaults=False)
+    with load_config_path_context(cfg_path), change_to_path_dir(cfg_path):
+        cfg = parser.parse_object(config, defaults=False)
     return parser.instantiate(cfg).as_dict(), cls
 
 
-def _override_init_defaults(cls: Type[T], parser_kwargs: dict) -> None:
+def _override_init_defaults(cls: type[T], parser_kwargs: dict) -> None:
     """Override ``__init__`` defaults for ``cls`` based on ``__from_config_init_defaults__``."""
     config = getattr(cls, "__from_config_init_defaults__", None)
     if not isinstance(config, (str, PathLike, type(None))):
@@ -103,7 +112,7 @@ def _override_init_defaults(cls: Type[T], parser_kwargs: dict) -> None:
     _override_init_defaults_parent_classes(cls, defaults)
 
 
-def _override_init_defaults_this_class(cls: Type[T], defaults: dict) -> None:
+def _override_init_defaults_this_class(cls: type[T], defaults: dict) -> None:
     params = inspect.signature(cls.__init__).parameters
     for name, default in defaults.copy().items():
         param = params.get(name)
@@ -120,7 +129,7 @@ def _override_init_defaults_this_class(cls: Type[T], defaults: dict) -> None:
                 cls.__init__.__defaults__ = aux[:index] + (default,) + aux[index + 1 :]
 
 
-def _override_init_defaults_parent_classes(cls: Type[T], defaults: dict) -> None:
+def _override_init_defaults_parent_classes(cls: type[T], defaults: dict) -> None:
     # Gather defaults for parameters in parent classes' __init__
     override_parent_params = []
     for base in inspect.getmro(cls)[1:]:

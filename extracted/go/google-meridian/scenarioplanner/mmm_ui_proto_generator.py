@@ -106,7 +106,7 @@ class MmmUiProtoGenerator:
       ] = _DATE_RANGE_GENERATORS,
   ):
     self._mmm = mmm
-    self._input_specs = specs
+    self._input_specs = specs  # pyrefly: ignore[invalid-type-var]
     self._model_id = model_id
     self._time_breakdown_generators = time_breakdown_generators
 
@@ -127,6 +127,35 @@ class MmmUiProtoGenerator:
     for spec in self._input_specs:
       if not isinstance(spec, tuple(_ALLOWED_SPEC_TYPES_FOR_UI)):
         raise ValueError(f"Unsupported spec type: {spec.__class__.__name__}")
+
+      if isinstance(spec, model_processor.DatedSpec):
+        min_hist_date = min(self._time_coordinates.all_dates)
+        max_hist_date = max(self._time_coordinates.all_dates)
+        max_exclusive_hist_date = max_hist_date + datetime.timedelta(
+            days=self._time_coordinates.interval_days
+        )
+        if spec.start_date is not None and (
+            spec.start_date < min_hist_date or spec.start_date > max_hist_date
+        ):
+          raise ValueError(
+              "Scenario Planner UI proto generation does not support"
+              f" out-of-sample dates (start_date {spec.start_date} is outside"
+              f" training history [{min_hist_date}, {max_hist_date}]). To"
+              " perform forward-looking budget optimization with `new_data`,"
+              " please use `Meridian.budget_optimizer.optimize()` directly."
+          )
+        if spec.end_date is not None and (
+            spec.end_date <= min_hist_date
+            or spec.end_date > max_exclusive_hist_date
+        ):
+          raise ValueError(
+              "Scenario Planner UI proto generation does not support"
+              f" out-of-sample dates (end_date {spec.end_date} is outside"
+              f" training history exclusive range ({min_hist_date},"
+              f" {max_exclusive_hist_date}]). To perform forward-looking budget"
+              " optimization with `new_data`, please use"
+              " `Meridian.budget_optimizer.optimize()` directly."
+          )
 
       if isinstance(spec, bop.BudgetOptimizationSpec):
         group_id = spec.group_id

@@ -9,7 +9,9 @@ from __future__ import annotations
 from typing import Any
 
 from echo_agent.agent.tools.base import Tool, ToolExecutionContext, ToolResult
-from echo_agent.memory.store import MemoryEntry, MemoryStore, MemoryType
+from echo_agent.memory.eligibility import Audience
+from echo_agent.memory.store import MemoryEntry, MemoryType
+from echo_agent.memory.service import ActorContext, MemoryService
 
 
 class MemoryTool(Tool):
@@ -81,8 +83,15 @@ class MemoryTool(Tool):
         "required": ["action"],
     }
 
-    def __init__(self, store: MemoryStore, contradiction_detector: Any = None):
-        self._store = store
+    def __init__(
+        self,
+        service: MemoryService,
+        contradiction_detector: Any = None,
+    ):
+        # 统一写入口:provenance/ENV 门禁/失效/审计全部收敛在 service 的八步写序。
+        # 工具只负责参数解析、读操作(find/search/list)与 WriteResult→ToolResult 映射。
+        self._service = service
+        self._store = service.store
         self._contradiction_detector = contradiction_detector
 
     def _resolve_entry(
@@ -120,25 +129,39 @@ class MemoryTool(Tool):
         action = params.get("action", "")
         target = params.get("target", "user")
         mem_type = MemoryType.USER if target == "user" else MemoryType.ENVIRONMENT
-        session_key = ctx.session_key if ctx else ""
+        # 记忆作用域用 owner-aware 的 memory_scope(跨通道归一/群聊隔离都在其中);
+        # 回退 session_key 兼容未经 loop 冻结构造的 ctx。变量名沿用 session_key
+        # 因它直接喂给 store 的同名可见性参数。
+        session_key = (ctx.memory_scope or ctx.session_key) if ctx else ""
+
+        # ENV/global 门禁、写后失效、审计已全部收敛到 MemoryService 八步写序,
+        # 工具入口不再重复实现。model actor 的 ActorContext 承载 scope 供 service 门禁。
+        actor_ctx = ActorContext(
+            actor="model",
+            session_key=ctx.session_key if ctx else "",
+            memory_scope=session_key,
+        )
 
         if action == "add":
-            return self._add(params, mem_type, session_key)
+            return await self._add(params, mem_type, session_key, actor_ctx)
         elif action == "replace":
-            return self._replace(params, mem_type, session_key)
+            return await self._replace(params, mem_type, session_key, actor_ctx)
         elif action == "remove":
-            return self._remove(params, mem_type, session_key)
+            return await self._remove(params, mem_type, session_key, actor_ctx)
         elif action == "search":
             return self._search(params, mem_type, session_key)
         elif action == "list":
             return self._list(mem_type, session_key)
         elif action == "list_contradictions":
-            return await self._list_contradictions()
+            return await self._list_contradictions(session_key)
         elif action == "resolve_contradiction":
-            return await self._resolve_contradiction(params)
-        return ToolResult(success=False, error=f"Unknown action '{action}'")
+            return await self._resolve_contradiction(params, session_key)
+        else:
+            return ToolResult(success=False, error=f"Unknown action '{action}'")
 
-    def _add(self, params: dict[str, Any], mem_type: MemoryType, session_key: str) -> ToolResult:
+    async def _add(
+        self, params: dict[str, Any], mem_type: MemoryType, session_key: str, actor_ctx: ActorContext
+    ) -> ToolResult:
         key = params.get("key", "")
         content = params.get("content", "")
         if not key or not content:
@@ -153,29 +176,33 @@ class MemoryTool(Tool):
         if source not in ("user_stated", "model_inferred"):
             source = "model_inferred"
 
-        entry = MemoryEntry(
-            type=mem_type, key=key, content=content,
-            tags=tags, importance=importance,
+        res = await self._service.add(
+            actor_ctx,
+            type=mem_type,
+            key=key,
+            content=content,
+            tags=tags,
+            importance=importance,
             source=source,
-            source_session=session_key if mem_type == MemoryType.USER else "",
         )
-        try:
-            result = self._store.add(entry)
-        except ValueError as exc:
-            return ToolResult(success=False, error=str(exc))
-        if result.content != entry.content:
-            # Provenance guard kept the existing higher-provenance content;
-            # do NOT claim we saved the new one.
+        if not res.ok:
+            return self._map_reject(res, "add", key)
+        stored = res.entry
+        if stored is not None and stored.content != content:
+            # 决策1(R1 保持既有行为):store 内部 _merge_locked 对同 key 冲突
+            # 保住高优先级旧内容并打 suspected_conflict——不谎称已写入新内容。
             return ToolResult(
                 success=True,
                 output=(
-                    f"Kept existing entry (higher provenance): [{result.type.value}] "
-                    f"{result.key} — conflict flagged for review"
+                    f"Kept existing entry (higher provenance): [{stored.type.value}] "
+                    f"{stored.key} — conflict flagged for review"
                 ),
             )
-        return ToolResult(success=True, output=f"Memory saved: [{result.type.value}] {result.key}")
+        return ToolResult(success=True, output=f"Memory saved: [{stored.type.value}] {stored.key}")
 
-    def _replace(self, params: dict[str, Any], mem_type: MemoryType, session_key: str) -> ToolResult:
+    async def _replace(
+        self, params: dict[str, Any], mem_type: MemoryType, session_key: str, actor_ctx: ActorContext
+    ) -> ToolResult:
         key = params.get("key", "")
         old_text = params.get("old_text", "")
         content = params.get("content", "")
@@ -191,13 +218,15 @@ class MemoryTool(Tool):
         if not entry:
             return ToolResult(success=False, error=f"No matching memory found for key='{key}' old_text='{old_text}'")
 
-        try:
-            self._store.update(entry.id, content=content, source=source)
-        except ValueError as exc:
-            return ToolResult(success=False, error=str(exc))
+        # provenance 守卫、ENV/scope 门禁、失效、审计全在 service.replace 内。
+        res = await self._service.replace(actor_ctx, entry.id, content=content, source=source)
+        if not res.ok:
+            return self._map_reject(res, "replace", entry.key)
         return ToolResult(success=True, output=f"Memory updated: [{entry.type.value}] {entry.key}")
 
-    def _remove(self, params: dict[str, Any], mem_type: MemoryType, session_key: str) -> ToolResult:
+    async def _remove(
+        self, params: dict[str, Any], mem_type: MemoryType, session_key: str, actor_ctx: ActorContext
+    ) -> ToolResult:
         key = params.get("key", "")
         old_text = params.get("old_text", "")
 
@@ -207,15 +236,44 @@ class MemoryTool(Tool):
         if not entry:
             return ToolResult(success=False, error=f"No matching memory found for key='{key}' old_text='{old_text}'")
 
-        self._store.delete(entry.id)
+        # provenance 守卫(据 model actor 的派生来源)、门禁、失效、审计全在 service.remove 内。
+        res = await self._service.remove(actor_ctx, entry.id)
+        if not res.ok:
+            return self._map_reject(res, "remove", entry.key)
         return ToolResult(success=True, output=f"Memory removed: [{entry.type.value}] {entry.key}")
+
+    @staticmethod
+    def _map_reject(res, op: str, key: str) -> ToolResult:
+        """WriteResult 拒绝原因 → ToolResult 错误文案。"""
+        reason = res.reason
+        if reason == "rejected_env":
+            return ToolResult(
+                success=False,
+                error="writing ENVIRONMENT or global-tagged memory is disabled "
+                      "(set memory.allow_model_environment_writes to enable)",
+            )
+        if reason == "rejected_provenance":
+            verb = {"replace": "overwrite", "remove": "remove"}.get(op, op)
+            return ToolResult(
+                success=False,
+                error=f"Cannot {verb} higher-provenance entry: {key}",
+            )
+        if reason == "rejected_scope":
+            return ToolResult(
+                success=False,
+                error=f"Cannot write memory without a resolved scope: {key}",
+            )
+        # invalid / 其他:内容校验失败或目标缺失。
+        return ToolResult(success=False, error=f"Memory {op} failed for '{key}' ({reason})")
 
     def _search(self, params: dict[str, Any], mem_type: MemoryType, session_key: str) -> ToolResult:
         query = params.get("query", "")
         if not query:
             return ToolResult(success=False, error="query is required for search")
 
-        results = self._store.search_scored(query, mem_type, limit=10, session_key=session_key)
+        results = self._store.search_scored(
+            query, mem_type, limit=10, session_key=session_key, audience=Audience.TOOL,
+        )
         if not results:
             return ToolResult(success=True, output="No matching memories found.")
 
@@ -228,7 +286,7 @@ class MemoryTool(Tool):
         return ToolResult(success=True, output="\n".join(lines))
 
     def _list(self, mem_type: MemoryType, session_key: str) -> ToolResult:
-        entries = self._store.list_all(mem_type, session_key=session_key)
+        entries = self._store.list_all(mem_type, session_key=session_key, audience=Audience.TOOL)
         if not entries:
             return ToolResult(success=True, output=f"No {mem_type.value} memories found.")
 
@@ -241,10 +299,15 @@ class MemoryTool(Tool):
             lines.append(f"... and {total - 50} more")
         return ToolResult(success=True, output="\n".join(lines))
 
-    async def _list_contradictions(self) -> ToolResult:
+    async def _list_contradictions(self, memory_scope: str = "") -> ToolResult:
         if self._contradiction_detector is None:
             return ToolResult(success=False, error="Contradiction detection is disabled.")
-        items = await self._contradiction_detector.get_unresolved(limit=20)
+        # 空 scope 不能写(见 _scope_gate 的 rejected_scope),同理不能看/裁决矛盾。
+        if not memory_scope:
+            return ToolResult(success=False, error="no memory scope in context")
+        items = await self._contradiction_detector.get_unresolved(
+            limit=20, memory_scope=memory_scope
+        )
         if not items:
             return ToolResult(success=True, output="No unresolved contradictions.")
         lines = [
@@ -253,19 +316,52 @@ class MemoryTool(Tool):
         ]
         return ToolResult(success=True, output="\n".join(lines))
 
-    async def _resolve_contradiction(self, params: dict[str, Any]) -> ToolResult:
+    async def _resolve_contradiction(self, params: dict[str, Any], session_key: str = "") -> ToolResult:
         if self._contradiction_detector is None:
             return ToolResult(success=False, error="Contradiction detection is disabled.")
+        # 空 scope 直接拒绝(与 _scope_gate 的 rejected_scope 一致:不能写就不能裁决)。
+        if not session_key:
+            return ToolResult(success=False, error="no memory scope in context")
         cid = params.get("contradiction_id", "")
         winner_id = params.get("winner_id", "")
         if not cid or not winner_id:
             return ToolResult(success=False, error="contradiction_id and winner_id are required")
-        unresolved = {c.id: c for c in await self._contradiction_detector.get_unresolved(limit=100)}
+        unresolved = {
+            c.id: c
+            for c in await self._contradiction_detector.get_unresolved(
+                limit=100, memory_scope=session_key
+            )
+        }
         c = unresolved.get(cid)
         if c is None:
             return ToolResult(success=False, error=f"No unresolved contradiction '{cid}'")
+        # 边界鉴权:两端条目必须都对调用方 scope 可见才允许裁决。不能依赖
+        # detector.resolve() 内部的 ActorContext——那个 ctx 用的是败者自己的 scope
+        # (contradiction.py 构造 loser scope),等于自我放行,鉴权必须在工具边界完成。
+        store = getattr(self._contradiction_detector, "_store", None)
+        if store is not None:
+            a = store.get(c.memory_id_a)
+            b = store.get(c.memory_id_b)
+            if (
+                a is None or b is None
+                or not store.is_visible_in_session(a, session_key)
+                or not store.is_visible_in_session(b, session_key)
+            ):
+                return ToolResult(success=False, error="contradiction not in your scope")
         if winner_id not in (c.memory_id_a, c.memory_id_b):
             return ToolResult(success=False, error="winner_id must be memory_id_a or memory_id_b")
         resolution = "a_wins" if winner_id == c.memory_id_a else "b_wins"
-        await self._contradiction_detector.resolve(cid, resolution, winner_id=winner_id)
+        ok = await self._contradiction_detector.resolve(cid, resolution, winner_id=winner_id)
+        if not ok:
+            return ToolResult(
+                success=False,
+                error="resolution failed, contradiction stays open — retry later",
+            )
+        # 装配 service 的 detector,其 resolve 已走 detector→service.mark_superseded→
+        # _finalize 完成失效(八步写序内),工具不得再显式 invalidate 二次失效。
+        # 仅当 detector 未装配 service(裸 store 兜底路径)时,mark_superseded 直连
+        # store 不触发失效,才由工具补一次全局失效——否则冻结快照/预取跨轮继续
+        # 注入已被取代的败者条目。裁决全局可见,故兜底失效用全局。
+        if getattr(self._contradiction_detector, "_service", None) is None:
+            await self._service.invalidate(session_key, global_scope=True)
         return ToolResult(success=True, output=f"Resolved {cid}: {resolution}")

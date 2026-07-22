@@ -280,6 +280,7 @@ __all__ = (
     "HarnessToolResultBlockStartTypeDef",
     "HarnessToolResultBlockTypeDef",
     "HarnessToolResultContentBlockTypeDef",
+    "HarnessToolResultMetadataBlockDeltaTypeDef",
     "HarnessToolTypeDef",
     "HarnessToolUseBlockDeltaTypeDef",
     "HarnessToolUseBlockStartTypeDef",
@@ -1113,6 +1114,10 @@ class HarnessToolResultBlockDeltaTypeDef(TypedDict):
     json: NotRequired[dict[str, Any]]
 
 
+class HarnessToolResultMetadataBlockDeltaTypeDef(TypedDict):
+    metadata: str
+
+
 HarnessToolUseBlockDeltaTypeDef = TypedDict(
     "HarnessToolUseBlockDeltaTypeDef",
     {
@@ -1168,6 +1173,7 @@ class HarnessGeminiModelConfigTypeDef(TypedDict):
     temperature: NotRequired[float]
     topP: NotRequired[float]
     topK: NotRequired[int]
+    additionalParams: NotRequired[Mapping[str, Any]]
 
 
 class HarnessInlineFunctionConfigTypeDef(TypedDict):
@@ -1756,6 +1762,8 @@ class InvokeAgentRuntimeRequestTypeDef(TypedDict):
     mcpSessionId: NotRequired[str]
     runtimeSessionId: NotRequired[str]
     mcpProtocolVersion: NotRequired[str]
+    mcpMethod: NotRequired[str]
+    mcpName: NotRequired[str]
     runtimeUserId: NotRequired[str]
     traceId: NotRequired[str]
     traceParent: NotRequired[str]
@@ -1980,6 +1988,7 @@ class HarnessContentBlockDeltaTypeDef(TypedDict):
     toolUse: NotRequired[HarnessToolUseBlockDeltaTypeDef]
     toolResult: NotRequired[list[HarnessToolResultBlockDeltaTypeDef]]
     reasoningContent: NotRequired[HarnessReasoningContentBlockDeltaTypeDef]
+    toolResultMetadata: NotRequired[HarnessToolResultMetadataBlockDeltaTypeDef]
 
 
 class HarnessContentBlockStartTypeDef(TypedDict):
@@ -3142,6 +3151,10 @@ class InvokeHarnessRequestTypeDef(TypedDict):
     messages: Sequence[HarnessMessageTypeDef]
     qualifier: NotRequired[str]
     runtimeUserId: NotRequired[str]
+    traceParent: NotRequired[str]
+    traceState: NotRequired[str]
+    traceId: NotRequired[str]
+    baggage: NotRequired[str]
     model: NotRequired[HarnessModelConfigurationTypeDef]
     systemPrompt: NotRequired[Sequence[HarnessSystemContentBlockTypeDef]]
     tools: NotRequired[Sequence[HarnessToolTypeDef]]

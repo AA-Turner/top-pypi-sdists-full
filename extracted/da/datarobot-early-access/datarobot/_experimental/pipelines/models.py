@@ -20,7 +20,8 @@ from datarobot._compat import String
 from datarobot._experimental.pipelines.enums import PipelineMode, PipelineVersionStatus
 from datarobot.enums import enum_to_list
 from datarobot.models.api_object import APIObject
-from datarobot.utils import rawdict
+from datarobot.utils import from_api, rawdict
+from datarobot.utils.pagination import unpaginate
 
 TPipeline = TypeVar("TPipeline", bound="Pipeline")
 
@@ -336,30 +337,22 @@ class Pipeline(APIObject):
     def list(
         cls: Type[TPipeline],
         mode: Optional[PipelineMode] = None,
-        offset: int = 0,
-        limit: int = 50,
     ) -> List[TPipeline]:
         """List all pipelines.
+
+        Transparently follows pagination and returns the complete result set.
 
         Parameters
         ----------
         mode : str, optional
             Filter by mode ('draft' or 'locked').
-        offset : int, optional
-            Pagination offset. Default 0.
-        limit : int, optional
-            Maximum number of results. Default 50.
 
         Returns
         -------
         pipelines : list of Pipeline
         """
-        params: Dict[str, Union[int, str]] = {"offset": offset, "limit": limit}
-        if mode is not None:
-            params["mode"] = mode
-        response = cls._client.get(cls._path, params=params)
-        data = response.json()
-        return [cls.from_server_data(item) for item in data.get("data", [])]
+        params: Optional[Dict[str, Union[int, str]]] = {"mode": mode} if mode is not None else None
+        return [cls.from_server_data(item) for item in unpaginate(cls._path, params, cls._client)]
 
     @classmethod
     def get(cls: Type[TPipeline], pipeline_id: str) -> TPipeline:
@@ -463,27 +456,21 @@ class Pipeline(APIObject):
         self.__dict__.update(updated.__dict__)
         return self
 
-    def list_versions(
-        self,
-        offset: int = 0,
-        limit: int = 50,
-    ) -> List[PipelineVersion]:
+    def list_versions(self) -> List[PipelineVersion]:
         """List all versions of this pipeline.
 
-        Parameters
-        ----------
-        offset : int, optional
-            Pagination offset. Default 0.
-        limit : int, optional
-            Maximum number of results. Default 50.
+        Transparently follows pagination and returns the complete result set.
 
         Returns
         -------
         versions : list of PipelineVersion
         """
-        params: Dict[str, int] = {"offset": offset, "limit": limit}
-        response = self._client.get(f"{self._path}{self.pipeline_id}/versions/", params=params)
-        return [PipelineVersion(**v) for v in response.json().get("data", [])]
+        # PipelineVersion is a plain class (not an APIObject), so run each raw
+        # (camelCase) row through from_api() to snake_case the keys before
+        # constructing it -- otherwise its __init__ swallows the wire keys into
+        # **kwargs and every attribute silently comes back None.
+        path = f"{self._path}{self.pipeline_id}/versions/"
+        return [PipelineVersion(**cast(Dict[str, Any], from_api(v))) for v in unpaginate(path, None, self._client)]
 
     def get_version(self, version_id: int) -> PipelineVersion:
         """Get a specific version of this pipeline.
@@ -498,7 +485,7 @@ class Pipeline(APIObject):
         version : PipelineVersion
         """
         response = self._client.get(f"{self._path}{self.pipeline_id}/versions/{version_id}/")
-        return PipelineVersion(**response.json())
+        return PipelineVersion(**cast(Dict[str, Any], from_api(response.json())))
 
     def get_graph(self) -> Dict[str, Any]:
         """Get the DAG of the draft pipeline.

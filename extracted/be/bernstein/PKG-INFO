@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bernstein
-Version: 3.8.1
+Version: 3.8.2
 Summary: Deterministic, verifiable orchestration for CLI coding agents (Claude Code, Codex, Gemini CLI, and 40+ more): reproducible parallel runs in git worktrees, always-on lineage and replay journal, opt-in HMAC-chained audit log, air-gap install profile.
 Project-URL: Homepage, https://bernstein.run
 Project-URL: Documentation, https://bernstein.readthedocs.io

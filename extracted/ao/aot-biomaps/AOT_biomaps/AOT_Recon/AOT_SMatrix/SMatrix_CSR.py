@@ -19,6 +19,7 @@ from AOT_biomaps.AOT_Recon.ReconTools import check_gpu_available
 # Check for CuPy availability
 try:
     import cupy as cp
+    import cupyx
     CUPY_AVAILABLE = True
 except ImportError:
     cp = None
@@ -79,12 +80,13 @@ class SMatrix_CSR(SMatrix):
         for b in trange(0, num_rows, br, desc=f'[AOT-biomaps] Filling CSR (GPU - {"Complex" if self.isComplexSMatrix else "Real"})'):
             current_rows = min(br, num_rows - b)
 
-            # Extract dense block from CPU experiment or demodulated_fields
+            sorted_keys = sorted(list(self.experiment.AcousticFields_demodulated.keys()))
+
             for r in range(current_rows):
                 global_row = b + r
                 if self.isComplexSMatrix:
                     n_idx = global_row // self.T
-                    key = list(self.experiment.AcousticFields_demodulated.keys())[n_idx]
+                    key = sorted_keys[n_idx]
                     dense_block_host[r] = self.experiment.AcousticFields_demodulated[key][global_row % self.T].flatten()
                 else:
                     n_idx = global_row // self.T
@@ -360,3 +362,46 @@ class SMatrix_CSR(SMatrix):
         if CUPY_AVAILABLE:
             cp._default_memory_pool.free_all_blocks()
             cp.cuda.Stream.null.synchronize()
+        
+    def compute_hessian_diagonal(self):
+        """
+        Compute diag(A^H A).
+        """
+        ZX = self.Z * self.X
+
+        if check_gpu_available(self):
+            diag = cp.zeros(ZX, dtype=cp.float32)
+            cupyx.scatter_add(diag, self.col_ind_gpu.astype(cp.int32), cp.abs(self.values_gpu) ** 2)
+            return diag
+
+        else:
+            diag = np.zeros(ZX, dtype=np.float32)
+            np.add.at(diag, self.h_col_ind.astype(np.int64), np.abs(self.h_values) ** 2)
+            return diag
+        
+    def normalize_matrix(self):
+        """
+        Normalizes the CSR matrix by its maximum absolute value.
+        Restores the system conditioning for Primal-Dual solvers.
+        """
+        max_val = 0.0
+        
+        if check_gpu_available(self) and self.values_gpu is not None:
+            max_val = float(cp.max(cp.abs(self.values_gpu)))
+            if max_val > 0:
+                self.values_gpu /= max_val
+                # Check for the existence of the CPU cache (which is sometimes deleted in _allocate_gpu)
+                if getattr(self, 'h_values', None) is not None:
+                    self.h_values /= max_val
+        elif getattr(self, 'h_values', None) is not None:
+            max_val = float(np.max(np.abs(self.h_values)))
+            if max_val > 0:
+                self.h_values /= max_val
+        else:
+            warnings.warn("[AOT-biomaps] CSR Matrix not allocated, normalization impossible.")
+            return
+
+        print(f"[AOT-biomaps] CSR Matrix normalized (Original absolute max: {max_val:.2e})")
+        
+        # Critical update of the normalization factors (preconditioners)
+        self.compute_norm_factor()

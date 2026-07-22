@@ -6,12 +6,13 @@ import asyncio
 import json as _json
 import logging
 import os
+import random
 import re
 import threading
 import time
 import warnings
-from collections.abc import Callable
-from typing import Any
+from collections.abc import Awaitable, Callable
+from typing import Any, TypeVar
 from urllib.parse import urlparse
 
 import httpx
@@ -26,7 +27,8 @@ from .api.edit.edit import asyncio as _edit_async
 from .api.edit.edit import sync as _edit_sync
 from .api.status.get_status import asyncio as _status_async
 from .api.status.get_status import sync as _status_sync
-from .models import BashRequest, ComputerRequest, EditRequest, StatusResponse, ToolResult
+from .errors import APIError, raise_for_status
+from .models import Action, BashRequest, ComputerRequest, EditRequest, StatusResponse, ToolResult
 
 logger = logging.getLogger(__name__)
 
@@ -39,42 +41,59 @@ DESKTOP_AGENT_PORT = 9000
 # (Host rewrite -> localhost:9225) — one port, one connection path for both.
 CDP_PORT = 9224
 
-# Pattern: https://{job_id}--{port}.sims.plato.so or https://{job_id}.sims.plato.so
-_JOB_ID_RE = re.compile(r"https?://([a-f0-9-]+?)(?:--\d+)?\..*sims\.plato\.so")
+# Pattern: https://{job_id}--{port}.{gateway} where {gateway} is a connect
+# gateway (connect.plato.so, amazon.connect.plato.so, ...) or a sims gateway
+# (sims.plato.so, amazon.sims.plato.so, ...).
+_JOB_ID_RE = re.compile(r"https?://([a-f0-9-]+?)(?:--\d+)?\..*(?:connect|sims)\.plato\.so")
 
 
-def _base_url_from_job_id(job_id: str, port: int = DESKTOP_AGENT_PORT, gateway_host: str = "sims.plato.so") -> str:
-    """Build a sims base URL from a job ID and port for the given gateway host.
+def _playwright_cdp_headers(headers: dict[str, str]) -> dict[str, str] | None:
+    """Return routing headers in the shape expected by Playwright.
 
-    ``gateway_host`` defaults to the prod ``sims.plato.so`` gateway. Pass a
-    per-deployment host (e.g. ``testing.sims.plato.so``) to target another
-    deployment — see :func:`_deployment_sims_gateway`.
+    Playwright 1.57 serializes non-empty header mappings to its wire-format
+    array, but forwards an explicitly supplied empty mapping as an object. Its
+    Node driver then rejects that payload with ``headers: expected array, got
+    object``. Direct connect gateways do not need routing cookies, so represent
+    that case as ``None`` and let Playwright omit the protocol field entirely.
+    """
+    return headers or None
+
+
+def _base_url_from_job_id(job_id: str, port: int = DESKTOP_AGENT_PORT, gateway_host: str = "connect.plato.so") -> str:
+    """Build a desktop-agent base URL from a job ID and port for the given gateway host.
+
+    ``gateway_host`` defaults to the prod ``connect.plato.so`` gateway. Pass a
+    per-deployment host (e.g. ``amazon.connect.plato.so``) to target another
+    deployment — see :func:`_deployment_connect_gateway` — or a sims gateway
+    (``sims.plato.so``) to use the legacy redirect/cookie routing.
     """
     return f"https://{job_id}--{port}.{gateway_host}"
 
 
 def _extract_job_id(base_url: str) -> str:
-    """Extract the job ID from a sims.plato.so base URL."""
+    """Extract the job ID from a connect/sims gateway base URL."""
     m = _JOB_ID_RE.match(base_url)
     if m:
         return m.group(1)
     raise ValueError(
         f"Cannot extract job_id from base_url '{base_url}'. "
-        "Expected format: https://{{job_id}}--{{port}}.sims.plato.so"
+        "Expected format: https://{{job_id}}--{{port}}.connect.plato.so "
+        "(or a sims gateway host)"
     )
 
 
 def _gateway_from_base_url(base_url: str) -> str:
-    """Return the sims gateway host embedded in a ``{job}--{port}.{gateway}`` URL.
+    """Return the gateway host embedded in a ``{job}--{port}.{gateway}`` URL.
 
-    Preserves whatever deployment gateway the client's base URL already targets
-    (prod ``sims.plato.so`` or a per-deployment host like ``testing.sims.plato.so``)
-    so CDP/liveview URLs follow the same deployment. Falls back to prod when the
+    Preserves whatever gateway the client's base URL already targets — the
+    connect gateway (prod ``connect.plato.so`` or per-deployment hosts like
+    ``amazon.connect.plato.so``) or a legacy sims gateway — so CDP/liveview
+    URLs follow the same path. Falls back to the prod connect gateway when the
     host can't be parsed.
     """
     host = urlparse(base_url).hostname or ""
     _, _, gateway = host.partition(".")  # strip the "{job}--{port}" first label
-    return gateway or "sims.plato.so"
+    return gateway or "connect.plato.so"
 
 
 def _deployment_sims_gateway(api_base_url: str | None) -> str:
@@ -92,6 +111,36 @@ def _deployment_sims_gateway(api_base_url: str | None) -> str:
     if domain:
         return f"{subdomain}.sims.{domain}"
     return "sims.plato.so"
+
+
+def _job_id_or_none(base_url: str) -> str | None:
+    """Best-effort job-id extraction: ``None`` when *base_url* has no job hostname."""
+    try:
+        return _extract_job_id(base_url)
+    except ValueError:
+        return None
+
+
+def _deployment_connect_gateway(api_base_url: str | None) -> str:
+    """Map an API base URL (PLATO_BASE_URL) to its connect gateway host.
+
+    ``https://plato.so`` -> ``connect.plato.so``;
+    ``https://amazon.plato.so`` -> ``amazon.connect.plato.so``. Defaults to
+    prod ``connect.plato.so`` when the deployment can't be determined.
+
+    The connect gateway routes ``{job}--{port}`` hostnames directly to the VM
+    (no redirect/cookie dance, no web-router ALB with its 60s idle timeout —
+    which 504'd long-running computer-use actions on the sims path). The sims
+    gateway (:func:`_deployment_sims_gateway`) remains supported for
+    explicitly-passed base URLs.
+    """
+    hostname = urlparse(api_base_url or os.getenv("PLATO_BASE_URL", "https://plato.so")).hostname
+    if not hostname or hostname == "plato.so" or hostname == "localhost" or hostname.startswith("127."):
+        return "connect.plato.so"
+    subdomain, _, domain = hostname.partition(".")
+    if domain:
+        return f"{subdomain}.connect.{domain}"
+    return "connect.plato.so"
 
 
 def _api_base_url_from_environment(environment: Any) -> str | None:
@@ -140,6 +189,61 @@ def _get_env_config() -> tuple[str | None, dict[str, str]]:
 # setup is negligible for this low-rate, plain-HTTP-over-mesh workload, and
 # pooling bought nothing across the long idle gaps anyway.
 _NO_KEEPALIVE = httpx.Limits(max_keepalive_connections=0)
+
+# -- Retry policy --------------------------------------------------------------
+#
+# The clients accept ``max_retries``/``retry_on_status`` and the endpoint
+# wrappers (``status``/``bash``/``edit``/``computer``) honor them: transient
+# gateway errors (e.g. 502s from the sims proxy while the in-guest desktop
+# agent is still booting — Windows/QEMU guests take ~40s+ after job assignment
+# before the agent serves HTTP) and transient transport errors are retried
+# with exponential backoff + jitter instead of propagating on first failure.
+
+_T = TypeVar("_T")
+
+_RETRY_BACKOFF_BASE = 0.5
+_RETRY_BACKOFF_CAP = 8.0
+
+# Transport errors worth retrying: the connection never got established, the
+# read was cut short, or the server closed an idle-looking connection mid-use.
+_RETRYABLE_TRANSPORT_ERRORS = (httpx.ConnectError, httpx.ReadError, httpx.RemoteProtocolError)
+
+# /computer actions that are read-only and therefore safe to re-issue after
+# *any* failure, including an HTTP error response. Every other action injects
+# input (typing, key chords, clicks, drags, scrolls) or otherwise mutates
+# desktop state: a 502/504 from the sims gateway means the action may already
+# have executed inside the guest, so re-sending it could double-type text or
+# double-click. Those actions only retry pure connect-phase errors, where the
+# request never left the client (see ``_should_retry``).
+_READ_ONLY_COMPUTER_ACTIONS = frozenset({Action.screenshot, Action.cursor_position})
+
+# Gateway statuses that mean "the guest agent isn't serving HTTP yet" while a
+# VM boots — treated as still-booting by ``wait_for_desktop_ready``.
+_BOOTING_STATUS_CODES = (502, 503, 504)
+
+
+def _retry_backoff_delay(attempt: int) -> float:
+    """Exponential backoff with jitter: 0.5s base doubling per attempt, capped at 8s."""
+    cap = min(_RETRY_BACKOFF_CAP, _RETRY_BACKOFF_BASE * (2**attempt))
+    return random.uniform(cap / 2, cap)
+
+
+def _should_retry(exc: Exception, retry_on_status: tuple[int, ...], idempotent: bool) -> bool:
+    """Decide whether a failed endpoint call may be re-issued.
+
+    Idempotent calls retry on any :class:`APIError` whose status is in
+    *retry_on_status* and on transient transport errors. Non-idempotent calls
+    (input-injecting ``/computer`` actions) only retry connect-phase transport
+    errors — an HTTP error response or a mid-request transport failure means
+    the request reached (or may have reached) the server, so the action may
+    already have executed.
+    """
+    if not idempotent:
+        return isinstance(exc, httpx.ConnectError)
+    if isinstance(exc, APIError):
+        return exc.status_code in retry_on_status
+    return isinstance(exc, _RETRYABLE_TRANSPORT_ERRORS)
+
 
 # Best-effort startup command that disables the XFCE screensaver on ubuntu
 # desktops. The Xvfb ``xfce4-screensaver`` daemon blanks the framebuffer to
@@ -348,6 +452,8 @@ class Client:
         on_response: Callable[[httpx.Response], None] | None = None,
         provider: str | None = None,
         cdp_port: int | None = None,
+        *,
+        job_id: str | None = None,
         **kwargs: Any,
     ):
         """Initialize the HTTP client.
@@ -360,6 +466,9 @@ class Client:
             retry_on_status: HTTP status codes that trigger a retry
             on_request: Hook called before each request
             on_response: Hook called after each response
+            job_id: Job ID backing this client, when known. Used for sibling
+                ``{job}--{port}`` URL building (liveview, CDP); extracted from
+                ``base_url`` when omitted.
             **kwargs: Additional arguments passed to httpx.Client
         """
         self._base_url = base_url.rstrip("/")
@@ -369,6 +478,14 @@ class Client:
         self._retry_on_status = retry_on_status
         self._provider = provider
         self._cdp_port = cdp_port if cdp_port is not None else CDP_PORT
+        # Sibling {job}--{port} URLs (liveview, CDP) must derive from the
+        # ORIGINAL job hostname: the legacy sims cookie dance rebases the
+        # underlying httpx client to a per-sim ``*.web.plato.so`` host from
+        # which the job id cannot be regex-recovered. ``_base_url`` keeps the
+        # original host, but storing the id at construction makes sibling-URL
+        # building independent of URL re-parsing (and lets callers with an
+        # opaque base_url pass ``job_id`` explicitly).
+        self._job_id = job_id if job_id is not None else _job_id_or_none(self._base_url)
         self._closed = False
 
         event_hooks: dict[str, list[Callable]] = {"request": [], "response": []}
@@ -393,6 +510,15 @@ class Client:
 
     def _resolve_cdp_port(self, port: int | None) -> int:
         return self._cdp_port if port is None else port
+
+    def _sibling_job_id(self) -> str:
+        """Job id for sibling ``{job}--{port}`` URL building (liveview, CDP).
+
+        Prefers the job id captured at construction; falls back to regex
+        extraction from the base URL for URL-only construction, raising the
+        same ``ValueError`` as before when neither is available.
+        """
+        return self._job_id if self._job_id is not None else _extract_job_id(self._base_url)
 
     def _is_qemu(self) -> bool:
         return self._provider == "qemu"
@@ -419,7 +545,13 @@ class Client:
         self._screensaver_task.start()
 
     def _ensure_init(self) -> None:
-        """Complete the sims proxy redirect/cookie dance on first use.
+        """Latch first-use init; complete the sims redirect/cookie dance if needed.
+
+        On the (default) connect gateway the first ``/status`` probe answers
+        directly with a 2xx — no redirect — so this just latches
+        ``_initialized`` and fires the screensaver kick. The redirect handling
+        below is the legacy sims-gateway fallback for explicitly-passed sims
+        base URLs.
 
         The sims proxy has two routing modes:
 
@@ -441,8 +573,16 @@ class Client:
 
         response = self._client.request(method="GET", url="/status")
         if response.status_code not in (301, 302, 307, 308):
-            self._initialized = True
-            self._kick_screensaver()
+            if response.is_success:
+                self._initialized = True
+                self._kick_screensaver()
+                return
+            # Non-redirect error (e.g. 502 while the guest agent is still
+            # booting): do NOT latch initialization — the redirect/cookie
+            # dance hasn't happened yet, and latching here would skip it
+            # forever once the agent comes up. Raise instead so the retry
+            # wrappers / wait_for_desktop_ready re-probe from scratch.
+            raise_for_status(response)
             return
 
         location = response.headers.get("location", "")
@@ -490,16 +630,49 @@ class Client:
         """HTTP status codes that trigger a retry."""
         return self._retry_on_status
 
+    def _call_with_retries(self, call: Callable[[], _T], idempotent: bool = True) -> _T:
+        """Run *call*, retrying up to ``max_retries`` times per the retry policy.
+
+        Retries with exponential backoff + jitter on ``APIError`` statuses in
+        ``retry_on_status`` and on transient transport errors; non-idempotent
+        calls only retry connect-phase errors (see :func:`_should_retry`).
+        """
+        for attempt in range(self._max_retries + 1):
+            try:
+                return call()
+            except (APIError, httpx.HTTPError) as exc:
+                if attempt >= self._max_retries or not _should_retry(exc, self._retry_on_status, idempotent):
+                    raise
+                delay = _retry_backoff_delay(attempt)
+                logger.debug(
+                    "Retrying after %r (attempt %d/%d, backing off %.2fs)",
+                    exc,
+                    attempt + 1,
+                    self._max_retries,
+                    delay,
+                )
+                time.sleep(delay)
+        raise RuntimeError("unreachable")  # pragma: no cover
+
+    def _request_with_retries(self, send: Callable[[], _T], idempotent: bool = True) -> _T:
+        """Init dance + endpoint call, each under the retry policy.
+
+        The init probe is retried independently of *send* so that even a
+        non-idempotent action gets a resilient init: the probe is a plain GET
+        that is always safe to re-issue.
+        """
+        self._call_with_retries(self._ensure_init)
+        return self._call_with_retries(send, idempotent=idempotent)
+
     def get_liveview_url(self) -> str:
         """Get the noVNC liveview URL for this VM."""
-        job_id = _extract_job_id(self._base_url)
+        job_id = self._sibling_job_id()
         gateway = _gateway_from_base_url(self._base_url)
         return f"https://{job_id}--{LIVEVIEW_PORT}.{gateway}?resize=scale&autoconnect=true"
 
     def bash(self, body: BashRequest) -> ToolResult:
         """Execute a shell command."""
-        self._ensure_init()
-        return _bash_sync(self._client, body=body)
+        return self._request_with_retries(lambda: _bash_sync(self._client, body=body))
 
     def _try_bash(self, command: str) -> ToolResult | None:
         """Run *command* over /bash, returning ``None`` on any transport error.
@@ -518,19 +691,64 @@ class Client:
             return None
 
     def computer(self, body: ComputerRequest) -> ToolResult:
-        """Execute computer actions (mouse, keyboard, screenshot)."""
-        self._ensure_init()
-        return _computer_sync(self._client, body=body)
+        """Execute computer actions (mouse, keyboard, screenshot).
+
+        Read-only actions (screenshot, cursor_position) retry on transient
+        gateway errors like every other endpoint; input-injecting actions only
+        retry connect-phase failures because the action may already have
+        executed in the guest (see :data:`_READ_ONLY_COMPUTER_ACTIONS`).
+        """
+        return self._request_with_retries(
+            lambda: _computer_sync(self._client, body=body),
+            idempotent=body.action in _READ_ONLY_COMPUTER_ACTIONS,
+        )
 
     def edit(self, body: EditRequest) -> ToolResult:
         """File operations (view, create, str_replace, insert, undo_edit)."""
-        self._ensure_init()
-        return _edit_sync(self._client, body=body)
+        return self._request_with_retries(lambda: _edit_sync(self._client, body=body))
 
     def status(self) -> StatusResponse:
         """Health check and display info."""
-        self._ensure_init()
-        return _status_sync(self._client)
+        return self._request_with_retries(lambda: _status_sync(self._client))
+
+    def wait_for_desktop_ready(self, timeout: float = 180.0, interval: float = 2.0) -> StatusResponse:
+        """Poll ``/status`` until the in-guest desktop agent serves HTTP.
+
+        Session-level ``wait_for_ready`` only asserts the job is RUNNING with
+        a worker IP; Windows/QEMU guests take ~40s+ after that before the
+        desktop agent answers HTTP, during which the sims gateway returns 502.
+        This polls single-shot (no per-attempt retry stacking): 502/503/504
+        and transient transport errors count as "still booting", any other
+        error propagates immediately.
+
+        Args:
+            timeout: Maximum seconds to wait for a successful ``/status``.
+            interval: Seconds between polls.
+
+        Returns:
+            The first successful :class:`StatusResponse`.
+
+        Raises:
+            TimeoutError: If the agent is not serving by the deadline; the
+                message includes the last error seen.
+        """
+        deadline = time.monotonic() + timeout
+        last_error: Exception | None = None
+        while True:
+            try:
+                self._ensure_init()
+                return _status_sync(self._client)
+            except APIError as exc:
+                if exc.status_code not in _BOOTING_STATUS_CODES:
+                    raise
+                last_error = exc
+            except _RETRYABLE_TRANSPORT_ERRORS as exc:
+                last_error = exc
+            if time.monotonic() >= deadline:
+                raise TimeoutError(
+                    f"Desktop agent not ready after {timeout:.0f}s; last error: {last_error!r}"
+                ) from last_error
+            time.sleep(interval)
 
     def set_timezone_offset(self, utc_offset: int, timeout: int = 30) -> ToolResult:
         """Pin the VM clock to a whole-hour UTC offset.
@@ -560,7 +778,7 @@ class Client:
     def get_cdp_url(self, port: int | None = None) -> str:
         """Return the sims proxy URL for the Chrome CDP port."""
         port = self._resolve_cdp_port(port)
-        job_id = _extract_job_id(self._base_url)
+        job_id = self._sibling_job_id()
         gateway = _gateway_from_base_url(self._base_url)
         return f"https://{job_id}--{port}.{gateway}"
 
@@ -861,14 +1079,24 @@ class Client:
         from plato._generated.models import Flow
         from plato.v2.sync.flow_executor import FlowExecutor
 
+        # Windows/QEMU guests can take ~40s+ after job assignment before the
+        # in-guest desktop agent serves HTTP; going straight to Chrome CDP
+        # would hit gateway 502s. Wait for the agent first.
+        self.wait_for_desktop_ready()
         self.ensure_chrome_cdp(cdp_port)
         ws_url, cdp_headers = self.prepare_cdp_connection(cdp_port)
-        logger.info("Connecting Playwright to CDP: %s", ws_url)
+        playwright_headers = _playwright_cdp_headers(cdp_headers)
+        logger.debug(
+            "Connecting Playwright to CDP: %s (routing_header_names=%s headers_argument=%s)",
+            ws_url,
+            sorted(cdp_headers),
+            "provided" if playwright_headers is not None else "omitted",
+        )
 
         pages_logged_in: list[str] = []
 
         with sync_playwright() as pw:
-            browser = pw.chromium.connect_over_cdp(ws_url, headers=cdp_headers)
+            browser = pw.chromium.connect_over_cdp(ws_url, headers=playwright_headers)
             default_context = browser.contexts[0]
             logger.info(
                 "Connected – %d existing page(s): %s",
@@ -886,7 +1114,7 @@ class Client:
                 first_page = default_context.new_page()
                 first_page.goto("about:blank")
 
-            my_job_id = _extract_job_id(self._base_url)
+            my_job_id = self._sibling_job_id()
             login_count = 0
             for env in session.envs:
                 if not getattr(env, "artifact_id", None):
@@ -1070,9 +1298,9 @@ class Client:
             **kwargs: Additional arguments passed to Client.__init__
         """
         provider = getattr(environment, "provider", None)
-        gateway = _deployment_sims_gateway(_api_base_url_from_environment(environment))
+        gateway = _deployment_connect_gateway(_api_base_url_from_environment(environment))
         base_url = _base_url_from_job_id(environment.job_id, gateway_host=gateway)
-        return cls(base_url=base_url, provider=provider, **kwargs)
+        return cls(base_url=base_url, provider=provider, job_id=environment.job_id, **kwargs)
 
 
 class AsyncClient:
@@ -1089,9 +1317,16 @@ class AsyncClient:
         on_response: Callable[[httpx.Response], None] | None = None,
         provider: str | None = None,
         cdp_port: int | None = None,
+        *,
+        job_id: str | None = None,
         **kwargs: Any,
     ):
-        """Initialize the async HTTP client."""
+        """Initialize the async HTTP client.
+
+        See :meth:`Client.__init__` — ``job_id`` is stored for sibling
+        ``{job}--{port}`` URL building and extracted from ``base_url`` when
+        omitted.
+        """
         self._base_url = base_url.rstrip("/")
         # Always include Accept header for JSON APIs
         self._headers = {"Accept": "application/json", **(headers or {})}
@@ -1099,6 +1334,9 @@ class AsyncClient:
         self._retry_on_status = retry_on_status
         self._provider = provider
         self._cdp_port = cdp_port if cdp_port is not None else CDP_PORT
+        # See Client.__init__: stored so sibling-URL building survives the
+        # legacy sims cookie dance and works with an explicit job_id.
+        self._job_id = job_id if job_id is not None else _job_id_or_none(self._base_url)
         self._closed = False
 
         event_hooks: dict[str, list[Callable]] = {"request": [], "response": []}
@@ -1123,6 +1361,15 @@ class AsyncClient:
 
     def _resolve_cdp_port(self, port: int | None) -> int:
         return self._cdp_port if port is None else port
+
+    def _sibling_job_id(self) -> str:
+        """Job id for sibling ``{job}--{port}`` URL building (liveview, CDP).
+
+        Prefers the job id captured at construction; falls back to regex
+        extraction from the base URL for URL-only construction, raising the
+        same ``ValueError`` as before when neither is available.
+        """
+        return self._job_id if self._job_id is not None else _extract_job_id(self._base_url)
 
     def _is_qemu(self) -> bool:
         return self._provider == "qemu"
@@ -1150,17 +1397,23 @@ class AsyncClient:
             logger.debug("no running loop; skipping screensaver disable")
 
     async def _ensure_init(self) -> None:
-        """Complete the sims proxy redirect/cookie dance on first use.
+        """Latch first-use init; complete the sims redirect/cookie dance if needed.
 
-        See :meth:`Client._ensure_init` for details.
+        See :meth:`Client._ensure_init` for details — on the default connect
+        gateway the first ``/status`` answers directly and no dance occurs.
         """
         if self._initialized:
             return
 
         response = await self._client.request(method="GET", url="/status")
         if response.status_code not in (301, 302, 307, 308):
-            self._initialized = True
-            self._kick_screensaver()
+            if response.is_success:
+                self._initialized = True
+                self._kick_screensaver()
+                return
+            # See Client._ensure_init: don't latch init on a booting-guest
+            # error response, or the redirect/cookie dance is skipped forever.
+            raise_for_status(response)
             return
 
         location = response.headers.get("location", "")
@@ -1208,16 +1461,39 @@ class AsyncClient:
         """HTTP status codes that trigger a retry."""
         return self._retry_on_status
 
+    async def _call_with_retries(self, call: Callable[[], Awaitable[_T]], idempotent: bool = True) -> _T:
+        """Async version of :meth:`Client._call_with_retries`."""
+        for attempt in range(self._max_retries + 1):
+            try:
+                return await call()
+            except (APIError, httpx.HTTPError) as exc:
+                if attempt >= self._max_retries or not _should_retry(exc, self._retry_on_status, idempotent):
+                    raise
+                delay = _retry_backoff_delay(attempt)
+                logger.debug(
+                    "Retrying after %r (attempt %d/%d, backing off %.2fs)",
+                    exc,
+                    attempt + 1,
+                    self._max_retries,
+                    delay,
+                )
+                await asyncio.sleep(delay)
+        raise RuntimeError("unreachable")  # pragma: no cover
+
+    async def _request_with_retries(self, send: Callable[[], Awaitable[_T]], idempotent: bool = True) -> _T:
+        """Async version of :meth:`Client._request_with_retries`."""
+        await self._call_with_retries(self._ensure_init)
+        return await self._call_with_retries(send, idempotent=idempotent)
+
     def get_liveview_url(self) -> str:
         """Get the noVNC liveview URL for this VM."""
-        job_id = _extract_job_id(self._base_url)
+        job_id = self._sibling_job_id()
         gateway = _gateway_from_base_url(self._base_url)
         return f"https://{job_id}--{LIVEVIEW_PORT}.{gateway}?resize=scale&autoconnect=true"
 
     async def bash(self, body: BashRequest) -> ToolResult:
         """Execute a shell command."""
-        await self._ensure_init()
-        return await _bash_async(self._client, body=body)
+        return await self._request_with_retries(lambda: _bash_async(self._client, body=body))
 
     async def _try_bash(self, command: str) -> ToolResult | None:
         """Async version of :meth:`Client._try_bash` — ``None`` on transport error."""
@@ -1228,19 +1504,43 @@ class AsyncClient:
             return None
 
     async def computer(self, body: ComputerRequest) -> ToolResult:
-        """Execute computer actions (mouse, keyboard, screenshot)."""
-        await self._ensure_init()
-        return await _computer_async(self._client, body=body)
+        """Execute computer actions (mouse, keyboard, screenshot).
+
+        See :meth:`Client.computer` for the retry semantics of read-only vs
+        input-injecting actions.
+        """
+        return await self._request_with_retries(
+            lambda: _computer_async(self._client, body=body),
+            idempotent=body.action in _READ_ONLY_COMPUTER_ACTIONS,
+        )
 
     async def edit(self, body: EditRequest) -> ToolResult:
         """File operations (view, create, str_replace, insert, undo_edit)."""
-        await self._ensure_init()
-        return await _edit_async(self._client, body=body)
+        return await self._request_with_retries(lambda: _edit_async(self._client, body=body))
 
     async def status(self) -> StatusResponse:
         """Health check and display info."""
-        await self._ensure_init()
-        return await _status_async(self._client)
+        return await self._request_with_retries(lambda: _status_async(self._client))
+
+    async def wait_for_desktop_ready(self, timeout: float = 180.0, interval: float = 2.0) -> StatusResponse:
+        """Async version of :meth:`Client.wait_for_desktop_ready`."""
+        deadline = time.monotonic() + timeout
+        last_error: Exception | None = None
+        while True:
+            try:
+                await self._ensure_init()
+                return await _status_async(self._client)
+            except APIError as exc:
+                if exc.status_code not in _BOOTING_STATUS_CODES:
+                    raise
+                last_error = exc
+            except _RETRYABLE_TRANSPORT_ERRORS as exc:
+                last_error = exc
+            if time.monotonic() >= deadline:
+                raise TimeoutError(
+                    f"Desktop agent not ready after {timeout:.0f}s; last error: {last_error!r}"
+                ) from last_error
+            await asyncio.sleep(interval)
 
     async def set_timezone_offset(self, utc_offset: int, timeout: int = 30) -> ToolResult:
         """Async version of :meth:`Client.set_timezone_offset`."""
@@ -1252,7 +1552,7 @@ class AsyncClient:
     def get_cdp_url(self, port: int | None = None) -> str:
         """Return the sims proxy URL for the Chrome CDP port."""
         port = self._resolve_cdp_port(port)
-        job_id = _extract_job_id(self._base_url)
+        job_id = self._sibling_job_id()
         gateway = _gateway_from_base_url(self._base_url)
         return f"https://{job_id}--{port}.{gateway}"
 
@@ -1495,15 +1795,25 @@ class AsyncClient:
 
         from playwright.async_api import async_playwright
 
+        # Windows/QEMU guests can take ~40s+ after job assignment before the
+        # in-guest desktop agent serves HTTP; going straight to Chrome CDP
+        # would hit gateway 502s. Wait for the agent first.
+        await self.wait_for_desktop_ready()
         await self.ensure_chrome_cdp(cdp_port)
 
         pages_logged_in: list[str] = []
 
         ws_url, cdp_headers = await self.prepare_cdp_connection(cdp_port)
-        logger.info("Connecting Playwright to CDP: %s", ws_url)
+        playwright_headers = _playwright_cdp_headers(cdp_headers)
+        logger.debug(
+            "Connecting Playwright to CDP: %s (routing_header_names=%s headers_argument=%s)",
+            ws_url,
+            sorted(cdp_headers),
+            "provided" if playwright_headers is not None else "omitted",
+        )
 
         async with async_playwright() as pw:
-            browser = await pw.chromium.connect_over_cdp(ws_url, headers=cdp_headers)
+            browser = await pw.chromium.connect_over_cdp(ws_url, headers=playwright_headers)
             default_context = browser.contexts[0]
             logger.info(
                 "Connected – %d existing page(s): %s",
@@ -1520,7 +1830,7 @@ class AsyncClient:
                 first_page = await default_context.new_page()
                 await first_page.goto("about:blank")
 
-            my_job_id = _extract_job_id(self._base_url)
+            my_job_id = self._sibling_job_id()
             login_count = 0
             for env in session.envs:
                 if not getattr(env, "artifact_id", None):
@@ -1680,6 +1990,6 @@ class AsyncClient:
             **kwargs: Additional arguments passed to AsyncClient.__init__
         """
         provider = getattr(environment, "provider", None)
-        gateway = _deployment_sims_gateway(_api_base_url_from_environment(environment))
+        gateway = _deployment_connect_gateway(_api_base_url_from_environment(environment))
         base_url = _base_url_from_job_id(environment.job_id, gateway_host=gateway)
-        return cls(base_url=base_url, provider=provider, **kwargs)
+        return cls(base_url=base_url, provider=provider, job_id=environment.job_id, **kwargs)

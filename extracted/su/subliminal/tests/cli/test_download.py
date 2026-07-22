@@ -103,11 +103,14 @@ def test_cli_download_verbose(cli_runner: CliRunner, count: int, video_type: str
     else:  # elif video_type == 'movie':
         video_name = os.path.join('Man of Steel (2013)', 'man.of.steel.2013.720p.bluray.x264-felony.mkv')
 
-    verbose = '' if not count else f'-{"v" * count}'
     with cli_runner.isolated_filesystem():
         # Ensure that the file exists, otherwise the movie errors
         ensure(video_name)
-        result = cli_runner.run(subliminal_cli, ['download', verbose, '-l', 'en', '-p', 'podnapisi', video_name])
+        cli_args = ['download', '-l', 'en', '-p', 'podnapisi', video_name]
+        if count:
+            # Add verbose flag
+            cli_args.append(f'-{"v" * count}')
+        result = cli_runner.run(subliminal_cli, cli_args)
 
         assert result.exit_code == 0
         if count > 0:
@@ -298,7 +301,7 @@ def test_cli_download_subtitle_format(cli_runner: CliRunner) -> None:
 def test_cli_download_hearing_impaired(cli_runner: CliRunner) -> None:
     video_name = 'Marvels.Agents.of.S.H.I.E.L.D.S02E06.720p.HDTV.x264-KILLERS.mkv'
 
-    cli_args = ['download', '-l', 'en', '--hearing-impaired', '--language-type-suffix', '-p', 'gestdown', video_name]
+    cli_args = ['download', '-l', 'en', '--hearing-impaired', '--category-suffix', '-p', 'gestdown', video_name]
     with cli_runner.isolated_filesystem() as td:
         result = cli_runner.run(subliminal_cli, cli_args)
 
@@ -318,7 +321,7 @@ def test_cli_download_hearing_impaired(cli_runner: CliRunner) -> None:
 def test_cli_download_foreign_only(cli_runner: CliRunner) -> None:
     video_name = 'Marvels.Agents.of.S.H.I.E.L.D.S02E06.720p.HDTV.x264-KILLERS.mkv'
 
-    cli_args = ['download', '-l', 'en', '--foreign-only', '--language-type-suffix', '-p', 'gestdown', video_name]
+    cli_args = ['download', '-l', 'en', '--foreign-only', '--category-suffix', '-p', 'gestdown', video_name]
     with cli_runner.isolated_filesystem() as td:
         result = cli_runner.run(subliminal_cli, cli_args)
 
@@ -457,6 +460,66 @@ def test_cli_download_with_config_with_option_error(cli_runner: CliRunner) -> No
         assert 'Value must be an iterable' in result.err
 
 
+def test_cli_download_with_config_undefined_option_error(cli_runner: CliRunner) -> None:
+    video_name = 'Marvels.Agents.of.S.H.I.E.L.D.S02E06.720p.HDTV.x264-KILLERS.mkv'
+
+    with cli_runner.isolated_filesystem():
+        with open('subliminal.toml', 'w') as f:
+            content = dedent(
+                """\
+                [default]
+                debug = false
+
+                [download]
+                language = ["en"]
+                # BadParameter: not defined
+                undefined_option = true
+
+                """
+            )
+            f.write(content)
+
+        result = cli_runner.run(
+            subliminal_cli,
+            ['--debug', '--config', 'subliminal.toml', 'download', video_name],
+        )
+
+        assert result.exit_code > 0
+        # Error in the config file is treated as an error in the CLI arguments
+        assert 'Invalid configuration file' in result.err
+
+
+def test_cli_download_with_config_undefined_option_warning(cli_runner: CliRunner) -> None:
+    video_name = 'Marvels.Agents.of.S.H.I.E.L.D.S02E06.720p.HDTV.x264-KILLERS.mkv'
+
+    with cli_runner.isolated_filesystem():
+        with open('subliminal.toml', 'w') as f:
+            content = dedent(
+                """\
+                [default]
+                debug = false
+
+                [refiner.undefined_refiner]
+                apikey = "not-a-password"
+
+                [download]
+                language = ["en"]
+                foreign_only = false
+
+                """
+            )
+            f.write(content)
+
+        result = cli_runner.run(
+            subliminal_cli,
+            ['--debug', '--config', 'subliminal.toml', 'download', video_name],
+        )
+
+        assert result.exit_code == 0
+        # Warning shown
+        assert 'Warning: Unused entries in the configuration file' in result.err
+
+
 def test_cli_download_with_generated_config(cli_runner: CliRunner) -> None:
     video_name = 'Marvels.Agents.of.S.H.I.E.L.D.S02E06.720p.HDTV.x264-KILLERS.mkv'
 
@@ -475,3 +538,200 @@ def test_cli_download_with_generated_config(cli_runner: CliRunner) -> None:
         # collect files recursively
         files = [os.fspath(p.relative_to(td)) for p in Path(td).rglob('*')]
         assert subtitle_filename in files
+
+
+def test_cli_download_name_sed(cli_runner: CliRunner, monkeypatch: pytest.MonkeyPatch) -> None:
+    import subliminal.cli.commands.download_best as dl
+
+    captured: list[tuple[str, str | None]] = []
+    orig_scan_path = dl.scan_path
+
+    def spy_scan_path(filepath: str, *, name: str | None = None) -> object:
+        captured.append((os.path.basename(os.fspath(filepath)), name))
+        return orig_scan_path(filepath, name=name)
+
+    monkeypatch.setattr(dl, 'scan_path', spy_scan_path)
+
+    with cli_runner.isolated_filesystem():
+        result = cli_runner.run(
+            subliminal_cli,
+            [
+                'download',
+                '-l',
+                'en',
+                '-p',
+                'podnapisi',
+                '--name',
+                r's/.*YP-1R-([0-9]+)x([0-9]+).*/My Little Pony S\1E\2.mkv/',
+                'YP-1R-01x05-720p.mkv',
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert ('YP-1R-01x05-720p.mkv', 'My Little Pony S01E05.mkv') in captured
+
+
+def test_cli_download_name_static(cli_runner: CliRunner, monkeypatch: pytest.MonkeyPatch) -> None:
+    import subliminal.cli.commands.download_best as dl
+
+    captured: list[tuple[str, str | None]] = []
+    orig_scan_path = dl.scan_path
+
+    def spy_scan_path(filepath: str, *, name: str | None = None) -> object:
+        captured.append((os.path.basename(os.fspath(filepath)), name))
+        return orig_scan_path(filepath, name=name)
+
+    monkeypatch.setattr(dl, 'scan_path', spy_scan_path)
+
+    # a static name starting with 's' and containing non-alphanumeric characters,
+    # to check it is not mistaken for a sed-like substitution
+    static_name = 's.w.a.t.2017.s01e01.720p.hdtv.x264-killers.mkv'
+    with cli_runner.isolated_filesystem():
+        result = cli_runner.run(
+            subliminal_cli,
+            ['download', '-l', 'en', '-p', 'podnapisi', '--name', static_name, 'badly-named-video.mkv'],
+        )
+
+        assert result.exit_code == 0
+        # the same static name is passed to every file
+        assert ('badly-named-video.mkv', static_name) in captured
+
+
+def test_cli_download_name_ampersand(cli_runner: CliRunner, monkeypatch: pytest.MonkeyPatch) -> None:
+    import subliminal.cli.commands.download_best as dl
+
+    captured: list[tuple[str, str | None]] = []
+    orig_scan_path = dl.scan_path
+
+    def spy_scan_path(filepath: str, *, name: str | None = None) -> object:
+        captured.append((os.path.basename(os.fspath(filepath)), name))
+        return orig_scan_path(filepath, name=name)
+
+    monkeypatch.setattr(dl, 'scan_path', spy_scan_path)
+
+    with cli_runner.isolated_filesystem():
+        result = cli_runner.run(
+            subliminal_cli,
+            [
+                'download',
+                '-l',
+                'en',
+                '-p',
+                'podnapisi',
+                '--name',
+                r's/.*_-_([0-9]+)_.*/Panty & Stocking S01E\1.mkv/',
+                'Garterbelt_-_07_xyz.mkv',
+            ],
+        )
+
+        assert result.exit_code == 0
+        # the literal ampersand in the title is preserved
+        assert ('Garterbelt_-_07_xyz.mkv', 'Panty & Stocking S01E07.mkv') in captured
+
+
+def test_cli_download_name_no_match_falls_back(cli_runner: CliRunner, monkeypatch: pytest.MonkeyPatch) -> None:
+    import subliminal.cli.commands.download_best as dl
+
+    captured: list[tuple[str, str | None]] = []
+    orig_scan_path = dl.scan_path
+
+    def spy_scan_path(filepath: str, *, name: str | None = None) -> object:
+        captured.append((os.path.basename(os.fspath(filepath)), name))
+        return orig_scan_path(filepath, name=name)
+
+    monkeypatch.setattr(dl, 'scan_path', spy_scan_path)
+
+    video_name = 'Marvels.Agents.of.S.H.I.E.L.D.S02E06.720p.HDTV.x264-KILLERS.mkv'
+    with cli_runner.isolated_filesystem():
+        result = cli_runner.run(
+            subliminal_cli,
+            ['download', '-l', 'en', '-p', 'podnapisi', '--name', r's/NOPE-([0-9]+)/E\1/', video_name],
+        )
+
+        assert result.exit_code == 0
+        # name could not be resolved, fall back to scanning the path as-is
+        assert (video_name, video_name) in captured
+
+
+def test_cli_download_name_invalid_expression(cli_runner: CliRunner) -> None:
+    with cli_runner.isolated_filesystem():
+        result = cli_runner.run(
+            subliminal_cli,
+            ['download', '-l', 'en', '-p', 'podnapisi', '--name', 's/(/x/', 'foo.mkv'],
+        )
+
+        assert result.exit_code == 2
+        assert 'Invalid value for --name' in result.err
+
+
+def test_cli_download_multiple_name(cli_runner: CliRunner, monkeypatch: pytest.MonkeyPatch) -> None:
+    import subliminal.cli.commands.download_best as dl
+
+    captured: list[tuple[str, str | None]] = []
+    orig_scan_path = dl.scan_path
+
+    def spy_scan_path(filepath: str, *, name: str | None = None) -> object:
+        captured.append((os.path.basename(os.fspath(filepath)), name))
+        return orig_scan_path(filepath, name=name)
+
+    monkeypatch.setattr(dl, 'scan_path', spy_scan_path)
+
+    sed_name_1 = r's/.*YP-1R-([0-9]+)x([0-9]+).*/My Little Pony S\1E\2.mkv/'
+    sed_name_2 = r's/.*_-_([0-9]+)_.*/Panty & Stocking S01E\1.mkv/'
+    with cli_runner.isolated_filesystem():
+        result = cli_runner.run(
+            subliminal_cli,
+            [
+                'download',
+                '-l',
+                'en',
+                '-p',
+                'podnapisi',
+                '--name',
+                sed_name_1,
+                '--name',
+                sed_name_2,
+                'YP-1R-01x05-720p.mkv',
+                'Garterbelt_-_07_xyz.mkv',
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert ('YP-1R-01x05-720p.mkv', 'My Little Pony S01E05.mkv') in captured
+        assert ('Garterbelt_-_07_xyz.mkv', 'Panty & Stocking S01E07.mkv') in captured
+
+
+def test_cli_download_multiple_name_invalid_mixedin(cli_runner: CliRunner, monkeypatch: pytest.MonkeyPatch) -> None:
+    import subliminal.cli.commands.download_best as dl
+
+    captured: list[tuple[str, str | None]] = []
+    orig_scan_path = dl.scan_path
+
+    def spy_scan_path(filepath: str, *, name: str | None = None) -> object:
+        captured.append((os.path.basename(os.fspath(filepath)), name))
+        return orig_scan_path(filepath, name=name)
+
+    monkeypatch.setattr(dl, 'scan_path', spy_scan_path)
+
+    sed_name = r's/.*YP-1R-([0-9]+)x([0-9]+).*/My Little Pony S\1E\2.mkv/'
+    static_name = 's.w.a.t.2017.s01e01.720p.hdtv.x264-killers.mkv'
+    with cli_runner.isolated_filesystem():
+        result = cli_runner.run(
+            subliminal_cli,
+            [
+                'download',
+                '-l',
+                'en',
+                '-p',
+                'podnapisi',
+                '--name',
+                sed_name,
+                '--name',
+                static_name,
+                'YP-1R-01x05-720p.mkv',
+                'Garterbelt_-_07_xyz.mkv',
+            ],
+        )
+
+        assert result.exit_code == 2
+        assert 'A static name was found mixed-in' in result.err

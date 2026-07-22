@@ -11,7 +11,7 @@ keywords = [ "python", "request",]
 classifiers = [ "Programming Language :: Rust", "Programming Language :: Python :: 3", "Programming Language :: Python :: 3 :: Only", "Programming Language :: Python :: 3.9", "Programming Language :: Python :: 3.10", "Programming Language :: Python :: 3.11", "Programming Language :: Python :: 3.12", "Programming Language :: Python :: 3.13", "Programming Language :: Python :: Implementation :: CPython", "Programming Language :: Python :: Implementation :: PyPy", "Topic :: Internet :: WWW/HTTP", "Topic :: Software Development :: Libraries :: Python Modules",]
 # Version is set dynamically by CI from git tags (e.g., v1.2.3 -> 1.2.3).
 # Do not edit manually. See .github/actions/set-version/ for details.
-version = "0.4.8"
+version = "0.5.2"
 dependencies = []
 [[project.authors]]
 name = "thomasht86"

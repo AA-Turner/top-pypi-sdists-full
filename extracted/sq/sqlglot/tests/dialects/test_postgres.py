@@ -22,6 +22,8 @@ class TestPostgres(Validator):
         expected_sql = "ARRAY[\n  x" + (",\n  x" * 27) + "\n]"
         self.validate_identity(sql, expected_sql, pretty=True)
 
+        self.validate_identity('WITH t AS (SELECT 1 AS "null") SELECT t.null FROM t')
+        self.validate_identity('WITH t AS (SELECT 1 AS "true") SELECT t.true FROM t')
         self.validate_identity("""CAST('a' AS TEXT COLLATE "de_DE")""")
         self.validate_identity("SELECT '%' SIMILAR TO '^%' ESCAPE '^'")
         self.validate_identity("SELECT GET_BIT(CAST(44 AS BIT(10)), 6)")
@@ -708,8 +710,43 @@ FROM json_data, field_ids""",
         self.validate_all(
             "SELECT GENERATE_SERIES(1, 5)",
             write={
-                "bigquery": UnsupportedError,
+                "bigquery": "SELECT _gen_series_value FROM UNNEST(GENERATE_ARRAY(1, 5)) AS _gen_series_value",
                 "postgres": "SELECT GENERATE_SERIES(1, 5)",
+            },
+        )
+        self.validate_all(
+            "SELECT GENERATE_SERIES(1, 5) AS x",
+            write={
+                "bigquery": "SELECT x FROM UNNEST(GENERATE_ARRAY(1, 5)) AS x",
+                "postgres": "SELECT GENERATE_SERIES(1, 5) AS x",
+            },
+        )
+        self.validate_all(
+            "SELECT GENERATE_SERIES(1, 5) AS x WHERE x > 2 ORDER BY x DESC LIMIT 3",
+            write={
+                "bigquery": "SELECT x FROM UNNEST(GENERATE_ARRAY(1, 5)) AS x WHERE x > 2 ORDER BY x DESC NULLS FIRST LIMIT 3",
+                "postgres": "SELECT GENERATE_SERIES(1, 5) AS x WHERE x > 2 ORDER BY x DESC LIMIT 3",
+            },
+        )
+        self.validate_all(
+            "SELECT y, GENERATE_SERIES(1, 3) AS g FROM t",
+            write={
+                "bigquery": "SELECT y, g FROM t CROSS JOIN UNNEST(GENERATE_ARRAY(1, 3)) AS g",
+                "postgres": "SELECT y, GENERATE_SERIES(1, 3) AS g FROM t",
+            },
+        )
+        self.validate_all(
+            "SELECT GENERATE_SERIES(1, 2) AS a, GENERATE_SERIES(11, 13) AS b",
+            write={
+                "bigquery": "SELECT a, b FROM UNNEST(GENERATE_ARRAY(1, 2)) AS a CROSS JOIN UNNEST(GENERATE_ARRAY(11, 13)) AS b",
+                "postgres": "SELECT GENERATE_SERIES(1, 2) AS a, GENERATE_SERIES(11, 13) AS b",
+            },
+        )
+        self.validate_all(
+            "SELECT y, GENERATE_SERIES(1, 2) AS a, GENERATE_SERIES(11, 13) AS b FROM t",
+            write={
+                "bigquery": "SELECT y, a, b FROM t CROSS JOIN UNNEST(GENERATE_ARRAY(1, 2)) AS a CROSS JOIN UNNEST(GENERATE_ARRAY(11, 13)) AS b",
+                "postgres": "SELECT y, GENERATE_SERIES(1, 2) AS a, GENERATE_SERIES(11, 13) AS b FROM t",
             },
         )
         self.validate_all(
@@ -1539,6 +1576,24 @@ FROM json_data, field_ids""",
                 "duckdb": "a || b",
                 "postgres": "a || b",
                 "presto": "CONCAT(CAST(a AS VARCHAR), CAST(b AS VARCHAR))",
+            },
+        )
+
+    def test_unicode_string(self):
+        self.validate_identity("SELECT u & 5 FROM t")
+        self.validate_identity("SELECT (U&'\\FE01' || 'Test literal') AS label FROM data")
+        self.validate_identity("SELECT U&'d!0061t!+000061' UESCAPE '!' AS label")
+        self.validate_identity(
+            "SELECT u&'\\0441\\043B\\043E\\043D'", "SELECT U&'\\0441\\043B\\043E\\043D'"
+        )
+
+        self.validate_all(
+            "SELECT U&'Hello winter \\2603 !'",
+            read={
+                "presto": "SELECT U&'Hello winter \\2603 !'",
+            },
+            write={
+                "presto": "SELECT U&'Hello winter \\2603 !'",
             },
         )
 

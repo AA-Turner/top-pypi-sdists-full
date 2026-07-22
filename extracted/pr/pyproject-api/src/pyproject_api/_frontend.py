@@ -43,7 +43,7 @@ class CmdStatus(ABC):
     @property
     @abstractmethod
     def done(self) -> bool:
-        """:return: truthful when the command finished running"""
+        """Truthful when the command finished running."""
         raise NotImplementedError
 
     @abstractmethod
@@ -140,7 +140,7 @@ class EditableResult(NamedTuple):
     err: str
 
 
-class BackendFailed(RuntimeError):  # noqa: N818
+class BackendFailed(RuntimeError):  # ruff:ignore[error-suffix-on-exception-name]
     """An error of the build backend."""
 
     def __init__(self, result: dict[str, Any], out: str, err: str) -> None:
@@ -178,14 +178,14 @@ class Frontend(ABC):
     #: backend requirements when the ``pyproject.toml`` does not specify it
     LEGACY_REQUIRES: tuple[Requirement, ...] = (Requirement("setuptools >= 40.8.0"),)
 
-    def __init__(  # noqa: PLR0913, PLR0917
+    def __init__(  # ruff:ignore[too-many-arguments, too-many-positional-arguments]
         self,
         root: Path,
         backend_paths: tuple[Path, ...],
         backend_module: str,
         backend_obj: str | None,
         requires: tuple[Requirement, ...],
-        reuse_backend: bool = True,  # noqa: FBT001, FBT002
+        reuse_backend: bool = True,  # ruff:ignore[boolean-type-hint-positional-argument, boolean-default-value-positional-argument]
     ) -> None:
         """
         Create a new frontend.
@@ -247,12 +247,12 @@ class Frontend(ABC):
 
     @property
     def backend(self) -> str:
-        """:return: backend key"""
+        """Backend key."""
         return f"{self._backend_module}{f':{self._backend_obj}' if self._backend_obj else ''}"
 
     @property
     def backend_args(self) -> list[str]:
-        """:return: startup arguments for a backend"""
+        """Startup arguments for a backend."""
         result: list[str] = [str(_HERE / "_backend.py"), str(self._reuse_backend), self._backend_module]
         if self._backend_obj:
             result.append(self._backend_obj)
@@ -260,7 +260,7 @@ class Frontend(ABC):
 
     @property
     def optional_hooks(self) -> OptionalHooks:
-        """:return: a dictionary indicating if the optional hook is supported or not"""
+        """A dictionary indicating if the optional hook is supported or not."""
         if self._optional_hooks is None:
             result, _, __ = self._send("_optional_hooks")
             self._optional_hooks = result
@@ -490,7 +490,7 @@ class Frontend(ABC):
         return metadata_directory / basename, out, err
 
     @contextmanager
-    def _wheel_directory(self) -> Iterator[Path]:  # noqa: PLR6301
+    def _wheel_directory(self) -> Iterator[Path]:  # ruff:ignore[no-self-use]
         with TemporaryDirectory() as wheel_directory:
             yield Path(wheel_directory)
 

@@ -49,6 +49,17 @@ from flax.typing import (
 Array = jax.Array
 
 
+def _validate_qkv_shapes(query, key, value=None):
+  arrays = (query, key, value) if value is not None else (query, key)
+  names = 'q, k, v' if value is not None else 'q, k'
+  if not all(a.ndim == arrays[0].ndim for a in arrays[1:]):
+    ndims = ', '.join(str(a.ndim) for a in arrays)
+    raise ValueError(f'{names} must have same rank, but got {ndims}.')
+  if not all(a.shape[:-3] == arrays[0].shape[:-3] for a in arrays[1:]):
+    shapes = ', '.join(str(a.shape) for a in arrays)
+    raise ValueError(f'{names} batch dims must match, but got shapes {shapes}.')
+
+
 def dot_product_attention_weights(
   query: Array,
   key: Array,
@@ -107,9 +118,11 @@ def dot_product_attention_weights(
   query, key = promote_dtype((query, key), dtype=dtype)  # type: ignore[bad-unpacking]
   dtype = query.dtype
 
-  assert query.ndim == key.ndim, 'q, k must have same rank.'
-  assert query.shape[:-3] == key.shape[:-3], 'q, k batch dims must match.'
-  assert query.shape[-1] == key.shape[-1], 'q, k depths must match.'
+  _validate_qkv_shapes(query, key)
+  if query.shape[-1] != key.shape[-1]:
+    raise ValueError(
+      f'q, k depths must match, but got {query.shape[-1]} and {key.shape[-1]}.'
+    )
 
   # check if we need to broadcast Key heads to match Query heads
   is_gqa = False
@@ -135,7 +148,6 @@ def dot_product_attention_weights(
   else:
     q_heads = query.shape[-2]
     einsum_str = '...qhd,...khd->...hqk'
-    assert query.shape[-2] == key.shape[-2], 'q, k num_heads must match.'
 
   # calculate attention matrix
   depth = query.shape[-1]
@@ -255,11 +267,12 @@ def dot_product_attention(
   query, key, value = promote_dtype((query, key, value), dtype=dtype)  # type: ignore[bad-unpacking]
   dtype = query.dtype
 
-  assert key.ndim == query.ndim == value.ndim, 'q, k, v must have same rank.'
-  assert (
-    query.shape[:-3] == key.shape[:-3] == value.shape[:-3]
-  ), 'q, k, v batch dims must match.'
-  assert key.shape[-3] == value.shape[-3], 'k, v lengths must match.'
+  _validate_qkv_shapes(query, key, value)
+  if key.shape[-3] != value.shape[-3]:
+    raise ValueError(
+      f'k, v lengths must match, but got {key.shape[-3]} and '
+      f'{value.shape[-3]}.'
+    )
 
   # Criteria that invoke the more optimized dot product attention
   if dropout_rate == 0.0 and module is None:
@@ -585,6 +598,9 @@ class MultiHeadAttention(Module):
     rngs: rnglib.Rngs | rnglib.RngStream | None = None,
     sow_weights: bool = False,
     decode: bool | None = None,
+    is_causal=False,
+    out_sharding = None,
+    qkv_sharding = None,
   ):
     """Applies multi-head dot product attention on the input data.
 
@@ -615,6 +631,12 @@ class MultiHeadAttention(Module):
       decode: whether to prepare and use an autoregressive cache. The ``decode``
         flag passed into the call method will take precedence over the ``decode``
         flag passed into the constructor.
+      is_causal: whether to overlay a causal attention mask. Passed as an argument to the
+        underlying attention funcion.
+      out_sharding: Optional sharding specification to pass to
+        the output linear layer for the output arrays.
+      qkv_sharding: Optional sharding specification to pass to
+        the QKV linear layers for the output arrays.
 
     Returns:
       output of shape `[batch_sizes..., length, features]`.
@@ -641,9 +663,9 @@ class MultiHeadAttention(Module):
         f'but module expects {self.in_features}.'
       )
 
-    query = self.query(inputs_q)
-    key = self.key(inputs_k)
-    value = self.value(inputs_v)
+    query = self.query(inputs_q, out_sharding=qkv_sharding)
+    key = self.key(inputs_k, out_sharding=qkv_sharding)
+    value = self.value(inputs_v, out_sharding=qkv_sharding)
 
     if self.normalize_qk:
       assert self.query_ln is not None and self.key_ln is not None
@@ -739,9 +761,10 @@ class MultiHeadAttention(Module):
       dtype=self.dtype,
       precision=self.precision,
       module=self if sow_weights else None,
+      is_causal=is_causal
     )
     # back to the original inputs dimensions
-    out = self.out(x)
+    out = self.out(x, out_sharding=out_sharding)
     return out
 
   def init_cache(self, input_shape: Shape, dtype: Dtype = jnp.float32):
@@ -900,9 +923,11 @@ def combine_masks(
   masks_list = [m for m in masks if m is not None]
   if not masks_list:
     return None
-  assert all(
-    map(lambda x: x.ndim == masks_list[0].ndim, masks_list)
-  ), f'masks must have same rank: {tuple(map(lambda x: x.ndim, masks_list))}'
+  if not all(m.ndim == masks_list[0].ndim for m in masks_list):
+    raise ValueError(
+      f'masks must have same rank, but got '
+      f'{tuple(m.ndim for m in masks_list)}.'
+    )
   mask, *other_masks = masks_list
   for other_mask in other_masks:
     mask = jnp.logical_and(mask, other_mask)

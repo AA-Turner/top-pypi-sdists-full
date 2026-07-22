@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.34.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-06-18T13:29:50.446532                                                            #
+# Generated on 2026-07-21T20:55:40.867968                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -10,6 +10,7 @@ import typing
 
 from .exceptions import TorchrunException as TorchrunException
 from .exceptions import TorchNotInstalledException as TorchNotInstalledException
+from .streaming import stream_subprocess_output as stream_subprocess_output
 from .datastore import TorchrunDatastore as TorchrunDatastore
 from .status_notifier import TaskStatusNotifier as TaskStatusNotifier
 from .status_notifier import wait_for_task_completion as wait_for_task_completion

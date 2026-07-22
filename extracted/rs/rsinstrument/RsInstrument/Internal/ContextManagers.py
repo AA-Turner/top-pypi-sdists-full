@@ -17,7 +17,7 @@ class InstrErrorSuppressor:
 		Other errors will be reported. Example: If you enter -113 here, only the 'Undefined Header' error will be suppressed.
 		Default value: suppress-all-errors."""
 
-	def __init__(self, io: Instrument, visa_tout_ms: int = 0, suppress_only_codes: int | List[int] = None):
+	def __init__(self, io: Instrument, visa_tout_ms: int = 0, suppress_only_codes: int | List[int] | None = None):
 		self._io: Instrument = io
 		self._old_query_instr_status: bool = False
 		self._old_visa_tout_ms: int = 0
@@ -68,6 +68,9 @@ class InstrErrorSuppressor:
 			return len(self._errors) > 0
 
 		new_errors = self._io.query_all_syst_errors()
+
+		# noinspection PyTypeChecker
+		# new_errors is always list of tuples, because in query_all_syst_errors() we request the errors including codes.
 		suppressed = self._add_or_suppress_new_errors(new_errors)
 
 		if suppressed:

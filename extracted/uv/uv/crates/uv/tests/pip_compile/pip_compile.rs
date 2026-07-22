@@ -538,8 +538,7 @@ fn compile_constraints_markers() -> Result<()> {
 }
 
 /// Resolve a package from a `requirements.in` file, with a `constraints.txt` file that uses an
-/// extra. The constraint should be enforced, but the extra should _not_ be included in the output
-/// (though it currently _is_ included).
+/// extra. The constraint should be enforced, but the extra should _not_ be included in the output.
 #[test]
 fn compile_constraint_extra() -> Result<()> {
     let context = uv_test::test_context!("3.12");
@@ -6634,6 +6633,28 @@ fn resolver_legacy() -> Result<()> {
 
     ----- stderr -----
     error: pip-compile's `--resolver=legacy` is unsupported (uv always backtracks)
+    "
+    );
+
+    Ok(())
+}
+
+/// Suggest the supported alternative when users pass `--emit-options` from `pip-compile`.
+#[test]
+fn emit_options_unsupported() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+    let requirements_in = context.temp_dir.child("requirements.in");
+    requirements_in.write_str("werkzeug==3.0.1")?;
+
+    uv_snapshot!(context.filters(), context.pip_compile()
+            .arg("requirements.in")
+            .arg("--emit-options"), @"
+    success: false
+    exit_code: 2
+    ----- stdout -----
+
+    ----- stderr -----
+    error: pip-compile's `--emit-options` is unsupported (try `--emit-build-options` instead)
     "
     );
 
@@ -15700,14 +15721,14 @@ fn compile_derivation_chain() -> Result<()> {
           [stderr]
           Traceback (most recent call last):
             File "<string>", line 14, in <module>
-            File "[CACHE_DIR]/builds-v0/[TMP]/build_meta.py", line 325, in get_requires_for_build_wheel
+            File "[CACHE_DIR]/builds-v0/[TMP]/[PYTHON-LIB]/site-packages/setuptools/build_meta.py", line 325, in get_requires_for_build_wheel
               return self._get_build_requires(config_settings, requirements=['wheel'])
                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-            File "[CACHE_DIR]/builds-v0/[TMP]/build_meta.py", line 295, in _get_build_requires
+            File "[CACHE_DIR]/builds-v0/[TMP]/[PYTHON-LIB]/site-packages/setuptools/build_meta.py", line 295, in _get_build_requires
               self.run_setup()
-            File "[CACHE_DIR]/builds-v0/[TMP]/build_meta.py", line 487, in run_setup
+            File "[CACHE_DIR]/builds-v0/[TMP]/[PYTHON-LIB]/site-packages/setuptools/build_meta.py", line 487, in run_setup
               super().run_setup(setup_script=setup_script)
-            File "[CACHE_DIR]/builds-v0/[TMP]/build_meta.py", line 311, in run_setup
+            File "[CACHE_DIR]/builds-v0/[TMP]/[PYTHON-LIB]/site-packages/setuptools/build_meta.py", line 311, in run_setup
               exec(code, locals())
             File "<string>", line 5, in <module>
             File "[CACHE_DIR]/[TMP]/src/ez_setup/__init__.py", line 170

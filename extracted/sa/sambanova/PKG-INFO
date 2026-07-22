@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: sambanova
-Version: 1.12.0
+Version: 1.12.1
 Summary: The official Python library for the SambaNova API
 Project-URL: Homepage, https://github.com/sambanova/sambanova-python
 Project-URL: Repository, https://github.com/sambanova/sambanova-python

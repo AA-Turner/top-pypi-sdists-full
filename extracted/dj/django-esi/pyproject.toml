@@ -42,11 +42,12 @@ dependencies = [
     "tenacity",
 ]
 optional-dependencies.docs = [
-    "myst-parser",
-    "sphinx",
+    "docutils==0.22",           # Held 0.22 for Sphinx RTD Theme 3.1
+    "myst-parser>=5",
+    "sphinx>=9",
     "sphinx-copybutton",
-    "sphinx-rtd-theme>=3,<4",
-    "sphinx-tabs",
+    "sphinx-rtd-theme>=3.1,<4",
+    "sphinx-tabs>=3.5",
     "sphinxcontrib-django",
 ]
 optional-dependencies.test = [

@@ -112,9 +112,10 @@ class LatentQuantize(Module):
 
         self.codebook_size = self._levels.prod().item()
 
-        implicit_codebook = self.indices_to_codes(
-            torch.arange(self.codebook_size), project_out=False
-        )
+        # compute `implicit_codebook` directly to avoid shape mismatch in `indices_to_codes` when `num_codebooks > 1`
+        all_indices = rearrange(torch.arange(self.codebook_size), "... -> ... 1")
+        codes_non_centered = (all_indices // self._basis) % self._levels
+        implicit_codebook = self._scale_and_shift_inverse(codes_non_centered)
         self.register_buffer("implicit_codebook", implicit_codebook, persistent=False)
 
         values_per_latent = [

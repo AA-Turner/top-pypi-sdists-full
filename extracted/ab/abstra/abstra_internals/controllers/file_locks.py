@@ -218,15 +218,13 @@ class FileLockController:
         return released
 
     @classmethod
-    def find_blocking_lock(
-        cls, file_path: str, email: str, session_id: str
-    ) -> Optional[LockState]:
+    def find_blocking_lock(cls, file_path: str, email: str) -> Optional[LockState]:
         prefix = file_path.rstrip("/") + "/"
         with cls._lock:
             for path, state in cls._locks.items():
                 if path != file_path and not path.startswith(prefix):
                     continue
-                if state.holder_email == email and state.session_id == session_id:
+                if email and state.holder_email == email:
                     continue
                 return state
         return None

@@ -41,7 +41,28 @@ set -ex  # re-enable error checking
 rm -f vg_*
 
 # Run test server through valgrind, storing results for each child process in separate XML file
-PYTHONMALLOC=malloc valgrind \
+#
+# NOTE: we intentionally fail only on "definite" leaks. Leaked *Python* references
+# (e.g. a missing decref in the C++ exception-translation path) are NOT catchable
+# here: the orphaned Python objects remain linked in CPython's GC generation list,
+# so valgrind classifies them as "still reachable" / "possibly lost", never
+# "definitely lost". Widening --show-leak-kinds does not help -- the possibly-lost
+# count is dominated by interpreter/pybind11 noise and is non-deterministic (it does
+# not even shrink when the leak is fixed). Such reference leaks must be found via
+# heap growth over time (heaptrack, or an RSS-plateau test), not leak-check-at-exit.
+# memory_test.py has a built-in RSS-plateau check for exactly that -- but it is only
+# meaningful WITHOUT valgrind, whose allocator makes RSS climb on its own. So we run
+# the script twice: plainly (RSS check on, may fail) and under valgrind (check off).
+
+# Plain run: RSS-plateau check enabled, exits non-zero if RSS grows. Capture the
+# result but don't fail yet -- re-thrown together with valgrind errors below.
+set +e
+python memory_test.py
+rss_exit=$?
+set -e
+
+# Valgrind run: leak-check only; disable the RSS check (it would false-positive here).
+MEMTEST_RSS_CHECK=0 PYTHONMALLOC=malloc valgrind \
   --leak-check=yes --show-leak-kinds=definite --trace-children=yes \
   --xml=yes --xml-file=vg_%p.xml \
   python memory_test.py
@@ -106,7 +127,11 @@ do
     error=1
   fi
 done
+if [ "${rss_exit:-0}" -ne 0 ]; then
+  echo "Error: RSS growth detected by memory_test.py RSS-plateau check (exit ${rss_exit})!"
+  error=1
+fi
 if [ $error -ne 0 ]; then
-  echo "Error: At least one Valgrind problem found!"
+  echo "Error: At least one Valgrind or RSS problem found!"
   exit 1
 fi

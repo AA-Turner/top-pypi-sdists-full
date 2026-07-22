@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: esp_idf_nvs_partition_gen
-Version: 0.2.0
+Version: 0.3.0
 Summary: ESP-IDF NVS partition generation tool
 Author: Espressif Systems
 License:                                  Apache License
@@ -225,6 +225,7 @@ Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: cryptography
+Requires-Dist: esp-pylib[cli]
 Provides-Extra: dev
 Requires-Dist: pre-commit; extra == "dev"
 

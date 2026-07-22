@@ -256,38 +256,78 @@ def distance_show(ctx: click.Context, source_rse: str, destination_rse: str) -> 
             print(f"No distance set from {source_rse} to {destination_rse}")
 
 
-@distance.command("add")
+@distance.command("set")
 @click.argument("source-rse")
 @click.argument("destination-rse")
-@click.option("--distance", default=1, type=int, help="Relative distance between RSEs")
+@click.option(
+    "--distance",
+    default=1,
+    type=int,
+    help="Relative distance between RSEs"
+)
+@click.option(
+    "--bidirectional",
+    is_flag=True,
+    default=False,
+    help="If set, also set the reverse distance (destination → source)."
+)
 @click.pass_context
-def distance_add(ctx: click.Context, source_rse: str, destination_rse: str, distance: int) -> None:
-    """Create a new link from SOURCE-RSE to DESTINATION-RSE with a distance"""
+def distance_set(
+    ctx: click.Context,
+    source_rse: str,
+    destination_rse: str,
+    distance: int,
+    bidirectional: bool
+) -> None:
+    """Create a link from SOURCE-RSE to DESTINATION-RSE with a distance"""
     params = {'distance': distance}
-    ctx.obj.client.add_distance(source_rse, destination_rse, params)
-    print(f'Set distance from {source_rse} to {destination_rse} to {distance}')
+
+    src_exists = bool(ctx.obj.client.get_distance(source_rse, destination_rse))
+    dest_exists = bool(ctx.obj.client.get_distance(destination_rse, source_rse))
+
+    if bidirectional:
+        if src_exists and dest_exists:
+            ctx.obj.client.update_distance(source_rse, destination_rse, params, True)
+        elif src_exists:
+            ctx.obj.client.add_distance(destination_rse, source_rse, parameters=params, bidirectional=False)
+            ctx.obj.client.update_distance(source_rse, destination_rse, params, False)
+        elif dest_exists:
+            ctx.obj.client.add_distance(source_rse, destination_rse, parameters=params, bidirectional=False)
+            ctx.obj.client.update_distance(destination_rse, source_rse, params, False)
+        else:
+            ctx.obj.client.add_distance(source_rse, destination_rse, parameters=params, bidirectional=True)
+    else:
+        if src_exists:
+            ctx.obj.client.update_distance(source_rse, destination_rse, params, False)
+        else:
+            ctx.obj.client.add_distance(source_rse, destination_rse, parameters=params, bidirectional=False)
+
+    if bidirectional:
+        print(f"Set distances between {source_rse} <-> {destination_rse} to {distance}")
+    else:
+        print(f"Set distance from {source_rse} -> {destination_rse} to {distance}")
 
 
-@distance.command("remove")
+@distance.command("unset")
 @click.argument("source-rse")
 @click.argument("destination-rse")
+@click.option(
+    "--bidirectional",
+    is_flag=True,
+    default=False,
+    help="If set, also removes the reverse distance (destination → source)."
+)
 @click.pass_context
-def distance_remove(ctx: click.Context, source_rse: str, destination_rse: str) -> None:
+def distance_unset(ctx: click.Context, source_rse: str, destination_rse: str, bidirectional: bool = False) -> None:
     """Un-link SOURCE-RSE from DESTINATION-RSE by removing the distance between them"""
-    ctx.obj.client.delete_distance(source_rse, destination_rse)
-    print(f'Deleted distance information from {source_rse} to {destination_rse}.')
-
-
-@distance.command("update")
-@click.argument("source-rse")
-@click.argument("destination-rse")
-@click.option("--distance", type=int, help="Relative distance between RSEs", required=True)
-@click.pass_context
-def distance_update(ctx: click.Context, source_rse: str, destination_rse: str, distance: int) -> None:
-    """Update the existing distance from SOURCE-RSE to DESTINATION-RSE"""
-    params = {"distance": distance}
-    ctx.obj.client.update_distance(source_rse, destination_rse, params)
-    print(f'Update distance information from {source_rse} to {destination_rse}:\n - Distance set to {params["distance"]}')
+    ctx.obj.client.delete_distance(
+        source_rse,
+        destination_rse,
+        bidirectional=bidirectional)
+    if bidirectional:
+        print(f"Deleted distances between {source_rse} <-> {destination_rse}")
+    else:
+        print(f"Deleted distance from {source_rse} -> {destination_rse}")
 
 
 @rse.group()
@@ -310,30 +350,31 @@ def attr_list_(ctx: click.Context, rse_name: str) -> None:
             print(f'{k}: {attributes[k]}')
 
 
-@attribute.command("add")
+@attribute.command("set")
 @click.argument("rse-name")
 @click.option('--key', help='Attribute key', required=True)
 @click.option('--value', help='Attribute value', required=True)
 @click.pass_context
-def attribute_add_(ctx: click.Context, rse_name: str, key: str, value: str) -> None:
-    """Add a new attribute for an RSE
+def attribute_set(ctx: click.Context, rse_name: str, key: str, value: str) -> None:
+    """Modify attributes for an RSE
 
     \b
     Example:
-        $ rucio rse attribute add my-rse --key My-Attribute  --value True
+        $ rucio rse attribute set my-rse --key My-Attribute  --value True
     """
+    if ctx.obj.client.list_rse_attributes(rse_name).get(key, None) is not None:
+        ctx.obj.logger.debug("RSE %s already has attribute %s. Overwritting..." % (rse_name, key))
+
     ctx.obj.client.add_rse_attribute(rse=rse_name, key=key, value=value)
     print(f'Added new RSE attribute for {rse_name}: {key}-{value} ')
 
-# TODO Update attribute - only overwrites existing attributes
 
-
-@attribute.command("remove")
+@attribute.command("unset")
 @click.argument("rse-name")
-@click.option("--attribute", help="Attribute to remove", required=True)
+@click.option("--attribute", help="Attribute to unset", required=True)
 @click.pass_context
-def attribute_remove(ctx: click.Context, rse_name: str, attribute: str) -> None:
-    """Remove an existing attribute from an RSE"""
+def attribute_unset(ctx: click.Context, rse_name: str, attribute: str) -> None:
+    """Reset an attribute back to its default behavoir"""
     ctx.obj.client.delete_rse_attribute(rse=rse_name, key=attribute)
     print(f'Deleted RSE attribute for {rse_name}: {attribute} ')
 
@@ -343,16 +384,16 @@ def limit():
     """Manage storage size limits"""
 
 
-@limit.command("add")
+@limit.command("set")
 @click.argument("rse-name")
 @click.option("--limit", type=(str, int), required=True, help="Name of limit and value in bytes")
 @click.pass_context
-def limit_add(ctx: click.Context, rse_name: str, limit: tuple[str, int]) -> None:
-    """Add a usage limit to an RSE
+def limit_set(ctx: click.Context, rse_name: str, limit: tuple[str, int]) -> None:
+    """Define a usage limit to an RSE
 
     \b
     Example, add a limit of 1KB to XRD1 named "MinFreeSpace":
-        $ rucio rse limit add XRD1 --limit MinFreeSpace 10000
+        $ rucio rse limit set XRD1 --limit MinFreeSpace 10000
     """
     name = limit[0]
     value = limit[1]
@@ -362,11 +403,11 @@ def limit_add(ctx: click.Context, rse_name: str, limit: tuple[str, int]) -> None
         ctx.obj.logger.info(msg)
 
 
-@limit.command("remove")
+@limit.command("unset")
 @click.argument("rse-name")
 @click.option("--limit", required=True, help="Name of limit to remove")
 @click.pass_context
-def limit_remove(ctx: click.Context, rse_name: str, limit: str) -> None:
+def limit_unset(ctx: click.Context, rse_name: str, limit: str) -> None:
     """Remove an existing RSE limit"""
     limits = ctx.obj.client.get_rse_limits(rse_name)
     if limit not in limits.keys():
@@ -390,8 +431,6 @@ def protocol():
 @click.option("--hostname", help="Endpoint hostname", required=True)
 @click.option("--scheme", help="Endpoint URL scheme", required=True)
 @click.option("--prefix", help="Endpoint URL path prefix", required=True)
-@click.option("--space-token", help="Space token name (SRM-only)")
-@click.option("--web-service-path", help="Web service URL (SRM-only)")
 @click.option("--port", type=int, help="URL port")
 @click.option("--impl", default="rucio.rse.protocols.gfal.Default", help="Transfer protocol implementation to use")
 @click.option("--domain-json", type=json.loads, help="JSON describing the WAN / LAN setup")
@@ -403,8 +442,6 @@ def protocol_add(
     hostname: str,
     scheme: str,
     prefix: str,
-    space_token: Optional[str],
-    web_service_path: Optional[str],
     port: Optional[str],
     impl: Optional[str],
     domain_json: Optional[dict],
@@ -415,7 +452,7 @@ def protocol_add(
 
     \b
     Example, adding a default protocol hosted at jdoes.test.org to the RSE JDOE_DATADISK
-        $ rucio rse protocol add JDOE_DATADISK --hostname jdoes.test.org --scheme gsiftp --prefix '/atlasdatadisk/rucio/' --port 8443'
+        $ rucio rse protocol add JDOE_DATADISK --hostname jdoes.test.org --scheme https --prefix '/atlasdatadisk/rucio/' --port 8443'
 
     """
     proto = {
@@ -430,12 +467,6 @@ def protocol_add(
     proto.setdefault('extended_attributes', {})
     if extended_attributes_json:
         proto['extended_attributes'] = extended_attributes_json
-    if proto['scheme'] == 'srm' and not web_service_path:
-        raise InputValidationError('Error: space-token and web-service-path must be provided for SRM endpoints.')
-    if space_token:
-        proto['extended_attributes']['space_token'] = space_token
-    if web_service_path:
-        proto['extended_attributes']['web_service_path'] = web_service_path
     # Cannot have an empty extended_attributes
     if not proto['extended_attributes']:
         del proto['extended_attributes']

@@ -54,7 +54,7 @@ class DnsCacheConfig(betterproto2.Message):
     """
     Configuration for the dynamic forward proxy DNS cache. See the :ref:`architecture overview
     <arch_overview_http_dynamic_forward_proxy>` for more information.
-    [#next-free-field: 16]
+    [#next-free-field: 17]
     """
 
     name: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
@@ -240,6 +240,18 @@ class DnsCacheConfig(betterproto2.Message):
     Configuration to flush the DNS cache to long term storage.
     """
 
+    resolved_address_filter: "____type__matcher__v3__.AddressMatcher | None" = (
+        betterproto2.field(16, betterproto2.TYPE_MESSAGE, optional=True)
+    )
+    """
+    Optional matcher to filter out DNS resolution results that match specific IP address ranges.
+    If a DNS response contains addresses matching this matcher, those addresses will be
+    removed from the response. If all addresses are removed, the resolution is treated
+    as a failure and the host will retain any previously resolved address.
+    This can be used as an SSRF protection mechanism to prevent DNS rebinding attacks
+    that resolve to internal/private IP addresses.
+    """
+
     def __post_init__(self) -> None:
         super().__post_init__()
         if self.is_set("use_tcp_for_dns_lookups"):
@@ -262,3 +274,4 @@ from ......google import protobuf as _____google__protobuf__
 from .....config.cluster import v3 as ____config__cluster__v3__
 from .....config.common.key_value import v3 as ____config__common__key_value__v3__
 from .....config.core import v3 as ____config__core__v3__
+from .....type.matcher import v3 as ____type__matcher__v3__

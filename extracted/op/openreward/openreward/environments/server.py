@@ -254,9 +254,11 @@ class Server:
 
         # Validate each environment
         for env_name, env_cls in self._env_classes.items():
-            # Check that at least one tool is defined
-            tools = env_cls.list_tools().tools
-            if not tools:
+            # Check that at least one tool is defined. The terminal tool is
+            # hidden from `.tools` but still counts — an environment whose only
+            # tool is @terminal is valid.
+            listed = env_cls.list_tools()
+            if not listed.tools and listed.terminal_tool is None:
                 raise ValueError(f"Environment '{env_name}' has no tools defined. Add at least one @tool method.")
 
             # Check that at least one split is defined

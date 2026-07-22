@@ -20,6 +20,18 @@ _LOGGER = logging.getLogger(__name__)
 
 BB_AC_MODES = [0, 3, 1, 2, 4, 5]
 BB_MIN_BODY_LENGTH = 21
+BB_FRESH_AIR_SWITCH_INDEX = 45
+BB_FRESH_AIR_INTAKE_STATUS_MASK = 0x01
+BB_FRESH_AIR_EXHAUST_STATUS_MASK = 0x02
+BB_FRESH_AIR_INTAKE_SPEED_INDEX = 46
+BB_FRESH_AIR_EXHAUST_SPEED_INDEX = 47
+BB_COMPRESSOR_TARGET_FREQUENCY_INDEX = 10
+BB_COMPRESSOR_FREQUENCY_INDEX = 11
+BB_BASIC_FAN_SPEED_INDEX = 7
+BB_INDOOR_TEMPERATURE_HIGH_INDEX = 8
+BB_INDOOR_HUMIDITY_INDEX = 30
+BB_SN8_FLAG_INDEX = 80
+BB_OUTDOOR_TEMPERATURE_HIGH_INDEX = 6
 CONFORT_MODE_MIN_LENGTH = 16
 CONFORT_MODE_MIN_LENGTH2 = 23
 SMART_DRY_MIN_LENGTH = 20
@@ -31,15 +43,60 @@ FROST_PROTECT_MIN_LENGTH = 22
 INDIRECT_WIND_VALUE = 0x02
 MAX_MSG_SERIAL_NUM = 254
 OUT_SILENT_VALUE = 0x03
+POWER_SAVING_VALUE = 0x08
 SELF_CLEAN_ACTIVE_STATUS_BYTE = 12
 SCREEN_DISPLAY_BYTE_CHECK = 0x07
 SUB_PROTOCOL_BODY_TEMP_CHECK = 0x80
 TEMP_DECIMAL_MIN_BODY_LENGTH = 20
 TIMER_MIN_SUBPROTOCOL_LENGTH = 27
 XBB_SN8_BYTE_FLAG = 0x31
-XC1_SUBBODY_TYPE_44 = 0x44
 XC1_SUBBODY_TYPE_40 = 0x40
+XC1_SUBBODY_TYPE_41 = 0x41
+XC1_SUBBODY_TYPE_42 = 0x42
+XC1_SUBBODY_TYPE_44 = 0x44
 XC1_SUBBODY_TYPE_45 = 0x45
+XC1_SUBBODY_TYPE_47 = 0x47
+XC1_SUBBODY_TYPE_INDEX = 3
+XC1_HUMIDITY_INDEX = 4
+XC1_CONSUMPTION_MIN_LENGTH = 19
+XC1_OPERATING_TIME_MIN_LENGTH = 19
+
+# Group data query: the third payload byte selects the group, 0x40 | group number.
+XC1_GROUP_QUERY_BASE = 0x40
+# Minimum body length required to parse each group data response.
+XC1_GROUP_ONE_MIN_LENGTH = 15
+XC1_GROUP_TWO_MIN_LENGTH = 9
+XC1_GROUP_SEVEN_MIN_LENGTH = 12
+# Refrigerant circuit temperatures are reported as half degrees with an offset:
+# T1/T2 (indoor coil / evaporator) use 30, T3/T4 (condenser / outdoor) use 50.
+XC1_TEMP_INDOOR_OFFSET = 30
+XC1_TEMP_OUTDOOR_OFFSET = 50
+XC1_TEMP_DIVISOR = 2
+# Indoor fan speed is reported in units of 8 RPM.
+XC1_FAN_SPEED_FACTOR = 8
+# Bit 4 of group 2 byte 8 indicates the condensate water pump is running.
+XC1_WATER_PUMP_MASK = 0x10
+
+BB_FRESH_AIR_CONTROL_BODY_LENGTH = 96
+BB_FRESH_AIR_CONTROL_CURSOR = 15
+BB_FRESH_AIR_INTAKE_SWITCH_MASK = 0x04
+BB_FRESH_AIR_EXHAUST_SWITCH_MASK = 0x08
+BB_FRESH_AIR_INTAKE_CONTROL_SPEED_INDEX = 55
+BB_FRESH_AIR_EXHAUST_CONTROL_SPEED_INDEX = 56
+BB_FRESH_AIR_SPEED_FLAG = 0x80
+
+# AC subtype 8 (e.g. model 22013279) reports temperatures in this
+# new-protocol tag instead of the standard C0 frame.
+SUBTYPE8_TEMPERATURE_TAG = 0x7E
+SUBTYPE8_TEMPERATURE_MIN_LENGTH = 40
+SUBTYPE8_SETPOINT_OFFSET = 11.5
+SUBTYPE8_SETPOINT_MASK = 0x3F
+SUBTYPE8_SETPOINT_HALF_DEGREE_BIT = 0x40
+SUBTYPE8_MIN_VALID_TEMPERATURE = 10
+SUBTYPE8_MAX_VALID_TEMPERATURE = 40
+SUBTYPE8_LEGACY_SETPOINT_BYTE = 3
+SUBTYPE8_INDOOR_TEMPERATURE_BYTE = 39
+SUBTYPE8_INDOOR_TEMPERATURE_DECIMAL_BYTE = 40
 
 # B5 capability value semantics (reverse-engineered; see _parse_capabilities).
 # The raw byte of each capability is not a 0/1 flag; each has its own value set.
@@ -151,6 +208,7 @@ class NewProtocolTags(IntEnum):
     b5_screen_display = 0x0224
     b5_anion = 0x021E
     b5_sound = 0x022C
+    rate_select = 0x0048
     # AC outdoor silent mode (PortaSplit)
     out_silent = 0x00CD
     b5_self_clean_active = 0x00E2
@@ -284,73 +342,67 @@ class MessageCapabilitiesAdditionalQuery(MessageCapabilitiesQuery):
         )
 
 
-class MessageGroupZeroQuery(MessageACBase):
+class MessageGroupDataQuery(MessageACBase):
+    """AC message group data query(queryType == "group_data_<group>")."""
+
+    _group = 0
+
+    def __init__(self, protocol_version: int) -> None:
+        """Initialize AC message group data query."""
+        super().__init__(
+            protocol_version=protocol_version,
+            message_type=MessageType.query,
+            body_type=ListTypes.X41,
+        )
+
+    @property
+    def _body(self) -> bytearray:
+        return bytearray(
+            [0x21, 0x01, XC1_GROUP_QUERY_BASE | self._group, 0x00, 0x01],
+        )
+
+    @property
+    def body(self) -> bytearray:
+        """AC message group data query body."""
+        body = bytearray([self.body_type]) + self._body
+        body.append(calculate(body))
+        return body
+
+
+class MessageGroupZeroQuery(MessageGroupDataQuery):
     """AC message power query(queryType == "group_data_zero")."""
 
-    def __init__(self, protocol_version: int) -> None:
-        """Initialize AC message power query."""
-        super().__init__(
-            protocol_version=protocol_version,
-            message_type=MessageType.query,
-            body_type=ListTypes.X41,
-        )
-
-    @property
-    def _body(self) -> bytearray:
-        return bytearray([0x21, 0x01, 0x40, 0x00, 0x01])
-
-    @property
-    def body(self) -> bytearray:
-        """AC message power query body."""
-        body = bytearray([self.body_type]) + self._body
-        body.append(calculate(body))
-        return body
+    _group = 0
 
 
-class MessagePowerQuery(MessageACBase):
+class MessageGroupOneQuery(MessageGroupDataQuery):
+    """AC message compressor query(queryType == "group_data_one")."""
+
+    _group = 1
+
+
+class MessageGroupTwoQuery(MessageGroupDataQuery):
+    """AC message indoor fan query(queryType == "group_data_two")."""
+
+    _group = 2
+
+
+class MessagePowerQuery(MessageGroupDataQuery):
     """AC message power query(queryType == "group_data_four")."""
 
-    def __init__(self, protocol_version: int) -> None:
-        """Initialize AC message power query."""
-        super().__init__(
-            protocol_version=protocol_version,
-            message_type=MessageType.query,
-            body_type=ListTypes.X41,
-        )
-
-    @property
-    def _body(self) -> bytearray:
-        return bytearray([0x21, 0x01, 0x44, 0x00, 0x01])
-
-    @property
-    def body(self) -> bytearray:
-        """AC message power query body."""
-        body = bytearray([self.body_type]) + self._body
-        body.append(calculate(body))
-        return body
+    _group = 4
 
 
-class MessageHumidityQuery(MessageACBase):
+class MessageHumidityQuery(MessageGroupDataQuery):
     """AC message query indoor humidity(queryType == "group_data_five")."""
 
-    def __init__(self, protocol_version: int) -> None:
-        """Initialize AC message power query."""
-        super().__init__(
-            protocol_version=protocol_version,
-            message_type=MessageType.query,
-            body_type=ListTypes.X41,
-        )
+    _group = 5
 
-    @property
-    def _body(self) -> bytearray:
-        return bytearray([0x21, 0x01, 0x45, 0x00, 0x01])
 
-    @property
-    def body(self) -> bytearray:
-        """AC message power query body."""
-        body = bytearray([self.body_type]) + self._body
-        body.append(calculate(body))
-        return body
+class MessageGroupSevenQuery(MessageGroupDataQuery):
+    """AC message compressor power query(queryType == "group_data_seven")."""
+
+    _group = 7
 
 
 class MessageToggleDisplay(MessageACBase):
@@ -415,6 +467,7 @@ class MessageNewProtocolQuery(MessageACBase):
             NewProtocolTags.fresh_air_2,
             NewProtocolTags.wind_lr_angle,
             NewProtocolTags.wind_ud_angle,
+            NewProtocolTags.rate_select,
             NewProtocolTags.out_silent,
             NewProtocolTags.buzzer_all,
             NewProtocolQuery.error_code_query,
@@ -486,6 +539,30 @@ class MessageSubProtocolQuery(MessageSubProtocol):
             message_type=MessageType.query,
             subprotocol_query_type=subprotocol_query_type,
         )
+
+
+class MessageSubProtocolQuery10(MessageSubProtocolQuery):
+    """AC sub protocol indoor status query."""
+
+    def __init__(self, protocol_version: int) -> None:
+        """Initialize the indoor status query."""
+        super().__init__(protocol_version, ListTypes.X10)
+
+
+class MessageSubProtocolQuery11(MessageSubProtocolQuery):
+    """AC sub protocol basic status query."""
+
+    def __init__(self, protocol_version: int) -> None:
+        """Initialize the basic status query."""
+        super().__init__(protocol_version, ListTypes.X11)
+
+
+class MessageSubProtocolQuery30(MessageSubProtocolQuery):
+    """AC sub protocol outdoor status query."""
+
+    def __init__(self, protocol_version: int) -> None:
+        """Initialize the outdoor status query."""
+        super().__init__(protocol_version, ListTypes.X30)
 
 
 class MessageSubProtocolSet(MessageSubProtocol):
@@ -572,6 +649,57 @@ class MessageSubProtocolSet(MessageSubProtocol):
         )
 
 
+class MessageSubProtocolFreshAirSet(MessageSubProtocol):
+    """AC BB C0/02 single-control fresh-air command."""
+
+    def __init__(
+        self,
+        protocol_version: int,
+        power: bool,
+        speed: int,
+        *,
+        exhaust: bool = False,
+    ) -> None:
+        """Initialize a fresh-air intake or exhaust command."""
+        super().__init__(
+            protocol_version=protocol_version,
+            message_type=MessageType.set,
+            subprotocol_query_type=ListTypes.C0,
+        )
+        self.power = power
+        self.speed = max(1, min(speed, 100))
+        self.exhaust = exhaust
+
+    @property
+    def _subprotocol_body(self) -> bytearray:
+        body = bytearray(BB_FRESH_AIR_CONTROL_BODY_LENGTH)
+        # BB fresh-air controls are sparse C0/02 payloads. The switch bytes are
+        # relative to the control cursor; speed bytes are offsets in that block.
+        body[1] = 0x01
+        body[2] = 0x01
+        body[11] = 0x01
+        body[12] = ListTypes.C0
+        body[13] = 0x02
+        body[14] = 0x54
+        switch_mask = (
+            BB_FRESH_AIR_EXHAUST_SWITCH_MASK
+            if self.exhaust
+            else BB_FRESH_AIR_INTAKE_SWITCH_MASK
+        )
+        speed_index = (
+            BB_FRESH_AIR_EXHAUST_CONTROL_SPEED_INDEX
+            if self.exhaust
+            else BB_FRESH_AIR_INTAKE_CONTROL_SPEED_INDEX
+        )
+        body[BB_FRESH_AIR_CONTROL_CURSOR + 6] = switch_mask
+        body[BB_FRESH_AIR_CONTROL_CURSOR + 7] = switch_mask if self.power else 0
+        body[BB_FRESH_AIR_CONTROL_CURSOR + speed_index] = (
+            BB_FRESH_AIR_SPEED_FLAG | self.speed
+        )
+        body[-1] = (-sum(body[12:-1])) & MAX_BYTE_VALUE
+        return body
+
+
 class MessageGeneralSet(MessageACBase):
     """AC message general set."""
 
@@ -590,6 +718,7 @@ class MessageGeneralSet(MessageACBase):
         self.swing_vertical = False
         self.swing_horizontal = False
         self.boost_mode = False
+        self.power_saving = False
         self.smart_eye = False
         self.dry = False
         self.aux_heating = False
@@ -619,8 +748,9 @@ class MessageGeneralSet(MessageACBase):
             | (0x0C if self.swing_vertical else 0)
             | (0x03 if self.swing_horizontal else 0)
         )
-        # Byte 8, turbo
+        # Byte 8, turbo, power saving
         boost_mode = 0x20 if self.boost_mode else 0
+        power_saving = POWER_SAVING_VALUE if self.power_saving else 0
         # Byte 9 aux_heating eco_mode
         smart_eye = 0x01 if self.smart_eye else 0
         dry = 0x04 if self.dry else 0
@@ -647,7 +777,7 @@ class MessageGeneralSet(MessageACBase):
                 0x00,
                 0x00,
                 swing_mode,
-                boost_mode,
+                boost_mode | power_saving,
                 smart_eye | dry | aux_heating | eco_mode | anion,
                 temp_fahrenheit | sleep_mode | boost_mode_1,
                 0x00,
@@ -684,6 +814,7 @@ class MessageNewProtocolSet(MessageACBase):
         self.fresh_air_2: bytes | None = None
         self.wind_lr_angle: bytes | None = None
         self.wind_ud_angle: bytes | None = None
+        self.rate_select: int | None = None
         self.out_silent: bool | None = None
         self.sound: bool | None = None
         self.self_clean: bool | None = None
@@ -801,6 +932,14 @@ class MessageNewProtocolSet(MessageACBase):
                     value=bytearray([0x01 if self.self_clean else 0x00]),
                 ),
             )
+        if self.rate_select is not None:
+            pack_count += 1
+            payload.extend(
+                NewProtocolMessageBody.pack(
+                    param=NewProtocolTags.rate_select,
+                    value=bytearray([int(self.rate_select)]),
+                ),
+            )
         payload[0] = pack_count
         return payload
 
@@ -822,7 +961,7 @@ class XA0MessageBody(MessageBody):
         self.swing_horizontal = (body[7] & 0x3) > 0  # swingUDValue
         # strongWindValue
         self.boost_mode = ((body[8] & 0x20) > 0) or ((body[10] & 0x2) > 0)
-        self.power_saving = body[8] & 0x08  # power_saving
+        self.power_saving = (body[8] & POWER_SAVING_VALUE) > 0
         self.comfort_sleep = body[8] & 0x03  # comfortableSleepValue
         self.comfort_sleep_switch = body[14] & 0x01  # comfortableSleepSwitch
         self.pmv = ((body[11] & 0xF0) >> 4) * 0.5 - 3.5  # pmv
@@ -936,6 +1075,8 @@ class XBXMessageBody(NewProtocolMessageBody):
             self.wind_lr_angle = params[NewProtocolTags.wind_lr_angle][0]
         if NewProtocolTags.wind_ud_angle in params:
             self.wind_ud_angle = params[NewProtocolTags.wind_ud_angle][0]
+        if NewProtocolTags.rate_select in params:
+            self.rate_select = params[NewProtocolTags.rate_select][0]
         if NewProtocolTags.out_silent in params:
             self.out_silent = params[NewProtocolTags.out_silent][0] == OUT_SILENT_VALUE
         if NewProtocolTags.buzzer_all in params:
@@ -948,6 +1089,50 @@ class XBXMessageBody(NewProtocolMessageBody):
                 len(data) > SELF_CLEAN_ACTIVE_STATUS_BYTE
                 and data[SELF_CLEAN_ACTIVE_STATUS_BYTE] != 0
             )
+        if SUBTYPE8_TEMPERATURE_TAG in params:
+            self.has_subtype8_temperature = True
+            self._parse_subtype8_temperatures(params[SUBTYPE8_TEMPERATURE_TAG])
+
+    def _parse_subtype8_temperatures(self, data: bytearray) -> None:
+        """Decode setpoint/indoor temperature for AC subtype 8 (model 22013279).
+
+        The standard C0 frame is stale for this subtype; temperatures are
+        reported in this new-protocol tag instead. Synced captures show the
+        setpoint in byte 1:
+        - low 6 bits encode 0.5C steps with a +11.5C offset
+        - bit 0x40 adds an extra +0.5C
+        """
+        if len(data) <= SUBTYPE8_TEMPERATURE_MIN_LENGTH:
+            return
+        raw_setpoint = data[1]
+        target_temperature = (
+            SUBTYPE8_SETPOINT_OFFSET + (raw_setpoint & SUBTYPE8_SETPOINT_MASK) / 2
+        )
+        if raw_setpoint & SUBTYPE8_SETPOINT_HALF_DEGREE_BIT:
+            target_temperature += 0.5
+        if not (
+            SUBTYPE8_MIN_VALID_TEMPERATURE
+            <= target_temperature
+            <= SUBTYPE8_MAX_VALID_TEMPERATURE
+        ):
+            # Fallback for payload variants where the legacy byte-3 mapping
+            # is still active.
+            fallback_target = (data[SUBTYPE8_LEGACY_SETPOINT_BYTE] - 50) / 2
+            if (
+                SUBTYPE8_MIN_VALID_TEMPERATURE
+                <= fallback_target
+                <= SUBTYPE8_MAX_VALID_TEMPERATURE
+            ):
+                target_temperature = fallback_target
+        self.target_temperature = target_temperature
+        self.indoor_temperature = round(
+            (data[SUBTYPE8_INDOOR_TEMPERATURE_BYTE] - 50) / 2
+            + data[SUBTYPE8_INDOOR_TEMPERATURE_DECIMAL_BYTE] * 0.1,
+            1,
+        )
+        # Outdoor temperature isn't available locally on this model (the app
+        # shows a cloud/weather value); avoid the bogus C0-derived value.
+        self.outdoor_temperature = None
 
 
 class XB5MessageBody(NewProtocolMessageBody):
@@ -1049,7 +1234,7 @@ class XC0MessageBody(XMessageBody):
         self.swing_horizontal = (body[7] & 0x03) > 0  # swingLRValue
         # strongWindValue
         self.boost_mode = ((body[8] & 0x20) > 0) or ((body[10] & 0x2) > 0)
-        self.power_saving = body[8] & 0x08  # power_saving
+        self.power_saving = (body[8] & POWER_SAVING_VALUE) > 0
         self.comfort_sleep = body[8] & 0x03  # comfortableSleepValue
         self.comfort_sleep_switch = body[9] & 0x40  # comfortableSleepSwitch
         self.pmv = (body[14] & 0x0F) * 0.5 - 3.5  # pmv
@@ -1102,7 +1287,12 @@ class XC1MessageBody(MessageBody):
     def __init__(self, body: bytearray, analysis_method: int = 3) -> None:
         """Initialize AC C1 message body."""
         super().__init__(body)
-        if body[3] == XC1_SUBBODY_TYPE_44:
+        if len(body) <= XC1_SUBBODY_TYPE_INDEX:
+            return
+        group_type = body[XC1_SUBBODY_TYPE_INDEX]
+        if group_type == XC1_SUBBODY_TYPE_44:
+            if len(body) < XC1_CONSUMPTION_MIN_LENGTH:
+                return
 
             def parse_consumption(data: bytearray) -> float:
                 return self.parse_consumption(analysis_method, data)
@@ -1115,7 +1305,15 @@ class XC1MessageBody(MessageBody):
             self.current_energy_consumption = parse_consumption(body[12:16])
             # current_time_power
             self.realtime_power = self.parse_power(analysis_method, body[16:19])
-        elif body[3] == XC1_SUBBODY_TYPE_40:
+        elif group_type == XC1_SUBBODY_TYPE_41:
+            self._parse_group_one(body)
+        elif group_type == XC1_SUBBODY_TYPE_42:
+            self._parse_group_two(body)
+        elif group_type == XC1_SUBBODY_TYPE_47:
+            self._parse_group_seven(body)
+        elif group_type == XC1_SUBBODY_TYPE_40:
+            if len(body) < XC1_OPERATING_TIME_MIN_LENGTH:
+                return
             self.electrify_time_day = body[5] | (body[4] << 8)
             self.electrify_time_hour = body[6]
             self.electrify_time_min = body[7]
@@ -1149,9 +1347,56 @@ class XC1MessageBody(MessageBody):
                 + (self.current_operating_time_min / 60)
                 + (self.current_operating_time_second / 3600)
             )
-        elif body[3] == XC1_SUBBODY_TYPE_45:
+        elif group_type == XC1_SUBBODY_TYPE_45:
+            if len(body) <= XC1_HUMIDITY_INDEX:
+                return
             # indoor humidity, it should be the same value as XBB/XA1 message
             self.indoor_humidity = body[4] if body[4] != 0 else None
+
+    def _parse_group_one(self, body: bytearray) -> None:
+        """Parse group 1 data: compressor and refrigerant circuit.
+
+        This is service/engineering data that the Midea app does not display,
+        so it is not covered by any B5 capability and is simply absent on
+        devices that do not answer the group 1 query.
+        """
+        if len(body) < XC1_GROUP_ONE_MIN_LENGTH:
+            return
+        self.compressor_frequency = body[4]
+        self.target_compressor_frequency = body[5]
+        self.compressor_current = body[7]
+        self.compressor_voltage = body[8]
+        # T1: indoor coil, T2: evaporator outlet
+        self.indoor_coil_temperature = (
+            body[10] - XC1_TEMP_INDOOR_OFFSET
+        ) / XC1_TEMP_DIVISOR
+        self.evaporator_temperature = (
+            body[11] - XC1_TEMP_INDOOR_OFFSET
+        ) / XC1_TEMP_DIVISOR
+        # T3: condenser, T4: outdoor ambient
+        self.condenser_temperature = (
+            body[12] - XC1_TEMP_OUTDOOR_OFFSET
+        ) / XC1_TEMP_DIVISOR
+        self.outdoor_ambient_temperature = (
+            body[13] - XC1_TEMP_OUTDOOR_OFFSET
+        ) / XC1_TEMP_DIVISOR
+        # TP: compressor discharge pipe, reported directly in degrees
+        self.discharge_pipe_temperature = body[14]
+
+    def _parse_group_two(self, body: bytearray) -> None:
+        """Parse group 2 data: indoor fan and condensate pump."""
+        if len(body) < XC1_GROUP_TWO_MIN_LENGTH:
+            return
+        self.target_indoor_fan_speed = body[4] * XC1_FAN_SPEED_FACTOR
+        self.indoor_fan_speed = body[5] * XC1_FAN_SPEED_FACTOR
+        # Could also be the float switch (tank full) that triggers the pump.
+        self.water_pump_running = bool(body[8] & XC1_WATER_PUMP_MASK)
+
+    def _parse_group_seven(self, body: bytearray) -> None:
+        """Parse group 7 data: real time compressor power."""
+        if len(body) < XC1_GROUP_SEVEN_MIN_LENGTH:
+            return
+        self.compressor_power = body[10] + (body[11] << 8)
 
     power_analysis_methods: Mapping[int, Callable[[int, int], int]] = MappingProxyType(
         {
@@ -1201,7 +1446,10 @@ class XBBMessageBody(MessageBody):
         subprotocol_body = body[6:]
         data_type = subprotocol_head[-1]
         subprotocol_body_len = len(subprotocol_body)
-        if data_type in (ListTypes.X11, ListTypes.X20):
+        if (
+            data_type in (ListTypes.X11, ListTypes.X20)
+            and subprotocol_body_len > BB_BASIC_FAN_SPEED_INDEX
+        ):
             self.power = (subprotocol_body[0] & 0x1) > 0
             self.dry = (subprotocol_body[0] & 0x10) > 0
             self.boost_mode = (subprotocol_body[0] & 0x20) > 0
@@ -1223,32 +1471,59 @@ class XBBMessageBody(MessageBody):
                 if subprotocol_body_len > ECO_MODE_MIN_SUBPROTOCOL_LENGTH
                 else False
             )
+            # These offsets are known for the verified BB fresh-air model; the
+            # device layer gates public attributes and controls to that model.
+            if subprotocol_body_len > BB_FRESH_AIR_EXHAUST_SPEED_INDEX:
+                fresh_air_switches = subprotocol_body[BB_FRESH_AIR_SWITCH_INDEX]
+                self.bb_fresh_air_power = bool(
+                    fresh_air_switches & BB_FRESH_AIR_INTAKE_STATUS_MASK,
+                )
+                self.bb_fresh_air_fan_speed = subprotocol_body[
+                    BB_FRESH_AIR_INTAKE_SPEED_INDEX
+                ]
+                self.bb_fresh_air_exhaust_power = bool(
+                    fresh_air_switches & BB_FRESH_AIR_EXHAUST_STATUS_MASK,
+                )
+                self.bb_fresh_air_exhaust_speed = subprotocol_body[
+                    BB_FRESH_AIR_EXHAUST_SPEED_INDEX
+                ]
         elif data_type == ListTypes.X10:
-            if subprotocol_body[8] & 0x80 == SUB_PROTOCOL_BODY_TEMP_CHECK:
-                self.indoor_temperature = (
-                    0 - (~(subprotocol_body[7] + subprotocol_body[8] * 256) + 1)
-                    & 0xFFFF
-                ) / 100
-            else:
-                self.indoor_temperature = (
-                    subprotocol_body[7] + subprotocol_body[8] * 256
-                ) / 100
-            self.indoor_humidity = (
-                subprotocol_body[30] if subprotocol_body[30] != 0 else None
-            )
-            self.sn8_flag = subprotocol_body[80] == XBB_SN8_BYTE_FLAG
+            if subprotocol_body_len > BB_INDOOR_TEMPERATURE_HIGH_INDEX:
+                if subprotocol_body[8] & 0x80 == SUB_PROTOCOL_BODY_TEMP_CHECK:
+                    self.indoor_temperature = (
+                        0 - (~(subprotocol_body[7] + subprotocol_body[8] * 256) + 1)
+                        & 0xFFFF
+                    ) / 100
+                else:
+                    self.indoor_temperature = (
+                        subprotocol_body[7] + subprotocol_body[8] * 256
+                    ) / 100
+            if subprotocol_body_len > BB_INDOOR_HUMIDITY_INDEX:
+                self.indoor_humidity = (
+                    subprotocol_body[30] if subprotocol_body[30] != 0 else None
+                )
+            if subprotocol_body_len > BB_SN8_FLAG_INDEX:
+                self.sn8_flag = subprotocol_body[80] == XBB_SN8_BYTE_FLAG
         elif data_type == ListTypes.X12:
             pass
         elif data_type == ListTypes.X30:
-            if subprotocol_body[6] & 0x80 == SUB_PROTOCOL_BODY_TEMP_CHECK:
-                self.outdoor_temperature = (
-                    0 - (~(subprotocol_body[5] + subprotocol_body[6] * 256) + 1)
-                    & 0xFFFF
-                ) / 100
-            else:
-                self.outdoor_temperature = (
-                    subprotocol_body[5] + subprotocol_body[6] * 256
-                ) / 100
+            if subprotocol_body_len > BB_OUTDOOR_TEMPERATURE_HIGH_INDEX:
+                if subprotocol_body[6] & 0x80 == SUB_PROTOCOL_BODY_TEMP_CHECK:
+                    self.outdoor_temperature = (
+                        0 - (~(subprotocol_body[5] + subprotocol_body[6] * 256) + 1)
+                        & 0xFFFF
+                    ) / 100
+                else:
+                    self.outdoor_temperature = (
+                        subprotocol_body[5] + subprotocol_body[6] * 256
+                    ) / 100
+            if subprotocol_body_len > BB_COMPRESSOR_FREQUENCY_INDEX:
+                self.target_compressor_frequency = subprotocol_body[
+                    BB_COMPRESSOR_TARGET_FREQUENCY_INDEX
+                ]
+                self.compressor_frequency = subprotocol_body[
+                    BB_COMPRESSOR_FREQUENCY_INDEX
+                ]
         elif data_type in (ListTypes.X13, ListTypes.X21):
             pass
 

@@ -29,6 +29,17 @@ class OrgSearchRow(BaseModel):
     organization_id: str
     workspace_id: str
     display_label: str
+    organization_label: str = ""
+
+
+def _org_label(organization_name: str) -> str:
+    """Build the resolved-organization label for a row.
+
+    Used by callers that always scope to the organization (e.g. the Organization
+    Pins tab) so a workspace hit shows its parent org's label rather than the
+    workspace's own. Returns an empty string when the org name is unknown.
+    """
+    return f"[Org] {organization_name}" if organization_name else ""
 
 
 class OrgSearchResult(BaseModel):
@@ -115,6 +126,10 @@ _MOCK_WORKSPACES += [
 def _mock_search(query: str) -> OrgSearchResult:
     """Return mock results for org/workspace search in mock mode."""
     q = query.strip().lower()
+    org_names_by_id = {
+        org["organization_id"]: org.get("organization_name", "")
+        for org in _MOCK_ORGANIZATIONS
+    }
     results: list[OrgSearchRow] = []
     for org in _MOCK_ORGANIZATIONS:
         name = org.get("organization_name", "")
@@ -133,6 +148,7 @@ def _mock_search(query: str) -> OrgSearchResult:
                     organization_id=org_id,
                     workspace_id="",
                     display_label=" ".join(label_parts),
+                    organization_label=_org_label(name),
                 )
             )
     for ws in _MOCK_WORKSPACES:
@@ -152,6 +168,9 @@ def _mock_search(query: str) -> OrgSearchResult:
                     organization_id=ws["organization_id"],
                     workspace_id=ws_id,
                     display_label=" ".join(label_parts),
+                    organization_label=_org_label(
+                        org_names_by_id.get(ws["organization_id"], "")
+                    ),
                 )
             )
     return OrgSearchResult(results=results)
@@ -196,6 +215,7 @@ def search_organizations_and_workspaces(
                 organization_id=org_id,
                 workspace_id="",
                 display_label=" ".join(label_parts),
+                organization_label=_org_label(name),
             )
         )
     for row in ws_rows:
@@ -216,6 +236,7 @@ def search_organizations_and_workspaces(
                 else "",
                 workspace_id=ws_id,
                 display_label=" ".join(label_parts),
+                organization_label=_org_label(row.get("organization_name") or ""),
             )
         )
 

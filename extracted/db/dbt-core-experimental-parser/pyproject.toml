@@ -1,0 +1,9 @@
+[build-system]
+requires = ["packaging>=24"]
+build-backend = "_dbt_sa_build"
+backend-path = ["."]
+
+[project]
+name = "dbt-core-experimental-parser"
+version = "2.0.0a5"
+requires-python = ">=3.9"

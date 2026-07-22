@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arize-phoenix-evals
-Version: 3.1.1
+Version: 3.2.0
 Summary: LLM Evaluations
 Project-URL: Documentation, https://arize.com/docs/phoenix/
 Project-URL: Issues, https://github.com/Arize-ai/phoenix/issues
@@ -29,12 +29,12 @@ Requires-Dist: typing-extensions<5,>=4.5
 Provides-Extra: dev
 Requires-Dist: anthropic>0.18.0; extra == 'dev'
 Requires-Dist: boto3; extra == 'dev'
-Requires-Dist: litellm>=1.83.14; extra == 'dev'
+Requires-Dist: litellm>=1.83.14; (python_version < '3.14') and extra == 'dev'
 Requires-Dist: openai>=1.0.0; extra == 'dev'
 Provides-Extra: test
 Requires-Dist: anthropic>=0.18.0; extra == 'test'
 Requires-Dist: boto3; extra == 'test'
-Requires-Dist: litellm>=1.83.14; extra == 'test'
+Requires-Dist: litellm>=1.83.14; (python_version < '3.14') and extra == 'test'
 Requires-Dist: nest-asyncio; extra == 'test'
 Requires-Dist: openai>=1.0.0; extra == 'test'
 Requires-Dist: openinference-semantic-conventions; extra == 'test'
@@ -120,6 +120,7 @@ The `phoenix.evals.metrics` module provides ready-to-use evaluators for common t
 | Tool Invocation | `ToolInvocationEvaluator` | Checks whether the correct tool was called with the right arguments |
 | Tool Selection | `ToolSelectionEvaluator` | Evaluates whether the right tool was selected for the task |
 | Tool Response Handling | `ToolResponseHandlingEvaluator` | Evaluates how well the model uses a tool's response |
+| User Friction | `UserFrictionEvaluator` | Detects expressed corrections, retries, frustration, and challenges |
 | Exact Match | `exact_match` | Checks for exact string equality between output and expected |
 | Regex Match | `MatchesRegex` | Checks whether the output matches a regular expression |
 | Precision/Recall | `PrecisionRecallFScore` | Computes precision, recall, and F-score for classification tasks |

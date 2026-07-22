@@ -8,19 +8,22 @@ import pytest
 from airbyte_ops_mcp.approval_resolution import ApprovalResolutionError
 from airbyte_ops_mcp.github_actions import WorkflowDispatchResult
 from airbyte_ops_mcp.human_in_the_loop import validate_approval_request_summary
-from airbyte_ops_mcp.mcp.registry import (
+from airbyte_ops_mcp.mcp.connector_registry import (
     YANK_WORKFLOW_DEFAULT_BRANCH,
     YANK_WORKFLOW_FILE,
     YANK_WORKFLOW_REPO_NAME,
     YANK_WORKFLOW_REPO_OWNER,
+    get_connector_version_yank_detail,
+    list_yanked_connector_versions,
     yank_connector_version,
 )
+from airbyte_ops_mcp.registry.yank import YankedVersion, YankMarkerDetail
 
 
 @pytest.mark.unit
-@patch("airbyte_ops_mcp.mcp.registry.resolve_admin_email_from_approval")
-@patch("airbyte_ops_mcp.mcp.registry.resolve_ci_trigger_github_token")
-@patch("airbyte_ops_mcp.mcp.registry.trigger_workflow_dispatch")
+@patch("airbyte_ops_mcp.mcp.connector_registry.resolve_admin_email_from_approval")
+@patch("airbyte_ops_mcp.mcp.connector_registry.resolve_ci_trigger_github_token")
+@patch("airbyte_ops_mcp.mcp.connector_registry.trigger_workflow_dispatch")
 def test_yank_connector_version_requires_approval_before_dispatch(
     mock_dispatch: MagicMock,
     mock_resolve_token: MagicMock,
@@ -55,9 +58,9 @@ def test_yank_connector_version_requires_approval_before_dispatch(
 
 
 @pytest.mark.unit
-@patch("airbyte_ops_mcp.mcp.registry.resolve_admin_email_from_approval")
-@patch("airbyte_ops_mcp.mcp.registry.resolve_ci_trigger_github_token")
-@patch("airbyte_ops_mcp.mcp.registry.trigger_workflow_dispatch")
+@patch("airbyte_ops_mcp.mcp.connector_registry.resolve_admin_email_from_approval")
+@patch("airbyte_ops_mcp.mcp.connector_registry.resolve_ci_trigger_github_token")
+@patch("airbyte_ops_mcp.mcp.connector_registry.trigger_workflow_dispatch")
 def test_yank_connector_version_sanitizes_reason_in_approval_summary(
     mock_dispatch: MagicMock,
     mock_resolve_token: MagicMock,
@@ -83,9 +86,9 @@ def test_yank_connector_version_sanitizes_reason_in_approval_summary(
 
 
 @pytest.mark.unit
-@patch("airbyte_ops_mcp.mcp.registry.resolve_admin_email_from_approval")
-@patch("airbyte_ops_mcp.mcp.registry.resolve_ci_trigger_github_token")
-@patch("airbyte_ops_mcp.mcp.registry.trigger_workflow_dispatch")
+@patch("airbyte_ops_mcp.mcp.connector_registry.resolve_admin_email_from_approval")
+@patch("airbyte_ops_mcp.mcp.connector_registry.resolve_ci_trigger_github_token")
+@patch("airbyte_ops_mcp.mcp.connector_registry.trigger_workflow_dispatch")
 def test_yank_connector_version_rejects_invalid_approval_before_dispatch(
     mock_dispatch: MagicMock,
     mock_resolve_token: MagicMock,
@@ -143,9 +146,9 @@ def test_yank_connector_version_rejects_invalid_approval_before_dispatch(
         ),
     ],
 )
-@patch("airbyte_ops_mcp.mcp.registry.resolve_admin_email_from_approval")
-@patch("airbyte_ops_mcp.mcp.registry.resolve_ci_trigger_github_token")
-@patch("airbyte_ops_mcp.mcp.registry.trigger_workflow_dispatch")
+@patch("airbyte_ops_mcp.mcp.connector_registry.resolve_admin_email_from_approval")
+@patch("airbyte_ops_mcp.mcp.connector_registry.resolve_ci_trigger_github_token")
+@patch("airbyte_ops_mcp.mcp.connector_registry.trigger_workflow_dispatch")
 def test_yank_connector_version_dispatches_after_approval(
     mock_dispatch: MagicMock,
     mock_resolve_token: MagicMock,
@@ -192,3 +195,105 @@ def test_yank_connector_version_dispatches_after_approval(
         inputs=expected_inputs,
         token="github-token",
     )
+
+
+@pytest.mark.unit
+@patch("airbyte_ops_mcp.mcp.connector_registry.get_registry")
+@patch("airbyte_ops_mcp.mcp.connector_registry.resolve_registry_store")
+def test_list_yanked_connector_versions(
+    mock_resolve: MagicMock,
+    mock_get_registry: MagicMock,
+) -> None:
+    registry = MagicMock()
+    registry.bucket_name = "prod-airbyte-cloud-connector-metadata-service"
+    registry.list_yanked_versions.return_value = [
+        YankedVersion(
+            connector_name="destination-snowflake",
+            version="3.2.0",
+        ),
+        YankedVersion(
+            connector_name="source-github",
+            version="1.9.3",
+            yanked_at="2026-06-18T14:30:00Z",
+            reason="bad release",
+            approval_url="https://github.com/airbytehq/airbyte/pull/1",
+        ),
+    ]
+    mock_get_registry.return_value = registry
+
+    result = list_yanked_connector_versions(store="coral:prod")
+
+    mock_resolve.assert_called_once_with(store="coral:prod")
+    registry.list_yanked_versions.assert_called_once_with()
+    assert result.store == "coral:prod"
+    assert result.bucket_name == "prod-airbyte-cloud-connector-metadata-service"
+    assert result.count == 2
+    assert [(e.connector_name, e.version) for e in result.yanked_versions] == [
+        ("destination-snowflake", "3.2.0"),
+        ("source-github", "1.9.3"),
+    ]
+    assert result.yanked_versions[1].reason == "bad release"
+    assert result.yanked_versions[1].approval_url == (
+        "https://github.com/airbytehq/airbyte/pull/1"
+    )
+
+
+@pytest.mark.unit
+@patch("airbyte_ops_mcp.mcp.connector_registry.get_registry")
+@patch("airbyte_ops_mcp.mcp.connector_registry.resolve_registry_store")
+def test_get_connector_version_yank_detail_when_yanked(
+    mock_resolve: MagicMock,
+    mock_get_registry: MagicMock,
+) -> None:
+    registry = MagicMock()
+    registry.bucket_name = "prod-airbyte-cloud-connector-metadata-service"
+    registry.get_yank_marker.return_value = YankMarkerDetail(
+        connector_name="source-github",
+        version="1.9.3",
+        yanked_at="2026-06-18T14:30:00Z",
+        reason="bad release",
+        approval_url="https://github.com/airbytehq/airbyte/pull/1",
+        raw="yanked: true\n",
+    )
+    mock_get_registry.return_value = registry
+
+    result = get_connector_version_yank_detail(
+        connector_name="source-github",
+        version="1.9.3",
+        store="coral:prod",
+    )
+
+    registry.get_yank_marker.assert_called_once_with(
+        connector_name="source-github",
+        version="1.9.3",
+    )
+    assert result.yanked is True
+    assert result.connector_name == "source-github"
+    assert result.version == "1.9.3"
+    assert result.yanked_at == "2026-06-18T14:30:00Z"
+    assert result.reason == "bad release"
+    assert result.approval_url == "https://github.com/airbytehq/airbyte/pull/1"
+
+
+@pytest.mark.unit
+@patch("airbyte_ops_mcp.mcp.connector_registry.get_registry")
+@patch("airbyte_ops_mcp.mcp.connector_registry.resolve_registry_store")
+def test_get_connector_version_yank_detail_when_not_yanked(
+    mock_resolve: MagicMock,
+    mock_get_registry: MagicMock,
+) -> None:
+    registry = MagicMock()
+    registry.bucket_name = "prod-airbyte-cloud-connector-metadata-service"
+    registry.get_yank_marker.return_value = None
+    mock_get_registry.return_value = registry
+
+    result = get_connector_version_yank_detail(
+        connector_name="source-github",
+        version="9.9.9",
+        store="coral:prod",
+    )
+
+    assert result.yanked is False
+    assert result.yanked_at == ""
+    assert result.reason == ""
+    assert result.approval_url == ""

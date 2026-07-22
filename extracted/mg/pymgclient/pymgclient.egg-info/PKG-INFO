@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymgclient
-Version: 1.5.2
+Version: 1.6.0
 Summary: Memgraph database adapter for Python language
 Author-email: Colin Barry <colin.barry@memgraph.io>
 Maintainer-email: Matt James <matthew.james@memgraph.io>

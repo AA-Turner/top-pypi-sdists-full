@@ -8,14 +8,24 @@ import stat
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
 
+import aiohttp
 import nio
 
+from mindroom.desktop.login_method import DesktopLoginMethod
 from mindroom.durable_write import write_json_file_durable
-from mindroom.matrix.client_session import PermanentMatrixStartupError, login, olm_store_exists, restore_login
+from mindroom.matrix.client_session import (
+    PermanentMatrixStartupError,
+    login,
+    login_flows,
+    login_with_token,
+    olm_store_exists,
+    restore_login,
+)
 from mindroom.matrix.cross_signing import ensure_agent_cross_signing
 from mindroom.matrix.users import AgentMatrixUser
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
     from pathlib import Path
 
     from mindroom.constants import RuntimePaths
@@ -33,16 +43,20 @@ class DesktopMatrixSession:
     user_id: str
     device_id: str
     access_token: str
+    cloudflare_access: bool = False
 
-    def to_payload(self) -> dict[str, str | int]:
+    def to_payload(self) -> dict[str, str | int | bool]:
         """Serialize the minimum restorable device state."""
-        return {
+        payload: dict[str, str | int | bool] = {
             "v": 1,
             "homeserver": self.homeserver,
             "user_id": self.user_id,
             "device_id": self.device_id,
             "access_token": self.access_token,
         }
+        if self.cloudflare_access:
+            payload["cloudflare_access"] = True
+        return payload
 
     @classmethod
     def from_payload(cls, raw: object) -> DesktopMatrixSession:
@@ -61,7 +75,11 @@ class DesktopMatrixSession:
                 msg = f"Desktop Matrix session field {key} is missing."
                 raise DesktopSessionError(msg)
             values[key] = value
-        return cls(**values)
+        cloudflare_access = payload.get("cloudflare_access", False)
+        if not isinstance(cloudflare_access, bool):
+            msg = "Desktop Matrix session field cloudflare_access must be a boolean."
+            raise DesktopSessionError(msg)
+        return cls(**values, cloudflare_access=cloudflare_access)
 
 
 def desktop_session_path(runtime_paths: RuntimePaths) -> Path:
@@ -93,40 +111,124 @@ def load_desktop_session(path: Path) -> DesktopMatrixSession:
     return DesktopMatrixSession.from_payload(raw)
 
 
+def load_desktop_http_headers(path: Path | None) -> dict[str, str] | None:
+    """Load optional secret HTTP headers for the desktop Matrix transport."""
+    if path is None:
+        return None
+    path = path.expanduser()
+    try:
+        file_stat = path.stat()
+    except FileNotFoundError as exc:
+        msg = f"Desktop Matrix HTTP headers file not found at {path}."
+        raise DesktopSessionError(msg) from exc
+    if os.name != "nt" and stat.S_IMODE(file_stat.st_mode) & 0o077:
+        msg = f"Desktop Matrix HTTP headers file {path} must not be readable by group or other users."
+        raise DesktopSessionError(msg)
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        msg = f"Desktop Matrix HTTP headers file {path} is unreadable or malformed."
+        raise DesktopSessionError(msg) from exc
+    if not isinstance(raw, dict) or any(
+        not isinstance(name, str) or not name or not isinstance(value, str) for name, value in raw.items()
+    ):
+        msg = f"Desktop Matrix HTTP headers file {path} must contain one JSON object of string values."
+        raise DesktopSessionError(msg)
+    return cast("dict[str, str]", raw)
+
+
+async def resolve_desktop_login_method(
+    requested: DesktopLoginMethod,
+    *,
+    homeserver: str,
+    runtime_paths: RuntimePaths,
+    http_headers: Mapping[str, str] | None = None,
+) -> DesktopLoginMethod:
+    """Resolve automatic desktop login from methods advertised by Matrix."""
+    if requested is not DesktopLoginMethod.AUTO:
+        return requested
+    try:
+        flows = await login_flows(
+            homeserver,
+            runtime_paths,
+            http_headers=http_headers,
+        )
+    except (PermanentMatrixStartupError, aiohttp.ClientError, OSError, TimeoutError, ValueError) as exc:
+        msg = f"Could not discover Matrix login methods: {exc}"
+        raise DesktopSessionError(msg) from exc
+    if "m.login.password" in flows:
+        return DesktopLoginMethod.PASSWORD
+    if "m.login.sso" in flows:
+        return DesktopLoginMethod.SSO
+    advertised = ", ".join(sorted(flows)) or "none"
+    msg = f"Matrix homeserver offers no supported desktop login method (advertised: {advertised})."
+    raise DesktopSessionError(msg)
+
+
 async def login_desktop_client(
     *,
     homeserver: str,
-    user_id: str,
-    password: str,
+    user_id: str | None,
     runtime_paths: RuntimePaths,
+    password: str | None = None,
+    login_token: str | None = None,
+    http_headers: Mapping[str, str] | None = None,
+    cloudflare_access: bool = False,
 ) -> tuple[nio.AsyncClient, DesktopMatrixSession]:
-    """Create a fresh cross-signed Matrix desktop device and its restorable session."""
+    """Create a fresh Matrix desktop device and its restorable session."""
+    if (password is None) == (login_token is None):
+        msg = "Desktop Matrix login requires exactly one password or SSO login token."
+        raise DesktopSessionError(msg)
+    if password is not None and user_id is None:
+        msg = "Desktop Matrix password login requires --user-id."
+        raise DesktopSessionError(msg)
     try:
-        client = await login(homeserver, user_id, password, runtime_paths)
-    except (PermanentMatrixStartupError, ValueError) as exc:
+        if login_token is not None:
+            client = await login_with_token(
+                homeserver,
+                login_token,
+                runtime_paths,
+                expected_user_id=user_id,
+                http_headers=http_headers,
+            )
+        else:
+            assert user_id is not None
+            assert password is not None
+            client = await login(homeserver, user_id, password, runtime_paths, http_headers=http_headers)
+    except (PermanentMatrixStartupError, aiohttp.ClientError, OSError, TimeoutError, ValueError) as exc:
         msg = f"Desktop Matrix login failed: {exc}"
         raise DesktopSessionError(msg) from exc
     try:
         await _prepare_crypto(client)
-        authenticated_session = _session_from_authenticated_client(client, homeserver=homeserver)
-        await ensure_agent_cross_signing(
+        authenticated_session = _session_from_authenticated_client(
             client,
-            AgentMatrixUser(
-                agent_name="desktop_bridge",
-                user_id=authenticated_session.user_id,
-                display_name="MindRoom Desktop Bridge",
-                password=password,
-                device_id=authenticated_session.device_id,
-                access_token=authenticated_session.access_token,
-            ),
+            homeserver=homeserver,
+            cloudflare_access=cloudflare_access,
         )
+        if password is not None:
+            await ensure_agent_cross_signing(
+                client,
+                AgentMatrixUser(
+                    agent_name="desktop_bridge",
+                    user_id=authenticated_session.user_id,
+                    display_name="MindRoom Desktop Bridge",
+                    password=password,
+                    device_id=authenticated_session.device_id,
+                    access_token=authenticated_session.access_token,
+                ),
+            )
     except Exception:
         await client.close()
         raise
     return client, authenticated_session
 
 
-def _session_from_authenticated_client(client: nio.AsyncClient, *, homeserver: str) -> DesktopMatrixSession:
+def _session_from_authenticated_client(
+    client: nio.AsyncClient,
+    *,
+    homeserver: str,
+    cloudflare_access: bool,
+) -> DesktopMatrixSession:
     if client.user_id is None or client.device_id is None or client.access_token is None:
         msg = "Matrix login did not return complete desktop device credentials."
         raise DesktopSessionError(msg)
@@ -135,6 +237,7 @@ def _session_from_authenticated_client(client: nio.AsyncClient, *, homeserver: s
         user_id=client.user_id,
         device_id=client.device_id,
         access_token=client.access_token,
+        cloudflare_access=cloudflare_access,
     )
 
 
@@ -142,9 +245,10 @@ async def restore_desktop_client(
     session: DesktopMatrixSession,
     *,
     runtime_paths: RuntimePaths,
+    http_headers: Mapping[str, str] | None = None,
 ) -> nio.AsyncClient:
     """Restore the exact desktop Matrix device and its Olm identity."""
-    client = await open_desktop_client(session, runtime_paths=runtime_paths)
+    client = await open_desktop_client(session, runtime_paths=runtime_paths, http_headers=http_headers)
     try:
         await prepare_desktop_client(client)
     except Exception:
@@ -157,6 +261,7 @@ async def open_desktop_client(
     session: DesktopMatrixSession,
     *,
     runtime_paths: RuntimePaths,
+    http_headers: Mapping[str, str] | None = None,
 ) -> nio.AsyncClient:
     """Restore a desktop Matrix client before consuming queued sync events."""
     if not olm_store_exists(session.user_id, session.device_id, runtime_paths):
@@ -169,6 +274,7 @@ async def open_desktop_client(
             session.device_id,
             session.access_token,
             runtime_paths,
+            http_headers=http_headers,
         )
     except (PermanentMatrixStartupError, ValueError) as exc:
         msg = f"Desktop Matrix session restore failed: {exc}"
@@ -197,7 +303,7 @@ async def _prepare_crypto(client: nio.AsyncClient) -> None:
 
 
 def client_ed25519_fingerprint(client: nio.AsyncClient) -> str:
-    """Return the local device fingerprint users pin in cloud tool config."""
+    """Return the local device fingerprint sent through chat pairing."""
     if client.olm is None:
         msg = "Desktop Matrix client has no Olm identity."
         raise DesktopSessionError(msg)
@@ -213,10 +319,12 @@ __all__ = [
     "DesktopSessionError",
     "client_ed25519_fingerprint",
     "desktop_session_path",
+    "load_desktop_http_headers",
     "load_desktop_session",
     "login_desktop_client",
     "open_desktop_client",
     "prepare_desktop_client",
+    "resolve_desktop_login_method",
     "restore_desktop_client",
     "save_desktop_session",
 ]

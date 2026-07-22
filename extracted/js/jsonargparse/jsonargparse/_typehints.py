@@ -28,7 +28,6 @@ from typing import (
     MutableSequence,
     MutableSet,
     NoReturn,
-    Optional,
     Sequence,
     Set,
     Tuple,
@@ -48,6 +47,7 @@ from ._actions import (
     remove_actions,
 )
 from ._common import (
+    get_parsing_setting,
     get_unaliased_type,
     is_generic_class,
     is_instance,
@@ -66,7 +66,7 @@ from ._loaders_dumpers import (
     json_or_yaml_loader_exceptions,
     load_value,
 )
-from ._namespace import Namespace
+from ._namespace import Namespace, subclasses_disabled_meta_key
 from ._optionals import (
     capture_typing_extension_shadows,
     get_alias_target,
@@ -99,6 +99,7 @@ NotRequired = typing_extensions_import("NotRequired")
 Required = typing_extensions_import("Required")
 _TypedDictMeta = typing_extensions_import("_TypedDictMeta")
 Unpack = typing_extensions_import("Unpack")
+get_type_hints = typing_extensions_import("get_type_hints")
 
 
 def _capture_typing_extension_shadows(name: str, *collections) -> None:
@@ -247,6 +248,7 @@ def cached_get_class_parser(*, val_class, sub_add_kwargs, skip_args, parent_pars
         freeze(sub_add_kwargs),
         freeze(skip_args),
         freeze(nested_links),
+        get_parsing_setting("unset_sentinel"),
     )
     if cache_key in _cached_class_parsers:
         parser = _cached_class_parsers[cache_key]
@@ -281,7 +283,7 @@ def cached_get_class_parser(*, val_class, sub_add_kwargs, skip_args, parent_pars
 class ActionTypeHint(Action):
     """Action to parse a type hint."""
 
-    def __init__(self, typehint: Optional[type] = None, enable_path: bool = False, **kwargs):
+    def __init__(self, typehint: type | None = None, enable_path: bool = False, **kwargs):
         """Initializer for ActionTypeHint instance.
 
         Args:
@@ -304,7 +306,7 @@ class ActionTypeHint(Action):
                     discard = {typehint.__args__[n] for n, s in enumerate(subtype_supported) if not s}
                     kwargs["logger"].debug(f"Discarding unsupported subtypes {discard} from {typehint}")
                     subtypes = tuple(t for t, s in zip(typehint.__args__, subtype_supported) if s)
-                    typehint = Union[subtypes]  # type: ignore[assignment]
+                    typehint = Union[subtypes]
             self._typehint = typehint
             self._enable_path = False if is_pathlike(typehint) else enable_path
         elif "_typehint" not in kwargs:
@@ -531,7 +533,7 @@ class ActionTypeHint(Action):
     def add_sub_defaults(parser, cfg):
         def skip_sub_defaults_apply(v):
             return not (
-                isinstance(v, (str, Namespace))
+                isinstance(v, (str, Namespace, dict))
                 or is_subclass_spec(v)
                 or (isinstance(v, list) and any(is_subclass_spec(e) for e in v))
                 or (isinstance(v, dict) and any(is_subclass_spec(e) for e in v.values()))
@@ -623,8 +625,9 @@ class ActionTypeHint(Action):
                     config_path = None
                 path_meta = val.pop("__path__", None) if isinstance(val, dict) else None
 
-                prev_val = cfg.get(self.dest) if cfg else None
-                if prev_val is None and not sub_defaults.get() and is_subclass_spec(self.default):
+                unset_sentinel = get_parsing_setting("unset_sentinel")
+                prev_val = cfg.get(self.dest) if cfg else unset_sentinel
+                if prev_val is unset_sentinel and not sub_defaults.get() and is_subclass_spec(self.default):
                     prev_val = Namespace(class_path=self.default["class_path"])
 
                 kwargs = {
@@ -763,7 +766,7 @@ def is_list_pathlike(typehint) -> bool:
     return False
 
 
-def raise_unexpected_value(message: str, val: Any = inspect._empty, exception: Optional[Exception] = None) -> NoReturn:
+def raise_unexpected_value(message: str, val: Any = inspect._empty, exception: Exception | None = None) -> NoReturn:
     if val is not inspect._empty:
         message += f". Got value: {val}"
     raise ValueError(message) from exception
@@ -779,13 +782,44 @@ def raise_union_unexpected_value(subtypes, val: Any, exceptions: list[Exception]
     ) from exceptions[0]
 
 
-def resolve_forward_ref(ref):
+def resolve_forward_ref(ref, global_vars=None):
     if not isinstance(ref, ForwardRef) or not ref.__forward_module__:
         return ref
 
     aliases = __builtins__.copy()
     aliases.update(vars(import_module(ref.__forward_module__)))
+    if global_vars:
+        aliases.update(global_vars)
     return aliases.get(ref.__forward_arg__, ref)
+
+
+def get_typed_dict_annotations(typed_dict, logger=None) -> dict:
+    from ._postponed_annotations import get_global_vars
+
+    # Includes the names from TYPE_CHECKING blocks, given as localns so that each base
+    # keeps resolving with the globals of the module in which it was defined.
+    global_vars = get_global_vars(typed_dict, logger)
+    try:
+        # Resolves forward references (e.g. from "from __future__ import annotations") and
+        # gathers inherited keys, while include_extras keeps the Required/NotRequired wrappers.
+        return get_type_hints(typed_dict, None, global_vars, include_extras=True)
+    except Exception as ex:
+        if logger:
+            logger.debug(f"Failed to resolve the annotations of {typed_dict}", exc_info=ex)
+    # A single key failing (e.g. a missing import or a typo) makes the resolution of the
+    # entire TypedDict fail. Thus, resolve one by one to keep the keys that do work.
+    return {k: resolve_forward_ref(v, global_vars) for k, v in typed_dict.__annotations__.items()}
+
+
+def get_typed_dict_required_keys(typed_dict, annotations: dict) -> set:
+    # The totality of each class (including inheritance) is reflected in __required_keys__,
+    # even when the annotations are postponed. Required and NotRequired instead may not be
+    # reflected there (e.g. below Python 3.11 or with postponed annotations), so they are
+    # adjusted based on the resolved annotations.
+    required_keys = set(getattr(typed_dict, "__required_keys__", set(annotations)))
+    required_keys.update({k for k, v in annotations.items() if get_typehint_origin(v) in required_types})
+    required_keys.difference_update({k for k, v in annotations.items() if get_typehint_origin(v) in not_required_types})
+    return required_keys
 
 
 def adapt_typehints(
@@ -816,6 +850,7 @@ def adapt_typehints(
     }
     subtypehints = getattr(typehint, "__args__", None)
     typehint_origin = get_typehint_origin(typehint) or typehint
+    unset_sentinel = get_parsing_setting("unset_sentinel")
 
     # Any
     if typehint == Any:
@@ -931,7 +966,7 @@ def adapt_typehints(
     elif typehint_origin in sequence_origin_types:
         if append:
             adapt_kwargs.pop("prev_val")
-            if prev_val is None:
+            if prev_val is unset_sentinel:
                 prev_val = []
             elif not isinstance(prev_val, list):
                 try:
@@ -1006,27 +1041,16 @@ def adapt_typehints(
                         kwargs["prev_val"] = None
                 val[k] = adapt_typehints(v, subtypehints[1], **kwargs)
         if type(typehint) in typed_dict_meta_types:
-            if hasattr(typehint, "__required_keys__"):
-                required_keys = set(typehint.__required_keys__)
-                # The standard library TypedDict below Python 3.11 does not store runtime
-                # information about optional and required keys when using Required or NotRequired.
-                # Thus, capture explicitly Required keys
-                required_keys.update(
-                    {k for k, v in typehint.__annotations__.items() if get_typehint_origin(v) in required_types}
-                )
-                # And remove explicitly NotRequired keys
-                required_keys.difference_update(
-                    {k for k, v in typehint.__annotations__.items() if get_typehint_origin(v) in not_required_types}
-                )
+            dict_annotations = get_typed_dict_annotations(typehint, logger)
+            required_keys = get_typed_dict_required_keys(typehint, dict_annotations)
             missing_keys = required_keys - val.keys()
             if missing_keys:
                 raise_unexpected_value(f"Missing required keys: {missing_keys}", val)
-            extra_keys = val.keys() - typehint.__annotations__.keys()
+            extra_keys = val.keys() - dict_annotations.keys()
             if extra_keys:
                 raise_unexpected_value(f"Unexpected keys: {extra_keys}", val)
             for k, v in val.items():
-                subtypehint = resolve_forward_ref(typehint.__annotations__[k])
-                val[k] = adapt_typehints(v, subtypehint, **adapt_kwargs)
+                val[k] = adapt_typehints(v, dict_annotations[k], **adapt_kwargs)
         if typehint_origin is MappingProxyType and not serialize:
             val = MappingProxyType(val)
         elif typehint_origin is OrderedDict:
@@ -1065,7 +1089,7 @@ def adapt_typehints(
                     else:
                         raise ImportError(f"Unexpected import object {val_obj}")
                 if isinstance(val, (dict, Namespace, NestedArg)):
-                    if prev_val is None:
+                    if prev_val is unset_sentinel:
                         return_type = get_callable_return_type(typehint)
                         if return_type and not inspect.isabstract(return_type):
                             with suppress(ValueError):
@@ -1105,7 +1129,7 @@ def adapt_typehints(
             return val
 
         prev_implicit_defaults = False
-        if prev_val is None and not inspect.isabstract(typehint) and not is_protocol(typehint):
+        if prev_val is unset_sentinel and not inspect.isabstract(typehint) and not is_protocol(typehint):
             with suppress(ValueError):
                 # implicit prev_val class_path
                 prev_val = Namespace(class_path=get_import_path(typehint))
@@ -1117,9 +1141,11 @@ def adapt_typehints(
             prev_val = Namespace(class_path=None, init_args=Namespace(prev_val))
 
         val_input = val
-        if isinstance(prev_val, (dict, Namespace)) and prev_val["class_path"] is None:
-            type_class_path = Namespace(class_path=get_import_path(typehint))
-            val = subclass_spec_as_namespace(val, type_class_path)
+        if (isinstance(prev_val, (dict, Namespace)) and prev_val["class_path"] is None) or (
+            isinstance(val, NestedArg) and is_subclasses_disabled(typehint)
+        ):
+            class_type_path = Namespace(class_path=get_import_path(typehint))
+            val = subclass_spec_as_namespace(val, class_type_path)
         else:
             val = subclass_spec_as_namespace(val, prev_val)
         if val and not is_subclass_spec(val) and "init_args" not in val:
@@ -1256,11 +1282,14 @@ def is_instance_factory_protocol(class_type, logger=None):
     return ActionTypeHint.is_subclass_typehint(return_type)
 
 
+_subclass_spec_keys = {"class_path", "init_args", "dict_kwargs", "__path__", subclasses_disabled_meta_key}
+
+
 def is_subclass_spec(val):
     is_class = isinstance(val, (dict, Namespace)) and "class_path" in val
     if is_class:
         keys = getattr(val, "__dict__", val).keys()
-        is_class = len(set(keys) - {"class_path", "init_args", "dict_kwargs", "__path__"}) == 0
+        is_class = len(set(keys) - _subclass_spec_keys) == 0
     return is_class
 
 
@@ -1432,7 +1461,7 @@ def get_all_subclass_paths(cls: type) -> list[str]:
         cls = cls.__args__[-1]  # type: ignore[attr-defined]
 
     if get_typehint_origin(cls) in {Union, Type, type}:
-        for arg in cls.__args__:  # type: ignore[attr-defined]
+        for arg in cls.__args__:  # type: ignore[union-attr]
             if ActionTypeHint.is_subclass_typehint(arg, also_lists=True) and arg not in {object, type}:
                 add_subclasses(arg)
     else:
@@ -1441,7 +1470,7 @@ def get_all_subclass_paths(cls: type) -> list[str]:
     return subclass_list
 
 
-def resolve_class_path_by_name(cls: Union[type, tuple[type]], name: str) -> str:
+def resolve_class_path_by_name(cls: type | tuple[type], name: str) -> str:
     class_path = name
     if "." not in class_path:
         if isinstance(cls, tuple):
@@ -1569,7 +1598,7 @@ def adapt_class_type(
             namespace=prev_init_args,
             defaults=sub_defaults.get(),
         )
-        return _subclasses_disabled_remove_class_path(value, typehint)
+        return _subclasses_disabled_mark(value, typehint)
 
     if serialize:
         if init_args:
@@ -1582,7 +1611,7 @@ def adapt_class_type(
         elif dict_kwargs:
             init_args["dict_kwargs"] = dict_kwargs
             dict_kwargs = None
-        init_args = parser.parse_object(init_args, cfg_base=prev_init_args, defaults=sub_defaults.get())
+        init_args = parser.parse_object(init_args, namespace=prev_init_args, defaults=sub_defaults.get())
         if init_args:
             value["init_args"] = init_args
     if dict_kwargs:
@@ -1595,12 +1624,30 @@ def adapt_class_type(
                     val = load_value(val, simple_types=True)
             value["dict_kwargs"][key] = val
 
-    return _subclasses_disabled_remove_class_path(value, typehint)
+    return _subclasses_disabled_mark(value, typehint)
 
 
-def _subclasses_disabled_remove_class_path(value, typehint):
+def _subclasses_disabled_mark(value, typehint):
     if is_subclasses_disabled(typehint) and value.class_path == get_import_path(typehint):
-        value = Namespace({**value.get("init_args", {}), **value.get("dict_kwargs", {})})
+        value[subclasses_disabled_meta_key] = True
+    return value
+
+
+def subclasses_disabled_remove_class_path(value):
+    if not isinstance(value, (Namespace, dict)):
+        return value
+
+    items = vars(value).items() if isinstance(value, Namespace) else value.items()
+    for key, val in items:
+        if isinstance(val, (Namespace, dict)):
+            value[key] = subclasses_disabled_remove_class_path(val)
+        elif isinstance(val, list):
+            value[key] = [subclasses_disabled_remove_class_path(item) for item in val]
+        elif isinstance(val, tuple):
+            value[key] = tuple(subclasses_disabled_remove_class_path(item) for item in val)
+
+    if value.pop(subclasses_disabled_meta_key, False):
+        return Namespace({**value.get("init_args", {}), **value.get("dict_kwargs", {})})
     return value
 
 

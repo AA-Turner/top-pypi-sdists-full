@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: plumbum
-Version: 2.0.1
+Version: 2.0.2
 Summary: Plumbum: shell combinators library
 Project-URL: Homepage, https://github.com/tomerfiliba/plumbum
 Project-URL: Documentation, https://plumbum.readthedocs.io/

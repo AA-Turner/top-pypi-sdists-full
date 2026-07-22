@@ -240,6 +240,7 @@ class DbtNodeState(google.protobuf.message.Message):
     NODE_MACROS_HASH_FIELD_NUMBER: builtins.int
     NODE_CONTRACT_HASH_FIELD_NUMBER: builtins.int
     PROFILE_NAME_FIELD_NUMBER: builtins.int
+    PROJECT_ID_FIELD_NUMBER: builtins.int
     node_unique_id: builtins.str
     target_name: builtins.str
     project_name: builtins.str
@@ -251,6 +252,7 @@ class DbtNodeState(google.protobuf.message.Message):
     node_macros_hash: builtins.str
     node_contract_hash: builtins.str
     profile_name: builtins.str
+    project_id: builtins.str
     def __init__(
         self,
         *,
@@ -265,9 +267,10 @@ class DbtNodeState(google.protobuf.message.Message):
         node_macros_hash: builtins.str | None = ...,
         node_contract_hash: builtins.str | None = ...,
         profile_name: builtins.str = ...,
+        project_id: builtins.str | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["_node_body_hash", b"_node_body_hash", "_node_configs_hash", b"_node_configs_hash", "_node_contract_hash", b"_node_contract_hash", "_node_macros_hash", b"_node_macros_hash", "_node_persisted_descriptions_hash", b"_node_persisted_descriptions_hash", "node_body_hash", b"node_body_hash", "node_configs_hash", b"node_configs_hash", "node_contract_hash", b"node_contract_hash", "node_macros_hash", b"node_macros_hash", "node_persisted_descriptions_hash", b"node_persisted_descriptions_hash"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_node_body_hash", b"_node_body_hash", "_node_configs_hash", b"_node_configs_hash", "_node_contract_hash", b"_node_contract_hash", "_node_macros_hash", b"_node_macros_hash", "_node_persisted_descriptions_hash", b"_node_persisted_descriptions_hash", "node_body_hash", b"node_body_hash", "node_configs_hash", b"node_configs_hash", "node_contract_hash", b"node_contract_hash", "node_hash", b"node_hash", "node_macros_hash", b"node_macros_hash", "node_persisted_descriptions_hash", b"node_persisted_descriptions_hash", "node_unique_id", b"node_unique_id", "profile_name", b"profile_name", "project_name", b"project_name", "resource_type", b"resource_type", "target_name", b"target_name"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_node_body_hash", b"_node_body_hash", "_node_configs_hash", b"_node_configs_hash", "_node_contract_hash", b"_node_contract_hash", "_node_macros_hash", b"_node_macros_hash", "_node_persisted_descriptions_hash", b"_node_persisted_descriptions_hash", "_project_id", b"_project_id", "node_body_hash", b"node_body_hash", "node_configs_hash", b"node_configs_hash", "node_contract_hash", b"node_contract_hash", "node_macros_hash", b"node_macros_hash", "node_persisted_descriptions_hash", b"node_persisted_descriptions_hash", "project_id", b"project_id"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_node_body_hash", b"_node_body_hash", "_node_configs_hash", b"_node_configs_hash", "_node_contract_hash", b"_node_contract_hash", "_node_macros_hash", b"_node_macros_hash", "_node_persisted_descriptions_hash", b"_node_persisted_descriptions_hash", "_project_id", b"_project_id", "node_body_hash", b"node_body_hash", "node_configs_hash", b"node_configs_hash", "node_contract_hash", b"node_contract_hash", "node_hash", b"node_hash", "node_macros_hash", b"node_macros_hash", "node_persisted_descriptions_hash", b"node_persisted_descriptions_hash", "node_unique_id", b"node_unique_id", "profile_name", b"profile_name", "project_id", b"project_id", "project_name", b"project_name", "resource_type", b"resource_type", "target_name", b"target_name"]) -> None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_node_body_hash", b"_node_body_hash"]) -> typing.Literal["node_body_hash"] | None: ...
     @typing.overload
@@ -278,5 +281,7 @@ class DbtNodeState(google.protobuf.message.Message):
     def WhichOneof(self, oneof_group: typing.Literal["_node_macros_hash", b"_node_macros_hash"]) -> typing.Literal["node_macros_hash"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_node_persisted_descriptions_hash", b"_node_persisted_descriptions_hash"]) -> typing.Literal["node_persisted_descriptions_hash"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["_project_id", b"_project_id"]) -> typing.Literal["project_id"] | None: ...
 
 global___DbtNodeState = DbtNodeState

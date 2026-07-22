@@ -6,21 +6,47 @@
 __all__ = (
     "HttpRule",
     "McpJsonRestBridge",
+    "McpJsonRestBridgePerRoute",
+    "McpJsonRestBridgeRequestStorageMode",
+    "McpServerInfo",
     "ServerInfo",
     "ServerToolConfig",
     "ToolConfig",
+    "ToolsListLocal",
+    "ToolsListSpecificConfig",
+    "TraceContextExtractionOptions",
 )
 
 import typing
 
 import betterproto2
 import pydantic
+from pydantic import model_validator
 from pydantic.dataclasses import dataclass
 
 from .......message_pool import default_message_pool
 
 _COMPILER_VERSION = "0.9.0"
 betterproto2.check_compiler_version(_COMPILER_VERSION)
+
+
+class McpJsonRestBridgeRequestStorageMode(betterproto2.Enum):
+    """
+    Where to store parsed MCP request attributes.
+    """
+
+    MODE_UNSPECIFIED = 0
+    """
+    Unspecified. Uses default behavior (nothing is stored).
+    """
+
+    DYNAMIC_METADATA = 1
+    """
+    Store request attributes in dynamic metadata. The metadata namespace
+    is the filter's config name as specified by the ``name`` field in the
+    ``http_filters`` list (e.g. ``envoy.filters.http.mcp_json_rest_bridge``
+    if using the canonical filter name).
+    """
 
 
 @dataclass(eq=False, repr=False, config={"extra": "forbid"})
@@ -182,6 +208,7 @@ class McpJsonRestBridge(betterproto2.Message):
       - Body: {"data": "updated value"}
         (Only the "payload" field from arguments is used as the body. Other arguments not in the
         path, like 'resource_id', become query parameters.)
+    [#next-free-field: 8]
     """
 
     server_info: "ServerInfo | None" = betterproto2.field(
@@ -198,11 +225,116 @@ class McpJsonRestBridge(betterproto2.Message):
     Configuration for the MCP tools.
     """
 
+    max_request_body_size: "int | None" = betterproto2.field(
+        3,
+        betterproto2.TYPE_MESSAGE,
+        unwrap=lambda: ______google__protobuf__.UInt32Value,
+        optional=True,
+    )
+    """
+    Maximum size of the request body to buffer for transcoding and validation.
+    If the request body exceeds this size, the request is rejected with ``413 Payload Too Large``.
+    This limit applies to prevent unbounded buffering.
+
+    It defaults to 64KB (65536 bytes) as the MCP calls (tools, resources, or prompts)
+    only pass small arguments or identifiers.
+
+    Setting it to 0 would disable the limit. It is not recommended to do so in production.
+    """
+
+    max_response_body_size: "int | None" = betterproto2.field(
+        4,
+        betterproto2.TYPE_MESSAGE,
+        unwrap=lambda: ______google__protobuf__.UInt32Value,
+        optional=True,
+    )
+    """
+    Maximum size of the response body to buffer for transcoding.
+    If the response body exceeds this size, the response is rejected with an appropriate error.
+    This limit applies to prevent unbounded buffering.
+
+    It defaults to 1MB (1048576 bytes) to prevent transcoding failures on large payloads like
+    file reads, while aligning with Envoy's standard default connection buffer limit.
+
+    Setting it to 0 would disable the limit. It is not recommended to do so in production.
+    """
+
+    request_storage_mode: "McpJsonRestBridgeRequestStorageMode" = betterproto2.field(
+        5,
+        betterproto2.TYPE_ENUM,
+        default_factory=lambda: McpJsonRestBridgeRequestStorageMode(0),
+    )
+    """
+    Where to store parsed MCP request attributes.
+    Default is not storing anything.
+    When set to ``DYNAMIC_METADATA``, attributes are stored in dynamic metadata
+    using the filter's config name (i.e. the ``name`` field of this filter's entry
+    in the ``http_filters`` list) as the metadata namespace.
+    """
+
+    trace_context_extraction: "TraceContextExtractionOptions | None" = (
+        betterproto2.field(6, betterproto2.TYPE_MESSAGE, optional=True)
+    )
+    """
+    If set, extract OpenTelemetry (OTel) trace context from MCP requests and propagate it to
+    request headers. The keys ``traceparent``, ``tracestate``, and ``baggage``
+    will be extracted from ``_meta``.
+    Ref: `Request Meta SEP <https://modelcontextprotocol.io/seps/414-request-meta>`_
+    """
+
+    disable_clear_route_cache: "bool" = betterproto2.field(7, betterproto2.TYPE_BOOL)
+    """
+    When set to true, the filter will not clear the route cache after transcoding.
+    This allows the route to be re-selected based on the updated request path or method.
+    """
+
 
 default_message_pool.register_message(
     "envoy.extensions.filters.http.mcp_json_rest_bridge.v3",
     "McpJsonRestBridge",
     McpJsonRestBridge,
+)
+
+
+@dataclass(eq=False, repr=False, config={"extra": "forbid"})
+class McpJsonRestBridgePerRoute(betterproto2.Message):
+    """
+    Per-route override configuration for the MCP JSON REST Bridge filter.
+    """
+
+    tool_config: "list[ServerToolConfig]" = betterproto2.field(
+        1, betterproto2.TYPE_MESSAGE, repeated=True
+    )
+
+
+default_message_pool.register_message(
+    "envoy.extensions.filters.http.mcp_json_rest_bridge.v3",
+    "McpJsonRestBridgePerRoute",
+    McpJsonRestBridgePerRoute,
+)
+
+
+@dataclass(eq=False, repr=False, config={"extra": "forbid"})
+class McpServerInfo(betterproto2.Message):
+    path: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        1, betterproto2.TYPE_STRING
+    )
+    """
+    The path to the endpoint hosting this tool.
+    """
+
+    host: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        2, betterproto2.TYPE_STRING
+    )
+    """
+    The host hosting this tool.
+    """
+
+
+default_message_pool.register_message(
+    "envoy.extensions.filters.http.mcp_json_rest_bridge.v3",
+    "McpServerInfo",
+    McpServerInfo,
 )
 
 
@@ -263,6 +395,12 @@ default_message_pool.register_message(
 class ServerToolConfig(betterproto2.Message):
     """
     Configuration for the MCP tool capability of the server.
+    [#next-free-field: 6]
+
+    Oneofs:
+        - tool_list_config: Optional configuration for tools/list requests. If not set: The ``tools/list`` request is
+            passed through. This allows subsequent extension or the backend itself to handle the tools/list
+            request if they support it.
     """
 
     tools: "list[ToolConfig]" = betterproto2.field(
@@ -280,20 +418,35 @@ class ServerToolConfig(betterproto2.Message):
     """
 
     tool_list_http_rule: "HttpRule | None" = betterproto2.field(
-        3, betterproto2.TYPE_MESSAGE, optional=True
+        3, betterproto2.TYPE_MESSAGE, optional=True, group="tool_list_config"
     )
     """
-    Optional configuration to transcode the tools/list requests to a standard HTTP request.
-
-    Note: tools/list should be mapped to a GET request with an empty body.
-
-    - If provided: The extension transcodes the request and forwards it down the filter chain.
-      The response (whether from an upstream backend, a configured ``direct_response``, or another
-      extension) MUST be a JSON body strictly matching the MCP ``ListToolsResult`` schema.
-      Ref: https://modelcontextprotocol.io/specification/2025-11-25/schema#listtoolsresult
-    - If not provided: The ``tools/list`` request is passed through. This allows subsequent
-      extension or the backend itself to handle the tools/list request if they support it.
+    Configuration to transcode the tools/list requests to a standard HTTP request. If provided:
+    The extension transcodes the request and forwards it down the filter chain. The response
+    (whether from an upstream backend, a configured ``direct_response``, or another extension)
+    MUST be a JSON body strictly matching the MCP ``ListToolsResult`` schema. Ref:
+    https://modelcontextprotocol.io/specification/2025-11-25/schema#listtoolsresult
     """
+
+    tool_list_local: "ToolsListLocal | None" = betterproto2.field(
+        4, betterproto2.TYPE_MESSAGE, optional=True, group="tool_list_config"
+    )
+    """
+    If provided: The extension sends a local response, according to each tool's
+    ToolsListSpecificConfig.
+    """
+
+    default_server_info: "McpServerInfo | None" = betterproto2.field(
+        5, betterproto2.TYPE_MESSAGE, optional=True
+    )
+    """
+    [#not-implemented-hide:]
+    Default server info for tools without specific ones.
+    """
+
+    @model_validator(mode="after")
+    def check_oneof(cls, values):
+        return cls._validate_field_groups(values)
 
 
 default_message_pool.register_message(
@@ -306,14 +459,14 @@ default_message_pool.register_message(
 @dataclass(eq=False, repr=False, config={"extra": "forbid"})
 class ToolConfig(betterproto2.Message):
     """
-    Configuration for a specific MCP tool.
+    [#next-free-field: 6]
     """
 
     name: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
         1, betterproto2.TYPE_STRING
     )
     """
-    Name of the tool.
+    Unique identifier of the tool. Used both for tools/list and tools/call transcoding.
     """
 
     http_rule: "HttpRule | None" = betterproto2.field(
@@ -323,9 +476,114 @@ class ToolConfig(betterproto2.Message):
     The HTTP configuration rules that apply to the normal backend.
     """
 
+    tool_list_config: "ToolsListSpecificConfig | None" = betterproto2.field(
+        3, betterproto2.TYPE_MESSAGE, optional=True
+    )
+    """
+    Config for this tool's entry in a local tools/list response. Used when tool_list_local is set
+    in the ServerToolConfig.
+    """
+
+    text_content_streaming_enabled: "bool" = betterproto2.field(
+        4, betterproto2.TYPE_BOOL
+    )
+    """
+    Enables streaming transcoding for unstructured text responses (``content`` field of a result).
+
+    When enabled, the response body is streamed directly to the client without buffering. Each
+    chunk is JSON escaped as it arrives and wrapped with a pre-built JSON-RPC prefix and suffix.
+
+    Streaming flow:
+
+    .. code-block:: text
+
+      input:  [chunk1] → [chunk2] → [chunk3]
+      output: [prefix+escaped_chunk1] → [escaped_chunk2] → [escaped_chunk3+suffix]
+
+    Disabled by default.
+    """
+
+    server_info: "list[McpServerInfo]" = betterproto2.field(
+        5, betterproto2.TYPE_MESSAGE, repeated=True
+    )
+    """
+    [#not-implemented-hide:]
+    Path and host of the MCP server that hosts this tool.
+    """
+
 
 default_message_pool.register_message(
     "envoy.extensions.filters.http.mcp_json_rest_bridge.v3", "ToolConfig", ToolConfig
+)
+
+
+@dataclass(eq=False, repr=False, config={"extra": "forbid"})
+class ToolsListLocal(betterproto2.Message):
+    """
+    Configuration for sending locally-generated responses to tools/list requests.
+    """
+
+    pass
+
+
+default_message_pool.register_message(
+    "envoy.extensions.filters.http.mcp_json_rest_bridge.v3",
+    "ToolsListLocal",
+    ToolsListLocal,
+)
+
+
+@dataclass(eq=False, repr=False, config={"extra": "forbid"})
+class ToolsListSpecificConfig(betterproto2.Message):
+    """
+    Configuration for a tool's entry in tools/list responses.
+    """
+
+    title: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        1, betterproto2.TYPE_STRING
+    )
+    """
+    Optional, human-readable name of the tool for display purposes.
+    """
+
+    description: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        2, betterproto2.TYPE_STRING
+    )
+    """
+    Human-readable description of functionality.
+    """
+
+    input_schema: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        3, betterproto2.TYPE_STRING
+    )
+    """
+    A JSON Schema describing expected parameters, as a serialized JSON string, in the JSON Schema
+    2020-12 dialect. This should be raw JSON, including the "properties" and "required" keys, but
+    not "type". Tools with no parameters may omit this to signify a tool with no constraints on the
+    parameters object, or set to '"additionalProperties": false' to require empty parameters.
+    """
+
+
+default_message_pool.register_message(
+    "envoy.extensions.filters.http.mcp_json_rest_bridge.v3",
+    "ToolsListSpecificConfig",
+    ToolsListSpecificConfig,
+)
+
+
+@dataclass(eq=False, repr=False, config={"extra": "forbid"})
+class TraceContextExtractionOptions(betterproto2.Message):
+    """
+    Options for trace context extraction.
+    """
+
+    pass
+
+
+default_message_pool.register_message(
+    "envoy.extensions.filters.http.mcp_json_rest_bridge.v3",
+    "TraceContextExtractionOptions",
+    TraceContextExtractionOptions,
 )
 
 

@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-pika-ts"
-version = "1.4.0.20260712"
+version = "1.4.0.20260722"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for pika"
@@ -27,11 +27,11 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 2.2.0
+* [mypy](https://github.com/python/mypy/) 2.3.0
 * [pyright](https://github.com/microsoft/pyright) 1.1.411
 
 It was generated from typeshed commit
-[`8e3110c4d3cf2828734b119863c6853529bb3034`](https://github.com/python/typeshed/commit/8e3110c4d3cf2828734b119863c6853529bb3034).
+[`1cb63c866b21be1c4cb579726561477708f3f7e0`](https://github.com/python/typeshed/commit/1cb63c866b21be1c4cb579726561477708f3f7e0).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

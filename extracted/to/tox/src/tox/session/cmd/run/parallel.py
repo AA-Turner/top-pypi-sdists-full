@@ -51,7 +51,7 @@ def parse_num_processes(str_value: str) -> int | None:
 def parallel_flags(
     our: ArgumentParser,
     default_parallel: int | str,
-    no_args: bool = False,  # noqa: FBT001, FBT002
+    no_args: bool = False,  # ruff:ignore[boolean-type-hint-positional-argument, boolean-default-value-positional-argument]
     *,
     default_spinner: bool = False,
 ) -> None:
@@ -91,7 +91,7 @@ def run_parallel(state: State) -> int:
         raise SystemExit(msg)
     return execute(
         state,
-        max_workers=auto_detect_cpus() if option.parallel == 0 else option.parallel,
+        max_workers=1 if option.parallel == OFF_VALUE else option.parallel,
         has_spinner=option.parallel_no_spinner is False and option.parallel_live is False,
         live=option.parallel_live,
     )

@@ -11,7 +11,7 @@
 # Released under the terms of DataRobot Tool and Utility Agreement.
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Type, TypeVar
+from typing import Any, List, Optional, Type, TypeVar
 
 import trafaret as t
 
@@ -25,6 +25,7 @@ from datarobot._experimental.pipelines.enums import (
 from datarobot.enums import enum_to_list
 from datarobot.models.api_object import APIObject
 from datarobot.utils import rawdict
+from datarobot.utils.pagination import unpaginate
 
 TPipelineDispatch = TypeVar("TPipelineDispatch", bound="PipelineDispatch")
 
@@ -194,10 +195,10 @@ class PipelineDispatch(APIObject):
         cls: Type[TPipelineDispatch],
         pipeline_id: str,
         version_id: Optional[int] = None,
-        offset: int = 0,
-        limit: int = 50,
     ) -> List[TPipelineDispatch]:
         """List dispatches for a pipeline.
+
+        Transparently follows pagination and returns the complete result set.
 
         Parameters
         ----------
@@ -205,20 +206,15 @@ class PipelineDispatch(APIObject):
             The pipeline ID.
         version_id : int, optional
             Filter to a specific version. If None, lists draft dispatches.
-        offset : int, optional
-            Pagination offset. Default 0.
-        limit : int, optional
-            Maximum number of results. Default 50.
 
         Returns
         -------
         dispatches : list of PipelineDispatch
         """
         path = cls._dispatches_path(pipeline_id, version_id)
-        params: Dict[str, int] = {"offset": offset, "limit": limit}
-        response = cls._client.get(path, params=params)
         return [
-            cls._with_version_number(cls.from_server_data(item), version_id) for item in response.json().get("data", [])
+            cls._with_version_number(cls.from_server_data(item), version_id)
+            for item in unpaginate(path, None, cls._client)
         ]
 
     @classmethod

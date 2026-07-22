@@ -1,6 +1,6 @@
 [project]
 name = "openai-guardrails"
-version = "0.2.1"
+version = "0.3.0"
 description = "OpenAI Guardrails: A framework for building safe and reliable AI systems."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -10,9 +10,8 @@ dependencies = [
     "openai>=1.75.0",
     "pydantic>=2.11.3",
     "openai-agents>=0.3.3",
-    "pip>=25.0.1",
     "presidio-analyzer>=2.2.360",
-    "thinc>=8.3.6",
+    "thinc>=8.3.12,<8.4.0",
 ]
 classifiers = [
   "Typing :: Typed",
@@ -21,6 +20,7 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Intended Audience :: Developers",
   "Operating System :: OS Independent",
   "Topic :: Software Development :: Libraries :: Python Modules",

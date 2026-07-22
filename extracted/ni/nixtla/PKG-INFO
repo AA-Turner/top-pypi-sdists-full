@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: nixtla
-Version: 0.7.4
+Version: 0.8.0
 Summary: Python SDK for Nixtla API (TimeGPT)
 Keywords: time-series,forecasting,gpt
 Author: Nixtla
@@ -30,7 +30,7 @@ Requires-Dist: fire ; extra == 'dev'
 Requires-Dist: hierarchicalforecast ; extra == 'dev'
 Requires-Dist: ipython<=8.32.0 ; extra == 'dev'
 Requires-Dist: ipywidgets ; extra == 'dev'
-Requires-Dist: jupyterlab ; extra == 'dev'
+Requires-Dist: jupyterlab>=4.5.9 ; extra == 'dev'
 Requires-Dist: neuralforecast ; extra == 'dev'
 Requires-Dist: numpy<2 ; extra == 'dev'
 Requires-Dist: plotly ; extra == 'dev'
@@ -46,7 +46,7 @@ Requires-Dist: shap ; extra == 'dev'
 Requires-Dist: pytest ; extra == 'dev'
 Requires-Dist: pytest-cov ; extra == 'dev'
 Requires-Dist: pytest-rerunfailures ; extra == 'dev'
-Requires-Dist: pyarrow<21.0.0 ; extra == 'dev'
+Requires-Dist: pyarrow<24.0.0 ; extra == 'dev'
 Requires-Dist: mlforecast ; extra == 'dev'
 Requires-Dist: lightgbm ; extra == 'dev'
 Requires-Dist: utilsforecast[plotting] ; extra == 'dev'

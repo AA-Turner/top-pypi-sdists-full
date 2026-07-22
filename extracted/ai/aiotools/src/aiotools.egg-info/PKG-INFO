@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiotools
-Version: 2.2.3
+Version: 2.2.4
 Summary: Idiomatic asyncio utilities
 Author-email: Joongi Kim <me@daybreaker.info>
 License-Expression: MIT

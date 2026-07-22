@@ -135,8 +135,7 @@ class AwaitableGetLifecyclePolicyResult(GetLifecyclePolicyResult):
 def get_lifecycle_policy(arn: Optional[_builtins.str] = None,
                          opts: Optional[pulumi.InvokeOptions] = None) -> AwaitableGetLifecyclePolicyResult:
     """
-    Resource schema for AWS::ImageBuilder::LifecyclePolicy
-
+    Resource Type definition for AWS::ImageBuilder::LifecyclePolicy
 
     :param _builtins.str arn: The Amazon Resource Name (ARN) of the lifecycle policy.
     """
@@ -154,11 +153,10 @@ def get_lifecycle_policy(arn: Optional[_builtins.str] = None,
         resource_type=pulumi.get(__ret__, 'resource_type'),
         status=pulumi.get(__ret__, 'status'),
         tags=pulumi.get(__ret__, 'tags'))
-def get_lifecycle_policy_output(arn: Optional[pulumi.Input[_builtins.str]] = None,
+def get_lifecycle_policy_output(arn: pulumi.Input[Optional[_builtins.str]] = None,
                                 opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetLifecyclePolicyResult]:
     """
-    Resource schema for AWS::ImageBuilder::LifecyclePolicy
-
+    Resource Type definition for AWS::ImageBuilder::LifecyclePolicy
 
     :param _builtins.str arn: The Amazon Resource Name (ARN) of the lifecycle policy.
     """

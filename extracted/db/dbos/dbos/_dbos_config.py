@@ -1,3 +1,4 @@
+import math
 import os
 import re
 from importlib import resources
@@ -47,7 +48,9 @@ class DBOSConfig(TypedDict, total=False):
         serializer (Serializer): A custom serializer and deserializer DBOS uses when storing program data in the system database
         use_listen_notify (bool): Whether to use LISTEN/NOTIFY or polling to listen for notifications and events.  Defaults to True. As this affects migrations, may not be changed after the system database is first created.
         notification_listener_polling_interval_sec (float): Polling interval in seconds for the notification listener background process. Defaults to 1.0. Minimum value is 0.001. Lower values can speed up test execution.
+        notification_coalesce_sec (float): Interval in seconds for coalescing LISTEN/NOTIFY notifications (streams and events) pushed off the write path. Bounds read latency and caps the rate of notifying commits independent of write throughput. Defaults to 0.01. Minimum value is 0.001.
         scheduler_polling_interval_sec (float): Polling interval in seconds for the scheduler thread to detect new workflow schedules. Defaults to 30.0.
+        kafka_queue_polling_interval_sec (float): Polling interval in seconds for the internal queues on which Kafka consumer workflows run (_dbos_kafka_queue and _dbos_kafka_ordered_queue). Defaults to 1.0. Minimum value is 0.001.
         otel_attribute_format (Literal["legacy", "semconv"]): How span attribute names are emitted to OTLP.
             "legacy" (default) keeps DBOS's original names (e.g. operationUUID, applicationID) for backward
             compatibility with existing dashboards and the TypeScript Transact SDK. "semconv" emits the
@@ -83,7 +86,9 @@ class DBOSConfig(TypedDict, total=False):
     use_listen_notify: Optional[bool]
     max_executor_threads: Optional[int]
     notification_listener_polling_interval_sec: Optional[float]
+    notification_coalesce_sec: Optional[float]
     scheduler_polling_interval_sec: Optional[float]
+    kafka_queue_polling_interval_sec: Optional[float]
     otel_attribute_format: Optional[Literal["legacy", "semconv"]]
 
 
@@ -94,7 +99,9 @@ class RuntimeConfig(TypedDict, total=False):
     run_admin_server: Optional[bool]
     max_executor_threads: Optional[int]
     notification_listener_polling_interval_sec: Optional[float]
+    notification_coalesce_sec: Optional[float]
     scheduler_polling_interval_sec: Optional[float]
+    kafka_queue_polling_interval_sec: Optional[float]
 
 
 class DatabaseConfig(TypedDict, total=False):
@@ -189,17 +196,38 @@ def translate_dbos_config_to_config_file(config: DBOSConfig) -> ConfigFile:
         ]
     if "notification_listener_polling_interval_sec" in config:
         interval = config["notification_listener_polling_interval_sec"]
-        if interval is not None and interval < 0.001:
+        # Reject NaN/inf too (they slip past a bare < 0.001) so the listener's time.sleep can't crash.
+        if interval is not None and (not math.isfinite(interval) or interval < 0.001):
             raise DBOSInitializationError(
-                f"notification_listener_polling_interval_sec must be at least 0.001 seconds, got {interval}"
+                f"notification_listener_polling_interval_sec must be a finite number at least 0.001 seconds, got {interval}"
             )
         translated_config["runtimeConfig"][
             "notification_listener_polling_interval_sec"
         ] = interval
+    if "notification_coalesce_sec" in config:
+        coalesce = config["notification_coalesce_sec"]
+        # Reject NaN/inf too (they slip past a bare < 0.001) so run_notifier's time.sleep can't crash.
+        if coalesce is not None and (not math.isfinite(coalesce) or coalesce < 0.001):
+            raise DBOSInitializationError(
+                f"notification_coalesce_sec must be a finite number at least 0.001 seconds, got {coalesce}"
+            )
+        translated_config["runtimeConfig"]["notification_coalesce_sec"] = coalesce
     if "scheduler_polling_interval_sec" in config:
         translated_config["runtimeConfig"]["scheduler_polling_interval_sec"] = config[
             "scheduler_polling_interval_sec"
         ]
+    if "kafka_queue_polling_interval_sec" in config:
+        kafka_interval = config["kafka_queue_polling_interval_sec"]
+        # Reject NaN/inf too (they slip past a bare < 0.001) so the queue worker's wait can't crash.
+        if kafka_interval is not None and (
+            not math.isfinite(kafka_interval) or kafka_interval < 0.001
+        ):
+            raise DBOSInitializationError(
+                f"kafka_queue_polling_interval_sec must be a finite number at least 0.001 seconds, got {kafka_interval}"
+            )
+        translated_config["runtimeConfig"][
+            "kafka_queue_polling_interval_sec"
+        ] = kafka_interval
 
     # Telemetry config
     enable_otlp = config.get("enable_otlp", None)

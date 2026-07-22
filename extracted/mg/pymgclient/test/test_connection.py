@@ -1,4 +1,4 @@
-# Copyright (c) 2016-2020 Memgraph Ltd. [https://memgraph.com]
+# Copyright (c) 2016-2026 Memgraph Ltd. [https://memgraph.com]
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,9 +14,15 @@
 
 import mgclient
 import pytest
+import socket
 import tempfile
 
-from common import start_memgraph, Memgraph, requires_ssl_enabled, requires_ssl_disabled
+from common import (
+    start_memgraph,
+    Memgraph,
+    requires_ssl_enabled,
+    requires_ssl_disabled,
+)
 from OpenSSL import crypto
 
 
@@ -82,6 +88,63 @@ def test_connect_args_validation():
         )
 
 
+def test_connection_refused_is_transient():
+    # A connection that can't be established is a low-level transport failure
+    # (no Bolt code); it is surfaced as TransientError (a subclass of
+    # OperationalError), since it is retryable in an HA cluster.
+    #
+    # Reserve a port with no listener -- bind a socket without calling listen()
+    # and keep it open -- so the connect is guaranteed to be refused rather than
+    # relying on a well-known port happening to be closed.
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+        with pytest.raises(mgclient.TransientError):
+            mgclient.connect(host="127.0.0.1", port=port)
+
+
+def test_transient_error_hierarchy():
+    # TransientError is a distinct type, but a subclass of OperationalError so `except DatabaseError` should still catch it.
+    assert issubclass(mgclient.TransientError, mgclient.OperationalError)
+    assert issubclass(mgclient.TransientError, mgclient.DatabaseError)
+    assert issubclass(mgclient.TransientError, mgclient.Error)
+    assert mgclient.TransientError is not mgclient.OperationalError
+
+
+@requires_ssl_disabled
+def test_get_routing_table_args_validation(memgraph_server):
+    host, port, sslmode, _ = memgraph_server
+    conn = mgclient.connect(host=host, port=port, sslmode=sslmode)
+
+    # routing_context must be a dict
+    with pytest.raises(TypeError):
+        conn.get_routing_table(routing_context=["not", "a", "dict"])
+
+    # extra must be a dict
+    with pytest.raises(TypeError):
+        conn.get_routing_table(extra=42)
+
+    # bookmarks must be an iterable of str
+    with pytest.raises(TypeError):
+        conn.get_routing_table(bookmarks=[1, 2, 3])
+
+    # a single str/bytes must be rejected rather than iterated char by char
+    with pytest.raises(TypeError):
+        conn.get_routing_table(bookmarks="single-bookmark")
+    with pytest.raises(TypeError):
+        conn.get_routing_table(bookmarks=b"single-bookmark")
+
+
+@requires_ssl_disabled
+def test_get_routing_table_closed_connection(memgraph_server):
+    host, port, sslmode, _ = memgraph_server
+    conn = mgclient.connect(host=host, port=port, sslmode=sslmode)
+    conn.close()
+
+    with pytest.raises(mgclient.InterfaceError):
+        conn.get_routing_table()
+
+
 @requires_ssl_disabled
 def test_connect_insecure_success(memgraph_server):
     host, port, sslmode, _ = memgraph_server
@@ -89,6 +152,21 @@ def test_connect_insecure_success(memgraph_server):
     conn = mgclient.connect(host=host, port=port, sslmode=sslmode)
 
     assert conn.status == mgclient.CONN_STATUS_READY
+
+
+@requires_ssl_disabled
+def test_connect_routing_false_is_plain_connection(memgraph_server):
+    # routing=False must be indistinguishable from a plain connection: it goes
+    # straight to the given host/port with no ROUTE round-trip.
+    host, port, sslmode, _ = memgraph_server
+    conn = mgclient.connect(host=host, port=port, sslmode=sslmode, routing=False)
+
+    assert conn.status == mgclient.CONN_STATUS_READY
+
+    cursor = conn.cursor()
+    cursor.execute("RETURN 1")
+    assert cursor.fetchall() == [(1,)]
+    conn.close()
 
 
 @requires_ssl_disabled

@@ -323,7 +323,42 @@ def test_invalid_linebreak(
         parser.feed_data(text)
 
 
-def test_cve_2023_37276(parser: Any) -> None:
+def test_partial_request_split_still_parses(parser: HttpRequestParser) -> None:
+    """A legitimate request split mid-line must still stream."""
+    messages, _, _ = parser.feed_data(b"GET /split HTTP/1.1\r\nHo")
+    assert not messages
+    messages, _, _ = parser.feed_data(b"st: a\r\n\r\n")
+    assert len(messages) == 1
+    assert messages[0][0].path == "/split"
+
+
+@pytest.mark.parametrize(
+    "attacker",
+    (
+        pytest.param(
+            b"GET /attacker HTTP/1.1\nHost: a\nX-Foo: bar\n\n", id="request_line"
+        ),
+        pytest.param(
+            b"POST /attacker HTTP/1.1\r\nHost: a\r\n"
+            b"Transfer-Encoding: chunked\r\n\r\n5\n",
+            id="chunk_size",
+        ),
+        pytest.param(
+            b"POST /attacker HTTP/1.1\r\nHost: a\r\n"
+            b"Transfer-Encoding: chunked\r\n\r\n0\r\nX-Trailer: bad\n",
+            id="trailer",
+        ),
+    ),
+)
+def test_reject_bare_lf_at_point_seen(
+    parser: HttpRequestParser, attacker: bytes
+) -> None:
+    """A bare LF where CRLF is required is rejected at the point it's seen."""
+    with pytest.raises(http_exceptions.BadHttpMessage):
+        parser.feed_data(attacker)
+
+
+def test_cve_2023_37276(parser: HttpRequestParser) -> None:
     text = b"""POST / HTTP/1.1\r\nHost: localhost:8080\r\nX-Abc: \rxTransfer-Encoding: chunked\r\n\r\n"""
     with pytest.raises(http_exceptions.BadHttpMessage):
         parser.feed_data(text)
@@ -571,12 +606,35 @@ def test_parse_unusual_request_line(parser) -> None:
     msg, _ = messages[0]
     assert msg.compression is None
     assert not msg.upgrade
-    assert msg.method == "#smol"
+    assert msg.method == "#SMOL"
     assert msg.path == "//a"
     assert msg.version == (1, 3)
 
 
-def test_parse(parser) -> None:
+def test_py_parser_normalises_method_to_uppercase(
+    loop: asyncio.AbstractEventLoop, server: Server
+) -> None:
+    """Test Python parser canonicalises method tokens.
+
+    llhttp rejects lowercase upstream, so this only applies to the Python parser.
+    """
+    protocol = RequestHandler(server, loop=loop)
+    parser = HttpRequestParserPy(
+        protocol,
+        loop,
+        2**16,
+        max_line_size=8190,
+        max_field_size=8190,
+    )
+    protocol._parser = parser
+    text = b"get /test HTTP/1.1\r\nHost: a\r\n\r\n"
+    messages, _upgrade, _tail = parser.feed_data(text)
+    assert len(messages) == 1
+    msg, _ = messages[0]
+    assert msg.method == "GET"
+
+
+def test_parse(parser: HttpRequestParser) -> None:
     text = b"GET /test HTTP/1.1\r\nHost: a\r\n\r\n"
     messages, upgrade, tail = parser.feed_data(text)
     assert len(messages) == 1
@@ -589,7 +647,22 @@ def test_parse(parser) -> None:
     assert msg.headers["Host"] == "a"
 
 
-async def test_parse_body(parser) -> None:
+def test_parse_query_method(parser: HttpRequestParser) -> None:
+    """QUERY has the highest llhttp method id; both parsers must decode its name.
+
+    Regression test for a stale hand-maintained method count in the C parser
+    that mapped the last method(s) to "<unknown>".
+    """
+    text = b"QUERY /test HTTP/1.1\r\nHost: a\r\n\r\n"
+    messages, upgrade, tail = parser.feed_data(text)
+    assert len(messages) == 1
+    msg = messages[0][0]
+    assert msg.method == "QUERY"
+    assert msg.path == "/test"
+    assert msg.version == (1, 1)
+
+
+async def test_parse_body(parser: HttpRequestParser) -> None:
     text = b"GET /test HTTP/1.1\r\nHost: a\r\nContent-Length: 4\r\n\r\nbody"
     messages, upgrade, tail = parser.feed_data(text)
     assert len(messages) == 1
@@ -1270,6 +1343,37 @@ async def test_compressed_chunked_with_pending(response: HttpResponseParser) -> 
     assert result == original
 
 
+async def test_compressed_chunked_split_chunk_size_line(
+    response: HttpResponseParser,
+) -> None:
+    """First chunk-size line arrives in a feed that carries no body bytes.
+
+    Regression test for an ``IndexError`` in the pure-Python parser: the
+    chunked parser fed an empty chunk to ``DeflateBuffer`` before any data
+    had been decoded, and the deflate header sniff indexed ``chunk[0]`` on it.
+    """
+    original = b"Hello, world! " * 4
+    compressed = zlib.compress(original)
+    size_line = hex(len(compressed))[2:].encode() + b"\r\n"
+    headers = (
+        b"HTTP/1.1 200 OK\r\n"
+        b"Transfer-Encoding: chunked\r\n"
+        b"Content-Encoding: deflate\r\n"
+        b"\r\n"
+    )
+
+    msgs, upgrade, tail = response.feed_data(headers)
+    payload = msgs[0][-1]
+    # The chunk-size line lands with no body bytes in the same feed, so the
+    # parser transitions into the chunk body with an empty buffer.
+    response.feed_data(size_line)
+    response.feed_data(compressed + b"\r\n0\r\n\r\n")
+
+    result = await payload.read()
+    assert result == original
+    assert payload.exception() is None
+
+
 async def test_compressed_until_eof_with_pending(response: HttpResponseParser) -> None:
     """Test read-until-eof + compressed with pause."""
     # Must be large enough to exceed high water mark.
@@ -1485,6 +1589,54 @@ async def test_http_request_upgrade_unknown(parser: Any) -> None:
     assert not msg.chunked
     assert tail == b""
     assert await messages[0][-1].read() == b"{}"
+
+
+@pytest.mark.parametrize("chunked", (False, True), ids=("content-length", "chunked"))
+async def test_http_request_upgrade_with_body_read(
+    parser: HttpRequestParser, chunked: bool
+) -> None:
+    body_request = b"foobarbaz\r\n\r\n"
+    if chunked:
+        framing = b"Transfer-Encoding: chunked\r\n"
+        body = b"%x\r\n%s\r\n0\r\n\r\n" % (len(body_request), body_request)
+    else:
+        framing = b"Content-Length: %d\r\n" % len(body_request)
+        body = body_request
+    after = b"GET /after HTTP/1.1\r\nHost: a\r\n\r\n"
+    text = (
+        b"GET /ws HTTP/1.1\r\nHost: a\r\n"
+        b"Connection: Upgrade\r\nUpgrade: websocket\r\n"
+        + framing
+        + b"\r\n"
+        + body
+        + after
+    )
+    messages, upgrade, tail = parser.feed_data(text)
+    assert len(messages) == 1
+    msg, payload = messages[0]
+    assert msg.method == "GET"
+    assert msg.path == "/ws"
+    assert msg.upgrade
+    assert await payload.read() == body_request
+    # The connection switches protocols only after the body is fully read.
+    assert upgrade
+    assert tail == after
+
+
+def test_http_request_upgrade_empty_body_allowed(parser: HttpRequestParser) -> None:
+    text = (
+        b"GET /ws HTTP/1.1\r\n"
+        b"Host: a\r\n"
+        b"Connection: Upgrade\r\n"
+        b"Upgrade: websocket\r\n"
+        b"Content-Length: 0\r\n\r\n"
+        b"some raw data"
+    )
+    messages, upgrade, tail = parser.feed_data(text)
+    msg = messages[0][0]
+    assert msg.upgrade
+    assert upgrade
+    assert tail == b"some raw data"
 
 
 @pytest.fixture
@@ -2272,6 +2424,19 @@ def test_parse_uri_utf8_percent_encoded(parser) -> None:
     assert msg.url.path == "/путь"
     assert msg.url.query == {"ключ": "знач"}
     assert msg.url.fragment == "фраг"
+
+
+def test_parse_uri_empty_query_with_fragment(parser: HttpRequestParser) -> None:
+    # Origin-form target with an empty query but a fragment: the ``#`` sits
+    # immediately after ``?``. Regression for the C parser folding ``#frag``
+    # into the query string instead of the fragment.
+    text = b"GET /path?#frag HTTP/1.1\r\nHost: a\r\n\r\n"
+    messages, upgrade, tail = parser.feed_data(text)
+    msg = messages[0][0]
+
+    assert msg.url.path == "/path"
+    assert msg.url.query == {}
+    assert msg.url.fragment == "frag"
 
 
 @pytest.mark.skipif(

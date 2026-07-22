@@ -6,6 +6,7 @@ import dataclasses
 import hashlib
 import inspect
 import json
+import warnings
 from datetime import timedelta
 from typing import Any, Callable, ClassVar, Collection, Dict, Mapping, Optional, Sequence, TypeVar, Union, cast
 
@@ -1681,10 +1682,39 @@ class ToProtoConverter:
 
         from chalk.utils.duration import timedelta_to_duration
 
-        if isinstance(view.time_resolution, _timedelta):
-            time_resolution_proto = timedelta_to_proto_duration(view.time_resolution)
-        else:
-            time_resolution_proto = timedelta_to_proto_duration(parse_chalk_duration(view.time_resolution))  # type: ignore[arg-type]
+        time_resolution = (
+            view.time_resolution
+            if isinstance(view.time_resolution, _timedelta)
+            else parse_chalk_duration(view.time_resolution)  # type: ignore[arg-type]
+        )
+        minimum_time_resolution = _timedelta(microseconds=1)
+        if time_resolution < minimum_time_resolution:
+            warnings.warn(
+                f"MaterializedFeatureView time_resolution {view.time_resolution!r} is less than 1µs; "
+                + "it has been coerced to 1µs, which corresponds to no time-coarsening.",
+                UserWarning,
+                stacklevel=2,
+            )
+            time_resolution = minimum_time_resolution
+        time_resolution_proto = timedelta_to_proto_duration(time_resolution)
+        # This is the authoritative source of values for the observation_sampling_strategy proto field.
+        # Currently, a resolution greater than 1µs maps to LAST_OBSERVED; otherwise it maps to
+        # ANY. Future changes to how this field is derived should be made here so newly exported
+        # protos consistently use the new logic.
+        # For example, if we were to add a new user-facing proto field
+        # `requested_observation_sampling_strategy` allowing the user to specify their desired
+        # behavior, its value could be combined with the minimum-resolution override using logic
+        # like:
+        # observation_sampling_strategy = (
+        #     view.requested_observation_sampling_strategy
+        #     if time_resolution > _timedelta(microseconds=1)
+        #     else pb.MATERIALIZED_FEATURE_VIEW_OBSERVATION_SAMPLING_STRATEGY_ANY
+        # )
+        observation_sampling_strategy = (
+            pb.MATERIALIZED_FEATURE_VIEW_OBSERVATION_SAMPLING_STRATEGY_LAST_OBSERVED
+            if time_resolution > _timedelta(microseconds=1)
+            else pb.MATERIALIZED_FEATURE_VIEW_OBSERVATION_SAMPLING_STRATEGY_ANY
+        )
 
         update_cadence_str = (
             timedelta_to_duration(view.update_cadence)
@@ -1696,6 +1726,7 @@ class ToProtoConverter:
             namespaces=[view.namespace],
             time_resolution=time_resolution_proto,
             update_cadence=update_cadence_str,
+            observation_sampling_strategy=observation_sampling_strategy,
         )
         if view.lower_bound is not None:
             kwargs["lower_bound"] = datetime_to_proto_timestamp(view.lower_bound)

@@ -22,10 +22,10 @@ from urllib.parse import urlparse
 from rucio.common import constants, exception, types, utils
 from rucio.common.checksum import GLOBALLY_SUPPORTED_CHECKSUMS
 from rucio.common.config import config_get_int
-from rucio.common.constants import DEFAULT_VO
+from rucio.common.constants import DEFAULT_VO, SCHEME_MAP
 from rucio.common.constraints import STRING_TYPES
 from rucio.common.logging import formatted_logger
-from rucio.common.utils import get_transfer_schemas, make_valid_did
+from rucio.common.utils import make_valid_did
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -71,7 +71,7 @@ def get_rse_info(
                     deterministic      ...     boolean indicating of the naming of the files follows the defined determinism
                     domain            ...     indicating the domain that should be assumed for transfers. Values are 'ALL', 'LAN', or 'WAN'
                     protocols         ...     all supported protocol in form of a list of dict objects with the following structure
-                    - scheme              ...     protocol scheme e.g. http, srm, ...
+                    - scheme              ...     protocol scheme e.g. http, ...
                     - hostname            ...     hostname of the site
                     - prefix              ...     path to the folder where the files are stored
                     - port                ...     port used for this protocol
@@ -864,7 +864,7 @@ def __check_compatible_scheme(
         src_scheme: str
 ) -> bool:
     """
-    Check if two schemes are compatible, such as srm and gsiftp
+    Check if two schemes are compatible
 
     :param dest_scheme:    Destination scheme
     :param src_scheme:     Source scheme
@@ -874,7 +874,6 @@ def __check_compatible_scheme(
 
     if dest_scheme == src_scheme:
         return True
-    if src_scheme in get_transfer_schemas().get(dest_scheme, []):
+    if src_scheme in SCHEME_MAP.get(dest_scheme, []):
         return True
-
     return False

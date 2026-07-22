@@ -129,6 +129,8 @@ fn test_gateway_state() -> GatewayState {
         semantic_search_enabled: false,
         #[cfg(feature = "prometheus")]
         gateway_metrics: Arc::new(crate::gateway::event_log::GatewayMetrics::new()),
+        #[cfg(feature = "admin-persist-sqlite")]
+        admin_sqlite_lane: None,
     }
 }
 
@@ -219,12 +221,12 @@ async fn rich_image_gateway_state() -> (
             .with_after(audit),
     );
 
-    let tool_slug = format!("maya.{instance_id}.app_ui__snapshot");
+    let tool_slug = format!("maya.{instance_id}.ui_control__snapshot");
     let record = crate::gateway::capability::CapabilityRecord::new(
         tool_slug.clone(),
-        "app_ui__snapshot".to_string(),
-        "app_ui__snapshot".to_string(),
-        Some("app-ui".to_string()),
+        "ui_control__snapshot".to_string(),
+        "ui_control__snapshot".to_string(),
+        Some("ui-control".to_string()),
         "Capture an application screenshot",
         vec![],
         "maya".to_string(),
@@ -658,7 +660,7 @@ async fn mcp_audit_deeply_redacts_ui_text_and_credentials_without_metadata() {
         Some(json!({
             "name": "call",
             "arguments": {
-                "tool_slug": "maya.missing.app_ui__act",
+                "tool_slug": "maya.missing.ui_control__act",
                 "arguments": {
                     "action": "set_text",
                     "text": "private typed value",

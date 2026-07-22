@@ -57,6 +57,11 @@ class TraceItemTableRequest(google.protobuf.message.Message):
             """Natural ordering: embedded runs of digits are compared by their
             numeric value, so e.g. "item2" sorts before "item10".
             """
+            SORT_SEMVER: TraceItemTableRequest.OrderBy._Sort.ValueType  # 3
+            """Semantic-version ordering: values are parsed as semantic versions
+            (https://semver.org) and compared component by component, so e.g.
+            "1.9.0" sorts before "1.10.0".
+            """
 
         class Sort(_Sort, metaclass=_SortEnumTypeWrapper):
             """Sort selects which sort order is applied when ordering by a textual
@@ -74,6 +79,11 @@ class TraceItemTableRequest(google.protobuf.message.Message):
         SORT_NATURAL: TraceItemTableRequest.OrderBy.Sort.ValueType  # 2
         """Natural ordering: embedded runs of digits are compared by their
         numeric value, so e.g. "item2" sorts before "item10".
+        """
+        SORT_SEMVER: TraceItemTableRequest.OrderBy.Sort.ValueType  # 3
+        """Semantic-version ordering: values are parsed as semantic versions
+        (https://semver.org) and compared component by component, so e.g.
+        "1.9.0" sorts before "1.10.0".
         """
 
         COLUMN_FIELD_NUMBER: builtins.int
@@ -98,6 +108,57 @@ class TraceItemTableRequest(google.protobuf.message.Message):
         def HasField(self, field_name: typing.Literal["column", b"column"]) -> builtins.bool: ...
         def ClearField(self, field_name: typing.Literal["column", b"column", "descending", b"descending", "sort", b"sort"]) -> None: ...
 
+    @typing.final
+    class LimitBy(google.protobuf.message.Message):
+        """Limits results per group rather than globally: for each distinct
+        combination of `columns`, keep at most `limit` rows (the first `limit` per
+        `order_by`). E.g. grouping by project and ordering by count, `limit` = 100
+        returns the top 100 rows for every project.
+        """
+
+        DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+        @typing.final
+        class Column(google.protobuf.message.Message):
+            """A single grouping key. It is either a column (referenced by attribute key)
+            or the label of a selected column. To group by a transformation, select it
+            as a column and reference it here by its label. This intentionally cannot
+            express an aggregation, which ClickHouse cannot LIMIT BY.
+            """
+
+            DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+            KEY_FIELD_NUMBER: builtins.int
+            LABEL_FIELD_NUMBER: builtins.int
+            label: builtins.str
+            @property
+            def key(self) -> sentry_protos.snuba.v1.trace_item_attribute_pb2.AttributeKey: ...
+            def __init__(
+                self,
+                *,
+                key: sentry_protos.snuba.v1.trace_item_attribute_pb2.AttributeKey | None = ...,
+                label: builtins.str = ...,
+            ) -> None: ...
+            def HasField(self, field_name: typing.Literal["column", b"column", "key", b"key", "label", b"label"]) -> builtins.bool: ...
+            def ClearField(self, field_name: typing.Literal["column", b"column", "key", b"key", "label", b"label"]) -> None: ...
+            def WhichOneof(self, oneof_group: typing.Literal["column", b"column"]) -> typing.Literal["key", "label"] | None: ...
+
+        COLUMNS_FIELD_NUMBER: builtins.int
+        LIMIT_FIELD_NUMBER: builtins.int
+        limit: builtins.int
+        """Maximum number of rows to keep per group."""
+        @property
+        def columns(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___TraceItemTableRequest.LimitBy.Column]:
+            """The keys that define a group."""
+
+        def __init__(
+            self,
+            *,
+            columns: collections.abc.Iterable[global___TraceItemTableRequest.LimitBy.Column] | None = ...,
+            limit: builtins.int = ...,
+        ) -> None: ...
+        def ClearField(self, field_name: typing.Literal["columns", b"columns", "limit", b"limit"]) -> None: ...
+
     META_FIELD_NUMBER: builtins.int
     COLUMNS_FIELD_NUMBER: builtins.int
     FILTER_FIELD_NUMBER: builtins.int
@@ -108,7 +169,12 @@ class TraceItemTableRequest(google.protobuf.message.Message):
     VIRTUAL_COLUMN_CONTEXTS_FIELD_NUMBER: builtins.int
     AGGREGATION_FILTER_FIELD_NUMBER: builtins.int
     TRACE_FILTERS_FIELD_NUMBER: builtins.int
+    LIMIT_BY_FIELD_NUMBER: builtins.int
     limit: builtins.int
+    """Caps the total number of returned rows. May be combined with `limit_by`,
+    where `limit_by` bounds the rows kept per group and this bounds the overall
+    result (e.g. the number of groups shown).
+    """
     @property
     def meta(self) -> sentry_protos.snuba.v1.request_common_pb2.RequestMeta: ...
     @property
@@ -141,6 +207,12 @@ class TraceItemTableRequest(google.protobuf.message.Message):
         ex: Find spans in traces containing a span with op = 'db' that also contain errors with message = 'timeout'
         """
 
+    @property
+    def limit_by(self) -> global___TraceItemTableRequest.LimitBy:
+        """optional, limits the number of returned rows per group. May be combined
+        with the top-level `limit`, which caps the overall result. See LimitBy.
+        """
+
     def __init__(
         self,
         *,
@@ -154,9 +226,10 @@ class TraceItemTableRequest(google.protobuf.message.Message):
         virtual_column_contexts: collections.abc.Iterable[sentry_protos.snuba.v1.trace_item_attribute_pb2.VirtualColumnContext] | None = ...,
         aggregation_filter: global___AggregationFilter | None = ...,
         trace_filters: collections.abc.Iterable[sentry_protos.snuba.v1.request_common_pb2.TraceItemFilterWithType] | None = ...,
+        limit_by: global___TraceItemTableRequest.LimitBy | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["aggregation_filter", b"aggregation_filter", "filter", b"filter", "meta", b"meta", "page_token", b"page_token"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["aggregation_filter", b"aggregation_filter", "columns", b"columns", "filter", b"filter", "group_by", b"group_by", "limit", b"limit", "meta", b"meta", "order_by", b"order_by", "page_token", b"page_token", "trace_filters", b"trace_filters", "virtual_column_contexts", b"virtual_column_contexts"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["aggregation_filter", b"aggregation_filter", "filter", b"filter", "limit_by", b"limit_by", "meta", b"meta", "page_token", b"page_token"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["aggregation_filter", b"aggregation_filter", "columns", b"columns", "filter", b"filter", "group_by", b"group_by", "limit", b"limit", "limit_by", b"limit_by", "meta", b"meta", "order_by", b"order_by", "page_token", b"page_token", "trace_filters", b"trace_filters", "virtual_column_contexts", b"virtual_column_contexts"]) -> None: ...
 
 global___TraceItemTableRequest = TraceItemTableRequest
 

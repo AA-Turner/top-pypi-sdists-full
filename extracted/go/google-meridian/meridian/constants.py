@@ -305,6 +305,7 @@ ETA_M = 'eta_m'
 ETA_RF = 'eta_rf'
 BETA_M = 'beta_m'
 BETA_RF = 'beta_rf'
+BETA_G = 'beta_g'
 BETA_GM = 'beta_gm'
 BETA_GRF = 'beta_grf'
 BETA_OM = 'beta_om'
@@ -592,8 +593,10 @@ ADSTOCK_CHANNELS = (MEDIA, RF, ORGANIC_MEDIA, ORGANIC_RF)
 
 # Distribution constants.
 DISTRIBUTION = 'distribution'
+DISTRIBUTIONS = 'distributions'
 DISTRIBUTION_TYPE = 'distribution_type'
 INDEPENDENT_MULTIVARIATE = 'IndependentMultivariate'
+CALIBRATED = 'Calibrated'
 PRIOR = 'prior'
 POSTERIOR = 'posterior'
 # Prior mean proportion of KPI incremental due to all media.
@@ -825,3 +828,9 @@ POSTERIOR_SELECTED_DRAW_COUNT_PER_CHAIN = (
     'posterior_selected_draw_count_per_chain'
 )
 POSTERIOR_THINNING_SEED = 'posterior_thinning_seed'
+
+
+# Calibration constants.
+IS_CALIBRATED = 'is_calibrated'
+CALIBRATION_OUTPUTS = 'calibration_outputs'
+

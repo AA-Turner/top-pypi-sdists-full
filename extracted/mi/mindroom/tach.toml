@@ -456,13 +456,16 @@ depends_on = [
 [[modules]]
 path = "mindroom.custom_tools.desktop"
 depends_on = [
+    "mindroom.credentials",
     "mindroom.custom_tools.tool_payloads",
     "mindroom.custom_tools.toolkit_functions",
     "mindroom.desktop.client",
+    "mindroom.desktop.configuration",
     "mindroom.desktop.media",
     "mindroom.desktop.protocol",
     "mindroom.matrix.olm_to_device",
     "mindroom.tool_system.runtime_context",
+    "mindroom.tool_system.worker_routing",
 ]
 
 # Keep split Matrix client consumers on explicit per-module rules so Tach can
@@ -1065,6 +1068,7 @@ depends_on = [
     "mindroom.agent_storage",
     "mindroom.constants",
     "mindroom.history.storage",
+    "mindroom.prompt_message_tags",
     "mindroom.tool_system.events",
 ]
 visibility = [
@@ -1500,7 +1504,9 @@ path = "mindroom.prompt_message_tags"
 depends_on = []
 visibility = [
     "mindroom.coalescing_batch",
+    "mindroom.conversation_state_writer",
     "mindroom.execution_preparation",
+    "mindroom.history.interrupted_replay",
 ]
 
 [[modules]]
@@ -1863,6 +1869,7 @@ path = "mindroom.matrix.cache.sqlite_event_cache"
 depends_on = [
     "mindroom.matrix.cache.event_batching",
     "mindroom.matrix.cache.cache_maintenance",
+    "mindroom.matrix.cache.event_cache",
     "mindroom.matrix.cache.event_normalization",
     "mindroom.matrix.cache.thread_cache_state",
     "mindroom.logging_config",
@@ -2139,6 +2146,8 @@ visibility = [
     "mindroom.cli.desktop",
     "mindroom.desktop.bridge",
     "mindroom.desktop.client",
+    "mindroom.desktop.pairing_client",
+    "mindroom.desktop.pairing_receiver",
     "mindroom.matrix.client_session",
     "mindroom.matrix.olm_to_device",
     "mindroom.matrix_rtc.call_manager",
@@ -2146,11 +2155,72 @@ visibility = [
 
 [[modules]]
 path = "mindroom.matrix.olm_to_device"
-depends_on = ["mindroom.matrix.to_device"]
+depends_on = [
+    "mindroom.matrix.device_identity",
+    "mindroom.matrix.to_device",
+]
+
+[[modules]]
+path = "mindroom.matrix.device_identity"
+depends_on = []
+visibility = [
+    "mindroom.desktop.configuration",
+    "mindroom.matrix.olm_to_device",
+]
 
 [[modules]]
 path = "mindroom.desktop"
 depends_on = []
+
+[[modules]]
+path = "mindroom.desktop.configuration"
+depends_on = [
+    "mindroom.desktop.protocol",
+    "mindroom.matrix.device_identity",
+]
+
+[[modules]]
+path = "mindroom.desktop.pairing"
+depends_on = ["mindroom.desktop.protocol"]
+
+[[modules]]
+path = "mindroom.desktop.pairing_receiver"
+depends_on = [
+    "mindroom.desktop.pairing",
+    "mindroom.desktop.protocol",
+    "mindroom.logging_config",
+    "mindroom.matrix.olm_to_device",
+    "mindroom.matrix.to_device",
+]
+visibility = ["mindroom.bot"]
+
+[[modules]]
+path = "mindroom.desktop.pairing_client"
+depends_on = [
+    "mindroom.desktop.protocol",
+    "mindroom.desktop.session",
+    "mindroom.matrix.olm_to_device",
+    "mindroom.matrix.to_device",
+]
+visibility = ["mindroom.cli.desktop"]
+
+[[modules]]
+path = "mindroom.desktop.login_method"
+depends_on = []
+visibility = [
+    "mindroom.cli.desktop",
+    "mindroom.desktop.session",
+]
+
+[[modules]]
+path = "mindroom.desktop.cloudflare_access"
+depends_on = []
+visibility = ["mindroom.cli.desktop"]
+
+[[modules]]
+path = "mindroom.desktop.sso"
+depends_on = []
+visibility = ["mindroom.cli.desktop"]
 
 [[modules]]
 path = "mindroom.desktop.protocol"
@@ -2209,6 +2279,7 @@ depends_on = [
 [[modules]]
 path = "mindroom.desktop.session"
 depends_on = [
+    "mindroom.desktop.login_method",
     "mindroom.durable_write",
     "mindroom.matrix.client_session",
     "mindroom.matrix.cross_signing",
@@ -2575,6 +2646,7 @@ depends_on = [
     "mindroom.entity_resolution",
     "mindroom.history.runtime",
     "mindroom.history.types",
+    "mindroom.prompt_message_tags",
     "mindroom.runtime_protocols",
     "mindroom.team_scope",
 ]
@@ -2591,6 +2663,7 @@ depends_on = [
     "mindroom.conversation_resolver",
     "mindroom.conversation_state_writer",
     "mindroom.delivery_gateway",
+    "mindroom.desktop.pairing_receiver",
     "mindroom.edit_regenerator",
     "mindroom.entity_resolution",
     "mindroom.hooks",
@@ -2717,14 +2790,20 @@ depends_on = [
     "mindroom.cli.config",
     "mindroom.constants",
     "mindroom.desktop.bridge",
+    "mindroom.desktop.cloudflare_access",
     "mindroom.desktop.command_journal",
     "mindroom.desktop.identity",
+    "mindroom.desktop.login_method",
+    "mindroom.desktop.pairing_client",
     "mindroom.desktop.playwright_mcp",
     "mindroom.desktop.provider",
+    "mindroom.desktop.protocol",
     "mindroom.desktop.session",
+    "mindroom.desktop.sso",
     "mindroom.logging_config",
     "mindroom.matrix.olm_to_device",
     "mindroom.matrix.to_device",
+    "mindroom.tool_system.dependencies",
 ]
 visibility = ["mindroom.cli.main"]
 
@@ -2832,6 +2911,20 @@ depends_on = [
 ]
 
 [[modules]]
+path = "mindroom.commands.desktop_commands"
+depends_on = [
+    "mindroom.credentials",
+    "mindroom.desktop.configuration",
+    "mindroom.desktop.identity",
+    "mindroom.desktop.pairing",
+    "mindroom.session_ids",
+    "mindroom.tool_system.worker_routing",
+]
+visibility = [
+    "mindroom.commands.handler",
+]
+
+[[modules]]
 path = "mindroom.commands.config_confirmation"
 depends_on = [
     "mindroom.commands.config_commands",
@@ -2875,6 +2968,7 @@ depends_on = [
     "mindroom.authorization",
     "mindroom.commands.config_commands",
     "mindroom.commands.config_confirmation",
+    "mindroom.commands.desktop_commands",
     "mindroom.commands.encryption_commands",
     "mindroom.commands.model_commands",
     "mindroom.commands.parsing",
@@ -3818,6 +3912,8 @@ expose = [
     "PermanentMatrixStartupError",
     "create_authenticated_client",
     "login",
+    "login_flows",
+    "login_with_token",
     "matrix_client",
     "matrix_client_config",
     "matrix_startup_error",
@@ -4237,6 +4333,7 @@ expose = [
     "iter_module_hooks",
     "render_enrichment_block",
     "render_system_enrichment_block",
+    "render_transient_context",
     "send_and_track_message",
     "send_hook_message",
     "validate_event_name",
@@ -4356,6 +4453,7 @@ expose = [
     "load_tool_for_session",
     "resolve_dynamic_tool_selection",
     "save_loaded_tools_for_session",
+    "suppress_fully_deferred_toolkit_instructions",
     "unload_tool_for_session",
     "visible_tool_surface",
 ]

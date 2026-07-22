@@ -299,12 +299,12 @@ def download_file_from_github(files_to_download: list, project_dir: str, non_int
                 else:
                     override_file = "y"
                 if override_file.lower() != "y":
-                    print_library_log(f"skipped {file_info['local_path']}", level=Logging.Level.FINE, log_icon=Logging.LogIcon.SUCCESS)
+                    print_library_log(f"skipped {file_info['local_path']}", level=Logging.Level.INFO, log_icon=Logging.LogIcon.SUCCESS)
                     continue
 
             with open(target_path, 'wb') as f:
                 f.write(file_response.content)
 
-            print_library_log(f"downloaded {file_info['local_path']}", level=Logging.Level.FINE, log_icon=Logging.LogIcon.SUCCESS)
+            print_library_log(f"downloaded {file_info['local_path']}", level=Logging.Level.INFO, log_icon=Logging.LogIcon.SUCCESS)
         except Exception as e:
             print_library_log(f"failed to download {file_info['local_path']}: {e}", level=Logging.Level.WARNING, log_icon=Logging.LogIcon.FAILURE)

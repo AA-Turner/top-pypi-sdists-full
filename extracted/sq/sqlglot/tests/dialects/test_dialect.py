@@ -65,6 +65,12 @@ class Validator(unittest.TestCase):
         )
         return expression
 
+    def validate_transpile(self, sql, write_sql, write_dialect=None):
+        """Validate that `sql`, parsed with self.dialect, generates `write_sql` in `write_dialect`."""
+        expression = self.parse_one(sql)
+        self.assertEqual(write_sql, expression.sql(dialect=write_dialect))
+        return expression
+
     def validate_all(self, sql, read=None, write=None, pretty=False, identify=False):
         """
         Validate that:
@@ -759,11 +765,11 @@ class TestDialect(Validator):
             write={
                 "mysql": "STR_TO_DATE(x, '%Y-%m-%dT%T')",
                 "duckdb": "STRPTIME(x, '%Y-%m-%dT%H:%M:%S')",
-                "hive": "CAST(FROM_UNIXTIME(UNIX_TIMESTAMP(x, 'yyyy-MM-ddTHH:mm:ss')) AS TIMESTAMP)",
+                "hive": "CAST(FROM_UNIXTIME(UNIX_TIMESTAMP(x, 'yyyy-M-dTHH:mm:ss')) AS TIMESTAMP)",
                 "presto": "DATE_PARSE(x, '%Y-%m-%dT%T')",
                 "drill": "TO_TIMESTAMP(x, 'yyyy-MM-dd''T''HH:mm:ss')",
                 "redshift": "TO_TIMESTAMP(x, 'YYYY-MM-DDTHH24:MI:SS')",
-                "spark": "TO_TIMESTAMP(x, 'yyyy-MM-ddTHH:mm:ss')",
+                "spark": "TO_TIMESTAMP(x, 'yyyy-M-dTHH:mm:ss')",
             },
         )
         self.validate_all(
@@ -776,7 +782,7 @@ class TestDialect(Validator):
                 "postgres": "TO_TIMESTAMP('2020-01-01', 'YYYY-MM-DD')",
                 "presto": "DATE_PARSE('2020-01-01', '%Y-%m-%d')",
                 "redshift": "TO_TIMESTAMP('2020-01-01', 'YYYY-MM-DD')",
-                "spark": "TO_TIMESTAMP('2020-01-01', 'yyyy-MM-dd')",
+                "spark": "TO_TIMESTAMP('2020-01-01', 'yyyy-M-d')",
             },
         )
         self.validate_all(
@@ -797,7 +803,7 @@ class TestDialect(Validator):
             "STR_TO_UNIX('2020-01-01', '%Y-%m-%d')",
             write={
                 "duckdb": "EPOCH(STRPTIME('2020-01-01', '%Y-%m-%d'))",
-                "hive": "UNIX_TIMESTAMP('2020-01-01', 'yyyy-MM-dd')",
+                "hive": "UNIX_TIMESTAMP('2020-01-01', 'yyyy-M-d')",
                 "presto": "TO_UNIXTIME(COALESCE(TRY(DATE_PARSE(CAST('2020-01-01' AS VARCHAR), '%Y-%m-%d')), PARSE_DATETIME(DATE_FORMAT(CAST('2020-01-01' AS TIMESTAMP), '%Y-%m-%d'), 'yyyy-MM-dd')))",
                 "starrocks": "UNIX_TIMESTAMP('2020-01-01', '%Y-%m-%d')",
                 "doris": "UNIX_TIMESTAMP('2020-01-01', '%Y-%m-%d')",
@@ -1217,9 +1223,9 @@ class TestDialect(Validator):
                 "drill": "TO_DATE(x, 'yyyy-MM-dd''T''HH:mm:ss')",
                 "mysql": "STR_TO_DATE(x, '%Y-%m-%dT%T')",
                 "starrocks": "STR_TO_DATE(x, '%Y-%m-%dT%T')",
-                "hive": "CAST(FROM_UNIXTIME(UNIX_TIMESTAMP(x, 'yyyy-MM-ddTHH:mm:ss')) AS DATE)",
+                "hive": "CAST(FROM_UNIXTIME(UNIX_TIMESTAMP(x, 'yyyy-M-dTHH:mm:ss')) AS DATE)",
                 "presto": "CAST(DATE_PARSE(x, '%Y-%m-%dT%T') AS DATE)",
-                "spark": "TO_DATE(x, 'yyyy-MM-ddTHH:mm:ss')",
+                "spark": "TO_DATE(x, 'yyyy-M-dTHH:mm:ss')",
                 "doris": "STR_TO_DATE(x, '%Y-%m-%dT%T')",
             },
         )
@@ -1231,7 +1237,7 @@ class TestDialect(Validator):
                 "starrocks": "STR_TO_DATE(x, '%Y-%m-%d')",
                 "hive": "CAST(x AS DATE)",
                 "presto": "CAST(DATE_PARSE(x, '%Y-%m-%d') AS DATE)",
-                "spark": "TO_DATE(x)",
+                "spark": "TO_DATE(x, 'yyyy-M-d')",
                 "doris": "STR_TO_DATE(x, '%Y-%m-%d')",
             },
         )
@@ -2230,7 +2236,7 @@ class TestDialect(Validator):
             write={
                 "bigquery": "LOWER(x) LIKE LOWER('%y')",
                 "clickhouse": "x ILIKE '%y'",
-                "drill": "x `ILIKE` '%y'",
+                "drill": "ILIKE(x, '%y')",
                 "duckdb": "x ILIKE '%y'",
                 "hive": "LOWER(x) LIKE LOWER('%y')",
                 "mysql": "LOWER(x) LIKE LOWER('%y')",
@@ -2243,6 +2249,18 @@ class TestDialect(Validator):
                 "starrocks": "LOWER(x) LIKE LOWER('%y')",
                 "trino": "LOWER(x) LIKE LOWER('%y')",
                 "doris": "LOWER(x) LIKE LOWER('%y')",
+            },
+        )
+        self.validate_all(
+            "x NOT ILIKE '%y'",
+            read={
+                "postgres": "x NOT ILIKE '%y'",
+            },
+            write={
+                "drill": "NOT ILIKE(x, '%y')",
+                "hive": "LOWER(x) NOT LIKE LOWER('%y')",
+                "presto": "LOWER(x) NOT LIKE LOWER('%y')",
+                "postgres": "x NOT ILIKE '%y'",
             },
         )
         self.validate_all(
@@ -2745,6 +2763,48 @@ class TestDialect(Validator):
             parse_one("CAST(x AS DECIMAL) / y", read="mysql").sql(dialect="postgres"),
             "CAST(x AS DECIMAL) / NULLIF(y, 0)",
         )
+
+    def test_fetch_first_implicit_count(self):
+        # "FETCH FIRST ROWS ONLY" without an explicit count selects one row per
+        # the SQL standard. Dialects that render FETCH as LIMIT previously emitted
+        # a bare "LIMIT", which is invalid SQL and fails to re-parse.
+        self.validate_all(
+            "SELECT * FROM t FETCH FIRST ROWS ONLY",
+            write={
+                "postgres": "SELECT * FROM t FETCH FIRST ROWS ONLY",
+                "presto": "SELECT * FROM t FETCH FIRST ROWS ONLY",
+                "oracle": "SELECT * FROM t FETCH FIRST ROWS ONLY",
+                "mysql": "SELECT * FROM t LIMIT 1",
+                "sqlite": "SELECT * FROM t LIMIT 1",
+                "duckdb": "SELECT * FROM t LIMIT 1",
+                "bigquery": "SELECT * FROM t LIMIT 1",
+                "spark": "SELECT * FROM t LIMIT 1",
+                "hive": "SELECT * FROM t LIMIT 1",
+                "redshift": "SELECT * FROM t LIMIT 1",
+                "starrocks": "SELECT * FROM t LIMIT 1",
+                "doris": "SELECT * FROM t LIMIT 1",
+            },
+        )
+
+        # An explicit count must be preserved, not defaulted to one.
+        self.validate_all(
+            "SELECT * FROM t FETCH FIRST 10 ROWS ONLY",
+            write={
+                "mysql": "SELECT * FROM t LIMIT 10",
+                "oracle": "SELECT * FROM t FETCH FIRST 10 ROWS ONLY",
+            },
+        )
+
+        # The generated SQL must round-trip (be re-parseable and idempotent) in
+        # every LIMIT-based dialect.
+        for dialect in ("mysql", "sqlite", "duckdb", "bigquery", "spark", "redshift"):
+            with self.subTest(dialect=dialect):
+                once = parse_one("SELECT * FROM t FETCH FIRST ROWS ONLY", read=dialect).sql(
+                    dialect=dialect
+                )
+                self.assertEqual(once, "SELECT * FROM t LIMIT 1")
+                twice = parse_one(once, read=dialect).sql(dialect=dialect)
+                self.assertEqual(once, twice)
 
     def test_limit(self):
         self.validate_identity("WITH t AS (SELECT 1 AS all) SELECT 1 FROM t LIMIT all")
@@ -4028,6 +4088,20 @@ FROM subquery2""",
                     "postgres": f"PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY x){suffix}",
                 },
             )
+
+    def test_filter_within_group(self):
+        self.validate_all(
+            "SELECT ARRAY_AGG(x) WITHIN GROUP (ORDER BY y) FILTER(WHERE z > 0) FROM t",
+            write={
+                "snowflake": "SELECT ARRAY_AGG(IFF(z > 0, x, NULL)) WITHIN GROUP (ORDER BY y NULLS FIRST) FROM t",
+            },
+        )
+        self.validate_all(
+            "SELECT FOO(x) WITHIN GROUP (ORDER BY y) FILTER(WHERE z > 0) FROM t",
+            write={
+                "snowflake": UnsupportedError,
+            },
+        )
 
     def test_current_schema(self):
         self.validate_all(

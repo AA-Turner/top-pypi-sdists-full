@@ -1,16 +1,17 @@
 """Subcommands action and helper functions."""
 
-import warnings
 from argparse import Action as ArgparseAction
 from argparse import _SubParsersAction
 from contextlib import contextmanager
 from contextvars import ContextVar
-from typing import NoReturn, Optional, Union
+from typing import NoReturn
 
 from ._actions import filter_non_parsing_actions
 from ._common import parsing_defaults, single_subcommand
+from ._deprecated import deprecated_implicit_subcommand
 from ._namespace import Namespace, NSKeyError, split_key, split_key_root
 from ._type_checking import ActionsContainer, ArgumentParser
+from ._util import merge_config
 
 __all__ = ["ActionSubCommands"]
 
@@ -30,10 +31,10 @@ def is_branch_key(parser, key: str) -> bool:
 
 
 def find_action_and_subcommand(
-    parser: Union[ArgumentParser, ActionsContainer],
+    parser: ArgumentParser | ActionsContainer,
     dest: str,
-    exclude: Optional[Union[type[ArgparseAction], tuple[type[ArgparseAction], ...]]] = None,
-) -> tuple[Optional[ArgparseAction], Optional[str]]:
+    exclude: type[ArgparseAction] | tuple[type[ArgparseAction], ...] | None = None,
+) -> tuple[ArgparseAction | None, str | None]:
     """Finds an action in a parser given its destination key."""
     actions = filter_non_parsing_actions(parser._actions)
     if exclude is not None:
@@ -68,18 +69,18 @@ def find_action_and_subcommand(
 
 
 def find_action(
-    parser: Union[ArgumentParser, ActionsContainer],
+    parser: ArgumentParser | ActionsContainer,
     dest: str,
-    exclude: Optional[Union[type[ArgparseAction], tuple[type[ArgparseAction], ...]]] = None,
-) -> Optional[ArgparseAction]:
+    exclude: type[ArgparseAction] | tuple[type[ArgparseAction], ...] | None = None,
+) -> ArgparseAction | None:
     return find_action_and_subcommand(parser, dest, exclude=exclude)[0]
 
 
 def find_parent_action_and_subcommand(
     parser: ArgumentParser,
     key: str,
-    exclude: Optional[Union[type[ArgparseAction], tuple[type[ArgparseAction], ...]]] = None,
-) -> tuple[Optional[ArgparseAction], Optional[str]]:
+    exclude: type[ArgparseAction] | tuple[type[ArgparseAction], ...] | None = None,
+) -> tuple[ArgparseAction | None, str | None]:
     action, subcommand = find_action_and_subcommand(parser, key, exclude=exclude)
     if action is None and "." in key:
         parts = split_key(key)
@@ -93,8 +94,8 @@ def find_parent_action_and_subcommand(
 def find_parent_action(
     parser: ArgumentParser,
     key: str,
-    exclude: Optional[Union[type[ArgparseAction], tuple[type[ArgparseAction], ...]]] = None,
-) -> Optional[ArgparseAction]:
+    exclude: type[ArgparseAction] | tuple[type[ArgparseAction], ...] | None = None,
+) -> ArgparseAction | None:
     return find_parent_action_and_subcommand(parser, key, exclude=exclude)[0]
 
 
@@ -177,7 +178,7 @@ def get_subcommands(
     cfg: Namespace,
     prefix: str = "",
     fail_no_subcommand: bool = True,
-) -> tuple[Optional[list[str]], Optional[list[ArgumentParser]]]:
+) -> tuple[list[str] | None, list[ArgumentParser] | None]:
     """Returns subcommand names and corresponding subparsers."""
     if parser._subcommands_action is None:
         return None, None
@@ -198,10 +199,8 @@ def get_subcommands(
     elif len(subcommand_keys) > 0 and (fail_no_subcommand or require_single):
         cfg[dest] = subcommand = subcommand_keys[0]
         if len(subcommand_keys) > 1:
-            warnings.warn(
-                f"Multiple subcommand settings provided ({', '.join(subcommand_keys)}) without an "
-                f"explicit '{dest}' key. Subcommand '{subcommand}' will be used."
-            )
+            deprecated_implicit_subcommand(get_subcommands, subcommand_keys, subcommand, dest)
+            # v5.0.0 replace deprecated_implicit_subcommand with raise ValueError
 
     # Remove extra subcommand settings
     if subcommand and len(subcommand_keys) > 1:
@@ -233,7 +232,7 @@ def get_subcommand(
     cfg: Namespace,
     prefix: str = "",
     fail_no_subcommand: bool = True,
-) -> tuple[Optional[str], Optional[ArgumentParser]]:
+) -> tuple[str | None, ArgumentParser | None]:
     """Returns a single subcommand name and corresponding subparser."""
     subcommands, subparsers = get_subcommands(
         parser,
@@ -247,7 +246,7 @@ def get_subcommand(
 def handle_subcommands(
     parser: ArgumentParser,
     cfg: Namespace,
-    env: Optional[bool],
+    env: bool | None,
     defaults: bool,
     prefix: str = "",
     fail_no_subcommand: bool = True,
@@ -269,7 +268,7 @@ def handle_subcommands(
 
         # Update all subcommand settings
         if subnamespace is not None:
-            cfg[key] = subparser.merge_config(cfg.get(key, Namespace()), subnamespace)
+            cfg[key] = merge_config(subparser, cfg.get(key, Namespace()), subnamespace)
 
         # Handle inner subcommands
         if subparser._subparsers is not None:

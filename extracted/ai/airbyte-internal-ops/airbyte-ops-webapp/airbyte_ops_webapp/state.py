@@ -65,6 +65,9 @@ class OpsPageState(BaseModel):
     loading_message: str = ""
     tool_error: str = ""
 
+    # --- Shared UI dialogs ---
+    agents_callout_open: bool = False
+
     # --- Auth (Airbyte / Keycloak) ---
     auth_bearer_token: str = ""
     admin_user_email: str = ""

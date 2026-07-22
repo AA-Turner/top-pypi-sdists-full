@@ -61,6 +61,7 @@ __all__ = (
     "MetricNamespaceType",
     "MetricType",
     "PaginatorName",
+    "PricingPlanType",
     "QueryErrorCodeType",
     "RecommendationImpactType",
     "RecommendationStatusType",
@@ -194,6 +195,7 @@ MetricType = Literal[
     "SEND",
     "TRANSIENT_BOUNCE",
 ]
+PricingPlanType = Literal["ENTERPRISE", "ESSENTIALS", "NONE", "PRO"]
 QueryErrorCodeType = Literal["ACCESS_DENIED", "INTERNAL_FAILURE"]
 RecommendationImpactType = Literal["HIGH", "LOW"]
 RecommendationStatusType = Literal["FIXED", "OPEN"]

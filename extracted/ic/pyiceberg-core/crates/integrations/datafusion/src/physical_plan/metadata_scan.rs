@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+use std::sync::Arc;
+
 use datafusion::catalog::TableProvider;
 use datafusion::physical_expr::EquivalenceProperties;
 use datafusion::physical_plan::execution_plan::{Boundedness, EmissionType};
@@ -27,17 +29,17 @@ use crate::metadata_table::IcebergMetadataTableProvider;
 #[derive(Debug)]
 pub struct IcebergMetadataScan {
     provider: IcebergMetadataTableProvider,
-    properties: PlanProperties,
+    properties: Arc<PlanProperties>,
 }
 
 impl IcebergMetadataScan {
     pub fn new(provider: IcebergMetadataTableProvider) -> Self {
-        let properties = PlanProperties::new(
+        let properties = Arc::new(PlanProperties::new(
             EquivalenceProperties::new(provider.schema()),
             Partitioning::UnknownPartitioning(1),
             EmissionType::Incremental,
             Boundedness::Bounded,
-        );
+        ));
         Self {
             provider,
             properties,
@@ -60,29 +62,25 @@ impl ExecutionPlan for IcebergMetadataScan {
         "IcebergMetadataScan"
     }
 
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-
-    fn properties(&self) -> &PlanProperties {
+    fn properties(&self) -> &Arc<PlanProperties> {
         &self.properties
     }
 
-    fn children(&self) -> Vec<&std::sync::Arc<dyn ExecutionPlan>> {
+    fn children(&self) -> Vec<&Arc<dyn ExecutionPlan>> {
         vec![]
     }
 
     fn with_new_children(
-        self: std::sync::Arc<Self>,
-        _children: Vec<std::sync::Arc<dyn ExecutionPlan>>,
-    ) -> datafusion::error::Result<std::sync::Arc<dyn ExecutionPlan>> {
+        self: Arc<Self>,
+        _children: Vec<Arc<dyn ExecutionPlan>>,
+    ) -> datafusion::error::Result<Arc<dyn ExecutionPlan>> {
         Ok(self)
     }
 
     fn execute(
         &self,
         _partition: usize,
-        _context: std::sync::Arc<datafusion::execution::TaskContext>,
+        _context: Arc<datafusion::execution::TaskContext>,
     ) -> datafusion::error::Result<datafusion::execution::SendableRecordBatchStream> {
         let fut = self.provider.clone().scan();
         let stream = futures::stream::once(fut).try_flatten();

@@ -135,6 +135,10 @@ class TemplateMetadata(APIObject):
         t.Key("class_labels", optional=True): t.List(t.String()),
         t.Key("resource_bundle_ids", optional=True): t.List(t.String()),
         t.Key("template_type_specific_resources", optional=True): t.Dict().allow_extra("*"),
+        t.Key("environment_variables", optional=True): t.Or(t.Null(), t.Dict().allow_extra("*")),
+        t.Key("readiness_probe", optional=True): t.Or(t.Null(), t.Dict().allow_extra("*")),
+        t.Key("liveness_probe", optional=True): t.Or(t.Null(), t.Dict().allow_extra("*")),
+        t.Key("startup_probe", optional=True): t.Or(t.Null(), t.Dict().allow_extra("*")),
     }).allow_extra("*")
     schema = _converter
 
@@ -149,6 +153,10 @@ class TemplateMetadata(APIObject):
         class_labels: Optional[List[str]] = None,
         resource_bundle_ids: Optional[List[str]] = None,
         template_type_specific_resources: Optional[Dict[str, Any]] = None,
+        environment_variables: Optional[Dict[str, Any]] = None,
+        readiness_probe: Optional[Dict[str, Any]] = None,
+        liveness_probe: Optional[Dict[str, Any]] = None,
+        startup_probe: Optional[Dict[str, Any]] = None,
         **kwargs: Dict[str, Any],
     ) -> None:
         super().__init__(**kwargs)
@@ -161,6 +169,10 @@ class TemplateMetadata(APIObject):
         self.class_labels = class_labels
         self.resource_bundle_ids = resource_bundle_ids
         self.template_type_specific_resources = template_type_specific_resources
+        self.environment_variables = environment_variables
+        self.readiness_probe = readiness_probe
+        self.liveness_probe = liveness_probe
+        self.startup_probe = startup_probe
 
 
 class CustomTemplate(APIObject):

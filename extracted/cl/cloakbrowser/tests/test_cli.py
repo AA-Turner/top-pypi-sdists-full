@@ -178,7 +178,7 @@ def test_free_license_shows_upgrade_hint(capsys):
     _run(Namespace(quick=True, json=False))
     out = capsys.readouterr().out
     assert "License:   Free" in out
-    assert "free for 7 days" in out
+    assert "newest patches" in out
 
 
 # ---------------------------------------------------------------------------

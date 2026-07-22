@@ -19,6 +19,10 @@ public static class GeoIp
         "https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-City.mmdb";
     private const string GeoIpDbFilename = "GeoLite2-City.mmdb";
     private const long GeoIpUpdateInterval = 30L * 86_400; // 30 days (seconds)
+
+    // Serializes GeoIP DB downloads within the process so N concurrent launches
+    // don't each fetch the same ~70 MB file (issue #458). Per-process only.
+    private static readonly SemaphoreSlim GeoIpDownloadGate = new(1, 1);
     private const double DefaultGeoIpTimeoutSeconds = 5.0;
     private const string GeoIpTimeoutEnv = "CLOAKBROWSER_GEOIP_TIMEOUT_SECONDS";
 
@@ -333,8 +337,13 @@ public static class GeoIp
             return dbPath;
         }
 
+        // Serialize concurrent first-use downloads: only one launch fetches
+        // the shared file, the rest wait and reuse it.
+        await GeoIpDownloadGate.WaitAsync(ct).ConfigureAwait(false);
         try
         {
+            if (File.Exists(dbPath)) // another launch finished while we waited
+                return dbPath;
             await DownloadGeoIpDbAsync(dbPath, ct).ConfigureAwait(false);
             return dbPath;
         }
@@ -342,6 +351,10 @@ public static class GeoIp
         {
             CloakLog.Warning("Failed to download GeoIP database: {0}", exc.Message);
             return null;
+        }
+        finally
+        {
+            GeoIpDownloadGate.Release();
         }
     }
 
@@ -382,8 +395,7 @@ public static class GeoIp
                 }
             }
 
-            if (File.Exists(dest)) File.Delete(dest);
-            File.Move(tmpPath, dest);
+            File.Move(tmpPath, dest, overwrite: true); // atomic overwrite (net8.0)
             CloakLog.Info("GeoIP database ready: {0}", dest);
         }
         catch (Exception)
@@ -408,8 +420,12 @@ public static class GeoIp
 
         _ = Task.Run(async () =>
         {
+            // Skip if a download (initial or refresh) is already running.
+            if (!await GeoIpDownloadGate.WaitAsync(0).ConfigureAwait(false))
+                return;
             try { await DownloadGeoIpDbAsync(dbPath, CancellationToken.None).ConfigureAwait(false); }
             catch (Exception) { CloakLog.Debug("Background GeoIP update failed"); }
+            finally { GeoIpDownloadGate.Release(); }
         });
     }
 }

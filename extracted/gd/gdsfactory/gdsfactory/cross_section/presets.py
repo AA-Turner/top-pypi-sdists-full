@@ -247,15 +247,15 @@ def slot(
         sections: list of Sections(width, offset, layer, ports).
         kwargs: other cross section parameters.
 
-    .. plot::
-        :include-source:
-
+    Example:
+        ```python
         import gdsfactory as gf
 
         xs = gf.cross_section.slot(width=0.5, slot_width=0.05, layer='WG')
         p = gf.path.arc(radius=10, angle=45)
         c = p.extrude(xs)
         c.plot()
+        ```
     """
     if slot_width >= width:
         raise ValueError(f"{width=} must be greater than {slot_width=}")
@@ -323,8 +323,6 @@ def rib_with_trenches(
         sections: list of Sections(width, offset, layer, ports).
         kwargs: cross_section settings.
 
-    .. code::
-
                         ┌─────────┐
                         │         │ wg_marking_layer
                         └─────────┘
@@ -351,15 +349,15 @@ def rib_with_trenches(
                       width_slab
 
 
-    .. plot::
-        :include-source:
-
+    Example:
+        ```python
         import gdsfactory as gf
 
         xs = gf.cross_section.rib_with_trenches(width=0.5)
         p = gf.path.arc(radius=10, angle=45)
         c = p.extrude(xs)
         c.plot()
+        ```
     """
     if slab_offset is None and width_slab is None:
         raise ValueError("Must specify either slab_offset or width_slab")
@@ -417,9 +415,6 @@ def l_with_trenches(
         mirror: this cross section is not symmetric and you can switch orientation.
         sections: list of Sections(width, offset, layer, ports).
         kwargs: cross_section settings.
-
-
-    .. code::
                           x = 0
                            |
                            |
@@ -427,6 +422,7 @@ def l_with_trenches(
              |        |         |
              |________|         |
 
+    ```text
        _________________________
              <------->          |
             width_trench
@@ -435,18 +431,19 @@ def l_with_trenches(
                                 |
        <------------------------>
             width_slab
+    ```
 
 
 
-    .. plot::
-        :include-source:
-
+    Example:
+        ```python
         import gdsfactory as gf
 
         xs = gf.cross_section.l_with_trenches(width=0.5)
         p = gf.path.arc(radius=10, angle=45)
         c = p.extrude(xs)
         c.plot()
+        ```
     """
     mult = 1 if mirror else -1
     trench_offset = mult * (width / 2 + width_trench / 2)

@@ -10817,6 +10817,543 @@ class USEnergy(QuantConnect.Data.BaseData):
         ...
 
 
+class EIA(System.Object):
+    """
+    Readable named constants for EIA-930 balancing authority codes, for use as the ticker in
+    AddData<EIAElectricity>(EIA.BalancingAuthorities.X). The major operators also
+    carry their common short name (ERCOT, CAISO, NYISO, ISONE, SPP, BPA).
+    """
+
+    class BalancingAuthorities(System.Object):
+        """EIA-930 balancing authority codes by readable name."""
+
+        POWER_SOUTH_ENERGY_COOPERATIVE: str = "AEC"
+        """PowerSouth Energy Cooperative"""
+
+        ASSOCIATED_ELECTRIC_COOPERATIVE_INC: str = "AECI"
+        """Associated Electric Cooperative, Inc."""
+
+        AVISTA_CORPORATION: str = "AVA"
+        """Avista Corporation"""
+
+        AVANGRID_RENEWABLES_LLC: str = "AVRN"
+        """Avangrid Renewables, LLC"""
+
+        ARIZONA_PUBLIC_SERVICE_COMPANY: str = "AZPS"
+        """Arizona Public Service Company"""
+
+        BALANCING_AUTHORITY_OF_NORTHERN_CALIFORNIA: str = "BANC"
+        """Balancing Authority of Northern California"""
+
+        BPA: str = "BPAT"
+        """Bonneville Power Administration"""
+
+        BONNEVILLE_POWER_ADMINISTRATION: str = "BPAT"
+        """Bonneville Power Administration"""
+
+        CALIFORNIA: str = "CAL"
+        """California"""
+
+        CAROLINAS: str = "CAR"
+        """Carolinas"""
+
+        CENTRAL: str = "CENT"
+        """Central"""
+
+        PUBLIC_UTILITY_DISTRICT_NO_1_OF_CHELAN_COUNTY: str = "CHPD"
+        """Public Utility District No. 1 of Chelan County"""
+
+        CAISO: str = "CISO"
+        """California Independent System Operator"""
+
+        CALIFORNIA_INDEPENDENT_SYSTEM_OPERATOR: str = "CISO"
+        """California Independent System Operator"""
+
+        DUKE_ENERGY_PROGRESS_EAST: str = "CPLE"
+        """Duke Energy Progress East"""
+
+        DUKE_ENERGY_PROGRESS_WEST: str = "CPLW"
+        """Duke Energy Progress West"""
+
+        ARLINGTON_VALLEY_LLC: str = "DEAA"
+        """Arlington Valley, LLC"""
+
+        PUD_NO_1_OF_DOUGLAS_COUNTY: str = "DOPD"
+        """PUD No. 1 of Douglas County"""
+
+        DUKE_ENERGY_CAROLINAS: str = "DUK"
+        """Duke Energy Carolinas"""
+
+        ELECTRIC_ENERGY_INC: str = "EEI"
+        """Electric Energy, Inc."""
+
+        EL_PASO_ELECTRIC_COMPANY: str = "EPE"
+        """El Paso Electric Company"""
+
+        ERCOT: str = "ERCO"
+        """Electric Reliability Council of Texas, Inc."""
+
+        ELECTRIC_RELIABILITY_COUNCIL_OF_TEXAS_INC: str = "ERCO"
+        """Electric Reliability Council of Texas, Inc."""
+
+        FLORIDA: str = "FLA"
+        """Florida"""
+
+        FLORIDA_MUNICIPAL_POWER_POOL: str = "FMPP"
+        """Florida Municipal Power Pool"""
+
+        DUKE_ENERGY_FLORIDA_INC: str = "FPC"
+        """Duke Energy Florida, Inc."""
+
+        FLORIDA_POWER_LIGHT_CO: str = "FPL"
+        """Florida Power & Light Co."""
+
+        PUBLIC_UTILITY_DISTRICT_NO_2_OF_GRANT_COUNTY_WASHINGTON: str = "GCPD"
+        """Public Utility District No. 2 of Grant County, Washington"""
+
+        GRID_LIANCE: str = "GLHB"
+        """GridLiance"""
+
+        GRIDFORCE_ENERGY_MANAGEMENT_LLC: str = "GRID"
+        """Gridforce Energy Management, LLC"""
+
+        GRIFFITH_ENERGY_LLC: str = "GRIF"
+        """Griffith Energy, LLC"""
+
+        GAINESVILLE_REGIONAL_UTILITIES: str = "GVL"
+        """Gainesville Regional Utilities"""
+
+        NATUR_ENER_POWER_WATCH_LLC: str = "GWA"
+        """NaturEner Power Watch, LLC"""
+
+        NEW_HARQUAHALA_GENERATING_COMPANY_LLC: str = "HGMA"
+        """New Harquahala Generating Company, LLC"""
+
+        CITY_OF_HOMESTEAD: str = "HST"
+        """City of Homestead"""
+
+        IMPERIAL_IRRIGATION_DISTRICT: str = "IID"
+        """Imperial Irrigation District"""
+
+        IDAHO_POWER_COMPANY: str = "IPCO"
+        """Idaho Power Company"""
+
+        ISONE: str = "ISNE"
+        """ISO New England"""
+
+        ISO_NEW_ENGLAND: str = "ISNE"
+        """ISO New England"""
+
+        JEA: str = "JEA"
+        """JEA"""
+
+        LOS_ANGELES_DEPARTMENT_OF_WATER_AND_POWER: str = "LDWP"
+        """Los Angeles Department of Water and Power"""
+
+        LGE_AND_KU_SERVICES_COMPANY_AS_AGENT_FOR_LOUISVILLE_GAS_AND_ELECTRIC_COMPANY_AND_KENTUCKY_UTILITIES_COMPANY: str = "LGEE"
+        """LG&E and KU Services Company as agent for Louisville Gas and Electric Company and Kentucky Utilities Company"""
+
+        MID_ATLANTIC: str = "MIDA"
+        """Mid-Atlantic"""
+
+        MIDWEST: str = "MIDW"
+        """Midwest"""
+
+        MISO: str = "MISO"
+        """Midcontinent Independent System Operator, Inc."""
+
+        MIDCONTINENT_INDEPENDENT_SYSTEM_OPERATOR_INC: str = "MISO"
+        """Midcontinent Independent System Operator, Inc."""
+
+        NEW_ENGLAND: str = "NE"
+        """New England"""
+
+        NEVADA_POWER_COMPANY: str = "NEVP"
+        """Nevada Power Company"""
+
+        UTILITIES_COMMISSION_OF_NEW_SMYRNA_BEACH: str = "NSB"
+        """Utilities Commission of New Smyrna Beach"""
+
+        NORTHWEST: str = "NW"
+        """Northwest"""
+
+        NORTH_WESTERN_CORPORATION: str = "NWMT"
+        """NorthWestern Corporation"""
+
+        NEW_YORK: str = "NY"
+        """New York"""
+
+        NYISO: str = "NYIS"
+        """New York Independent System Operator"""
+
+        NEW_YORK_INDEPENDENT_SYSTEM_OPERATOR: str = "NYIS"
+        """New York Independent System Operator"""
+
+        PACIFI_CORP_EAST: str = "PACE"
+        """PacifiCorp East"""
+
+        PACIFI_CORP_WEST: str = "PACW"
+        """PacifiCorp West"""
+
+        PORTLAND_GENERAL_ELECTRIC_COMPANY: str = "PGE"
+        """Portland General Electric Company"""
+
+        PJM: str = "PJM"
+        """PJM Interconnection, LLC"""
+
+        PJM_INTERCONNECTION_LLC: str = "PJM"
+        """PJM Interconnection, LLC"""
+
+        PUBLIC_SERVICE_COMPANY_OF_NEW_MEXICO: str = "PNM"
+        """Public Service Company of New Mexico"""
+
+        PUBLIC_SERVICE_COMPANY_OF_COLORADO: str = "PSCO"
+        """Public Service Company of Colorado"""
+
+        PUGET_SOUND_ENERGY_INC: str = "PSEI"
+        """Puget Sound Energy, Inc."""
+
+        SOUTH_CAROLINA_PUBLIC_SERVICE_AUTHORITY: str = "SC"
+        """South Carolina Public Service Authority"""
+
+        DOMINION_ENERGY_SOUTH_CAROLINA_INC: str = "SCEG"
+        """Dominion Energy South Carolina, Inc."""
+
+        SEATTLE_CITY_LIGHT: str = "SCL"
+        """Seattle City Light"""
+
+        SOUTHEAST: str = "SE"
+        """Southeast"""
+
+        SEMINOLE_ELECTRIC_COOPERATIVE: str = "SEC"
+        """Seminole Electric Cooperative"""
+
+        SOUTHEASTERN_POWER_ADMINISTRATION: str = "SEPA"
+        """Southeastern Power Administration"""
+
+        SIKESTON_BOARD_OF_MUNICIPAL_UTILITIES: str = "SIKE"
+        """Sikeston Board of Municipal Utilities"""
+
+        SOUTHERN_COMPANY_SERVICES_INC_TRANS: str = "SOCO"
+        """Southern Company Services, Inc. - Trans"""
+
+        SOUTHWESTERN_POWER_ADMINISTRATION: str = "SPA"
+        """Southwestern Power Administration"""
+
+        SALT_RIVER_PROJECT_AGRICULTURAL_IMPROVEMENT_AND_POWER_DISTRICT: str = "SRP"
+        """Salt River Project Agricultural Improvement and Power District"""
+
+        SOUTHWEST: str = "SW"
+        """Southwest"""
+
+        SPP: str = "SWPP"
+        """Southwest Power Pool"""
+
+        SOUTHWEST_POWER_POOL: str = "SWPP"
+        """Southwest Power Pool"""
+
+        CITY_OF_TALLAHASSEE: str = "TAL"
+        """City of Tallahassee"""
+
+        TAMPA_ELECTRIC_COMPANY: str = "TEC"
+        """Tampa Electric Company"""
+
+        TENNESSEE: str = "TEN"
+        """Tennessee"""
+
+        TUCSON_ELECTRIC_POWER: str = "TEPC"
+        """Tucson Electric Power"""
+
+        TEXAS: str = "TEX"
+        """Texas"""
+
+        TURLOCK_IRRIGATION_DISTRICT: str = "TIDC"
+        """Turlock Irrigation District"""
+
+        CITY_OF_TACOMA_DEPARTMENT_OF_PUBLIC_UTILITIES_LIGHT_DIVISION: str = "TPWR"
+        """City of Tacoma, Department of Public Utilities, Light Division"""
+
+        TENNESSEE_VALLEY_AUTHORITY: str = "TVA"
+        """Tennessee Valley Authority"""
+
+        UNITED_STATES_LOWER_48: str = "US48"
+        """United States Lower 48"""
+
+        WESTERN_AREA_POWER_ADMINISTRATION_ROCKY_MOUNTAIN_REGION: str = "WACM"
+        """Western Area Power Administration - Rocky Mountain Region"""
+
+        WESTERN_AREA_POWER_ADMINISTRATION_DESERT_SOUTHWEST_REGION: str = "WALC"
+        """Western Area Power Administration - Desert Southwest Region"""
+
+        WESTERN_AREA_POWER_ADMINISTRATION_UPPER_GREAT_PLAINS_WEST: str = "WAUW"
+        """Western Area Power Administration - Upper Great Plains West"""
+
+        NATUR_ENER_WIND_WATCH_LLC: str = "WWA"
+        """NaturEner Wind Watch, LLC"""
+
+        ALCOA_POWER_GENERATING_INC_YADKIN_DIVISION: str = "YAD"
+        """Alcoa Power Generating, Inc. - Yadkin Division"""
+
+
+class EIAElectricity(QuantConnect.Data.BaseData):
+    """
+    U.S. electric grid operating data from EIA Form EIA-930, one record per balancing authority
+    per day: demand, the day-ahead demand forecast, net generation, net interchange with
+    neighbouring authorities, and the generation split across all sixteen fuel types the form
+    reports. Every value is in megawatthours. The daily totals use the Eastern day boundary.
+    """
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """
+        End of the operating day, one day after the day the record covers. This is when LEAN
+        delivers the data point, once EIA has published the completed day.
+        """
+        ...
+
+    @property
+    def demand(self) -> typing.Optional[float]:
+        """Actual electricity demand on the grid."""
+        ...
+
+    @demand.setter
+    def demand(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def demand_forecast(self) -> typing.Optional[float]:
+        """Demand the balancing authority forecast a day ahead for this hour."""
+        ...
+
+    @demand_forecast.setter
+    def demand_forecast(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def net_generation(self) -> typing.Optional[float]:
+        """Total net generation. This is also the data point's Value."""
+        ...
+
+    @net_generation.setter
+    def net_generation(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def total_interchange(self) -> typing.Optional[float]:
+        """Net interchange with neighbouring authorities. Positive exports, negative imports."""
+        ...
+
+    @total_interchange.setter
+    def total_interchange(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def coal(self) -> typing.Optional[float]:
+        """Net generation from coal."""
+        ...
+
+    @coal.setter
+    def coal(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def natural_gas(self) -> typing.Optional[float]:
+        """Net generation from natural gas."""
+        ...
+
+    @natural_gas.setter
+    def natural_gas(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def nuclear(self) -> typing.Optional[float]:
+        """Net generation from nuclear."""
+        ...
+
+    @nuclear.setter
+    def nuclear(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def hydro(self) -> typing.Optional[float]:
+        """Net generation from hydro."""
+        ...
+
+    @hydro.setter
+    def hydro(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def wind(self) -> typing.Optional[float]:
+        """Net generation from wind."""
+        ...
+
+    @wind.setter
+    def wind(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def solar(self) -> typing.Optional[float]:
+        """Net generation from solar."""
+        ...
+
+    @solar.setter
+    def solar(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def geothermal(self) -> typing.Optional[float]:
+        """Net generation from geothermal."""
+        ...
+
+    @geothermal.setter
+    def geothermal(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def oil(self) -> typing.Optional[float]:
+        """Net generation from petroleum."""
+        ...
+
+    @oil.setter
+    def oil(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def other(self) -> typing.Optional[float]:
+        """Net generation from sources the form groups as other."""
+        ...
+
+    @other.setter
+    def other(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def unknown(self) -> typing.Optional[float]:
+        """Net generation the balancing authority did not classify."""
+        ...
+
+    @unknown.setter
+    def unknown(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def pumped_storage(self) -> typing.Optional[float]:
+        """Net generation from pumped storage. Negative while pumping."""
+        ...
+
+    @pumped_storage.setter
+    def pumped_storage(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def battery(self) -> typing.Optional[float]:
+        """Net generation from battery storage. Negative while charging."""
+        ...
+
+    @battery.setter
+    def battery(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def other_storage(self) -> typing.Optional[float]:
+        """Net generation from storage the form groups as other."""
+        ...
+
+    @other_storage.setter
+    def other_storage(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def unknown_storage(self) -> typing.Optional[float]:
+        """Net generation from storage the balancing authority did not classify."""
+        ...
+
+    @unknown_storage.setter
+    def unknown_storage(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def solar_with_storage(self) -> typing.Optional[float]:
+        """Net generation from solar paired with integrated battery storage."""
+        ...
+
+    @solar_with_storage.setter
+    def solar_with_storage(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def wind_with_storage(self) -> typing.Optional[float]:
+        """Net generation from wind paired with integrated battery storage."""
+        ...
+
+    @wind_with_storage.setter
+    def wind_with_storage(self, value: typing.Optional[float]) -> None:
+        ...
+
+    FUEL_COLUMNS: typing.Sequence[System.ValueTuple[str, str]]
+    """
+    The EIA-930 fuel type codes that feed each generation column, in the exact order the
+    processor writes them (csv<5> onward) and the EIAElectricity(string) parser
+    reads them back. Single source of truth for the column layout, kept next to the parser.
+    """
+
+    REGION_COLUMNS: typing.Sequence[System.ValueTuple[str, str]]
+    """
+    The region-data type codes that feed the four headline columns, in the order the processor
+    writes them (csv<1> onward).
+    """
+
+    @overload
+    def __init__(self) -> None:
+        """Default constructor required by LEAN."""
+        ...
+
+    @overload
+    def __init__(self, line: str) -> None:
+        """Parses one CSV line into a data point."""
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """Creates a copy of the instance."""
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Data time zone. The daily EIA-930 totals use the Eastern day boundary, matching our other
+        U.S. agency datasets (BEA, CFTC, FINRA).
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Default resolution."""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """Location of the source file: alternative/eia/electricity/{code}.csv"""
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """Sparse: one file per balancing authority, suppress missing-file logs."""
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """Parses the data from the line provided and loads it into LEAN."""
+        ...
+
+    def requires_mapping(self) -> bool:
+        """Unlinked (keyed by balancing authority, not a mapped equity)."""
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Supported resolutions. Daily, the cadence the data fleet processes at."""
+        ...
+
+    def to_string(self) -> str:
+        """String representation for debugging."""
+        ...
+
+
 class EODHDUpcomingDividends(QuantConnect.Data.BaseData):
     """EODHDUpcomingDividends data type."""
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: fireworks-ai
-Version: 1.2.0
+Version: 1.2.3
 Summary: The official Python library for the fireworks API
 Project-URL: Homepage, https://github.com/fw-ai-external/python-sdk
 Project-URL: Repository, https://github.com/fw-ai-external/python-sdk
@@ -33,16 +33,18 @@ Requires-Dist: typing-extensions<5,>=4.14
 Provides-Extra: training
 Requires-Dist: datasets; extra == 'training'
 Requires-Dist: numpy; extra == 'training'
+Requires-Dist: pyqwest==0.6.2; (python_version >= '3.11') and extra == 'training'
 Requires-Dist: requests; extra == 'training'
 Requires-Dist: tiktoken; extra == 'training'
-Requires-Dist: tinker==0.22.7; (python_version >= '3.11') and extra == 'training'
+Requires-Dist: tinker==0.23.0; (python_version >= '3.11') and extra == 'training'
 Requires-Dist: torch>=2.0.0; extra == 'training'
 Requires-Dist: transformers; extra == 'training'
 Requires-Dist: urllib3<3,>=1.26; extra == 'training'
 Requires-Dist: wandb; extra == 'training'
 Provides-Extra: training-sdk
+Requires-Dist: pyqwest==0.6.2; (python_version >= '3.11') and extra == 'training-sdk'
 Requires-Dist: requests; extra == 'training-sdk'
-Requires-Dist: tinker==0.22.7; (python_version >= '3.11') and extra == 'training-sdk'
+Requires-Dist: tinker==0.23.0; (python_version >= '3.11') and extra == 'training-sdk'
 Requires-Dist: urllib3<3,>=1.26; extra == 'training-sdk'
 Description-Content-Type: text/markdown
 

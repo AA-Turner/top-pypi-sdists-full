@@ -5,14 +5,14 @@ from __future__ import annotations
 import warnings
 from collections.abc import Sequence
 from functools import partial
-from typing import Any, TypeAlias, TypeVar, cast, overload
+from typing import Any, TypeVar, cast, overload
 
 import numpy as np
 import numpy.typing as npt
 
 import gdsfactory as gf
 
-Value: TypeAlias = float | Sequence[float] | npt.NDArray[np.floating[Any]]
+type Value = float | Sequence[float] | npt.NDArray[np.floating[Any]]
 
 
 def is_on_grid(
@@ -54,7 +54,7 @@ _T = TypeVar("_T", bound=npt.NDArray[np.floating[Any]])
 
 
 @overload
-def snap_to_grid(
+def snap_to_grid[T: npt.NDArray[np.floating[Any]]](
     x: _T,
     nm: int | None = None,
     grid_factor: int = 1,
@@ -71,7 +71,7 @@ def snap_to_grid(
     nm: int | None = None,
     grid_factor: int = 1,
 ) -> float: ...
-def snap_to_grid(
+def snap_to_grid[T: npt.NDArray[np.floating[Any]]](
     x: float | Sequence[float] | _T,
     nm: int | None = None,
     grid_factor: int = 1,
@@ -80,13 +80,10 @@ def snap_to_grid(
 
     Args:
         x: value to snap.
-        nm: Optional grid size in nm. If None, it will use the default grid size from PDK multiplied by grid_factor.
-        grid_factor: snap to grid_factor * grid_size.
+        nm: Optional grid size in nm. If None, uses the default grid size from the PDK.
+        grid_factor: multiplies the grid size (`nm`, or the PDK default if `nm` is None) by this factor.
     """
-    if nm is None:
-        grid_um = gf.kcl.dbu * grid_factor
-    else:
-        grid_um = nm / 1000
+    grid_um = (nm / 1000 if nm is not None else gf.kcl.dbu) * grid_factor
 
     # Round half up
     res = grid_um * np.floor(np.asarray(x, dtype=np.float64) / grid_um + 0.5)

@@ -73,6 +73,10 @@ class InboundEvent:
     reply_to_is_own: bool = False           # 用户引用的是不是机器人自己发的消息
     thread_id: str | None = None
     session_key_override: str | None = None
+    # 记忆作用域键(owner-aware),由 AgentLoop._on_inbound 冻结。刻意独立于
+    # session_key:后者承载会话锁/历史/投递路由(delivery 反解 channel:chat_id),
+    # 不能按人归一;记忆作用域可以。见 memory_scope_key。
+    memory_scope: str = ""
     metadata: dict[str, Any] = field(default_factory=dict)
     gateway_metadata: dict[str, Any] = field(default_factory=dict)
     is_group: bool = False
@@ -86,6 +90,14 @@ class InboundEvent:
     # approval gate's _is_unattended / _resolve_unattended for the consumers.
     unattended: bool = False       # no human at the keyboard (scheduled/cron run)
     cron_authorized: bool = False  # this specific job passed the up-front cronjob approval
+    # Internal control command (e.g. the synthesized clarify-cancel on ws
+    # disconnect). Like the trust signals above, this is a FIRST-CLASS typed
+    # field — NOT a metadata key — precisely because it bypasses the session
+    # rate limiter: a forgeable metadata flag would let an external payload
+    # skip throttling at will. Only trusted internal producers set it. Control
+    # events must still be handled BEFORE the session lock (see AgentLoop),
+    # since they exist to wake a turn that is holding that lock.
+    is_control: bool = False
 
     @property
     def session_key(self) -> str:
@@ -94,14 +106,36 @@ class InboundEvent:
         return f"{self.channel}:{self.chat_id}"
 
     def scoped_session_key(self, scope: str) -> str:
-        """会话作用域键。私聊及 shared 策略下等同 session_key；
-        群聊 + per_user 策略时把 sender_id 纳入键，实现群内每人隔离。"""
-        if self.session_key_override:
-            return self.session_key_override
-        base = f"{self.channel}:{self.chat_id}"
+        """会话作用域键。私聊及 shared 策略下等同 session_key;
+        群聊 + per_user 策略时把 sender_id 纳入键,实现群内每人隔离。
+
+        群聊 per_user 隔离优先于 session_key_override:override 承载的是
+        群/会话本身的键,不含成员维度;若直接返回它会让整群共用一个键,
+        丢失群内按人隔离。故群聊 per_user 场景在 override 基础上仍拼 sender。
+        拼接幂等:_on_inbound 可能已把含 sender 的 scoped 键写回 override,
+        此时不重复拼,避免 memory_scope 出现 :sender:sender 双拼、与 session_key 背离。"""
+        base = self.session_key_override or f"{self.channel}:{self.chat_id}"
         if scope == "per_user" and self.is_group and self.sender_id:
-            return f"{base}:{self.sender_id}"
+            suffix = f":{self.sender_id}"
+            if not base.endswith(suffix):
+                return f"{base}{suffix}"
         return base
+
+    def memory_scope_key(
+        self, group_scope: str, owner_key: str, bindings: object = frozenset()
+    ) -> str:
+        """记忆作用域键(独立于 session_key,不参与投递路由)。
+
+        三分支:
+        - 群聊 → scoped_session_key(group_scope),群成员按会话隔离,永不进 owner;
+        - 1:1 私聊且 "{channel}:{sender_id}" 命中绑定表 → owner_key,跨通道互通;
+        - 1:1 私聊未命中 → session_key,fail-closed 按会话隔离。
+        """
+        if self.is_group:
+            return self.scoped_session_key(group_scope)
+        if self.sender_id and f"{self.channel}:{self.sender_id}" in bindings:
+            return owner_key
+        return self.session_key
 
     @property
     def text(self) -> str:

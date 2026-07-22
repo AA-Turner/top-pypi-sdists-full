@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "instagrapi"
-version = "2.18.8"
+version = "2.18.9"
 authors = [
     {name = "Mark Subzeroid", email = "143403577+subzeroid@users.noreply.github.com"}
 ]
@@ -90,7 +90,7 @@ test = [
     # https://github.com/jimporter/mike/issues/148
     "setuptools==83.0.0",
     "markdown-include==0.8.1",
-    "mkdocs-material==9.7.6",
+    "mkdocs-material==9.7.7",
     "mkdocstrings[python]==1.0.6",
     "numpy>=1.25.0",
     "pre-commit==4.6.0",
@@ -98,7 +98,7 @@ test = [
     "pytest-xdist==3.8.0",
     "pytest==9.1.1",
     "python-dotenv>=0.10",
-    "ruff==0.15.21",
+    "ruff==0.15.22",
 ]
 
 [tool.setuptools]

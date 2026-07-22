@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: feast
-Version: 0.64.0
+Version: 0.65.0
 Summary: Python SDK for Feast
 Author: Feast
 License-Expression: Apache-2.0
@@ -11,17 +11,16 @@ Classifier: Programming Language :: Python :: 3.10
 Requires-Python: >=3.10.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: attrs
 Requires-Dist: click<9.0.0,>=7.0.0
 Requires-Dist: colorama<1,>=0.3.9
 Requires-Dist: dill~=0.3.0
 Requires-Dist: protobuf>=4.24.0
 Requires-Dist: Jinja2<4,>=2
-Requires-Dist: jsonschema
 Requires-Dist: mmh3
 Requires-Dist: numpy<3,>=2.0.0
 Requires-Dist: pandas<3,>=1.4.3
-Requires-Dist: pyarrow>=21.0.0; extra != "flink"
-Requires-Dist: pyarrow<21.0.0,>=16.1.0; extra == "flink"
+Requires-Dist: pyarrow>=16.1.0
 Requires-Dist: pydantic>=2.10.6
 Requires-Dist: pygments<3,>=2.12.0
 Requires-Dist: PyYAML<7,>=5.4.0
@@ -42,6 +41,8 @@ Requires-Dist: prometheus_client<0.25.0,>=0.20.0
 Requires-Dist: psutil
 Requires-Dist: bigtree>=0.19.2
 Requires-Dist: pyjwt
+Provides-Extra: aerospike
+Requires-Dist: aerospike<20.0.0,>=19.0.0; extra == "aerospike"
 Provides-Extra: aws
 Requires-Dist: boto3>=1.38.27; extra == "aws"
 Requires-Dist: fsspec>=2024.1.0; extra == "aws"
@@ -53,7 +54,7 @@ Requires-Dist: SQLAlchemy>=1.4.19; extra == "azure"
 Requires-Dist: pyodbc>=4.0.30; extra == "azure"
 Requires-Dist: pymssql<2.3.3; extra == "azure"
 Provides-Extra: cassandra
-Requires-Dist: cassandra-driver<4,>=3.24.0; extra == "cassandra"
+Requires-Dist: cassandra-driver<4,>=3.26.0; extra == "cassandra"
 Provides-Extra: clickhouse
 Requires-Dist: clickhouse-connect>=0.7.19; extra == "clickhouse"
 Provides-Extra: couchbase
@@ -71,6 +72,7 @@ Provides-Extra: faiss
 Requires-Dist: faiss-cpu<=1.10.0,>=1.7.0; extra == "faiss"
 Provides-Extra: flink
 Requires-Dist: apache-flink<3,>=2.2.1; extra == "flink"
+Requires-Dist: pyarrow<21.0.0; extra == "flink"
 Provides-Extra: gcp
 Requires-Dist: google-api-core<3,>=1.23.0; extra == "gcp"
 Requires-Dist: googleapis-common-protos<2,>=1.52.0; extra == "gcp"
@@ -102,8 +104,8 @@ Requires-Dist: timm>=0.6.0; extra == "image"
 Requires-Dist: Pillow>=8.0.0; extra == "image"
 Requires-Dist: scikit-learn>=1.0.0; extra == "image"
 Provides-Extra: milvus
-Requires-Dist: pymilvus<3,>=2.5; extra == "milvus"
-Requires-Dist: milvus-lite==2.4.12; extra == "milvus"
+Requires-Dist: pymilvus>=2.5; extra == "milvus"
+Requires-Dist: milvus-lite>=2.4.12; extra == "milvus"
 Requires-Dist: feast[setuptools]; extra == "milvus"
 Provides-Extra: mongodb
 Requires-Dist: pymongo<5.0.0,>=4.13.0; extra == "mongodb"
@@ -122,6 +124,8 @@ Requires-Dist: prometheus_client; extra == "opentelemetry"
 Requires-Dist: psutil; extra == "opentelemetry"
 Provides-Extra: spark
 Requires-Dist: pyspark>=4.0.0; extra == "spark"
+Provides-Extra: iceberg
+Requires-Dist: pyiceberg>=0.7.0; extra == "iceberg"
 Provides-Extra: trino
 Requires-Dist: trino<0.400.0,>=0.305.0; extra == "trino"
 Requires-Dist: regex; extra == "trino"
@@ -145,6 +149,8 @@ Requires-Dist: datasets>=3.6.0; extra == "ray"
 Provides-Extra: redis
 Requires-Dist: redis<8,>=4.2.2; extra == "redis"
 Requires-Dist: hiredis<4,>=2.0.0; extra == "redis"
+Provides-Extra: scylladb
+Requires-Dist: scylla-driver<4,>=3.28.0; extra == "scylladb"
 Provides-Extra: singlestore
 Requires-Dist: singlestoredb<1.8.0; extra == "singlestore"
 Provides-Extra: snowflake
@@ -160,6 +166,7 @@ Requires-Dist: dbt-artifacts-parser; extra == "dbt"
 Provides-Extra: test
 Requires-Dist: pytest<8,>=6.0.0; extra == "test"
 Requires-Dist: pytest-xdist>=3.8.0; extra == "test"
+Requires-Dist: pytest-cov>=5.0.0; extra == "test"
 Requires-Dist: pytest-timeout==1.4.2; extra == "test"
 Requires-Dist: pytest-lazy-fixture==0.6.3; extra == "test"
 Requires-Dist: pytest-ordering~=0.6.0; extra == "test"
@@ -173,7 +180,7 @@ Requires-Dist: minio==7.2.11; extra == "test"
 Requires-Dist: python-keycloak==4.2.2; extra == "test"
 Requires-Dist: cryptography>=43.0; extra == "test"
 Provides-Extra: ci
-Requires-Dist: feast[aws,azure,cassandra,clickhouse,couchbase,delta,docling,duckdb,elasticsearch,faiss,gcp,ge,go,grpcio,hazelcast,hbase,ibis,image,k8s,mcp,milvus,mlflow,mongodb,mssql,mysql,openlineage,opentelemetry,oracle,postgres,pytorch,qdrant,rag,ray,redis,singlestore,snowflake,spark,sqlite_vec,test,trino]; extra == "ci"
+Requires-Dist: feast[aws,azure,cassandra,clickhouse,couchbase,delta,docling,duckdb,elasticsearch,faiss,gcp,ge,go,grpcio,hazelcast,hbase,ibis,iceberg,image,k8s,mcp,milvus,mlflow,mongodb,mssql,mysql,openlineage,opentelemetry,oracle,postgres,pytorch,qdrant,rag,ray,redis,scylladb,singlestore,snowflake,spark,sqlite_vec,test,trino]; extra == "ci"
 Requires-Dist: build; extra == "ci"
 Requires-Dist: virtualenv==20.23.0; extra == "ci"
 Requires-Dist: dbt-artifacts-parser; extra == "ci"
@@ -461,6 +468,7 @@ The list below contains the functionality that contributors are planning to deve
   * [x] [SingleStore](https://docs.feast.dev/reference/online-stores/singlestore)
   * [x] [Couchbase](https://docs.feast.dev/reference/online-stores/couchbase)
   * [x] [MongoDB](https://docs.feast.dev/reference/online-stores/mongodb)
+  * [x] [Aerospike](https://docs.feast.dev/reference/online-stores/aerospike)
   * [x] [Qdrant (vector store)](https://docs.feast.dev/reference/online-stores/qdrant)
   * [x] [Milvus (vector store)](https://docs.feast.dev/reference/online-stores/milvus)
   * [x] [Faiss (vector store)](https://docs.feast.dev/reference/online-stores/faiss)
@@ -488,7 +496,7 @@ The list below contains the functionality that contributors are planning to deve
   * [x] [Offline Feature Server (alpha)](https://docs.feast.dev/reference/feature-servers/offline-feature-server)
   * [x] [Registry server (alpha)](https://github.com/feast-dev/feast/blob/master/docs/reference/feature-servers/registry-server.md)
 * **Data Quality Management (See [RFC](https://docs.google.com/document/d/110F72d4NTv80p35wDSONxhhPBqWRwbZXG4f9mNEMd98/edit))**
-  * [x] Data profiling and validation (Great Expectations)
+  * [x] [Feature Quality Monitoring](https://docs.feast.dev/how-to-guides/feature-monitoring) — built-in metrics, drift detection, serving log monitoring, and UI dashboard
 * **Feature Discovery and Governance**
   * [x] Python SDK for browsing feature registry
   * [x] CLI for browsing feature registry

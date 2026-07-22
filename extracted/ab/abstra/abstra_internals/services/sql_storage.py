@@ -1,3 +1,4 @@
+import dataclasses
 import errno
 import json
 import os
@@ -138,13 +139,10 @@ class SqlStorage(Generic[T]):
             # Always start with an id column
             columns = [Column(name="id", schema=ColumnType.string, is_primary_key=True)]
 
-            if hasattr(self.model, "model_fields"):
-                # Pydantic v2
-                for field_name in self.model.model_fields.keys():
-                    if field_name != "id":  # Skip if model already has id
-                        columns.append(
-                            Column(name=field_name, schema=ColumnType.string)
-                        )
+            if dataclasses.is_dataclass(self.model):
+                for f in dataclasses.fields(self.model):
+                    if f.name != "id":  # Skip if model already has id
+                        columns.append(Column(name=f.name, schema=ColumnType.string))
 
             table = Table(
                 name=self.table_name,
@@ -344,7 +342,7 @@ class SqlStorage(Generic[T]):
             for row in result:
                 try:
                     deserialized_row = self._deserialize_row(row)
-                    data_list.append(self.model(**deserialized_row))
+                    data_list.append(self.model.model_validate(deserialized_row))
                 except Exception as e:
                     AbstraLogger.capture_exception(e)
                     continue
@@ -419,7 +417,7 @@ class SqlStorage(Generic[T]):
 
             if result and len(result) > 0:
                 deserialized_row = self._deserialize_row(result[0])
-                return self.model(**deserialized_row)
+                return self.model.model_validate(deserialized_row)
 
             return None
         except Exception as e:

@@ -160,6 +160,7 @@ from .type_defs import (
     ListTenantsResponseTypeDef,
     PutAccountDedicatedIpWarmupAttributesRequestTypeDef,
     PutAccountDetailsRequestTypeDef,
+    PutAccountPricingAttributesRequestTypeDef,
     PutAccountSendingAttributesRequestTypeDef,
     PutAccountSuppressionAttributesRequestTypeDef,
     PutAccountVdmAttributesRequestTypeDef,
@@ -1042,6 +1043,16 @@ class SESV2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sesv2/client/put_account_details.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sesv2/client/#put_account_details)
+        """
+
+    def put_account_pricing_attributes(
+        self, **kwargs: Unpack[PutAccountPricingAttributesRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Set the pricing plan for your Amazon SES account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sesv2/client/put_account_pricing_attributes.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sesv2/client/#put_account_pricing_attributes)
         """
 
     def put_account_sending_attributes(

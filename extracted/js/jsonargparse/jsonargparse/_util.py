@@ -6,15 +6,13 @@ import textwrap
 import warnings
 from argparse import ArgumentError
 from collections import namedtuple
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from importlib import import_module
 from types import BuiltinFunctionType, FunctionType, ModuleType
 from typing import (
     Any,
-    Callable,
-    Iterator,
-    Optional,
     Type,
     Union,
 )
@@ -25,6 +23,7 @@ from ._common import (
     parser_context,
 )
 from ._loaders_dumpers import json_compact_dump, load_value
+from ._namespace import Namespace
 from ._optionals import _get_config_read_mode
 from ._paths import Path
 from ._type_checking import ArgumentParser
@@ -42,11 +41,32 @@ default_config_option_help = "Path to a configuration file."
 config_load_stack: ContextVar[tuple[tuple[str, str], ...]] = ContextVar("config_load_stack", default=())
 
 
-def argument_error(message: str, default_config_file: Optional[str] = None) -> ArgumentError:
+def argument_error(message: str, default_config_file: str | None = None) -> ArgumentError:
     ex = ArgumentError(None, message)
     if default_config_file:
         ex.default_config_file = default_config_file  # type: ignore[attr-defined]
     return ex
+
+
+def merge_config(parser, source: Namespace, target: Namespace) -> Namespace:
+    """Merges the first configuration into the second configuration.
+
+    Args:
+        parser: The parser object.
+        source: The configuration from which to merge.
+        target: The configuration into which to merge.
+
+    Returns:
+        A new object with the merged configuration.
+    """
+    from ._typehints import ActionTypeHint
+
+    source = source.clone()
+    target = target.clone()
+    with parser_context(parent_parser=parser):
+        ActionTypeHint.discard_init_args_on_class_path_change(parser, target, source)
+    target.update(source)
+    return target
 
 
 def _config_path_id(cfg_path: Path) -> tuple[str, str]:
@@ -66,7 +86,7 @@ def _format_config_load_chain(stack: tuple[tuple[str, str], ...], path_id: tuple
 
 
 @contextmanager
-def load_config_path_context(cfg_path: Optional[Path]) -> Iterator[None]:
+def load_config_path_context(cfg_path: Path | None) -> Iterator[None]:
     if cfg_path is None:
         yield
         return
@@ -96,7 +116,7 @@ def warning(message, category=JsonargparseWarning, stacklevel=1):
 
 
 class CaptureParserException(Exception):
-    def __init__(self, parser: Optional[ArgumentParser]):
+    def __init__(self, parser: ArgumentParser | None):
         self.parser = parser
         super().__init__("" if parser else "No parse_args call to capture the parser.")
 
@@ -137,11 +157,9 @@ def identity(value):
 NestedArg = namedtuple("NestedArg", "key val")
 
 
-def parse_value_or_config(
-    value: Any, enable_path: bool = True, simple_types: bool = False
-) -> tuple[Any, Optional[Path]]:
+def parse_value_or_config(value: Any, enable_path: bool = True, simple_types: bool = False) -> tuple[Any, Path | None]:
     """Parses yaml/json config in a string or a path"""
-    nested_arg: Union[bool, NestedArg] = False
+    nested_arg: bool | NestedArg = False
     if isinstance(value, NestedArg):
         nested_arg = value
         value = nested_arg.val
@@ -182,7 +200,7 @@ def import_object(name: str):
     return getattr(parent, name_object)
 
 
-unresolvable_import_paths = {}
+unresolvable_import_paths: dict[Any, str] = {}
 
 
 def register_unresolvable_import_paths(*modules: ModuleType):
@@ -200,7 +218,7 @@ def register_unresolvable_import_paths(*modules: ModuleType):
                 unresolvable_import_paths[val] = f"{module.__name__}.{val.__name__}"
 
 
-def get_module_var_path(module_path: str, value: Any) -> Optional[str]:
+def get_module_var_path(module_path: str, value: Any) -> str | None:
     module = import_module(module_path)
     for name, var in vars(module).items():
         if var is value:
@@ -208,7 +226,7 @@ def get_module_var_path(module_path: str, value: Any) -> Optional[str]:
     return None
 
 
-def get_import_path(value: Any) -> Optional[str]:
+def get_import_path(value: Any) -> str | None:
     """Returns the shortest dot import path for the given object."""
     path = None
     value = get_generic_origin(value)

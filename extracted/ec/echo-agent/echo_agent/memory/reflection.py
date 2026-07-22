@@ -15,6 +15,7 @@ from typing import Any, Awaitable, Callable
 
 from loguru import logger
 
+from echo_agent.memory.service import ActorContext, MemoryService
 from echo_agent.memory.store import MemoryStore
 from echo_agent.memory.types import MemoryEntry, MemoryTier
 
@@ -68,21 +69,22 @@ _MIN_GROUP_SIZE = 3
 class ReflectionEngine:
     """LLM-backed distillation over prefix-grouped semantic memories."""
 
-    NEEDS_CONFIRMATION_TAG = "needs_user_confirmation"
-
     def __init__(
         self,
-        store: MemoryStore,
+        service: MemoryService,
         llm_call: Callable[..., Awaitable[Any]],
         contradiction_detector: Any = None,
     ):
-        self._store = store
+        # 写走 service 的 maintenance/mark_superseded 通道(统一失效+审计);
+        # 读(list_all/get)仍直接用底层 store 句柄。
+        self._service = service
+        self._store = service.store
         self._llm_call = llm_call
         self._detector = contradiction_detector
 
-    def _prefix_groups(self) -> dict[str, list[MemoryEntry]]:
+    def _prefix_groups(self, memory_scope: str = "") -> dict[str, list[MemoryEntry]]:
         groups: dict[str, list[MemoryEntry]] = defaultdict(list)
-        for entry in self._store.list_all():
+        for entry in self._store.list_all(session_key=memory_scope or None):
             if entry.is_superseded or entry.tier == MemoryTier.ARCHIVAL:
                 continue
             if ":" not in entry.key:
@@ -90,12 +92,12 @@ class ReflectionEngine:
             groups[entry.key.split(":")[0]].append(entry)
         return groups
 
-    async def distill(self, max_groups: int = 2) -> int:
+    async def distill(self, max_groups: int = 2, memory_scope: str = "") -> int:
         """Induce abstract rules from concrete same-prefix facts. Add-only."""
         created = 0
         processed = 0
         try:
-            groups = self._prefix_groups()
+            groups = self._prefix_groups(memory_scope)
         except Exception as e:
             logger.warning("Reflection distill: grouping failed: {}", e)
             return 0
@@ -109,10 +111,23 @@ class ReflectionEngine:
                 continue
             processed += 1
             try:
-                rule = await self._ask_distill(prefix, entries, general_key)
+                rule = await self._ask_distill(prefix, entries, general_key, memory_scope)
                 if rule is not None:
-                    self._store.add(rule)
-                    created += 1
+                    scope = memory_scope or rule.source_session or ""
+                    ctx = ActorContext(
+                        actor="reflection", session_key=scope, memory_scope=scope,
+                    )
+                    result = await self._service.add(
+                        ctx,
+                        type=rule.type,
+                        key=rule.key,
+                        content=rule.content,
+                        tags=rule.tags,
+                        importance=rule.importance,
+                        source="consolidated",
+                    )
+                    if result.ok:
+                        created += 1
             except Exception as e:
                 logger.warning("Reflection distill failed for prefix '{}': {}", prefix, e)
         if created:
@@ -121,6 +136,7 @@ class ReflectionEngine:
 
     async def _ask_distill(
         self, prefix: str, entries: list[MemoryEntry], general_key: str,
+        memory_scope: str = "",
     ) -> MemoryEntry | None:
         listing = "\n".join(f"- {e.key}: {e.content}" for e in entries[:10])
         response = await self._llm_call(
@@ -159,12 +175,12 @@ class ReflectionEngine:
             tags=["distilled"],
             importance=importance,
             source="consolidated",
-            source_session=sample.source_session,
+            source_session=memory_scope or sample.source_session,
         )
 
     # ── Conflict resolution ──────────────────────────────────────────────────
 
-    async def _conflict_pairs(self) -> list[tuple[MemoryEntry, MemoryEntry]]:
+    async def _conflict_pairs(self, memory_scope: str = "") -> list[tuple[MemoryEntry, MemoryEntry]]:
         """Pair up suspected_conflict entries for adjudication.
 
         Prefers the detector's authoritative (memory_id_a, memory_id_b) rows —
@@ -175,10 +191,10 @@ class ReflectionEngine:
         available.
         """
         flagged = [
-            e for e in self._store.list_all()
+            e for e in self._store.list_all(session_key=memory_scope or None)
             if MemoryStore.SUSPECTED_CONFLICT_TAG in e.tags
             and not e.is_superseded
-            and self.NEEDS_CONFIRMATION_TAG not in e.tags
+            and MemoryStore.PENDING_CONFIRMATION_TAG not in e.tags
         ]
         # Ensure flagged entries are persisted (they may have been injected in
         # memory only, e.g. by the provenance guard's blocked path).
@@ -189,19 +205,23 @@ class ReflectionEngine:
             types_to_save = {e.type for e in flagged}
             for t in types_to_save:
                 self._store._save_type(t)
-        flagged_by_id = {e.id: e for e in flagged}
 
-        # Preferred path: use the detector's exact conflict pairs, restricted to
-        # currently-flagged, non-superseded entries. De-dup unordered pairs.
+        # Preferred path: consume the detector's exact conflict rows directly,
+        # resolving each side to a real store entry (the suspected_conflict tag
+        # is not required — the detector writes rows without tagging, so gating
+        # on tag membership would leave those conflicts unadjudicated). Skip
+        # missing/self/superseded entries. De-dup unordered pairs.
         if self._detector is not None:
             try:
-                unresolved = await self._detector.get_unresolved(limit=10000)
+                unresolved = await self._detector.get_unresolved(
+                    limit=10000, memory_scope=memory_scope or None
+                )
                 pairs: list[tuple[MemoryEntry, MemoryEntry]] = []
                 seen: set[frozenset[str]] = set()
                 for c in unresolved:
-                    a = flagged_by_id.get(c.memory_id_a)
-                    b = flagged_by_id.get(c.memory_id_b)
-                    if a is None or b is None or a.id == b.id:
+                    a = self._store.get(c.memory_id_a)
+                    b = self._store.get(c.memory_id_b)
+                    if a is None or b is None or a.id == b.id or a.is_superseded or b.is_superseded:
                         continue
                     key = frozenset((a.id, b.id))
                     if key in seen:
@@ -242,38 +262,57 @@ class ReflectionEngine:
             return False
         return pw >= pl
 
-    def _clear_conflict_tags(self, *entries: MemoryEntry) -> None:
+    def _ctx_for(self, entry: MemoryEntry) -> ActorContext:
+        """按条目所属 scope 构造 reflection 维护上下文,让失效落在正确 scope。"""
+        scope = entry.source_session or ""
+        return ActorContext(actor="reflection", session_key=scope, memory_scope=scope)
+
+    async def _clear_conflict_tags(self, *entries: MemoryEntry) -> None:
         for e in entries:
             current = self._store.get(e.id)
             if current is None:
                 continue
             tags = [t for t in current.tags if t != MemoryStore.SUSPECTED_CONFLICT_TAG]
-            self._store.update(e.id, tags=tags)
+            await self._service.maintenance_update(self._ctx_for(current), e.id, tags=tags)
 
-    def _defer_to_user(self, *entries: MemoryEntry) -> None:
+    async def _defer_to_user(self, *entries: MemoryEntry) -> None:
         for e in entries:
             current = self._store.get(e.id)
             if current is None:
                 continue
-            if self.NEEDS_CONFIRMATION_TAG not in current.tags:
-                self._store.update(e.id, tags=[*current.tags, self.NEEDS_CONFIRMATION_TAG])
+            if MemoryStore.PENDING_CONFIRMATION_TAG not in current.tags:
+                await self._service.maintenance_update(
+                    self._ctx_for(current), e.id,
+                    tags=[*current.tags, MemoryStore.PENDING_CONFIRMATION_TAG],
+                )
 
     async def _resolve_detector_rows(
         self, a: MemoryEntry, b: MemoryEntry, resolution: str, winner_id: str | None,
-    ) -> None:
-        """Close ALL open detector rows for this (a, b) pair — handles I1 dedup."""
+        memory_scope: str = "",
+    ) -> bool:
+        """Close ALL open detector rows for this (a, b) pair — handles I1 dedup.
+
+        返回 True 表示所有匹配行都成功裁决;False 表示至少一行 resolve 失败
+        (supersede 败者失败),行仍 unresolved,调用方应记 error、下轮重试。"""
         if not self._detector:
-            return
+            return True
+        all_ok = True
         try:
-            unresolved = await self._detector.get_unresolved(limit=10000)
+            unresolved = await self._detector.get_unresolved(
+                limit=10000, memory_scope=memory_scope or None
+            )
             for c in unresolved:
                 if (
                     (c.memory_id_a == a.id and c.memory_id_b == b.id)
                     or (c.memory_id_a == b.id and c.memory_id_b == a.id)
                 ):
-                    await self._detector.resolve(c.id, resolution, winner_id)
+                    ok = await self._detector.resolve(c.id, resolution, winner_id)
+                    if not ok:
+                        all_ok = False
         except Exception as e:
             logger.warning("Reflection: failed to resolve detector rows: {}", e)
+            return False
+        return all_ok
 
     async def _ask_adjudicate(self, a: MemoryEntry, b: MemoryEntry) -> str:
         """Ask LLM to adjudicate; returns validated verdict or 'ambiguous'."""
@@ -304,13 +343,13 @@ class ReflectionEngine:
             return "ambiguous"
         return verdict
 
-    async def resolve_conflicts(self, max_pairs: int = 3) -> dict:
+    async def resolve_conflicts(self, max_pairs: int = 3, memory_scope: str = "") -> dict:
         """LLM-adjudicate suspected conflicts. Whitelist-validated verdicts:
         clear -> supersede; ambiguous/invalid -> defer to user; not_contradictory
         -> clear tags."""
-        stats = {"resolved": 0, "deferred": 0, "dismissed": 0}
+        stats = {"resolved": 0, "deferred": 0, "dismissed": 0, "reflection_errors": 0}
         try:
-            pairs = await self._conflict_pairs()
+            pairs = await self._conflict_pairs(memory_scope)
         except Exception as e:
             logger.warning("Reflection resolve: pairing failed: {}", e)
             return stats
@@ -329,41 +368,41 @@ class ReflectionEngine:
             if verdict in ("a_wins", "b_wins"):
                 winner, loser = (a, b) if verdict == "a_wins" else (b, a)
                 if not self._priority_allows_supersede(winner, loser):
-                    self._defer_to_user(a, b)
+                    await self._defer_to_user(a, b)
                     stats["deferred"] += 1
                     continue
             if verdict == "a_wins":
-                self._store.mark_superseded(b.id, a.id)
-                self._clear_conflict_tags(a, b)
-                await self._resolve_detector_rows(a, b, "a_wins", a.id)
-                stats["resolved"] += 1
+                await self._service.mark_superseded(self._ctx_for(b), b.id, a.id)
+                await self._clear_conflict_tags(a, b)
+                ok = await self._resolve_detector_rows(a, b, "a_wins", a.id, memory_scope)
+                stats["resolved" if ok else "reflection_errors"] += 1
             elif verdict == "b_wins":
-                self._store.mark_superseded(a.id, b.id)
-                self._clear_conflict_tags(a, b)
-                await self._resolve_detector_rows(a, b, "b_wins", b.id)
-                stats["resolved"] += 1
+                await self._service.mark_superseded(self._ctx_for(a), a.id, b.id)
+                await self._clear_conflict_tags(a, b)
+                ok = await self._resolve_detector_rows(a, b, "b_wins", b.id, memory_scope)
+                stats["resolved" if ok else "reflection_errors"] += 1
             elif verdict == "not_contradictory":
-                self._clear_conflict_tags(a, b)
-                await self._resolve_detector_rows(a, b, "not_contradictory", None)
+                await self._clear_conflict_tags(a, b)
+                await self._resolve_detector_rows(a, b, "not_contradictory", None, memory_scope)
                 stats["dismissed"] += 1
             else:  # ambiguous or whitelist-rejected output
-                self._defer_to_user(a, b)
+                await self._defer_to_user(a, b)
                 stats["deferred"] += 1
         if any(stats.values()):
             logger.info("Reflection conflict resolution: {}", stats)
         return stats
 
-    async def run(self) -> dict:
+    async def run(self, memory_scope: str = "") -> dict:
         """Run full reflection pass: distill + resolve conflicts."""
         result: dict[str, Any] = {}
         try:
-            distilled = await self.distill()
+            distilled = await self.distill(memory_scope=memory_scope)
             result["distilled"] = distilled
         except Exception as e:
             logger.warning("Reflection distill phase failed: {}", e)
             result["distilled"] = 0
         try:
-            conflict_stats = await self.resolve_conflicts()
+            conflict_stats = await self.resolve_conflicts(memory_scope=memory_scope)
             result.update(conflict_stats)
         except Exception as e:
             logger.warning("Reflection resolve phase failed: {}", e)

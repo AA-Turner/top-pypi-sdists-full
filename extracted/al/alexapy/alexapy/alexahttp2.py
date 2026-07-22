@@ -55,9 +55,34 @@ class HTTP2EchoClient:
         close_callback: Callable[[], Coroutine[Any, Any, None]],
         error_callback: Callable[[str], Coroutine[Any, Any, None]],
         loop: asyncio.AbstractEventLoop | None = None,
+        *,
+        read_timeout: float | None = 300,
     ) -> None:
-        """Init for threading and HTTP2 Push Connection."""
+        """Init for threading and HTTP2 Push Connection.
+
+        Args:
+            login: Authenticated AlexaLogin whose session opens the
+                directives stream.
+            msg_callback: Coroutine invoked with each directive message
+                parsed from the stream.
+            open_callback: Coroutine invoked once the HTTP2 stream has been
+                accepted and opened.
+            close_callback: Coroutine invoked when the stream is closed.
+            error_callback: Coroutine invoked with an error message when the
+                connection fails.
+            loop: Event loop to schedule tasks on; defaults to the running
+                loop when omitted.
+            read_timeout: Maximum seconds to wait between chunks of data on
+                the directives stream before treating the connection as stale
+                and closing it. A healthy stream carries multipart keepalive
+                traffic well inside this window; a stream that has gone silent
+                without a transport-level close delivers nothing and would
+                otherwise hang forever without any error. Pass None to disable
+                the check (previous behavior).
+        """
         assert login.session is not None
+        if read_timeout is not None and read_timeout <= 0:
+            raise ValueError("read_timeout must be positive or None")
         self._options = {
             "method": "GET",
             "path": "/v20160207/directives",
@@ -81,9 +106,20 @@ class HTTP2EchoClient:
             loop if loop else asyncio.get_event_loop()
         )
         self._last_ping = datetime.datetime(1, 1, 1)
+        self._last_activity: datetime.datetime | None = None
+        self._read_timeout = read_timeout
         self._tasks = set()
         self._opened: asyncio.Event = asyncio.Event()
         self._closing: bool = False
+
+    @property
+    def last_activity(self) -> datetime.datetime | None:
+        """Return when data last arrived on the directives stream.
+
+        Any traffic counts, including multipart keepalive boundaries, not
+        only parsed directives. None until the first chunk arrives.
+        """
+        return self._last_activity
 
     async def async_run(self) -> None:
         """Start Async WebSocket Listener.
@@ -133,7 +169,11 @@ class HTTP2EchoClient:
                 headers={
                     "authorization": self._options["authorization"],
                 },
-                timeout=httpx.Timeout(None),
+                # Never time out the overall stream, but bound the gap between
+                # chunks: the server sends keepalive boundaries continuously,
+                # so a long silent gap means the connection is dead even if
+                # the transport still looks open.
+                timeout=httpx.Timeout(None, read=self._read_timeout),
             ) as response:
                 # Validate the stream was accepted before reporting "open" upstream.
                 if response.status_code in (401, 403):
@@ -164,6 +204,24 @@ class HTTP2EchoClient:
 
             # Otherwise, normal disconnect.
             return
+        except httpx.ReadTimeout:
+            # No data (not even keepalives) inside the read window: the
+            # stream has gone silent without a transport-level close. Handle
+            # it so the consumer reconnects instead of hanging forever.
+            _LOGGER.debug(
+                "HTTP2 stream silent for %ss; closing stale connection",
+                self._read_timeout,
+            )
+
+            # If we never reached "open", propagate so the caller waiting on
+            # open sees a failed connect. The shared finally below still
+            # notifies close once, as it does for the other error paths.
+            if not self._opened.is_set():
+                raise
+
+            # Otherwise, treat like a normal disconnect so reconnect runs.
+            self.on_close(f"HTTP2 stream silent for {self._read_timeout}s")
+            return
         except Exception as exception_:
             # Surface unexpected failures so callers waiting for open can fail fast.
             _LOGGER.debug("HTTP2 exception: %s", exception_)
@@ -178,6 +236,7 @@ class HTTP2EchoClient:
         """Handle New Message."""
         reauth_required = "Unable to authenticate the request. Please provide a valid authorization token."  # noqa: E501
         _LOGGER.debug("Received raw message: %s", message)
+        self._last_activity = datetime.datetime.now(datetime.UTC)
         for line in message.splitlines():
             if line.startswith("------"):
                 if not self.boundary:  # set boundary character

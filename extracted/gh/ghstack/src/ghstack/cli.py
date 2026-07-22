@@ -1,7 +1,7 @@
 import asyncio
+import configparser
 import contextlib
-import sys
-from typing import Generator, List, Optional, Tuple
+from typing import Any, Coroutine, Generator, List, Optional, Tuple
 
 import click
 
@@ -15,9 +15,11 @@ import ghstack.github_real
 import ghstack.land
 import ghstack.log
 import ghstack.logs
+import ghstack.pull
 import ghstack.rage
 import ghstack.status
 import ghstack.submit
+import ghstack.sync
 import ghstack.unlink
 
 EXIT_STACK = contextlib.ExitStack()
@@ -27,6 +29,20 @@ GhstackContext = Tuple[
     ghstack.config.Config,
     ghstack.github_real.RealGitHubEndpoint,
 ]
+
+
+def run_async(coro: Coroutine[Any, Any, object]) -> object:
+    return asyncio.run(coro)
+
+
+async def run_with_github(
+    github: ghstack.github_real.RealGitHubEndpoint,
+    coro: Coroutine[Any, Any, object],
+) -> object:
+    try:
+        return await coro
+    finally:
+        await github.aclose()
 
 
 @contextlib.contextmanager
@@ -60,7 +76,7 @@ def cli_context(
 @click.option(
     "--message",
     "-m",
-    default="Update",
+    default=None,
     help="Description of change you made",
 )
 @click.option(
@@ -92,7 +108,7 @@ def cli_context(
     "direct_opt",
     is_flag=True,
     default=None,
-    help="Create stack that directly merges into master",
+    help="Create stack that directly merges into main",
 )
 @click.option(
     "--base",
@@ -120,7 +136,7 @@ def cli_context(
 def main(
     ctx: click.Context,
     debug: bool,
-    message: str,
+    message: Optional[str],
     update_fields: bool,
     short: bool,
     force: bool,
@@ -135,13 +151,8 @@ def main(
     """
     Submit stacks of diffs to Github
     """
-    if sys.version_info >= (3, 14):
-        # Create new event loop as asyncio.get_event_loop() throws runtime error in 3.14
-        import asyncio as _asyncio
-
-        _asyncio.set_event_loop(_asyncio.new_event_loop())
-
-    EXIT_STACK.enter_context(ghstack.logs.manager(debug=debug))
+    if ctx.invoked_subcommand not in {"auth", "config"}:
+        EXIT_STACK.enter_context(ghstack.logs.manager(debug=debug))
 
     if not ctx.invoked_subcommand:
         ctx.invoke(
@@ -169,6 +180,62 @@ def auth() -> None:
         ghstack.config.read_config()
 
 
+def _normalize_config_key(key: str) -> str:
+    if key.startswith("ghstack."):
+        key = key[len("ghstack.") :]
+    return key
+
+
+def _run_config_command(
+    unset: bool, key: Optional[str], value: Tuple[str, ...]
+) -> None:
+    if key is None:
+        raise click.UsageError("Missing KEY")
+
+    option = _normalize_config_key(key)
+    if unset and value:
+        raise click.UsageError("--unset cannot be combined with VALUE")
+
+    if unset:
+        path = ghstack.config.update_config_option(option, None)
+        click.echo(f"Unset {option} in {path}")
+        return
+
+    if value:
+        config_value = " ".join(value)
+        path = ghstack.config.update_config_option(option, config_value)
+        click.echo(f"Set {option} = {config_value} in {path}")
+        return
+
+    path, _ = ghstack.config.find_config_path()
+    parser = configparser.ConfigParser()
+    parser.read(path)
+    if parser.has_option("ghstack", option):
+        click.echo(parser.get("ghstack", option))
+    else:
+        raise click.ClickException(f"{option} is not set")
+
+
+@main.group(
+    "config",
+    invoke_without_command=True,
+    context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
+)
+@click.option("--unset", is_flag=True, help="Unset a configuration key")
+@click.argument("key", required=False)
+@click.argument("value", nargs=-1, type=click.UNPROCESSED)
+@click.pass_context
+def config_cmd(
+    ctx: click.Context, unset: bool, key: Optional[str], value: Tuple[str, ...]
+) -> None:
+    """
+    Read or update ghstack configuration.
+    """
+    if ctx.invoked_subcommand is not None:
+        return
+    _run_config_command(unset, key, value)
+
+
 @main.command("action")
 @click.option("--close", is_flag=True, help="Close the specified pull request")
 @click.argument("pull_request", metavar="PR")
@@ -177,11 +244,16 @@ def action(close: bool, pull_request: str) -> None:
     Perform actions on a PR
     """
     with cli_context() as (shell, _, github):
-        ghstack.action.main(
-            pull_request=pull_request,
-            github=github,
-            sh=shell,
-            close=close,
+        run_async(
+            run_with_github(
+                github,
+                ghstack.action.main(
+                    pull_request=pull_request,
+                    github=github,
+                    sh=shell,
+                    close=close,
+                ),
+            )
         )
 
 
@@ -197,12 +269,45 @@ def checkout(same_base: bool, pull_request: str) -> None:
     Checkout a PR
     """
     with cli_context(request_github_token=False) as (shell, config, github):
-        ghstack.checkout.main(
-            pull_request=pull_request,
-            github=github,
-            sh=shell,
-            remote_name=config.remote_name,
-            same_base=same_base,
+        run_async(
+            run_with_github(
+                github,
+                ghstack.checkout.main(
+                    pull_request=pull_request,
+                    github=github,
+                    sh=shell,
+                    remote_name=config.remote_name,
+                    same_base=same_base,
+                ),
+            )
+        )
+
+
+@main.command("pull")
+@click.option(
+    "--continue",
+    "continue_",
+    is_flag=True,
+    help="Finish a ghstack pull after resolving conflicts",
+)
+@click.argument("pull_request", metavar="PR", required=False)
+def pull(continue_: bool, pull_request: Optional[str]) -> None:
+    """
+    Pull remote updates for a ghstack PR
+    """
+    with cli_context(request_github_token=False) as (shell, config, github):
+        run_async(
+            run_with_github(
+                github,
+                ghstack.pull.main(
+                    pull_request=pull_request,
+                    github=github,
+                    sh=shell,
+                    remote_name=config.remote_name,
+                    github_url=config.github_url,
+                    continue_=continue_,
+                ),
+            )
         )
 
 
@@ -224,13 +329,18 @@ def cherry_pick(stack: bool, no_fetch: bool, pull_request: str) -> None:
     Cherry-pick a PR
     """
     with cli_context(request_github_token=False) as (shell, config, github):
-        ghstack.cherry_pick.main(
-            pull_request=pull_request,
-            github=github,
-            sh=shell,
-            remote_name=config.remote_name,
-            stack=stack,
-            no_fetch=no_fetch,
+        run_async(
+            run_with_github(
+                github,
+                ghstack.cherry_pick.main(
+                    pull_request=pull_request,
+                    github=github,
+                    sh=shell,
+                    remote_name=config.remote_name,
+                    stack=stack,
+                    no_fetch=no_fetch,
+                ),
+            )
         )
 
 
@@ -242,13 +352,18 @@ def land(force: bool, pull_request: str) -> None:
     Land a PR stack
     """
     with cli_context() as (shell, config, github):
-        ghstack.land.main(
-            pull_request=pull_request,
-            github=github,
-            sh=shell,
-            github_url=config.github_url,
-            remote_name=config.remote_name,
-            force=force,
+        run_async(
+            run_with_github(
+                github,
+                ghstack.land.main(
+                    pull_request=pull_request,
+                    github=github,
+                    sh=shell,
+                    github_url=config.github_url,
+                    remote_name=config.remote_name,
+                    force=force,
+                ),
+            )
         )
 
 
@@ -271,13 +386,18 @@ def log(pull_request: Optional[str], git_log_args: Tuple[str, ...]) -> None:
     Extra arguments are forwarded to git log (e.g. -p).
     """
     with cli_context(request_github_token=False) as (shell, config, github):
-        ghstack.log.main(
-            github=github,
-            sh=shell,
-            remote_name=config.remote_name,
-            github_url=config.github_url,
-            args=list(git_log_args),
-            pull_request=pull_request,
+        run_async(
+            run_with_github(
+                github,
+                ghstack.log.main(
+                    github=github,
+                    sh=shell,
+                    remote_name=config.remote_name,
+                    github_url=config.github_url,
+                    args=list(git_log_args),
+                    pull_request=pull_request,
+                ),
+            )
         )
 
 
@@ -303,21 +423,23 @@ def status(pull_request: str) -> None:
             circle_token=config.circle_token
         )
 
-        fut = ghstack.status.main(
-            pull_request=pull_request,
-            github=github,
-            circleci=circleci,
+        run_async(
+            run_with_github(
+                github,
+                ghstack.status.main(
+                    pull_request=pull_request,
+                    github=github,
+                    circleci=circleci,
+                ),
+            )
         )
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(fut)
-        loop.close()
 
 
 @main.command("submit")
 @click.option(
     "--message",
     "-m",
-    default="Update",
+    default=None,
     help="Description of change you made",
 )
 @click.option(
@@ -381,7 +503,12 @@ def status(pull_request: str) -> None:
     "direct_opt",
     default=None,
     is_flag=True,
-    help="Create stack that directly merges into master",
+    help="Create stack that directly merges into main",
+)
+@click.option(
+    "--no-fetch",
+    is_flag=True,
+    help="Skip fetching remote refs (faster when you know local refs are up-to-date)",
 )
 @click.argument(
     "revs",
@@ -389,7 +516,7 @@ def status(pull_request: str) -> None:
     metavar="REVS",
 )
 def submit(
-    message: str,
+    message: Optional[str],
     update_fields: bool,
     short: bool,
     force: bool,
@@ -401,29 +528,56 @@ def submit(
     stack: bool,
     reviewer: Optional[str],
     label: Optional[str],
+    no_fetch: bool,
 ) -> None:
     """
     Submit or update a PR stack
     """
     with cli_context() as (shell, config, github):
-        ghstack.submit.main(
-            msg=message,
-            username=config.github_username,
-            sh=shell,
-            github=github,
-            update_fields=update_fields,
-            short=short,
-            force=force,
-            no_skip=no_skip,
-            draft=draft,
-            github_url=config.github_url,
-            remote_name=config.remote_name,
-            base_opt=base,
-            revs=revs,
-            stack=stack,
-            direct_opt=direct_opt,
-            reviewer=reviewer if reviewer is not None else config.reviewer,
-            label=label if label is not None else config.label,
+        run_async(
+            run_with_github(
+                github,
+                ghstack.submit.main(
+                    msg=message,
+                    username=config.github_username,
+                    sh=shell,
+                    github=github,
+                    update_fields=update_fields,
+                    short=short,
+                    force=force,
+                    no_skip=no_skip,
+                    draft=draft,
+                    github_url=config.github_url,
+                    remote_name=config.remote_name,
+                    base_opt=base,
+                    revs=revs,
+                    stack=stack,
+                    direct_opt=direct_opt,
+                    reviewer=reviewer if reviewer is not None else config.reviewer,
+                    label=label if label is not None else config.label,
+                    no_fetch=no_fetch,
+                    automsg=config.automsg,
+                ),
+            )
+        )
+
+
+@main.command("sync")
+def sync() -> None:
+    """
+    Sync PR descriptions from GitHub back to local commit messages
+    """
+    with cli_context() as (shell, config, github):
+        run_async(
+            run_with_github(
+                github,
+                ghstack.sync.main(
+                    github=github,
+                    sh=shell,
+                    github_url=config.github_url,
+                    remote_name=config.remote_name,
+                ),
+            )
         )
 
 
@@ -434,10 +588,15 @@ def unlink(commits: List[str]) -> None:
     Unlink commits from PRs
     """
     with cli_context() as (shell, config, github):
-        ghstack.unlink.main(
-            commits=commits,
-            github=github,
-            sh=shell,
-            github_url=config.github_url,
-            remote_name=config.remote_name,
+        run_async(
+            run_with_github(
+                github,
+                ghstack.unlink.main(
+                    commits=commits,
+                    github=github,
+                    sh=shell,
+                    github_url=config.github_url,
+                    remote_name=config.remote_name,
+                ),
+            )
         )

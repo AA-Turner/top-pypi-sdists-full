@@ -105,7 +105,7 @@ class UpstreamConnectMode(betterproto2.Enum):
 @dataclass(eq=False, repr=False, config={"extra": "forbid"})
 class TcpProxy(betterproto2.Message):
     """
-    [#next-free-field: 24]
+    [#next-free-field: 25]
 
     Oneofs:
         - cluster_specifier:
@@ -365,6 +365,20 @@ class TcpProxy(betterproto2.Message):
       receiving anything from downstream, which could fill the early data buffer.
     """
 
+    check_drain_close: "bool | None" = betterproto2.field(
+        24,
+        betterproto2.TYPE_MESSAGE,
+        unwrap=lambda: ______google__protobuf__.BoolValue,
+        optional=True,
+    )
+    """
+    If set to ``true``, the TCP proxy checks if the downstream connection was marked as drained
+    after each read or write. When drain close is requested for the listener's traffic direction,
+    the downstream connection is closed with ``FlushWrite``.
+
+    This is disabled by default for backward compatibility.
+    """
+
     def __post_init__(self) -> None:
         super().__post_init__()
         if self.is_set("access_log_flush_interval"):
@@ -469,7 +483,7 @@ class TcpProxyTunnelingConfig(betterproto2.Message):
     Configuration for tunneling TCP over other transports or application layers.
     Tunneling is supported over HTTP/1.1 and HTTP/2. The upstream protocol is
     determined by the cluster configuration.
-    [#next-free-field: 10]
+    [#next-free-field: 11]
     """
 
     hostname: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
@@ -575,6 +589,16 @@ class TcpProxyTunnelingConfig(betterproto2.Message):
     If not specified or set to an empty string, the default key ``tunnel_request_id`` is used.
     This enables customizing the key used by access log formatters such as
     ``%DYNAMIC_METADATA(envoy.filters.network.tcp_proxy:<key>)%``.
+    """
+
+    formatters: "list[_____config__core__v3__.TypedExtensionConfig]" = (
+        betterproto2.field(10, betterproto2.TYPE_MESSAGE, repeated=True)
+    )
+    """
+    Specifies a collection of Formatter plugins that can be used in substitution formatters
+    in ``headers_to_add``.
+    See the formatters extensions documentation for details.
+    [#extension-category: envoy.formatter]
     """
 
 

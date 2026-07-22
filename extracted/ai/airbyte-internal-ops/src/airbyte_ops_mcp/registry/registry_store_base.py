@@ -27,7 +27,11 @@ from airbyte_ops_mcp.registry.progressive_rollout_marker import (
 from airbyte_ops_mcp.registry.publish_artifacts import PublishArtifactsResult
 from airbyte_ops_mcp.registry.rebuild import OutputMode, RebuildResult
 from airbyte_ops_mcp.registry.store import RegistryStore, StoreType
-from airbyte_ops_mcp.registry.yank import YankResult
+from airbyte_ops_mcp.registry.yank import (
+    YankedVersion,
+    YankMarkerDetail,
+    YankResult,
+)
 
 
 def _op_not_implemented_message(store_type: StoreType, op_name: str) -> str:
@@ -94,6 +98,24 @@ class Registry(ABC):
     ) -> dict[str, Any]:
         raise NotImplementedError(
             _op_not_implemented_message(self.store_type, "get_connector_metadata")
+        )
+
+    def list_yanked_versions(
+        self,
+        *,
+        with_details: bool = True,
+    ) -> list[YankedVersion]:
+        raise NotImplementedError(
+            _op_not_implemented_message(self.store_type, "list_yanked_versions")
+        )
+
+    def get_yank_marker(
+        self,
+        connector_name: str,
+        version: str,
+    ) -> YankMarkerDetail | None:
+        raise NotImplementedError(
+            _op_not_implemented_message(self.store_type, "get_yank_marker")
         )
 
     # ---------------------------------------------------------------------

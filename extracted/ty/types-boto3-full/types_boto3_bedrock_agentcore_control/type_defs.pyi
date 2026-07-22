@@ -1201,6 +1201,7 @@ class ConnectorParameterOverrideTypeDef(TypedDict):
 
 class ConnectorSourceTypeDef(TypedDict):
     connectorId: str
+    version: NotRequired[str]
 
 ContentConfigurationTypeDef = TypedDict(
     "ContentConfigurationTypeDef",

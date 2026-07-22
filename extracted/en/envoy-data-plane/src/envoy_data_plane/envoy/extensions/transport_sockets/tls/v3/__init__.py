@@ -117,7 +117,46 @@ class TlsParametersCompliancePolicy(betterproto2.Enum):
 
     .. attention::
 
-      Please refer to `BoringSSL policies <https://boringssl.googlesource.com/boringssl/+/refs/tags/0.20240913.0/include/openssl/ssl.h#5608>`_
+      Please refer to the `BoringSSL FIPS_202205 compliance policy <https://boringssl.googlesource.com/boringssl/+/refs/tags/0.20240913.0/include/openssl/ssl.h#5608>`_
+      for details.
+    """
+
+    CNSA2_202603 = 1
+    """
+    CNSA2_202603 configures a TLS connection to use:
+
+      * Only TLS 1.3, with AES-256-GCM.
+      * Only ML-KEM-1024 for key agreement.
+      * For handshake signatures, only ECDSA with P-384 and SHA-384, or RSA
+        with SHA-384.
+
+    Note: this setting aids with compliance with CNSA requirements but does not
+    guarantee it. Careful reading of ``draft-becker-cnsa2-tls-profile`` is
+    recommended.
+
+    .. attention::
+
+      Please refer to the `BoringSSL CNSA2_202603 compliance policy <https://boringssl.googlesource.com/boringssl/+/refs/tags/0.20260413.0/include/openssl/ssl.h#6293>`_
+      for details.
+    """
+
+    CNSA1_202603 = 2
+    """
+    CNSA1_202603 configures a TLS connection to use:
+      * TLS 1.2 or TLS 1.3.
+      * For TLS 1.2, only TLS_ECDHE_[ECDSA|RSA]_WITH_AES_256_GCM_SHA384.
+      * For TLS 1.3, only AES-256-GCM.
+      * ML-KEM-1024 or P-384 for key agreement, preferring ML-KEM-1024 if the
+        client supports it.
+      * For handshake signatures, only ECDSA with P-384 and SHA-384, or RSA
+        with SHA-384.
+
+    Note: this setting aids with compliance with CNSA requirements but does not
+    guarantee it. Careful reading of RFC 9151 is recommended.
+
+    .. attention::
+
+      Please refer to the `BoringSSL CNSA1_202603 compliance policy <https://boringssl.googlesource.com/boringssl/+/refs/tags/0.20260413.0/include/openssl/ssl.h#6280>`_
       for details.
     """
 
@@ -191,7 +230,7 @@ default_message_pool.register_message(
 @dataclass(eq=False, repr=False, config={"extra": "forbid"})
 class CertificateValidationContext(betterproto2.Message):
     """
-    [#next-free-field: 18]
+    [#next-free-field: 19]
     """
 
     trusted_ca: "____config__core__v3__.DataSource | None" = betterproto2.field(
@@ -457,6 +496,32 @@ class CertificateValidationContext(betterproto2.Message):
     This matches the semantics of ``SSL_CTX_set_verify_depth`` in OpenSSL 1.0.x and older versions of BoringSSL. It differs from ``SSL_CTX_set_verify_depth``
     in OpenSSL 1.1.x and newer versions of BoringSSL in that the trust anchor is included.
     Trusted issues are specified by setting :ref:`trusted_ca <envoy_v3_api_field_extensions.transport_sockets.tls.v3.CertificateValidationContext.trusted_ca>`
+    """
+
+    suppress_client_ca_list: "bool" = betterproto2.field(18, betterproto2.TYPE_BOOL)
+    """
+    If true, the server does not include the trusted-CA distinguished names in the
+    TLS ``CertificateRequest`` message. CAs from :ref:`trusted_ca
+    <envoy_v3_api_field_extensions.transport_sockets.tls.v3.CertificateValidationContext.trusted_ca>`
+    are still used to validate presented client certificates; only the wire
+    advertisement changes.
+
+    This is useful when the configured CA set is large enough that the
+    ``CertificateRequest`` would exceed client-side TLS record limits, or when
+    clients mishandle the CA set in some way.
+
+    .. attention::
+
+      When enabled, clients that rely on the advertised CA list to select among
+      multiple client certificates may now send no certificate or the wrong one;
+      validation will then fail with the standard TLS alert.
+
+    This option only affects downstream (server) TLS connections where Envoy sends a
+    ``CertificateRequest`` to clients. It has no effect on upstream connections.
+
+    Honored by the built-in validator and the SPIFFE validator. Validators that do
+    not set a client CA list themselves (e.g., the dynamic-modules validator) are
+    unaffected. Defaults to false.
     """
 
     def __post_init__(self) -> None:
@@ -1682,14 +1747,13 @@ class UpstreamTlsContext(betterproto2.Message):
         optional=True,
     )
     """
-    Controls enforcement of the ``keyUsage`` extension in peer certificates. If set to ``true``, the handshake will fail if
-    the ``keyUsage`` is incompatible with TLS usage.
+    Controls enforcement of the ``keyUsage`` extension in peer certificates. If set to ``true``,
+    the handshake will fail if the ``keyUsage`` is incompatible with TLS usage.
 
-    .. note::
-      The default value is ``true`` (i.e., enforcement on).
+    .. attention::
 
-    The ``ssl.was_key_usage_invalid`` in :ref:`listener metrics <config_listener_stats>` metric will be incremented
-    for configurations that would fail if this option were enabled.
+      This field is deprecated and ignored. Envoy now always enforces the ``keyUsage`` extension
+      in peer certificates, making this option unconfigurable.
     """
 
     def __post_init__(self) -> None:

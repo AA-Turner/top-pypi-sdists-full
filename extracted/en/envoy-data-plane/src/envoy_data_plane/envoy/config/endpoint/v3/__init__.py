@@ -321,6 +321,7 @@ class Endpoint(betterproto2.Message):
     [#protodoc-title: Endpoints]
 
     Upstream host identifier.
+    [#next-free-field: 6]
     """
 
     address: "__core__v3__.Address | None" = betterproto2.field(
@@ -370,6 +371,24 @@ class Endpoint(betterproto2.Message):
     prepended to this list. It is assumed that the list must already be
     sorted by preference order of the addresses. This will only be supported
     for STATIC and EDS clusters.
+    """
+
+    observability_name: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        5, betterproto2.TYPE_STRING
+    )
+    """
+    Optional alternative stat name for this endpoint. If not specified, the main address will be used
+    as the stat name and be extracted as ``envoy.endpoint_address`` tag value in generated stats.
+    If specified, the ``observability_name`` here will be used to replace the main address.
+
+    .. note::
+
+      This field is ignored for logical DNS host implementation..
+
+    This is useful when there are duplicate addresses in the cluster, for example when multiple
+    endpoints share the same address but have different hostnames or metadata.
+    In this case, the observability name can be used to differentiate between these endpoints in
+    stats and logs.
     """
 
 
@@ -547,8 +566,8 @@ class LbEndpointCollection(betterproto2.Message):
     [#not-implemented-hide:]
     """
 
-    entries: "____xds__core__v3__.CollectionEntry | None" = betterproto2.field(
-        1, betterproto2.TYPE_MESSAGE, optional=True
+    entries: "list[____xds__core__v3__.CollectionEntry]" = betterproto2.field(
+        1, betterproto2.TYPE_MESSAGE, repeated=True
     )
 
 

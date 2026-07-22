@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agent-framework-bedrock
-Version: 1.0.0b260709
+Version: 1.0.0b260721
 Summary: Amazon Bedrock integration for Microsoft Agent Framework.
 Project-URL: homepage, https://aka.ms/agent-framework
 Project-URL: source, https://github.com/microsoft/agent-framework/tree/main/python

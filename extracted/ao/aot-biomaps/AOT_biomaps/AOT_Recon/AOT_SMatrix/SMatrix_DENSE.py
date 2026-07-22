@@ -241,3 +241,39 @@ class SMatrix_DENSE(SMatrix):
         if CUPY_AVAILABLE:
             cp._default_memory_pool.free_all_blocks()
             cp.cuda.Stream.null.synchronize()
+    
+    def compute_hessian_diagonal(self):
+        """
+        Compute diag(A^H A).
+        """
+
+        if check_gpu_available(self):
+            return cp.sum(cp.abs(self.dense_matrix_gpu) ** 2, axis=(0,1)).ravel().astype(cp.float32)
+        else:
+            return np.sum(np.abs(self.dense_matrix) ** 2, axis=(0,1)).ravel().astype(np.float32)
+        
+    def normalize_matrix(self):
+        """
+        Normalizes the DENSE matrix by its maximum absolute value.
+        Restores the system conditioning for Primal-Dual solvers.
+        """
+        max_val = 0.0
+        
+        if check_gpu_available(self) and self.dense_matrix_gpu is not None:
+            max_val = float(cp.max(cp.abs(self.dense_matrix_gpu)))
+            if max_val > 0:
+                self.dense_matrix_gpu /= max_val
+                if self.dense_matrix is not None:
+                    self.dense_matrix /= max_val
+        elif self.dense_matrix is not None:
+            max_val = float(np.max(np.abs(self.dense_matrix)))
+            if max_val > 0:
+                self.dense_matrix /= max_val
+        else:
+            warnings.warn("[AOT-biomaps] DENSE Matrix not allocated, normalization impossible.")
+            return
+
+        print(f"[AOT-biomaps] DENSE Matrix normalized (Original absolute max: {max_val:.2e})")
+        
+        # Critical update of the normalization factors (preconditioners)
+        self.compute_norm_factor()

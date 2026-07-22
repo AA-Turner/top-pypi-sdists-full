@@ -14,7 +14,7 @@ auth = Authorization.TestAuthorization()
 config = auth.getConfigObject()
 falcon = IOC(auth_object=config)
 AllowedResponses = [200, 201, 400, 404, 429]
-Allowed403 = ["indicator_aggregate", "GetIndicatorsReport"]
+Allowed403 = ["indicator_aggregate", "GetIndicatorsReport", "indicator_sdmf_query_v1"]
 
 
 class TestIOC:
@@ -70,7 +70,13 @@ class TestIOC:
             "action_query": falcon.action_query(),
             "ioc_type_query": falcon.ioc_type_query(),
             "platform_query": falcon.platform_query(),
-            "severity_query": falcon.severity_query()
+            "severity_query": falcon.severity_query(),
+            "indicator_sdmf_query_v1": falcon.indicator_sdmf_query_v1(id="string", nodes="string", res_id="string",
+                deadline="string", duration="string",
+                execution_context="string", execution_details="string",
+                is_export_request="string", pagination_info="string",
+                partial_results="string", query_stats="string",
+                store_headers="string"),
         }
         for key in tests:
             if tests[key]["status_code"] not in AllowedResponses:

@@ -31,6 +31,7 @@ class AccessControlScope(sgqlc.types.Enum):
     * `Ingestion`None
     * `MCP`None
     * `OpenTelemetry`None
+    * `RedeemCodes`None
     * `SCIM_v2`None
     * `UI`None
     """
@@ -48,6 +49,7 @@ class AccessControlScope(sgqlc.types.Enum):
         "Ingestion",
         "MCP",
         "OpenTelemetry",
+        "RedeemCodes",
         "SCIM_v2",
         "UI",
     )
@@ -257,6 +259,19 @@ class AgentEvaluationRunSamplesStatus(sgqlc.types.Enum):
     __choices__ = ("OK", "UNAVAILABLE", "UNSUPPORTED")
 
 
+class AgentEvaluationSampleSortDirection(sgqlc.types.Enum):
+    """Score sort direction for evaluation run samples.
+
+    Enumeration Choices:
+
+    * `ASC`None
+    * `DESC`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("ASC", "DESC")
+
+
 class AgentGraphNodeKind(sgqlc.types.Enum):
     """Kind of a fused agent-graph node — derived from the underlying
     span.  `is_llm_call=True` → LLM; `is_tool_call=True` → TOOL;
@@ -303,11 +318,13 @@ class AgentHealthCheckType(sgqlc.types.Enum):
 
     * `CODE_REF`None
     * `COVERAGE`None
+    * `DEPLOY_RESOLUTION`None
     * `PR`None
+    * `RECOVERY`None
     """
 
     __schema__ = schema
-    __choices__ = ("CODE_REF", "COVERAGE", "PR")
+    __choices__ = ("CODE_REF", "COVERAGE", "DEPLOY_RESOLUTION", "PR", "RECOVERY")
 
 
 class AgentHealthCheckValidity(sgqlc.types.Enum):
@@ -2071,6 +2088,25 @@ class ConversationFilterFieldName(sgqlc.types.Enum):
         "TURNS",
         "WORKFLOW",
     )
+
+
+class ConversationLookupStatus(sgqlc.types.Enum):
+    """Outcome of a per-space point lookup of the target conversation.
+    ``FOUND`` (HTTP 200), ``FORBIDDEN`` (403 — exists but this
+    principal cannot read     it), ``NOT_FOUND`` (404 — not in this
+    space), ``ERROR`` (transport/other). Values     match :class:`~...
+    databricks_agent_discovery.GenieConversationLookup.status`.
+
+    Enumeration Choices:
+
+    * `ERROR`None
+    * `FORBIDDEN`None
+    * `FOUND`None
+    * `NOT_FOUND`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("ERROR", "FORBIDDEN", "FOUND", "NOT_FOUND")
 
 
 class ConversationSortField(sgqlc.types.Enum):
@@ -4315,6 +4351,29 @@ class GenericScalar(sgqlc.types.Scalar):
     __schema__ = schema
 
 
+class GenieCanManageVia(sgqlc.types.Enum):
+    """How the run-as principal holds CAN MANAGE on a Genie space.
+    ``DIRECT`` — a direct principal (user / service-principal) ACL
+    entry grants it.     ``GROUP`` — no direct entry, but the
+    principal effectively has manage (the ACL     was readable) so it
+    is inherited via a group grant; group-permission propagation
+    is eventually-consistent and is the prime suspect for a transient,
+    self-resolving     ``PERMISSION_FALLBACK``. ``NONE`` — the
+    principal lacks CAN MANAGE (ACL not     readable). ``UNKNOWN`` —
+    the ACL could not be parsed.
+
+    Enumeration Choices:
+
+    * `DIRECT`None
+    * `GROUP`None
+    * `NONE`None
+    * `UNKNOWN`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("DIRECT", "GROUP", "NONE", "UNKNOWN")
+
+
 class GenieCollectorGrantKind(sgqlc.types.Enum):
     """A Databricks grant the install gate verifies before a Genie
     registration.      The collector needs all four to install and run
@@ -4375,6 +4434,44 @@ class GenieCollectorRunStatus(sgqlc.types.Enum):
 
     __schema__ = schema
     __choices__ = ("CANCELLED", "FAILED", "RUNNING", "SUCCESS")
+
+
+class GenieCollectorVerdict(sgqlc.types.Enum):
+    """Classified cause of a Genie "no new traces" report.      Ordered
+    by the precedence :func:`_classify_genie_collector_verdict`
+    applies.
+
+    Enumeration Choices:
+
+    * `CADENCE`None
+    * `CONVERSATION_PERMISSION`None
+    * `COVERAGE_GAP`None
+    * `DATA_PERMISSION`None
+    * `GENUINELY_IDLE`None
+    * `INDETERMINATE`None
+    * `LIST_INCOMPLETE`None
+    * `MC_COLLECTION_GAP`None
+    * `OWNERSHIP_SCOPE`None
+    * `PERMISSION_FALLBACK`None
+    * `SURFACE_MISMATCH`None
+    * `VISIBILITY_PERMISSION`None
+    """
+
+    __schema__ = schema
+    __choices__ = (
+        "CADENCE",
+        "CONVERSATION_PERMISSION",
+        "COVERAGE_GAP",
+        "DATA_PERMISSION",
+        "GENUINELY_IDLE",
+        "INDETERMINATE",
+        "LIST_INCOMPLETE",
+        "MC_COLLECTION_GAP",
+        "OWNERSHIP_SCOPE",
+        "PERMISSION_FALLBACK",
+        "SURFACE_MISMATCH",
+        "VISIBILITY_PERMISSION",
+    )
 
 
 class HasErrorsValue(sgqlc.types.Enum):
@@ -6536,6 +6633,18 @@ class QueuedJobType(sgqlc.types.Enum):
 
     __schema__ = schema
     __choices__ = ("APPLY_MONITOR_FINDINGS", "SSO_USER_MIGRATION")
+
+
+class RateType(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `COMPUTE`: Price of compute usage (one compute credit).
+    * `STORAGE`: Price of storage usage (one terabyte of storage per
+      month).
+    """
+
+    __schema__ = schema
+    __choices__ = ("COMPUTE", "STORAGE")
 
 
 class RcaJobsModelJobType(sgqlc.types.Enum):
@@ -9030,6 +9139,7 @@ class AgentEvaluationRunSamplesInput(sgqlc.types.Input):
         "limit",
         "offset",
         "include_explanation",
+        "sort_direction",
     )
     monitor_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="monitorUuid")
     """Agent evaluation monitor UUID"""
@@ -9058,6 +9168,15 @@ class AgentEvaluationRunSamplesInput(sgqlc.types.Input):
     """Include the stored judge explanation when available. Evaluation
     runs recorded before stored explanations were enabled may return
     null.
+    """
+
+    sort_direction = sgqlc.types.Field(
+        AgentEvaluationSampleSortDirection, graphql_name="sortDirection"
+    )
+    """Score sort direction. Defaults to ASC (lowest scores first, worst-
+    first for 1-5 quality evals). Pass DESC to return the highest-
+    scoring rows first — the breaching side for boolean evaluations
+    that alert on a count or rate of true.
     """
 
 
@@ -10659,6 +10778,37 @@ class CreateOrUpdatePlatformAgentInput(sgqlc.types.Input):
     """
 
 
+class CreateServiceNowTicketForAgentHealthIssueInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = (
+        "finding_uuid",
+        "integration_id",
+        "short_description",
+        "description",
+        "fields",
+    )
+    finding_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="findingUuid")
+    """UUID of the child finding carrying the agent-health issue."""
+
+    integration_id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="integrationId")
+    """UUID of the ServiceNow integration to create the incident under."""
+
+    short_description = sgqlc.types.Field(String, graphql_name="shortDescription")
+    """Incident short description (its title); defaults to the issue
+    title, falling back to a generic placeholder if the issue has
+    none.
+    """
+
+    description = sgqlc.types.Field(String, graphql_name="description")
+    """Incident description; defaults to the issue's action context,
+    falling back to its narrative, and finally to an empty
+    description.
+    """
+
+    fields = sgqlc.types.Field(JSONString, graphql_name="fields")
+    """Additional ServiceNow incident fields keyed by field name."""
+
+
 class CreatedByFilters(sgqlc.types.Input):
     __schema__ = schema
     __field_names__ = ("created_by", "is_template_managed", "namespace", "rule_name")
@@ -11389,6 +11539,13 @@ class DeleteAgentTraceTableInput(sgqlc.types.Input):
     __field_names__ = ("uuid",)
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
     """UUID of the agent trace table to delete"""
+
+
+class DismissMonitorTuningSuggestionInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("run_uuid",)
+    run_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="runUuid")
+    """UUID of the tuning run backing the suggestion to dismiss."""
 
 
 class EtlTaskPerformanceV3FilterInput(sgqlc.types.Input):
@@ -16240,6 +16397,7 @@ class TransformInput(sgqlc.types.Input):
         "field_config_list",
         "model_name",
         "field_value_range",
+        "include_tool_calls",
         "function",
         "field",
         "id",
@@ -16266,6 +16424,8 @@ class TransformInput(sgqlc.types.Input):
     model_name = sgqlc.types.Field(String, graphql_name="modelName")
 
     field_value_range = sgqlc.types.Field(FieldValueRangeInput, graphql_name="fieldValueRange")
+
+    include_tool_calls = sgqlc.types.Field(Boolean, graphql_name="includeToolCalls")
 
     function = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="function")
 
@@ -20381,6 +20541,7 @@ class AgentHealthIssue(sgqlc.types.Type):
         "proposed_monitor_yaml",
         "linear_ticket",
         "jira_ticket",
+        "service_now_ticket",
     )
     finding_uuid = sgqlc.types.Field(UUID, graphql_name="findingUuid")
     """UUID of the child finding carrying this issue (fresh every run)."""
@@ -20465,6 +20626,13 @@ class AgentHealthIssue(sgqlc.types.Type):
     ticket has been created yet.
     """
 
+    service_now_ticket = sgqlc.types.Field(
+        "AgentHealthIssueServiceNowTicket", graphql_name="serviceNowTicket"
+    )
+    """The ServiceNow incident created for this issue, if any. Null means
+    no incident has been created yet.
+    """
+
 
 class AgentHealthIssueJiraTicket(sgqlc.types.Type):
     """A Jira ticket created for an agent-health issue.  Present means a
@@ -20517,6 +20685,37 @@ class AgentHealthIssueLinearTicket(sgqlc.types.Type):
 
     created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
     """When the Linear ticket was created from this issue."""
+
+
+class AgentHealthIssueServiceNowTicket(sgqlc.types.Type):
+    """A ServiceNow incident created for an agent-health issue.  Present
+    means an incident already exists for this issue (keyed on the
+    issue's stable identity, so it persists across pipeline runs);
+    absent means none has been created yet. Field names mirror
+    ``AgentHealthIssueJiraTicket`` so a shared ticket pill can render
+    either provider.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("identifier", "url", "origin", "created_time")
+    identifier = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="identifier")
+    """ServiceNow incident number (e.g. INC0010001)."""
+
+    url = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="url")
+    """Web URL of the ServiceNow incident."""
+
+    origin = sgqlc.types.Field(String, graphql_name="origin")
+    """Canonical host of the ServiceNow instance the incident lives on —
+    always derived from the creating integration's instance name (e.g.
+    acme.service-now.com), never from any custom incident-link URL
+    pattern. Null when the integration has since been removed and the
+    origin can no longer be derived; a consumer validating the ticket
+    URL against this origin should fail closed (reject the link) on
+    null.
+    """
+
+    created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
+    """When the ServiceNow incident was created from this issue."""
 
 
 class AgentHealthRecommendedAction(sgqlc.types.Type):
@@ -20639,6 +20838,7 @@ class AgentMetadataV2(sgqlc.types.Type):
         "source_type",
         "agent_reference",
         "warehouse",
+        "classification",
     )
     account_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="accountUuid")
     """Account UUID"""
@@ -20683,6 +20883,16 @@ class AgentMetadataV2(sgqlc.types.Type):
     warehouse lookup or trace-table MCON parsing needed. Null when the
     agent's warehouse association cannot be resolved (e.g. the
     warehouse was deleted).
+    """
+
+    classification = sgqlc.types.Field(AgentClassificationOutput, graphql_name="classification")
+    """AI-590/AI-598 classification of this agent — same builder and
+    identical lowercase wire values as the incident-keyed TSA REST
+    `agent` object and `getAgentClassification`, so consumers share
+    one parser across surfaces (AO-891). Note the intentional casing
+    split with this node's legacy `sourceType` enum (uppercase member
+    names). Null only when a platform agent's registration could not
+    be resolved (same contract as `agentReference`).
     """
 
 
@@ -26102,6 +26312,37 @@ class ConversationFilterValue(sgqlc.types.Type):
     """Number of conversations with this value"""
 
 
+class ConversationLookupResult(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "status",
+        "http_status",
+        "created_ms",
+        "owner_user_id",
+        "content_read_http_status",
+        "content_read_error_message",
+        "query_result_http_status",
+        "query_result_error_message",
+    )
+    status = sgqlc.types.Field(
+        sgqlc.types.non_null(ConversationLookupStatus), graphql_name="status"
+    )
+
+    http_status = sgqlc.types.Field(Int, graphql_name="httpStatus")
+
+    created_ms = sgqlc.types.Field(Float, graphql_name="createdMs")
+
+    owner_user_id = sgqlc.types.Field(String, graphql_name="ownerUserId")
+
+    content_read_http_status = sgqlc.types.Field(Int, graphql_name="contentReadHttpStatus")
+
+    content_read_error_message = sgqlc.types.Field(String, graphql_name="contentReadErrorMessage")
+
+    query_result_http_status = sgqlc.types.Field(Int, graphql_name="queryResultHttpStatus")
+
+    query_result_error_message = sgqlc.types.Field(String, graphql_name="queryResultErrorMessage")
+
+
 class ConversationMessageContentChunkV2(sgqlc.types.Type):
     """A chunk of full message content from a cached conversation
     snapshot.
@@ -27720,6 +27961,21 @@ class CreateServiceNowIntegration(sgqlc.types.Type):
     """The integration that was created"""
 
 
+class CreateServiceNowTicketForAgentHealthIssue(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("ticket", "create_warning")
+    ticket = sgqlc.types.Field(AgentHealthIssueServiceNowTicket, graphql_name="ticket")
+
+    create_warning = sgqlc.types.Field(String, graphql_name="createWarning")
+    """A non-fatal warning from ServiceNow — e.g. a field it silently
+    dropped because the value was invalid. The incident was still
+    created; surface this to the user (a toast) so they can fix the
+    field. Null on success. This warning surface is ServiceNow-
+    specific and has no Jira-mutation equivalent, so a shared frontend
+    create-ticket handler must special-case it.
+    """
+
+
 class CreateSharedQuery(sgqlc.types.Type):
     """Create a new shared API Explorer GraphQL query or mutation"""
 
@@ -28993,6 +29249,7 @@ class DataCollectorSchedule(sgqlc.types.Type):
         "is_dynamic_schedule_poller",
         "is_monitored_table_schedule",
         "min_interval_seconds",
+        "last_trigger_fired_at",
         "is_automatic",
         "friendly_name",
         "notes",
@@ -29089,6 +29346,12 @@ class DataCollectorSchedule(sgqlc.types.Type):
     min_interval_seconds = sgqlc.types.Field(Int, graphql_name="minIntervalSeconds")
     """Minimum interval between job executions. Used to preventa dynamic
     scheduled job from executing too frequently
+    """
+
+    last_trigger_fired_at = sgqlc.types.Field(DateTime, graphql_name="lastTriggerFiredAt")
+    """Last time an external trigger (table update seen, or job/task
+    completion received) was observed for this dynamic schedule,
+    independent of whether a run was actually executed.
     """
 
     is_automatic = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isAutomatic")
@@ -30725,6 +30988,144 @@ class DeauthorizeSlackAppMutation(sgqlc.types.Type):
     success = sgqlc.types.Field(Boolean, graphql_name="success")
 
 
+class DebugGenieCollectorResult(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "verdict",
+        "verdict_explanation",
+        "remediation",
+        "run_as_identity",
+        "spaces_seen_count",
+        "spaces",
+    )
+    verdict = sgqlc.types.Field(sgqlc.types.non_null(GenieCollectorVerdict), graphql_name="verdict")
+
+    verdict_explanation = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="verdictExplanation"
+    )
+
+    remediation = sgqlc.types.Field(String, graphql_name="remediation")
+
+    run_as_identity = sgqlc.types.Field(String, graphql_name="runAsIdentity")
+
+    spaces_seen_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="spacesSeenCount")
+
+    spaces = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("DebugGenieSpaceFacts"))),
+        graphql_name="spaces",
+    )
+
+
+class DebugGenieSpaceFacts(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "space_id",
+        "display_name",
+        "registered_as_agent",
+        "can_manage",
+        "can_manage_via",
+        "include_all_effective",
+        "own_conversations_first_page",
+        "live_newest_created_ms",
+        "live_scanned_count",
+        "live_truncated",
+        "live_newest_is_collected",
+        "contains_requested_conversation",
+        "conversation_lookup",
+        "data_rooms_newest_created_ms",
+        "data_rooms_scanned_count",
+        "list_surfaces_diverge",
+        "data_room_http_status",
+        "data_room_error_message",
+        "distinct_owner_sample_live",
+        "clone_siblings",
+        "genie_traces_row_count",
+        "collected_max_created_ts",
+        "collected_max_collected_ts",
+        "collected_owners_by_day",
+        "collected_conversations_by_day",
+    )
+    space_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="spaceId")
+
+    display_name = sgqlc.types.Field(String, graphql_name="displayName")
+
+    registered_as_agent = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="registeredAsAgent"
+    )
+
+    can_manage = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="canManage")
+
+    can_manage_via = sgqlc.types.Field(
+        sgqlc.types.non_null(GenieCanManageVia), graphql_name="canManageVia"
+    )
+
+    include_all_effective = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="includeAllEffective"
+    )
+
+    own_conversations_first_page = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="ownConversationsFirstPage"
+    )
+
+    live_newest_created_ms = sgqlc.types.Field(Float, graphql_name="liveNewestCreatedMs")
+
+    live_scanned_count = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="liveScannedCount"
+    )
+
+    live_truncated = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="liveTruncated")
+
+    live_newest_is_collected = sgqlc.types.Field(Boolean, graphql_name="liveNewestIsCollected")
+
+    contains_requested_conversation = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="containsRequestedConversation"
+    )
+
+    conversation_lookup = sgqlc.types.Field(
+        ConversationLookupResult, graphql_name="conversationLookup"
+    )
+
+    data_rooms_newest_created_ms = sgqlc.types.Field(Float, graphql_name="dataRoomsNewestCreatedMs")
+
+    data_rooms_scanned_count = sgqlc.types.Field(Int, graphql_name="dataRoomsScannedCount")
+
+    list_surfaces_diverge = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="listSurfacesDiverge"
+    )
+
+    data_room_http_status = sgqlc.types.Field(Int, graphql_name="dataRoomHttpStatus")
+
+    data_room_error_message = sgqlc.types.Field(String, graphql_name="dataRoomErrorMessage")
+
+    distinct_owner_sample_live = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="distinctOwnerSampleLive",
+    )
+
+    clone_siblings = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="cloneSiblings",
+    )
+
+    genie_traces_row_count = sgqlc.types.Field(Int, graphql_name="genieTracesRowCount")
+
+    collected_max_created_ts = sgqlc.types.Field(String, graphql_name="collectedMaxCreatedTs")
+
+    collected_max_collected_ts = sgqlc.types.Field(String, graphql_name="collectedMaxCollectedTs")
+
+    collected_owners_by_day = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("GenieOwnerDayCount"))),
+        graphql_name="collectedOwnersByDay",
+    )
+
+    collected_conversations_by_day = sgqlc.types.Field(
+        sgqlc.types.non_null(
+            sgqlc.types.list_of(sgqlc.types.non_null("GenieDayConversationCount"))
+        ),
+        graphql_name="collectedConversationsByDay",
+    )
+
+
 class DeleteAccessToken(sgqlc.types.Type):
     """Delete an API Access Token by ID"""
 
@@ -31689,6 +32090,16 @@ class DisableVolumeChangeTableMonitor(sgqlc.types.Type):
     """UUID of the underlying OOTB replacement rule"""
 
 
+class DismissMonitorTuningSuggestionResult(sgqlc.types.Type):
+    """Outcome of dismissing a proactive tuning suggestion."""
+
+    __schema__ = schema
+    __field_names__ = ("run_uuid", "dismissed_at")
+    run_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="runUuid")
+
+    dismissed_at = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="dismissedAt")
+
+
 class DisplayableFieldValueType(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = (
@@ -32308,6 +32719,18 @@ class EstimatedCredits(sgqlc.types.Type):
     """Human-readable caveats the caller should surface alongside the
     estimate (e.g. unresolved segment count, implicit fields).
     """
+
+
+class EstimatedSavingsOutput(sgqlc.types.Type):
+    """An estimated monthly monetary saving for an insight."""
+
+    __schema__ = schema
+    __field_names__ = ("amount", "currency")
+    amount = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="amount")
+    """Estimated monthly saving amount."""
+
+    currency = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="currency")
+    """ISO currency code of the amount, e.g. 'USD'."""
 
 
 class EtlContainer(sgqlc.types.Type):
@@ -35670,6 +36093,26 @@ class GenieCollectorStatus(sgqlc.types.Type):
     """
 
 
+class GenieDayConversationCount(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("day", "conversation_count")
+    day = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="day")
+
+    conversation_count = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="conversationCount"
+    )
+
+
+class GenieOwnerDayCount(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("user_id", "day", "turn_count")
+    user_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="userId")
+
+    day = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="day")
+
+    turn_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="turnCount")
+
+
 class GetAccountAuditLogsResponse(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("records", "page_info")
@@ -37468,6 +37911,7 @@ class JobExecutionHistoryLog(sgqlc.types.Type):
         "total_result_count",
         "total_execution_duration",
         "consolidating_job_uuid",
+        "evaluated_record_count",
     )
     job_execution_uuid = sgqlc.types.Field(
         sgqlc.types.non_null(String), graphql_name="jobExecutionUuid"
@@ -37533,6 +37977,14 @@ class JobExecutionHistoryLog(sgqlc.types.Type):
 
     consolidating_job_uuid = sgqlc.types.Field(String, graphql_name="consolidatingJobUuid")
     """UUID of the consolidating job execution"""
+
+    evaluated_record_count = sgqlc.types.Field(Int, graphql_name="evaluatedRecordCount")
+    """Number of distinct subjects (conversations) this agent evaluation
+    run scored. 0 means the run completed without evaluating anything
+    (e.g. no traces in the lookback window). Null for non-agent-
+    evaluation runs and for span/trace-aggregation evaluation runs,
+    whose scores have no per-run provenance.
+    """
 
 
 class JobExecutionHistoryLogConnection(sgqlc.types.relay.Connection):
@@ -37730,6 +38182,7 @@ class LLMModel(sgqlc.types.Type):
         "context_window",
         "regions",
         "default",
+        "requires_cross_region_inference",
     )
     name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
 
@@ -37744,6 +38197,10 @@ class LLMModel(sgqlc.types.Type):
     regions = sgqlc.types.Field(GenericScalar, graphql_name="regions")
 
     default = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="default")
+
+    requires_cross_region_inference = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="requiresCrossRegionInference"
+    )
 
 
 class LabelCount(sgqlc.types.Type):
@@ -40693,6 +41150,7 @@ class Mutation(sgqlc.types.Type):
         "set_linear_webhook_secret",
         "create_linear_ticket_for_agent_health_issue",
         "create_jira_ticket_for_agent_health_issue",
+        "create_service_now_ticket_for_agent_health_issue",
         "delete_agent_trace_table",
         "create_or_update_platform_agent",
         "install_genie_collector",
@@ -40964,6 +41422,7 @@ class Mutation(sgqlc.types.Type):
         "convert_config_template_to_ui_monitors",
         "create_monitor_tuning_run",
         "apply_monitor_tuning_run",
+        "dismiss_monitor_tuning_suggestion",
         "triage_alerts",
         "set_sensitivity",
         "add_to_collection_block_list",
@@ -42407,6 +42866,30 @@ class Mutation(sgqlc.types.Type):
     Arguments:
 
     * `input` (`CreateJiraTicketForAgentHealthIssueInput!`)None
+    """
+
+    create_service_now_ticket_for_agent_health_issue = sgqlc.types.Field(
+        CreateServiceNowTicketForAgentHealthIssue,
+        graphql_name="createServiceNowTicketForAgentHealthIssue",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "input",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(CreateServiceNowTicketForAgentHealthIssueInput),
+                        graphql_name="input",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Create a ServiceNow incident for an agent-health
+    issue
+
+    Arguments:
+
+    * `input` (`CreateServiceNowTicketForAgentHealthIssueInput!`)None
     """
 
     delete_agent_trace_table = sgqlc.types.Field(
@@ -52006,6 +52489,30 @@ class Mutation(sgqlc.types.Type):
     Arguments:
 
     * `input` (`ApplyMonitorTuningRunInput!`)None
+    """
+
+    dismiss_monitor_tuning_suggestion = sgqlc.types.Field(
+        DismissMonitorTuningSuggestionResult,
+        graphql_name="dismissMonitorTuningSuggestion",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "input",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(DismissMonitorTuningSuggestionInput),
+                        graphql_name="input",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Dismiss a monitor's pending proactive tuning
+    suggestion.
+
+    Arguments:
+
+    * `input` (`DismissMonitorTuningSuggestionInput!`)None
     """
 
     triage_alerts = sgqlc.types.Field(
@@ -66049,6 +66556,7 @@ class PerformancePageInsightOutput(sgqlc.types.Type):
         "content",
         "related_mcons",
         "related_warehouses",
+        "estimated_savings",
     )
     title = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="title")
     """Full insight title, as a sentence."""
@@ -66077,6 +66585,11 @@ class PerformancePageInsightOutput(sgqlc.types.Type):
         graphql_name="relatedWarehouses",
     )
     """UUIDs of the warehouses this insight references."""
+
+    estimated_savings = sgqlc.types.Field(EstimatedSavingsOutput, graphql_name="estimatedSavings")
+    """Estimated monthly cost saving if the insight's recommendation is
+    acted on. Null when the insight has no quantifiable saving.
+    """
 
 
 class PerformancePageInsightsOutput(sgqlc.types.Type):
@@ -66404,7 +66917,7 @@ class PiiScanFinding(sgqlc.types.Type):
 
     job_execution_uuid = sgqlc.types.Field(UUID, graphql_name="jobExecutionUuid")
 
-    scanned_row_count = sgqlc.types.Field(Int, graphql_name="scannedRowCount")
+    scanned_row_count = sgqlc.types.Field(BigInt, graphql_name="scannedRowCount")
 
     first_detected_at = sgqlc.types.Field(DateTime, graphql_name="firstDetectedAt")
 
@@ -67696,6 +68209,7 @@ class Query(sgqlc.types.Type):
         "get_linear_teams",
         "get_linear_integration",
         "get_available_platform_agents",
+        "debug_genie_collector",
         "evaluate_platform_agent_data_source",
         "get_node_attributes",
         "get_traces_filters",
@@ -67836,6 +68350,7 @@ class Query(sgqlc.types.Type):
         "get_notebook",
         "get_notebooks",
         "get_network_access_control_lists",
+        "get_current_client_ip",
         "get_ms_teams_integrations",
         "get_ms_teams_channels",
         "get_github_integrations",
@@ -67897,6 +68412,7 @@ class Query(sgqlc.types.Type):
         "simulate_query_perf_monitor_evaluation",
         "get_query_perf_monitor_explanation_for_event",
         "get_query_perf_monitor_explanation",
+        "get_warehouse_price_rates",
         "get_performance_page_insights",
         "get_indexed_field_specs",
         "get_query_logs",
@@ -68079,6 +68595,9 @@ class Query(sgqlc.types.Type):
         "findings",
         "finding",
         "get_domain_monitoring_plan",
+        "get_monitoring_plan",
+        "get_monitoring_plan_for_monitor",
+        "get_monitoring_plans",
         "get_domain_monitoring_plan_children",
         "get_schema_changes",
         "get_event_groups",
@@ -69061,6 +69580,62 @@ class Query(sgqlc.types.Type):
       Snowflake agents for a Snowflake warehouse — in one call, never
       crossing platforms.
     * `warehouse_uuid` (`UUID!`): Warehouse UUID to filter agents by
+    """
+
+    debug_genie_collector = sgqlc.types.Field(
+        sgqlc.types.non_null(DebugGenieCollectorResult),
+        graphql_name="debugGenieCollector",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "warehouse_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="warehouseUuid", default=None
+                    ),
+                ),
+                (
+                    "connection_uuid",
+                    sgqlc.types.Arg(UUID, graphql_name="connectionUuid", default=None),
+                ),
+                ("since", sgqlc.types.Arg(DateTime, graphql_name="since", default=None)),
+                (
+                    "conversation_id",
+                    sgqlc.types.Arg(String, graphql_name="conversationId", default=None),
+                ),
+                (
+                    "max_conversations_per_space",
+                    sgqlc.types.Arg(Int, graphql_name="maxConversationsPerSpace", default=None),
+                ),
+                (
+                    "probe_query_result",
+                    sgqlc.types.Arg(Boolean, graphql_name="probeQueryResult", default=True),
+                ),
+            )
+        ),
+    )
+    """(experimental) Triage a Genie 'no new traces' report: classifies
+    the cause (coverage gap, permission fallback, collection gap,
+    cadence, idle, ...) across the live Genie API, the collected
+    genie_traces table, and the space ACL. Read-only, Monte Carlo
+    staff only.
+
+    Arguments:
+
+    * `warehouse_uuid` (`UUID!`): Warehouse whose Databricks
+      connection to query
+    * `connection_uuid` (`UUID`): Connection UUID (optional, defaults
+      to the warehouse's SQL connection)
+    * `since` (`DateTime`): The reported time — activity newer than
+      this is the freeze signal
+    * `conversation_id` (`String`): Conversation to locate across
+      visible spaces
+    * `max_conversations_per_space` (`Int`): Per-space conversation
+      scan cap (bounded)
+    * `probe_query_result` (`Boolean`): Probe a found conversation's
+      query-result attachment (the SQL data behind the answer) to
+      detect a data-layer permission gap distinct from conversation-
+      content access. Default true; set false to skip if the query-
+      result fetch is slow on a workspace. (default: `true`)
     """
 
     evaluate_platform_agent_data_source = sgqlc.types.Field(
@@ -73278,6 +73853,15 @@ class Query(sgqlc.types.Type):
     list) entries for the account
     """
 
+    get_current_client_ip = sgqlc.types.Field(String, graphql_name="getCurrentClientIp")
+    """(general availability) Get the IP address of the caller as
+    observed by Monte Carlo, or null if it cannot be determined. The
+    value is derived from request headers, so it is advisory only and
+    not suitable for enforcement decisions - use it to check whether
+    the caller would be covered by an IP allow list before saving
+    network access controls.
+    """
+
     get_ms_teams_integrations = sgqlc.types.Field(
         MsTeamsInstallationList, graphql_name="getMsTeamsIntegrations"
     )
@@ -74718,6 +75302,39 @@ class Query(sgqlc.types.Type):
 
     * `request` (`GetExplanationRequestType!`)None
     * `config` (`QPMonitorConfigInputType!`): QP monitor config
+    """
+
+    get_warehouse_price_rates = sgqlc.types.Field(
+        sgqlc.types.non_null(
+            sgqlc.types.list_of(sgqlc.types.non_null("WarehousePriceRatesOutput"))
+        ),
+        graphql_name="getWarehousePriceRates",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "warehouse_uuids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(UUID))),
+                        graphql_name="warehouseUuids",
+                        default=None,
+                    ),
+                ),
+                ("rate_type", sgqlc.types.Arg(RateType, graphql_name="rateType", default=None)),
+            )
+        ),
+    )
+    """(experimental) Estimated price rates for the given warehouses.
+    Only warehouses with a priced rate are returned (Snowflake storage
+    today, at a flat estimated rate), so a warehouse absent from the
+    result has no known rate.
+
+    Arguments:
+
+    * `warehouse_uuids` (`[UUID!]!`): UUIDs of the warehouses to look
+      up rates for.
+    * `rate_type` (`RateType`): Optional filter: return only this
+      usage rate. Omit to return every priced rate type for each
+      warehouse.
     """
 
     get_performance_page_insights = sgqlc.types.Field(
@@ -77803,6 +78420,10 @@ class Query(sgqlc.types.Type):
                     "collection_lag_hours",
                     sgqlc.types.Arg(Int, graphql_name="collectionLagHours", default=0),
                 ),
+                (
+                    "include_tool_calls",
+                    sgqlc.types.Arg(Boolean, graphql_name="includeToolCalls", default=False),
+                ),
             )
         ),
     )
@@ -77840,6 +78461,12 @@ class Query(sgqlc.types.Type):
       a saved monitor's collection_lag. Applies only when no explicit
       time range is given; an explicit range is treated as
       authoritative. (default: `0`)
+    * `include_tool_calls` (`Boolean`): When true, the sample also
+      returns a conversationWithToolCalls column: the transcript with
+      tool call inputs, outputs, and errors interleaved between the
+      turns that triggered them. Also implied when any supplied
+      transform has includeToolCalls set. False or omitted returns the
+      plain transcript only. (default: `false`)
     """
 
     evaluate_agent_monitor_data_source = sgqlc.types.Field(
@@ -82933,6 +83560,90 @@ class Query(sgqlc.types.Type):
 
     * `domain_uuid` (`UUID!`): UUID of the metadata domain whose
       monitoring plan to fetch.
+    """
+
+    get_monitoring_plan = sgqlc.types.Field(
+        "Finding",
+        graphql_name="getMonitoringPlan",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "finding_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="findingUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Fetches a single monitoring-plan container (a top-
+    level MONITORING_GAP finding) by UUID — backing the monitoring-
+    plan tab's ?plan=<uuid> deeplink. Monitor-permission-gated
+    (monitors/management write or propose) — NOT alerts/access. Denies
+    (not found) a non-MONITORING_GAP uuid, a cross-domain plan, or a
+    caller lacking monitor write/propose, so it can never return an
+    alerts finding or a plan for a domain the caller can't see.
+
+    Arguments:
+
+    * `finding_uuid` (`UUID!`): UUID of a MONITORING_GAP monitoring-
+      plan container finding to fetch.
+    """
+
+    get_monitoring_plan_for_monitor = sgqlc.types.Field(
+        "Finding",
+        graphql_name="getMonitoringPlanForMonitor",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "monitor_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="monitorUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Returns the monitoring-plan container (top-level
+    MONITORING_GAP finding) a monitor was staged from, or null when
+    the monitor was not created from a plan. Backs the monitor-details
+    page's plan deeplink. Monitor-permission-gated
+    (monitors/management write or propose) — NOT alerts/access — so a
+    monitor-only user can discover the plan. A plan in a domain the
+    caller can't see is denied.
+
+    Arguments:
+
+    * `monitor_uuid` (`UUID!`): UUID of a monitor to find the
+      monitoring plan it was staged from.
+    """
+
+    get_monitoring_plans = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("Finding")),
+        graphql_name="getMonitoringPlans",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "domain_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="domainUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Lists all of a domain's top-level MONITORING_GAP
+    monitoring-plan containers (the containers produced by monitoring
+    runs), newest first. Monitor-permission-gated (monitors/management
+    write or propose) — NOT alerts/access. Domain-scoped: domainUuid
+    is required and data-authorized against the caller's domain
+    restrictions. Read each plan's phases and staged monitors via
+    getDomainMonitoringPlanChildren.
+
+    Arguments:
+
+    * `domain_uuid` (`UUID!`): UUID of the metadata domain whose
+      monitoring plans to list.
     """
 
     get_domain_monitoring_plan_children = sgqlc.types.Field(
@@ -92851,6 +93562,7 @@ class ScheduleConfig(sgqlc.types.Type):
         "start_time",
         "timezone",
         "min_interval_minutes",
+        "last_trigger_fired_at",
         "next_execution_time_override",
         "is_automatic",
     )
@@ -92876,6 +93588,8 @@ class ScheduleConfig(sgqlc.types.Type):
 
     min_interval_minutes = sgqlc.types.Field(Int, graphql_name="minIntervalMinutes")
 
+    last_trigger_fired_at = sgqlc.types.Field(DateTime, graphql_name="lastTriggerFiredAt")
+
     next_execution_time_override = sgqlc.types.Field(
         DateTime, graphql_name="nextExecutionTimeOverride"
     )
@@ -92895,6 +93609,7 @@ class ScheduleConfigOutput(sgqlc.types.Type):
         "timezone",
         "is_automatic",
         "dynamic_schedule_mcons",
+        "last_trigger_fired_at",
     )
     schedule_type = sgqlc.types.Field(
         sgqlc.types.non_null(ScheduleType), graphql_name="scheduleType"
@@ -92942,6 +93657,12 @@ class ScheduleConfigOutput(sgqlc.types.Type):
         sgqlc.types.list_of(String), graphql_name="dynamicScheduleMcons"
     )
     """Mcons of tables to trigger schedule on update"""
+
+    last_trigger_fired_at = sgqlc.types.Field(DateTime, graphql_name="lastTriggerFiredAt")
+    """Last time an external trigger was observed for this schedule
+    (table update seen, or job/task completion received), independent
+    of whether a run executed.
+    """
 
 
 class ScheduledReportType(sgqlc.types.Type):
@@ -98644,6 +99365,7 @@ class Transform(sgqlc.types.Type):
         "field_config_list",
         "model_name",
         "field_value_range",
+        "include_tool_calls",
         "function",
         "field",
         "id",
@@ -98670,6 +99392,8 @@ class Transform(sgqlc.types.Type):
     model_name = sgqlc.types.Field(String, graphql_name="modelName")
 
     field_value_range = sgqlc.types.Field(FieldValueRange, graphql_name="fieldValueRange")
+
+    include_tool_calls = sgqlc.types.Field(Boolean, graphql_name="includeToolCalls")
 
     function = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="function")
 
@@ -101693,6 +102417,45 @@ class WarehouseDomain(sgqlc.types.Type):
     """Number of input MCONs in this pair"""
 
 
+class WarehousePriceRateOutput(sgqlc.types.Type):
+    """A warehouse price rate: what one unit of usage costs."""
+
+    __schema__ = schema
+    __field_names__ = ("rate_type", "amount", "currency", "description")
+    rate_type = sgqlc.types.Field(sgqlc.types.non_null(RateType), graphql_name="rateType")
+    """Which usage this rate prices."""
+
+    amount = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="amount")
+    """Price of one usage unit, in `currency`. For storage, the price of
+    one TB per month.
+    """
+
+    currency = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="currency")
+    """Currency code of the rate, e.g. "USD" or "EUR"."""
+
+    description = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="description")
+    """Human/agent-friendly explanation of what the rate measures, e.g.
+    the price of one TB of storage per month.
+    """
+
+
+class WarehousePriceRatesOutput(sgqlc.types.Type):
+    """A warehouse's available price rates."""
+
+    __schema__ = schema
+    __field_names__ = ("warehouse_uuid", "price_rates")
+    warehouse_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="warehouseUuid")
+    """UUID of the warehouse these rates apply to."""
+
+    price_rates = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(WarehousePriceRateOutput))),
+        graphql_name="priceRates",
+    )
+    """Priced usage rates for this warehouse. Never empty — a warehouse
+    with no priced rate is omitted from the query result entirely.
+    """
+
+
 class WarehouseRelation(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("relation_type", "target_warehouse_uuid")
@@ -102256,6 +103019,7 @@ class AgentTraceTable(sgqlc.types.Type, Node):
         "sql_tool_calls_schedule",
         "recommendations_generated_at",
         "supports_conversation_eval",
+        "supports_conversation_clustering",
     )
     created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
 
@@ -102294,6 +103058,13 @@ class AgentTraceTable(sgqlc.types.Type, Node):
     """Whether conversation-level evaluation monitors can be configured
     for this agent. When false, only span/trace-level eval scopes are
     available.
+    """
+
+    supports_conversation_clustering = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="supportsConversationClustering"
+    )
+    """Whether conversation clustering can be enabled for this agent —
+    gates the Clusters panel and the clustering opt-in.
     """
 
 
@@ -110139,6 +110910,7 @@ class PlatformAgent(sgqlc.types.Type, Node):
         "recommendations_generated_at",
         "display_name",
         "supports_conversation_eval",
+        "supports_conversation_clustering",
         "trace_table_mcon",
         "trace_table_ingested",
         "collector_status",
@@ -110221,6 +110993,13 @@ class PlatformAgent(sgqlc.types.Type, Node):
     """Whether conversation-level evaluation monitors can be configured
     for this agent. When false, only span/trace-level eval scopes are
     available.
+    """
+
+    supports_conversation_clustering = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="supportsConversationClustering"
+    )
+    """Whether conversation clustering can be enabled for this agent —
+    gates the Clusters panel and the clustering opt-in.
     """
 
     trace_table_mcon = sgqlc.types.Field(String, graphql_name="traceTableMcon")

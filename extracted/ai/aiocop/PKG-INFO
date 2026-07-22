@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiocop
-Version: 1.1.4
+Version: 1.1.5
 Summary: Non-intrusive monitoring for Python asyncio and uvloop. Detects, pinpoints, and logs blocking IO and CPU calls that freeze your event loop.
 Project-URL: bugs, https://github.com/Feverup/aiocop/issues
 Project-URL: changelog, https://github.com/Feverup/aiocop/blob/master/HISTORY.md

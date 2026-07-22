@@ -115,6 +115,60 @@ class Ga2Client(AbstractClient):
         
         return await self.call_and_deserialize(**kwargs)
         
+    async def CreateGlobalAcceleratorAccessLog(
+            self,
+            request: models.CreateGlobalAcceleratorAccessLogRequest,
+            opts: Dict = None,
+    ) -> models.CreateGlobalAcceleratorAccessLogResponse:
+        """
+        创建GA访问日志
+        """
+        
+        kwargs = {}
+        kwargs["action"] = "CreateGlobalAcceleratorAccessLog"
+        kwargs["params"] = request._serialize()
+        kwargs["resp_cls"] = models.CreateGlobalAcceleratorAccessLogResponse
+        kwargs["headers"] = request.headers
+        kwargs["opts"] = opts or {}
+        
+        return await self.call_and_deserialize(**kwargs)
+        
+    async def CreateGlobalAcceleratorAclPolicy(
+            self,
+            request: models.CreateGlobalAcceleratorAclPolicyRequest,
+            opts: Dict = None,
+    ) -> models.CreateGlobalAcceleratorAclPolicyResponse:
+        """
+        创建访问控制策略
+        """
+        
+        kwargs = {}
+        kwargs["action"] = "CreateGlobalAcceleratorAclPolicy"
+        kwargs["params"] = request._serialize()
+        kwargs["resp_cls"] = models.CreateGlobalAcceleratorAclPolicyResponse
+        kwargs["headers"] = request.headers
+        kwargs["opts"] = opts or {}
+        
+        return await self.call_and_deserialize(**kwargs)
+        
+    async def CreateGlobalAcceleratorAclRule(
+            self,
+            request: models.CreateGlobalAcceleratorAclRuleRequest,
+            opts: Dict = None,
+    ) -> models.CreateGlobalAcceleratorAclRuleResponse:
+        """
+        创建ACL规则
+        """
+        
+        kwargs = {}
+        kwargs["action"] = "CreateGlobalAcceleratorAclRule"
+        kwargs["params"] = request._serialize()
+        kwargs["resp_cls"] = models.CreateGlobalAcceleratorAclRuleResponse
+        kwargs["headers"] = request.headers
+        kwargs["opts"] = opts or {}
+        
+        return await self.call_and_deserialize(**kwargs)
+        
     async def CreateListener(
             self,
             request: models.CreateListenerRequest,
@@ -241,6 +295,60 @@ class Ga2Client(AbstractClient):
         
         return await self.call_and_deserialize(**kwargs)
         
+    async def DeleteGlobalAcceleratorAccessLog(
+            self,
+            request: models.DeleteGlobalAcceleratorAccessLogRequest,
+            opts: Dict = None,
+    ) -> models.DeleteGlobalAcceleratorAccessLogResponse:
+        """
+        删除GA日志任务
+        """
+        
+        kwargs = {}
+        kwargs["action"] = "DeleteGlobalAcceleratorAccessLog"
+        kwargs["params"] = request._serialize()
+        kwargs["resp_cls"] = models.DeleteGlobalAcceleratorAccessLogResponse
+        kwargs["headers"] = request.headers
+        kwargs["opts"] = opts or {}
+        
+        return await self.call_and_deserialize(**kwargs)
+        
+    async def DeleteGlobalAcceleratorAclPolicy(
+            self,
+            request: models.DeleteGlobalAcceleratorAclPolicyRequest,
+            opts: Dict = None,
+    ) -> models.DeleteGlobalAcceleratorAclPolicyResponse:
+        """
+        删除访问控制策略
+        """
+        
+        kwargs = {}
+        kwargs["action"] = "DeleteGlobalAcceleratorAclPolicy"
+        kwargs["params"] = request._serialize()
+        kwargs["resp_cls"] = models.DeleteGlobalAcceleratorAclPolicyResponse
+        kwargs["headers"] = request.headers
+        kwargs["opts"] = opts or {}
+        
+        return await self.call_and_deserialize(**kwargs)
+        
+    async def DeleteGlobalAcceleratorAclRule(
+            self,
+            request: models.DeleteGlobalAcceleratorAclRuleRequest,
+            opts: Dict = None,
+    ) -> models.DeleteGlobalAcceleratorAclRuleResponse:
+        """
+        删除ACL规则
+        """
+        
+        kwargs = {}
+        kwargs["action"] = "DeleteGlobalAcceleratorAclRule"
+        kwargs["params"] = request._serialize()
+        kwargs["resp_cls"] = models.DeleteGlobalAcceleratorAclRuleResponse
+        kwargs["headers"] = request.headers
+        kwargs["opts"] = opts or {}
+        
+        return await self.call_and_deserialize(**kwargs)
+        
     async def DeleteListener(
             self,
             request: models.DeleteListenerRequest,
@@ -308,6 +416,24 @@ class Ga2Client(AbstractClient):
         kwargs["action"] = "DescribeAccelerateRegions"
         kwargs["params"] = request._serialize()
         kwargs["resp_cls"] = models.DescribeAccelerateRegionsResponse
+        kwargs["headers"] = request.headers
+        kwargs["opts"] = opts or {}
+        
+        return await self.call_and_deserialize(**kwargs)
+        
+    async def DescribeAccessLogParam(
+            self,
+            request: models.DescribeAccessLogParamRequest,
+            opts: Dict = None,
+    ) -> models.DescribeAccessLogParamResponse:
+        """
+        查看访问日志上报参数
+        """
+        
+        kwargs = {}
+        kwargs["action"] = "DescribeAccessLogParam"
+        kwargs["params"] = request._serialize()
+        kwargs["resp_cls"] = models.DescribeAccessLogParamResponse
         kwargs["headers"] = request.headers
         kwargs["opts"] = opts or {}
         
@@ -385,6 +511,60 @@ class Ga2Client(AbstractClient):
         
         return await self.call_and_deserialize(**kwargs)
         
+    async def DescribeGlobalAcceleratorAccessLog(
+            self,
+            request: models.DescribeGlobalAcceleratorAccessLogRequest,
+            opts: Dict = None,
+    ) -> models.DescribeGlobalAcceleratorAccessLogResponse:
+        """
+        查询日志任务
+        """
+        
+        kwargs = {}
+        kwargs["action"] = "DescribeGlobalAcceleratorAccessLog"
+        kwargs["params"] = request._serialize()
+        kwargs["resp_cls"] = models.DescribeGlobalAcceleratorAccessLogResponse
+        kwargs["headers"] = request.headers
+        kwargs["opts"] = opts or {}
+        
+        return await self.call_and_deserialize(**kwargs)
+        
+    async def DescribeGlobalAcceleratorAclPolicies(
+            self,
+            request: models.DescribeGlobalAcceleratorAclPoliciesRequest,
+            opts: Dict = None,
+    ) -> models.DescribeGlobalAcceleratorAclPoliciesResponse:
+        """
+        查看访问控制策略
+        """
+        
+        kwargs = {}
+        kwargs["action"] = "DescribeGlobalAcceleratorAclPolicies"
+        kwargs["params"] = request._serialize()
+        kwargs["resp_cls"] = models.DescribeGlobalAcceleratorAclPoliciesResponse
+        kwargs["headers"] = request.headers
+        kwargs["opts"] = opts or {}
+        
+        return await self.call_and_deserialize(**kwargs)
+        
+    async def DescribeGlobalAcceleratorAclRules(
+            self,
+            request: models.DescribeGlobalAcceleratorAclRulesRequest,
+            opts: Dict = None,
+    ) -> models.DescribeGlobalAcceleratorAclRulesResponse:
+        """
+        查看ACL规则
+        """
+        
+        kwargs = {}
+        kwargs["action"] = "DescribeGlobalAcceleratorAclRules"
+        kwargs["params"] = request._serialize()
+        kwargs["resp_cls"] = models.DescribeGlobalAcceleratorAclRulesResponse
+        kwargs["headers"] = request.headers
+        kwargs["opts"] = opts or {}
+        
+        return await self.call_and_deserialize(**kwargs)
+        
     async def DescribeGlobalAccelerators(
             self,
             request: models.DescribeGlobalAcceleratorsRequest,
@@ -457,6 +637,24 @@ class Ga2Client(AbstractClient):
         
         return await self.call_and_deserialize(**kwargs)
         
+    async def ModifyAccessLogStatus(
+            self,
+            request: models.ModifyAccessLogStatusRequest,
+            opts: Dict = None,
+    ) -> models.ModifyAccessLogStatusResponse:
+        """
+        修改日志任务状态
+        """
+        
+        kwargs = {}
+        kwargs["action"] = "ModifyAccessLogStatus"
+        kwargs["params"] = request._serialize()
+        kwargs["resp_cls"] = models.ModifyAccessLogStatusResponse
+        kwargs["headers"] = request.headers
+        kwargs["opts"] = opts or {}
+        
+        return await self.call_and_deserialize(**kwargs)
+        
     async def ModifyEndpointGroup(
             self,
             request: models.ModifyEndpointGroupRequest,
@@ -524,6 +722,60 @@ class Ga2Client(AbstractClient):
         kwargs["action"] = "ModifyGlobalAccelerator"
         kwargs["params"] = request._serialize()
         kwargs["resp_cls"] = models.ModifyGlobalAcceleratorResponse
+        kwargs["headers"] = request.headers
+        kwargs["opts"] = opts or {}
+        
+        return await self.call_and_deserialize(**kwargs)
+        
+    async def ModifyGlobalAcceleratorAccessLog(
+            self,
+            request: models.ModifyGlobalAcceleratorAccessLogRequest,
+            opts: Dict = None,
+    ) -> models.ModifyGlobalAcceleratorAccessLogResponse:
+        """
+        修改GA访问日志
+        """
+        
+        kwargs = {}
+        kwargs["action"] = "ModifyGlobalAcceleratorAccessLog"
+        kwargs["params"] = request._serialize()
+        kwargs["resp_cls"] = models.ModifyGlobalAcceleratorAccessLogResponse
+        kwargs["headers"] = request.headers
+        kwargs["opts"] = opts or {}
+        
+        return await self.call_and_deserialize(**kwargs)
+        
+    async def ModifyGlobalAcceleratorAclPolicy(
+            self,
+            request: models.ModifyGlobalAcceleratorAclPolicyRequest,
+            opts: Dict = None,
+    ) -> models.ModifyGlobalAcceleratorAclPolicyResponse:
+        """
+        修改访问控制策略状态
+        """
+        
+        kwargs = {}
+        kwargs["action"] = "ModifyGlobalAcceleratorAclPolicy"
+        kwargs["params"] = request._serialize()
+        kwargs["resp_cls"] = models.ModifyGlobalAcceleratorAclPolicyResponse
+        kwargs["headers"] = request.headers
+        kwargs["opts"] = opts or {}
+        
+        return await self.call_and_deserialize(**kwargs)
+        
+    async def ModifyGlobalAcceleratorAclRule(
+            self,
+            request: models.ModifyGlobalAcceleratorAclRuleRequest,
+            opts: Dict = None,
+    ) -> models.ModifyGlobalAcceleratorAclRuleResponse:
+        """
+        修改ACL规则
+        """
+        
+        kwargs = {}
+        kwargs["action"] = "ModifyGlobalAcceleratorAclRule"
+        kwargs["params"] = request._serialize()
+        kwargs["resp_cls"] = models.ModifyGlobalAcceleratorAclRuleResponse
         kwargs["headers"] = request.headers
         kwargs["opts"] = opts or {}
         

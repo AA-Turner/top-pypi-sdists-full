@@ -6,8 +6,10 @@ from abstra_internals.entities.forms.widgets.widget_base import InputWidget
 class CnpjInput(InputWidget):
     """CNPJ (Brazilian company registry) input widget.
 
+    Accepts both the numeric and the alphanumeric CNPJ formats.
+
     Attributes:
-        value (str): The CNPJ number entered by the user.
+        value (str): The CNPJ entered by the user.
     """
 
     type = "cnpj-input"

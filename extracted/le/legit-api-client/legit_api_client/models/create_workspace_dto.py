@@ -34,13 +34,10 @@ class CreateWorkspaceDto(BaseModel):
     parent_group_id: Optional[StrictStr] = Field(default=None, alias="parentGroupId")
     __properties: ClassVar[List[str]] = ["name", "description", "integrationIds", "parentGroupId"]
 
-    @field_validator('name')
+    @field_validator('name', mode="before")
     def name_validate_regular_expression(cls, value):
         """Validates the regular expression"""
-        if not isinstance(value, str):
-            value = str(value)
-
-        if not re.match(r"^[\w\s!@#$%\^&*()={}:;<>+\'-\/]{1,255}$", value):
+        if isinstance(value, str) and not re.match(r"^[\w\s!@#$%\^&*()={}:;<>+\'-\/]{1,255}$", value):
             raise ValueError(r"must validate the regular expression /^[\w\s!@#$%\^&*()={}:;<>+'-\/]{1,255}$/")
         return value
 

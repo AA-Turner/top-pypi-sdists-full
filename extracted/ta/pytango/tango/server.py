@@ -1970,6 +1970,7 @@ def __server_run(
     pre_init_callback=None,
     post_init_callback=None,
     green_mode=None,
+    cleanup=False,
 ):
     green_mode = _get_class_green_mode(classes, green_mode)
 
@@ -2009,10 +2010,13 @@ def __server_run(
             util.server_cleanup()
             log.debug("server cleaned up")
         finally:
-            Util.cleanup()
-            log.debug("Util cleaned up")
-            cleanup_classes()
-            log.debug("classes cleaned up")
+            if cleanup:
+                Util.cleanup()
+                log.debug("Util cleaned up")
+                cleanup_classes()
+                log.debug("classes cleaned up")
+            else:
+                log.debug("No Util cleanup after server run")
 
     worker.run(tango_loop, wait=True)
 
@@ -2029,6 +2033,7 @@ def run(
     green_mode=None,
     raises=False,
     err_stream=sys.stderr,
+    cleanup=False,
 ):
     """
     Provides a simple way to run a tango server. It handles exceptions
@@ -2139,6 +2144,14 @@ def run(
     :param err_stream:
         stream where to put catched exceptions [default: sys.stderr]
 
+    :param cleanup:
+        if True - after the server loop finishes the Util.cleanup() method will be called
+        and all configured classes will be erased.
+        To be used, if one needs to restart server loop in the same process.
+        This feature is experimental and may introduce unexpected bugs in behavior!
+        [default: False]
+    :type cleanup: bool
+
     .. versionadded:: 8.1.2
 
     .. versionchanged:: 8.1.4
@@ -2159,6 +2172,9 @@ def run(
         since the Util cleanup was added and this destroys the Util instance.
         If user provides its own Util object to the method, it will be left in the broken state,
         so new Util must be created after this method
+
+    .. versionchanged:: 10.3.1
+        `cleanup` argument has been added
     """
     server_run = functools.partial(
         __server_run,
@@ -2170,6 +2186,7 @@ def run(
         pre_init_callback=pre_init_callback,
         post_init_callback=post_init_callback,
         green_mode=green_mode,
+        cleanup=cleanup,
     )
     # Run the server without error handling
     if raises:
@@ -2202,6 +2219,7 @@ def server_run(
     post_init_callback=None,
     green_mode=None,
     err_stream=sys.stderr,
+    cleanup=False,
 ):
     """
     Since PyTango 8.1.2 it is just an alias to
@@ -2236,6 +2254,9 @@ def server_run(
         since the Util cleanup was added and this destroys the Util instance.
         If user provides its own Util object to the method, it will be left in the broken state,
         so new Util must be created after this method
+
+    .. versionchanged:: 10.3.1
+        `cleanup` argument has been added
     """
     run(
         classes,
@@ -2248,6 +2269,7 @@ def server_run(
         post_init_callback=post_init_callback,
         green_mode=green_mode,
         err_stream=sys.stderr,
+        cleanup=cleanup,
     )
 
 

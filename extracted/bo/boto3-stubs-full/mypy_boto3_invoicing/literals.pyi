@@ -76,6 +76,7 @@ ProcurementPortalPreferenceStatusType = Literal[
     "TEST_FAILED",
     "TEST_INITIALIZATION_FAILED",
     "TEST_INITIALIZED",
+    "VALIDATED",
 ]
 ProtocolType = Literal["CXML"]
 PurchaseOrderDataSourceTypeType = Literal[

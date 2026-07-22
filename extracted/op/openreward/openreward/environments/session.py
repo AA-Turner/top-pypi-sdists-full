@@ -13,7 +13,7 @@ from typing import Optional
 
 from openreward.log_utils import get_logger as _get_logger
 
-from .environment import Environment, _introspect_tool
+from .environment import Environment, _find_terminal_tool, _introspect_tool
 from .toolset import Toolset
 from .types import JSONObject, ListToolsOutput, RunToolOutput, ToolSpec
 from .utils import run_user_callable
@@ -55,12 +55,23 @@ async def list_session_tools(env: Environment, toolset: Optional[Toolset]) -> Li
     same-named tool from the environment or its declared toolsets, and a
     warning is logged for each shadow.
     """
+    env_tools = env.list_tools()
+    terminal = env_tools.terminal_tool
     task_tools = await run_user_callable(env.list_task_tools)
-    merged: list[ToolSpec] = list(env.list_tools().tools) + list(task_tools.tools)
+    merged: list[ToolSpec] = list(env_tools.tools) + list(task_tools.tools)
+    if terminal is not None:
+        # A task tool could shadow the terminal tool's name; keep it hidden.
+        merged = [s for s in merged if s.name != terminal.name]
     if toolset is None:
-        return ListToolsOutput(tools=merged)
+        return ListToolsOutput(tools=merged, terminal_tool=terminal)
 
-    ts_specs = _toolset_specs(toolset)
+    # A session toolset may carry its own terminal tool, which — like its
+    # regular tools — takes precedence over the environment's.
+    ts_terminal = _find_terminal_tool(toolset)
+    if ts_terminal is not None:
+        terminal = ts_terminal
+
+    ts_specs = [s for s in _toolset_specs(toolset) if terminal is None or s.name != terminal.name]
     ts_names = {s.name for s in ts_specs}
     for spec in merged:
         if spec.name in ts_names:
@@ -70,7 +81,10 @@ async def list_session_tools(env: Environment, toolset: Optional[Toolset]) -> Li
                 toolset=type(toolset).__name__,
                 env=type(env).__name__,
             )
-    return ListToolsOutput(tools=[s for s in merged if s.name not in ts_names] + ts_specs)
+    merged = [s for s in merged if s.name not in ts_names]
+    if terminal is not None:
+        merged = [s for s in merged if s.name != terminal.name]
+    return ListToolsOutput(tools=merged + ts_specs, terminal_tool=terminal)
 
 
 async def call_session_tool(

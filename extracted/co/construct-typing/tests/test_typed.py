@@ -1,39 +1,163 @@
 # -*- coding: utf-8 -*-
-# pyright: strict
 import dataclasses
 import enum
+import hashlib
 import textwrap
 import typing as t
 
 import construct as cs
 
 import construct_typed as cst
-from construct_typed import DataclassBitStruct, DataclassMixin, DataclassStruct, csfield
+from construct_typed import (
+    DataclassBitStruct,
+    DataclassMixin,
+    DataclassStruct,
+    csfield,
+    csfield_const,
+    csfield_default,
+    csfield_noinit,
+)
+from construct_typed.dataclass_struct import DataclassFieldError
 
 from .declarativeunittest import common, raises, setattrs
 
 
-def test_dataclass_const_default() -> None:
+def test_dataclass_const_default_noinit() -> None:
     @dataclasses.dataclass
     class ConstDefaultTest(DataclassMixin):
-        const_bytes: bytes = csfield(cs.Const(b"BMP"))
-        const_int: int = csfield(cs.Const(5, cs.Int8ub))
-        default_int: int = csfield(cs.Default(cs.Int8ub, 28))
-        default_lambda: bytes = csfield(
-            cs.Default(cs.Bytes(cs.this.const_int), lambda ctx: bytes(ctx.const_int))
+        const_bytes: bytes = csfield_const(cs.Bytes(3), b"BMP")
+        const_int: int = csfield_const(cs.Int8ub, 5)
+        default_int: int = csfield_default(cs.Int8ub, default=8)
+        default_lambda: bytes | None = csfield_noinit(
+            cs.Default(
+                cs.Bytes(cs.this.default_int), lambda ctx: bytes(ctx.default_int)
+            )
         )
+        computed: bytes | None = csfield_noinit(
+            cs.Computed(lambda ctx: bytes(i + 49 for i in range(ctx.default_int)))
+        )
+        # Construct allows to put non-default values after Default. Dataclass and Pyright don't like that too much. It is necessary to
+        # specify the field `kw_only` and pass it "by keyword".
+        normal_int: int = csfield(cs.Int8ub, kw_only=True)
+        const_int2: int = csfield_const(cs.Int8ub, 5)
 
-    a = ConstDefaultTest()
+    format = DataclassStruct(ConstDefaultTest)
+
+    a = ConstDefaultTest(
+        normal_int=7,
+    )
     assert a.const_bytes == b"BMP"
     assert a.const_int == 5
-    assert a.default_int == 28
-    assert a.default_lambda == None
+    assert a.default_int == 8
+    assert a.default_lambda is None
+    assert a.computed is None
+    assert format.build(a) == b"BMP\x05\x08\x00\x00\x00\x00\x00\x00\x00\x00\x07\x05"
+    a = format.parse(format.build(a))
+    assert a.default_int == 8
+    assert a.default_lambda == bytes(8)
+    assert a.computed == b"12345678"
+
+    # Overriding Default-Values should be OK and modify the `computed` value.
+    b = ConstDefaultTest(
+        default_int=4,
+        normal_int=1,
+    )
+    b.default_lambda = b"TEST"
+    b = format.parse(format.build(b))
+    assert b.default_int == 4
+    assert b.default_lambda == b"TEST"
+    assert b.computed == b"1234"
+
+
+def test_csfield_validation_errors() -> None:
+    # `csfield` must reject subcons that can build from None.
+    assert (
+        raises(lambda: csfield(cs.Const(b"BMP"))) is DataclassFieldError  # type: ignore
+    )
+
+    # `csfield_noinit` must reject subcons that cannot build from None.
+    assert raises(lambda: csfield_noinit(cs.Int8ub)) is DataclassFieldError  # type: ignore
+
+    # `csfield_const`/`csfield_default` must reject subcons that already can build
+    # from None (e.g. double-wrapping another `Const`/`Default`/`Computed`).
+    assert (
+        raises(lambda: csfield_const(cs.Const(b"BMP"), b"BMP")) is DataclassFieldError  # type: ignore
+    )
+    assert (
+        raises(lambda: csfield_default(cs.Computed(1), default=1))
+        is DataclassFieldError  # type: ignore
+    )
+
+    # `csfield_const`/`csfield_default` must reject context lambdas.
+    assert (
+        raises(lambda: csfield_const(cs.Int8ub, lambda ctx: 1)) is DataclassFieldError  # type: ignore
+    )
+    assert (
+        raises(lambda: csfield_default(cs.Int8ub, default=lambda ctx: 1))  # type: ignore
+        is DataclassFieldError
+    )
+
+    # `csfield_const`/`csfield_default` must reject subcons that are already a `Const`/`Default`.
+    assert (
+        raises(lambda: csfield_const(cs.Const(b"BMP"), b"BMP"))  # type: ignore
+        is DataclassFieldError
+    )
+    assert (
+        raises(lambda: csfield_default(cs.Default(cs.Int8ub, 1), default=1))  # type: ignore
+        is DataclassFieldError
+    )
+
+
+def test_csfield_default_kw_only_ordering() -> None:
+    # If a field with a default (created via `csfield_default()`) is followed by a plain `csfield()`
+    # without `kw_only=True`, Python's own dataclass machinery must reject the class definition.
+    # `dataclasses.make_dataclass()` is used here (instead of a `class` statement) so that static type
+    # checkers - which also correctly flag this as an error - don't fail the type-check of this test file.
+    def build_bad_class() -> None:
+        dataclasses.make_dataclass(
+            "BadOrdering",
+            [
+                ("a", int, csfield_default(cs.Int8ub, default=1)),
+                ("b", int, csfield(cs.Int8ub)),  # missing kw_only=True
+            ],
+            bases=(DataclassMixin,),
+        )
+
+    assert raises(build_bad_class) is TypeError
+
+    # Marking the following field as `kw_only=True` fixes the ordering issue.
+    @dataclasses.dataclass
+    class GoodOrdering(DataclassMixin):
+        a: int = csfield_default(cs.Int8ub, default=1)
+        b: int = csfield(cs.Int8ub, kw_only=True)
+
+    obj = GoodOrdering(b=2)
+    assert obj.a == 1
+    assert obj.b == 2
+
+
+def test_dataclass_padded() -> None:
+    @dataclasses.dataclass
+    class PaddingTest(DataclassMixin):
+        padding: bytes | None = csfield_noinit(cs.Padding(1))
+        padded_pass: bytes | None = csfield_noinit(cs.Padded(2, cs.Pass))
+        padded_bytes: bytes = csfield(cs.Padded(7, cs.Bytes(5)))
+        padded_string: str = csfield(cs.PaddedString(4, "utf-8"))
+
+    format = DataclassStruct(PaddingTest)
+
+    a = PaddingTest(padded_bytes=b"12345", padded_string="abc")
+    assert a.padding is None
+    assert a.padded_pass is None
+    assert a.padded_bytes == b"12345"
+    assert a.padded_string == "abc"
+    assert format.build(a) == b"\x00\x00\x0012345\x00\x00abc\x00"
 
 
 def test_dataclass_access() -> None:
     @dataclasses.dataclass
     class TestTContainer(DataclassMixin):
-        a: t.Optional[int] = csfield(cs.Const(1, cs.Byte))
+        a: int = csfield_const(cs.Byte, 1)
         b: int = csfield(cs.Int8ub)
 
     tcontainer = TestTContainer(b=2)
@@ -52,13 +176,13 @@ def test_dataclass_access() -> None:
     assert tcontainer["a"] == 6
 
     # wrong creation
-    assert raises(lambda: TestTContainer(a=0, b=1)) == TypeError
+    assert raises(lambda: TestTContainer(a=0, b=1)) is TypeError  # type: ignore
 
 
 def test_dataclass_str_repr() -> None:
     @dataclasses.dataclass
     class Image(DataclassMixin):
-        signature: t.Optional[bytes] = csfield(cs.Const(b"BMP"))
+        signature: bytes = csfield_const(cs.Bytes(3), b"BMP")
         width: int = csfield(cs.Int8ub)
         height: int = csfield(cs.Int8ub)
 
@@ -78,14 +202,14 @@ def test_dataclass_str_repr() -> None:
 def test_dataclass_ifthenelse() -> None:
     @dataclasses.dataclass
     class IfThenElseTest(DataclassMixin):
-        test_if: t.Optional[int] = csfield(cs.If(False, cs.Int8ub))
-        test_ifthenelse: t.Optional[int] = csfield(
+        test_if: int | None = csfield(cs.If(False, cs.Int8ub))
+        test_ifthenelse: int | None = csfield(
             cs.IfThenElse(True, cs.Int8ub, cs.Pass)
         )
 
     a = IfThenElseTest(test_if=None, test_ifthenelse=None)
-    assert a.test_if == None
-    assert a.test_ifthenelse == None
+    assert a.test_if is None
+    assert a.test_ifthenelse is None
 
 
 def test_dataclass_struct() -> None:
@@ -139,8 +263,8 @@ def test_dataclass_struct_nested() -> None:
 
     common(
         DataclassStruct(TestContainer),
-        b"\x02\x01\xF1\xF2",
-        TestContainer(length=2, a=TestContainer.InnerDataclass(b=1, c=b"\xF1\xF2")),
+        b"\x02\x01\xf1\xf2",
+        TestContainer(length=2, a=TestContainer.InnerDataclass(b=1, c=b"\xf1\xf2")),
     )
 
 
@@ -149,7 +273,7 @@ def test_dataclass_struct_default_field() -> None:
     class Image(DataclassMixin):
         width: int = csfield(cs.Int8ub)
         height: int = csfield(cs.Int8ub)
-        pixels: t.Optional[bytes] = csfield(
+        pixels: bytes | None = csfield_noinit(
             cs.Default(
                 cs.Bytes(cs.this.width * cs.this.height),
                 lambda ctx: bytes(ctx.width * ctx.height),
@@ -164,10 +288,65 @@ def test_dataclass_struct_default_field() -> None:
     )
 
 
+def test_dataclass_struct_computed_field() -> None:
+    @dataclasses.dataclass
+    class Image(DataclassMixin):
+        width: int = csfield(cs.Int8ub)
+        height: int = csfield(cs.Int8ub)
+        size: int | None = csfield_noinit(
+            cs.Computed(lambda ctx: ctx.width * ctx.height)
+        )
+
+    common(
+        DataclassStruct(Image),
+        b"\x02\x03",
+        setattrs(Image(2, 3), size=6),
+        2,
+    )
+
+
+def test_dataclass_struct_rebuild_field() -> None:
+    @dataclasses.dataclass
+    class Image(DataclassMixin):
+        width: int = csfield(cs.Int8ub)
+        height: int = csfield(cs.Int8ub)
+        size: int | None = csfield_noinit(
+            cs.Rebuild(cs.Int8ub, cs.this.width * cs.this.height)
+        )
+
+    common(
+        DataclassStruct(Image),
+        b"\x02\x03\x06",
+        setattrs(Image(2, 3), size=6),
+        3,
+    )
+
+
+def test_dataclass_struct_checksum_field() -> None:
+    @dataclasses.dataclass
+    class Image(DataclassMixin):
+        width: int = csfield(cs.Int8ub)
+        height: int = csfield(cs.Int8ub)
+        checksum: bytes | None = csfield_noinit(
+            cs.Checksum(
+                cs.Bytes(4),
+                lambda data: hashlib.sha256(data).digest()[:4],
+                lambda ctx: bytes([ctx.width, ctx.height]),
+            )
+        )
+
+    common(
+        DataclassStruct(Image),
+        b"\x02\x03\xee\x90\x40\xf6",
+        setattrs(Image(2, 3), checksum=b"\xee\x90\x40\xf6"),
+        6,
+    )
+
+
 def test_dataclass_struct_const_field() -> None:
     @dataclasses.dataclass
     class TestContainer(DataclassMixin):
-        const_field: t.Optional[bytes] = csfield(cs.Const(b"\x00"))
+        const_field: bytes | None = csfield_noinit(cs.Const(b"\x00"))
 
     common(
         DataclassStruct(TestContainer),
@@ -201,14 +380,14 @@ def test_dataclass_struct_array_field() -> None:
 def test_dataclass_struct_anonymus_fields_1() -> None:
     @dataclasses.dataclass
     class TestContainer(DataclassMixin):
-        _1: t.Optional[bytes] = csfield(cs.Const(b"\x00"))
-        _2: None = csfield(cs.Padding(1))
-        _3: None = csfield(cs.Pass)
-        _4: None = csfield(cs.Terminated)
+        _1: bytes = csfield_const(cs.Bytes(1), b"\x00")
+        _2: None = csfield_noinit(cs.Padding(1))
+        _3: None = csfield_noinit(cs.Pass)
+        _4: None = csfield_noinit(cs.Terminated)
 
     common(
         DataclassStruct(TestContainer),
-        bytes(2),
+        b"\x00\x00",
         setattrs(TestContainer(), _1=b"\x00"),
         cs.SizeofError,
     )
@@ -217,10 +396,10 @@ def test_dataclass_struct_anonymus_fields_1() -> None:
 def test_dataclass_struct_anonymus_fields_2() -> None:
     @dataclasses.dataclass
     class TestContainer(DataclassMixin):
-        _1: int = csfield(cs.Computed(7))
-        _2: t.Optional[bytes] = csfield(cs.Const(b"JPEG"))
-        _3: None = csfield(cs.Pass)
-        _4: None = csfield(cs.Terminated)
+        _1: int | None = csfield_noinit(cs.Computed(7))
+        _2: bytes = csfield_const(cs.Bytes(4), b"JPEG")
+        _3: None = csfield_noinit(cs.Pass)
+        _4: None = csfield_noinit(cs.Terminated)
 
     d = DataclassStruct(TestContainer)
     assert d.build(TestContainer()) == d.build(TestContainer())
@@ -288,7 +467,7 @@ def test_dataclass_struct_no_dataclass() -> None:
         a: int = csfield(cs.Int16ub)
         b: int = csfield(cs.Int8ub)
 
-    assert raises(lambda: DataclassStruct(TestContainer)) == TypeError
+    assert raises(lambda: DataclassStruct(TestContainer)) is TypeError
 
 
 def test_dataclass_struct_no_DataclassMixin() -> None:
@@ -298,7 +477,7 @@ def test_dataclass_struct_no_DataclassMixin() -> None:
         b: int = csfield(cs.Int8ub)
 
     cls = t.cast(t.Type[DataclassMixin], TestContainer)
-    assert raises(lambda: DataclassStruct(cls)) == TypeError
+    assert raises(lambda: DataclassStruct(cls)) is TypeError
 
 
 def test_dataclass_struct_wrong_container() -> None:
@@ -314,7 +493,7 @@ def test_dataclass_struct_wrong_container() -> None:
 
     assert (
         raises(DataclassStruct(TestContainer1).build, TestContainer2(a=1, b=2))
-        == TypeError
+        is TypeError
     )
 
 
@@ -355,7 +534,7 @@ def test_dataclass_bitstruct() -> None:
 
     common(
         DataclassBitStruct(TestContainer),
-        b"\xFD\x12",
+        b"\xfd\x12",
         TestContainer(a=0x7E, b=1, c=0x12),
         2,
     )
@@ -387,7 +566,7 @@ def test_tenum() -> None:
     assert d.parse(b"\xff") == TestEnum(255)
     assert d.parse(b"\xff") == 255
     assert int(d.parse(b"\xff")) == 255
-    assert raises(d.build, 8) == TypeError
+    assert raises(d.build, 8) is TypeError
 
 
 def test_tenum_no_enumbase() -> None:
@@ -396,15 +575,11 @@ def test_tenum_no_enumbase() -> None:
         b = 2
 
     cls = t.cast(t.Type[cst.EnumBase], E)
-    assert raises(lambda: cst.TEnum(cs.Byte, cls)) == TypeError
+    assert raises(lambda: cst.TEnum(cs.Byte, cls)) is TypeError
 
 
 def test_tenum_asdict() -> None:
     # see: https://github.com/timrid/construct-typing/issues/21
-    import dataclasses
-
-    import construct_typed as cst
-
     class TestEnum(cst.EnumBase):
         one = 1
         two = 2
@@ -471,7 +646,7 @@ def test_dataclass_struct_wrong_enumbase() -> None:
         a = 1
         b = 2
 
-    assert raises(cst.TEnum(cs.Byte, E1).build, E2.a) == TypeError
+    assert raises(cst.TEnum(cs.Byte, E1).build, E2.a) is TypeError
 
 
 def test_tenum_in_tstruct() -> None:
@@ -492,7 +667,7 @@ def test_tenum_in_tstruct() -> None:
     )
 
     assert (
-        raises(cst.TEnum(cs.Byte, TestEnum).build, TestContainer(a=1, b=2)) == TypeError  # type: ignore
+        raises(cst.TEnum(cs.Byte, TestEnum).build, TestContainer(a=1, b=2)) is TypeError  # type: ignore
     )
 
 
@@ -511,14 +686,10 @@ def test_tenum_flags() -> None:
     assert d.build(TestEnum(1 | 2)) == b"\x03"
     assert d.build(TestEnum(255)) == b"\xff"
     assert d.build(TestEnum.eight) == b"\x08"
-    assert raises(d.build, 2) == TypeError
+    assert raises(d.build, 2) is TypeError
 
 
 def test_tenum_flags_asdict() -> None:
-    import dataclasses
-
-    import construct_typed as cst
-
     class TestEnum(cst.FlagsEnumBase):
         one = 1
         two = 2

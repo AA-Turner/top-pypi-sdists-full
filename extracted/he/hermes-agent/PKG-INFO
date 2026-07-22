@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hermes-agent
-Version: 0.18.2
+Version: 0.19.0
 Summary: The self-improving AI agent — creates skills from experience, improves them during use, and runs anywhere
 Author: Nous Research
 License-Expression: MIT
@@ -69,13 +69,13 @@ Requires-Dist: python-telegram-bot[webhooks]==22.6; extra == "messaging"
 Requires-Dist: discord.py[voice]==2.7.1; extra == "messaging"
 Requires-Dist: aiohttp==3.14.1; extra == "messaging"
 Requires-Dist: brotlicffi==1.2.0.1; extra == "messaging"
-Requires-Dist: slack-bolt==1.27.0; extra == "messaging"
-Requires-Dist: slack-sdk==3.40.1; extra == "messaging"
+Requires-Dist: slack-bolt==1.29.0; extra == "messaging"
+Requires-Dist: slack-sdk==3.43.0; extra == "messaging"
 Requires-Dist: qrcode==7.4.2; extra == "messaging"
 Provides-Extra: cron
 Provides-Extra: slack
-Requires-Dist: slack-bolt==1.27.0; extra == "slack"
-Requires-Dist: slack-sdk==3.40.1; extra == "slack"
+Requires-Dist: slack-bolt==1.29.0; extra == "slack"
+Requires-Dist: slack-sdk==3.43.0; extra == "slack"
 Requires-Dist: aiohttp==3.14.1; extra == "slack"
 Provides-Extra: matrix
 Requires-Dist: mautrix[encryption]==0.21.0; extra == "matrix"
@@ -95,7 +95,7 @@ Requires-Dist: sounddevice==0.5.5; extra == "voice"
 Requires-Dist: numpy==2.4.3; extra == "voice"
 Provides-Extra: pty
 Provides-Extra: honcho
-Requires-Dist: honcho-ai==2.0.1; extra == "honcho"
+Requires-Dist: honcho-ai==2.2.0; extra == "honcho"
 Provides-Extra: supermemory
 Requires-Dist: supermemory==3.50.0; extra == "supermemory"
 Provides-Extra: mem0
@@ -105,7 +105,7 @@ Provides-Extra: mcp
 Requires-Dist: mcp==1.26.0; extra == "mcp"
 Requires-Dist: starlette==1.0.1; extra == "mcp"
 Provides-Extra: nemo-relay
-Requires-Dist: nemo-relay==0.3; extra == "nemo-relay"
+Requires-Dist: nemo-relay<1.0,>=0.5; extra == "nemo-relay"
 Provides-Extra: homeassistant
 Requires-Dist: aiohttp==3.14.1; extra == "homeassistant"
 Provides-Extra: sms
@@ -145,7 +145,7 @@ Requires-Dist: dingtalk-stream==0.24.3; extra == "dingtalk"
 Requires-Dist: alibabacloud-dingtalk==2.2.42; extra == "dingtalk"
 Requires-Dist: qrcode==7.4.2; extra == "dingtalk"
 Provides-Extra: feishu
-Requires-Dist: lark-oapi==1.5.3; extra == "feishu"
+Requires-Dist: lark-oapi==1.6.8; extra == "feishu"
 Requires-Dist: qrcode==7.4.2; extra == "feishu"
 Provides-Extra: google
 Requires-Dist: google-api-python-client==2.194.0; extra == "google"
@@ -282,6 +282,7 @@ hermes              # Interactive CLI — start a conversation
 hermes model        # Choose your LLM provider and model
 hermes tools        # Configure which tools are enabled
 hermes config set   # Set individual config values
+hermes config get   # Print individual config values
 hermes gateway      # Start the messaging gateway (Telegram, Discord, etc.)
 hermes setup        # Run the full setup wizard (configures everything at once)
 hermes claw migrate # Migrate from OpenClaw (if coming from OpenClaw)

@@ -1,0 +1,164 @@
+name: CI
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:  # least privilege; jobs needing OIDC override this
+  contents: read
+
+jobs:
+  CI:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15-intel, macos-latest, windows-latest, ubuntu-latest]
+        python-version: ["3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install -U pip
+          python -m pip install -U build pytest ruff
+          python -m pip install -r requirements.txt
+          python -m pip install -r test/requirements.txt
+
+      - name: Build wheel
+        run: python -m build --wheel
+
+      - name: Show dist contents
+        run: ls -la dist
+        shell: bash
+
+      - name: Install package from wheel (robust)
+        shell: bash
+        run: |
+          WHEEL="$(python -c "import glob; w=glob.glob('dist/*.whl'); print(w[0] if w else '')")"
+          if [ -z "$WHEEL" ]; then
+            echo "No wheel was built. dist contains:"
+            ls -la dist || true
+            exit 1
+          fi
+          python -m pip install "$WHEEL"
+
+      - name: Run linter
+        run: |
+          ruff check dropbox example test
+          ruff format --check dropbox example test
+
+      - name: Run unit tests
+        run: |
+          pytest -v test/unit/
+  Docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install build and doc tooling
+        run: |
+          python -m pip install -U pip
+          python -m pip install build twine sphinx
+          python -m pip install -r requirements.txt
+          python -m pip install -r test/requirements.txt
+
+      - name: Build sdist and wheel (PEP 517)
+        run: python -m build
+
+      - name: Validate distribution metadata
+        run: twine check dist/*
+
+      - name: Build wheel
+        run: python -m build --wheel
+
+      - name: Install package from wheel
+        run: |
+          python -c "import glob,sys; w=glob.glob('dist/*.whl'); assert w, f'No wheel built. dist contains: {glob.glob(\"dist/*\")}'; print(w[0])"
+          python -c "import glob; print(glob.glob('dist/*.whl')[0])" > wheel_path.txt
+          python -m pip install "$(cat wheel_path.txt)"
+        shell: bash
+     
+
+      - name: Test documentation generation
+        run: |
+          sphinx-build -b html docs build/html
+
+  Integration:
+    # Skip on fork PRs: they cannot assume the OIDC role.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    continue-on-error: false
+    runs-on: ${{ matrix.os }}
+    permissions:  # required for OIDC
+      id-token: write
+      contents: read
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        os: [macos-15-intel, macos-latest, windows-latest, ubuntu-latest]
+        python-version: ["3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install -U pip
+          python -m pip install -U build pytest
+          python -m pip install -r requirements.txt
+          python -m pip install -r test/requirements.txt
+
+      - name: Build wheel
+        run: python -m build --wheel
+
+      - name: Install package from wheel (cross-platform)
+        shell: bash
+        run: |
+          python -m pip install "$(python -c "import glob,sys; w=glob.glob('dist/*.whl'); assert w, f'No wheel built. dist contains: {glob.glob(\"dist/*\")}'; print(w[0])")"
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::082972943155:role/oidc-github-dropbox-dropbox-sdk-python-repo
+          aws-region: us-west-2
+
+      - name: Get integration credentials from AWS Secrets Manager
+        uses: aws-actions/aws-secretsmanager-get-secrets@v3
+        with:
+          secret-ids: |
+            CREDS,api-sdk-integration-test-creds
+          parse-json-secrets: true
+
+      - name: Run integration tests
+        env:
+          SCOPED_USER_CLIENT_ID: ${{ env.CREDS_SCOPED_USER_CLIENT_ID }}
+          SCOPED_USER_CLIENT_SECRET: ${{ env.CREDS_SCOPED_USER_CLIENT_SECRET }}
+          SCOPED_USER_REFRESH_TOKEN: ${{ env.CREDS_SCOPED_USER_REFRESH_TOKEN }}
+          SCOPED_TEAM_CLIENT_ID: ${{ env.CREDS_SCOPED_TEAM_CLIENT_ID }}
+          SCOPED_TEAM_CLIENT_SECRET: ${{ env.CREDS_SCOPED_TEAM_CLIENT_SECRET }}
+          SCOPED_TEAM_REFRESH_TOKEN: ${{ env.CREDS_SCOPED_TEAM_REFRESH_TOKEN }}
+          DROPBOX_SHARED_LINK: ${{ env.CREDS_DROPBOX_SHARED_LINK }}
+        run: |
+          pytest -v test/integration/test_dropbox.py

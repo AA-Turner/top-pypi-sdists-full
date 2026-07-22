@@ -563,9 +563,6 @@ class RuleAssignSlaActionCaseSlaConfigurationPropertiesType(_builtins.str, Enum)
 
 @pulumi.type_token("aws-native:connect:RuleAssignSlaActionSlaAssignmentType")
 class RuleAssignSlaActionSlaAssignmentType(_builtins.str, Enum):
-    """
-    The type of SLA assignment.
-    """
     CASES = "CASES"
 
 
@@ -582,7 +579,7 @@ class RulePublishStatus(_builtins.str, Enum):
 @pulumi.type_token("aws-native:connect:RuleReferenceType")
 class RuleReferenceType(_builtins.str, Enum):
     """
-    The type of the reference. ``DATE`` must be of type Epoch timestamp. 
+    The type of the reference. ``DATE`` must be of type Epoch timestamp.
      *Allowed values*: ``URL`` | ``ATTACHMENT`` | ``NUMBER`` | ``STRING`` | ``DATE`` | ``EMAIL``
     """
     URL = "URL"

@@ -35,7 +35,8 @@ class ScpiEnum:
         """Returns the SCPI value of the enum item: name for the integer value and value for the string value."""
         if not self.has_custom_values:
             return enum_value
-        return self._custom_values[enum_value]
+        # noinspection PyUnresolvedReferences
+        return self._custom_values[enum_value]  # ty: ignore[not-subscriptable]
 
     def find_in_enum_members(self, item: str, force_comma_remove: bool) -> Enum | None:
         """Returns either an EnumMember item or null if not found.
@@ -46,14 +47,14 @@ class ScpiEnum:
             return self.enum_type[self._members_raw[ix]]
 
         self._init_special_values()
-        ix = self._find_ix_in_enum_members(item, force_comma_remove, self._members_special)
+        ix = self._find_ix_in_enum_members(item, force_comma_remove, self._members_special)  # ty: ignore[invalid-argument-type]
         if ix >= 0:
             return self.enum_type[self._members_raw[ix]]
 
         if self.has_quotes:
             self._init_stripped_quotes()
             item = trim_str_response(item)
-            ix = self._find_ix_in_enum_members(item, force_comma_remove, self._members_stripped_quotes)
+            ix = self._find_ix_in_enum_members(item, force_comma_remove, self._members_stripped_quotes)  # ty: ignore[invalid-argument-type]
             if ix >= 0:
                 return self.enum_type[self._members_raw[ix]]
 

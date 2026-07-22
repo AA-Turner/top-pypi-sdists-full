@@ -3,7 +3,7 @@
 `expose` (sandbox port -> public URL) uses the SDK's native exposure (`client.expose`), so a
 host-side harness/framework can reach a tool/user server hosted in the sandbox. The reverse
 direction (a program in the sandbox reaching a host service) is the shared host-side
-`host_endpoint` tunnel, not the runtime's concern.
+`Tunnel` (interception.tunnel), not the runtime's concern.
 """
 
 import asyncio
@@ -37,6 +37,10 @@ MAX_LIFETIME = 24 * 60 * 60
 class PrimeConfig(BaseConfig):
     type: Literal["prime"] = "prime"
     image: str = "python:3.11-slim"
+    """Docker image to run. Any pullable ref works: on the first use of an image, the
+    platform auto-builds what the sandbox needs from it (a VM image for `vm` sandboxes,
+    ~10 minutes) and caches the result, so later sandboxes on the same ref start in
+    seconds."""
     workdir: str = "/app"
     network_access: bool = True
     vm: bool = False
@@ -61,7 +65,7 @@ class PrimeConfig(BaseConfig):
     creates_per_min: int | None = None
     """Pace sandbox creation to this many per minute, enforced host-wide across every
     env-server worker process (None/<= 0 disables it). (Tunnel creation is limited separately
-    and globally — see limiters.TUNNEL_LIMITER.)"""
+    and globally — see interception.tunnel.prime.TUNNEL_LIMITER.)"""
 
     @model_validator(mode="after")
     def _validate_idle_timeout(self) -> "PrimeConfig":
@@ -74,7 +78,9 @@ class PrimeConfig(BaseConfig):
 
 
 class PrimeRuntimeInfo(PrimeConfig, BaseRuntimeInfo):
-    pass
+    image_cached: bool | None = None
+    """Whether the platform already had the image at create (None until then). False means
+    a first-use auto-build ran while this sandbox waited to start."""
 
 
 class PrimeRuntime(Runtime):
@@ -134,11 +140,24 @@ class PrimeRuntime(Runtime):
                     )
                 )
             self.info.id = sandbox.id
+            # The create response says whether the platform already has the image:
+            # `pending_image_build_id` set means a first-use auto-build is running and the
+            # sandbox stays PENDING until it finishes (`wait_for_creation` gives that phase
+            # its own budget, separate from the normal boot attempts).
+            self.info.image_cached = sandbox.pending_image_build_id is None
+            if not self.info.image_cached:
+                logger.warning(
+                    "prime: image %s isn't cached on the platform - auto-building it "
+                    "(sandbox %s waits for the build; first use of an image can take "
+                    "~10 minutes, later runs start in seconds)",
+                    self.config.image,
+                    self.info.id,
+                )
             await self._client.wait_for_creation(self.info.id)
             logger.info(
                 "prime: sandbox %s up (image=%s)", self.info.id, self.config.image
             )
-            await self._client.run_background_job(
+            await self._client.execute_command(
                 self.info.id, f"mkdir -p {shlex.quote(self.config.workdir)}"
             )
         except (
@@ -229,11 +248,11 @@ class PrimeRuntime(Runtime):
             if path.startswith("/")
             else f"{self.config.workdir.rstrip('/')}/{path}"
         )
-        await self.run(
-            ["sh", "-c", f"mkdir -p {shlex.quote(str(PurePosixPath(target).parent))}"],
-            {},
-        )
         try:
+            await self._client.execute_command(
+                self.info.id,
+                f"mkdir -p {shlex.quote(str(PurePosixPath(target).parent))}",
+            )
             await self._client.upload_bytes(
                 self.info.id, target, data, filename=PurePosixPath(target).name
             )
@@ -257,9 +276,7 @@ class PrimeRuntime(Runtime):
         client, self._client = self._client, None  # `_client` is the idempotency guard
         if client is None:
             return
-        if (
-            self.info.id is not None
-        ):  # kept (not nulled) so descriptor survives teardown
+        if self.info.id is not None:  # keep info.id available after teardown
             try:
                 await client.delete(self.info.id)
             except Exception as e:

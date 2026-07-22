@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from airbyte_ops_mcp.cloud_admin.api_client import get_actor_sync_info
-from airbyte_ops_mcp.mcp.connector_rollout import (
+from airbyte_ops_mcp.mcp.connector_versions import (
     RolloutActorSelectionInfo,
     RolloutActorSyncStats,
     RolloutMonitoringResult,
@@ -99,9 +99,9 @@ def test_query_prod_rollout_monitoring_stats(
     mock_ctx.request_context.lifespan_context = {}
 
     with patch(
-        "airbyte_ops_mcp.mcp.connector_rollout._resolve_cloud_auth"
+        "airbyte_ops_mcp.mcp.connector_versions._resolve_cloud_auth"
     ) as mock_resolve_auth, patch(
-        "airbyte_ops_mcp.mcp.connector_rollout.api_client.get_actor_sync_info"
+        "airbyte_ops_mcp.mcp.connector_versions.api_client.get_actor_sync_info"
     ) as mock_get_sync_info:
         mock_resolve_auth.return_value = MagicMock(
             bearer_token="test-token", client_id=None, client_secret=None

@@ -287,12 +287,13 @@ class QueryEngine:
         placeholders and an ordered list of values, one for each placeholder.
         """
         sql_stmt: ClauseElement = text(stmt) if isinstance(stmt, str) else cast(ClauseElement, stmt)
+        is_text = isinstance(sql_stmt, TextClause)
 
-        if isinstance(sql_stmt, TextClause) and params:
+        if is_text and params:
             binds: List[BindParameter[Any]] = [
                 bindparam(k, value=v, expanding=(k in params_to_expand)) for k, v in params.items()
             ]
-            sql_stmt = sql_stmt.bindparams(*binds)
+            sql_stmt = cast(TextClause, sql_stmt).bindparams(*binds)
         elif params:  # SELECT, UPDATE, DELETE, INSERT, etc. constructs.
             params_to_expand = set(params_to_expand)
 
@@ -313,7 +314,11 @@ class QueryEngine:
         )
         bound = compiled.construct_params()
 
-        sql = str(compiled).replace('\n', ' ')  # compilation for some constructs adds newlines
+        sql = str(compiled)
+        if not is_text:
+            # compilation for some constructs adds newlines (ignore for text clauses)
+            sql = sql.replace('\n', ' ')
+
         if bound is None or compiled.positiontup is None:
             return sql, []
 

@@ -31,7 +31,7 @@ class CrossSectionCallable(Protocol[P]):
     def __call__(self, *args: P.args, **kwargs: P.kwargs) -> CrossSection: ...
 
 
-def xsection(
+def xsection[**P](
     func: CrossSectionCallable[P],
     xs_container: dict[str, CrossSectionFactory] = cross_sections,
     xs_default_mapping: dict[str, str] = _cross_section_default_names,
@@ -39,8 +39,6 @@ def xsection(
     """Decorator to register a cross-section function.
 
     Ensures that the cross-section name matches the name of the function that generated it when created using default parameters
-
-    .. code-block:: python
 
         @xsection
         def xs_sc(width=TECH.width_sc, radius=TECH.radius_sc):
@@ -101,9 +99,8 @@ def cross_section(
         radius_min: min acceptable bend radius.
         main_section_name: name of the main section. Defaults to _default
 
-    .. plot::
-        :include-source:
-
+    Example:
+        ```python
         import gdsfactory as gf
 
         xs = gf.cross_section.cross_section(width=0.5, offset=0, layer='WG')
@@ -111,33 +108,32 @@ def cross_section(
         c = p.extrude(xs)
         c.plot()
 
-    .. code::
 
-
-           ┌────────────────────────────────────────────────────────────┐
-           │                                                            │
-           │                                                            │
-           │                   boox_layer                               │
-           │                                                            │
-           │         ┌──────────────────────────────────────┐           │
-           │         │                            ▲         │bbox_offset│
-           │         │                            │         ├──────────►│
-           │         │           cladding_offset  │         │           │
-           │         │                            │         │           │
-           │         ├─────────────────────────▲──┴─────────┤           │
-           │         │                         │            │           │
+        ┌────────────────────────────────────────────────────────────┐
+        │                                                            │
+        │                                                            │
+        │                   boox_layer                               │
+        │                                                            │
+        │         ┌──────────────────────────────────────┐           │
+        │         │                            ▲         │bbox_offset│
+        │         │                            │         ├──────────►│
+        │         │           cladding_offset  │         │           │
+        │         │                            │         │           │
+        │         ├─────────────────────────▲──┴─────────┤           │
+        │         │                         │            │           │
         ─ ─┤         │           core   width  │            │           ├─ ─ center
-           │         │                         │            │           │
-           │         ├─────────────────────────▼────────────┤           │
-           │         │                                      │           │
-           │         │                                      │           │
-           │         │                                      │           │
-           │         │                                      │           │
-           │         └──────────────────────────────────────┘           │
-           │                                                            │
-           │                                                            │
-           │                                                            │
-           └────────────────────────────────────────────────────────────┘
+        │         │                         │            │           │
+        │         ├─────────────────────────▼────────────┤           │
+        │         │                                      │           │
+        │         │                                      │           │
+        │         │                                      │           │
+        │         │                                      │           │
+        │         └──────────────────────────────────────┘           │
+        │                                                            │
+        │                                                            │
+        │                                                            │
+        └────────────────────────────────────────────────────────────┘
+        ```
     """
     section_list: list[Section] = list(sections or [])
     cladding_simplify_not_none: list[float | None] | None = None

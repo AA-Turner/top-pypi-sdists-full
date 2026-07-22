@@ -324,6 +324,18 @@ function getGeoipDir(): string {
   return path.join(getCacheDir(), "geoip");
 }
 
+// Shared in-flight download so N concurrent launches don't each fetch the
+// same ~70 MB file (issue #458). Per-process only.
+let geoipDownloadPromise: Promise<void> | null = null;
+
+function runGuardedDownload(dbPath: string): Promise<void> {
+  if (geoipDownloadPromise) return geoipDownloadPromise;
+  geoipDownloadPromise = downloadGeoipDb(dbPath).finally(() => {
+    geoipDownloadPromise = null;
+  });
+  return geoipDownloadPromise;
+}
+
 async function ensureGeoipDb(): Promise<string | null> {
   const dir = getGeoipDir();
   const dbPath = path.join(dir, GEOIP_DB_FILENAME);
@@ -334,8 +346,9 @@ async function ensureGeoipDb(): Promise<string | null> {
   }
 
   try {
-    await downloadGeoipDb(dbPath);
-    return dbPath;
+    await runGuardedDownload(dbPath);
+    // Another concurrent launch may have owned the download; reuse its result.
+    return fs.existsSync(dbPath) ? dbPath : null;
   } catch {
     return null;
   }
@@ -384,8 +397,9 @@ function maybeTriggerUpdate(dbPath: string): void {
   } catch {
     return;
   }
-  // Fire-and-forget background update
-  downloadGeoipDb(dbPath).catch(() => {});
+  // Fire-and-forget background update — skip if a download is already running.
+  if (geoipDownloadPromise) return;
+  runGuardedDownload(dbPath).catch(() => {});
 }
 
 /**

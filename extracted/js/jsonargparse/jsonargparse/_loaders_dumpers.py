@@ -3,10 +3,11 @@
 import inspect
 import re
 from argparse import HelpFormatter
+from collections.abc import Callable
 from contextlib import suppress
-from typing import Any, Callable, Optional
+from typing import Any
 
-from ._common import load_value_mode, parent_parser
+from ._common import Unset, get_parsing_setting, load_value_mode, parent_parser
 from ._optionals import (
     import_jsonnet,
     import_toml_dumps,
@@ -153,7 +154,7 @@ def get_load_value_mode() -> str:
     return mode
 
 
-def get_loader_exceptions(mode: Optional[str] = None) -> tuple[type[Exception], ...]:
+def get_loader_exceptions(mode: str | None = None) -> tuple[type[Exception], ...]:
     if mode is None:
         mode = get_load_value_mode()
     if mode not in loader_exceptions:
@@ -234,6 +235,19 @@ dump_json_kwargs = {
 }
 
 
+def replace_unset(data):
+    """Recursively replaces Unset sentinel values with the serialized string ``"==UNSET=="``."""
+    if get_parsing_setting("unset_sentinel") is None:
+        return data
+    if data is Unset:
+        return Unset._SERIALIZED
+    if isinstance(data, dict):
+        return {k: replace_unset(v) for k, v in data.items()}
+    if isinstance(data, list):
+        return [replace_unset(v) for v in data]
+    return data
+
+
 def yaml_dump(data):
     import yaml
 
@@ -297,6 +311,7 @@ def dump_using_format(parser: ArgumentParser, data: dict, dump_format: str, with
                 raise ValueError("ruamel.yaml is required for dumping YAML with comments.")
             raise ValueError(f"Dumping with comments is not supported for format '{dump_format}'.")
         dump_format = f"{dump_format}_comments"
+    data = replace_unset(data)
     args = (data, parser) if dump_format.endswith("_comments") else (data,)
     dump = dumpers[dump_format](*args)
     if parser.dump_header and comment_prefix.get(dump_format):

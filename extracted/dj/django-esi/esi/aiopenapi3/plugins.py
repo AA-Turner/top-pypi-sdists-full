@@ -238,4 +238,4 @@ class DjangoESIInit(Init):
     def initialized(self, ctx: Init.Context) -> Init.Context:
         # Force the app_name into the api client class for ETags
         self.api.app_name = self.app_name
-        return ctx  # noqa
+        return ctx

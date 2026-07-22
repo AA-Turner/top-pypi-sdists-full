@@ -119,8 +119,8 @@ from airbyte_ops_mcp.connector_qa.utils import (
     get_all_connectors_in_directory,
     remove_strict_encrypt_suffix,
 )
-from airbyte_ops_mcp.mcp.github_repo_ops import list_connectors_in_repo
-from airbyte_ops_mcp.mcp.prerelease import compute_prerelease_docker_image_tag
+from airbyte_ops_mcp.mcp.connector_registry import list_connectors_in_repo
+from airbyte_ops_mcp.mcp.connector_versions import compute_prerelease_docker_image_tag
 from airbyte_ops_mcp.registry._enums import ConnectorType, SupportLevel
 from airbyte_ops_mcp.registry.audit import (
     AuditResult,
